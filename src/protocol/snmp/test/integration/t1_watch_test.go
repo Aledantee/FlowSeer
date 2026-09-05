@@ -4,7 +4,6 @@ package integration
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -185,14 +184,12 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 		}
 	}
 
-	logger := &slogLogger{t: t}
 	w, err := snmp.NewWatcher[row](
 		ctx, sess, indicator,
 		[]snmp.AnyColumn{ifmib.IfDescr},
 		decode, equal, merge,
 		snmp.WithCadenceBounds(500*time.Millisecond, 5*time.Second),
 		snmp.WithForcedWalkInterval(1*time.Hour),
-		snmp.WithLogger(logger),
 	)
 	if err != nil {
 		t.Fatalf("NewWatcher: %v", err)
@@ -210,7 +207,7 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 	for !w.Fallback() {
 		select {
 		case <-deadline:
-			t.Fatalf("Fallback never engaged within 5s; logger calls=%d", logger.calls.Load())
+			t.Fatal("Fallback never engaged within 5s")
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
@@ -218,10 +215,6 @@ func TestT1_Watch_FallbackOnMissingIndicator(t *testing.T) {
 	if w.Err() != nil {
 		t.Errorf("Err() = %v, want nil (fallback is not terminal)", w.Err())
 	}
-	if calls := logger.calls.Load(); calls != 1 {
-		t.Errorf("logger calls = %d, want 1 (one-time fallback log)", calls)
-	}
-
 	// Range over events for a bounded window — fallback mode still
 	// runs full walks at State-tier cadence, so we should see Added
 	// events from the cold-start walk.
@@ -317,19 +310,3 @@ func forwardEvents[Row any](w *snmp.Watcher[Row]) <-chan snmp.WatchEvent[Row] {
 	}()
 	return out
 }
-
-// slogLogger is a t.Logf-backed snmp.Logger for visibility into the
-// one-time fallback transition log during the integration test.
-type slogLogger struct {
-	t     *testing.T
-	calls atomic.Int64
-}
-
-func (l *slogLogger) Warn(format string, args ...any) {
-	l.calls.Add(1)
-	l.t.Logf("[watcher.fallback] "+format, args...)
-}
-
-// Pin that the slogLogger satisfies the snmp.Logger interface at
-// compile time.
-var _ snmp.Logger = (*slogLogger)(nil)

@@ -30,6 +30,53 @@ const maxSyncAttempts = 10
 // kind rather than swallowing it.
 type bailout struct{}
 
+// cursor walks a token slice. Both the frame parser and the value
+// reader step over tokens the same way, so the shared position
+// arithmetic lives here once and each embeds it.
+type cursor struct {
+	toks []lex.Token
+	pos  int
+}
+
+// more reports whether there are tokens left.
+func (c *cursor) more() bool { return c.pos < len(c.toks) }
+
+// tok returns the current token, or the zero token past the end. A zero
+// token has [lex.KindInvalid], which matches no test the parser makes,
+// so a reader that runs off the end simply stops matching.
+func (c *cursor) tok() lex.Token {
+	if !c.more() {
+		return lex.Token{}
+	}
+
+	return c.toks[c.pos]
+}
+
+func (c *cursor) next() { c.pos++ }
+
+func (c *cursor) at(k lex.Kind) bool { return c.more() && c.toks[c.pos].Kind == k }
+
+func (c *cursor) keyword() lex.Keyword {
+	t := c.tok()
+	if t.Kind != lex.KindKeyword {
+		return lex.KeywordNone
+	}
+
+	return t.Keyword
+}
+
+func (c *cursor) isName() bool {
+	k := c.tok().Kind
+
+	return k == lex.KindIdentifier || k == lex.KindTypeReference
+}
+
+func (c *cursor) span() Span {
+	t := c.tok()
+
+	return Span{Start: t.Offset, End: t.End()}
+}
+
 // parser is one pass over one file's frames.
 //
 // The scanner state — toks, pos, end — is reset for every frame, which
@@ -41,9 +88,8 @@ type parser struct {
 	res  *lex.Result
 	file string
 
-	toks []lex.Token
-	pos  int
-	end  int32
+	cursor
+	end int32
 
 	diags    []diag.Diagnostic
 	lastLine int
@@ -62,22 +108,6 @@ func newParser(res *lex.Result, file string) *parser {
 	return &parser{res: res, file: file}
 }
 
-// more reports whether the frame has tokens left.
-func (p *parser) more() bool { return p.pos < len(p.toks) }
-
-// tok returns the current token, or the zero token past the end of the
-// frame. A zero token has [lex.KindInvalid], which matches no test the
-// parser makes, so a reader that runs off the end simply stops matching.
-func (p *parser) tok() lex.Token {
-	if !p.more() {
-		return lex.Token{}
-	}
-
-	return p.toks[p.pos]
-}
-
-func (p *parser) next() { p.pos++ }
-
 // offset is where the current token starts, or the end of the frame once
 // there are none left, so a diagnostic about a missing tail still points
 // inside the declaration that lacks it.
@@ -93,29 +123,6 @@ func (p *parser) offset() int32 {
 // clause values the dialect pass grades, never for a DESCRIPTION.
 func (p *parser) spanText(s Span) string {
 	return string(p.res.Bytes(s.Start, s.End))
-}
-
-func (p *parser) span() Span {
-	t := p.tok()
-
-	return Span{Start: t.Offset, End: t.End()}
-}
-
-func (p *parser) at(k lex.Kind) bool { return p.more() && p.toks[p.pos].Kind == k }
-
-func (p *parser) keyword() lex.Keyword {
-	t := p.tok()
-	if t.Kind != lex.KindKeyword {
-		return lex.KeywordNone
-	}
-
-	return t.Keyword
-}
-
-func (p *parser) isName() bool {
-	k := p.tok().Kind
-
-	return k == lex.KindIdentifier || k == lex.KindTypeReference
 }
 
 func (p *parser) opener() bool {

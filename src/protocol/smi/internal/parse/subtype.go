@@ -3,6 +3,7 @@ package parse
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/lex"
@@ -183,7 +184,7 @@ const maxOctetStringLength = 65535
 // here can run past the clause and no clause-boundary logic has to know
 // the value grammar exists.
 func (p *parser) parseType(toks []lex.Token) Type {
-	r := reader{p: p, toks: toks}
+	r := reader{cursor: cursor{toks: toks}, p: p}
 
 	return r.typeDescription()
 }
@@ -640,21 +641,5 @@ func containment(b BaseType, size bool, d Dialect) (low, high int64, known bool)
 // squeezeSpaces collapses the whitespace inside a span's text so a
 // constraint written across two lines still renders on one.
 func squeezeSpaces(s string) string {
-	out := make([]byte, 0, len(s))
-	space := false
-
-	for i := range len(s) {
-		if s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' {
-			space = len(out) > 0
-
-			continue
-		}
-		if space {
-			out = append(out, ' ')
-			space = false
-		}
-		out = append(out, s[i])
-	}
-
-	return string(out)
+	return strings.Join(strings.Fields(s), " ")
 }

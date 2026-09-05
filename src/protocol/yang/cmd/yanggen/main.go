@@ -12,7 +12,6 @@ import (
 const (
 	defaultConfigPath = "src/protocol/yang/cmd/yanggen/yanggen.yaml"
 	defaultOutDir     = "generated/go/yang"
-	defaultPkgPrefix  = "go.aledante.io/FlowSeer/generated/go/yang"
 )
 
 // main is the OS entrypoint; it delegates to run so unit tests can
@@ -35,7 +34,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	configPath := fs.String("config", defaultConfigPath, "path to the YAML config file")
 	outDir := fs.String("out", defaultOutDir, "output directory for generated packages")
-	pkgPrefix := fs.String("pkg-prefix", defaultPkgPrefix, "Go import-path prefix for generated packages")
 	verify := fs.Bool("verify", false, "load-only: parse config and resolve all vendor trees, then exit 0 (no codegen)")
 	check := fs.Bool("check", false, "compare the committed lockfile against freshly-hashed sources; exit 1 on drift")
 	fs.Bool("update", false, "regenerate all configured modules and refresh the lockfile (the default)")
@@ -110,7 +108,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "OK: %d module(s) match the committed lockfile\n", total)
 		return 0
 	default:
-		if err := Emit(sets, *outDir, *pkgPrefix); err != nil {
+		if err := Emit(sets, *outDir); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}

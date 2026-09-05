@@ -27,7 +27,15 @@ func (r *Receiver) receiveUDP(ctx context.Context, b boundListener) {
 		}
 		payload := make([]byte, r.limits.MaxPayload)
 		copy(payload, scratch[:n])
-		frame := receivedFrame{payload: payload[:n], observation: Observation{ReceivedAt: at, Peer: addrPort(peer), Local: addrPort(b.packet.LocalAddr()), Transport: UDP}}
+		frame := receivedFrame{
+			payload: payload[:n],
+			observation: Observation{
+				ReceivedAt: at,
+				Peer:       addrPort(peer),
+				Local:      addrPort(b.packet.LocalAddr()),
+				Transport:  UDP,
+			},
+		}
 		select {
 		case <-r.stopped:
 			r.admission.release(r.limits.MaxPayload, true)

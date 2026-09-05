@@ -16,12 +16,9 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-)
 
-// FixtureSrcMAC is the source MAC used by the fixture generator and all
-// behaviors except [RunGhost]. It is independent of the attack leg's MAC.
-// Callers must not mutate it while a behavior is running.
-var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+)
 
 // Well-known multicast destinations.
 var (
@@ -47,21 +44,6 @@ var (
 	victimIP  = net.IPv4(172, 16, 0, 10)
 	gwIP      = net.IPv4(172, 16, 0, 1)
 )
-
-// craftDefault serializes layers with the default craft path:
-// SerializeLayers + ComputeChecksums + FixLengths. Used by non-flood
-// behaviors.
-func craftDefault(serializable ...gopacket.SerializableLayer) ([]byte, error) {
-	buf := gopacket.NewSerializeBuffer()
-	opts := gopacket.SerializeOptions{
-		ComputeChecksums: true,
-		FixLengths:       true,
-	}
-	if err := gopacket.SerializeLayers(buf, opts, serializable...); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), buf.Bytes()...), nil
-}
 
 // craftL3Payload builds Ethernet → IPv4 → payload (no transport layer)
 // with proper checksums.
@@ -95,5 +77,5 @@ func craftUDPLayer(eth *layers.Ethernet, ip *layers.IPv4, udp *layers.UDP, layer
 }
 
 func srcMAC() net.HardwareAddr {
-	return FixtureSrcMAC
+	return craft.FixtureSrcMAC
 }

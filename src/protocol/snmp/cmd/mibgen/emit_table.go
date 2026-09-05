@@ -23,14 +23,15 @@ import (
 // Iter decodes rows assembled by the shared bounded selected-column merge.
 //
 // emitTable assumes [emitEnums] has already run so [emitCtx.enumNames]
-// is populated.
-func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
+// is populated. It returns an error when a column's type cannot be
+// resolved, leaving the table unwritten.
+func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) error {
 	t := ec.table(table.OID.String())
 	if t == nil || t.Row == nil || len(t.Columns) == 0 {
 		// A table with no row or no columns has nothing to bind. Skip
 		// it rather than emit a walker over nothing; the resolver has
 		// already diagnosed whatever went missing.
-		return
+		return nil
 	}
 
 	// The entry node's last sub-id is conventionally 1, but it is read
@@ -47,15 +48,6 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	// Per-column data: name, OID, resolved type. Built up here so
 	// the column-var pass and the row-struct pass agree on every
 	// column's Go name and type.
-	type colInfo struct {
-		Node      *smi.Node
-		GoName    string
-		FieldName string
-		ColumnOID string
-		Sub       uint32 // last sub-id of the column OID
-		Bit       int    // this column's bit in the row's observed set
-		Res       resolved
-	}
 	cols := make([]colInfo, 0, len(t.Columns))
 	for _, cn := range t.Columns {
 		// Not-accessible index columns are real OBJECT-TYPEs and so are
@@ -65,6 +57,10 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		if cn.Access == smi.AccessNotAccessible {
 			continue
 		}
+		res, err := resolveType(ec, cn)
+		if err != nil {
+			return err
+		}
 		cols = append(cols, colInfo{
 			Node:      cn,
 			GoName:    camelCase(cn.Name),
@@ -72,14 +68,13 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 			ColumnOID: cn.OID.String(),
 			Sub:       cn.OID.At(cn.OID.Len() - 1),
 			Bit:       len(cols),
-			Res:       resolveType(ec, cn),
+			Res:       res,
 		})
 	}
 	if len(cols) == 0 {
-		return
+		return nil
 	}
 
-	// 1) Emit one Column[T] value per column.
 	for _, c := range cols {
 		f.Comment(c.GoName + " is the column " + c.Node.Name + " of table " + table.Name + ".")
 		for _, line := range splitDoc(c.Node.Description) {
@@ -105,11 +100,10 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		})
 	}
 
-	// 2) Row struct plus its per-column observation set. A field left
-	// at zero is ambiguous on its own — the agent may have reported a
-	// genuine zero or may not have reported the column at all — so the
-	// row carries one bit per column recording which ones actually
-	// landed, read back through the Observed method.
+	// A field left at zero is ambiguous on its own — the agent may have
+	// reported a genuine zero or may not have reported the column at
+	// all — so the row carries one bit per column recording which ones
+	// actually landed, read back through the Observed method.
 	observedWords := (len(cols) + 63) / 64
 	f.Comment(rowTypeName + " is one row of " + table.Name + ". Index carries the OID")
 	f.Comment("suffix beyond the table-entry prefix; the remaining fields are")
@@ -159,21 +153,14 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		jen.Id("cols").Index().Qual(snmpImport, "AnyColumn"),
 	)
 
-	// 4) Iter method. The bulk of the work lives here.
-	iterCols := make([]colInfoLike, len(cols))
-	for i, c := range cols {
-		iterCols[i] = colInfoLike{GoName: c.GoName, FieldName: c.FieldName, Sub: c.Sub, Bit: c.Bit, RawFuse: c.Res.RawFuse, GoType: c.Res.GoType}
-	}
-	emitTableIter(f, walkerTypeName, rowTypeName, iterCols)
+	emitTableIter(f, walkerTypeName, rowTypeName, cols)
 
-	// 5) Err passthrough.
 	f.Comment("Err returns the underlying walker's terminal error, or nil if")
 	f.Comment("the walk completed naturally.")
 	f.Func().Params(jen.Id("tw").Op("*").Id(walkerTypeName)).Id("Err").Params().Error().Block(
 		jen.Return(jen.Id("tw").Dot("rw").Dot("Err").Call()),
 	)
 
-	// 6) Descriptor singleton + Walk method.
 	f.Comment(descriptorTypeName + " is the singleton type of " + tableName + ".")
 	f.Type().Id(descriptorTypeName).Struct()
 	f.Comment(tableName + " is the descriptor for the " + table.Name + " table.")
@@ -211,7 +198,7 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 				sg.Case(cases...)
 				sg.Default().Block(
 					jen.Id("w").Op(":=").Qual(snmpImport, "WalkColumns").Call(jen.Id("ctx"), jen.Id("sess"), jen.Nil(), jen.Id("options")),
-					jen.Id("w").Dot("Fail").Call(jen.Qual("go.aledante.io/FlowSeer/src/common/errs", "Wrapf").Call(jen.Qual(snmpImport, "ErrForeignColumn"), jen.Lit(table.Name+".Walk: column %s"), jen.Id("c").Dot("OID").Call())),
+					jen.Id("w").Dot("Fail").Call(jen.Qual(errsImport, "Wrapf").Call(jen.Qual(snmpImport, "ErrForeignColumn"), jen.Lit(table.Name+".Walk: column %s"), jen.Id("c").Dot("OID").Call())),
 					jen.Return(jen.Op("&").Id(walkerTypeName).Values(jen.Dict{jen.Id("rw"): jen.Id("w")})),
 				)
 			})
@@ -226,33 +213,24 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		}))
 	})
 
-	// 7) Watch method + companion helpers. Emitted only for
-	// tables that have a discovered or declared indicator; the
-	// emit_watch.go gate consults ec.tableIndicators.
-	twctx := tableWalkContext{
+	// The Watch machinery is emitted only for tables that have a
+	// discovered or declared indicator; the emit_watch.go gate consults
+	// ec.tableIndicators.
+	emitWatch(f, ec, tableWalkContext{
 		TableName:   tableName,
 		TableOID:    tablePrefix,
 		EntryPrefix: entryPrefix,
 		RowTypeName: rowTypeName,
-		Cols:        make([]watchColInfo, 0, len(cols)),
-	}
-	for _, c := range cols {
-		twctx.Cols = append(twctx.Cols, watchColInfo{
-			GoName:    c.GoName,
-			FieldName: c.FieldName,
-			Sub:       c.Sub,
-			Bit:       c.Bit,
-			GoType:    c.Res.GoType,
-			Variant:   c.Res.Variant,
-		})
-	}
-	emitWatch(f, ec, twctx)
+		Cols:        cols,
+	})
+
+	return nil
 }
 
 // emitTableIter leaves protocol ordering and buffering to the runtime. Decoding
 // happens only for the row about to be delivered, preserving the error prefix.
-func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, cols []colInfoLike) {
-	sortedCols := append([]colInfoLike(nil), cols...)
+func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, cols []colInfo) {
+	sortedCols := append([]colInfo(nil), cols...)
 	sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
 	f.Comment("Iter yields complete selected-column rows in numeric OID suffix order")
 	f.Comment("(192.168.0.2 precedes 192.168.0.10). It retains one batch per selected")
@@ -282,9 +260,9 @@ func emitTableIter(f *jen.File, walkerTypeName, rowTypeName string, cols []colIn
 										)
 									})
 								}
-								if c.RawFuse != "" {
-									cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
-										jen.Id("row").Dot(c.FieldName).Op("=").Add(c.GoType.Clone()).Call(jen.Id("v")),
+								if c.Res.RawFuse != "" {
+									cg.If(jen.List(jen.Id("v"), jen.Id("okRaw")).Op(":=").Qual(snmpImport, c.Res.RawFuse).Call(jen.Id("rv")), jen.Id("okRaw")).Block(
+										jen.Id("row").Dot(c.FieldName).Op("=").Add(c.Res.GoType.Clone()).Call(jen.Id("v")),
 										observedMark(jen.Id("row"), c.Bit),
 									).Else().BlockFunc(genericArm)
 								} else {
@@ -318,19 +296,21 @@ func observedMark(rowExpr *jen.Statement, bit int) *jen.Statement {
 		Op("|=").Lit(1).Op("<<").Lit(bit % 64)
 }
 
-// colInfoLike is the table-emitter's interface for column-info; the
-// helper exists so emit_table.go can pass either the local colInfo
-// struct or any equivalent to emitTableIter. Concrete type for cols
-// passed into emitTableIter.
-type colInfoLike struct {
+// colInfo is one accessible column of a table being emitted. The
+// column-var, row-struct, Iter and Watch passes all read it, so the
+// Go identifiers and the resolved type a column renders under are
+// decided once.
+type colInfo struct {
+	Node      *smi.Node
 	GoName    string
 	FieldName string
-	Sub       uint32
+	ColumnOID string
+	// Sub is the last sub-id of the column OID — the column-id a
+	// VarBind's OID carries just past the table's entry prefix.
+	Sub uint32
 	// Bit is the column's position in the row's observed set.
 	Bit int
-	// RawFuse names the snmp.Raw* fused decoder for the column's Kind
-	// (empty → generic decode only); GoType is the row field's type,
-	// used to cast the fused primitive's numeric result.
-	RawFuse string
-	GoType  *jen.Statement
+	// Res carries the column's Go type, wire kind, decoder and
+	// (when the kind has one) fused raw decoder.
+	Res resolved
 }

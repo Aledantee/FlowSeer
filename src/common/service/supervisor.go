@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand/v2"
 	"os"
 	"runtime/debug"
 	"sync"
@@ -56,12 +55,7 @@ func (o supervisorOptions) withDefaults() supervisorOptions {
 		o.clock = realSupervisorClock{}
 	}
 	if o.jitter == nil {
-		o.jitter = func(limit time.Duration) time.Duration {
-			if limit <= 0 {
-				return 0
-			}
-			return time.Duration(rand.Int64N(int64(limit)))
-		}
+		o.jitter = fullJitter
 	}
 	if o.lookup == nil {
 		o.lookup = envLookupFromOS
@@ -232,7 +226,8 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 		if s.runtime.admission != nil {
 			s.runtime.admission.setModuleState(slot.module, moduleStopped)
 		}
-		return s.record(ctx, slot.module, slot.telemetry, lifecycleActionStop, result.outcome, result.span)
+		s.record(ctx, slot.module, slot.telemetry, lifecycleActionStop, result.outcome, result.span)
+		return nil
 	case Escalate:
 		return causalOutcomeError(slot.module.path, "escalated", result.err)
 	case Restart:
@@ -256,9 +251,7 @@ func (s *supervisorState) decide(ctx context.Context, result childResult) error 
 	if ctx.Err() != nil {
 		return nil
 	}
-	if err := s.record(ctx, slot.module, slot.telemetry, lifecycleActionRestart, result.outcome, result.span); err != nil {
-		return err
-	}
+	s.record(ctx, slot.module, slot.telemetry, lifecycleActionRestart, result.outcome, result.span)
 	delay := exponentialBackoff(policy.backoff, slot.backoffs[outcomeIndex])
 	slot.backoffs[outcomeIndex]++
 	delay = s.runtime.options.jitter(delay)
@@ -402,7 +395,7 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 			attemptSpanName,
 			lifecycleActionStart,
 		)
-		_ = s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
+		s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
 		go func(done chan struct{}) {
 			defer close(done)
 			result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
@@ -413,7 +406,7 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 		s.transition("start", module.path)
 		return
 	}
-	_ = s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
+	s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
 	go func(done chan struct{}) {
 		defer close(done)
 		result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
@@ -461,12 +454,12 @@ func (s *supervisorState) record(
 	action lifecycleAction,
 	outcome lifecycleOutcome,
 	related trace.SpanContext,
-) error {
+) {
 	ctx = telemetry.context(ctx)
 	if related.IsValid() {
 		ctx = trace.ContextWithSpanContext(ctx, related)
 	}
-	return telemetry.recordLifecycle(
+	telemetry.recordLifecycle(
 		ctx,
 		module.path,
 		action,
@@ -519,6 +512,14 @@ type attemptCoordinatorKey struct{}
 // attemptCoordinator owns runner, delivery, and Go-launched goroutines for one
 // leaf attempt. The first terminal result cancels their shared context; stop
 // prevents new work and joins everything already owned.
+//
+// The coordinator is the exception to the rule against storing a context in a
+// struct: it is itself reached through a context value, from [Go] calls in user
+// code that hold only their own derived context. Attempt-owned work must run
+// under the attempt's lifetime rather than the caller's, so the coordinator
+// keeps both the cancelable attempt context (ctx) and the value-carrying
+// context handed to owned tasks (attemptCtx), which runLeafAttempt sets once
+// before any task can be launched.
 type attemptCoordinator struct {
 	ctx        context.Context
 	attemptCtx context.Context
@@ -747,6 +748,9 @@ func outcomePolicy(policy normalizedPolicy, outcome lifecycleOutcome) (*normaliz
 	}
 }
 
+// exponentialBackoff doubles the initial delay exponent times, capped at the
+// maximum. It is the repository's one capped-doubling helper, shared by the
+// supervisor's restart backoff and message redelivery.
 func exponentialBackoff(backoff Backoff, exponent int) time.Duration {
 	delay := backoff.Initial
 	for range exponent {

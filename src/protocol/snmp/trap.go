@@ -20,7 +20,7 @@ import (
 // canonical leading bindings.
 type Trap struct {
 	// Source is the apparent UDP source address of the trap. Backends
-	// should normalise IPv4-mapped IPv6 addresses to 4-byte form.
+	// should normalize IPv4-mapped IPv6 addresses to 4-byte form.
 	Source net.IP
 	// Community is the SNMPv1/v2c community string. Empty for v3.
 	Community string
@@ -69,9 +69,8 @@ var ErrTrapStreamNotV3Capable = errs.Msg("TrapStream has no v3 engine handler in
 // received but could not turn into a [Trap]). Source-filter rejects
 // do NOT count, since they never enter the stream's pipeline.
 //
-// v3 trap reception is treated as a smoke-test bar, not a hard
-// stability guarantee; the public TrapStream contract is unaffected if
-// a future plan demotes v3 trap reception.
+// v3 trap reception is supported but less hardened than v1/v2c: it is
+// held to a smoke-test bar rather than a stability guarantee.
 //
 // The zero value is not usable; construct via [NewTrapStream] or via
 // the [ListenTraps] function.

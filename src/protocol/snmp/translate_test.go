@@ -27,7 +27,7 @@ func TestPDUError(t *testing.T) {
 	oid := MustOID(1, 3, 6, 1, 2, 1, 1, 5, 0)
 	t.Run("no error", func(t *testing.T) {
 		if pe := pduError(&message{pdu: pdu{errorStatus: NoError}}); pe != nil {
-			t.Fatalf("want nil, got %v", pe)
+			t.Fatalf("got %v, want nil", pe)
 		}
 	})
 	t.Run("error with index OID", func(t *testing.T) {
@@ -74,7 +74,7 @@ func TestNullVarbinds(t *testing.T) {
 	oids := []OID{MustOID(1, 3, 6, 1), MustOID(1, 3, 6, 2)}
 	vbs := nullVarbinds(oids)
 	if len(vbs) != 2 {
-		t.Fatalf("want 2, got %d", len(vbs))
+		t.Fatalf("got %d varbinds, want 2", len(vbs))
 	}
 	for i, vb := range vbs {
 		if _, ok := vb.(NullVar); !ok {

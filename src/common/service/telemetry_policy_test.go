@@ -164,9 +164,7 @@ func TestTelemetryViewDisablesModuleAndRuntimeMetrics(t *testing.T) {
 		t.Fatalf("create module counter: %v", err)
 	}
 	moduleCounter.Add(ctx, 1)
-	if err := view.recordLifecycle(ctx, "edge/worker", lifecycleActionStart, lifecycleOutcomeRunning); err != nil {
-		t.Fatalf("recordLifecycle() error: %v", err)
-	}
+	view.recordLifecycle(ctx, "edge/worker", lifecycleActionStart, lifecycleOutcomeRunning)
 	if got := collectCounters(t, reader); len(got) != 0 {
 		t.Fatalf("disabled metrics recorded data: %v", got)
 	}

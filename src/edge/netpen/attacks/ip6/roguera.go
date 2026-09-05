@@ -16,6 +16,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -96,7 +97,7 @@ func craftRogueRA(src net.HardwareAddr) ([]byte, error) {
 			},
 		},
 	}
-	return craftDefault(eth, ip, icmp, ra)
+	return craft.Default(eth, ip, icmp, ra)
 }
 
 var _ gopacket.SerializableLayer = (*layers.ICMPv6RouterAdvertisement)(nil)

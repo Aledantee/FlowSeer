@@ -10,7 +10,7 @@ run `UPDATE_CONFORMANCE=1 go test ./src/protocol/snmp/ -run TestConformanceMatri
 | id | status | clause | provenance | behavior |
 |---|---|---|---|---|
 | `enc-counter64-v1` | covered | RFC 2576 §3 | gosnmp (no check) | Counter64 in a v1 response: decode + typed warning (data preserved), never panic/type-confusion |
-| `enc-zerolen-int` | covered | X.690 §8.3.1 | gosnmp #241; RB11 | zero-length signed INTEGER (02 00) errors; zero-length unsigned counter tolerated as 0 (recorded leniency) |
+| `enc-zerolen-int` | covered | X.690 §8.3.1 | gosnmp #241 | zero-length signed INTEGER (02 00) errors; zero-length unsigned counter tolerated as 0 (recorded leniency) |
 | `enc-nonminimal-int` | covered | X.690 §8.3.2 | gosnmp #371 | encode minimal (-1 -> FF); decode tolerates non-minimal |
 | `enc-maxrep-signed` | covered | RFC 3416 | gosnmp #293 | GETBULK max-repetitions 128-255 encode unsigned, not negative |
 | `enc-id-range` | covered | RFC 3412 | gosnmp #272 | msgID/request-id stay in 0..2^31-1, no overflow to negative |
@@ -62,9 +62,9 @@ run `UPDATE_CONFORMANCE=1 go test ./src/protocol/snmp/ -run TestConformanceMatri
 | `usm-3step-discovery` | covered | RFC 3414 §4 | gosnmp #511 | initial discovery performs the authenticated boots/time resync before the first real request |
 | `usm-trap-reportable` | covered | RFC 3412 §6.4 | gosnmp #391 | reportable-flag handling correct on received v3 traps vs informs |
 | `usm-timewindow-rollback` | covered | RFC 3414 §2.2.3 | deepening (security-lens) | polling-side engineBaseline.update rejects a boots/time pair that would decrease boots or move time backward |
-| `usm-msgid-predictability` | covered | RFC 3412; KTD-6 | deepening (security-lens) | msgID drawn fresh from the CSPRNG per message (not last+1), removing prediction in the unauthenticated window |
+| `usm-msgid-predictability` | covered | RFC 3412 | deepening (security-lens) | msgID drawn fresh from the CSPRNG per message (not last+1), removing prediction in the unauthenticated window |
 | `usm-inform-timewindow` | covered | RFC 3414 §3.2 | deepening (security-lens) | authoritative-role authoritativeTimeOK enforces the ±150s engineTime window + post-restart quarantine; int32 boundary safe (int64 diff) |
-| `usm-authoritative-boots-pinned` | accepted-risk | RFC 3414 §3.2 | deepening (security-lens); KTD-12 | authoritativeBoots pinned to 2^31-1 -> §3.2 boots-sequence check disabled for the listener role; quarantine reduces but does not close cross-restart inform replay |
+| `usm-authoritative-boots-pinned` | accepted-risk | RFC 3414 §3.2 | deepening (security-lens) | authoritativeBoots pinned to 2^31-1 -> §3.2 boots-sequence check disabled for the listener role; quarantine reduces but does not close cross-restart inform replay |
 
 ## Accepted-risk allowlist
 

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
@@ -61,7 +63,7 @@ var listenerRegistered func(*TrapStream, *listener)
 func ListenTraps(ctx context.Context, addr string, opts ...TrapOption) (ts *TrapStream, err error) {
 	cfg := ApplyTrapOptions(opts...)
 
-	bindAddr, err := normaliseTrapAddr(addr)
+	bindAddr, err := normalizeTrapAddr(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +206,8 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 		// "could not turn into a Trap" drop case.
 		l.ts.recordDropped()
 		service.Logger(l.logCtx).DebugContext(l.logCtx,
-			"snmp: dropping undecodable trap", slog.Any("error", err))
+			"dropping undecodable trap",
+			slog.String(string(semconv.ErrorTypeKey), classifyError(err)))
 		return
 	}
 	if dec != nil {
@@ -217,7 +220,8 @@ func (l *listener) handlePacket(msg []byte, remote *net.UDPAddr) {
 	// (enc-counter64-v1).
 	for _, w := range v1v2.warnings {
 		service.Logger(l.logCtx).WarnContext(l.logCtx,
-			"snmp: tolerated decode warning", slog.String("warning", w.Error()))
+			"tolerated decode warning",
+			slog.String(string(semconv.ErrorTypeKey), classifyError(w)))
 	}
 	l.ts.Push(translateTrap(v1v2, remote))
 }
@@ -285,11 +289,11 @@ func v1TrapVarBinds(tr *trapV1Fields, payload []VarBind) []VarBind {
 	return out
 }
 
-// normaliseTrapAddr maps the caller-supplied addr onto a "host:port"
+// normalizeTrapAddr maps the caller-supplied addr onto a "host:port"
 // suitable for net.ResolveUDPAddr, mirroring gosnmp's accepted
 // shapes. A non-UDP scheme is rejected; port "0" selects a kernel-assigned
 // port.
-func normaliseTrapAddr(addr string) (string, error) {
+func normalizeTrapAddr(addr string) (string, error) {
 	if addr == "" {
 		return fmt.Sprintf(":%d", defaultTrapPort), nil
 	}

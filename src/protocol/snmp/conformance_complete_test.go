@@ -16,7 +16,7 @@ func TestConformanceCorpusComplete(t *testing.T) {
 	var pending []string
 	for _, r := range conformanceCorpus {
 		if r.Status == statusPending {
-			pending = append(pending, r.ID+" (owner "+r.Unit+")")
+			pending = append(pending, r.ID)
 		}
 	}
 	if len(pending) > 0 {

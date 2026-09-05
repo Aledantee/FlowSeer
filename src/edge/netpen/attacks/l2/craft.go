@@ -64,18 +64,3 @@ var packetPool = sync.Pool{
 		return &b
 	},
 }
-
-// craftDefault serializes layers with the default craft path:
-// SerializeLayers + ComputeChecksums + FixLengths. Used by non-flood
-// behaviors.
-func craftDefault(layers ...gopacket.SerializableLayer) ([]byte, error) {
-	buf := gopacket.NewSerializeBuffer()
-	opts := gopacket.SerializeOptions{
-		ComputeChecksums: true,
-		FixLengths:       true,
-	}
-	if err := gopacket.SerializeLayers(buf, opts, layers...); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), buf.Bytes()...), nil
-}

@@ -20,8 +20,14 @@ import (
 //
 // The trailing ".0" is the SMIv2 instance suffix for a scalar — the
 // generator emits it eagerly so callers don't have to remember.
-func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
-	r := resolveType(ec, n)
+//
+// It returns an error when the scalar's type cannot be resolved,
+// leaving nothing written for it.
+func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) error {
+	r, err := resolveType(ec, n)
+	if err != nil {
+		return err
+	}
 
 	goName := camelCase(n.Name)
 	oidStr := n.OID.String() + ".0"
@@ -56,6 +62,8 @@ func emitScalar(f *jen.File, ec *emitCtx, n *smi.Node) {
 
 		g.Return(r.DecodeFunc().Call(jen.Id("vbs").Index(jen.Lit(0))))
 	})
+
+	return nil
 }
 
 // splitDoc reflows an SMI DESCRIPTION clause into 1-line comment

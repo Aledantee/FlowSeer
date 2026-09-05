@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/smi"
 )
 
@@ -90,7 +91,12 @@ func matchesIndicatorNameSuffix(name string) bool {
 // The result is the source of truth for whether a package contains
 // any Watch-eligible tables — emit_tier.go's emission gate consults
 // it, and emit_indicator.go renders one ChangeIndicator var per entry.
-func discoverIndicators(ec *emitCtx, mod *smi.Module) []tableIndicator {
+//
+// A config-declared indicator that binds nothing in the module is an
+// error rather than a skipped table: the declaration is the operator's
+// statement that the table is watchable, and dropping it would emit a
+// package with no Watch support and no diagnostic.
+func discoverIndicators(ec *emitCtx, mod *smi.Module) ([]tableIndicator, error) {
 	tables := make([]*smi.Node, 0)
 	scalars := make([]*smi.Node, 0)
 	for _, n := range mod.Nodes {
@@ -111,7 +117,11 @@ func discoverIndicators(ec *emitCtx, mod *smi.Module) []tableIndicator {
 			continue
 		}
 		// 2) Config-declared.
-		if ind, ok := discoverConfigIndicator(ec, ec.cm, tbl, scalars); ok {
+		ind, ok, err := discoverConfigIndicator(ec, ec.cm, tbl, scalars)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
 			out = append(out, ind)
 			continue
 		}
@@ -121,7 +131,7 @@ func discoverIndicators(ec *emitCtx, mod *smi.Module) []tableIndicator {
 		}
 	}
 
-	return out
+	return out, nil
 }
 
 // discoverConfigIndicator consults the module's configured
@@ -132,10 +142,12 @@ func discoverIndicators(ec *emitCtx, mod *smi.Module) []tableIndicator {
 // scalars is the module's list of scalar nodes — required so the
 // scalar declaration's OID can be resolved to a node and the
 // scalar's wire Kind read for the emitted snmp.NewScalarIndicator
-// call.
+// call. A declaration that binds nothing — a scalar_oid naming no
+// scalar in the module, or a column_oid naming no column of the
+// declared table — returns an error.
 func discoverConfigIndicator(
 	ec *emitCtx, cm Module, tbl *smi.Node, scalars []*smi.Node,
-) (tableIndicator, bool) {
+) (tableIndicator, bool, error) {
 	tblOID := tbl.OID.String()
 	for _, decl := range cm.Indicators {
 		switch {
@@ -153,37 +165,44 @@ func discoverConfigIndicator(
 			}
 			scalar, ok := findNodeByOID(scalars, decl.ScalarOID)
 			if !ok {
-				// Validated at config-load time only that the OID
-				// parses; runtime check ensures the scalar exists
-				// in the module. Skip silently — a clear diagnostic
-				// would come from a separate pass; for now the
-				// caller will see no indicator emission for this
-				// table.
-				continue
+				// Config load checks only that the OID parses. The
+				// declaration says this table is watchable, so a
+				// scalar_oid that names nothing in the module is a
+				// config error rather than a table that quietly
+				// loses its Watch support.
+				return tableIndicator{}, false, errs.Msgf(
+					"indicator declaration for table %s: scalar_oid %s names no scalar in module %s",
+					tblOID, decl.ScalarOID, cm.Name)
 			}
 			return tableIndicator{
 				Table:         tbl,
 				Kind:          indicatorScalar,
 				IndicatorNode: scalar,
 				Source:        indicatorFromConfig,
-			}, true
+			}, true, nil
 		case decl.ColumnOID != "":
 			if decl.TableOID != tblOID {
 				continue
 			}
 			col := findColumnByOID(ec, tbl, decl.ColumnOID)
 			if col == nil {
-				continue
+				// Same reasoning as the scalar form above: the
+				// declaration names this table as watchable, so a
+				// column_oid that resolves to nothing is a config
+				// error rather than a silently unwatched table.
+				return tableIndicator{}, false, errs.Msgf(
+					"indicator declaration for table %s: column_oid %s names no column of the table in module %s",
+					tblOID, decl.ColumnOID, cm.Name)
 			}
 			return tableIndicator{
 				Table:         tbl,
 				Kind:          indicatorPerRow,
 				IndicatorNode: col,
 				Source:        indicatorFromConfig,
-			}, true
+			}, true, nil
 		}
 	}
-	return tableIndicator{}, false
+	return tableIndicator{}, false, nil
 }
 
 // findNodeByOID locates a node by dotted-decimal OID within a slice.

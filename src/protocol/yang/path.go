@@ -56,8 +56,19 @@ func (p Path) String() string {
 		return "/"
 	}
 	var b strings.Builder
+	writeSegments(&b, p.Segments, writeBracketKeys)
+
+	return b.String()
+}
+
+// writeSegments writes segs to b in the shared "/name" form with the
+// module-elision rule both wire forms follow: a segment is qualified
+// only when its module differs from the previous segment's. Each
+// segment's keys are rendered by writeKeys, which is what separates
+// the gNMI form from the RESTCONF one.
+func writeSegments(b *strings.Builder, segs []Segment, writeKeys func(*strings.Builder, []KeyValue)) {
 	mod := ""
-	for _, seg := range p.Segments {
+	for _, seg := range segs {
 		b.WriteByte('/')
 		if seg.Module != "" && seg.Module != mod {
 			b.WriteString(seg.Module)
@@ -65,15 +76,20 @@ func (p Path) String() string {
 			mod = seg.Module
 		}
 		b.WriteString(seg.Name)
-		for _, kv := range seg.Keys {
-			b.WriteByte('[')
-			b.WriteString(kv.Name)
-			b.WriteByte('=')
-			b.WriteString(escapeKeyValue(kv.Value))
-			b.WriteByte(']')
-		}
+		writeKeys(b, seg.Keys)
 	}
-	return b.String()
+}
+
+// writeBracketKeys renders keys in the gNMI predicate form,
+// "[name=value]" per key.
+func writeBracketKeys(b *strings.Builder, keys []KeyValue) {
+	for _, kv := range keys {
+		b.WriteByte('[')
+		b.WriteString(kv.Name)
+		b.WriteByte('=')
+		b.WriteString(escapeKeyValue(kv.Value))
+		b.WriteByte(']')
+	}
 }
 
 // escapeKeyValue backslash-escapes the two characters that are
@@ -201,28 +217,26 @@ func parseKeyPredicate(rest, full string) (KeyValue, string, error) {
 // as structure. [ParseRESTCONFURI] inverts it.
 func (p Path) RESTCONFURI() string {
 	var b strings.Builder
-	mod := ""
-	for _, seg := range p.Segments {
-		b.WriteByte('/')
-		if seg.Module != "" && seg.Module != mod {
-			b.WriteString(seg.Module)
-			b.WriteByte(':')
-			mod = seg.Module
-		}
-		b.WriteString(seg.Name)
-		for i, kv := range seg.Keys {
-			if i == 0 {
-				b.WriteByte('=')
-			} else {
-				b.WriteByte(',')
-			}
-			b.WriteString(percentEncode(kv.Value))
-		}
-	}
+	writeSegments(&b, p.Segments, writeRESTCONFKeys)
+
 	if b.Len() == 0 {
 		return "/"
 	}
+
 	return b.String()
+}
+
+// writeRESTCONFKeys renders keys in the RFC 8040 instance-selector
+// form, "=value1,value2" in YANG key order.
+func writeRESTCONFKeys(b *strings.Builder, keys []KeyValue) {
+	for i, kv := range keys {
+		if i == 0 {
+			b.WriteByte('=')
+		} else {
+			b.WriteByte(',')
+		}
+		b.WriteString(percentEncode(kv.Value))
+	}
 }
 
 // percentEncode encodes every byte outside the RFC 3986 unreserved

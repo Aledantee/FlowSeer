@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -138,6 +139,21 @@ func CollectMarkers(t *testing.T, rows []Row, dirs []string) map[string]bool {
 		}
 	}
 	return found
+}
+
+// CorpusDirs returns the directories [RunIntegrity] scans for citation markers:
+// the directory of the file that calls it, plus that directory's
+// test/integration subdirectory. It resolves the path from its immediate
+// caller's source location, so it must be called directly from a test file in
+// the package whose corpus is being checked, never through another helper.
+func CorpusDirs(t *testing.T) []string {
+	t.Helper()
+	_, here, _, ok := runtime.Caller(1)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	dir := filepath.Dir(here)
+	return []string{dir, filepath.Join(dir, "test", "integration")}
 }
 
 // RunIntegrity reports duplicate IDs, unmet status requirements, and rows without

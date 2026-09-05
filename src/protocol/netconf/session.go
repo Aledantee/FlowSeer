@@ -3,6 +3,7 @@ package netconf
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/crypto/ssh"
@@ -156,7 +158,6 @@ func (t *nemithTransport) Exec(ctx context.Context, op, reply any) error {
 	return t.s.Exec(ctx, op, reply)
 }
 
-// Capabilities returns the server's advertised capabilities.
 func (t *nemithTransport) Capabilities() []string {
 	var out []string
 	for c := range t.s.ServerCaps().All() {
@@ -165,7 +166,6 @@ func (t *nemithTransport) Capabilities() []string {
 	return out
 }
 
-// Close closes the wrapped session.
 func (t *nemithTransport) Close(ctx context.Context) error {
 	return t.s.Close(ctx)
 }
@@ -183,7 +183,7 @@ func NewSession(t Transport, opts Options) *Session {
 		t:      t,
 		caps:   parseCapabilities(t.Capabilities()),
 		opts:   opts,
-		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/netconf"),
+		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/netconf", trace.WithSchemaURL(semconv.SchemaURL)),
 		stop:   make(chan struct{}),
 	}
 	if opts.KeepaliveInterval > 0 {
@@ -232,7 +232,6 @@ func (s *Session) Err() error {
 	return s.err
 }
 
-// latch records the first terminal error.
 func (s *Session) latch(err error) {
 	s.mu.Lock()
 	if s.err == nil && err != nil {
@@ -281,19 +280,30 @@ func (s *Session) exec(ctx context.Context, name string, op, reply any) error {
 
 	ctx, span := s.tracer.Start(ctx, "netconf."+name,
 		trace.WithSpanKind(trace.SpanKindClient),
-		trace.WithAttributes(attribute.String("netconf_operation", name)))
+		trace.WithAttributes(attribute.String("flowseer.netconf.operation", name)))
 	defer span.End()
 
 	err := s.t.Exec(ctx, op, reply)
 	if err == nil {
 		return nil
 	}
-	span.SetStatus(codes.Error, err.Error())
+	span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
+	span.SetStatus(codes.Error, "rpc failed")
 	mapped := s.mapError(name, err)
 	if mappedCode, ok := errs.CodeOf(mapped); ok && mappedCode == ErrCodeTransport {
 		s.latch(mapped)
 	}
 	return mapped
+}
+
+// errorType classifies an error for the bounded error.type span
+// attribute: the errs code when the error carries one, otherwise the
+// concrete Go type. It never exposes error text.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return code.String()
+	}
+	return fmt.Sprintf("%T", err)
 }
 
 // mapError translates transport-layer errors into the package's

@@ -1,7 +1,8 @@
 // Package ip6 provides DHCP and IPv6 first-hop behaviors for netpen's runner.
-// Behaviors use fixed fixture addresses, including [FixtureSrcMAC], and send
-// through the supplied legs. DHCPv4 shares this package with DHCPv6 because
-// both use the same fixture harness and runner contracts.
+// Behaviors use fixed fixture addresses, including the shared
+// [craft.FixtureSrcMAC], and send through the supplied legs. DHCPv4 shares this
+// package with DHCPv6 because both use the same fixture harness and runner
+// contracts.
 //
 // Register [Behaviors] in the runner's behavior map. Callers must supply the
 // initialized dependencies promised by runner.Deps and must not mutate fixture
@@ -12,13 +13,8 @@ package ip6
 import (
 	"net"
 
-	"github.com/gopacket/gopacket"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 )
-
-// FixtureSrcMAC is the source MAC used by the behaviors and their fixture
-// generator. Behaviors do not derive it from the attack leg. Callers must not
-// mutate it concurrently with a behavior run.
-var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known multicast destinations.
 var (
@@ -46,22 +42,7 @@ var (
 )
 
 func srcMAC() net.HardwareAddr {
-	return FixtureSrcMAC
-}
-
-// craftDefault serializes layers with the default craft path:
-// SerializeLayers + ComputeChecksums + FixLengths. Used by non-flood
-// behaviors.
-func craftDefault(serializable ...gopacket.SerializableLayer) ([]byte, error) {
-	buf := gopacket.NewSerializeBuffer()
-	opts := gopacket.SerializeOptions{
-		ComputeChecksums: true,
-		FixLengths:       true,
-	}
-	if err := gopacket.SerializeLayers(buf, opts, serializable...); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), buf.Bytes()...), nil
+	return craft.FixtureSrcMAC
 }
 
 // solicitedNodeMAC computes the solicited-node multicast MAC for the

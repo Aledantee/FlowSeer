@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -13,8 +12,7 @@ import (
 // outDir/<vendor>/<package>/. Each vendor's output directory is
 // rebuilt from scratch so removed modules leave no stale packages
 // behind; the lockfile is written separately by the caller.
-func Emit(sets []*VendorSet, outDir, pkgPrefix string) error {
-	_ = pkgPrefix // package identity comes from the directory layout
+func Emit(sets []*VendorSet, outDir string) error {
 	for _, vs := range sets {
 		vendorDir := filepath.Join(outDir, vs.Vendor)
 		if err := os.RemoveAll(vendorDir); err != nil {
@@ -42,18 +40,13 @@ func Emit(sets []*VendorSet, outDir, pkgPrefix string) error {
 // emitOne renders a single module and returns its files concatenated
 // in filename order — the golden-test seam (fixture modules fit one
 // chunk).
-func emitOne(m *LoadedModule, _ string) (string, error) {
+func emitOne(m *LoadedModule) (string, error) {
 	files, err := emitModuleFiles(m)
 	if err != nil {
 		return "", err
 	}
-	names := make([]string, 0, len(files))
-	for name := range files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
 	var b strings.Builder
-	for _, name := range names {
+	for _, name := range sortedKeys(files) {
 		b.Write(files[name])
 	}
 	return b.String(), nil

@@ -16,8 +16,7 @@ import (
 // role, pinned to 2^31-1. With boots constant across restarts the
 // §3.2 boot-sequence check is permanently disabled and the time window is
 // the sole gate; the post-restart quarantine reduces (does not close) the
-// cross-restart replay surface — full closure needs persistent boots (the
-// named follow-up).
+// cross-restart replay surface — full closure needs persistent boots.
 const authoritativeBoots int32 = 2147483647
 
 // quarantineSeconds is the post-restart window during which all informs are

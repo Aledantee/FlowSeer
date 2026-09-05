@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"log/slog"
 	"testing"
 
@@ -56,16 +55,11 @@ func TestTelemetryPreservesInjectedCapabilities(t *testing.T) {
 	}
 }
 
-func TestLifecycleTelemetryRejectsUnknownDimensions(t *testing.T) {
-	telemetry, err := newTelemetry(Config{})
-	if err != nil {
-		t.Fatalf("newTelemetry() error: %v", err)
+func TestLifecycleDimensionsNameUnknownValues(t *testing.T) {
+	if got := lifecycleAction(99).string(); got != "unknown" {
+		t.Errorf("lifecycleAction(99).string() = %q, want %q", got, "unknown")
 	}
-
-	if err := telemetry.recordLifecycle(context.Background(), "edge", lifecycleAction(99), lifecycleOutcomeRunning); err == nil {
-		t.Fatal("recordLifecycle() accepted an unknown action")
-	}
-	if err := telemetry.recordLifecycle(context.Background(), "edge", lifecycleActionStart, lifecycleOutcome(99)); err == nil {
-		t.Fatal("recordLifecycle() accepted an unknown outcome")
+	if got := lifecycleOutcome(99).string(); got != "unknown" {
+		t.Errorf("lifecycleOutcome(99).string() = %q, want %q", got, "unknown")
 	}
 }

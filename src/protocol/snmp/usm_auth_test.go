@@ -164,7 +164,7 @@ func TestAuthMACOverZeroed_RejectsBadWindow(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			if _, err := authMACOverZeroed(AuthSHA, authVecKey, whole, c.start, c.end); !errors.Is(err, ErrAuthFailed) {
-				t.Fatalf("want ErrAuthFailed (no panic), got %v", err)
+				t.Fatalf("got %v, want ErrAuthFailed (no panic)", err)
 			}
 		})
 	}

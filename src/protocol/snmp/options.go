@@ -365,8 +365,8 @@ func WithCallMaxOIDs(n int) CallOption {
 }
 
 // WithRowBuffer is a buffer-size hint for [Walker]; see [Walker] for
-// the full semantics. The value is accepted and stored on the
-// [CallConfig] but the Walker stub does not yet consume it.
+// the full semantics. The value is passed to the walker the call
+// builds; a value <= 0 falls back to the package default buffer.
 func WithRowBuffer(n int) CallOption {
 	return func(c *CallConfig) { c.RowBuffer = n }
 }

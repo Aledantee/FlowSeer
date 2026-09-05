@@ -126,7 +126,18 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 		return nil, err
 	}
 	life, cancel := context.WithCancel(ctx)
-	r := &Receiver{limits: l, parser: parser, admission: admission, initial: initial, queue: make(chan receivedFrame, l.MaxFrames), handshakes: make(chan struct{}, l.MaxHandshakes), cancel: cancel, stopped: make(chan struct{}), done: make(chan struct{}), connections: make([]net.Conn, l.MaxConnections)}
+	r := &Receiver{
+		limits:      l,
+		parser:      parser,
+		admission:   admission,
+		initial:     initial,
+		queue:       make(chan receivedFrame, l.MaxFrames),
+		handshakes:  make(chan struct{}, l.MaxHandshakes),
+		cancel:      cancel,
+		stopped:     make(chan struct{}),
+		done:        make(chan struct{}),
+		connections: make([]net.Conn, l.MaxConnections),
+	}
 	for _, config := range configs {
 		config.Framing = framingDefault(config.Framing, config.Transport)
 		if !validFraming(config.Framing) {

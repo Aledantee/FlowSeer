@@ -3,49 +3,71 @@ package snmp
 import (
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
-// captureLogger records every Warn call so tests can assert on the
-// one-time-log discipline.
+// fallbackLog captures the fallback warnings the Watcher emits through the
+// service logger on its context, so tests can assert the one-log-per-
+// transition contract.
 //
-// calls() is backed by an atomic counter so the common "did the
-// logger fire at all?" assertion stays race-free without taking the
-// mutex. messages is guarded by msgMu because Warn (called on the
-// Watcher's tick goroutine) and lastMessage (called on the test
-// goroutine) would otherwise race on the slice header and backing
-// array — caught by `go test -race`.
-type captureLogger struct {
-	count    atomic.Int64
-	msgMu    sync.Mutex
+// Write runs on the Watcher's tick goroutine while calls/lastMessage run on
+// the test goroutine, so the recorded slice is mutex-guarded (`go test -race`
+// catches the unguarded version).
+type fallbackLog struct {
+	mu       sync.Mutex
 	messages []string
 }
 
-func (l *captureLogger) Warn(format string, args ...any) {
-	l.count.Add(1)
-	rendered := format
-	if len(args) > 0 {
-		rendered += fmt.Sprintf(" /args=%v", args)
+// fallbackLogMessage is the stable message body enterFallback logs.
+const fallbackLogMessage = "watcher entering fallback mode"
+
+func (l *fallbackLog) Write(p []byte) (int, error) {
+	if line := string(p); strings.Contains(line, fallbackLogMessage) {
+		l.mu.Lock()
+		l.messages = append(l.messages, line)
+		l.mu.Unlock()
 	}
-	l.msgMu.Lock()
-	l.messages = append(l.messages, rendered)
-	l.msgMu.Unlock()
+	return len(p), nil
 }
 
-func (l *captureLogger) calls() int64 { return l.count.Load() }
+func (l *fallbackLog) calls() int64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return int64(len(l.messages))
+}
 
-func (l *captureLogger) lastMessage() string {
-	l.msgMu.Lock()
-	defer l.msgMu.Unlock()
+func (l *fallbackLog) lastMessage() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if len(l.messages) == 0 {
 		return ""
 	}
 	return l.messages[len(l.messages)-1]
+}
+
+// runWithFallbackLog runs body inside a service attempt whose logger writes
+// into logs, so code under test reaches it through service.Logger(ctx).
+func runWithFallbackLog(t *testing.T, logs *fallbackLog, body func(ctx context.Context)) {
+	t.Helper()
+	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	err := service.Run(context.Background(), service.Config{
+		Identity: service.Identity{Name: "snmp_watcher_fallback_test", Namespace: "flowseer", Version: "test"},
+		Logger:   logger,
+		Setup: func(ctx context.Context) (service.Attempt, error) {
+			body(ctx)
+			return service.Attempt{Runner: func(context.Context) error { return nil }}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("running service attempt: %v", err)
+	}
 }
 
 // TestWatcher_Scalar_NoSuchObjectFallback verifies that a scalar
@@ -103,43 +125,44 @@ func TestWatcher_Scalar_NoSuchObjectFallback(t *testing.T) {
 		}
 	}
 
-	logger := &captureLogger{}
-	w, err := NewWatcher[row](
-		context.Background(),
-		s,
-		indicator,
-		[]AnyColumn{fakeColumn{oid: descrCol, kind: KindOctetString}},
-		decode, equal, merge,
-		WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
-		WithForcedWalkInterval(10*time.Hour),
-		WithLogger(logger),
-	)
-	if err != nil {
-		t.Fatalf("NewWatcher: %v", err)
-	}
-	defer func() { _ = w.Close() }()
+	logs := &fallbackLog{}
+	runWithFallbackLog(t, logs, func(ctx context.Context) {
+		w, err := NewWatcher[row](
+			ctx,
+			s,
+			indicator,
+			[]AnyColumn{fakeColumn{oid: descrCol, kind: KindOctetString}},
+			decode, equal, merge,
+			WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
+			WithForcedWalkInterval(10*time.Hour),
+		)
+		if err != nil {
+			t.Fatalf("NewWatcher: %v", err)
+		}
+		defer func() { _ = w.Close() }()
 
-	// Drain cold-start (1 Added).
-	select {
-	case <-w.pump.Data():
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("timed out waiting for cold-start event")
-	}
+		// Drain cold-start (1 Added).
+		select {
+		case <-w.pump.Data():
+		case <-time.After(500 * time.Millisecond):
+			t.Fatal("timed out waiting for cold-start event")
+		}
 
-	// Fallback should be true immediately after cold-start
-	// (the Get happened before Added events emit).
-	if !w.Fallback() {
-		t.Error("Fallback() = false after NoSuchObject scalar probe")
-	}
-	if logger.calls() != 1 {
-		t.Errorf("logger calls = %d, want 1", logger.calls())
-	}
-	if !strings.Contains(logger.lastMessage(), "fallback") {
-		t.Errorf("log message %q does not mention fallback", logger.lastMessage())
-	}
-	if w.Err() != nil {
-		t.Errorf("Err = %v, want nil (indicator-exception fallback is not terminal)", w.Err())
-	}
+		// Fallback should be true immediately after cold-start
+		// (the Get happened before Added events emit).
+		if !w.Fallback() {
+			t.Error("Fallback() = false after NoSuchObject scalar probe")
+		}
+		if logs.calls() != 1 {
+			t.Errorf("logger calls = %d, want 1", logs.calls())
+		}
+		if !strings.Contains(logs.lastMessage(), "fallback") {
+			t.Errorf("log message %q does not mention fallback", logs.lastMessage())
+		}
+		if w.Err() != nil {
+			t.Errorf("Err = %v, want nil (indicator-exception fallback is not terminal)", w.Err())
+		}
+	})
 }
 
 func TestWatcher_Scalar_NoSuchInstanceFallback(t *testing.T) {
@@ -237,32 +260,33 @@ func TestWatcher_PerRow_NoIndicatorObserved(t *testing.T) {
 		},
 	})
 
-	logger := &captureLogger{}
-	w, err := NewWatcher[testIfRow](
-		context.Background(),
-		s,
-		makeIfIndicator(t),
-		[]AnyColumn{fakeColumn{oid: ifDescrOID, kind: KindOctetString}},
-		testIfDecode,
-		testIfEqual,
-		testIfMerge,
-		WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
-		WithForcedWalkInterval(10*time.Hour),
-		WithLogger(logger),
-	)
-	if err != nil {
-		t.Fatalf("NewWatcher: %v", err)
-	}
-	defer func() { _ = w.Close() }()
+	logs := &fallbackLog{}
+	runWithFallbackLog(t, logs, func(ctx context.Context) {
+		w, err := NewWatcher[testIfRow](
+			ctx,
+			s,
+			makeIfIndicator(t),
+			[]AnyColumn{fakeColumn{oid: ifDescrOID, kind: KindOctetString}},
+			testIfDecode,
+			testIfEqual,
+			testIfMerge,
+			WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
+			WithForcedWalkInterval(10*time.Hour),
+		)
+		if err != nil {
+			t.Fatalf("NewWatcher: %v", err)
+		}
+		defer func() { _ = w.Close() }()
 
-	<-w.pump.Data() // cold-start Added
+		<-w.pump.Data() // cold-start Added
 
-	if !w.Fallback() {
-		t.Error("per-row indicator missing from cold-start did not trigger fallback")
-	}
-	if logger.calls() != 1 {
-		t.Errorf("logger calls = %d, want 1", logger.calls())
-	}
+		if !w.Fallback() {
+			t.Error("per-row indicator missing from cold-start did not trigger fallback")
+		}
+		if logs.calls() != 1 {
+			t.Errorf("logger calls = %d, want 1", logs.calls())
+		}
+	})
 }
 
 // TestWatcher_PerRow_EmptyTableNoFallback pins that an empty
@@ -336,33 +360,34 @@ func TestWatcher_Fallback_EnterLogsOnce(t *testing.T) {
 	s := newScriptedSession()
 	s.pushTableWalk(nil)
 
-	logger := &captureLogger{}
-	w, err := NewWatcher[testIfRow](
-		context.Background(),
-		s,
-		makeIfIndicator(t),
-		nil,
-		testIfDecode,
-		testIfEqual,
-		testIfMerge,
-		WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
-		WithForcedWalkInterval(10*time.Hour),
-		WithLogger(logger),
-	)
-	if err != nil {
-		t.Fatalf("NewWatcher: %v", err)
-	}
-	defer func() { _ = w.Close() }()
+	logs := &fallbackLog{}
+	runWithFallbackLog(t, logs, func(ctx context.Context) {
+		w, err := NewWatcher[testIfRow](
+			ctx,
+			s,
+			makeIfIndicator(t),
+			nil,
+			testIfDecode,
+			testIfEqual,
+			testIfMerge,
+			WithCadenceBounds(20*time.Millisecond, 100*time.Millisecond),
+			WithForcedWalkInterval(10*time.Hour),
+		)
+		if err != nil {
+			t.Fatalf("NewWatcher: %v", err)
+		}
+		defer func() { _ = w.Close() }()
 
-	w.enterFallback("first")
-	w.enterFallback("second")
-	w.enterFallback("third")
-	if logger.calls() != 1 {
-		t.Errorf("logger calls = %d, want 1 (edge-triggered)", logger.calls())
-	}
-	if !strings.Contains(logger.lastMessage(), "first") {
-		t.Errorf("log captured wrong reason: %q", logger.lastMessage())
-	}
+		w.enterFallback("first")
+		w.enterFallback("second")
+		w.enterFallback("third")
+		if logs.calls() != 1 {
+			t.Errorf("logger calls = %d, want 1 (edge-triggered)", logs.calls())
+		}
+		if !strings.Contains(logs.lastMessage(), "first") {
+			t.Errorf("log captured wrong reason: %q", logs.lastMessage())
+		}
+	})
 }
 
 // TestWatcher_TransientGetErrorSurfaceLastTickErrNotEvents
@@ -539,43 +564,52 @@ func TestWatcher_StuckZeroFallbackOnCounterMovement(t *testing.T) {
 		}
 	}
 
-	logger := &captureLogger{}
-	w, err := NewWatcher[counterRow](
-		context.Background(),
-		s,
-		makeIfIndicator(t),
-		[]AnyColumn{counterCol},
-		decode, equal, merge,
-		// Very short cadences so the probe can fire in test time.
-		// CadenceMin = CadenceMax = 10ms (no stepping → probe stays
-		// at min cadence; the probe window resets on cadence steps).
-		WithCadenceBounds(10*time.Millisecond, 10*time.Millisecond),
-		WithCounterCadence(counterCol, 10*time.Millisecond),
-		WithProbeWindow(3),
-		WithForcedWalkInterval(10*time.Hour),
-		WithLogger(logger),
-	)
-	if err != nil {
-		t.Fatalf("NewWatcher: %v", err)
-	}
-	defer func() { _ = w.Close() }()
-
-	// Wait long enough for several ticks to occur.
-	deadline := time.After(2 * time.Second)
-	for !w.Fallback() {
-		select {
-		case <-deadline:
-			t.Fatalf("fallback never engaged within deadline; counterEmits=%d",
-				w.counterEventsSinceLastState.Load())
-		case <-time.After(20 * time.Millisecond):
+	logs := &fallbackLog{}
+	runWithFallbackLog(t, logs, func(ctx context.Context) {
+		w, err := NewWatcher[counterRow](
+			ctx,
+			s,
+			makeIfIndicator(t),
+			[]AnyColumn{counterCol},
+			decode, equal, merge,
+			// Very short cadences so the probe can fire in test time.
+			// CadenceMin = CadenceMax = 10ms (no stepping → probe stays
+			// at min cadence; the probe window resets on cadence steps).
+			WithCadenceBounds(10*time.Millisecond, 10*time.Millisecond),
+			WithCounterCadence(counterCol, 10*time.Millisecond),
+			WithProbeWindow(3),
+			WithForcedWalkInterval(10*time.Hour),
+		)
+		if err != nil {
+			t.Fatalf("NewWatcher: %v", err)
 		}
-	}
-	if logger.calls() < 1 {
-		t.Errorf("logger calls = %d, want >= 1", logger.calls())
-	}
-	if !strings.Contains(logger.lastMessage(), "probe window") {
-		t.Errorf("log %q does not mention probe window", logger.lastMessage())
-	}
+		defer func() { _ = w.Close() }()
+
+		// Wait long enough for several ticks to occur.
+		deadline := time.After(2 * time.Second)
+		for !w.Fallback() {
+			select {
+			case <-deadline:
+				t.Fatalf("fallback never engaged within deadline; counterEmits=%d",
+					w.counterEventsSinceLastState.Load())
+			case <-time.After(20 * time.Millisecond):
+			}
+		}
+		// Fallback() flips before enterFallback writes its warning, so
+		// wait for the log rather than sampling it the moment the flag
+		// is observed.
+		logDeadline := time.After(time.Second)
+		for logs.calls() < 1 {
+			select {
+			case <-logDeadline:
+				t.Fatal("fallback log never recorded")
+			case <-time.After(10 * time.Millisecond):
+			}
+		}
+		if !strings.Contains(logs.lastMessage(), "probe window") {
+			t.Errorf("log %q does not mention probe window", logs.lastMessage())
+		}
+	})
 }
 
 // TestWatcher_ProbeWindowDisabledByZero verifies that

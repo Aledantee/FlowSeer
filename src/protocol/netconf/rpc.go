@@ -13,7 +13,6 @@ type datastoreElem struct {
 	Candidate *struct{} `xml:"candidate,omitempty"`
 }
 
-// dsElem builds the element for ds.
 func dsElem(ds Datastore) datastoreElem {
 	switch ds {
 	case Candidate:

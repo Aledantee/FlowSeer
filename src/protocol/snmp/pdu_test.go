@@ -64,7 +64,7 @@ func TestMessageRoundTrip_GetRequest(t *testing.T) {
 		t.Fatalf("pdu mismatch: %+v", got.pdu)
 	}
 	if len(got.pdu.varbinds) != 1 {
-		t.Fatalf("want 1 varbind, got %d", len(got.pdu.varbinds))
+		t.Fatalf("got %d varbinds, want 1", len(got.pdu.varbinds))
 	}
 	if !got.pdu.varbinds[0].GetHeader().OID.Equal(sysDescr()) {
 		t.Fatalf("varbind OID = %s", got.pdu.varbinds[0].GetHeader().OID)
@@ -95,7 +95,7 @@ func TestMessageRoundTrip_GetResponse_MixedVarBinds(t *testing.T) {
 	}
 	vbs := got.pdu.varbinds
 	if len(vbs) != 3 {
-		t.Fatalf("want 3 varbinds, got %d", len(vbs))
+		t.Fatalf("got %d varbinds, want 3", len(vbs))
 	}
 	if os, ok := vbs[0].(OctetStringVar); !ok || string(os.Value) != "Router X" {
 		t.Fatalf("vb0 = %#v", vbs[0])
@@ -120,7 +120,7 @@ func TestMessageRoundTrip_EmptyVarBindList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got.pdu.varbinds) != 0 {
-		t.Fatalf("want empty varbind list, got %d", len(got.pdu.varbinds))
+		t.Fatalf("got %d varbinds, want an empty list", len(got.pdu.varbinds))
 	}
 }
 
@@ -226,7 +226,7 @@ func TestDecode_V1TrapPDU(t *testing.T) {
 		t.Errorf("trap fields generic=%d specific=%d ts=%d", tr.generic, tr.specific, tr.timestamp)
 	}
 	if len(got.pdu.varbinds) != 1 {
-		t.Errorf("want 1 trap varbind, got %d", len(got.pdu.varbinds))
+		t.Errorf("got %d trap varbinds, want 1", len(got.pdu.varbinds))
 	}
 }
 
@@ -334,7 +334,7 @@ func TestDecodeValue_AllScalars_RoundTrip(t *testing.T) {
 			t.Fatalf("%T: decode: %v", want, err)
 		}
 		if len(vbs) != 1 {
-			t.Fatalf("%T: want 1 vb, got %d", want, len(vbs))
+			t.Fatalf("%T: got %d vbs, want 1", want, len(vbs))
 		}
 		if vbs[0].GetHeader().Kind != want.GetHeader().Kind {
 			t.Errorf("%T: kind = %s, want %s", want, vbs[0].GetHeader().Kind, want.GetHeader().Kind)
@@ -400,7 +400,7 @@ func TestDecodeMessage_FootgunWire(t *testing.T) {
 	}
 	vbs := m.pdu.varbinds
 	if len(vbs) != 2 {
-		t.Fatalf("want 2 varbinds, got %d", len(vbs))
+		t.Fatalf("got %d varbinds, want 2", len(vbs))
 	}
 	if c, ok := vbs[0].(Counter32Var); !ok || c.Value != 0xffffffff {
 		t.Fatalf("vb0 (5-byte Counter32) = %#v, want Counter32Var 4294967295", vbs[0])

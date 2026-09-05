@@ -141,6 +141,6 @@ func (v telemetryView) recordLifecycle(
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
-) error {
-	return recordLifecycle(ctx, v.logger, v.lifecycle, v.policy.metrics, modulePath, action, outcome)
+) {
+	recordLifecycle(ctx, v.logger, v.lifecycle, v.policy.metrics, modulePath, action, outcome)
 }

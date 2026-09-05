@@ -32,9 +32,9 @@ func TestServiceLoggerReachesBackgroundSNMPPaths(t *testing.T) {
 	}
 
 	for _, message := range []string{
-		"snmp: dropping reply from unexpected source",
-		"snmp: dropping undecodable trap",
-		"snmp: 3DES localized key has non-distinct sub-keys (accepted for interop)",
+		"dropping reply from unexpected source",
+		"dropping undecodable trap",
+		"3DES localized key has non-distinct sub-keys (accepted for interop)",
 	} {
 		if !strings.Contains(logs.String(), message) {
 			t.Errorf("logs do not contain %q:\n%s", message, logs.String())

@@ -13,12 +13,8 @@ package routing
 import (
 	"net"
 
-	"github.com/gopacket/gopacket"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 )
-
-// FixtureSrcMAC is the fixed source MAC used by all routing behaviors and
-// their fixtures. Callers must not mutate it while a behavior is running.
-var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
 // Well-known multicast destinations.
 var (
@@ -45,20 +41,5 @@ var (
 // srcMAC returns the source MAC for the behavior: the fixture MAC.
 // In-memory behaviors have no real interface to derive a MAC from.
 func srcMAC() net.HardwareAddr {
-	return FixtureSrcMAC
-}
-
-// craftDefault serializes layers with the default craft path:
-// SerializeLayers + ComputeChecksums + FixLengths. Used by non-flood
-// behaviors.
-func craftDefault(serializable ...gopacket.SerializableLayer) ([]byte, error) {
-	buf := gopacket.NewSerializeBuffer()
-	opts := gopacket.SerializeOptions{
-		ComputeChecksums: true,
-		FixLengths:       true,
-	}
-	if err := gopacket.SerializeLayers(buf, opts, serializable...); err != nil {
-		return nil, err
-	}
-	return append([]byte(nil), buf.Bytes()...), nil
+	return craft.FixtureSrcMAC
 }

@@ -4,12 +4,14 @@ import (
 	"context"
 	crand "crypto/rand"
 	"encoding/binary"
+	"log/slog"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -55,7 +57,7 @@ var (
 	// retransmits are exhausted without a reply and without a context
 	// deadline firing. A context deadline surfaces as the unwrapped
 	// context error instead.
-	errTimeout = errs.Msg("request timed out")
+	errTimeout = errs.New().Retryable().Msg("request timed out")
 )
 
 // ridCounter is the process-wide request-id source. It is seeded from
@@ -716,8 +718,9 @@ func (r *reactor) readLoop() {
 		if r.validateSrc && !sameUDPAddr(src, r.peer) {
 			r.dropped.Add(1)
 			service.Logger(r.logCtx).DebugContext(r.logCtx,
-				"snmp: dropping reply from unexpected source",
-				"expected", r.peer.String(), "got", src.String())
+				"dropping reply from unexpected source",
+				slog.String(attrPeer, r.peer.String()),
+				slog.String(attrSource, src.String()))
 			continue
 		}
 		if r.inst != nil {
@@ -744,8 +747,9 @@ func (r *reactor) readLoop() {
 		if m.version != r.version || m.community != r.community {
 			r.dropped.Add(1)
 			service.Logger(r.logCtx).DebugContext(r.logCtx,
-				"snmp: dropping reply with mismatched version/community",
-				"expected_version", r.version.String(), "got_version", m.version.String())
+				"dropping reply with mismatched version/community",
+				slog.String(attrVersion, r.version.String()),
+				slog.String(attrReceivedVersion, m.version.String()))
 			continue
 		}
 		// Varbind handling splits on the waiter's raw flag. Raw delivery
@@ -785,7 +789,8 @@ func (r *reactor) readLoop() {
 		// amplify into unbounded warning logs.
 		for _, w := range m.warnings {
 			service.Logger(r.logCtx).WarnContext(r.logCtx,
-				"snmp: tolerated decode warning", "warning", w.Error())
+				"tolerated decode warning",
+				slog.String(string(semconv.ErrorTypeKey), classifyError(w)))
 		}
 	}
 }

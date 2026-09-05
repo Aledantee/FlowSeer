@@ -292,7 +292,6 @@ func TestChangeIndicator_ZeroValueDetected(t *testing.T) {
 
 func TestWatchConfig_AllWithXxxApply(t *testing.T) {
 	col := fakeColumn{oid: oidParts(t, 1, 3, 6, 1, 2, 1, 2, 2, 1, 10)}
-	logger := &countingLogger{}
 
 	cfg := ApplyWatchOptions(
 		WithCadenceBounds(5*time.Second, 80*time.Second),
@@ -303,7 +302,6 @@ func TestWatchConfig_AllWithXxxApply(t *testing.T) {
 		WithProbeWindow(7),
 		WithForcedWalkInterval(5*time.Minute),
 		WithBulkWalkFallbackThreshold(8),
-		WithLogger(logger),
 	)
 	if err := cfg.ValidationError(); err != nil {
 		t.Fatalf("ValidationError = %v, want nil", err)
@@ -336,9 +334,6 @@ func TestWatchConfig_AllWithXxxApply(t *testing.T) {
 	if cfg.BulkWalkFallbackThreshold != 8 || !cfg.BulkWalkFallbackThresholdSet {
 		t.Errorf("BulkWalkFallbackThreshold = (%d, set=%v)",
 			cfg.BulkWalkFallbackThreshold, cfg.BulkWalkFallbackThresholdSet)
-	}
-	if cfg.Logger != logger {
-		t.Errorf("Logger = %v, want %v", cfg.Logger, logger)
 	}
 }
 
@@ -545,18 +540,6 @@ func TestWatchConfig_FirstErrorWins(t *testing.T) {
 	}
 }
 
-func TestWatchConfig_LoggerNilAllowed(t *testing.T) {
-	// WithLogger(nil) is legal — it disables logging. Validation
-	// should pass.
-	cfg := ApplyWatchOptions(WithLogger(nil))
-	if err := cfg.ValidationError(); err != nil {
-		t.Errorf("WithLogger(nil) rejected: %v", err)
-	}
-	if cfg.Logger != nil {
-		t.Error("Logger not set to nil")
-	}
-}
-
 func TestWatchConfig_NilReceiverHelpers(t *testing.T) {
 	// Defensive: nil receiver helpers must not panic. Catches a future
 	// refactor that loses the nil checks.
@@ -571,59 +554,6 @@ func TestWatchConfig_NilReceiverHelpers(t *testing.T) {
 		t.Errorf("nil.counterCadence = (%v,%v)", d, ok)
 	}
 }
-
-// countingLogger is a test [Logger] used by both this file's tests
-// and the Watcher fallback-transition tests.
-type countingLogger struct {
-	calls    int
-	messages []string
-}
-
-func (l *countingLogger) Warn(format string, args ...any) {
-	l.calls++
-	// Capture rendered messages so assertions can inspect content
-	// without re-encoding.
-	l.messages = append(l.messages, formatLog(format, args...))
-}
-
-func formatLog(format string, args ...any) string {
-	// Tiny indirection so we can avoid importing fmt only in the
-	// logger.
-	var b strings.Builder
-	for i, c := range format {
-		// preserve formatting verbs as-is — the test logger does not
-		// need perfect rendering. Strip the simplest %s/%v
-		// placeholders to keep messages readable.
-		if c == '%' && i+1 < len(format) {
-			b.WriteByte('%')
-			continue
-		}
-		b.WriteRune(c)
-	}
-	if len(args) > 0 {
-		b.WriteString(" /args=")
-		for _, a := range args {
-			b.WriteString(toStr(a))
-			b.WriteByte(' ')
-		}
-	}
-	return b.String()
-}
-
-func toStr(v any) string {
-	switch x := v.(type) {
-	case string:
-		return x
-	case error:
-		return x.Error()
-	default:
-		return "v"
-	}
-}
-
-// Sanity check that the countingLogger satisfies the Logger
-// interface at compile time.
-var _ Logger = (*countingLogger)(nil)
 
 func TestWatchEvent_ZeroValuePrevIsNil(t *testing.T) {
 	var e WatchEvent[int]
