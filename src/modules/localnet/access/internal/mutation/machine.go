@@ -271,6 +271,17 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 	m.lastObservation = obs
 	m.mu.Unlock()
 
+	// A recovery re-observation returns to RECOVERING rather than staying
+	// at OBSERVING, since OBSERVING is the transient sub-state of one
+	// observation attempt and RECOVERING is where a mutation rests between
+	// them; the ordinary path (from POSSIBLY_APPLIED or a read's ADMITTED)
+	// stays at OBSERVING for Compare to run next.
+	if phase == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
+		if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
+			return obs, err
+		}
+	}
+
 	return obs, nil
 }
 
