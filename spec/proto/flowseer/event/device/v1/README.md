@@ -42,10 +42,10 @@ live transport context — a compliance report, an incident timeline. It must
 name its device on its own, so this package imports
 `flowseer/api/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
 `device/access` and `errs`. It never imports `api/edge` directly; the
-[protobuf conventions](../../../../../../docs/conventions/protobuf.md) note
-that an event envelope reaches `api/edge` only through `device/access`,
-where `MutationState.responsible_edge` already names it when a mutation is
-in scope.
+[verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
+states that an event envelope reaches `api/edge` only through
+`device/access`, where `MutationState.responsible_edge` already names it
+when a mutation is in scope.
 
 ## What is deliberately absent
 

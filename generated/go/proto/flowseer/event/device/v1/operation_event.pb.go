@@ -31,8 +31,8 @@ const (
 )
 
 // One durable audit record for a device. Delivered before the state it
-// records is released, per decision 13 of the verified device access
-// record: audit and telemetry are separate, and this is the audit half.
+// records is released: audit and telemetry are separate, and this is the
+// audit half.
 type DeviceOperationEvent struct {
 	state                     protoimpl.MessageState        `protogen:"opaque.v1"`
 	xxx_hidden_Device         *v1.DeviceGlobalRef           `protobuf:"bytes,1,opt,name=device"`
@@ -1097,7 +1097,7 @@ func (b0 DiscoveryCompleted_builder) Build() *DiscoveryCompleted {
 }
 
 // The device's firmware fingerprint changed, invalidating route and
-// capability evidence learned under the previous one, per decision 7.
+// capability evidence learned under the previous one.
 type FirmwareEpochChanged struct {
 	state                          protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_PreviousFingerprint *string                `protobuf:"bytes,1,opt,name=previous_fingerprint,json=previousFingerprint"`
@@ -1336,8 +1336,8 @@ func (b0 DriftDetected_builder) Build() *DriftDetected {
 }
 
 // The lane paused because the hosting edge's contact could not be
-// confirmed, per decision 8's positive-fencing rule: no successor may write
-// without proof the predecessor cannot.
+// confirmed: the positive-fencing rule says no successor may write without
+// proof the predecessor cannot.
 type LaneFrozen struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1413,9 +1413,10 @@ const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueR\x05value:\x028\x01B\x0f\n" +
-	"\x06detail\x12\x05\xbaH\x02\b\x01\"\xa6\x01\n" +
-	"\x11PhaseTransitioned\x12G\n" +
-	"\x04from\x18\x01 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\b\xbaH\x05\x82\x01\x02\x10\x01R\x04from\x12H\n" +
+	"\x06detail\x12\x05\xbaH\x02\b\x01\"\xa8\x01\n" +
+	"\x11PhaseTransitioned\x12I\n" +
+	"\x04from\x18\x01 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04from\x12H\n" +
 	"\x02to\x18\x02 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x02to\"\\\n" +
 	"\vLaneBlocked\x12M\n" +

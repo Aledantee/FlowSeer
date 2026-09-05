@@ -135,7 +135,7 @@ func TestEncodeForClientOmitsInternalContent(t *testing.T) {
 }
 
 func TestEncodeForClientKeepsSetUserMessageAndHint(t *testing.T) {
-	withMsg := From(New().Code(errWireTestCode).PubAttr("device", "icx7150").Msg("privacy decryption failed")).
+	withMsg := From(New().Code(errWireTestCode).Attr("engine_id", "8000000001").PubAttr("device", "icx7150").Msg("privacy decryption failed")).
 		UserMsg("could not read the device").
 		Hint("check the device's USM credentials").
 		Retryable().
@@ -155,6 +155,9 @@ func TestEncodeForClientKeepsSetUserMessageAndHint(t *testing.T) {
 	if payload.GetSafeAttributes()["device"].GetStringValue() != "icx7150" {
 		t.Errorf("SafeAttributes[device] = %v, want %q", payload.GetSafeAttributes()["device"], "icx7150")
 	}
+	if _, internal := payload.GetSafeAttributes()["engine_id"]; internal {
+		t.Error("EncodeForClient leaked the internal engine_id attribute")
+	}
 }
 
 // TestEncodePreservesStackOnlyOnTrustedTransit pins that Encode carries a
@@ -170,5 +173,38 @@ func TestEncodePreservesStackOnlyOnTrustedTransit(t *testing.T) {
 	client := EncodeForClient(err)
 	if len(client.GetStack()) != 0 {
 		t.Error("EncodeForClient carried a stack")
+	}
+}
+
+// TestBoundStackFramesEnforcesTheSchemaLimit pins that Encode never emits
+// more frames than spec/proto/flowseer/errs/v1/error.proto's stack bound,
+// even though runtime.CallersFrames can expand a single captured program
+// counter into several frames across an inlined call, so a
+// maxStackDepth-sized capture is not on its own a bound on frame count.
+func TestBoundStackFramesEnforcesTheSchemaLimit(t *testing.T) {
+	frames := make([]string, wireMaxStackFrames+5)
+	for i := range frames {
+		frames[i] = fmt.Sprintf("frame %d", i)
+	}
+
+	bounded := boundStackFrames(frames)
+
+	if len(bounded) != wireMaxStackFrames {
+		t.Errorf("boundStackFrames returned %d frames, want %d", len(bounded), wireMaxStackFrames)
+	}
+}
+
+// TestEncodeUnwrapsForeignWrapperOverCodedError pins that a plain wrapper
+// (fmt.Errorf("...: %w", err), which code-style.md blesses "where nothing
+// structured is needed") does not collapse a coded *Error beneath it to an
+// opaque leaf: the code and cause chain still cross the wire.
+func TestEncodeUnwrapsForeignWrapperOverCodedError(t *testing.T) {
+	coded := New().Code(errWireTestCode).Msg("privacy decryption failed")
+	wrapped := fmt.Errorf("open session: %w", coded)
+
+	decoded := Decode(Encode(wrapped))
+
+	if !errors.Is(decoded, &Error{code: errWireTestCode}) {
+		t.Error("a coded error beneath a foreign wrapper did not survive Encode/Decode")
 	}
 }

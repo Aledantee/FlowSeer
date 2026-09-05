@@ -108,7 +108,7 @@ func encodeNode(err error) *errsv1.ErrorPayload {
 			builder.Retry = retryToWire(e.retry).Enum()
 		}
 		if frames := e.stack.frames(); len(frames) > 0 {
-			builder.Stack = frames
+			builder.Stack = boundStackFrames(frames)
 		}
 		for _, cause := range e.causes {
 			builder.Causes = append(builder.Causes, encodeNode(cause))
@@ -117,7 +117,39 @@ func encodeNode(err error) *errsv1.ErrorPayload {
 		return builder.Build()
 	}
 
+	// A foreign error carries no code or safe attributes of its own, but it
+	// may wrap one that does — code-style.md blesses fmt.Errorf("...: %w",
+	// err) "where nothing structured is needed", so a coded *Error commonly
+	// sits one level below a plain wrapper. Unwrapping here, the same way
+	// walk does, keeps that code and its causes on the wire instead of
+	// collapsing the whole branch to one leaf carrying only rendered text.
+	switch u := err.(type) {
+	case interface{ Unwrap() error }:
+		if next := u.Unwrap(); next != nil {
+			builder.Causes = []*errsv1.ErrorPayload{encodeNode(next)}
+		}
+	case interface{ Unwrap() []error }:
+		for _, next := range u.Unwrap() {
+			builder.Causes = append(builder.Causes, encodeNode(next))
+		}
+	}
+
 	return builder.Build()
+}
+
+// wireMaxStackFrames matches spec/proto/flowseer/errs/v1/error.proto's
+// stack field bound. runtime.CallersFrames can expand a single captured
+// program counter into several frames across an inlined call, so a
+// maxStackDepth-sized capture can symbolize into more strings than that —
+// bounding here keeps every encoded payload valid against its own schema.
+const wireMaxStackFrames = 32
+
+func boundStackFrames(frames []string) []string {
+	if len(frames) > wireMaxStackFrames {
+		return frames[:wireMaxStackFrames]
+	}
+
+	return frames
 }
 
 func decodeNode(payload *errsv1.ErrorPayload) Error {

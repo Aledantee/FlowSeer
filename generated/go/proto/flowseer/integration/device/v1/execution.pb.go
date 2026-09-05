@@ -6,7 +6,8 @@
 
 // The execution envelope between central and the integration that runs one
 // device's lane: what central dispatches, what the edge reports back, and
-// the checkpoint and terminal-result acknowledgements decision 4 requires.
+// the checkpoint and terminal-result acknowledgements the central journal
+// barrier requires.
 // Every message here is scoped to a channel already addressed to one device
 // and one edge, so nothing here carries a device or edge ref; MutationIntent
 // carries its own device ref for the mutation case, and a TypedRead needs

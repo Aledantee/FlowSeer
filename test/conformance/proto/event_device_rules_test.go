@@ -74,6 +74,34 @@ func TestDeviceOperationEventRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
+func TestPhaseTransitionedRules(t *testing.T) {
+	tests := []validationCase{
+		{
+			name: "a named from and to is valid",
+			message: eventv1.PhaseTransitioned_builder{
+				From: accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum(),
+				To:   accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED.Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "unset from is valid",
+			message:   eventv1.PhaseTransitioned_builder{To: accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED.Enum()}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "from explicitly unspecified is rejected",
+			message: eventv1.PhaseTransitioned_builder{
+				From: accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED.Enum(),
+				To:   accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED.Enum(),
+			}.Build(),
+		},
+		{name: "to is required", message: eventv1.PhaseTransitioned_builder{}.Build()},
+	}
+
+	runValidationCases(t, tests)
+}
+
 func TestDeviceOperationEventKindRules(t *testing.T) {
 	tests := []validationCase{
 		{

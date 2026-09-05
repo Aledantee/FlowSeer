@@ -64,7 +64,10 @@ var importOrder = map[string][]string{
 // orderedRoots are the trees the import order governs, relative to spec/proto.
 // flowseer/service stays out: it is the process-local bus contract and no
 // boundary package may import it.
-var orderedRoots = []string{"flowseer/net", "flowseer/api", "flowseer/device"}
+var orderedRoots = []string{
+	"flowseer/net", "flowseer/api", "flowseer/device",
+	"flowseer/errs", "flowseer/integration", "flowseer/event",
+}
 
 func TestImportOrder(t *testing.T) {
 	for _, file := range orderedProtoFiles(t) {
