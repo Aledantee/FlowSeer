@@ -78,6 +78,32 @@ Whether one Service Module emits each telemetry signal (logs, metrics, traces). 
 
 Disabling traces suppresses span creation only. A trace-disabled module still carries inbound trace context and forwards it on anything it publishes, so modules downstream of it keep end-to-end continuity. Across a durable delivery the downstream span links to the publication rather than descending from it, because the delivery may happen later, more than once, or for many subscribers.
 
+## Device access
+
+### Mutation Intent
+
+A centrally recorded request to move one Device toward typed desired state. It may cover several related fields of one capability, but it receives one per-Device sequence and one terminal disposition. The control plane must acknowledge either a verified outcome or abandonment before that sequence closes; abandonment keeps unrelated mutations blocked until its observed recovery state is resolved.
+
+### Device Lane
+
+The ordered stream for active I/O to one Device. Reads, polls, capability probes, mutations, verification, and recovery share the lane so none can observe or change the Device out of sequence; passive inbound telemetry stays outside it.
+
+### Firmware Epoch
+
+The span during which a Device reports one exact firmware fingerprint. Capability and route evidence is active only in the epoch where it was learned; a firmware change starts discovery again without resetting the Device Lane sequence.
+
+### Indeterminate Mutation
+
+A Mutation Intent whose effect cannot yet be established by authoritative observation. It remains recoverable and holds the Device Lane until verification succeeds or cancellation or timeout abandons it; an abandoned mutation never resumes.
+
+### Observed Recovery State
+
+The first authoritative snapshot obtained after an Indeterminate Mutation is abandoned. It does not prove the abandoned intent succeeded and does not replace centrally expected configuration. FlowSeer compares it with the last committed expectation, then the Device management mode requires operator acceptance or creates a new reconciliation intent before unrelated mutations proceed.
+
+### Desynchronization
+
+Managed Device state that differs from the centrally recorded baseline without a FlowSeer mutation explaining the change. The device's management mode decides whether an operator must remediate it or FlowSeer creates a new Mutation Intent to restore expected state.
+
 ## Network model
 
 ### Facet
