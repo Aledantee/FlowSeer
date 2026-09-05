@@ -26,14 +26,15 @@ message Provenance {
       not_in: [0]
     }
   ];
-  // The edge whose process performed the observation. Must be present.
-  flowseer.api.edge.v1.EdgeGlobalRef edge = 4 [(buf.validate.field).required = true];
+  // The edge whose process performed the observation. Unset means a
+  // cloud-mediated integration answered centrally, with no hosting edge.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 4;
   // The device's exact firmware fingerprint at observation time, as the
-  // identity probe reports it. Must be present; a consumer comparing two
+  // identity probe reports it. Unset means no identity probe has run;
+  // otherwise 1 to 128 characters, and a consumer comparing two
   // observations treats a different fingerprint as a different device
   // epoch.
   string firmware_fingerprint = 5 [
-    (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 128
   ];

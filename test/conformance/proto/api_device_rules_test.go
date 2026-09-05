@@ -10,6 +10,9 @@ import (
 )
 
 func TestDeviceReadInterfaceRules(t *testing.T) {
+	partialInterface := interfaceObservation()
+	partialInterface.Completeness = accessv1.Completeness_COMPLETENESS_PARTIAL.Enum()
+
 	tests := []validationCase{
 		{
 			name: "device and interface name are valid",
@@ -35,6 +38,12 @@ func TestDeviceReadInterfaceRules(t *testing.T) {
 			wantValid: true,
 		},
 		{name: "empty response is rejected", message: devicev1.ReadInterfaceResponse_builder{}.Build()},
+		{
+			name: "a partial observation is never the answer",
+			message: devicev1.ReadInterfaceResponse_builder{
+				Interface: partialInterface.Build(),
+			}.Build(),
+		},
 	}
 
 	runValidationCases(t, tests)
@@ -101,6 +110,16 @@ func TestDeviceAccessStatusRules(t *testing.T) {
 			message: devicev1.GetDeviceAccessStatusResponse_builder{
 				HighWatermark: proto.Uint64(42),
 				Unresolved:    released.Build(),
+			}.Build(),
+		},
+		{
+			name: "duplicate interface names are rejected",
+			message: devicev1.GetDeviceAccessStatusResponse_builder{
+				HighWatermark: proto.Uint64(42),
+				Interfaces: []*accessv1.InterfaceObservation{
+					interfaceObservation().Build(),
+					interfaceObservation().Build(),
+				},
 			}.Build(),
 		},
 		{

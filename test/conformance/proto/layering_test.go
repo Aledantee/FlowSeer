@@ -80,6 +80,36 @@ func TestImportOrderCoversEveryPackage(t *testing.T) {
 	}
 }
 
+// TestOrderedRootsCoverEveryTopLevelTree fails when a new top-level tree lands
+// under spec/proto/flowseer without being added to orderedRoots, so a whole
+// new root cannot escape the coverage and layering checks above the way a
+// package inside an existing root cannot. flowseer/service is the one
+// declared exception: it is the process-local bus contract, and no boundary
+// package may import it.
+func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
+	flowseerRoot := filepath.Join(repoRoot(t), "spec", "proto", "flowseer")
+
+	entries, err := os.ReadDir(flowseerRoot)
+	if err != nil {
+		t.Fatalf("reading %s: %v", flowseerRoot, err)
+	}
+
+	declared := map[string]bool{}
+	for _, root := range orderedRoots {
+		declared[strings.TrimPrefix(root, "flowseer/")] = true
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == "service" || declared[entry.Name()] {
+			continue
+		}
+		if len(protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/"+entry.Name())) == 0 {
+			continue
+		}
+		t.Errorf("flowseer/%s carries schemas but is missing from orderedRoots", entry.Name())
+	}
+}
+
 // TestLayeringViolationRules pins the order's shape against synthetic pairs, so
 // the walk above keeps meaning something on a tree that happens to be clean.
 func TestLayeringViolationRules(t *testing.T) {

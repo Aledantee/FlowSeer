@@ -47,8 +47,15 @@ message ReadInterfaceRequest {
 }
 
 message ReadInterfaceResponse {
+  option (buf.validate.message).cel = {
+    id: "read_interface_response.interface_is_complete"
+    message: "a read never answers with a partial observation"
+    expression: "!has(this.interface) || this.interface.completeness == 1"
+  };
+
   // The observation, with the provenance of the route that answered. Must
-  // be present.
+  // be present, and its completeness is always COMPLETE: a partial read
+  // falls through to another route inside the call rather than answering.
   flowseer.device.access.v1.InterfaceObservation interface = 1 [(buf.validate.field).required = true];
 }
 
@@ -84,9 +91,14 @@ message GetDeviceAccessStatusResponse {
     message: "an unresolved mutation cannot be in the released phase"
     expression: "!has(this.unresolved) || this.unresolved.phase != 8"
   };
+  option (buf.validate.message).cel = {
+    id: "device_access_status.interfaces_are_unique"
+    message: "each interface name appears at most once"
+    expression: "this.interfaces.map(o, o.interface_name).unique()"
+  };
 
-  // The highest sequence central has assigned on this device. Zero means
-  // no mutation has been admitted.
+  // The highest sequence central has assigned on this device. Must be
+  // present; zero means no mutation has been admitted.
   uint64 high_watermark = 1 [(buf.validate.field).required = true];
   // The mutation that still holds the lane. Unset means the lane is free.
   flowseer.device.access.v1.MutationState unresolved = 2;

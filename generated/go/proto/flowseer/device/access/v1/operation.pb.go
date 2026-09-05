@@ -1112,8 +1112,10 @@ type MutationState_builder struct {
 
 	// The recorded intent. Must be present.
 	Intent *MutationIntent
-	// The per-device sequence central assigned at admission. Must be present
-	// and at least 1; sequences on one device only grow.
+	// The per-device sequence central assigned at admission. Unset while the
+	// phase is INTENT_RECORDED, before the device's lane has assigned one;
+	// present and at least 1 from ADMITTED onward, and sequences on one
+	// device only grow.
 	Sequence *uint64
 	// Where the mutation stands. Must be present; the zero value is rejected.
 	Phase *OperationPhase
@@ -1179,11 +1181,10 @@ const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x1bexpectedFirmwareFingerprint\x12l\n" +
 	"\x15interface_description\x18\n" +
 	" \x01(\v25.flowseer.device.access.v1.InterfaceDescriptionChangeH\x00R\x14interfaceDescriptionB\x0f\n" +
-	"\x06change\x12\x05\xbaH\x02\b\x01\"\xed\x06\n" +
+	"\x06change\x12\x05\xbaH\x02\b\x01\"\x9b\b\n" +
 	"\rMutationState\x12I\n" +
-	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12&\n" +
-	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12N\n" +
+	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
+	"\bsequence\x18\x02 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12N\n" +
 	"\x05phase\x18\x03 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x05phase\x12T\n" +
 	"\vdisposition\x18\x04 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\n" +
@@ -1191,9 +1192,10 @@ const file_flowseer_device_access_v1_operation_proto_rawDesc = "" +
 	"\fblock_reason\x18\x05 \x01(\x0e2&.flowseer.device.access.v1.BlockReasonB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vblockReason\x12?\n" +
 	"\rblocked_since\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\fblockedSince\x12V\n" +
-	"\x10responsible_edge\x18\a \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x0fresponsibleEdge:\xd2\x02\xbaH\xce\x02\x1a\xb1\x01\n" +
+	"\x10responsible_edge\x18\a \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x0fresponsibleEdge:\x83\x04\xbaH\xff\x03\x1a\xb1\x01\n" +
 	"(mutation_state.disposition_matches_phase\x12Qdisposition is set exactly when the phase is acknowledged, released, or abandoned\x1a2has(this.disposition) == (this.phase in [7, 8, 9])\x1a\x97\x01\n" +
-	"+mutation_state.blocked_since_matches_reason\x125blocked_since is set exactly when block_reason is set\x1a1has(this.blocked_since) == has(this.block_reason)*\xd6\x02\n" +
+	"+mutation_state.blocked_since_matches_reason\x125blocked_since is set exactly when block_reason is set\x1a1has(this.blocked_since) == has(this.block_reason)\x1a\xae\x01\n" +
+	"%mutation_state.sequence_matches_phase\x12Fsequence is set exactly once the device's lane has admitted the intent\x1a=!has(this.phase) || (has(this.sequence) == (this.phase != 1))*\xd6\x02\n" +
 	"\x0eOperationPhase\x12\x1f\n" +
 	"\x1bOPERATION_PHASE_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fOPERATION_PHASE_INTENT_RECORDED\x10\x01\x12\x1c\n" +

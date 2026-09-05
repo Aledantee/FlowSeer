@@ -156,10 +156,10 @@ func TestProvenanceRules(t *testing.T) {
 
 	tests := []validationCase{
 		{name: "complete provenance is valid", message: complete.Build(), wantValid: true},
-		{name: "edge is required", message: noEdge.Build()},
+		{name: "cloud-mediated provenance without an edge is valid", message: noEdge.Build(), wantValid: true},
 		{name: "protocol is required", message: noProtocol.Build()},
 		{name: "unspecified protocol is rejected", message: unspecifiedProtocol.Build()},
-		{name: "firmware fingerprint is required", message: noFingerprint.Build()},
+		{name: "provenance without an identity probe is valid", message: noFingerprint.Build(), wantValid: true},
 		{name: "empty firmware fingerprint is rejected", message: emptyFingerprint.Build()},
 		{name: "binding is required", message: noBinding.Build()},
 	}

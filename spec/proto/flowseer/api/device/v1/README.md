@@ -13,7 +13,13 @@ the RPCs exchange.
 
 ## Reading
 
-`ReadInterface` takes a device ref and the interface name the device spells
+`ReadInterface` takes a device ref and the interface name the device spells:
+
+```prototext
+device: { ... }
+interface_name: "ethernet 1/1/1"
+```
+
 and returns one `InterfaceObservation`. The answering edge chooses the
 lowest-cost route that can answer completely, SNMP first when nothing is
 known yet. When an SNMP read comes back valid but missing a field the

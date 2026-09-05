@@ -190,7 +190,8 @@ type ReadInterfaceResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The observation, with the provenance of the route that answered. Must
-	// be present.
+	// be present, and its completeness is always COMPLETE: a partial read
+	// falls through to another route inside the call rather than answering.
 	Interface *v11.InterfaceObservation
 }
 
@@ -571,8 +572,8 @@ func (x *GetDeviceAccessStatusResponse) ClearFirmwareFingerprint() {
 type GetDeviceAccessStatusResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The highest sequence central has assigned on this device. Zero means
-	// no mutation has been admitted.
+	// The highest sequence central has assigned on this device. Must be
+	// present; zero means no mutation has been admitted.
 	HighWatermark *uint64
 	// The mutation that still holds the lane. Unset means the lane is free.
 	Unresolved *v11.MutationState
@@ -1272,9 +1273,10 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\"\x97\x01\n" +
 	"\x14ReadInterfaceRequest\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x123\n" +
-	"\x0einterface_name\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"n\n" +
+	"\x0einterface_name\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"\x92\x02\n" +
 	"\x15ReadInterfaceResponse\x12U\n" +
-	"\tinterface\x18\x01 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface\"\xcd\x02\n" +
+	"\tinterface\x18\x01 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
+	"-read_interface_response.interface_is_complete\x12/a read never answers with a partial observation\x1a8!has(this.interface) || this.interface.completeness == 1\"\xcd\x02\n" +
 	" ApplyInterfaceDescriptionRequest\x12I\n" +
 	"\x06intent\x18\x01 \x01(\v2).flowseer.device.access.v1.MutationIntentB\x06\xbaH\x03\xc8\x01\x01R\x06intent\x12#\n" +
 	"\rvalidate_only\x18\x02 \x01(\bR\fvalidateOnly:\xb8\x01\xbaH\xb4\x01\x1a\xb1\x01\n" +
@@ -1282,7 +1284,7 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"!ApplyInterfaceDescriptionResponse\x12D\n" +
 	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\"j\n" +
 	"\x1cGetDeviceAccessStatusRequest\x12J\n" +
-	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xc8\x03\n" +
+	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xd4\x04\n" +
 	"\x1dGetDeviceAccessStatusResponse\x12-\n" +
 	"\x0ehigh_watermark\x18\x01 \x01(\x04B\x06\xbaH\x03\xc8\x01\x01R\rhighWatermark\x12H\n" +
 	"\n" +
@@ -1292,8 +1294,9 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint\x12O\n" +
 	"\n" +
 	"interfaces\x18\x04 \x03(\v2/.flowseer.device.access.v1.InterfaceObservationR\n" +
-	"interfaces:\x9d\x01\xbaH\x99\x01\x1a\x96\x01\n" +
-	"'device_access_status.unresolved_is_open\x126an unresolved mutation cannot be in the released phase\x1a3!has(this.unresolved) || this.unresolved.phase != 8\"\xcc\x01\n" +
+	"interfaces:\xa9\x02\xbaH\xa5\x02\x1a\x96\x01\n" +
+	"'device_access_status.unresolved_is_open\x126an unresolved mutation cannot be in the released phase\x1a3!has(this.unresolved) || this.unresolved.phase != 8\x1a\x89\x01\n" +
+	"*device_access_status.interfaces_are_unique\x12(each interface name appears at most once\x1a1this.interfaces.map(o, o.interface_name).unique()\"\xcc\x01\n" +
 	"\x16AbandonMutationRequest\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +

@@ -42,6 +42,12 @@ message InterfaceDescriptionChange {
 
 // One interface as a route observed it, with the provenance of the read.
 message InterfaceObservation {
+  option (buf.validate.message).cel = {
+    id: "interface_observation.provenance_names_edge_and_firmware"
+    message: "an interface observation's provenance names the edge that read it and the device's firmware fingerprint"
+    expression: "!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))"
+  };
+
   // The device-local interface name, as the device spells it. Must be
   // present.
   string interface_name = 1 [

@@ -444,7 +444,7 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a*flowseer/api/inventory/v1/provenance.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\x89\x01\n" +
 	"\x1aInterfaceDescriptionChange\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xdf\x03\n" +
+	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xef\x05\n" +
 	"\x14InterfaceObservation\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x126\n" +
 	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\x12X\n" +
@@ -457,7 +457,8 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"provenance\x18\x05 \x01(\v2%.flowseer.api.inventory.v1.ProvenanceB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"provenance\x12Z\n" +
 	"\fcompleteness\x18\x06 \x01(\x0e2'.flowseer.device.access.v1.CompletenessB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness*a\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x8d\x02\xbaH\x89\x02\x1a\x86\x02\n" +
+	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))*a\n" +
 	"\fCompleteness\x12\x1c\n" +
 	"\x18COMPLETENESS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPLETENESS_COMPLETE\x10\x01\x12\x18\n" +

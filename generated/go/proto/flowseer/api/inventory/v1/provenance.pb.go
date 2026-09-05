@@ -194,10 +194,12 @@ type Provenance_builder struct {
 	// operation, so this can differ between two responses over one binding.
 	// Must be present; the zero value is rejected.
 	Protocol *ManagementProtocol
-	// The edge whose process performed the observation. Must be present.
+	// The edge whose process performed the observation. Unset means a
+	// cloud-mediated integration answered centrally, with no hosting edge.
 	Edge *v1.EdgeGlobalRef
 	// The device's exact firmware fingerprint at observation time, as the
-	// identity probe reports it. Must be present; a consumer comparing two
+	// identity probe reports it. Unset means no identity probe has run;
+	// otherwise 1 to 128 characters, and a consumer comparing two
 	// observations treats a different fingerprint as a different device
 	// epoch.
 	FirmwareFingerprint *string
@@ -225,17 +227,17 @@ var File_flowseer_api_inventory_v1_provenance_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_provenance_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/api/inventory/v1/provenance.proto\x12\x19flowseer.api.inventory.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfd\x02\n" +
+	"*flowseer/api/inventory/v1/provenance.proto\x12\x19flowseer.api.inventory.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/inventory/v1/binding.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf2\x02\n" +
 	"\n" +
 	"Provenance\x12M\n" +
 	"\abinding\x18\x01 \x01(\v2+.flowseer.api.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x12C\n" +
 	"\vobserved_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"observedAt\x12X\n" +
 	"\bprotocol\x18\x03 \x01(\x0e2-.flowseer.api.inventory.v1.ManagementProtocolB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x12?\n" +
-	"\x04edge\x18\x04 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12@\n" +
-	"\x14firmware_fingerprint\x18\x05 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x89\x02\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\bprotocol\x127\n" +
+	"\x04edge\x18\x04 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefR\x04edge\x12=\n" +
+	"\x14firmware_fingerprint\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprintB\x89\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\x0fProvenanceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_inventory_v1_provenance_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

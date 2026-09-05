@@ -40,12 +40,16 @@ func mutationIntent() accessv1.MutationIntent_builder {
 }
 
 func mutationState(phase accessv1.OperationPhase) accessv1.MutationState_builder {
-	return accessv1.MutationState_builder{
+	state := accessv1.MutationState_builder{
 		Intent:          mutationIntent().Build(),
-		Sequence:        proto.Uint64(42),
 		Phase:           phase.Enum(),
 		ResponsibleEdge: edgeRef(),
 	}
+	if phase != accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED {
+		state.Sequence = proto.Uint64(42)
+	}
+
+	return state
 }
 
 func interfaceObservation() accessv1.InterfaceObservation_builder {
@@ -125,9 +129,19 @@ func TestInterfaceObservationRules(t *testing.T) {
 	unspecifiedOper := interfaceObservation()
 	unspecifiedOper.OperStatus = interfacev1.OperStatus_OPER_STATUS_UNSPECIFIED.Enum()
 
+	noEdge := interfaceObservation()
+	withoutEdge := provenance()
+	withoutEdge.Edge = nil
+	noEdge.Provenance = withoutEdge.Build()
+
+	noFirmwareFingerprint := interfaceObservation()
+	withoutFingerprint := provenance()
+	withoutFingerprint.FirmwareFingerprint = nil
+	noFirmwareFingerprint.Provenance = withoutFingerprint.Build()
+
 	badProvenance := interfaceObservation()
 	incomplete := provenance()
-	incomplete.Edge = nil
+	incomplete.Binding = nil
 	badProvenance.Provenance = incomplete.Build()
 
 	tests := []validationCase{
@@ -137,6 +151,8 @@ func TestInterfaceObservationRules(t *testing.T) {
 		{name: "completeness is required", message: noCompleteness.Build()},
 		{name: "admin status is required", message: noAdmin.Build()},
 		{name: "unspecified oper status is rejected", message: unspecifiedOper.Build()},
+		{name: "observation without an edge is rejected", message: noEdge.Build()},
+		{name: "observation without a firmware fingerprint is rejected", message: noFirmwareFingerprint.Build()},
 		{name: "invalid provenance fails the observation", message: badProvenance.Build()},
 	}
 
@@ -222,6 +238,11 @@ func TestMutationStateRules(t *testing.T) {
 	noSequence := mutationState(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
 	noSequence.Sequence = nil
 
+	intentRecorded := mutationState(accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED)
+
+	intentRecordedWithSequence := mutationState(accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED)
+	intentRecordedWithSequence.Sequence = proto.Uint64(1)
+
 	noPhase := mutationState(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
 	noPhase.Phase = nil
 
@@ -242,7 +263,9 @@ func TestMutationStateRules(t *testing.T) {
 		{name: "blocked_since without block reason is rejected", message: sinceWithoutReason.Build()},
 		{name: "unspecified block reason is rejected", message: unspecifiedReason.Build()},
 		{name: "sequence zero is rejected", message: sequenceZero.Build()},
-		{name: "sequence is required", message: noSequence.Build()},
+		{name: "sequence is required once admitted", message: noSequence.Build()},
+		{name: "intent recorded without a sequence is valid", message: intentRecorded.Build(), wantValid: true},
+		{name: "intent recorded with a sequence is rejected", message: intentRecordedWithSequence.Build()},
 		{name: "phase is required", message: noPhase.Build()},
 		{name: "responsible edge is required", message: noEdge.Build()},
 		{name: "intent is required", message: noIntent.Build()},
@@ -252,18 +275,21 @@ func TestMutationStateRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
-// TestMutationStateTerminalPhasesMatchDocs pins the phase numbers the CEL
-// rule compares against, so renumbering the enum cannot silently move the
-// terminal set.
-func TestMutationStateTerminalPhasesMatchDocs(t *testing.T) {
+// TestMutationStatePhaseNumbersMatchDocs pins the phase numbers every CEL
+// rule that compares against a raw ordinal expects, so renumbering the enum
+// cannot silently move the terminal set (mutation_state.disposition_matches_phase,
+// device_access_status.unresolved_is_open) or the pre-admission phase
+// (mutation_state.sequence_matches_phase).
+func TestMutationStatePhaseNumbersMatchDocs(t *testing.T) {
 	want := map[accessv1.OperationPhase]int32{
-		accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED: 7,
-		accessv1.OperationPhase_OPERATION_PHASE_RELEASED:     8,
-		accessv1.OperationPhase_OPERATION_PHASE_ABANDONED:    9,
+		accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED: 1,
+		accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED:    7,
+		accessv1.OperationPhase_OPERATION_PHASE_RELEASED:        8,
+		accessv1.OperationPhase_OPERATION_PHASE_ABANDONED:       9,
 	}
 	for phase, number := range want {
 		if int32(phase) != number {
-			t.Errorf("%s is %d, the disposition rule expects %d", phase, int32(phase), number)
+			t.Errorf("%s is %d, a CEL rule expects %d", phase, int32(phase), number)
 		}
 	}
 }

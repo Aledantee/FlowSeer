@@ -13,7 +13,16 @@ amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md, 
 
 > Implemented. The two empty decision messages on `ResolveDesynchronizationRequest`
 > are named `AcceptObservedDecision` and `RestoreExpectedDecision`, because
-> a `State` suffix reads as a triad member to the message-sync hook.
+> a `State` suffix reads as a triad member to the message-sync hook. Review
+> found two requirements that contradicted the rest of the same change and
+> amended them: requirement 6's unconditional `sequence` on `MutationState`
+> could not represent the `INTENT_RECORDED` phase the README's own example
+> uses, so `sequence` now carries a CEL rule tying its presence to the phase
+> instead of a blanket `required`; requirement 3's unconditional `edge` and
+> `firmware_fingerprint` on `Provenance` made the one shared provenance
+> message unusable by a cloud-mediated integration, so both are optional on
+> `Provenance` and required instead by a CEL rule on `InterfaceObservation`,
+> where device access actually needs them.
 
 ## Goal
 

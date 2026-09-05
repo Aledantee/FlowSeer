@@ -518,8 +518,8 @@ for protobuf type renames.
    [the network model structure direction](2026-08-20-network-model-structure-direction.md).
 2. **Write the device-API and integration contracts as specs now** —
    capability matrix as a hard rule, announce/execute/events, binding routing,
-   error mapping, budgets, guarantee levels, idempotency — so the
-   protocol-library work knows what it is feeding.
+   error mapping, budgets, idempotency — so the protocol-library work knows
+   what it is feeding.
 3. **Implement after the first protocol library is real and the R11 identity
    read has been done by hand once.** That is the "real caller" KD4 asked for.
 4. **Stand up NATS with the hardened profile from day one** (accounts,
@@ -539,7 +539,8 @@ for protobuf type renames.
 
 - Meraki single (non-batched) config writes: whether dashboard acceptance
   precedes device application is plausible but unverified; only action-batch
-  sync/async semantics were confirmed. Affects the converging guarantee level.
+  sync/async semantics were confirmed. Affects how long verification must
+  wait before a read is authoritative.
 - RUCKUS One numeric rate limits — not yet retrieved.
 - protobuf-es Editions-descriptor support for dynamic forms is reported but
   not confirmed by a direct read of its manual; check before the third-party

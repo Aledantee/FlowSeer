@@ -168,15 +168,19 @@ message MutationState {
     message: "blocked_since is set exactly when block_reason is set"
     expression: "has(this.blocked_since) == has(this.block_reason)"
   };
+  option (buf.validate.message).cel = {
+    id: "mutation_state.sequence_matches_phase"
+    message: "sequence is set exactly once the device's lane has admitted the intent"
+    expression: "!has(this.phase) || (has(this.sequence) == (this.phase != 1))"
+  };
 
   // The recorded intent. Must be present.
   MutationIntent intent = 1 [(buf.validate.field).required = true];
-  // The per-device sequence central assigned at admission. Must be present
-  // and at least 1; sequences on one device only grow.
-  uint64 sequence = 2 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).uint64.gte = 1
-  ];
+  // The per-device sequence central assigned at admission. Unset while the
+  // phase is INTENT_RECORDED, before the device's lane has assigned one;
+  // present and at least 1 from ADMITTED onward, and sequences on one
+  // device only grow.
+  uint64 sequence = 2 [(buf.validate.field).uint64.gte = 1];
   // Where the mutation stands. Must be present; the zero value is rejected.
   OperationPhase phase = 3 [
     (buf.validate.field).required = true,
