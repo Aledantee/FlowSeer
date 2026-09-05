@@ -1,0 +1,54 @@
+edition = "2024";
+
+// The error wire payload every FlowSeer boundary carries. Trusted internal
+// transit populates message and stack; a payload built for an untrusted
+// client omits both and carries the user message and hint in their place.
+// The error-wire design record fixes both projections; this package holds
+// only the wire shape, not the Go codec that produces or consumes it.
+package flowseer.errs.v1;
+
+import "google/protobuf/struct.proto";
+import option "buf/validate/validate.proto";
+
+// Whether a failure is worth retrying. Unspecified means the chain expressed
+// no view, distinct from a positive claim either way.
+enum RetryDisposition {
+  RETRY_DISPOSITION_UNSPECIFIED = 0;
+  RETRY_DISPOSITION_RETRYABLE = 1;
+  RETRY_DISPOSITION_PERMANENT = 2;
+}
+
+// One error and everything wrapped inside it. A cause is itself an
+// ErrorPayload, so decoding needs no separate cause-type registry to stay
+// total: a foreign error collapses to a leaf carrying only its message, and
+// the recursive shape represents that leaf exactly as it represents any
+// other node.
+message ErrorPayload {
+  // The wire identity of this node. Unset means this node carries no code.
+  string code = 1 [(buf.validate.field).string.max_len = 128];
+  // Trusted-internal text: may name hosts, engine IDs, and call paths.
+  // Unset on every payload built for an untrusted client.
+  string message = 2 [(buf.validate.field).string.max_len = 4096];
+  // Attributes marked client-safe at the point they were attached. An
+  // internal-only attribute never reaches this field, on any transit.
+  map<string, google.protobuf.Value> safe_attributes = 3 [(buf.validate.field).map.max_pairs = 32];
+  // The sanitized text a client-facing boundary shows in place of message.
+  // Unset means this node named none.
+  string user_message = 4 [(buf.validate.field).string.max_len = 1024];
+  // The remedy that accompanies user_message. Unset means this node named
+  // none.
+  string hint = 5 [(buf.validate.field).string.max_len = 1024];
+  // This node's own view on whether the failure is worth retrying.
+  // Unspecified means it expressed no view.
+  RetryDisposition retry = 6 [(buf.validate.field).enum.defined_only = true];
+  // The wrapped errors, in traversal order. Empty means this node is a leaf.
+  repeated ErrorPayload causes = 7 [(buf.validate.field).repeated.max_items = 16];
+  // Symbolized call frames, outermost first. Present only on trusted
+  // internal transit; always empty toward a client.
+  repeated string stack = 8 [(buf.validate.field).repeated = {
+    max_items: 32
+    items: {
+      string: {max_len: 512}
+    }
+  }];
+}
