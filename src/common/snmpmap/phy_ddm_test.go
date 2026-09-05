@@ -237,7 +237,7 @@ func TestPhysical_Hh3cChannelsOutOfOrder(t *testing.T) {
 	// hundredths of dBm per channel, delivered 2, 1, 4, 3
 	for _, ch := range []uint32{2, 1, 4, 3} {
 		vbs = append(vbs,
-			integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelCurTXPower, int32(-100*int32(ch)), 49, ch),
+			integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelCurTXPower, -100*int32(ch), 49, ch),
 			// hundredths of mA
 			integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasCurrent, 650, 49, ch),
 			// microamps

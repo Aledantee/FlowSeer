@@ -312,7 +312,7 @@ func mapDlinkSfp(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r dlink
 	}
 
 	// The MIB reports the rate in megabaud, which is megabits per second
-	// for the NRZ signalling every module in its range uses.
+	// for the NRZ signaling every module in its range uses.
 	if r.Observed(dlinkswsfpinfomib.DPortSfpInfoBitRate) && r.DPortSfpInfoBitRate > 0 {
 		module.SetNominalBitRateMbps(uint32(r.DPortSfpInfoBitRate))
 	}
@@ -896,7 +896,7 @@ func mediumFromText(facet *phyv1.EthernetFacet, text string) {
 	switch {
 	case strings.Contains(t, "copper"):
 		copperIfUnset(facet)
-	case strings.Contains(t, "mode"), strings.Contains(t, "fiber"), strings.Contains(t, "fibre"):
+	case strings.Contains(t, "mode"), strings.Contains(t, "fib"):
 		fiberIfUnset(facet)
 	}
 }

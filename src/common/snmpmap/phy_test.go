@@ -98,9 +98,9 @@ func TestPhysical_EtherLikeWithoutMau(t *testing.T) {
 }
 
 func TestPhysical_HighCapacityCountersWin(t *testing.T) {
-	vbs := append(etherLikePort(3),
-		counter64At(etherlikemib.Dot3HCStatsFCSErrors, 5_000_000_000, 3),
-		counter64At(etherlikemib.Dot3HCStatsSymbolErrors, 9, 3),
+	vbs := append(etherLikePort(7),
+		counter64At(etherlikemib.Dot3HCStatsFCSErrors, 5_000_000_000, 7),
+		counter64At(etherlikemib.Dot3HCStatsSymbolErrors, 9, 7),
 	)
 
 	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
@@ -108,7 +108,7 @@ func TestPhysical_HighCapacityCountersWin(t *testing.T) {
 		t.Fatalf("Physical: %v", err)
 	}
 
-	counters := facts.Facets[3].GetCounters()
+	counters := facts.Facets[7].GetCounters()
 
 	if got := counters.GetFcsErrors(); got != 5_000_000_000 {
 		t.Errorf("fcs_errors = %d, want the 64-bit reading", got)
