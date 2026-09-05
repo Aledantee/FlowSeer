@@ -39,13 +39,13 @@ func TestLoadConfig_Minimal(t *testing.T) {
 
 // TestLoadConfig_FullSchema loads the committed default mibgen.yaml
 // (at the repository root) and confirms the bundled module set is
-// sixteen modules with unique names/packages.
+// twenty-four modules with unique names/packages.
 func TestLoadConfig_FullSchema(t *testing.T) {
 	cfg, err := LoadConfig(filepath.Join("..", "..", "..", "..", "..", "mibgen.yaml"))
 	if err != nil {
 		t.Fatalf("LoadConfig(mibgen.yaml): %v", err)
 	}
-	if got, want := len(cfg.Modules), 16; got != want {
+	if got, want := len(cfg.Modules), 24; got != want {
 		t.Fatalf("mibgen.yaml modules: got %d, want %d", got, want)
 	}
 	seen := make(map[string]bool, len(cfg.Modules))
@@ -62,8 +62,8 @@ func TestLoadConfig_FullSchema(t *testing.T) {
 	if cfg.Modules[0].Name != "SNMPv2-SMI" {
 		t.Errorf("first module = %q; want SNMPv2-SMI", cfg.Modules[0].Name)
 	}
-	if cfg.Modules[len(cfg.Modules)-1].Name != "MIKROTIK-MIB" {
-		t.Errorf("last module = %q; want MIKROTIK-MIB", cfg.Modules[len(cfg.Modules)-1].Name)
+	if cfg.Modules[len(cfg.Modules)-1].Name != "HH3C-TRANSCEIVER-INFO-MIB" {
+		t.Errorf("last module = %q; want HH3C-TRANSCEIVER-INFO-MIB", cfg.Modules[len(cfg.Modules)-1].Name)
 	}
 }
 

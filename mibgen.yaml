@@ -7,6 +7,9 @@ search_paths:
   - spec/mib/ietf
   - spec/mib/ieee
   - spec/mib/mikrotik
+  - spec/mib/dlink
+  - spec/mib/hp/procurve
+  - spec/mib/hp/hh3c
 
 modules:
   - name: SNMPv2-SMI
@@ -52,3 +55,17 @@ modules:
   # across the combined search_paths regardless of listing order, so no
   # depends_on edge is needed.
   - { name: MIKROTIK-MIB,      package: mikrotik }
+  # Physical-layer modules behind flowseer.net.phy.v1. IANA-MAU-MIB is a
+  # registry module listed for its typed jack and link-mode bit constants;
+  # MAU-MIB's columns resolve to those types only when it is generated too.
+  - { name: EtherLike-MIB,      package: etherlikemib }
+  - { name: IANA-MAU-MIB,       package: ianamaumib }
+  - { name: MAU-MIB,            package: maumib }
+  - { name: POWER-ETHERNET-MIB, package: powerethernetmib }
+  # Vendor transceiver and DDM modules, each keyed by ifIndex. Their
+  # IMPORTS resolve to the vendored DLINK-ID-REC-MIB, HP-ICF-OID, and
+  # HH3C-OID-MIB roots under the search paths above.
+  - { name: DLINKSW-DDM-MIB,           package: dlinkswddmmib }
+  - { name: DLINKSW-SFPINFO-MIB,       package: dlinkswsfpinfomib }
+  - { name: HP-ICF-TRANSCEIVER-MIB,    package: hpicftransceivermib }
+  - { name: HH3C-TRANSCEIVER-INFO-MIB, package: hh3ctransceiverinfomib }
