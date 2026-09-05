@@ -36,7 +36,9 @@ oid            TEST-TABLE-MIB.portStatus 1.3.6.1.4.1.47003.1.1.3
 syntax-members TEST-TABLE-MIB.portStatus up(1) down(2)
 
 # An augmenting row has no INDEX of its own: its index is the base row's,
-# which is what AUGMENTS says and what leaves the index list empty here.
+# which is what AUGMENTS says and what leaves the row's index list empty
+# here. The table over it carries the base table's key, RFC 2578
+# section 7.8.1, so a consumer reads one field for either shape.
 oid             TEST-TABLE-MIB.portXTable 1.3.6.1.4.1.47003.2
 oid             TEST-TABLE-MIB.portXEntry 1.3.6.1.4.1.47003.2.1
 augments        TEST-TABLE-MIB.portXEntry portEntry
@@ -44,6 +46,7 @@ index           TEST-TABLE-MIB.portXEntry (none)
 table-row       TEST-TABLE-MIB.portXTable portXEntry
 table-columns   TEST-TABLE-MIB.portXTable portXAlias
 table-augments  TEST-TABLE-MIB.portXTable portEntry
+table-index     TEST-TABLE-MIB.portXTable portIndex
 oid             TEST-TABLE-MIB.portXAlias 1.3.6.1.4.1.47003.2.1.1
 
 # IMPLIED is kept where the source wrote it, on the last index part, and

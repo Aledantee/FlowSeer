@@ -170,11 +170,22 @@ var (
 	// not classify, which costs that declaration and nothing around it.
 	ErrCodeUnrecognizedDeclaration = errs.NewCode("smi/unrecognized-declaration")
 
+	// ErrCodeUnresolvedAugments marks an AUGMENTS clause naming a row that
+	// no loaded module declares, so the augmenting table carries no
+	// augmented link and no inherited key.
+	ErrCodeUnresolvedAugments = errs.NewCode("smi/unresolved-augments")
+
 	// ErrCodeUnresolvedDeclaration marks a declaration one of whose
 	// references did not resolve, reported once on the declaration so that
 	// a single missing name costs one diagnostic per dependent rather than
 	// one per site.
 	ErrCodeUnresolvedDeclaration = errs.NewCode("smi/unresolved-declaration")
+
+	// ErrCodeUnresolvedIndexPart marks an INDEX part naming a column that
+	// no loaded module declares or whose type did not resolve, so the
+	// table keeps the part flagged and nothing may decode a row key from
+	// it.
+	ErrCodeUnresolvedIndexPart = errs.NewCode("smi/unresolved-index-part")
 
 	// ErrCodeUnterminatedComment marks a comment running to end of file,
 	// which costs the whole file because no declaration boundary after it
