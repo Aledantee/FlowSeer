@@ -62,7 +62,6 @@ Those records lose the cancellation and trace relationships carried by the servi
 - **Propagate trace context through trace-disabled modules.** (session-settled: user-directed — chosen over stripping or reply-only propagation: enabled downstream modules retain end-to-end continuity.) Governs R13, R16.
 - **Prove the contract with a real Collector through local verification.** (session-settled: user-directed — chosen over SDK-only, deployment-only, or external-CI validation: the repository's local gate owns exporter compatibility and negative signal assertions.) Governs R21-R24.
 
-<!-- ce-section: work-relationships -->
 ### How This Work Fits Together
 
 This plan owns the focused observability extension to the existing service runtime.

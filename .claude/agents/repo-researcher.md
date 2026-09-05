@@ -25,3 +25,8 @@ Return:
 2. Evidence as repository-relative paths and symbol names.
 3. Constraints, edge cases, and uncertainty.
 4. The smallest useful next investigation, only if something remains unknown.
+
+Start with item 1 and stop after the last item that has content. Do not
+restate the question, describe your search, or add a closing summary.
+Every claim keeps its `path:line`; the answer gets shorter by leaving out
+narration, not evidence.

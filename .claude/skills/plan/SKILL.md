@@ -6,65 +6,67 @@ argument-hint: "[request or path of an existing plan]"
 
 # Plan FlowSeer work
 
-A plan is an implementation decision record. It exists so that a later session
-can implement the change without re-deriving the decisions, and so that a
-reviewer can check the result against something written down. Plans do not
-override accepted direction in `docs/architecture/` or a binding convention.
+A plan is an implementation decision record: a later session implements from
+it without re-deriving the decisions, and a reviewer checks the result against
+it. Plans do not override `docs/architecture/` or a convention.
 
 ## Skip the plan when
 
-The request fits in one sitting, touches one package (its README and the
-docs that describe it count as the package), and involves no design choice.
-A grep of the touched area is enough to decide; do not read further first.
-Implement it directly with the work sequence in `AGENTS.md`, keep the same
-wording at every site that states the same fact, and say that you skipped the
-plan and why.
-
-## Inputs
-
-- The request, in the user's words.
-- Any existing plan, direction record, or solution the user points at.
+The request fits in one sitting, touches one package (its README and docs
+count as the package), and involves no design choice. Implement it directly
+with the work sequence in `AGENTS.md` and say that you skipped the plan.
 
 ## 1. Orient and frame
 
-Before asking anything, read the source the request touches, the
-`CONCEPTS.md` entries for the entities involved, the `docs/architecture/`
-records that name the same area, and the "Read when" column of
-`docs/solutions/README.md` (the same conditions sit in each solution's
-`applies_when` frontmatter). The plan must fit the accepted direction. When
-the request conflicts with it, say so first and make the amendment of the
-direction record a unit of this plan, so code and record change together.
+Read the source the request touches, the `CONCEPTS.md` entries for its
+entities, the `docs/architecture/` records for the area, and the "Read when"
+column of `docs/solutions/README.md`. When the request conflicts with an
+accepted record, say so first and make amending the record a unit of the
+plan, so code and record change together.
 
-Ask the user only questions whose answer changes the design. Three is the
-usual limit; batch them in one message with your recommended answer for each.
-Do not ask about things the code or the conventions already decide. When the
-request is clear, ask nothing and move on. When the user cannot answer, take
-your recommendation, record it in Decisions marked "unconfirmed", and list it
-again under Open questions.
+Ask only questions whose answer changes the design, at most three, in one
+message with a recommended answer each. When the user cannot answer, take the
+recommendation, mark the decision "unconfirmed", and repeat it under Open
+questions. Every decision carries its reason.
 
-Record each answer and each decision you made yourself in the plan's
-Decisions section, with the reason. A decision without a reason is a guess.
+### Promote a decision to a direction record
+
+A plan goes stale once the work lands. A decision that outlives the task
+belongs in `docs/architecture/`, this repository's architecture decision
+record. Promote a decision when reverting it would touch more than one package
+or a wire contract, when it constrains work outside this plan's units, when it
+changes an accepted record, or when an earlier plan or record already decided
+the same question. Which library, test layout, or field name stays a plan
+decision.
+
+Write `docs/architecture/<date>-<slug>-direction.md` with the frontmatter of
+the existing records and `status: proposed-direction`, add a "Proposed
+direction" row to `docs/architecture/README.md`, and cite the record from the
+plan's Decisions. When it amends an accepted record, edit that record in the
+unit that changes the code and name it in `amends`. The body gives the
+context, the decision, the alternatives and why they lost, and the
+consequences. Write only what the evidence supports; nobody edits a record
+after acceptance. Only a person sets `accepted-direction`: ask for it in the
+handoff and treat a proposed record as non-binding until then.
 
 ## 2. Gather evidence
 
-Most questions are one grep or one bounded read; answer those yourself. When
-a question needs many files read (which callers depend on Y across the tree,
-what a large fixture covers), delegate it as `delegate` describes: a lookup
-to `Explore`, a question that needs judgment to `repo-researcher`, one
-bounded question per agent, in parallel when they are independent.
+Answer one-grep questions yourself. Delegate a question that needs many files
+read as `delegate` describes, one bounded question per agent, in parallel
+when independent.
 
-Read external references (RFCs, vendor specs under `spec/`, library source
-under `~/go/pkg/mod`) when the change depends on them, and cite them in the
-plan.
+Read the RFCs, vendor specs under `spec/`, and library source under
+`~/go/pkg/mod` the change depends on, and cite them. For a third-party library
+outside the module cache, use Context7 (`mcp__context7__query-docs` when
+connected, else the `ctx7` CLI), one question per query; keep the code example
+it returns and record the library version the plan relied on. Fetch every URL
+before citing it and cite only what the page says.
 
 ## 3. Write the plan
 
-Path: `docs/plans/<date>-<type>-<slug>-plan.md`, where `<date>` is
-`date +%Y-%m-%d-%H%M`. `<type>` follows the commit type the work will carry:
-`feat` adds behavior, `fix` closes a defect or a gap in a landed contract,
-`refactor` keeps behavior, `perf`, `docs`, `chore`.
-
-Frontmatter:
+Path: `docs/plans/<date>-<type>-<slug>-plan.md`, `<date>` from
+`date +%Y-%m-%d-%H%M`, `<type>` the commit type the work will carry (`feat`,
+`fix`, `refactor`, `perf`, `docs`, `chore`).
 
 ```yaml
 ---
@@ -80,28 +82,24 @@ superseded_by: <path of the replacing plan; only with status superseded>
 ---
 ```
 
-`status` records the outcome so a reader can filter plans without opening
-them: `planned` until the work lands, then `implemented`,
-`partially-implemented`, `superseded`, or `abandoned`. A new plan is always
-`planned`. `artifact_readiness` stays as written because it describes the
-plan's completeness, not its progress.
+`status` is `planned` until the work lands, then `implemented`,
+`partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
+describes the plan's completeness and does not change with progress.
 
-Body, in this order. Leave out a section that has nothing to say rather than
-filling it.
+Body, in this order; leave out an empty section.
 
 ```markdown
 # <Title> - Plan
 
 ## Goal
-One paragraph: the observable outcome, and the means in one sentence.
-Then a one-sentence stop condition: the discovery that would make this plan
-wrong ("stop if a non-test caller already depends on the zero value").
+One paragraph: the observable outcome, and the means in one sentence. Then a
+one-sentence stop condition: the discovery that would make this plan wrong.
 
 ## Decisions
 - <Decision>. Why: <reason grounded in code, convention, or evidence>.
 
 ## Requirements
-Numbered, testable statements. Each has one acceptance example: a concrete
+Numbered, testable statements, each with one acceptance example: a concrete
 input and the expected result, close enough to become a test.
 
 ## Out of scope
@@ -119,45 +117,39 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>`
 The commands that prove the whole change, and any manual or lab check.
 
 ## Definition of done
-Checklist. Includes: verifier green for every changed path, package README
-and convention docs updated in the same change, and this plan's `status`
-set with an outcome note under its title (see `docs/README.md`).
+Checklist: verifier green for every changed path, package README and
+convention docs updated in the same change, this plan's `status` set with an
+outcome note under its title, no plan labels in code.
 
 ## Open questions
-Things the implementer must decide or ask. Empty is a valid answer.
+What the implementer must decide or ask. Empty is a valid answer.
 ```
 
-Rules for the plan text:
+Rules:
 
-- Follow `docs/doc-style.md`. Plain sentences, one idea each. No em-dash
-  chains, no rule-of-three lists, no bold lead-in bullets.
-- Cite files as repository-relative paths. Cite sources with a URL or the
-  section of the document.
-- `After: none` means the unit can be implemented and verified with every
-  other unit absent; `implement` may run such units in parallel. Two units
-  that touch the same file are never both `none`.
-- Requirement and unit labels (R1, U2) are for the plan only. The
-  implementer must not copy them into code, comments, or commit messages.
-  Say that in the plan's Definition of done.
-- A plan under 60 lines is fine for small work. Over 300 lines, split the
-  work into two plans or cut what the implementer can decide alone.
+- Follow `docs/doc-style.md`. Cite files as repository-relative paths and
+  sources with a URL or document section.
+- `After: none` means the unit can land with every other unit absent, so
+  `implement` may run it in parallel. Two units that touch the same file are
+  never both `none`.
+- Requirement and unit labels (R1, U2) stay in the plan and never enter code,
+  comments, or commit messages.
+- Over 300 lines, split the plan or cut what the implementer can decide alone.
 
 ## 4. Review the plan
 
-Read the plan once as the implementer: can each unit be started without
-asking a question? Fix the plan where the answer is no. A plan that misleads
-costs more than no plan.
-
-For plans with more than three units or a schema change, dispatch one
-`independent-reviewer` briefed as `delegate` describes, with the plan path
-and the question "what would block or mislead an implementer, and what does
-the plan contradict in `docs/architecture/` or the conventions?". Apply the
-findings that hold. Do not dispatch a panel; one careful pass is enough.
+Read the plan as the implementer: can each unit start without a question? Fix
+the plan where not. For more than three units or a schema change, dispatch one
+`independent-reviewer` as `delegate` describes, with the plan path and the
+question "what would block or mislead an implementer, and what does the plan
+contradict in `docs/architecture/` or the conventions?". Apply the findings
+that hold.
 
 ## 5. Hand off
 
-Run the verifier on the plan file. In Orca, set the worktree comment to the
-plan path and its readiness. Tell the user, in this order: the path, the
-readiness, the open questions, and the one decision you are least sure of.
-Do not start implementing unless asked. If the user corrected this
-procedure rather than the plan, log it as `compound`, Observe describes.
+Run the verifier on the plan and any direction record it added. In Orca, set
+the worktree comment to the plan path and its readiness. Report the path, the
+readiness, any proposed direction record awaiting acceptance, the open
+questions, and the decision you are least sure of. Do not start implementing
+unless asked. A correction to this procedure is logged as `compound`, Observe
+describes.

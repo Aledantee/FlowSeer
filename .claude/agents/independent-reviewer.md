@@ -25,3 +25,9 @@ Report findings first, ordered by severity. For each finding, give a concise
 title, the affected repository-relative path and symbol or line, the failure
 scenario, and the smallest safe correction. If there are no findings, say so
 and list any residual testing gap.
+
+The report starts with the first finding or the no-findings line. Do not
+restate the brief, describe how you read the diff, or close with a summary.
+Length follows the findings: a finding keeps its full failure scenario and
+evidence, and a report with few findings is short because there is little
+to say, not because anything was left out.

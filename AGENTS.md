@@ -59,10 +59,14 @@ no remote. The Claude worktree hook defaults to the sibling
   `repo-researcher` for a bounded read-only question, `independent-reviewer`
   for a fresh pass over changed files, and an Orca worker for editing work
   when an Orca runtime is reachable.
-- The project skills `plan`, `implement`, `review`, and `compound` under
-  `.claude/skills/` carry the multi-step workflows; each says when it applies
-  and when to skip it. `docs/agent-steering.md` records why they are shaped
-  this way.
+- The project skills `plan`, `implement`, `review`, `compound`, `close`,
+  and `steer` under `.claude/skills/` carry the multi-step workflows; each
+  says when it applies and when to skip it. `close` merges into `master`
+  only after `implement`, `review`, and `compound` have left their
+  checkpoints and leaves the worktree ready for removal; removing it is a
+  person's action. `steer` works the queue in `docs/agent-observations.md`
+  on request and stops at a staged diff for any policy surface.
+  `docs/agent-steering.md` records why they are shaped this way.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
 - FlowSeer is still building its building blocks and nothing external consumes

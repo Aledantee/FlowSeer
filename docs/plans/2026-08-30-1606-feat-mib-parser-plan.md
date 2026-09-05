@@ -22,7 +22,7 @@ execution: code
 - **Product authority:** This plan owns the parser, its object model, its diagnostics, and the build-time renderer (`mibgen`). It does not own the `snmp` runtime decode API or the shape of generated bindings, which stay as they are.
 - **Execution profile:** Build the parser bottom-up behind a corpus harness, then cut `mibgen` over in a single reviewed step that must produce byte-identical output. Retire `gosmi` only after the differential test has served its purpose.
 - **Stop conditions:** Stop and ask if U12 produces any diff in `generated/go/mib`, or if U15 produces any diff beyond the single `Source SHA-256` line named in its Done criterion. Stop and ask before editing `.claude/skills/verify-change/scripts/verify-change.sh` beyond the two edits U14 describes: the MIB-gate path case and the `--full` full-corpus invocation.
-- **Tail ownership:** Standalone `ce-work` owns branch, verification, and commits. This plan does not prescribe PR shape.
+- **Tail ownership:** The implementing session owns branch, verification, and commits. This plan does not prescribe PR shape.
 
 **Product Contract preservation:** changed — R1 (framer boundary signal corrected against RFC grammar, and the `OBJECT IDENTIFIER` value-assignment head added), R4 (import cycle demoted from fatal; concrete limits fixed), R7 (macro skipping specified as token-level), R17 (second renderer deferred), R21 (intra-file parallelism removed on measurement), R43 (split; the emitted-import half deferred as R44). R20, R28, R33, R34, R36 and R37 moved to Deferred to Follow-Up Work with their IDs retained. R41, R42, R45, R46, R47 and R48 added. All other requirements carry forward unchanged.
 

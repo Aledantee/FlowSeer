@@ -248,6 +248,7 @@ fi
 if ((${#modules[@]})); then
   need_tool go
   need_tool golangci-lint
+  need_tool python3
   for module in "${modules[@]}"; do
     echo "== Go module: $module =="
     (
@@ -256,11 +257,61 @@ if ((${#modules[@]})); then
       # main packages (e.g. a fully build-tag-gated bench module). Plain
       # go build compiles everything and discards the binaries.
       run go build ./...
-      run go vet ./...
-      run go test -race ./...
-      # ./... would make the linters load and analyze the generated trees
-      # even though their findings are excluded; enumerate packages and
-      # drop generated output so lint stays bounded by hand-written code.
+      # A targeted run vets, tests, and lints only the packages that can
+      # observe the change: those holding a changed file plus every
+      # package that imports one of them, directly or through its test
+      # imports. A module-wide race run of this repository takes over ten
+      # minutes and was being repeated per worker and per integration
+      # for changes a single package proves in seconds. --full and a
+      # module selected without a changed Go file (a go.mod edit) keep
+      # the module-wide scope.
+      targets=(./...)
+      changed_pkgs=()
+      for go_file in "${go_files[@]}"; do
+        if [[ $module == . ]]; then
+          rel=$go_file
+        elif [[ $go_file == "$module"/* ]]; then
+          rel=${go_file#"$module"/}
+        else
+          continue
+        fi
+        pkg_dir=$(dirname "$rel")
+        [[ -d $pkg_dir ]] || continue
+        pkg=$(go list -e -f '{{.ImportPath}}' "./$pkg_dir" 2>/dev/null) || continue
+        [[ -n $pkg ]] && changed_pkgs+=("$pkg")
+      done
+      if [[ $full == false && ${#changed_pkgs[@]} -gt 0 ]]; then
+        go list -e -f '{{.ImportPath}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... > "$build_dir/packages.txt"
+        targets=()
+        # macOS ships bash 3.2, which has no mapfile.
+        while IFS= read -r target; do
+          targets+=("$target")
+        done < <(python3 - "$build_dir/packages.txt" "${changed_pkgs[@]}" <<'PY'
+import sys
+
+rows = []
+with open(sys.argv[1], encoding="utf-8") as handle:
+    for line in handle:
+        import_path, _, deps = line.rstrip("\n").partition("|")
+        rows.append((import_path, set(deps.split())))
+affected = set(sys.argv[2:])
+grown = True
+while grown:
+    grown = False
+    for import_path, deps in rows:
+        if import_path not in affected and deps & affected:
+            affected.add(import_path)
+            grown = True
+print("\n".join(sorted(affected)))
+PY
+)
+        echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
+      fi
+      run go vet "${targets[@]}"
+      run go test -race "${targets[@]}"
+      # Enumerate package directories and drop generated output so lint
+      # stays bounded by hand-written code even though generated findings
+      # are excluded by configuration.
       lint_pkgs=()
       module_dir=$PWD
       while IFS= read -r pkg_dir; do
@@ -273,7 +324,7 @@ if ((${#modules[@]})); then
         else
           lint_pkgs+=("./${pkg_dir#"$module_dir"/}")
         fi
-      done < <(go list -f '{{.Dir}}' ./... | grep -vE '/generated(/|$)')
+      done < <(go list -f '{{.Dir}}' "${targets[@]}" | grep -vE '/generated(/|$)')
       if ((${#lint_pkgs[@]})); then
         run golangci-lint run --config "$root/.golangci.yml" "${lint_pkgs[@]}"
       fi

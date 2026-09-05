@@ -113,7 +113,6 @@ flowchart TB
 - U7 regenerates every MIB module, not only `ifmib` and `lldpmib`, so its diff is wide even though its behavior change is narrow.
 - The vendored `spec/mib/ieee/LLDP-MIB` and `LLDP-EXT-DOT3-MIB` carry local patches commenting out constructs that crash the MIB parser. U7 must not re-sync those files from upstream; if it ever does, the patches are re-applied.
 
-<!-- ce-section: work-relationships -->
 ### How This Work Fits Together
 
 This plan owns the rename plus the `interface` and `lldp` packages. The surrounding breakdown is the current understanding, not a committed roadmap:
