@@ -15,12 +15,19 @@ after reading the report.
 
 ## 1. Read the checkpoints
 
-The branch is the current worktree's branch; the plan is the argument, or the
-plan file the branch changed under `docs/plans/`.
+The branch is the current worktree's branch; the plan is the argument, or
+the plan under `docs/plans/` that records this work, found among the files
+`git diff --name-only master...HEAD` lists. Work that skipped the plan under
+`plan`'s skip rule has none. A plan the branch touched for another reason,
+say a typo fix or a `superseded_by` field, is not this work's plan; say so
+and treat the work as planless. Planless work has no `status` field to
+read, so its implementation signal is the card's `implemented:` entry with
+the card status `in-review`, a non-empty `master..HEAD` range, and the
+receipt signal. The report says the merge landed without a plan.
 
 | Signal | Where | Required value |
 | --- | --- | --- |
-| Implementation landed | plan frontmatter | `status: implemented` |
+| Implementation landed | plan frontmatter, or the card when the work is planless | `status: implemented`, or a comment beginning `implemented:` with `.workspaceStatus` `in-review` and commits in `master..HEAD` |
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Review verdict | Orca worktree comment, `review:` entry | `accept` or `accept after fixes` |
 | Lesson captured or declined | Orca worktree comment, `compound:` entry | a solution path, `no lesson`, or `observation logged` |
@@ -33,16 +40,21 @@ orca worktree show --worktree active --json   # .result.worktree.comment and .wo
 ```
 
 Outside Orca there is no card: ask the user for the review verdict and the
-compound outcome in one question and record the answers in the report.
+compound outcome, and for the implementation outcome when there is no plan,
+in one question and record the answers in the report.
 
 A failed signal whose remedy is another skill's work (a plan not
-implemented, no review verdict, no compound outcome) stops the skill here:
-report which one and name the skill to run next. Do not merge a partial
-implementation because the landed units pass. A failed signal with a
-mechanical remedy (a receipt older than the last commit, a dirty marker)
-is not a stop: name the remedy, ask the user whether to apply it, and
-re-read the signal after doing so. Batch every remedy from steps 1 and 2
-into one question.
+implemented, a `partially implemented:` card entry, no review verdict, no
+compound outcome) stops the skill here: report which one and name the skill
+to run next. Do not merge a partial implementation because the landed units
+pass. A failed signal with a mechanical remedy (a receipt older than the
+last commit, a dirty marker) is not a stop: name the remedy, ask the user
+whether to apply it, and re-read the signal after doing so. Planless work
+done in the main conversation, or by `steer`, leaves no `implemented:`
+entry at all; when `master..HEAD` is non-empty and the receipt signal
+holds, that is a mechanical remedy too: ask the user whether the work is
+complete, and on yes write the entry with `orca worktree set` before
+merging. Batch every remedy from steps 1 and 2 into one question.
 
 ## 2. Check both trees
 

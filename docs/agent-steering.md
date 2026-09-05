@@ -121,6 +121,10 @@ skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
 leave a checkpoint that `close` reads: the plan's `status` field, the
 verifier receipt under the git dir, and the Orca card's status and comment.
+Work that skipped the plan has no `status` field, so the card's
+`implemented:` entry and status, the commit range, and the receipt stand in
+for it; a branch that skipped the plan otherwise stopped `close` at its
+first signal.
 A missing checkpoint stops the merge and names the skill to run next;
 `close` does not run that skill itself, for the same reason `implement`
 does not trigger a review. The skill leaves the worktree ready for
