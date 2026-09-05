@@ -63,6 +63,17 @@ replaces it. Abandoned work is never resumed.
 - An observation with `completeness: PARTIAL` is evidence for routing and
   nothing else; only a complete observation can verify.
 
+## Typed reads
+
+`TypedRead` is the read-side counterpart to `MutationIntent`'s `change`
+oneof: a required, typed-variant wrapper so a read the device's lane admits
+is as typed as a write it admits. Today it has one arm,
+`InterfaceReadIntent`, naming the interface by the device-local name the
+device spells, the same key `InterfaceObservation` uses. The execution
+envelope in `integration/device/v1` dispatches a `TypedRead` the same way it
+dispatches a `MutationIntent`, and any future read capability joins this
+oneof rather than inventing a second read shape.
+
 ## What is deliberately absent
 
 - Secrets, sessions, and transcripts. A `Provenance` names a binding, an

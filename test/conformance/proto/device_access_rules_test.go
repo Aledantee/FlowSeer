@@ -63,6 +63,32 @@ func interfaceObservation() accessv1.InterfaceObservation_builder {
 	}
 }
 
+func interfaceReadIntent(name string) *accessv1.InterfaceReadIntent {
+	return accessv1.InterfaceReadIntent_builder{InterfaceName: proto.String(name)}.Build()
+}
+
+func TestInterfaceReadIntentRules(t *testing.T) {
+	tests := []validationCase{
+		{name: "named interface is valid", message: interfaceReadIntent("ethernet 1/1/1"), wantValid: true},
+		{name: "empty interface name is rejected", message: interfaceReadIntent("")},
+	}
+
+	runValidationCases(t, tests)
+}
+
+func TestTypedReadRules(t *testing.T) {
+	tests := []validationCase{
+		{
+			name:      "interface read is valid",
+			message:   accessv1.TypedRead_builder{Interface: interfaceReadIntent("ethernet 1/1/1")}.Build(),
+			wantValid: true,
+		},
+		{name: "read without an arm is rejected", message: accessv1.TypedRead_builder{}.Build()},
+	}
+
+	runValidationCases(t, tests)
+}
+
 func TestActorRules(t *testing.T) {
 	tests := []validationCase{
 		{name: "operator actor is valid", message: operatorActor(), wantValid: true},

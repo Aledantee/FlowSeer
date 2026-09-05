@@ -93,3 +93,25 @@ message InterfaceObservation {
     }
   ];
 }
+
+// The intent to read one interface's current state.
+message InterfaceReadIntent {
+  // The device-local interface name, as the device spells it. Must be
+  // present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+}
+
+// A typed read the device's lane admits alongside its mutations. Every
+// device-access boundary that dispatches a read shares this shape; adding a
+// capability's read intent is adding an arm.
+message TypedRead {
+  oneof read {
+    option (buf.validate.oneof).required = true;
+
+    InterfaceReadIntent interface = 1;
+  }
+}

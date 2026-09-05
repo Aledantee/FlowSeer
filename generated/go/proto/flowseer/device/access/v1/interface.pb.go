@@ -437,6 +437,217 @@ func (b0 InterfaceObservation_builder) Build() *InterfaceObservation {
 	return m0
 }
 
+// The intent to read one interface's current state.
+type InterfaceReadIntent struct {
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_InterfaceName *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *InterfaceReadIntent) Reset() {
+	*x = InterfaceReadIntent{}
+	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InterfaceReadIntent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InterfaceReadIntent) ProtoMessage() {}
+
+func (x *InterfaceReadIntent) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *InterfaceReadIntent) GetInterfaceName() string {
+	if x != nil {
+		if x.xxx_hidden_InterfaceName != nil {
+			return *x.xxx_hidden_InterfaceName
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *InterfaceReadIntent) SetInterfaceName(v string) {
+	x.xxx_hidden_InterfaceName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *InterfaceReadIntent) HasInterfaceName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *InterfaceReadIntent) ClearInterfaceName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_InterfaceName = nil
+}
+
+type InterfaceReadIntent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The device-local interface name, as the device spells it. Must be
+	// present.
+	InterfaceName *string
+}
+
+func (b0 InterfaceReadIntent_builder) Build() *InterfaceReadIntent {
+	m0 := &InterfaceReadIntent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.InterfaceName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_InterfaceName = b.InterfaceName
+	}
+	return m0
+}
+
+// A typed read the device's lane admits alongside its mutations. Every
+// device-access boundary that dispatches a read shares this shape; adding a
+// capability's read intent is adding an arm.
+type TypedRead struct {
+	state           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Read isTypedRead_Read       `protobuf_oneof:"read"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TypedRead) Reset() {
+	*x = TypedRead{}
+	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TypedRead) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TypedRead) ProtoMessage() {}
+
+func (x *TypedRead) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_device_access_v1_interface_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *TypedRead) GetInterface() *InterfaceReadIntent {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Read.(*typedRead_Interface); ok {
+			return x.Interface
+		}
+	}
+	return nil
+}
+
+func (x *TypedRead) SetInterface(v *InterfaceReadIntent) {
+	if v == nil {
+		x.xxx_hidden_Read = nil
+		return
+	}
+	x.xxx_hidden_Read = &typedRead_Interface{v}
+}
+
+func (x *TypedRead) HasRead() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Read != nil
+}
+
+func (x *TypedRead) HasInterface() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Read.(*typedRead_Interface)
+	return ok
+}
+
+func (x *TypedRead) ClearRead() {
+	x.xxx_hidden_Read = nil
+}
+
+func (x *TypedRead) ClearInterface() {
+	if _, ok := x.xxx_hidden_Read.(*typedRead_Interface); ok {
+		x.xxx_hidden_Read = nil
+	}
+}
+
+const TypedRead_Read_not_set_case case_TypedRead_Read = 0
+const TypedRead_Interface_case case_TypedRead_Read = 1
+
+func (x *TypedRead) WhichRead() case_TypedRead_Read {
+	if x == nil {
+		return TypedRead_Read_not_set_case
+	}
+	switch x.xxx_hidden_Read.(type) {
+	case *typedRead_Interface:
+		return TypedRead_Interface_case
+	default:
+		return TypedRead_Read_not_set_case
+	}
+}
+
+type TypedRead_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Read:
+	Interface *InterfaceReadIntent
+	// -- end of xxx_hidden_Read
+}
+
+func (b0 TypedRead_builder) Build() *TypedRead {
+	m0 := &TypedRead{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Interface != nil {
+		x.xxx_hidden_Read = &typedRead_Interface{b.Interface}
+	}
+	return m0
+}
+
+type case_TypedRead_Read protoreflect.FieldNumber
+
+func (x case_TypedRead_Read) String() string {
+	md := file_flowseer_device_access_v1_interface_proto_msgTypes[3].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isTypedRead_Read interface {
+	isTypedRead_Read()
+}
+
+type typedRead_Interface struct {
+	Interface *InterfaceReadIntent `protobuf:"bytes,1,opt,name=interface,oneof"`
+}
+
+func (*typedRead_Interface) isTypedRead_Read() {}
+
 var File_flowseer_device_access_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
@@ -458,7 +669,12 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"provenance\x12Z\n" +
 	"\fcompleteness\x18\x06 \x01(\x0e2'.flowseer.device.access.v1.CompletenessB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x8d\x02\xbaH\x89\x02\x1a\x86\x02\n" +
-	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))*a\n" +
+	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\"J\n" +
+	"\x13InterfaceReadIntent\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"j\n" +
+	"\tTypedRead\x12N\n" +
+	"\tinterface\x18\x01 \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
+	"\x04read\x12\x05\xbaH\x02\b\x01*a\n" +
 	"\fCompleteness\x12\x1c\n" +
 	"\x18COMPLETENESS_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15COMPLETENESS_COMPLETE\x10\x01\x12\x18\n" +
@@ -466,25 +682,28 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"\x1dcom.flowseer.device.access.v1B\x0eInterfaceProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1;accessv1\xa2\x02\x03FDA\xaa\x02\x19Flowseer.Device.Access.V1\xca\x02\x19Flowseer\\Device\\Access\\V1\xe2\x02%Flowseer\\Device\\Access\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Device::Access::V1b\beditionsp\xe9\a"
 
 var file_flowseer_device_access_v1_interface_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_device_access_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_device_access_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_flowseer_device_access_v1_interface_proto_goTypes = []any{
 	(Completeness)(0),                  // 0: flowseer.device.access.v1.Completeness
 	(*InterfaceDescriptionChange)(nil), // 1: flowseer.device.access.v1.InterfaceDescriptionChange
 	(*InterfaceObservation)(nil),       // 2: flowseer.device.access.v1.InterfaceObservation
-	(v1.AdminStatus)(0),                // 3: flowseer.net.interface.v1.AdminStatus
-	(v1.OperStatus)(0),                 // 4: flowseer.net.interface.v1.OperStatus
-	(*v11.Provenance)(nil),             // 5: flowseer.api.inventory.v1.Provenance
+	(*InterfaceReadIntent)(nil),        // 3: flowseer.device.access.v1.InterfaceReadIntent
+	(*TypedRead)(nil),                  // 4: flowseer.device.access.v1.TypedRead
+	(v1.AdminStatus)(0),                // 5: flowseer.net.interface.v1.AdminStatus
+	(v1.OperStatus)(0),                 // 6: flowseer.net.interface.v1.OperStatus
+	(*v11.Provenance)(nil),             // 7: flowseer.api.inventory.v1.Provenance
 }
 var file_flowseer_device_access_v1_interface_proto_depIdxs = []int32{
-	3, // 0: flowseer.device.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
-	4, // 1: flowseer.device.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
-	5, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.api.inventory.v1.Provenance
+	5, // 0: flowseer.device.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
+	6, // 1: flowseer.device.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
+	7, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.api.inventory.v1.Provenance
 	0, // 3: flowseer.device.access.v1.InterfaceObservation.completeness:type_name -> flowseer.device.access.v1.Completeness
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 4: flowseer.device.access.v1.TypedRead.interface:type_name -> flowseer.device.access.v1.InterfaceReadIntent
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_device_access_v1_interface_proto_init() }
@@ -492,13 +711,16 @@ func file_flowseer_device_access_v1_interface_proto_init() {
 	if File_flowseer_device_access_v1_interface_proto != nil {
 		return
 	}
+	file_flowseer_device_access_v1_interface_proto_msgTypes[3].OneofWrappers = []any{
+		(*typedRead_Interface)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_device_access_v1_interface_proto_rawDesc), len(file_flowseer_device_access_v1_interface_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
