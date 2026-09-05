@@ -209,6 +209,18 @@ A delegate has none of this conversation. The brief states, in order:
    the coordinator then finds a committed branch with no `worker_done`,
    settles the dispatch by hand, and loses the worker's summary.
 
+   The durable fix is per machine, not per call: Orca's control socket
+   lives under `~/Library/Application Support/orca/` with a name that
+   changes on every app restart, so no path allowlist holds. Setting
+   `{"sandbox":{"network":{"allowAllUnixSockets":true}}}` in the user's
+   `~/.claude/settings.json` lets every session and worker reach Orca
+   sandboxed, with no restart. It is a user setting because the path is
+   machine-specific; nothing in the repository can carry it.
+7. For an Orca worker, that editing subagents stay out of its checkout. A
+   worker that spawns the Agent tool without worktree isolation gets its
+   subagents' files in its own tree and reads them as a duplicate dispatch.
+   Read-only subagents are fine; editing work runs in the worker's own turn.
+
 A brief for `Explore` or `repo-researcher` names the directories to search and
 leaves out `docs/plans/` unless the question is about a plan; the tree, the
 package README, and the `docs/architecture/` record describe what exists.
