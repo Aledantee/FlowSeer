@@ -48,7 +48,7 @@ spec/proto/flowseer/
   net/
     addr/v1/            MAC/OUI and IP address, prefix, range, scope, and lifetime values
     packet/v1/          EtherType, DSCP, ECN, IP protocol, ports, TCP flags, and ICMP match atoms
-    phy/v1/             Ethernet settings, capabilities, active facts, PoE, and transceiver summary
+    phy/v1/             Ethernet settings, capabilities, active facts, MAU, counters, transport arms, pluggable module, PoE
     switching/v1/       VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
     ip/v1/              IpFacet, InterfaceAddress, NeighborEntry
     interface/v1/       Interface (oneof kind) and one message per kind arm
@@ -283,14 +283,20 @@ Why this and not the alternatives:
 - **`OtherInterface`** exists so an SNMP walk over the ~280 IANA `ifType`s
   never has to drop a row; it carries the raw type and the common fields.
 
-### Hardware ports are a later, separate object
+### Hardware ports are a later, separate object; their values are not
 
-The physical *port as hardware* — lanes, connector, transceiver, PoE PSE
-channel — is the one genuinely separate object in prior art (OpenConfig
-`components/component[port]` ↔ `interfaces/interface/state/hardware-port`,
-ENTITY-MIB `entPhysical` ↔ `ifIndex` via `entAliasMappingTable`). For v1 the
-`EthernetFacet` carries what IF-MIB and ETHERLIKE-MIB give; a platform
-component tree with a link to the interface arrives with ENTITY-MIB mapping.
+The physical *port as hardware* — the component with its slot, its cage,
+and its PoE PSE channel — is the one genuinely separate object in prior art
+(OpenConfig `components/component[port]` ↔
+`interfaces/interface/state/hardware-port`, ENTITY-MIB `entPhysical` ↔
+`ifIndex` via `entAliasMappingTable`). That component tree, with its link to
+the interface, arrives with ENTITY-MIB mapping. The *values* it will carry
+do not wait for it: `EthernetFacet` already holds the pluggable module with
+its SFF identity and per-lane diagnostics, the MAU type and link modes, the
+Ethernet counters, and a transport oneof whose copper arm owns PoE, because
+every one of those is a ref-free value a per-interface MIB reports today.
+The component entity embeds the same messages when it lands; nothing in
+`net/phy` references it.
 
 ### One interface identity
 
@@ -691,3 +697,37 @@ names stay open until the first boundary schema is designed. It also does not
 choose a package for a future Interface entity and its refs. Do not infer that
 boundary from `net/interface/v1` or a former empty `api/interface/v1`
 placeholder; amend this accepted record before adding the entity family.
+
+### 2026-09-05 — phy owns the transport variants and the pluggable-module values
+
+Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
+
+- **`EthernetFacet` splits by transport.** The flat facet with a medium enum
+  let a producer attach PoE to a fiber port until a CEL rule caught it after
+  the fact, and every deferred field would have needed another guard. The
+  facet now keeps the link facts every medium shares and carries an optional
+  transport oneof; the copper arm owns PoE intent, delivery state, and the PSE
+  port row, while the fiber, backplane, and other arms state the medium and
+  carry nothing else. This is the typed-variant convention applied to a
+  facet, and it is the wire-breaking reshape the pre-stability rule requires
+  when the design improves.
+- **The pluggable module hangs off presence, not medium.** A direct-attach
+  cable or a copper SFP module reports the same SFF-8472 identity as an
+  optical one, so identity and per-lane diagnostics live on a module message
+  beside the oneof, present exactly when a cage is reported. The "hardware
+  ports" section above is rewritten to say so: the component *entity* is
+  still later work, but the values it embeds are in phy now, ref-free, because
+  the component model has no schema or consumer and waiting for it dropped
+  walk values.
+- **The deferred PHY values land.** Exact MAU types (a typed variant of IANA
+  registration number or raw OID, so nothing is lost), advertised and received
+  link modes as a registry pass-through enum numbered by IANA-MAU-MIB bit
+  position, EtherLike-MIB error counters, per-port PoE fault counters keyed by
+  PSE group and port, and a group-level PSE budget. PoE rows keep the MIB's own
+  group and port key because POWER-ETHERNET-MIB never carries `ifIndex`; the
+  join to an interface is the mapper's per-device rule, and a row with no rule
+  is returned standalone rather than guessed.
+- **Optics measurements are linear integers on the wire.** Nanowatts,
+  microamperes, microvolts, and millidegrees carry SFF-8472's native steps
+  without loss and give zero light a plain zero; consumers derive dBm. Two
+  vendored DDM MIBs report dBm, and the mapper converts them once.

@@ -10,7 +10,9 @@ their versioned protobuf package names.
 - `flowseer.net.packet.v1` owns packet-header registries, exact header values,
   and small reusable match atoms.
 - `flowseer.net.phy.v1` owns Ethernet settings, capabilities, active link facts,
-  PoE, and shallow pluggable-transceiver observations.
+  MAU types and link modes, Ethernet error counters, a transport oneof whose
+  copper arm carries PoE, the pluggable module with its per-lane diagnostics,
+  and the PSE power budget.
 - `flowseer.net.switching.v1` owns VLANs, exact tag stacks, switchport
   membership, aggregation attributes, and unicast forwarding-database rows.
 - `flowseer.net.ip.v1` owns per-interface IPv4/IPv6 facets, assigned-address
