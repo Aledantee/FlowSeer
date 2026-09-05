@@ -4,11 +4,17 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # FastIron Interface Capability - Plan
+
+> Outcome: all units (U0-U6) landed. Two rounds of independent review (one
+> of the plan, one of the implementation) found corrections, recorded under
+> Amendments and applied; `go test -race` and the verifier are green for
+> every path this plan names. See the final commit on this branch for the
+> exact state.
 
 ## Goal
 
