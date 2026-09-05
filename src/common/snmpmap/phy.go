@@ -283,7 +283,10 @@ func walkEtherLike(ctx context.Context, sess snmp.Session, facets map[uint32]*ph
 			continue
 		}
 
-		if _, seen := stats[ifIndex]; !seen {
+		_, inStats := stats[ifIndex]
+		_, inHC := hc[ifIndex]
+
+		if !inStats && !inHC {
 			order = append(order, ifIndex)
 		}
 

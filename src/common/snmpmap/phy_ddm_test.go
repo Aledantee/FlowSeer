@@ -20,7 +20,7 @@ import (
 // checked against the MIB text.
 
 func TestPhysical_DlinkEmptyCage(t *testing.T) {
-	// Covers AE3: a D-Link port with no module reports an empty laser
+	// A D-Link port with no module reports an empty laser
 	// identifier, and nothing else about the cage survives.
 	vbs := []vbFixture{
 		stringAt(dlinkswsfpinfomib.DPortSfpInfoLaserIdentifier, []byte(""), 5),
@@ -45,7 +45,7 @@ func TestPhysical_DlinkEmptyCage(t *testing.T) {
 }
 
 func TestPhysical_DlinkDacOnCopperArm(t *testing.T) {
-	// Covers AE3: a direct-attach cable on a copper port keeps its
+	// A direct-attach cable on a copper port keeps its
 	// identity beside the copper arm.
 	vbs := []vbFixture{
 		objectIDAt(maumib.IfMauType, ianaMauType(54), 9, 1),
@@ -221,7 +221,7 @@ func TestPhysical_HpDbmConversion(t *testing.T) {
 }
 
 func TestPhysical_Hh3cChannelsOutOfOrder(t *testing.T) {
-	// Covers AE4: an H3C four-lane module whose channel rows arrive out of
+	// An H3C four-lane module whose channel rows arrive out of
 	// order still maps to lanes 1 through 4 in order.
 	vbs := []vbFixture{
 		stringAt(hh3ctransceiverinfomib.Hh3cTransceiverHardwareType, []byte("QSFP28"), 49),

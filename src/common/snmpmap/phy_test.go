@@ -59,7 +59,7 @@ func mustValid(t *testing.T, m proto.Message) {
 }
 
 func TestPhysical_EtherLikeWithoutMau(t *testing.T) {
-	// Covers AE7: a switch that implements EtherLike-MIB but not MAU-MIB.
+	// A switch that implements EtherLike-MIB but not MAU-MIB.
 	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: etherLikePort(3)})
 	if err != nil {
 		t.Fatalf("Physical: %v", err)
@@ -124,7 +124,7 @@ func TestPhysical_HighCapacityCountersWin(t *testing.T) {
 }
 
 func TestPhysical_MauType(t *testing.T) {
-	// Covers AE5 for the mapper: registered, unregistered, and unknown
+	// Registered, unregistered, and unknown
 	// types all survive.
 	vbs := []vbFixture{
 		objectIDAt(maumib.IfMauType, ianaMauType(30), 1, 1),
@@ -264,7 +264,7 @@ func psePort(group, port uint32) []vbFixture {
 }
 
 func TestPhysical_PoePortsStandaloneUntilJoined(t *testing.T) {
-	// Covers AE8: the same row stays standalone without a join and lands
+	// The same row stays standalone without a join and lands
 	// on the copper arm with one.
 	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: psePort(1, 3)})
 	if err != nil {
@@ -351,7 +351,7 @@ func TestAttachPhysical_KeepsRowOffNonCopperArm(t *testing.T) {
 }
 
 func TestPhysical_PseBudgets(t *testing.T) {
-	// Covers AE6: two PSE groups on a stacked switch.
+	// Two PSE groups on a stacked switch.
 	vbs := []vbFixture{
 		gauge32At(powerethernetmib.PethMainPsePower, 370, 1),
 		integerAt(powerethernetmib.PethMainPseOperStatus, int32(powerethernetmib.PethMainPseOperStatusValueOn), 1),
@@ -392,7 +392,7 @@ func TestPhysical_PseBudgets(t *testing.T) {
 }
 
 func TestAttachPhysical_AbsentFacetStaysAbsent(t *testing.T) {
-	// Covers AE2: an interface with no physical rows keeps an absent
+	// An interface with no physical rows keeps an absent
 	// facet.
 	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: etherLikePort(3)})
 	if err != nil {
