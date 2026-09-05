@@ -13,6 +13,7 @@ information.
 | Solved problems and reusable lessons | `docs/solutions/` | Durable; evidence-backed implementation knowledge |
 | Repeatable agent workflows | `.claude/skills/` | Durable; task procedures with scripts when useful |
 | Narrow specialist behavior | `.claude/agents/` | Durable; bounded delegation roles |
+| Observed gaps in skills, agents, or hooks | `docs/agent-observations.md` | Queue; a maintainer applies or rejects each entry and deletes it |
 | Claude auto-memory | Claude's local memory directory | Personal, machine-local, advisory, and potentially stale |
 | Session notes and scratch findings | Current conversation or worktree | Temporary; discard or promote before handoff |
 

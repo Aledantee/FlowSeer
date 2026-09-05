@@ -1,6 +1,7 @@
 ---
 name: review
 description: Review a FlowSeer change (working tree, branch, commit, or paths) for correctness, regressions, missing tests, and violations of the repository conventions, and report verified findings by severity. Use when asked to review code, check a diff, or judge a change before commit. Report-only unless the user asks to apply fixes.
+argument-hint: "[base ref | commit | paths]"
 ---
 
 # Review a FlowSeer change
@@ -37,10 +38,14 @@ an area with a `docs/architecture/` record, read the record's boundaries.
 ## 3. Dispatch the reviewer
 
 `independent-reviewer` has no shell. Write the diff to a file in the
-scratchpad directory and send the agent that path, the file list, the plan
-path, the intended behavior, the applicable convention paths, and the matched
-solutions. Ask for findings ordered by severity, each with path and line, the
-failure scenario, and the smallest safe fix.
+scratchpad directory and brief the agent as `delegate` describes: that path,
+the file list, the plan path, the intended behavior as a specification, the
+applicable convention paths, and the matched solutions. Leave out any
+statement that the change is tested or believed correct, and strip such
+statements from forwarded commit text. Ask for findings that affect
+correctness, the stated requirements, or a repository rule, ordered by
+severity, each with path and line, the failure scenario, and the smallest
+safe fix.
 
 One reviewer covers about 1,500 changed lines or one subsystem; the docs that
 describe a package belong to its subsystem. Above that, dispatch one reviewer
@@ -83,7 +88,10 @@ during a review. Never pad the list.
 Verdict first (accept, accept with fixes, rework), then findings, most severe
 first. For each: title, `path:line`, what goes wrong and when, the smallest
 fix. Then the residual testing gap, then what is good about the change in one
-or two lines if it matters to the decision.
+or two lines if it matters to the decision. In Orca, put the verdict in the
+worktree comment.
 
 Report only. When the user asks to apply the fixes, make them, run the
-verifier on the changed paths, and report what changed.
+verifier on the changed paths, and report what changed. If the user
+corrected this procedure rather than the findings, log it as `compound`,
+Observe describes.

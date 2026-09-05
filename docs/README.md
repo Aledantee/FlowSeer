@@ -50,6 +50,7 @@ its text; the outcome note says where the code lives now.
 | [`doc-style.md`](doc-style.md) | Prose rules for documentation, comments, commits, and pull requests. |
 | [`agent-steering.md`](agent-steering.md) | How repository instructions, hooks, skills, and agent roles fit together. |
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |
+| [`agent-observations.md`](agent-observations.md) | Corrections to skills, agents, or hooks that await a maintainer's review. |
 | [`solutions/`](solutions/README.md) | Verified lessons indexed by the conditions in which they apply. |
 | [`plans/`](plans/) | Implementation decision records for bounded changes. |
 | [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |

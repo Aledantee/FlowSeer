@@ -83,10 +83,12 @@ delegation does not transfer responsibility for the final result.
 ## Project skills
 
 FlowSeer ships four workflow skills under `.claude/skills/`: `plan`,
-`implement`, `review`, and `compound`, next to the `verify-change` gate. They
-replace the third-party compound-engineering plugin, which the repository used
-from August 2026 until 2026-09-05. The decisions below were taken against the
-plugin's issue tracker, published measurements, and this project's own session
+`implement`, `review`, and `compound`, next to the `verify-change` gate and
+the `delegate` routing skill that the four load before dispatching an agent.
+They replace the third-party compound-engineering plugin, which the
+repository used from August 2026 until 2026-09-05. The decisions below were
+taken against the plugin's issue tracker, published measurements, the
+research listed at the end of this document, and this project's own session
 history; revisit them when that evidence changes.
 
 Keep only the workflows the project uses. Session transcripts for this
@@ -145,6 +147,78 @@ One artifact format each. Every plan under `docs/plans/` carries
 `docs/README.md` documents. Every solution carries `applies_when` frontmatter
 and a row in `docs/solutions/README.md`. The skills describe these formats
 and nothing else.
+
+Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
+`independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
+on Haiku and editing workers to Sonnet, and no agent uses `inherit` any
+more: the coordinating session may run the most expensive model, and none
+of the delegated work needs it. Anthropic's subagent guide recommends Haiku
+for read-only exploration; its research-system report measured an Opus lead
+with Sonnet workers beating a single Opus agent by 90.2% on its internal
+eval, while a multi-agent run costs about 15 times a chat turn; ProgRouter
+arrives at the same shape by routing each workflow step to the cheapest
+model that still makes progress. Users describe the failure mode from the
+other side: a task that spawned seven subagents on the session model and
+exhausted a budget before one of them finished, cured by naming a smaller
+model for them. `delegate` caps concurrent workers at three for the same
+reason.
+
+Send editing workers to Orca when its runtime is reachable. The
+asynchronous-agent study behind CAID found that isolated workspaces, a
+central integrator, and test-based verification at merge improved paper
+reproduction by 25.6 points and library development by 14.7. Orca's
+`worker-start` provides exactly that: a child worktree per worker, a named
+model and effort per launch, and a `worker_done` report the coordinator
+waits on. Read-only delegates stay native subagents, which load their
+definition and nothing else, where an Orca worker is a full Claude Code
+session. Outside Orca, `delegate` falls back to native subagents with
+worktree isolation. The Orca command surface is version-matched and served
+by the binary (`orca skills get orca-cli`, `orca skills get orchestration`),
+so the skills show the shape of the loop and defer to that guide for flags.
+Two facts found on 2026-09-05 shape the skill's wording: the CLI reaches the
+app over a local socket that Claude's Bash sandbox blocks, so a sandboxed
+`orca status` reports the app as not running from inside an Orca terminal;
+and `orca account list` reports which providers are signed in and how much
+of each rate-limit window is used, which is why `delegate` discovers the
+worker agent and provider per session instead of assuming Claude and picks
+the provider for each wave by remaining quota. The 85% threshold is a
+starting point chosen so that a three-worker wave cannot push a window
+over its limit mid-run; tune it when a wave gets cut off or when quota sits
+idle.
+
+The skill frontmatter uses two Claude Code fields outside the portable
+Agent Skills key set, `argument-hint` and `user-invocable`. Anthropic's
+`skill-creator` validator flags them; Claude Code documents them and Codex
+ignores unknown keys, so they stay.
+
+Brief the reviewer without the author's claims. A study of confirmation bias
+in LLM code review found that framing a diff as bug-free cut detection
+sharply, and that redacting such metadata plus an explicit neutral
+instruction restored it in every affected case. Anthropic's best-practices
+guide adds that a reviewer asked for gaps reports some even when the work is
+sound, so `independent-reviewer` is told to report only what affects
+correctness, the stated requirements, or a repository rule.
+
+Keep the plan explicit and keep re-reading it. An analysis of 21,120
+SWE-agent trajectories found that an explicit plan raises resolution, that
+periodic reminders of the plan cut violations, and that a poor plan hurts
+more than none. `plan` therefore ends with an implementer's read and an
+independent review, and `implement` re-reads each unit before starting it.
+Units carry an `After` line so that `implement` can run independent units
+in parallel without guessing.
+
+Log process corrections, apply them by hand. Task Observer, a widely used
+meta-skill, keeps an observation log of corrections and skill gaps that a
+person reviews on a schedule, and runs as an always-on monitor from the
+first tool call. FlowSeer takes the log and leaves the monitor: `compound`'s
+Observe mode appends to `docs/agent-observations.md` when a workflow skill
+ends with a process correction, and a maintainer applies entries through the
+process below. An always-on observer would spend context on every session
+for a signal that appears at the end of a few.
+
+Report outcome first. Each skill's report step leads with the verdict or
+result and keeps the rest to a short ordered list, which is what readers of
+agent output ask for and what the `i-have-adhd` skill codifies.
 
 ## Change and review process
 
@@ -215,6 +289,45 @@ Sources checked on 2026-09-05 for the project skills:
 - [Ry Walker, review of the plugin](https://rywalker.com/research/compound-engineering-plugin)
   and [MoClaw on compound engineering](https://moclaw.ai/blog/compound-engineering)
   on review cost, release churn, and the solutions folder as a junk drawer.
+
+Sources checked on 2026-09-05 for delegation, model choice, and review
+framing:
+
+- [Anthropic, "Create custom subagents"](https://code.claude.com/docs/en/sub-agents):
+  the `model` and `effort` fields, Haiku for read-only exploration, a 15,000
+  token ceiling for combined agent descriptions.
+- [Anthropic, "Best practices for Claude Code"](https://code.claude.com/docs/en/best-practices):
+  plan when the approach is uncertain or the change spans files, skip it
+  when the diff fits in a sentence; a reviewer asked for gaps reports some
+  regardless; subagents keep investigation out of the main context.
+- [Anthropic, "How we built our multi-agent research system"](https://www.anthropic.com/engineering/multi-agent-research-system):
+  Opus lead with Sonnet workers beat single Opus by 90.2%; multi-agent runs
+  use about 15 times the tokens of a chat; scale agent count to task
+  complexity.
+- [Effective Strategies for Asynchronous Software Engineering Agents](https://arxiv.org/abs/2603.21489):
+  CAID, isolated workspaces with branch-and-merge integration and test-based
+  verification, +25.6 points on PaperBench and +14.7 on Commit0.
+- [Evaluating Plan Compliance in Autonomous Programming Agents](https://arxiv.org/abs/2604.12147):
+  21,120 trajectories; explicit plans help, reminders cut violations, a poor
+  plan hurts more than none.
+- [Measuring and Exploiting Confirmation Bias in LLM-Assisted Security Code Review](https://arxiv.org/abs/2603.18740):
+  bug-free framing suppresses detection; metadata redaction plus neutral
+  instructions restore it.
+- [ProgRouter](https://arxiv.org/abs/2608.25992): step-wise routing of a
+  multi-agent workflow to the cheapest model that still makes progress.
+- [Hacker News thread on subagent token cost](https://news.ycombinator.com/item?id=48883796):
+  seven subagents on the session model exhausted a budget; naming a smaller
+  subagent model and limiting concurrency fixed it.
+- [Task Observer](https://github.com/rebelytics/one-skill-to-rule-them-all):
+  an observation log of corrections and skill gaps, reviewed by a person on
+  a schedule.
+- [HyperFrames skills](https://github.com/heygen-com/hyperframes): a router
+  skill that confirms the brief up front and loads domain skills on demand,
+  the same shape as `AGENTS.md` plus scoped skills here.
+- [i-have-adhd](https://github.com/ayghri/i-have-adhd): action-first
+  responses, numbered steps, no preamble or recap.
+- Orca CLI and orchestration guides, served version-matched by the binary
+  through `orca skills get orca-cli` and `orca skills get orchestration`.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only

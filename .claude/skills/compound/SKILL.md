@@ -1,6 +1,7 @@
 ---
 name: compound
-description: Capture a verified FlowSeer lesson as a solution under docs/solutions/ with applies_when frontmatter and quoted evidence, or refresh the existing solutions against the current tree. Use after a fix or decision taught something the code does not make obvious, or when asked to compound, capture a learning, or audit stale solutions.
+description: Capture a verified FlowSeer lesson as a solution under docs/solutions/ with applies_when frontmatter and quoted evidence, refresh the existing solutions against the current tree, or log an observation about a skill or agent that did not fit the work. Use after a fix or decision taught something the code does not make obvious, when asked to compound, capture a learning, or audit stale solutions, or when a workflow skill ends with a process correction.
+argument-hint: "[refresh | observe | the lesson in one sentence]"
 ---
 
 # Capture or refresh a FlowSeer solution
@@ -8,7 +9,9 @@ description: Capture a verified FlowSeer lesson as a solution under docs/solutio
 A solution preserves a lesson that reading the happy path would miss. It is
 indexed by the conditions in which it applies, so a later agent can reject it
 without reading the body. Vocabulary that the lesson introduces goes to
-`CONCEPTS.md`. Neither replaces a convention doc or a direction record.
+`CONCEPTS.md`. Neither replaces a convention doc or a direction record. An
+observation records a gap in a skill, agent, or hook for a person to act on
+later (see Observe).
 
 ## Gate
 
@@ -89,9 +92,12 @@ sentence a reader should remember.
 
 ## Refresh
 
-When asked to refresh, audit each solution under `docs/solutions/`. One agent
-per solution in parallel is fine; `docs/solutions/README.md` is the only
-shared file, so edit it from the coordinating session.
+When asked to refresh, audit each solution under `docs/solutions/`. Dispatch
+one worker per solution, up to three at once, as `delegate` describes: this
+is editing work in the current worktree, so an Orca worker with
+`--worktree current` when the runtime is reachable, else a `general-purpose`
+subagent on `sonnet`. `docs/solutions/README.md` is the only shared file, so
+edit it from the coordinating session.
 
 1. Open every cited path and confirm the quoted lines and symbols exist.
    Check the frontmatter too: `module` still exists, `applies_when` still
@@ -109,3 +115,24 @@ file and its index row). Fix style tells only in lines you already rewrite.
 Set `last_verified: <YYYY-MM-DD>` in the frontmatter of every solution you
 checked. Run the verifier on the changed files and report the outcomes table
 with a reason per row.
+
+## Observe
+
+When the user corrects how a skill or agent worked rather than what the code
+does, when a skill step did not fit the task, or when the same manual step
+recurred across sessions, append an entry under "Entries" in
+`docs/agent-observations.md`:
+
+```markdown
+## 2026-09-05 review: reviewer brief carried the author's claim of safety
+Skill or agent: `.claude/skills/review/SKILL.md`, step 3.
+What happened: the brief said the change was "tested and safe"; the
+reviewer accepted an untested error path on that basis.
+Suggested change: state intended behavior as a specification and drop
+such claims from the brief.
+```
+
+Log it and stop. Do not edit the skill, agent, hook, or any policy surface
+from this mode; a person applies or rejects each entry through the process
+in `docs/agent-steering.md` and deletes it. A lesson about the code is a
+solution, not an observation.

@@ -1,6 +1,7 @@
 ---
 name: verify-change
 description: Run FlowSeer's diff-aware format, lint, build, race-test, protobuf, hook, and configuration gates. Use after changing Go, protobuf, Claude hooks or settings, and before reporting implementation complete or preparing a commit.
+argument-hint: "[--full | --base REF | -- paths]"
 ---
 
 # Verify FlowSeer Change

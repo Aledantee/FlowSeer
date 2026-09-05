@@ -1,6 +1,7 @@
 ---
 name: implement
 description: Implement a FlowSeer plan from docs/plans/ or a concrete, already-decided build request end to end, unit by unit, with the repository verifier run on every changed path. Use when asked to implement, build, execute, or work a plan. Not for open-ended bugs or for requests that still need design choices.
+argument-hint: "[plan path]"
 ---
 
 # Implement a FlowSeer plan
@@ -34,13 +35,17 @@ report anything that appeared in the meantime rather than reverting it.
 
 ## 2. Work each unit
 
-Take the units in the plan's order. For each:
+Take the units in the plan's order, or in parallel where the plan's `After`
+lines allow it and the user asked for parallel work (see Parallel units).
+For each:
 
-1. Inspect the current source and tests for the unit's files.
+1. Re-read the unit in the plan, then inspect the current source and tests
+   for its files. The plan text defines done, not your memory of it.
 2. Make the smallest change that satisfies the unit. Search for an existing
    helper before writing one. No abstraction with a single caller.
-3. Write or extend the tests the unit names. A unit without a test needs a
-   stated reason in the plan.
+3. Write or extend the tests the unit names. When the unit changes
+   behavior, write the failing test before the change and watch it fail.
+   A unit without a test needs a stated reason in the plan.
 4. Run focused checks (`go test -race ./<pkg>/...`, `buf lint`) and then the
    verifier for the unit's paths:
 
@@ -57,7 +62,8 @@ Take the units in the plan's order. For each:
 
 5. Update the package README, convention doc, and any solution citations
    that the unit invalidates, in the same unit. Renaming a test or benchmark
-   whose name the change made false is in scope.
+   whose name the change made false is in scope. In Orca, set the worktree
+   comment to the unit that landed.
 
 Plan labels stay in the plan. Never write `U2`, `R4`, or a plan filename into
 code, comments, or commit messages. State the rule the code enforces instead.
@@ -67,9 +73,20 @@ unit, write the question and your recommended answer into the plan's Open
 questions, and ask the user if the answer changes other units. Otherwise pick
 the recommendation, record it in Decisions, and continue.
 
-Delegate a bounded read-only question to `repo-researcher` when it would
-otherwise cost more than a few file reads. Do not delegate the edit itself
-unless the units are independent and the user asked for parallel work.
+Delegate a bounded read-only question as `delegate` describes when it would
+otherwise cost more than a few file reads.
+
+### Parallel units
+
+Units marked `After: none`, or whose prerequisites have landed, may run at
+once when the user asked for parallel work: up to three workers, each on one
+unit, dispatched as `delegate` describes (an Orca worker in a child worktree
+when the runtime is reachable, else a `general-purpose` subagent with
+`isolation: worktree`). The brief carries the plan path, the unit's text,
+the conventions for its files, and the unit's verifier command. When a
+worker reports, merge its branch here and run the verifier on the union of
+changed paths before starting the next wave. A worker's own green run does
+not replace that.
 
 ## 3. Finish
 
@@ -92,6 +109,8 @@ Read the final diff against the plan's Definition of done and against
 `docs/code-style.md`, Rules for coding agents. Remove process narration,
 history references, and planning identifiers from comments.
 
-Report: units done, commands run and their results, deviations from the plan,
-and residual risk. Do not run a code review automatically; the user asks for
-`review` when they want one.
+Report, outcome first: units done, commands run and their results,
+deviations from the plan, and residual risk. Do not run a code review
+automatically; the user asks for `review` when they want one. If the user
+corrected this procedure rather than the code, log it as `compound`, Observe
+describes.

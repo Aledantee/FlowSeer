@@ -1,6 +1,7 @@
 ---
 name: plan
 description: Scope and plan bounded FlowSeer work into a decision record under docs/plans/ before implementation. Use when asked to plan, brainstorm, scope, or break down a change, or when a request is too large or too open to implement directly. Not for diagnosing bugs, and not for changes that need no design choice.
+argument-hint: "[request or path of an existing plan]"
 ---
 
 # Plan FlowSeer work
@@ -46,9 +47,10 @@ Decisions section, with the reason. A decision without a reason is a guess.
 
 ## 2. Gather evidence
 
-Most questions are one grep or one bounded read; answer those yourself.
-Delegate to `repo-researcher` only when a question needs many files read
-(which callers depend on Y across the tree, what a large fixture covers), one
+Most questions are one grep or one bounded read; answer those yourself. When
+a question needs many files read (which callers depend on Y across the tree,
+what a large fixture covers), delegate it as `delegate` describes: a lookup
+to `Explore`, a question that needs judgment to `repo-researcher`, one
 bounded question per agent, in parallel when they are independent.
 
 Read external references (RFCs, vendor specs under `spec/`, library source
@@ -108,6 +110,7 @@ What a reader might expect and will not find here.
 ## Units
 ### U1. <Unit name>
 Files: <paths>
+After: <units that must land first, or none>
 Change: what the code does after the unit, in present tense.
 Tests: the test files and cases that prove it.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>`
@@ -130,6 +133,9 @@ Rules for the plan text:
   chains, no rule-of-three lists, no bold lead-in bullets.
 - Cite files as repository-relative paths. Cite sources with a URL or the
   section of the document.
+- `After: none` means the unit can be implemented and verified with every
+  other unit absent; `implement` may run such units in parallel. Two units
+  that touch the same file are never both `none`.
 - Requirement and unit labels (R1, U2) are for the plan only. The
   implementer must not copy them into code, comments, or commit messages.
   Say that in the plan's Definition of done.
@@ -139,16 +145,19 @@ Rules for the plan text:
 ## 4. Review the plan
 
 Read the plan once as the implementer: can each unit be started without
-asking a question? Fix the plan where the answer is no.
+asking a question? Fix the plan where the answer is no. A plan that misleads
+costs more than no plan.
 
 For plans with more than three units or a schema change, dispatch one
-`independent-reviewer` with the plan path and the question "what would block
-or mislead an implementer, and what does the plan contradict in
-`docs/architecture/` or the conventions?". Apply the findings that hold.
-Do not dispatch a panel; one careful pass is enough.
+`independent-reviewer` briefed as `delegate` describes, with the plan path
+and the question "what would block or mislead an implementer, and what does
+the plan contradict in `docs/architecture/` or the conventions?". Apply the
+findings that hold. Do not dispatch a panel; one careful pass is enough.
 
 ## 5. Hand off
 
-Run the verifier on the plan file. Tell the user the path, the readiness, the
-open questions, and the one decision you are least sure of. Do not start
-implementing unless asked.
+Run the verifier on the plan file. In Orca, set the worktree comment to the
+plan path and its readiness. Tell the user, in this order: the path, the
+readiness, the open questions, and the one decision you are least sure of.
+Do not start implementing unless asked. If the user corrected this
+procedure rather than the plan, log it as `compound`, Observe describes.

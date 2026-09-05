@@ -54,10 +54,11 @@ no remote. The Claude worktree hook defaults to the sibling
 
 ## Agent behavior
 
-- Prefer the runtime's native tools and subagents. Use `repo-researcher` for a
-  bounded read-only repository question, `independent-reviewer` for a fresh pass
-  over specified changed files; give each a precise question, paths, and expected
-  output, and keep small sequential work in the main conversation.
+- Keep small sequential work in the main conversation. Delegate through the
+  `delegate` skill, which names the worker and model for each kind of work:
+  `repo-researcher` for a bounded read-only question, `independent-reviewer`
+  for a fresh pass over changed files, and an Orca worker for editing work
+  when an Orca runtime is reachable.
 - The project skills `plan`, `implement`, `review`, and `compound` under
   `.claude/skills/` carry the multi-step workflows; each says when it applies
   and when to skip it. `docs/agent-steering.md` records why they are shaped
