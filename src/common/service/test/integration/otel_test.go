@@ -532,7 +532,7 @@ func TestManagedTelemetryDisabledTraceRelay(t *testing.T) {
 	runCtx, cancel := context.WithCancel(context.Background())
 	config := managedTelemetryConfig(identity, collector.httpEndpoint, telemetryTraces)
 	config.Setup = nil
-	config.Bus = &service.BusConfig{StoreDir: t.TempDir()}
+	config.Bus = &service.BusConfig{StoreDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic}
 	config.Modules = []service.Module{publisher, relay, downstream}
 	done := make(chan error, 1)
 	go func() { done <- service.Run(runCtx, config) }()

@@ -20,6 +20,9 @@ type brokerHelper struct {
 	stdin   io.WriteCloser
 }
 
+// brokerHelperConfig selects the helper process's mode and bus settings.
+// fsyncPolicy is required ("periodic" or "per_message"); the helper has no
+// default to fall back on.
 type brokerHelperConfig struct {
 	mode        string
 	storeDir    string
@@ -50,14 +53,18 @@ func buildBrokerHelper(t *testing.T) string {
 
 func startBrokerHelper(t *testing.T, executable, mode, storeDir, sequence string) *brokerHelper {
 	return startBrokerHelperWithConfig(t, executable, brokerHelperConfig{
-		mode:     mode,
-		storeDir: storeDir,
-		sequence: sequence,
+		mode:        mode,
+		storeDir:    storeDir,
+		sequence:    sequence,
+		fsyncPolicy: "periodic",
 	})
 }
 
 func startBrokerHelperWithConfig(t *testing.T, executable string, config brokerHelperConfig) *brokerHelper {
 	t.Helper()
+	if config.fsyncPolicy == "" {
+		t.Fatal("broker helper config must declare an fsync policy")
+	}
 	command := exec.Command(executable, "-test.run=^TestBrokerHelperProcess$", "-test.count=1")
 	command.Env = append(os.Environ(),
 		"FLOWSEER_BROKER_HELPER_MODE="+config.mode,

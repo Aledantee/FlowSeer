@@ -109,7 +109,7 @@ func TestManifestReconciliationAcceptsAdditionsAndRejectsRemovals(t *testing.T) 
 }
 
 func TestStoreProvenanceRejectsDifferentNATSPinBeforeOpen(t *testing.T) {
-	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: t.TempDir()})
+	config, err := normalizeBusConfig(testBusIdentity(), *periodicBusConfig(t.TempDir()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestStoreProvenanceRejectsDifferentNATSPinBeforeOpen(t *testing.T) {
 
 func TestStoreProvenanceIgnoresInterruptedOwnedTemporaryFile(t *testing.T) {
 	storeDir := t.TempDir()
-	config, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir})
+	config, err := normalizeBusConfig(testBusIdentity(), *periodicBusConfig(storeDir))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,6 +311,7 @@ func manifestTestConfigWithStore(storeDir string, modules []Module) Config {
 			MetadataMaxBytes: 2 << 20,
 			ReserveBytes:     2 << 20,
 			HealthInterval:   10 * time.Millisecond,
+			FsyncPolicy:      BusFsyncPeriodic,
 		},
 		Modules: modules,
 	}

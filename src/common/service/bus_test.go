@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,7 +30,7 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", stateRoot)
 	identity := Identity{Namespace: "flowseer", Name: "edge_agent", Version: "v1"}
 
-	got, err := normalizeBusConfig(identity, BusConfig{})
+	got, err := normalizeBusConfig(identity, BusConfig{FsyncPolicy: BusFsyncPeriodic})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,11 +41,11 @@ func TestNormalizeBusConfigUsesStablePrivateDefaults(t *testing.T) {
 		t.Fatalf("unexpected default capacity: %+v", got)
 	}
 	if got.fsyncPolicy != BusFsyncPeriodic || got.fsyncInterval != 5*time.Second {
-		t.Fatalf("default fsync policy = %v at %s, want periodic at 5s", got.fsyncPolicy, got.fsyncInterval)
+		t.Fatalf("periodic fsync policy = %v at %s, want periodic at 5s", got.fsyncPolicy, got.fsyncInterval)
 	}
 
 	identity.Version = "v2"
-	upgraded, err := normalizeBusConfig(identity, BusConfig{})
+	upgraded, err := normalizeBusConfig(identity, BusConfig{FsyncPolicy: BusFsyncPeriodic})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,12 +61,13 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 	submillisecond := time.Millisecond - time.Nanosecond
 	custom := time.Second
 	tests := []BusConfig{
-		{StoreDir: "relative"},
-		{MaxStoreBytes: 100, MailboxMaxBytes: 80, MetadataMaxBytes: 20, ReserveBytes: 1},
-		{HealthInterval: -time.Second},
-		{FsyncInterval: &zero},
-		{FsyncInterval: &negative},
-		{FsyncInterval: &submillisecond},
+		{StoreDir: "relative", FsyncPolicy: BusFsyncPeriodic},
+		{MaxStoreBytes: 100, MailboxMaxBytes: 80, MetadataMaxBytes: 20, ReserveBytes: 1, FsyncPolicy: BusFsyncPeriodic},
+		{HealthInterval: -time.Second, FsyncPolicy: BusFsyncPeriodic},
+		{FsyncPolicy: BusFsyncPeriodic, FsyncInterval: &zero},
+		{FsyncPolicy: BusFsyncPeriodic, FsyncInterval: &negative},
+		{FsyncPolicy: BusFsyncPeriodic, FsyncInterval: &submillisecond},
+		{FsyncPolicy: BusFsyncUnspecified},
 		{FsyncPolicy: BusFsyncPolicy(99)},
 		{FsyncPolicy: BusFsyncPerMessage, FsyncInterval: &custom},
 	}
@@ -81,9 +83,29 @@ func TestNormalizeBusConfigRejectsUnsafeOverrides(t *testing.T) {
 }
 
 func TestNormalizeBusConfigCarriesDeclaredFsyncPolicy(t *testing.T) {
-	interval := 750 * time.Millisecond
+	_, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: t.TempDir()})
+	if code, ok := errs.CodeOf(err); !ok || code != errCodeBusConfig {
+		t.Fatalf("undeclared policy error = %v (code %q, %t), want %q", err, code, ok, errCodeBusConfig)
+	}
+	for _, name := range []string{"BusFsyncPeriodic", "BusFsyncPerMessage", "power loss"} {
+		if !strings.Contains(err.Error(), name) {
+			t.Errorf("undeclared policy error %q does not name %q", err, name)
+		}
+	}
 	periodic, err := normalizeBusConfig(testBusIdentity(), BusConfig{
+		StoreDir:    t.TempDir(),
+		FsyncPolicy: BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if periodic.fsyncPolicy != BusFsyncPeriodic || periodic.fsyncInterval != defaultBusFsyncInterval {
+		t.Fatalf("periodic policy = %v at %s, want periodic at %s", periodic.fsyncPolicy, periodic.fsyncInterval, defaultBusFsyncInterval)
+	}
+	interval := 750 * time.Millisecond
+	periodic, err = normalizeBusConfig(testBusIdentity(), BusConfig{
 		StoreDir:      t.TempDir(),
+		FsyncPolicy:   BusFsyncPeriodic,
 		FsyncInterval: &interval,
 	})
 	if err != nil {
@@ -95,6 +117,7 @@ func TestNormalizeBusConfigCarriesDeclaredFsyncPolicy(t *testing.T) {
 	minimum := minimumBusFsyncInterval
 	periodic, err = normalizeBusConfig(testBusIdentity(), BusConfig{
 		StoreDir:      t.TempDir(),
+		FsyncPolicy:   BusFsyncPeriodic,
 		FsyncInterval: &minimum,
 	})
 	if err != nil {
@@ -120,7 +143,7 @@ func TestLocalBusServerOptionsCarryFsyncPolicy(t *testing.T) {
 	defaultConfig := testNormalizedBusConfig(t)
 	defaultOptions := localBusServerOptions(defaultConfig)
 	if defaultOptions.SyncAlways || defaultOptions.SyncInterval != 5*time.Second {
-		t.Fatalf("default server fsync options = always:%t interval:%s, want always:false interval:5s", defaultOptions.SyncAlways, defaultOptions.SyncInterval)
+		t.Fatalf("periodic server fsync options = always:%t interval:%s, want always:false interval:5s", defaultOptions.SyncAlways, defaultOptions.SyncInterval)
 	}
 	customConfig := defaultConfig
 	customConfig.fsyncInterval = 750 * time.Millisecond
@@ -145,7 +168,7 @@ func TestStartedLocalBusCarriesFsyncPolicy(t *testing.T) {
 		wantAlways   bool
 		wantInterval time.Duration
 	}{
-		{name: "periodic default", policy: BusFsyncPeriodic, wantInterval: defaultBusFsyncInterval},
+		{name: "periodic", policy: BusFsyncPeriodic, wantInterval: defaultBusFsyncInterval},
 		{name: "per message", policy: BusFsyncPerMessage, wantAlways: true},
 	}
 
@@ -238,7 +261,7 @@ func TestServiceBusOptInStartsBeforeSetupAndNilStartsNothing(t *testing.T) {
 	setupSawStore := false
 	err := runWithOptions(context.Background(), Config{
 		Identity: testBusIdentity(),
-		Bus:      &BusConfig{StoreDir: storeDir},
+		Bus:      periodicBusConfig(storeDir),
 		Setup: func(context.Context) (Attempt, error) {
 			_, statErr := os.Stat(storeDir)
 			setupSawStore = statErr == nil
@@ -257,7 +280,7 @@ func TestInvalidBusConfigFailsBeforeSetup(t *testing.T) {
 	setupCalls := 0
 	_, err := preflight(context.Background(), Config{
 		Identity: testBusIdentity(),
-		Bus:      &BusConfig{StoreDir: "relative"},
+		Bus:      periodicBusConfig("relative"),
 		Setup: func(context.Context) (Attempt, error) {
 			setupCalls++
 			return Attempt{}, nil
@@ -269,6 +292,86 @@ func TestInvalidBusConfigFailsBeforeSetup(t *testing.T) {
 	if setupCalls != 0 {
 		t.Fatalf("setup calls = %d, want zero", setupCalls)
 	}
+}
+
+func TestRunRefusesUndeclaredFsyncPolicyBeforeStoreOpen(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	storeDir := t.TempDir()
+	perMessage, err := normalizeBusConfig(testBusIdentity(), BusConfig{StoreDir: storeDir, FsyncPolicy: BusFsyncPerMessage})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer, err := startLocalBus(ctx, perMessage, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := range 3 {
+		if _, err := writer.resources.jetStream.Publish(ctx, mailboxSubjectRoot+".undeclared", fmt.Appendf(nil, "durable-%d", index)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	closeBus(t, writer, true)
+	before := storeSnapshot(t, storeDir)
+	held, err := acquireStoreLock(filepath.Join(storeDir, ".lock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	setupCalls := 0
+	err = Run(ctx, Config{
+		Identity: testBusIdentity(),
+		Bus:      &BusConfig{StoreDir: storeDir},
+		Setup: func(context.Context) (Attempt, error) {
+			setupCalls++
+			return Attempt{}, nil
+		},
+	})
+	if code, ok := errs.CodeOf(err); !ok || code != errCodeBusConfig {
+		t.Fatalf("Run() error = %v (code %q, %t), want %q", err, code, ok, errCodeBusConfig)
+	}
+	if setupCalls != 0 {
+		t.Fatalf("setup calls = %d, want zero", setupCalls)
+	}
+	if after := storeSnapshot(t, storeDir); !reflect.DeepEqual(before, after) {
+		t.Fatalf("refused start changed the store directory: before=%d files, after=%d files", len(before), len(after))
+	}
+	if err := held.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reader, err := startLocalBus(ctx, perMessage, nil)
+	if err != nil {
+		t.Fatalf("reopen under the declared policy: %v", err)
+	}
+	defer closeBus(t, reader, true)
+	mailbox, err := reader.resources.mailbox.Info(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mailbox.State.Msgs != 3 {
+		t.Fatalf("reopened mailbox messages = %d, want 3", mailbox.State.Msgs)
+	}
+}
+
+func storeSnapshot(t *testing.T, storeDir string) map[string][]byte {
+	t.Helper()
+	files := map[string][]byte{}
+	err := filepath.WalkDir(storeDir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		files[path] = data
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
 }
 
 func TestBusDomainSeparatesAmbiguousIdentityPairs(t *testing.T) {
@@ -372,6 +475,7 @@ func TestStartLocalBusRejectsExhaustedMetadataReserve(t *testing.T) {
 		MailboxMaxBytes:  1 << 20,
 		MetadataMaxBytes: 512,
 		ReserveBytes:     1 << 20,
+		FsyncPolicy:      BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -438,6 +542,7 @@ func TestMailboxRejectsNewRecordsAtCapacity(t *testing.T) {
 		MailboxMaxBytes:  64 << 10,
 		MetadataMaxBytes: 1 << 20,
 		ReserveBytes:     1 << 20,
+		FsyncPolicy:      BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -480,7 +585,8 @@ func TestBrokerHelperProcess(t *testing.T) {
 	}
 	busConfig := BusConfig{StoreDir: storeDir}
 	switch policy := os.Getenv("FLOWSEER_BROKER_HELPER_FSYNC_POLICY"); policy {
-	case "", "periodic":
+	case "periodic":
+		busConfig.FsyncPolicy = BusFsyncPeriodic
 	case "per_message":
 		busConfig.FsyncPolicy = BusFsyncPerMessage
 	default:
@@ -579,7 +685,7 @@ func runDeliveryCrashHelper(t *testing.T, mode, storeDir string) {
 	defer cancel()
 	config := Config{
 		Identity: testBusIdentity(),
-		Bus:      &BusConfig{StoreDir: storeDir},
+		Bus:      periodicBusConfig(storeDir),
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{
@@ -658,11 +764,16 @@ func testNormalizedBusConfig(t *testing.T) normalizedBusConfig {
 		MetadataMaxBytes: 2 << 20,
 		ReserveBytes:     2 << 20,
 		HealthInterval:   10 * time.Millisecond,
+		FsyncPolicy:      BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return config
+}
+
+func periodicBusConfig(storeDir string) *BusConfig {
+	return &BusConfig{StoreDir: storeDir, FsyncPolicy: BusFsyncPeriodic}
 }
 
 func closeBus(t *testing.T, bus *localBus, healthy bool) {

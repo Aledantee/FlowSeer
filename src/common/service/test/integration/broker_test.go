@@ -19,6 +19,7 @@ func TestBrokerStoreSurvivesAbruptProcessExit(t *testing.T) {
 		"FLOWSEER_BROKER_HELPER_MODE=reopen",
 		"FLOWSEER_BROKER_HELPER_STORE="+storeDir,
 		"FLOWSEER_BROKER_HELPER_SEQUENCE="+sequence,
+		"FLOWSEER_BROKER_HELPER_FSYNC_POLICY=periodic",
 	)
 	output, err := locked.CombinedOutput()
 	if err == nil {

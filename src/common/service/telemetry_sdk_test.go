@@ -442,7 +442,7 @@ func TestInvalidTelemetryConfigCallsNoFactories(t *testing.T) {
 			}
 			err := runWithOptionsAndTelemetryFactories(context.Background(), Config{
 				Identity:  testIdentity(),
-				Bus:       &BusConfig{StoreDir: storeDir},
+				Bus:       periodicBusConfig(storeDir),
 				Telemetry: tt.telemetry,
 				Modules:   tt.modules,
 				Setup: func(context.Context) (Attempt, error) {

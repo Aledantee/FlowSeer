@@ -14,7 +14,7 @@ func BenchmarkCommandPublish(b *testing.B) {
 		name   string
 		policy BusFsyncPolicy
 	}{
-		{name: "periodic_default", policy: BusFsyncPeriodic},
+		{name: "periodic", policy: BusFsyncPeriodic},
 		{name: "per_message", policy: BusFsyncPerMessage},
 	} {
 		b.Run(benchmark.name, func(b *testing.B) {
@@ -36,7 +36,7 @@ func BenchmarkEventFanoutPublish(b *testing.B) {
 		name   string
 		policy BusFsyncPolicy
 	}{
-		{name: "periodic_default", policy: BusFsyncPeriodic},
+		{name: "periodic", policy: BusFsyncPeriodic},
 		{name: "per_message", policy: BusFsyncPerMessage},
 	} {
 		b.Run(benchmark.name, func(b *testing.B) {

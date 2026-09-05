@@ -38,13 +38,17 @@ probed gate, so it can reverse a fixed decision and prevents a probe call.
 ## Local message bus
 
 A non-nil `Config.Bus` starts the service's private, file-backed message bus.
-The zero-valued bus configuration uses periodic fsync on a five-second cadence.
-Select per-message fsync when acknowledged records must retain the previous
-power-loss durability:
+The configuration must declare an fsync policy. A `BusConfig` that leaves
+`FsyncPolicy` unset fails `Run` with `service/bus-config` before the store is
+locked or opened. `BusFsyncPeriodic` flushes on a five-second target interval
+and survives a process kill; `BusFsyncPerMessage` flushes before every
+acknowledgement and also survives power loss:
 
 ```go
-func defaultPeriodicBus() *service.BusConfig {
-    return &service.BusConfig{}
+func periodicBus() *service.BusConfig {
+    return &service.BusConfig{
+        FsyncPolicy: service.BusFsyncPeriodic,
+    }
 }
 
 func perMessageBus() *service.BusConfig {
@@ -54,18 +58,30 @@ func perMessageBus() *service.BusConfig {
 }
 ```
 
-`FsyncInterval: nil` selects the five-second default. To choose another
-periodic cadence, pass a pointer to a `time.Duration` of at least one
-millisecond; an interval is invalid with `BusFsyncPerMessage`. The interval
-controls when the embedded server asks to flush pending writes. It is not a hard
-maximum loss window, because operating-system scheduling and storage can delay
-a completed sync.
+Under `BusFsyncPeriodic`, `FsyncInterval: nil` selects the five-second default.
+To choose another periodic cadence, pass a pointer to a `time.Duration` of at
+least one millisecond; an interval is invalid with `BusFsyncPerMessage`. The
+interval is a target: it controls when the embedded server asks to flush pending
+writes. It is not a guaranteed loss bound. Scheduler delay and slow storage can
+complete a sync later than the interval, so a power loss can drop records older
+than five seconds under the default interval.
 
 Both policies preserve acknowledged records across a service-process crash:
 pending writes remain in the operating system's page cache. A power loss under
 periodic sync may lose message or settlement records written after the last
 completed sync. If the message survives but its settlement does not, its
 handler can run again under the bus's at-least-once delivery contract.
+
+### Upgrading from per-message fsync
+
+Binaries built before the policy existed flushed every write. A binary built
+with this package refuses to start until the service declares a policy: `Run`
+returns `service/bus-config` from configuration normalization, before the store
+lock is taken, so the store directory stays byte for byte as the previous
+binary left it and that binary can be restarted meanwhile. Declaring
+`BusFsyncPerMessage` reproduces the previous durability exactly. A store written
+under per-message fsync opens under `BusFsyncPeriodic` without migration,
+because the policy is a server option and not part of the store's identity.
 
 ## Instrumentation
 
