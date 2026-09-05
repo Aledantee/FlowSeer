@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -108,17 +109,24 @@ func TestRunStripsEchoedInput(t *testing.T) {
 
 func TestRunPagination(t *testing.T) {
 	t.Parallel()
-	fs := newFakeServer(t, func(t *testing.T, ch xssh.Channel) {
+	// The handler runs in its own goroutine and must never call a
+	// *testing.T method after Run returns and the test may have
+	// already finished: report its one assertion through a buffered
+	// channel the main goroutine reads instead.
+	keyResult := make(chan error, 1)
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
 		readCommandLine(ch)
 		_, _ = ch.Write([]byte("page one\r\n--More--"))
 		key := make([]byte, 1)
 		if _, err := io.ReadFull(ch, key); err != nil {
-			t.Errorf("read continuation keystroke: %v", err)
+			keyResult <- fmt.Errorf("read continuation keystroke: %w", err)
 			return
 		}
 		if key[0] != ' ' {
-			t.Errorf("continuation keystroke = %q, want %q", key, " ")
+			keyResult <- fmt.Errorf("continuation keystroke = %q, want %q", key, " ")
+			return
 		}
+		keyResult <- nil
 		_, _ = ch.Write([]byte("\r\npage two\r\nswitch#"))
 	})
 	s := dialSession(t, fs, nil)
@@ -133,6 +141,11 @@ func TestRunPagination(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("Run() = %v", err)
+	}
+	// Run only returns after the handler wrote page two, which it
+	// only does after sending keyResult, so this receive cannot block.
+	if kerr := <-keyResult; kerr != nil {
+		t.Fatal(kerr)
 	}
 	if bytes.Contains(res.Output, []byte("--More--")) {
 		t.Errorf("Output = %q, still contains the pagination marker", res.Output)
@@ -235,6 +248,40 @@ func TestRunOutputCapTruncates(t *testing.T) {
 	}
 }
 
+func TestRunStdoutBufferSaturationReportsTruncation(t *testing.T) {
+	t.Parallel()
+	const bufCap = 512
+	const flood = bufCap * 10
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		chunk := bytes.Repeat([]byte("y"), 256)
+		for range flood / len(chunk) {
+			_, _ = ch.Write(chunk)
+		}
+		_, _ = ch.Write([]byte("\r\nswitch#"))
+	})
+	s := dialSession(t, fs, func(o *ssh.Options) { o.StdoutBufferBytes = bufCap })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// No MaxOutput set: any truncation here comes only from the
+	// session's bounded stdout ring dropping the oldest bytes, not
+	// from the MaxOutput cap.
+	res, err := s.Run(ctx, ssh.Command{Line: "show tech", Prompts: []ssh.Prompt{privPrompt}})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !res.Truncated {
+		t.Error("Truncated = false, want true when the stdout ring dropped bytes")
+	}
+	if len(res.Output) > bufCap {
+		t.Errorf("len(Output) = %d, want <= the ring's %d-byte capacity", len(res.Output), bufCap)
+	}
+	if res.Evidence.BytesReceived < flood {
+		t.Errorf("BytesReceived = %d, want >= %d (the true flood size, independent of the ring cap)", res.Evidence.BytesReceived, flood)
+	}
+}
+
 func TestRunStderrSaturationDoesNotBlockStdout(t *testing.T) {
 	t.Parallel()
 	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
@@ -307,5 +354,122 @@ func TestRunRedactsSecretFromEvidence(t *testing.T) {
 	}
 	if strings.Contains(string(res.Evidence.Sent), "hunter2") {
 		t.Errorf("Evidence.Sent = %q, contains the credential", res.Evidence.Sent)
+	}
+}
+
+func TestRunDiscardsPreCommandBytes(t *testing.T) {
+	t.Parallel()
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		// A login banner that happens to end in something matching
+		// the caller's prompt pattern, written before the client
+		// ever sends a command.
+		_, _ = ch.Write([]byte("Welcome to switch\r\nswitch#"))
+		readCommandLine(ch)
+		_, _ = ch.Write([]byte("\r\nswitch#"))
+	})
+	s := dialSession(t, fs, nil)
+	// Give the banner time to reach the client's stdout ring before
+	// Run is ever called, the one condition a real shell always
+	// satisfies.
+	time.Sleep(100 * time.Millisecond)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if bytes.Contains(res.Output, []byte("Welcome")) {
+		t.Errorf("Output = %q, leaked the pre-command banner", res.Output)
+	}
+	const wantBytes = int64(len("\r\nswitch#"))
+	if res.Evidence.BytesReceived != wantBytes {
+		t.Errorf("BytesReceived = %d, want %d (the banner must not be counted as this command's output)", res.Evidence.BytesReceived, wantBytes)
+	}
+}
+
+func TestRunEchoContainingPromptCharacterDoesNotSelfTerminate(t *testing.T) {
+	t.Parallel()
+	const line = "show run | include #"
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		got := readCommandLine(ch)
+		_, _ = ch.Write([]byte(got)) // echo, which itself ends in "#"
+		_, _ = ch.Write([]byte("real output\r\nswitch#"))
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{Line: line, Prompts: []ssh.Prompt{privPrompt}})
+	if err != nil {
+		t.Fatalf("Run() = %v", err)
+	}
+	if !bytes.Contains(res.Output, []byte("real output")) {
+		t.Errorf("Output = %q, want it to contain the real response instead of stopping at the echoed '#'", res.Output)
+	}
+	if bytes.Contains(res.Output, []byte(line)) {
+		t.Errorf("Output = %q, still contains the echoed command", res.Output)
+	}
+}
+
+func TestRunEvidenceBytesReceivedSetOnDeadlineError(t *testing.T) {
+	t.Parallel()
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		_, _ = ch.Write(bytes.Repeat([]byte("z"), 2048)) // no prompt ever arrives
+		<-stop
+	})
+	s := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := s.Run(ctx, ssh.Command{
+		Line:     "show tech",
+		Prompts:  []ssh.Prompt{privPrompt},
+		Deadline: 300 * time.Millisecond,
+	})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Run() error = %v, want context.DeadlineExceeded", err)
+	}
+	if res.Evidence.BytesReceived < 2048 {
+		t.Errorf("Evidence.BytesReceived = %d, want >= 2048 even though Run failed", res.Evidence.BytesReceived)
+	}
+}
+
+func TestSessionCloseDuringRunUnblocksTheWait(t *testing.T) {
+	t.Parallel()
+	stop := make(chan struct{})
+	t.Cleanup(func() { close(stop) })
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readCommandLine(ch)
+		<-stop // never respond
+	})
+	opts := optsFor(fs)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s, err := ssh.Dial(ctx, fs.addr, opts)
+	if err != nil {
+		t.Fatalf("Dial() = %v", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		_, runErr := s.Run(ctx, ssh.Command{Line: "show version", Prompts: []ssh.Prompt{privPrompt}})
+		done <- runErr
+	}()
+	time.Sleep(100 * time.Millisecond)
+	if err := s.Close(); err != nil {
+		t.Fatalf("Close() = %v", err)
+	}
+
+	select {
+	case runErr := <-done:
+		if runErr == nil {
+			t.Fatal("Run() = nil error, want a failure once the session was closed underneath it")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Run() did not return after a concurrent Close")
 	}
 }

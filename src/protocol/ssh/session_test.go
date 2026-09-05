@@ -45,6 +45,21 @@ func TestDialPinnedHostKeySucceeds(t *testing.T) {
 	}
 }
 
+func TestDialAcceptsBareFingerprintWithoutSHA256Prefix(t *testing.T) {
+	t.Parallel()
+	fs := newFakeServer(t, quietShell)
+	opts := optsFor(fs)
+	opts.HostKeySHA256 = strings.TrimPrefix(fs.fp, "SHA256:")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s, err := ssh.Dial(ctx, fs.addr, opts)
+	if err != nil {
+		t.Fatalf("Dial() = %v, want success with a bare (unprefixed) pinned fingerprint", err)
+	}
+	defer func() { _ = s.Close() }()
+}
+
 func TestDialHostKeyMismatchRefused(t *testing.T) {
 	t.Parallel()
 	fsA := newFakeServer(t, quietShell)
