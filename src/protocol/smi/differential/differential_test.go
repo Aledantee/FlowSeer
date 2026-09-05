@@ -280,16 +280,28 @@ func TestPanickingModuleIsRecordedAndTheRunContinues(t *testing.T) {
 	}
 }
 
-// TestConfiguredModulesFitGosmiBitsReconstruction reports which configured
-// modules' BITS positions can be reconstructed from gosmi's member lists.
+// gappedBitsModules lists the configured modules whose BITS positions are
+// known not to be reconstructible from gosmi's member lists. Each entry is
+// a deliberate decision to leave those declarations outside the oracle's
+// reach; LCOS-MIB declares its WLAN capability masks from the top bit
+// down. A module here that stops declaring gapped BITS fails the test, so
+// the list cannot outlive the reason for an entry.
+var gappedBitsModules = map[string]bool{
+	"LCOS-MIB": true,
+}
+
+// TestConfiguredModulesFitGosmiBitsReconstruction checks that every
+// configured module's BITS positions can be reconstructed from gosmi's
+// member lists, except in the modules [gappedBitsModules] allows.
 //
 // gosmi discards the numbers, so consecutive positions from zero are a
 // prerequisite for reconstructing them. This bounds comparisons with the
-// reference parser: a declaration listed here is one the differential
-// suite cannot check against gosmi. mibgen emits the numbers retained by
-// smi and supports gaps, so a gap is a fact about the oracle's reach, not
-// a defect; LCOS-MIB declares its WLAN capability masks from the top bit
-// down. The test fails only when nothing is left for the oracle to cover.
+// reference parser: a gapped declaration is one the differential suite
+// cannot check against gosmi. mibgen emits the numbers retained by smi and
+// supports gaps, so a gap is a fact about the oracle's reach, not a
+// defect. The test fails on a gap in a module not on the allowlist so that
+// configuring a new module with gapped BITS is a visible decision, not a
+// log line.
 func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 	modules, paths, searchPaths := mibgenModules(t)
 
@@ -307,15 +319,26 @@ func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 			continue
 		}
 
+		report := func(decl, gap string) {
+			uncovered++
+			msg := "%s.%s: %s; gosmi's member list cannot reconstruct these declared positions"
+			if gappedBitsModules[name] {
+				t.Logf(msg, name, decl, gap)
+			} else {
+				t.Errorf(msg+" (add the module to gappedBitsModules to accept that)", name, decl, gap)
+			}
+		}
+
+		gapped := false
+
 		for _, ty := range mod.Types {
 			if ty.Base != smi.BaseBits {
 				continue
 			}
 			checked++
 			if gap := numberingGap(ty.Members); gap != "" {
-				uncovered++
-				t.Logf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
-					name, ty.Name, gap)
+				gapped = true
+				report(ty.Name, gap)
 			}
 		}
 
@@ -325,10 +348,19 @@ func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 			}
 			checked++
 			if gap := numberingGap(n.Type.Members); gap != "" {
-				uncovered++
-				t.Logf("%s.%s: %s; gosmi's member list cannot reconstruct these declared positions",
-					name, n.Name, gap)
+				gapped = true
+				report(n.Name, gap)
 			}
+		}
+
+		if gappedBitsModules[name] && !gapped {
+			t.Errorf("%s is listed in gappedBitsModules but declares no gapped BITS; remove the entry", name)
+		}
+	}
+
+	for name := range gappedBitsModules {
+		if !slices.Contains(modules, name) {
+			t.Errorf("%s is listed in gappedBitsModules but is not configured; remove the entry", name)
 		}
 	}
 
@@ -336,9 +368,6 @@ func TestConfiguredModulesFitGosmiBitsReconstruction(t *testing.T) {
 		checked, len(modules), uncovered)
 	if checked == 0 {
 		t.Error("no BITS type was checked, so the check proves nothing")
-	}
-	if uncovered == checked {
-		t.Error("no configured BITS type is reconstructible, so the differential suite covers none of them")
 	}
 }
 

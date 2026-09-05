@@ -36,6 +36,7 @@ import (
 	"context"
 	"errors"
 	"iter"
+	"reflect"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
@@ -49,6 +50,12 @@ var (
 	// ErrCodeNotRead identifies a table or scalar a mapper asked the
 	// snapshot for without having declared it, so it was never read.
 	ErrCodeNotRead = errs.NewCode("collect/not-read")
+	// ErrCodeConflict identifies a table root or scalar name that two
+	// mappers of one cycle declared under different Go types. The cycle
+	// reads neither declaration: one walk cannot serve two row types, and
+	// silently serving the first would hand the other mapper an empty
+	// table with no error. This is a wiring mistake, not a device fault.
+	ErrCodeConflict = errs.NewCode("collect/conflict")
 )
 
 // Row is what every generated table row provides: whether its instance
@@ -75,6 +82,9 @@ type TableRead interface {
 	Columns() []snmp.AnyColumn
 
 	walk(ctx context.Context, sess snmp.Session, cols []snmp.AnyColumn) (any, error)
+	// rowType is the Go row type the walk delivers, so [Read] can refuse
+	// two declarations of one root that would not share a walk.
+	rowType() reflect.Type
 }
 
 // Table is a table read with typed access to its rows. Build it with
@@ -126,6 +136,8 @@ func (t Table[R]) walk(ctx context.Context, sess snmp.Session, cols []snmp.AnyCo
 	return t.run(ctx, sess, cols)
 }
 
+func (t Table[R]) rowType() reflect.Type { return reflect.TypeFor[R]() }
+
 // Rows returns the rows the cycle walked for this table, or nil when the
 // cycle never walked it or it delivered no row. A walk that failed
 // partway still contributes the rows it delivered; check [Table.Err] to
@@ -142,8 +154,9 @@ func (t Table[R]) Rows(snap *Snapshot) []R {
 }
 
 // Err returns the error the walk of this table ended with, nil when the
-// walk completed, and an error carrying [ErrCodeNotRead] when the cycle
-// never walked the table.
+// walk completed, an error carrying [ErrCodeNotRead] when the cycle never
+// walked the table, and one carrying [ErrCodeConflict] when another
+// mapper declared the same root under a different row type.
 func (t Table[R]) Err(snap *Snapshot) error {
 	w, ok := snap.tables[t.desc.Root.WireKey()]
 	if !ok {
@@ -161,6 +174,9 @@ type ScalarRead interface {
 	Name() string
 
 	read(ctx context.Context, sess snmp.Session) (any, error)
+	// valueType is the Go type the getter returns, so [Read] can refuse
+	// two declarations of one name that would not share a value.
+	valueType() reflect.Type
 }
 
 // Scalar is a scalar read with typed access to its value, fetched once per
@@ -190,9 +206,12 @@ func (s Scalar[T]) read(ctx context.Context, sess snmp.Session) (any, error) {
 	return s.get(ctx, sess)
 }
 
+func (s Scalar[T]) valueType() reflect.Type { return reflect.TypeFor[T]() }
+
 // Value returns the value the cycle fetched for this scalar, or the error
 // its getter returned. A scalar the cycle never fetched returns an error
-// carrying [ErrCodeNotRead].
+// carrying [ErrCodeNotRead]; one that another mapper declared under a
+// different value type returns an error carrying [ErrCodeConflict].
 func (s Scalar[T]) Value(snap *Snapshot) (T, error) {
 	var zero T
 

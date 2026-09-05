@@ -3,6 +3,7 @@ package collect_test
 import (
 	"context"
 	"errors"
+	"iter"
 	"slices"
 	"sync"
 	"testing"
@@ -445,4 +446,86 @@ func TestCollect_SkippedMapperNotRead(t *testing.T) {
 	if got := sess.counted(ifXTableRoot); got != 0 {
 		t.Errorf("got %d bulk requests under ifXTable, want none for a skipped mapper", got)
 	}
+}
+
+// otherRow is a second row type bound to the ifTable root, standing in for
+// a mapper written against a different binding of the same table.
+type otherRow struct{}
+
+func (otherRow) KeyValid() bool { return true }
+
+// otherWalker delivers no rows; the clash is caught before any walk runs.
+type otherWalker struct{}
+
+func (otherWalker) Iter() iter.Seq2[snmp.OID, otherRow] {
+	return func(func(snmp.OID, otherRow) bool) {}
+}
+
+func (otherWalker) Err() error { return nil }
+
+func walkOther(context.Context, snmp.Session, ...snmp.AnyColumn) otherWalker { return otherWalker{} }
+
+// TestRead_ConflictingDeclarations declares the ifTable root under two row
+// types and one scalar name under two value types, and checks both
+// mappers see the conflict instead of one of them seeing an empty table
+// or a zero value, and that neither key is read.
+func TestRead_ConflictingDeclarations(t *testing.T) {
+	otherRead := collect.NewTable[otherRow](ifmib.IfTable.Descriptor(), walkOther)
+	intScalar := collect.NewScalar("name", func(context.Context, snmp.Session) (int, error) { return 1, nil })
+	strScalar := collect.NewScalar("name", func(context.Context, snmp.Session) (string, error) { return "one", nil })
+
+	sess := &fakeSession{vbs: ifRows()}
+	sess.count(ifTableRoot)
+
+	snap := collect.Read(context.Background(), sess,
+		testMapper{spec: collect.Spec{Name: "a", Required: []collect.TableRead{descrRead}, Scalars: []collect.ScalarRead{intScalar}}},
+		testMapper{spec: collect.Spec{Name: "b", Required: []collect.TableRead{otherRead}, Scalars: []collect.ScalarRead{strScalar}}},
+	)
+
+	if got := sess.counted(ifTableRoot); got != 0 {
+		t.Errorf("got %d bulk requests under ifTable, want none for a conflicting table", got)
+	}
+
+	for name, err := range map[string]error{"first table": descrRead.Err(snap), "second table": otherRead.Err(snap)} {
+		if !hasCode(err, collect.ErrCodeConflict) {
+			t.Errorf("%s: got %v, want %s", name, err, collect.ErrCodeConflict)
+		}
+	}
+
+	if rows := descrRead.Rows(snap); rows != nil {
+		t.Errorf("got %d rows for the first declaration, want none", len(rows))
+	}
+
+	if _, err := intScalar.Value(snap); !hasCode(err, collect.ErrCodeConflict) {
+		t.Errorf("first scalar: got %v, want %s", err, collect.ErrCodeConflict)
+	}
+
+	if _, err := strScalar.Value(snap); !hasCode(err, collect.ErrCodeConflict) {
+		t.Errorf("second scalar: got %v, want %s", err, collect.ErrCodeConflict)
+	}
+}
+
+// TestRead_SameTypeDeclarationsShare checks that declaring one root twice
+// under the same row type is one walk, not a conflict.
+func TestRead_SameTypeDeclarationsShare(t *testing.T) {
+	sess := &fakeSession{vbs: ifRows()}
+
+	snap := collect.Read(context.Background(), sess,
+		testMapper{spec: collect.Spec{Name: "a", Required: []collect.TableRead{descrRead}}},
+		testMapper{spec: collect.Spec{Name: "b", Required: []collect.TableRead{typeRead}}},
+	)
+
+	if err := typeRead.Err(snap); err != nil {
+		t.Fatalf("got %v, want a shared walk without error", err)
+	}
+
+	if got := len(typeRead.Rows(snap)); got != 2 {
+		t.Errorf("got %d rows, want 2", got)
+	}
+}
+
+func hasCode(err error, want errs.Code) bool {
+	code, ok := errs.CodeOf(err)
+
+	return ok && code == want
 }

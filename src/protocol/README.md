@@ -29,12 +29,11 @@ The rule exists because this tree was called `src/common/` and had no admission
 test at all, so anything shared landed in it by default. `src/common/` now holds
 only what is genuinely cross-cutting and domain-free — `errs` and `pump`.
 
-Two packages are the counterexample worth knowing about:
+Two counterexamples worth knowing about:
 
-- `snmpmap` (still under `src/common/`) walks SNMP tables and returns FlowSeer
-  protobuf messages. It is domain code and the clearest first candidate for
-  `src/modules/`; it stays put until that directory has a contract to admit it
-  against.
+- `src/modules/localnet/snmpmap` walks SNMP tables and returns FlowSeer
+  protobuf messages. It is domain code, so it lives under `src/modules/` even
+  though it is built entirely on the libraries here.
 - Anything under `generated/go/mib` and `generated/go/yang` is *output* of the
   generators here, not a peer of them. Never edit it by hand.
 

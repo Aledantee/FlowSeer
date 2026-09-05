@@ -3,6 +3,7 @@ package collect
 import (
 	"context"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -30,26 +31,42 @@ type fetched struct {
 }
 
 // pendingTable is one table of a cycle's read plan: the first declaration
-// seen, whose walk is used, and the union of the columns asked for.
+// seen, whose walk is used, the union of the columns asked for, and the
+// conflict recorded when a later declaration named a different row type.
 type pendingTable struct {
-	read TableRead
-	cols []snmp.AnyColumn
+	read     TableRead
+	cols     []snmp.AnyColumn
+	conflict error
+}
+
+// pendingScalar is one scalar of a cycle's read plan: the first
+// declaration seen and the conflict recorded when a later declaration
+// named a different value type.
+type pendingScalar struct {
+	read     ScalarRead
+	conflict error
 }
 
 // Read walks every table and fetches every scalar the mappers declare,
 // without detection: each table once with the union of the columns the
-// mappers ask of it, in declaration order with required tables first.
-// Errors are recorded per table and per scalar in the snapshot rather than
-// returned, so that a mapper can weigh them.
+// mappers ask of it, in the order the mappers declare them. Errors are
+// recorded per table and per scalar in the snapshot rather than returned,
+// so that a mapper can weigh them.
+//
+// Two mappers may declare one table root only under the same row type,
+// and one scalar name only under the same value type. A clash is recorded
+// against that key as an error carrying [ErrCodeConflict] and the key is
+// not read, so both mappers see the mistake instead of one of them seeing
+// an empty table.
 //
 // Read is the primitive under [Collector.Collect] and the way to map a
 // device whose tables are already known to be there.
 func Read(ctx context.Context, sess snmp.Session, mappers ...Mapper) *Snapshot {
 	var (
-		order   []string
-		tables  = make(map[string]*pendingTable)
-		scalars []ScalarRead
-		seen    = make(map[string]bool)
+		tableOrder  []string
+		tables      = make(map[string]*pendingTable)
+		scalarOrder []string
+		scalars     = make(map[string]*pendingScalar)
 	)
 
 	for _, m := range mappers {
@@ -60,37 +77,69 @@ func Read(ctx context.Context, sess snmp.Session, mappers ...Mapper) *Snapshot {
 
 			p, ok := tables[key]
 			if !ok {
-				order = append(order, key)
+				tableOrder = append(tableOrder, key)
 				tables[key] = &pendingTable{read: t, cols: t.Columns()}
 
 				continue
+			}
+
+			if p.conflict == nil && p.read.rowType() != t.rowType() {
+				p.conflict = errs.New().Code(ErrCodeConflict).
+					Attr("table", t.Descriptor().Root).
+					Attr("row_type", p.read.rowType().String()).
+					Attr("other_row_type", t.rowType().String()).
+					Msg("table declared under two row types")
 			}
 
 			p.cols = unionColumns(p.cols, t.Columns())
 		}
 
 		for _, sc := range spec.Scalars {
-			if !seen[sc.Name()] {
-				seen[sc.Name()] = true
-				scalars = append(scalars, sc)
+			p, ok := scalars[sc.Name()]
+			if !ok {
+				scalarOrder = append(scalarOrder, sc.Name())
+				scalars[sc.Name()] = &pendingScalar{read: sc}
+
+				continue
+			}
+
+			if p.conflict == nil && p.read.valueType() != sc.valueType() {
+				p.conflict = errs.New().Code(ErrCodeConflict).
+					Attr("scalar", sc.Name()).
+					Attr("value_type", p.read.valueType().String()).
+					Attr("other_value_type", sc.valueType().String()).
+					Msg("scalar declared under two value types")
 			}
 		}
 	}
 
 	snap := &Snapshot{
-		tables:  make(map[string]walked, len(order)),
-		scalars: make(map[string]fetched, len(scalars)),
+		tables:  make(map[string]walked, len(tableOrder)),
+		scalars: make(map[string]fetched, len(scalarOrder)),
 	}
 
-	for _, key := range order {
+	for _, key := range tableOrder {
 		p := tables[key]
+		if p.conflict != nil {
+			snap.tables[key] = walked{err: p.conflict}
+
+			continue
+		}
+
 		rows, err := p.read.walk(ctx, sess, p.cols)
 		snap.tables[key] = walked{rows: rows, err: err}
 	}
 
-	for _, sc := range scalars {
-		value, err := sc.read(ctx, sess)
-		snap.scalars[sc.Name()] = fetched{value: value, err: err}
+	for _, name := range scalarOrder {
+		p := scalars[name]
+		if p.conflict != nil {
+			snap.scalars[name] = fetched{err: p.conflict}
+
+			continue
+		}
+
+		value, err := p.read.read(ctx, sess)
+		snap.scalars[name] = fetched{value: value, err: err}
 	}
 
 	return snap
