@@ -55,9 +55,11 @@ func resolveIdentity(entries []identityEntry, oid smi.OID) (identityEntry, bool)
 // TestIdentity_RepositoryConfigResolvesProducts pins what listing the
 // vendor product MIBs buys: a Ruckus ICX 6610 stack resolves to its own
 // node, an unlisted model under a known family resolves to the family, a
-// Comware product the list does not name resolves to hh3cProductId, and
-// an enterprise no configured module declares is not found rather than
-// attributed to the wrong vendor.
+// Comware product the list does not name resolves to hh3cProductId, a
+// LANCOM model the pinned LCOS-MIB release declares resolves to its node
+// while one it does not falls back to lcsProducts, and an enterprise no
+// configured module declares is not found rather than attributed to the
+// wrong vendor.
 func TestIdentity_RepositoryConfigResolvesProducts(t *testing.T) {
 	entries := loadRepositoryIdentity(t)
 
@@ -65,6 +67,8 @@ func TestIdentity_RepositoryConfigResolvesProducts(t *testing.T) {
 	foundryStack := smi.NewOID(1, 3, 6, 1, 4, 1, 1991, 1, 3, 48)
 	// hh3c(25506).hh3cProductId(1)
 	comwareProducts := smi.NewOID(1, 3, 6, 1, 4, 1, 25506, 1)
+	// lancom-systems(2356).lcos(11).lcsProducts(8)
+	lancomProducts := smi.NewOID(1, 3, 6, 1, 4, 1, 2356, 11, 8)
 
 	tests := []struct {
 		name   string
@@ -89,6 +93,20 @@ func TestIdentity_RepositoryConfigResolvesProducts(t *testing.T) {
 			oid:    comwareProducts.Child(999999),
 			want:   "hh3cProductId",
 			module: "HH3C-OID-MIB",
+		},
+		{
+			name:   "LANCOM L-322agn dual wireless",
+			oid:    lancomProducts.Child(103),
+			want:   "lcsProductsL322agnDualWireless",
+			module: "LCOS-MIB",
+		},
+		{
+			// A model an older firmware release declared and the pinned
+			// release dropped lands on the products node, not nowhere.
+			name:   "unlisted LANCOM product",
+			oid:    lancomProducts.Child(999999),
+			want:   "lcsProducts",
+			module: "LCOS-MIB",
 		},
 	}
 	for _, tc := range tests {

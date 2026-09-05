@@ -133,14 +133,45 @@ func LoadModules(cfg *Config) (*smi.ModuleSet, error) {
 		return nil, err
 	}
 
-	set, err := smi.Load(order, smi.Options{SearchPaths: cfg.SearchPaths})
+	// A module pinned to a file is read from that file; every other one
+	// is looked up by name the way smi.Load would, so the two kinds sit
+	// in one list and load together.
+	pinned := make(map[string]string, len(cfg.Modules))
+	for _, m := range cfg.Modules {
+		if m.File != "" {
+			pinned[m.Name] = m.File
+		}
+	}
+
+	paths := make([]string, 0, len(order))
+	for _, name := range order {
+		path, ok := pinned[name]
+		if !ok {
+			path, ok = smi.FindModule(name, cfg.SearchPaths)
+		}
+		if !ok {
+			return nil, errs.Msgf("module %q not found on search paths %v", name, cfg.SearchPaths)
+		}
+		paths = append(paths, path)
+	}
+
+	set, err := smi.LoadFiles(paths, smi.Options{SearchPaths: cfg.SearchPaths})
 	if err != nil {
 		return nil, errs.Wrapf(err, "load modules from search paths %v", cfg.SearchPaths)
 	}
 
 	for _, name := range order {
-		if _, ok := set.Module(name); !ok {
+		mod, ok := set.Module(name)
+		if !ok {
 			return nil, errs.Msgf("module %q resolved to nothing on search paths %v", name, cfg.SearchPaths)
+		}
+		// A pinned file that declares some other module still loads,
+		// and the name it was pinned for may then resolve through an
+		// IMPORTS clause to a file on the search paths, which is
+		// exactly the ambiguity the pin exists to close.
+		if file, isPinned := pinned[name]; isPinned && mod.File != file {
+			return nil, errs.Msgf("module %q is pinned to %s but that file does not declare it; it came from %s",
+				name, file, mod.File)
 		}
 	}
 

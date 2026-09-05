@@ -29,8 +29,8 @@ func TestFindModuleStaysUnderTheSearchPath(t *testing.T) {
 		t.Fatalf("writing SECRET-MIB: %v", err)
 	}
 
-	if got, ok := findModule("GOOD-MIB", []string{search}); !ok || got != inside {
-		t.Errorf("findModule(GOOD-MIB) = %q, %v; want %q, true", got, ok, inside)
+	if got, ok := FindModule("GOOD-MIB", []string{search}); !ok || got != inside {
+		t.Errorf("FindModule(GOOD-MIB) = %q, %v; want %q, true", got, ok, inside)
 	}
 
 	for _, name := range []string{
@@ -38,8 +38,8 @@ func TestFindModuleStaysUnderTheSearchPath(t *testing.T) {
 		"../../" + filepath.Base(root) + "/SECRET-MIB",
 		filepath.Join("..", "SECRET-MIB"),
 	} {
-		if got, ok := findModule(name, []string{search}); ok {
-			t.Errorf("findModule(%q) reached %q outside the search path", name, got)
+		if got, ok := FindModule(name, []string{search}); ok {
+			t.Errorf("FindModule(%q) reached %q outside the search path", name, got)
 		}
 	}
 }

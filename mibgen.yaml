@@ -10,6 +10,7 @@ search_paths:
   # Vendor product trees, listed for the sysobjectid identity table.
   - spec/mib/ruckus/icx
   - spec/mib/hp/hh3c
+  - spec/mib/lancom/lcos
 
 modules:
   - name: SNMPv2-SMI
@@ -67,3 +68,13 @@ modules:
   # without it those parents are absent from the identity table.
   - { name: HH3C-OID-MIB,        package: hh3coid }
   - { name: HH3C-PRODUCT-ID-MIB, package: hh3cproductid }
+  # LCOS-MIB carries the LANCOM product nodes (enterprises 2356) together
+  # with the whole LCOS status and setup tree, so unlike the identity-only
+  # modules above it costs a full package. LANCOM ships one full copy per
+  # firmware release under a versioned file name, all declaring the same
+  # module name, so the file is pinned to the newest release. A device on
+  # older firmware may report a product OID the newest file dropped, which
+  # then resolves to the nearest LANCOM ancestor.
+  - name: LCOS-MIB
+    package: lcosmib
+    file: spec/mib/lancom/lcos/LC-UNIFIED-LCOS-10-94-REL-OIDS.mib

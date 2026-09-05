@@ -46,7 +46,10 @@
 //
 // The configuration file (default mibgen.yaml, at the repository root)
 // declares MIB search paths, the module list with optional cross-authority
-// depends_on edges, and per-OID Go-type overrides. The repository-root
+// depends_on edges, and per-OID Go-type overrides. A module is looked up
+// by name on the search paths unless its entry carries a file pin, which
+// names the source file directly for a vendor that ships several
+// revisions of one module name side by side. The repository-root
 // generate.go carries the go:generate directive, so `go generate .` at
 // the root regenerates the committed bindings.
 //
