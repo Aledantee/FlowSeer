@@ -17,9 +17,9 @@ import "flowseer/net/phy/v1/pluggable_module.proto";
 import option "buf/validate/validate.proto";
 
 // Physical Ethernet attributes embedded by a physical interface kind. The
-// facet carries no interface or device identity. Fields 1 through 9 and 30
-// and up are link facts every transport shares; the transport oneof holds
-// the facts only one medium can have.
+// facet carries no interface or device identity. The link facts every
+// transport shares sit beside a transport oneof that holds the facts only
+// one medium can have, and a pluggable module that any cage reports.
 message EthernetFacet {
   option (buf.validate.message).cel = {
     id: "ethernet_facet.auto_negotiation_requires_support"

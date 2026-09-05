@@ -21,9 +21,9 @@ const (
 )
 
 // Physical Ethernet attributes embedded by a physical interface kind. The
-// facet carries no interface or device identity. Fields 1 through 9 and 30
-// and up are link facts every transport shares; the transport oneof holds
-// the facts only one medium can have.
+// facet carries no interface or device identity. The link facts every
+// transport shares sit beside a transport oneof that holds the facts only
+// one medium can have, and a pluggable module that any cage reports.
 type EthernetFacet struct {
 	state                             protoimpl.MessageState    `protogen:"opaque.v1"`
 	xxx_hidden_FecMode                EthernetFecMode           `protobuf:"varint,4,opt,name=fec_mode,json=fecMode,enum=flowseer.net.phy.v1.EthernetFecMode"`

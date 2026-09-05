@@ -306,3 +306,124 @@ func TestPhysical_NoVendorRowsNoModule(t *testing.T) {
 		t.Error("a port with no vendor rows gained a module")
 	}
 }
+
+func TestPhysical_DlinkEmptyCageIgnoresStaleDdm(t *testing.T) {
+	// A D-Link agent keeps the DDM row of a cage after the module is
+	// pulled; the empty cage the identity table reports wins.
+	vbs := []vbFixture{
+		stringAt(dlinkswsfpinfomib.DPortSfpInfoLaserIdentifier, []byte(""), 5),
+		integerAt(dlinkswddmmib.DDdmIfInfoCurrentTemperature, 0, 5),
+		integerAt(dlinkswddmmib.DDdmIfInfoCurrentBiasCurrent, 0, 5),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[5]
+	mustValid(t, facet)
+
+	module := facet.GetModule()
+	if module.GetPresent() || module.HasDiagnostics() || len(module.GetLanes()) != 0 {
+		t.Errorf("module = %v, want an empty cage with no diagnostics or lanes", module)
+	}
+}
+
+func TestPhysical_HpUnreportedVoltageLeavesNoBareLane(t *testing.T) {
+	// HP reports a zero supply voltage for a module without one, and a
+	// module reporting only temperature has no lane diagnostics.
+	vbs := []vbFixture{
+		stringAt(hpicftransceivermib.HpicfXcvrModel, []byte("J9150A"), 26),
+		stringAt(hpicftransceivermib.HpicfXcvrSerial, []byte("CN00000001"), 26),
+		integerAt(hpicftransceivermib.HpicfXcvrDiagnostics, int32(hpicftransceivermib.HpicfXcvrDiagnosticsValueDom), 26),
+		integerAt(hpicftransceivermib.HpicfXcvrTemp, 41_000, 26),
+		gauge32At(hpicftransceivermib.HpicfXcvrVoltage, 0, 26),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[26]
+	mustValid(t, facet)
+
+	module := facet.GetModule()
+
+	if module.GetDiagnostics().HasVoltage() {
+		t.Errorf("voltage = %v, want none from a zero reading", module.GetDiagnostics().GetVoltage())
+	}
+
+	if got := module.GetDiagnostics().GetTemperature().GetValueMillidegrees(); got != 41_000 {
+		t.Errorf("temperature = %d, want 41000 millidegrees", got)
+	}
+
+	if len(module.GetLanes()) != 0 {
+		t.Errorf("lanes = %v, want none when no lane column was reported", module.GetLanes())
+	}
+}
+
+func TestPhysical_HpThresholdsWithoutReadingAreKept(t *testing.T) {
+	// A module whose reading is momentarily absent still reports the
+	// thresholds it carries in its EEPROM.
+	vbs := []vbFixture{
+		stringAt(hpicftransceivermib.HpicfXcvrModel, []byte("J9150A"), 27),
+		stringAt(hpicftransceivermib.HpicfXcvrSerial, []byte("CN00000002"), 27),
+		integerAt(hpicftransceivermib.HpicfXcvrDiagnostics, int32(hpicftransceivermib.HpicfXcvrDiagnosticsValueDom), 27),
+		integerAt(hpicftransceivermib.HpicfXcvrTempHiAlarm, 90_000, 27),
+		integerAt(hpicftransceivermib.HpicfXcvrTempLoAlarm, -10_000, 27),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[27]
+	mustValid(t, facet)
+
+	temp := facet.GetModule().GetDiagnostics().GetTemperature()
+	if temp.HasValueMillidegrees() || temp.GetHighAlarmMillidegrees() != 90_000 || temp.GetLowAlarmMillidegrees() != -10_000 {
+		t.Errorf("temperature = %v, want alarms without a reading", temp)
+	}
+}
+
+func TestPhysical_Hh3cChannelReplacesModuleWarnings(t *testing.T) {
+	// The info table's warning thresholds describe the module; a channel
+	// row's own alarms replace them rather than order against them.
+	vbs := []vbFixture{
+		stringAt(hh3ctransceiverinfomib.Hh3cTransceiverHardwareType, []byte("SFP+"), 8),
+		stringAt(hh3ctransceiverinfomib.Hh3cTransceiverVendorName, []byte("H3C"), 8),
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverDiagnostic, 1, 8),
+		// hundredths of mA, then microamps
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverBiasCurrent, 1_000, 8),
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverBiasHiWarn, 12_000, 8),
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasCurrent, 900, 8, 1),
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelBiasHiAm, 11_000, 8, 1),
+		// an unmeasurable transmit power answered with the largest integer
+		integerAt(hh3ctransceiverinfomib.Hh3cTransceiverChannelCurTXPower, math.MaxInt32, 8, 1),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[8]
+	mustValid(t, facet)
+
+	lanes := facet.GetModule().GetLanes()
+	if len(lanes) != 1 {
+		t.Fatalf("lanes = %v, want the single channel", lanes)
+	}
+
+	bias := lanes[0].GetBias()
+	if bias.GetValueMicroamperes() != 9_000 || bias.GetHighAlarmMicroamperes() != 11_000 || bias.HasHighWarningMicroamperes() {
+		t.Errorf("bias = %v, want the channel's 9000 uA reading and 11000 uA alarm without the module warning", bias)
+	}
+
+	if lanes[0].HasTxPower() {
+		t.Errorf("tx power = %v, want none from an unmeasurable reading", lanes[0].GetTxPower())
+	}
+}

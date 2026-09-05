@@ -551,6 +551,14 @@ func mapAutoNeg(facets map[uint32]*phyv1.EthernetFacet, ifIndex uint32, r maumib
 
 	facet := facetAt(facets, ifIndex)
 
+	// Agents that instantiate the auto-negotiation row for every MAU leave
+	// adminStatus at enabled on ports that cannot negotiate. Support is the
+	// fact that decides, and the schema forbids the contradiction.
+	if caps := facet.GetCapabilities(); applied.GetEnabled() && caps.HasAutoNegotiationSupported() && !caps.GetAutoNegotiationSupported() {
+		applied.ClearEnabled()
+		reported = applied.HasStatus()
+	}
+
 	if reported {
 		facet.SetAppliedAutoNegotiation(applied)
 	}
@@ -581,31 +589,14 @@ func autoNegStatus(v maumib.IfMauAutoNegConfigValue) phyv1.AutoNegotiationStatus
 	return phyv1.AutoNegotiationStatus_AUTO_NEGOTIATION_STATUS_UNSPECIFIED
 }
 
-// linkModes maps a link-mode bitmap to the schema's open enum, one value
-// per set position. A position the schema does not name is kept as its
-// own value; the numbering is the registry's. An unobserved column or an
-// empty bitmap yields nil.
+// linkModes maps a link-mode bitmap to the schema's open enum through
+// [enumsFromBits]. An unobserved column yields nil.
 func linkModes(r maumib.IfMauAutoNegTableRow, col snmp.Column[snmp.BitSet], bits snmp.BitSet) []phyv1.MauLinkMode {
 	if !r.Observed(col) {
 		return nil
 	}
 
-	positions := bits.Positions()
-	modes := make([]phyv1.MauLinkMode, 0, len(positions))
-
-	for _, p := range positions {
-		if p > math.MaxInt32 {
-			continue
-		}
-
-		modes = append(modes, phyv1.MauLinkMode(p))
-	}
-
-	if len(modes) == 0 {
-		return nil
-	}
-
-	return modes
+	return enumsFromBits[phyv1.MauLinkMode](bits)
 }
 
 // mauType carries an ifMauType identifier without loss: a registration

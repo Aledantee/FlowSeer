@@ -205,15 +205,21 @@ wavelength value.
 - Multi-lane (QSFP 4×, QSFP-DD 8×) and coherent modules make "the" tx power
   meaningless. Aruba, ProCurve, and Comware all ship a per-lane table; a model
   without a lane dimension cannot represent them.
-- Form factor and connector are separate facts from medium. FlowSeer's
-  `EthernetMedium` (copper/fiber/backplane/other) is deliberately coarse; the
-  research doc's decision to keep `TransceiverFacet` to presence and identity is
-  consistent with what four of ten vendors can actually answer.
+- Form factor and connector are separate facts from medium. FlowSeer keeps
+  the medium as a transport oneof on `EthernetFacet` (copper, fiber,
+  backplane, other) and the module's SFF-8024 form factor and connector on
+  `PluggableModule`, so a copper SFP or a direct-attach cable is a module on
+  a copper transport, which is what four of ten vendors can actually answer.
 
 ### FlowSeer status
 
-`net/phy/v1/transceiver_facet.proto` exists, deliberately shallow. Per-lane DOM
-is explicitly deferred. Both calls hold up against the corpus.
+`net/phy/v1/pluggable_module.proto` carries presence, SFF-8024 identity,
+module-level diagnostics, and per-lane DOM (`module_lane.proto`) with linear
+units and the four-threshold shape. The SNMP mapper fills it from the D-Link,
+ProCurve, and Comware tables; thresholds are the module's own, never the
+D-Link configurable table. Remaining gaps against the corpus: the Aruba and
+Comware per-lane tables beyond bias and transmit power, and any coherent
+module telemetry.
 
 ---
 

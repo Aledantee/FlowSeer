@@ -703,8 +703,8 @@ placeholder; amend this accepted record before adding the entity family.
 Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
 
 - **`EthernetFacet` splits by transport.** The flat facet with a medium enum
-  let a producer attach PoE to a fiber port until a CEL rule caught it after
-  the fact, and every deferred field would have needed another guard. The
+  accepted PoE on a fiber port without complaint, and every deferred field
+  would have needed a cross-field guard of its own. The
   facet now keeps the link facts every medium shares and carries an optional
   transport oneof; the copper arm owns PoE intent, delivery state, and the PSE
   port row, while the fiber, backplane, and other arms state the medium and

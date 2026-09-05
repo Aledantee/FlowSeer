@@ -434,3 +434,31 @@ func TestPhysical_FailedMauWalkKeepsOtherFacts(t *testing.T) {
 		t.Error("the PoE rows were lost with the MAU walk")
 	}
 }
+
+func TestPhysical_UnsupportedAutoNegotiationCannotBeEnabled(t *testing.T) {
+	// Agents that instantiate ifMauAutoNegTable for every MAU report
+	// adminStatus enabled on fiber ports that cannot negotiate.
+	vbs := []vbFixture{
+		objectIDAt(maumib.IfMauType, ianaMauType(30), 2, 1),
+		integerAt(maumib.IfMauAutoNegSupported, 2, 2, 1),
+		integerAt(maumib.IfMauAutoNegAdminStatus, int32(maumib.IfMauAutoNegAdminStatusValueEnabled), 2, 1),
+		integerAt(maumib.IfMauAutoNegConfig, int32(maumib.IfMauAutoNegConfigValueDisabled), 2, 1),
+	}
+
+	facts, err := snmpmap.Physical(context.Background(), &fakeSession{vbs: vbs})
+	if err != nil {
+		t.Fatalf("Physical: %v", err)
+	}
+
+	facet := facts.Facets[2]
+	mustValid(t, facet)
+
+	if facet.GetCapabilities().GetAutoNegotiationSupported() {
+		t.Error("support was not read as false")
+	}
+
+	applied := facet.GetAppliedAutoNegotiation()
+	if applied.HasEnabled() || applied.GetStatus() != phyv1.AutoNegotiationStatus_AUTO_NEGOTIATION_STATUS_DISABLED {
+		t.Errorf("applied auto-negotiation = %v, want no enabled fact and a disabled status", applied)
+	}
+}

@@ -241,20 +241,9 @@ func objectIDAt(col snmp.AnyColumn, value snmp.OID, idx ...uint32) vbFixture {
 }
 
 // bitsAt builds the OCTET STRING varbind a BITS column travels in, with
-// the given positions set: position p is bit 7-(p%8) of octet p/8, the
-// order RFC 2578 defines.
+// the given positions set per [bitsOctets].
 func bitsAt(col snmp.AnyColumn, positions []uint32, idx ...uint32) vbFixture {
-	var octets []byte
-
-	for _, p := range positions {
-		for int(p/8) >= len(octets) {
-			octets = append(octets, 0)
-		}
-
-		octets[p/8] |= 0x80 >> (p % 8)
-	}
-
-	return stringAt(col, octets, idx...)
+	return stringAt(col, bitsOctets(positions...), idx...)
 }
 
 // stackVar builds the ifStackStatus varbind declaring that interface

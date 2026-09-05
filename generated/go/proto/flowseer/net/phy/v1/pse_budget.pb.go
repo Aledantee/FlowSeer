@@ -24,8 +24,7 @@ const (
 // the RFC 3621 Power Ethernet MIB
 // (https://www.rfc-editor.org/rfc/rfc3621.html). The group is a box in a
 // stack or a module in a rack; its index is the MIB's own key, not a
-// reference to any entity, so the value stands on its own until a home
-// embeds it.
+// reference to any entity.
 type PseBudget struct {
 	state                            protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_PseGroup              uint32                 `protobuf:"varint,1,opt,name=pse_group,json=pseGroup"`

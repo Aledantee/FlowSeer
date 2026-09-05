@@ -20,10 +20,10 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Facts only an optical-fiber Ethernet transport can have. The arm carries
-// no fields yet: module identity and optical diagnostics belong to the
-// pluggable module on the facet, because a copper module in the same cage
-// reports them too. Presence of the arm states the medium.
+// Facts only an optical-fiber Ethernet transport can have. Presence of the
+// arm states the medium; module identity and optical diagnostics live on
+// the facet's pluggable module, which any cage reports regardless of
+// medium.
 type FiberFacet struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
 	unknownFields protoimpl.UnknownFields
