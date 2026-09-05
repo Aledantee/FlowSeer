@@ -3,6 +3,7 @@ package conformance
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -24,7 +25,15 @@ const (
 	setupKey           = "fse1_" + setupKeyID + "_" + "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
 	edgeAudience       = "flowseer-central"
 	edgeHeaderTag      = "FlowSeer-Edge "
+	// The worked vector's fixed procedure and an empty request body; the
+	// vector is illustrative, not a real Heartbeat call.
+	edgeProcedure = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
 )
+
+var edgeBodySHA256 = func() []byte {
+	sum := sha256.Sum256(nil)
+	return sum[:]
+}()
 
 var edgeIssuedAt = time.Date(2026, time.September, 5, 12, 0, 0, 0, time.UTC)
 
@@ -166,17 +175,25 @@ func edgeAssertion(validity time.Duration) *edgev1.EdgeAssertion {
 		nonce[i] = byte(i)
 	}
 	return edgev1.EdgeAssertion_builder{
-		Edge:      edgeRef(),
-		Audience:  proto.String(edgeAudience),
-		IssuedAt:  timestamppb.New(edgeIssuedAt),
-		ExpiresAt: timestamppb.New(edgeIssuedAt.Add(validity)),
-		Nonce:     nonce,
+		Edge:       edgeRef(),
+		Audience:   proto.String(edgeAudience),
+		IssuedAt:   timestamppb.New(edgeIssuedAt),
+		ExpiresAt:  timestamppb.New(edgeIssuedAt.Add(validity)),
+		Nonce:      nonce,
+		Procedure:  proto.String(edgeProcedure),
+		BodySha256: edgeBodySHA256,
 	}.Build()
 }
 
 func TestEdgeAssertionRules(t *testing.T) {
 	shortNonce := edgeAssertion(30 * time.Second)
 	shortNonce.SetNonce(shortNonce.GetNonce()[:15])
+	emptyProcedure := edgeAssertion(30 * time.Second)
+	emptyProcedure.SetProcedure("")
+	malformedProcedure := edgeAssertion(30 * time.Second)
+	malformedProcedure.SetProcedure("Heartbeat")
+	shortBodyHash := edgeAssertion(30 * time.Second)
+	shortBodyHash.SetBodySha256(shortBodyHash.GetBodySha256()[:31])
 	runValidationCases(t, []validationCase{
 		{
 			name:      "thirty second validity is valid",
@@ -201,6 +218,21 @@ func TestEdgeAssertionRules(t *testing.T) {
 		{
 			name:      "nonce of the wrong length is rejected",
 			message:   shortNonce,
+			wantValid: false,
+		},
+		{
+			name:      "empty procedure is rejected",
+			message:   emptyProcedure,
+			wantValid: false,
+		},
+		{
+			name:      "procedure without a leading slash is rejected",
+			message:   malformedProcedure,
+			wantValid: false,
+		},
+		{
+			name:      "body hash of the wrong length is rejected",
+			message:   shortBodyHash,
 			wantValid: false,
 		},
 		{

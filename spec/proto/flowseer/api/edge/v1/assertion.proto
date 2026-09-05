@@ -42,6 +42,20 @@ message EdgeAssertion {
     (buf.validate.field).required = true,
     (buf.validate.field).bytes.len = 16
   ];
+  // The full Connect procedure name this assertion authorizes, for example
+  // "/flowseer.api.edge.v1.EdgeService/Heartbeat". Must be present.
+  string procedure = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^/[^/]+/[^/]+$"
+  ];
+  // SHA-256 of the request message's uncompressed bytes exactly as
+  // received. Must be present.
+  bytes body_sha256 = 7 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 32
+  ];
 }
 
 // A serialized EdgeAssertion and its Ed25519 signature.
