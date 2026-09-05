@@ -56,3 +56,30 @@ another worktree's golangci-lint was running. The step was followed as
 written; nothing in it says which tool to edit with.
 Suggested change: in step 2, say that edits go through the editor tools
 and that a Bash write to a source file costs a `--full` run at Finish.
+## 2026-09-05 implement: a self-built fake-server test harness only exercised the golden path it was written to reach
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.3 ("Write or
+extend the tests the unit names").
+What happened: implementing `src/protocol/ssh` (an expect-style prompt
+scanner over a fake SSH shell), every test handler I wrote started
+responding only after reading the client's command line, so the read
+buffer was always empty when the scanner ran. That structurally could
+not exercise "the buffer already holds something before this command" —
+a login banner, or the shell's own echo landing ahead of a prompt-shaped
+character in the sent command — which was exactly the real bug class
+`review`'s independent-reviewer found (`src/protocol/ssh/command.go`,
+now fixed; see
+`docs/solutions/architecture-patterns/expect-style-prompt-scanner-must-reset-its-window-per-command.md`).
+The step was followed as written; nothing in it prompts for a non-empty
+starting state when the implementer is also the one designing the fake
+peer.
+Suggested change: for a stateful protocol client under test against a
+self-authored fake peer/server, step 2.3 could add: seed the fake peer
+with at least one case of unsolicited or leftover state ahead of the
+call under test (a banner, a retained buffer, an out-of-order message),
+since an implementer's own fake naturally only produces the sequence
+they already coded the client to expect.
+
+## 2026-09-05 close: no rule for work that skipped the plan
+Skill or agent: `.claude/skills/close/SKILL.md`, step 1.
+What happened: the branch's work followed plan's skip rule (no design choice), so no plan under `docs/plans/` carries `status: implemented`; the first signal has nothing to read and the step was not followed as written.
+Suggested change: when the branch changed no plan of its own, accept the commit range plus a fresh verifier receipt as the implementation signal, and say so in the report.
