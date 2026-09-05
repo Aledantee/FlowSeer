@@ -6,16 +6,26 @@
 // messages under generated/go/proto, which speak the network model. Both
 // are consumed through their public API only.
 //
-// Keep partial results together with their error. For example, a caller
-// with a context ctx and an open [snmp.Session] sess can collect names even
-// when an optional table fails:
+// Each mapper here is a [collect.Mapper]: it declares the tables and
+// scalars it reads and maps a [collect.Snapshot] the collector filled.
+// The mapper never touches the session, so a host that runs several
+// mappers against one device pays for each table once. For example, a
+// caller with a context ctx and an open [snmp.Session] sess collects
+// interfaces and neighbors in one cycle:
 //
-//	ifaces, err := snmpmap.Interfaces(ctx, sess)
-//	names := make([]string, 0, len(ifaces))
-//	for _, iface := range ifaces {
-//		names = append(names, iface.GetName())
+//	cycle, err := collect.New(snmpmap.InterfaceMapper, snmpmap.LLDPMapper(portNames)).Collect(ctx, sess)
+//	for _, r := range cycle.Results {
+//		if ifaces, ok := r.Output.([]*interfacev1.Interface); ok {
+//			use(ifaces)
+//		}
 //	}
-//	return names, err
+//	return err
+//
+// [Interfaces] and [LLDP] are the single-mapper shortcuts for a device
+// whose tables are known to be there.
+//
+// Keep partial results together with their error: an optional table that
+// failed still leaves the rows the required tables carried.
 //
 // # Presence
 //
@@ -42,8 +52,8 @@
 // keys: ifXTable enriches ifTable through the shared ifmib.IfTableKey,
 // and lldpRemManAddrTable's key begins with the lldpRemTable key it
 // belongs to. A row whose suffix did not decode as the declared INDEX
-// arrives with KeyValid false; it names nothing the model can hold, so
-// it is skipped without an error and without touching the rows around
-// it. The one join the MIBs do not declare, an LLDP local port number to
-// an interface name, stays with the caller of [LLDP].
+// names nothing the model can hold; the collector drops it before the
+// snapshot is built, without an error and without touching the rows
+// around it. The one join the MIBs do not declare, an LLDP local port
+// number to an interface name, stays with the caller of [LLDPMapper].
 package snmpmap

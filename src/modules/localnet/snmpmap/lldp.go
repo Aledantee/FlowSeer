@@ -10,6 +10,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	lldpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/localnet/collect"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -26,25 +27,6 @@ var (
 	// facts on them.
 	ErrCodeLLDPWalk = errs.NewCode("snmpmap/lldp-walk")
 )
-
-// fatalWalk marks the failure of a table the surrounding mapping cannot
-// stand without, telling [LLDP] apart from the failure of a table that
-// only enriches rows already collected. It unwraps to the error it
-// marks, so the code and attributes stay discoverable.
-type fatalWalk struct{ err error }
-
-// Error preserves the failed walk's diagnostic message.
-func (f fatalWalk) Error() string { return f.err.Error() }
-
-// Unwrap exposes the walk error to errors.Is and errors.As.
-func (f fatalWalk) Unwrap() error { return f.err }
-
-// isFatalWalk reports whether err carries a [fatalWalk] mark.
-func isFatalWalk(err error) bool {
-	var f fatalWalk
-
-	return errors.As(err, &f)
-}
 
 // LLDPFacts are the messages one device's LLDP-MIB yields: what the
 // device announces about itself, how each of its ports runs the
@@ -63,47 +45,55 @@ type LLDPFacts struct {
 	Neighbors []*lldpv1.Neighbor
 }
 
-// portConfigColumns are the lldpPortConfigTable columns [LLDP] requests.
-var portConfigColumns = []snmp.AnyColumn{
-	lldpmib.LldpPortConfigAdminStatus,
-	lldpmib.LldpPortConfigNotificationEnable,
-	lldpmib.LldpPortConfigTLVsTxEnable,
-}
+// The LLDP-MIB table reads the LLDP mapper declares. The management
+// address tables carry their address in the index, so their columns are
+// asked for only because a walk needs a column to ask for.
+var (
+	lldpPortConfigRead = collect.NewTable[lldpmib.LldpPortConfigTableRow](
+		lldpmib.LldpPortConfigTable.Descriptor(), lldpmib.LldpPortConfigTable.Walk,
+		lldpmib.LldpPortConfigAdminStatus,
+		lldpmib.LldpPortConfigNotificationEnable,
+		lldpmib.LldpPortConfigTLVsTxEnable,
+	)
+	lldpLocPortRead = collect.NewTable[lldpmib.LldpLocPortTableRow](
+		lldpmib.LldpLocPortTable.Descriptor(), lldpmib.LldpLocPortTable.Walk,
+		lldpmib.LldpLocPortIdSubtype,
+		lldpmib.LldpLocPortId,
+		lldpmib.LldpLocPortDesc,
+	)
+	lldpLocManAddrRead = collect.NewTable[lldpmib.LldpLocManAddrTableRow](
+		lldpmib.LldpLocManAddrTable.Descriptor(), lldpmib.LldpLocManAddrTable.Walk,
+		lldpmib.LldpLocManAddrIfSubtype,
+		lldpmib.LldpLocManAddrIfId,
+	)
+	lldpRemRead = collect.NewTable[lldpmib.LldpRemTableRow](
+		lldpmib.LldpRemTable.Descriptor(), lldpmib.LldpRemTable.Walk,
+		lldpmib.LldpRemChassisIdSubtype,
+		lldpmib.LldpRemChassisId,
+		lldpmib.LldpRemPortIdSubtype,
+		lldpmib.LldpRemPortId,
+		lldpmib.LldpRemPortDesc,
+		lldpmib.LldpRemSysName,
+		lldpmib.LldpRemSysDesc,
+		lldpmib.LldpRemSysCapSupported,
+		lldpmib.LldpRemSysCapEnabled,
+	)
+	lldpRemManAddrRead = collect.NewTable[lldpmib.LldpRemManAddrTableRow](
+		lldpmib.LldpRemManAddrTable.Descriptor(), lldpmib.LldpRemManAddrTable.Walk,
+		lldpmib.LldpRemManAddrIfSubtype,
+		lldpmib.LldpRemManAddrIfId,
+	)
+)
 
-// locPortColumns are the lldpLocPortTable columns [LLDP] requests.
-var locPortColumns = []snmp.AnyColumn{
-	lldpmib.LldpLocPortIdSubtype,
-	lldpmib.LldpLocPortId,
-	lldpmib.LldpLocPortDesc,
-}
-
-// locManAddrColumns are the lldpLocManAddrTable columns [LLDP] requests.
-// The address itself is an index arc, so the columns are asked for only
-// because a walk needs a column to ask for.
-var locManAddrColumns = []snmp.AnyColumn{
-	lldpmib.LldpLocManAddrIfSubtype,
-	lldpmib.LldpLocManAddrIfId,
-}
-
-// remColumns are the lldpRemTable columns [LLDP] requests.
-var remColumns = []snmp.AnyColumn{
-	lldpmib.LldpRemChassisIdSubtype,
-	lldpmib.LldpRemChassisId,
-	lldpmib.LldpRemPortIdSubtype,
-	lldpmib.LldpRemPortId,
-	lldpmib.LldpRemPortDesc,
-	lldpmib.LldpRemSysName,
-	lldpmib.LldpRemSysDesc,
-	lldpmib.LldpRemSysCapSupported,
-	lldpmib.LldpRemSysCapEnabled,
-}
-
-// remManAddrColumns are the lldpRemManAddrTable columns [LLDP] requests,
-// for the same reason as [locManAddrColumns].
-var remManAddrColumns = []snmp.AnyColumn{
-	lldpmib.LldpRemManAddrIfSubtype,
-	lldpmib.LldpRemManAddrIfId,
-}
+// The local-system scalars the LLDP mapper reads.
+var (
+	lldpLocChassisIDSubtypeRead = collect.NewScalar("lldpLocChassisIdSubtype", lldpmib.LldpLocChassisIdSubtypeGet)
+	lldpLocChassisIDRead        = collect.NewScalar("lldpLocChassisId", lldpmib.LldpLocChassisIdGet)
+	lldpLocSysNameRead          = collect.NewScalar("lldpLocSysName", lldpmib.LldpLocSysNameGet)
+	lldpLocSysDescRead          = collect.NewScalar("lldpLocSysDesc", lldpmib.LldpLocSysDescGet)
+	lldpLocSysCapSupportedRead  = collect.NewScalar("lldpLocSysCapSupported", lldpmib.LldpLocSysCapSupportedGet)
+	lldpLocSysCapEnabledRead    = collect.NewScalar("lldpLocSysCapEnabled", lldpmib.LldpLocSysCapEnabledGet)
+)
 
 // The IANA address family numbers whose management addresses reach the
 // typed IP arm (https://www.iana.org/assignments/address-family-numbers).
@@ -128,47 +118,87 @@ var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
 	3: lldpv1.TlvType_TLV_TYPE_SYSTEM_CAPABILITIES,
 }
 
-// LLDP walks LLDP-MIB on sess and returns the device's own announcement,
-// its per-port settings, and the neighbors it holds.
+// LLDPMapper returns the mapper that turns LLDP-MIB into [LLDPFacts]. It
+// requires lldpPortConfigTable and lldpRemTable, the tables the facts are
+// keyed on, and reads the other three tables and the local-system scalars
+// when they are there; it names no sysObjectID prefix because LLDP-MIB is
+// standard. Its Map output is an LLDPFacts value.
 //
 // portNames resolves an LLDP local port number to the interface name the
 // rest of the model uses; it is the caller's because LLDP-MIB numbers
 // ports on its own and only the caller knows how that numbering lines up
 // with IF-MIB on the device at hand. A port number the map does not
 // resolve is rendered as its decimal digits rather than dropped: the
-// announcement is real and the port number is what identifies it.
+// announcement is real and the port number is what identifies it. The
+// caller must not modify portNames while the mapper is in use.
+func LLDPMapper(portNames map[uint32]string) collect.Mapper {
+	return lldpMapper{portNames: portNames}
+}
+
+type lldpMapper struct {
+	portNames map[uint32]string
+}
+
+func (lldpMapper) Spec() collect.Spec {
+	return collect.Spec{
+		Name:     "lldp",
+		Required: []collect.TableRead{lldpPortConfigRead, lldpRemRead},
+		Optional: []collect.TableRead{lldpLocPortRead, lldpRemManAddrRead, lldpLocManAddrRead},
+		Scalars: []collect.ScalarRead{
+			lldpLocChassisIDSubtypeRead,
+			lldpLocChassisIDRead,
+			lldpLocSysNameRead,
+			lldpLocSysDescRead,
+			lldpLocSysCapSupportedRead,
+			lldpLocSysCapEnabledRead,
+		},
+	}
+}
+
+func (m lldpMapper) Map(snap *collect.Snapshot) (any, error) {
+	return LLDPFromSnapshot(snap, m.portNames)
+}
+
+// LLDP reads LLDP-MIB on sess through [collect.Read] and maps it with
+// [LLDPFromSnapshot]. It does no detection, so a device that implements
+// no LLDP-MIB reports failed walks rather than being skipped. portNames
+// is as on [LLDPMapper].
+func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (LLDPFacts, error) {
+	return LLDPFromSnapshot(collect.Read(ctx, sess, LLDPMapper(portNames)), portNames)
+}
+
+// LLDPFromSnapshot returns the device's own announcement, its per-port
+// settings, and the neighbors it holds, from the LLDP-MIB rows and
+// scalars in snap.
 //
 // A failed walk of a table the facts are keyed on returns no facts and an
 // error carrying [ErrCodeLLDPWalk]; a failed walk of an enriching table
-// returns the facts collected so far and that error beside them. A remote
-// row that cannot produce a valid message returns alongside the rows that
-// could, reported through the joined error, so a caller that ignores the
-// error still sees a truthful if incomplete neighbor set. A row whose
-// instance suffix is not the INDEX the MIB declares, which the generated
-// row reports through KeyValid, is skipped silently, as is a scalar the
-// agent does not implement.
-// Other scalar read errors are returned with the collected facts and
-// preserve their causes for [errors.Is] and [errors.As]. The caller must
-// not modify portNames during the call.
-func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (LLDPFacts, error) {
-	// A base table's failed walk is fatal where an enriching walk's and a
-	// row that could not be mapped are not, so results and errors travel
-	// back together and the fatal ones carry a mark.
-	ports, portErr := lldpPorts(ctx, sess, portNames)
-	if isFatalWalk(portErr) {
-		return LLDPFacts{}, portErr
+// returns the facts built from everything else and that error beside
+// them, with the rows the failed walk did deliver still enriching. A
+// remote row that cannot produce a valid message returns alongside the
+// rows that could, reported through the joined error, so a caller that
+// ignores the error still sees a truthful if incomplete neighbor set. A
+// scalar the agent does not implement leaves its field absent; any other
+// scalar read error is returned with the collected facts and preserves
+// its cause for [errors.Is] and [errors.As].
+func LLDPFromSnapshot(snap *collect.Snapshot, portNames map[uint32]string) (LLDPFacts, error) {
+	var fatal []error
+
+	if err := lldpPortConfigRead.Err(snap); err != nil {
+		fatal = append(fatal, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable"))
 	}
 
-	neighbors, neighborErr := lldpNeighbors(ctx, sess, portNames)
-	if isFatalWalk(neighborErr) {
-		return LLDPFacts{}, errors.Join(neighborErr, portErr)
+	if err := lldpRemRead.Err(snap); err != nil {
+		fatal = append(fatal, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable"))
 	}
 
-	// No table the local system reads is one the facts are keyed on, so
-	// its failure never ends the mapping: it costs the device's own
-	// announcement some addresses, not the ports and neighbors already in
-	// hand.
-	local, localErr := lldpLocalSystem(ctx, sess)
+	if len(fatal) > 0 {
+		return LLDPFacts{}, errors.Join(fatal...)
+	}
+
+	ports, portErr := lldpPorts(snap, portNames)
+	neighbors, neighborErr := lldpNeighbors(snap, portNames)
+	local, localErr := lldpLocalSystem(snap)
 
 	return LLDPFacts{LocalSystem: local, Ports: ports, Neighbors: neighbors},
 		errors.Join(portErr, neighborErr, localErr)
@@ -180,7 +210,7 @@ func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (
 // no LLDP local data at all yields nil rather than an empty message. A
 // failed scalar read or address walk returns the announcement built from
 // everything else beside its error.
-func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSystem, error) {
+func lldpLocalSystem(snap *collect.Snapshot) (*lldpv1.LocalSystem, error) {
 	local := &lldpv1.LocalSystem{}
 	reported := false
 	var readErrs []error
@@ -199,8 +229,8 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		readErrs = append(readErrs, errs.Wrap(err, "read "+name))
 	}
 
-	subtype, subtypeErr := lldpmib.LldpLocChassisIdSubtypeGet(ctx, sess)
-	id, idErr := lldpmib.LldpLocChassisIdGet(ctx, sess)
+	subtype, subtypeErr := lldpLocChassisIDSubtypeRead.Value(snap)
+	id, idErr := lldpLocChassisIDRead.Value(snap)
 	recordError("lldpLocChassisIdSubtype", subtypeErr)
 	recordError("lldpLocChassisId", idErr)
 
@@ -212,7 +242,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		}
 	}
 
-	if name, err := lldpmib.LldpLocSysNameGet(ctx, sess); err == nil {
+	if name, err := lldpLocSysNameRead.Value(snap); err == nil {
 		local.SetSystemName(string(name))
 
 		reported = true
@@ -220,7 +250,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		recordError("lldpLocSysName", err)
 	}
 
-	if desc, err := lldpmib.LldpLocSysDescGet(ctx, sess); err == nil {
+	if desc, err := lldpLocSysDescRead.Value(snap); err == nil {
 		local.SetSystemDescription(string(desc))
 
 		reported = true
@@ -228,7 +258,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		recordError("lldpLocSysDesc", err)
 	}
 
-	if caps, err := lldpmib.LldpLocSysCapSupportedGet(ctx, sess); err == nil {
+	if caps, err := lldpLocSysCapSupportedRead.Value(snap); err == nil {
 		local.SetCapabilitiesSupported(capabilities(caps))
 
 		reported = true
@@ -236,7 +266,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		recordError("lldpLocSysCapSupported", err)
 	}
 
-	if caps, err := lldpmib.LldpLocSysCapEnabledGet(ctx, sess); err == nil {
+	if caps, err := lldpLocSysCapEnabledRead.Value(snap); err == nil {
 		local.SetCapabilitiesEnabled(capabilities(caps))
 
 		reported = true
@@ -244,7 +274,7 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		recordError("lldpLocSysCapEnabled", err)
 	}
 
-	addrs, addrErr := lldpLocManAddrs(ctx, sess)
+	addrs, addrErr := lldpLocManAddrs(snap)
 	readErrs = append(readErrs, addrErr)
 	if len(addrs) > 0 {
 		local.SetManagementAddresses(addrs)
@@ -259,26 +289,20 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 	return local, errors.Join(readErrs...)
 }
 
-// lldpLocManAddrs walks the local management addresses. Each address is
-// the row's whole key — the address subtype and the address octets — so
-// a row whose key did not decode carries no address and is skipped. A
-// walk that stops partway returns the addresses it did read beside its
+// lldpLocManAddrs reads the local management addresses. Each address is
+// the row's whole key — the address subtype and the address octets. A
+// walk that stopped partway returns the addresses it did read beside its
 // error.
-func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.ManagementAddress, error) {
+func lldpLocManAddrs(snap *collect.Snapshot) ([]*lldpv1.ManagementAddress, error) {
 	var addrs []*lldpv1.ManagementAddress
 
-	walk := lldpmib.LldpLocManAddrTable.Walk(ctx, sess, locManAddrColumns...)
-	for _, row := range walk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
+	for _, row := range lldpLocManAddrRead.Rows(snap) {
 		if addr, ok := managementAddress(row.Key.LldpLocManAddrSubtype, row.Key.LldpLocManAddr); ok {
 			addrs = append(addrs, addr)
 		}
 	}
 
-	if err := walk.Err(); err != nil {
+	if err := lldpLocManAddrRead.Err(snap); err != nil {
 		return addrs, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocManAddrTable")
 	}
 
@@ -288,9 +312,9 @@ func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.Manageme
 // lldpPorts maps the per-port settings of both port tables, joined on the
 // LLDP port number their keys carry. A device that implements only one
 // of the two still yields ports, with fewer facts on them, and so does a
-// device whose lldpLocPortTable walk fails partway — that table only
+// device whose lldpLocPortTable walk failed partway — that table only
 // enriches the ports lldpPortConfigTable already named.
-func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]string) ([]*lldpv1.PortSettings, error) {
+func lldpPorts(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldpv1.PortSettings, error) {
 	type portRow struct {
 		config lldpmib.LldpPortConfigTableRow
 		loc    lldpmib.LldpLocPortTableRow
@@ -311,30 +335,16 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 		return row
 	}
 
-	configWalk := lldpmib.LldpPortConfigTable.Walk(ctx, sess, portConfigColumns...)
-	for _, row := range configWalk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
+	for _, row := range lldpPortConfigRead.Rows(snap) {
 		at(row.Key.LldpPortConfigPortNum).config = row
 	}
 
-	if err := configWalk.Err(); err != nil {
-		return nil, fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable")}
-	}
-
-	locWalk := lldpmib.LldpLocPortTable.Walk(ctx, sess, locPortColumns...)
-	for _, row := range locWalk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
+	for _, row := range lldpLocPortRead.Rows(snap) {
 		at(row.Key.LldpLocPortNum).loc = row
 	}
 
 	var locErr error
-	if err := locWalk.Err(); err != nil {
+	if err := lldpLocPortRead.Err(snap); err != nil {
 		locErr = errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpLocPortTable")
 	}
 
@@ -383,20 +393,15 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 // addresses lldpRemManAddrTable carries under the same remote key. A
 // failed address walk costs the neighbors it did not reach their
 // addresses, not their existence, so it travels back beside them.
-func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]string) ([]*lldpv1.Neighbor, error) {
-	addrs, addrErr := lldpRemManAddrs(ctx, sess)
+func lldpNeighbors(snap *collect.Snapshot, portNames map[uint32]string) ([]*lldpv1.Neighbor, error) {
+	addrs, addrErr := lldpRemManAddrs(snap)
 
 	var (
 		neighbors []*lldpv1.Neighbor
 		rowErrs   []error
 	)
 
-	walk := lldpmib.LldpRemTable.Walk(ctx, sess, remColumns...)
-	for _, row := range walk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
+	for _, row := range lldpRemRead.Rows(snap) {
 		neighbor, err := mapNeighbor(row, addrs[row.Key], portNames)
 		if err != nil {
 			rowErrs = append(rowErrs, err)
@@ -407,29 +412,18 @@ func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]
 		neighbors = append(neighbors, neighbor)
 	}
 
-	if err := walk.Err(); err != nil {
-		fatal := fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable")}
-
-		return nil, errors.Join(fatal, addrErr)
-	}
-
 	return neighbors, errors.Join(addrErr, errors.Join(rowErrs...))
 }
 
-// lldpRemManAddrs walks the neighbors' management addresses and groups
-// them by the remote row they belong to. Both the address family and the
-// address octets are key parts — the table's columns say only how the
-// neighbor reaches that address, not what it is. A walk that stops
-// partway returns the groups it did read beside its error.
-func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress, error) {
+// lldpRemManAddrs groups the neighbors' management addresses by the
+// remote row they belong to. Both the address family and the address
+// octets are key parts — the table's columns say only how the neighbor
+// reaches that address, not what it is. A walk that stopped partway
+// returns the groups it did read beside its error.
+func lldpRemManAddrs(snap *collect.Snapshot) (map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress, error) {
 	addrs := make(map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress)
 
-	walk := lldpmib.LldpRemManAddrTable.Walk(ctx, sess, remManAddrColumns...)
-	for _, row := range walk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
+	for _, row := range lldpRemManAddrRead.Rows(snap) {
 		addr, ok := managementAddress(row.Key.LldpRemManAddrSubtype, row.Key.LldpRemManAddr)
 		if !ok {
 			continue
@@ -446,7 +440,7 @@ func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[lldpmib.LldpRe
 		addrs[key] = append(addrs[key], addr)
 	}
 
-	if err := walk.Err(); err != nil {
+	if err := lldpRemManAddrRead.Err(snap); err != nil {
 		return addrs, errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemManAddrTable")
 	}
 

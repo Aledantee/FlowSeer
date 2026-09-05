@@ -12,7 +12,7 @@ import (
 
 	lldpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lldp/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/snmpmap"
+	"go.aledante.io/FlowSeer/src/modules/localnet/snmpmap"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 

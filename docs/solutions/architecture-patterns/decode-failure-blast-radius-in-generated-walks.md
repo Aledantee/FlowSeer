@@ -80,15 +80,16 @@ preserves rows 1 and 2, even if all three arrived in one GETBULK response.
 validation can fail before any of that response's rows are delivered.
 
 **A fatal table can void unrelated data.** In the LLDP mapper, an
-`lldpRemTable` walk error is marked fatal (`src/common/snmpmap/lldp.go:414-417`),
-and that marker makes `LLDP` return an empty `LLDPFacts{}`
-(`src/common/snmpmap/lldp.go:151-162`), discarding ports and the local system
-block that were already collected successfully.
+`lldpRemTable` walk error is a required-table failure, and `LLDPFromSnapshot`
+(`src/modules/localnet/snmpmap/lldp.go`) answers it with an empty
+`LLDPFacts{}`, discarding ports and the local system block that the same
+cycle collected successfully.
 
 The oversized-bitmap chain is the historical failure this change prevents:
 oversized bitmap → `DecodeBitSet` error → `derr` set
 (`generated/go/mib/lldpmib/mib.go:2169-2184`) → `tw.rw.Fail(derr)` →
-`walk.Err() != nil` → `fatalWalk` → `LLDPFacts{}`. Current `DecodeBitSet`
+`walk.Err() != nil` → recorded against the table in the snapshot →
+`LLDPFacts{}`. Current `DecodeBitSet`
 truncates the oversized value, so the first error no longer occurs.
 
 ## When to Apply
@@ -122,7 +123,7 @@ The guard is executable, at two levels.
 Unit — `src/protocol/snmp/bits_test.go:175`, `TestDecodeBitSet_OversizedTruncates`:
 an over-limit value returns a set truncated to the bound rather than an error.
 
-End-to-end — `src/common/snmpmap/lldp_test.go:319-335`,
+End-to-end — `src/modules/localnet/snmpmap/lldp_test.go`,
 `TestLLDP_OversizedCapabilityBitmapKeepsFacts`, which is the one that would have
 caught the original defect:
 

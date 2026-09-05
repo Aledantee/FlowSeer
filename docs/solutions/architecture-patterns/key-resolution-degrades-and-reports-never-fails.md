@@ -56,7 +56,7 @@ each layer has a different audience and a different lifetime:
 | SMI parser: INDEX/AUGMENTS resolution | Unresolvable index part or AUGMENTS target | `Node`/`Type` left nil, `Unresolved: true`; an AUGMENTS chain with no valid base leaves the table without a copied index | `Diagnostic` on the declaring row (`ErrCodeUnresolvedIndexPart`, `ErrCodeUnresolvedAugments`) |
 | mibgen: key type emission | Key type not configured or not imported by the module | Field keeps the raw base type (integer or octet string) instead of the named convention | `degradedRef` collected during emission, printed as one line per reference |
 | Runtime decode: `DecodeIndex`/`DecodeIndexInto` | Malformed instance suffix (short, over-length, out-of-range arc, leftover arcs) | `ok=false`, never an error; parts already decoded keep their values, the failing part and everything after it is zeroed | Caller reads `ok`/`KeyValid`, no diagnostic surface of its own |
-| Mapper (e.g. `snmpmap`) | Row delivered with `KeyValid() == false` | Row skipped; the rows around it are unaffected | Nothing. The row is silently dropped from the mapped result |
+| Collector table read (`collect`) | Row delivered with `KeyValid() == false` | Row skipped; the rows around it are unaffected | Nothing. The row is silently dropped before the mappers see it |
 
 The SMI parser and mibgen layers report through a text channel a human reads
 (a diagnostic, a stdout line) because the failure is a property of the MIB
@@ -100,11 +100,12 @@ every row and yields it regardless of `KeyValid`; a false result gives a
 zero `Key` and the raw suffix `OID` beside it, not a skipped row. The row
 still reaches the caller with every other column decoded normally.
 
-The mapper is where the degraded key finally becomes an omission, and it's a
-deliberate one. `walkIfMIB` in `src/common/snmpmap/ifmib.go:196-199` and
-`:209-212` skips a row when `!row.KeyValid()`: its suffix names no
-interface, so there's nothing to key the row by, but the rows around it are
-unaffected and the walk's error, if any, is unrelated. Compare this to the
+The collector is where the degraded key finally becomes an omission, and it's
+a deliberate one. The table read in `src/modules/localnet/collect/mapper.go`
+(`NewTable`) drops a row when `!row.KeyValid()` while walking on behalf of
+the mappers: its suffix names no row the model can hold, so there's nothing
+to key it by, but the rows around it are unaffected and the walk's error, if
+any, is unrelated. Compare this to the
 LLDP fatal-walk case in the decoder doc: that discards a whole `LLDPFacts{}`
 because a *decode* error ended the walk. A `KeyValid` skip never triggers
 that path: it isn't an error at all, so it can't become fatal.
@@ -148,7 +149,7 @@ Any change to:
   `*mib.go` golden file such as
   `src/protocol/snmp/cmd/mibgen/testdata/golden/fakekeysmib/mib.go` for the
   shape it produces).
-- A mapper under `src/common/snmpmap/` that reads `KeyValid()` before using a
+- The collector's table read in `src/modules/localnet/collect/` that checks `KeyValid()` before keeping a
   row's key.
 
 Adding a new failure mode to any of these should keep the same shape: report

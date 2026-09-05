@@ -11,6 +11,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/localnet/collect"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -109,25 +110,95 @@ type IfMIBRows struct {
 	Stack []IfStackRow
 }
 
-// Interfaces walks IF-MIB on sess and returns one Interface per ifTable
-// row, in walk order. ifXTable and ifStackTable are walked too; a device
-// that does not implement them yields interfaces built from ifTable
-// alone.
+// The IF-MIB reads the interface mapper declares. ifStackTable is asked
+// only for its status column: a stored relationship may be inactive, and
+// only active rows describe the layering currently in use.
+var (
+	ifTableRead      = collect.NewTable[ifmib.IfTableRow](ifmib.IfTable.Descriptor(), ifmib.IfTable.Walk, ifTableColumns...)
+	ifXTableRead     = collect.NewTable[ifmib.IfXTableRow](ifmib.IfXTable.Descriptor(), ifmib.IfXTable.Walk, ifXTableColumns...)
+	ifStackTableRead = collect.NewTable[ifmib.IfStackTableRow](ifmib.IfStackTable.Descriptor(), ifmib.IfStackTable.Walk, ifmib.IfStackStatus)
+)
+
+// InterfaceMapper maps IF-MIB to one Interface per ifTable row. It
+// requires ifTable and reads ifXTable and ifStackTable when they are
+// there; it names no sysObjectID prefix because IF-MIB is standard. Its
+// Map output is []*interfacev1.Interface, as [InterfacesFromSnapshot]
+// returns it.
+var InterfaceMapper collect.Mapper = interfaceMapper{}
+
+type interfaceMapper struct{}
+
+func (interfaceMapper) Spec() collect.Spec {
+	return collect.Spec{
+		Name:     "interfaces",
+		Required: []collect.TableRead{ifTableRead},
+		Optional: []collect.TableRead{ifXTableRead, ifStackTableRead},
+	}
+}
+
+func (interfaceMapper) Map(snap *collect.Snapshot) (any, error) {
+	return InterfacesFromSnapshot(snap)
+}
+
+// Interfaces reads IF-MIB on sess through [collect.Read] and maps it with
+// [InterfacesFromSnapshot]. It does no detection, so a device that
+// implements no ifTable reports a failed walk rather than being skipped.
+func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interface, error) {
+	return InterfacesFromSnapshot(collect.Read(ctx, sess, InterfaceMapper))
+}
+
+// InterfacesFromSnapshot returns one Interface per ifTable row of snap,
+// in walk order. A device that walked no ifXTable or ifStackTable yields
+// interfaces built from ifTable alone.
 //
 // A failed ifTable walk returns no interfaces and an error carrying
 // [ErrCodeInterfaceWalk]. A failed ifXTable or ifStackTable walk returns
 // the interfaces ifTable carried and that same error beside them: those
 // tables only enrich rows that already stand on their own, so losing one
-// degrades the answer rather than voiding it. A row that cannot produce
-// a valid message returns alongside the rows that could, as described on
-// [InterfacesFromRows]. A row whose instance suffix is not the INDEX the
-// MIB declares names no interface and is skipped silently.
-func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interface, error) {
-	rows, walkErr := walkIfMIB(ctx, sess)
+// degrades the answer rather than voiding it, and the rows the failed walk
+// delivered before it stopped still enrich. A row that cannot produce a
+// valid message returns alongside the rows that could, as described on
+// [InterfacesFromRows].
+func InterfacesFromSnapshot(snap *collect.Snapshot) ([]*interfacev1.Interface, error) {
+	if err := ifTableRead.Err(snap); err != nil {
+		return nil, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifTable")
+	}
+
+	var (
+		rows     IfMIBRows
+		walkErrs []error
+	)
+
+	for _, row := range ifTableRead.Rows(snap) {
+		rows.If = append(rows.If, IfRow{Key: row.Key, Row: row})
+	}
+
+	for _, row := range ifXTableRead.Rows(snap) {
+		rows.IfX = append(rows.IfX, IfXRow{Key: row.Key, Row: row})
+	}
+
+	if err := ifXTableRead.Err(snap); err != nil {
+		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifXTable"))
+	}
+
+	for _, row := range ifStackTableRead.Rows(snap) {
+		if !row.Observed(ifmib.IfStackStatus) || row.IfStackStatus != snmp.RowStatusActive {
+			continue
+		}
+
+		rows.Stack = append(rows.Stack, IfStackRow{
+			Higher: ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackHigherLayer)},
+			Lower:  ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackLowerLayer)},
+		})
+	}
+
+	if err := ifStackTableRead.Err(snap); err != nil {
+		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifStackTable"))
+	}
 
 	ifaces, rowErr := InterfacesFromRows(rows)
 
-	return ifaces, errors.Join(walkErr, rowErr)
+	return ifaces, errors.Join(errors.Join(walkErrs...), rowErr)
 }
 
 // InterfacesFromRows maps already-walked rows, so a caller that walks
@@ -178,65 +249,6 @@ func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
 	}
 
 	return ifaces, errors.Join(rowErrs...)
-}
-
-// walkIfMIB collects the three IF-MIB tables the interface mapping
-// reads. Only ifTable is fatal; a failure of either optional table
-// returns the rows collected so far beside the error, since a walk that
-// stops partway still carried real rows before it stopped. A row the
-// walk delivered with an invalid key is skipped: its suffix names no
-// interface, and the rows around it are unaffected.
-func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
-	var (
-		rows     IfMIBRows
-		walkErrs []error
-	)
-
-	ifWalk := ifmib.IfTable.Walk(ctx, sess, ifTableColumns...)
-	for _, row := range ifWalk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
-		rows.If = append(rows.If, IfRow{Key: row.Key, Row: row})
-	}
-
-	if err := ifWalk.Err(); err != nil {
-		return IfMIBRows{}, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifTable")
-	}
-
-	xWalk := ifmib.IfXTable.Walk(ctx, sess, ifXTableColumns...)
-	for _, row := range xWalk.Iter() {
-		if !row.KeyValid() {
-			continue
-		}
-
-		rows.IfX = append(rows.IfX, IfXRow{Key: row.Key, Row: row})
-	}
-
-	if err := xWalk.Err(); err != nil {
-		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifXTable"))
-	}
-
-	// A stored relationship may be inactive; only active rows describe
-	// the layering currently in use.
-	stackWalk := ifmib.IfStackTable.Walk(ctx, sess, ifmib.IfStackStatus)
-	for _, row := range stackWalk.Iter() {
-		if !row.KeyValid() || !row.Observed(ifmib.IfStackStatus) || row.IfStackStatus != snmp.RowStatusActive {
-			continue
-		}
-
-		rows.Stack = append(rows.Stack, IfStackRow{
-			Higher: ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackHigherLayer)},
-			Lower:  ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackLowerLayer)},
-		})
-	}
-
-	if err := stackWalk.Err(); err != nil {
-		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodeInterfaceWalk).Msg("walk ifStackTable"))
-	}
-
-	return rows, errors.Join(walkErrs...)
 }
 
 // ifStack is the layering ifStackTable declares, read in both

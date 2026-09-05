@@ -79,6 +79,15 @@ A decoder answering "this value is not mine to read" rather than failing. What a
 ### Fatal walk
 
 A collection walk whose failure voids the whole answer, as against one that degrades and returns what it gathered. Only the table a set of facts is keyed on is fatal; a walk that merely enriches those facts reports its failure alongside the rows already collected rather than in place of them. A caller therefore cannot read an error as "no data" — it must inspect the result too.
+
+### Collector
+
+One collection cycle against one device: read sysObjectID once, decide which mappers apply, walk every table those mappers read exactly once with the union of their columns, and hand the rows to each mapper as a snapshot. A walk failure is recorded per table, and the mapper decides whether it declines (a required table) or degrades (an optional one). Mappers never touch the session.
+
+### Mapper detection
+
+Whether a mapper applies to a device on this cycle: every table it requires answers a presence probe, and, when the mapper is vendor-specific, the device's sysObjectID has one of its declared prefixes. Presence is an instance probe, so a required table with no rows reads as absent and the mapper is skipped until rows appear. sysDescr text is never consulted.
+
 ## MIB Parsing
 
 ### MIB Module
