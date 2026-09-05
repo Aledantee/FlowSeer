@@ -30,14 +30,16 @@ var importOrder = map[string][]string{
 	// A protocol may import any layer below it, and never another protocol.
 	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
-	// Boundary packages consume the primitives and never feed them. The two
-	// leaves, api/edge and device/policy, import nothing FlowSeer-owned so
-	// that inventory can name an edge and a policy without a cycle.
-	"api/edge":      nil,
+	// Boundary packages consume the primitives and never feed them.
+	// device/policy imports nothing FlowSeer-owned, the one leaf that lets
+	// inventory name a policy without a cycle. api/edge may import
+	// device/policy for the credential and host-trust handles its
+	// credential RPCs return, because device/policy imports nothing back.
+	"api/edge":      {"device/policy"},
 	"device/policy": nil,
 
-	// The error wire payload. A leaf like api/edge and device/policy: every
-	// boundary may carry an error, so nothing may depend on it.
+	// The error wire payload. A leaf like device/policy: every boundary may
+	// carry an error, so nothing may depend on it.
 	"errs": nil,
 
 	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
@@ -146,6 +148,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
 		{name: "primitive imports a boundary", importer: "net/interface", imported: "api/inventory"},
 		{name: "inventory imports a leaf boundary", importer: "api/inventory", imported: "device/policy", want: true},
+		{name: "edge imports its credential handles", importer: "api/edge", imported: "device/policy", want: true},
+		{name: "leaf boundary imports edge", importer: "device/policy", imported: "api/edge"},
 		{name: "access values import inventory", importer: "device/access", imported: "api/inventory", want: true},
 		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
 		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
