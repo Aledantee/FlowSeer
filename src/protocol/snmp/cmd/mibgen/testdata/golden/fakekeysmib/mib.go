@@ -26,10 +26,7 @@ type FakeKeyIndex int32
 // HomeTable returns the descriptor of fakeKeyTable, the table a FakeKeyIndex value
 // identifies a row of.
 func (FakeKeyIndex) HomeTable() snmp.TableDescriptor {
-	return snmp.TableDescriptor{
-		KeyType: "FakeKeyIndex",
-		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1),
-	}
+	return FakeKeyTable.Descriptor()
 }
 
 // FakeKeyName is the column fakeKeyName of table fakeKeyTable.
@@ -167,6 +164,17 @@ func (tw *FakeKeyTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t fakeKeyTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeKeyTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeKeyTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeKeyTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

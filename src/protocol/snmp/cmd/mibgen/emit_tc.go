@@ -197,6 +197,14 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 	if t == nil || !ec.typeAvailable(t) {
 		// Nothing usable to render from — fall back to
 		// OctetString-ish bytes rather than guessing a numeric width.
+		// A keyed convention lost this way is a reference the module
+		// meant to make, so it goes on the degraded report like one
+		// lost to configuration.
+		if t != nil {
+			if _, keyed := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; keyed {
+				ec.recordDegraded(nodeName, t.Name, t.Module, degradedNotImported)
+			}
+		}
 		return resolvedBytes()
 	}
 

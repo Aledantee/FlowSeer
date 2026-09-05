@@ -218,6 +218,22 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 	).Op("*").Id(walkerTypeName).Block(
 		jen.Return(jen.Id("t").Dot("WalkWithOptions").Call(jen.Id("ctx"), jen.Id("sess"), jen.Qual(snmpImport, "TableWalkOptions").Values(), jen.Id("cols").Op("..."))),
 	)
+	// The descriptor names the indicator var emitIndicators writes at
+	// the end of the file; a method body may refer to a package-level
+	// var declared after it, so emission order does not matter here.
+	f.Comment("Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its")
+	f.Comment("change indicator when the MIB declares one, and the Go type of its row key.")
+	f.Comment("The descriptor is a value; hold it without the row or walker types to probe")
+	f.Comment("for the table or declare it as a dependency.")
+	f.Func().Params(jen.Id(descriptorTypeName)).Id("Descriptor").Params().Qual(snmpImport, "TableDescriptor").Block(
+		jen.Return(jen.Qual(snmpImport, "TableDescriptor").Values(jen.DictFunc(func(d jen.Dict) {
+			d[jen.Id("Root")] = newOIDCall(tablePrefix)
+			if _, ok := ec.tableIndicatorsByOID[tablePrefix]; ok {
+				d[jen.Id("Indicator")] = jen.Id(tableName + "Indicator")
+			}
+			d[jen.Id("KeyType")] = jen.Lit(key.descriptorKeyType())
+		}))),
+	)
 	f.Comment("WalkWithOptions is Walk with request sizing and per-call controls.")
 	f.Comment("SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.")
 	f.Func().Params(jen.Id(descriptorTypeName)).Id("WalkWithOptions").Params(

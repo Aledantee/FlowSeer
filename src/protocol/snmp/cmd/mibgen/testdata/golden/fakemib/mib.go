@@ -418,6 +418,18 @@ func (t fakeTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.An
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: FakeTableIndicator,
+		KeyType:   "FakeTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (fakeTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeTableWalker {
@@ -790,6 +802,18 @@ func (t fakeStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeStackTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: FakeStackTableIndicator,
+		KeyType:   "FakeStackTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 4),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (fakeStackTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeStackTableWalker {
@@ -1103,6 +1127,17 @@ func (t fakePairTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snm
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakePairTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakePairTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 7),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (fakePairTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakePairTableWalker {
@@ -1272,6 +1307,17 @@ func (t fakeImpliedTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeImpliedTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeImpliedTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 8),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (fakeImpliedTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeImpliedTableWalker {
@@ -1434,6 +1480,17 @@ func (tw *FakeAddrTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t fakeAddrTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeAddrTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeAddrTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeAddrTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 9),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.
@@ -1600,6 +1657,17 @@ func (t fakeOidTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeOidTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeOidTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 10),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (fakeOidTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeOidTableWalker {
@@ -1760,6 +1828,17 @@ func (tw *FakeAugTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t fakeAugTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeAugTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeAugTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 11),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

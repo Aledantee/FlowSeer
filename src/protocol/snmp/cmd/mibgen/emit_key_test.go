@@ -68,9 +68,7 @@ func TestEmit_KeyTypeAndHomeTable(t *testing.T) {
 	}
 	wantFragments(t, src,
 		"type FakeKeyIndex int32",
-		"func (FakeKeyIndex) HomeTable() snmp.TableDescriptor",
-		"Root: snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1),",
-		`KeyType: "FakeKeyIndex",`,
+		"func (FakeKeyIndex) HomeTable() snmp.TableDescriptor {\n\treturn FakeKeyTable.Descriptor()\n}",
 		"type FakeKeyTableKey struct {\n\tFakeKeyIndex FakeKeyIndex\n}",
 		"type FakeKeyTableRow struct {\n\tKey FakeKeyTableKey\n\tkeyValid bool\n",
 		"func (r FakeKeyTableRow) KeyValid() bool",
@@ -133,7 +131,7 @@ func TestEmit_UnconfiguredKeyModuleDegrades(t *testing.T) {
 		t.Fatalf("degraded references = %v; want exactly one", degraded)
 	}
 	got := degraded[0]
-	want := degradedRef{Module: "FAKE-MIB", Object: "fakeRef", Convention: "FakeKeyIndex", DeclaringModule: "FAKE-KEYS-MIB"}
+	want := degradedRef{Module: "FAKE-MIB", Object: "fakeRef", Convention: "FakeKeyIndex", DeclaringModule: "FAKE-KEYS-MIB", Reason: degradedNotConfigured}
 	if got != want {
 		t.Errorf("degraded reference = %+v; want %+v", got, want)
 	}

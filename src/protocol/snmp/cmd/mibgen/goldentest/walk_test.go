@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
+	"go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden/fakekeysmib"
 	"go.aledante.io/FlowSeer/src/protocol/snmp/cmd/mibgen/testdata/golden/fakemib"
 )
 
@@ -124,5 +125,54 @@ func TestKeyStructsAreMapKeys(t *testing.T) {
 	byAug[fakemib.FakeAugTableRow{}.Key] = fakemib.FakeAugTableRow{}
 	if len(byOID)+len(byName)+len(byAug) != 3 {
 		t.Fatalf("map sizes = %d %d %d", len(byOID), len(byName), len(byAug))
+	}
+}
+
+// TestDescriptors_ProbeWithoutRowTypes holds descriptors from both
+// golden packages in one slice and probes each against a scripted agent
+// that has rows only under fakeTable, without naming a row or walker
+// type anywhere.
+func TestDescriptors_ProbeWithoutRowTypes(t *testing.T) {
+	sess := scriptedSession{instances: []snmp.VarBind{
+		instance(fakemib.FakeName.OID(), 1, 7),
+	}}
+	descriptors := []snmp.TableDescriptor{
+		fakemib.FakeTable.Descriptor(),
+		fakemib.FakeStackTable.Descriptor(),
+		fakemib.FakePairTable.Descriptor(),
+		fakekeysmib.FakeKeyTable.Descriptor(),
+	}
+	want := []struct {
+		keyType   string
+		indicator bool
+		present   bool
+	}{
+		{"FakeTableKey", true, true},
+		{"FakeStackTableKey", true, false},
+		{"FakePairTableKey", false, false},
+		{"FakeKeyTableKey", false, false},
+	}
+	for i, d := range descriptors {
+		present, err := d.Present(context.Background(), sess)
+		if err != nil {
+			t.Fatalf("descriptor %d (%s): probe: %v", i, d.KeyType, err)
+		}
+		if d.KeyType != want[i].keyType || d.HasIndicator() != want[i].indicator || present != want[i].present {
+			t.Errorf("descriptor %d = key %q indicator %v present %v; want %+v",
+				i, d.KeyType, d.HasIndicator(), present, want[i])
+		}
+	}
+}
+
+// TestHomeTable_IsTheHomeDescriptor pins that following a key value to
+// its home table lands on the same descriptor the table exports.
+func TestHomeTable_IsTheHomeDescriptor(t *testing.T) {
+	home := fakekeysmib.FakeKeyIndex(0).HomeTable()
+	want := fakekeysmib.FakeKeyTable.Descriptor()
+	if !home.Root.Equal(want.Root) || home.KeyType != want.KeyType || home.HasIndicator() != want.HasIndicator() {
+		t.Errorf("HomeTable() = %+v; want %+v", home, want)
+	}
+	if !home.Root.Equal(snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 2, 1)) {
+		t.Errorf("home root = %s; want fakeKeyTable", home.Root)
 	}
 }

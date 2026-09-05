@@ -35,20 +35,27 @@ type keyedConvention struct {
 	Home *smi.Table
 }
 
-// degradedRef is a reference the emitter had to render in its base type
-// because the package that would declare the key type is not
-// configured. Object is the column, index column, or row that carries
-// the reference; Convention is the key type it names.
+// degradedRef is a reference the emitter had to render without its key
+// type, either because the package that would declare the type is not
+// configured or because the module never imported it (see
+// [emitCtx.typeAvailable]). Object is the column, index column, or row
+// that carries the reference; Convention is the key type it names.
 type degradedRef struct {
 	Module          string
 	Object          string
 	Convention      string
 	DeclaringModule string
+	Reason          string
 }
 
+const (
+	degradedNotConfigured = "which is not configured"
+	degradedNotImported   = "which the module does not import"
+)
+
 func (d degradedRef) String() string {
-	return fmt.Sprintf("degraded reference: %s %s uses %s declared by %s, which is not configured; emitted as its base type",
-		d.Module, d.Object, d.Convention, d.DeclaringModule)
+	return fmt.Sprintf("degraded reference: %s %s uses %s declared by %s, %s; emitted without the key type",
+		d.Module, d.Object, d.Convention, d.DeclaringModule, d.Reason)
 }
 
 // conventionKeyBase reports whether t may become a key type, and over
@@ -165,15 +172,15 @@ func (ec *emitCtx) keyTypeRef(t *smi.Type, object string) *jen.Statement {
 	if q := ec.moduleQual(t.Module, camelCase(t.Name)); q != nil {
 		return q
 	}
-	ec.recordDegraded(object, t.Name, t.Module)
+	ec.recordDegraded(object, t.Name, t.Module, degradedNotConfigured)
 
 	return nil
 }
 
 // recordDegraded notes one degraded reference once, however many passes
 // resolve the same object.
-func (ec *emitCtx) recordDegraded(object, convention, declaringModule string) {
-	ref := degradedRef{Module: ec.mod.Name, Object: object, Convention: convention, DeclaringModule: declaringModule}
+func (ec *emitCtx) recordDegraded(object, convention, declaringModule, reason string) {
+	ref := degradedRef{Module: ec.mod.Name, Object: object, Convention: convention, DeclaringModule: declaringModule, Reason: reason}
 	for _, d := range ec.degraded {
 		if d == ref {
 			return
@@ -216,22 +223,65 @@ func emitKeyTypes(f *jen.File, ec *emitCtx) {
 		f.Comment("HomeTable returns the descriptor of " + home + ", the table a " + goName + " value")
 		f.Comment("identifies a row of.")
 		f.Func().Params(jen.Id(goName)).Id("HomeTable").Params().Qual(snmpImport, "TableDescriptor").Block(
-			jen.Return(jen.Qual(snmpImport, "TableDescriptor").Values(jen.Dict{
-				jen.Id("Root"):    newOIDCall(kc.Home.Node.OID.String()),
-				jen.Id("KeyType"): jen.Lit(goName),
-			})),
+			jen.Return(homeTableDescriptor(kc.Home, goName)),
 		)
 	}
 }
 
+// homeTableDescriptor is the expression HomeTable returns. The home
+// table is by construction a table of the module declaring the
+// convention (see [keyedConventions]), so its singleton is in the same
+// package and the method forwards to its Descriptor rather than
+// spelling a second literal that could drift from it. A home table the
+// emitter skips, one with no accessible column, has no singleton, and
+// the literal names the convention as the key.
+func homeTableDescriptor(home *smi.Table, keyName string) *jen.Statement {
+	if tableBound(home) {
+		return jen.Id(camelCase(home.Node.Name)).Dot("Descriptor").Call()
+	}
+
+	return jen.Qual(snmpImport, "TableDescriptor").Values(jen.Dict{
+		jen.Id("Root"):    newOIDCall(home.Node.OID.String()),
+		jen.Id("KeyType"): jen.Lit(keyName),
+	})
+}
+
+// tableBound reports whether emitTable writes bindings for t: a row
+// with at least one accessible column.
+func tableBound(t *smi.Table) bool {
+	if t == nil || t.Node == nil || t.Row == nil {
+		return false
+	}
+	for _, c := range t.Columns {
+		if c.Access != smi.AccessNotAccessible {
+			return true
+		}
+	}
+
+	return false
+}
+
 // rowKey says how a table's row is keyed: by a typed key struct decoded
 // from the instance suffix, or, when Type is nil, by the raw suffix.
+// TypeName is the key type as the descriptor reports it: the struct's
+// name, qualified by package when an augmenting table borrows it from
+// another module, or "snmp.OID" for the raw suffix.
 type rowKey struct {
 	Type     *jen.Statement
+	TypeName string
 	DecodeFn string
 }
 
 func (k rowKey) raw() bool { return k.Type == nil }
+
+// descriptorKeyType is the KeyType a table descriptor carries for k.
+func (k rowKey) descriptorKeyType() string {
+	if k.raw() {
+		return "snmp.OID"
+	}
+
+	return k.TypeName
+}
 
 // declareRow writes into g the statements that start a row from its
 // index suffix, held in idx.
@@ -268,6 +318,13 @@ type keyPart struct {
 // Every field stays comparable so the struct can be a map key: octets
 // become string, an OID its dotted form, and an IpAddress a
 // [netip.Addr]. The column of the same object keeps its own type.
+//
+// A keyed convention the module never imported is held to the same
+// IMPORTS rule as a column (see [emitCtx.typeAvailable]): the field
+// carries no key type and the reference is reported. Unlike the column,
+// which takes the untyped byte fallback, the field keeps the base
+// type, because the shape has to match the suffix arcs for any row's
+// key to decode.
 func (ec *emitCtx) keyPartFor(part smi.IndexPart) keyPart {
 	t := part.Type
 	kp := keyPart{Field: camelCase(part.Name)}
@@ -276,7 +333,9 @@ func (ec *emitCtx) keyPartFor(part smi.IndexPart) keyPart {
 	}
 
 	if kc, ok := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; ok {
-		if goType := ec.keyTypeRef(t, part.Name); goType != nil {
+		if !ec.typeAvailable(t) {
+			ec.recordDegraded(part.Name, t.Name, t.Module, degradedNotImported)
+		} else if goType := ec.keyTypeRef(t, part.Name); goType != nil {
 			kp.Type = goType
 			if kc.Base == keyBaseString {
 				kp.Shape = octetShape(t, part.Implied)
@@ -362,7 +421,7 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 	}
 
 	keyTypeName := tableName + "Key"
-	key := rowKey{Type: jen.Id(keyTypeName), DecodeFn: "decode" + keyTypeName}
+	key := rowKey{Type: jen.Id(keyTypeName), TypeName: keyTypeName, DecodeFn: "decode" + keyTypeName}
 	switch {
 	case t.AugmentsTable == nil:
 		f.Comment(keyTypeName + " is the decoded INDEX of one " + t.Node.Name + " row, one field per")
@@ -373,15 +432,17 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 			}
 		})
 	case t.AugmentsTable.Node.Module == ec.mod.Name:
-		key.Type = jen.Id(camelCase(t.AugmentsTable.Node.Name) + "Key")
+		key.TypeName = camelCase(t.AugmentsTable.Node.Name) + "Key"
+		key.Type = jen.Id(key.TypeName)
 	default:
 		augName := camelCase(t.AugmentsTable.Node.Name) + "Key"
 		q := ec.moduleQual(t.AugmentsTable.Node.Module, augName)
 		if q == nil {
-			ec.recordDegraded(t.Row.Name, augName, t.AugmentsTable.Node.Module)
+			ec.recordDegraded(t.Row.Name, augName, t.AugmentsTable.Node.Module, degradedNotConfigured)
 			return rowKey{}
 		}
 		key.Type = q
+		key.TypeName = ec.cfgByName[t.AugmentsTable.Node.Module].Package + "." + augName
 	}
 
 	shapesName := unexported(tableName) + "IndexShapes"
