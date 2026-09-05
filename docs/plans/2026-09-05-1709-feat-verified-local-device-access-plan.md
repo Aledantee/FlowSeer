@@ -7,7 +7,6 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 execution: code
 ---
-
 # Verified Local Device Access - Plan
 
 ## Goal
@@ -33,15 +32,16 @@ Stop if the device cannot expose a complete independent read of the changed inte
 - Fail closed when identity, read authority, journal continuity, or execution authority is uncertain. Why: availability cannot justify an unsafe retry. Governs R12, R19-R24, R27-R28, R47-R50, and R59.
 - Keep legacy management protocols disabled by default. Why: Telnet and weak SNMP require an explicit per-device exception, never learned fallback. Governs R38, R43-R46, and R55.
 - Prove one typed shell adapter before designing a shell DSL. Why: a second firmware implementation must demonstrate the reusable variation. Governs R35-R37 and R56.
-- KTD1. Amend both accepted device-service direction records before schemas land. Why: they currently route through a protocol-bearing binding and reserve the final package paths.
+- KTD1. Amend both accepted device-service direction records before schemas land. Preserve the landed Edge entity, `IntegrationConfig.edge` pointer, Connect enrollment, heartbeat, administration, and authenticated NATS handoff; amend only the protocol-neutral binding, device package boundaries, credential delivery, liveness authority, and future positive fencing. Why: the records still route through a protocol-bearing binding and leave device-access details open.
 - KTD2. Put shared operation values in `spec/proto/flowseer/device/access/v1/`; keep `api/device/v1`, `integration/device/v1`, and `event/device/v1` as sibling consumers that never import one another; put the shared error payload in `errs/v1`. The shared values import the entity model, while each boundary imports only the shared values and errors. Why: `flowseer.service.v1` stays private to the process-local bus.
-- KTD3. Connect the device service to the accepted external three-server central NATS cluster and create a file-backed R3 JetStream authority with `SyncAlways`, configured `MaxAge` and `MaxBytes`, `DiscardNew`, deletion and purge denial, no rollups, and no per-message TTL. Startup rejects a missing audit window or capacity; 80% and 90% usage emit warnings; full capacity blocks admission until an operator expands storage or the configured retention window expires. Why: the private bus cannot be the integration authority. See [stream configuration](https://docs.nats.io/nats-concepts/jetstream/streams).
-- KTD4. Append immutable operation events on per-device subjects with event-ID deduplication and expected-last-subject-sequence checks. Resolve an ambiguous publish acknowledgement by reading the subject tail and comparing the event ID before retrying. Why: the journal must serialize admission and remain foldable after a crash.
+- KTD3. Connect the device service to the accepted external three-server central NATS cluster and create two file-backed R3 authorities with `SyncAlways`: a no-TTL, compare-and-set safety-state KV that always retains each device's high-watermark and unresolved barrier, and an immutable audit stream with configured `MaxAge` and `MaxBytes`, `DiscardNew`, deletion and purge denial, no rollups, and no per-message TTL. Missing or corrupt safety state blocks admission, including after audit expiry; startup rejects missing audit bounds or capacity, warns at 80% and 90%, and blocks admission when full. Why: retention may age history but must never erase execution safety. See [stream configuration](https://docs.nats.io/nats-concepts/jetstream/streams).
+- KTD4. Every per-device phase change uses a transactional outbox in one safety-state KV CAS: store the new phase, event ID and payload, and `audit_pending`; publish that immutable event with deduplication; then CAS-clear the marker and erase its event ID and payload, retaining only the high-watermark and current safety fields. Restart repairs a pending event by comparing the audit tail, republishing the same ID when absent, and clearing only after acknowledgement. Intent dispatch, `POSSIBLY_APPLIED` acknowledgement, terminal acknowledgement, and barrier release each wait for a clear marker, so every inter-store crash leaves a repairable blocked state without bypassing evidence retention.
 - KTD5. Keep materialized device status as a rebuildable projection, and require a terminal result acknowledgement plus authoritative status query after reconnect. Why: a Core NATS reply alone cannot close the durable mutation barrier.
-- KTD6. Bind the operation to versioned credential and SSH host-trust references. Resolve them only at the edge, reject mid-operation version changes, and persist no secret or raw transcript. Why: recovery must use the same trust decision as the original command. See [Go SSH client configuration](https://pkg.go.dev/golang.org/x/crypto/ssh#ClientConfig).
+- KTD6. Add `DeviceConfig.access_policy_handle` as `flowseer.device.policy.v1.AccessPolicyHandle`, an explicitly non-entity opaque key plus version from a dependency-leaf package. Slice 1 scopes every policy, credential, and trust handle to one deployment-configured tenant root; payloads carry no tenant selector. The policy binds versioned per-route device credential and SSH host-trust handles, never `IntegrationConfig.credential_ref`. `AcquireReadCredential` supplies read/preflight material; after `POSSIBLY_APPLIED`, `OpenDeviceSubmission` delivers the secret once and emits authority pulses checked immediately before each command. Unavailable pinned versions keep work indeterminate until restoration or R23 abandonment. Why: secrets and write authority must stay off NATS, journals, and transcripts. See [Go SSH client configuration](https://pkg.go.dev/golang.org/x/crypto/ssh#ClientConfig).
 - KTD7. Implement the first mutation as FastIron `port-name` against running configuration only. Do not issue `write memory`. Why: saving all running configuration is broader than the typed interface-description intent.
 - KTD8. Require an explicit route-evidence lifetime and measure delayed-apply and recovery bounds on the real fixture before enabling writes. An absent value blocks mutation. Why: guessed timing values cannot establish safe recovery.
 - KTD9. Separate durable `DeviceOperationEvent` audit records from OpenTelemetry signals. Named events answer why a route or lane changed, spans connect API, Core NATS, device I/O, and durable replay through propagation or links, and bounded metrics cover operation duration, route attempts, lane depth, and journal capacity without device or operation IDs. Why: audit delivery is correctness state while telemetry failure must never block work.
+- KTD10. Implement the landed `EdgeService` and `EdgeAdminService` against a distinct R3 edge-registry stream; add authenticated `AttachBus` to `EdgeService` and read/submission credential RPCs to the device API; extend assertions to sign the Connect procedure and SHA-256 digest of the uncompressed request bytes. Connect heartbeat remains Edge contact authority: a configured stale deadline blocks dispatch, while `OpenDeviceSubmission` pulses enforce a shorter monotonic deadline from checkpoint through each command and a blackholed stream expires authority. NATS announces only Integration availability, capabilities, and health. Why: bus access must use the existing Edge identity without cross-RPC replay, a parallel member model, or an import cycle.
 - The requirements-only version supplied R1-R59, F1-F7, and AE1-AE20. Their identifiers and meanings remain stable, except R27, R50, AE5, AE10, and AE18 now require positive fencing and reject expiry-only takeover.
 
 ## Requirements
@@ -74,7 +74,7 @@ Stop if the device cannot expose a complete independent read of the changed inte
 | R22 | S1 | Do not advertise writes whose effects cannot be observed and safely recovered. | AE11 |
 | R23 | S1 | Permit an authorized cancellation or qualified timeout to close unrecoverable work as centrally acknowledged `INDETERMINATE_ABANDONED`. | AE9 |
 | R24 | S1 | Never resume abandoned work; block later mutations until full authoritative refresh produces R53 recovery state. | AE9 |
-| R25 | S1+ | Slice 1 addresses the integration as a stable cluster identity with one member; later slices retain the identity across members and record the executor only as provenance. | AE13; later AE10 |
+| R25 | S1+ | Slice 1 routes to `IntegrationGlobalRef` and authenticates its singular `IntegrationConfig.edge` as `EdgeGlobalRef`; later slices add an accepted multi-member attachment model while keeping the executing Edge as provenance. | AE13; later AE10 |
 | R26 | S1+ | Slice 1 owns sequence, phase, evidence, acknowledgement, and deduplication state and reconstructs it from R52 after restart; later slices add cluster-member failover and any recoverable edge cache. | AE13; later AE10 |
 | R27 | Later | A two-member executor holds live central authority through every side effect; a successor may write only after positive device, network, session, or host fencing proves the predecessor cannot write. Lease expiry alone is insufficient, and absent proof the lane remains blocked for manual recovery. | AE5, AE10 |
 | R28 | Later | Authority loss prevents new side effects; an unproven submitted effect enters recovery and reads cannot authorize another write. | AE5, AE10 |
@@ -89,16 +89,16 @@ Stop if the device cannot expose a complete independent read of the changed inte
 | R37 | S1 | Adapters expose typed observations and bounded evidence; raw terminal output never crosses the device-service boundary. | AE17 |
 | R38 | S1 | Exclude credentials from transcripts and journals; minimize, redact, encrypt, restrict, and expire persisted evidence. | AE17 |
 | R39 | S1 | Keep SNMP mapping as protocol-to-domain translation invoked by the capability handler, without routing or recovery policy. | AE2 |
-| R40 | S1 | Move interface SNMP and shell mappings beside the capability handler while keeping `src/protocol` domain-free. | AE1, AE17 |
+| R40 | S1 | Keep interface SNMP and shell mappings inside the shared local-network module beside the capability handler while keeping `src/protocol` domain-free. | AE1, AE17 |
 | R41 | S1+ | Slice 1 emits central events for route, discovery, firmware, recovery, drift, freeze, block, and release; later slices add takeover and lease events, all with correlation and bounded attributes. | AE2, AE7, AE11; later AE18 |
 | R42 | S1 | Let central history advise route preference while hard policy and final live selection remain local. | AE2 |
 | R43 | S1 | Honor only explicit route pins and report a failed pin without policy-violating fallback. | AE15, AE20 |
 | R44 | S1 | Deny by default and require a control-plane authorization bound to the actor for every trusted-state or safety-posture change. | AE8, AE9, AE15 |
-| R45 | S1+ | Slice 1 uses broker-enforced tenant accounts, scoped NKey/JWT credentials, TLS, and non-replayable authority bound to its one member, device, and sequence; later slices add membership and successor grants. | AE13; later AE18 |
+| R45 | S1+ | Slice 1 uses Edge assertions, one deployment-configured tenant root and broker account, scoped NKey/JWT credentials, TLS, and non-replayable authority bound to Edge, Integration, Device, and sequence; later tenant-identity work adds per-tenant accounts and later slices add membership and successor grants. | AE13; later AE18 |
 | R46 | S1 | Validate and safely encode typed command parameters; bound output and reject unsafe control data or undeclared session transitions. | AE17 |
 | R47 | S1 | Declare completeness, semantic-validity, and freshness predicates per read route; unresolved conflicts yield no authority and block dependent mutations. | AE11 |
 | R48 | S1 | Treat state as unchanged only after a device-native fence or repeated fresh observations span the declared stale-read and delayed-apply horizon. | AE12 |
-| R49 | S1 | Control-plane loss blocks writes and barrier release; ordered reads may continue only with unresolved-sequence provenance and no authority effect. | AE13 |
+| R49 | S1 | Stale or missing Edge heartbeat blocks dispatch; after checkpoint acknowledgement, a detected disconnect or expired monotonic submission pulse cancels device I/O and blocks barrier release. Ordered reads may continue only with unresolved-sequence provenance and no authority effect. | AE13 |
 | R50 | Later | Majority ownership and a monotonic fencing epoch are necessary but not sufficient for a three-member successor write; positive device, network, session, or host fencing must prevent the predecessor, otherwise the lane remains blocked for manual recovery even after lease expiry. | AE18 |
 | R51 | S1 | Record onboarding observations as candidates; operator-managed baselines need acceptance and authoritative devices need pre-existing expected state before reconciliation. | AE14 |
 | R52 | S1+ | Slice 1 uses the central journal as authority and checkpoints `POSSIBLY_APPLIED` before submission; later slices may add an edge journal only as a recoverable cache. | AE13; later AE10 |
@@ -139,14 +139,14 @@ Stop if the device cannot expose a complete independent read of the changed inte
 
 ### Deferred to follow-up work
 
-- Slice 2 implements R27-R29 and the multi-member extensions of R21, R25-R26, R41, R45, R49, R52, and R57-R58. It must add two edge hosts, positive fencing, central authority renewal, takeover recovery, CARP-compatible endpoint behavior, and AE5/AE10 fault tests. Lease timing comes from measured authority latency and scheduler uncertainty; expiry never substitutes for fencing.
+- Slice 2 implements R27-R29 and the multi-member extensions of R21, R25-R26, R41, R45, and R52. It must first replace the singular `IntegrationConfig.edge` pointer with an accepted membership model, then add two Edge hosts, positive fencing, central authority renewal, takeover recovery, CARP-compatible endpoint behavior, and AE5/AE10 fault tests. Lease timing comes from measured authority latency and scheduler uncertainty; expiry never substitutes for fencing.
 - Slice 3 implements R30, R50, and the same multi-member extensions. It must select and qualify a majority local journal under crash, partition, delayed acknowledgement, replay, and one-member-loss tests, then prove AE18 with an enforced positive fence; if it selects JetStream, it repeats the pinned-version qualification for the edge cluster.
 - A capability-breadth follow-up implements the multi-field clauses of R2, R18, and R20 and proves AE4/AE16 on a safe typed mutation before multi-field support is advertised.
+- A tenant-identity follow-up replaces Slice 1's configured root and broker account with authenticated ambient tenant keys and per-tenant accounts; payload data never chooses scope.
 - Telnet remains absent until a named deployment requires it and can satisfy R38, R43-R46, and R55.
 - A shell DSL waits for a second firmware adapter. Additional vendors and NETCONF, RESTCONF, or gNMI routes wait for demand.
 
 ### Outside this change
-
 - Cross-device transactions, global ordering, raw protocol diagnostics, and cloud/controller routing changes are not part of the local device-access capability.
 - Slice 1 does not promise reboot-persistent interface configuration, member failover, or operation while the central authority is unavailable.
 - The work does not introduce SQL, a new consensus library, or use the private `src/common/service` bus as an integration authority.
@@ -155,7 +155,7 @@ Stop if the device cannot expose a complete independent read of the changed inte
 
 ```mermaid
 flowchart TB
-  API[Typed device API] --> CJ[Central append-only JetStream journal] --> DI[Central Core NATS dispatcher] --> EI[Edge leaf and local-network integration] --> LN[Per-device lane and route selector]
+  API[Typed device API] --> CJ[Central append-only JetStream journal] --> DI[Central Core NATS dispatcher] --> EI[Edge agent assembles localnet module] --> LN[Per-device lane and route selector]
   LN --> SN[SNMP interface reader] --> OB[Typed observation and provenance] --> CJ
   LN --> SH[SSH FastIron adapter] --> OB
   CJ --> ST[Rebuildable device-status projection]
@@ -164,21 +164,21 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   participant C as Control plane
-  participant J as Central journal
+  participant S as Safety state
+  participant J as Audit stream
   participant E as Edge member
   participant D as Device
-  C->>J: Append authorized intent and idempotency claim
-  J-->>C: Sequence committed
+  C->>S: CAS intent and pending audit event
+  C->>J: Publish event; repair same ID after crash
+  C->>S: Clear pending marker after audit acknowledgement
   C->>E: Execute sequence
-  E->>C: Core NATS checkpoint request
-  C->>J: Append POSSIBLY_APPLIED
-  J-->>C: Checkpoint committed
-  C-->>E: Checkpoint acknowledgement
+  E->>C: Request checkpoint after preflight read
+  C->>S: CAS POSSIBLY_APPLIED, publish audit, clear pending
+  C-->>E: Open submission stream with credential and pulses
   E->>D: Submit typed command plan
   E->>D: Read full affected state
   E->>C: Core NATS result
-  C->>J: Append verification outcome
-  J-->>C: Terminal commit
+  C->>S: CAS terminal, publish audit, clear pending
   C-->>E: Terminal acknowledgement
 ```
 
@@ -204,18 +204,18 @@ Execute U1 first. U2 and U3 may then run in parallel; U4-U9 follow in order.
 
 ### U1. Amend accepted device-access direction
 
-Requirements: R5-R7, R25, R40, R49, R52, and KTD1-KTD2.
+Requirements: R5-R7, R25, R40, R45, R49, R52, and KTD1-KTD2, KTD6, KTD10.
 Files: `docs/architecture/2026-08-20-device-service-and-inventory-direction.md`, `docs/architecture/2026-08-20-network-model-structure-direction.md`.
-Change: Accept the protocol-neutral binding, KTD2 import DAG, error envelope, central journal authority, Core NATS execution, terminal result acknowledgement, edge leaf attachment, reconnect query, and positive-fencing prerequisite for future failover.
+Change: Preserve the Edge entity and Connect control plane while accepting the protocol-neutral binding, KTD2 import DAG, credential delivery, error envelope, central journal authority, Core NATS execution, terminal result acknowledgement, Edge heartbeat versus Integration announcement authority, reconnect query, and positive-fencing prerequisite for future failover.
 Tests: No executable behavior; review both records for one consistent route and authority model.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-08-20-device-service-and-inventory-direction.md docs/architecture/2026-08-20-network-model-structure-direction.md`
 
 ### U2. Define device and integration schemas
 
-Requirements: R1-R7, R11-R13, R17-R18, R21, R25, R31-R34, R41, R43-R45, R49, R51-R53, and R57-R59.
-Files: `spec/proto/flowseer/api/inventory/v1/{binding,device}.proto`, `spec/proto/flowseer/device/access/v1/{operation,interface}.proto`, `spec/proto/flowseer/api/device/v1/device_service.proto`, `spec/proto/flowseer/integration/device/v1/execution.proto`, `spec/proto/flowseer/event/device/v1/operation_event.proto`, `spec/proto/flowseer/errs/v1/error.proto`, their READMEs, `src/common/errs/{wire.go,wire_test.go}`, and `test/conformance/proto/{device_access,boundary_import,error_wire}_rules_test.go`.
-Change: Break the protocol-bearing endpoint into a protocol-neutral binding; add shared operation values, Connect RPCs, Core NATS execute/result/ack envelopes, one-use execution grants bound to member, device, and sequence, a sibling audit event, total `errs` encoding/decoding, status, server-created authorization audit evidence, policy-version references, and provenance without secrets.
-Tests: Enforce the KTD2 import DAG and Config/State/Event shapes; round-trip each phase, grant, unknown error code, opaque cause, and typed outcome; reject missing identity epoch, idempotency key, sequence, or policy version; prove client responses redact trusted error detail and no raw command or credential field crosses a boundary.
+Requirements: R1-R7, R11-R13, R17-R18, R21, R25, R31-R34, R41, R43-R45, R49, R51-R53, R57-R59, and KTD6, KTD10.
+Files: `spec/proto/flowseer/api/inventory/v1/{binding,device}.proto`, `spec/proto/flowseer/device/policy/v1/{ref,policy}.proto`, `spec/proto/flowseer/device/access/v1/{operation,interface}.proto`, `spec/proto/flowseer/api/device/v1/device_service.proto`, `spec/proto/flowseer/api/edge/v1/{assertion,edge_service}.proto`, `spec/proto/flowseer/integration/device/v1/execution.proto`, `spec/proto/flowseer/event/device/v1/operation_event.proto`, `spec/proto/flowseer/errs/v1/error.proto`, their READMEs, `src/common/errs/{wire.go,wire_test.go}`, and `test/conformance/proto/{device_access,boundary_import,error_wire}_rules_test.go`.
+Change: Keep Edge and AccessPolicy out of `EntityType`; define `AccessPolicyHandle`, `CredentialHandle`, and `HostTrustHandle` as non-entity opaque-key-and-version messages in dependency-leaf `device/policy/v1`, which inventory and access operations both import; expose no tenant selector; make bindings protocol-neutral; add typed read-credential and streaming submission RPCs, `AttachBus`, method/body-bound assertions, Core NATS envelopes, one-use grants bound to Edge, Integration, Device, and sequence, a sibling audit event, total `errs` encoding/decoding, status, authorization evidence, and secret-free provenance.
+Tests: Enforce an acyclic KTD2 import DAG and Config/State/Event shapes; round-trip each phase, handle, grant, unknown error code, opaque cause, and typed outcome; reject tenant selectors, separators, traversal, missing identity epoch, idempotency key, sequence, policy, or trust version and assertion substitution; prove secrets appear only in authenticated credential responses, never an operation API, event, journal, transcript, or test log.
 Verify: `buf format -d --exit-code`, `buf lint`, `buf generate`, `go test ./test/conformance/proto`, then the diff-aware verifier for the schema and conformance paths.
 
 ### U3. Add the domain-free SSH interactive session
@@ -229,47 +229,47 @@ Verify: `go test -race ./src/protocol/ssh/...` and the diff-aware verifier for `
 ### U4. Build the FastIron interface capability
 
 Requirements: R6-R12, R17-R22, R35-R40, R46-R48, R55-R56, and AE1-AE3, AE11-AE12, AE17.
-Files: `src/edge/localnet/internal/capability/interfaces/{adapter,snmp,completeness}.go`, `fastiron/{adapter,commands,parser}.go`, tests and `testdata/`; move `bits.go`, `ifmib.go`, `phy.go`, `phy_ddm.go`, and their tests from `src/common/snmpmap/`, leaving `lldp.go` and its package documentation in place.
-Change: Map complete interface state from SNMPv3 and FastIron SSH; validate the description parameter; plan `configure terminal`, interface selection, and `port-name`; verify the affected description through a fresh independent read; expose completeness, freshness, and delayed-effect rules.
+Files: `src/modules/localnet/access/internal/capability/interfaces/{adapter,snmp,completeness}.go`, `fastiron/{adapter,commands,parser}.go`, tests and `testdata/`; extend `src/modules/localnet/collect/` and existing interface mappings in `src/modules/localnet/snmpmap/{ifmib,phy,phy_ddm}.go`.
+Change: Extend the shared collector so identity is read once and shared tables are walked once; give the physical mapper a `collect.Spec`; map complete interface state from SNMPv3 and FastIron SSH; validate the description parameter; plan `configure terminal`, interface selection, and `port-name`; verify the affected description through a fresh independent read; expose completeness, freshness, and delayed-effect rules.
 Tests: Use FastIron 10.0.10g transcripts for prompt, privilege, pagination, error, ambiguous submission, and unsafe output; test SNMP incomplete fallback, conflicting reads, command encoding, delayed effects, and running-only configuration.
-Verify: focused `go test -race` for the moved mapping and new capability packages, then their diff-aware verifier paths.
+Verify: `go test -race ./src/modules/localnet/...`, then the diff-aware verifier for `src/modules/localnet/`.
 
 ### U5. Implement one-member routing, lane, and recovery
 
 Requirements: R7-R24, R31-R34, R41-R49, and R51-R59.
-Files: `src/edge/localnet/internal/{route/selector.go,lane/lane.go,execution/machine.go,identity/probe.go,status/projector.go,telemetry.go}`, package READMEs, and matching tests.
-Change: Add bounded admission, poll coalescing, lane positions, firmware epochs, route evidence, read qualification, mutation recovery, abandonment hold, and drift resolution. Durable `DeviceOperationEvent` carries audit truth; named OTel events use `flowseer.device.{route.selected,route.fallback,firmware.epoch_changed,lane.blocked,lane.released}`, spans use `flowseer.device.operation` and `flowseer.device.route`, durable replay starts a linked trace, and metrics use at most two allowlisted attributes from operation class, outcome, route kind, reason, and `error.type`.
-Tests: Prove ordering, overload, no dropped mutation, identity invalidation, fallback, ambiguous recovery, delayed effect, conflict block, control-plane freeze, cancellation around the checkpoint, abandonment, onboarding and both management modes; assert metric cardinality tables in the README, trace propagation/linking, event schema, disabled signals, exporter failure isolation, and bounded shutdown.
-Verify: `go test -race ./src/edge/localnet/internal/...` and the diff-aware verifier for `src/edge/localnet/internal/`.
+Files: `src/modules/localnet/access/{module,config,status,telemetry}.go`, `src/modules/localnet/access/internal/{route/selector.go,lane/lane.go,execution/machine.go,identity/probe.go}`, `src/modules/localnet/README.md`, and matching tests.
+Change: Add bounded admission, poll coalescing, lane positions, firmware epochs, route evidence, read qualification, mutation recovery, abandonment hold, and drift resolution. Durable `DeviceOperationEvent` carries audit truth; named OTel events use `flowseer.device.{route.selected,route.fallback,discovery.completed,firmware.epoch_changed,recovery.started,drift.detected,lane.frozen,lane.blocked,lane.released}`, spans use `flowseer.device.operation` and `flowseer.device.route`, durable replay starts a linked trace, and metrics use at most two allowlisted attributes from operation class, outcome, route kind, reason, and `error.type`.
+Tests: Prove ordering, overload, no dropped mutation, identity invalidation, fallback, failed explicit pin without fallback, ambiguous recovery, delayed effect, conflict block, control-plane freeze, cancellation around the checkpoint, abandonment, onboarding, and both management modes; assert metric cardinality tables in the README, trace propagation/linking, event schema, disabled signals, exporter failure isolation, and bounded shutdown.
+Verify: `go test -race ./src/modules/localnet/access/...` and the diff-aware verifier for `src/modules/localnet/`.
 
 ### U6. Implement central admission and journal authority
 
 Requirements: R1-R4, R13-R16, R23-R26, R31-R34, R41-R45, R49, R51-R53, and R57-R58.
-Files: `src/services/device/internal/{journal/stream.go,journal/fold.go,journal/config.go,admission/admission.go,dispatch/core_nats.go,status/projector.go,auth/authorizer.go,api/connect.go}`, READMEs, and matching tests.
-Change: Atomically claim `(tenant, DeviceRef, idempotency_key)` with admission; replay an identical payload and reject a different payload. Use per-device compare-and-set, issue and consume one-use execution grants, retain claims for configured audit lifetime, rebuild status before admission, record server-created authorization decisions, acknowledge terminal results, and fail closed on full, corrupt, or gapped journals; document capacity expansion and retention recovery without purge.
-Tests: Cover duplicate and conflicting payloads, stale sequence, reused or wrongly bound grants, ambiguous publish acknowledgement, capacity thresholds and full rejection, retention expiry, replay gap, corrupt event, projection rebuild, missing authenticated tenant context, authorization denial at admission and every operator decision, disconnect after verification, reconnect query, and monotonic edge evidence.
+Files: `src/services/device/internal/{journal/stream.go,journal/fold.go,journal/config.go,safety/store.go,store/inventory.go,store/policy.go,route/selector.go,admission/admission.go,dispatch/core_nats.go,status/projector.go,auth/authorizer.go,api/connect.go,credential/{provider,file}.go}`, concrete JetStream KV stores, READMEs, and matching tests.
+Change: Make R3 KV the authoritative CAS store for Device, Binding, Integration, expected state, policy, and safety records inside one configured Slice 1 tenant namespace. Wire a mounted-file provider under `device_secret_dir/<opaque handle>/<version>`; validate segments, hold the configured root descriptor, open relative with no-follow semantics, validate metadata after open, reject group/world access, and refuse startup when enabled without it. Resolve Device through Binding, Integration, and Edge; drive every safety phase through KTD4's outbox; issue one-use grants and fail closed on missing, full, corrupt, or gapped authority. Retained audit is history, not authoritative KV's rebuild source.
+Tests: Cover R3 one-node loss, durable inventory/policy reload, missing/unsafe provider refusal, payload attempts to select or override tenant scope, absolute/traversal/separator handles, symlink and replacement races, wrong integration credential use, unavailable pinned versions, duplicate/conflicting payloads, stale sequence, wrongly bound grants, and every crash gap before/after safety CAS, audit publish, pending clear, checkpoint acknowledgement, terminal acknowledgement, and release. Also cover audit expiry with unresolved work, corrupt state, authorization denial, reconnect query, and monotonic evidence.
 Verify: focused `go test -race` for `src/services/device/`, the service OpenTelemetry integration check when instrumentation changes, and the diff-aware verifier for `src/services/device/`.
 
 ### U7. Wire the central and edge hosts
 
-Requirements: R5, R25-R26, R31, R38, R41, R45, R49, R52, R55, and R57-R58.
-Files: `src/services/device/cmd/device/main.go`, `src/services/device/internal/transport/nats.go`, `src/edge/localnet/cmd/localnet/main.go`, `src/edge/localnet/internal/leaf/server.go`, host READMEs, and `test/integration/deviceaccess/{main,nats_cluster,crash}_test.go`.
-Change: Connect the central service to three routed servers with separate encrypted stores, restrictive permissions, stable names, TLS, tenant accounts, NKey/JWT users, subject allowlists, and the R3 stream. Embed a distinct-domain edge leaf with encrypted local telemetry storage, send execution only by Core NATS, resolve versioned lab secrets at the edge, and resume unresolved sequences from central authority.
-Tests: Build an ephemeral three-server cluster and edge leaf; verify tenant isolation, allowlists, distinct domains, one-server loss, stream replica placement, `SyncAlways`, Core NATS execution, JetStream audit/events, and crashes around every mutation checkpoint without command duplication or barrier release.
+Requirements: R5, R25-R26, R31, R38, R41, R45, R49, R52, R55, R57-R58, and KTD6, KTD10.
+Files: `src/services/device/cmd/device/main.go`, `src/services/device/internal/transport/nats.go`, `src/services/device/internal/edge/{service,admin,store,verifier}.go`, `src/services/device/internal/credential/delivery.go`, `src/edge/agent/cmd/flowseer-edge/main.go`, `src/edge/agent/internal/{provisioning,identity,leaf}/`, host READMEs, and `test/integration/deviceaccess/{main,nats_cluster,crash}_test.go`.
+Change: Implement the Edge services against a distinct R3 registry, including enrollment, rekey, heartbeat, bound-assertion replay protection, bus attachment, read credentials, and pulse-backed submission authority; keep bus and device credential rotation/revocation separate. Wire the mounted-file provider, one configured tenant root/account, and heartbeat/pulse deadlines into host config. Connect central to three routed servers with encrypted stores, TLS, scoped NKey/JWT users, allowlists, and R3 device authorities. Have Edge persist its key, pin central SPKI, rotate bus credentials, embed a distinct-domain leaf, assemble localnet access, and announce only Integration availability and health over NATS.
+Tests: Cover enrollment, rekey, assertion substitution, bus attachment, read/preflight credentials, separate credential rotations, retirement and Integration reassignment, stale heartbeat, detected disconnect, and a blackholed submission stream held past its monotonic deadline after checkpoint but before command, with no device side effect. Prove payloads cannot choose the configured root/account; verify allowlists, distinct domains, one-server loss, `SyncAlways`, Core NATS execution, JetStream authorities, and crashes around every checkpoint without duplication or barrier release.
 Verify: host integration tests with `-race`, `tools/test/service-otel-integration.sh` when applicable, and the diff-aware verifier for both host trees.
 
 ### U8. Calibrate the real fixture and configure safety bounds
 
 Requirements: R8, R11-R12, R38, R46-R48, R55, R59, and KTD8.
-Files: `src/edge/localnet/test/integration/{t4_main,t4_calibration}_test.go`, `docs/benchmarks/2026-09-05-fastiron-device-access.md`, and the existing RESTCONF t4 manual verification harness.
-Change: Provision SNMPv3 `authPriv`, pin the ICX7150-24P SSH key, record negotiated algorithms, measure read freshness and route cost, then use reversible RESTCONF description changes to measure delayed application and recovery bounds. Before the first write, state the blast radius as one running-configuration description on `ethernet 1/1/1`, its captured pre-state and restoration path, and wait for explicit user approval; configure and validate the measured bounds before typed SSH mutation is enabled.
-Tests: Run repeated apply, observe, and restore calibration cycles; reject unstable identity or bounds shorter than observed delay; prove cleanup after every injected failure and record evidence without secrets.
+Files: `src/modules/localnet/test/integration/{t4_main,t4_calibration}_test.go`, `docs/benchmarks/2026-09-05-fastiron-device-access.md`, and the existing RESTCONF t4 manual verification harness.
+Change: Provision SNMPv3 `authPriv`, pin the ICX7150-24P SSH key, record negotiated algorithms, and measure read freshness and route cost. Under the approval gate, invoke the exact FastIron SSH `port-name` adapter through a calibration-only entry point, use independent reads to measure delayed application and recovery, and reserve RESTCONF only as a restoration oracle. Before the first write, state the blast radius as one running description on `ethernet 1/1/1`, its captured pre-state and restoration path; configure validated conservative bounds before ordinary typed SSH mutation is enabled.
+Tests: Run repeated exact-path SSH apply, independently observe, and SSH restore cycles; reject unstable identity or bounds shorter than any observed convergence delay; use RESTCONF only to confirm cleanup after injected failures, and record evidence without secrets.
 Verify: run only the approved tagged calibration test, confirm the original description is restored, and run the diff-aware verifier for the calibration and benchmark paths.
 
 ### U9. Prove the enabled Slice 1 path
 
 Requirements: every Slice 1 clause in `S1` and `S1+`, F1-F7, AE1-AE3, AE6-AE9, AE11-AE14, AE17, and AE19-AE20.
-Files: `src/edge/localnet/test/integration/{t4_read,t4_mutation,t4_recovery,t4_onboarding}_test.go` and `src/edge/localnet/README.md`.
+Files: `src/modules/localnet/test/integration/{t4_read,t4_mutation,t4_recovery,t4_onboarding}_test.go`, `src/modules/localnet/README.md`, and the Edge agent README.
 Change: Exercise the typed path with the U8 bounds. Before mutation, restate the same live-device blast radius and wait for explicit approval; capture the pre-state, mutate the running description, verify through a fresh route, restore through the same verified path, and verify cleanup.
 Tests: Cover SNMP and SSH reads, fallback, verified mutation, disconnect recovery, central interruption, onboarding candidate acceptance, authoritative onboarding reconciliation, drift in both modes, abandonment refresh, weak-route rejection, and cleanup after every failure injection.
 Verify: run the approved tagged t4 suite with secrets supplied out of band, confirm pre-state restoration, then run the diff-aware verifier for the integration and operations paths.
@@ -277,7 +277,7 @@ Verify: run the approved tagged t4 suite with secrets supplied out of band, conf
 ## Verification
 
 - Run `buf format -d --exit-code`, `buf lint`, and `buf generate`; inspect generated changes without editing `generated/` or `buf.lock` by hand.
-- Run `go test -race ./src/protocol/ssh/... ./src/common/snmpmap/... ./src/edge/localnet/... ./src/services/device/... ./test/integration/deviceaccess/...` with paths adjusted after the mapper move.
+- Run `go test -race ./src/protocol/ssh/... ./src/modules/localnet/... ./src/edge/agent/... ./src/services/device/... ./test/integration/deviceaccess/...`.
 - Run `go test ./test/conformance/proto` and `golangci-lint run`.
 - Run `tools/test/service-otel-integration.sh` when service instrumentation changes.
 - Run the tagged t4 suite only with the named ICX7150 fixture reserved; it must restore `ethernet 1/1/1` to its captured pre-state on success and failure.
@@ -287,10 +287,10 @@ Verify: run the approved tagged t4 suite with secrets supplied out of band, conf
 ## Definition of done
 
 - Every Slice 1 clause of each `S1` and `S1+` R-ID is proven by its named unit and acceptance scenario; every later clause remains absent from Slice 1 code.
-- The central journal can rebuild operation status and rejects admission after a gap, corruption, capacity failure, or unresolved sequence.
+- Non-expiring central safety state preserves each high-watermark and unresolved barrier across audit expiry; status rebuild rejects admission after missing state, a gap, corruption, capacity failure, or unresolved sequence.
 - Crash and reconnect tests prove that no command is duplicated and no later mutation passes an unacknowledged or abandoned barrier.
 - The FastIron fixture separately proves calibration, configured safety bounds, complete reads, verified running-configuration mutation, onboarding, recovery, drift handling, and pre-state restoration with SNMPv3 `authPriv` and pinned SSH trust.
-- Both architecture records, package READMEs, schema comments, and operational fixture notes describe the same authority and routing model.
+- Both architecture records, package READMEs, schema comments, and operational fixture notes describe the same authority, Edge enrollment, bus handoff, credential revocation, liveness, and routing model.
 - The diff-aware verifier is green for every changed path, and the final diff contains no abandoned experiment, policy exemption, hand-edited generated file, secret, or transcript.
 - The implementer does not copy plan-only R, F, AE, KTD, or U identifiers into code, comments, commit messages, or runtime data.
 - After implementation, add `> Implemented.` directly below this plan's title as required by `docs/README.md`.
