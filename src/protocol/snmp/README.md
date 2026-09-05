@@ -48,6 +48,15 @@ method distinguishes a reported zero from a column the device did not return.
 A column decode error terminates the generated walk; check `Err` even when
 some rows were returned.
 
+`DecodeIndex` turns a row's index suffix into typed parts from the row's
+`IndexShape` list. A suffix that does not fit the shapes yields `ok=false` and
+zero parts instead of an error, so a bad index on one row never ends the walk.
+`TableDescriptor` names a table by root OID, change indicator, and key type;
+its `Present` method issues one GetNext and reports whether the agent holds an
+instance under the root (an empty table reads as absent). `OIDSet` answers
+longest-prefix lookups, such as resolving a sysObjectID to the deepest known
+product node.
+
 A `Watcher` retains a table snapshot and uses a change indicator to decide when
 to fetch updates. It emits added, modified, and removed rows. Transient tick
 errors are available through `LastTickErr`; `Err` reports the terminal cause.
