@@ -93,6 +93,14 @@ One macro invocation or value assignment inside a module — an `OBJECT-TYPE`, a
 
 A declaration placed in the OID tree, with the clauses that survived resolution. A node that lost something a renderer needs — a required clause, a parent nothing defines, a contradictory syntax — stays in the tree marked unresolved rather than disappearing, so a reader can see what fell and its subtree stays placed. Unresolved nodes are never rendered as if they were whole.
 
+### Naming Node
+
+A node that names a place in the OID tree and carries no value: a plain OID assignment or an `OBJECT-IDENTITY`. Under a vendor's enterprise subtree these are the product identities a device reports as its sysObjectID, so the generator collects them into one identity table with longest-prefix lookup instead of anyone declaring device families by hand.
+
+### Key Convention
+
+A textual convention that keys at least one table, such as `InterfaceIndex` for `ifTable` or `PhysicalIndex` for `entPhysicalTable`. It is emitted as one Go key type in its declaring module's package, and every index part or column using it shares that type, which is how a column becomes a typed reference to the table the convention keys without any hand-written join.
+
 ### Diagnostic
 
 One graded finding about a source, carrying a stable code, a position, and a severity. The parser grades and never decides: it has no abort threshold, so severity is a fact about the MIB rather than a policy about the build. What to do about a finding belongs to the consumer.
