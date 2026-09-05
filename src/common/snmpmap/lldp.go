@@ -27,21 +27,21 @@ var (
 	ErrCodeLLDPWalk = errs.NewCode("snmpmap/lldp-walk")
 )
 
-// fatalWalk marks the failure of a table the surrounding mapping cannot
+// fatalWalkError marks the failure of a table the surrounding mapping cannot
 // stand without, telling [LLDP] apart from the failure of a table that
 // only enriches rows already collected. It unwraps to the error it
 // marks, so the code and attributes stay discoverable.
-type fatalWalk struct{ err error }
+type fatalWalkError struct{ err error }
 
 // Error preserves the failed walk's diagnostic message.
-func (f fatalWalk) Error() string { return f.err.Error() }
+func (f fatalWalkError) Error() string { return f.err.Error() }
 
 // Unwrap exposes the walk error to errors.Is and errors.As.
-func (f fatalWalk) Unwrap() error { return f.err }
+func (f fatalWalkError) Unwrap() error { return f.err }
 
-// isFatalWalk reports whether err carries a [fatalWalk] mark.
-func isFatalWalk(err error) bool {
-	var f fatalWalk
+// isFatalWalkError reports whether err carries a [fatalWalkError] mark.
+func isFatalWalkError(err error) bool {
+	var f fatalWalkError
 
 	return errors.As(err, &f)
 }
@@ -154,12 +154,12 @@ func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (
 	// row that could not be mapped are not, so results and errors travel
 	// back together and the fatal ones carry a mark.
 	ports, portErr := lldpPorts(ctx, sess, portNames)
-	if isFatalWalk(portErr) {
+	if isFatalWalkError(portErr) {
 		return LLDPFacts{}, portErr
 	}
 
 	neighbors, neighborErr := lldpNeighbors(ctx, sess, portNames)
-	if isFatalWalk(neighborErr) {
+	if isFatalWalkError(neighborErr) {
 		return LLDPFacts{}, errors.Join(neighborErr, portErr)
 	}
 
@@ -171,6 +171,23 @@ func LLDP(ctx context.Context, sess snmp.Session, portNames map[uint32]string) (
 
 	return LLDPFacts{LocalSystem: local, Ports: ports, Neighbors: neighbors},
 		errors.Join(portErr, neighborErr, localErr)
+}
+
+// readScalar reads one scalar with get and hands its value to set,
+// reporting whether the read succeeded. A failed read leaves the field
+// absent and goes to recordError under name, which decides whether the
+// failure is worth reporting at all.
+func readScalar[T any](name string, get func() (T, error), set func(T), recordError func(string, error)) bool {
+	v, err := get()
+	if err != nil {
+		recordError(name, err)
+
+		return false
+	}
+
+	set(v)
+
+	return true
 }
 
 // lldpLocalSystem reads the device's own announcement: the local-system
@@ -211,36 +228,24 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 		}
 	}
 
-	if name, err := lldpmib.LldpLocSysNameGet(ctx, sess); err == nil {
-		local.SetSystemName(string(name))
-
+	getName := func() ([]byte, error) { return lldpmib.LldpLocSysNameGet(ctx, sess) }
+	if readScalar("lldpLocSysName", getName, func(v []byte) { local.SetSystemName(string(v)) }, recordError) {
 		reported = true
-	} else {
-		recordError("lldpLocSysName", err)
 	}
 
-	if desc, err := lldpmib.LldpLocSysDescGet(ctx, sess); err == nil {
-		local.SetSystemDescription(string(desc))
-
+	getDesc := func() ([]byte, error) { return lldpmib.LldpLocSysDescGet(ctx, sess) }
+	if readScalar("lldpLocSysDesc", getDesc, func(v []byte) { local.SetSystemDescription(string(v)) }, recordError) {
 		reported = true
-	} else {
-		recordError("lldpLocSysDesc", err)
 	}
 
-	if caps, err := lldpmib.LldpLocSysCapSupportedGet(ctx, sess); err == nil {
-		local.SetCapabilitiesSupported(capabilities(caps))
-
+	getSupported := func() (snmp.BitSet, error) { return lldpmib.LldpLocSysCapSupportedGet(ctx, sess) }
+	if readScalar("lldpLocSysCapSupported", getSupported, func(v snmp.BitSet) { local.SetCapabilitiesSupported(capabilities(v)) }, recordError) {
 		reported = true
-	} else {
-		recordError("lldpLocSysCapSupported", err)
 	}
 
-	if caps, err := lldpmib.LldpLocSysCapEnabledGet(ctx, sess); err == nil {
-		local.SetCapabilitiesEnabled(capabilities(caps))
-
+	getEnabled := func() (snmp.BitSet, error) { return lldpmib.LldpLocSysCapEnabledGet(ctx, sess) }
+	if readScalar("lldpLocSysCapEnabled", getEnabled, func(v snmp.BitSet) { local.SetCapabilitiesEnabled(capabilities(v)) }, recordError) {
 		reported = true
-	} else {
-		recordError("lldpLocSysCapEnabled", err)
 	}
 
 	addrs, addrErr := lldpLocManAddrs(ctx, sess)
@@ -316,7 +321,7 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 	}
 
 	if err := configWalk.Err(); err != nil {
-		return nil, fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable")}
+		return nil, fatalWalkError{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpPortConfigTable")}
 	}
 
 	locWalk := lldpmib.LldpLocPortTable.Walk(ctx, sess, locPortColumns...)
@@ -413,7 +418,7 @@ func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]
 	}
 
 	if err := walk.Err(); err != nil {
-		fatal := fatalWalk{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable")}
+		fatal := fatalWalkError{errs.From(err).Code(ErrCodeLLDPWalk).Msg("walk lldpRemTable")}
 
 		return nil, errors.Join(fatal, addrErr)
 	}

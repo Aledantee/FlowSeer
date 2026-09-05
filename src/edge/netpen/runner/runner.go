@@ -508,9 +508,6 @@ func (r *Runner) Interrupt(forceExit <-chan struct{}) {
 			// sink flush). The completion path's Run call is
 			// a no-op (runOnce), so only this path emits the record.
 			if tdErr != nil {
-				// Emit the named partial-failure record through the
-				// stream so the consumer sees it before the stream
-				// closes (teardown completes before sink flush).
 				// Store the error for the dispatch loop to
 				// surface as Run's return value; do NOT call
 				// stream.fail here, because that would stop the

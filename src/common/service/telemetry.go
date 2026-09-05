@@ -50,7 +50,7 @@ func startLifecycleSpan(
 	action lifecycleAction,
 	extraAttributes ...attribute.KeyValue,
 ) (context.Context, trace.Span) {
-	actionName, _ := action.string()
+	actionName := action.string()
 	moduleSet := moduleAttributes(modulePath)
 	attributes := moduleSet.ToSlice()
 	attributes = append(attributes, attribute.String(moduleLifecycleActionKey, actionName))
@@ -59,7 +59,7 @@ func startLifecycleSpan(
 }
 
 func endLifecycleSpan(span trace.Span, outcome lifecycleOutcome, err error) {
-	outcomeName, _ := outcome.string()
+	outcomeName := outcome.string()
 	span.SetAttributes(attribute.String(moduleLifecycleOutcomeKey, outcomeName))
 	if outcome == lifecycleOutcomeError || outcome == lifecycleOutcomePanic {
 		errorType := outcomeName
@@ -92,16 +92,16 @@ const (
 	lifecycleActionRestart
 )
 
-func (a lifecycleAction) string() (string, bool) {
+func (a lifecycleAction) string() string {
 	switch a {
 	case lifecycleActionStart:
-		return "start", true
+		return "start"
 	case lifecycleActionStop:
-		return "stop", true
+		return "stop"
 	case lifecycleActionRestart:
-		return "restart", true
+		return "restart"
 	default:
-		return "", false
+		return "unknown"
 	}
 }
 
@@ -115,20 +115,20 @@ const (
 	lifecycleOutcomeCanceled
 )
 
-func (o lifecycleOutcome) string() (string, bool) {
+func (o lifecycleOutcome) string() string {
 	switch o {
 	case lifecycleOutcomeRunning:
-		return "running", true
+		return "running"
 	case lifecycleOutcomeNormal:
-		return "normal", true
+		return "normal"
 	case lifecycleOutcomeError:
-		return "error", true
+		return "error"
 	case lifecycleOutcomePanic:
-		return "panic", true
+		return "panic"
 	case lifecycleOutcomeCanceled:
-		return "canceled", true
+		return "canceled"
 	default:
-		return "", false
+		return "unknown"
 	}
 }
 
@@ -386,8 +386,8 @@ func (t telemetry) recordLifecycle(
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
-) error {
-	return recordLifecycle(ctx, t.logger, t.lifecycle, true, modulePath, action, outcome)
+) {
+	recordLifecycle(ctx, t.logger, t.lifecycle, true, modulePath, action, outcome)
 }
 
 func recordLifecycle(
@@ -398,15 +398,9 @@ func recordLifecycle(
 	modulePath string,
 	action lifecycleAction,
 	outcome lifecycleOutcome,
-) error {
-	actionName, ok := action.string()
-	if !ok {
-		return fmt.Errorf("unknown lifecycle action %d", action)
-	}
-	outcomeName, ok := outcome.string()
-	if !ok {
-		return fmt.Errorf("unknown lifecycle outcome %d", outcome)
-	}
+) {
+	actionName := action.string()
+	outcomeName := outcome.string()
 
 	if recordMetric {
 		lifecycle.Add(ctx, 1,
@@ -422,6 +416,4 @@ func recordLifecycle(
 		moduleLifecycleActionKey, actionName,
 		moduleLifecycleOutcomeKey, outcomeName,
 	)
-
-	return nil
 }

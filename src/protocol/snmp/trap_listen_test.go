@@ -125,7 +125,7 @@ func TestTrap_V2cReceive(t *testing.T) {
 		t.Fatalf("trap meta: version=%s community=%s", tr.Version, tr.Community)
 	}
 	if len(tr.VarBinds) != 2 {
-		t.Fatalf("want 2 varbinds, got %d", len(tr.VarBinds))
+		t.Fatalf("got %d varbinds, want 2", len(tr.VarBinds))
 	}
 }
 
@@ -148,7 +148,7 @@ func TestTrap_V1Receive_TranslatedToV2(t *testing.T) {
 	// Canonical translation: sysUpTime.0, snmpTrapOID.0, payload,
 	// snmpTrapEnterprise.0.
 	if len(tr.VarBinds) != 4 {
-		t.Fatalf("want 4 translated varbinds, got %d: %+v", len(tr.VarBinds), tr.VarBinds)
+		t.Fatalf("got %d translated varbinds, want 4: %+v", len(tr.VarBinds), tr.VarBinds)
 	}
 	if !tr.VarBinds[0].GetHeader().OID.Equal(oidSysUpTime) {
 		t.Errorf("vb0 = %s, want sysUpTime.0", tr.VarBinds[0].GetHeader().OID)

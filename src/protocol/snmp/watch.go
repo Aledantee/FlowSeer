@@ -314,21 +314,6 @@ type WatchEvent[Row any] struct {
 	Prev *Row
 }
 
-// Logger is the minimal sink a [Watcher] uses for one-time fallback
-// transition logs. A nil Logger is treated as a no-op; callers who
-// want to capture fallback events should pass a [WithLogger] option
-// carrying their own implementation.
-//
-// The interface is intentionally minimal — Warn is the only level the
-// Watcher currently uses. Adding more levels later is additive; the
-// existing single-method shape is forward-compatible because a richer
-// logger type can simply not implement them.
-type Logger interface {
-	// Warn records a single warning. The format is fmt.Printf-style;
-	// the Watcher invokes it at most once per fallback transition.
-	Warn(format string, args ...any)
-}
-
 // WatchConfig is the accumulator type [WatchOption] values apply
 // against. Callers should not construct a WatchConfig directly — use
 // [ApplyWatchOptions] or pass options to [NewWatcher] (or a generated
@@ -421,11 +406,6 @@ type WatchConfig struct {
 	// chassis-reload events). Values < 1 are rejected.
 	BulkWalkFallbackThreshold    int
 	BulkWalkFallbackThresholdSet bool
-
-	// Logger is the sink for one-time fallback transition logs. Nil
-	// means "no log emitted". Callers who want logs should set this
-	// via [WithLogger].
-	Logger Logger
 
 	// configErr captures the first validation error encountered
 	// while applying options. The Watcher constructor surfaces this
@@ -749,12 +729,4 @@ func WithBulkWalkFallbackThreshold(pdus int) WatchOption {
 			return
 		}
 	}
-}
-
-// WithLogger sets the [Logger] the Watcher uses for one-time fallback
-// transition logs. Nil disables logging (the default). Each
-// fallback transition emits at most one Warn call; the log fires at
-// the false-to-true edge of [Watcher.Fallback].
-func WithLogger(logger Logger) WatchOption {
-	return func(c *WatchConfig) { c.Logger = logger }
 }

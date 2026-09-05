@@ -72,4 +72,8 @@ func (a *admission) stop() {
 	}
 }
 
-func (a *admission) snapshot() (int, int) { a.mu.Lock(); defer a.mu.Unlock(); return a.bytes, a.frames }
+func (a *admission) snapshot() (int, int) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.bytes, a.frames
+}

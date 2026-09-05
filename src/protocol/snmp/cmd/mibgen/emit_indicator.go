@@ -27,15 +27,21 @@ import (
 //
 // The var name is the table's CamelCase name + "Indicator" — mirrors
 // the existing `<Table> <table>T` descriptor singleton.
-func emitIndicators(f *jen.File, ec *emitCtx) {
+//
+// It returns an error when an indicator's type cannot be resolved.
+func emitIndicators(f *jen.File, ec *emitCtx) error {
 	for _, ti := range ec.tableIndicators {
-		emitOneIndicator(f, ec, ti)
+		if err := emitOneIndicator(f, ec, ti); err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 // emitOneIndicator renders a single ChangeIndicator var per the rules
 // in the package-level [emitIndicators] comment.
-func emitOneIndicator(f *jen.File, ec *emitCtx, ti tableIndicator) {
+func emitOneIndicator(f *jen.File, ec *emitCtx, ti tableIndicator) error {
 	tableName := camelCase(ti.Table.Name)
 	varName := tableName + "Indicator"
 
@@ -43,8 +49,10 @@ func emitOneIndicator(f *jen.File, ec *emitCtx, ti tableIndicator) {
 	case indicatorPerRow:
 		emitPerRowIndicator(f, ec, ti, varName, tableName)
 	case indicatorScalar:
-		emitScalarIndicator(f, ec, ti, varName, tableName)
+		return emitScalarIndicator(f, ec, ti, varName, tableName)
 	}
+
+	return nil
 }
 
 // emitPerRowIndicator emits the per-row form. The indicator column
@@ -70,11 +78,14 @@ func emitPerRowIndicator(f *jen.File, _ *emitCtx, ti tableIndicator, varName, _ 
 
 // emitScalarIndicator emits the scalar form. The scalar's wire Kind
 // is resolved via [resolveType] over the scalar's node.
-func emitScalarIndicator(f *jen.File, ec *emitCtx, ti tableIndicator, varName, _ string) {
+func emitScalarIndicator(f *jen.File, ec *emitCtx, ti tableIndicator, varName, _ string) error {
 	scalarOID := ti.IndicatorNode.OID.String()
 	tableRoot := ti.Table.OID.String()
 
-	res := resolveType(ec, ti.IndicatorNode)
+	res, err := resolveType(ec, ti.IndicatorNode)
+	if err != nil {
+		return err
+	}
 
 	f.Comment(varName + " is the scalar change indicator for " + ti.Table.Name + ".")
 	f.Comment("The Watcher Gets " + ti.IndicatorNode.Name + " on each tick; when the value")
@@ -88,6 +99,8 @@ func emitScalarIndicator(f *jen.File, ec *emitCtx, ti tableIndicator, varName, _
 			jen.Index().Qual(snmpImport, "OID").Values(newOIDCall(tableRoot)),
 		),
 	)
+
+	return nil
 }
 
 // emitIndicatorSourceComment writes a single-line provenance comment

@@ -143,8 +143,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 
 // splitTarget parses target into a host and port, applying [defaultPort]
 // when the port is absent. It accepts "host", "host:port", and
-// "udp://host[:port]"; a non-UDP scheme is rejected. The logic mirrors the
-// preserving the same accepted target strings.
+// "udp://host[:port]"; a non-UDP scheme is rejected.
 func splitTarget(target string) (string, uint16, error) {
 	if target == "" {
 		return "", 0, errs.Msg("target is empty")

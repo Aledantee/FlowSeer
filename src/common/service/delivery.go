@@ -170,128 +170,173 @@ func (r *messageRuntime) deliver(ctx context.Context, module plannedModule, hand
 	if messageID == "" {
 		messageID = deterministicUUID(module.path, strconv.FormatUint(metadata.Sequence.Stream, 10), "malformed")
 	}
+	typeName := envelope.GetTypeName()
+	if malformed != nil {
+		typeName = "unknown"
+	}
 	settlementSubject := settlementSubject(module.path, messageID)
 	current, currentSequence, err := r.loadSettlement(ctx, settlementSubject)
 	if err != nil {
 		return deliveryError(module.path, "read durable settlement", err)
 	}
-	if current != nil {
-		switch current.GetState() {
-		case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
-			typeName := envelope.GetTypeName()
-			if malformed != nil {
-				typeName = "unknown"
-			}
-			telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
-			return r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
-		case servicev1.SettlementState_SETTLEMENT_STATE_DISCARD:
-			typeName := envelope.GetTypeName()
-			if malformed != nil {
-				typeName = "unknown"
-			}
-			telemetry.recordDisposition(ctx, module.path, typeName, envelope.GetKind(), current)
-			return r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
-		}
+	attempt := &deliveryAttempt{
+		runtime:           r,
+		module:            module,
+		telemetry:         telemetry,
+		brokerMessage:     brokerMessage,
+		envelope:          envelope,
+		payload:           payload,
+		handler:           handler,
+		typeName:          typeName,
+		messageID:         messageID,
+		settlementSubject: settlementSubject,
+		streamSequence:    metadata.Sequence.Stream,
+		numDelivered:      metadata.NumDelivered,
+		retry:             retryCount(current),
+		sequence:          currentSequence,
 	}
-
-	if malformed != nil {
-		desired := newSettlement(module.path, messageID, retryCount(current), servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
-		if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
-			return deliveryError(module.path, "record malformed-message settlement", err)
-		}
-		telemetry.recordDisposition(ctx, module.path, "unknown", envelope.GetKind(), desired)
-		return r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
-	}
-
-	retry := retryCount(current)
-	for {
-		deliveryCtx, span := r.deliveryTrace(ctx, envelope, metadata.NumDelivered, telemetry)
-		deliveryCtx = withDeliveryContext(deliveryCtx, deliveryContext{
-			messageID:     envelope.GetMessageId(),
-			correlationID: envelope.GetCorrelationId(),
-			sourcePath:    envelope.GetSourcePath(),
-		})
-		telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageDelivered)
-		panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, brokerMessage, r.deliveryProgressInterval(), handler.handle, proto.Clone(payload))
-		if progressErr != nil {
-			recordSpanError(span, "message progress failed", progressErr)
-			span.End()
-			if ctx.Err() != nil {
-				return nil
-			}
-			return deliveryError(module.path, "extend delivery during handler execution", progressErr)
-		}
-		if handlerErr != nil {
-			recordSpanError(span, "message handler failed", handlerErr)
-		}
-		if ctx.Err() != nil {
-			span.End()
-			return nil
-		}
-		switch deliverySettlementState(panicked, handlerErr, retry, handler.retries) {
-		case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
-			desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE)
-			if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
-				if errors.Is(err, errSettlementChanged) {
-					span.End()
-					return nil
-				}
-				recordSpanError(span, "message settlement failed", err)
-				span.End()
-				return deliveryError(module.path, "record acknowledgement settlement", err)
-			}
-			telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
-			err := r.finishSettlement(ctx, brokerMessage, settlementSubject, false)
-			if err != nil {
-				recordSpanError(span, "message settlement failed", err)
-			}
-			span.End()
-			return err
-		case servicev1.SettlementState_SETTLEMENT_STATE_RETRY:
-			if err := waitForRetry(ctx, brokerMessage, retryBackoff(retry+1)); err != nil {
-				if ctx.Err() != nil {
-					span.End()
-					return nil
-				}
-				recordSpanError(span, "message progress failed", err)
-				span.End()
-				return deliveryError(module.path, "extend delivery during retry backoff", err)
-			}
-			retry++
-			desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_RETRY)
-			storedSequence, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired)
-			if err != nil {
-				if errors.Is(err, errSettlementChanged) {
-					span.End()
-					return nil
-				}
-				recordSpanError(span, "message settlement failed", err)
-				span.End()
-				return deliveryError(module.path, "record retry settlement", err)
-			}
-			currentSequence = storedSequence
-			telemetry.recordMessage(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), messageRetry)
-			span.End()
-			continue
-		}
-		desired := newSettlement(module.path, messageID, retry, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
-		if _, err := r.commitSettlement(ctx, settlementSubject, currentSequence, metadata.Sequence.Stream, desired); err != nil {
-			if errors.Is(err, errSettlementChanged) {
-				span.End()
-				return nil
-			}
-			recordSpanError(span, "message settlement failed", err)
-			span.End()
-			return deliveryError(module.path, "record discard settlement", err)
-		}
-		telemetry.recordDisposition(deliveryCtx, module.path, envelope.GetTypeName(), envelope.GetKind(), desired)
-		err := r.finishSettlement(ctx, brokerMessage, settlementSubject, true)
-		if err != nil {
-			recordSpanError(span, "message settlement failed", err)
-		}
-		span.End()
+	if settled, err := attempt.resume(ctx, current); settled {
 		return err
 	}
+	if malformed != nil {
+		return attempt.discardMalformed(ctx)
+	}
+	for {
+		again, err := attempt.run(ctx)
+		if !again {
+			return err
+		}
+	}
+}
+
+// deliveryAttempt holds the per-message state the settlement paths share, plus
+// the retry count and settlement revision each redelivery pass advances.
+type deliveryAttempt struct {
+	runtime           *messageRuntime
+	module            plannedModule
+	telemetry         telemetryView
+	brokerMessage     jetstream.Msg
+	envelope          *servicev1.Message
+	payload           proto.Message
+	handler           deliveryHandler
+	typeName          string
+	messageID         string
+	settlementSubject string
+	streamSequence    uint64
+	numDelivered      uint64
+	retry             uint32
+	sequence          uint64
+}
+
+// resume replays a settlement an earlier delivery already recorded so the
+// handler does not run twice. It reports whether current settles the message;
+// any other recorded state leaves the message to the delivery loop.
+func (a *deliveryAttempt) resume(ctx context.Context, current *servicev1.Settlement) (bool, error) {
+	var discard bool
+	switch current.GetState() {
+	case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
+	case servicev1.SettlementState_SETTLEMENT_STATE_DISCARD:
+		discard = true
+	default:
+		return false, nil
+	}
+	a.telemetry.recordDisposition(ctx, a.module.path, a.typeName, a.envelope.GetKind(), current)
+	return true, a.runtime.finishSettlement(ctx, a.brokerMessage, a.settlementSubject, discard)
+}
+
+// discardMalformed durably discards a message that could not be decoded, which
+// no handler can be offered.
+func (a *deliveryAttempt) discardMalformed(ctx context.Context) error {
+	desired := newSettlement(a.module.path, a.messageID, a.retry, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
+	if _, err := a.runtime.commitSettlement(ctx, a.settlementSubject, a.sequence, a.streamSequence, desired); err != nil {
+		return deliveryError(a.module.path, "record malformed-message settlement", err)
+	}
+	a.telemetry.recordDisposition(ctx, a.module.path, a.typeName, a.envelope.GetKind(), desired)
+	return a.runtime.finishSettlement(ctx, a.brokerMessage, a.settlementSubject, true)
+}
+
+// run performs one delivery pass: it invokes the handler and records the
+// resulting settlement. It reports whether the message must be delivered again.
+func (a *deliveryAttempt) run(ctx context.Context) (bool, error) {
+	deliveryCtx, span := a.runtime.deliveryTrace(ctx, a.envelope, a.numDelivered, a.telemetry)
+	defer span.End()
+	deliveryCtx = withDeliveryContext(deliveryCtx, deliveryContext{
+		messageID:     a.envelope.GetMessageId(),
+		correlationID: a.envelope.GetCorrelationId(),
+		sourcePath:    a.envelope.GetSourcePath(),
+	})
+	a.telemetry.recordMessage(deliveryCtx, a.module.path, a.envelope.GetTypeName(), a.envelope.GetKind(), messageDelivered)
+	panicked, handlerErr, progressErr := callHandlerWithProgress(deliveryCtx, a.brokerMessage, a.runtime.deliveryProgressInterval(), a.handler.handle, proto.Clone(a.payload))
+	if progressErr != nil {
+		recordSpanError(span, "message progress failed", progressErr)
+		if ctx.Err() != nil {
+			return false, nil
+		}
+		return false, deliveryError(a.module.path, "extend delivery during handler execution", progressErr)
+	}
+	if handlerErr != nil {
+		recordSpanError(span, "message handler failed", handlerErr)
+	}
+	if ctx.Err() != nil {
+		return false, nil
+	}
+	switch deliverySettlementState(panicked, handlerErr, a.retry, a.handler.retries) {
+	case servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE:
+		return false, a.settleTerminal(ctx, deliveryCtx, span, servicev1.SettlementState_SETTLEMENT_STATE_ACKNOWLEDGE, "record acknowledgement settlement")
+	case servicev1.SettlementState_SETTLEMENT_STATE_RETRY:
+		return a.settleRetry(ctx, deliveryCtx, span)
+	}
+	return false, a.settleTerminal(ctx, deliveryCtx, span, servicev1.SettlementState_SETTLEMENT_STATE_DISCARD, "record discard settlement")
+}
+
+// settleTerminal records the acknowledgement or discard and then releases the
+// mailbox record. A settlement another delivery has changed under us belongs to
+// that delivery, so this one returns without settling.
+func (a *deliveryAttempt) settleTerminal(
+	ctx, deliveryCtx context.Context,
+	span trace.Span,
+	state servicev1.SettlementState,
+	action string,
+) error {
+	desired := newSettlement(a.module.path, a.messageID, a.retry, state)
+	if _, err := a.runtime.commitSettlement(ctx, a.settlementSubject, a.sequence, a.streamSequence, desired); err != nil {
+		if errors.Is(err, errSettlementChanged) {
+			return nil
+		}
+		recordSpanError(span, "message settlement failed", err)
+		return deliveryError(a.module.path, action, err)
+	}
+	a.telemetry.recordDisposition(deliveryCtx, a.module.path, a.envelope.GetTypeName(), a.envelope.GetKind(), desired)
+	err := a.runtime.finishSettlement(ctx, a.brokerMessage, a.settlementSubject, state == servicev1.SettlementState_SETTLEMENT_STATE_DISCARD)
+	if err != nil {
+		recordSpanError(span, "message settlement failed", err)
+	}
+	return err
+}
+
+// settleRetry waits out the backoff and records the retry, reporting whether
+// the message should be delivered again.
+func (a *deliveryAttempt) settleRetry(ctx, deliveryCtx context.Context, span trace.Span) (bool, error) {
+	if err := waitForRetry(ctx, a.brokerMessage, retryBackoff(a.retry+1)); err != nil {
+		if ctx.Err() != nil {
+			return false, nil
+		}
+		recordSpanError(span, "message progress failed", err)
+		return false, deliveryError(a.module.path, "extend delivery during retry backoff", err)
+	}
+	a.retry++
+	desired := newSettlement(a.module.path, a.messageID, a.retry, servicev1.SettlementState_SETTLEMENT_STATE_RETRY)
+	storedSequence, err := a.runtime.commitSettlement(ctx, a.settlementSubject, a.sequence, a.streamSequence, desired)
+	if err != nil {
+		if errors.Is(err, errSettlementChanged) {
+			return false, nil
+		}
+		recordSpanError(span, "message settlement failed", err)
+		return false, deliveryError(a.module.path, "record retry settlement", err)
+	}
+	a.sequence = storedSequence
+	a.telemetry.recordMessage(deliveryCtx, a.module.path, a.envelope.GetTypeName(), a.envelope.GetKind(), messageRetry)
+	return true, nil
 }
 
 // deliverySettlementState retries only panics and retryable handler errors
@@ -466,15 +511,10 @@ func callHandler(ctx context.Context, handler HandlerFunc, payload proto.Message
 	return false, handler(ctx, payload)
 }
 
+// retryBackoff is the capped exponential delay before redelivering a message
+// for the given retry, sharing the supervisor's doubling helper.
 func retryBackoff(retry uint32) time.Duration {
-	backoff := defaultRetryBackoff
-	for step := uint32(1); step < retry && backoff < maximumRetryBackoff/2; step++ {
-		backoff *= 2
-	}
-	if backoff > maximumRetryBackoff {
-		return maximumRetryBackoff
-	}
-	return backoff
+	return exponentialBackoff(Backoff{Initial: defaultRetryBackoff, Maximum: maximumRetryBackoff}, int(retry)-1)
 }
 
 // waitForRetry renews broker delivery progress until delay elapses so the

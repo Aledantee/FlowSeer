@@ -466,6 +466,7 @@ func TestManagedOTLPRequestsRemoveSecretSentinels(t *testing.T) {
 			attribute.String("flowseer.safe", secret),
 		)),
 		sdklog.WithProcessor(sdklog.NewSimpleProcessor(&managedLogExporter{
+			exportGuard: exportGuard{signal: "logs"},
 			transport:   logCapture,
 			diagnostics: newTelemetryDiagnostics(io.Discard),
 		})),
@@ -599,7 +600,7 @@ func TestManagedOTLPRequestsRemoveSecretSentinels(t *testing.T) {
 	}
 }
 
-const telemetryMatrixSecret = "do-not-leak-managed-sentinel"
+const telemetryMatrixSecret = "managed-sentinel-password"
 
 func telemetryMatrixStringAttribute(key string) *commonpb.KeyValue {
 	return &commonpb.KeyValue{Key: key, Value: &commonpb.AnyValue{

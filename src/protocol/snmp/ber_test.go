@@ -256,7 +256,7 @@ func TestDecodeOID(t *testing.T) {
 			t.Fatalf("zero-length OID should not error: %v", err)
 		}
 		if oid.Len() != 0 {
-			t.Fatalf("want empty OID, got %s", oid)
+			t.Fatalf("got %s, want an empty OID", oid)
 		}
 	})
 	t.Run("unterminated sub-identifier", func(t *testing.T) {
@@ -276,7 +276,7 @@ func TestDecodeOID(t *testing.T) {
 }
 
 // TestDecodeOID_AdoptedSliceNoAlias guards the slice-adoption
-// optimisation: decodeOID
+// optimization: decodeOID
 // now hands its freshly-built sub-id slice (which may carry spare capacity)
 // straight to the OID instead of letting NewOID defensively copy it. This
 // pins the invariant that deriving from a decoded OID never writes through

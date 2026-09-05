@@ -81,9 +81,7 @@ func TestRuntimeTelemetrySchema(t *testing.T) {
 		attemptSpanName,
 		lifecycleActionStart,
 	)
-	if err := telemetry.recordLifecycle(ctx, "edge/worker", lifecycleActionStart, lifecycleOutcomeNormal); err != nil {
-		t.Fatalf("recordLifecycle() error: %v", err)
-	}
+	telemetry.recordLifecycle(ctx, "edge/worker", lifecycleActionStart, lifecycleOutcomeNormal)
 	endLifecycleSpan(span, lifecycleOutcomeNormal, nil)
 
 	ended := recorder.Ended()[0]
@@ -162,9 +160,7 @@ func TestManagedLogScopeAndResourceIdentityPlacement(t *testing.T) {
 	}
 	view := owner.view(resolvedTelemetryPolicy{logs: true})
 	view.attemptContextValues(testIdentity(), "FLOWSEER_EDGE_", "edge/worker").logger.InfoContext(context.Background(), "schema probe")
-	if err := view.recordLifecycle(context.Background(), "edge/worker", lifecycleActionStart, lifecycleOutcomeRunning); err != nil {
-		t.Fatalf("recordLifecycle() error: %v", err)
-	}
+	view.recordLifecycle(context.Background(), "edge/worker", lifecycleActionStart, lifecycleOutcomeRunning)
 	if err := owner.shutdown(context.Background()); err != nil {
 		t.Fatalf("shutdown managed telemetry: %v", err)
 	}

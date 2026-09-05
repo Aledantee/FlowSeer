@@ -2,7 +2,7 @@ package yang
 
 import (
 	"encoding/json"
-	"sort"
+	"slices"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -64,6 +64,6 @@ func DiffRevisions(vendored, advertised map[string]string) []RevisionDrift {
 		}
 		out = append(out, RevisionDrift{Module: module, Vendored: vendoredRev, Advertised: advertisedRev})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Module < out[j].Module })
+	slices.SortFunc(out, func(a, b RevisionDrift) int { return strings.Compare(a.Module, b.Module) })
 	return out
 }

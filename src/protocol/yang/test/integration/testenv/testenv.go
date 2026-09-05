@@ -29,34 +29,22 @@ const (
 // successful netconf.Dial plus capability exchange through the public
 // constructor. Call cleanup once after use; it returns any termination error.
 func StartNetopeer2(ctx context.Context, contextDir string) (target string, cleanup func() error, err error) {
-	target, cleanup, err = startFromContext(ctx, contextDir, "830/tcp",
-		wait.ForListeningPort("830/tcp").WithStartupTimeout(120*time.Second))
-	if err != nil {
-		return "", nil, err
-	}
-	err = waitReady(ctx, func(probeCtx context.Context) error {
-		s, err := netconf.Dial(probeCtx, target, netconf.Options{
-			Username:              Netopeer2User,
-			Password:              Netopeer2Password,
-			InsecureIgnoreHostKey: true,
-			DialTimeout:           5 * time.Second,
-		})
-		if err != nil {
-			return err
-		}
-		return s.Close(probeCtx)
-	})
-	if err != nil {
-		cleanupErr := cleanup()
-		if ctx.Err() != nil {
-			if cleanupErr != nil {
-				return "", nil, errors.Join(ctx.Err(), cleanupErr)
+	return startAndProbe(ctx, contextDir, "830/tcp",
+		wait.ForListeningPort("830/tcp").WithStartupTimeout(120*time.Second),
+		func(probeCtx context.Context, addr string) error {
+			s, err := netconf.Dial(probeCtx, addr, netconf.Options{
+				Username:              Netopeer2User,
+				Password:              Netopeer2Password,
+				InsecureIgnoreHostKey: true,
+				DialTimeout:           5 * time.Second,
+			})
+			if err != nil {
+				return err
 			}
-			return "", nil, ctx.Err()
-		}
-		return "", nil, errs.Wrap(errors.Join(err, cleanupErr), "netopeer2 never became NETCONF-ready")
-	}
-	return target, cleanup, nil
+
+			return s.Close(probeCtx)
+		},
+		"netopeer2 never became NETCONF-ready")
 }
 
 // StartClixon builds the RESTCONF-enabled clixon image from
@@ -64,30 +52,22 @@ func StartNetopeer2(ctx context.Context, contextDir string) (target string, clea
 // successful restconf.Dial (root discovery via host-meta) through the
 // public constructor. Call cleanup once after use; it returns any termination error.
 func StartClixon(ctx context.Context, contextDir string) (baseURL string, cleanup func() error, err error) {
-	target, cleanup, err := startFromContext(ctx, contextDir, "80/tcp",
-		wait.ForLog("clixon restconf started").WithStartupTimeout(120*time.Second))
+	target, cleanup, err := startAndProbe(ctx, contextDir, "80/tcp",
+		wait.ForLog("clixon restconf started").WithStartupTimeout(120*time.Second),
+		func(probeCtx context.Context, addr string) error {
+			s, err := restconf.Dial(probeCtx, "http://"+addr, restconf.Options{Timeout: 5 * time.Second})
+			if err != nil {
+				return err
+			}
+
+			return s.Close()
+		},
+		"clixon never became RESTCONF-ready")
 	if err != nil {
 		return "", nil, err
 	}
-	baseURL = "http://" + target
-	err = waitReady(ctx, func(probeCtx context.Context) error {
-		s, err := restconf.Dial(probeCtx, baseURL, restconf.Options{Timeout: 5 * time.Second})
-		if err != nil {
-			return err
-		}
-		return s.Close()
-	})
-	if err != nil {
-		cleanupErr := cleanup()
-		if ctx.Err() != nil {
-			if cleanupErr != nil {
-				return "", nil, errors.Join(ctx.Err(), cleanupErr)
-			}
-			return "", nil, ctx.Err()
-		}
-		return "", nil, errs.Wrap(errors.Join(err, cleanupErr), "clixon never became RESTCONF-ready")
-	}
-	return baseURL, cleanup, nil
+
+	return "http://" + target, cleanup, nil
 }
 
 // StartGNMITarget builds FlowSeer's reference gNMI target from
@@ -95,28 +75,50 @@ func StartClixon(ctx context.Context, contextDir string) (baseURL string, cleanu
 // successful gnmi.Dial (Capabilities exchange) through the public
 // constructor. Call cleanup once after use; it returns any termination error.
 func StartGNMITarget(ctx context.Context, contextDir string) (target string, cleanup func() error, err error) {
-	target, cleanup, err = startFromContext(ctx, contextDir, "9339/tcp",
-		wait.ForLog("gnmitarget listening").WithStartupTimeout(120*time.Second))
+	return startAndProbe(ctx, contextDir, "9339/tcp",
+		wait.ForLog("gnmitarget listening").WithStartupTimeout(120*time.Second),
+		func(probeCtx context.Context, addr string) error {
+			s, err := gnmi.Dial(probeCtx, addr, gnmi.Options{Plaintext: true, DialTimeout: 5 * time.Second})
+			if err != nil {
+				return err
+			}
+
+			return s.Close()
+		},
+		"gnmitarget never became gNMI-ready")
+}
+
+// startAndProbe starts one container from contextDir with port mapped
+// and waitFor as the container-level readiness strategy, then polls
+// probe against the mapped host:port until the protocol itself
+// answers. A container that never answers is terminated and the
+// failure is reported as readyMsg, with a cancelled ctx reported as
+// such rather than as a readiness failure. On success the caller owns
+// cleanup and must call it once.
+func startAndProbe(
+	ctx context.Context, contextDir, port string, waitFor wait.Strategy,
+	probe func(context.Context, string) error, readyMsg string,
+) (target string, cleanup func() error, err error) {
+	target, cleanup, err = startFromContext(ctx, contextDir, port, waitFor)
 	if err != nil {
 		return "", nil, err
 	}
-	err = waitReady(ctx, func(probeCtx context.Context) error {
-		s, err := gnmi.Dial(probeCtx, target, gnmi.Options{Plaintext: true, DialTimeout: 5 * time.Second})
-		if err != nil {
-			return err
-		}
-		return s.Close()
-	})
-	if err != nil {
+
+	if err := waitReady(ctx, func(probeCtx context.Context) error {
+		return probe(probeCtx, target)
+	}); err != nil {
 		cleanupErr := cleanup()
 		if ctx.Err() != nil {
 			if cleanupErr != nil {
 				return "", nil, errors.Join(ctx.Err(), cleanupErr)
 			}
+
 			return "", nil, ctx.Err()
 		}
-		return "", nil, errs.Wrap(errors.Join(err, cleanupErr), "gnmitarget never became gNMI-ready")
+
+		return "", nil, errs.Wrap(errors.Join(err, cleanupErr), readyMsg)
 	}
+
 	return target, cleanup, nil
 }
 

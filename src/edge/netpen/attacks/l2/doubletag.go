@@ -16,6 +16,7 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -83,5 +84,5 @@ func craftDoubleTagFrame(src net.HardwareAddr, outerVLAN, innerVLAN uint16) ([]b
 	icmp := &layers.ICMPv4{
 		TypeCode: layers.CreateICMPv4TypeCode(8, 0), // echo request
 	}
-	return craftDefault(eth, outer, inner, ip, icmp)
+	return craft.Default(eth, outer, inner, ip, icmp)
 }

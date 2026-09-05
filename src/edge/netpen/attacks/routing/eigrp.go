@@ -17,6 +17,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -244,7 +245,7 @@ func craftEIGRPHello(src net.HardwareAddr, asNum uint16, flags uint32) ([]byte, 
 		SrcIP:    attackerIP,
 		DstIP:    eigrpMulticast,
 	}
-	return craftDefault(eth, ip, eigrp)
+	return craft.Default(eth, ip, eigrp)
 }
 
 // craftEIGRPRouteInject builds an EIGRP Update carrying an IPv4 Internal
@@ -280,7 +281,7 @@ func craftEIGRPRouteInject(src net.HardwareAddr, asNum uint16) ([]byte, error) {
 		SrcIP:    attackerIP,
 		DstIP:    eigrpMulticast,
 	}
-	return craftDefault(eth, ip, eigrp)
+	return craft.Default(eth, ip, eigrp)
 }
 
 // buildIPv4InternalRouteTLV builds the value for an EIGRP IPv4 Internal

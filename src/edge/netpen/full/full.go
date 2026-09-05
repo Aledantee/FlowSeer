@@ -264,15 +264,6 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 	return recs, runErr
 }
 
-// computeVerdicts derives traversal verdicts from the burst evidence and
-// the watch-leg recording. A behavior that ran in the burst gets:
-//   - pending: no watch leg (indistinguishable from resisted without one)
-//   - resisted: watch leg present but no traversal evidence
-//   - confirmed: watch leg recorded burst frames (upgrade pending->confirmed)
-//
-// The upgrade is the two-leg semantics: the watch-leg evidence window
-// derives from the ACTUAL burst end (recorded by Run), not flag
-// arithmetic.
 // traversalWindow is how long the watch leg is observed after the burst
 // ends. It derives the evidence window from the actual burst end, never
 // from flag arithmetic.
@@ -291,6 +282,15 @@ func observeTraversal(ctx context.Context, watch link.Leg, window time.Duration)
 	return ok && frame.Err == nil
 }
 
+// computeVerdicts derives traversal verdicts from the burst evidence and
+// the watch-leg recording. A behavior that ran in the burst gets:
+//   - pending: no watch leg (indistinguishable from resisted without one)
+//   - resisted: watch leg present but no traversal evidence
+//   - confirmed: watch leg recorded burst frames (upgrade pending->confirmed)
+//
+// The upgrade is the two-leg semantics: the watch-leg evidence window
+// derives from the ACTUAL burst end (recorded by Run), not flag
+// arithmetic.
 func (f *Full) computeVerdicts(ev Evidence) {
 	// In the test/hooked path, the watch-leg recording is simulated via
 	// the evidence map's "watch-recording" key (set by the recon stub or

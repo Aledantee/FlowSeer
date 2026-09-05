@@ -20,6 +20,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -121,7 +122,7 @@ func craftDHCPOffer(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]b
 			layers.NewDHCPOption(layers.DHCPOptDNS, rogueIP.To4()),
 		},
 	}
-	return craftDefault(eth, ip, udp, dhcp)
+	return craft.Default(eth, ip, udp, dhcp)
 }
 
 func craftDHCPAck(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byte, error) {
@@ -164,7 +165,7 @@ func craftDHCPAck(src net.HardwareAddr, rogueIP net.IP, leaseTime []byte) ([]byt
 			layers.NewDHCPOption(layers.DHCPOptDNS, rogueIP.To4()),
 		},
 	}
-	return craftDefault(eth, ip, udp, dhcp)
+	return craft.Default(eth, ip, udp, dhcp)
 }
 
 var _ gopacket.SerializableLayer = (*layers.DHCPv4)(nil)

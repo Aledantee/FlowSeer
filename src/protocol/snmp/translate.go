@@ -24,6 +24,21 @@ func validateResponse(m *message, wantVer Version, wantCommunity string) error {
 	return nil
 }
 
+// enrichRawErrorVarbinds decodes a raw response's varbind list in place
+// when the PDU carries an error status, so [pduError] can name the
+// offending OID. It is a no-op on a successful PDU or one that was
+// already decoded eagerly. A failed re-decode is deliberately ignored:
+// the raw bytes stay authoritative and the caller still reports the
+// error status, just without an OID.
+func enrichRawErrorVarbinds(p *pdu) {
+	if p.errorStatus == NoError || p.rawVBL == nil {
+		return
+	}
+	if vbs, err := decodeVarBindList(p.rawVBL, 1); err == nil {
+		p.varbinds = vbs
+	}
+}
+
 // pduError builds a [*PDUError] from a response PDU's error-status,
 // or returns nil when the status is NoError. The 1-based error-index
 // (RFC 3416 §4.2.1) selects the offending varbind's OID when in range; an

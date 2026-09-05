@@ -60,7 +60,7 @@ func NewOID(subs ...uint32) (OID, error) {
 // — matching the [regexp.MustCompile] and [netip.MustParseAddr] pattern.
 //
 // MustOID surfaces a generator-bug-produced invalid OID at process start
-// (when the generated package's var-block initialiser runs) rather than
+// (when the generated package's var-block initializer runs) rather than
 // as a wire-protocol error in a later Backend call.
 func MustOID(subs ...uint32) OID {
 	o, err := NewOID(subs...)

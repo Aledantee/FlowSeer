@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc"
@@ -105,7 +106,7 @@ func NewSession(ctx context.Context, cc *grpc.ClientConn, opts Options) (*Sessio
 		cc:     cc,
 		client: gpb.NewGNMIClient(cc),
 		opts:   opts,
-		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/gnmi"),
+		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/gnmi", trace.WithSchemaURL(semconv.SchemaURL)),
 	}
 
 	capCtx, cancel := context.WithTimeout(ctx, opts.DialTimeout)
@@ -179,7 +180,6 @@ func (s *Session) Close() error {
 	return nil
 }
 
-// isClosed reports the closed state.
 func (s *Session) isClosed() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -204,10 +204,11 @@ func (s *Session) unaryCtx(ctx context.Context, op string) (context.Context, fun
 	ctx, cancel := context.WithTimeout(ctx, s.opts.RPCTimeout)
 	ctx, span := s.tracer.Start(ctx, "gnmi."+op,
 		trace.WithSpanKind(trace.SpanKindClient),
-		trace.WithAttributes(attribute.String("gnmi_operation", op)))
+		trace.WithAttributes(semconv.RPCSystemNameGRPC, semconv.RPCMethod(op)))
 	finish := func(err error) {
 		if err != nil {
-			span.SetStatus(codes.Error, err.Error())
+			span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
+			span.SetStatus(codes.Error, "rpc failed")
 		}
 		span.End()
 		cancel()
@@ -448,7 +449,7 @@ func FromProtoPath(p *gpb.Path) yang.Path {
 			for k := range elem.GetKey() {
 				names = append(names, k)
 			}
-			sortStrings(names)
+			slices.Sort(names)
 			for _, k := range names {
 				seg.Keys = append(seg.Keys, yang.KeyValue{Name: k, Value: elem.GetKey()[k]})
 			}
@@ -458,14 +459,14 @@ func FromProtoPath(p *gpb.Path) yang.Path {
 	return out
 }
 
-// sortStrings is a tiny insertion sort; key maps hold at most a few
-// entries.
-func sortStrings(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j] < s[j-1]; j-- {
-			s[j], s[j-1] = s[j-1], s[j]
-		}
+// errorType classifies an error for the bounded error.type span
+// attribute: the errs code when the error carries one, otherwise the
+// concrete Go type. It never exposes error text.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return code.String()
 	}
+	return fmt.Sprintf("%T", err)
 }
 
 // toTypedValue maps a [yang.Value] onto a scalar TypedValue.

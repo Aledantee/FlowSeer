@@ -108,40 +108,19 @@ func StartSnmpsim(ctx context.Context, contextDir, dataDir, probeCommunity strin
 // probe succeeds the engine is live and capable of serving the
 // replay.
 func waitForSnmpsimReady(ctx context.Context, target, community string) error {
-	probeCtx, cancel := context.WithTimeout(ctx, snmpsimReadyTimeout)
-	defer cancel()
-
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
-	var lastErr error
-	for {
-		if err := probeCtx.Err(); err != nil {
-			return err
-		}
-		sess, err := snmp.NewSession(probeCtx, target, snmp.V2c,
+	return waitReady(ctx, snmpsimReadyTimeout, snmpsimProbeBackoff, func(ctx context.Context) error {
+		sess, err := snmp.NewSession(ctx, target, snmp.V2c,
 			snmp.WithCommunity(community),
 			snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 			snmp.WithTimeout(2*time.Second),
 			snmp.WithRetries(1),
 		)
-		if err == nil {
-			_, err = sess.Get(probeCtx, []snmp.OID{sysUpTime})
-			_ = sess.Close()
-			if err == nil {
-				return nil
-			}
+		if err != nil {
+			return err
 		}
-		lastErr = err
-
-		// Sleep with context-cancellation observation. Sleeping
-		// unconditionally costs up to one full backoff interval of
-		// dead time after the outer deadline fires.
-		select {
-		case <-time.After(snmpsimProbeBackoff):
-		case <-probeCtx.Done():
-			if lastErr == nil {
-				return probeCtx.Err()
-			}
-			return errors.Join(probeCtx.Err(), errs.Wrap(lastErr, "probe exhausted"))
-		}
-	}
+		_, err = sess.Get(ctx, []snmp.OID{sysUpTime})
+		_ = sess.Close()
+		return err
+	})
 }

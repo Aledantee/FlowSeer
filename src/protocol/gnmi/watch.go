@@ -2,6 +2,8 @@ package gnmi
 
 import (
 	"context"
+	"iter"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/pump"
@@ -100,7 +102,7 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 
 	buf := opts.Buffer
 	if buf <= 0 {
-		buf = 256
+		buf = defaultEventBuffer
 	}
 	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf), stream: stream}
 	go w.run(stream, desc)
@@ -211,14 +213,14 @@ func sortedIDs(set map[string]bool) []string {
 	for id := range set {
 		out = append(out, id)
 	}
-	sortStrings(out)
+	slices.Sort(out)
 	return out
 }
 
 // Iter yields events until the Watcher terminates. Check
 // [Watcher.Err] after the loop. Breaking iteration closes the
 // subscription and waits for the producer to finish.
-func (w *Watcher[Row, Key]) Iter() func(yield func(yang.WatchEvent[Row, Key]) bool) {
+func (w *Watcher[Row, Key]) Iter() iter.Seq[yang.WatchEvent[Row, Key]] {
 	return func(yield func(yang.WatchEvent[Row, Key]) bool) {
 		for ev := range w.pump.Data() {
 			if !yield(ev) {

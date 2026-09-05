@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -105,7 +105,7 @@ func DiffLockfiles(committed, fresh *Lockfile) (flagged []string, versionMismatc
 		for key := range fresh.Modules {
 			flagged = append(flagged, key)
 		}
-		sort.Strings(flagged)
+		slices.Sort(flagged)
 		return flagged, committed != nil
 	}
 	seen := make(map[string]struct{}, len(fresh.Modules))
@@ -121,6 +121,6 @@ func DiffLockfiles(committed, fresh *Lockfile) (flagged []string, versionMismatc
 			flagged = append(flagged, fmt.Sprintf("%s (removed)", key))
 		}
 	}
-	sort.Strings(flagged)
+	slices.Sort(flagged)
 	return flagged, false
 }

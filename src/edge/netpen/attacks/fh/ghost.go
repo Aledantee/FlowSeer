@@ -10,6 +10,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -142,7 +143,7 @@ func craftGhostSTP() ([]byte, error) {
 	}
 	rootMac := net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 	payload := buildGhostSTPPayload(0xF000, rootMac)
-	return craftDefault(eth, llc, gopacket.Payload(payload))
+	return craft.Default(eth, llc, gopacket.Payload(payload))
 }
 
 func buildGhostSTPPayload(rootPriority uint16, rootMac net.HardwareAddr) []byte {
@@ -172,5 +173,5 @@ func craftGhostLLDP() ([]byte, error) {
 		EthernetType: layers.EthernetTypeLinkLayerDiscovery,
 	}
 	payload := []byte("GHOST-TRAVERSAL sentinel-0x42")
-	return craftDefault(eth, gopacket.Payload(payload))
+	return craft.Default(eth, gopacket.Payload(payload))
 }

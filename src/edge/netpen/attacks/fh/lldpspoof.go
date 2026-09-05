@@ -18,6 +18,7 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -85,5 +86,5 @@ func craftLLDPSpoof(src net.HardwareAddr, ttl uint16) ([]byte, error) {
 			},
 		},
 	}
-	return craftDefault(eth, lldp)
+	return craft.Default(eth, lldp)
 }

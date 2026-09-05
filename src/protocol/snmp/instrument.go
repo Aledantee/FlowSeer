@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
@@ -25,31 +26,37 @@ import (
 //
 // The trap path is not instrumented here: providers are session
 // (Dial-time) options and [ListenTraps] takes [TrapOption]s, which
-// carry no provider. Trap telemetry awaits provider trap-options and is a
-// follow-up; the [TrapStream.Dropped] counter already gives operators
-// drop visibility.
+// carry no provider, so trap reception is neither traced nor metered.
+// The [TrapStream.Dropped] counter is the only drop signal.
 
-// Attribute keys use the repo snake_case convention. No OTel
-// semantic convention covers SNMP client operations, so metric names live
-// in the flowseer.snmp.* namespace.
+// No OpenTelemetry semantic convention covers SNMP client operations, so
+// both the instrument names and the attribute keys live in the
+// flowseer.snmp.* namespace.
 const (
-	attrTarget       = "snmp_target"
-	attrVersion      = "snmp_version"
-	attrOperation    = "snmp_operation"
-	attrRequestID    = "snmp_request_id"
-	attrRetryCount   = "snmp_retry_count"
-	attrVarbindCount = "snmp_varbind_count"
-	attrErrorStatus  = "snmp_pdu_error_status"
-	attrErrorKind    = "snmp_error_kind"
-	attrDirection    = "snmp_direction"
+	attrTarget       = "flowseer.snmp.target"
+	attrVersion      = "flowseer.snmp.version"
+	attrOperation    = "flowseer.snmp.operation"
+	attrRequestID    = "flowseer.snmp.request_id"
+	attrRetryCount   = "flowseer.snmp.retry_count"
+	attrVarbindCount = "flowseer.snmp.varbind_count"
+	attrErrorStatus  = "flowseer.snmp.pdu_error_status"
+	attrDirection    = "flowseer.snmp.direction"
 
 	// v3/USM attributes. None carry secret material: the engineID is
 	// a non-secret hex identifier, never a key or passphrase.
-	attrSecurityLevel = "snmp_security_level"
-	attrAuthProtocol  = "snmp_auth_protocol"
-	attrPrivProtocol  = "snmp_priv_protocol"
-	attrEngineID      = "snmp_engine_id"
-	attrMsgID         = "snmp_msg_id"
+	attrSecurityLevel = "flowseer.snmp.security_level"
+	attrAuthProtocol  = "flowseer.snmp.auth_protocol"
+	attrPrivProtocol  = "flowseer.snmp.priv_protocol"
+	attrEngineID      = "flowseer.snmp.engine_id"
+	attrMsgID         = "flowseer.snmp.msg_id"
+
+	// Log-only attributes: the dialed peer, the address a stray
+	// datagram actually came from, the version a mismatched datagram
+	// carried, and why a [Watcher] entered fallback mode.
+	attrPeer            = "flowseer.snmp.peer"
+	attrSource          = "flowseer.snmp.source"
+	attrReceivedVersion = "flowseer.snmp.received_version"
+	attrFallbackReason  = "flowseer.snmp.fallback_reason"
 )
 
 // instruments holds the resolved Tracer and metric instruments for one
@@ -57,7 +64,13 @@ const (
 // reactor. The zero value is not usable; build via [newInstruments].
 type instruments struct {
 	tracer trace.Tracer
-	base   []attribute.KeyValue // target + version, attached to every signal
+
+	// spanBase is attached to every span: the dialed target plus the
+	// version and the USM selectors.
+	spanBase []attribute.KeyValue
+	// metricBase is spanBase without the target. The dialed address is
+	// unbounded across a fleet, so it stays off metric time series.
+	metricBase []attribute.KeyValue
 
 	// isNoop is set at Dial when both providers are the OTel no-op
 	// providers (the never-nil default). The hot-path hooks then skip
@@ -79,8 +92,10 @@ type instruments struct {
 // reactor. inFlight and dropped are sampled by the OTel collection
 // callback.
 func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() int64) (*instruments, error) {
-	tracer := cfg.TracerProvider.Tracer(scopeName, trace.WithInstrumentationVersion(version))
-	meter := cfg.MeterProvider.Meter(scopeName, metric.WithInstrumentationVersion(version))
+	tracer := cfg.TracerProvider.Tracer(scopeName,
+		trace.WithInstrumentationVersion(version), trace.WithSchemaURL(semconv.SchemaURL))
+	meter := cfg.MeterProvider.Meter(scopeName,
+		metric.WithInstrumentationVersion(version), metric.WithSchemaURL(semconv.SchemaURL))
 
 	// Both providers being the OTel no-op type means every signal is
 	// discarded; detect it once here so the per-operation hooks can avoid
@@ -88,36 +103,42 @@ func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() 
 	_, tracerNoop := cfg.TracerProvider.(tracenoop.TracerProvider)
 	_, meterNoop := cfg.MeterProvider.(metricnoop.MeterProvider)
 
-	base := []attribute.KeyValue{
-		attribute.String(attrTarget, target),
+	metricBase := []attribute.KeyValue{
 		attribute.String(attrVersion, cfg.Version.String()),
 	}
 	// v3 sessions carry the non-secret USM protocol selectors on every signal.
 	// Passphrases and keys never appear.
 	if cfg.USM != nil {
-		base = append(base,
+		metricBase = append(metricBase,
 			attribute.String(attrSecurityLevel, cfg.USM.Level().String()),
 			attribute.String(attrAuthProtocol, cfg.USM.AuthProtocol.String()),
 			attribute.String(attrPrivProtocol, cfg.USM.PrivProtocol.String()),
 		)
 	}
+	spanBase := make([]attribute.KeyValue, 0, len(metricBase)+1)
+	spanBase = append(spanBase, attribute.String(attrTarget, target))
+	spanBase = append(spanBase, metricBase...)
 	in := &instruments{
-		tracer: tracer,
-		isNoop: tracerNoop && meterNoop,
-		base:   base,
+		tracer:     tracer,
+		isNoop:     tracerNoop && meterNoop,
+		spanBase:   spanBase,
+		metricBase: metricBase,
 	}
 
 	var regErrs []error
 	var err error
 	if in.requests, err = meter.Int64Counter("flowseer.snmp.requests",
+		metric.WithUnit("{request}"),
 		metric.WithDescription("SNMP request PDUs issued")); err != nil {
 		regErrs = append(regErrs, err)
 	}
 	if in.errors, err = meter.Int64Counter("flowseer.snmp.errors",
+		metric.WithUnit("{error}"),
 		metric.WithDescription("SNMP operations that failed, by classified error kind")); err != nil {
 		regErrs = append(regErrs, err)
 	}
 	if in.retries, err = meter.Int64Counter("flowseer.snmp.retries",
+		metric.WithUnit("{retransmit}"),
 		metric.WithDescription("SNMP request retransmits")); err != nil {
 		regErrs = append(regErrs, err)
 	}
@@ -133,17 +154,19 @@ func newInstruments(cfg *SessionConfig, target string, inFlight, dropped func() 
 	}
 
 	if _, err = meter.Int64ObservableGauge("flowseer.snmp.in_flight",
+		metric.WithUnit("{request}"),
 		metric.WithDescription("in-flight SNMP requests on this session"),
 		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-			o.Observe(inFlight(), metric.WithAttributes(in.base...))
+			o.Observe(inFlight(), metric.WithAttributes(in.metricBase...))
 			return nil
 		})); err != nil {
 		regErrs = append(regErrs, err)
 	}
 	if _, err = meter.Int64ObservableCounter("flowseer.snmp.dropped",
+		metric.WithUnit("{datagram}"),
 		metric.WithDescription("unmatched/late/malformed datagrams dropped by the reactor"),
 		metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
-			o.Observe(dropped(), metric.WithAttributes(in.base...))
+			o.Observe(dropped(), metric.WithAttributes(in.metricBase...))
 			return nil
 		})); err != nil {
 		regErrs = append(regErrs, err)
@@ -162,9 +185,9 @@ func (in *instruments) startOp(ctx context.Context, op string) (context.Context,
 		// The no-op tracer ignores attributes; skip building them.
 		return in.tracer.Start(ctx, "snmp."+op)
 	}
-	attrs := make([]attribute.KeyValue, 0, len(in.base)+1)
+	attrs := make([]attribute.KeyValue, 0, len(in.spanBase)+1)
 	attrs = append(attrs, attribute.String(attrOperation, op))
-	attrs = append(attrs, in.base...)
+	attrs = append(attrs, in.spanBase...)
 	return in.tracer.Start(ctx, "snmp."+op, trace.WithAttributes(attrs...))
 }
 
@@ -181,16 +204,18 @@ func (in *instruments) finishOp(ctx context.Context, span trace.Span, op string,
 		span.SetAttributes(attribute.String(attrErrorStatus, pe.Status.String()))
 	}
 	if err != nil {
+		kind := classifyError(err)
 		span.RecordError(err)
-		span.SetStatus(codes.Error, classifyError(err))
+		span.SetAttributes(semconv.ErrorTypeKey.String(kind))
+		span.SetStatus(codes.Error, kind)
 		in.recordError(ctx, op, err)
 	}
 }
 
 func (in *instruments) opAttrs(op string) []attribute.KeyValue {
-	attrs := make([]attribute.KeyValue, 0, len(in.base)+1)
+	attrs := make([]attribute.KeyValue, 0, len(in.metricBase)+1)
 	attrs = append(attrs, attribute.String(attrOperation, op))
-	return append(attrs, in.base...)
+	return append(attrs, in.metricBase...)
 }
 
 // recordRequest counts one issued request PDU and its round-trip latency.
@@ -209,7 +234,7 @@ func (in *instruments) recordError(ctx context.Context, op string, err error) {
 		return
 	}
 	attrs := in.opAttrs(op)
-	attrs = append(attrs, attribute.String(attrErrorKind, classifyError(err)))
+	attrs = append(attrs, semconv.ErrorTypeKey.String(classifyError(err)))
 	in.errors.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
@@ -218,7 +243,7 @@ func (in *instruments) recordRetry(ctx context.Context) {
 	if in.isNoop {
 		return
 	}
-	in.retries.Add(ctx, 1, metric.WithAttributes(in.base...))
+	in.retries.Add(ctx, 1, metric.WithAttributes(in.metricBase...))
 }
 
 // recordPDUSize records a datagram size, attributed by direction
@@ -228,9 +253,9 @@ func (in *instruments) recordPDUSize(ctx context.Context, direction string, n in
 	if in.isNoop {
 		return
 	}
-	attrs := make([]attribute.KeyValue, 0, len(in.base)+1)
+	attrs := make([]attribute.KeyValue, 0, len(in.metricBase)+1)
 	attrs = append(attrs, attribute.String(attrDirection, direction))
-	attrs = append(attrs, in.base...)
+	attrs = append(attrs, in.metricBase...)
 	in.pduSize.Record(ctx, int64(n), metric.WithAttributes(attrs...))
 }
 
@@ -258,6 +283,8 @@ func classifyError(err error) string {
 		return "community_mismatch"
 	case errors.Is(err, ErrVersionMismatch):
 		return "version_mismatch"
+	case errors.Is(err, warnCounter64InV1):
+		return "counter64_in_v1"
 
 	// v3/USM kinds. Low-cardinality, secret-free.
 	case errors.Is(err, ErrAuthFailed):

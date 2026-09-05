@@ -753,15 +753,15 @@ func TestManagedLogSanitizerPreservesLocalDetailsOnly(t *testing.T) {
 	defer func() { _ = owner.shutdown(context.Background()) }()
 	longValue := strings.Repeat("x", telemetryValueLimit+20)
 	owner.telemetry.logger.Debug("debug detail")
-	opaque := struct{ Credential string }{Credential: "do-not-leak"}
-	owner.telemetry.logger.Info("credential secret body", "password", "do-not-leak", "safe", longValue, "opaque", opaque)
+	opaque := struct{ Credential string }{Credential: "sentinel-password"}
+	owner.telemetry.logger.Info("credential secret body", "password", "sentinel-password", "safe", longValue, "opaque", opaque)
 	if _, ok := localSink.find("debug detail"); !ok {
 		t.Fatal("local logger did not retain debug record")
 	}
 	if _, ok := exportSink.find("debug detail"); ok {
 		t.Fatal("managed export retained production-disabled debug record")
 	}
-	if attrs, ok := localSink.find("credential secret body"); !ok || attrs["password"] != "do-not-leak" || attrs["safe"] != longValue || attrs["opaque"] == "" {
+	if attrs, ok := localSink.find("credential secret body"); !ok || attrs["password"] != "sentinel-password" || attrs["safe"] != longValue || attrs["opaque"] == "" {
 		t.Fatalf("local record = %v, %v; want trusted details", attrs, ok)
 	}
 	attrs, ok := exportSink.find("[redacted]")
@@ -798,12 +798,12 @@ func TestTelemetryDiagnosticsAreRateLimitedAndSanitized(t *testing.T) {
 	diagnostics := newServiceTelemetryDiagnostics(&output, testIdentity())
 	now := time.Unix(1_000, 0)
 	diagnostics.now = func() time.Time { return now }
-	diagnostics.report("logs", "unavailable")
-	diagnostics.report("logs", "do-not-leak-secret")
+	diagnostics.report(context.Background(), "logs", "unavailable")
+	diagnostics.report(context.Background(), "logs", "sentinel-password-detail")
 	if got := strings.Count(output.String(), "telemetry export failed"); got != 1 {
 		t.Fatalf("diagnostic records = %d, want 1", got)
 	}
-	if strings.Contains(output.String(), "do-not-leak") {
+	if strings.Contains(output.String(), "sentinel-password") {
 		t.Fatal("diagnostic echoed untrusted detail")
 	}
 	for _, field := range []string{
@@ -1144,6 +1144,7 @@ func TestManagedTelemetryStalledRequestsUsePerAttemptTimeout(t *testing.T) {
 	transport := &stalledRetryOTLPTransport{requestTimeout: requestTimeout}
 	var diagnostics bytes.Buffer
 	exporter := &managedLogExporter{
+		exportGuard: exportGuard{signal: "logs"},
 		transport:   transport,
 		diagnostics: newTelemetryDiagnostics(&diagnostics),
 	}
@@ -1172,6 +1173,7 @@ func TestManagedTelemetryStalledRequestsUsePerAttemptTimeout(t *testing.T) {
 func TestRoutineExporterFailureIsNonfatalButFinalFailureIsReturned(t *testing.T) {
 	var output bytes.Buffer
 	exporter := &managedLogExporter{
+		exportGuard: exportGuard{signal: "logs"},
 		transport:   failingOTLPTransport{},
 		diagnostics: newTelemetryDiagnostics(&output),
 	}
@@ -1195,7 +1197,7 @@ func TestRoutineExporterRejectionUsesRejectedCategory(t *testing.T) {
 		{
 			name: "logs",
 			export: func(diagnostics *telemetryDiagnostics) error {
-				return (&managedLogExporter{transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), nil)
+				return (&managedLogExporter{exportGuard: exportGuard{signal: "logs"}, transport: rejectedOTLPTransport{}, diagnostics: diagnostics}).Export(context.Background(), nil)
 			},
 		},
 		{
@@ -1209,8 +1211,8 @@ func TestRoutineExporterRejectionUsesRejectedCategory(t *testing.T) {
 			export: func(diagnostics *telemetryDiagnostics) error {
 				exporter := &managedTraceExporter{
 					SpanExporter: rejectedSpanExporter{},
+					exportGuard:  exportGuard{signal: "traces"},
 					diagnostics:  diagnostics,
-					active:       make(map[uint64]context.CancelFunc),
 				}
 				return exporter.ExportSpans(context.Background(), nil)
 			},

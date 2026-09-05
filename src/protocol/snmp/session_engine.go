@@ -178,14 +178,143 @@ func (s *session) walk(ctx context.Context, root OID, opts []CallOption, bulk bo
 	return w
 }
 
-// runWalk is the pump body: it issues GetNext (or GetBulk) PDUs, yields
-// each in-subtree VarBind, and enforces the walk-termination guards.
+// runWalk is the pump body for [Session.Walk] / [Session.BulkWalk]: it
+// drives the shared walk engine over decoded OIDs, yielding each
+// in-subtree [VarBind].
+func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, callCfg *CallConfig, span trace.Span, op string) {
+	runWalkEngine(ctx, s, oidWalkOps{s: s, w: w, root: root}, root, bulk, callCfg, span, op)
+}
+
+// walkException classifies a response varbind's SNMPv2 exception
+// variant, which the walk engine handles before any cursor guard.
+type walkException uint8
+
+const (
+	walkNoException walkException = iota
+	walkEndOfMibView
+	walkNoSuchObject
+	walkNoSuchInstance
+)
+
+// walkStep is the engine's decision for one response varbind.
+type walkStep uint8
+
+const (
+	// walkYield yields the item and advances the cursor onto it.
+	walkYield walkStep = iota
+	// walkSkip drops the item and leaves the cursor untouched.
+	walkSkip
+	// walkAdvance drops the item but charges the budget and advances
+	// the cursor past it.
+	walkAdvance
+	// walkYieldThenStop yields the item and terminates the walk.
+	walkYieldThenStop
+	// walkStop terminates the walk without yielding.
+	walkStop
+	// walkFail terminates the walk with the returned error.
+	walkFail
+)
+
+// walkOps adapts one walk representation to [runWalkEngine]. Item is one
+// response varbind and Key its OID in the cursor representation:
+// decoded [OID]s for [session.runWalk], canonical BER name octets for
+// [session.runWalkRaw]. compare must order keys exactly as SNMP orders
+// OIDs, so both representations reach the same termination decisions.
+type walkOps[Item, Key any] interface {
+	// newRequest builds the PDU that advances the walk from cursor.
+	newRequest(cursor Key, useBulk bool, reps int) (*message, error)
+	// items projects one response PDU into per-varbind items.
+	items(p *pdu) ([]Item, error)
+	// exception classifies an item's SNMPv2 exception variant.
+	exception(it Item) walkException
+	// key returns the item's OID in the cursor representation.
+	key(it Item) Key
+	// inRoot reports whether k lies inside the walked subtree.
+	inRoot(k Key) bool
+	// compare orders two keys the way SNMP orders OIDs.
+	compare(a, b Key) int
+	// describe renders a key for an error message.
+	describe(k Key) string
+	// send yields one item, reporting whether the consumer wants more.
+	send(it Item) bool
+	// fail latches a terminal error on the walker.
+	fail(err error)
+}
+
+// walkCursor is the engine's per-varbind guard input: the request
+// cursor, the last yielded OID, and the non-increasing policy.
+type walkCursor[Key any] struct {
+	next     Key
+	prev     Key
+	havePrev bool
+
+	ignoreNonIncreasing bool
+}
+
+// classifyWalkItem decides what the engine does with one response
+// varbind, in the fixed priority order: SNMPv2 exception, subtree
+// prefix, then the cycle guard. It is pure — counting, sending, and
+// cursor updates stay with the caller.
+func classifyWalkItem[Item, Key any](ops walkOps[Item, Key], cur walkCursor[Key], exc walkException, k Key) (walkStep, error) {
+	// Exceptions are classified BEFORE the subtree-prefix and cycle
+	// guards so an exception OID never poisons the cycle detector
+	// (walk-nosuch-semantics).
+	switch exc {
+	case walkEndOfMibView:
+		// EndOfMibView is a value: yield it, then stop. Preceding value
+		// varbinds in the same GETBULK chain were already yielded, so no
+		// data is lost (walk-mid-pdu-eomv).
+		return walkYieldThenStop, nil
+	case walkNoSuchObject:
+		// The object does not exist in the agent's MIB view; in a
+		// single-subtree walk the subtree is absent past this point.
+		return walkStop, nil
+	case walkNoSuchInstance:
+		// The object exists but no instance is present here. Skip it and
+		// advance the cursor past it, but only for an in-subtree OID that
+		// moves forward of the request cursor; otherwise leave the cursor
+		// alone so the no-progress guard terminates a stuck agent. The
+		// skipped instance still charges the budget, or an agent streaming
+		// endless increasing noSuchInstance varbinds would advance forever
+		// without tripping maxVars.
+		if ops.inRoot(k) && ops.compare(k, cur.next) > 0 {
+			return walkAdvance, nil
+		}
+		return walkSkip, nil
+	}
+	if !ops.inRoot(k) {
+		return walkStop, nil // stepped outside the requested subtree
+	}
+	if cur.havePrev {
+		switch cmp := ops.compare(k, cur.prev); {
+		case cmp == 0:
+			// Exact-repeat OID is an unambiguous cycle — always abort,
+			// even in skip mode.
+			return walkFail, errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", ops.describe(k))
+		case cmp < 0 && !cur.ignoreNonIncreasing:
+			return walkFail, errs.Wrapf(ErrOIDNotIncreasing, "OID %s <= previous %s",
+				ops.describe(k), ops.describe(cur.prev))
+		case cmp < 0 && cur.ignoreNonIncreasing:
+			// Skip mode: drop the non-increasing varbind entirely — do not
+			// yield it, do not count it, and leave the cursor at the last
+			// in-order OID so the next request resumes forward rather than
+			// regressing to the offending OID.
+			return walkSkip, nil
+		}
+	}
+	return walkYield, nil
+}
+
+// runWalkEngine is the walk engine both [session.runWalk] and
+// [session.runWalkRaw] run on: it issues GetNext (or GetBulk) PDUs from
+// the cursor, hands every response varbind to [classifyWalkItem], and
+// enforces the walk-termination guards.
 //
 // Termination, in priority order: context cancellation; transport/decode
 // error; agent PDU error (v1 end-of-MIB via NoSuchName is a clean exit);
 // EndOfMibView marker; an OID leaving the root subtree; a non-increasing
 // or repeated OID (cycle); the max-varbind budget.
-func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, callCfg *CallConfig, span trace.Span, op string) {
+func runWalkEngine[Item, Key any](ctx context.Context, s *session, ops walkOps[Item, Key], root Key, bulk bool, callCfg *CallConfig, span trace.Span, op string) {
 	var (
 		count   int
 		walkErr error
@@ -196,22 +325,18 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 
 	if bulk && s.version == V1 {
 		walkErr = ErrBulkUnsupported
-		w.Fail(ErrBulkUnsupported)
+		ops.fail(ErrBulkUnsupported)
 		return
 	}
 
-	ignoreNonIncreasing := s.ignoreNonIncreasing
+	cur := walkCursor[Key]{next: root, ignoreNonIncreasing: s.ignoreNonIncreasing}
 	if callCfg.IgnoreNonIncreasingSet {
-		ignoreNonIncreasing = callCfg.IgnoreNonIncreasing
+		cur.ignoreNonIncreasing = callCfg.IgnoreNonIncreasing
 	}
 	maxVars := s.maxWalkVars
 	if callCfg.MaxWalkVars > 0 {
 		maxVars = callCfg.MaxWalkVars
 	}
-
-	next := root
-	var prev OID
-	havePrev := false
 
 	// useBulk starts as the requested mode and may degrade to GetNext within
 	// this walk if the agent rejects even a single-repetition GetBulk with
@@ -224,27 +349,30 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 	for {
 		if err := ctx.Err(); err != nil {
 			walkErr = err
-			w.Fail(err)
+			ops.fail(err)
 			return
 		}
 
-		var req *message
-		if useBulk {
-			req = s.newBulkRequest([]OID{next}, 0, reps)
-		} else {
-			req = s.newRequest(pduGetNextRequest, nullVarbinds([]OID{next}))
+		req, err := ops.newRequest(cur.next, useBulk, reps)
+		if err != nil {
+			walkErr = err
+			ops.fail(err)
+			return
 		}
 		resp, err := s.exchange(ctx, op, req, callCfg)
 		if err != nil {
 			if ctxErr := ctx.Err(); ctxErr != nil {
 				walkErr = ctxErr
-				w.Fail(ctxErr)
+				ops.fail(ctxErr)
 				return
 			}
 			walkErr = err
-			w.Fail(err)
+			ops.fail(err)
 			return
 		}
+		// pduError enriches from the varbind at error-index; a raw
+		// response defers that decode to here, on the error path only.
+		enrichRawErrorVarbinds(&resp.pdu)
 		if pe := pduError(resp); pe != nil {
 			// tooBig: halve max-repetitions and retry the same cursor; once at
 			// the floor, fall back to GetNext-per-OID rather than aborting the
@@ -266,102 +394,62 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 				return
 			}
 			walkPE, walkErr = pe, pe
-			w.Fail(pe)
+			ops.fail(pe)
 			return
 		}
-		if len(resp.pdu.varbinds) == 0 {
+		items, err := ops.items(&resp.pdu)
+		if err != nil {
+			walkErr = err
+			ops.fail(err)
+			return
+		}
+		if len(items) == 0 {
 			return // natural end
 		}
 
-		var lastOID OID
+		var last Key
 		progressed := false
-		for _, vb := range resp.pdu.varbinds {
-			h := vb.GetHeader()
-
-			if _, isEnd := vb.(EndOfMibViewVar); isEnd {
-				// EndOfMibView is a value; yield it then stop. For a
-				// single-OID GETBULK chain any preceding value varbinds in this
-				// PDU were already yielded above, so no data is lost
-				// (walk-mid-pdu-eomv).
-				w.Send(h.OID, vb)
+		for _, it := range items {
+			k := ops.key(it)
+			step, stepErr := classifyWalkItem(ops, cur, ops.exception(it), k)
+			switch step {
+			case walkFail:
+				walkErr = stepErr
+				ops.fail(stepErr)
+				return
+			case walkStop:
+				return
+			case walkYieldThenStop:
+				ops.send(it)
 				count++
 				return
-			}
-			// noSuch* exceptions are classified here, BEFORE the subtree-prefix
-			// and cycle guards, so an exception OID never poisons the cycle
-			// detector (prev) — mirroring the EndOfMibView handling above
-			// (walk-nosuch-semantics).
-			if _, isNoObj := vb.(NoSuchObjectVar); isNoObj {
-				// noSuchObject: the object does not exist in the agent's MIB
-				// view. In a single-subtree walk this terminates cleanly — the
-				// subtree is absent past this point.
-				return
-			}
-			if _, isNoInst := vb.(NoSuchInstanceVar); isNoInst {
-				// noSuchInstance: the object exists but no instance is present
-				// here. Skip it (do not yield) and advance the cursor past it so
-				// the walk progresses. Advance only for an in-subtree OID that
-				// moves forward of the request cursor; otherwise leave progress
-				// unchanged so the no-progress guard below terminates a stuck
-				// agent rather than looping. The skipped instance still charges
-				// the walk budget — otherwise an agent streaming endless
-				// increasing in-subtree noSuchInstance varbinds would advance
-				// forever without ever tripping maxVars.
-				if h.OID.HasPrefix(root) && h.OID.Compare(next) > 0 {
-					count++
-					if maxVars > 0 && count > maxVars {
-						walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
-						w.Fail(walkErr)
-						return
-					}
-					if !progressed || h.OID.Compare(lastOID) > 0 {
-						lastOID = h.OID
-					}
-					progressed = true
-				}
+			case walkSkip:
 				continue
-			}
-			if !h.OID.HasPrefix(root) {
-				return // stepped outside the requested subtree
-			}
-			if havePrev {
-				switch cmp := h.OID.Compare(prev); {
-				case cmp == 0:
-					// Exact-repeat OID is an unambiguous cycle — always
-					// abort, even in skip mode.
-					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", h.OID)
-					w.Fail(walkErr)
-					return
-				case cmp < 0 && !ignoreNonIncreasing:
-					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "OID %s <= previous %s", h.OID, prev)
-					w.Fail(walkErr)
-					return
-				case cmp < 0 && ignoreNonIncreasing:
-					// Skip mode: drop the non-increasing varbind entirely —
-					// do not yield it, do not count it, and leave the cursor
-					// (prev/lastOID/progressed) at the last in-order OID so
-					// the next GetNext resumes forward rather than regressing
-					// to the offending OID.
-					continue
-				}
 			}
 
 			count++
 			if maxVars > 0 && count > maxVars {
 				walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
-				w.Fail(walkErr)
+				ops.fail(walkErr)
 				return
 			}
-			if !w.Send(h.OID, vb) {
+			if step == walkAdvance {
+				if !progressed || ops.compare(k, last) > 0 {
+					last = k
+				}
+				progressed = true
+				continue
+			}
+			if !ops.send(it) {
 				return // consumer signaled stop
 			}
-			prev = h.OID
-			havePrev = true
-			lastOID = h.OID
+			cur.prev = k
+			cur.havePrev = true
+			last = k
 			progressed = true
 		}
 		if progressed {
-			next = lastOID
+			cur.next = last
 		} else {
 			// Every varbind in the PDU was out-of-subtree or otherwise did
 			// not advance the cursor; stop to avoid re-requesting the same
@@ -370,6 +458,42 @@ func (s *session) runWalk(ctx context.Context, w *Walker, root OID, bulk bool, c
 		}
 	}
 }
+
+// oidWalkOps drives the walk engine over decoded [OID] cursors, yielding
+// [VarBind]s to a [Walker].
+type oidWalkOps struct {
+	s    *session
+	w    *Walker
+	root OID
+}
+
+func (o oidWalkOps) newRequest(cursor OID, useBulk bool, reps int) (*message, error) {
+	if useBulk {
+		return o.s.newBulkRequest([]OID{cursor}, 0, reps), nil
+	}
+	return o.s.newRequest(pduGetNextRequest, nullVarbinds([]OID{cursor})), nil
+}
+
+func (o oidWalkOps) items(p *pdu) ([]VarBind, error) { return p.varbinds, nil }
+
+func (o oidWalkOps) exception(vb VarBind) walkException {
+	switch vb.(type) {
+	case EndOfMibViewVar:
+		return walkEndOfMibView
+	case NoSuchObjectVar:
+		return walkNoSuchObject
+	case NoSuchInstanceVar:
+		return walkNoSuchInstance
+	}
+	return walkNoException
+}
+
+func (o oidWalkOps) key(vb VarBind) OID    { return vb.GetHeader().OID }
+func (o oidWalkOps) inRoot(k OID) bool     { return k.HasPrefix(o.root) }
+func (o oidWalkOps) compare(a, b OID) int  { return a.Compare(b) }
+func (o oidWalkOps) describe(k OID) string { return k.String() }
+func (o oidWalkOps) send(vb VarBind) bool  { return o.w.Send(vb.GetHeader().OID, vb) }
+func (o oidWalkOps) fail(err error)        { o.w.Fail(err) }
 
 // BulkWalkRaw performs a GetBulk-driven subtree walk that yields
 // [RawVarBind]s — the fast path for generated MIB bindings, which
@@ -470,181 +594,58 @@ func rawOIDString(oidC []byte) string {
 	return o.String()
 }
 
-// runWalkRaw is the raw twin of [session.runWalk]: identical guard
-// logic and termination priority, expressed over canonical BER name
-// octets instead of decoded OIDs. Any change to runWalk's semantics
-// must be mirrored here; the walk-engine differential test pins the two
-// engines to identical behavior over the same responses.
+// runWalkRaw is the raw pump body: it drives the same walk engine as
+// [session.runWalk] over canonical BER name octets instead of decoded
+// OIDs, yielding [RawVarBind]s.
 func (s *session) runWalkRaw(ctx context.Context, w *RawWalker, root OID, callCfg *CallConfig, span trace.Span, op string) {
-	var (
-		count   int
-		walkErr error
-		walkPE  *PDUError
-	)
-	defer func() { s.inst.finishOp(ctx, span, op, count, walkPE, walkErr) }()
-
-	if s.version == V1 {
-		walkErr = ErrBulkUnsupported
-		w.Fail(ErrBulkUnsupported)
-		return
-	}
-
-	ignoreNonIncreasing := s.ignoreNonIncreasing
-	if callCfg.IgnoreNonIncreasingSet {
-		ignoreNonIncreasing = callCfg.IgnoreNonIncreasing
-	}
-	maxVars := s.maxWalkVars
-	if callCfg.MaxWalkVars > 0 {
-		maxVars = callCfg.MaxWalkVars
-	}
-
 	rootC := encodeOIDContent(root)
-	nextC := rootC
-	var prevC []byte
-	havePrev := false
-
-	useBulk := true
-	reps := walkBulkMaxRepetitions
-
-	for {
-		if err := ctx.Err(); err != nil {
-			walkErr = err
-			w.Fail(err)
-			return
-		}
-
-		nextOID, err := decodeOID(nextC)
-		if err != nil {
-			walkErr = err
-			w.Fail(err)
-			return
-		}
-		var req *message
-		if useBulk {
-			req = s.newBulkRequest([]OID{nextOID}, 0, reps)
-		} else {
-			req = s.newRequest(pduGetNextRequest, nullVarbinds([]OID{nextOID}))
-		}
-		req.wantRaw = true
-		resp, err := s.exchange(ctx, op, req, callCfg)
-		if err != nil {
-			if ctxErr := ctx.Err(); ctxErr != nil {
-				walkErr = ctxErr
-				w.Fail(ctxErr)
-				return
-			}
-			walkErr = err
-			w.Fail(err)
-			return
-		}
-		// pduError enriches from the varbind at error-index; a raw
-		// response defers that decode to here, on the error path only.
-		if resp.pdu.errorStatus != NoError && resp.pdu.rawVBL != nil {
-			if vbs, verr := decodeVarBindList(resp.pdu.rawVBL, 1); verr == nil {
-				resp.pdu.varbinds = vbs
-			}
-		}
-		if pe := pduError(resp); pe != nil {
-			// tooBig: halve max-repetitions and retry the same cursor;
-			// at the floor, degrade to GetNext-per-OID
-			// (walk-toobig-fallback) — identical to runWalk.
-			if useBulk && pe.Status == TooBig {
-				if n, retry := nextBulkReps(reps); retry {
-					reps = n
-				} else {
-					useBulk = false
-				}
-				continue
-			}
-			walkPE, walkErr = pe, pe
-			w.Fail(pe)
-			return
-		}
-		items, err := rawItemsOf(&resp.pdu)
-		if err != nil {
-			walkErr = err
-			w.Fail(err)
-			return
-		}
-		if len(items) == 0 {
-			return // natural end
-		}
-
-		var lastC []byte
-		progressed := false
-		for _, it := range items {
-			switch it.rv().exceptionTag() {
-			case tagEndOfMibView:
-				// Yield the marker then stop (walk-mid-pdu-eomv),
-				// exactly as runWalk yields EndOfMibViewVar.
-				w.Send(it.rv())
-				count++
-				return
-			case tagNoSuchObject:
-				// Subtree absent past this point — clean exit.
-				return
-			case tagNoSuchInstance:
-				// Skip (no yield) but advance the cursor for an
-				// in-subtree, forward-moving OID; charge the budget so a
-				// stream of these cannot walk forever
-				// (walk-nosuch-semantics).
-				if bytes.HasPrefix(it.oidC, rootC) && cmpOIDWire(it.oidC, nextC) > 0 {
-					count++
-					if maxVars > 0 && count > maxVars {
-						walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
-						w.Fail(walkErr)
-						return
-					}
-					if !progressed || cmpOIDWire(it.oidC, lastC) > 0 {
-						lastC = it.oidC
-					}
-					progressed = true
-				}
-				continue
-			}
-			if !bytes.HasPrefix(it.oidC, rootC) {
-				return // stepped outside the requested subtree
-			}
-			if havePrev {
-				switch cmp := cmpOIDWire(it.oidC, prevC); {
-				case cmp == 0:
-					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "repeated OID %s", rawOIDString(it.oidC))
-					w.Fail(walkErr)
-					return
-				case cmp < 0 && !ignoreNonIncreasing:
-					walkErr = errs.Wrapf(ErrOIDNotIncreasing, "OID %s <= previous %s", rawOIDString(it.oidC), rawOIDString(prevC))
-					w.Fail(walkErr)
-					return
-				case cmp < 0 && ignoreNonIncreasing:
-					// Skip mode: drop the varbind, keep the cursor at the
-					// last in-order OID.
-					continue
-				}
-			}
-
-			count++
-			if maxVars > 0 && count > maxVars {
-				walkErr = errs.Wrapf(ErrMaxWalkVars, "budget %d exceeded", maxVars)
-				w.Fail(walkErr)
-				return
-			}
-			if !w.Send(it.rv()) {
-				return // consumer signaled stop
-			}
-			prevC = it.oidC
-			havePrev = true
-			lastC = it.oidC
-			progressed = true
-		}
-		if progressed {
-			nextC = lastC
-		} else {
-			// No varbind advanced the cursor; stop to avoid re-requesting
-			// the same OID forever.
-			return
-		}
-	}
+	runWalkEngine(ctx, s, rawWalkOps{s: s, w: w, rootC: rootC}, rootC, true, callCfg, span, op)
 }
+
+// rawWalkOps drives the walk engine over canonical BER name octets
+// (order-equivalent to arc order; pinned by the byte-order property
+// test), yielding [RawVarBind]s to a [RawWalker].
+type rawWalkOps struct {
+	s     *session
+	w     *RawWalker
+	rootC []byte
+}
+
+func (o rawWalkOps) newRequest(cursor []byte, useBulk bool, reps int) (*message, error) {
+	cursorOID, err := decodeOID(cursor)
+	if err != nil {
+		return nil, err
+	}
+	var req *message
+	if useBulk {
+		req = o.s.newBulkRequest([]OID{cursorOID}, 0, reps)
+	} else {
+		req = o.s.newRequest(pduGetNextRequest, nullVarbinds([]OID{cursorOID}))
+	}
+	req.wantRaw = true
+	return req, nil
+}
+
+func (o rawWalkOps) items(p *pdu) ([]rawWalkItem, error) { return rawItemsOf(p) }
+
+func (o rawWalkOps) exception(it rawWalkItem) walkException {
+	switch it.rv().exceptionTag() {
+	case tagEndOfMibView:
+		return walkEndOfMibView
+	case tagNoSuchObject:
+		return walkNoSuchObject
+	case tagNoSuchInstance:
+		return walkNoSuchInstance
+	}
+	return walkNoException
+}
+
+func (o rawWalkOps) key(it rawWalkItem) []byte { return it.oidC }
+func (o rawWalkOps) inRoot(k []byte) bool      { return bytes.HasPrefix(k, o.rootC) }
+func (o rawWalkOps) compare(a, b []byte) int   { return cmpOIDWire(a, b) }
+func (o rawWalkOps) describe(k []byte) string  { return rawOIDString(k) }
+func (o rawWalkOps) send(it rawWalkItem) bool  { return o.w.Send(it.rv()) }
+func (o rawWalkOps) fail(err error)            { o.w.Fail(err) }
 
 // Close releases the session's socket and stops the reactor. Idempotent
 // and safe under concurrent invocation; subsequent operations return

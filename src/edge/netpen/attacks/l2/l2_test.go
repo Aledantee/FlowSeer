@@ -58,20 +58,6 @@ func mustEntry(t *testing.T, name, mode string) catalog.Entry {
 	return e
 }
 
-func assertBytesEqual(t *testing.T, label string, got, want []byte) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Errorf("%s: length mismatch: got %d, want %d", label, len(got), len(want))
-		return
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("%s: byte %d: got 0x%02x, want 0x%02x", label, i, got[i], want[i])
-			return
-		}
-	}
-}
-
 func fixturePackets(t *testing.T, name string) [][]byte {
 	t.Helper()
 	return testtest.ReadPcap(t, testtest.FixturePath(t, "l2/"+name))
@@ -96,11 +82,11 @@ func TestDTP_NegotiateAndRestore(t *testing.T) {
 
 	// Verify the negotiate frame matches the fixture's desirable frame.
 	fixtures := fixturePackets(t, "dtp.pcap")
-	assertBytesEqual(t, "DTP desirable", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "DTP desirable", tx[0], fixtures[0])
 
 	// Verify the restore frame matches the fixture's access frame.
 	restoreFixtures := fixturePackets(t, "dtp_restore.pcap")
-	assertBytesEqual(t, "DTP restore", tx[1], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "DTP restore", tx[1], restoreFixtures[0])
 
 	// A finding was emitted.
 	if len(recs) == 0 {
@@ -140,7 +126,7 @@ func TestDoubleTag_ByteForByte(t *testing.T) {
 		t.Fatalf("TX count: got %d, want 1", len(tx))
 	}
 	fixtures := fixturePackets(t, "doubletag.pcap")
-	assertBytesEqual(t, "DoubleTag", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "DoubleTag", tx[0], fixtures[0])
 }
 
 func TestVlanEnum_EnumeratesFixtureVLANs(t *testing.T) {
@@ -249,7 +235,7 @@ func TestSTPRoot_BurstSend(t *testing.T) {
 
 	fixtures := fixturePackets(t, "stproot.pcap")
 	for _, frame := range tx {
-		assertBytesEqual(t, "STP BPDU", frame, fixtures[0])
+		testtest.AssertBytesEqual(t, "STP BPDU", frame, fixtures[0])
 	}
 
 	if len(recs) == 0 {
@@ -273,7 +259,7 @@ func TestCAMFlood_UniqueSourceMACs(t *testing.T) {
 
 	fixtures := fixturePackets(t, "camflood.pcap")
 	for i, frame := range tx {
-		assertBytesEqual(t, "CAM flood frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "CAM flood frame", frame, fixtures[i])
 	}
 }
 
@@ -292,7 +278,7 @@ func TestVTP_SafeMode(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "vtp.pcap")
-	assertBytesEqual(t, "VTP summary", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "VTP summary", tx[0], fixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -314,8 +300,8 @@ func TestMVRP_JoinInFlood(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "mvrp.pcap")
-	assertBytesEqual(t, "MVRP JoinIn VLAN 10", tx[0], fixtures[0])
-	assertBytesEqual(t, "MVRP JoinIn VLAN 20", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "MVRP JoinIn VLAN 10", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "MVRP JoinIn VLAN 20", tx[1], fixtures[1])
 }
 
 func TestPortSteal_Default(t *testing.T) {
@@ -365,8 +351,8 @@ func TestEtherChannel_LACPandPAgP(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "etherchannel.pcap")
-	assertBytesEqual(t, "LACPDU", tx[0], fixtures[0])
-	assertBytesEqual(t, "PAgP hello", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "LACPDU", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "PAgP hello", tx[1], fixtures[1])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")

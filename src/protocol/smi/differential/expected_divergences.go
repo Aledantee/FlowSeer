@@ -3,6 +3,7 @@ package differential
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -687,7 +688,7 @@ func compareSubjects(
 		names[name] = true
 	}
 
-	for _, name := range slices.Sorted(keys(names)) {
+	for _, name := range slices.Sorted(maps.Keys(names)) {
 		a, hasOurs := ours[name]
 		b, hasTheirs := theirs[name]
 		if !hasTheirs {
@@ -717,16 +718,6 @@ func compareSubjects(
 	}
 
 	return out
-}
-
-func keys(m map[string]bool) func(func(string) bool) {
-	return func(yield func(string) bool) {
-		for k := range m {
-			if !yield(k) {
-				return
-			}
-		}
-	}
 }
 
 // field returns one projected field as the string the comparison uses.

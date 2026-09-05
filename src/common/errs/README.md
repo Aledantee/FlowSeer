@@ -20,8 +20,7 @@ return errs.From(err).
 ```
 
 The package's own `doc.go` is the authoritative reference — including the code
-discipline, the attribute-safety rule, and the wire design this package is
-built for but does not yet implement. This README maps the surface.
+discipline and the attribute-safety rule. This README maps the surface.
 
 ## Public surface
 
