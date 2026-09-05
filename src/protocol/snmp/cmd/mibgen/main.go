@@ -74,13 +74,13 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	cfg, err := LoadConfig(*configPath)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		printErr(stderr, err)
 		return 1
 	}
 
 	set, err := LoadModules(cfg)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		printErr(stderr, err)
 		return 1
 	}
 
@@ -91,7 +91,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	if *refreshBaseline {
 		if err := refreshBaselineFile(cfg, set, blPath); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		fmt.Fprintf(stdout, "OK: baseline written to %s\n", blPath)
@@ -104,37 +104,48 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case *check:
 		if err := gateOnBaseline(cfg, set, blPath); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		if err := runCheck(cfg, set, *outDir, *pkgPrefix); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		fmt.Fprintf(stdout, "OK: %d module(s) match committed output\n", len(cfg.Modules))
 		return 0
 	case *update:
 		if err := gateOnBaseline(cfg, set, blPath); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		fmt.Fprintf(stdout, "OK: %d module(s) regenerated under %s\n", len(cfg.Modules), *outDir)
 		return 0
 	default:
 		if err := gateOnBaseline(cfg, set, blPath); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		if err := Emit(cfg, set, *outDir, *pkgPrefix); err != nil {
-			fmt.Fprintln(stderr, err)
+			printErr(stderr, err)
 			return 1
 		}
 		fmt.Fprintf(stdout, "OK: emitted %d module(s) to %s\n", len(cfg.Modules), *outDir)
 		return 0
+	}
+}
+
+// printErr writes err's diagnostic to w, followed by the remedy the
+// error carries as an [errs.Hint] when it has one. The hint is what
+// tells an operator what to do next, so it has to reach the terminal
+// alongside the message rather than only the error value.
+func printErr(w io.Writer, err error) {
+	fmt.Fprintln(w, err)
+	if hint := errs.Hint(err); hint != "" {
+		fmt.Fprintln(w, "hint:", hint)
 	}
 }
 
@@ -148,7 +159,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 func gateOnBaseline(cfg *Config, set *smi.ModuleSet, path string) error {
 	bl, err := LoadBaseline(path)
 	if err != nil {
-		return errs.Wrapf(err, "the diagnostic baseline is required; run -refresh-baseline to create it")
+		return errs.From(err).
+			Hint("run -refresh-baseline to create it").
+			Msg("the diagnostic baseline is required")
 	}
 
 	return CheckBaseline(cfg, set, bl)

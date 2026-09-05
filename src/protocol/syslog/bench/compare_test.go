@@ -29,12 +29,50 @@ func TestCommonSubset(t *testing.T) {
 	if !ok {
 		t.Fatal("unexpected comparison record")
 	}
-	if other.Priority == nil || strconv.Itoa(int(*other.Priority)) != a.Priority.Value || other.Hostname == nil || *other.Hostname != a.Hostname.Value || other.Appname == nil || *other.Appname != a.Application.Value || other.ProcID == nil || *other.ProcID != a.ProcessID.Value || other.MsgID == nil || *other.MsgID != a.MessageID.Value || other.Message == nil || *other.Message != string(a.Content) || other.Timestamp == nil || !other.Timestamp.Equal(*a.DeviceTime.Instant) {
-		t.Fatal("common subset fields differ")
+	if other.Timestamp == nil {
+		t.Fatal("comparison parser reported no timestamp")
 	}
-	if other.StructuredData == nil || (*other.StructuredData)["origin@32473"]["ip"] != string(a.StructuredData[0].Parameters[0].Value) {
-		t.Fatal("common structured data differs")
+	if !other.Timestamp.Equal(*a.DeviceTime.Instant) {
+		t.Errorf("timestamp: got %q, want %q", other.Timestamp, a.DeviceTime.Instant)
 	}
+	fields := []struct {
+		name string
+		got  *string
+		want string
+	}{
+		{"priority", stringPtr(other.Priority), a.Priority.Value},
+		{"hostname", other.Hostname, a.Hostname.Value},
+		{"appname", other.Appname, a.Application.Value},
+		{"procid", other.ProcID, a.ProcessID.Value},
+		{"msgid", other.MsgID, a.MessageID.Value},
+		{"message", other.Message, string(a.Content)},
+	}
+	for _, f := range fields {
+		if f.got == nil {
+			t.Errorf("%s: got no value, want %q", f.name, f.want)
+			continue
+		}
+		if *f.got != f.want {
+			t.Errorf("%s: got %q, want %q", f.name, *f.got, f.want)
+		}
+	}
+	if other.StructuredData == nil {
+		t.Fatal("comparison parser reported no structured data")
+	}
+	got := (*other.StructuredData)["origin@32473"]["ip"]
+	if want := string(a.StructuredData[0].Parameters[0].Value); got != want {
+		t.Errorf("structured data origin@32473 ip: got %q, want %q", got, want)
+	}
+}
+
+// stringPtr renders the comparison parser's numeric priority as the decimal
+// string the owned parser records, or nil when the field is absent.
+func stringPtr(p *uint8) *string {
+	if p == nil {
+		return nil
+	}
+	s := strconv.Itoa(int(*p))
+	return &s
 }
 
 func BenchmarkCommonSubset(b *testing.B) {

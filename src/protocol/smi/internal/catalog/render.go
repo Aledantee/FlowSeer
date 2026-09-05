@@ -23,41 +23,9 @@ const commentWidth = 68
 // what those produce; a code declared at the top would put the package
 // on both ends of its own import graph.
 func RenderCodes(rows []Entry) ([]byte, error) {
-	if err := Validate(rows); err != nil {
-		return nil, fmt.Errorf("catalog is invalid: %w", err)
-	}
-
-	var b bytes.Buffer
-
-	writeGeneratedHeader(&b)
-	b.WriteString("package diag\n\n")
-	b.WriteString("import \"go.aledante.io/FlowSeer/src/common/errs\"\n\n")
-	b.WriteString("// The diagnostic codes, one per catalog row. A code is a wire\n")
-	b.WriteString("// contract: append-only, never renamed, never reused for a different\n")
-	b.WriteString("// condition. Severity is not part of a code's identity and may be\n")
-	b.WriteString("// regraded; the code may not.\n")
-	b.WriteString("var (\n")
-
-	for i, r := range rows {
-		if i > 0 {
-			b.WriteString("\n")
-		}
-
-		name := "ErrCode" + r.Tag
-		for _, line := range wrapComment(name+" marks "+r.Description+".", commentWidth) {
-			fmt.Fprintf(&b, "\t// %s\n", line)
-		}
-		fmt.Fprintf(&b, "\t%s = errs.NewCode(%q)\n", name, r.Code)
-	}
-
-	b.WriteString(")\n")
-
-	src, err := format.Source(b.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("formatting generated source: %w", err)
-	}
-
-	return src, nil
+	return render(rows, "diag", "go.aledante.io/FlowSeer/src/common/errs", func(r Entry, _ string) string {
+		return fmt.Sprintf("errs.NewCode(%q)", r.Code)
+	})
 }
 
 // RenderAliases returns the Go source for package smi's re-export of the
@@ -68,6 +36,16 @@ func RenderCodes(rows []Entry) ([]byte, error) {
 // much to reading one. The aliases carry no string literal, so the
 // repo-wide uniqueness scan still sees each code declared exactly once.
 func RenderAliases(rows []Entry) ([]byte, error) {
+	return render(rows, "smi", "go.aledante.io/FlowSeer/src/protocol/smi/internal/diag", func(_ Entry, name string) string {
+		return "diag." + name
+	})
+}
+
+// render returns the Go source for one generated file of diagnostic code
+// variables: the validated rows as a `var` block in package pkg, importing
+// importPath, with value supplying the right-hand side of each declaration
+// from the row and the variable's name.
+func render(rows []Entry, pkg, importPath string, value func(r Entry, name string) string) ([]byte, error) {
 	if err := Validate(rows); err != nil {
 		return nil, fmt.Errorf("catalog is invalid: %w", err)
 	}
@@ -75,8 +53,8 @@ func RenderAliases(rows []Entry) ([]byte, error) {
 	var b bytes.Buffer
 
 	writeGeneratedHeader(&b)
-	b.WriteString("package smi\n\n")
-	b.WriteString("import \"go.aledante.io/FlowSeer/src/protocol/smi/internal/diag\"\n\n")
+	fmt.Fprintf(&b, "package %s\n\n", pkg)
+	fmt.Fprintf(&b, "import %q\n\n", importPath)
 	b.WriteString("// The diagnostic codes, one per catalog row. A code is a wire\n")
 	b.WriteString("// contract: append-only, never renamed, never reused for a different\n")
 	b.WriteString("// condition. Severity is not part of a code's identity and may be\n")
@@ -92,7 +70,7 @@ func RenderAliases(rows []Entry) ([]byte, error) {
 		for _, line := range wrapComment(name+" marks "+r.Description+".", commentWidth) {
 			fmt.Fprintf(&b, "\t// %s\n", line)
 		}
-		fmt.Fprintf(&b, "\t%s = diag.%s\n", name, name)
+		fmt.Fprintf(&b, "\t%s = %s\n", name, value(r, name))
 	}
 
 	b.WriteString(")\n")

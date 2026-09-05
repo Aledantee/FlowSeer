@@ -119,7 +119,11 @@ func renderModule(
 	// Pre-pass: discover the module's change indicators (structural
 	// rules plus config-declared overrides). The result feeds the
 	// emit-time gating for ColumnTiers and the indicator-var emission.
-	ec.tableIndicators = discoverIndicators(ec, mod)
+	tableIndicators, err := discoverIndicators(ec, mod)
+	if err != nil {
+		return nil, err
+	}
+	ec.tableIndicators = tableIndicators
 	ec.hasIndicator = len(ec.tableIndicators) > 0
 	ec.tableIndicatorsByOID = make(map[string]struct{}, len(ec.tableIndicators))
 	for _, ti := range ec.tableIndicators {
@@ -145,19 +149,25 @@ func renderModule(
 		if n.Kind != smi.NodeScalar {
 			continue
 		}
-		emitScalar(f, ec, n)
+		if err := emitScalar(f, ec, n); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, n := range nodes {
 		if n.Kind != smi.NodeTable {
 			continue
 		}
-		emitTable(f, ec, n)
+		if err := emitTable(f, ec, n); err != nil {
+			return nil, err
+		}
 	}
 
 	emitDispatch(f, ec)
 	emitTierMap(f, ec)
-	emitIndicators(f, ec)
+	if err := emitIndicators(f, ec); err != nil {
+		return nil, err
+	}
 
 	// Render to a buffer, then apply the same formatters enforced by the
 	// repository. Jennifer owns import discovery but only guarantees gofmt-

@@ -2,6 +2,7 @@ package parse
 
 import (
 	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/diag"
 )
@@ -101,7 +102,7 @@ func (p *parser) parseDisplayHint(span Span, text string) DisplayHint {
 
 // integerHint reads the "d", "d-2", "x", "o" and "b" forms.
 func (p *parser) integerHint(h DisplayHint, text string) DisplayHint {
-	if !containsByte(integerHintFormats, text[0]) {
+	if strings.IndexByte(integerHintFormats, text[0]) < 0 {
 		p.raise(h.Span.Start, diag.ErrCodeDisplayHintMalformed, diag.ArgString(text))
 
 		return h
@@ -211,7 +212,7 @@ func readHintSpec(s string) (HintSpec, string, bool) {
 	if err != nil || length == 0 {
 		return spec, s, false
 	}
-	if !containsByte(hintFormats, s[digits]) {
+	if strings.IndexByte(hintFormats, s[digits]) < 0 {
 		return spec, s, false
 	}
 
@@ -262,14 +263,4 @@ func allDigits(s string) bool {
 	}
 
 	return true
-}
-
-func containsByte(set string, b byte) bool {
-	for i := range len(set) {
-		if set[i] == b {
-			return true
-		}
-	}
-
-	return false
 }

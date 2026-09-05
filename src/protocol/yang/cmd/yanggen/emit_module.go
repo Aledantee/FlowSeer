@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"go/format"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/dave/jennifer/jen"
@@ -138,7 +138,7 @@ func (em *moduleEmitter) emitIdentities() {
 	for _, id := range ids {
 		sorted = append(sorted, id.Name)
 	}
-	sort.Strings(sorted)
+	slices.Sort(sorted)
 	for _, name := range sorted {
 		goName := em.scope.claim("Identity_"+camel(name), "identity:"+name)
 		em.addCommented(
@@ -169,8 +169,52 @@ func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []p
 		}
 	}
 
-	structFields := make([]jen.Code, 0, len(children))
-	schemaFields := make([]jen.Code, 0, len(children))
+	structFields, schemaFields := em.emitFields(e, children, childStructs, fieldScope)
+
+	em.addCommented(
+		fmt.Sprintf("%s is the %s node %s.", structName, em.m.Name, e.Path()),
+		jen.Type().Id(structName).Struct(structFields...),
+	)
+
+	em.emitSchema(e, structName, schemaFields)
+
+	if e.IsList() {
+		if err := em.emitListArtifacts(e, structName, nodePath, ancestors, fieldScope); err != nil {
+			return err
+		}
+	} else if len(nodePath) == 1 {
+		em.emitContainerDescriptor(structName, nodePath)
+	}
+
+	nextAncestors := ancestors
+	if e.IsList() {
+		nextAncestors = append(append([]ancestorList{}, ancestors...), ancestorList{
+			entryName:  e.Name,
+			structName: structName,
+			keys:       strings.Fields(e.Key),
+		})
+	}
+	for _, c := range children {
+		if isDataDir(c) {
+			if err := em.emitNode(c, structName, nodePath, nextAncestors); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// emitFields renders e's data children into the parent struct's field
+// list and the matching [yang.Field] literals for its schema, in one
+// pass so the two stay index-for-index aligned. childStructs maps a
+// container or list child's entry name to the Go struct name already
+// claimed for it; fieldScope keeps the Go field names unique within
+// the parent struct.
+func (em *moduleEmitter) emitFields(
+	e *goyang.Entry, children []*goyang.Entry, childStructs map[string]string, fieldScope *nameScope,
+) (structFields, schemaFields []jen.Code) {
+	structFields = make([]jen.Code, 0, len(children))
+	schemaFields = make([]jen.Code, 0, len(children))
 
 	for _, c := range children {
 		goName := fieldScope.claim(camel(c.Name), c.Path())
@@ -215,11 +259,12 @@ func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []p
 		schemaFields = append(schemaFields, jen.Values(dict))
 	}
 
-	em.addCommented(
-		fmt.Sprintf("%s is the %s node %s.", structName, em.m.Name, e.Path()),
-		jen.Type().Id(structName).Struct(structFields...),
-	)
+	return structFields, schemaFields
+}
 
+// emitSchema renders the package-level [yang.Schema] var describing e,
+// the descriptor every generic codec reads at runtime.
+func (em *moduleEmitter) emitSchema(e *goyang.Entry, structName string, schemaFields []jen.Code) {
 	schemaDict := jen.Dict{
 		jen.Id("Module"):    jen.Lit(em.moduleOf(e)),
 		jen.Id("Namespace"): jen.Lit(namespaceOf(e)),
@@ -236,35 +281,11 @@ func (em *moduleEmitter) emitNode(e *goyang.Entry, parentStruct string, path []p
 	if isPresence(e) {
 		schemaDict[jen.Id("Presence")] = jen.True()
 	}
+
 	em.addCommented(
 		fmt.Sprintf("%s describes %s for the generic codecs.", schemaVarName(structName), e.Path()),
 		jen.Var().Id(schemaVarName(structName)).Op("=").Op("&").Qual(yangPkg, "Schema").Values(schemaDict),
 	)
-
-	if e.IsList() {
-		if err := em.emitListArtifacts(e, structName, nodePath, ancestors, fieldScope); err != nil {
-			return err
-		}
-	} else if len(nodePath) == 1 {
-		em.emitContainerDescriptor(structName, nodePath)
-	}
-
-	nextAncestors := ancestors
-	if e.IsList() {
-		nextAncestors = append(append([]ancestorList{}, ancestors...), ancestorList{
-			entryName:  e.Name,
-			structName: structName,
-			keys:       strings.Fields(e.Key),
-		})
-	}
-	for _, c := range children {
-		if isDataDir(c) {
-			if err := em.emitNode(c, structName, nodePath, nextAncestors); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 // emitContainerDescriptor renders the synthetic-row descriptor
@@ -555,7 +576,7 @@ func dataChildren(e *goyang.Entry) []*goyang.Entry {
 		}
 	}
 	collect(e.Dir)
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	slices.SortFunc(out, func(a, b *goyang.Entry) int { return strings.Compare(a.Name, b.Name) })
 	return out
 }
 

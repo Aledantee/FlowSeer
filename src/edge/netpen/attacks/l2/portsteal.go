@@ -18,6 +18,7 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -86,5 +87,5 @@ func craftPortStealARP(src net.HardwareAddr, _ string) ([]byte, error) {
 		DstHwAddress:      broadcastMAC,
 		DstProtAddress:    net.IPv4(10, 0, 0, 1),
 	}
-	return craftDefault(eth, arp)
+	return craft.Default(eth, arp)
 }

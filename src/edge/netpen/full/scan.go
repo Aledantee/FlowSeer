@@ -3,8 +3,8 @@ package full
 // scan.go implements the `scan` command: passive detect (STP/DTP/CDP/
 // VTP/LLDP/HSRP/VRRP/DHCP/ARP issue classes from observed frames) plus
 // active VLAN probing (tagged + untagged) unless --no-probe. It uses
-// dual-segment observe (attack leg + watch leg) and emits findings per
-// the baseline's scan finding classes. The catalog class is
+// dual-segment observe (attack leg + watch leg) and emits a finding per
+// detected scan class. The catalog class is
 // non-destructive — scan changes no device or neighbor state.
 //
 // It emits findings directly through the orchestrator's record
@@ -80,8 +80,8 @@ func NewScan(cfg ScanConfig) *Scan {
 // probes candidate VLANs. Findings are emitted for each detected
 // protocol issue class.
 //
-// A named-but-absent watch leg fails fast (deviation from the baseline's
-// silent degradation). This matches the `full` orchestrator's contract.
+// A named-but-absent watch leg fails fast rather than degrading
+// silently. This matches the `full` orchestrator's contract.
 func (s *Scan) Run(ctx context.Context) error {
 	defer s.closeRecords()
 	if s.cfg.WatchLegNamed != "" && s.cfg.WatchLeg == nil {
@@ -168,48 +168,48 @@ type scanFindingDetail struct {
 
 // emitScanFinding inspects one captured frame and emits a findings
 // record for each detected protocol issue class. The detector covers
-// the baseline's scan classes (scan_cmd, lines 314-660): STP, DTP, CDP,
-// VTP, LLDP, HSRP, VRRP, DHCP, ARP conflicts, IPv6 RA, MVRP, MACsec,
-// fragmented ND, and VLAN tags. One finding per (frame, class hit).
+// STP, DTP, CDP, VTP, LLDP, HSRP, VRRP, DHCP, ARP conflicts, IPv6 RA,
+// MVRP, MACsec, fragmented ND, and VLAN tags. One finding per (frame,
+// class hit).
 // Conservative: no speculative emission.
 func emitScanFinding(emit func(findings.Record), data []byte) {
 	pkt := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.Default)
 
-	// STP BPDUs (baseline: seen["stp"]).
+	// STP BPDUs.
 	if pkt.Layer(layers.LayerTypeSTP) != nil {
 		emitScanClass(emit, "stp", "STP BPDU visible — root takeover feasible")
 	}
 
-	// DTP trunk-negotiation frames (baseline: seen["dtp"]).
+	// DTP trunk-negotiation frames.
 	if dtpLayer := pkt.Layer(ownlayers.LayerTypeDTP); dtpLayer != nil {
 		emitScanClass(emit, "dtp", "DTP trunk-negotiation frames — VLAN hopping surface")
 	}
 
-	// CDP disclosure (baseline: seen["cdp"]).
+	// CDP disclosure.
 	if cdpLayer := pkt.Layer(layers.LayerTypeCiscoDiscoveryInfo); cdpLayer != nil {
 		emitScanClass(emit, "cdp", "CDP disclosure — topology information leak")
 	}
 
-	// VTP domain (baseline: seen["vtp"]).
+	// VTP domain.
 	if vtpLayer := pkt.Layer(ownlayers.LayerTypeVTP); vtpLayer != nil {
 		if v, ok := vtpLayer.(*ownlayers.VTP); ok && v.Domain != "" {
 			emitScanClass(emit, "vtp", fmt.Sprintf("VTP domain %q — VTP injection can wipe VLAN db", v.Domain))
 		}
 	}
 
-	// LLDP topology disclosure (baseline: seen["lldp"]).
+	// LLDP topology disclosure.
 	if pkt.Layer(layers.LayerTypeLinkLayerDiscovery) != nil {
 		emitScanClass(emit, "lldp", "LLDP topology disclosure")
 	}
 
-	// HSRP (baseline: seen["hsrp"]).
+	// HSRP.
 	if hsrpLayer := pkt.Layer(ownlayers.LayerTypeHSRP); hsrpLayer != nil {
 		if h, ok := hsrpLayer.(*ownlayers.HSRP); ok {
 			emitScanClass(emit, "hsrp", fmt.Sprintf("HSRP group %d prio %d — unauthenticated election", h.Group, h.Priority))
 		}
 	}
 
-	// VRRP (baseline: seen["vrrp"]).
+	// VRRP.
 	if vrrpLayer := pkt.Layer(layers.LayerTypeVRRP); vrrpLayer != nil {
 		if v, ok := vrrpLayer.(*layers.VRRPv2); ok {
 			vips := ""
@@ -220,7 +220,7 @@ func emitScanFinding(emit func(findings.Record), data []byte) {
 		}
 	}
 
-	// DHCP server offering (baseline: seen["dhcp_srv"]).
+	// DHCP server offering.
 	if dhcpLayer := pkt.Layer(layers.LayerTypeDHCPv4); dhcpLayer != nil {
 		if d, ok := dhcpLayer.(*layers.DHCPv4); ok && d.Operation == layers.DHCPOpReply {
 			src := ""
@@ -233,7 +233,7 @@ func emitScanFinding(emit func(findings.Record), data []byte) {
 		}
 	}
 
-	// ARP conflict detection (baseline: seen["conflicts"]).
+	// ARP conflict detection.
 	if arpLayer := pkt.Layer(layers.LayerTypeARP); arpLayer != nil {
 		if arp, ok := arpLayer.(*layers.ARP); ok && arp.Operation == layers.ARPReply {
 			src := net.IP(arp.SourceProtAddress).String()
@@ -242,31 +242,31 @@ func emitScanFinding(emit func(findings.Record), data []byte) {
 		}
 	}
 
-	// IPv6 Router Advertisement (baseline: seen["ra6"]).
+	// IPv6 Router Advertisement.
 	if pkt.Layer(layers.LayerTypeICMPv6RouterAdvertisement) != nil {
 		emitScanClass(emit, "ra6", "IPv6 Router Advertisement — rogue RA / RA-Guard surface")
 	}
 
-	// MVRP/GVRP dynamic-VLAN traffic (baseline: seen["mvrp"]).
+	// MVRP/GVRP dynamic-VLAN traffic.
 	if pkt.Layer(ownlayers.LayerTypeMVRP) != nil {
 		emitScanClass(emit, "mvrp", "MVRP/GVRP dynamic-VLAN traffic — registration open")
 	}
 
-	// MACsec-secured frames (baseline: seen["macsec"]).
+	// MACsec-secured frames.
 	if ethLayer := pkt.Layer(layers.LayerTypeEthernet); ethLayer != nil {
 		if eth, ok := ethLayer.(*layers.Ethernet); ok && eth.EthernetType == 0x88E5 {
 			emitScanClass(emit, "macsec", "MACsec-secured frames (802.1AE) — check fail-open policy")
 		}
 	}
 
-	// Fragmented ND (baseline: seen["frag_nd"]).
+	// Fragmented ND.
 	if ip6Layer := pkt.Layer(layers.LayerTypeIPv6); ip6Layer != nil {
 		if ip6, ok := ip6Layer.(*layers.IPv6); ok && ip6.NextHeader == 44 {
 			emitScanClass(emit, "frag-nd", "fragmented ND frame — RFC 6980 drop / RA-Guard confusion surface")
 		}
 	}
 
-	// VLAN tags present on the wire (baseline: seen["vlans"]).
+	// VLAN tags present on the wire.
 	for _, l := range pkt.Layers() {
 		if q, ok := l.(*layers.Dot1Q); ok {
 			emitScanClassVLAN(emit, "vlan-tag", fmt.Sprintf("802.1Q tag VLAN %d on the wire", q.VLANIdentifier), int(q.VLANIdentifier))
@@ -275,32 +275,33 @@ func emitScanFinding(emit func(findings.Record), data []byte) {
 	}
 }
 
-// emitScanClass emits a typed finding record for a scan detection class.
-func emitScanClass(emit func(findings.Record), class, detail string) {
+// emitScanFindingDetail marshals detail and emits it as a scan finding
+// record. It is a no-op when emit is nil, so callers need not guard the
+// callback themselves. It is the single place the scan record shape
+// (attack "scan", module "scan", JSON detail) is built.
+func emitScanFindingDetail(emit func(findings.Record), detail scanFindingDetail) {
 	if emit == nil {
 		return
 	}
-	d, _ := json.Marshal(scanFindingDetail{Class: class, Detail: detail})
+	d, _ := json.Marshal(detail)
 	r := findings.NewRecord(findings.KindFinding)
 	r.Attack = "scan"
 	r.Finding = &findings.Finding{Module: "scan", Detail: d}
 	emit(r)
+}
+
+// emitScanClass emits a typed finding record for a scan detection class.
+func emitScanClass(emit func(findings.Record), class, detail string) {
+	emitScanFindingDetail(emit, scanFindingDetail{Class: class, Detail: detail})
 }
 
 // emitScanClassVLAN emits a typed finding record for a VLAN-tagged frame.
 func emitScanClassVLAN(emit func(findings.Record), class, detail string, vlan int) {
-	if emit == nil {
-		return
-	}
-	d, _ := json.Marshal(scanFindingDetail{Class: class, Detail: detail, VLAN: vlan})
-	r := findings.NewRecord(findings.KindFinding)
-	r.Attack = "scan"
-	r.Finding = &findings.Finding{Module: "scan", Detail: d}
-	emit(r)
+	emitScanFindingDetail(emit, scanFindingDetail{Class: class, Detail: detail, VLAN: vlan})
 }
 
 // defaultVLANProbes is the candidate set for active VLAN probing when
-// nothing leaked passively (baseline line 158: DEFAULT_VLAN_PROBES).
+// nothing leaked passively.
 var defaultVLANProbes = []int{
 	1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 99,
 	100, 110, 120, 150, 200, 250, 300, 400, 500, 666,
@@ -308,14 +309,13 @@ var defaultVLANProbes = []int{
 }
 
 // activeVLANProbe sends tagged DHCP Discovers + Router Solicitations per
-// candidate VLAN and one untagged Discover, then listens for replies. It
-// mirrors the baseline's active_vlan_probe (line 673): per-VID tagged
-// DHCP Discover with a fingerprint xid + tagged RS, one untagged native
-// Discover, and a bounded listen window for offers and ambient frames.
+// candidate VLAN and one untagged Discover, then listens for replies.
+// Per VID it sends a tagged DHCP Discover with a fingerprint xid +
+// tagged RS, one untagged native Discover, and a bounded listen window
+// for offers and ambient frames.
 //
 // Findings distinguish answering-VLAN (offer received — bidirectional)
-// from leakage-only (ambient frames observed on that tag), exactly as
-// the baseline distinguishes (lines 540-560).
+// from leakage-only (ambient frames observed on that tag).
 func activeVLANProbe(ctx context.Context, cfg ScanConfig, emit func(findings.Record)) error {
 	if cfg.AttackLeg == nil {
 		return nil
@@ -427,8 +427,7 @@ func parseCandidateVLANs(spec string) []int {
 }
 
 // fingerprintXID generates a deterministic xid for a VID so we can match
-// replies. The baseline uses random xids mapped per-VID (line 707); we
-// use a VID-derived value so tests can predict the mapping.
+// replies. We use a VID-derived value so tests can predict the mapping.
 func fingerprintXID(vid int) uint32 {
 	if vid == 0 {
 		return 0x4E455400 // "NET\0" — native fingerprint
@@ -595,16 +594,9 @@ func processProbeReply(
 
 // emitVLANProbeFinding emits a typed finding for a VLAN probe result.
 func emitVLANProbeFinding(emit func(findings.Record), vid int, result, detail string) {
-	if emit == nil {
-		return
-	}
-	d, _ := json.Marshal(scanFindingDetail{
+	emitScanFindingDetail(emit, scanFindingDetail{
 		Class:  fmt.Sprintf("vlan-probe-%s", result),
 		Detail: detail,
 		VLAN:   vid,
 	})
-	r := findings.NewRecord(findings.KindFinding)
-	r.Attack = "scan"
-	r.Finding = &findings.Finding{Module: "scan", Detail: d}
-	emit(r)
 }

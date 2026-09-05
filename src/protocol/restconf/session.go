@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 	"go.opentelemetry.io/otel/trace"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
@@ -51,7 +52,7 @@ func Dial(ctx context.Context, base string, opts Options) (*Session, error) {
 		base:   base,
 		client: client,
 		opts:   opts,
-		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/restconf"),
+		tracer: tp.Tracer("go.aledante.io/FlowSeer/src/protocol/restconf", trace.WithSchemaURL(semconv.SchemaURL)),
 	}
 
 	dialCtx, cancel := context.WithTimeout(ctx, opts.Timeout)
@@ -95,7 +96,6 @@ type GetOptions struct {
 	ConfigOnly bool
 }
 
-// query renders the parameters.
 func (g GetOptions) query() string {
 	var parts []string
 	if g.Depth > 0 {
@@ -222,8 +222,10 @@ func (s *Session) write(ctx context.Context, method string, p yang.Path, body []
 	return WriteResult{UsedIfMatch: etag != "", ReadBack: readBack}, nil
 }
 
-// A missing resource can be created without an ETag; other read failures
-// must stop the write because they cannot establish the current version.
+// captureETag returns the resource's current ETag, or "" when the
+// resource is absent (404) — a missing resource may be created
+// unconditionally. Other read failures are returned, because they
+// cannot establish the current version.
 func (s *Session) captureETag(ctx context.Context, p yang.Path) (string, error) {
 	body, status, headers, err := s.do(ctx, http.MethodGet, s.dataURL(p), nil, nil)
 	if err != nil {
@@ -246,7 +248,7 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 
 	ctx, span := s.tracer.Start(ctx, "restconf."+method,
 		trace.WithSpanKind(trace.SpanKindClient),
-		trace.WithAttributes(attribute.String("http_method", method)))
+		trace.WithAttributes(semconv.HTTPRequestMethodKey.String(method)))
 	defer span.End()
 
 	var reader io.Reader
@@ -265,17 +267,21 @@ func (s *Session) do(ctx context.Context, method, url string, body []byte, heade
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
+		span.SetStatus(codes.Error, "request failed")
 		return nil, 0, nil, s.transportError(method, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	span.SetAttributes(semconv.HTTPResponseStatusCode(resp.StatusCode))
 	respBody, err = io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
-		span.SetStatus(codes.Error, err.Error())
+		span.SetAttributes(semconv.ErrorTypeKey.String(errorType(err)))
+		span.SetStatus(codes.Error, "response read failed")
 		return nil, 0, nil, s.transportError("read "+method+" response", err)
 	}
 	if resp.StatusCode >= 400 {
-		span.SetStatus(codes.Error, resp.Status)
+		span.SetAttributes(semconv.ErrorTypeKey.String(strconv.Itoa(resp.StatusCode)))
+		span.SetStatus(codes.Error, "request failed")
 	}
 	return respBody, resp.StatusCode, resp.Header, nil
 }

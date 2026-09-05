@@ -3,7 +3,6 @@ package netconf_test
 import (
 	"flag"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/protocol/internal/conformance"
@@ -109,24 +108,13 @@ var netconfFamilies = []conformance.Family{
 // ratified.
 var netconfAllowlist = map[string]bool{}
 
-// corpusDirs returns the package and integration suite directories.
-func corpusDirs(t *testing.T) []string {
-	t.Helper()
-	_, here, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("runtime.Caller failed")
-	}
-	dir := filepath.Dir(here)
-	return []string{dir, filepath.Join(dir, "test", "integration")}
-}
-
 // TestConformanceCorpusIntegrity is the always-on gate.
 func TestConformanceCorpusIntegrity(t *testing.T) {
-	conformance.RunIntegrity(t, netconfCorpus, netconfAllowlist, netconfFamilies, corpusDirs(t))
+	conformance.RunIntegrity(t, netconfCorpus, netconfAllowlist, netconfFamilies, conformance.CorpusDirs(t))
 }
 
 // TestConformanceMatrixUpToDate keeps CONFORMANCE.md generated.
 func TestConformanceMatrixUpToDate(t *testing.T) {
 	content := conformance.Markdown("NETCONF library conformance corpus", netconfCorpus, netconfFamilies)
-	conformance.VerifyMarkdown(t, filepath.Join(corpusDirs(t)[0], "CONFORMANCE.md"), content, *updateConformance)
+	conformance.VerifyMarkdown(t, filepath.Join(conformance.CorpusDirs(t)[0], "CONFORMANCE.md"), content, *updateConformance)
 }

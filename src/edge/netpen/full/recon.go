@@ -14,6 +14,7 @@ package full
 import (
 	"context"
 	"net"
+	"slices"
 	"sort"
 	"time"
 
@@ -57,8 +58,7 @@ func defaultRecon(ctx context.Context, cfg Config) (Evidence, error) {
 	// ARP sweep: send ARP requests across the sweep network and collect
 	// replies into ev["macs"]. On non-Linux the leg's Send returns
 	// ErrUnsupportedPlatform; the sweep is a no-op. The sweep network
-	// fallback chain: configured net, then 172.16.0.0/24 (baseline
-	// full_cmd line 2041: srp on "172.16.0.0/24").
+	// fallback chain: configured net, then 172.16.0.0/24.
 	sweepNet := cfg.SweepNet
 	if sweepNet == "" {
 		sweepNet = "172.16.0.0/24"
@@ -72,11 +72,10 @@ func defaultRecon(ctx context.Context, cfg Config) (Evidence, error) {
 }
 
 // arpSweep sends ARP requests for each host in the sweep network and
-// collects replies into ev["macs"]. It mirrors the baseline's arpsweep
-// (line 978) and full_cmd recon sweep (line 2041): srp with a bounded
-// timeout. The sweep is rate-respecting (one request per host, no
-// flooding) and ctx-cancelable. A /24 is the baseline cap; larger
-// networks are clamped to 254 hosts.
+// collects replies into ev["macs"] using srp with a bounded timeout.
+// The sweep is rate-respecting (one request per host, no flooding) and
+// ctx-cancelable. A /24 is the cap; larger networks are clamped to 254
+// hosts.
 func arpSweep(ctx context.Context, cfg Config, ev Evidence, sweepNet string) {
 	if cfg.AttackLeg == nil {
 		return
@@ -87,7 +86,7 @@ func arpSweep(ctx context.Context, cfg Config, ev Evidence, sweepNet string) {
 		return
 	}
 
-	// Clamp to /24 for the sweep (baseline parity).
+	// Clamp to /24 for the sweep.
 	ones, bits := ipNet.Mask.Size()
 	if bits-ones > 8 {
 		ipNet.Mask = net.CIDRMask(24, 32)
@@ -104,8 +103,7 @@ func arpSweep(ctx context.Context, cfg Config, ev Evidence, sweepNet string) {
 		macSet[m] = struct{}{}
 	}
 
-	// Send ARP requests for each host, bounded by a 3s deadline
-	// (baseline full_cmd: srp timeout=3).
+	// Send ARP requests for each host, bounded by a 3s deadline.
 	sweepDeadline := time.Now().Add(3 * time.Second)
 	for _, ip := range hosts {
 		if ctx.Err() != nil || time.Now().After(sweepDeadline) {
@@ -118,8 +116,7 @@ func arpSweep(ctx context.Context, cfg Config, ev Evidence, sweepNet string) {
 		_ = cfg.AttackLeg.Send(ctx, pkt)
 	}
 
-	// Listen for ARP replies for a bounded window (baseline: the srp
-	// call returns when its timeout elapses).
+	// Listen for ARP replies for a bounded window.
 	replyCtx, replyCancel := context.WithTimeout(ctx, 2*time.Second)
 	defer replyCancel()
 	for frame := range cfg.AttackLeg.Receive(replyCtx) {
@@ -235,7 +232,7 @@ func parseReconFrame(ev Evidence, data []byte) {
 	if len(vlanSet) > 0 {
 		vlans := ev.VLANs()
 		for v := range vlanSet {
-			vlans = appendUniqueInt(vlans, v)
+			vlans = appendUnique(vlans, v)
 		}
 		ev[EvVLANs] = vlans
 	}
@@ -249,7 +246,7 @@ func parseReconFrame(ev Evidence, data []byte) {
 	if vrrpLayer := pkt.Layer(layers.LayerTypeVRRP); vrrpLayer != nil {
 		if v, ok := vrrpLayer.(*layers.VRRPv2); ok {
 			vrids := ev.VRIDs()
-			vrids = appendUniqueInt(vrids, int(v.VirtualRtrID))
+			vrids = appendUnique(vrids, int(v.VirtualRtrID))
 			ev[EvVRIDs] = vrids
 		}
 	}
@@ -293,15 +290,15 @@ func parseReconFrame(ev Evidence, data []byte) {
 			mac := net.HardwareAddr(arp.SourceHwAddress).String()
 			if mac != "" {
 				macs := ev.MACs()
-				macs = appendUniqueStr(macs, mac)
+				macs = appendUnique(macs, mac)
 				ev[EvMACs] = macs
 			}
 		}
 	}
 }
 
-// cdpVoiceVLAN extracts the voice VLAN ID from a CDP VLAN Reply TLV. The
-// baseline (scan_cmd line ~385) reads TLV type 0x000E. The fork's
+// cdpVoiceVLAN extracts the voice VLAN ID from a CDP VLAN Reply TLV
+// (TLV type 0x000E). The fork's
 // CiscoDiscoveryInfo decodes it into the VLANReply field
 // (CDPVLANDialogue with a VLAN uint16).
 func cdpVoiceVLAN(info *layers.CiscoDiscoveryInfo) int {
@@ -327,23 +324,11 @@ func lldpVoiceVLAN(info *layers.LinkLayerDiscoveryInfo) int {
 	return 0
 }
 
-// appendUniqueInt appends v to s if not already present, returning the
+// appendUnique appends v to s if not already present, returning the
 // (possibly grown) slice.
-func appendUniqueInt(s []int, v int) []int {
-	for _, e := range s {
-		if e == v {
-			return s
-		}
-	}
-	return append(s, v)
-}
-
-// appendUniqueStr appends v to s if not already present.
-func appendUniqueStr(s []string, v string) []string {
-	for _, e := range s {
-		if e == v {
-			return s
-		}
+func appendUnique[T comparable](s []T, v T) []T {
+	if slices.Contains(s, v) {
+		return s
 	}
 	return append(s, v)
 }

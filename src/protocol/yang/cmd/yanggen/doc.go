@@ -18,9 +18,9 @@
 // instead of regenerating ~1,200 packages; a generator-version bump
 // flags everything.
 //
-// Flags: -config, -out, -pkg-prefix, -verify (load-only), -check
-// (drift gate), -update. Exit codes: 0 success, 1 load/check/runtime
-// failure, 2 flag misuse.
+// Flags: -config, -out, -verify (load-only), -check (drift gate),
+// -update. Exit codes: 0 success, 1 load/check/runtime failure, 2
+// flag misuse.
 //
 // Run from the repository root:
 //

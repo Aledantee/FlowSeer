@@ -209,7 +209,10 @@ func TestDiscoverIndicators_FakeMIB(t *testing.T) {
 	mod, set := loadFakeMIB(t)
 
 	ec := newEmitCtx(mod, set, Module{Name: "FAKE-MIB", Package: "fakemib"}, nil, "")
-	indicators := discoverIndicators(ec, mod)
+	indicators, err := discoverIndicators(ec, mod)
+	if err != nil {
+		t.Fatalf("discoverIndicators: %v", err)
+	}
 	if len(indicators) != 2 {
 		t.Fatalf("indicators = %v, want 2", indicators)
 	}
@@ -267,7 +270,12 @@ func TestDiscoverIndicators_ConfigOutranksNamePrefix(t *testing.T) {
 		}},
 	}, nil, "")
 
-	for _, ind := range discoverIndicators(ec, mod) {
+	indicators, err := discoverIndicators(ec, mod)
+	if err != nil {
+		t.Fatalf("discoverIndicators: %v", err)
+	}
+
+	for _, ind := range indicators {
 		if ind.Table.Name != "fakeStackTable" {
 			continue
 		}

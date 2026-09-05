@@ -20,17 +20,12 @@ import (
 // after intentional emitter changes and audit the diff.
 var updateGolden = flag.Bool("update-golden", false, "rewrite testdata/golden/* with the current emitter output")
 
-// goldenPkgPrefix roots the fixture goldens as importable packages so
-// the round-trip tests in golden_roundtrip_test.go exercise the real
-// emitted schemas against the runtime codecs.
-const goldenPkgPrefix = "go.aledante.io/FlowSeer/src/protocol/yang/cmd/yanggen/testdata/golden"
-
 // TestEmitFixtureGolden renders every fixture module and compares
 // byte-for-byte against the committed goldens.
 func TestEmitFixtureGolden(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m, goldenPkgPrefix)
+		got, err := emitOne(m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -62,7 +57,7 @@ func TestEmitFixtureGolden(t *testing.T) {
 func TestEmitFixtureParses(t *testing.T) {
 	vs := fixtureVendor(t)
 	for _, m := range vs.Modules {
-		got, err := emitOne(m, goldenPkgPrefix)
+		got, err := emitOne(m)
 		if err != nil {
 			t.Fatalf("emit %s: %v", m.Name, err)
 		}
@@ -78,7 +73,7 @@ func TestEmitFixtureParses(t *testing.T) {
 func TestEmitFixtureSurface(t *testing.T) {
 	vs := fixtureVendor(t)
 	main := moduleByName(t, vs, "fixture-main")
-	src, err := emitOne(main, goldenPkgPrefix)
+	src, err := emitOne(main)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +140,7 @@ func TestEmitFixtureSurface(t *testing.T) {
 // with foreign-module qualification.
 func TestEmitAugmentModule(t *testing.T) {
 	vs := fixtureVendor(t)
-	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"), goldenPkgPrefix)
+	mainSrc, err := emitOne(moduleByName(t, vs, "fixture-main"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +151,7 @@ func TestEmitAugmentModule(t *testing.T) {
 		t.Error("augmented-in owner leaf missing from the target struct")
 	}
 
-	typesSrc, err := emitOne(moduleByName(t, vs, "fixture-types"), goldenPkgPrefix)
+	typesSrc, err := emitOne(moduleByName(t, vs, "fixture-types"))
 	if err != nil {
 		t.Fatal(err)
 	}

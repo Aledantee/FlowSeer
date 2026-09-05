@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -94,7 +95,7 @@ func scanXMLLevel[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyValue
 				if err := decodeXMLInto(dec, level, rv); err != nil {
 					return err
 				}
-				*out = append(*out, NestedEntry[Inner]{AncestorKeys: cloneKeys(anc), Entry: entry})
+				*out = append(*out, NestedEntry[Inner]{AncestorKeys: slices.Clone(anc), Entry: entry})
 				continue
 			}
 			if err := scanXMLAncestor(dec, chain, anc, out); err != nil {
@@ -120,7 +121,7 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 		case xml.EndElement:
 			return nil
 		case xml.StartElement:
-			if isKeyLeaf(level, t.Name.Local) {
+			if slices.Contains(level.Keys, t.Name.Local) {
 				text, err := elementText(dec)
 				if err != nil {
 					return errs.Wrapf(err, "%s key %s", level.Name, t.Name.Local)
@@ -142,14 +143,14 @@ func scanXMLAncestor[Inner any](dec *xml.Decoder, chain []*Schema, anc [][]KeyVa
 			}
 			next := chain[1]
 			if xmlNameMatches(t.Name, next.Name, next.Namespace) {
-				if err := dispatchXMLMatch(dec, chain[1:], append(cloneKeys(anc), orderKeys(level, keys)), out); err != nil {
+				if err := dispatchXMLMatch(dec, chain[1:], append(slices.Clone(anc), orderKeys(level, keys)), out); err != nil {
 					return err
 				}
 				continue
 			}
 			// Anything else may still contain the next level deeper
 			// down (intermediate containers).
-			if err := scanXMLLevel(dec, chain[1:], append(cloneKeys(anc), orderKeys(level, keys)), out, true); err != nil {
+			if err := scanXMLLevel(dec, chain[1:], append(slices.Clone(anc), orderKeys(level, keys)), out, true); err != nil {
 				return err
 			}
 		default:
@@ -182,16 +183,6 @@ func xmlNameMatches(name xml.Name, local, ns string) bool {
 	return ns == "" || name.Space == "" || name.Space == ns
 }
 
-// isKeyLeaf reports whether local names one of s's key leaves.
-func isKeyLeaf(s *Schema, local string) bool {
-	for _, k := range s.Keys {
-		if k == local {
-			return true
-		}
-	}
-	return false
-}
-
 // orderKeys returns keys sorted into s.Keys order, dropping
 // duplicates and unknowns.
 func orderKeys(s *Schema, keys []KeyValue) []KeyValue {
@@ -206,20 +197,7 @@ func orderKeys(s *Schema, keys []KeyValue) []KeyValue {
 
 // containsKey reports whether kvs carries name at all (even empty).
 func containsKey(kvs []KeyValue, name string) bool {
-	for _, kv := range kvs {
-		if kv.Name == name {
-			return true
-		}
-	}
-	return false
-}
-
-// cloneKeys copies the ancestor-key stack so sibling branches never
-// share backing arrays.
-func cloneKeys(anc [][]KeyValue) [][]KeyValue {
-	out := make([][]KeyValue, len(anc))
-	copy(out, anc)
-	return out
+	return slices.ContainsFunc(kvs, func(kv KeyValue) bool { return kv.Name == name })
 }
 
 // DecodeJSONNested is [DecodeXMLNested]'s RFC 7951 counterpart: data
@@ -230,25 +208,32 @@ func DecodeJSONNested[Inner any](chain []*Schema, data []byte) ([]NestedEntry[In
 	if len(chain) == 0 {
 		return nil, errs.Msg("empty schema chain")
 	}
+
 	var out []NestedEntry[Inner]
+
 	trimmed := bytes.TrimLeft(data, " \t\r\n")
 	if len(trimmed) > 0 && trimmed[0] == '[' {
 		if err := walkJSONLevel(chain, json.RawMessage(trimmed), nil, &out); err != nil {
 			return nil, err
 		}
+
 		return out, nil
 	}
+
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(data, &obj); err != nil || obj == nil {
 		return nil, errs.From(err).Code(ErrCodeValueParse).Msgf("nested %s payload is not a JSON object", chain[0].Name)
 	}
+
 	arr, ok := lookupMember(obj, chain[0].Module, chain[0].Name)
 	if !ok {
 		return nil, nil
 	}
+
 	if err := walkJSONLevel(chain, arr, nil, &out); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -265,7 +250,7 @@ func walkJSONLevel[Inner any](chain []*Schema, arr json.RawMessage, anc [][]KeyV
 			if err := UnmarshalJSON7951Struct(level, raw, &entry); err != nil {
 				return err
 			}
-			*out = append(*out, NestedEntry[Inner]{AncestorKeys: cloneKeys(anc), Entry: entry})
+			*out = append(*out, NestedEntry[Inner]{AncestorKeys: slices.Clone(anc), Entry: entry})
 			continue
 		}
 		var obj map[string]json.RawMessage
@@ -281,7 +266,7 @@ func walkJSONLevel[Inner any](chain []*Schema, arr json.RawMessage, anc [][]KeyV
 		if !ok {
 			continue
 		}
-		if err := walkJSONLevel(chain[1:], childArr, append(cloneKeys(anc), keys), out); err != nil {
+		if err := walkJSONLevel(chain[1:], childArr, append(slices.Clone(anc), keys), out); err != nil {
 			return err
 		}
 	}

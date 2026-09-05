@@ -2,6 +2,7 @@ package main
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/dave/jennifer/jen"
 
@@ -125,9 +126,8 @@ func qualTier(tierStr string) *jen.Statement {
 	// Strip the "snmp." prefix so jen.Qual can route through the
 	// managed import; the input is always one of TierCounter /
 	// TierIndicator / TierState / TierStatic.
-	const prefix = "snmp."
-	if len(tierStr) > len(prefix) && tierStr[:len(prefix)] == prefix {
-		return jen.Qual(snmpImport, tierStr[len(prefix):])
+	if name, ok := strings.CutPrefix(tierStr, "snmp."); ok && name != "" {
+		return jen.Qual(snmpImport, name)
 	}
 	return jen.Qual(snmpImport, tierStr)
 }
@@ -136,11 +136,5 @@ func qualTier(tierStr string) *jen.Statement {
 // from the MIB module's name. Mirrors [dispatchMapName] but with the
 // "ColumnTiers" suffix — e.g. "IF-MIB" yields "ifMIBColumnTiers".
 func tierMapName(modName string) string {
-	upper := camelCase(modName)
-	if upper == "" {
-		return "columnTiers"
-	}
-	runes := []rune(upper)
-	runes[0] = lowerFirst(runes[0])
-	return string(runes) + "ColumnTiers"
+	return moduleScopedName(modName, "ColumnTiers", "columnTiers")
 }

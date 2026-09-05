@@ -19,6 +19,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -152,7 +153,7 @@ func craftDHCPv6Advertise(src net.HardwareAddr, xid []byte, clientDUID []byte) (
 			layers.NewDHCPv6Option(layers.DHCPv6OptDNSServers, net.ParseIP("fd00::1").To16()),
 		},
 	}
-	return craftDefault(eth, ip, udp, dhcp)
+	return craft.Default(eth, ip, udp, dhcp)
 }
 
 // decodeDHCPv6 decodes a DHCPv6 layer from a raw Ethernet frame

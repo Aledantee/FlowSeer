@@ -315,6 +315,7 @@ func parseDecimal64(t Type, text string) (Value, error) {
 	if fd < 1 || fd > 18 {
 		return Value{}, errs.New().Code(ErrCodeValueParse).Msgf("decimal64 fraction-digits %d outside 1..18", fd)
 	}
+
 	s := text
 	neg := false
 	if rest, ok := strings.CutPrefix(s, "-"); ok {
@@ -322,19 +323,23 @@ func parseDecimal64(t Type, text string) (Value, error) {
 	} else if rest, ok := strings.CutPrefix(s, "+"); ok {
 		s = rest
 	}
+
 	intPart, fracPart, _ := strings.Cut(s, ".")
 	if intPart == "" || len(fracPart) > fd || !allDigits(intPart) || !allDigits(fracPart) {
 		return Value{}, errs.New().Code(ErrCodeValueParse).Msgf("%q is not a valid decimal64 with %d fraction digits", text, fd)
 	}
+
 	fracPart += strings.Repeat("0", fd-len(fracPart))
 	scaled := intPart + fracPart
 	if neg {
 		scaled = "-" + scaled
 	}
+
 	digits, err := strconv.ParseInt(scaled, 10, 64)
 	if err != nil {
 		return Value{}, errs.From(err).Code(ErrCodeValueRange).Msgf("%q overflows decimal64", text)
 	}
+
 	return Value{Type: t, Int: digits}, nil
 }
 

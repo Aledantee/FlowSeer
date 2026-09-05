@@ -2,6 +2,10 @@ package restconf
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -80,10 +84,29 @@ func deviceError(op string, status int, body []byte) error {
 	return b.Msgf("%s failed with HTTP %d and a nonconformant error body", op, status)
 }
 
-// truncate bounds attribute payloads.
+// truncate bounds a device-supplied payload to n bytes and makes it
+// safe for a text log sink: carriage returns, line feeds, and every
+// other control character are replaced by a space, so a device cannot
+// inject record delimiters into a log line. Truncation can split a
+// multi-byte rune, so invalid UTF-8 is replaced by a space as well.
 func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
+	if len(s) > n {
+		s = s[:n] + "…"
 	}
-	return s[:n] + "…"
+	return strings.Map(func(r rune) rune {
+		if r == utf8.RuneError || unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
+}
+
+// errorType classifies an error for the bounded error.type span
+// attribute: the errs code when the error carries one, otherwise the
+// concrete Go type. It never exposes error text.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return code.String()
+	}
+	return fmt.Sprintf("%T", err)
 }

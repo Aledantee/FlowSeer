@@ -86,20 +86,6 @@ func mustEntry(t *testing.T, name, mode string) catalog.Entry {
 	return e
 }
 
-func assertBytesEqual(t *testing.T, label string, got, want []byte) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Errorf("%s: length mismatch: got %d, want %d", label, len(got), len(want))
-		return
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("%s: byte %d: got 0x%02x, want 0x%02x", label, i, got[i], want[i])
-			return
-		}
-	}
-}
-
 // findFinding returns the first KindFinding record's Finding, or nil.
 func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	t.Helper()
@@ -154,14 +140,14 @@ func TestOSPF_FixturePins(t *testing.T) {
 
 	// Verify attack frames match fixture byte-for-byte.
 	fixtures := fixturePackets(t, "ospf.pcap")
-	assertBytesEqual(t, "OSPF hello", tx[0], fixtures[0])
-	assertBytesEqual(t, "OSPF db-desc", tx[1], fixtures[1])
-	assertBytesEqual(t, "OSPF lsa-update", tx[2], fixtures[2])
+	testtest.AssertBytesEqual(t, "OSPF hello", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "OSPF db-desc", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "OSPF lsa-update", tx[2], fixtures[2])
 
 	// Verify teardown frames match restore fixture.
 	restoreFixtures := fixturePackets(t, "ospf_restore.pcap")
-	assertBytesEqual(t, "OSPF flush", tx[3], restoreFixtures[0])
-	assertBytesEqual(t, "OSPF goodbye", tx[4], restoreFixtures[1])
+	testtest.AssertBytesEqual(t, "OSPF flush", tx[3], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "OSPF goodbye", tx[4], restoreFixtures[1])
 
 	if f := findFinding(t, recs); f == nil {
 		t.Fatal("no finding emitted")
@@ -188,8 +174,8 @@ func TestOSPF_TeardownOrder(t *testing.T) {
 	// Teardown TX is indices 3 and 4. Step 1 (flush) must precede step 2
 	// (goodbye) — they were armed in that order.
 	restoreFixtures := fixturePackets(t, "ospf_restore.pcap")
-	assertBytesEqual(t, "OSPF flush (teardown step 1)", tx[3], restoreFixtures[0])
-	assertBytesEqual(t, "OSPF goodbye (teardown step 2)", tx[4], restoreFixtures[1])
+	testtest.AssertBytesEqual(t, "OSPF flush (teardown step 1)", tx[3], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "OSPF goodbye (teardown step 2)", tx[4], restoreFixtures[1])
 }
 
 // TestOSPF_AE6Reproducibility: two runs over the same fixture produce the
@@ -226,7 +212,7 @@ func TestOSPF_AE6Reproducibility(t *testing.T) {
 		t.Fatalf("TX count mismatch: run1=%d, run2=%d", len(tx1), len(tx2))
 	}
 	for i := range tx1 {
-		assertBytesEqual(t, "OSPF AE6 frame "+itoa(i), tx1[i], tx2[i])
+		testtest.AssertBytesEqual(t, "OSPF AE6 frame "+itoa(i), tx1[i], tx2[i])
 	}
 }
 
@@ -256,12 +242,12 @@ func TestEIGRP_FixturePins(t *testing.T) {
 
 	// Verify attack frames match fixture byte-for-byte.
 	fixtures := fixturePackets(t, "eigrp.pcap")
-	assertBytesEqual(t, "EIGRP hello", tx[0], fixtures[0])
-	assertBytesEqual(t, "EIGRP route-inject", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "EIGRP hello", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "EIGRP route-inject", tx[1], fixtures[1])
 
 	// Verify teardown frame matches restore fixture.
 	restoreFixtures := fixturePackets(t, "eigrp_restore.pcap")
-	assertBytesEqual(t, "EIGRP goodbye", tx[2], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "EIGRP goodbye", tx[2], restoreFixtures[0])
 
 	if f := findFinding(t, recs); f == nil {
 		t.Fatal("no finding emitted")
@@ -344,7 +330,7 @@ func TestEIGRP_AE6Reproducibility(t *testing.T) {
 		t.Fatalf("TX count mismatch: run1=%d, run2=%d", len(tx1), len(tx2))
 	}
 	for i := range tx1 {
-		assertBytesEqual(t, "EIGRP AE6 frame "+itoa(i), tx1[i], tx2[i])
+		testtest.AssertBytesEqual(t, "EIGRP AE6 frame "+itoa(i), tx1[i], tx2[i])
 	}
 }
 
@@ -367,8 +353,8 @@ func TestWPAD_FixturePins(t *testing.T) {
 
 	// Verify attack frames match fixture byte-for-byte.
 	fixtures := fixturePackets(t, "wpad.pcap")
-	assertBytesEqual(t, "WPAD nbt-ns", tx[0], fixtures[0])
-	assertBytesEqual(t, "WPAD llmnr", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "WPAD nbt-ns", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "WPAD llmnr", tx[1], fixtures[1])
 
 	if f := findFinding(t, recs); f == nil {
 		t.Fatal("no finding emitted")
@@ -410,7 +396,7 @@ func TestWPAD_AE6Reproducibility(t *testing.T) {
 		t.Fatalf("TX count mismatch: run1=%d, run2=%d", len(tx1), len(tx2))
 	}
 	for i := range tx1 {
-		assertBytesEqual(t, "WPAD AE6 frame "+itoa(i), tx1[i], tx2[i])
+		testtest.AssertBytesEqual(t, "WPAD AE6 frame "+itoa(i), tx1[i], tx2[i])
 	}
 }
 

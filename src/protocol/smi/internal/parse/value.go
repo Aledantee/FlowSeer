@@ -16,44 +16,9 @@ import (
 // per-line throttle and the diagnostic limit cover the value grammar
 // without it knowing they exist.
 type reader struct {
-	p    *parser
-	toks []lex.Token
-	pos  int
-}
+	cursor
 
-func (r *reader) more() bool { return r.pos < len(r.toks) }
-
-func (r *reader) tok() lex.Token {
-	if !r.more() {
-		return lex.Token{}
-	}
-
-	return r.toks[r.pos]
-}
-
-func (r *reader) next() { r.pos++ }
-
-func (r *reader) at(k lex.Kind) bool { return r.more() && r.toks[r.pos].Kind == k }
-
-func (r *reader) keyword() lex.Keyword {
-	t := r.tok()
-	if t.Kind != lex.KindKeyword {
-		return lex.KeywordNone
-	}
-
-	return t.Keyword
-}
-
-func (r *reader) isName() bool {
-	k := r.tok().Kind
-
-	return k == lex.KindIdentifier || k == lex.KindTypeReference
-}
-
-func (r *reader) span() Span {
-	t := r.tok()
-
-	return Span{Start: t.Offset, End: t.End()}
+	p *parser
 }
 
 // integer reads an optionally signed decimal literal. A literal too
@@ -201,7 +166,7 @@ type Value struct {
 // two are told apart by the type when it is known and by their contents
 // when it is not.
 func (p *parser) parseDefault(toks []lex.Token, base BaseType) Value {
-	r := reader{p: p, toks: toks}
+	r := reader{cursor: cursor{toks: toks}, p: p}
 
 	return r.defaultValue(base)
 }

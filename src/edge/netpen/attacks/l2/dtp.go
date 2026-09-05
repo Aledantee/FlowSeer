@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/layers"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -108,7 +109,7 @@ func craftDTPFrame(src net.HardwareAddr, trunkStatus uint8) ([]byte, error) {
 // This is acceptable because DTP's neighbor TLV is informational — the
 // attack works regardless of the exact MAC value.
 func srcMAC(_ runner.Deps) net.HardwareAddr {
-	return FixtureSrcMAC
+	return craft.FixtureSrcMAC
 }
 
 // modeName returns the human-readable mode name for a DTP mode.

@@ -17,9 +17,7 @@ import (
 // package directory do not collide on a shared `oidDispatch` symbol.
 // The exported accessor stays as `OIDDispatch` — each generated file
 // emits a per-package method, and if two files actually do land in
-// the same package the developer is expected to merge them by hand;
-// the rename here removes the *guaranteed* collision the previous
-// shared name created.
+// the same package the developer is expected to merge them by hand.
 //
 // If the module emitted no columns the function emits nothing — the
 // empty map would be valid Go but would mask the fact that the
@@ -72,14 +70,24 @@ func emitDispatch(f *jen.File, ec *emitCtx) {
 // generated package is the OIDDispatch() accessor; the map itself is a
 // private implementation detail.
 func dispatchMapName(modName string) string {
+	return moduleScopedName(modName, "OIDDispatch", "oidDispatch")
+}
+
+// moduleScopedName derives a package-private Go identifier for a
+// per-module generated symbol: the module's CamelCase name with its
+// first rune lower-cased, followed by suffix. A module name that
+// camel-cases to nothing yields fallback, which the caller spells
+// itself because the unprefixed identifier is not always the suffix
+// with its first rune lowered.
+func moduleScopedName(modName, suffix, fallback string) string {
 	upper := camelCase(modName)
 	if upper == "" {
-		return "oidDispatch"
+		return fallback
 	}
 	// Lower-case the first rune to make the identifier package-private.
 	runes := []rune(upper)
 	runes[0] = lowerFirst(runes[0])
-	return string(runes) + "OIDDispatch"
+	return string(runes) + suffix
 }
 
 // lowerFirst lower-cases an ASCII rune; non-ASCII is returned

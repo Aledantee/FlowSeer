@@ -8,6 +8,7 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -98,7 +99,7 @@ func craftARPSpoof(src, dstMAC net.HardwareAddr, dstIP, spoofedIP net.IP) ([]byt
 		DstHwAddress:      dstMAC,
 		DstProtAddress:    dstIP,
 	}
-	return craftDefault(eth, arp)
+	return craft.Default(eth, arp)
 }
 
 // craftARPRestore builds a unicast ARP reply restoring the real MAC mapping.
@@ -119,5 +120,5 @@ func craftARPRestore(src, dstMAC net.HardwareAddr, dstIP, srcIP net.IP, realMAC 
 		DstHwAddress:      dstMAC,
 		DstProtAddress:    dstIP,
 	}
-	return craftDefault(eth, arp)
+	return craft.Default(eth, arp)
 }

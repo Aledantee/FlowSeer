@@ -17,6 +17,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
@@ -220,7 +221,7 @@ func craftOSPFHello(src net.HardwareAddr, routerID, areaID uint32, neighbors []u
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
-	return craftDefault(eth, ip, gopacket.Payload(payload))
+	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
 // craftDBDesc builds an OSPFv2 Database Description packet.
@@ -256,7 +257,7 @@ func craftDBDesc(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error) 
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
-	return craftDefault(eth, ip, gopacket.Payload(payload))
+	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
 // craftLSAUpdate builds an OSPFv2 Link State Update carrying one router-LSA
@@ -319,7 +320,7 @@ func craftLSAUpdate(src net.HardwareAddr, routerID, areaID, seq uint32) ([]byte,
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
-	return craftDefault(eth, ip, gopacket.Payload(payload))
+	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
 // craftLSAFlush builds an OSPFv2 Link State Update carrying one router-LSA
@@ -365,7 +366,7 @@ func craftLSAFlush(src net.HardwareAddr, routerID, areaID uint32) ([]byte, error
 		SrcIP:    attackerIP,
 		DstIP:    ospfAllSPFRouters,
 	}
-	return craftDefault(eth, ip, gopacket.Payload(payload))
+	return craft.Default(eth, ip, gopacket.Payload(payload))
 }
 
 // ipToRouterID formats a uint32 router ID as a dotted-quad string.

@@ -71,20 +71,6 @@ func mustEntry(t *testing.T, name, mode string) catalog.Entry {
 	return e
 }
 
-func assertBytesEqual(t *testing.T, label string, got, want []byte) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Errorf("%s: length mismatch: got %d, want %d", label, len(got), len(want))
-		return
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("%s: byte %d: got 0x%02x, want 0x%02x", label, i, got[i], want[i])
-			return
-		}
-	}
-}
-
 // findFinding returns the first KindFinding record's Finding, or nil.
 func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	t.Helper()
@@ -120,7 +106,7 @@ func TestDHCPStarve_FixturePins(t *testing.T) {
 		// DHCP xids and chaddr are randomized fields; the
 		// behavior uses the same fixed values as the harvest for
 		// byte-stable fixtures.
-		assertBytesEqual(t, "DHCP starve frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "DHCP starve frame", frame, fixtures[i])
 	}
 
 	if len(recs) == 0 {
@@ -143,8 +129,8 @@ func TestRogueDHCP_FixturePins(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "roguedhcp.pcap")
-	assertBytesEqual(t, "Rogue DHCP OFFER", tx[0], fixtures[0])
-	assertBytesEqual(t, "Rogue DHCP ACK", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "Rogue DHCP OFFER", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "Rogue DHCP ACK", tx[1], fixtures[1])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -190,7 +176,7 @@ func TestRogueDHCPv6_SolicitAdvertiseCycle(t *testing.T) {
 	}
 
 	// Verify the ADVERTISE matches the fixture.
-	assertBytesEqual(t, "Rogue DHCPv6 ADVERTISE", tx[0], fixtures[1])
+	testtest.AssertBytesEqual(t, "Rogue DHCPv6 ADVERTISE", tx[0], fixtures[1])
 
 	// Verify the finding carries the decay note.
 	f := findFinding(t, recs)
@@ -229,7 +215,7 @@ func TestNDPSpoof_FixturePins(t *testing.T) {
 
 	// The poison answer matches the reference fixture's fields.
 	fixtures := fixturePackets(t, "ndpspoof.pcap")
-	assertBytesEqual(t, "NDP spoof NA", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "NDP spoof NA", tx[0], fixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -252,7 +238,7 @@ func TestDADDOS_NoDefense_AttackProceeds(t *testing.T) {
 
 	// Verify the DAD NS matches the fixture.
 	fixtures := fixturePackets(t, "daddos.pcap")
-	assertBytesEqual(t, "DAD NS", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "DAD NS", tx[0], fixtures[0])
 
 	// The finding should report not resisted (no defense observed).
 	f := findFinding(t, recs)
@@ -323,7 +309,7 @@ func TestRogueRA_FixturePins(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "roguera.pcap")
-	assertBytesEqual(t, "Rogue RA", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "Rogue RA", tx[0], fixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -361,7 +347,7 @@ func TestRAGuard_TraversalAttribution(t *testing.T) {
 	}
 
 	// Verify the attack frame matches the fixture.
-	assertBytesEqual(t, "RAGuard forged RA", tx[0], raFixtures[0])
+	testtest.AssertBytesEqual(t, "RAGuard forged RA", tx[0], raFixtures[0])
 
 	// The finding should report traversal evidence and attribution.
 	f := findFinding(t, recs)
@@ -438,7 +424,7 @@ func TestRAFlood_BoundedBurst(t *testing.T) {
 
 	fixtures := fixturePackets(t, "raflood.pcap")
 	for i, frame := range tx {
-		assertBytesEqual(t, "RA flood frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "RA flood frame", frame, fixtures[i])
 	}
 
 	// The finding should report frame counts and bounded=true.
@@ -518,7 +504,7 @@ func TestMLD_BoundedBurst(t *testing.T) {
 
 	fixtures := fixturePackets(t, "mld.pcap")
 	for i, frame := range tx {
-		assertBytesEqual(t, "MLD report frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "MLD report frame", frame, fixtures[i])
 	}
 
 	// The finding should report frame counts and bounded=true.

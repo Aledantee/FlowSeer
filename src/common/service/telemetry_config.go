@@ -284,13 +284,7 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 			return normalizedOTLPConnection{}, false, telemetryConfigError(certificate.setting, "conflict")
 		}
 		if clientCertificate.value != "" || clientKey.value != "" {
-			setting := "Telemetry.ClientTLS"
-			if strings.HasPrefix(clientCertificate.setting, "OTEL_") {
-				setting = clientCertificate.setting
-			} else if strings.HasPrefix(clientKey.setting, "OTEL_") {
-				setting = clientKey.setting
-			}
-			return normalizedOTLPConnection{}, false, telemetryConfigError(setting, "conflict")
+			return normalizedOTLPConnection{}, false, telemetryConfigError(clientTLSSetting(clientCertificate, clientKey), "conflict")
 		}
 	}
 
@@ -457,15 +451,23 @@ func normalizeTelemetryInsecure(configured *bool, lookup envLookup) (telemetryBo
 	}
 }
 
+// clientTLSSetting names the setting to blame for a client-TLS problem: the
+// environment variable that supplied either half when one did, and the
+// programmatic field otherwise.
+func clientTLSSetting(clientCertificate, clientKey telemetrySetting) string {
+	switch {
+	case strings.HasPrefix(clientCertificate.setting, "OTEL_"):
+		return clientCertificate.setting
+	case strings.HasPrefix(clientKey.setting, "OTEL_"):
+		return clientKey.setting
+	default:
+		return "Telemetry.ClientTLS"
+	}
+}
+
 func normalizeTelemetryTLS(certificate, clientCertificate, clientKey telemetrySetting) (*x509.CertPool, *tls.Certificate, error) {
 	if (clientCertificate.value == "") != (clientKey.value == "") {
-		setting := "Telemetry.ClientTLS"
-		if strings.HasPrefix(clientCertificate.setting, "OTEL_") {
-			setting = clientCertificate.setting
-		} else if strings.HasPrefix(clientKey.setting, "OTEL_") {
-			setting = clientKey.setting
-		}
-		return nil, nil, telemetryConfigError(setting, "incomplete")
+		return nil, nil, telemetryConfigError(clientTLSSetting(clientCertificate, clientKey), "incomplete")
 	}
 
 	var rootCAs *x509.CertPool

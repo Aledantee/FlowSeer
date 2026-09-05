@@ -429,7 +429,7 @@ func TestPreflightValidatesTelemetryOverrideBelowDisabledGate(t *testing.T) {
 }
 
 func TestPreflightTelemetryConfigErrorsAreBoundedAndNonleaking(t *testing.T) {
-	const secret = "do-not-leak-telemetry-secret"
+	const secret = "telemetry-sentinel-password"
 	tests := []struct {
 		name     string
 		config   TelemetryConfig
@@ -488,7 +488,7 @@ func TestPreflightNormalizesValidatedTLSMaterial(t *testing.T) {
 }
 
 func TestPreflightRejectsMalformedTLSMaterialWithoutLeakingIt(t *testing.T) {
-	const secret = "do-not-leak-malformed-pem"
+	const secret = "malformed-pem-password"
 	certificatePEM, _ := testTLSMaterial(t)
 	directory := t.TempDir()
 	certificateFile := filepath.Join(directory, "certificate.pem")
