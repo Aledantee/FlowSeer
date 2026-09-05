@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -83,7 +84,12 @@ func TestEmit_KeyTypeAndHomeTable(t *testing.T) {
 // side: a column typed by another configured module's keyed convention
 // carries that package's type, the referencing table's own inline
 // Integer32 index stays a plain int32 with no key type of its own, and
-// the augmenting table reuses the augmented table's key struct.
+// an augmenting table reuses the key struct of the table at the root of
+// its AUGMENTS chain, whether that root is local, in the other package,
+// reached through another augmenting row, or index-only. An index
+// column refining the imported convention keeps the imported key type
+// rather than spawning a local one, and a table whose INDEX part does
+// not resolve keeps the raw suffix.
 func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 	_, set := loadFakeMIB(t)
 	src, degraded := renderFake(t, set, "FAKE-MIB", fakeModules)
@@ -96,6 +102,18 @@ func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 		"type FakeTableKey struct {\n\tFakeIndex int32\n}",
 		"type FakeAugTableRow struct {\n\tKey FakeTableKey\n\tkeyValid bool\n",
 		"func decodeFakeAugTableKey(idx snmp.OID) (FakeTableKey, bool)",
+		"type FakeChainTableRow struct {\n\tKey FakeTableKey\n\tkeyValid bool\n",
+		"func decodeFakeChainTableKey(idx snmp.OID) (FakeTableKey, bool)",
+		"type FakeKeyAugTableRow struct {\n\tKey fakekeysmib.FakeKeyTableKey\n\tkeyValid bool\n",
+		"func decodeFakeKeyAugTableKey(idx snmp.OID) (fakekeysmib.FakeKeyTableKey, bool)",
+		"KeyType: \"fakekeysmib.FakeKeyTableKey\"",
+		"type FakeBareTableKey struct {\n\tFakeBareIndex int32\n}",
+		"type FakeBareAugTableRow struct {\n\tKey FakeBareTableKey\n\tkeyValid bool\n",
+		"type FakeRefinedTableKey struct {\n\tFakeRefinedIndex fakekeysmib.FakeKeyIndex\n}",
+		"FakeRefinedIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)",
+		"type FakeUnresolvedTableRow struct {\n\tIndex snmp.OID\n",
+		"row := FakeUnresolvedTableRow{Index: idx}",
+		"KeyType: \"snmp.OID\"",
 		"type FakePairTableKey struct {\n\tFakePairSlot int32\n\tFakePairName string\n}",
 		"FakePairName: string(parts[1].Octets)",
 		"type FakeImpliedTableKey struct {\n\tFakeImpliedName string\n}",
@@ -112,30 +130,48 @@ func TestEmit_ReferencingModuleUsesQualifiedKeyType(t *testing.T) {
 	rejectFragments(t, src,
 		"type FakeIndex ",
 		"type FakeAugTableKey ",
-		"Index snmp.OID",
-		"a.Index.Equal(b.Index)",
+		"type FakeChainTableKey ",
+		"type FakeKeyAugTableKey ",
+		"type FakeBareAugTableKey ",
+		"type FakeKeyIndex ",
+		"type FakeUnresolvedTableKey ",
+		"func (r FakeUnresolvedTableRow) KeyValid()",
+		"var FakeBareTable ",
+		"fakeBareTableIndexShapes",
 	)
 }
 
 // TestEmit_UnconfiguredKeyModuleDegrades pins the fallback: with the
 // declaring module dropped from the configuration the column falls back
-// to its base type and the render reports the reference it degraded.
+// to its base type, the table augmenting that module's row keeps the
+// raw suffix as its key, and the render reports both references it
+// degraded. The refining index column is a third reference to the
+// same module and degrades to the base type of its own refinement.
 func TestEmit_UnconfiguredKeyModuleDegrades(t *testing.T) {
 	_, set := loadFakeMIB(t)
 	only := map[string]Module{"FAKE-MIB": fakeModules["FAKE-MIB"]}
 	src, degraded := renderFake(t, set, "FAKE-MIB", only)
-	wantFragments(t, src, "var FakeRef = snmp.NewColumn[int32]")
-	rejectFragments(t, src, "fakekeysmib")
+	wantFragments(t, src,
+		"var FakeRef = snmp.NewColumn[int32]",
+		"type FakeKeyAugTableRow struct {\n\tIndex snmp.OID\n",
+		"type FakeRefinedTableKey struct {\n\tFakeRefinedIndex int32\n}",
+	)
+	rejectFragments(t, src, "fakekeysmib", "func (r FakeKeyAugTableRow) KeyValid()")
 
-	if len(degraded) != 1 {
-		t.Fatalf("degraded references = %v; want exactly one", degraded)
+	want := []degradedRef{
+		{Module: "FAKE-MIB", Object: "fakeRef", Convention: "FakeKeyIndex", DeclaringModule: "FAKE-KEYS-MIB", Reason: degradedNotConfigured},
+		{Module: "FAKE-MIB", Object: "fakeKeyAugEntry", Convention: "FakeKeyTableKey", DeclaringModule: "FAKE-KEYS-MIB", Reason: degradedNotConfigured},
+		{Module: "FAKE-MIB", Object: "fakeRefinedIndex", Convention: "FakeKeyIndex", DeclaringModule: "FAKE-KEYS-MIB", Reason: degradedNotConfigured},
 	}
-	got := degraded[0]
-	want := degradedRef{Module: "FAKE-MIB", Object: "fakeRef", Convention: "FakeKeyIndex", DeclaringModule: "FAKE-KEYS-MIB", Reason: degradedNotConfigured}
-	if got != want {
-		t.Errorf("degraded reference = %+v; want %+v", got, want)
+	if len(degraded) != len(want) {
+		t.Fatalf("degraded references = %v; want %v", degraded, want)
 	}
-	if line := got.String(); !strings.Contains(line, "fakeRef") || !strings.Contains(line, "FAKE-KEYS-MIB") {
+	for _, w := range want {
+		if !slices.Contains(degraded, w) {
+			t.Errorf("degraded references %v lack %+v", degraded, w)
+		}
+	}
+	if line := want[0].String(); !strings.Contains(line, "fakeRef") || !strings.Contains(line, "FAKE-KEYS-MIB") {
 		t.Errorf("report line %q names neither the column nor the module", line)
 	}
 }

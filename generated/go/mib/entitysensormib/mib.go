@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"iter"
 
+	entitymib "go.aledante.io/FlowSeer/generated/go/mib/entitymib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -308,7 +309,7 @@ var EntPhySensorValueUpdateRate = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 // EntPhySensorTableKey is the decoded INDEX of one entPhySensorTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
 type EntPhySensorTableKey struct {
-	EntPhysicalIndex int32
+	EntPhysicalIndex entitymib.PhysicalIndex
 }
 
 var entPhySensorTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
@@ -320,7 +321,7 @@ func decodeEntPhySensorTableKey(idx snmp.OID) (EntPhySensorTableKey, bool) {
 	if !snmp.DecodeIndexInto(parts[:], idx, entPhySensorTableIndexShapes) {
 		return EntPhySensorTableKey{}, false
 	}
-	return EntPhySensorTableKey{EntPhysicalIndex: int32(parts[0].Integer)}, true
+	return EntPhySensorTableKey{EntPhysicalIndex: entitymib.PhysicalIndex(parts[0].Integer)}, true
 }
 
 // EntPhySensorTableRow is one row of entPhySensorTable. Key is the decoded INDEX; a

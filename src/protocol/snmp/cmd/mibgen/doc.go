@@ -19,7 +19,7 @@
 //     the agent reported, and the module gets one [snmp.BitPos] constant
 //     per named bit (see emit_bits.go for how positions are recovered).
 //   - Each row type carries its decoded INDEX as a comparable key struct
-//     with one field per part, decoded through [snmp.DecodeIndex]; a
+//     with one field per part, decoded through [snmp.DecodeIndexInto]; a
 //     suffix that does not match the declared shape leaves the key zero
 //     and KeyValid false without ending the walk. A textual convention
 //     that solely indexes a table of its own module becomes a named key

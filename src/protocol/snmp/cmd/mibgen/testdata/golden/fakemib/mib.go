@@ -2,7 +2,7 @@
 //
 // Source MIB:    FAKE-MIB
 // Source path:   testdata/mibs/FAKE-MIB.mib
-// Source SHA-256: b037a4bac09ef0bd0ad183860ba278ee2aa59462825772c0e8a0ab175c009770
+// Source SHA-256: 5214e283bf489bc7193b3970554ea7967d3031bf3ac910704bcb3a8b91da17d4
 //
 // Regenerate with `go generate .` at the repository root.
 
@@ -1868,6 +1868,861 @@ func (fakeAugTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opt
 	}
 }
 
+// FakeUnresolvedValue is the column fakeUnresolvedValue of table fakeUnresolvedTable.
+// Value.
+var FakeUnresolvedValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 12, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// FakeUnresolvedTableRow is one row of fakeUnresolvedTable. Index carries the OID
+// suffix beyond the table-entry prefix; the remaining fields are
+// populated only for columns the caller passed to Walk(). Use
+// [FakeUnresolvedTableRow.Observed] to tell a reported zero from a column the
+// agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
+type FakeUnresolvedTableRow struct {
+	Index               snmp.OID
+	FakeUnresolvedValue int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeUnresolvedTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeUnresolvedValue.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
+}
+
+// FakeUnresolvedTableWalker streams selected columns of fakeUnresolvedTable.
+// The zero value is not usable; construct via FakeUnresolvedTable.Walk(ctx, sess, cols...).
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+type FakeUnresolvedTableWalker struct {
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
+}
+
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
+func (tw *FakeUnresolvedTableWalker) Iter() iter.Seq2[snmp.OID, FakeUnresolvedTableRow] {
+	return func(yield func(snmp.OID, FakeUnresolvedTableRow) bool) {
+		for idx, cells := range tw.rw.Iter() {
+			row := FakeUnresolvedTableRow{Index: idx}
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case FakeUnresolvedValue.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.FakeUnresolvedValue = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := FakeUnresolvedValue.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.FakeUnresolvedValue = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
+				}
+			}
+			if !yield(idx, row) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeUnresolvedTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeUnresolvedTableT is the singleton type of FakeUnresolvedTable.
+type fakeUnresolvedTableT struct{}
+
+// FakeUnresolvedTable is the descriptor for the fakeUnresolvedTable table.
+var FakeUnresolvedTable fakeUnresolvedTableT
+
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *FakeUnresolvedTableWalker) Close() {
+	tw.rw.Close()
+}
+
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t fakeUnresolvedTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeUnresolvedTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeUnresolvedTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "snmp.OID",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 12),
+	}
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (fakeUnresolvedTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeUnresolvedTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
+	for _, c := range cols {
+		switch c.Key() {
+		case FakeUnresolvedValue.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeUnresolvedTable.Walk: column %s", c.OID()))
+			return &FakeUnresolvedTableWalker{rw: w}
+		}
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
+	}
+	return &FakeUnresolvedTableWalker{
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
+	}
+}
+
+// FakeKeyAugExtra is the column fakeKeyAugExtra of table fakeKeyAugTable.
+// Extra value.
+var FakeKeyAugExtra = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 13, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+var fakeKeyAugTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeFakeKeyAugTableKey decodes the instance suffix of one fakeKeyAugTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeFakeKeyAugTableKey(idx snmp.OID) (fakekeysmib.FakeKeyTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeKeyAugTableIndexShapes) {
+		return fakekeysmib.FakeKeyTableKey{}, false
+	}
+	return fakekeysmib.FakeKeyTableKey{FakeKeyIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)}, true
+}
+
+// FakeKeyAugTableRow is one row of fakeKeyAugTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [FakeKeyAugTableRow.KeyValid] reports which. The remaining fields are
+// populated only for columns the caller passed to Walk(). Use
+// [FakeKeyAugTableRow.Observed] to tell a reported zero from a column the
+// agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
+type FakeKeyAugTableRow struct {
+	Key             fakekeysmib.FakeKeyTableKey
+	keyValid        bool
+	FakeKeyAugExtra int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r FakeKeyAugTableRow) KeyValid() bool {
+	return r.keyValid
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeKeyAugTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeKeyAugExtra.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
+}
+
+// FakeKeyAugTableWalker streams selected columns of fakeKeyAugTable.
+// The zero value is not usable; construct via FakeKeyAugTable.Walk(ctx, sess, cols...).
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+type FakeKeyAugTableWalker struct {
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
+}
+
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
+func (tw *FakeKeyAugTableWalker) Iter() iter.Seq2[snmp.OID, FakeKeyAugTableRow] {
+	return func(yield func(snmp.OID, FakeKeyAugTableRow) bool) {
+		for idx, cells := range tw.rw.Iter() {
+			var row FakeKeyAugTableRow
+			row.Key, row.keyValid = decodeFakeKeyAugTableKey(idx)
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case FakeKeyAugExtra.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.FakeKeyAugExtra = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := FakeKeyAugExtra.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.FakeKeyAugExtra = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
+				}
+			}
+			if !yield(idx, row) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeKeyAugTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeKeyAugTableT is the singleton type of FakeKeyAugTable.
+type fakeKeyAugTableT struct{}
+
+// FakeKeyAugTable is the descriptor for the fakeKeyAugTable table.
+var FakeKeyAugTable fakeKeyAugTableT
+
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *FakeKeyAugTableWalker) Close() {
+	tw.rw.Close()
+}
+
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t fakeKeyAugTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeKeyAugTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeKeyAugTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "fakekeysmib.FakeKeyTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 13),
+	}
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (fakeKeyAugTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeKeyAugTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
+	for _, c := range cols {
+		switch c.Key() {
+		case FakeKeyAugExtra.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeKeyAugTable.Walk: column %s", c.OID()))
+			return &FakeKeyAugTableWalker{rw: w}
+		}
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
+	}
+	return &FakeKeyAugTableWalker{
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
+	}
+}
+
+// FakeChainExtra is the column fakeChainExtra of table fakeChainTable.
+// Extra value.
+var FakeChainExtra = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 14, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+var fakeChainTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeFakeChainTableKey decodes the instance suffix of one fakeChainTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeFakeChainTableKey(idx snmp.OID) (FakeTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeChainTableIndexShapes) {
+		return FakeTableKey{}, false
+	}
+	return FakeTableKey{FakeIndex: int32(parts[0].Integer)}, true
+}
+
+// FakeChainTableRow is one row of fakeChainTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [FakeChainTableRow.KeyValid] reports which. The remaining fields are
+// populated only for columns the caller passed to Walk(). Use
+// [FakeChainTableRow.Observed] to tell a reported zero from a column the
+// agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
+type FakeChainTableRow struct {
+	Key            FakeTableKey
+	keyValid       bool
+	FakeChainExtra int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r FakeChainTableRow) KeyValid() bool {
+	return r.keyValid
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeChainTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeChainExtra.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
+}
+
+// FakeChainTableWalker streams selected columns of fakeChainTable.
+// The zero value is not usable; construct via FakeChainTable.Walk(ctx, sess, cols...).
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+type FakeChainTableWalker struct {
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
+}
+
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
+func (tw *FakeChainTableWalker) Iter() iter.Seq2[snmp.OID, FakeChainTableRow] {
+	return func(yield func(snmp.OID, FakeChainTableRow) bool) {
+		for idx, cells := range tw.rw.Iter() {
+			var row FakeChainTableRow
+			row.Key, row.keyValid = decodeFakeChainTableKey(idx)
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case FakeChainExtra.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.FakeChainExtra = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := FakeChainExtra.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.FakeChainExtra = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
+				}
+			}
+			if !yield(idx, row) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeChainTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeChainTableT is the singleton type of FakeChainTable.
+type fakeChainTableT struct{}
+
+// FakeChainTable is the descriptor for the fakeChainTable table.
+var FakeChainTable fakeChainTableT
+
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *FakeChainTableWalker) Close() {
+	tw.rw.Close()
+}
+
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t fakeChainTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeChainTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeChainTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 14),
+	}
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (fakeChainTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeChainTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
+	for _, c := range cols {
+		switch c.Key() {
+		case FakeChainExtra.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeChainTable.Walk: column %s", c.OID()))
+			return &FakeChainTableWalker{rw: w}
+		}
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
+	}
+	return &FakeChainTableWalker{
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
+	}
+}
+
+// FakeBareTableKey is the decoded INDEX of one fakeBareTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type FakeBareTableKey struct {
+	FakeBareIndex int32
+}
+
+// FakeBareAugExtra is the column fakeBareAugExtra of table fakeBareAugTable.
+// Extra value.
+var FakeBareAugExtra = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 16, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+var fakeBareAugTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeFakeBareAugTableKey decodes the instance suffix of one fakeBareAugTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeFakeBareAugTableKey(idx snmp.OID) (FakeBareTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeBareAugTableIndexShapes) {
+		return FakeBareTableKey{}, false
+	}
+	return FakeBareTableKey{FakeBareIndex: int32(parts[0].Integer)}, true
+}
+
+// FakeBareAugTableRow is one row of fakeBareAugTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [FakeBareAugTableRow.KeyValid] reports which. The remaining fields are
+// populated only for columns the caller passed to Walk(). Use
+// [FakeBareAugTableRow.Observed] to tell a reported zero from a column the
+// agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
+type FakeBareAugTableRow struct {
+	Key              FakeBareTableKey
+	keyValid         bool
+	FakeBareAugExtra int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r FakeBareAugTableRow) KeyValid() bool {
+	return r.keyValid
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeBareAugTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeBareAugExtra.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
+}
+
+// FakeBareAugTableWalker streams selected columns of fakeBareAugTable.
+// The zero value is not usable; construct via FakeBareAugTable.Walk(ctx, sess, cols...).
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+type FakeBareAugTableWalker struct {
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
+}
+
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
+func (tw *FakeBareAugTableWalker) Iter() iter.Seq2[snmp.OID, FakeBareAugTableRow] {
+	return func(yield func(snmp.OID, FakeBareAugTableRow) bool) {
+		for idx, cells := range tw.rw.Iter() {
+			var row FakeBareAugTableRow
+			row.Key, row.keyValid = decodeFakeBareAugTableKey(idx)
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case FakeBareAugExtra.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.FakeBareAugExtra = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := FakeBareAugExtra.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.FakeBareAugExtra = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
+				}
+			}
+			if !yield(idx, row) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeBareAugTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeBareAugTableT is the singleton type of FakeBareAugTable.
+type fakeBareAugTableT struct{}
+
+// FakeBareAugTable is the descriptor for the fakeBareAugTable table.
+var FakeBareAugTable fakeBareAugTableT
+
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *FakeBareAugTableWalker) Close() {
+	tw.rw.Close()
+}
+
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t fakeBareAugTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeBareAugTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeBareAugTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeBareTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 16),
+	}
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (fakeBareAugTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeBareAugTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
+	for _, c := range cols {
+		switch c.Key() {
+		case FakeBareAugExtra.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeBareAugTable.Walk: column %s", c.OID()))
+			return &FakeBareAugTableWalker{rw: w}
+		}
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
+	}
+	return &FakeBareAugTableWalker{
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
+	}
+}
+
+// FakeRefinedValue is the column fakeRefinedValue of table fakeRefinedTable.
+// Value.
+var FakeRefinedValue = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 17, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
+	return snmp.DecodeInt32(vb)
+})
+
+// FakeRefinedTableKey is the decoded INDEX of one fakeRefinedTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type FakeRefinedTableKey struct {
+	FakeRefinedIndex fakekeysmib.FakeKeyIndex
+}
+
+var fakeRefinedTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeFakeRefinedTableKey decodes the instance suffix of one fakeRefinedTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeFakeRefinedTableKey(idx snmp.OID) (FakeRefinedTableKey, bool) {
+	var parts [1]snmp.IndexValue
+	if !snmp.DecodeIndexInto(parts[:], idx, fakeRefinedTableIndexShapes) {
+		return FakeRefinedTableKey{}, false
+	}
+	return FakeRefinedTableKey{FakeRefinedIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)}, true
+}
+
+// FakeRefinedTableRow is one row of fakeRefinedTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [FakeRefinedTableRow.KeyValid] reports which. The remaining fields are
+// populated only for columns the caller passed to Walk(). Use
+// [FakeRefinedTableRow.Observed] to tell a reported zero from a column the
+// agent never answered.
+// The zero value has no observed columns. Concurrent reads are safe;
+// callers must synchronize mutation of the row or its referenced data.
+type FakeRefinedTableRow struct {
+	Key              FakeRefinedTableKey
+	keyValid         bool
+	FakeRefinedValue int32
+
+	// observed carries one bit per column of this table, in
+	// column-OID order, set when the walk decoded a value for
+	// that column on this row.
+	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r FakeRefinedTableRow) KeyValid() bool {
+	return r.keyValid
+}
+
+// Observed reports whether col returned a value for this row. A column
+// the agent answered reads true even when the answer was zero or empty;
+// a column that was requested but never landed, one that was not passed
+// to Walk, and any column of another table all read false.
+func (r FakeRefinedTableRow) Observed(col snmp.AnyColumn) bool {
+	switch col.Key() {
+	case FakeRefinedValue.Key():
+		return r.observed[0]&(1<<0) != 0
+	}
+
+	return false
+}
+
+// FakeRefinedTableWalker streams selected columns of fakeRefinedTable.
+// The zero value is not usable; construct via FakeRefinedTable.Walk(ctx, sess, cols...).
+// Iteration is single-use and single-consumer; Close and Err are safe concurrently.
+type FakeRefinedTableWalker struct {
+	rw   *snmp.ColumnWalker
+	cols []snmp.AnyColumn
+}
+
+// Iter yields complete selected-column rows in numeric OID suffix order
+// (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
+// column. Breaking iteration stops retrieval. A decode error omits the
+// failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
+func (tw *FakeRefinedTableWalker) Iter() iter.Seq2[snmp.OID, FakeRefinedTableRow] {
+	return func(yield func(snmp.OID, FakeRefinedTableRow) bool) {
+		for idx, cells := range tw.rw.Iter() {
+			var row FakeRefinedTableRow
+			row.Key, row.keyValid = decodeFakeRefinedTableKey(idx)
+			for _, cell := range cells {
+				rv := cell.Value
+				var derr error
+				switch tw.cols[cell.Column].Key() {
+				case FakeRefinedValue.Key():
+					if v, okRaw := snmp.RawInteger32(rv); okRaw {
+						row.FakeRefinedValue = int32(v)
+						row.observed[0] |= 1 << 0
+					} else {
+						vb, vbErr := rv.Decode()
+						if vbErr != nil {
+							derr = vbErr
+						} else {
+							dv, dErr := FakeRefinedValue.Decode(vb)
+							if dErr != nil {
+								derr = dErr
+							} else {
+								row.FakeRefinedValue = dv
+								row.observed[0] |= 1 << 0
+							}
+						}
+					}
+				}
+				if derr != nil {
+					tw.rw.Fail(derr)
+					return
+				}
+			}
+			if !yield(idx, row) {
+				return
+			}
+		}
+	}
+}
+
+// Err returns the underlying walker's terminal error, or nil if
+// the walk completed naturally.
+func (tw *FakeRefinedTableWalker) Err() error {
+	return tw.rw.Err()
+}
+
+// fakeRefinedTableT is the singleton type of FakeRefinedTable.
+type fakeRefinedTableT struct{}
+
+// FakeRefinedTable is the descriptor for the fakeRefinedTable table.
+var FakeRefinedTable fakeRefinedTableT
+
+// Close stops retrieval. It is idempotent and safe during iteration.
+func (tw *FakeRefinedTableWalker) Close() {
+	tw.rw.Close()
+}
+
+// Walk lazily retrieves only selected columns with bounded defaults.
+// Rows are the union of selected values in numeric OID index order.
+// No columns means no rows or requests. Duplicate selections are ignored.
+// Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
+func (t fakeRefinedTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *FakeRefinedTableWalker {
+	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (fakeRefinedTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "FakeRefinedTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 17),
+	}
+}
+
+// WalkWithOptions is Walk with request sizing and per-call controls.
+// SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
+func (fakeRefinedTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *FakeRefinedTableWalker {
+	seen := make(map[string]bool)
+	var selected []snmp.AnyColumn
+	var roots []snmp.OID
+	for _, c := range cols {
+		switch c.Key() {
+		case FakeRefinedValue.Key():
+		default:
+			w := snmp.WalkColumns(ctx, sess, nil, options)
+			w.Fail(errs.Wrapf(snmp.ErrForeignColumn, "fakeRefinedTable.Walk: column %s", c.OID()))
+			return &FakeRefinedTableWalker{rw: w}
+		}
+		if seen[c.Key()] {
+			continue
+		}
+		seen[c.Key()] = true
+		selected = append(selected, c)
+		roots = append(roots, c.OID())
+	}
+	return &FakeRefinedTableWalker{
+		cols: selected,
+		rw:   snmp.WalkColumns(ctx, sess, roots, options),
+	}
+}
+
 // fAKEMIBOIDDispatch maps column wire keys ([snmp.OID.WireKey]) to their
 // typed AnyColumn for fast
 // lookup during table-walk decoding. Per-MIB-module — no global
@@ -1875,6 +2730,11 @@ func (fakeAugTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opt
 var fAKEMIBOIDDispatch = map[string]snmp.AnyColumn{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 10, 1, 2).WireKey(): FakeOidLabel,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 11, 1, 1).WireKey(): FakeAugExtra,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 12, 1, 1).WireKey(): FakeUnresolvedValue,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 13, 1, 1).WireKey(): FakeKeyAugExtra,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 14, 1, 1).WireKey(): FakeChainExtra,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 16, 1, 1).WireKey(): FakeBareAugExtra,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 17, 1, 2).WireKey(): FakeRefinedValue,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 2).WireKey():  FakeName,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey():  FakeMac,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey():  FakeOctets,
@@ -1907,6 +2767,11 @@ func OIDDispatch() map[string]snmp.AnyColumn {
 var fAKEMIBColumnTiers = map[string]snmp.Tier{
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 10, 1, 2).WireKey(): snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 11, 1, 1).WireKey(): snmp.TierState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 12, 1, 1).WireKey(): snmp.TierState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 13, 1, 1).WireKey(): snmp.TierState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 14, 1, 1).WireKey(): snmp.TierState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 16, 1, 1).WireKey(): snmp.TierState,
+	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 17, 1, 2).WireKey(): snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 2).WireKey():  snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 3).WireKey():  snmp.TierState,
 	snmp.MustOID(1, 3, 6, 1, 4, 1, 99999, 1, 3, 1, 4).WireKey():  snmp.TierCounter,

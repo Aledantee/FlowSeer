@@ -217,8 +217,8 @@ func naturalResolved(ec *emitCtx, nodeName string, t *smi.Type) resolved {
 	// A keyed convention is the row key of its home table, so a column
 	// of that type is a reference and carries the key type. Without the
 	// declaring package the reference degrades to the base type below.
-	if kc, ok := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; ok {
-		if goType := ec.keyTypeRef(t, nodeName); goType != nil {
+	if kc, ok := ec.keyedFor(t); ok {
+		if goType := ec.keyTypeRef(kc.Type, nodeName); goType != nil {
 			return keyedResolved(goType, kc.Base)
 		}
 	}

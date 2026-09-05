@@ -94,6 +94,68 @@ func TestWalk_MalformedSuffixKeepsTheRow(t *testing.T) {
 	}
 }
 
+// TestWalk_RawKeyKeepsTheSuffix walks fakeUnresolvedTable, whose INDEX
+// part nothing declares, so the row carries the raw suffix as Index
+// and nothing decodes it.
+func TestWalk_RawKeyKeepsTheSuffix(t *testing.T) {
+	col := fakemib.FakeUnresolvedValue.OID()
+	sess := scriptedSession{instances: []snmp.VarBind{
+		instance(col, 10, 4, 2),
+		instance(col, 20, 7),
+	}}
+
+	var rows []fakemib.FakeUnresolvedTableRow
+	w := fakemib.FakeUnresolvedTable.Walk(context.Background(), sess, fakemib.FakeUnresolvedValue)
+	for _, row := range w.Iter() {
+		rows = append(rows, row)
+	}
+	if err := w.Err(); err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	want := []struct {
+		index snmp.OID
+		value int32
+	}{
+		{snmp.OID{}.Append(4, 2), 10},
+		{snmp.OID{}.Append(7), 20},
+	}
+	if len(rows) != len(want) {
+		t.Fatalf("got %d rows, want %d", len(rows), len(want))
+	}
+	for i, w := range want {
+		if !rows[i].Index.Equal(w.index) || rows[i].FakeUnresolvedValue != w.value {
+			t.Errorf("row %d = %+v, want index %s value %d", i, rows[i], w.index, w.value)
+		}
+	}
+	if d := fakemib.FakeUnresolvedTable.Descriptor(); d.KeyType != "snmp.OID" {
+		t.Errorf("descriptor key type = %q, want snmp.OID", d.KeyType)
+	}
+}
+
+// TestKeyStructsFollowTheChain pins that a row augmenting an augmenting
+// row, a row augmenting another package's row, and a row augmenting an
+// index-only table are all keyed by the struct at the root of the chain.
+func TestKeyStructsFollowTheChain(t *testing.T) {
+	var (
+		chain fakemib.FakeChainTableRow
+		cross fakemib.FakeKeyAugTableRow
+		bare  fakemib.FakeBareAugTableRow
+	)
+	byRoot := map[fakemib.FakeTableKey]bool{chain.Key: true}
+	byKeys := map[fakekeysmib.FakeKeyTableKey]bool{cross.Key: true}
+	byBare := map[fakemib.FakeBareTableKey]bool{bare.Key: true}
+	if len(byRoot)+len(byKeys)+len(byBare) != 3 {
+		t.Fatalf("map sizes = %d %d %d", len(byRoot), len(byKeys), len(byBare))
+	}
+	if d := fakemib.FakeKeyAugTable.Descriptor(); d.KeyType != "fakekeysmib.FakeKeyTableKey" {
+		t.Errorf("cross-package augmenting descriptor key type = %q", d.KeyType)
+	}
+	var refined fakemib.FakeRefinedTableRow
+	if _, isKey := any(refined.Key.FakeRefinedIndex).(fakekeysmib.FakeKeyIndex); !isKey {
+		t.Errorf("refined index field has type %T, want fakekeysmib.FakeKeyIndex", refined.Key.FakeRefinedIndex)
+	}
+}
+
 // TestWalk_AddressKey pins the IpAddress part: four arcs become a
 // [netip.Addr] the row can be looked up by.
 func TestWalk_AddressKey(t *testing.T) {

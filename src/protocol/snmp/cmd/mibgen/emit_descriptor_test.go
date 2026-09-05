@@ -54,7 +54,10 @@ func TestEmit_HomeTableReturnsDescriptor(t *testing.T) {
 // TestEmit_UnimportedKeyTypeDegradesKeyAndColumn pins the IMPORTS rule on
 // the key struct: a module that names a keyed convention without
 // importing it gets neither the key type in its key struct nor in its
-// column, and the report names both objects.
+// column, and the report names both objects. A table indexed by the
+// home table's own column, imported without the convention, is the
+// other side of the rule: the column import is the edge to the
+// declaring module, so its key field carries the type.
 func TestEmit_UnimportedKeyTypeDegradesKeyAndColumn(t *testing.T) {
 	mibDir, err := filepath.Abs("testdata/mibs")
 	if err != nil {
@@ -87,8 +90,10 @@ func TestEmit_UnimportedKeyTypeDegradesKeyAndColumn(t *testing.T) {
 	wantFragments(t, src,
 		"type FakeNoImportTableKey struct {\n\tFakeNoImportIndex int32\n}",
 		"var FakeNoImportRef = snmp.NewColumn[[]byte]",
+		"type FakeNoImportByKeyTableKey struct {\n\tFakeKeyIndex fakekeysmib.FakeKeyIndex\n}",
+		"FakeKeyIndex: fakekeysmib.FakeKeyIndex(parts[0].Integer)",
 	)
-	rejectFragments(t, src, "fakekeysmib")
+	rejectFragments(t, src, "FakeNoImportIndex fakekeysmib", "NewColumn[fakekeysmib")
 
 	want := map[string]bool{"fakeNoImportIndex": true, "fakeNoImportRef": true}
 	for _, d := range degraded {

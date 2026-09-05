@@ -4,7 +4,7 @@ IMPORTS
         FROM SNMPv2-SMI
     DisplayString, MacAddress, TEXTUAL-CONVENTION
         FROM SNMPv2-TC
-    FakeKeyIndex
+    FakeKeyIndex, fakeKeyEntry
         FROM FAKE-KEYS-MIB;
 
 fakeMIB MODULE-IDENTITY
@@ -183,7 +183,11 @@ fakeStackLastChange OBJECT-TYPE
 
 -- The tables below exist for their INDEX shapes: a two-part key with a
 -- length-prefixed string, an IMPLIED string, an IpAddress, an OBJECT
--- IDENTIFIER, and a row that AUGMENTS fakeEntry.
+-- IDENTIFIER, a row that AUGMENTS fakeEntry, and after those the
+-- shapes the emitter has to fall back or reach through on: an INDEX
+-- part nothing declares, a row augmenting another module's row, a row
+-- augmenting an augmenting row, a row augmenting an index-only table,
+-- and an index column that refines the imported convention.
 
 fakePairTable OBJECT-TYPE
     SYNTAX      SEQUENCE OF FakePairEntry
@@ -354,5 +358,172 @@ fakeAugExtra OBJECT-TYPE
     STATUS      current
     DESCRIPTION "Extra value."
     ::= { fakeAugEntry 1 }
+
+fakeUnresolvedTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeUnresolvedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose INDEX names a column nothing declares."
+    ::= { fakeMIB 12 }
+
+fakeUnresolvedEntry OBJECT-TYPE
+    SYNTAX      FakeUnresolvedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeUnresolvedTable, keyed by the raw suffix
+                 since its INDEX part does not resolve."
+    INDEX { fakeNowhere }
+    ::= { fakeUnresolvedTable 1 }
+
+FakeUnresolvedEntry ::= SEQUENCE {
+    fakeUnresolvedValue Integer32
+}
+
+fakeUnresolvedValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Value."
+    ::= { fakeUnresolvedEntry 1 }
+
+fakeKeyAugTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeKeyAugEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose rows extend fakeKeyTable rows of FAKE-KEYS-MIB."
+    ::= { fakeMIB 13 }
+
+fakeKeyAugEntry OBJECT-TYPE
+    SYNTAX      FakeKeyAugEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeKeyAugTable, keyed like fakeKeyEntry."
+    AUGMENTS { fakeKeyEntry }
+    ::= { fakeKeyAugTable 1 }
+
+FakeKeyAugEntry ::= SEQUENCE {
+    fakeKeyAugExtra Integer32
+}
+
+fakeKeyAugExtra OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Extra value."
+    ::= { fakeKeyAugEntry 1 }
+
+fakeChainTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeChainEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose rows extend fakeAugTable rows, which
+                 themselves extend fakeTable rows."
+    ::= { fakeMIB 14 }
+
+fakeChainEntry OBJECT-TYPE
+    SYNTAX      FakeChainEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeChainTable, keyed like fakeEntry through
+                 fakeAugEntry."
+    AUGMENTS { fakeAugEntry }
+    ::= { fakeChainTable 1 }
+
+FakeChainEntry ::= SEQUENCE {
+    fakeChainExtra  Integer32
+}
+
+fakeChainExtra OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Extra value."
+    ::= { fakeChainEntry 1 }
+
+fakeBareTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeBareEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose only column is its index."
+    ::= { fakeMIB 15 }
+
+fakeBareEntry OBJECT-TYPE
+    SYNTAX      FakeBareEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeBareTable."
+    INDEX { fakeBareIndex }
+    ::= { fakeBareTable 1 }
+
+FakeBareEntry ::= SEQUENCE {
+    fakeBareIndex   Integer32
+}
+
+fakeBareIndex OBJECT-TYPE
+    SYNTAX      Integer32 (1..16)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index."
+    ::= { fakeBareEntry 1 }
+
+fakeBareAugTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeBareAugEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table whose rows extend the index-only fakeBareTable."
+    ::= { fakeMIB 16 }
+
+fakeBareAugEntry OBJECT-TYPE
+    SYNTAX      FakeBareAugEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeBareAugTable, keyed like fakeBareEntry."
+    AUGMENTS { fakeBareEntry }
+    ::= { fakeBareAugTable 1 }
+
+FakeBareAugEntry ::= SEQUENCE {
+    fakeBareAugExtra    Integer32
+}
+
+fakeBareAugExtra OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Extra value."
+    ::= { fakeBareAugEntry 1 }
+
+fakeRefinedTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF FakeRefinedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A table keyed by a refinement of the imported convention."
+    ::= { fakeMIB 17 }
+
+fakeRefinedEntry OBJECT-TYPE
+    SYNTAX      FakeRefinedEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "A row in fakeRefinedTable."
+    INDEX { fakeRefinedIndex }
+    ::= { fakeRefinedTable 1 }
+
+FakeRefinedEntry ::= SEQUENCE {
+    fakeRefinedIndex    FakeKeyIndex,
+    fakeRefinedValue    Integer32
+}
+
+fakeRefinedIndex OBJECT-TYPE
+    SYNTAX      FakeKeyIndex (1..10)
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION "Row index: a fakeKeyTable row, restricted to the first ten."
+    ::= { fakeRefinedEntry 1 }
+
+fakeRefinedValue OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION "Value."
+    ::= { fakeRefinedEntry 2 }
 
 END

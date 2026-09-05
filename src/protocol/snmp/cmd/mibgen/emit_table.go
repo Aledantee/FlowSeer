@@ -79,6 +79,11 @@ func emitTable(f *jen.File, ec *emitCtx, table *smi.Node) {
 		})
 	}
 	if len(cols) == 0 {
+		// An index-only table has no row to walk, but a table that
+		// AUGMENTS it keys its rows by this table's struct, so the
+		// struct is declared all the same.
+		emitTableKey(f, ec, t, tableName)
+
 		return
 	}
 

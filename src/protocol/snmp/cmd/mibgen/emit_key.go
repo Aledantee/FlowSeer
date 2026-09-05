@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/dave/jennifer/jen"
@@ -93,6 +94,13 @@ func conventionKeyBase(t *smi.Type) (keyBase, bool) {
 // keyed elsewhere can tell that it is a reference even when the
 // declaring package is not generated.
 //
+// A convention is keyed by the module that declares it, so the index
+// column has to carry the declared type itself. A column whose SYNTAX
+// refines a convention (`FakeKeyIndex (1..10)`) gets a type of its own
+// that keeps the name and carries the refining module; taking that as a
+// candidate would declare a second key type of the same name in the
+// refining package, with its own home table.
+//
 // When several tables of the module are solely indexed by the same
 // convention, the home table is the one whose index column has the
 // shortest name, then the one with the lowest OID. The table that
@@ -109,7 +117,10 @@ func keyedConventions(set *smi.ModuleSet) map[typeKey]keyedConvention {
 			}
 			ty := t.Index[0].Type
 			base, ok := conventionKeyBase(ty)
-			if !ok || ty.Module != mod.Name {
+			if !ok {
+				continue
+			}
+			if declared, ok := mod.Type(ty.Name); !ok || declared != ty {
 				continue
 			}
 			k := typeKey{Module: ty.Module, Name: ty.Name}
@@ -158,6 +169,32 @@ func keyedResolved(goType *jen.Statement, base keyBase) resolved {
 	default:
 		return enumResolved(goType)
 	}
+}
+
+// keyedFor finds the keyed convention an object of type t refers to,
+// with the declared convention in the result's Type.
+//
+// An object whose SYNTAX names the convention plainly shares the
+// declared type, and the lookup is direct. One that refines it carries a
+// type of its own under the refining module, so the convention is found
+// the way the module's IMPORTS say it should be: the module that the
+// symbol was imported from is the one whose key type the object gets.
+func (ec *emitCtx) keyedFor(t *smi.Type) (keyedConvention, bool) {
+	if t == nil || t.Name == "" {
+		return keyedConvention{}, false
+	}
+	if kc, ok := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; ok {
+		return kc, true
+	}
+	for _, imp := range ec.mod.Imports {
+		if slices.Contains(imp.Symbols, t.Name) {
+			kc, ok := ec.keyed[typeKey{Module: imp.Module, Name: t.Name}]
+
+			return kc, ok
+		}
+	}
+
+	return keyedConvention{}, false
 }
 
 // keyTypeRef returns the Go type expression of the keyed convention t
@@ -222,7 +259,7 @@ func emitKeyTypes(f *jen.File, ec *emitCtx) {
 		f.Comment("HomeTable returns the descriptor of " + home + ", the table a " + goName + " value")
 		f.Comment("identifies a row of.")
 		f.Func().Params(jen.Id(goName)).Id("HomeTable").Params().Qual(snmpImport, "TableDescriptor").Block(
-			jen.Return(homeTableDescriptor(kc.Home, goName)),
+			jen.Return(homeTableDescriptor(kc.Home)),
 		)
 	}
 }
@@ -231,17 +268,17 @@ func emitKeyTypes(f *jen.File, ec *emitCtx) {
 // table is by construction a table of the module declaring the
 // convention (see [keyedConventions]), so its singleton is in the same
 // package and the method forwards to its Descriptor rather than
-// spelling a second literal that could drift from it. A home table the
-// emitter skips, one with no accessible column, has no singleton, and
-// the literal names the convention as the key.
-func homeTableDescriptor(home *smi.Table, keyName string) *jen.Statement {
+// spelling a second literal that could drift from it. A home table with
+// no accessible column has no singleton, and the literal names its key
+// struct, which [emitTableKey] declares for it all the same.
+func homeTableDescriptor(home *smi.Table) *jen.Statement {
 	if tableBound(home) {
 		return jen.Id(camelCase(home.Node.Name)).Dot("Descriptor").Call()
 	}
 
 	return jen.Qual(snmpImport, "TableDescriptor").Values(jen.Dict{
 		jen.Id("Root"):    newOIDCall(home.Node.OID.String()),
-		jen.Id("KeyType"): jen.Lit(keyName),
+		jen.Id("KeyType"): jen.Lit(camelCase(home.Node.Name) + "Key"),
 	})
 }
 
@@ -323,7 +360,14 @@ type keyPart struct {
 // carries no key type and the reference is reported. Unlike the column,
 // which takes the untyped byte fallback, the field keeps the base
 // type, because the shape has to match the suffix arcs for any row's
-// key to decode.
+// key to decode. A part naming a column of another module's table
+// (entPhysicalIndex in ENTITY-SENSOR-MIB) imports the column, not its
+// convention, and that import is the edge to the declaring module; the
+// field gets the key type either way.
+//
+// The suffix shape follows the part's own type, since a refinement can
+// fix the size of an octet string; only the key type comes from the
+// declared convention.
 func (ec *emitCtx) keyPartFor(part smi.IndexPart) keyPart {
 	t := part.Type
 	kp := keyPart{Field: camelCase(part.Name)}
@@ -331,10 +375,10 @@ func (ec *emitCtx) keyPartFor(part smi.IndexPart) keyPart {
 		return jen.Values(jen.Dict{jen.Id("Kind"): jen.Qual(snmpImport, "Index"+kind)})
 	}
 
-	if kc, ok := ec.keyed[typeKey{Module: t.Module, Name: t.Name}]; ok {
-		if !ec.typeAvailable(t) {
-			ec.recordDegraded(part.Name, t.Name, t.Module, degradedNotImported)
-		} else if goType := ec.keyTypeRef(t, part.Name); goType != nil {
+	if kc, ok := ec.keyedFor(t); ok {
+		if !ec.typeAvailable(t) && !ec.visible[part.Name] {
+			ec.recordDegraded(part.Name, t.Name, kc.Type.Module, degradedNotImported)
+		} else if goType := ec.keyTypeRef(kc.Type, part.Name); goType != nil {
 			kp.Type = goType
 			if kc.Base == keyBaseString {
 				kp.Shape = octetShape(t, part.Implied)
@@ -399,11 +443,19 @@ func octetShape(t *smi.Type, implied bool) *jen.Statement {
 // emitTableKey writes the key struct, suffix shapes, and decode helper
 // of one table and returns how its rows are keyed.
 //
-// An augmenting table reuses the augmented table's struct, local or in
-// its configured package, and decodes it with a helper of its own since
-// the parts are the same. A table with an unresolved part, or one
-// augmenting a table whose package is not configured, keeps the raw
+// An augmenting table reuses the struct of the table at the root of its
+// AUGMENTS chain, local or in its configured package, and decodes it
+// with a helper of its own since the parts are the same. The root is
+// the table with the INDEX clause: a row augmenting a row that itself
+// augments another declares no struct, so naming the directly augmented
+// table would name a type nothing emits. A table with an unresolved
+// part, or one whose root's package is not configured, keeps the raw
 // suffix as its key.
+//
+// The struct is declared for every table with a resolved INDEX, bound
+// or not: an index-only table has no row or walker of its own, and an
+// augmenting table still keys its rows by that struct. Only a bound
+// table gets the shapes and decoder, which nothing else calls.
 func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowKey {
 	if len(t.Index) == 0 {
 		return rowKey{}
@@ -414,15 +466,40 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 		}
 	}
 
-	parts := make([]keyPart, 0, len(t.Index))
-	for _, part := range t.Index {
-		parts = append(parts, ec.keyPartFor(part))
+	root := t
+	for root.AugmentsTable != nil {
+		root = root.AugmentsTable
 	}
 
 	keyTypeName := tableName + "Key"
 	key := rowKey{Type: jen.Id(keyTypeName), TypeName: keyTypeName, DecodeFn: "decode" + keyTypeName}
 	switch {
-	case t.AugmentsTable == nil:
+	case root == t:
+		// The table carries the INDEX clause and declares the struct
+		// itself, below.
+	case root.Node.Module == ec.mod.Name:
+		key.TypeName = camelCase(root.Node.Name) + "Key"
+		key.Type = jen.Id(key.TypeName)
+	default:
+		// Decided before the parts are resolved: a row that keeps the
+		// raw suffix makes no reference through the parts it borrowed,
+		// so they must not be reported a second time under the root's
+		// index column.
+		rootName := camelCase(root.Node.Name) + "Key"
+		q := ec.moduleQual(root.Node.Module, rootName)
+		if q == nil {
+			ec.recordDegraded(t.Row.Name, rootName, root.Node.Module, degradedNotConfigured)
+			return rowKey{}
+		}
+		key.Type = q
+		key.TypeName = ec.cfgByName[root.Node.Module].Package + "." + rootName
+	}
+
+	parts := make([]keyPart, 0, len(t.Index))
+	for _, part := range t.Index {
+		parts = append(parts, ec.keyPartFor(part))
+	}
+	if root == t {
 		f.Comment(keyTypeName + " is the decoded INDEX of one " + t.Node.Name + " row, one field per")
 		f.Comment("part in INDEX order. It is comparable and usable as a map key.")
 		f.Type().Id(keyTypeName).StructFunc(func(g *jen.Group) {
@@ -430,18 +507,10 @@ func emitTableKey(f *jen.File, ec *emitCtx, t *smi.Table, tableName string) rowK
 				g.Id(p.Field).Add(p.Type.Clone())
 			}
 		})
-	case t.AugmentsTable.Node.Module == ec.mod.Name:
-		key.TypeName = camelCase(t.AugmentsTable.Node.Name) + "Key"
-		key.Type = jen.Id(key.TypeName)
-	default:
-		augName := camelCase(t.AugmentsTable.Node.Name) + "Key"
-		q := ec.moduleQual(t.AugmentsTable.Node.Module, augName)
-		if q == nil {
-			ec.recordDegraded(t.Row.Name, augName, t.AugmentsTable.Node.Module, degradedNotConfigured)
-			return rowKey{}
-		}
-		key.Type = q
-		key.TypeName = ec.cfgByName[t.AugmentsTable.Node.Module].Package + "." + augName
+	}
+
+	if !tableBound(t) {
+		return key
 	}
 
 	shapesName := unexported(tableName) + "IndexShapes"

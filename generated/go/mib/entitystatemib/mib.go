@@ -15,6 +15,7 @@ import (
 	"iter"
 	"time"
 
+	entitymib "go.aledante.io/FlowSeer/generated/go/mib/entitymib"
 	errs "go.aledante.io/FlowSeer/src/common/errs"
 	snmp "go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -323,7 +324,7 @@ var EntStateStandby = snmp.NewColumn[EntityStandbyStatus](snmp.MustOID(1, 3, 6, 
 // EntStateTableKey is the decoded INDEX of one entStateTable row, one field per
 // part in INDEX order. It is comparable and usable as a map key.
 type EntStateTableKey struct {
-	EntPhysicalIndex int32
+	EntPhysicalIndex entitymib.PhysicalIndex
 }
 
 var entStateTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
@@ -335,7 +336,7 @@ func decodeEntStateTableKey(idx snmp.OID) (EntStateTableKey, bool) {
 	if !snmp.DecodeIndexInto(parts[:], idx, entStateTableIndexShapes) {
 		return EntStateTableKey{}, false
 	}
-	return EntStateTableKey{EntPhysicalIndex: int32(parts[0].Integer)}, true
+	return EntStateTableKey{EntPhysicalIndex: entitymib.PhysicalIndex(parts[0].Integer)}, true
 }
 
 // EntStateTableRow is one row of entStateTable. Key is the decoded INDEX; a
