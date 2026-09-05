@@ -2,14 +2,16 @@
 title: mibgen Key Resolution and Device Identity - Plan
 type: feat
 date: 2026-09-05
-topic: mibgen-key-resolution-and-identity
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
+status: implemented
 execution: code
 ---
 
 # mibgen Key Resolution and Device Identity - Plan
+
+> Implemented. Key resolution, per-table descriptors, and the sysObjectID
+> identity package live in `src/protocol/snmp/cmd/mibgen`.
 
 ## Goal Capsule
 

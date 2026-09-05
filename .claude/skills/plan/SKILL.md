@@ -71,10 +71,18 @@ type: <type>
 date: <YYYY-MM-DD>
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready | needs-decisions
+status: planned
 execution: code | docs | mixed
 amends: <path of the plan or direction record this one changes, if any>
+superseded_by: <path of the replacing plan; only with status superseded>
 ---
 ```
+
+`status` records the outcome so a reader can filter plans without opening
+them: `planned` until the work lands, then `implemented`,
+`partially-implemented`, `superseded`, or `abandoned`. A new plan is always
+`planned`. `artifact_readiness` stays as written because it describes the
+plan's completeness, not its progress.
 
 Body, in this order. Leave out a section that has nothing to say rather than
 filling it.
@@ -109,8 +117,8 @@ The commands that prove the whole change, and any manual or lab check.
 
 ## Definition of done
 Checklist. Includes: verifier green for every changed path, package README
-and convention docs updated in the same change, and the `> Implemented.`
-outcome note added under this plan's title (see `docs/README.md`).
+and convention docs updated in the same change, and this plan's `status`
+set with an outcome note under its title (see `docs/README.md`).
 
 ## Open questions
 Things the implementer must decide or ask. Empty is a valid answer.

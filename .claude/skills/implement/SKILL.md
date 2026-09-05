@@ -14,10 +14,10 @@ description: Implement a FlowSeer plan from docs/plans/ or a concrete, already-d
 ## 1. Orient
 
 Read the plan's Goal, Decisions, and Units. Skip the rest until a unit cites
-it. Check the plan's outcome note and the current tree: a plan may be partly
-landed already, and the tree wins over the plan when they disagree about what
-exists. Record such a mismatch in the plan's Open questions before touching
-code.
+it. Check the plan's `status`, its outcome note, and the current tree: a
+plan may be partly landed already, and the tree wins over the plan when they
+disagree about what exists. Record such a mismatch in the plan's Open
+questions before touching code.
 
 Read the `docs/architecture/` record for the area and the `CONCEPTS.md`
 entries the plan uses, so that names and boundaries in the code match the
@@ -81,8 +81,12 @@ point (`--base master`, or `--base HEAD` for uncommitted work):
 .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
 ```
 
-Add `> Implemented.` under the plan's title when every unit landed. If some
-did not, add `> Partially implemented: <units>.` and say why.
+Record the outcome in the plan. Set `status: implemented` in its frontmatter
+and add `> Implemented.` under its title when every unit landed. If some did
+not, set `status: partially-implemented` and add
+`> Partially implemented: <units>.` with the reason. A plan left at
+`status: planned` after its code merged reads as pending work to the next
+session, so do this in the same commit as the last unit.
 
 Read the final diff against the plan's Definition of done and against
 `docs/code-style.md`, Rules for coding agents. Remove process narration,

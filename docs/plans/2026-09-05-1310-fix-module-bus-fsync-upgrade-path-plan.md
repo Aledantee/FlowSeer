@@ -4,7 +4,9 @@ type: fix
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: mixed
+amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 ---
 
 # Module Bus Fsync Upgrade Path - Plan

@@ -4,6 +4,7 @@ type: feat
 date: 2026-08-20
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: partially-implemented
 execution: code
 ---
 

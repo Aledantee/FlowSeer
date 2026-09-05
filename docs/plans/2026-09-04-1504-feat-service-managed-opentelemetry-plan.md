@@ -4,10 +4,15 @@ type: feat
 date: 2026-09-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: code
 ---
 
 # Service-Managed OpenTelemetry - Plan
+
+> Implemented. The telemetry code lives in `src/common/service` (`telemetry_*.go`);
+> the pinned Collector suite runs through the verifier tier described in
+> `.claude/skills/verify-change/scripts/verify-change.sh`.
 
 ## Goal Capsule
 
