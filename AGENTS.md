@@ -60,6 +60,12 @@ no remote. The Claude worktree hook defaults to the sibling
   output, and keep small sequential work in the main conversation.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
+- FlowSeer is still building its building blocks and nothing external consumes
+  them. Make a breaking change whenever it improves the overall design, in
+  schemas, Go APIs, and service contracts alike. Do not add a compatibility
+  shim, guard, or deprecation path to preserve a landed shape, and do not raise
+  "this breaks the wire" as a blocker; state it as a fact in the plan. This
+  holds until the first stable release is declared here.
 
 ## Work sequence
 
