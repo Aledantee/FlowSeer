@@ -256,6 +256,21 @@ func (v IfTestStatusValue) String() string {
 	return fmt.Sprintf("IfTestStatusValue(%d)", v)
 }
 
+// InterfaceIndex is the textual convention InterfaceIndex. A value identifies one row of
+// ifTable, and a column of this type in any table refers to that row.
+// A unique value, greater than zero, for each interface or interface
+// sub-layer in the managed system. It is recommended that values are
+// assigned contiguously starting from 1. The value for each interface
+// sub-layer must remain constant at least from one re-initialization of
+// the entity's network management system to the next re-initialization.
+type InterfaceIndex int32
+
+// HomeTable returns the descriptor of ifTable, the table a InterfaceIndex value
+// identifies a row of.
+func (InterfaceIndex) HomeTable() snmp.TableDescriptor {
+	return IfTable.Descriptor()
+}
+
 // IfNumberGet reads the SMIv2 scalar ifNumber.
 // It returns the session or decode error, or an error if the response is empty.
 //
@@ -328,8 +343,12 @@ func IfStackLastChangeGet(ctx context.Context, sess snmp.Session) (uint32, error
 // each interface sub-layer must remain constant at least from one
 // re-initialization of the entity's network management system to the next
 // re- initialization.
-var IfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
-	return snmp.DecodeInt32(vb)
+var IfIndex = snmp.NewColumn[InterfaceIndex](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 1), snmp.KindInteger32, func(vb snmp.VarBind) (InterfaceIndex, error) {
+	v, err := snmp.DecodeInt32(vb)
+	if err != nil {
+		return InterfaceIndex(0), err
+	}
+	return InterfaceIndex(v), nil
 })
 
 // IfDescr is the column ifDescr of table ifTable.
@@ -572,16 +591,36 @@ var IfSpecific = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1
 	return snmp.DecodeOID(vb)
 })
 
-// IfTableRow is one row of ifTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// IfTableKey is the decoded INDEX of one ifTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type IfTableKey struct {
+	IfIndex InterfaceIndex
+}
+
+var ifTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeIfTableKey decodes the instance suffix of one ifTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeIfTableKey(idx snmp.OID) (IfTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, ifTableIndexShapes)
+	if !ok {
+		return IfTableKey{}, false
+	}
+	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
+}
+
+// IfTableRow is one row of ifTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [IfTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [IfTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type IfTableRow struct {
-	Index             snmp.OID
-	IfIndex           int32
+	Key               IfTableKey
+	keyValid          bool
+	IfIndex           InterfaceIndex
 	IfDescr           string
 	IfType            ianaiftype.IANAifType
 	IfMtu             int32
@@ -608,6 +647,13 @@ type IfTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r IfTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -677,17 +723,20 @@ type IfTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *IfTableWalker) Iter() iter.Seq2[snmp.OID, IfTableRow] {
 	return func(yield func(snmp.OID, IfTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := IfTableRow{Index: idx}
+			var row IfTableRow
+			row.Key, row.keyValid = decodeIfTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
 				switch tw.cols[cell.Column].Key() {
 				case IfIndex.Key():
 					if v, okRaw := snmp.RawInteger32(rv); okRaw {
-						row.IfIndex = int32(v)
+						row.IfIndex = InterfaceIndex(v)
 						row.observed[0] |= 1 << 0
 					} else {
 						vb, vbErr := rv.Decode()
@@ -1104,6 +1153,18 @@ func (t ifTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyC
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (ifTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: IfTableIndicator,
+		KeyType:   "IfTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 2, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (ifTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfTableWalker {
@@ -1137,7 +1198,7 @@ func (ifTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options 
 // ignored. Absent columns leave their field at its zero value.
 func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 	var row IfTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeIfTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -1315,7 +1376,7 @@ func decodeIfTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfTableRow, error) {
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIfTableRow(a IfTableRow, b IfTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMtu == b.IfMtu && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IfIndex == b.IfIndex && a.IfDescr == b.IfDescr && a.IfType == b.IfType && a.IfMtu == b.IfMtu && a.IfSpeed == b.IfSpeed && bytes.Equal(a.IfPhysAddress, b.IfPhysAddress) && a.IfAdminStatus == b.IfAdminStatus && a.IfOperStatus == b.IfOperStatus && a.IfLastChange == b.IfLastChange && a.IfInOctets == b.IfInOctets && a.IfInUcastPkts == b.IfInUcastPkts && a.IfInNUcastPkts == b.IfInNUcastPkts && a.IfInDiscards == b.IfInDiscards && a.IfInErrors == b.IfInErrors && a.IfInUnknownProtos == b.IfInUnknownProtos && a.IfOutOctets == b.IfOutOctets && a.IfOutUcastPkts == b.IfOutUcastPkts && a.IfOutNUcastPkts == b.IfOutNUcastPkts && a.IfOutDiscards == b.IfOutDiscards && a.IfOutErrors == b.IfOutErrors && a.IfOutQLen == b.IfOutQLen && a.IfSpecific.Equal(b.IfSpecific)
 }
 
 // mergeIfTableRow merges the values decoded from vbs into dst, leaving fields
@@ -1777,16 +1838,29 @@ var IfAlias = snmp.NewColumn[string](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1,
 var IfCounterDiscontinuityTime = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1, 1, 19), snmp.KindTimeTicks, func(vb snmp.VarBind) (uint32, error) {
 	return snmp.DecodeUint32(vb)
 })
+var ifXTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// IfXTableRow is one row of ifXTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// decodeIfXTableKey decodes the instance suffix of one ifXTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeIfXTableKey(idx snmp.OID) (IfTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, ifXTableIndexShapes)
+	if !ok {
+		return IfTableKey{}, false
+	}
+	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
+}
+
+// IfXTableRow is one row of ifXTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [IfXTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [IfXTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type IfXTableRow struct {
-	Index                      snmp.OID
+	Key                        IfTableKey
+	keyValid                   bool
 	IfName                     string
 	IfInMulticastPkts          uint32
 	IfInBroadcastPkts          uint32
@@ -1811,6 +1885,13 @@ type IfXTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r IfXTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1874,10 +1955,13 @@ type IfXTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *IfXTableWalker) Iter() iter.Seq2[snmp.OID, IfXTableRow] {
 	return func(yield func(snmp.OID, IfXTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := IfXTableRow{Index: idx}
+			var row IfXTableRow
+			row.Key, row.keyValid = decodeIfXTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2242,6 +2326,17 @@ func (t ifXTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.Any
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (ifXTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "IfTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (ifXTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfXTableWalker {
@@ -2280,21 +2375,49 @@ var IfStackStatus = snmp.NewColumn[snmp.RowStatus](snmp.MustOID(1, 3, 6, 1, 2, 1
 	return snmp.DecodeRowStatus(vb)
 })
 
-// IfStackTableRow is one row of ifStackTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// IfStackTableKey is the decoded INDEX of one ifStackTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type IfStackTableKey struct {
+	IfStackHigherLayer int32
+	IfStackLowerLayer  int32
+}
+
+var ifStackTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeIfStackTableKey decodes the instance suffix of one ifStackTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeIfStackTableKey(idx snmp.OID) (IfStackTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, ifStackTableIndexShapes)
+	if !ok {
+		return IfStackTableKey{}, false
+	}
+	return IfStackTableKey{IfStackHigherLayer: int32(parts[0].Integer), IfStackLowerLayer: int32(parts[1].Integer)}, true
+}
+
+// IfStackTableRow is one row of ifStackTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [IfStackTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [IfStackTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type IfStackTableRow struct {
-	Index         snmp.OID
+	Key           IfStackTableKey
+	keyValid      bool
 	IfStackStatus snmp.RowStatus
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r IfStackTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2322,10 +2445,13 @@ type IfStackTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *IfStackTableWalker) Iter() iter.Seq2[snmp.OID, IfStackTableRow] {
 	return func(yield func(snmp.OID, IfStackTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := IfStackTableRow{Index: idx}
+			var row IfStackTableRow
+			row.Key, row.keyValid = decodeIfStackTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2381,6 +2507,18 @@ func (t ifStackTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (ifStackTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: IfStackTableIndicator,
+		KeyType:   "IfStackTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (ifStackTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfStackTableWalker {
@@ -2414,7 +2552,7 @@ func (ifStackTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, opt
 // ignored. Absent columns leave their field at its zero value.
 func decodeIfStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfStackTableRow, error) {
 	var row IfStackTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeIfStackTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -2445,7 +2583,7 @@ func decodeIfStackTableRow(idx snmp.OID, vbs []snmp.VarBind) (IfStackTableRow, e
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalIfStackTableRow(a IfStackTableRow, b IfStackTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.IfStackStatus == b.IfStackStatus
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.IfStackStatus == b.IfStackStatus
 }
 
 // mergeIfStackTableRow merges the values decoded from vbs into dst, leaving fields
@@ -2621,16 +2759,29 @@ var IfTestCode = snmp.NewColumn[snmp.OID](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 
 var IfTestOwner = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3, 1, 6), snmp.KindOctetString, func(vb snmp.VarBind) ([]byte, error) {
 	return snmp.DecodeBytes(vb)
 })
+var ifTestTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// IfTestTableRow is one row of ifTestTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// decodeIfTestTableKey decodes the instance suffix of one ifTestTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeIfTestTableKey(idx snmp.OID) (IfTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, ifTestTableIndexShapes)
+	if !ok {
+		return IfTableKey{}, false
+	}
+	return IfTableKey{IfIndex: InterfaceIndex(parts[0].Integer)}, true
+}
+
+// IfTestTableRow is one row of ifTestTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [IfTestTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [IfTestTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type IfTestTableRow struct {
-	Index        snmp.OID
+	Key          IfTableKey
+	keyValid     bool
 	IfTestId     uint32
 	IfTestStatus IfTestStatusValue
 	IfTestType   snmp.OID
@@ -2642,6 +2793,13 @@ type IfTestTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r IfTestTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2679,10 +2837,13 @@ type IfTestTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *IfTestTableWalker) Iter() iter.Seq2[snmp.OID, IfTestTableRow] {
 	return func(yield func(snmp.OID, IfTestTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := IfTestTableRow{Index: idx}
+			var row IfTestTableRow
+			row.Key, row.keyValid = decodeIfTestTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2818,6 +2979,17 @@ func (t ifTestTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (ifTestTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "IfTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (ifTestTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *IfTestTableWalker {
@@ -2867,15 +3039,36 @@ var IfRcvAddressType = snmp.NewColumn[IfRcvAddressTypeValue](snmp.MustOID(1, 3, 
 	return IfRcvAddressTypeValue(v), nil
 })
 
-// IfRcvAddressTableRow is one row of ifRcvAddressTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// IfRcvAddressTableKey is the decoded INDEX of one ifRcvAddressTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type IfRcvAddressTableKey struct {
+	IfIndex             InterfaceIndex
+	IfRcvAddressAddress string
+}
+
+var ifRcvAddressTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexLengthPrefixedOctets}}
+
+// decodeIfRcvAddressTableKey decodes the instance suffix of one ifRcvAddressTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeIfRcvAddressTableKey(idx snmp.OID) (IfRcvAddressTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, ifRcvAddressTableIndexShapes)
+	if !ok {
+		return IfRcvAddressTableKey{}, false
+	}
+	return IfRcvAddressTableKey{IfIndex: InterfaceIndex(parts[0].Integer), IfRcvAddressAddress: string(parts[1].Octets)}, true
+}
+
+// IfRcvAddressTableRow is one row of ifRcvAddressTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [IfRcvAddressTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [IfRcvAddressTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type IfRcvAddressTableRow struct {
-	Index              snmp.OID
+	Key                IfRcvAddressTableKey
+	keyValid           bool
 	IfRcvAddressStatus snmp.RowStatus
 	IfRcvAddressType   IfRcvAddressTypeValue
 
@@ -2883,6 +3076,13 @@ type IfRcvAddressTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r IfRcvAddressTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2912,10 +3112,13 @@ type IfRcvAddressTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *IfRcvAddressTableWalker) Iter() iter.Seq2[snmp.OID, IfRcvAddressTableRow] {
 	return func(yield func(snmp.OID, IfRcvAddressTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := IfRcvAddressTableRow{Index: idx}
+			var row IfRcvAddressTableRow
+			row.Key, row.keyValid = decodeIfRcvAddressTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2987,6 +3190,17 @@ func (tw *IfRcvAddressTableWalker) Close() {
 // Unknown or foreign columns fail before I/O with [snmp.ErrForeignColumn].
 func (t ifRcvAddressTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.AnyColumn) *IfRcvAddressTableWalker {
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
+}
+
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (ifRcvAddressTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "IfRcvAddressTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 31, 1, 4),
+	}
 }
 
 // WalkWithOptions is Walk with request sizing and per-call controls.

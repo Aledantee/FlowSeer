@@ -7,6 +7,9 @@ search_paths:
   - spec/mib/ietf
   - spec/mib/ieee
   - spec/mib/mikrotik
+  # Vendor product trees, listed for the sysobjectid identity table.
+  - spec/mib/ruckus/icx
+  - spec/mib/hp/hh3c
 
 modules:
   - name: SNMPv2-SMI
@@ -52,3 +55,15 @@ modules:
   # across the combined search_paths regardless of listing order, so no
   # depends_on edge is needed.
   - { name: MIKROTIK-MIB,      package: mikrotik }
+  # Identity only: the three modules below declare product naming nodes
+  # and no tables, so their packages are near-empty and their whole value
+  # is the entries they add to the sysobjectid table.
+  #
+  # FOUNDRY-SN-ROOT-MIB carries the Ruckus ICX (ex-Brocade, ex-Foundry)
+  # product families and models under enterprises 1991.
+  - { name: FOUNDRY-SN-ROOT-MIB, package: foundrysnroot }
+  # HH3C-OID-MIB carries the Comware enterprise and product-family roots
+  # (enterprises 25506) that HH3C-PRODUCT-ID-MIB hangs its models off;
+  # without it those parents are absent from the identity table.
+  - { name: HH3C-OID-MIB,        package: hh3coid }
+  - { name: HH3C-PRODUCT-ID-MIB, package: hh3cproductid }

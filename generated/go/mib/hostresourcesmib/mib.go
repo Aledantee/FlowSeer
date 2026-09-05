@@ -612,15 +612,35 @@ var HrStorageAllocationFailures = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeUint32(vb)
 })
 
-// HrStorageTableRow is one row of hrStorageTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrStorageTableKey is the decoded INDEX of one hrStorageTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrStorageTableKey struct {
+	HrStorageIndex int32
+}
+
+var hrStorageTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrStorageTableKey decodes the instance suffix of one hrStorageTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrStorageTableKey(idx snmp.OID) (HrStorageTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrStorageTableIndexShapes)
+	if !ok {
+		return HrStorageTableKey{}, false
+	}
+	return HrStorageTableKey{HrStorageIndex: int32(parts[0].Integer)}, true
+}
+
+// HrStorageTableRow is one row of hrStorageTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrStorageTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrStorageTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrStorageTableRow struct {
-	Index                       snmp.OID
+	Key                         HrStorageTableKey
+	keyValid                    bool
 	HrStorageIndex              int32
 	HrStorageType               snmp.OID
 	HrStorageDescr              string
@@ -633,6 +653,13 @@ type HrStorageTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrStorageTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -672,10 +699,13 @@ type HrStorageTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrStorageTableRow] {
 	return func(yield func(snmp.OID, HrStorageTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrStorageTableRow{Index: idx}
+			var row HrStorageTableRow
+			row.Key, row.keyValid = decodeHrStorageTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -834,6 +864,17 @@ func (t hrStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrStorageTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrStorageTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 2, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrStorageTableWalker {
@@ -926,15 +967,35 @@ var HrDeviceErrors = snmp.NewColumn[uint32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 	return snmp.DecodeUint32(vb)
 })
 
-// HrDeviceTableRow is one row of hrDeviceTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrDeviceTableKey is the decoded INDEX of one hrDeviceTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrDeviceTableKey struct {
+	HrDeviceIndex int32
+}
+
+var hrDeviceTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrDeviceTableKey decodes the instance suffix of one hrDeviceTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrDeviceTableKey(idx snmp.OID) (HrDeviceTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrDeviceTableIndexShapes)
+	if !ok {
+		return HrDeviceTableKey{}, false
+	}
+	return HrDeviceTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
+}
+
+// HrDeviceTableRow is one row of hrDeviceTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrDeviceTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrDeviceTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrDeviceTableRow struct {
-	Index          snmp.OID
+	Key            HrDeviceTableKey
+	keyValid       bool
 	HrDeviceIndex  int32
 	HrDeviceType   snmp.OID
 	HrDeviceDescr  string
@@ -946,6 +1007,13 @@ type HrDeviceTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrDeviceTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -983,10 +1051,13 @@ type HrDeviceTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrDeviceTableWalker) Iter() iter.Seq2[snmp.OID, HrDeviceTableRow] {
 	return func(yield func(snmp.OID, HrDeviceTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrDeviceTableRow{Index: idx}
+			var row HrDeviceTableRow
+			row.Key, row.keyValid = decodeHrDeviceTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1122,6 +1193,17 @@ func (t hrDeviceTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snm
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrDeviceTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrDeviceTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrDeviceTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDeviceTableWalker {
@@ -1163,15 +1245,35 @@ var HrProcessorLoad = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3
 	return snmp.DecodeInt32(vb)
 })
 
-// HrProcessorTableRow is one row of hrProcessorTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrProcessorTableKey is the decoded INDEX of one hrProcessorTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrProcessorTableKey struct {
+	HrDeviceIndex int32
+}
+
+var hrProcessorTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrProcessorTableKey decodes the instance suffix of one hrProcessorTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrProcessorTableKey(idx snmp.OID) (HrProcessorTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrProcessorTableIndexShapes)
+	if !ok {
+		return HrProcessorTableKey{}, false
+	}
+	return HrProcessorTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
+}
+
+// HrProcessorTableRow is one row of hrProcessorTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrProcessorTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrProcessorTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrProcessorTableRow struct {
-	Index            snmp.OID
+	Key              HrProcessorTableKey
+	keyValid         bool
 	HrProcessorFrwID snmp.OID
 	HrProcessorLoad  int32
 
@@ -1179,6 +1281,13 @@ type HrProcessorTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrProcessorTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1208,10 +1317,13 @@ type HrProcessorTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrProcessorTableWalker) Iter() iter.Seq2[snmp.OID, HrProcessorTableRow] {
 	return func(yield func(snmp.OID, HrProcessorTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrProcessorTableRow{Index: idx}
+			var row HrProcessorTableRow
+			row.Key, row.keyValid = decodeHrProcessorTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1285,6 +1397,17 @@ func (t hrProcessorTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrProcessorTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrProcessorTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrProcessorTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrProcessorTableWalker {
@@ -1319,21 +1442,48 @@ var HrNetworkIfIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 
 	return snmp.DecodeInt32(vb)
 })
 
-// HrNetworkTableRow is one row of hrNetworkTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrNetworkTableKey is the decoded INDEX of one hrNetworkTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrNetworkTableKey struct {
+	HrDeviceIndex int32
+}
+
+var hrNetworkTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrNetworkTableKey decodes the instance suffix of one hrNetworkTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrNetworkTableKey(idx snmp.OID) (HrNetworkTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrNetworkTableIndexShapes)
+	if !ok {
+		return HrNetworkTableKey{}, false
+	}
+	return HrNetworkTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
+}
+
+// HrNetworkTableRow is one row of hrNetworkTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrNetworkTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrNetworkTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrNetworkTableRow struct {
-	Index            snmp.OID
+	Key              HrNetworkTableKey
+	keyValid         bool
 	HrNetworkIfIndex int32
 
 	// observed carries one bit per column of this table, in
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrNetworkTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1361,10 +1511,13 @@ type HrNetworkTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrNetworkTableWalker) Iter() iter.Seq2[snmp.OID, HrNetworkTableRow] {
 	return func(yield func(snmp.OID, HrNetworkTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrNetworkTableRow{Index: idx}
+			var row HrNetworkTableRow
+			row.Key, row.keyValid = decodeHrNetworkTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1425,6 +1578,17 @@ func (t hrNetworkTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrNetworkTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrNetworkTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 4),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrNetworkTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrNetworkTableWalker {
@@ -1480,15 +1644,35 @@ var HrPrinterDetectedErrorState = snmp.NewColumn[[]byte](snmp.MustOID(1, 3, 6, 1
 	return snmp.DecodeBytes(vb)
 })
 
-// HrPrinterTableRow is one row of hrPrinterTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrPrinterTableKey is the decoded INDEX of one hrPrinterTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrPrinterTableKey struct {
+	HrDeviceIndex int32
+}
+
+var hrPrinterTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrPrinterTableKey decodes the instance suffix of one hrPrinterTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrPrinterTableKey(idx snmp.OID) (HrPrinterTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrPrinterTableIndexShapes)
+	if !ok {
+		return HrPrinterTableKey{}, false
+	}
+	return HrPrinterTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
+}
+
+// HrPrinterTableRow is one row of hrPrinterTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrPrinterTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrPrinterTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrPrinterTableRow struct {
-	Index                       snmp.OID
+	Key                         HrPrinterTableKey
+	keyValid                    bool
 	HrPrinterStatus             HrPrinterStatusValue
 	HrPrinterDetectedErrorState []byte
 
@@ -1496,6 +1680,13 @@ type HrPrinterTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrPrinterTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1525,10 +1716,13 @@ type HrPrinterTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrPrinterTableWalker) Iter() iter.Seq2[snmp.OID, HrPrinterTableRow] {
 	return func(yield func(snmp.OID, HrPrinterTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrPrinterTableRow{Index: idx}
+			var row HrPrinterTableRow
+			row.Key, row.keyValid = decodeHrPrinterTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1602,6 +1796,17 @@ func (t hrPrinterTableT) Walk(ctx context.Context, sess snmp.Session, cols ...sn
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrPrinterTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrPrinterTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 5),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrPrinterTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPrinterTableWalker {
@@ -1665,15 +1870,35 @@ var HrDiskStorageCapacity = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1,
 	return snmp.DecodeInt32(vb)
 })
 
-// HrDiskStorageTableRow is one row of hrDiskStorageTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrDiskStorageTableKey is the decoded INDEX of one hrDiskStorageTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrDiskStorageTableKey struct {
+	HrDeviceIndex int32
+}
+
+var hrDiskStorageTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrDiskStorageTableKey decodes the instance suffix of one hrDiskStorageTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrDiskStorageTableKey(idx snmp.OID) (HrDiskStorageTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrDiskStorageTableIndexShapes)
+	if !ok {
+		return HrDiskStorageTableKey{}, false
+	}
+	return HrDiskStorageTableKey{HrDeviceIndex: int32(parts[0].Integer)}, true
+}
+
+// HrDiskStorageTableRow is one row of hrDiskStorageTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrDiskStorageTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrDiskStorageTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrDiskStorageTableRow struct {
-	Index                  snmp.OID
+	Key                    HrDiskStorageTableKey
+	keyValid               bool
 	HrDiskStorageAccess    HrDiskStorageAccessValue
 	HrDiskStorageMedia     HrDiskStorageMediaValue
 	HrDiskStorageRemoveble bool
@@ -1683,6 +1908,13 @@ type HrDiskStorageTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrDiskStorageTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1716,10 +1948,13 @@ type HrDiskStorageTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrDiskStorageTableWalker) Iter() iter.Seq2[snmp.OID, HrDiskStorageTableRow] {
 	return func(yield func(snmp.OID, HrDiskStorageTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrDiskStorageTableRow{Index: idx}
+			var row HrDiskStorageTableRow
+			row.Key, row.keyValid = decodeHrDiskStorageTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -1829,6 +2064,17 @@ func (t hrDiskStorageTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrDiskStorageTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrDiskStorageTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 6),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrDiskStorageTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrDiskStorageTableWalker {
@@ -1894,15 +2140,36 @@ var HrPartitionFSIndex = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25
 	return snmp.DecodeInt32(vb)
 })
 
-// HrPartitionTableRow is one row of hrPartitionTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrPartitionTableKey is the decoded INDEX of one hrPartitionTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrPartitionTableKey struct {
+	HrDeviceIndex    int32
+	HrPartitionIndex int32
+}
+
+var hrPartitionTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}, {Kind: snmp.IndexInteger}}
+
+// decodeHrPartitionTableKey decodes the instance suffix of one hrPartitionTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrPartitionTableKey(idx snmp.OID) (HrPartitionTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrPartitionTableIndexShapes)
+	if !ok {
+		return HrPartitionTableKey{}, false
+	}
+	return HrPartitionTableKey{HrDeviceIndex: int32(parts[0].Integer), HrPartitionIndex: int32(parts[1].Integer)}, true
+}
+
+// HrPartitionTableRow is one row of hrPartitionTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrPartitionTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrPartitionTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrPartitionTableRow struct {
-	Index              snmp.OID
+	Key                HrPartitionTableKey
+	keyValid           bool
 	HrPartitionIndex   int32
 	HrPartitionLabel   []byte
 	HrPartitionID      []byte
@@ -1913,6 +2180,13 @@ type HrPartitionTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrPartitionTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -1948,10 +2222,13 @@ type HrPartitionTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrPartitionTableWalker) Iter() iter.Seq2[snmp.OID, HrPartitionTableRow] {
 	return func(yield func(snmp.OID, HrPartitionTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrPartitionTableRow{Index: idx}
+			var row HrPartitionTableRow
+			row.Key, row.keyValid = decodeHrPartitionTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2074,6 +2351,17 @@ func (t hrPartitionTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrPartitionTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrPartitionTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 7),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrPartitionTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrPartitionTableWalker {
@@ -2180,15 +2468,35 @@ var HrFSLastPartialBackupDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 
 	return snmp.DecodeDateAndTime(vb)
 })
 
-// HrFSTableRow is one row of hrFSTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrFSTableKey is the decoded INDEX of one hrFSTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrFSTableKey struct {
+	HrFSIndex int32
+}
+
+var hrFSTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrFSTableKey decodes the instance suffix of one hrFSTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrFSTableKey(idx snmp.OID) (HrFSTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrFSTableIndexShapes)
+	if !ok {
+		return HrFSTableKey{}, false
+	}
+	return HrFSTableKey{HrFSIndex: int32(parts[0].Integer)}, true
+}
+
+// HrFSTableRow is one row of hrFSTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrFSTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrFSTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrFSTableRow struct {
-	Index                     snmp.OID
+	Key                       HrFSTableKey
+	keyValid                  bool
 	HrFSIndex                 int32
 	HrFSMountPoint            []byte
 	HrFSRemoteMountPoint      []byte
@@ -2203,6 +2511,13 @@ type HrFSTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrFSTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2246,10 +2561,13 @@ type HrFSTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrFSTableWalker) Iter() iter.Seq2[snmp.OID, HrFSTableRow] {
 	return func(yield func(snmp.OID, HrFSTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrFSTableRow{Index: idx}
+			var row HrFSTableRow
+			row.Key, row.keyValid = decodeHrFSTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2424,6 +2742,17 @@ func (t hrFSTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp.An
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrFSTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrFSTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 3, 8),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrFSTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrFSTableWalker {
@@ -2510,15 +2839,35 @@ var HrSWRunStatus = snmp.NewColumn[HrSWRunStatusValue](snmp.MustOID(1, 3, 6, 1, 
 	return HrSWRunStatusValue(v), nil
 })
 
-// HrSWRunTableRow is one row of hrSWRunTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrSWRunTableKey is the decoded INDEX of one hrSWRunTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrSWRunTableKey struct {
+	HrSWRunIndex int32
+}
+
+var hrSWRunTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrSWRunTableKey decodes the instance suffix of one hrSWRunTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrSWRunTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrSWRunTableIndexShapes)
+	if !ok {
+		return HrSWRunTableKey{}, false
+	}
+	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
+}
+
+// HrSWRunTableRow is one row of hrSWRunTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrSWRunTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrSWRunTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrSWRunTableRow struct {
-	Index             snmp.OID
+	Key               HrSWRunTableKey
+	keyValid          bool
 	HrSWRunIndex      int32
 	HrSWRunName       []byte
 	HrSWRunID         snmp.OID
@@ -2531,6 +2880,13 @@ type HrSWRunTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrSWRunTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2570,10 +2926,13 @@ type HrSWRunTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrSWRunTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunTableRow] {
 	return func(yield func(snmp.OID, HrSWRunTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrSWRunTableRow{Index: idx}
+			var row HrSWRunTableRow
+			row.Key, row.keyValid = decodeHrSWRunTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2722,6 +3081,17 @@ func (t hrSWRunTableT) Walk(ctx context.Context, sess snmp.Session, cols ...snmp
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrSWRunTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrSWRunTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 4, 2),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrSWRunTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunTableWalker {
@@ -2763,16 +3133,29 @@ var HrSWRunPerfCPU = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5,
 var HrSWRunPerfMem = snmp.NewColumn[int32](snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1, 1, 2), snmp.KindInteger32, func(vb snmp.VarBind) (int32, error) {
 	return snmp.DecodeInt32(vb)
 })
+var hrSWRunPerfTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
 
-// HrSWRunPerfTableRow is one row of hrSWRunPerfTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// decodeHrSWRunPerfTableKey decodes the instance suffix of one hrSWRunPerfTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrSWRunPerfTableKey(idx snmp.OID) (HrSWRunTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrSWRunPerfTableIndexShapes)
+	if !ok {
+		return HrSWRunTableKey{}, false
+	}
+	return HrSWRunTableKey{HrSWRunIndex: int32(parts[0].Integer)}, true
+}
+
+// HrSWRunPerfTableRow is one row of hrSWRunPerfTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrSWRunPerfTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrSWRunPerfTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrSWRunPerfTableRow struct {
-	Index          snmp.OID
+	Key            HrSWRunTableKey
+	keyValid       bool
 	HrSWRunPerfCPU int32
 	HrSWRunPerfMem int32
 
@@ -2780,6 +3163,13 @@ type HrSWRunPerfTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrSWRunPerfTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -2809,10 +3199,13 @@ type HrSWRunPerfTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrSWRunPerfTableWalker) Iter() iter.Seq2[snmp.OID, HrSWRunPerfTableRow] {
 	return func(yield func(snmp.OID, HrSWRunPerfTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrSWRunPerfTableRow{Index: idx}
+			var row HrSWRunPerfTableRow
+			row.Key, row.keyValid = decodeHrSWRunPerfTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -2891,6 +3284,17 @@ func (t hrSWRunPerfTableT) Walk(ctx context.Context, sess snmp.Session, cols ...
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrSWRunPerfTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		KeyType: "HrSWRunTableKey",
+		Root:    snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 5, 1),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrSWRunPerfTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWRunPerfTableWalker {
@@ -2959,15 +3363,35 @@ var HrSWInstalledDate = snmp.NewColumn[time.Time](snmp.MustOID(1, 3, 6, 1, 2, 1,
 	return snmp.DecodeDateAndTime(vb)
 })
 
-// HrSWInstalledTableRow is one row of hrSWInstalledTable. Index carries the OID
-// suffix beyond the table-entry prefix; the remaining fields are
+// HrSWInstalledTableKey is the decoded INDEX of one hrSWInstalledTable row, one field per
+// part in INDEX order. It is comparable and usable as a map key.
+type HrSWInstalledTableKey struct {
+	HrSWInstalledIndex int32
+}
+
+var hrSWInstalledTableIndexShapes = []snmp.IndexShape{{Kind: snmp.IndexInteger}}
+
+// decodeHrSWInstalledTableKey decodes the instance suffix of one hrSWInstalledTable row. ok is false
+// when the suffix does not match the declared INDEX; the key is then zero.
+func decodeHrSWInstalledTableKey(idx snmp.OID) (HrSWInstalledTableKey, bool) {
+	parts, ok := snmp.DecodeIndex(idx, hrSWInstalledTableIndexShapes)
+	if !ok {
+		return HrSWInstalledTableKey{}, false
+	}
+	return HrSWInstalledTableKey{HrSWInstalledIndex: int32(parts[0].Integer)}, true
+}
+
+// HrSWInstalledTableRow is one row of hrSWInstalledTable. Key is the decoded INDEX; a
+// suffix that does not match the declared INDEX leaves it zero, and
+// [HrSWInstalledTableRow.KeyValid] reports which. The remaining fields are
 // populated only for columns the caller passed to Walk(). Use
 // [HrSWInstalledTableRow.Observed] to tell a reported zero from a column the
 // agent never answered.
 // The zero value has no observed columns. Concurrent reads are safe;
 // callers must synchronize mutation of the row or its referenced data.
 type HrSWInstalledTableRow struct {
-	Index              snmp.OID
+	Key                HrSWInstalledTableKey
+	keyValid           bool
 	HrSWInstalledIndex int32
 	HrSWInstalledName  []byte
 	HrSWInstalledID    snmp.OID
@@ -2978,6 +3402,13 @@ type HrSWInstalledTableRow struct {
 	// column-OID order, set when the walk decoded a value for
 	// that column on this row.
 	observed [1]uint64
+}
+
+// KeyValid reports whether the row's instance suffix decoded as the declared
+// INDEX. A false result means Key is zero and the agent's suffix did not
+// have the declared shape; the row's columns are still populated.
+func (r HrSWInstalledTableRow) KeyValid() bool {
+	return r.keyValid
 }
 
 // Observed reports whether col returned a value for this row. A column
@@ -3013,10 +3444,13 @@ type HrSWInstalledTableWalker struct {
 // (192.168.0.2 precedes 192.168.0.10). It retains one batch per selected
 // column. Breaking iteration stops retrieval. A decode error omits the
 // failing row and later rows; already delivered rows remain valid. Check Err.
+// A row whose suffix does not decode as the declared INDEX is still yielded,
+// with a zero Key and KeyValid false; the yielded OID is its raw suffix.
 func (tw *HrSWInstalledTableWalker) Iter() iter.Seq2[snmp.OID, HrSWInstalledTableRow] {
 	return func(yield func(snmp.OID, HrSWInstalledTableRow) bool) {
 		for idx, cells := range tw.rw.Iter() {
-			row := HrSWInstalledTableRow{Index: idx}
+			var row HrSWInstalledTableRow
+			row.Key, row.keyValid = decodeHrSWInstalledTableKey(idx)
 			for _, cell := range cells {
 				rv := cell.Value
 				var derr error
@@ -3134,6 +3568,18 @@ func (t hrSWInstalledTableT) Walk(ctx context.Context, sess snmp.Session, cols .
 	return t.WalkWithOptions(ctx, sess, snmp.TableWalkOptions{}, cols...)
 }
 
+// Descriptor returns the table as a [snmp.TableDescriptor]: its root OID, its
+// change indicator when the MIB declares one, and the Go type of its row key.
+// The descriptor is a value; hold it without the row or walker types to probe
+// for the table or declare it as a dependency.
+func (hrSWInstalledTableT) Descriptor() snmp.TableDescriptor {
+	return snmp.TableDescriptor{
+		Indicator: HrSWInstalledTableIndicator,
+		KeyType:   "HrSWInstalledTableKey",
+		Root:      snmp.MustOID(1, 3, 6, 1, 2, 1, 25, 6, 3),
+	}
+}
+
 // WalkWithOptions is Walk with request sizing and per-call controls.
 // SNMPv1 remains unsupported. Parent cancellation is an error; stopping iteration is successful.
 func (hrSWInstalledTableT) WalkWithOptions(ctx context.Context, sess snmp.Session, options snmp.TableWalkOptions, cols ...snmp.AnyColumn) *HrSWInstalledTableWalker {
@@ -3167,7 +3613,7 @@ func (hrSWInstalledTableT) WalkWithOptions(ctx context.Context, sess snmp.Sessio
 // ignored. Absent columns leave their field at its zero value.
 func decodeHrSWInstalledTableRow(idx snmp.OID, vbs []snmp.VarBind) (HrSWInstalledTableRow, error) {
 	var row HrSWInstalledTableRow
-	row.Index = idx
+	row.Key, row.keyValid = decodeHrSWInstalledTableKey(idx)
 
 	for _, vb := range vbs {
 		o := vb.GetHeader().OID
@@ -3226,7 +3672,7 @@ func decodeHrSWInstalledTableRow(idx snmp.OID, vbs []snmp.VarBind) (HrSWInstalle
 // field with the type-appropriate comparator (bytes.Equal for []byte,
 // OID.Equal for OID, time.Time.Equal for time.Time, == for everything else).
 func equalHrSWInstalledTableRow(a HrSWInstalledTableRow, b HrSWInstalledTableRow) bool {
-	return a.Index.Equal(b.Index) && a.observed == b.observed && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
+	return a.Key == b.Key && a.keyValid == b.keyValid && a.observed == b.observed && a.HrSWInstalledIndex == b.HrSWInstalledIndex && bytes.Equal(a.HrSWInstalledName, b.HrSWInstalledName) && a.HrSWInstalledID.Equal(b.HrSWInstalledID) && a.HrSWInstalledType == b.HrSWInstalledType && a.HrSWInstalledDate.Equal(b.HrSWInstalledDate)
 }
 
 // mergeHrSWInstalledTableRow merges the values decoded from vbs into dst, leaving fields

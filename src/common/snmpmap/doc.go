@@ -34,4 +34,16 @@
 // collection or being dropped. Only a row that cannot produce a valid
 // message at all surfaces as an error, and even then the rows around it
 // are still returned.
+//
+// # Keys
+//
+// Mappers never decode an instance suffix themselves. A generated row
+// carries its INDEX decoded into a typed Key, and tables join on those
+// keys: ifXTable enriches ifTable through the shared ifmib.IfTableKey,
+// and lldpRemManAddrTable's key begins with the lldpRemTable key it
+// belongs to. A row whose suffix did not decode as the declared INDEX
+// arrives with KeyValid false; it names nothing the model can hold, so
+// it is skipped without an error and without touching the rows around
+// it. The one join the MIBs do not declare, an LLDP local port number to
+// an interface name, stays with the caller of [LLDP].
 package snmpmap

@@ -241,6 +241,26 @@ func TestInterfaces_UnparsableVlanNameDeclines(t *testing.T) {
 	}
 }
 
+// TestInterfaces_MalformedIndexDeclines feeds an ifTable row whose
+// instance suffix is not the single ifIndex arc the MIB declares. The
+// generated row arrives with an invalid key; the mapper skips it without
+// an error and the well-formed row still maps.
+func TestInterfaces_MalformedIndexDeclines(t *testing.T) {
+	vbs := ifRow(1, "eth0", 6)
+
+	twoArcs := ifEntry.Append(2, 9, 1)
+	vbs = append(vbs, vbFixture{oid: twoArcs, vb: snmp.OctetStringVar{
+		Header: snmp.Header{OID: twoArcs, Kind: snmp.KindOctetString},
+		Value:  []byte("ghost"),
+	}})
+
+	got := mapOne(t, vbs)
+
+	if got.GetName() != "eth0" {
+		t.Errorf("got %q, want the well-formed row", got.GetName())
+	}
+}
+
 // TestInterfaces_Counters32Bit covers AE4: without ifXTable the counters
 // come from ifTable, and a column the device never answered stays absent
 // instead of reading as an explicit zero.

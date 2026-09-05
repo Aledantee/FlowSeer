@@ -68,30 +68,31 @@ var ifXTableColumns = []snmp.AnyColumn{
 	ifmib.IfHCOutBroadcastPkts,
 }
 
-// IfRow is one walked ifTable row and the ifIndex its walk key carried.
-// IfIndex exposes the single index arc directly; Row.Index carries the same
-// identity in the generated OID form.
+// IfRow is one walked ifTable row and the key it was walked under. The
+// key is stated beside the row rather than read from it because a row
+// assembled by hand carries no walk-owned key validity; the walk fills
+// both from the same decoded suffix.
 // Concurrent reads are safe; callers must synchronize mutations of the
 // row or its referenced data.
 type IfRow struct {
-	IfIndex uint32
-	Row     ifmib.IfTableRow
+	Key ifmib.IfTableKey
+	Row ifmib.IfTableRow
 }
 
-// IfXRow is one walked ifXTable row and the ifIndex it belongs to.
+// IfXRow is one walked ifXTable row and the ifTable key it augments.
 // Concurrent reads are safe; callers must synchronize mutations of the
 // row or its referenced data.
 type IfXRow struct {
-	IfIndex uint32
-	Row     ifmib.IfXTableRow
+	Key ifmib.IfTableKey
+	Row ifmib.IfXTableRow
 }
 
 // IfStackRow is one active layering relationship of ifStackTable: Higher
-// runs over Lower, both named by ifIndex. Concurrent reads are safe;
-// callers must synchronize mutations.
+// runs over Lower, both named by their ifTable key. Concurrent reads are
+// safe; callers must synchronize mutations.
 type IfStackRow struct {
-	Higher uint32
-	Lower  uint32
+	Higher ifmib.IfTableKey
+	Lower  ifmib.IfTableKey
 }
 
 // IfMIBRows are the walked IF-MIB rows one interface set is built from.
@@ -102,7 +103,7 @@ type IfStackRow struct {
 type IfMIBRows struct {
 	// If are the ifTable rows, in the order the mapped interfaces appear.
 	If []IfRow
-	// IfX are the ifXTable rows, joined to If by ifIndex.
+	// IfX are the ifXTable rows, joined to If by key.
 	IfX []IfXRow
 	// Stack are the active layering relationships of ifStackTable.
 	Stack []IfStackRow
@@ -119,7 +120,8 @@ type IfMIBRows struct {
 // tables only enrich rows that already stand on their own, so losing one
 // degrades the answer rather than voiding it. A row that cannot produce
 // a valid message returns alongside the rows that could, as described on
-// [InterfacesFromRows].
+// [InterfacesFromRows]. A row whose instance suffix is not the INDEX the
+// MIB declares names no interface and is skipped silently.
 func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interface, error) {
 	rows, walkErr := walkIfMIB(ctx, sess)
 
@@ -139,22 +141,22 @@ func Interfaces(ctx context.Context, sess snmp.Session) ([]*interfacev1.Interfac
 // interface set. It does not modify rows, but returned messages may share
 // byte slices with them; callers must synchronize mutations of shared data.
 func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
-	byIndex := make(map[uint32]ifmib.IfXTableRow, len(rows.IfX))
+	byKey := make(map[ifmib.IfTableKey]ifmib.IfXTableRow, len(rows.IfX))
 
 	for _, x := range rows.IfX {
-		byIndex[x.IfIndex] = x.Row
+		byKey[x.Key] = x.Row
 	}
 
-	names := make(map[uint32]string, len(rows.If))
-	types := make(map[uint32]ianaiftype.IANAifType, len(rows.If))
+	names := make(map[ifmib.IfTableKey]string, len(rows.If))
+	types := make(map[ifmib.IfTableKey]ianaiftype.IANAifType, len(rows.If))
 
 	for _, r := range rows.If {
-		if name, ok := interfaceName(r.Row, byIndex[r.IfIndex]); ok {
-			names[r.IfIndex] = name
+		if name, ok := interfaceName(r.Row, byKey[r.Key]); ok {
+			names[r.Key] = name
 		}
 
 		if r.Row.Observed(ifmib.IfType) {
-			types[r.IfIndex] = r.Row.IfType
+			types[r.Key] = r.Row.IfType
 		}
 	}
 
@@ -165,7 +167,7 @@ func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
 	var rowErrs []error
 
 	for _, r := range rows.If {
-		iface, err := mapInterface(r, byIndex[r.IfIndex], names, types, stack)
+		iface, err := mapInterface(r, byKey[r.Key], names, types, stack)
 		if err != nil {
 			rowErrs = append(rowErrs, err)
 
@@ -181,7 +183,9 @@ func InterfacesFromRows(rows IfMIBRows) ([]*interfacev1.Interface, error) {
 // walkIfMIB collects the three IF-MIB tables the interface mapping
 // reads. Only ifTable is fatal; a failure of either optional table
 // returns the rows collected so far beside the error, since a walk that
-// stops partway still carried real rows before it stopped.
+// stops partway still carried real rows before it stopped. A row the
+// walk delivered with an invalid key is skipped: its suffix names no
+// interface, and the rows around it are unaffected.
 func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	var (
 		rows     IfMIBRows
@@ -189,13 +193,12 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	)
 
 	ifWalk := ifmib.IfTable.Walk(ctx, sess, ifTableColumns...)
-	for idx, row := range ifWalk.Iter() {
-		ifIndex, ok := singleIndex(idx)
-		if !ok {
+	for _, row := range ifWalk.Iter() {
+		if !row.KeyValid() {
 			continue
 		}
 
-		rows.If = append(rows.If, IfRow{IfIndex: ifIndex, Row: row})
+		rows.If = append(rows.If, IfRow{Key: row.Key, Row: row})
 	}
 
 	if err := ifWalk.Err(); err != nil {
@@ -203,13 +206,12 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	}
 
 	xWalk := ifmib.IfXTable.Walk(ctx, sess, ifXTableColumns...)
-	for idx, row := range xWalk.Iter() {
-		ifIndex, ok := singleIndex(idx)
-		if !ok {
+	for _, row := range xWalk.Iter() {
+		if !row.KeyValid() {
 			continue
 		}
 
-		rows.IfX = append(rows.IfX, IfXRow{IfIndex: ifIndex, Row: row})
+		rows.IfX = append(rows.IfX, IfXRow{Key: row.Key, Row: row})
 	}
 
 	if err := xWalk.Err(); err != nil {
@@ -219,12 +221,15 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 	// A stored relationship may be inactive; only active rows describe
 	// the layering currently in use.
 	stackWalk := ifmib.IfStackTable.Walk(ctx, sess, ifmib.IfStackStatus)
-	for idx, row := range stackWalk.Iter() {
-		if idx.Len() != 2 || !row.Observed(ifmib.IfStackStatus) || row.IfStackStatus != snmp.RowStatusActive {
+	for _, row := range stackWalk.Iter() {
+		if !row.KeyValid() || !row.Observed(ifmib.IfStackStatus) || row.IfStackStatus != snmp.RowStatusActive {
 			continue
 		}
 
-		rows.Stack = append(rows.Stack, IfStackRow{Higher: idx.At(0), Lower: idx.At(1)})
+		rows.Stack = append(rows.Stack, IfStackRow{
+			Higher: ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackHigherLayer)},
+			Lower:  ifmib.IfTableKey{IfIndex: ifmib.InterfaceIndex(row.Key.IfStackLowerLayer)},
+		})
 	}
 
 	if err := stackWalk.Err(); err != nil {
@@ -237,20 +242,20 @@ func walkIfMIB(ctx context.Context, sess snmp.Session) (IfMIBRows, error) {
 // ifStack is the layering ifStackTable declares, read in both
 // directions: what an interface runs over, and what runs over it.
 type ifStack struct {
-	lower map[uint32][]uint32
-	upper map[uint32][]uint32
+	lower map[ifmib.IfTableKey][]ifmib.IfTableKey
+	upper map[ifmib.IfTableKey][]ifmib.IfTableKey
 }
 
 // readStack indexes the stack rows. The zero ifIndex is ifStackTable's
 // marker for "nothing above" and "nothing below", not an interface.
 func readStack(rows []IfStackRow) ifStack {
 	s := ifStack{
-		lower: make(map[uint32][]uint32),
-		upper: make(map[uint32][]uint32),
+		lower: make(map[ifmib.IfTableKey][]ifmib.IfTableKey),
+		upper: make(map[ifmib.IfTableKey][]ifmib.IfTableKey),
 	}
 
 	for _, r := range rows {
-		if r.Higher == 0 || r.Lower == 0 {
+		if r.Higher.IfIndex == 0 || r.Lower.IfIndex == 0 {
 			continue
 		}
 
@@ -262,39 +267,42 @@ func readStack(rows []IfStackRow) ifStack {
 }
 
 // mapInterface builds one Interface from its ifTable row and the
-// ifXTable row of the same ifIndex, which is the zero row when the
-// device implements no ifXTable.
+// ifXTable row of the same key, which is the zero row when the device
+// implements no ifXTable.
 func mapInterface(
 	ifRow IfRow,
 	x ifmib.IfXTableRow,
-	names map[uint32]string,
-	types map[uint32]ianaiftype.IANAifType,
+	names map[ifmib.IfTableKey]string,
+	types map[ifmib.IfTableKey]ianaiftype.IANAifType,
 	stack ifStack,
 ) (*interfacev1.Interface, error) {
-	r, idx := ifRow.Row, ifRow.IfIndex
+	r, key := ifRow.Row, ifRow.Key
 
-	name, ok := names[idx]
+	name, ok := names[key]
 	if !ok {
 		return nil, errs.New().
 			Code(ErrCodeInterfaceUnnamed).
-			Attr("if_index", idx).
-			Msgf("ifTable row %d reported no name", idx)
+			Attr("if_index", key.IfIndex).
+			Msgf("ifTable row %d reported no name", key.IfIndex)
 	}
 
-	ifType, ok := types[idx]
+	ifType, ok := types[key]
 	if !ok || ifType < 1 {
 		return nil, errs.New().
 			Code(ErrCodeInterfaceUntyped).
-			Attr("if_index", idx).
+			Attr("if_index", key.IfIndex).
 			Attr("if_name", name).
-			Msgf("ifTable row %d reported no type", idx)
+			Msgf("ifTable row %d reported no type", key.IfIndex)
 	}
 
 	iface := &interfacev1.Interface{}
 	iface.SetName(name)
 
-	if idx != 0 {
-		iface.SetIfIndex(idx)
+	// The model carries the index arc as the agent spelled it; the key
+	// type narrows it to the MIB's range, so the conversion restores the
+	// arc's bits.
+	if key.IfIndex != 0 {
+		iface.SetIfIndex(uint32(key.IfIndex))
 	}
 
 	if r.Observed(ifmib.IfAdminStatus) {
@@ -325,7 +333,7 @@ func mapInterface(
 		iface.SetCounters(counters)
 	}
 
-	setKind(iface, ifType, idx, names, types, stack)
+	setKind(iface, ifType, key, names, types, stack)
 
 	return iface, nil
 }
@@ -337,15 +345,15 @@ func mapInterface(
 func setKind(
 	iface *interfacev1.Interface,
 	ifType ianaiftype.IANAifType,
-	idx uint32,
-	names map[uint32]string,
-	types map[uint32]ianaiftype.IANAifType,
+	key ifmib.IfTableKey,
+	names map[ifmib.IfTableKey]string,
+	types map[ifmib.IfTableKey]ianaiftype.IANAifType,
 	stack ifStack,
 ) {
 	switch ifType {
 	case ianaiftype.IANAifTypeEthernetCsmacd:
 		physical := &interfacev1.PhysicalInterface{}
-		if lag, ok := lagParent(idx, names, types, stack); ok {
+		if lag, ok := lagParent(key, names, types, stack); ok {
 			physical.SetLagParent(lag)
 		}
 
@@ -379,7 +387,7 @@ func setKind(
 		iface.SetTunnel(&interfacev1.TunnelInterface{})
 
 	default:
-		if parent, ok := soleParent(idx, names, stack); ok {
+		if parent, ok := soleParent(key, names, stack); ok {
 			sub := &interfacev1.Subinterface{}
 			sub.SetParent(parent)
 			iface.SetSub(sub)
@@ -400,8 +408,13 @@ func setOther(iface *interfacev1.Interface, ifType ianaiftype.IANAifType) {
 }
 
 // lagParent returns the name of the aggregate this port is a member of.
-func lagParent(idx uint32, names map[uint32]string, types map[uint32]ianaiftype.IANAifType, stack ifStack) (string, bool) {
-	for _, higher := range stack.upper[idx] {
+func lagParent(
+	key ifmib.IfTableKey,
+	names map[ifmib.IfTableKey]string,
+	types map[ifmib.IfTableKey]ianaiftype.IANAifType,
+	stack ifStack,
+) (string, bool) {
+	for _, higher := range stack.upper[key] {
 		if types[higher] != ianaiftype.IANAifTypeIeee8023adLag {
 			continue
 		}
@@ -417,12 +430,12 @@ func lagParent(idx uint32, names map[uint32]string, types map[uint32]ianaiftype.
 // soleParent returns the name of the one interface this row runs over,
 // and false when it runs over none or several — several is a stack this
 // mapping cannot read as a parent.
-func soleParent(idx uint32, names map[uint32]string, stack ifStack) (string, bool) {
-	if len(stack.lower[idx]) != 1 {
+func soleParent(key ifmib.IfTableKey, names map[ifmib.IfTableKey]string, stack ifStack) (string, bool) {
+	if len(stack.lower[key]) != 1 {
 		return "", false
 	}
 
-	name, ok := names[stack.lower[idx][0]]
+	name, ok := names[stack.lower[key][0]]
 
 	return name, ok
 }
@@ -439,15 +452,6 @@ func interfaceName(r ifmib.IfTableRow, x ifmib.IfXTableRow) (string, bool) {
 	}
 
 	return "", false
-}
-
-// singleIndex reads a one-element index OID as its ifIndex.
-func singleIndex(o snmp.OID) (uint32, bool) {
-	if o.Len() != 1 {
-		return 0, false
-	}
-
-	return o.At(0), true
 }
 
 // vlanIDFromName reads the VLAN identifier a device spells into an SVI's

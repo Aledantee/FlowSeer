@@ -41,7 +41,8 @@ func TestTableWalkRawDecodedParity(t *testing.T) {
 	cols := []snmp.AnyColumn{ifmib.IfInOctets, ifmib.IfDescr, ifmib.IfSpeed, ifmib.IfOperStatus, ifmib.IfLastChange, ifmib.IfOutErrors}
 	observedCols := append(append([]snmp.AnyColumn(nil), cols...), ifmib.IfOutOctets)
 	type rowSnapshot struct {
-		key, index snmp.OID
+		key        snmp.OID
+		index      ifmib.IfTableKey
 		inOctets   uint32
 		descr      string
 		speed      uint32
@@ -50,9 +51,9 @@ func TestTableWalkRawDecodedParity(t *testing.T) {
 		observed   [7]bool
 	}
 	want := []rowSnapshot{
-		{key: snmp.MustOID(1), index: snmp.MustOID(1), oper: ifmib.IfOperStatusValueUp, observed: [7]bool{true, true, true, true, true, false, false}},
-		{key: snmp.MustOID(2), index: snmp.MustOID(2), descr: "uplink", speed: 1000000000, oper: ifmib.IfOperStatusValueDown, lastChange: 65536, observed: [7]bool{false, true, true, true, true, false, false}},
-		{key: snmp.OID{}.Append(10), index: snmp.OID{}.Append(10), inOctets: 0xffffffff, descr: "wifi", speed: 54000000, oper: ifmib.IfOperStatusValueLowerLayerDown, lastChange: 999, observed: [7]bool{true, true, true, true, true, false, false}},
+		{key: snmp.MustOID(1), index: ifmib.IfTableKey{IfIndex: 1}, oper: ifmib.IfOperStatusValueUp, observed: [7]bool{true, true, true, true, true, false, false}},
+		{key: snmp.MustOID(2), index: ifmib.IfTableKey{IfIndex: 2}, descr: "uplink", speed: 1000000000, oper: ifmib.IfOperStatusValueDown, lastChange: 65536, observed: [7]bool{false, true, true, true, true, false, false}},
+		{key: snmp.OID{}.Append(10), index: ifmib.IfTableKey{IfIndex: 10}, inOctets: 0xffffffff, descr: "wifi", speed: 54000000, oper: ifmib.IfOperStatusValueLowerLayerDown, lastChange: 999, observed: [7]bool{true, true, true, true, true, false, false}},
 	}
 	for _, reps := range []int{0, 1} {
 		name := "defaults"
@@ -92,7 +93,7 @@ func TestTableWalkRawDecodedParity(t *testing.T) {
 				}
 				var got []rowSnapshot
 				for idx, row := range w.Iter() {
-					snapshot := rowSnapshot{key: idx, index: row.Index, inOctets: row.IfInOctets, descr: row.IfDescr, speed: row.IfSpeed, oper: row.IfOperStatus, lastChange: row.IfLastChange}
+					snapshot := rowSnapshot{key: idx, index: row.Key, inOctets: row.IfInOctets, descr: row.IfDescr, speed: row.IfSpeed, oper: row.IfOperStatus, lastChange: row.IfLastChange}
 					for i, col := range observedCols {
 						snapshot.observed[i] = row.Observed(col)
 					}

@@ -144,8 +144,9 @@ var tlvTypeOfBit = map[snmp.BitPos]lldpv1.TlvType{
 // row that cannot produce a valid message returns alongside the rows that
 // could, reported through the joined error, so a caller that ignores the
 // error still sees a truthful if incomplete neighbor set. A row whose
-// index suffix is not what the MIB's INDEX clause describes is skipped
-// silently, as is a scalar the agent does not implement.
+// instance suffix is not the INDEX the MIB declares, which the generated
+// row reports through KeyValid, is skipped silently, as is a scalar the
+// agent does not implement.
 // Other scalar read errors are returned with the collected facts and
 // preserve their causes for [errors.Is] and [errors.As]. The caller must
 // not modify portNames during the call.
@@ -259,15 +260,20 @@ func lldpLocalSystem(ctx context.Context, sess snmp.Session) (*lldpv1.LocalSyste
 }
 
 // lldpLocManAddrs walks the local management addresses. Each address is
-// the row's whole index — (address subtype, length, octets) — so a row
-// whose index is not that shape carries no address and is skipped. A walk
-// that stops partway returns the addresses it did read beside its error.
+// the row's whole key — the address subtype and the address octets — so
+// a row whose key did not decode carries no address and is skipped. A
+// walk that stops partway returns the addresses it did read beside its
+// error.
 func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.ManagementAddress, error) {
 	var addrs []*lldpv1.ManagementAddress
 
 	walk := lldpmib.LldpLocManAddrTable.Walk(ctx, sess, locManAddrColumns...)
-	for idx := range walk.Iter() {
-		if addr, ok := managementAddress(idx, 0); ok {
+	for _, row := range walk.Iter() {
+		if !row.KeyValid() {
+			continue
+		}
+
+		if addr, ok := managementAddress(row.Key.LldpLocManAddrSubtype, row.Key.LldpLocManAddr); ok {
 			addrs = append(addrs, addr)
 		}
 	}
@@ -280,7 +286,7 @@ func lldpLocManAddrs(ctx context.Context, sess snmp.Session) ([]*lldpv1.Manageme
 }
 
 // lldpPorts maps the per-port settings of both port tables, joined on the
-// LLDP port number their indexes carry. A device that implements only one
+// LLDP port number their keys carry. A device that implements only one
 // of the two still yields ports, with fewer facts on them, and so does a
 // device whose lldpLocPortTable walk fails partway — that table only
 // enriches the ports lldpPortConfigTable already named.
@@ -290,11 +296,11 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 		loc    lldpmib.LldpLocPortTableRow
 	}
 
-	rows := make(map[uint32]*portRow)
+	rows := make(map[lldpmib.LldpPortNumber]*portRow)
 
-	var order []uint32
+	var order []lldpmib.LldpPortNumber
 
-	at := func(num uint32) *portRow {
+	at := func(num lldpmib.LldpPortNumber) *portRow {
 		row, ok := rows[num]
 		if !ok {
 			row = &portRow{}
@@ -306,13 +312,12 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 	}
 
 	configWalk := lldpmib.LldpPortConfigTable.Walk(ctx, sess, portConfigColumns...)
-	for idx, row := range configWalk.Iter() {
-		num, ok := singleIndex(idx)
-		if !ok {
+	for _, row := range configWalk.Iter() {
+		if !row.KeyValid() {
 			continue
 		}
 
-		at(num).config = row
+		at(row.Key.LldpPortConfigPortNum).config = row
 	}
 
 	if err := configWalk.Err(); err != nil {
@@ -320,13 +325,12 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 	}
 
 	locWalk := lldpmib.LldpLocPortTable.Walk(ctx, sess, locPortColumns...)
-	for idx, row := range locWalk.Iter() {
-		num, ok := singleIndex(idx)
-		if !ok {
+	for _, row := range locWalk.Iter() {
+		if !row.KeyValid() {
 			continue
 		}
 
-		at(num).loc = row
+		at(row.Key.LldpLocPortNum).loc = row
 	}
 
 	var locErr error
@@ -375,16 +379,8 @@ func lldpPorts(ctx context.Context, sess snmp.Session, portNames map[uint32]stri
 	return ports, locErr
 }
 
-// remKey identifies one lldpRemTable row by the arcs of its index, which
-// is also the prefix of every management-address row belonging to it.
-type remKey struct {
-	timeMark  uint32
-	localPort uint32
-	remIndex  uint32
-}
-
 // lldpNeighbors maps lldpRemTable, joining each row to the management
-// addresses lldpRemManAddrTable carries under the same index prefix. A
+// addresses lldpRemManAddrTable carries under the same remote key. A
 // failed address walk costs the neighbors it did not reach their
 // addresses, not their existence, so it travels back beside them.
 func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]string) ([]*lldpv1.Neighbor, error) {
@@ -396,13 +392,12 @@ func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]
 	)
 
 	walk := lldpmib.LldpRemTable.Walk(ctx, sess, remColumns...)
-	for idx, row := range walk.Iter() {
-		key, ok := remIndex(idx)
-		if !ok {
+	for _, row := range walk.Iter() {
+		if !row.KeyValid() {
 			continue
 		}
 
-		neighbor, err := mapNeighbor(key, row, addrs[key], portNames)
+		neighbor, err := mapNeighbor(row, addrs[row.Key], portNames)
 		if err != nil {
 			rowErrs = append(rowErrs, err)
 
@@ -423,22 +418,29 @@ func lldpNeighbors(ctx context.Context, sess snmp.Session, portNames map[uint32]
 
 // lldpRemManAddrs walks the neighbors' management addresses and groups
 // them by the remote row they belong to. Both the address family and the
-// address octets are index arcs — the table's columns say only how the
+// address octets are key parts — the table's columns say only how the
 // neighbor reaches that address, not what it is. A walk that stops
 // partway returns the groups it did read beside its error.
-func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[remKey][]*lldpv1.ManagementAddress, error) {
-	addrs := make(map[remKey][]*lldpv1.ManagementAddress)
+func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress, error) {
+	addrs := make(map[lldpmib.LldpRemTableKey][]*lldpv1.ManagementAddress)
 
 	walk := lldpmib.LldpRemManAddrTable.Walk(ctx, sess, remManAddrColumns...)
-	for idx := range walk.Iter() {
-		key, ok := remIndex(idx)
+	for _, row := range walk.Iter() {
+		if !row.KeyValid() {
+			continue
+		}
+
+		addr, ok := managementAddress(row.Key.LldpRemManAddrSubtype, row.Key.LldpRemManAddr)
 		if !ok {
 			continue
 		}
 
-		addr, ok := managementAddress(idx, 3)
-		if !ok {
-			continue
+		// The address key begins with the remote row's own key, which is
+		// how the two tables join.
+		key := lldpmib.LldpRemTableKey{
+			LldpRemTimeMark:     row.Key.LldpRemTimeMark,
+			LldpRemLocalPortNum: row.Key.LldpRemLocalPortNum,
+			LldpRemIndex:        row.Key.LldpRemIndex,
 		}
 
 		addrs[key] = append(addrs[key], addr)
@@ -452,23 +454,24 @@ func lldpRemManAddrs(ctx context.Context, sess snmp.Session) (map[remKey][]*lldp
 }
 
 // mapNeighbor builds one Neighbor from its lldpRemTable row and the
-// management addresses of the same remote index.
+// management addresses of the same remote key.
 func mapNeighbor(
-	key remKey,
 	row lldpmib.LldpRemTableRow,
 	addrs []*lldpv1.ManagementAddress,
 	portNames map[uint32]string,
 ) (*lldpv1.Neighbor, error) {
+	localPort, remIndex := row.Key.LldpRemLocalPortNum, row.Key.LldpRemIndex
+
 	neighbor := &lldpv1.Neighbor{}
-	neighbor.SetLocalInterfaceName(localPortName(key.localPort, portNames))
+	neighbor.SetLocalInterfaceName(localPortName(localPort, portNames))
 
 	chassis, ok := chassisID(row.LldpRemChassisIdSubtype, row.LldpRemChassisId)
 	if !ok || !row.Observed(lldpmib.LldpRemChassisIdSubtype) || !row.Observed(lldpmib.LldpRemChassisId) {
 		return nil, errs.New().
 			Code(ErrCodeLLDPNeighborIncomplete).
-			Attr("local_port", key.localPort).
-			Attr("rem_index", key.remIndex).
-			Msgf("lldpRemTable row %d/%d reported no usable chassis identifier", key.localPort, key.remIndex)
+			Attr("local_port", localPort).
+			Attr("rem_index", remIndex).
+			Msgf("lldpRemTable row %d/%d reported no usable chassis identifier", localPort, remIndex)
 	}
 
 	neighbor.SetChassisId(chassis)
@@ -477,9 +480,9 @@ func mapNeighbor(
 	if !ok || !row.Observed(lldpmib.LldpRemPortIdSubtype) || !row.Observed(lldpmib.LldpRemPortId) {
 		return nil, errs.New().
 			Code(ErrCodeLLDPNeighborIncomplete).
-			Attr("local_port", key.localPort).
-			Attr("rem_index", key.remIndex).
-			Msgf("lldpRemTable row %d/%d reported no usable port identifier", key.localPort, key.remIndex)
+			Attr("local_port", localPort).
+			Attr("rem_index", remIndex).
+			Msgf("lldpRemTable row %d/%d reported no usable port identifier", localPort, remIndex)
 	}
 
 	neighbor.SetPortId(port)
@@ -511,53 +514,23 @@ func mapNeighbor(
 	return neighbor, nil
 }
 
-// remIndex reads the (lldpRemTimeMark, lldpRemLocalPortNum, lldpRemIndex)
-// arcs an lldpRemTable row is keyed on. The lldpRemManAddrTable index
-// begins with the same three arcs and carries the address after them, so
-// a longer index still reads as the row it belongs to.
-func remIndex(idx snmp.OID) (remKey, bool) {
-	if idx.Len() < 3 {
-		return remKey{}, false
-	}
-
-	return remKey{timeMark: idx.At(0), localPort: idx.At(1), remIndex: idx.At(2)}, true
-}
-
-// managementAddress reads an address that an index carries from arc off
-// on: the IANA address family, the octet count, and that many octets.
+// managementAddress reads an address from the key parts that carry it:
+// the IANA address family and the address octets. The MIB bounds the
+// family to a 16-bit number and the address to 1 to 31 octets; a key
+// outside either bound is no address, and the row is skipped.
 //
 // Families 1 and 2 reach the typed arm only when the payload really is an
 // address of that family; a length that contradicts the family, like the
 // three octets some agents report for IPv4, keeps every octet through the
 // other arm instead of being dropped or padded.
-func managementAddress(idx snmp.OID, off int) (*lldpv1.ManagementAddress, bool) {
-	if idx.Len() < off+2 {
+func managementAddress(subtype int32, address string) (*lldpv1.ManagementAddress, bool) {
+	length := len(address)
+	if subtype < 1 || subtype > math.MaxUint16 || length < 1 || length > 31 {
 		return nil, false
 	}
 
-	family := idx.At(off)
-
-	length := idx.At(off + 1)
-	if family < 1 || family > math.MaxUint16 || length < 1 || length > 31 {
-		return nil, false
-	}
-
-	// The octets are one arc each and the length arc counts them exactly,
-	// so an index that runs short or long is not the address it claims.
-	if idx.Len() != off+2+int(length) {
-		return nil, false
-	}
-
-	octets := make([]byte, 0, length)
-
-	for i := range int(length) {
-		arc := idx.At(off + 2 + i)
-		if arc > math.MaxUint8 {
-			return nil, false
-		}
-
-		octets = append(octets, byte(arc))
-	}
+	family := uint32(subtype)
+	octets := []byte(address)
 
 	addr := &lldpv1.ManagementAddress{}
 
@@ -661,11 +634,15 @@ func transmittedTLVs(bits snmp.BitSet) []lldpv1.TlvType {
 
 // localPortName resolves an LLDP port number to the interface name the
 // caller knows it by, falling back to the number itself so a port the
-// caller could not resolve still names the row it came from.
-func localPortName(num uint32, portNames map[uint32]string) string {
-	if name, ok := portNames[num]; ok && name != "" {
+// caller could not resolve still names the row it came from. The lookup
+// is on the arc as the agent spelled it, which the conversion restores
+// from the narrowed key type.
+func localPortName(num lldpmib.LldpPortNumber, portNames map[uint32]string) string {
+	arc := uint32(num)
+
+	if name, ok := portNames[arc]; ok && name != "" {
 		return name
 	}
 
-	return strconv.FormatUint(uint64(num), 10)
+	return strconv.FormatUint(uint64(arc), 10)
 }
