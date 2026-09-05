@@ -130,6 +130,9 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 	}
 
 	fsyncPolicy := config.FsyncPolicy
+	if fsyncPolicy == BusFsyncUnspecified {
+		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync policy must be declared: BusFsyncPeriodic survives a process kill, BusFsyncPerMessage also survives power loss")
+	}
 	if fsyncPolicy > BusFsyncPerMessage {
 		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync policy is invalid")
 	}

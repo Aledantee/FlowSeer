@@ -58,6 +58,10 @@ no remote. The Claude worktree hook defaults to the sibling
   bounded read-only repository question, `independent-reviewer` for a fresh pass
   over specified changed files; give each a precise question, paths, and expected
   output, and keep small sequential work in the main conversation.
+- The project skills `plan`, `implement`, `review`, and `compound` under
+  `.claude/skills/` carry the multi-step workflows; each says when it applies
+  and when to skip it. `docs/agent-steering.md` records why they are shaped
+  this way.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
 - FlowSeer is still building its building blocks and nothing external consumes
@@ -96,10 +100,9 @@ no remote. The Claude worktree hook defaults to the sibling
 Hooks in `tools/hooks/` (registered per runtime in `.claude/settings.json` and
 `.codex/hooks.json`) deny hand-edits to `generated/` and `buf.lock`, reject
 non-source files under `spec/proto/`, auto-run gofumpt/goimports and
-`buf format`/`buf lint` on edits, and check triad and ref message sync. Claude's
-completion hooks also require a fresh `verify-change` receipt; Codex's Stop hook
-runs the repository layout checks directly. Hooks are fast feedback, not the
-authority — `go test -race ./...` enforces the same invariants.
+`buf format`/`buf lint` on edits, and check triad and ref message sync. Both
+runtimes' Stop hooks run the repository layout checks. Hooks are fast feedback,
+not the authority — `go test -race ./...` enforces the same invariants.
 
 ## Layout
 

@@ -161,7 +161,7 @@ func ExampleBus() {
 
 	err := service.Run(context.Background(), service.Config{
 		Identity: service.Identity{Name: "edge", Namespace: "flowseer", Version: "v1"},
-		Bus:      &service.BusConfig{},
+		Bus:      &service.BusConfig{FsyncPolicy: service.BusFsyncPeriodic},
 		Modules:  []service.Module{scheduler, poller},
 	})
 	if err != nil && !errors.Is(err, context.Canceled) {

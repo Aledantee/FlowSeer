@@ -2,9 +2,8 @@
 title: Streaming MIB Table Walks - Plan
 type: perf
 date: 2026-09-03
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-plan-bootstrap
 execution: code
 ---
 

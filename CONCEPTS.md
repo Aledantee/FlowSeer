@@ -1,6 +1,6 @@
 # Concepts
 
-Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then accretes as ce-compound and ce-compound-refresh process learnings; direct edits are fine. Glossary only, not a spec or catch-all.
+Shared domain vocabulary for this project — entities, named processes, and status concepts with project-specific meaning. Seeded with core domain vocabulary, then grows as the `compound` skill proposes terms from verified lessons; direct edits are fine. Glossary only, not a spec or catch-all.
 
 ## Inventory
 
@@ -62,7 +62,7 @@ A supervised runtime unit within one service. A leaf owns one setup function; a 
 
 ### Local Bus
 
-The private, file-backed message bus a service runs for its own Service Modules: listener-free, scoped to one process, and persisting messages so inter-module work resumes after a crash, reboot, or upgrade. Delivery is at-least-once, so a handler must tolerate seeing the same message twice. Durability is a service-wide runtime setting: the default survives a process kill but may lose the most recent writes on power loss, and a service that needs every acknowledged record to survive a power cut opts into flushing per message.
+The private, file-backed message bus a service runs for its own Service Modules: listener-free, scoped to one process, and persisting messages so inter-module work resumes after a crash, reboot, or upgrade. Delivery is at-least-once, so a handler must tolerate seeing the same message twice. Durability is a service-wide runtime setting that each service declares: it flushes periodically, which survives a process kill but may lose the most recent writes on power loss, or per message, which also survives a power cut. A service that declares neither does not start.
 
 ### Runtime Manifest
 

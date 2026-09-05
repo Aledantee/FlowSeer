@@ -20,7 +20,7 @@ func TestPublicBusPublishesAndDeliversDurableCommand(t *testing.T) {
 	setupResult := make(chan error, 1)
 	config := service.Config{
 		Identity: service.Identity{Name: "edge", Namespace: "flowseer", Version: "v1"},
-		Bus:      &service.BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus")},
+		Bus:      &service.BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus"), FsyncPolicy: service.BusFsyncPeriodic},
 		Modules: []service.Module{{
 			Name: "worker",
 			Leaf: &service.Leaf{
@@ -101,7 +101,7 @@ func TestAcknowledgedPublishesSurviveAbruptProcessExit(t *testing.T) {
 	}
 }
 
-func TestPerMessageStoreOpensUnderDefaultPolicyAfterUpgrade(t *testing.T) {
+func TestPerMessageStoreOpensUnderPeriodicPolicyAfterUpgrade(t *testing.T) {
 	if testing.Short() {
 		t.Skip("subprocess durability test")
 	}
