@@ -193,6 +193,10 @@ func (b0 InterfaceDescriptionChange_builder) Build() *InterfaceDescriptionChange
 }
 
 // One interface as a route observed it, with the provenance of the read.
+// A COMPLETE observation sets description, admin_status, oper_status, and
+// provenance; a PARTIAL one need not, since it carries only whatever a
+// route could read and is evidence for routing rather than a usable
+// result.
 type InterfaceObservation struct {
 	state                    protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_InterfaceName *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
@@ -392,17 +396,18 @@ type InterfaceObservation_builder struct {
 	// The device-local interface name, as the device spells it. Must be
 	// present.
 	InterfaceName *string
-	// The description as read. Must be present; an empty string is a device
-	// with no description on this interface.
+	// The description as read. Present exactly when completeness is
+	// COMPLETE; an empty string is a device with no description on this
+	// interface.
 	Description *string
-	// The administratively requested state as read. Must be present; the
-	// zero value is rejected.
+	// The administratively requested state as read. Present exactly when
+	// completeness is COMPLETE; the zero value is rejected.
 	AdminStatus *v1.AdminStatus
-	// The operational state as read. Must be present; the zero value is
-	// rejected.
+	// The operational state as read. Present exactly when completeness is
+	// COMPLETE; the zero value is rejected.
 	OperStatus *v1.OperStatus
 	// Which binding, protocol, edge, and firmware epoch produced the read,
-	// and when. Must be present.
+	// and when. Present exactly when completeness is COMPLETE.
 	Provenance *v11.Provenance
 	// Whether every compared field was read. Must be present; the zero value
 	// is rejected.
@@ -655,21 +660,22 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a*flowseer/api/inventory/v1/provenance.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\x89\x01\n" +
 	"\x1aInterfaceDescriptionChange\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xef\x05\n" +
+	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xed\a\n" +
 	"\x14InterfaceObservation\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x126\n" +
-	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\x12X\n" +
-	"\fadmin_status\x18\x03 \x01(\x0e2&.flowseer.net.interface.v1.AdminStatusB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\vadminStatus\x12U\n" +
-	"\voper_status\x18\x04 \x01(\x0e2%.flowseer.net.interface.v1.OperStatusB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\n" +
-	"operStatus\x12M\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x123\n" +
+	"\vdescription\x18\x02 \x01(\tB\x11\xbaH\x0er\f\x18@2\b^[ -~]*$R\vdescription\x12U\n" +
+	"\fadmin_status\x18\x03 \x01(\x0e2&.flowseer.net.interface.v1.AdminStatusB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vadminStatus\x12R\n" +
+	"\voper_status\x18\x04 \x01(\x0e2%.flowseer.net.interface.v1.OperStatusB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\n" +
+	"operStatus\x12E\n" +
 	"\n" +
-	"provenance\x18\x05 \x01(\v2%.flowseer.api.inventory.v1.ProvenanceB\x06\xbaH\x03\xc8\x01\x01R\n" +
+	"provenance\x18\x05 \x01(\v2%.flowseer.api.inventory.v1.ProvenanceR\n" +
 	"provenance\x12Z\n" +
 	"\fcompleteness\x18\x06 \x01(\x0e2'.flowseer.device.access.v1.CompletenessB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x8d\x02\xbaH\x89\x02\x1a\x86\x02\n" +
-	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\"J\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fcompleteness:\x9c\x04\xbaH\x98\x04\x1a\x86\x02\n" +
+	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\x1a\x8c\x02\n" +
+	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"J\n" +
 	"\x13InterfaceReadIntent\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"j\n" +
 	"\tTypedRead\x12N\n" +

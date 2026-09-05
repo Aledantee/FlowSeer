@@ -41,11 +41,20 @@ message InterfaceDescriptionChange {
 }
 
 // One interface as a route observed it, with the provenance of the read.
+// A COMPLETE observation sets description, admin_status, oper_status, and
+// provenance; a PARTIAL one need not, since it carries only whatever a
+// route could read and is evidence for routing rather than a usable
+// result.
 message InterfaceObservation {
   option (buf.validate.message).cel = {
     id: "interface_observation.provenance_names_edge_and_firmware"
     message: "an interface observation's provenance names the edge that read it and the device's firmware fingerprint"
     expression: "!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))"
+  };
+  option (buf.validate.message).cel = {
+    id: "interface_observation.complete_sets_every_compared_field"
+    message: "a complete observation sets description, admin_status, oper_status, and provenance"
+    expression: "this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))"
   };
 
   // The device-local interface name, as the device spells it. Must be
@@ -55,34 +64,28 @@ message InterfaceObservation {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 64
   ];
-  // The description as read. Must be present; an empty string is a device
-  // with no description on this interface.
+  // The description as read. Present exactly when completeness is
+  // COMPLETE; an empty string is a device with no description on this
+  // interface.
   string description = 2 [
-    (buf.validate.field).required = true,
     (buf.validate.field).string.max_len = 64,
     (buf.validate.field).string.pattern = "^[ -~]*$"
   ];
-  // The administratively requested state as read. Must be present; the
-  // zero value is rejected.
-  flowseer.net.interface.v1.AdminStatus admin_status = 3 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).enum = {
-      defined_only: true
-      not_in: [0]
-    }
-  ];
-  // The operational state as read. Must be present; the zero value is
-  // rejected.
-  flowseer.net.interface.v1.OperStatus oper_status = 4 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).enum = {
-      defined_only: true
-      not_in: [0]
-    }
-  ];
+  // The administratively requested state as read. Present exactly when
+  // completeness is COMPLETE; the zero value is rejected.
+  flowseer.net.interface.v1.AdminStatus admin_status = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The operational state as read. Present exactly when completeness is
+  // COMPLETE; the zero value is rejected.
+  flowseer.net.interface.v1.OperStatus oper_status = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
   // Which binding, protocol, edge, and firmware epoch produced the read,
-  // and when. Must be present.
-  flowseer.api.inventory.v1.Provenance provenance = 5 [(buf.validate.field).required = true];
+  // and when. Present exactly when completeness is COMPLETE.
+  flowseer.api.inventory.v1.Provenance provenance = 5;
   // Whether every compared field was read. Must be present; the zero value
   // is rejected.
   Completeness completeness = 6 [

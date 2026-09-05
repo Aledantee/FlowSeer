@@ -335,6 +335,133 @@ SNMP-partial falls through to SSH; conflicting complete reads from both
 routes; delayed-effect not-yet-verified vs. past-horizon.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/capability/interfaces/adapter.go src/modules/localnet/access/internal/capability/interfaces/adapter_test.go`
 
+## Amendments (post-review)
+
+An independent review of this plan found corrections before implementation
+continued past U1 and U2. Recorded here rather than rewritten in place, so
+the review's evidence stays traceable.
+
+- **New unit, U0, before U3 and U6.** `InterfaceObservation`'s `description`,
+  `admin_status`, `oper_status`, and `provenance` were all
+  `(buf.validate.field).required = true`, so a `PARTIAL` observation (any
+  compared field missing) could never be schema-valid — U3 and U6 cannot
+  produce the `PARTIAL` values Requirements 2, 6, and 7 need.
+  `spec/proto/flowseer/device/access/v1/interface.proto`'s
+  `InterfaceObservation` message now drops `required` from those four fields
+  and adds a message-level CEL rule,
+  `interface_observation.complete_sets_every_compared_field`, requiring them
+  present exactly when `completeness` is `COMPLETE`; each per-field value
+  constraint (the enum's `not_in: [0]`, the string pattern) still applies
+  whenever the field is set. This is the kind of pre-stability schema
+  correction `AGENTS.md` directs making outright. Files:
+  `spec/proto/flowseer/device/access/v1/interface.proto`, regenerated
+  `generated/go/proto/flowseer/device/access/v1/interface.pb.go` (via `buf
+  generate spec/proto`, run once for the whole workspace — a `--path`-scoped
+  generate combined with this repo's `clean: true` deletes every other
+  package's generated output). Verify: `buf lint spec/proto --path
+  spec/proto/flowseer/device/access/v1/interface.proto`, then `go build
+  ./...` and `go test ./...`. Done: added and passing in this worktree.
+- **U3 uses `collect.Read`, not `collect.New(...).Collect(...)`.**
+  `InterfaceMapper` has no `SysObjectIDPrefixes`, so detection never excludes
+  it and the identity read buys U3 nothing `snmpmap.Interfaces` doesn't
+  already get by calling `collect.Read(ctx, sess, InterfaceMapper)` directly
+  (`src/modules/localnet/snmpmap/ifmib.go:146`). U3 does the same, dropping
+  the identity-read-failure test case (nothing in U3 reads identity).
+- **R2 and R6's `accessv1` package alias.** The generated Go package for
+  `flowseer.device.access.v1` is `accessv1` (not `devaccessv1`, corrected
+  throughout this plan); import it under that alias everywhere in U2, U3,
+  and U6.
+- **U4's prompt patterns need `(?m)` and must exclude parens from the
+  hostname run, or privileged and config prompts collide.** `scanPrompt`
+  matches against the whole accumulated buffer, and Go's `^`/`$` without
+  `(?m)` anchor to the start/end of the *entire buffer*, not the last line —
+  so `^\S+#\s*$` never matches a prompt that follows any prior output.
+  Separately, `\S+` matches parentheses, so an unqualified privileged
+  pattern also matches a config-mode prompt line, and ties resolve to
+  whichever pattern is listed first in `Command.Prompts`. The corrected
+  patterns, each requiring no parenthesis before the terminal punctuation:
+  unprivileged `(?m)^[^()\r\n]+>\s*$`; privileged `(?m)^[^()\r\n]+#\s*$`;
+  config `(?m)^[^()\r\n]+\(config\)#\s*$`; config-if
+  `(?m)^[^()\r\n]+\(config-if-[^)]*\)#\s*$`.
+- **U4's `ShowInterfaceCommand` must not repeat the `ethernet` keyword.**
+  Decision 3 fixes `interface_name` as the full CLI spelling
+  (`ethernet 1/1/1`), and the vendor syntax is `show interfaces ethernet
+  stackid/slot/port` — so the command is `"show interfaces " + name`, not
+  `"show interfaces ethernet " + name`. `SelectInterfaceCommand`'s
+  `"interface " + name` was already correct under the same decision.
+- **U4's `MorePrompt` must match the whole marker line, not just
+  `--More--`.** `scanPrompt` only strips through the end of the matched
+  span; matching just `--More--` would leave
+  `, next page: Space, next line: Return key, quit: Control-c` in
+  `Result.Output`. Since every fixture here is authored, not captured, the
+  pattern matches the documented marker text in full
+  (`regexp.QuoteMeta` of the string this plan's Requirement 8 quotes).
+- **U5's `Adapter` needs a field for the enable password.** Add
+  `EnablePassword string` to `Adapter`, written with `Command.Redacted` set
+  (`src/protocol/ssh/command.go:19-21`) when `Login` sees the
+  enable-password prompt.
+- **U5's ambiguous-submission detection needs both prompts in one `Run`
+  call, not a second call after a timeout.** `SelectInterfaceCommand` and
+  `PortNameCommand` must list the expected next-level prompt *and* the
+  prompt an `Invalid input`/`Incomplete command.` reply returns to (config
+  for a rejected `interface`, config-if for a rejected `port-name`) in one
+  `Command.Prompts`, and `Adapter.SetPortName` branches on
+  `Result.MatchedPrompt`: the fallback prompt matching is the typed
+  ambiguous-submission error, not a `Run` timeout.
+- **U6's `VerifyDescriptionChange` returns a tri-state disposition, not a
+  bare `bool`.** Requirement 5's acceptance is two separate calls (a
+  post-mutation read still showing the old value, then a later call
+  showing the new one) — not one call retrying internally. Signature:
+  `VerifyDescriptionChange(...) (observation *accessv1.InterfaceObservation,
+  disposition VerificationDisposition, err error)` with `disposition` one of
+  `VerificationVerified`, `VerificationNotYetVerified` (unmatched, still
+  within `effect.WithinHorizon(observedAt, now)`), or `VerificationFailed`
+  (unmatched, past the horizon) — computed from one `Read` plus the elapsed
+  time, so a caller polling this function across the horizon sees the
+  states Requirement 5 names without the function retrying itself.
+- **U6 gains an exported facade.** Everything under
+  `.../capability/interfaces` stays `internal/` (Decision 1's reason holds),
+  but nothing outside `access` could reach it, contradicting Decision 2's
+  "the capability an edge would call." Add
+  `src/modules/localnet/access/access.go` re-exporting `Read` and
+  `VerifyDescriptionChange` (thin wrappers, no new logic) so a future edge
+  host imports `go.aledante.io/FlowSeer/src/modules/localnet/access` rather
+  than an `internal` path.
+- **U5 gains a compile-time assertion that `fastiron.Adapter` satisfies
+  `interfaces.ShellAdapter`.** `var _ interfaces.ShellAdapter =
+  (*Adapter)(nil)` in `fastiron`'s own test file — a test-only import of
+  `interfaces` from `fastiron` does not contradict Decision 1, which is
+  about runtime imports, and it catches a signature drift between U5 and U6
+  at compile time instead of at the point a future host wires them
+  together.
+- **U2's `Freshness` gets a caller.** `SelectRoute` (U6's `Read`) accepts an
+  optional previously-read `*accessv1.InterfaceObservation` and its
+  `Freshness`; when it is `COMPLETE` and not `Stale(now)`, `Read` returns it
+  without a new SNMP or SSH round trip. Without this, `Freshness` had no
+  consumer.
+- **R9's acceptance, and the test already landed for U1, must name the
+  tables they check.** "Walks each root once" is true even if a mapper
+  declares nothing, so `TestPhysical_SharesTablesWithInterfaceMapper`
+  (`src/modules/localnet/snmpmap/phy_test.go`) is tightened to assert the
+  expected six-plus-three (`ifTable`, `ifXTable`, `ifStackTable`,
+  `dot3StatsTable`, `dot3HCStatsTable`, `ifMauTable`, `ifMauAutoNegTable`,
+  `pethPsePortTable`, `pethMainPseTable`) roots are present with count 1,
+  not merely that every counted root's count is 1.
+- **No `doc.go` cites this plan's path.** `docs/code-style.md`'s rule
+  against process/planning identifiers in code applies to a plan file
+  citation the same as a label; every `doc.go` states the rule its package
+  enforces and cites the direction record's decisions only.
+- **`src/modules/localnet/README.md`'s package table is updated** to
+  describe the physical mapper's shared tables (U1, already landed) and add
+  an `access` row.
+- **Accepted, non-blocking:** the package name `interfaces` is plural
+  against `docs/code-style.md`'s general preference; kept because the task
+  that produced this plan specifies this exact directory name and it names
+  a capability family, not a single type. The `(description, admin, oper,
+  err)` return quadruple on `ParseShowInterface` and `ShellAdapter.ReadInterface`
+  is accepted as three primitives plus an error, matching the rest of this
+  codebase's style rather than introducing a single-use struct.
+
 ## Verification
 
 ```
