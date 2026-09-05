@@ -124,12 +124,14 @@ var pethMainPseColumns = []snmp.AnyColumn{
 // arc is spelled here.
 var dot3MauType = snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 4)
 
-// Physical walks the physical-layer MIBs on sess and returns the Ethernet
-// facets, PSE port rows, and PSE budgets the device reports. Every table
-// is optional and none depends on another: a failed walk returns the
-// facts the other tables carried and an error carrying
-// [ErrCodePhysicalWalk] beside them, and a device that implements none of
-// the tables yields empty facts and no error.
+// Physical walks the physical-layer MIBs on sess — EtherLike-MIB,
+// MAU-MIB, POWER-ETHERNET-MIB, and the vendored D-Link, HP ProCurve, and
+// H3C transceiver tables — and returns the Ethernet facets, PSE port
+// rows, and PSE budgets the device reports. Every table is optional and
+// none depends on another: a failed walk returns the facts the other
+// tables carried and an error carrying [ErrCodePhysicalWalk] beside them,
+// and a device that implements none of the tables yields empty facts and
+// no error.
 //
 // Facets are keyed by ifIndex because EtherLike-MIB and MAU-MIB are; PoE
 // rows are keyed the Power Ethernet MIB's way because it carries no
@@ -141,6 +143,7 @@ func Physical(ctx context.Context, sess snmp.Session) (PhysicalFacts, error) {
 
 	walkErrs = append(walkErrs, walkEtherLike(ctx, sess, facts.Facets))
 	walkErrs = append(walkErrs, walkMau(ctx, sess, facts.Facets))
+	walkErrs = append(walkErrs, walkModules(ctx, sess, facts.Facets))
 
 	ports, portErr := walkPsePorts(ctx, sess)
 	facts.PoePorts = ports
