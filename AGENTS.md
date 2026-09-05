@@ -54,14 +54,19 @@ no remote. The Claude worktree hook defaults to the sibling
 
 ## Agent behavior
 
-- Prefer the runtime's native tools and subagents. Use `repo-researcher` for a
-  bounded read-only repository question, `independent-reviewer` for a fresh pass
-  over specified changed files; give each a precise question, paths, and expected
-  output, and keep small sequential work in the main conversation.
-- The project skills `plan`, `implement`, `review`, and `compound` under
-  `.claude/skills/` carry the multi-step workflows; each says when it applies
-  and when to skip it. `docs/agent-steering.md` records why they are shaped
-  this way.
+- Keep small sequential work in the main conversation. Delegate through the
+  `delegate` skill, which names the worker and model for each kind of work:
+  `repo-researcher` for a bounded read-only question, `independent-reviewer`
+  for a fresh pass over changed files, and an Orca worker for editing work
+  when an Orca runtime is reachable.
+- The project skills `plan`, `implement`, `review`, `compound`, `close`,
+  and `steer` under `.claude/skills/` carry the multi-step workflows; each
+  says when it applies and when to skip it. `close` merges into `master`
+  only after `implement`, `review`, and `compound` have left their
+  checkpoints and leaves the worktree ready for removal; removing it is a
+  person's action. `steer` works the queue in `docs/agent-observations.md`
+  on request and stops at a staged diff for any policy surface.
+  `docs/agent-steering.md` records why they are shaped this way.
 - Auto-memory is personal and fallible; promote durable team facts per
   `docs/agent-knowledge.md`.
 - FlowSeer is still building its building blocks and nothing external consumes
@@ -99,10 +104,14 @@ no remote. The Claude worktree hook defaults to the sibling
 
 Hooks in `tools/hooks/` (registered per runtime in `.claude/settings.json` and
 `.codex/hooks.json`) deny hand-edits to `generated/` and `buf.lock`, reject
-non-source files under `spec/proto/`, auto-run gofumpt/goimports and
-`buf format`/`buf lint` on edits, and check triad and ref message sync. Both
-runtimes' Stop hooks run the repository layout checks. Hooks are fast feedback,
-not the authority — `go test -race ./...` enforces the same invariants.
+non-source files under `spec/proto/`, deny file writes in the primary checkout
+on a protected branch, prompt for approval before an edit to a policy surface,
+auto-run gofumpt/goimports and `buf format`/`buf lint` on edits, check triad
+and ref message sync (a member the file-level comment names as deliberately
+absent is not reported), and flag newly added lint suppressions. Both
+runtimes' Stop hooks run the repository layout checks and name edits the
+verifier has not seen. Hooks are fast feedback, not the authority —
+`go test -race ./...` enforces the same invariants.
 
 ## Layout
 

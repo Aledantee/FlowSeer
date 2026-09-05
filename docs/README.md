@@ -23,16 +23,19 @@ This does not let landed code silently overturn an accepted direction: record
 that mismatch and reconcile the direction explicitly.
 
 `artifact_readiness: implementation-ready` describes whether a plan contains
-enough detail to execute. It does not say that the work is still pending. Read
-the plan's outcome note and inspect the current source before treating it as a
-work queue. If an accepted record and the tree disagree, record the mismatch
-and reconcile the direction instead of guessing a new package or boundary.
+enough detail to execute. It does not say that the work is still pending. The
+`status` field does: `planned`, `implemented`, `partially-implemented`,
+`superseded` (with `superseded_by` naming the replacement), or `abandoned`.
+Read `status` and the outcome note, and inspect the current source, before
+treating a plan as a work queue. If an accepted record and the tree disagree,
+record the mismatch and reconcile the direction instead of guessing a new
+package or boundary.
 
-When a plan has shipped, add a short `> Implemented.` outcome note directly
-under its title. Keep `artifact_readiness` unchanged because it describes the
-plan's completeness, not its progress. Older plans may lack an outcome note;
-absence is not evidence that their work remains pending, so confirm against the
-current tree.
+When a plan has shipped, set `status` and add a short `> Implemented.` outcome
+note directly under its title, in the same change as the last unit. Keep
+`artifact_readiness` unchanged because it describes the plan's completeness,
+not its progress. A plan whose paths or package names have since moved keeps
+its text; the outcome note says where the code lives now.
 
 ## Documentation map
 
@@ -47,6 +50,7 @@ current tree.
 | [`doc-style.md`](doc-style.md) | Prose rules for documentation, comments, commits, and pull requests. |
 | [`agent-steering.md`](agent-steering.md) | How repository instructions, hooks, skills, and agent roles fit together. |
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |
+| [`agent-observations.md`](agent-observations.md) | Corrections to skills, agents, or hooks that await a maintainer's review. |
 | [`solutions/`](solutions/README.md) | Verified lessons indexed by the conditions in which they apply. |
 | [`plans/`](plans/) | Implementation decision records for bounded changes. |
 | [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |

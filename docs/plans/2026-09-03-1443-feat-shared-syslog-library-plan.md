@@ -4,6 +4,7 @@ type: feat
 date: 2026-09-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: code
 ---
 
@@ -50,7 +51,6 @@ Adding another persistent queue to the protocol library would duplicate delivery
 - **All three transports in the initial scope.** This covers legacy senders and encrypted connections. Governs R2, R3. (session-settled: user-directed — chosen over UDP-only or UDP/TCP-only delivery: include UDP, TCP, and TLS in both directions.)
 - **Raw capture is opt-in; standard wire output is selectable.** These defaults keep retained data optional and permit legacy receivers. Governs R8, R12, R13. (session-settled: user-approved — chosen over always retaining raw data or always emitting RFC 5424: the confirmed scope permits raw capture and either standard output format.)
 
-<!-- ce-section: work-relationships -->
 ### How This Work Fits Together
 
 This plan owns the protocol library.

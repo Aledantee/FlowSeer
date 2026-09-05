@@ -2,14 +2,16 @@
 title: mibgen Key Resolution and Device Identity - Plan
 type: feat
 date: 2026-09-05
-topic: mibgen-key-resolution-and-identity
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
+status: implemented
 execution: code
 ---
 
 # mibgen Key Resolution and Device Identity - Plan
+
+> Implemented. Key resolution, per-table descriptors, and the sysObjectID
+> identity package live in `src/protocol/snmp/cmd/mibgen`.
 
 ## Goal Capsule
 
@@ -110,7 +112,6 @@ The follow-up mapper layer needs all four facts from generated code. Without the
 - Configuring the LANCOM release MIB. Its product OIDs sit in a module with full tables, so it is added when a mapper needs those tables, per KTD8.
 - A generic collector-side join helper over key types. It belongs to the mapper layer.
 
-<!-- ce-section: work-relationships -->
 ### How This Work Fits Together
 
 This plan owns the generator and model side. The breakdown below is the current understanding, not a committed roadmap.

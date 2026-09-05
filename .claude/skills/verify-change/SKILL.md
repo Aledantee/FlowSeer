@@ -1,66 +1,43 @@
 ---
 name: verify-change
 description: Run FlowSeer's diff-aware format, lint, build, race-test, protobuf, hook, and configuration gates. Use after changing Go, protobuf, Claude hooks or settings, and before reporting implementation complete or preparing a commit.
+argument-hint: "[--full | --base REF | -- paths]"
 ---
 
 # Verify FlowSeer Change
 
-Run the repository verifier from the worktree root. It selects checks from the
-changed paths and maps Go files to their nearest module.
+Run the verifier from the worktree root. It selects checks from the changed
+paths and, within a Go module, vets, race-tests, and lints only the packages
+that can observe the change: those holding a changed file and every package
+that imports one of them. The whole module still compiles.
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh
 ```
 
-Use a base ref when verifying every change on the current branch, including
-committed work:
+Run it with the Bash sandbox disabled: the Go gates bind loopback listeners
+and the telemetry tier starts Docker, and the sandbox denies both.
 
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh --base master
-```
+| Scope | Command |
+| --- | --- |
+| every change on the branch, committed included | `verify-change.sh --base master` |
+| named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
+| all Go modules, protobuf sources, and Claude configuration | `verify-change.sh --full` |
 
-Use explicit paths after `--` to verify a narrow scope without including other
-worktree changes:
+Finish a cross-module or schema change with `--full`; a targeted run is
+enough for documentation, hook, or single-module work. Pass explicit paths
+when the worktree contains changes outside the current task.
 
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- tools/hooks/protect-generated-bash.sh
-```
+Full runs and telemetry-sensitive paths (service Go sources, its Collector
+integration sources and fixture, the wrapper, root `go.mod` or `go.sum`) run
+the Docker-backed OpenTelemetry tier through
+`tools/test/service-otel-integration.sh`. An unavailable daemon is a failed
+gate. `--print-selection -- <paths>` reports whether that tier would run
+without running any gate.
 
-Use `--full` for all Go modules, protobuf sources, and Claude configuration. This
-is intentionally slower. Finish substantive cross-module or schema changes with
-this gate; a targeted receipt is sufficient for narrow documentation, hook, or
-single-module work.
-
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh --full
-```
-
-Full verification and telemetry-sensitive paths run the Docker-backed service
-OpenTelemetry tier through `tools/test/service-otel-integration.sh`. The selected
-paths are service Go sources, its Collector integration sources and fixture,
-the wrapper, and the root `go.mod` or `go.sum`. Docker is a required tool for
-these scopes; an unavailable daemon is a failed gate.
-
-Policy fixtures can inspect that decision without running any gate:
-
-```bash
-.claude/skills/verify-change/scripts/verify-change.sh --print-selection -- \
-  src/common/service/telemetry_config.go
-```
-
-`--print-selection` emits `service_otel_integration=true` or `false` and exits
-before creating temporary build state, checking tools, starting Docker, running
-hook tests, or updating verification markers and receipts. An explicit empty
-path set after `--` is valid in this mode and reports `false`; it remains an
-error during normal verification.
-
-Treat a missing required tool as a failed gate. Do not silently replace a failed
-race test with a non-race test or skip lint. Fix the failure or report the exact
+A missing required tool is a failed gate. Do not replace a failed race test
+with a non-race test or skip lint; fix the failure or report the exact
 blocked command and reason.
 
-A successful run records its scope in the current worktree's git metadata and
-clears matching dirty markers. No completion hook enforces the receipt; running
-the verifier before handoff is part of the work sequence in `AGENTS.md`.
-
-Do not run this verifier against unrelated dirty files. Pass explicit paths when
-the worktree contains user-owned changes outside the current task.
+A successful run records its scope in the worktree's git metadata and clears
+matching dirty markers; `close` reads that receipt.

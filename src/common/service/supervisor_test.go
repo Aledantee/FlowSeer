@@ -264,9 +264,12 @@ func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
 		options:   options,
 		messages:  &messageRuntime{},
 		delivery: func(context.Context, plannedModule, []Handler) error {
-			close(deliveryReturned)
 			return deliveryFailure
 		},
+		// The report follows the recorded termination, so releasing the
+		// runner from here guarantees the failure is already visible to
+		// the start check.
+		infrastructureFailure: func(error) { close(deliveryReturned) },
 	}
 
 	type result struct {

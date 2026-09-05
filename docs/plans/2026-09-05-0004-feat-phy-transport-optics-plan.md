@@ -4,10 +4,15 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: code
 ---
 
 # PHY Transport Split and Deferred Physical-Layer Values - Plan
+
+> Implemented. The schema lives in `spec/proto/flowseer/net/phy/v1` and the
+> mappers in `src/modules/localnet/snmpmap`. The vendor transceiver walks are
+> still unconditional; see Deferred / Open Questions.
 
 ## Goal Capsule
 

@@ -642,10 +642,13 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 		go func() {
 			defer coordinator.owned.Done()
 			if err := runDelivery(attemptCtx, module, attempt.Handlers); err != nil {
+				// Record the termination before reporting it, so that an
+				// observer of the report sees an attempt that can no longer
+				// start its runner.
+				coordinator.terminate(attemptTermination{outcome: lifecycleOutcomeError, err: err})
 				if runtime.infrastructureFailure != nil {
 					runtime.infrastructureFailure(err)
 				}
-				coordinator.terminate(attemptTermination{outcome: lifecycleOutcomeError, err: err})
 			}
 		}()
 	}

@@ -85,40 +85,60 @@ assert_executable() {
 claude_config=$repo_root/.claude/settings.json
 codex_config=$repo_root/.codex/hooks.json
 
-jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "Stop", "WorktreeCreate"]' \
+jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "SessionStart", "Stop", "WorktreeCreate"]' \
   "$claude_config" >/dev/null
-jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "Stop"]' \
+jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "SessionStart", "Stop"]' \
   "$codex_config" >/dev/null
 
-assert_hook_mapping "$claude_config" "WorktreeCreate" "<none>" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/create-worktree.sh\""
-assert_hook_mapping "$claude_config" "PreToolUse" "Edit|Write|MultiEdit|NotebookEdit" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/pre-tool-policy.sh\""
-assert_hook_mapping "$claude_config" "PreToolUse" "Bash" \
-  "\$CLAUDE_PROJECT_DIR/tools/hooks/protect-generated-bash.sh"
-assert_hook_mapping "$claude_config" "PostToolUse" "Edit|Write|MultiEdit|NotebookEdit" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/go-format.sh\"" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/proto-check.sh\"" \
-  "\$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh"
-assert_hook_mapping "$claude_config" "PostToolUse" "Bash" \
-  "\$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh"
-assert_hook_mapping "$claude_config" "Stop" "<none>" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/stop-check.sh\""
+claude_hook() { printf '"%s/tools/hooks/%s"' "\$CLAUDE_PROJECT_DIR" "$1"; }
+codex_hook() { printf '"%s/tools/hooks/%s"' "\$(git rev-parse --show-toplevel)" "$1"; }
 
+assert_hook_mapping "$claude_config" "SessionStart" "<none>" \
+  "$(claude_hook worktree-guard.sh)"
+assert_hook_mapping "$claude_config" "WorktreeCreate" "<none>" \
+  "$(claude_hook create-worktree.sh)"
+assert_hook_mapping "$claude_config" "PreToolUse" "Edit|Write|MultiEdit|NotebookEdit" \
+  "$(claude_hook worktree-guard.sh)" \
+  "$(claude_hook pre-tool-policy.sh)"
+assert_hook_mapping "$claude_config" "PreToolUse" "Bash" \
+  "$(claude_hook worktree-guard.sh)" \
+  "$(claude_hook protect-generated-bash.sh)"
+assert_hook_mapping "$claude_config" "PostToolUse" "Edit|Write|MultiEdit|NotebookEdit" \
+  "$(claude_hook go-format.sh)" \
+  "$(claude_hook proto-check.sh)" \
+  "$(claude_hook suppression-warn.sh)" \
+  "$(claude_hook mark-verification-dirty.sh)"
+assert_hook_mapping "$claude_config" "PostToolUse" "Bash" \
+  "$(claude_hook mark-verification-dirty.sh)"
+assert_hook_mapping "$claude_config" "Stop" "<none>" \
+  "$(claude_hook stop-check.sh)"
+
+assert_hook_mapping "$codex_config" "SessionStart" "<none>" \
+  "$(codex_hook worktree-guard.sh)"
 assert_hook_mapping "$codex_config" "PreToolUse" "Edit|Write" \
-  "\"\$(git rev-parse --show-toplevel)/tools/hooks/pre-tool-policy.sh\""
+  "$(codex_hook worktree-guard.sh)" \
+  "$(codex_hook pre-tool-policy.sh)"
+assert_hook_mapping "$codex_config" "PreToolUse" "Bash" \
+  "$(codex_hook worktree-guard.sh)" \
+  "$(codex_hook protect-generated-bash.sh)"
 assert_hook_mapping "$codex_config" "PostToolUse" "Edit|Write" \
-  "\"\$(git rev-parse --show-toplevel)/tools/hooks/go-format.sh\"" \
-  "\"\$(git rev-parse --show-toplevel)/tools/hooks/proto-check.sh\""
+  "$(codex_hook go-format.sh)" \
+  "$(codex_hook proto-check.sh)" \
+  "$(codex_hook suppression-warn.sh)" \
+  "$(codex_hook mark-verification-dirty.sh)"
+assert_hook_mapping "$codex_config" "PostToolUse" "Bash" \
+  "$(codex_hook mark-verification-dirty.sh)"
 assert_hook_mapping "$codex_config" "Stop" "<none>" \
-  "\"\$(git rev-parse --show-toplevel)/tools/hooks/stop-check.sh\""
+  "$(codex_hook stop-check.sh)"
 
 for configured_hook in \
+  tools/hooks/worktree-guard.sh \
   tools/hooks/create-worktree.sh \
   tools/hooks/pre-tool-policy.sh \
   tools/hooks/protect-generated-bash.sh \
   tools/hooks/go-format.sh \
   tools/hooks/proto-check.sh \
+  tools/hooks/suppression-warn.sh \
   tools/hooks/mark-verification-dirty.sh \
   tools/hooks/stop-check.sh; do
   assert_executable "$configured_hook"
@@ -133,18 +153,49 @@ ok "Edit denies generated output"
 claude_edit_command=$(jq -r '
   .hooks.PreToolUse[] |
   select(.matcher == "Edit|Write|MultiEdit|NotebookEdit") |
-  .hooks[0].command
+  .hooks[] | .command | select(contains("pre-tool-policy"))
 ' "$claude_config")
 claude_edit_output=$(CLAUDE_PROJECT_DIR="$repo_root" bash -c "$claude_edit_command" <<<"$edit_input")
 [[ $(decision <<<"$claude_edit_output") == deny ]]
 codex_edit_command=$(jq -r '
   .hooks.PreToolUse[] |
   select(.matcher == "Edit|Write") |
-  .hooks[0].command
+  .hooks[] | .command | select(contains("pre-tool-policy"))
 ' "$codex_config")
 codex_edit_output=$(cd "$repo_root" && bash -c "$codex_edit_command" <<<"$edit_input")
 [[ $(decision <<<"$codex_edit_output") == deny ]]
 ok "configured edit guards deny generated output"
+
+new_dir_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/docs/new dir/deeper/notes.md" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$new_dir_input"
+new_dir_generated=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/new/deeper/x.pb.go" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$new_dir_generated"
+ok "Edit resolves paths whose parent directories do not exist yet"
+
+test_go_input=$(jq -n --arg cwd "$fixture" --arg file "spec/proto/rules_test.go" \
+  '{cwd:$cwd,tool_input:{file_path:$file}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$test_go_input"
+mixed_patch=$(jq -n --arg cwd "$fixture" --arg command $'*** Begin Patch\n*** Update File: spec/proto/flowseer/net/addr/v1/ip.proto\n*** Add File: spec/proto/layering_test.go\n*** End Patch' \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$mixed_patch"
+schema_patch=$(jq -n --arg cwd "$fixture" --arg command $'*** Begin Patch\n*** Update File: spec/proto/flowseer/net/addr/v1/ip.proto\n*** End Patch' \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$schema_patch"
+mkdir -p "$fixture/src/common"
+traversal_patch=$(jq -n --arg cwd "$fixture/src/common" --arg command $'*** Begin Patch\n*** Add File: ../../spec/proto/bypass_test.go\n*** End Patch' \
+  '{cwd:$cwd,tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$traversal_patch"
+ok "Edit applies the spec/proto source-only rule to Claude paths and Codex patches"
+
+for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh; do
+  policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
+    '{cwd:$cwd,tool_input:{file_path:$path}}')
+  policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
+  [[ $(decision <<<"$policy_output") == ask ]]
+done
+ok "Edit asks before touching a policy surface"
 
 missing_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/missing.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
@@ -249,11 +300,40 @@ ok "Bash denies direct generated-file mutation"
 claude_bash_command=$(jq -r '
   .hooks.PreToolUse[] |
   select(.matcher == "Bash") |
-  .hooks[0].command
+  .hooks[] | .command | select(contains("protect-generated-bash"))
 ' "$claude_config")
 claude_bash_output=$(CLAUDE_PROJECT_DIR="$repo_root" bash -c "$claude_bash_command" <<<"$bash_edit")
 [[ $(decision <<<"$claude_bash_output") == deny ]]
 ok "configured Bash guard denies generated-file mutation"
+
+for read_command in \
+  "sed -n 1,5p generated/device.pb.go" \
+  "grep -rn Facet generated/go | sed -E 's/x/y/'" \
+  "git add spec/proto generated/go && git commit -m regenerate" \
+  "go test ./generated/..." \
+  "ls generated/go; head -3 generated/device.pb.go" \
+  "rm -rf docs/attic; cat generated/device.pb.go" \
+  "cat buf.lock"; do
+  bash_read_input=$(jq -n --arg cwd "$fixture" --arg command "$read_command" \
+    '{cwd:$cwd,tool_input:{command:$command}}')
+  assert_allow "$repo_root/tools/hooks/protect-generated-bash.sh" "$bash_read_input"
+done
+ok "Bash allows reads and commits that only name generated output"
+
+for write_command in \
+  "rm generated/device.pb.go" \
+  "cd spec && cp x.go ../generated/device.pb.go" \
+  "git -C . restore generated/go" \
+  "perl -pi -e s/a/b/ generated/device.pb.go" \
+  "python3 fix.py generated/device.pb.go" \
+  "curl -o buf.lock https://example.invalid/buf.lock" \
+  "echo x | tee buf.lock" \
+  "find generated/go -name '*.pb.go' -delete"; do
+  bash_write_input=$(jq -n --arg cwd "$fixture" --arg command "$write_command" \
+    '{cwd:$cwd,tool_input:{command:$command}}')
+  assert_deny "$repo_root/tools/hooks/protect-generated-bash.sh" "$bash_write_input"
+done
+ok "Bash denies every mutating verb that names generated output"
 
 bash_redirect=$(jq -n --arg cwd "$fixture" \
   --arg command "printf x > generated/device.pb.go" \
@@ -297,7 +377,48 @@ proto_input=$(jq -n --arg cwd "$fixture" --arg path "$proto" \
 proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")
 jq -e '.hookSpecificOutput.additionalContext | contains("WidgetState") and contains("WidgetEvent")' \
   <<<"$proto_output" >/dev/null
-ok "proto hook reports deliberate partial families"
+ok "proto hook reports partial families the file does not explain"
+
+printf 'syntax = "proto3";\n\n// The widget family is deliberately partial: nothing observes a widget,\n// so there is no WidgetState and no WidgetEvent.\nmessage WidgetConfig {}\n' >"$proto"
+proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")
+[[ -z $proto_output ]]
+printf 'syntax = "proto3";\n\n// Nothing observes a widget, so there is no WidgetState.\nmessage WidgetConfig {}\n' >"$proto"
+proto_output=$(PATH="$stub_bin:$PATH" "$repo_root/tools/hooks/proto-check.sh" <<<"$proto_input")
+jq -e '.hookSpecificOutput.additionalContext | contains("WidgetEvent") and (contains("WidgetState") | not)' \
+  <<<"$proto_output" >/dev/null
+printf 'syntax = "proto3";\nmessage WidgetConfig {}\n' >"$proto"
+ok "proto hook stays silent about members the file-level comment names"
+
+suppression_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
+  --arg new $'func x() error { //nolint:errcheck\n\treturn nil\n}' \
+  '{cwd:$cwd,tool_input:{file_path:$path,old_string:"",new_string:$new}}')
+suppression_output=$("$repo_root/tools/hooks/suppression-warn.sh" <<<"$suppression_input")
+jq -e '.hookSpecificOutput.additionalContext | contains("nolint")' <<<"$suppression_output" >/dev/null
+plain_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
+  --arg new $'func x() error {\n\treturn nil\n}' \
+  '{cwd:$cwd,tool_input:{file_path:$path,old_string:"",new_string:$new}}')
+[[ -z $("$repo_root/tools/hooks/suppression-warn.sh" <<<"$plain_input") ]]
+ok "suppression hook reports new lint suppressions and nothing else"
+
+guard_write=$(jq -n --arg cwd "$fixture" --arg path "$fixture/README.md" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_write"
+guard_bash=$(jq -n --arg cwd "$fixture" --arg command "printf x > README.md" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_bash"
+guard_commit=$(jq -n --arg cwd "$fixture" --arg command "git add -A && git commit -m land" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$command}}')
+assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_commit"
+guard_linked=$(jq -n --arg cwd "$linked_worktree" --arg path "$linked_worktree/README.md" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
+assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_linked"
+guard_escape=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/README.md" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_escape"
+guard_start=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"SessionStart"}')
+jq -e '.hookSpecificOutput.additionalContext | contains("EnterWorktree")' \
+  <<<"$("$repo_root/tools/hooks/worktree-guard.sh" <<<"$guard_start")" >/dev/null
+ok "worktree guard denies primary-checkout writes, allows commits and worktree edits"
 
 no_buf=$fixture/no-buf
 mkdir -p "$no_buf"
@@ -330,6 +451,14 @@ bash_mark_input=$(jq -n --arg cwd "$fixture" --arg command "sed -i '' -e s/a/b/ 
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$bash_mark_input"
 grep -qx '<Bash mutation; verify with --full>' "$fixture/.git/flowseer-verification-dirty"
 ok "Bash source mutations mark a full-scope verification"
+
+stop_input=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"Stop"}')
+stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
+jq -e '.decision == null and (.systemMessage | contains("Edited but not verified"))' <<<"$stop_output" >/dev/null
+rm -f "$fixture/.git/flowseer-verification-dirty"
+stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
+[[ $stop_output == '{}' ]]
+ok "Stop reports unverified edits without blocking and passes a clean tree"
 
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"

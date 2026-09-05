@@ -5,6 +5,14 @@ authoritative when its frontmatter says `status: accepted-direction`.
 Research supplies evidence for a decision but does not override an accepted
 record or a binding convention.
 
+A direction record is this repository's architecture decision record. The
+`plan` skill drafts one with `status: proposed-direction` when a plan
+decision outlives its task (see the promotion test in
+`.claude/skills/plan/SKILL.md`). A proposed record binds nothing until a
+person reads it and changes the status to `accepted-direction`; a record
+that is replaced gets `status: superseded` and a `superseded_by` path rather
+than an edit.
+
 | Record | Status | Read when |
 | --- | --- | --- |
 | [Device Service, Integrations, and Inventory](2026-08-20-device-service-and-inventory-direction.md) | Accepted direction | Working on the device service, integrations, inventory, discovery, ingestion, attachment, or the transport fabric. |

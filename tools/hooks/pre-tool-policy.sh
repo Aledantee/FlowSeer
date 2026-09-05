@@ -12,6 +12,7 @@ if ! hook_init; then
 fi
 
 found_path=false
+policy_surfaces=""
 while IFS= read -r candidate_file; do
   [ -n "$candidate_file" ] || continue
   found_path=true
@@ -50,9 +51,18 @@ while IFS= read -r candidate_file; do
           ;;
       esac
       ;;
+    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*)
+      # Policy surfaces stay editable, but the person running the session
+      # approves each edit; AGENTS.md calls this guardrail review.
+      policy_surfaces="$policy_surfaces${policy_surfaces:+, }$relative_file"
+      ;;
   esac
 done < <(hook_paths)
 
 if [ "$found_path" = false ]; then
   hook_deny "The edit hook could not determine the target path. Use a supported file edit whose destination can be checked against repository policy."
+fi
+
+if [ -n "$policy_surfaces" ]; then
+  hook_ask "$policy_surfaces is a policy surface (AGENTS.md, Hard boundaries). Approve only if this edit was requested as a guardrail change; otherwise propose it separately."
 fi

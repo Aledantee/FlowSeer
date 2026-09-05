@@ -79,6 +79,8 @@ func protoPathViolation(path string, isDir bool) string {
 		return ""
 	}
 	base := filepath.Base(path)
+	// Dotfiles cover .gitkeep placeholders and the .DS_Store files Finder
+	// leaves behind; both are ignored by git and neither is schema content.
 	if base == "README.md" || strings.HasPrefix(base, ".") || filepath.Ext(path) == ".proto" {
 		return ""
 	}

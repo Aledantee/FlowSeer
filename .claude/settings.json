@@ -17,6 +17,16 @@
     }
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+          }
+        ]
+      }
+    ],
     "WorktreeCreate": [
       {
         "hooks": [
@@ -33,6 +43,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+          },
+          {
+            "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/pre-tool-policy.sh\""
           }
         ]
@@ -42,7 +56,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/tools/hooks/protect-generated-bash.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/protect-generated-bash.sh\""
           }
         ]
       }
@@ -61,7 +79,11 @@
           },
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/suppression-warn.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh\""
           }
         ]
       },
@@ -70,7 +92,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh\""
           }
         ]
       }

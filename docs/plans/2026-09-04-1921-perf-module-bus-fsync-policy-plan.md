@@ -4,10 +4,16 @@ type: perf
 date: 2026-09-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
+status: implemented
 execution: code
 ---
 
 # Module Bus Fsync Policy - Plan
+
+> Implemented, then amended. The implicit periodic-sync default this plan
+> introduced was removed by
+> `2026-09-05-1310-fix-module-bus-fsync-upgrade-path-plan.md`; a service now
+> declares its policy explicitly. Read that plan for the current contract.
 
 ## Goal Capsule
 
