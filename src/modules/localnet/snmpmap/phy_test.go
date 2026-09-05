@@ -13,6 +13,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/localnet/collect"
 	"go.aledante.io/FlowSeer/src/modules/localnet/snmpmap"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -461,4 +462,83 @@ func TestPhysical_UnsupportedAutoNegotiationCannotBeEnabled(t *testing.T) {
 	if applied.HasEnabled() || applied.GetStatus() != phyv1.AutoNegotiationStatus_AUTO_NEGOTIATION_STATUS_DISABLED {
 		t.Errorf("applied auto-negotiation = %v, want no enabled fact and a disabled status", applied)
 	}
+}
+
+func TestPhysicalMapper_Spec(t *testing.T) {
+	spec := snmpmap.PhysicalMapper.Spec()
+
+	if spec.Name == "" {
+		t.Error("Spec.Name is empty")
+	}
+
+	if len(spec.Required) != 0 {
+		t.Errorf("Required = %d tables, want 0: every physical-layer table is optional", len(spec.Required))
+	}
+
+	if got := len(spec.Optional); got != 6 {
+		t.Errorf("Optional = %d tables, want 6 (dot3Stats, dot3HCStats, ifMau, ifMauAutoNeg, pethPsePort, pethMainPse)", got)
+	}
+}
+
+func TestPhysicalMapper_Map(t *testing.T) {
+	// physicalMapper.Map must build the same core facts Physical does, from
+	// a Snapshot rather than a session.
+	sess := &fakeSession{vbs: etherLikePort(3)}
+	snap := collect.Read(context.Background(), sess, snmpmap.PhysicalMapper)
+
+	out, err := snmpmap.PhysicalMapper.Map(snap)
+	if err != nil {
+		t.Fatalf("Map: %v", err)
+	}
+
+	facts, ok := out.(snmpmap.PhysicalFacts)
+	if !ok {
+		t.Fatalf("Map returned %T, want snmpmap.PhysicalFacts", out)
+	}
+
+	facet := facts.Facets[3]
+	if facet == nil {
+		t.Fatal("no facet for ifIndex 3")
+	}
+
+	mustValid(t, facet)
+
+	if got := facet.GetCounters().GetFcsErrors(); got != 7 {
+		t.Errorf("fcs_errors = %d, want 7", got)
+	}
+}
+
+func TestPhysical_SharesTablesWithInterfaceMapper(t *testing.T) {
+	// Composing PhysicalMapper with InterfaceMapper in one Collector cycle
+	// must walk each table root exactly once, even though both mappers
+	// declare it (InterfaceMapper) or several tables (PhysicalMapper).
+	sess := &countingSession{fakeSession: &fakeSession{vbs: etherLikePort(3)}}
+
+	// The fixture answers no sysObjectID, so Collect's joined error names
+	// the identity read; the table walks under test still run.
+	_, _ = collect.New(snmpmap.InterfaceMapper, snmpmap.PhysicalMapper).Collect(context.Background(), sess)
+
+	for root, n := range sess.walks {
+		if n != 1 {
+			t.Errorf("table %s walked %d times, want 1", root, n)
+		}
+	}
+}
+
+// countingSession counts BulkWalk calls per root OID, so a test can prove
+// a shared cycle walks each table once regardless of how many mappers
+// declare it.
+type countingSession struct {
+	*fakeSession
+	walks map[string]int
+}
+
+func (s *countingSession) BulkWalk(ctx context.Context, root snmp.OID, opts ...snmp.CallOption) *snmp.Walker {
+	if s.walks == nil {
+		s.walks = make(map[string]int)
+	}
+
+	s.walks[root.String()]++
+
+	return s.fakeSession.BulkWalk(ctx, root, opts...)
 }
