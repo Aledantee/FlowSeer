@@ -2,10 +2,8 @@
 title: PHY Transport Split and Deferred Physical-Layer Values - Plan
 type: feat
 date: 2026-09-05
-topic: phy-transport-optics
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
 ---
 
@@ -373,7 +371,7 @@ Units run in dependency order. U1 and U2 are schema units, U3 the documentation 
 
 ### From 2026-09-05 review
 
-- **Deferred values lack a user outcome** — Product Contract objective and Problem Frame (P1, cross-model product-lens peer, confidence 75)
+- **Deferred values lack a user outcome**
 
   The slice can satisfy every schema, mapper, and fixture check while producing no user-visible improvement. It expands the package contract and preserves more walk data, but names no operator or developer workflow, consuming surface, baseline pain, or success signal. Without that link the team cannot tell whether pulling optics and PoE forward is more valuable than starting the component model or a narrower diagnostic capability.
 
