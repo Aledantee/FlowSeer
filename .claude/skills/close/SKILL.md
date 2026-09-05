@@ -35,9 +35,14 @@ orca worktree show --worktree active --json   # .result.worktree.comment and .wo
 Outside Orca there is no card: ask the user for the review verdict and the
 compound outcome in one question and record the answers in the report.
 
-Any failed signal stops the skill here. Report which one and name the skill
-to run next. Do not merge a partial implementation because the landed units
-pass.
+A failed signal whose remedy is another skill's work (a plan not
+implemented, no review verdict, no compound outcome) stops the skill here:
+report which one and name the skill to run next. Do not merge a partial
+implementation because the landed units pass. A failed signal with a
+mechanical remedy (a receipt older than the last commit, a dirty marker)
+is not a stop: name the remedy, ask the user whether to apply it, and
+re-read the signal after doing so. Batch every remedy from steps 1 and 2
+into one question.
 
 ## 2. Check both trees
 
@@ -50,8 +55,10 @@ git log --oneline HEAD..master    # commits the branch has not seen
 ```
 
 Uncommitted changes that belong to the task are committed first, with the
-plan's outcome in the same commit. Uncommitted changes that do not belong to
-the task stop the skill; say what they are.
+plan's outcome in the same commit. For uncommitted changes that do not
+belong to the task, say what they are and propose the remedy: commit them
+under their own message when they are finished work, or leave them and
+stop when another session is mid-edit. Ask before either.
 
 The primary checkout must be on `master` and clean; another session may be
 mid-edit there:
@@ -62,6 +69,12 @@ git -C "$primary" branch --show-current   # master
 git -C "$primary" status --porcelain      # empty
 ```
 
+When the primary checkout is not clean, inspect each path read-only and
+propose what to do with it: an untracked build artifact, profile, test
+binary, or capture is deleted; a tracked modification or a source file is
+left alone, since another session owns it. Ask before deleting anything,
+and never delete a tracked change.
+
 Orca workers started for this task must be settled and released, so that
 removing the worktree later kills nothing:
 
@@ -71,7 +84,9 @@ orca terminal list --worktree active --json   # only this terminal remains
 ```
 
 Release a settled worker with `worker-release`; a running worker stops the
-skill.
+skill. When master has moved, the verifier run that satisfies the receipt
+signal uses the merge-base as its base, not `master`: `--base master`
+diffs against master's tip and pulls master's own changes into the scope.
 
 ## 3. Merge
 
