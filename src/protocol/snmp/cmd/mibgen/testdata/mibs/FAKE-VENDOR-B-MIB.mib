@@ -1,0 +1,27 @@
+FAKE-VENDOR-B-MIB DEFINITIONS ::= BEGIN
+IMPORTS
+    MODULE-IDENTITY, OBJECT-IDENTITY, enterprises
+        FROM SNMPv2-SMI;
+
+-- Second naming-node-only vendor module for the sysObjectID identity
+-- golden. fakeSharedByB sits at the OID FAKE-VENDOR-A-MIB names
+-- fakeSharedByA; the table keeps the entry from the module first in
+-- name order.
+
+fakeVendorB MODULE-IDENTITY
+    LAST-UPDATED "202609050000Z"
+    ORGANIZATION "FlowSeer Test"
+    CONTACT-INFO "test"
+    DESCRIPTION  "Root of the Fake Vendor B registration subtree."
+    ::= { enterprises 99997 }
+
+fakeVendorBProducts OBJECT IDENTIFIER ::= { fakeVendorB 1 }
+
+fakeVendorBAccessPoint OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION "The access point."
+    ::= { fakeVendorBProducts 1 }
+
+fakeSharedByB OBJECT IDENTIFIER ::= { enterprises 99996 1 }
+
+END

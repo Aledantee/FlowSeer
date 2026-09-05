@@ -30,17 +30,23 @@ const errsImport = "go.aledante.io/FlowSeer/src/common/errs"
 
 const generatedGoVersion = "go1.26"
 
+// emitReport is what one [Emit] run produced beyond the files on disk.
+type emitReport struct {
+	// Degraded lists the references emitted in their base type because
+	// the module declaring their key type is not configured; the output
+	// compiles either way, and the caller decides whether to report them.
+	Degraded []degradedRef
+	// Identity summarizes the sysObjectID identity package.
+	Identity identityReport
+}
+
 // Emit generates Go bindings for every module in cfg and writes one
-// `mib.go` per module under outDir/<package>/. pkgPrefix is the Go
+// `mib.go` per module under outDir/<package>/, then the cross-module
+// identity package under outDir/sysobjectid/. pkgPrefix is the Go
 // import-path prefix used for cross-package qualified references (e.g.
 // when one MIB's emitted enum is referenced from another generated
 // package). cfg must have been validated and set must be the resolved
 // model [LoadModules] returned for it.
-//
-// The returned references are the ones emitted in their base type
-// because the module declaring their key type is not configured; the
-// output compiles either way, and the caller decides whether to report
-// them.
 //
 // Emit is reentrant in the sense that subsequent calls overwrite the
 // per-module mib.go in-place. Existing files outside of mib.go are
@@ -50,15 +56,15 @@ const generatedGoVersion = "go1.26"
 // On any module-level failure Emit returns a wrapped error and stops
 // — output files written before the failure remain on disk; the
 // caller is responsible for deciding whether to roll those back.
-func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) ([]degradedRef, error) {
+func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) (emitReport, error) {
 	if cfg == nil {
-		return nil, errs.Msg("Emit called with nil config")
+		return emitReport{}, errs.Msg("Emit called with nil config")
 	}
 	if set == nil {
-		return nil, errs.Msg("Emit called with nil module set")
+		return emitReport{}, errs.Msg("Emit called with nil module set")
 	}
 	if outDir == "" {
-		return nil, errs.Msg("Emit called with empty outDir")
+		return emitReport{}, errs.Msg("Emit called with empty outDir")
 	}
 
 	// Build a name → Module map so EmitModule can look up overrides
@@ -68,19 +74,26 @@ func Emit(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) ([]degraded
 		cfgByName[m.Name] = m
 	}
 
-	var degraded []degradedRef
+	var report emitReport
 	for _, cm := range cfg.Modules {
 		mod, ok := set.Module(cm.Name)
 		if !ok {
-			return nil, errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
+			return emitReport{}, errs.Msgf("emit: module %q is not in the resolved set", cm.Name)
 		}
 		refs, err := EmitModule(mod, set, cm, cfgByName, outDir, pkgPrefix)
 		if err != nil {
-			return nil, errs.Wrapf(err, "emit: module %q", cm.Name)
+			return emitReport{}, errs.Wrapf(err, "emit: module %q", cm.Name)
 		}
-		degraded = append(degraded, refs...)
+		report.Degraded = append(report.Degraded, refs...)
 	}
-	return degraded, nil
+
+	identity, err := emitIdentity(cfg, set, outDir, pkgPrefix)
+	if err != nil {
+		return emitReport{}, errs.Wrap(err, "emit: identity package")
+	}
+	report.Identity = identity
+
+	return report, nil
 }
 
 // EmitModule generates the mib.go for a single resolved module and writes it
@@ -170,31 +183,40 @@ func renderModule(
 	emitTierMap(f, ec)
 	emitIndicators(f, ec)
 
-	// Render to a buffer, then apply the same formatters enforced by the
-	// repository. Jennifer owns import discovery but only guarantees gofmt-
-	// equivalent output; goimports groups imports and gofumpt applies the
-	// repository's stricter source normalization.
 	var buf bytes.Buffer
 	if err := f.Render(&buf); err != nil {
 		return nil, nil, errs.Wrap(err, "render")
 	}
-	withImports, err := imports.Process(cm.Package+"/mib.go", buf.Bytes(), &imports.Options{
+	formatted, err := formatGenerated(cm.Package+"/mib.go", buf.Bytes())
+	if err != nil {
+		return nil, nil, err
+	}
+	return formatted, ec.degraded, nil
+}
+
+// formatGenerated applies the formatters the repository enforces to
+// rendered source. Jennifer owns import discovery but only guarantees
+// gofmt-equivalent output; goimports groups imports and gofumpt applies
+// the repository's stricter source normalization. filename only steers
+// goimports' grouping heuristics; nothing is read from disk.
+func formatGenerated(filename string, src []byte) ([]byte, error) {
+	withImports, err := imports.Process(filename, src, &imports.Options{
 		Comments:   true,
 		TabIndent:  true,
 		TabWidth:   8,
 		FormatOnly: true,
 	})
 	if err != nil {
-		return nil, nil, errs.Wrap(err, "format imports")
+		return nil, errs.Wrap(err, "format imports")
 	}
 	formatted, err := format.Source(withImports, format.Options{
 		LangVersion: generatedGoVersion,
 		ModulePath:  "go.aledante.io/FlowSeer",
 	})
 	if err != nil {
-		return nil, nil, errs.Wrap(err, "format source")
+		return nil, errs.Wrap(err, "format source")
 	}
-	return formatted, ec.degraded, nil
+	return formatted, nil
 }
 
 // writeHeader writes the file's leading `Code generated by` banner. The banner names the source MIB, its on-disk path (relative
@@ -277,10 +299,10 @@ func newOIDCall(oidStr string) *jen.Statement {
 	return jen.Qual(snmpImport, "MustOID").Call(args...)
 }
 
-// runCheck regenerates every module into a tmpdir and compares each
-// `mib.go` byte-for-byte to the committed file under outDir. Returns
-// a non-nil error on any drift. The caller is expected to map that
-// error to a non-zero exit code.
+// runCheck regenerates every module and the identity package into a
+// tmpdir and compares each `mib.go` byte-for-byte to the committed file
+// under outDir. Returns a non-nil error on any drift. The caller is
+// expected to map that error to a non-zero exit code.
 func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 	tmp, err := os.MkdirTemp("", "mibgen-check-*")
 	if err != nil {
@@ -292,23 +314,29 @@ func runCheck(cfg *Config, set *smi.ModuleSet, outDir, pkgPrefix string) error {
 		return err
 	}
 
-	var drift []string
+	packages := make([]struct{ name, pkg string }, 0, len(cfg.Modules)+1)
 	for _, m := range cfg.Modules {
-		got, err := os.ReadFile(filepath.Join(tmp, m.Package, "mib.go"))
+		packages = append(packages, struct{ name, pkg string }{m.Name, m.Package})
+	}
+	packages = append(packages, struct{ name, pkg string }{identityPackage, identityPackage})
+
+	var drift []string
+	for _, p := range packages {
+		got, err := os.ReadFile(filepath.Join(tmp, p.pkg, "mib.go"))
 		if err != nil {
-			return errs.Wrapf(err, "read regenerated module %q", m.Name)
+			return errs.Wrapf(err, "read regenerated package %q", p.name)
 		}
-		want, err := os.ReadFile(filepath.Join(outDir, m.Package, "mib.go"))
+		want, err := os.ReadFile(filepath.Join(outDir, p.pkg, "mib.go"))
 		if err != nil {
-			drift = append(drift, fmt.Sprintf("%s: %v", m.Name, err))
+			drift = append(drift, fmt.Sprintf("%s: %v", p.name, err))
 			continue
 		}
 		if !bytes.Equal(got, want) {
-			drift = append(drift, fmt.Sprintf("%s: drift", m.Name))
+			drift = append(drift, fmt.Sprintf("%s: drift", p.name))
 		}
 	}
 	if len(drift) > 0 {
-		return errs.Msgf("check: drift in %d module(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
+		return errs.Msgf("check: drift in %d package(s):\n  %s", len(drift), strings.Join(drift, "\n  "))
 	}
 	return nil
 }

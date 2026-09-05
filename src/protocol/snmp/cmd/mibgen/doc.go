@@ -29,6 +29,13 @@
 //     tiebreak). A reference to a key type whose module is not
 //     configured is emitted in its base type and listed on stdout.
 //
+// One package is not per module: -out/sysobjectid/ holds every naming
+// node the configured modules declare under the enterprises subtree,
+// sorted by OID with one entry per OID, and a Lookup that resolves a
+// sysObjectID to the deepest of them. It imports only the SNMP library,
+// so a consumer that wants device identity alone links no per-module
+// package (see emit_identity.go for the collection and trimming rules).
+//
 // Invoke from the repository root:
 //
 //	go run ./src/protocol/snmp/cmd/mibgen [-config <yaml>] [-out <dir>] [-pkg-prefix <importpath>] [-baseline <yaml>]
@@ -55,15 +62,15 @@
 //
 // The emitter lives in emit.go (and per-shape companions emit_scalar.go,
 // emit_table.go, emit_key.go, emit_enum.go, emit_bits.go, emit_tc.go,
-// emit_dispatch.go); the CLI
-// entrypoint is in main.go.
+// emit_dispatch.go); the cross-module identity pass is emit_identity.go;
+// the CLI entrypoint is in main.go.
 //
 // # Refreshing golden test fixtures
 //
 // After an intentional emitter change, refresh the committed golden
 // fixtures under testdata/golden/ with:
 //
-//	go test ./src/protocol/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden
+//	go test ./src/protocol/snmp/cmd/mibgen -run 'TestEmit_FakeMIB_Golden|TestEmit_Identity_Golden' -update-golden
 //
 // The goldentest package compiles those fixtures and walks them against
 // a scripted session, so run `go test ./src/protocol/snmp/cmd/mibgen/...`

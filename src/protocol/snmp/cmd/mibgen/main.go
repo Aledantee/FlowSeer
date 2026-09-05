@@ -111,19 +111,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		fmt.Fprintf(stdout, "OK: %d module(s) match committed output\n", len(cfg.Modules))
+		fmt.Fprintf(stdout, "OK: %d module(s) and the identity package match committed output\n", len(cfg.Modules))
 		return 0
 	case *update:
 		if err := gateOnBaseline(cfg, set, blPath); err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		degraded, err := Emit(cfg, set, *outDir, *pkgPrefix)
+		report, err := Emit(cfg, set, *outDir, *pkgPrefix)
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		reportDegraded(stdout, degraded)
+		reportEmit(stdout, report)
 		fmt.Fprintf(stdout, "OK: %d module(s) regenerated under %s\n", len(cfg.Modules), *outDir)
 		return 0
 	default:
@@ -131,24 +131,27 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		degraded, err := Emit(cfg, set, *outDir, *pkgPrefix)
+		report, err := Emit(cfg, set, *outDir, *pkgPrefix)
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		reportDegraded(stdout, degraded)
+		reportEmit(stdout, report)
 		fmt.Fprintf(stdout, "OK: emitted %d module(s) to %s\n", len(cfg.Modules), *outDir)
 		return 0
 	}
 }
 
-// reportDegraded prints one line per reference emitted in its base
-// type, so a configuration that leaves a key type's module out is
-// visible in the run rather than only in the diff.
-func reportDegraded(stdout io.Writer, degraded []degradedRef) {
-	for _, d := range degraded {
+// reportEmit prints one line per reference emitted in its base type, so
+// a configuration that leaves a key type's module out is visible in the
+// run rather than only in the diff, then the identity table's size so a
+// vendor module that contributed nothing is noticed.
+func reportEmit(stdout io.Writer, report emitReport) {
+	for _, d := range report.Degraded {
 		fmt.Fprintln(stdout, d)
 	}
+	fmt.Fprintf(stdout, "OK: identity table with %d naming nodes from %d module(s)\n",
+		report.Identity.Nodes, report.Identity.Modules)
 }
 
 // gateOnBaseline refuses to render anything the committed baseline does
