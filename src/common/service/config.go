@@ -40,20 +40,29 @@ type Attempt struct {
 type SetupFunc func(ctx context.Context) (Attempt, error)
 
 // BusFsyncPolicy selects how the local bus flushes file-backed stream writes.
-// Its zero value selects periodic sync. Values are safe to copy.
+// Its zero value is BusFsyncUnspecified, which fails normalization; a service
+// must declare one of the other values. Values are safe to copy.
 type BusFsyncPolicy uint8
 
 const (
-	// BusFsyncPeriodic flushes pending stream writes at a configured interval.
-	BusFsyncPeriodic BusFsyncPolicy = iota
+	// BusFsyncUnspecified is the zero value. A BusConfig carrying it is rejected
+	// before the store is locked or opened.
+	BusFsyncUnspecified BusFsyncPolicy = iota
+	// BusFsyncPeriodic asks the operating system to flush pending stream writes
+	// on a target interval. Acknowledged records survive a process kill. The
+	// interval is not a guaranteed loss bound: scheduler delay and slow storage
+	// can complete a sync later than the interval, so a power loss can drop
+	// records older than the interval.
+	BusFsyncPeriodic
 	// BusFsyncPerMessage flushes each stream write before acknowledging it.
+	// Acknowledged records survive a process kill and a power loss.
 	BusFsyncPerMessage
 )
 
-// BusConfig opts a service into its durable local message bus. The zero value
-// uses the documented private store location and logical capacity defaults.
-// StoreDir, when set, must be absolute. Callers must use keyed literals and
-// must not mutate a BusConfig
+// BusConfig opts a service into its durable local message bus. FsyncPolicy
+// must be set; every other zero-valued field uses the documented private store
+// location and logical capacity defaults. StoreDir, when set, must be
+// absolute. Callers must use keyed literals and must not mutate a BusConfig
 // while a Run using it is active. When MaxStoreBytes changes, callers must set
 // the component limits too if the fixed defaults do not fit the new ceiling.
 type BusConfig struct {
@@ -75,11 +84,13 @@ type BusConfig struct {
 	StartupTimeout time.Duration
 	// HealthInterval controls broker and stream health probes. Zero selects 30 seconds.
 	HealthInterval time.Duration
-	// FsyncPolicy selects periodic or per-message flushing. Zero selects periodic.
+	// FsyncPolicy selects periodic or per-message flushing. Must be set:
+	// BusFsyncPeriodic survives a process kill, BusFsyncPerMessage also survives
+	// power loss.
 	FsyncPolicy BusFsyncPolicy
-	// FsyncInterval overrides the five-second periodic-sync interval. Nil selects
-	// the default; a non-nil value must be at least one millisecond and requires
-	// periodic sync.
+	// FsyncInterval sets the target periodic-sync interval. Nil selects the
+	// five-second default; a non-nil value must be at least one millisecond and
+	// requires BusFsyncPeriodic.
 	FsyncInterval *time.Duration
 }
 

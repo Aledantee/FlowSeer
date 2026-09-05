@@ -8,6 +8,7 @@ import (
 
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -74,5 +75,5 @@ func craftARPSweep(src net.HardwareAddr, target net.IP) ([]byte, error) {
 		DstHwAddress:      net.HardwareAddr{0, 0, 0, 0, 0, 0},
 		DstProtAddress:    target,
 	}
-	return craftDefault(eth, arp)
+	return craft.Default(eth, arp)
 }

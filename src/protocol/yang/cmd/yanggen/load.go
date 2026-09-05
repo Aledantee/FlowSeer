@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 
 	"github.com/openconfig/goyang/pkg/yang"
@@ -100,39 +100,9 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 		return nil, err
 	}
 
-	skip := make(map[string]Skip, len(v.Skip))
-	var skipped []Skip
-	for _, s := range v.Skip {
-		if s.Module != "" {
-			if _, ok := files[s.Module]; !ok {
-				return nil, &LoadError{
-					Vendor: v.Name, Module: s.Module,
-					Issue: "skip entry names a module not present under the vendor's paths — remove the stale skip",
-				}
-			}
-			skip[s.Module] = s
-			skipped = append(skipped, s)
-			continue
-		}
-		matchedAny := false
-		for _, name := range sortedKeys(files) {
-			if ok, _ := path.Match(s.Pattern, name); !ok {
-				continue
-			}
-			matchedAny = true
-			if _, dup := skip[name]; dup {
-				continue
-			}
-			resolved := Skip{Module: name, Reason: s.Reason}
-			skip[name] = resolved
-			skipped = append(skipped, resolved)
-		}
-		if !matchedAny {
-			return nil, &LoadError{
-				Vendor: v.Name,
-				Issue:  fmt.Sprintf("skip pattern %q matches no module under the vendor's paths — remove the stale skip", s.Pattern),
-			}
-		}
+	skip, skipped, err := resolveSkips(v, files)
+	if err != nil {
+		return nil, err
 	}
 
 	// Raw-parse everything first, then hand goyang each module with
@@ -145,6 +115,72 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 		return nil, err
 	}
 
+	ms, includes, err := parseModules(v, raw)
+	if err != nil {
+		return nil, err
+	}
+
+	graph := buildClosureGraph(ms, files, skip, includes)
+
+	return buildModules(v, ms, raw, files, graph, skipped)
+}
+
+// resolveSkips expands the vendor's skip-list against the discovered
+// sources: a module entry is taken as written, a pattern entry is
+// expanded over every matching module name. It returns the skip set
+// keyed by module and the resolved entries in discovery order. A skip
+// entry that matches nothing is an error — a stale skip hides a module
+// nobody meant to exclude.
+func resolveSkips(v *Vendor, files map[string]SourceFile) (map[string]Skip, []Skip, error) {
+	skip := make(map[string]Skip, len(v.Skip))
+
+	var skipped []Skip
+
+	for _, s := range v.Skip {
+		if s.Module != "" {
+			if _, ok := files[s.Module]; !ok {
+				return nil, nil, &LoadError{
+					Vendor: v.Name, Module: s.Module,
+					Issue: "skip entry names a module not present under the vendor's paths — remove the stale skip",
+				}
+			}
+			skip[s.Module] = s
+			skipped = append(skipped, s)
+
+			continue
+		}
+
+		matchedAny := false
+
+		for _, name := range sortedKeys(files) {
+			if ok, _ := path.Match(s.Pattern, name); !ok {
+				continue
+			}
+			matchedAny = true
+			if _, dup := skip[name]; dup {
+				continue
+			}
+			resolved := Skip{Module: name, Reason: s.Reason}
+			skip[name] = resolved
+			skipped = append(skipped, resolved)
+		}
+
+		if !matchedAny {
+			return nil, nil, &LoadError{
+				Vendor: v.Name,
+				Issue:  fmt.Sprintf("skip pattern %q matches no module under the vendor's paths — remove the stale skip", s.Pattern),
+			}
+		}
+	}
+
+	return skip, skipped, nil
+}
+
+// parseModules hands every surviving module to goyang and resolves the
+// schema, returning the populated [yang.Modules] and, per module, the
+// submodules that were inlined into it (or its include closure when
+// inlining was refused).
+func parseModules(v *Vendor, raw map[string]*rawSource) (*yang.Modules, map[string][]string, error) {
 	// Flatten first, parse second: a submodule whose parent was
 	// flattened must NOT be parsed standalone — goyang only links the
 	// include graph of modules, so an orphaned submodule reaches
@@ -155,11 +191,13 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 		name string
 		text string // "" means parse the original file text
 	}
+
 	var (
 		toParse  []parsedModule
 		needSub  = make(map[string]struct{})
 		includes = make(map[string][]string)
 	)
+
 	for _, name := range sortedKeys(raw) {
 		if raw[name].kind != "module" {
 			continue
@@ -175,9 +213,10 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 				needSub[sub] = struct{}{}
 			}
 			toParse = append(toParse, parsedModule{name: name})
+
 			continue
 		case err != nil:
-			return nil, err
+			return nil, nil, err
 		}
 		includes[name] = inlined
 		toParse = append(toParse, parsedModule{name: name, text: text})
@@ -192,23 +231,25 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 			continue
 		}
 		if err := parseOriginal(ms, v.Name, name, raw[name]); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
+
 	for _, pm := range toParse {
 		if pm.text == "" {
 			if err := parseOriginal(ms, v.Name, pm.name, raw[pm.name]); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
+
 			continue
 		}
 		if err := ms.Parse(pm.text, pm.name+".yang"); err != nil {
-			return nil, &LoadError{Vendor: v.Name, Module: pm.name, Issue: "parse (submodules inlined)", wrapped: err}
+			return nil, nil, &LoadError{Vendor: v.Name, Module: pm.name, Issue: "parse (submodules inlined)", wrapped: err}
 		}
 	}
 
 	if procErrs := ms.Process(); len(procErrs) > 0 {
-		return nil, &LoadError{
+		return nil, nil, &LoadError{
 			Vendor: v.Name,
 			Issue:  fmt.Sprintf("schema resolution reported %d error(s), first: %v", len(procErrs), firstError(procErrs)),
 			wrapped: errs.New().
@@ -217,8 +258,17 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 		}
 	}
 
-	graph := buildClosureGraph(ms, files, skip, includes)
+	return ms, includes, nil
+}
 
+// buildModules turns the resolved schema into the vendor's emittable
+// set: one [LoadedModule] per module, carrying its entry tree, its Go
+// package name (overrides applied, collisions rejected), and its
+// closure hash.
+func buildModules(
+	v *Vendor, ms *yang.Modules, raw map[string]*rawSource,
+	files map[string]SourceFile, graph *closureGraph, skipped []Skip,
+) (*VendorSet, error) {
 	overrides := make(map[string]string, len(v.PackageOverrides))
 	for _, o := range v.PackageOverrides {
 		if _, ok := files[o.Module]; !ok {
@@ -232,6 +282,7 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 
 	set := &VendorSet{Vendor: v.Name, Skipped: skipped}
 	seenPkg := make(map[string]string) // package name -> module that claimed it
+
 	for _, name := range sortedKeys(raw) {
 		// Submodules are inlined into their parents and never emitted
 		// standalone.
@@ -275,6 +326,7 @@ func LoadVendor(v *Vendor) (*VendorSet, error) {
 			ClosureSize: closureSize,
 		})
 	}
+
 	return set, nil
 }
 
@@ -450,7 +502,7 @@ func (g *closureGraph) closureHash(name string) (sum string, size int) {
 	for n := range visited {
 		members = append(members, n)
 	}
-	sort.Strings(members)
+	slices.Sort(members)
 
 	h := sha256.New()
 	for _, n := range members {
@@ -490,12 +542,7 @@ func newestRevision(mod *yang.Module) string {
 
 // sortedKeys returns m's keys in sorted order.
 func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
+	return slices.Sorted(maps.Keys(m))
 }
 
 // firstError returns the lexically first error string from errsIn so

@@ -178,7 +178,7 @@ func TestKind_OneToOneWithVarBind(t *testing.T) {
 
 	// The count check pins that the Kind enum and the variant set move
 	// together: 18 non-Unknown Kinds, 18 cases. KindUnknown is the zero
-	// value reserved for uninitialised headers and has no variant.
+	// value reserved for uninitialized headers and has no variant.
 	const wantCases = 18
 	if len(cases) != wantCases {
 		t.Errorf("len(cases) = %d, want %d -- Kind/variant counts diverged",

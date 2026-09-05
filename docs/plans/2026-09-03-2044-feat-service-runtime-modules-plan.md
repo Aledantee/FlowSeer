@@ -2,12 +2,9 @@
 title: Service Runtime and Modules - Plan
 type: feat
 date: 2026-09-03
-topic: service-runtime-modules
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
-deepened: 2026-09-03
 ---
 
 # Service Runtime and Modules - Plan

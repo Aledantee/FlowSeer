@@ -119,7 +119,7 @@ func DecodeDateAndTime(vb VarBind) (time.Time, error) {
 		return time.Time{}, errs.New().Attr("month", month).Attr("day", day).Msg("out-of-range month/day")
 	}
 	// RFC 2579 §2 field ranges. second = 60 is permitted for leap-second
-	// representation; time.Date normalises it to the next minute, which
+	// representation; time.Date normalizes it to the next minute, which
 	// is the documented behavior callers expect.
 	if hour > 23 {
 		return time.Time{}, errs.New().Attr("hour", hour).Msg("out-of-range hour (RFC 2579: 0..23)")

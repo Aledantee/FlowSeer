@@ -124,9 +124,7 @@ func (s *session) requestColumns(ctx context.Context, oids []OID, reps int, next
 	if err != nil {
 		return nil, err
 	}
-	if resp.pdu.errorStatus != NoError && resp.pdu.rawVBL != nil {
-		resp.pdu.varbinds, _ = decodeVarBindList(resp.pdu.rawVBL, 1)
-	}
+	enrichRawErrorVarbinds(&resp.pdu)
 	if pe = pduError(resp); pe != nil {
 		return nil, pe
 	}

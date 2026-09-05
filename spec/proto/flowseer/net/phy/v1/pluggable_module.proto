@@ -1,0 +1,90 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/module_connector.proto";
+import "flowseer/net/phy/v1/module_diagnostics.proto";
+import "flowseer/net/phy/v1/module_form_factor.proto";
+import "flowseer/net/phy/v1/module_lane.proto";
+import option "buf/validate/validate.proto";
+
+// A pluggable module cage as observed at one physical interface, and the
+// module in it when one is installed. Identity fields follow the SFF-8472
+// serial ID page (https://members.snia.org/document/dl/25916) and, for
+// modules that implement it, the OIF CMIS management page
+// (https://www.oiforum.com/technical-work/hot-topics/cmis/). The message
+// has no medium: a direct-attach copper cable and an optical module fill
+// the same fields.
+message PluggableModule {
+  option (buf.validate.message).cel = {
+    id: "pluggable_module.empty_cage_has_no_module_attributes"
+    message: "an explicitly empty cage cannot carry module identity or diagnostics"
+    expression:
+      "this.present || (!has(this.form_factor) && !has(this.connector) && "
+      "!has(this.vendor) && !has(this.part_number) && !has(this.revision) && "
+      "!has(this.serial_number) && !has(this.date_code) && !has(this.encoding_code) && "
+      "!has(this.nominal_bit_rate_mbps) && this.media_codes.size() == 0 && "
+      "this.application_codes.size() == 0 && !has(this.diagnostics) && this.lanes.size() == 0)"
+  };
+  option (buf.validate.message).cel = {
+    id: "pluggable_module.lane_indexes_unique"
+    message: "lane indexes must be unique within a module"
+    expression: "this.lanes.map(l, l.index).unique()"
+  };
+
+  // Whether a module is installed. Must be present; false means the source
+  // explicitly reported an empty cage.
+  bool present = 1 [(buf.validate.field).required = true];
+  // The module form factor, per the SFF-8024 identifier registry. Absent
+  // means no identifier was reported.
+  ModuleFormFactor form_factor = 2;
+  // The module connector, per the SFF-8024 connector registry. Absent means
+  // no connector was reported.
+  ModuleConnector connector = 3;
+  // The module vendor name. Absent means unreported; a present value must
+  // not be empty.
+  string vendor = 4 [(buf.validate.field).string.min_len = 1];
+  // The vendor part number. Absent means unreported; a present value must
+  // not be empty.
+  string part_number = 5 [(buf.validate.field).string.min_len = 1];
+  // The vendor hardware revision. Absent means unreported; a present value
+  // must not be empty.
+  string revision = 6 [(buf.validate.field).string.min_len = 1];
+  // The vendor serial number. Absent means unreported; a present value must
+  // not be empty.
+  string serial_number = 7 [(buf.validate.field).string.min_len = 1];
+  // The vendor manufacturing date code as the module spells it. Absent
+  // means unreported; a present value must not be empty.
+  string date_code = 8 [(buf.validate.field).string.min_len = 1];
+  // The serial encoding code, per the SFF-8024 encoding registry. Absent
+  // means unreported; the full registry width is valid.
+  uint32 encoding_code = 9 [(buf.validate.field).uint32.lte = 255];
+  // The nominal signalling rate in megabits per second. Absent means
+  // unreported; zero is invalid when present.
+  uint32 nominal_bit_rate_mbps = 10 [(buf.validate.field).uint32.gt = 0];
+  // Media interface codes the module supports, per the SFF-8024 media
+  // interface registries. The list is an exact set; empty means none were
+  // reported.
+  repeated uint32 media_codes = 11 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+  // Application codes the module advertises, per the CMIS application
+  // advertisement. The list is an exact set; empty means none were
+  // reported.
+  repeated uint32 application_codes = 12 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint32: {lte: 255}
+    }
+  }];
+  // Module-level diagnostic measurements. Absent means the module reports
+  // no module-level diagnostics.
+  ModuleDiagnostics diagnostics = 13;
+  // Per-lane diagnostic measurements in ascending lane order. Producers
+  // sort by index before emitting; an empty list means the module reports
+  // no lane diagnostics.
+  repeated ModuleLane lanes = 14;
+}

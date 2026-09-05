@@ -1,9 +1,9 @@
 package full
 
-// gates.go ports the baseline's two gate surfaces verbatim (the
-// catalog precondition entries are the single source; here they are the
-// orchestration-side mirror, since `full` carries no catalog row of its
-// own). Both surfaces consume only the [Evidence] map recon emits.
+// gates.go implements the two gate surfaces (the catalog precondition
+// entries are the single source; here they are the orchestration-side
+// mirror, since `full` carries no catalog row of its own). Both surfaces
+// consume only the [Evidence] map recon emits.
 //
 // BURST ARMING (phase-2 concurrent workers):
 //   - ra6 evidence arms daddos;
@@ -13,7 +13,7 @@ package full
 //     dtp, roguera, llmnr) ALWAYS fire.
 //
 // daddos is a BURST-phase worker when ra6 evidence exists — NOT a
-// phase-3 follow-up. This matches the baseline placement exactly.
+// phase-3 follow-up.
 //
 // FOLLOW-UP SELECTION (phase-3 sequential):
 //   - ra6 arms roguedhcp6 + raguard;
@@ -35,8 +35,8 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
-// burstCore is the seven workers that ALWAYS fire in the burst, in the
-// baseline's worker-list order. These are unconditional.
+// burstCore is the seven workers that ALWAYS fire in the burst, in a
+// fixed order. These are unconditional.
 var burstCore = []string{
 	"stproot", "camflood", "dhcpstarve", "gratarp", "dtp", "roguera", "llmnr",
 }
@@ -44,7 +44,7 @@ var burstCore = []string{
 // armBurst computes the burst worker list from the recon evidence and the
 // --no-spoof flag. It returns the unconditional core plus the
 // evidence/flag-armed workers, in a stable order (core first, then the
-// armed workers in the baseline's arming order: daddos, arpspoof, vrrp).
+// armed workers in a fixed arming order: daddos, arpspoof, vrrp).
 //
 // The returned list is the set of (name, mode) pairs the burst phase
 // dispatches concurrently. All are mode-less (empty mode) — the burst
@@ -85,7 +85,7 @@ type followUpEntry struct {
 // selectFollowUps computes the phase-3 follow-up list from the recon
 // evidence and the watch-leg presence. Follow-ups are sequential and
 // selected ONLY by recon evidence (no blind attack sequences in
-// follow-up selection). The order mirrors the baseline's phase-3 block:
+// follow-up selection). The order is:
 //
 //	ghost, vlanhop (first three), voicevlan, vtp, roguedhcp6, raguard,
 //	mvrp, portsteal.
@@ -105,7 +105,7 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 
 	// vlans arms vlanhop (first three observed VLAN ids).
 	if vlans := ev.VLANs(); len(vlans) > 0 {
-		// First three, sorted ascending (baseline: sorted(recon["vlans"])[:3]).
+		// First three observed VLAN ids, sorted ascending.
 		first := slices.Clone(vlans)
 		slices.Sort(first)
 		if len(first) > 3 {
@@ -157,8 +157,7 @@ func selectFollowUps(ev Evidence, hasWatchLeg bool, noSpoof bool) []followUpEntr
 		})
 	}
 
-	// Resolved MACs arm portsteal (--no-spoof disarms it, matching the
-	// baseline's "if not args.no_spoof and spoof_targets").
+	// Resolved MACs arm portsteal; --no-spoof disarms it.
 	if !noSpoof && ev.Has(EvMACs) {
 		out = append(out, followUpEntry{
 			ref:    runner.AttackRef{Name: "portsteal"},

@@ -155,9 +155,9 @@ func TestHTTPOTLPTransportHonorsRetryAfterWithoutJitter(t *testing.T) {
 func TestTelemetryFullJitterStaysWithinBackoff(t *testing.T) {
 	const backoff = 5 * time.Second
 	for range 100 {
-		got := telemetryFullJitter(backoff)
+		got := fullJitter(backoff)
 		if got < 0 || got >= backoff {
-			t.Fatalf("telemetryFullJitter(%v) = %v, want [0,%v)", backoff, got, backoff)
+			t.Fatalf("fullJitter(%v) = %v, want [0,%v)", backoff, got, backoff)
 		}
 	}
 }

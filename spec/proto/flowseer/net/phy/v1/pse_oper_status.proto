@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// The operational status of a power-sourcing group. The on/off/faulty
+// vocabulary follows the pethMainPseOperStatus object of the RFC 3621
+// Power Ethernet MIB (https://www.rfc-editor.org/rfc/rfc3621.html); the
+// integer numbering is FlowSeer's own and does not mirror the MIB.
+enum PseOperStatus {
+  // The source explicitly reported an unknown status. Absence means unreported.
+  PSE_OPER_STATUS_UNSPECIFIED = 0;
+  // The group is sourcing power.
+  PSE_OPER_STATUS_ON = 1;
+  // The group is not sourcing power.
+  PSE_OPER_STATUS_OFF = 2;
+  // The group reports a fault.
+  PSE_OPER_STATUS_FAULTY = 3;
+}

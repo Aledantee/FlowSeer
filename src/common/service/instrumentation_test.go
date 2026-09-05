@@ -463,7 +463,7 @@ func TestStartupLogCarriesBusFsyncPolicyWhenTracingIsDisabled(t *testing.T) {
 		Telemetry: TelemetryConfig{Signals: TelemetryPolicy{
 			Traces: TelemetryDisabled,
 		}},
-		Bus: &BusConfig{StoreDir: storeDir},
+		Bus: periodicBusConfig(storeDir),
 		Setup: func(context.Context) (Attempt, error) {
 			return Attempt{Runner: func(ctx context.Context) error {
 				close(ready)

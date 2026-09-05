@@ -233,7 +233,7 @@ func TestDecodeDateAndTime_FieldRanges(t *testing.T) {
 	accepts := []acceptCase{
 		{"hour = 23 (upper)", func() []byte { b := shortBuf(); b[4] = 23; return b }()},
 		{"minute = 59 (upper)", func() []byte { b := shortBuf(); b[5] = 59; return b }()},
-		// 60 seconds is the leap-second representation; time.Date normalises
+		// 60 seconds is the leap-second representation; time.Date normalizes
 		// to the next minute but the decoder accepts it without error.
 		{"second = 60 (leap-second)", func() []byte { b := shortBuf(); b[6] = 60; return b }()},
 		{"deci-second = 9 (upper)", func() []byte { b := shortBuf(); b[7] = 9; return b }()},
@@ -256,7 +256,7 @@ func TestDecodeDateAndTime_FieldRanges(t *testing.T) {
 			b[3] = 31
 			b[4] = 23
 			b[5] = 59
-			b[6] = 59 // 59 not 60 -- avoid leap-second normalisation here
+			b[6] = 59 // 59 not 60 -- avoid leap-second normalization here
 			b[7] = 9
 			b[8] = '+'
 			b[9] = 13

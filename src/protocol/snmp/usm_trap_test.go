@@ -61,7 +61,7 @@ func TestV3Trap_AuthPrivReceive(t *testing.T) {
 		t.Fatalf("trap identity: engineID=%x user=%q", tr.EngineID, tr.UserName)
 	}
 	if len(tr.VarBinds) != 2 {
-		t.Fatalf("want 2 varbinds, got %d", len(tr.VarBinds))
+		t.Fatalf("got %d varbinds, want 2", len(tr.VarBinds))
 	}
 }
 

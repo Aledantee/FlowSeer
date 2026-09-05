@@ -528,7 +528,7 @@ func appendNull(dst []byte) []byte {
 	return appendTLV(dst, tagNull, nil)
 }
 
-// appendIPv4 returns a fresh IpAddress TLV. ip is normalised to its
+// appendIPv4 returns a fresh IpAddress TLV. ip is normalized to its
 // 4-octet form; a non-IPv4 address is an encode error surfaced to the
 // caller.
 func appendIPv4(ip net.IP) ([]byte, error) {

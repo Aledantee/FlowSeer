@@ -183,6 +183,14 @@ That covers casing. The rules the compiler does not check still stand:
   fields and enum values to contiguous
   (plan: `docs/plans/2026-08-26-1856-refactor-proto-docs-standards-cleanup-plan.md`).
   From the first stable release onward the prohibition is absolute.
+- Until the first stable release, a reshape that improves the design is required,
+  not merely allowed: move fields between messages, split a flat facet into typed
+  variants, or rename a package rather than keep a worse shape for compatibility.
+  Nothing external consumes the FlowSeer module yet, so the only cost of a break is
+  the regenerated code and tests in the same change, and the cost of carrying a
+  wrong shape grows with every consumer added. Record the break as a fact in the
+  plan; it is not a review blocker. The `reserved` rule above still applies to
+  removals within that window so history stays readable.
 - Prefer adding a field over changing a field's meaning. A semantic change behind an
   unchanged field number is invisible on the wire and is the worst class of schema bug.
 - **A feature change is a schema change.** Editions add a failure mode proto3 did not

@@ -1,7 +1,7 @@
 // helpers.go holds shared constants and frame-craft helpers used across
-// L2 behaviors: well-known multicast MACs, the LLC/SNAP envelope builder
-// for Cisco-proprietary protocols (DTP, VTP, PAgP), and the src-MAC
-// constant matching the fixture harvest.
+// L2 behaviors: well-known multicast MACs, and the LLC/SNAP envelope builder
+// for Cisco-proprietary protocols (DTP, VTP, PAgP). The fixture source MAC
+// lives in the shared [craft] package.
 
 package l2
 
@@ -10,12 +10,9 @@ import (
 
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
-)
 
-// FixtureSrcMAC is the source MAC the harvest script uses for all L2
-// fixtures. Behaviors also use it because the attack leg does not expose an
-// interface MAC. Callers must not mutate it while a behavior is running.
-var FixtureSrcMAC = net.HardwareAddr{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
+)
 
 // Well-known L2 multicast destinations.
 var (
@@ -61,7 +58,7 @@ func craftDot3SNAP(dst, src net.HardwareAddr, snapPID uint16, protoLayer gopacke
 		OrganizationalCode: ciscoOUI,
 		Type:               layers.EthernetType(snapPID),
 	}
-	return craftDefault(eth, llc, snap, protoLayer)
+	return craft.Default(eth, llc, snap, protoLayer)
 }
 
 // craftEtherType builds a full Ethernet frame with the given EtherType.
@@ -71,5 +68,5 @@ func craftEtherType(dst, src net.HardwareAddr, etherType uint16, protoLayer gopa
 		SrcMAC:       src,
 		EthernetType: layers.EthernetType(etherType),
 	}
-	return craftDefault(eth, protoLayer)
+	return craft.Default(eth, protoLayer)
 }

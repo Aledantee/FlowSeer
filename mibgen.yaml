@@ -7,9 +7,11 @@ search_paths:
   - spec/mib/ietf
   - spec/mib/ieee
   - spec/mib/mikrotik
-  # Vendor product trees, listed for the sysobjectid identity table.
-  - spec/mib/ruckus/icx
+  - spec/mib/dlink
+  - spec/mib/hp/procurve
   - spec/mib/hp/hh3c
+  # Vendor product trees listed only for the sysobjectid identity table.
+  - spec/mib/ruckus/icx
   - spec/mib/lancom/lcos
 
 modules:
@@ -56,6 +58,20 @@ modules:
   # across the combined search_paths regardless of listing order, so no
   # depends_on edge is needed.
   - { name: MIKROTIK-MIB,      package: mikrotik }
+  # Physical-layer modules behind flowseer.net.phy.v1. IANA-MAU-MIB is a
+  # registry module listed for its typed jack and link-mode bit constants;
+  # MAU-MIB's columns resolve to those types only when it is generated too.
+  - { name: EtherLike-MIB,      package: etherlikemib }
+  - { name: IANA-MAU-MIB,       package: ianamaumib }
+  - { name: MAU-MIB,            package: maumib }
+  - { name: POWER-ETHERNET-MIB, package: powerethernetmib }
+  # Vendor transceiver and DDM modules, each keyed by ifIndex. Their
+  # IMPORTS resolve to the vendored DLINK-ID-REC-MIB, HP-ICF-OID, and
+  # HH3C-OID-MIB roots under the search paths above.
+  - { name: DLINKSW-DDM-MIB,           package: dlinkswddmmib }
+  - { name: DLINKSW-SFPINFO-MIB,       package: dlinkswsfpinfomib }
+  - { name: HP-ICF-TRANSCEIVER-MIB,    package: hpicftransceivermib }
+  - { name: HH3C-TRANSCEIVER-INFO-MIB, package: hh3ctransceiverinfomib }
   # Identity only: the three modules below declare product naming nodes
   # and no tables, so their packages are near-empty and their whole value
   # is the entries they add to the sysobjectid table.

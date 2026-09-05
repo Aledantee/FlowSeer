@@ -33,5 +33,21 @@ type counters struct {
 func (r *Receiver) Stats() Stats {
 	b, f := r.admission.snapshot()
 	s := &r.stats
-	return Stats{Received: s.received.Load(), Queued: s.queued.Load(), Delivered: s.delivered.Load(), Partial: s.partial.Load(), UDPDropped: s.udpDropped.Load(), PressureClosed: s.pressureClosed.Load(), Oversized: s.oversized.Load(), FramingErrors: s.framingErrors.Load(), ConnectionRejected: s.connectionRejected.Load(), HandshakeErrors: s.handshakeErrors.Load(), ShutdownDiscarded: s.shutdownDiscarded.Load(), ActiveConnections: s.connections.Load(), ActiveHandshakes: s.handshakes.Load(), ReservedBytes: b, ReservedFrames: f}
+	return Stats{
+		Received:           s.received.Load(),
+		Queued:             s.queued.Load(),
+		Delivered:          s.delivered.Load(),
+		Partial:            s.partial.Load(),
+		UDPDropped:         s.udpDropped.Load(),
+		PressureClosed:     s.pressureClosed.Load(),
+		Oversized:          s.oversized.Load(),
+		FramingErrors:      s.framingErrors.Load(),
+		ConnectionRejected: s.connectionRejected.Load(),
+		HandshakeErrors:    s.handshakeErrors.Load(),
+		ShutdownDiscarded:  s.shutdownDiscarded.Load(),
+		ActiveConnections:  s.connections.Load(),
+		ActiveHandshakes:   s.handshakes.Load(),
+		ReservedBytes:      b,
+		ReservedFrames:     f,
+	}
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	nl "go.aledante.io/FlowSeer/src/edge/netpen/layers"
@@ -180,7 +181,7 @@ func craftNBTNSResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 		DstPort: 137,
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
-	return craftDefault(eth, ip, udp, nbns)
+	return craft.Default(eth, ip, udp, nbns)
 }
 
 // nbnsNodeAddress builds the NBNS RDATA for a node status response: a
@@ -231,7 +232,7 @@ func craftLLMNRResponse(src net.HardwareAddr, qname string, answerIP net.IP) ([]
 		DstPort: 5355,
 	}
 	_ = udp.SetNetworkLayerForChecksum(ip)
-	return craftDefault(eth, ip, udp, llmnr)
+	return craft.Default(eth, ip, udp, llmnr)
 }
 
 // Compile-time assertions: the owned layers implement SerializableLayer.

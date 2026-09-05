@@ -2,10 +2,8 @@
 title: Net Interface and LLDP Packages - Plan
 type: feat
 date: 2026-08-30
-topic: net-interface-lldp
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
 ---
 

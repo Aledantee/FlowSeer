@@ -70,20 +70,6 @@ func mustEntry(t *testing.T, name, mode string) catalog.Entry {
 	return e
 }
 
-func assertBytesEqual(t *testing.T, label string, got, want []byte) {
-	t.Helper()
-	if len(got) != len(want) {
-		t.Errorf("%s: length mismatch: got %d, want %d", label, len(got), len(want))
-		return
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("%s: byte %d: got 0x%02x, want 0x%02x", label, i, got[i], want[i])
-			return
-		}
-	}
-}
-
 // findFinding returns the first KindFinding record's Finding, or nil.
 func findFinding(t *testing.T, recs []findings.Record) *findings.Finding {
 	t.Helper()
@@ -116,7 +102,7 @@ func TestARPSweep_FixturePins(t *testing.T) {
 
 	fixtures := fixturePackets(t, "arpsweep.pcap")
 	for i, frame := range tx {
-		assertBytesEqual(t, "ARP sweep frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "ARP sweep frame", frame, fixtures[i])
 	}
 
 	if len(recs) == 0 {
@@ -148,13 +134,13 @@ func TestARPSpoof_RestoreOrder(t *testing.T) {
 
 	// Verify poison frames match the fixture.
 	poisonFixtures := fixturePackets(t, "arpspoof.pcap")
-	assertBytesEqual(t, "ARP poison victim", tx[0], poisonFixtures[0])
-	assertBytesEqual(t, "ARP poison gateway", tx[1], poisonFixtures[1])
+	testtest.AssertBytesEqual(t, "ARP poison victim", tx[0], poisonFixtures[0])
+	testtest.AssertBytesEqual(t, "ARP poison gateway", tx[1], poisonFixtures[1])
 
 	// Verify restore frames match the fixture.
 	restoreFixtures := fixturePackets(t, "arpspoof_restore.pcap")
-	assertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
-	assertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
+	testtest.AssertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -190,8 +176,8 @@ func TestARPSpoof_RestoreFramesOnTX(t *testing.T) {
 	// The victim repair must come before the gateway repair (the
 	// baseline restores the victim's cache first, then the gateway's).
 	restoreFixtures := fixturePackets(t, "arpspoof_restore.pcap")
-	assertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
-	assertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
+	testtest.AssertBytesEqual(t, "ARP restore victim", tx[2], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "ARP restore gateway", tx[3], restoreFixtures[1])
 
 	// Verify a finding was emitted.
 	foundFinding := false
@@ -284,7 +270,7 @@ func TestGratARP_FixturePins(t *testing.T) {
 
 	fixtures := fixturePackets(t, "gratarp.pcap")
 	for i, frame := range tx {
-		assertBytesEqual(t, "GratARP frame", frame, fixtures[i])
+		testtest.AssertBytesEqual(t, "GratARP frame", frame, fixtures[i])
 	}
 
 	if len(recs) == 0 {
@@ -309,12 +295,12 @@ func TestHSRP_ResignTeardown(t *testing.T) {
 
 	// Verify the coup frame matches the fixture.
 	fixtures := fixturePackets(t, "hsrp.pcap")
-	assertBytesEqual(t, "HSRP coup", tx[0], fixtures[0])
-	assertBytesEqual(t, "HSRP hello", tx[1], fixtures[1])
+	testtest.AssertBytesEqual(t, "HSRP coup", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "HSRP hello", tx[1], fixtures[1])
 
 	// Verify the resign frame matches the fixture.
 	restoreFixtures := fixturePackets(t, "hsrp_restore.pcap")
-	assertBytesEqual(t, "HSRP resign", tx[2], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "HSRP resign", tx[2], restoreFixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -339,7 +325,7 @@ func TestVRRP_FixturePins(t *testing.T) {
 	// Verify the frames match the fixture byte-for-byte (the harvest
 	// uses the same construction).
 	fixtures := fixturePackets(t, "vrrp.pcap")
-	assertBytesEqual(t, "VRRP advertisement", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "VRRP advertisement", tx[0], fixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -361,7 +347,7 @@ func TestICMPRedirect_FixturePins(t *testing.T) {
 	}
 
 	fixtures := fixturePackets(t, "icmpredirect.pcap")
-	assertBytesEqual(t, "ICMP redirect", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "ICMP redirect", tx[0], fixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -384,7 +370,7 @@ func TestLLMNR_FixturePins(t *testing.T) {
 
 	// LLMNR response is the 2nd fixture frame.
 	fixtures := fixturePackets(t, "llmnr.pcap")
-	assertBytesEqual(t, "LLMNR response", tx[0], fixtures[1])
+	testtest.AssertBytesEqual(t, "LLMNR response", tx[0], fixtures[1])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -480,8 +466,8 @@ func TestGhost_TraversalAttribution(t *testing.T) {
 	}
 
 	// Verify the attack frames match the fixture.
-	assertBytesEqual(t, "ghost STP", tx[0], ghostFixtures[0])
-	assertBytesEqual(t, "ghost LLDP", tx[1], ghostFixtures[1])
+	testtest.AssertBytesEqual(t, "ghost STP", tx[0], ghostFixtures[0])
+	testtest.AssertBytesEqual(t, "ghost LLDP", tx[1], ghostFixtures[1])
 
 	// The finding should report traversal evidence and attribution.
 	var ghostRec *findings.Finding
@@ -532,11 +518,11 @@ func TestGLBP_ResignTeardown(t *testing.T) {
 
 	// Verify the hello frame matches the fixture.
 	fixtures := fixturePackets(t, "glbp.pcap")
-	assertBytesEqual(t, "GLBP hello", tx[0], fixtures[0])
+	testtest.AssertBytesEqual(t, "GLBP hello", tx[0], fixtures[0])
 
 	// Verify the resign frame matches the fixture.
 	restoreFixtures := fixturePackets(t, "glbp_restore.pcap")
-	assertBytesEqual(t, "GLBP resign", tx[1], restoreFixtures[0])
+	testtest.AssertBytesEqual(t, "GLBP resign", tx[1], restoreFixtures[0])
 
 	if len(recs) == 0 {
 		t.Fatal("no findings emitted")
@@ -599,7 +585,7 @@ func TestLLDPSpoof_FixturePins(t *testing.T) {
 
 	fixtures := fixturePackets(t, "lldpspoof.pcap")
 	for _, frame := range tx {
-		assertBytesEqual(t, "LLDP spoof frame", frame, fixtures[0])
+		testtest.AssertBytesEqual(t, "LLDP spoof frame", frame, fixtures[0])
 	}
 
 	if len(recs) == 0 {

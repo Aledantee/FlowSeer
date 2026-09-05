@@ -221,8 +221,10 @@ speed, duplex, autonegotiation, medium, FEC.
 ### FlowSeer status
 
 `net/phy/v1` covers `ethernet_settings`, `ethernet_capabilities`,
-`ethernet_facet`, `ethernet_duplex`, `ethernet_medium`, `ethernet_fec_mode`,
-`auto_negotiation_facet` / `_status`. That is ahead of most prior art. Missing:
+`ethernet_facet` with its copper, fiber, backplane, and other transport arms,
+`ethernet_duplex`, `ethernet_fec_mode`, `mau_type`, `mau_link_mode`,
+`ethernet_counters`, `auto_negotiation_facet` / `_status`, and the PoE
+messages on the copper arm. That is ahead of most prior art. Missing:
 flow-control (802.3x PAUSE) state, which is in `dot3PauseTable` and
 `openconfig-if-ethernet` and which operators do read.
 

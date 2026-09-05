@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,27 +20,47 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
-func prohibitedTelemetryKey(key string) bool {
-	key = strings.ToLower(key)
-	for _, marker := range []string{
+// Export-side privacy rests first on emission discipline: every signal the
+// runtime itself produces carries only the documented flowseer.* and
+// semantic-convention keys. The marker lists below are the backstop for
+// module-authored attributes, whose key names the runtime does not control.
+// A substring denylist cannot recognize a secret filed under an innocent key,
+// so it never replaces that discipline.
+var (
+	// telemetrySecretMarkers are the credential-bearing substrings that both
+	// export sanitizers reject.
+	telemetrySecretMarkers = []string{
 		"authorization", "credential", "password", "passwd", "secret", "token",
-		"api_key", "apikey", "api-key", "private_key", "client_key", "payload",
-		"carrier", "traceparent", "tracestate", "baggage", "stack", "attributes",
-	} {
-		if strings.Contains(key, marker) {
-			return true
-		}
+		"api_key", "api-key", "apikey", "payload", "carrier", "traceparent",
+		"tracestate", "baggage",
 	}
-	return false
+
+	// prohibitedTelemetryKeyMarkers add the key-shaped spellings and the
+	// payload-carrying key names the runtime never exports.
+	prohibitedTelemetryKeyMarkers = append(slices.Clone(telemetrySecretMarkers),
+		"private_key", "client_key", "stack", "attributes",
+	)
+
+	// telemetrySecretValueMarkers add the spaced spelling that only ever
+	// appears inside a value.
+	telemetrySecretValueMarkers = append(slices.Clone(telemetrySecretMarkers),
+		"private key",
+	)
+)
+
+func prohibitedTelemetryKey(key string) bool {
+	return containsAnyMarker(key, prohibitedTelemetryKeyMarkers)
 }
 
 func containsTelemetrySecretMarker(value string) bool {
+	return containsAnyMarker(value, telemetrySecretValueMarkers)
+}
+
+// containsAnyMarker reports whether value, compared case-insensitively,
+// contains any of the markers.
+func containsAnyMarker(value string, markers []string) bool {
 	value = strings.ToLower(value)
-	for _, marker := range []string{
-		"authorization", "credential", "password", "passwd", "secret", "token",
-		"private key", "api_key", "api-key", "apikey", "traceparent", "tracestate",
-		"baggage", "payload", "carrier", "do-not-leak",
-	} {
+	for _, marker := range markers {
 		if strings.Contains(value, marker) {
 			return true
 		}
@@ -473,13 +494,21 @@ func otlpAttributeValue(value attribute.Value) *commonpb.AnyValue {
 		}
 		result.Value = &commonpb.AnyValue_BytesValue{BytesValue: append([]byte(nil), bytes...)}
 	case attribute.BOOLSLICE:
-		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpBoolValues(value.AsBoolSlice())}
+		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpArrayValue(value.AsBoolSlice(), func(member bool) *commonpb.AnyValue {
+			return &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: member}}
+		})}
 	case attribute.INT64SLICE:
-		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpIntValues(value.AsInt64Slice())}
+		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpArrayValue(value.AsInt64Slice(), func(member int64) *commonpb.AnyValue {
+			return &commonpb.AnyValue{Value: &commonpb.AnyValue_IntValue{IntValue: member}}
+		})}
 	case attribute.FLOAT64SLICE:
-		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpFloatValues(value.AsFloat64Slice())}
+		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpArrayValue(value.AsFloat64Slice(), func(member float64) *commonpb.AnyValue {
+			return &commonpb.AnyValue{Value: &commonpb.AnyValue_DoubleValue{DoubleValue: member}}
+		})}
 	case attribute.STRINGSLICE:
-		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpStringValues(value.AsStringSlice())}
+		result.Value = &commonpb.AnyValue_ArrayValue{ArrayValue: otlpArrayValue(value.AsStringSlice(), func(member string) *commonpb.AnyValue {
+			return &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: sanitizeTelemetryString(member)}}
+		})}
 	case attribute.SLICE:
 		values := value.AsSlice()
 		if len(values) > telemetryAttributeLimit {
@@ -497,38 +526,13 @@ func otlpAttributeValue(value attribute.Value) *commonpb.AnyValue {
 	return result
 }
 
-func otlpBoolValues(values []bool) *commonpb.ArrayValue {
+// otlpArrayValue truncates values to the attribute limit and converts each
+// remaining member with convert.
+func otlpArrayValue[T any](values []T, convert func(T) *commonpb.AnyValue) *commonpb.ArrayValue {
 	values = values[:min(len(values), telemetryAttributeLimit)]
 	result := make([]*commonpb.AnyValue, len(values))
 	for i, value := range values {
-		result[i] = &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: value}}
-	}
-	return &commonpb.ArrayValue{Values: result}
-}
-
-func otlpIntValues(values []int64) *commonpb.ArrayValue {
-	values = values[:min(len(values), telemetryAttributeLimit)]
-	result := make([]*commonpb.AnyValue, len(values))
-	for i, value := range values {
-		result[i] = &commonpb.AnyValue{Value: &commonpb.AnyValue_IntValue{IntValue: value}}
-	}
-	return &commonpb.ArrayValue{Values: result}
-}
-
-func otlpFloatValues(values []float64) *commonpb.ArrayValue {
-	values = values[:min(len(values), telemetryAttributeLimit)]
-	result := make([]*commonpb.AnyValue, len(values))
-	for i, value := range values {
-		result[i] = &commonpb.AnyValue{Value: &commonpb.AnyValue_DoubleValue{DoubleValue: value}}
-	}
-	return &commonpb.ArrayValue{Values: result}
-}
-
-func otlpStringValues(values []string) *commonpb.ArrayValue {
-	values = values[:min(len(values), telemetryAttributeLimit)]
-	result := make([]*commonpb.AnyValue, len(values))
-	for i, value := range values {
-		result[i] = &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: sanitizeTelemetryString(value)}}
+		result[i] = convert(value)
 	}
 	return &commonpb.ArrayValue{Values: result}
 }

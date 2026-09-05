@@ -136,6 +136,7 @@ func TestAtomicEventCapacityFailureCommitsNoTarget(t *testing.T) {
 		MailboxMaxBytes:  64 << 10,
 		MetadataMaxBytes: 1 << 20,
 		ReserveBytes:     1 << 20,
+		FsyncPolicy:      BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1205,7 +1206,7 @@ func eventually(ctx context.Context, t *testing.T, condition func() bool) {
 
 func startMessageTestBus(ctx context.Context, t *testing.T) (busResources, func()) {
 	t.Helper()
-	config, err := normalizeBusConfig(testIdentity(), BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus")})
+	config, err := normalizeBusConfig(testIdentity(), *periodicBusConfig(filepath.Join(t.TempDir(), "bus")))
 	if err != nil {
 		t.Fatal(err)
 	}

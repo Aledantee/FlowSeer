@@ -429,10 +429,6 @@ func dadDOSFrames() [][]byte {
 // attack window — a Neighbor Advertisement from the legitimate owner
 // defending its address. The behavior observes this and reports resisted.
 func dadDOSResistedFrames() [][]byte {
-	src := srcBytes()
-	snMAC := solicitedNodeMAC(targetIP6)
-	snIP := solicitedNodeIP(targetIP6)
-
 	// Legitimate owner's NA defending the address.
 	eth := &layers.Ethernet{
 		DstMAC:       allNodesMAC,
@@ -461,9 +457,6 @@ func dadDOSResistedFrames() [][]byte {
 			},
 		},
 	}
-	_ = snMAC
-	_ = snIP
-	_ = src
 	return [][]byte{craft(eth, ip, icmp, na)}
 }
 
@@ -529,7 +522,6 @@ func raGuardFrames() [][]byte {
 // RA flood (spec-authored): bounded burst of RAs with varying source.
 
 func raFloodFrames() [][]byte {
-	src := srcBytes()
 	var frames [][]byte
 	for i := 1; i <= 5; i++ {
 		floodSrc := net.HardwareAddr{
@@ -565,7 +557,6 @@ func raFloodFrames() [][]byte {
 		}
 		frames = append(frames, craft(eth, ip, icmp, ra))
 	}
-	_ = src
 	return frames
 }
 

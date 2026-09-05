@@ -9,7 +9,7 @@
 //   - evidence.go: the typed [Evidence] map recon emits and both gate
 //     surfaces consume.
 //   - gates.go: the two gate surfaces (burst arming + follow-up
-//     selection), ported verbatim from the baseline's l2l3-audit.
+//     selection) that turn evidence into the worker and follow-up sets.
 //   - full.go: the four-phase orchestration (recon → burst → follow-ups
 //     → report).
 //   - scan.go: the passive/active scan command.

@@ -45,9 +45,9 @@ import (
 // Closed-policy rows. The variants BitStringVar, NsapAddressVar,
 // OpaqueFloatVar, OpaqueDoubleVar, and NullVar are deliberately not
 // accepted by any helper — they return [ErrTypeMismatch]. OpaqueFloat /
-// OpaqueDouble in particular are reachable from vendor sensor MIBs;
-// accepting them with documented rounding is a follow-up decision, not
-// a fix landing here.
+// OpaqueDouble in particular are reachable from vendor sensor MIBs, but
+// no helper coerces them: a caller that needs one matches the variant
+// directly.
 //
 // Error discrimination:
 //

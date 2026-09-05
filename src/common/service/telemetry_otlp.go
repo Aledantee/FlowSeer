@@ -132,6 +132,11 @@ func (t *httpOTLPTransport) uploadTraces(ctx context.Context, spans []*tracepb.R
 	})
 }
 
+// upload posts one signal request and retries transient failures. Every
+// failure is reported as a fixed string rather than the wrapped cause: the
+// transport errors carry the endpoint, request headers and collector-supplied
+// text, none of which may reach export diagnostics. Retry classification is
+// therefore decided here, where the cause is still in hand.
 func (t *httpOTLPTransport) upload(
 	ctx context.Context,
 	endpoint string,
@@ -284,8 +289,12 @@ func (t *grpcOTLPTransport) uploadTraces(ctx context.Context, spans []*tracepb.R
 	})
 }
 
+// upload sends one signal request and retries transient failures. As in the
+// HTTP transport, the RPC error is classified here and then replaced with a
+// fixed string so the endpoint, metadata and collector-supplied text stay out
+// of export diagnostics.
 func (t *grpcOTLPTransport) upload(ctx context.Context, export func(context.Context) (int64, error)) error {
-	return retryOTLP(ctx, t.timeout, func(attemptCtx context.Context) (time.Duration, bool, error) {
+	return retryOTLPWithPolicy(ctx, t.timeout, defaultTelemetryRetryPolicy(), func(attemptCtx context.Context) (time.Duration, bool, error) {
 		rejected, err := export(attemptCtx)
 		if err == nil {
 			if rejected > 0 {
@@ -321,21 +330,12 @@ func grpcRetryDelay(err error) time.Duration {
 	return 0
 }
 
-// retryOTLP bounds the complete retry loop separately from each export request.
-func retryOTLP(
-	ctx context.Context,
-	requestTimeout time.Duration,
-	attempt func(context.Context) (time.Duration, bool, error),
-) error {
-	return retryOTLPWithPolicy(ctx, requestTimeout, defaultTelemetryRetryPolicy(), attempt)
-}
-
 func defaultTelemetryRetryPolicy() telemetryRetryPolicy {
 	return telemetryRetryPolicy{
 		limit:       telemetryRetryLimit,
 		initialWait: telemetryRetryInitialWait,
 		maximumWait: telemetryRetryMaxWait,
-		jitter:      telemetryFullJitter,
+		jitter:      fullJitter,
 		wait:        realSupervisorClock{}.Wait,
 	}
 }
@@ -348,7 +348,8 @@ type telemetryRetryPolicy struct {
 	wait        func(context.Context, time.Duration) error
 }
 
-// retryOTLPWithPolicy retries only attempts classified as transient, honors a
+// retryOTLPWithPolicy bounds the complete retry loop separately from each
+// export request. It retries only attempts classified as transient, honors a
 // bounded server delay, and applies full-jitter capped exponential backoff
 // otherwise.
 func retryOTLPWithPolicy(
@@ -382,7 +383,9 @@ func retryOTLPWithPolicy(
 	}
 }
 
-func telemetryFullJitter(backoff time.Duration) time.Duration {
+// fullJitter picks a uniform delay in [0, backoff), the full-jitter policy
+// shared by the OTLP retry loop and the supervisor's restart backoff.
+func fullJitter(backoff time.Duration) time.Duration {
 	if backoff <= 0 {
 		return 0
 	}

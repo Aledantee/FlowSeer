@@ -2,11 +2,8 @@
 title: Shared Syslog Library - Plan
 type: feat
 date: 2026-09-03
-topic: shared-syslog-library
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-deepened: 2026-09-03
-product_contract_source: ce-brainstorm
 execution: code
 ---
 

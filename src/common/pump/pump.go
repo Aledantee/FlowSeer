@@ -16,8 +16,8 @@
 //   - the data channel is optionally buffered. [Pump.CloseData] closes it
 //     exactly once under the sendMu write lock.
 //   - the stop channel — unbuffered signal. Closed via stopOnce by
-//     [Pump.SignalStop] (used by [Pump.CloseData], [Pump.Fail], [Pump.Done],
-//     and the outer-type Close paths).
+//     [Pump.SignalStop] (used by [Pump.CloseData], which [Pump.Fail] and
+//     [Pump.Done] go through, and by the outer-type Close paths).
 //   - sendMu — read/write lock. [Pump.Send] and
 //     [Pump.TrySendDropOldest] acquire the read lock for the entire
 //     send attempt; close paths acquire the write lock before closing
@@ -226,7 +226,6 @@ func (p *Pump[T]) Fail(err error) {
 		p.err = err
 	}
 	p.mu.Unlock()
-	p.SignalStop()
 	p.CloseData()
 }
 
@@ -234,7 +233,6 @@ func (p *Pump[T]) Fail(err error) {
 // Buffered values remain readable. Repeated calls are harmless; a later
 // [Pump.Fail] can still record an error. Done does not cancel the derived context.
 func (p *Pump[T]) Done() {
-	p.SignalStop()
 	p.CloseData()
 }
 

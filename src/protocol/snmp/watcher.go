@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"iter"
+	"log/slog"
 	"strconv"
 	"sync/atomic"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
 // defaultWatchEventBuffer is the buffer size [NewWatcher] uses for its
@@ -23,9 +25,8 @@ const defaultWatchEventBuffer = 64
 
 // watcherDefaultMaxOIDs is the per-PDU OID cap the Watcher uses when
 // chunking the per-row two-phase tick's multi-OID Get. Matches
-// gosnmp's default. A future revision may surface a per-Session
-// effective value through the [Session] interface; until then the
-// constant is the single source of truth.
+// gosnmp's default. The [Session] interface exposes no per-session
+// effective value, so this constant is the single source of truth.
 const watcherDefaultMaxOIDs = 60
 
 // Watcher is a long-lived, indicator-gated per-table change stream
@@ -205,8 +206,7 @@ type Watcher[Row any] struct {
 	counterEventsSinceLastState atomic.Int64
 
 	// fallback reports whether the Watcher has transitioned to
-	// fallback mode. Monotonic in first ship: once true, stays true
-	// until Close. The indicator-exception probe and the stuck-zero
+	// fallback mode. Monotonic: once true, stays true until Close. The indicator-exception probe and the stuck-zero
 	// probe are the two transition triggers.
 	fallback atomic.Bool
 
@@ -584,8 +584,8 @@ func (w *Watcher[Row]) Err() error { return w.pump.Err() }
 // on the first tick or because the indicator stayed unchanged
 // across the probe window despite observable column movement.
 //
-// Fallback is monotonic in first ship: once true, the Watcher stays
-// in fallback mode until Close. Real-device recovery from indicator
+// Fallback is monotonic: once true, the Watcher stays in fallback
+// mode until Close. Real-device recovery from indicator
 // outages requires a new Watcher.
 func (w *Watcher[Row]) Fallback() bool {
 	return w.fallback.Load()
@@ -1028,21 +1028,20 @@ func (w *Watcher[Row]) runStateTick() (advanced bool, ok bool) {
 	return w.scalarTick()
 }
 
-// enterFallback transitions the Watcher to fallback mode and emits
-// one log line (via cfg.Logger if set). Idempotent: the second and
-// subsequent calls are no-ops and do not re-log. Safe to call from
-// any context.
+// enterFallback transitions the Watcher to fallback mode and emits one
+// warning through the service logger carried by the Watcher's context.
+// Idempotent: the second and subsequent calls are no-ops and do not
+// re-log. Safe to call from any context.
 //
-// Fallback is a sticky-bool process-state property in
-// first ship: once true, stays true until Close.
+// Fallback is a sticky-bool process-state property: once true, it
+// stays true until Close.
 func (w *Watcher[Row]) enterFallback(reason string) {
 	if !w.fallback.CompareAndSwap(false, true) {
 		return
 	}
-	if w.cfg.Logger != nil {
-		w.cfg.Logger.Warn(
-			"snmp.Watcher entering fallback mode: %s", reason)
-	}
+	ctx := w.pump.Context()
+	service.Logger(ctx).WarnContext(ctx, "watcher entering fallback mode",
+		slog.String(attrFallbackReason, reason))
 }
 
 // fallbackTick is the per-tick action while the Watcher is in
@@ -1120,7 +1119,7 @@ func (w *Watcher[Row]) runCounterTicksDue(now time.Time) bool {
 
 	indices := w.snapshotIndices()
 
-	rowsByIdx, err := w.targetedRowFetchFor(dueCols, indices)
+	rowsByIdx, err := w.targetedRowFetch(dueCols, indices)
 	if err != nil {
 		w.recordTickErr(err)
 		// Still advance deadlines so the failure does not
@@ -1130,10 +1129,9 @@ func (w *Watcher[Row]) runCounterTicksDue(now time.Time) bool {
 	}
 
 	// Counter-tier fetches return ONLY the counter columns; the
-	// decode function expects all columns. For first ship we pass
-	// just the counter VBs and rely on the decode function to
-	// populate only those fields, leaving others as their zero
-	// value. The diff via cfg.equal then compares against the
+	// decode function expects all columns. We pass just the counter
+	// VBs and rely on the decode function to populate only those
+	// fields, leaving others as their zero value. The diff via cfg.equal then compares against the
 	// snapshot row whose other fields were already zero — so a
 	// Counter-only Modified event arrives with only the counter
 	// fields populated. Callers who want Counter+State row
@@ -1236,7 +1234,7 @@ func (w *Watcher[Row]) runStaticTick() bool {
 	if len(indices) == 0 {
 		return true
 	}
-	rowsByIdx, err := w.targetedRowFetchFor(w.staticTierCols, indices)
+	rowsByIdx, err := w.targetedRowFetch(w.staticTierCols, indices)
 	if err != nil {
 		w.recordTickErr(err)
 		return true
@@ -1267,11 +1265,10 @@ func (w *Watcher[Row]) snapshotIndices() []OID {
 	return out
 }
 
-// targetedRowFetchFor is the multi-column / multi-index targeted
+// targetedRowFetch is the multi-column / multi-index targeted
 // fetch primitive shared by the per-row, Counter-tier, and
-// Static-tier paths. Same chunking logic as [Watcher.targetedRowFetch]
-// (which is a wrapper specialising on w.stateTierCols).
-func (w *Watcher[Row]) targetedRowFetchFor(cols []AnyColumn, indices []OID) (map[string][]VarBind, error) {
+// Static-tier paths.
+func (w *Watcher[Row]) targetedRowFetch(cols []AnyColumn, indices []OID) (map[string][]VarBind, error) {
 	if len(cols) == 0 || len(indices) == 0 {
 		return map[string][]VarBind{}, nil
 	}
@@ -1303,7 +1300,7 @@ func (w *Watcher[Row]) targetedRowFetchFor(cols []AnyColumn, indices []OID) (map
 			return nil, err
 		}
 		for _, vb := range vbs {
-			rowIdx := w.rowIndexForVBIn(vb, cols)
+			rowIdx := w.rowIndexForVB(vb, cols)
 			if rowIdx.Len() == 0 {
 				continue
 			}
@@ -1355,10 +1352,9 @@ func (w *Watcher[Row]) bulkWalkFilteredFor(cols []AnyColumn, indices []OID) (map
 	return result, nil
 }
 
-// rowIndexForVBIn returns the row-index OID for a VarBind whose OID
-// is `<col>.<idx...>` for one of the supplied cols. Generalisation of
-// [Watcher.rowIndexForVB] to a caller-supplied column set.
-func (w *Watcher[Row]) rowIndexForVBIn(vb VarBind, cols []AnyColumn) OID {
+// rowIndexForVB returns the row-index OID for a VarBind whose OID
+// is `<col>.<idx...>` for one of the supplied cols.
+func (w *Watcher[Row]) rowIndexForVB(vb VarBind, cols []AnyColumn) OID {
 	full := vb.GetHeader().OID
 	for _, col := range cols {
 		colOID := col.OID()
@@ -1455,7 +1451,7 @@ func (w *Watcher[Row]) perRowTick() (bool, bool) {
 		allChanged = append(allChanged, s.idx)
 	}
 
-	rowsByIdx, err := w.targetedRowFetchFor(w.stateTierCols, allChanged)
+	rowsByIdx, err := w.targetedRowFetch(w.stateTierCols, allChanged)
 	if err != nil {
 		// Transient: surface via LastTickErr, do not emit anything
 		// for this tick. Terminal-vs-transient classification runs

@@ -1,0 +1,36 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// A module temperature measurement and the module's thresholds for it, in
+// thousandths of a degree Celsius. SFF-8472
+// (https://members.snia.org/document/dl/25916) reports temperature in
+// 1/256 degree steps, which this unit carries to within four thousandths
+// of a degree. Each threshold is absent when the module does not report it;
+// present thresholds must be ordered.
+message ModuleTemperature {
+  option (buf.validate.message).cel = {
+    id: "module_temperature.thresholds_ordered"
+    message: "temperature thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_millidegrees) || !has(this.low_warning_millidegrees) || "
+      "this.low_alarm_millidegrees <= this.low_warning_millidegrees) && "
+      "(!has(this.low_warning_millidegrees) || !has(this.high_warning_millidegrees) || "
+      "this.low_warning_millidegrees <= this.high_warning_millidegrees) && "
+      "(!has(this.high_warning_millidegrees) || !has(this.high_alarm_millidegrees) || "
+      "this.high_warning_millidegrees <= this.high_alarm_millidegrees)"
+  };
+
+  // The measured temperature. Absent means unreported.
+  int32 value_millidegrees = 1;
+  // Temperature at or above which the module raises a high alarm.
+  int32 high_alarm_millidegrees = 2;
+  // Temperature at or above which the module raises a high warning.
+  int32 high_warning_millidegrees = 3;
+  // Temperature at or below which the module raises a low warning.
+  int32 low_warning_millidegrees = 4;
+  // Temperature at or below which the module raises a low alarm.
+  int32 low_alarm_millidegrees = 5;
+}

@@ -22,6 +22,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -123,7 +124,7 @@ func craftDADNS(src net.HardwareAddr, target net.IP) ([]byte, error) {
 			},
 		},
 	}
-	return craftDefault(eth, ip, icmp, ns)
+	return craft.Default(eth, ip, icmp, ns)
 }
 
 // decodeNA decodes an ICMPv6 Neighbor Advertisement from raw frame

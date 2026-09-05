@@ -14,7 +14,7 @@ domain values rather than entities, services, provenance, or collector health.
 The minimum coherent boundaries are:
 
 - `net/phy/v1`: Ethernet settings, capabilities, active link facts, PoE, and a
-  deliberately shallow transceiver summary.
+  pluggable module with per-lane diagnostics, split by transport.
 - `net/packet/v1`: wire-header registries and small exact/match atoms reusable
   by future ACL, QoS, firewall, flow, and protocol packages.
 - `net/switching/v1`: VLANs, exact 802.1Q tag stacks, switchport membership,
@@ -62,20 +62,33 @@ defaults fit FlowSeer's contracts without feature overrides.
   closed enum.
 - Add a small open `EthernetFecMode` taxonomy and an
   `AutoNegotiationStatus` taxonomy.
-- Keep `EthernetMedium` orthogonal: copper, fiber, backplane, other. Direct
-  attach is a cable assembly, not a distinct underlying medium.
+- Carry the transport as an optional oneof of copper, fiber, backplane, and
+  other arms rather than a medium enum beside medium-specific fields, so a
+  fact only one medium can have is unrepresentable on the others. Direct
+  attach is a cable assembly in a copper arm, not a distinct medium.
 - Split PoE intent into `PoeSettings`; keep capability, role, delivery status,
-  class, allocation, and measured draw in `PoeFacet`.
-- Keep `TransceiverFacet` to presence and identity summary. Remove a single
-  wavelength value because multi-lane and coherent modules make it ambiguous.
+  class, allocation, and measured draw in `PoeFacet`; both live on the copper
+  arm, with the PSE port row's group-and-port key and fault counters beside
+  them.
+- Carry the pluggable module beside the transport oneof, present exactly when
+  a cage is reported: SFF-8024 and SFF-8472 identity, module-level
+  temperature and voltage, and per-lane optical power, bias current, and
+  nominal wavelength, each measurement with its own thresholds in one linear
+  unit. A single wavelength on the module is still wrong; it belongs to the
+  lane.
+- Carry the exact MAU type as a typed variant of IANA registration number or
+  raw OID, and the advertised and received link modes as a registry
+  pass-through enum numbered by IANA-MAU-MIB bit position.
+- Carry the EtherLike-MIB error counters on the facet and the group-level PSE
+  budget as a standalone value keyed by PSE group.
 
 ### Defer
 
-Per-lane optics, DOM measurements and thresholds, connector/cage identity,
-CMIS application codes, coherent optics, chassis PoE budgets, exact MAU types,
-and detailed advertised link modes belong to later hardware-component or
-capability work. Generic packet/octet counters belong to `net/interface`; only
-Ethernet-specific counters should ever enter PHY.
+Coherent-optics monitors, CMIS application selection and control, and the
+hardware component entity that embeds the module and budget values belong to
+later component or capability work. Diagnostics reachable only through
+ENTITY-SENSOR-MIB wait for that entity's alias join. Generic packet/octet
+counters belong to `net/interface`; only Ethernet-specific counters enter PHY.
 
 ## Packet package
 

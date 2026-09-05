@@ -16,11 +16,7 @@ import (
 // The emission produces:
 //
 //   - decode<TableName>Row(idx OID, vbs []VarBind) (Row, error):
-//     package-private decoder shared by the (future) Watch path. The
-//     existing IfTableWalker.Iter already inlines this logic; for
-//     first ship we emit a parallel package-private helper rather
-//     than refactoring the Walker. A future revision can collapse
-//     them.
+//     decodes one row from the VarBinds a watch tick collected.
 //
 //   - equal<TableName>Row(a, b Row) bool:
 //     field-by-field equality emitted with the type-appropriate
@@ -64,19 +60,7 @@ type tableWalkContext struct {
 	EntryPrefix string // dotted-decimal entry OID, e.g. "1.3.6.1.2.1.2.2.1"
 	RowTypeName string // generated Row struct name, e.g. "IfTableRow"
 	Key         rowKey
-	Cols        []watchColInfo
-}
-
-// watchColInfo describes one accessible column on a watched table.
-// Captured by emit_table.go's column loop and passed through to
-// emitWatch.
-type watchColInfo struct {
-	GoName    string         // e.g. "IfDescr"
-	FieldName string         // row-struct field name, e.g. "IfDescr"
-	Sub       uint32         // last sub-id of the column OID
-	Bit       int            // this column's bit in the row's observed set
-	GoType    *jen.Statement // jen.Code for the Go type of this column's field
-	Variant   string         // e.g. "OctetStringVar" / "Counter64Var"
+	Cols        []colInfo
 }
 
 // tableHasIndicator reports whether the module's discovered indicator
@@ -105,33 +89,14 @@ func emitWatchDecodeFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName stri
 	).Params(jen.Id(tw.RowTypeName), jen.Error()).BlockFunc(func(g *jen.Group) {
 		tw.Key.declareRow(g, tw.RowTypeName)
 
-		sortedCols := make([]watchColInfo, len(tw.Cols))
-		copy(sortedCols, tw.Cols)
-		sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
-
 		g.Line()
-		g.For(jen.List(jen.Id("_"), jen.Id("vb")).Op(":=").Range().Id("vbs")).BlockFunc(func(lg *jen.Group) {
-			lg.Id("o").Op(":=").Id("vb").Dot("GetHeader").Call().Dot("OID")
-			lg.If(jen.Id("o").Dot("Len").Call().Op("==").Lit(0)).Block(jen.Continue())
-			// The column OID's last sub-id sits two positions before
-			// the OID's tail when the OID has shape
-			// `<entry>.<col>.<idx...>`. Defensive: require the OID
-			// to be at least 2 sub-ids past the entry prefix.
-			lg.Id("entryLen").Op(":=").Add(newOIDCall(tw.EntryPrefix)).Dot("Len").Call()
-			lg.If(jen.Id("o").Dot("Len").Call().Op("<=").Id("entryLen")).Block(jen.Continue())
-			lg.Id("colID").Op(":=").Id("o").Dot("At").Call(jen.Id("entryLen"))
-			lg.Switch(jen.Id("colID")).BlockFunc(func(sg *jen.Group) {
-				for _, c := range sortedCols {
-					sg.Case(jen.Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
-						cg.List(jen.Id("dv"), jen.Id("derr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
-						cg.If(jen.Id("derr").Op("!=").Nil()).Block(
-							jen.Return(jen.Id("row"), jen.Id("derr")),
-						)
-						cg.Id("row").Dot(c.FieldName).Op("=").Id("dv")
-						cg.Add(observedMark(jen.Id("row"), c.Bit))
-					})
-				}
-			})
+		emitWatchColumnLoop(g, tw, func(cg *jen.Group, c colInfo) {
+			cg.List(jen.Id("dv"), jen.Id("derr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
+			cg.If(jen.Id("derr").Op("!=").Nil()).Block(
+				jen.Return(jen.Id("row"), jen.Id("derr")),
+			)
+			cg.Id("row").Dot(c.FieldName).Op("=").Id("dv")
+			cg.Add(observedMark(jen.Id("row"), c.Bit))
 		})
 		g.Line()
 
@@ -161,27 +126,45 @@ func emitWatchMergeFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName strin
 		jen.Id("dst").Op("*").Id(tw.RowTypeName),
 		jen.Id("vbs").Index().Qual(snmpImport, "VarBind"),
 	).BlockFunc(func(g *jen.Group) {
-		sortedCols := make([]watchColInfo, len(tw.Cols))
-		copy(sortedCols, tw.Cols)
-		sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
+		emitWatchColumnLoop(g, tw, func(cg *jen.Group, c colInfo) {
+			cg.List(jen.Id("dv"), jen.Id("derr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
+			cg.If(jen.Id("derr").Op("==").Nil()).Block(
+				jen.Id("dst").Dot(c.FieldName).Op("=").Id("dv"),
+				observedMark(jen.Id("dst"), c.Bit),
+			)
+		})
+	})
+}
 
-		g.For(jen.List(jen.Id("_"), jen.Id("vb")).Op(":=").Range().Id("vbs")).BlockFunc(func(lg *jen.Group) {
-			lg.Id("o").Op(":=").Id("vb").Dot("GetHeader").Call().Dot("OID")
-			lg.If(jen.Id("o").Dot("Len").Call().Op("==").Lit(0)).Block(jen.Continue())
-			lg.Id("entryLen").Op(":=").Add(newOIDCall(tw.EntryPrefix)).Dot("Len").Call()
-			lg.If(jen.Id("o").Dot("Len").Call().Op("<=").Id("entryLen")).Block(jen.Continue())
-			lg.Id("colID").Op(":=").Id("o").Dot("At").Call(jen.Id("entryLen"))
-			lg.Switch(jen.Id("colID")).BlockFunc(func(sg *jen.Group) {
-				for _, c := range sortedCols {
-					sg.Case(jen.Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
-						cg.List(jen.Id("dv"), jen.Id("derr")).Op(":=").Id(c.GoName).Dot("Decode").Call(jen.Id("vb"))
-						cg.If(jen.Id("derr").Op("==").Nil()).Block(
-							jen.Id("dst").Dot(c.FieldName).Op("=").Id("dv"),
-							observedMark(jen.Id("dst"), c.Bit),
-						)
-					})
-				}
-			})
+// emitWatchColumnLoop emits the VarBind scan both the decode and the
+// merge helper are built around: a `for _, vb := range vbs` loop that
+// skips a VarBind whose OID does not reach past the table's entry
+// prefix, reads the column-id that follows the prefix, and switches on
+// it with one case per column in column-id order. arm fills in the
+// body of a single column's case with the emitted statements that
+// consume that column's VarBind — the only place the two helpers
+// differ. The emitted loop binds `vb` to the current VarBind, so an
+// arm may reference it.
+func emitWatchColumnLoop(g *jen.Group, tw tableWalkContext, arm func(cg *jen.Group, c colInfo)) {
+	sortedCols := make([]colInfo, len(tw.Cols))
+	copy(sortedCols, tw.Cols)
+	sort.Slice(sortedCols, func(i, j int) bool { return sortedCols[i].Sub < sortedCols[j].Sub })
+
+	g.For(jen.List(jen.Id("_"), jen.Id("vb")).Op(":=").Range().Id("vbs")).BlockFunc(func(lg *jen.Group) {
+		lg.Id("o").Op(":=").Id("vb").Dot("GetHeader").Call().Dot("OID")
+		lg.If(jen.Id("o").Dot("Len").Call().Op("==").Lit(0)).Block(jen.Continue())
+		// The column-id sits directly after the entry prefix in an OID
+		// of shape `<entry>.<col>.<idx...>`, so an OID that stops at or
+		// before the prefix carries no column to decode.
+		lg.Id("entryLen").Op(":=").Add(newOIDCall(tw.EntryPrefix)).Dot("Len").Call()
+		lg.If(jen.Id("o").Dot("Len").Call().Op("<=").Id("entryLen")).Block(jen.Continue())
+		lg.Id("colID").Op(":=").Id("o").Dot("At").Call(jen.Id("entryLen"))
+		lg.Switch(jen.Id("colID")).BlockFunc(func(sg *jen.Group) {
+			for _, c := range sortedCols {
+				sg.Case(jen.Lit(int(c.Sub))).BlockFunc(func(cg *jen.Group) {
+					arm(cg, c)
+				})
+			}
 		})
 	})
 }
@@ -223,8 +206,8 @@ func emitWatchEqualFn(f *jen.File, _ *emitCtx, tw tableWalkContext, fnName strin
 // field on two Row values. The comparator depends on the field's
 // rendered Go type. The rendered type is consulted as a string
 // because jen does not surface its type information at this layer.
-func equalExprForField(c watchColInfo) *jen.Statement {
-	rendered := renderGoType(c.GoType)
+func equalExprForField(c colInfo) *jen.Statement {
+	rendered := renderGoType(c.Res.GoType)
 	left := jen.Id("a").Dot(c.FieldName)
 	right := jen.Id("b").Dot(c.FieldName)
 

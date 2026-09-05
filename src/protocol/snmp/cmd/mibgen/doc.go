@@ -63,10 +63,14 @@
 // landed in, so an upstream re-sync that moves a line leaves the record
 // intact. See baseline.go for the file's shape and the two-tier gate.
 //
-// The emitter lives in emit.go (and per-shape companions emit_scalar.go,
-// emit_table.go, emit_key.go, emit_enum.go, emit_bits.go, emit_tc.go,
-// emit_dispatch.go); the cross-module identity pass is emit_identity.go;
-// the CLI entrypoint is in main.go.
+// The emitter lives in emit.go, which drives the passes in order: type
+// resolution (emit_tc.go), enums and BITS constants (emit_enum.go,
+// emit_bits.go), scalars (emit_scalar.go), tables with their row keys
+// and Walkers (emit_table.go, emit_key.go), the per-table Watch
+// machinery (emit_discovery.go, emit_watch.go, emit_tier.go,
+// emit_indicator.go) and the per-package dispatch map
+// (emit_dispatch.go). The cross-module identity pass is
+// emit_identity.go; the CLI entrypoint is in main.go.
 //
 // # Refreshing golden test fixtures
 //

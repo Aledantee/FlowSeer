@@ -1,0 +1,35 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// A laser bias current measurement and the module's thresholds for it, in
+// microamperes. SFF-8472 (https://members.snia.org/document/dl/25916)
+// reports bias in steps of two microamperes, which this unit carries
+// without loss. Each threshold is absent when the module does not report
+// it; present thresholds must be ordered.
+message BiasCurrent {
+  option (buf.validate.message).cel = {
+    id: "bias_current.thresholds_ordered"
+    message: "bias thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_microamperes) || !has(this.low_warning_microamperes) || "
+      "this.low_alarm_microamperes <= this.low_warning_microamperes) && "
+      "(!has(this.low_warning_microamperes) || !has(this.high_warning_microamperes) || "
+      "this.low_warning_microamperes <= this.high_warning_microamperes) && "
+      "(!has(this.high_warning_microamperes) || !has(this.high_alarm_microamperes) || "
+      "this.high_warning_microamperes <= this.high_alarm_microamperes)"
+  };
+
+  // The measured bias current. Absent means unreported.
+  uint32 value_microamperes = 1;
+  // Current at or above which the module raises a high alarm.
+  uint32 high_alarm_microamperes = 2;
+  // Current at or above which the module raises a high warning.
+  uint32 high_warning_microamperes = 3;
+  // Current at or below which the module raises a low warning.
+  uint32 low_warning_microamperes = 4;
+  // Current at or below which the module raises a low alarm.
+  uint32 low_alarm_microamperes = 5;
+}

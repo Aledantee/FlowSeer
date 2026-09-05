@@ -1,6 +1,7 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -173,9 +174,9 @@ func manifestModules(modules []plannedModule) []*servicev1.ModuleContract {
 				}
 				slices.SortFunc(subscriptions, func(left, right *servicev1.SubscriptionContract) int {
 					if left.GetKind() != right.GetKind() {
-						return int(left.GetKind()) - int(right.GetKind())
+						return cmp.Compare(left.GetKind(), right.GetKind())
 					}
-					return stringCompare(left.GetTypeName(), right.GetTypeName())
+					return strings.Compare(left.GetTypeName(), right.GetTypeName())
 				})
 				contracts = append(contracts, servicev1.ModuleContract_builder{
 					Path:                proto.String(module.path),
@@ -190,20 +191,9 @@ func manifestModules(modules []plannedModule) []*servicev1.ModuleContract {
 	}
 	appendModules(modules)
 	slices.SortFunc(contracts, func(left, right *servicev1.ModuleContract) int {
-		return stringCompare(left.GetPath(), right.GetPath())
+		return strings.Compare(left.GetPath(), right.GetPath())
 	})
 	return contracts
-}
-
-func stringCompare(left, right string) int {
-	switch {
-	case left < right:
-		return -1
-	case left > right:
-		return 1
-	default:
-		return 0
-	}
 }
 
 // reconcileRuntimeManifest repairs or advances the PREPARED/COMMITTED journal

@@ -1,0 +1,40 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// One PSE port row of the RFC 3621 Power Ethernet MIB
+// (https://www.rfc-editor.org/rfc/rfc3621.html): its source-local key and
+// its fault counters. Delivery status lives on PoeFacet and intent on
+// PoeSettings; this message carries what neither holds. The key is the
+// MIB's own PSE group and port numbering, not an interface index, so a row
+// can be carried before a source supplies the join to an interface.
+message PoePortDetail {
+  // The PSE group the port belongs to, per pethPsePortGroupIndex: a box in
+  // a stack or a module in a rack. Must be present.
+  uint32 pse_group = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gt = 0
+  ];
+  // The port within its PSE group, per pethPsePortIndex. Must be present.
+  uint32 pse_port = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gt = 0
+  ];
+  // Times a powered device presented an invalid signature, per
+  // pethPsePortInvalidSignatureCounter. Absent means unreported.
+  uint64 invalid_signature_count = 3;
+  // Times power was denied to the port, per pethPsePortPowerDeniedCounter.
+  // Absent means unreported.
+  uint64 power_denied_count = 4;
+  // Times the port entered the overload state, per
+  // pethPsePortOverLoadCounter. Absent means unreported.
+  uint64 overload_count = 5;
+  // Times the port entered the short-circuit state, per
+  // pethPsePortShortCounter. Absent means unreported.
+  uint64 short_count = 6;
+  // Times the port lost the maintain-power signature, per
+  // pethPsePortMPSAbsentCounter. Absent means unreported.
+  uint64 mps_absent_count = 7;
+}

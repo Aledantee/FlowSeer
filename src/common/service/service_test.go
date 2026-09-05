@@ -97,7 +97,7 @@ func TestAttemptCapabilitiesReachRunnerTaskAndHandler(t *testing.T) {
 	}
 	cfg := Config{
 		Identity: Identity{Namespace: "flowseer", Name: "context_runtime", Version: "1.0.0"},
-		Bus:      &BusConfig{StoreDir: filepath.Join(t.TempDir(), "bus")},
+		Bus:      periodicBusConfig(filepath.Join(t.TempDir(), "bus")),
 		Modules: []Module{
 			{Name: "publisher", Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
 				return Attempt{Runner: func(ctx context.Context) error {

@@ -147,7 +147,7 @@ func TestSession_Get(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(vbs) != 1 {
-			t.Fatalf("want 1 vb, got %d", len(vbs))
+			t.Fatalf("got %d vbs, want 1", len(vbs))
 		}
 		os, ok := vbs[0].(OctetStringVar)
 		if !ok || string(os.Value) != "Router X" {
@@ -167,7 +167,7 @@ func TestSession_Get(t *testing.T) {
 			t.Fatal(err)
 		}
 		if _, ok := vbs[0].(NoSuchInstanceVar); !ok {
-			t.Fatalf("want NoSuchInstanceVar, got %#v", vbs[0])
+			t.Fatalf("got %#v, want NoSuchInstanceVar", vbs[0])
 		}
 	})
 }

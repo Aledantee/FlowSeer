@@ -229,7 +229,7 @@ func TestDeliveryFailureBeforeRunnerStartTerminatesAttempt(t *testing.T) {
 	runnerStarted := make(chan struct{})
 	config := Config{
 		Identity: testIdentity(),
-		Bus:      &BusConfig{StoreDir: t.TempDir()},
+		Bus:      periodicBusConfig(t.TempDir()),
 		Modules: []Module{{
 			Name: "worker",
 			Leaf: &Leaf{

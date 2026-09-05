@@ -2,10 +2,8 @@
 title: Protobuf Base Types - Plan
 type: feat
 date: 2026-08-21
-topic: proto-base-types
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
 ---
 

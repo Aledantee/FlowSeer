@@ -85,7 +85,7 @@ assert_executable() {
 claude_config=$repo_root/.claude/settings.json
 codex_config=$repo_root/.codex/hooks.json
 
-jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "Stop", "TaskCompleted", "WorktreeCreate"]' \
+jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "Stop", "WorktreeCreate"]' \
   "$claude_config" >/dev/null
 jq -e '.hooks | keys | sort == ["PostToolUse", "PreToolUse", "Stop"]' \
   "$codex_config" >/dev/null
@@ -103,10 +103,7 @@ assert_hook_mapping "$claude_config" "PostToolUse" "Edit|Write|MultiEdit|Noteboo
 assert_hook_mapping "$claude_config" "PostToolUse" "Bash" \
   "\$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh"
 assert_hook_mapping "$claude_config" "Stop" "<none>" \
-  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/stop-check.sh\"" \
-  "\$CLAUDE_PROJECT_DIR/tools/hooks/require-verification-receipt.sh"
-assert_hook_mapping "$claude_config" "TaskCompleted" "<none>" \
-  "\$CLAUDE_PROJECT_DIR/tools/hooks/require-verification-receipt.sh"
+  "\"\$CLAUDE_PROJECT_DIR/tools/hooks/stop-check.sh\""
 
 assert_hook_mapping "$codex_config" "PreToolUse" "Edit|Write" \
   "\"\$(git rev-parse --show-toplevel)/tools/hooks/pre-tool-policy.sh\""
@@ -123,8 +120,7 @@ for configured_hook in \
   tools/hooks/go-format.sh \
   tools/hooks/proto-check.sh \
   tools/hooks/mark-verification-dirty.sh \
-  tools/hooks/stop-check.sh \
-  tools/hooks/require-verification-receipt.sh; do
+  tools/hooks/stop-check.sh; do
   assert_executable "$configured_hook"
 done
 ok "settings map every event to executable hooks"
@@ -326,31 +322,14 @@ mark_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$mark_input"
 grep -qx 'main.go' "$fixture/.git/flowseer-verification-dirty"
-stop_input=$(jq -n --arg cwd "$fixture" \
-  '{cwd:$cwd,hook_event_name:"Stop",stop_hook_active:false}')
-stop_output=$("$repo_root/tools/hooks/require-verification-receipt.sh" <<<"$stop_input")
-jq -e '.decision == "block" and (.reason | contains("main.go"))' <<<"$stop_output" >/dev/null
-ok "Stop blocks when verification is stale"
-
-active_stop_input=$(jq -n --arg cwd "$fixture" \
-  '{cwd:$cwd,hook_event_name:"Stop",stop_hook_active:true}')
-assert_allow "$repo_root/tools/hooks/require-verification-receipt.sh" "$active_stop_input"
-ok "Stop allows a second pass to prevent a hook loop"
-
-task_input=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"TaskCompleted"}')
-set +e
-task_output=$("$repo_root/tools/hooks/require-verification-receipt.sh" <<<"$task_input" 2>&1)
-task_rc=$?
-set -e
-[[ $task_rc -eq 2 && $task_output == *"main.go"* ]]
-ok "TaskCompleted blocks when verification is stale"
+ok "edits mark the worktree dirty for the verifier"
 
 rm -f "$fixture/.git/flowseer-verification-dirty"
 bash_mark_input=$(jq -n --arg cwd "$fixture" --arg command "sed -i '' -e s/a/b/ main.go" \
   '{cwd:$cwd,tool_input:{command:$command}}')
 assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$bash_mark_input"
 grep -qx '<Bash mutation; verify with --full>' "$fixture/.git/flowseer-verification-dirty"
-ok "Bash source mutations require a full receipt"
+ok "Bash source mutations mark a full-scope verification"
 
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"

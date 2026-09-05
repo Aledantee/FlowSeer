@@ -1,0 +1,26 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// The medium attachment unit type of an Ethernet port. The MAU MIB reports
+// it as an object identifier; standard types are the dot3MauType
+// registrations of the IANA-MAU-MIB
+// (https://www.iana.org/assignments/ianamau-mib), so a registered type is
+// carried by its registration number and any other identifier by its raw
+// OID. Nothing is lost either way.
+message MauType {
+  // Which form the type takes. Exactly one arm is set.
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    // The trailing arc N of the dot3MauType.N registration in the
+    // IANA-MAU-MIB. Unregistered numbers remain valid so a newer
+    // registration passes an older reader.
+    uint32 iana = 1 [(buf.validate.field).uint32.gt = 0];
+    // The raw dotted object identifier for a type outside the dot3MauType
+    // registry, such as a vendor type.
+    string oid = 2 [(buf.validate.field).string.pattern = "^[0-9]+(\\.[0-9]+)+$"];
+  }
+}

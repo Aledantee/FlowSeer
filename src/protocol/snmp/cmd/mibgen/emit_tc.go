@@ -7,6 +7,7 @@ import (
 
 	"github.com/dave/jennifer/jen"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/smi"
 )
 
@@ -180,13 +181,16 @@ type resolved struct {
 //
 // Enum types defined by `INTEGER { name(value), ... }` resolve to the
 // generated Go enum type registered in [emitCtx.enumNames].
-func resolveType(ec *emitCtx, n *smi.Node) resolved {
+//
+// An override the emitter cannot render returns an error naming the
+// offending OID; every other resolution succeeds.
+func resolveType(ec *emitCtx, n *smi.Node) (resolved, error) {
 	oid := n.OID.String()
 	if ov, ok := ec.overrides[oid]; ok {
 		return resolveOverride(ec, n, ov)
 	}
 
-	return naturalResolved(ec, n.Name, n.Type)
+	return naturalResolved(ec, n.Name, n.Type), nil
 }
 
 // naturalResolved is resolveType with the override table already
@@ -306,6 +310,23 @@ func enumResolved(goType *jen.Statement) resolved {
 	}
 }
 
+// numericResolved is the resolved descriptor for a wire type whose
+// value decodes to a Go numeric: goType is the rendered Go type,
+// kindName the snmp.Kind* constant, variant the snmp.VarBind variant
+// name, and rawFuse the snmp.Raw* fused decoder (empty when the kind
+// has none). The zero value of every such column renders as the
+// untyped constant 0.
+func numericResolved(goType *jen.Statement, kindName, variant, rawFuse string) resolved {
+	return resolved{
+		GoType:     goType.Clone(),
+		Kind:       jen.Qual(snmpImport, kindName),
+		Variant:    variant,
+		DecodeFunc: func() *jen.Statement { return decodeNatural(variant, goType.Clone()) },
+		ZeroExpr:   func() *jen.Statement { return jen.Lit(0) },
+		RawFuse:    rawFuse,
+	}
+}
+
 // crossModuleQual builds a jen.Qual referring to a type defined in
 // another module of the loaded set. Returns nil when the type cannot be
 // resolved (no module found, or the type's home module is not in our
@@ -353,45 +374,13 @@ func (ec *emitCtx) moduleQual(module, name string) *jen.Statement {
 func applicationType(base smi.BaseType) (resolved, bool) {
 	switch base {
 	case smi.BaseCounter32:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Uint32(),
-			Kind:       jen.Qual(snmpImport, "KindCounter32"),
-			Variant:    "Counter32Var",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("Counter32Var", jen.Uint32()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawCounter32",
-		}, true
+		return numericResolved(jen.Uint32(), "KindCounter32", "Counter32Var", "RawCounter32"), true
 	case smi.BaseCounter64:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Uint64(),
-			Kind:       jen.Qual(snmpImport, "KindCounter64"),
-			Variant:    "Counter64Var",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("Counter64Var", jen.Uint64()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawCounter64",
-		}, true
+		return numericResolved(jen.Uint64(), "KindCounter64", "Counter64Var", "RawCounter64"), true
 	case smi.BaseGauge32:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Uint32(),
-			Kind:       jen.Qual(snmpImport, "KindGauge32"),
-			Variant:    "Gauge32Var",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("Gauge32Var", jen.Uint32()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawGauge32",
-		}, true
+		return numericResolved(jen.Uint32(), "KindGauge32", "Gauge32Var", "RawGauge32"), true
 	case smi.BaseTimeTicks:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Uint32(),
-			Kind:       jen.Qual(snmpImport, "KindTimeTicks"),
-			Variant:    "TimeTicksVar",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("TimeTicksVar", jen.Uint32()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawTimeTicks",
-		}, true
+		return numericResolved(jen.Uint32(), "KindTimeTicks", "TimeTicksVar", "RawTimeTicks"), true
 	case smi.BaseIPAddress:
 		zero := jen.Nil
 		return resolved{
@@ -418,7 +407,10 @@ func applicationType(base smi.BaseType) (resolved, bool) {
 // config. The override's Go type is used verbatim; the wire decoding
 // stays based on the natural base type so the closure can still type-
 // assert the right VarBind variant.
-func resolveOverride(ec *emitCtx, n *smi.Node, ov Override) resolved {
+//
+// An override on a column whose natural variant is not integer-like
+// returns an error, because the emitted cast would not compile.
+func resolveOverride(ec *emitCtx, n *smi.Node, ov Override) (resolved, error) {
 	// The natural resolution still decides the wire side. Without it an
 	// override on a Counter64 / Gauge32 / TimeTicks column would fall
 	// through to Integer32 and emit DecodeInt32, silently rejecting the
@@ -434,12 +426,13 @@ func resolveOverride(ec *emitCtx, n *smi.Node, ov Override) resolved {
 	// Opaque), v is a non-numeric type and `Target(v)` only compiles
 	// when Target is a matching alias (`type MyBytes []byte`); the
 	// `Target(0)` zero expr emitted by decodeIntCast does not compile
-	// at all. Surface the limitation as a generator-time panic instead
-	// of emitting a file that won't compile.
+	// at all. Refuse the config instead of emitting a file that will
+	// not compile.
 	if !isIntegerLikeVariant(nat.Variant) {
-		panic("resolveOverride: override on non-integer column " + n.Name +
-			" (natural variant " + nat.Variant + ") is not supported; " +
-			"add a wellKnownTC entry or extend the override emitter")
+		return resolved{}, errs.Msgf(
+			"override on %s (OID %s): natural variant %s is not integer-castable; "+
+				"add a wellKnownTC entry or extend the override emitter",
+			n.Name, n.OID.String(), nat.Variant)
 	}
 
 	// goTypeCode emits either a bare Id (same package) or a Qual when
@@ -463,7 +456,7 @@ func resolveOverride(ec *emitCtx, n *smi.Node, ov Override) resolved {
 		Variant:    nat.Variant,
 		DecodeFunc: func() *jen.Statement { return decodeIntCast(nat.Variant, goTypeCode()) },
 		ZeroExpr:   func() *jen.Statement { return goTypeCode().Call(jen.Lit(0)) },
-	}
+	}, nil
 }
 
 // isIntegerLikeVariant reports whether variant carries a numeric Value
@@ -533,17 +526,12 @@ const unsignedRangeCeiling = "4294967295"
 // range whose bounds are non-negative and whose decimal maximum sorts
 // at or below 4294967295 renders as uint32 instead.
 //
-// The reason is the committed bindings. Every non-negative INTEGER
-// subtype in the generated packages ships today as a uint32 column —
-// ipAdEntIfIndex, sysServices, the TestAndIncr and TimeInterval
-// conventions — and callers hold those values. Changing a shipped
-// column's Go type is a source-breaking change for every consumer, and
-// it belongs in a step that says so and fixes them, not in one whose
-// whole point is that the output does not move. The comparison is on
-// the decimal spelling rather than on the number because that is the
-// comparison the shipped bindings were generated under: it reads 65535
-// as wider than 4294967295, so ipAdEntReasmMaxSize is one of the
-// non-negative columns that came out signed.
+// The rendering is what the generated bindings bind their callers to,
+// so changing a column's Go type breaks every consumer that holds the
+// value. The maximum is compared as a decimal string rather than as a
+// number: the string comparison reads 65535 as wider than 4294967295,
+// so a non-negative column such as ipAdEntReasmMaxSize comes out
+// signed.
 func integerSubtypeBase(t *smi.Type) baseKind {
 	if len(t.Ranges) == 0 {
 		return baseSigned32
@@ -565,25 +553,9 @@ func integerSubtypeBase(t *smi.Type) baseKind {
 func resolveBase(bt baseKind) resolved {
 	switch bt {
 	case baseSigned32:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Int32(),
-			Kind:       jen.Qual(snmpImport, "KindInteger32"),
-			Variant:    "Integer32Var",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("Integer32Var", jen.Int32()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawInteger32",
-		}
+		return numericResolved(jen.Int32(), "KindInteger32", "Integer32Var", "RawInteger32")
 	case baseUnsigned32:
-		zero := func() *jen.Statement { return jen.Lit(0) }
-		return resolved{
-			GoType:     jen.Uint32(),
-			Kind:       jen.Qual(snmpImport, "KindUinteger32"),
-			Variant:    "Uinteger32Var",
-			DecodeFunc: func() *jen.Statement { return decodeNatural("Uinteger32Var", jen.Uint32()) },
-			ZeroExpr:   zero,
-			RawFuse:    "RawGauge32",
-		}
+		return numericResolved(jen.Uint32(), "KindUinteger32", "Uinteger32Var", "RawGauge32")
 	case baseBytes:
 		return resolvedBytes()
 	case baseOID:

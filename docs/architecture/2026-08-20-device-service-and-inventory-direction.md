@@ -404,19 +404,25 @@ empty enabled tree has no partial module side effects.
 The local bus is distinct from the edge leaf-node and central integration
 fabric above. It is listener-free, has no central credentials, and persists
 protobuf envelopes only for modules in one service process. Its embedded NATS
-server follows the fsync policy declared for the service. The default is
-periodic sync on a five-second cadence. A process crash does not lose
-acknowledged records under that policy because the writes remain in the
-operating system's page cache. Services without local messaging do not start
-NATS or create a store.
+server follows the fsync policy the service declares, and there is no implicit
+policy: a configuration that names none fails `Run` with `service/bus-config`
+before the store is locked or opened. Periodic sync runs on a five-second
+target interval. A process crash does not lose acknowledged records under
+either policy because the writes remain in the operating system's page cache.
+Services without local messaging do not start NATS or create a store.
 
 A power loss may lose recent message or settlement records written since the
 last completed periodic sync. The configured cadence is not a guaranteed
 maximum loss window because operating-system scheduling and storage delays can
 postpone completion. If a message survives but its settlement does not, its
-handler may run again under the bus's at-least-once delivery contract. Upgrades
-change the default from per-message fsync to periodic sync. Deployments that
-need the previous power-loss durability must select `BusFsyncPerMessage`.
+handler may run again under the bus's at-least-once delivery contract. Only
+`BusFsyncPerMessage` keeps acknowledged records across a power loss. Because
+the policy must be declared, an upgrade cannot change durability silently: the
+new binary refuses to start against an undeclared configuration and leaves the
+store as the previous binary wrote it, and the author chooses
+`BusFsyncPerMessage` to keep the old guarantee or `BusFsyncPeriodic` to trade
+it for throughput. A store written under either policy opens under the other
+without migration.
 
 The default logical budget is 1 GiB: 768 MiB for module mailboxes, 64 MiB for
 runtime metadata, and 192 MiB reserved for broker state and atomic publication.

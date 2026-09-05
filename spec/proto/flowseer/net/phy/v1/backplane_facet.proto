@@ -1,0 +1,7 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Facts only a chassis or system backplane transport can have. The arm
+// carries no fields; presence of the arm states the medium.
+message BackplaneFacet {}

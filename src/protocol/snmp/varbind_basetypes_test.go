@@ -7,13 +7,13 @@ import (
 	"testing"
 )
 
-// TestCounter32Var_BehaviouralPin pins Counter32Var's documented
+// TestCounter32Var_BehavioralPin pins Counter32Var's documented
 // contract: carries a uint32 value, reports KindCounter32, never an
 // exception. Wrap-around is the caller's concern (RFC 2578 §7.1.6
 // "counters wrap modulo 2^32"); the type accepts any uint32 value.
 //
 // Covers conformance matrix row: RFC 2578 §7.1.6 / Counter32Var.
-func TestCounter32Var_BehaviouralPin(t *testing.T) {
+func TestCounter32Var_BehavioralPin(t *testing.T) {
 	h := Header{OID: MustOID(1, 3, 6), Kind: KindCounter32}
 	for _, v := range []uint32{0, 1, math.MaxUint32 - 1, math.MaxUint32} {
 		vb := Counter32Var{Header: h, Value: v}
@@ -113,13 +113,13 @@ func TestIPAddressVar_IPv4Forms(t *testing.T) {
 	}
 }
 
-// TestCounter64Var_BehaviouralPin pins Counter64Var's documented
+// TestCounter64Var_BehavioralPin pins Counter64Var's documented
 // uint64 value type and KindCounter64 per RFC 2578 §7.1.11. Like
 // Counter32, wrap-around is the caller's concern; the type accepts
 // any uint64.
 //
 // Covers conformance matrix row: RFC 2578 §7.1.11 / Counter64Var.
-func TestCounter64Var_BehaviouralPin(t *testing.T) {
+func TestCounter64Var_BehavioralPin(t *testing.T) {
 	h := Header{OID: MustOID(1, 3, 6), Kind: KindCounter64}
 	for _, v := range []uint64{0, 1, math.MaxUint64 - 1, math.MaxUint64} {
 		vb := Counter64Var{Header: h, Value: v}

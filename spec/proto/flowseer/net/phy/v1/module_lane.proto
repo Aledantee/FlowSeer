@@ -1,0 +1,29 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/bias_current.proto";
+import "flowseer/net/phy/v1/optical_power.proto";
+import option "buf/validate/validate.proto";
+
+// One lane of a pluggable module and its diagnostics, per the SFF-8472
+// diagnostic monitoring page (https://members.snia.org/document/dl/25916)
+// and the CMIS lane-specific monitors
+// (https://www.oiforum.com/technical-work/hot-topics/cmis/). A
+// single-channel module has one lane with index 1.
+message ModuleLane {
+  // The lane number, counted from 1. Must be present.
+  uint32 index = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gt = 0
+  ];
+  // The nominal wavelength of the lane's laser in nanometers. Absent means
+  // unreported or not applicable; zero is invalid when present.
+  uint32 wavelength_nanometers = 2 [(buf.validate.field).uint32.gt = 0];
+  // Transmitted optical power. Absent means unreported.
+  OpticalPower tx_power = 3;
+  // Received optical power. Absent means unreported.
+  OpticalPower rx_power = 4;
+  // Laser bias current. Absent means unreported.
+  BiasCurrent bias = 5;
+}

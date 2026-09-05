@@ -585,27 +585,11 @@ func portID(subtype lldpmib.LldpPortIdSubtype, value []byte) (*lldpv1.PortId, bo
 	return id, true
 }
 
-// capabilities maps a capability bitmap to the schema's open enum, one
-// value per set position. A position the schema does not name is kept as
-// its own value: the announcement said the neighbor has that capability,
-// and only the name is missing.
+// capabilities maps a capability bitmap to the schema's open enum through
+// [enumsFromBits]; the bitmap is a registry that grows, so an unnamed
+// position is a capability whose name is missing, not noise.
 func capabilities(bits snmp.BitSet) []lldpv1.SystemCapability {
-	positions := bits.Positions()
-	caps := make([]lldpv1.SystemCapability, 0, len(positions))
-
-	for _, p := range positions {
-		if p > math.MaxInt32 {
-			continue
-		}
-
-		caps = append(caps, lldpv1.SystemCapability(p))
-	}
-
-	if len(caps) == 0 {
-		return nil
-	}
-
-	return caps
+	return enumsFromBits[lldpv1.SystemCapability](bits)
 }
 
 // transmittedTLVs translates the enablement bitmap into TLV types

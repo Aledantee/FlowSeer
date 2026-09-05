@@ -736,16 +736,26 @@ func (p *parser) currentModule() *ComplianceModule {
 	return &p.d.modules[len(p.d.modules)-1]
 }
 
-func (p *parser) readComplianceModule() {
-	cm := ComplianceModule{Span: Span{Start: p.offset(), End: p.offset()}}
+// openNamedClause starts a clause whose keyword may be followed by a
+// name. It returns the span from the keyword position through the name
+// and the name's own span, which is zero when the clause carries none,
+// and leaves the cursor past the name.
+func (p *parser) openNamedClause() (span, name Span) {
+	span = Span{Start: p.offset(), End: p.offset()}
 	if p.isName() {
-		cm.Name = p.span()
-		cm.Span.End = p.tok().End()
+		name = p.span()
+		span.End = p.tok().End()
 		p.next()
 	}
 
-	p.d.modules = append(p.d.modules, cm)
-	p.record(ClauseModule, p.d.modules[len(p.d.modules)-1].Span)
+	return span, name
+}
+
+func (p *parser) readComplianceModule() {
+	span, name := p.openNamedClause()
+
+	p.d.modules = append(p.d.modules, ComplianceModule{Span: span, Name: name})
+	p.record(ClauseModule, span)
 }
 
 // readRefinement reads one GROUP or OBJECT clause of a MODULE clause.
@@ -764,6 +774,7 @@ func (p *parser) readRefinement(c Clause) {
 	sync := setOf(ClauseSyntax, ClauseWriteSyntax, ClauseMinAccess, ClauseDescription,
 		ClauseGroup, ClauseObject, ClauseModule)
 
+refinement:
 	for p.more() {
 		switch clauseOf(p.keyword()) {
 		case ClauseSyntax:
@@ -783,11 +794,7 @@ func (p *parser) readRefinement(c Clause) {
 			r.Description = p.quoted()
 			extend(&r.Span, r.Description.End)
 		default:
-			m := p.currentModule()
-			m.Refinements = append(m.Refinements, r)
-			p.record(c, r.Span)
-
-			return
+			break refinement
 		}
 	}
 
@@ -808,15 +815,10 @@ func (p *parser) currentSupport() *Supported {
 }
 
 func (p *parser) readSupports() {
-	s := Supported{Span: Span{Start: p.offset(), End: p.offset()}}
-	if p.isName() {
-		s.Module = p.span()
-		s.Span.End = p.tok().End()
-		p.next()
-	}
+	span, name := p.openNamedClause()
 
-	p.d.supports = append(p.d.supports, s)
-	p.record(ClauseSupports, p.d.supports[len(p.d.supports)-1].Span)
+	p.d.supports = append(p.d.supports, Supported{Span: span, Module: name})
+	p.record(ClauseSupports, span)
 }
 
 // readVariation reads one VARIATION clause. Object and notification
@@ -831,6 +833,7 @@ func (p *parser) readVariation() {
 	sync := setOf(ClauseSyntax, ClauseWriteSyntax, ClauseAccess, ClauseCreationRequires,
 		ClauseDefval, ClauseDescription, ClauseVariation, ClauseSupports)
 
+variation:
 	for p.more() {
 		switch clauseOf(p.keyword()) {
 		case ClauseSyntax:
@@ -863,11 +866,7 @@ func (p *parser) readVariation() {
 			v.Description = p.quoted()
 			extend(&v.Span, v.Description.End)
 		default:
-			s := p.currentSupport()
-			s.Variations = append(s.Variations, v)
-			p.record(ClauseVariation, v.Span)
-
-			return
+			break variation
 		}
 	}
 

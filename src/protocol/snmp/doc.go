@@ -11,9 +11,8 @@
 // constructor spawns producer, [iter.Seq2]-shaped iteration is the
 // idiomatic consumer surface, idempotent Close terminates the
 // producer within one PDU round-trip, terminal errors latch via
-// Err(). Future additions (multi-target Pool, ChangeFeed, etc.)
-// should extend this collection-framework shape rather than expand
-// into one-shot RPC sugar.
+// Err(). Anything added to this collection extends the same shape
+// rather than expanding into one-shot RPC sugar.
 //
 // # Surface
 //

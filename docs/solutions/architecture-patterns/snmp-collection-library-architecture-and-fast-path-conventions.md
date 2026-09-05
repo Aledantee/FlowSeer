@@ -36,7 +36,7 @@ tags:
 the wire — a hand-rolled SNMP-specific BER codec, a structured PDU model, a
 per-session UDP reactor that demultiplexes replies by request-id, full SNMPv3/USM
 — plus three streaming primitives (`Walker`, `Watcher`, `TrapStream`) on a shared
-channel-pump substrate (`src/protocol/snmp/doc.go:1`, `src/protocol/snmp/doc.go:34`).
+channel-pump substrate (`src/protocol/snmp/doc.go:1`, `src/protocol/snmp/doc.go:7`).
 Around it: a code generator (`cmd/mibgen`) emitting MIB bindings, a
 provenance-citing conformance corpus, a four-tier integration harness, and a
 benchstat-backed perf gate in its own Go module.
@@ -51,10 +51,10 @@ row that silently vanishes from the generated coverage map.
 
 `src/protocol/snmp/README.md` now describes the current public API, generation
 workflow, and test entry points. It links `doc.go` as the authority for API and
-lifecycle contracts (`src/protocol/snmp/README.md:59`). The wire implementation
-remains behind `NewSession` (`src/protocol/snmp/backend.go:58`), and
+lifecycle contracts (`src/protocol/snmp/README.md:60`). The wire implementation
+remains behind `NewSession` (`src/protocol/snmp/backend.go:59`), and
 `TestNoGosnmpIdentifierLeaks` guards the production package from dependency
-regression (`src/protocol/snmp/no_gosnmp_test.go:33`).
+regression (`src/protocol/snmp/no_gosnmp_test.go:34`).
 
 ## Guidance
 
@@ -69,13 +69,13 @@ per session, drop-and-count for anything unmatched or forged; session engine
 (`oid.go`, `varbind.go`, `kind.go`, `column.go`, `tc.go`, `decode.go`, `errors.go`);
 generated bindings under `generated/go/mib/<module>/`. `instrument.go` threads
 injected OpenTelemetry providers and depends on the OTel **API only, never the
-SDK** (`src/protocol/snmp/doc.go:41`).
+SDK** (`src/protocol/snmp/doc.go:42`).
 
 ### 1 — Every optimization is a guarded fast path that declines
 
 A fast path never assumes a shape it has not checked, and on failure returns
 *not-applicable*, never an error. `encodeRequestFast` is the canonical shape,
-dispatched at the top of `encodeMessage` (`src/protocol/snmp/pdu.go:723`):
+dispatched at the top of `encodeMessage` (`src/protocol/snmp/pdu.go:721`):
 
 ```go
 func encodeMessage(m *message) ([]byte, error) {
@@ -86,17 +86,17 @@ func encodeMessage(m *message) ([]byte, error) {
 }
 ```
 
-Two guards are the whole contract (`src/protocol/snmp/pdu.go:776`): the PDU type must
+Two guards are the whole contract (`src/protocol/snmp/pdu.go:774`): the PDU type must
 be `pduGetRequest` / `pduGetNextRequest` / `pduGetBulkRequest`
-(`pdu.go:779`), and **every** varbind must be a `NullVar` (`pdu.go:785`). A Set, a
+(`pdu.go:777`), and **every** varbind must be a `NullVar` (`pdu.go:783`). A Set, a
 trap, or any valued varbind declines. The win comes from `berWrapTail`, which
 wraps `buf[mark:]` in a TLV header in place with one overlapping copy, so the
 datagram assembles in a single buffer instead of one slice per nesting level
-(`pdu.go:740-743`).
+(`pdu.go:741-744`).
 
 The raw walk path applies the rule per varbind. `RawVarBind` carries undecoded BER
 name and value octets aliasing the response buffer
-(`src/protocol/snmp/rawwalk.go:36`), and every fused decoder declines:
+(`src/protocol/snmp/rawwalk.go:37`), and every fused decoder declines:
 
 ```go
 func RawInteger32(rv RawVarBind) (int32, bool) {
@@ -112,14 +112,14 @@ func RawInteger32(rv RawVarBind) (int32, bool) {
 ```
 
 Off-spec tag, exception marker, overflow, or a pre-decoded `VB` all yield
-`ok=false` (`src/protocol/snmp/rawwalk.go:89`, `:135`); the caller must fall back to
-`RawVarBind.Decode()` plus the column's generic decoder (`rawwalk.go:46`) so error
+`ok=false` (`src/protocol/snmp/rawwalk.go:88`, `:134`); the caller must fall back to
+`RawVarBind.Decode()` plus the column's generic decoder (`rawwalk.go:47`) so error
 text and coercion semantics stay identical to `decode.go`. The file header states
-this as the package rule (`rawwalk.go:11`).
+this as the package rule (`rawwalk.go:12`).
 
 The decline also happens a layer down. Raw delivery requires the response to pass
 mirror validation; otherwise the read loop decodes eagerly and consumers see
-pre-decoded varbinds (`src/protocol/snmp/reactor.go:763`):
+pre-decoded varbinds (`src/protocol/snmp/reactor.go:768`):
 
 ```go
 if raw && validateRawVarBindList(rawVBL, 1) == nil {
@@ -131,7 +131,7 @@ if raw && validateRawVarBindList(rawVBL, 1) == nil {
 ```
 
 `validateRawNameOID` rejects a non-minimally-encoded arc (any `0x80` lead octet)
-with `errNonCanonicalOID` (`src/protocol/snmp/pdu.go:509`), because the byte-order
+with `errNonCanonicalOID` (`src/protocol/snmp/pdu.go:510`), because the byte-order
 walk guards are only correct on canonical encodings.
 
 ### 2 — A fast path is pinned to the path it replaces
@@ -146,7 +146,7 @@ Declining is only safe if "identical" is machine-checked. Three patterns exist:
   as much a bug as encoding wrong.
 - **Engine differential.** `runWalkRaw` is the raw twin of `runWalk` with identical
   guard logic and termination priority over canonical BER name octets; its doc
-  comment states the mirror obligation (`src/protocol/snmp/session_engine.go:457`),
+  comment states the mirror obligation (`src/protocol/snmp/session_engine.go:597`),
   and `TestBulkWalkRaw_DifferentialWithBulkWalk` drives both engines through clean
   walk, `tooBig` degrade, and mid-walk `EndOfMibView`
   (`src/protocol/snmp/rawwalk_test.go:78`).
@@ -162,7 +162,7 @@ byte-prefix equals arc-prefix. `TestOID_WireByteOrder_Property` checks 20 000
 random pairs across all base-128 length classes against `OID.Compare`
 (`src/protocol/snmp/rawwalk_test.go:16`). `cmpOIDWire` documents why plain
 `bytes.Compare` is *not* arc order — groups of differing length must compare
-length-first (`src/protocol/snmp/rawwalk.go:192`).
+length-first (`src/protocol/snmp/rawwalk.go:193`).
 
 ### 3 — Wire bytes are the dispatch key, computed once
 
@@ -178,10 +178,10 @@ return Column[T]{oid: oid, key: oid.WireKey(), kind: kind, decode: decode}
 
 Generated packages key both maps on wire keys, not dotted strings: the
 OID→`AnyColumn` dispatch map (`src/protocol/snmp/cmd/mibgen/emit_dispatch.go:9`,
-entries at `:47`) and the column→`snmp.Tier` map
-(`src/protocol/snmp/cmd/mibgen/emit_tier.go:79`, keys at `:91`). Both identifiers are
+entries at `:45`) and the column→`snmp.Tier` map
+(`src/protocol/snmp/cmd/mibgen/emit_tier.go:92`, keys at `:98`). Both identifiers are
 module-prefixed to avoid a guaranteed collision if two generated files land in one
-package (`emit_dispatch.go:15`, `emit_tier.go:61`). New hot-path lookups key on
+package (`emit_dispatch.go:15`, `emit_tier.go:68`). New hot-path lookups key on
 `WireKey`/`Key()` — never format a dotted OID in a loop.
 
 ### 4 — Generated code uses only the public API, and moves with its generator
@@ -194,9 +194,10 @@ exported `snmp.WalkColumns` bounded merge. `BulkWalkRaw` is part of the public
 `Session` interface (`src/protocol/snmp/session.go:45-52`). Native sessions
 supply raw batches directly; alternate sessions can implement the method by
 adapting `BulkWalk` through `RawWalkerFromWalker`
-(`src/protocol/snmp/rawwalk.go:328-330`), as the integration fake does
-(`src/protocol/snmp/test/integration/assertions_test.go:68-69`). Each typed
-column still has a fused arm with a generic fallback in `emit_table.go`.
+(`src/protocol/snmp/rawwalk.go:331`), as the integration fake does
+(`src/protocol/snmp/test/integration/assertions_test.go:69-70`). Each typed
+column still has a fused arm with a generic fallback in `emit_table.go`
+(`src/protocol/snmp/cmd/mibgen/emit_table.go:263-264`).
 
 The merge requests selected columns, retains one batch per column, and joins by
 numeric index suffix before decoding a row. `Walk` is lazy and empty selection
@@ -206,18 +207,18 @@ apply the generated-walk memory bound to it.
 
 - CLI is `go run ./src/protocol/snmp/cmd/mibgen`, with `-verify`, `-check` (fail on
   output drift), and `-update` (`src/protocol/snmp/cmd/mibgen/main.go:41`; defaults
-  at `main.go:12`). The repository-root `generate.go` carries the `go:generate`
+  at `main.go:17`). The repository-root `generate.go` carries the `go:generate`
   directive, so `go generate .` at the root is the normal entry point. There is
   no `tool` directive for mibgen in `go.mod`.
 - **`search_paths` resolve relative to the config file's own directory**
-  (`src/protocol/snmp/cmd/mibgen/config.go:193-194`). `mibgen.yaml` lives at the
+  (`src/protocol/snmp/cmd/mibgen/config.go:185-195`). `mibgen.yaml` lives at the
   repository root, so its entries are bare repo-relative paths (`spec/mib/ietf`).
   Moving the config changes that depth.
 - An emitter change is not done until the golden fixture is refreshed:
   `go test ./src/protocol/snmp/cmd/mibgen -run TestEmit_FakeMIB_Golden -update-golden`
-  (`src/protocol/snmp/cmd/mibgen/doc.go:26`).
+  (`src/protocol/snmp/cmd/mibgen/doc.go:58`).
 - **Change-indicator discovery is structural first, config only as the
-  exception** (`emit_discovery.go:80-89`). Precedence: (1) a per-row column inside
+  exception** (`emit_discovery.go:82-89`). Precedence: (1) a per-row column inside
   the table matching the indicator name-suffix heuristic; (2) a `mibgen.yaml`
   `indicators:` declaration; (3) a module scalar named `<table><suffix>` or
   `<base><suffix>` with a trailing `Table` stripped (`ifStackLastChange` →
@@ -229,8 +230,8 @@ apply the generated-walk memory bound to it.
 - Tier classification is codegen-time and rule-based — Counter32/64 →
   `TierCounter`; TC `TimeStamp` → `TierIndicator`; indicator name-suffix →
   `TierIndicator`; else `TierState`; `TierStatic` is never auto-assigned
-  (`emit_tier.go:22`). The tier map emits only for modules with a Watch-eligible
-  table, avoiding generated bloat (`emit_tier.go:53`).
+  (`emit_tier.go:23`). The tier map emits only for modules with a Watch-eligible
+  table, avoiding generated bloat (`emit_tier.go:60`).
 
 ### 5 — Off-spec device behavior is corpus-pinned, with provenance
 
@@ -239,11 +240,11 @@ apply the generated-walk memory bound to it.
 (`src/protocol/snmp/conformance_corpus_test.go:59`; rows from `:79`). Editing rules
 are in the file: never delete a row; flip to `covered` only with a citing test and
 a named adversarial input; flip to `accepted-risk` only with a rationale **and** an
-`acceptedRiskAllowlist` entry (`:74`, allowlist `:131`). `validateRow` is the gate
+`acceptedRiskAllowlist` entry (`:74`, allowlist `:125`). `validateRow` is the gate
 predicate, factored out so `TestConformanceGate_RejectsBadRows` can prove it bites
-(`:175`, `:340`). A `covered` row must be cited by a
+(`:169`, `:334`). A `covered` row must be cited by a
 `// Covers conformance matrix row: <id>` comment, found by an AST scan of every
-`_test.go` in the package dir (`:199`, `:240`). The gate cannot prove the cited
+`_test.go` in the package dir (`:199`, `:234`). The gate cannot prove the cited
 test drives the input — which is why `Adversarial` exists, to make that review
 concrete and diffable (`:33`).
 
@@ -251,15 +252,15 @@ The two raw-path rows show the discipline, as the corpus records it:
 
 - `raw-wrong-typed-column` — provenance `telegraf #14598; snmp_exporter #338`,
   described as proprietary/buggy agents reporting types diverging from the MIB
-  declaration (`:117`). Pinned in-package by
+  declaration (`:113`). Pinned in-package by
   `TestRawWalk_WrongTypedColumn_FallsBackToGenericCoercion`
-  (`src/protocol/snmp/conformance_rawpath_test.go:19`) **and** end-to-end by a t3
+  (`src/protocol/snmp/conformance_rawpath_test.go:27`) **and** end-to-end by a t3
   `snmprec` replay (`src/protocol/snmp/test/integration/t3_offspec_test.go:29`; manifest
   entry `src/protocol/snmp/test/integration/testdata/snmprec/manifest.yaml:29`).
 - `raw-noncanonical-oid-arc` — provenance `chemist/snmp #17`, agents emitting BER
-  that is valid but not shortest-form (`:118`); pinned by
+  that is valid but not shortest-form (`:114`); pinned by
   `TestRawWalk_NonCanonicalOIDArc_EagerFallback`
-  (`conformance_rawpath_test.go:185`).
+  (`conformance_rawpath_test.go:193`).
 
 Committed state: 33 covered, 3 accepted-risk, 0 pending, 36 total
 (`src/protocol/snmp/CONFORMANCE.md:5`).
@@ -270,12 +271,12 @@ Committed state: 33 covered, 3 accepted-risk, 0 pending, 36 total
 and `UPDATE_CONFORMANCE=1` regenerates it in place
 (`src/protocol/snmp/conformance_corpus_test.go:441`, `:449`). The renderer groups rows
 into sections by **ID prefix** from a hoisted `conformanceFamilies` list — `enc-`,
-`walk-`, `txp-`, `raw-`, `usm-` (`:374`).
+`walk-`, `txp-`, `raw-`, `usm-` (`:366`).
 
 The hazard: the status tally iterates all rows, but each table prints only rows
-matching that family's prefix (`:406`). A row matching no family is **counted in
+matching that family's prefix (`:398`). A row matching no family is **counted in
 the tally yet printed in no table**. The guard lives in the always-on integrity
-test and names the failure mode (`:279`):
+test and names the failure mode (`:284`):
 
 ```go
 if !inFamily {
@@ -284,11 +285,11 @@ if !inFamily {
 ```
 
 So a new row either fits an existing prefix or you add a family. The list is
-hoisted to package scope so guard and renderer read one source (`:369`). The
+hoisted to package scope so guard and renderer read one source (`:361`). The
 sibling backstop is `TestConformanceCorpusEnumeration`, which pins
 `kindBaselineTest` to the `Kind` enum via `wantKinds = 18` and probes
 `Kind(wantKinds+1).String() != "Kind(?)"`, so adding a `Kind` without baseline
-coverage fails the gate (`:299`, `:169`).
+coverage fails the gate (`:300`, `:163`).
 
 ### 7 — Optimization is measured, in isolation, against a committed baseline
 
@@ -296,7 +297,7 @@ The bench suite is a **separate Go module** so gosnmp — kept only as a compara
 never re-enters the main dependency graph and `no_gosnmp_test.go` stays green
 (`src/protocol/snmp/bench/go.mod:1`). Micro benchmarks run both arms as
 `impl=flowseer` / `impl=gosnmp` sub-benchmarks
-(`src/protocol/snmp/bench/micro_test.go:86`, `:100`); heavier harnesses are
+(`src/protocol/snmp/bench/micro_test.go:96`, `:110`); heavier harnesses are
 build-tagged (`snmp_bench_fanout`, `snmp_bench_gc`, `snmp_bench_netsnmp`,
 `snmp_bench_macro`).
 
@@ -309,7 +310,7 @@ metrics hard-fail — `allocs/op` and `B/op`; `sec/op` is advisory unless
 gating noisy metrics erodes trust in the gate (`:7`, `:69`, `:78`). It keys off
 benchstat's own significance verdict so high-variance benchmarks read `~` and do
 not false-trip (`:18`), and it **never rewrites the baseline** — rebaselining is a
-deliberate reviewed commit (`:22`).
+deliberate reviewed commit (`:25`).
 
 The committed baseline records `BenchmarkGet/impl=flowseer` at 56 allocs/op and
 1824 B/op, `BenchmarkGetNext` at 56 allocs/op, `BenchmarkGetBulk` at 97, and
@@ -330,19 +331,19 @@ you have not first seen in a profile (`src/protocol/snmp/bench/Taskfile.yml`,
 
 | Harness | Where | Gate |
 | --- | --- | --- |
-| Corpus integrity + family guard | `conformance_corpus_test.go:264` | always on |
+| Corpus integrity + family guard | `conformance_corpus_test.go:258` | always on |
 | Corpus completeness (no `pending`) | `conformance_complete_test.go:1` | tag `snmp_conformance_complete` |
 | Coverage-map freshness | `conformance_corpus_test.go:441` | always on |
 | Raw-path off-spec pins | `conformance_rawpath_test.go` | always on |
-| Misbehaving-responder scenarios | `misbehaving_responder_test.go:198`+ | always on |
-| No gosnmp identifier leaks | `no_gosnmp_test.go:15` | always on |
+| Misbehaving-responder scenarios | `misbehaving_responder_test.go:196`+ | always on |
+| No gosnmp identifier leaks | `no_gosnmp_test.go:14` | always on |
 | Integration t1–t4 | `src/protocol/snmp/test/integration/` | tags `snmp_integration_t1..t4` |
 | Perf | `src/protocol/snmp/bench/bench-gate.sh` | `task bench:gate` |
 
 Bare `go test ./...` includes the offline integration harness. Select exactly
 one tag to run an external tier; selecting two tier tags produces a deliberate
 compile error because each defines `TestMain`
-(`src/protocol/snmp/test/integration/README.md:32-40`).
+(`src/protocol/snmp/test/integration/README.md:38-41`).
 
 ## Why This Matters
 
@@ -368,7 +369,7 @@ run *and* in the rendered document. It has bitten this repo once.
 **A gate that false-trips gets switched off.** Narrowing to `allocs/op` and `B/op`
 is why the perf gate is usable on shared hardware; widening it to `ns/op` would
 produce regressions from `ColdStart` variance (±680% on the committed baseline,
-`bench-gate.sh:11`). Letting the gate rewrite the baseline would convert every
+`bench-gate.sh:8`). Letting the gate rewrite the baseline would convert every
 regression into a silent rebaseline.
 
 **Generated code drifting from its generator is unreviewable.** `-check` makes
@@ -397,23 +398,23 @@ emitted package at once.
 - When claiming a performance improvement: benchmark in isolation against a fresh
   baseline at `COUNT=10`, revert before trying the next idea, run
   `task bench:gate` before declaring done.
-- When documenting package behavior: put it in `doc.go`; the README is a map and
-  has already drifted.
+- When documenting package behavior: put it in `doc.go`; the README is a map
+  that links `doc.go` for contracts and must stay one.
 
 ## Examples
 
 **Adding a fused decoder for a new Kind.** Follow `rawUint32`
-(`src/protocol/snmp/rawwalk.go:135`): reject pre-decoded (`rv.VB != nil`), reject a
+(`src/protocol/snmp/rawwalk.go:134`): reject pre-decoded (`rv.VB != nil`), reject a
 non-matching tag, reject decode error and range overflow — all as `ok=false`. Wire
-`RawFuse` into the emitter's column info
-(`src/protocol/snmp/cmd/mibgen/emit_table.go:164` and `:284-290`) so the generated
-switch emits the fused arm with its generic `else`, regenerate, and extend
+`RawFuse` into the emitter's column resolution
+(`src/protocol/snmp/cmd/mibgen/emit_tc.go:155-162`, set at `:285` and `:302`) so
+the generated switch (`emit_table.go:263-264`) emits the fused arm with its generic `else`, regenerate, and extend
 `TestRawPrimitives_FusedAndDecline` (`src/protocol/snmp/rawwalk_test.go:234`) on both
 the accepting and declining sides.
 
 **What "identical to the generic path" means concretely.** The
 `raw-wrong-typed-column` row specifies that values *and errors* match
-(`conformance_corpus_test.go:117`), and the t3 replay proves it end-to-end: the
+(`conformance_corpus_test.go:113`), and the t3 replay proves it end-to-end: the
 capture serves `ifIndex`/`ifType`/`ifOperStatus` (Integer32-declared) as Gauge32,
 `ifSpeed` (Gauge32-declared) as Counter32, `ifLastChange` (TimeTicks-declared) as
 INTEGER, and `ifInOctets` (Counter32-declared) as Gauge32; every fused arm must
@@ -422,33 +423,33 @@ decline and the generic coercion must still yield the exact expected row values
 
 **Why the non-canonical-OID row is a fallback, not a rejection.** A name OID with a
 redundant `0x80` continuation octet is refused raw delivery by
-`validateRawNameOID` (`src/protocol/snmp/pdu.go:509`), the read loop decodes eagerly
-(`reactor.go:763`), and the walk yields identical data through pre-decoded
+`validateRawNameOID` (`src/protocol/snmp/pdu.go:510`), the read loop decodes eagerly
+(`reactor.go:768`), and the walk yields identical data through pre-decoded
 varbinds — so `cmpOIDWire` never sees an arc it is not correct for
-(`conformance_corpus_test.go:118`). Tolerance is delivered by *degrading the
+(`conformance_corpus_test.go:114`). Tolerance is delivered by *degrading the
 optimization*, not by loosening validation.
 
 **Adapting a non-wire `Session`.** `RawWalkerFromWalker` re-encodes each
 `(OID, VarBind)` pair into a pre-decoded `RawVarBind` with `VB` set
-(`src/protocol/snmp/rawwalk.go:330`); fakes, recorders, and middleware satisfy
+(`src/protocol/snmp/rawwalk.go:331`); fakes, recorders, and middleware satisfy
 `BulkWalkRaw` this way and consumers take their generic arm for every varbind.
 That is why `rv.VB != nil` is the first check in every fused primitive.
 
 **Accepted risk, done properly.** `enc-unsigned-as-signed` records that an
 INTEGER-tagged value with the MSB set decodes to a negative `Integer32Var` and
 coercion to `uint32` is rejected as `ErrLossyConversion`
-(`src/protocol/snmp/errors.go:166`) rather than reinterpreted — with a written
+(`src/protocol/snmp/errors.go:164`) rather than reinterpreted — with a written
 rationale (a negative INTEGER is indistinguishable from a genuine `-1`), a named
-pinning test, and an allowlist entry (`conformance_corpus_test.go:90`, `:132`).
+pinning test, and an allowlist entry (`conformance_corpus_test.go:89`, `:126`).
 
 ## Related
 
 - `src/protocol/snmp/doc.go` — authoritative package reference, including the
   Adaptive Watch matrix mapping behaviors to public symbols and pinning tests
-  (`doc.go:90`).
+  (`doc.go:121`).
 - `src/protocol/snmp/CONFORMANCE.md` — generated coverage map; regenerate, never
   hand-edit.
 - `docs/code-style.md` — repo-wide Go conventions; the agent rules
-  (`docs/code-style.md:280`) and merge gate (`:270`) govern every change here.
+  (`docs/code-style.md:326`) and toolchain gate (`:303`) govern every change here.
 - `src/protocol/snmp/test/integration/README.md` — per-tier prerequisites and
   walkthroughs.

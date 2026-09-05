@@ -93,7 +93,13 @@ func (r *Receiver) receiveStream(ctx context.Context, b boundListener, raw net.C
 		conn = secure
 	}
 	// TLS reads can write control records, which must obey the same deadline.
-	reader := streamReader{reader: conn, buffer: make([]byte, 4096), deadline: raw.SetDeadline, idle: r.limits.IdleTimeout, frame: r.limits.FrameTimeout}
+	reader := streamReader{
+		reader:   conn,
+		buffer:   make([]byte, 4096),
+		deadline: raw.SetDeadline,
+		idle:     r.limits.IdleTimeout,
+		frame:    r.limits.FrameTimeout,
+	}
 	for {
 		if err := reader.beginFrame(); err != nil {
 			if ctx.Err() == nil && !errors.Is(err, io.EOF) {
@@ -128,7 +134,16 @@ func (r *Receiver) receiveStream(ctx context.Context, b boundListener, raw net.C
 			return
 		}
 		r.stats.received.Add(1)
-		frame := receivedFrame{payload: payload, observation: Observation{ReceivedAt: at, Peer: addrPort(raw.RemoteAddr()), Local: addrPort(raw.LocalAddr()), Transport: b.config.Transport, Authenticated: authenticated}}
+		frame := receivedFrame{
+			payload: payload,
+			observation: Observation{
+				ReceivedAt:    at,
+				Peer:          addrPort(raw.RemoteAddr()),
+				Local:         addrPort(raw.LocalAddr()),
+				Transport:     b.config.Transport,
+				Authenticated: authenticated,
+			},
+		}
 		timer := time.NewTimer(r.limits.PressureTimeout)
 		select {
 		case r.queue <- frame:

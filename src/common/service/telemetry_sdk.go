@@ -238,9 +238,9 @@ func newManagedLogProvider(
 	_ normalizedOTLPConnection,
 ) (slog.Handler, telemetryShutdown, error) {
 	exporter := &managedLogExporter{
+		exportGuard: exportGuard{signal: "logs"},
 		transport:   transport,
 		diagnostics: diagnostics,
-		active:      make(map[uint64]context.CancelFunc),
 	}
 	processor := log.NewBatchProcessor(
 		exporter,
@@ -305,8 +305,8 @@ func newManagedTraceProvider(
 	}
 	guarded := &managedTraceExporter{
 		SpanExporter: exporter,
+		exportGuard:  exportGuard{signal: "traces"},
 		diagnostics:  diagnostics,
-		active:       make(map[uint64]context.CancelFunc),
 	}
 	processor := sdktrace.NewBatchSpanProcessor(
 		guarded,
@@ -413,16 +413,88 @@ type telemetryDiagnosticState struct {
 	suppressed uint64
 }
 
-// managedLogExporter reports and absorbs routine export failures so telemetry
-// cannot fail service work. A final drain returns a stable shutdown error.
-type managedLogExporter struct {
-	transport   otlpTransport
-	diagnostics *telemetryDiagnostics
+// exportGuard tracks the in-flight exports of one managed exporter so shutdown
+// can cancel them, and remembers whether the final drain failed. signal names
+// the OTLP signal in diagnostics and in the shutdown error; the remaining zero
+// values are ready to use. shutdownCtx is stored because the SDK calls Export
+// on its own schedule, with no context of the shutdown that must adopt it.
+type exportGuard struct {
+	signal      string
 	mu          sync.Mutex
 	shutdownCtx context.Context
 	active      map[uint64]context.CancelFunc
 	nextExport  uint64
 	finalFailed bool
+}
+
+// startExport derives the context for one export and returns the function that
+// ends it. Once shutdown has begun the export runs under the shutdown context
+// instead of the caller's, so a drain outlives the caller's cancellation.
+func (g *exportGuard) startExport(ctx context.Context) (context.Context, context.CancelFunc) {
+	g.mu.Lock()
+	if g.shutdownCtx != nil {
+		ctx = g.shutdownCtx
+	}
+	if g.active == nil {
+		g.active = make(map[uint64]context.CancelFunc)
+	}
+	exportCtx, cancel := context.WithCancel(ctx)
+	id := g.nextExport
+	g.nextExport++
+	g.active[id] = cancel
+	g.mu.Unlock()
+	return exportCtx, func() {
+		cancel()
+		g.mu.Lock()
+		delete(g.active, id)
+		g.mu.Unlock()
+	}
+}
+
+// beginShutdown adopts ctx for later exports and cancels the in-flight ones.
+func (g *exportGuard) beginShutdown(ctx context.Context) {
+	g.mu.Lock()
+	g.shutdownCtx = ctx
+	for _, cancel := range g.active {
+		cancel()
+	}
+	g.mu.Unlock()
+}
+
+// recordFinalFailureIfShuttingDown classifies one export failure: final reports
+// whether it belongs to a drain, and suppress whether the caller should swallow
+// it because finalError already carries it.
+func (g *exportGuard) recordFinalFailureIfShuttingDown(ctx context.Context) (final, suppress bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.shutdownCtx != nil {
+		g.finalFailed = true
+		return true, true
+	}
+	return isFinalTelemetryExport(ctx), false
+}
+
+// finalError reports the drain failure recorded during shutdown, or nil.
+func (g *exportGuard) finalError() error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.finalFailed {
+		return g.exportFailure()
+	}
+	return nil
+}
+
+// exportFailure is the stable, signal-scoped error returned for a failed drain.
+func (g *exportGuard) exportFailure() error {
+	return fmt.Errorf("%s telemetry export failed", g.signal)
+}
+
+// managedLogExporter reports and absorbs routine export failures so telemetry
+// cannot fail service work. A final drain returns a stable shutdown error.
+type managedLogExporter struct {
+	exportGuard
+	transport   otlpTransport
+	diagnostics *telemetryDiagnostics
 }
 
 func (e *managedLogExporter) Export(ctx context.Context, records []log.Record) error {
@@ -435,58 +507,9 @@ func (e *managedLogExporter) Export(ctx context.Context, records []log.Record) e
 			if suppress {
 				return nil
 			}
-			return errors.New("logs telemetry export failed")
+			return e.exportFailure()
 		}
-		e.diagnostics.report("logs", telemetryExportFailureCategory(err))
-	}
-	return nil
-}
-
-func (e *managedLogExporter) startExport(ctx context.Context) (context.Context, context.CancelFunc) {
-	e.mu.Lock()
-	if e.shutdownCtx != nil {
-		ctx = e.shutdownCtx
-	}
-	if e.active == nil {
-		e.active = make(map[uint64]context.CancelFunc)
-	}
-	exportCtx, cancel := context.WithCancel(ctx)
-	id := e.nextExport
-	e.nextExport++
-	e.active[id] = cancel
-	e.mu.Unlock()
-	return exportCtx, func() {
-		cancel()
-		e.mu.Lock()
-		delete(e.active, id)
-		e.mu.Unlock()
-	}
-}
-
-func (e *managedLogExporter) beginShutdown(ctx context.Context) {
-	e.mu.Lock()
-	e.shutdownCtx = ctx
-	for _, cancel := range e.active {
-		cancel()
-	}
-	e.mu.Unlock()
-}
-
-func (e *managedLogExporter) recordFinalFailureIfShuttingDown(ctx context.Context) (final, suppress bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.shutdownCtx != nil {
-		e.finalFailed = true
-		return true, true
-	}
-	return isFinalTelemetryExport(ctx), false
-}
-
-func (e *managedLogExporter) finalError() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.finalFailed {
-		return errors.New("logs telemetry export failed")
+		e.diagnostics.report(ctx, e.signal, telemetryExportFailureCategory(err))
 	}
 	return nil
 }
@@ -527,7 +550,7 @@ func (e *managedMetricExporter) Export(ctx context.Context, data *metricdata.Res
 		if isFinalTelemetryExport(ctx) {
 			return errors.New("metrics telemetry export failed")
 		}
-		e.diagnostics.report("metrics", telemetryExportFailureCategory(err))
+		e.diagnostics.report(ctx, "metrics", telemetryExportFailureCategory(err))
 	}
 	return nil
 }
@@ -607,12 +630,8 @@ func (c *managedTraceClient) UploadTraces(ctx context.Context, spans []*tracepb.
 // routes any final flush failure through the owner's shutdown result.
 type managedTraceExporter struct {
 	sdktrace.SpanExporter
+	exportGuard
 	diagnostics *telemetryDiagnostics
-	mu          sync.Mutex
-	shutdownCtx context.Context
-	active      map[uint64]context.CancelFunc
-	nextExport  uint64
-	finalFailed bool
 }
 
 func (e *managedTraceExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
@@ -624,55 +643,9 @@ func (e *managedTraceExporter) ExportSpans(ctx context.Context, spans []sdktrace
 			if suppress {
 				return nil
 			}
-			return errors.New("traces telemetry export failed")
+			return e.exportFailure()
 		}
-		e.diagnostics.report("traces", telemetryExportFailureCategory(err))
-	}
-	return nil
-}
-
-func (e *managedTraceExporter) startExport(ctx context.Context) (context.Context, context.CancelFunc) {
-	e.mu.Lock()
-	if e.shutdownCtx != nil {
-		ctx = e.shutdownCtx
-	}
-	exportCtx, cancel := context.WithCancel(ctx)
-	id := e.nextExport
-	e.nextExport++
-	e.active[id] = cancel
-	e.mu.Unlock()
-	return exportCtx, func() {
-		cancel()
-		e.mu.Lock()
-		delete(e.active, id)
-		e.mu.Unlock()
-	}
-}
-
-func (e *managedTraceExporter) beginShutdown(ctx context.Context) {
-	e.mu.Lock()
-	e.shutdownCtx = ctx
-	for _, cancel := range e.active {
-		cancel()
-	}
-	e.mu.Unlock()
-}
-
-func (e *managedTraceExporter) recordFinalFailureIfShuttingDown(ctx context.Context) (final, suppress bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.shutdownCtx != nil {
-		e.finalFailed = true
-		return true, true
-	}
-	return isFinalTelemetryExport(ctx), false
-}
-
-func (e *managedTraceExporter) finalError() error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.finalFailed {
-		return errors.New("traces telemetry export failed")
+		e.diagnostics.report(ctx, e.signal, telemetryExportFailureCategory(err))
 	}
 	return nil
 }
@@ -701,8 +674,9 @@ func newServiceTelemetryDiagnostics(writer io.Writer, identity Identity) *teleme
 }
 
 // report emits at most one warning per signal per minute and includes the
-// number suppressed since the preceding warning.
-func (d *telemetryDiagnostics) report(signal, category string) {
+// number suppressed since the preceding warning. ctx is the export context, so
+// the warning carries the export's trace correlation.
+func (d *telemetryDiagnostics) report(ctx context.Context, signal, category string) {
 	switch signal {
 	case "logs", "metrics", "traces":
 	default:
@@ -727,7 +701,7 @@ func (d *telemetryDiagnostics) report(signal, category string) {
 	state.last, state.suppressed = now, 0
 	d.state[signal] = state
 	d.mu.Unlock()
-	d.logger.Warn("telemetry export failed",
+	d.logger.WarnContext(ctx, "telemetry export failed",
 		"flowseer.telemetry.signal", signal,
 		"flowseer.telemetry.category", category,
 		"flowseer.telemetry.count", state.count,

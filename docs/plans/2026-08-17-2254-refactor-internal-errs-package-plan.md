@@ -2,10 +2,8 @@
 title: Internal errs Package - Plan
 type: refactor
 date: 2026-08-17
-topic: internal-errs-package
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
 ---
 

@@ -20,6 +20,7 @@ import (
 	"github.com/gopacket/gopacket"
 	"github.com/gopacket/gopacket/layers"
 
+	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
 )
 
@@ -89,7 +90,7 @@ func craftSTPBPDU(src net.HardwareAddr, rootPriority, maxAge, helloTime, forward
 		Control: 3,
 	}
 	stp := buildSTPPayload(rootPriority, src, maxAge, helloTime, forwardDelay, msgAge)
-	return craftDefault(eth, llc, gopacket.Payload(stp))
+	return craft.Default(eth, llc, gopacket.Payload(stp))
 }
 
 // buildSTPPayload builds the STP Configuration BPDU body.

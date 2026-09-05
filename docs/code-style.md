@@ -354,6 +354,10 @@ non-negotiable and checkable. (See sources below for the empirical basis.)
   implementation and no test seam.
 - No error handling for conditions that cannot occur given the caller's contract.
 - If a 150-line implementation could be 40 lines, write the 40.
+- Break a landed API when the break improves the design. Nothing external consumes
+  FlowSeer yet, so do not keep an old signature, wrapper, or alias for
+  compatibility; change the callers in the same commit. See the same rule for
+  schemas in [`code-style-proto.md`](code-style-proto.md).
 
 **Reuse**
 - Before writing any helper, search the codebase for an existing one. Implement only

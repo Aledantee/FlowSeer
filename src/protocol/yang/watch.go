@@ -59,9 +59,30 @@ type FetchFunc func(ctx context.Context) ([]byte, error)
 // decode) after the configured tolerance.
 var ErrCodeWatch = errs.NewCode("yang/watch")
 
+// pumpSeq yields everything p produces. A consumer that breaks out of
+// the sequence stops the producer and drains what it already buffered,
+// so the producing goroutine never blocks on an abandoned channel. The
+// sequence must be consumed by a single goroutine.
+func pumpSeq[T any](p *pump.Pump[T]) iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for v := range p.Data() {
+			if !yield(v) {
+				p.SignalStop()
+				for range p.Data() { //nolint:revive // drain so the producer never blocks
+				}
+
+				return
+			}
+		}
+	}
+}
+
 // Walker is a bounded traversal: one fetch, every row decoded and
 // yielded, then completion. Consume via [Walker.Iter] and check
 // [Walker.Err] after the loop; [Walker.Close] terminates early.
+//
+// [Walker.Iter] must be consumed by a single goroutine; [Walker.Err]
+// and [Walker.Close] are safe to call concurrently with it.
 type Walker[Row any] struct {
 	pump *pump.Pump[Row]
 }
@@ -109,18 +130,7 @@ func NewRowWalker[Row any](ctx context.Context, produce func(ctx context.Context
 }
 
 // Iter yields the rows. Check [Walker.Err] after the loop.
-func (w *Walker[Row]) Iter() iter.Seq[Row] {
-	return func(yield func(Row) bool) {
-		for row := range w.pump.Data() {
-			if !yield(row) {
-				w.pump.SignalStop()
-				for range w.pump.Data() { //nolint:revive // drain so the producer never blocks
-				}
-				return
-			}
-		}
-	}
-}
+func (w *Walker[Row]) Iter() iter.Seq[Row] { return pumpSeq(w.pump) }
 
 // Err returns the walk's terminal error, or nil on natural
 // completion.
@@ -164,6 +174,10 @@ func (c WatchConfig) withDefaults() WatchConfig {
 // [TickWatcher.LastTickErr]; the configured consecutive-failure
 // threshold latches the Watcher terminally. A dropped session never
 // resumes: the caller reconnects and a re-created Watcher cold-starts.
+//
+// [TickWatcher.Iter] must be consumed by a single goroutine;
+// [TickWatcher.Err], [TickWatcher.LastTickErr], and
+// [TickWatcher.Close] are safe to call concurrently with it.
 type TickWatcher[Row any, Key comparable] struct {
 	pump  *pump.Pump[WatchEvent[Row, Key]]
 	codec RowCodec[Row, Key]
@@ -317,18 +331,7 @@ func (w *TickWatcher[Row, Key]) LastTickErr() error {
 
 // Iter yields events until the Watcher terminates. Check
 // [TickWatcher.Err] after the loop.
-func (w *TickWatcher[Row, Key]) Iter() iter.Seq[WatchEvent[Row, Key]] {
-	return func(yield func(WatchEvent[Row, Key]) bool) {
-		for ev := range w.pump.Data() {
-			if !yield(ev) {
-				w.pump.SignalStop()
-				for range w.pump.Data() { //nolint:revive // drain so the producer never blocks
-				}
-				return
-			}
-		}
-	}
-}
+func (w *TickWatcher[Row, Key]) Iter() iter.Seq[WatchEvent[Row, Key]] { return pumpSeq(w.pump) }
 
 // Err returns the Watcher's terminal error, or nil.
 func (w *TickWatcher[Row, Key]) Err() error { return w.pump.Err() }

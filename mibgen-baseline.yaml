@@ -108,4 +108,28 @@ modules:
         declarations:
           - GDiv100
           - GDiv1000
+  - module: HP-ICF-TRANSCEIVER-MIB
+    diagnostics:
+      - code: smi/duplicate-oid
+        status: recorded
+        reason: >-
+          HP-ICF-OID pre-declares hpicfTransceiverMIB as a plain OBJECT
+          IDENTIFIER under hpSwitch so sibling modules can import the arc, and
+          HP-ICF-TRANSCEIVER-MIB registers the same name at the same OID as its
+          MODULE-IDENTITY. Both spellings name one arc, so which declaration
+          wins changes no OID and no emitted binding.
+        declarations:
+          - HP-ICF-TRANSCEIVER-MIB
+  - module: HH3C-TRANSCEIVER-INFO-MIB
+    diagnostics:
+      - code: smi/duplicate-oid
+        status: recorded
+        reason: >-
+          HH3C-OID-MIB pre-declares hh3cTransceiver as a plain OBJECT
+          IDENTIFIER under hh3cCommon so sibling modules can import the arc, and
+          HH3C-TRANSCEIVER-INFO-MIB registers the same name at the same OID as
+          its MODULE-IDENTITY. Both spellings name one arc, so which declaration
+          wins changes no OID and no emitted binding.
+        declarations:
+          - HH3C-TRANSCEIVER-INFO-MIB
 accepted_risk_allowlist: []

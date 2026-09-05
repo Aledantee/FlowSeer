@@ -37,7 +37,7 @@ alternatives were rejected, and which mistakes were made and corrected on the wa
 there — so the shape is not relitigated from scratch, and the corrections are not
 undone by someone who never saw them.
 
-All `file:line` citations are against the tree at `master`. The repository has no
+All `file:line` citations are against the tree at `main`. The repository has no
 git remote configured, so there are no PR numbers to cite; the four commit
 subjects below are local-history references only.
 
@@ -79,7 +79,7 @@ even though the codec that will consume them is still a follow-up.
 The result is `src/common/errs`, shipped across four commits: *Add the errs
 package as FlowSeer's own error type*, *Migrate hand-written snmp code from ae to
 errs*, *Close the errs contract gaps found in review*, and *Give errs a
-client-facing, process-facing, and retry-facing payload*, merged to `master` as
+client-facing, process-facing, and retry-facing payload*, merged as
 *Merge branch 'refactor/internal-errs-package'*.
 
 ## Guidance
@@ -120,7 +120,7 @@ a call site can wrap unconditionally (`src/common/errs/wrap.go:10`, `:20`).
 The struct is nine fields (`src/common/errs/errs.go:19`): message, code, attrs,
 causes; then `userMsg`, `hint`, `exitCode`, `retry`; then the stack. The doc
 comment states the bar explicitly (`src/common/errs/doc.go:12`) and the README
-repeats it as a convention (`src/common/errs/README.md:80-82`): *a field earns a
+repeats it as a convention (`src/common/errs/README.md:79-81`): *a field earns a
 place only if a mechanism consumes it* — the process, a retry loop, `errors.Is`,
 or the boundary filter — not because a reader might find it interesting. Facts a
 reader merely finds interesting are attributes.
@@ -171,7 +171,9 @@ func (e *Error) Is(target error) bool {
 	if e.code == "" {
 		return false
 	}
+	//goland:noinspection GoTypeAssertionOnErrors
 	t, ok := target.(*Error)
+
 	return ok && t != nil && t.code == e.code
 }
 ```
@@ -182,7 +184,7 @@ when the receiver carries one. Plain identity matching is not implemented here �
 it falls out of `errors.Is`'s own `==` comparison before it ever calls the method,
 which is why `TestIsReflexive` (`src/common/errs/code_test.go:43`) passes for
 uncoded errors too. The comparison is against the *target's own* code field, not
-a chain search; `CodeOf` (`src/common/errs/code.go:65`) is the chain-searching
+a chain search; `CodeOf` (`src/common/errs/code.go:66`) is the chain-searching
 extractor, and it resolves outermost-first.
 
 Because the in-process registry only sees packages the current binary links, the
@@ -193,7 +195,7 @@ qualifier, with `src/common/errs/testdata/scan/` fixtures covering an aliased im
 import, and an unrelated same-named function
 (`src/common/errs/code_test.go:369`). The gate can only read string literals, so
 the README states the corresponding author obligation: declare codes with a
-literal or the gate cannot check them (`src/common/errs/README.md:86-87`).
+literal or the gate cannot check them (`src/common/errs/README.md:85-86`).
 
 ### Client-safe attribute marking
 
@@ -273,7 +275,7 @@ its callers must sit exactly one frame below the call site the stack should name
 ### Extraction, uniformly outermost-first
 
 Every extractor resolves outermost-first through the same `walk`: `CodeOf`
-(`src/common/errs/code.go:65`), `UserMessage`/`Hint` via `firstString`
+(`src/common/errs/code.go:66`), `UserMessage`/`Hint` via `firstString`
 (`src/common/errs/usermsg.go:10`, `:17`, `:24`), `ExitCode` via `exitCodeOf`
 (`src/common/errs/exitcode.go:13`, `:27`), `Retryable` via `retryOf`
 (`src/common/errs/retry.go:23`, `:29`). The rationale is one sentence, repeated at
@@ -336,8 +338,10 @@ with `SafeAttributes`.
 **The wire layer ships design-ready, not implemented.** No consumer exists yet, so
 a codec would be speculative — but codes and attribute safety land *now* because
 they shape the core API and cannot be retrofitted without breaking every call
-site. The `# Wire design` section (`src/common/errs/doc.go:148-180`) is the
-specification the eventual codec must follow.
+site. The accepted direction record
+`docs/architecture/2026-09-04-error-wire-design-direction.md` is the
+specification the eventual codec must follow; `doc.go` no longer carries a
+wire section, only the codes-are-a-wire-contract rule.
 
 ### The failure modes this design avoids
 
@@ -454,8 +458,9 @@ also learned something the rule above does not say: append-only is a claim
 nothing enforces on its own, so the catalog carries a committed golden of
 shipped codes that fails when one disappears.
 
-**Crossing a process boundary.** Read `# Wire design`
-(`src/common/errs/doc.go:148-180`) before designing anything. The rules it fixes:
+**Crossing a process boundary.** Read the direction record
+`docs/architecture/2026-09-04-error-wire-design-direction.md` before designing
+anything. The rules it fixes:
 the proto message carries code, message, safe attributes, user message, hint,
 retry disposition, and the cause chain; the stack field is populated only on
 trusted internal transit and always absent toward a client; the exit code is not
@@ -582,9 +587,11 @@ list sees the constraint before they add to it.
 ## Related
 
 - `src/common/errs/doc.go` — the authoritative package contract, including the
-  full wire design and the secrets rule. This learning explains the reasoning;
-  `doc.go` is what must be obeyed. `README.md` is a thin surface map and is
-  expected to drift, a convention borrowed from the SNMP package.
+  secrets rule; the wire design moved to
+  `docs/architecture/2026-09-04-error-wire-design-direction.md`. This learning
+  explains the reasoning; `doc.go` is what must be obeyed. `README.md` is a thin
+  surface map and is expected to drift, a convention borrowed from the SNMP
+  package.
 - `docs/code-style.md` §Errors — the enforceable repo-wide rules this work
   produced. Consult it for what to do; consult this doc for why.
 - [SNMP Collection Library — Architecture and Fast-Path Conventions](snmp-collection-library-architecture-and-fast-path-conventions.md)

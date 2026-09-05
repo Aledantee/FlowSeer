@@ -67,7 +67,7 @@ func newPrivContext(ctx context.Context, proto PrivProtocol, key []byte) (*privC
 	}
 	if proto == Priv3DES && weakTripleDESKey(key) {
 		service.Logger(pc.logCtx).WarnContext(pc.logCtx,
-			"snmp: 3DES localized key has non-distinct sub-keys (accepted for interop)")
+			"3DES localized key has non-distinct sub-keys (accepted for interop)")
 	}
 	return pc, nil
 }
