@@ -2,16 +2,8 @@ package ssh
 
 import (
 	"context"
-	"errors"
 	"sync"
 )
-
-// errRingClosed marks a ring drained to a clean end (e.g. the
-// underlying stream reached EOF) with no caller-supplied error. It
-// lets waitFor always return a non-nil error on closure, so a match
-// consuming zero bytes is never confused with "the ring closed
-// cleanly."
-var errRingClosed = errors.New("ssh: stream closed")
 
 // ring is a bounded, drop-oldest byte buffer with a match-based wait.
 // It retains at most cap bytes of the most recently written data
@@ -66,9 +58,11 @@ func (r *ring) write(p []byte) {
 	r.cond.Broadcast()
 }
 
-// closeWithErr marks the ring closed, recording err as the reason a
-// waiter should stop (nil means clean EOF), and wakes every waiter.
-// Idempotent: only the first call's err is kept.
+// closeWithErr marks the ring closed, recording the non-nil err as
+// the reason a waiter should stop, and wakes every waiter. Idempotent:
+// only the first call's err is kept. Every caller in this package
+// already has a concrete error to report (a read error, however
+// clean-EOF-shaped, or [ErrSessionClosed]), so err must be non-nil.
 func (r *ring) closeWithErr(err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -76,9 +70,6 @@ func (r *ring) closeWithErr(err error) {
 		return
 	}
 	r.closed = true
-	if err == nil {
-		err = errRingClosed
-	}
 	r.err = err
 	r.cond.Broadcast()
 }
@@ -102,6 +93,19 @@ func (r *ring) drain() []byte {
 	out := r.buf
 	r.buf = nil
 	return out
+}
+
+// reset discards everything currently retained and clears the
+// truncated flag, without affecting totalWritten. A command calls it
+// on both rings before writing, so neither a login banner nor
+// anything left over from an earlier command can be mistaken for this
+// command's output, and so this command's own truncated flag reflects
+// only what happens from here on.
+func (r *ring) reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.buf = nil
+	r.truncated = false
 }
 
 // waitFor blocks until match reports a positive consumed length

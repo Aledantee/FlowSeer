@@ -35,7 +35,7 @@ type Command struct {
 	MoreKeystroke []byte
 
 	// MaxOutput bounds Result.Output. Non-positive means the
-	// session default (see [Options]).
+	// package default of 1MiB.
 	MaxOutput int
 	// Deadline bounds this Run call. Non-positive means the
 	// session default ([Options.CommandDeadline]).
@@ -47,13 +47,17 @@ type Result struct {
 	// Output is the command's stdout, with the echoed input line,
 	// pagination markers, and the matched prompt text stripped.
 	Output []byte
-	// Truncated reports whether Output was capped short of the
-	// stream's true size; Evidence.BytesReceived carries the true
-	// count.
+	// Truncated reports whether Output is short of what the device
+	// actually sent, either because it exceeded Command.MaxOutput or
+	// because the session's stdout buffer dropped bytes before a
+	// prompt matched; Evidence.BytesReceived carries the true count
+	// either way.
 	Truncated bool
-	// Stderr is the stderr bytes observed while this command ran.
+	// Stderr is the stderr bytes observed since the previous Run
+	// call (or since Dial, for the first one).
 	Stderr []byte
-	// StderrTruncated mirrors Truncated for Stderr.
+	// StderrTruncated reports whether the session's stderr buffer
+	// dropped bytes during this command's window.
 	StderrTruncated bool
 	// MatchedPrompt is the Name of the Prompt that ended the
 	// command.
@@ -67,12 +71,13 @@ type Result struct {
 // when Command.Redacted was set: it is safe to log or attach to a
 // durable record.
 type Evidence struct {
-	// Sent is exactly what was written to the shell's stdin:
-	// Command.Redacted if set, else Command.Line, plus the
-	// trailing newline.
+	// Sent is exactly the text written to the shell's stdin, before
+	// the trailing newline: Command.Redacted if set, else
+	// Command.Line.
 	Sent []byte
 	// BytesReceived is the true number of stdout bytes observed
-	// while this command ran, independent of any truncation.
+	// while this command ran, independent of any truncation. Set
+	// even when Run returns an error.
 	BytesReceived int64
 	// StderrBytesReceived mirrors BytesReceived for stderr.
 	StderrBytesReceived int64
@@ -86,6 +91,11 @@ type Evidence struct {
 // deadline (or the session default) or ctx expires, or the connection
 // is lost. Run calls on one Session must not overlap: the shell has
 // one input stream.
+//
+// Any bytes the shell produced before Run was called (a login banner,
+// or stray output between commands) are discarded first: only bytes
+// produced in response to this command are scanned for a prompt or
+// counted as this command's Stderr.
 //
 // Any failure to complete cleanly closes the Session — the local read
 // cursor can no longer be trusted to align with the remote shell once
@@ -116,84 +126,104 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 	evidence := Evidence{Sent: sent, Started: started}
 
+	// Discard anything left over from before this command (a login
+	// banner ahead of the first Run, or stray bytes between
+	// commands) so the scan below never matches stale output, and so
+	// Result.Stderr and StderrTruncated cover only this command's
+	// window.
+	s.stdout.reset()
+	s.stderr.reset()
 	stdoutStart, _ := s.stdout.stats()
 	stderrStart, _ := s.stderr.stats()
 
-	if _, err := s.stdin.Write([]byte(cmd.Line + "\n")); err != nil {
-		_ = s.Close()
+	finish := func(output []byte, err error) (Result, error) {
+		stdoutEnd, stdoutTruncated := s.stdout.stats()
+		stderrEnd, stderrTruncated := s.stderr.stats()
+		evidence.BytesReceived = stdoutEnd - stdoutStart
+		evidence.StderrBytesReceived = stderrEnd - stderrStart
 		evidence.Elapsed = time.Since(started)
-		return Result{Evidence: evidence}, s.connectionLostErr(err)
+		return Result{
+			Output:          output,
+			Truncated:       stdoutTruncated,
+			Stderr:          s.stderr.drain(),
+			StderrTruncated: stderrTruncated,
+			Evidence:        evidence,
+		}, err
 	}
 
+	if _, err := s.stdin.Write([]byte(cmd.Line + "\n")); err != nil {
+		_ = s.Close()
+		return finish(nil, s.connectionLostErr(err))
+	}
+
+	echo := []byte(cmd.Line)
 	var output bytes.Buffer
 	promptName := ""
-loop:
 	for {
 		var res scanResult
+		var skip int
 		matched, err := s.stdout.waitFor(runCtx, func(buf []byte) (int, bool) {
-			r, ok := scanPrompt(buf, cmd.Prompts, cmd.MorePattern)
+			skip = echoSkipLen(buf, echo)
+			r, ok := scanPrompt(buf[skip:], cmd.Prompts, cmd.MorePattern)
 			if !ok {
 				return 0, false
 			}
+			r.outputEnd += skip
+			r.consumed += skip
 			res = r
 			return r.consumed, true
 		})
 		if err != nil {
 			_ = s.Close()
-			evidence.Elapsed = time.Since(started)
-			return Result{Output: output.Bytes(), Evidence: evidence}, s.waitErr(err)
+			return finish(output.Bytes(), s.waitErr(err))
 		}
-		output.Write(matched[:res.outputEnd])
+		output.Write(matched[skip:res.outputEnd])
 		if res.kind == scanMore {
 			if _, err := s.stdin.Write(cmd.MoreKeystroke); err != nil {
 				_ = s.Close()
-				evidence.Elapsed = time.Since(started)
-				return Result{Output: output.Bytes(), Evidence: evidence}, s.connectionLostErr(err)
+				return finish(output.Bytes(), s.connectionLostErr(err))
 			}
-			continue loop
+			continue
 		}
 		promptName = res.promptName
 		break
 	}
 
-	outBytes := stripEcho(output.Bytes(), cmd.Line)
+	outBytes := output.Bytes()
 	maxOutput := cmd.MaxOutput
 	if maxOutput <= 0 {
 		maxOutput = defaultMaxOutputBytes
 	}
-	truncated := false
+	capTruncated := false
 	if len(outBytes) > maxOutput {
 		outBytes = outBytes[len(outBytes)-maxOutput:]
-		truncated = true
+		capTruncated = true
 	}
 
-	stdoutEnd, _ := s.stdout.stats()
-	stderrEnd, stderrRingTruncated := s.stderr.stats()
-	evidence.BytesReceived = stdoutEnd - stdoutStart
-	evidence.StderrBytesReceived = stderrEnd - stderrStart
-	evidence.Elapsed = time.Since(started)
-
-	return Result{
-		Output:          outBytes,
-		Truncated:       truncated,
-		Stderr:          s.stderr.drain(),
-		StderrTruncated: stderrRingTruncated,
-		MatchedPrompt:   promptName,
-		Evidence:        evidence,
-	}, nil
+	res, err := finish(outBytes, nil)
+	res.Truncated = res.Truncated || capTruncated
+	res.MatchedPrompt = promptName
+	return res, err
 }
 
-// stripEcho removes a leading echo of line from buf, when the shell
-// reflects the sent input back as the first line of its response.
-func stripEcho(buf []byte, line string) []byte {
-	echo := []byte(line)
-	if !bytes.HasPrefix(buf, echo) {
-		return buf
+// echoSkipLen reports how many leading bytes of buf are the shell's
+// echo of echo, so the caller can exclude them from a prompt scan.
+// It reports 0 until buf holds at least len(echo) bytes matching it
+// exactly: a shell that never echoes is a supported configuration,
+// not a partial match to wait out.
+func echoSkipLen(buf, echo []byte) int {
+	if len(echo) == 0 || !bytes.HasPrefix(buf, echo) {
+		return 0
 	}
 	rest := buf[len(echo):]
-	rest = bytes.TrimPrefix(rest, []byte("\r\n"))
-	rest = bytes.TrimPrefix(rest, []byte("\n"))
-	return rest
+	switch {
+	case bytes.HasPrefix(rest, []byte("\r\n")):
+		return len(echo) + 2
+	case bytes.HasPrefix(rest, []byte("\n")):
+		return len(echo) + 1
+	default:
+		return len(echo)
+	}
 }
 
 // connectionLostErr wraps a stdin write failure.

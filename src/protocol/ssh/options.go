@@ -9,7 +9,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// Default timeouts and buffer sizes, applied by [Options.withDefaults].
+// Default timeouts and buffer sizes. Every constant here except
+// defaultMaxOutputBytes is applied by [Options.withDefaults];
+// defaultMaxOutputBytes has no Options field of its own and is
+// applied directly by [Session.Run] to Command.MaxOutput.
 const (
 	defaultDialTimeout       = 30 * time.Second
 	defaultCommandDeadline   = 60 * time.Second
