@@ -1,0 +1,155 @@
+edition = "2024";
+
+// The durable audit record of what happened on one device's lane: DeviceOperationEvent
+// and its typed kinds. Deliberately partial: there is no DeviceOperationConfig
+// or DeviceOperationState, because this package is a pure event stream with
+// no queryable current-state entity of its own — MutationState in
+// device/access carries the live state this audit trails.
+package flowseer.event.device.v1;
+
+import "flowseer/api/inventory/v1/binding.proto";
+import "flowseer/api/inventory/v1/device.proto";
+import "flowseer/device/access/v1/operation.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// One durable audit record for a device. Delivered before the state it
+// records is released, per decision 13 of the verified device access
+// record: audit and telemetry are separate, and this is the audit half.
+message DeviceOperationEvent {
+  // The device this event concerns. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // FlowSeer-assigned event identifier, unique for deduplication. Must be
+  // present.
+  string event_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The device's lane sequence this event concerns. Unset means a
+  // lane-level event with no single mutation in scope, such as LaneFrozen.
+  uint64 sequence = 3 [(buf.validate.field).uint64.gte = 1];
+  // When the event occurred. Must be present.
+  google.protobuf.Timestamp occurred_at = 4 [(buf.validate.field).required = true];
+  // Identifiers joining this event to a request, an idempotency key, or a
+  // trace, without carrying their content. Bounded.
+  map<string, string> correlation_ids = 5 [(buf.validate.field).map = {
+    max_pairs: 8
+    keys: {
+      string: {max_len: 64}
+    }
+    values: {
+      string: {max_len: 128}
+    }
+  }];
+  // Bounded, non-secret facts about the event. Never a transcript, a
+  // credential, or raw device output.
+  map<string, google.protobuf.Value> attributes = 6 [(buf.validate.field).map.max_pairs = 16];
+
+  // Exactly one kind.
+  oneof detail {
+    option (buf.validate.oneof).required = true;
+
+    PhaseTransitioned phase_transitioned = 10;
+    LaneBlocked lane_blocked = 11;
+    LaneReleased lane_released = 12;
+    RouteSelected route_selected = 13;
+    DiscoveryCompleted discovery_completed = 14;
+    FirmwareEpochChanged firmware_epoch_changed = 15;
+    RecoveryStarted recovery_started = 16;
+    DriftDetected drift_detected = 17;
+    LaneFrozen lane_frozen = 18;
+  }
+}
+
+// One mutation's phase changed.
+message PhaseTransitioned {
+  // The phase before the transition. Unset means the mutation was just
+  // recorded and has no earlier phase. The zero value is rejected.
+  flowseer.device.access.v1.OperationPhase from = 1 [(buf.validate.field).enum = {defined_only: true}];
+  // The phase after the transition. Must be present; the zero value is
+  // rejected.
+  flowseer.device.access.v1.OperationPhase to = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// The device's lane stopped admitting the next mutation.
+message LaneBlocked {
+  // Why the lane is blocked. Must be present; the zero value is rejected.
+  flowseer.device.access.v1.BlockReason reason = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// The device's lane is free for the next mutation.
+message LaneReleased {}
+
+// A route was chosen for one operation, or fell through to a complete one.
+message RouteSelected {
+  // The protocol chosen. Must be present; the zero value is rejected.
+  flowseer.api.inventory.v1.ManagementProtocol protocol = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Whether this route was reached after an earlier valid-but-incomplete
+  // read on the same operation. Unset means false: this was the first route
+  // tried.
+  bool fell_through = 2;
+}
+
+// Identity and capability discovery completed for the device.
+message DiscoveryCompleted {
+  // The firmware fingerprint discovery learned. Must be present.
+  string firmware_fingerprint = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// The device's firmware fingerprint changed, invalidating route and
+// capability evidence learned under the previous one, per decision 7.
+message FirmwareEpochChanged {
+  // The fingerprint the evidence was learned under. Must be present.
+  string previous_fingerprint = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The newly observed fingerprint. Must be present.
+  string new_fingerprint = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// Recovery began for a mutation whose effect could not be established.
+message RecoveryStarted {}
+
+// A managed field changed without a mutation recorded to explain it.
+message DriftDetected {
+  // The device-local name of the field that changed. Must be present.
+  string field_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// The lane paused because the hosting edge's contact could not be
+// confirmed, per decision 8's positive-fencing rule: no successor may write
+// without proof the predecessor cannot.
+message LaneFrozen {}
