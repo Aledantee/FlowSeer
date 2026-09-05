@@ -29,3 +29,48 @@ message AccessPolicyHandle {
     (buf.validate.field).uint64.gte = 1
   ];
 }
+
+// A pinned version of one device credential. The credential material never
+// crosses the wire on this handle; it names the version an edge was handed
+// so a later event or audit record can cite exactly which secret was used
+// without holding it.
+message CredentialHandle {
+  // The store's key for the credential. Must be present. One path segment:
+  // lowercase, digits, dot, underscore, and hyphen, starting with a letter
+  // or digit, so a key cannot traverse a directory or cross a separator.
+  string key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128,
+    (buf.validate.field).string.pattern = "^[a-z0-9][a-z0-9._-]*$"
+  ];
+  // The credential version this handle pins. Must be present and at least
+  // 1; a rotation produces a new version and never re-issues an old one
+  // under the same number.
+  uint64 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// A pinned version of one device's host trust material, such as an SSH host
+// key fingerprint. The trust material never crosses the wire on this
+// handle; it names the version an edge was told to require.
+message HostTrustHandle {
+  // The store's key for the host trust record. Must be present. One path
+  // segment: lowercase, digits, dot, underscore, and hyphen, starting with
+  // a letter or digit, so a key cannot traverse a directory or cross a
+  // separator.
+  string key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128,
+    (buf.validate.field).string.pattern = "^[a-z0-9][a-z0-9._-]*$"
+  ];
+  // The host trust version this handle pins. Must be present and at least
+  // 1; a device re-keying its host identity produces a new version.
+  uint64 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}

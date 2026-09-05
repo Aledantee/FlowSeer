@@ -24,6 +24,14 @@ operation admitted under version 3 stays pinned to version 3 until it closes;
 a policy edit produces version 4 for later operations and never re-reads the
 one in flight.
 
+`CredentialHandle` and `HostTrustHandle` take the same `{key, version}`
+shape for the same reason: a device credential or a host-trust record can be
+rotated without disturbing an operation that already pinned an earlier
+version, and neither the secret material nor the trust material ever rides
+on the handle. `api/edge/v1` names both in the responses of its credential
+RPCs; the device service's own store is what resolves a handle back to the
+material it names.
+
 ## What is deliberately absent
 
 - The policy body. Credentials, host trust, route pins, and per-device
@@ -34,8 +42,5 @@ one in flight.
   a policy, and the store that would answer an existence check lands with
   the device service. The handle therefore stays out of `EntityType` for the
   same reason the Edge does.
-- Credential and host-trust handles. They take the same shape and arrive
-  with the plan that delivers credentials to an edge, once a message exists
-  to carry them.
 - A tenant. Scope is ambient, per the
   [protobuf conventions](../../../../../../docs/conventions/protobuf.md).

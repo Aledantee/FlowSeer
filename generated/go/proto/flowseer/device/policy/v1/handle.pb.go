@@ -142,6 +142,241 @@ func (b0 AccessPolicyHandle_builder) Build() *AccessPolicyHandle {
 	return m0
 }
 
+// A pinned version of one device credential. The credential material never
+// crosses the wire on this handle; it names the version an edge was handed
+// so a later event or audit record can cite exactly which secret was used
+// without holding it.
+type CredentialHandle struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Key         *string                `protobuf:"bytes,1,opt,name=key"`
+	xxx_hidden_Version     uint64                 `protobuf:"varint,2,opt,name=version"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CredentialHandle) Reset() {
+	*x = CredentialHandle{}
+	mi := &file_flowseer_device_policy_v1_handle_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CredentialHandle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CredentialHandle) ProtoMessage() {}
+
+func (x *CredentialHandle) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_device_policy_v1_handle_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CredentialHandle) GetKey() string {
+	if x != nil {
+		if x.xxx_hidden_Key != nil {
+			return *x.xxx_hidden_Key
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CredentialHandle) GetVersion() uint64 {
+	if x != nil {
+		return x.xxx_hidden_Version
+	}
+	return 0
+}
+
+func (x *CredentialHandle) SetKey(v string) {
+	x.xxx_hidden_Key = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *CredentialHandle) SetVersion(v uint64) {
+	x.xxx_hidden_Version = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *CredentialHandle) HasKey() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *CredentialHandle) HasVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CredentialHandle) ClearKey() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Key = nil
+}
+
+func (x *CredentialHandle) ClearVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Version = 0
+}
+
+type CredentialHandle_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The store's key for the credential. Must be present. One path segment:
+	// lowercase, digits, dot, underscore, and hyphen, starting with a letter
+	// or digit, so a key cannot traverse a directory or cross a separator.
+	Key *string
+	// The credential version this handle pins. Must be present and at least
+	// 1; a rotation produces a new version and never re-issues an old one
+	// under the same number.
+	Version *uint64
+}
+
+func (b0 CredentialHandle_builder) Build() *CredentialHandle {
+	m0 := &CredentialHandle{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Key != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Key = b.Key
+	}
+	if b.Version != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Version = *b.Version
+	}
+	return m0
+}
+
+// A pinned version of one device's host trust material, such as an SSH host
+// key fingerprint. The trust material never crosses the wire on this
+// handle; it names the version an edge was told to require.
+type HostTrustHandle struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Key         *string                `protobuf:"bytes,1,opt,name=key"`
+	xxx_hidden_Version     uint64                 `protobuf:"varint,2,opt,name=version"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HostTrustHandle) Reset() {
+	*x = HostTrustHandle{}
+	mi := &file_flowseer_device_policy_v1_handle_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostTrustHandle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostTrustHandle) ProtoMessage() {}
+
+func (x *HostTrustHandle) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_device_policy_v1_handle_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostTrustHandle) GetKey() string {
+	if x != nil {
+		if x.xxx_hidden_Key != nil {
+			return *x.xxx_hidden_Key
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *HostTrustHandle) GetVersion() uint64 {
+	if x != nil {
+		return x.xxx_hidden_Version
+	}
+	return 0
+}
+
+func (x *HostTrustHandle) SetKey(v string) {
+	x.xxx_hidden_Key = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *HostTrustHandle) SetVersion(v uint64) {
+	x.xxx_hidden_Version = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *HostTrustHandle) HasKey() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HostTrustHandle) HasVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *HostTrustHandle) ClearKey() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Key = nil
+}
+
+func (x *HostTrustHandle) ClearVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Version = 0
+}
+
+type HostTrustHandle_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The store's key for the host trust record. Must be present. One path
+	// segment: lowercase, digits, dot, underscore, and hyphen, starting with
+	// a letter or digit, so a key cannot traverse a directory or cross a
+	// separator.
+	Key *string
+	// The host trust version this handle pins. Must be present and at least
+	// 1; a device re-keying its host identity produces a new version.
+	Version *uint64
+}
+
+func (b0 HostTrustHandle_builder) Build() *HostTrustHandle {
+	m0 := &HostTrustHandle{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Key != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Key = b.Key
+	}
+	if b.Version != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Version = *b.Version
+	}
+	return m0
+}
+
 var File_flowseer_device_policy_v1_handle_proto protoreflect.FileDescriptor
 
 const file_flowseer_device_policy_v1_handle_proto_rawDesc = "" +
@@ -150,12 +385,22 @@ const file_flowseer_device_policy_v1_handle_proto_rawDesc = "" +
 	"\x12AccessPolicyHandle\x127\n" +
 	"\x03key\x18\x01 \x01(\tB%\xbaH\"\xc8\x01\x01r\x1d\x10\x01\x18\x80\x012\x16^[a-z0-9][a-z0-9._-]*$R\x03key\x12$\n" +
 	"\aversion\x18\x02 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\aversion\"q\n" +
+	"\x10CredentialHandle\x127\n" +
+	"\x03key\x18\x01 \x01(\tB%\xbaH\"\xc8\x01\x01r\x1d\x10\x01\x18\x80\x012\x16^[a-z0-9][a-z0-9._-]*$R\x03key\x12$\n" +
+	"\aversion\x18\x02 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\aversion\"p\n" +
+	"\x0fHostTrustHandle\x127\n" +
+	"\x03key\x18\x01 \x01(\tB%\xbaH\"\xc8\x01\x01r\x1d\x10\x01\x18\x80\x012\x16^[a-z0-9][a-z0-9._-]*$R\x03key\x12$\n" +
+	"\aversion\x18\x02 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\aversionB\x82\x02\n" +
 	"\x1dcom.flowseer.device.policy.v1B\vHandleProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1;policyv1\xa2\x02\x03FDP\xaa\x02\x19Flowseer.Device.Policy.V1\xca\x02\x19Flowseer\\Device\\Policy\\V1\xe2\x02%Flowseer\\Device\\Policy\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Device::Policy::V1b\beditionsp\xe9\a"
 
-var file_flowseer_device_policy_v1_handle_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_flowseer_device_policy_v1_handle_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_flowseer_device_policy_v1_handle_proto_goTypes = []any{
 	(*AccessPolicyHandle)(nil), // 0: flowseer.device.policy.v1.AccessPolicyHandle
+	(*CredentialHandle)(nil),   // 1: flowseer.device.policy.v1.CredentialHandle
+	(*HostTrustHandle)(nil),    // 2: flowseer.device.policy.v1.HostTrustHandle
 }
 var file_flowseer_device_policy_v1_handle_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -176,7 +421,7 @@ func file_flowseer_device_policy_v1_handle_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_device_policy_v1_handle_proto_rawDesc), len(file_flowseer_device_policy_v1_handle_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
