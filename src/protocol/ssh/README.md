@@ -89,7 +89,7 @@ the remote shell once a wait is abandoned, so a subsequent `Run` returns
 timed-out wait surfaces the unwrapped `context.Canceled` /
 `context.DeadlineExceeded`, not a package error code.
 
-`Command.MaxOutput` (else `Options`'s implicit 1 MiB default) bounds
+`Command.MaxOutput` (else the package's 1 MiB default) bounds
 `Result.Output`; a command that produces more sets `Result.Truncated` and
 keeps the most recent bytes, since a prompt or pagination marker is expected
 at the tail of the stream. `Result.Evidence.BytesReceived` always reports the
@@ -97,9 +97,10 @@ true byte count observed, independent of truncation.
 
 ## Evidence never carries a credential
 
-Every `Run` call returns an `Evidence` record: `Sent` (exactly what reached
-the shell's stdin), `BytesReceived`/`StderrBytesReceived`, `Started`, and
-`Elapsed`. `Command.Redacted`, when set, replaces `Command.Line` in `Sent`;
+Every `Run` call returns an `Evidence` record: `Sent` (`Command.Line`, or
+`Command.Redacted` when set, before the trailing newline `Run` appends),
+`BytesReceived`/`StderrBytesReceived`, `Started`, and `Elapsed`.
+`Command.Redacted`, when set, replaces `Command.Line` in `Sent`;
 the package does no pattern-based secret scrubbing of its own; a caller that
 sends a credential is responsible for setting `Redacted`. `Evidence` never
 contains device output beyond byte counts and timing, so it is safe to log or

@@ -16,7 +16,15 @@ execution: code
 > pre-existing suppression pattern was reused, not invented: `options.go`
 > carries the same `//nolint:gosec` on `ssh.InsecureIgnoreHostKey()` that
 > `src/protocol/netconf/session.go` already carries for the identical
-> finding.
+> finding. An independent review round found and fixed real defects the
+> initial implementation missed: `Run` did not discard bytes left over from
+> before the command (a login banner could be matched as the command's own
+> prompt), the echo of the sent line was scanned for a prompt match before
+> being stripped (a command ending in prompt-shaped text could terminate
+> itself), `Result.Truncated`/`StderrTruncated` only reflected the
+> `MaxOutput` cap and never the ring's own drop-oldest loss, and
+> `Evidence.BytesReceived` was left at zero on every error path. All four
+> are fixed and covered by new tests; see the commit history for detail.
 
 ## Goal
 
@@ -189,16 +197,21 @@ goroutine that closes the raw conn if `ctx` is done before
 requirement asks for, since `x/crypto/ssh` has no context-aware dial of its
 own), opens one `ssh.Session`, requests a PTY, starts the shell, and launches
 two goroutines draining stdout/stderr into the bounded, drop-oldest ring
-buffer type in `buffer.go`. `Session.Close(ctx) error` closes the shell,
-signals both drain goroutines, and waits for them. The bounded buffer
-exposes a cursor-based wait (`waitMatch(ctx, scan) ([]byte, matched bool, err
-error)`) that U3 drives, plus a monotonic total-bytes-written counter
-independent of the retained tail so truncation never loses the true count.
+buffer type in `buffer.go`. `Session.Close() error` closes the shell,
+signals both drain goroutines, and waits for them; it takes no context
+because nothing on the close path itself can block indefinitely (deviates
+from the plan's original `Close(ctx)` sketch — nothing needed one). The
+bounded buffer exposes a cursor-based wait (`waitFor(ctx, match)
+([]byte, error)`) that U3 drives, plus a monotonic total-bytes-written
+counter independent of the retained tail so truncation never loses the
+true count.
 Tests: `session_test.go` (package `ssh_test`, using a shared fake-SSH-server
-helper) — host-key pin match on two distinct fake servers, pin mismatch
-refusal (error never contains the observed fingerprint), dial timeout
-against a non-responding accepted connection, `Close` is idempotent and
-unblocks an in-flight drain goroutine.
+helper) — host-key pin match on two distinct fake servers, a bare
+(unprefixed) pinned fingerprint, pin mismatch refusal (error never contains
+the observed fingerprint), dial timeout against a non-responding accepted
+connection, `Close` is idempotent; `command_test.go`'s
+`TestSessionCloseDuringRunUnblocksTheWait` covers a concurrent `Close`
+unblocking an in-flight `Run`.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh/session.go src/protocol/ssh/buffer.go src/protocol/ssh/session_test.go`
 
 ### U3. Command execution: scanning, pagination, deadlines, evidence
@@ -261,7 +274,10 @@ is touched; every server in the test suite is an in-process
 - This plan's `status` is set to `implemented` (or
   `partially-implemented` with a note) with an outcome note under the title.
 - No unit label (U1-U4) appears in code, comments, or commit messages.
-- No test constructs `Options{InsecureIgnoreHostKey: true}`.
+- No test successfully dials with `InsecureIgnoreHostKey: true`. (One test,
+  `TestDialOptionsRequireExplicitHostKeyVerification`, constructs it paired
+  with `HostKeySHA256` to prove the mutual-exclusion refusal itself; that
+  dial is never allowed to succeed.)
 
 ## Open questions
 
