@@ -33,6 +33,7 @@ type EthernetFacet struct {
 	xxx_hidden_AppliedAutoNegotiation *AutoNegotiationFacet     `protobuf:"bytes,8,opt,name=applied_auto_negotiation,json=appliedAutoNegotiation"`
 	xxx_hidden_MauType                *MauType                  `protobuf:"bytes,9,opt,name=mau_type,json=mauType"`
 	xxx_hidden_Transport              isEthernetFacet_Transport `protobuf_oneof:"transport"`
+	xxx_hidden_Module                 *PluggableModule          `protobuf:"bytes,20,opt,name=module"`
 	xxx_hidden_AdvertisedLinkModes    []MauLinkMode             `protobuf:"varint,30,rep,packed,name=advertised_link_modes,json=advertisedLinkModes,enum=flowseer.net.phy.v1.MauLinkMode"`
 	xxx_hidden_ReceivedLinkModes      []MauLinkMode             `protobuf:"varint,31,rep,packed,name=received_link_modes,json=receivedLinkModes,enum=flowseer.net.phy.v1.MauLinkMode"`
 	xxx_hidden_Counters               *EthernetCounters         `protobuf:"bytes,32,opt,name=counters"`
@@ -149,6 +150,13 @@ func (x *EthernetFacet) GetOther() *OtherTransport {
 	return nil
 }
 
+func (x *EthernetFacet) GetModule() *PluggableModule {
+	if x != nil {
+		return x.xxx_hidden_Module
+	}
+	return nil
+}
+
 func (x *EthernetFacet) GetAdvertisedLinkModes() []MauLinkMode {
 	if x != nil {
 		return x.xxx_hidden_AdvertisedLinkModes
@@ -172,7 +180,7 @@ func (x *EthernetFacet) GetCounters() *EthernetCounters {
 
 func (x *EthernetFacet) SetFecMode(v EthernetFecMode) {
 	x.xxx_hidden_FecMode = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
 }
 
 func (x *EthernetFacet) SetCapabilities(v *EthernetCapabilities) {
@@ -181,12 +189,12 @@ func (x *EthernetFacet) SetCapabilities(v *EthernetCapabilities) {
 
 func (x *EthernetFacet) SetActiveSpeedBps(v uint64) {
 	x.xxx_hidden_ActiveSpeedBps = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
 }
 
 func (x *EthernetFacet) SetActiveDuplex(v EthernetDuplex) {
 	x.xxx_hidden_ActiveDuplex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 11)
 }
 
 func (x *EthernetFacet) SetAppliedAutoNegotiation(v *AutoNegotiationFacet) {
@@ -227,6 +235,10 @@ func (x *EthernetFacet) SetOther(v *OtherTransport) {
 		return
 	}
 	x.xxx_hidden_Transport = &ethernetFacet_Other{v}
+}
+
+func (x *EthernetFacet) SetModule(v *PluggableModule) {
+	x.xxx_hidden_Module = v
 }
 
 func (x *EthernetFacet) SetAdvertisedLinkModes(v []MauLinkMode) {
@@ -322,6 +334,13 @@ func (x *EthernetFacet) HasOther() bool {
 	return ok
 }
 
+func (x *EthernetFacet) HasModule() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Module != nil
+}
+
 func (x *EthernetFacet) HasCounters() bool {
 	if x == nil {
 		return false
@@ -382,6 +401,10 @@ func (x *EthernetFacet) ClearOther() {
 	if _, ok := x.xxx_hidden_Transport.(*ethernetFacet_Other); ok {
 		x.xxx_hidden_Transport = nil
 	}
+}
+
+func (x *EthernetFacet) ClearModule() {
+	x.xxx_hidden_Module = nil
 }
 
 func (x *EthernetFacet) ClearCounters() {
@@ -447,6 +470,11 @@ type EthernetFacet_builder struct {
 	// A reported transport outside the named arms.
 	Other *OtherTransport
 	// -- end of xxx_hidden_Transport
+	// The pluggable module cage and whatever sits in it. Absent means the
+	// source reported no cage at all; a present message states whether the
+	// cage is empty and, when it is not, the module's identity and
+	// diagnostics regardless of the transport arm.
+	Module *PluggableModule
 	// Link modes this port advertised during auto-negotiation, per the
 	// ifMauAutoNegCapAdvertisedBits object of the RFC 4836 MAU MIB
 	// (https://www.rfc-editor.org/rfc/rfc4836.html). The list is an exact set;
@@ -468,16 +496,16 @@ func (b0 EthernetFacet_builder) Build() *EthernetFacet {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.FecMode != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
 		x.xxx_hidden_FecMode = *b.FecMode
 	}
 	x.xxx_hidden_Capabilities = b.Capabilities
 	if b.ActiveSpeedBps != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
 		x.xxx_hidden_ActiveSpeedBps = *b.ActiveSpeedBps
 	}
 	if b.ActiveDuplex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 11)
 		x.xxx_hidden_ActiveDuplex = *b.ActiveDuplex
 	}
 	x.xxx_hidden_AppliedAutoNegotiation = b.AppliedAutoNegotiation
@@ -494,6 +522,7 @@ func (b0 EthernetFacet_builder) Build() *EthernetFacet {
 	if b.Other != nil {
 		x.xxx_hidden_Transport = &ethernetFacet_Other{b.Other}
 	}
+	x.xxx_hidden_Module = b.Module
 	x.xxx_hidden_AdvertisedLinkModes = b.AdvertisedLinkModes
 	x.xxx_hidden_ReceivedLinkModes = b.ReceivedLinkModes
 	x.xxx_hidden_Counters = b.Counters
@@ -546,8 +575,7 @@ var File_flowseer_net_phy_v1_ethernet_facet_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a)flowseer/net/phy/v1/backplane_facet.proto\x1a&flowseer/net/phy/v1/copper_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a+flowseer/net/phy/v1/ethernet_counters.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a%flowseer/net/phy/v1/fiber_facet.proto\x1a'flowseer/net/phy/v1/mau_link_mode.proto\x1a\"flowseer/net/phy/v1/mau_type.proto\x1a)flowseer/net/phy/v1/other_transport.proto\"\xf5\n" +
-	"\n" +
+	"(flowseer/net/phy/v1/ethernet_facet.proto\x12\x13flowseer.net.phy.v1\x1a0flowseer/net/phy/v1/auto_negotiation_facet.proto\x1a)flowseer/net/phy/v1/backplane_facet.proto\x1a&flowseer/net/phy/v1/copper_facet.proto\x1a/flowseer/net/phy/v1/ethernet_capabilities.proto\x1a+flowseer/net/phy/v1/ethernet_counters.proto\x1a)flowseer/net/phy/v1/ethernet_duplex.proto\x1a+flowseer/net/phy/v1/ethernet_fec_mode.proto\x1a%flowseer/net/phy/v1/fiber_facet.proto\x1a'flowseer/net/phy/v1/mau_link_mode.proto\x1a\"flowseer/net/phy/v1/mau_type.proto\x1a)flowseer/net/phy/v1/other_transport.proto\x1a*flowseer/net/phy/v1/pluggable_module.proto\"\xb3\v\n" +
 	"\rEthernetFacet\x12?\n" +
 	"\bfec_mode\x18\x04 \x01(\x0e2$.flowseer.net.phy.v1.EthernetFecModeR\afecMode\x12M\n" +
 	"\fcapabilities\x18\x05 \x01(\v2).flowseer.net.phy.v1.EthernetCapabilitiesR\fcapabilities\x121\n" +
@@ -559,7 +587,8 @@ const file_flowseer_net_phy_v1_ethernet_facet_proto_rawDesc = "" +
 	" \x01(\v2 .flowseer.net.phy.v1.CopperFacetH\x00R\x06copper\x127\n" +
 	"\x05fiber\x18\v \x01(\v2\x1f.flowseer.net.phy.v1.FiberFacetH\x00R\x05fiber\x12C\n" +
 	"\tbackplane\x18\f \x01(\v2#.flowseer.net.phy.v1.BackplaneFacetH\x00R\tbackplane\x12;\n" +
-	"\x05other\x18\r \x01(\v2#.flowseer.net.phy.v1.OtherTransportH\x00R\x05other\x12^\n" +
+	"\x05other\x18\r \x01(\v2#.flowseer.net.phy.v1.OtherTransportH\x00R\x05other\x12<\n" +
+	"\x06module\x18\x14 \x01(\v2$.flowseer.net.phy.v1.PluggableModuleR\x06module\x12^\n" +
 	"\x15advertised_link_modes\x18\x1e \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x13advertisedLinkModes\x12Z\n" +
 	"\x13received_link_modes\x18\x1f \x03(\x0e2 .flowseer.net.phy.v1.MauLinkModeB\b\xbaH\x05\x92\x01\x02\x18\x01R\x11receivedLinkModes\x12A\n" +
 	"\bcounters\x18  \x01(\v2%.flowseer.net.phy.v1.EthernetCountersR\bcounters:\x89\x03\xbaH\x85\x03\x1a\x82\x03\n" +
@@ -579,8 +608,9 @@ var file_flowseer_net_phy_v1_ethernet_facet_proto_goTypes = []any{
 	(*FiberFacet)(nil),           // 7: flowseer.net.phy.v1.FiberFacet
 	(*BackplaneFacet)(nil),       // 8: flowseer.net.phy.v1.BackplaneFacet
 	(*OtherTransport)(nil),       // 9: flowseer.net.phy.v1.OtherTransport
-	(MauLinkMode)(0),             // 10: flowseer.net.phy.v1.MauLinkMode
-	(*EthernetCounters)(nil),     // 11: flowseer.net.phy.v1.EthernetCounters
+	(*PluggableModule)(nil),      // 10: flowseer.net.phy.v1.PluggableModule
+	(MauLinkMode)(0),             // 11: flowseer.net.phy.v1.MauLinkMode
+	(*EthernetCounters)(nil),     // 12: flowseer.net.phy.v1.EthernetCounters
 }
 var file_flowseer_net_phy_v1_ethernet_facet_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.phy.v1.EthernetFacet.fec_mode:type_name -> flowseer.net.phy.v1.EthernetFecMode
@@ -592,14 +622,15 @@ var file_flowseer_net_phy_v1_ethernet_facet_proto_depIdxs = []int32{
 	7,  // 6: flowseer.net.phy.v1.EthernetFacet.fiber:type_name -> flowseer.net.phy.v1.FiberFacet
 	8,  // 7: flowseer.net.phy.v1.EthernetFacet.backplane:type_name -> flowseer.net.phy.v1.BackplaneFacet
 	9,  // 8: flowseer.net.phy.v1.EthernetFacet.other:type_name -> flowseer.net.phy.v1.OtherTransport
-	10, // 9: flowseer.net.phy.v1.EthernetFacet.advertised_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
-	10, // 10: flowseer.net.phy.v1.EthernetFacet.received_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
-	11, // 11: flowseer.net.phy.v1.EthernetFacet.counters:type_name -> flowseer.net.phy.v1.EthernetCounters
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	10, // 9: flowseer.net.phy.v1.EthernetFacet.module:type_name -> flowseer.net.phy.v1.PluggableModule
+	11, // 10: flowseer.net.phy.v1.EthernetFacet.advertised_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
+	11, // 11: flowseer.net.phy.v1.EthernetFacet.received_link_modes:type_name -> flowseer.net.phy.v1.MauLinkMode
+	12, // 12: flowseer.net.phy.v1.EthernetFacet.counters:type_name -> flowseer.net.phy.v1.EthernetCounters
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_phy_v1_ethernet_facet_proto_init() }
@@ -618,6 +649,7 @@ func file_flowseer_net_phy_v1_ethernet_facet_proto_init() {
 	file_flowseer_net_phy_v1_mau_link_mode_proto_init()
 	file_flowseer_net_phy_v1_mau_type_proto_init()
 	file_flowseer_net_phy_v1_other_transport_proto_init()
+	file_flowseer_net_phy_v1_pluggable_module_proto_init()
 	file_flowseer_net_phy_v1_ethernet_facet_proto_msgTypes[0].OneofWrappers = []any{
 		(*ethernetFacet_Copper)(nil),
 		(*ethernetFacet_Fiber)(nil),

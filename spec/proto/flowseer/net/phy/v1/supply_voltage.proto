@@ -1,0 +1,35 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import option "buf/validate/validate.proto";
+
+// A module supply voltage measurement and the module's thresholds for it,
+// in microvolts. SFF-8472 (https://members.snia.org/document/dl/25916)
+// reports voltage in steps of one hundred microvolts, which this unit
+// carries without loss. Each threshold is absent when the module does not
+// report it; present thresholds must be ordered.
+message SupplyVoltage {
+  option (buf.validate.message).cel = {
+    id: "supply_voltage.thresholds_ordered"
+    message: "voltage thresholds must satisfy low alarm <= low warning <= high warning <= high alarm"
+    expression:
+      "(!has(this.low_alarm_microvolts) || !has(this.low_warning_microvolts) || "
+      "this.low_alarm_microvolts <= this.low_warning_microvolts) && "
+      "(!has(this.low_warning_microvolts) || !has(this.high_warning_microvolts) || "
+      "this.low_warning_microvolts <= this.high_warning_microvolts) && "
+      "(!has(this.high_warning_microvolts) || !has(this.high_alarm_microvolts) || "
+      "this.high_warning_microvolts <= this.high_alarm_microvolts)"
+  };
+
+  // The measured voltage. Absent means unreported.
+  uint32 value_microvolts = 1;
+  // Voltage at or above which the module raises a high alarm.
+  uint32 high_alarm_microvolts = 2;
+  // Voltage at or above which the module raises a high warning.
+  uint32 high_warning_microvolts = 3;
+  // Voltage at or below which the module raises a low warning.
+  uint32 low_warning_microvolts = 4;
+  // Voltage at or below which the module raises a low alarm.
+  uint32 low_alarm_microvolts = 5;
+}

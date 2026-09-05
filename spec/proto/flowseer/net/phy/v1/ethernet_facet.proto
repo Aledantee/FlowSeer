@@ -13,6 +13,7 @@ import "flowseer/net/phy/v1/fiber_facet.proto";
 import "flowseer/net/phy/v1/mau_link_mode.proto";
 import "flowseer/net/phy/v1/mau_type.proto";
 import "flowseer/net/phy/v1/other_transport.proto";
+import "flowseer/net/phy/v1/pluggable_module.proto";
 import option "buf/validate/validate.proto";
 
 // Physical Ethernet attributes embedded by a physical interface kind. The
@@ -64,6 +65,12 @@ message EthernetFacet {
     // A reported transport outside the named arms.
     OtherTransport other = 13;
   }
+
+  // The pluggable module cage and whatever sits in it. Absent means the
+  // source reported no cage at all; a present message states whether the
+  // cage is empty and, when it is not, the module's identity and
+  // diagnostics regardless of the transport arm.
+  PluggableModule module = 20;
 
   // Link modes this port advertised during auto-negotiation, per the
   // ifMauAutoNegCapAdvertisedBits object of the RFC 4836 MAU MIB

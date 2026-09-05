@@ -238,6 +238,142 @@ func TestEthernetTransportRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
+func TestPluggableModuleRules(t *testing.T) {
+	lane := func(index uint32) *phyv1.ModuleLane {
+		return phyv1.ModuleLane_builder{
+			Index: proto.Uint32(index),
+			TxPower: phyv1.OpticalPower_builder{
+				ValueNanowatts: proto.Uint32(500_000),
+			}.Build(),
+		}.Build()
+	}
+
+	tests := []validationCase{
+		{
+			name: "facet without transport or module validates",
+			message: phyv1.EthernetFacet_builder{
+				ActiveSpeedBps: proto.Uint64(1_000_000_000),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "empty cage with a vendor name",
+			message: phyv1.PluggableModule_builder{
+				Present: proto.Bool(false),
+				Vendor:  proto.String("FiberCo"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "empty cage with nothing else",
+			message:   phyv1.PluggableModule_builder{Present: proto.Bool(false)}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "empty cage with a lane measurement",
+			message: phyv1.PluggableModule_builder{
+				Present: proto.Bool(false),
+				Lanes:   []*phyv1.ModuleLane{lane(1)},
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "module presence is required",
+			message:   phyv1.PluggableModule_builder{Vendor: proto.String("FiberCo")}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "direct-attach cable on a copper arm carries identity",
+			message: phyv1.EthernetFacet_builder{
+				Copper: phyv1.CopperFacet_builder{}.Build(),
+				Module: phyv1.PluggableModule_builder{
+					Present:      proto.Bool(true),
+					Vendor:       proto.String("CableCo"),
+					SerialNumber: proto.String("DAC-0001"),
+					Connector:    phyv1.ModuleConnector_MODULE_CONNECTOR_NONE.Enum(),
+				}.Build(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "four lanes with distinct indexes",
+			message: phyv1.PluggableModule_builder{
+				Present: proto.Bool(true),
+				Lanes:   []*phyv1.ModuleLane{lane(1), lane(2), lane(3), lane(4)},
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "two lanes sharing an index",
+			message: phyv1.PluggableModule_builder{
+				Present: proto.Bool(true),
+				Lanes:   []*phyv1.ModuleLane{lane(1), lane(2), lane(2)},
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name:      "lane index zero is invalid",
+			message:   lane(0),
+			wantValid: false,
+		},
+		{
+			name: "high alarm below high warning",
+			message: phyv1.OpticalPower_builder{
+				HighWarningNanowatts: proto.Uint32(900_000),
+				HighAlarmNanowatts:   proto.Uint32(800_000),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "two of four thresholds in order",
+			message: phyv1.BiasCurrent_builder{
+				LowAlarmMicroamperes:   proto.Uint32(2_000),
+				LowWarningMicroamperes: proto.Uint32(3_000),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "temperature thresholds out of order",
+			message: phyv1.ModuleTemperature_builder{
+				LowAlarmMillidegrees:   proto.Int32(-5_000),
+				LowWarningMillidegrees: proto.Int32(-10_000),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "empty vendor string",
+			message: phyv1.PluggableModule_builder{
+				Present: proto.Bool(true),
+				Vendor:  proto.String(""),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "unnamed form factor remains valid",
+			message: phyv1.PluggableModule_builder{
+				Present:    proto.Bool(true),
+				FormFactor: phyv1.ModuleFormFactor(200).Enum(),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name:      "present module with no lanes",
+			message:   phyv1.PluggableModule_builder{Present: proto.Bool(true)}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "encoding code above the registry width",
+			message: phyv1.PluggableModule_builder{
+				Present:      proto.Bool(true),
+				EncodingCode: proto.Uint32(256),
+			}.Build(),
+			wantValid: false,
+		},
+	}
+
+	runValidationCases(t, tests)
+}
+
 func TestPoeSettingsPowerLimitPresence(t *testing.T) {
 	absent := phyv1.PoeSettings_builder{}.Build()
 	explicitZero := phyv1.PoeSettings_builder{PowerLimitMilliwatts: proto.Uint32(0)}.Build()

@@ -14,6 +14,16 @@ intent, delivery state, and the PSE port row behind it, while the fiber,
 backplane, and other arms state the medium and carry nothing else. A source
 that reports no medium leaves the oneof absent.
 
+The pluggable module sits beside the transport oneof rather than inside the
+fiber arm, because a direct-attach cable or a copper SFP module carries the
+same SFF-8472 identity as an optical one. `PluggableModule` states whether the
+cage is empty and, when it is not, the module's identity, module-level
+temperature and voltage, and per-lane optical power and bias current. Every
+measurement carries its own alarm and warning thresholds in one linear unit
+(nanowatts, microamperes, microvolts, millidegrees), so producers convert once
+and consumers derive decibel-milliwatts when they display. A future component
+entity embeds the same messages; nothing here references it.
+
 PoE rows keep the Power Ethernet MIB's own PSE group and port numbering as
 their key, so a row can be carried before a source supplies the join to an
 interface. `PseBudget` is the group-level power budget from the same MIB; it
@@ -37,4 +47,9 @@ The package's field and enum contracts cite:
   Ethernet (POWER-ETHERNET-MIB) semantics, per-port fault counters, and the
   group-level power budget.
 - [SNIA SFF-8024](https://members.snia.org/document/dl/26423) for pluggable
-  transceiver form-factor identifiers.
+  module identifier, connector, encoding, and media interface codes.
+- [SNIA SFF-8472](https://members.snia.org/document/dl/25916) for module
+  serial identity and digital diagnostic monitoring, including the linear
+  units the measurements are carried in.
+- [OIF CMIS](https://www.oiforum.com/technical-work/hot-topics/cmis/) for
+  module identity and lane monitors on modules that implement it.

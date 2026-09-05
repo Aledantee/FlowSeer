@@ -1,0 +1,17 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/module_temperature.proto";
+import "flowseer/net/phy/v1/supply_voltage.proto";
+
+// Module-level diagnostic measurements of a pluggable module, per the
+// SFF-8472 diagnostic monitoring page
+// (https://members.snia.org/document/dl/25916). Per-lane measurements live
+// on the module's lanes.
+message ModuleDiagnostics {
+  // Internal module temperature. Absent means unreported.
+  ModuleTemperature temperature = 1;
+  // Module supply voltage. Absent means unreported.
+  SupplyVoltage voltage = 2;
+}

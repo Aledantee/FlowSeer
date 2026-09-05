@@ -1,0 +1,67 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// The form factor of a pluggable module. Integers are the identifier
+// values of the SFF-8024 identifier registry
+// (https://members.snia.org/document/dl/26423), so a value the registry
+// assigns after this file was written remains valid and is carried
+// unnamed. Zero is the registry's own unknown code.
+enum ModuleFormFactor {
+  // Unknown or unspecified, the registry's zero code.
+  MODULE_FORM_FACTOR_UNKNOWN = 0;
+  // GBIC.
+  MODULE_FORM_FACTOR_GBIC = 1;
+  // Module soldered to the motherboard.
+  MODULE_FORM_FACTOR_SOLDERED = 2;
+  // SFP, SFP+, or SFP28.
+  MODULE_FORM_FACTOR_SFP = 3;
+  // 300-pin XBI.
+  MODULE_FORM_FACTOR_XBI = 4;
+  // XENPAK.
+  MODULE_FORM_FACTOR_XENPAK = 5;
+  // XFP.
+  MODULE_FORM_FACTOR_XFP = 6;
+  // XFF.
+  MODULE_FORM_FACTOR_XFF = 7;
+  // XFP-E.
+  MODULE_FORM_FACTOR_XFP_E = 8;
+  // XPAK.
+  MODULE_FORM_FACTOR_XPAK = 9;
+  // X2.
+  MODULE_FORM_FACTOR_X2 = 10;
+  // DWDM-SFP or DWDM-SFP+.
+  MODULE_FORM_FACTOR_DWDM_SFP = 11;
+  // QSFP.
+  MODULE_FORM_FACTOR_QSFP = 12;
+  // QSFP+ and later, managed per SFF-8636.
+  MODULE_FORM_FACTOR_QSFP_PLUS = 13;
+  // CXP.
+  MODULE_FORM_FACTOR_CXP = 14;
+  // QSFP28.
+  MODULE_FORM_FACTOR_QSFP28 = 17;
+  // CXP2.
+  MODULE_FORM_FACTOR_CXP2 = 18;
+  // CDFP style 1 or 2.
+  MODULE_FORM_FACTOR_CDFP = 19;
+  // CDFP style 3.
+  MODULE_FORM_FACTOR_CDFP3 = 22;
+  // microQSFP.
+  MODULE_FORM_FACTOR_MICRO_QSFP = 23;
+  // QSFP-DD.
+  MODULE_FORM_FACTOR_QSFP_DD = 24;
+  // OSFP.
+  MODULE_FORM_FACTOR_OSFP = 25;
+  // SFP-DD.
+  MODULE_FORM_FACTOR_SFP_DD = 26;
+  // DSFP.
+  MODULE_FORM_FACTOR_DSFP = 27;
+  // QSFP+ managed per CMIS.
+  MODULE_FORM_FACTOR_QSFP_PLUS_CMIS = 30;
+  // SFP-DD managed per CMIS.
+  MODULE_FORM_FACTOR_SFP_DD_CMIS = 31;
+  // SFP+ managed per CMIS.
+  MODULE_FORM_FACTOR_SFP_PLUS_CMIS = 32;
+  // OSFP-XD.
+  MODULE_FORM_FACTOR_OSFP_XD = 33;
+}
