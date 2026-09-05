@@ -36,6 +36,10 @@ var importOrder = map[string][]string{
 	"api/edge":      nil,
 	"device/policy": nil,
 
+	// The error wire payload. A leaf like api/edge and device/policy: every
+	// boundary may carry an error, so nothing may depend on it.
+	"errs": nil,
+
 	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
@@ -43,10 +47,18 @@ var importOrder = map[string][]string{
 	// reaches api/edge only through here.
 	"device/access": {"api/edge", "api/inventory", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
-	// The operator API is one of the sibling boundary consumers; the
-	// execution envelope and the audit event, when they land, import
-	// device/access the same way and never this package.
-	"api/device": {"api/inventory", "device/access", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+	// The operator API, the execution envelope, and the audit event are
+	// sibling boundary consumers of device/access and errs, and none of the
+	// three imports another. api/inventory and device/policy predate the
+	// errs amendment and stay direct api/device dependencies; the envelope
+	// carries no device or edge ref at all (the transport already names
+	// both), while the audit event needs api/inventory directly because it
+	// is read outside any live transport context.
+	"api/device": {"api/inventory", "device/access", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	"integration/device": {"device/access", "errs"},
+
+	"event/device": {"api/inventory", "device/access", "errs"},
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.
@@ -136,6 +148,15 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
 		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
 		{name: "leaf boundary imports inventory", importer: "device/policy", imported: "api/inventory"},
+		{name: "execution envelope imports access values", importer: "integration/device", imported: "device/access", want: true},
+		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
+		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
+		{name: "audit event imports access values", importer: "event/device", imported: "device/access", want: true},
+		{name: "audit event imports inventory", importer: "event/device", imported: "api/inventory", want: true},
+		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
+		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
+		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
+		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
 	}
 
 	for _, tt := range tests {
