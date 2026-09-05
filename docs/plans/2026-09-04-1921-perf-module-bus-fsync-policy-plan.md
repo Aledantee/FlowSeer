@@ -2,9 +2,8 @@
 title: Module Bus Fsync Policy - Plan
 type: perf
 date: 2026-09-04
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-plan-bootstrap
 execution: code
 ---
 
@@ -277,18 +276,18 @@ The latent defects this planning surfaced, none of which this change causes or f
 
 ### From 2026-09-04 review
 
-- **Default policy weakens existing deployments without a choice** — Product Contract - Summary and Compatibility (P1, product-lens, adversarial, cross-model: Claude Opus 5, confidence 100)
+- **Default policy weakens existing deployments without a choice**
 
   Existing deployments can lose acknowledged data during a power failure immediately after an upgrade even though they did not select a weaker policy. A startup record explains the effective setting after the new default has been applied, but it does not make that durability change explicit for the upgrade path.
 
-- **Configured interval is not a guaranteed loss bound** — R2 and R6 - Default Cadence and Operator Visibility (P1, adversarial, cross-model: Claude Opus 5, confidence 100)
+- **Configured interval is not a guaranteed loss bound**
 
   Operators can read five seconds as the maximum possible loss window, but scheduler delay and slow or contended storage can postpone synchronization beyond the configured interval. The process-kill test does not exercise power loss or prove that background synchronization completes within that interval.
 
-- **Policy API cannot distinguish default from invalid zero** — U1 - Declare the Fsync Policy and Wire It to the Server (P1, feasibility, coherence, cross-model: Claude Opus 5, confidence 100)
+- **Policy API cannot distinguish default from invalid zero**
 
   An implementer must make an unplanned exported-API decision before coding. The current service configuration uses scalar durations whose zero values select defaults, so one scalar interval cannot make an undeclared zero valid while rejecting an explicitly supplied zero interval.
 
-- **Durability trade lacks representative workload evidence** — Product Contract - Problem Frame and Success Criteria (P1, product-lens, cross-model: Claude Opus 5, confidence 100)
+- **Durability trade lacks representative workload evidence**
 
   The plan can achieve a large microbenchmark improvement without improving service-level latency, throughput, resource use, or reliability if synchronous persistence does not constrain a representative workload. The APFS measurement also may not represent the deployment platform, so the value of weakening the default power-loss guarantee remains unproven.

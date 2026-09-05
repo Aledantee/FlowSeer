@@ -2,11 +2,9 @@
 title: "refactor: Clean up FlowSeer proto docs with qualified spec links"
 date: 2026-08-26
 type: refactor
-depth: standard
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 execution: code
-product_contract_source: ce-plan-bootstrap
 ---
 
 # refactor: Clean up FlowSeer proto docs with qualified spec links

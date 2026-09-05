@@ -2,12 +2,9 @@
 title: Service-Managed OpenTelemetry - Plan
 type: feat
 date: 2026-09-04
-topic: service-managed-opentelemetry
-artifact_contract: ce-unified-plan/v1
+artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-product_contract_source: ce-brainstorm
 execution: code
-deepened: 2026-09-04
 ---
 
 # Service-Managed OpenTelemetry - Plan
