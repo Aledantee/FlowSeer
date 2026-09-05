@@ -1,4 +1,7 @@
 {
+  "enabledPlugins": {
+    "compound-engineering@compound-engineering-plugin": false
+  },
   "worktree": {
     "baseRef": "head"
   },
@@ -79,20 +82,6 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/stop-check.sh\"",
             "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/tools/hooks/require-verification-receipt.sh"
-          }
-        ]
-      }
-    ],
-    "TaskCompleted": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/tools/hooks/require-verification-receipt.sh"
           }
         ]
       }

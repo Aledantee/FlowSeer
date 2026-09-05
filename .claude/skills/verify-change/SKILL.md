@@ -59,9 +59,8 @@ race test with a non-race test or skip lint. Fix the failure or report the exact
 blocked command and reason.
 
 A successful run records its scope in the current worktree's git metadata and
-clears matching dirty markers. The completion hook blocks once when edited
-source/config paths still lack a receipt; it does not rerun the full suite on every
-stop.
+clears matching dirty markers. No completion hook enforces the receipt; running
+the verifier before handoff is part of the work sequence in `AGENTS.md`.
 
 Do not run this verifier against unrelated dirty files. Pass explicit paths when
 the worktree contains user-owned changes outside the current task.

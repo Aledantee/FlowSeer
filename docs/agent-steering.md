@@ -80,6 +80,72 @@ and independent review are useful examples because their permissions match their
 jobs. The coordinating agent owns integration and authoritative verification;
 delegation does not transfer responsibility for the final result.
 
+## Project skills
+
+FlowSeer ships four workflow skills under `.claude/skills/`: `plan`,
+`implement`, `review`, and `compound`, next to the `verify-change` gate. They
+replace the third-party compound-engineering plugin, which the repository used
+from August 2026 until 2026-09-05. The decisions below were taken against the
+plugin's issue tracker, published measurements, and this project's own session
+history; revisit them when that evidence changes.
+
+Keep only the workflows the project uses. Session transcripts for this
+repository showed six of the plugin's 33 skills carrying every invocation, and
+`/skill-doctor` showed 19 skills never invoked on this machine. Each unused
+skill still cost listing tokens on every turn. The four skills map onto the
+six used ones: brainstorm folds into `plan`, doc review into `plan` and
+`review`, refresh into `compound`.
+
+Keep each skill short and specific to this repository. Anthropic's authoring
+guidance caps a `SKILL.md` body at 500 lines and says a skill that restates
+what the model does by default adds context without value. Measured evidence
+agrees: SWE-Skills-Bench found 39 of 49 public skills gave no pass-rate gain,
+and Vercel found skills never fired in 56% of eval cases while a compressed
+always-on index did. The plugin's `ce-plan` alone was 111 KB and loaded a
+further 110 KB of references per run. The FlowSeer skills stay under about
+150 lines each and contain only the procedure, the file layout, and the
+repository rules an agent cannot infer from the tree.
+
+Use one reviewer, split by file group, never a persona panel. The plugin's
+own maintainers wrote that running the full multi-agent review after every
+implementation "didn't earn its place" (issue #726) and had to add a serial
+mode after reviewers exhausted context (issue #166). This repository's
+transcripts showed the plugin's review dispatching 8.5 subagents per call on
+average, with a peak of 14. `review` dispatches `independent-reviewer` once,
+reads the diff itself with a fixed checklist, and verifies every finding
+before reporting it.
+
+Skip ceremony when the work is small. The plugin's author advised skipping
+brainstorming when requirements are clear and warned that auto-running steps
+"generates a lot of mess". `plan` opens with a skip rule, `implement` does
+not trigger a review, and `compound` opens with a gate that refuses one-off
+or derivable lessons, because reviewers of the plugin reported its solutions
+folder turning into "compounding noise".
+
+Keep plan labels out of code. Commit `7b0c5cd8` stripped plan identifiers
+that the plugin's work skill had told the implementer to cite in comments.
+`plan` and `implement` both state the rule; `docs/code-style.md` enforces it
+in review.
+
+Leave policy surfaces to people. The plugin's compound skills edited
+`AGENTS.md`, `CLAUDE.md`, and `CONCEPTS.md` after a chat consent. `compound`
+proposes vocabulary and never edits an instruction file.
+
+Enforce with the verifier, not with prose. Every skill ends by running
+`verify-change` on the changed paths. Anthropic's guidance is explicit that
+an instruction in a skill is a request and a hook is a guarantee.
+
+Drop what the repository cannot use. There is no remote, so pull-request,
+CI-watching, and push skills are inert here. Cross-model review would send
+diffs to an external CLI by default. The skills rely on `git`, `go`, `buf`,
+and the existing agents only.
+
+One artifact format each. Every plan under `docs/plans/` carries
+`artifact_contract: flowseer-plan/v1` and the `artifact_readiness` field that
+`docs/README.md` documents. Every solution carries `applies_when` frontmatter
+and a row in `docs/solutions/README.md`. The skills describe these formats
+and nothing else.
+
 ## Change and review process
 
 Treat changes to the policy surfaces named in `AGENTS.md` as policy changes, even
@@ -123,6 +189,32 @@ These sources were checked on 2026-09-03:
 - [GitHub, “About customizing GitHub Copilot responses”](https://docs.github.com/en/copilot/concepts/prompting/response-customization)
   recommends short, self-contained instructions and warns against conflicts
   across instruction scopes.
+
+Sources checked on 2026-09-05 for the project skills:
+
+- [Anthropic, “Skill authoring best practices”](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+  500-line body ceiling, description as the selection signal, context as a
+  shared budget.
+- [Anthropic, “Extend Claude with skills”](https://code.claude.com/docs/en/skills)
+  and [“Create plugins”](https://code.claude.com/docs/en/plugins): the 1%
+  listing budget, `/skill-doctor`, and `.claude/` for project-specific work
+  with plugins reserved for distribution.
+- [Anthropic, “How we use skills”](https://claude.com/blog/lessons-from-building-claude-code-how-we-use-skills):
+  a skill that restates default behavior adds context without value.
+- [SWE-Skills-Bench](https://arxiv.org/abs/2603.15401): 39 of 49 public skills
+  gave zero pass-rate improvement; token cost rose up to 451%.
+- [Vercel, “AGENTS.md outperforms skills in our agent evals”](https://vercel.com/blog/agents-md-outperforms-skills-in-our-agent-evals):
+  skills never invoked in 56% of cases.
+- [compound-engineering-plugin issues](https://github.com/EveryInc/compound-engineering-plugin/issues)
+  #20, #63, #139, #166, #338, #726 and pull request #161 on context cost,
+  monolithic packaging, forced layout, and review expense; the maintainers'
+  description-budget fix reported 316% of the character budget in use.
+- [Kieran Klaassen, “Compound Engineering Camp”](https://every.to/source-code/compound-engineering-camp-every-step-from-scratch)
+  on skipping brainstorm when requirements are clear and the mess that
+  auto-running steps produces.
+- [Ry Walker, review of the plugin](https://rywalker.com/research/compound-engineering-plugin)
+  and [MoClaw on compound engineering](https://moclaw.ai/blog/compound-engineering)
+  on review cost, release churn, and the solutions folder as a junk drawer.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only
