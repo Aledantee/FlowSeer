@@ -26,15 +26,14 @@ type InterfaceProvenanceInputs = interfaces.ProvenanceInputs
 // [VerifyInterfaceDescriptionChange].
 type InterfaceVerificationDisposition = interfaces.VerificationDisposition
 
-// InterfaceFreshness and InterfaceDelayedEffect are the typed values a
-// route selector consumes: how old a cached observation may be before
-// [ReadInterface] re-reads it, and how long a mutation may take to become
+// InterfaceFreshness bounds how old a cached observation may be before
+// [ReadInterface] re-reads it instead of reusing it.
+type InterfaceFreshness = interfaces.Freshness
+
+// InterfaceDelayedEffect bounds how long a mutation may take to become
 // visible before [VerifyInterfaceDescriptionChange] reports it failed
 // rather than not yet applied.
-type (
-	InterfaceFreshness     = interfaces.Freshness
-	InterfaceDelayedEffect = interfaces.DelayedEffect
-)
+type InterfaceDelayedEffect = interfaces.DelayedEffect
 
 // Interface verification dispositions; see
 // [interfaces.VerificationDisposition] for what each means.
