@@ -97,6 +97,15 @@ until it exists — the code and tests do not depend on measuring it.
   `PinnedRoute route.Route` in the `Lane.Submit` options; a failed pinned
   route returns the failure as the operation's result with no fallback
   attempt, per the task.
+- **`Lane.Submit`'s options carry the whole `*integrationv1.ExecuteRequest`,
+  not a bare `MutationIntent`/`TypedRead`.** Why: `sequence` is central's,
+  assigned before dispatch and delivered to the edge only on
+  `ExecuteRequest` (`execution.proto`'s field comment: "The device's lane
+  sequence this operation was admitted at"); `SubmissionCredentialSource.Open`,
+  the `CheckpointRequest` match, and `DeviceOperationEvent.sequence` all need
+  that value, so admission must receive it rather than the edge inventing or
+  omitting one. `SubmitOptions{Request *integrationv1.ExecuteRequest, Priority,
+  PinnedRoute}` is the corrected shape every later unit builds against.
 - **The mutation state machine models `OperationPhase` transitions as an
   explicit typestate, not a switch on the proto enum scattered across
   functions.** Why: `MutationState`'s own CEL rules (disposition set exactly
@@ -136,24 +145,36 @@ until it exists — the code and tests do not depend on measuring it.
   test fake that can inject a delay or failure is the simplest way to prove
   the ordering, and it matches decision 13's requirement that OpenTelemetry
   (unlike this call) may fail without blocking work.
-- **OpenTelemetry instrumentation lives in one `internal/telemetry` package
-  used by every other internal package through a `telemetry.View`-shaped
-  parameter (mirroring `src/common/service`'s `telemetryView` pattern cited
-  in the trace-propagation solution), not `service.Tracer(ctx)` called ad
-  hoc in each package.** Why: the module has no dependency on
-  `src/common/service` today (it is a library other things call), so it
-  cannot assume it always runs inside that runtime's attempt context; a
-  package-local view that the host constructs from `service.Tracer(ctx)`
-  etc. when it does, or from a caller-supplied provider otherwise, keeps the
-  module usable outside a `service.Run` host while still following the
-  observability conventions when one is present.
+- **OpenTelemetry instrumentation lives in one `internal/telemetry` package,
+  built before anything that uses it, used by every other internal package
+  through a `telemetry.View`-shaped parameter.** Why: the module has no
+  dependency on `src/common/service` today (it is a library other things
+  call), so it cannot assume it always runs inside that runtime's attempt
+  context; a package-local view that the host constructs from
+  `service.TracerProvider(ctx)`/`service.MeterProvider(ctx)` when it does, or
+  from a caller-supplied provider otherwise, keeps the module usable outside
+  a `service.Run` host. `View` builds its own instrumentation scope —
+  `go.aledante.io/FlowSeer/src/modules/localnet/access`, with
+  `semconv.SchemaURL` — from the injected `TracerProvider`/`MeterProvider`
+  rather than taking `service.Tracer(ctx)`/`service.Meter(ctx)` directly,
+  because those are scoped to the service runtime itself
+  (`src/common/service/context.go`) and the observability convention
+  requires a module that owns a scope to name it itself. Every non-standard
+  metric attribute is namespaced `flowseer.device.*` (`flowseer.device.operation`,
+  `flowseer.device.outcome`, `flowseer.device.route`, `flowseer.device.reason`);
+  only `error.type` stays a bare standard key, since
+  `docs/conventions/observability.md` forbids bare custom keys and an
+  invented `outcome`/`reason` key is exactly that.
 
 ## Requirements
 
-1. `Lane.Submit` admits work in priority order at admission and never
-   reorders after that; two `PriorityNormal` submissions land in submission
-   order. Acceptance: submit low, then high, then normal with the queue
-   otherwise idle; the lane executes high, normal, low.
+1. `lane.Queue` admits work in priority order among items still waiting at
+   admission and never reorders after a position is assigned; two
+   `PriorityNormal` submissions land in submission order. Acceptance: insert
+   low, then high, then normal into a `Queue` before any `Dequeue` call, then
+   dequeue three times; the order observed is high, normal, low. A fourth
+   item submitted after the first dequeue queues behind whatever is still
+   waiting regardless of its priority relative to the already-dequeued item.
 2. `Lane.Submit` rejects new work once the per-device queue is at its
    configured bound, returning a typed overload error, and never silently
    drops an already-admitted mutation. Acceptance: fill the queue to its
@@ -183,12 +204,14 @@ until it exists — the code and tests do not depend on measuring it.
    result is the SSH failure.
 7. A firmware fingerprint change invalidates every route-evidence entry for
    the device, blocks a mutation admitted under the old fingerprint with
-   `BLOCK_REASON_FIRMWARE_EPOCH_CHANGED`, forces `epoch.Probe` again, and
-   leaves the lane's position counter unchanged across the invalidation.
+   `BLOCK_REASON_FIRMWARE_EPOCH_CHANGED`, and forces `epoch.Probe` again.
    Acceptance: admit evidence under fingerprint A, change to fingerprint B
    via a probe result, submit a mutation whose intent still names A; the
-   mutation is blocked and the next lane position after recovery is exactly
-   one more than before the block, not reset.
+   mutation is blocked and every route-evidence entry recorded under A is
+   gone. (Decision 7's further rule that central's own `sequence` is never
+   reset by this is central's bookkeeping, out of scope here per "Out of
+   scope"; this plan only owns the edge-local lane position, which
+   `lane.Queue`'s own tests cover directly, not through this requirement.)
 8. The mutation state machine only reaches `POSSIBLY_APPLIED` after this
    package emits a `CheckpointAck` for a `CheckpointRequest` naming the same
    sequence, and only submits a command after `SubmissionCredentialSource`
@@ -227,13 +250,17 @@ until it exists — the code and tests do not depend on measuring it.
     blocking. Acceptance: feed an out-of-band observation whose description
     differs from the last known expected value under each mode; assert the
     block in one and the auto-admitted intent in the other.
-13. A control-plane freeze stops new admission and new device-facing side
-    effects but does not stop an already-checkpointed mutation's terminal
-    acknowledgement from completing once its observation is already known.
+13. A control-plane freeze stops new admission outright and pauses (never
+    fails or disposes) a checkpointed mutation's submission step until
+    `Unfreeze`, while an already-checkpointed mutation whose observation is
+    already known still reaches its terminal acknowledgement while frozen.
     Acceptance: freeze the lane after a mutation reaches `VERIFIED` but
     before `ACKNOWLEDGED`; feed the `TerminalResultAck`; the lane still
-    reaches `RELEASED` for that mutation while a concurrent new `Submit`
-    call is rejected until `Unfreeze`.
+    reaches `RELEASED` for that mutation. Separately, freeze the lane after
+    `CheckpointAck` but before submission for a second mutation; `Execute`
+    blocks (no command sent, no phase transition, no disposition) until
+    `Unfreeze`, then proceeds normally; a concurrent new `Submit` call is
+    rejected until `Unfreeze`.
 14. Cancellation delivered between `CheckpointAck` and the submission call
     is honored (the command is never sent) and cancellation delivered after
     submission is not (the state machine proceeds to observe, per
@@ -252,17 +279,22 @@ until it exists — the code and tests do not depend on measuring it.
     Acceptance: `Lane.Submit` for a mutation on a device with empty evidence
     triggers exactly one probe call before the mutation's own route
     resolution.
-17. An exporter failure (the injected `TracerProvider`/`MeterProvider`
-    returning an error, or a no-op fallback) does not block or fail any
-    operation; only the `Deliverer` failure in requirement 15 can. Acceptance:
-    a telemetry view whose span-ending call panics-if-called-twice style
-    fake still lets a full mutation reach `RELEASED`.
+17. An exporter failure does not block or fail any operation; only the
+    `Deliverer` failure in requirement 15 can. Acceptance: a `View` built
+    from a real SDK `TracerProvider`/`MeterProvider` whose configured
+    exporter always returns an error still lets a full mutation reach
+    `RELEASED`; the span and metric point are simply never exported.
 18. `Lane.Close` (or context cancellation of the lane's run loop) stops
     admitting new work, waits for in-flight operations up to a configured
     deadline, and returns rather than blocking forever if a fake `Deliverer`
-    or credential source never responds. Acceptance: a `Deliverer` fake that
-    never returns still lets `Close` return once its deadline elapses, with
-    a reported count of abandoned-in-place operations.
+    or credential source never responds. An operation whose audit delivery
+    has not completed when the deadline elapses is reported as undelivered
+    and is never marked released (consistent with requirement 15); "undelivered"
+    is deliberately not "abandoned," which names a distinct terminal
+    disposition (`OPERATION_PHASE_ABANDONED`) this is not. Acceptance: a
+    `Deliverer` fake that never returns still lets `Close` return once its
+    deadline elapses, reporting that operation as undelivered and not
+    released.
 
 ## Out of scope
 
@@ -341,33 +373,120 @@ channel closes; context cancellation stops the adapter's goroutine (no
 leaked goroutine, asserted with a done-channel).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/credential`
 
-### U4. Mutation state machine
+### U4. OpenTelemetry instrumentation
+Files: `src/modules/localnet/access/internal/telemetry/{doc.go,view.go,events.go,spans.go,metrics.go,telemetry_test.go}`
+After: none
+Change: `telemetry.View` bundles a `trace.Tracer`, `metric.Meter`,
+`*slog.Logger`, and `propagation.TextMapPropagator`, each built by the host
+from its own `TracerProvider`/`MeterProvider` (via `service.TracerProvider(ctx)`/
+`service.MeterProvider(ctx)` when run under `src/common/service`, or a
+directly supplied provider otherwise) with this module's own instrumentation
+scope name and `semconv.SchemaURL` — never `service.Tracer(ctx)`/
+`service.Meter(ctx)` directly, which are scoped to the service runtime
+itself. Every other internal package takes a `telemetry.View` rather than
+reading a global. `events.go` emits the nine named events
+(`flowseer.device.route.selected`, `flowseer.device.route.fallback`,
+`flowseer.device.discovery.completed`, `flowseer.device.firmware.epoch_changed`,
+`flowseer.device.recovery.started`, `flowseer.device.drift.detected`,
+`flowseer.device.lane.frozen`, `flowseer.device.lane.blocked`,
+`flowseer.device.lane.released`) as `otel.event.name`-tagged log records per
+the observability convention. `spans.go` starts `flowseer.device.route`
+(CLIENT — the actual outbound SNMP/SSH call to the device) and
+`flowseer.device.operation` (INTERNAL — the bounded admission-to-result
+stage that is not itself a remote call), the route span a child of the
+operation span on the ordinary path and linked rather than parented across a
+recovery retry boundary, with the extract-before-policy rule from the
+trace-propagation solution when the envelope carries a `traceparent`.
+`metrics.go` defines a `flowseer.device.operation.duration` histogram
+(unit `s`) and a `flowseer.device.route.selections` counter (unit
+`{selection}`), each capped to at most two attributes drawn only from
+`{flowseer.device.operation, flowseer.device.outcome, flowseer.device.route,
+flowseer.device.reason, error.type}` — every non-standard key namespaced,
+per the observability convention's ban on bare custom keys.
+Tests: every metric recording call asserts its attribute set has at most two
+keys, each from the allowlist and each `flowseer.*`-namespaced except
+`error.type` (a table-driven test enumerating every call site); event and
+span names match the task's literal list via a constants table; a `View`
+built from a real SDK `TracerProvider`/`MeterProvider` whose exporter always
+errors still lets a full mutation reach `RELEASED` (requirement 17); a trace
+propagated through a `traceparent` on `ExecuteRequest` links
+`flowseer.device.route` to it per the durable-hop rule.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/telemetry`
+
+### U5. Control-plane freeze
+Files: `src/modules/localnet/access/internal/freeze/{doc.go,freeze.go,freeze_test.go}`
+After: U4
+Change: `freeze.Gate` exposes `AllowSideEffect() bool` and
+`AllowAcknowledgement() bool` (the latter always `true` — the acknowledgement
+barrier is never gated) plus `AwaitSideEffect(ctx) error`, which blocks until
+`AllowSideEffect()` is true, `ctx` ends, or `Unfreeze` is called, so a caller
+in `mutation.Execute` (U7) pauses at the submission step while frozen instead
+of failing or transitioning phase — freezing manufactures no terminal
+disposition for work it merely delays. `Freeze`/`Unfreeze` are idempotent and
+each transition emits `flowseer.device.lane.frozen`/`.lane.released` via the
+injected `telemetry.View`.
+Tests: `AwaitSideEffect` blocks while frozen and returns immediately once
+`Unfreeze` is called or immediately if never frozen; `ctx` cancellation while
+blocked returns its error rather than hanging; double-freeze and
+double-unfreeze are no-ops and emit the event once each; `AllowAcknowledgement`
+is always `true` regardless of freeze state.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/freeze`
+
+### U6. Audit event construction and pre-release delivery
+Files: `src/modules/localnet/access/internal/audit/{doc.go,event.go,event_test.go}`
+After: none
+Change: `audit.Deliverer` interface (`Deliver(ctx,
+*eventv1.DeviceOperationEvent) error`); `audit.Build*` functions construct
+each of the nine `detail` kinds from typed inputs (`BuildPhaseTransitioned`,
+`BuildLaneBlocked`, ..., `BuildLaneFrozen`), filling `event_id` fresh,
+`occurred_at` from an injected clock, and bounded `attributes`/
+`correlation_ids` (idempotency key, trace id if present) within the proto's
+`max_pairs` limits. This package has no dependency on `mutation`; U7 takes an
+`audit.Deliverer` as a constructor input and calls it from its own release
+step, rather than this unit amending mutation code after the fact.
+Tests: each `Build*` function against its message's `buf.validate` rules
+(field presence, bounded maps) using the generated validators; a fake
+`Deliverer` returning an error, used by U7's requirement 17/15 tests.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/audit`
+
+### U7. Mutation state machine
 Files: `src/modules/localnet/access/internal/mutation/{doc.go,state.go,state_test.go,checkpoint.go,checkpoint_test.go}`
-After: U1, U3
+After: U1, U3, U4, U5, U6
 Change: a typestate over `accessv1.OperationPhase` with one constructor per
-legal entry (`Admitted`) and one method per legal transition
+legal entry (`Admitted(req *integrationv1.ExecuteRequest, deps)`, taking the
+whole `ExecuteRequest` so `sequence` arrives with the work — see the
+Decisions section's `SubmitOptions` fix) and one method per legal transition
 (`Checkpoint(CheckpointRequest) (CheckpointAck, error)`,
 `Execute(ctx) error`, `Observe(ctx) (*InterfaceObservation, error)`,
 `Compare() Disposition`, `Result() *ExecuteResult`), each rejecting a call
 out of order with a typed programming-error rather than silently
-transitioning. `Execute` calls `SubmissionCredentialSource.Open`, checks the
-latest pulse is `AUTHORIZED` before calling the capability's
-`SetDescriptionChange`/shell adapter, and stops (no call) if the pulse is
-`REVOKED` or the context is canceled before submission. Route resolution
-inside `Execute`/`Observe` consults `evidence.Store` first, honors an
-explicit pin from `Lane.Submit` (U6) with no fallback on a pinned failure,
-and otherwise calls `interfaces.SelectRoute`/`Read`.
+transitioning. `deps` bundles a `telemetry.View` (U4), a `freeze.Gate` (U5),
+and an `audit.Deliverer` (U6) as constructor inputs, so freeze and audit
+integration are part of the type from the start rather than a later
+amendment. `Execute` first calls `freeze.Gate.AwaitSideEffect(ctx)`, then
+`SubmissionCredentialSource.Open`, checks the latest pulse is `AUTHORIZED`
+before calling the capability's `SetDescriptionChange`/shell adapter, and
+stops (no call) if the pulse is `REVOKED` or the context is canceled before
+submission. Route resolution inside `Execute`/`Observe` consults
+`evidence.Store` first, honors an explicit pin carried on `SubmitOptions`
+(the facade, U10) with no fallback on a pinned failure, and otherwise calls
+`interfaces.SelectRoute`/`Read`. The release step calls
+`audit.Deliverer.Deliver` and blocks on its return before reporting a phase
+released (requirement 15).
 Tests: full happy path phase-by-phase; checkpoint-then-revoked-pulse blocks
 submission; cancellation before submission blocks it, cancellation after
 does not (requirement 14); conflicting reads yield `BLOCK_REASON_
 CONFLICTING_READS` (requirement 10); pinned route failure with no fallback
 (requirement 6); calling a transition out of order returns the typed error
-without panicking.
+without panicking; `Execute` blocks on a frozen `Gate` and proceeds once
+unfrozen with no phase transition recorded meanwhile (requirement 13); a
+`Deliverer` error at release leaves the reported phase at its last durable
+value, not `RELEASED` (requirement 17's audit half).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/mutation`
 
-### U5. Recovery and abandonment
+### U8. Recovery and abandonment
 Files: `src/modules/localnet/access/internal/recovery/{doc.go,recovery.go,recovery_test.go}`
-After: U4
+After: U4, U7
 Change: `recovery.Runner` takes a state-machine handle in `RECOVERING`, an
 injected `Fenced func() bool` (decision 8's positive-fence input, out of
 scope to implement here), and `DelayedEffect`; `Observe` is always called
@@ -385,90 +504,28 @@ later unrelated `Lane.Submit` for the same device until resolved
 (requirement 11).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/recovery`
 
-### U6. Drift detection and management modes
+### U9. Drift detection and management modes
 Files: `src/modules/localnet/access/internal/drift/{doc.go,drift.go,drift_test.go}`
 After: U4
-Change: `drift.Evaluate(observed, expected *InterfaceObservation, mode
-inventoryv1.DeviceManagementMode) (*Outcome)` compares a fresh observation
-against the last expected value with no in-flight mutation explaining a
-difference; under `OPERATOR_MANAGED` it returns a block outcome
-(`BLOCK_REASON_DESYNCHRONIZED`); under `AUTHORITATIVE` it returns an
-auto-admit outcome carrying a `MutationIntent` built with a `SystemActor{
-reason: SYSTEM_REASON_RECONCILIATION}` restoring the expected value, for the
-caller (`Lane`) to submit at `PriorityHigh`.
-Tests: no drift when observation matches expected; block outcome under
+Change: `drift.Evaluate(observed *accessv1.InterfaceObservation, lastIntent
+*accessv1.InterfaceDescriptionChange, mode inventoryv1.DeviceManagementMode)
+(*Outcome)` compares a fresh observation against the last *acknowledged
+intent* — reusing `interfaces.DescriptionApplied`'s comparison rather than
+fabricating a synthetic "expected observation" the device never produced,
+since `InterfaceObservation` has required, CEL-constrained fields
+(`completeness`, provenance) that no invented value can honestly satisfy —
+with no in-flight mutation explaining a difference. Under `OPERATOR_MANAGED`
+it returns a block outcome (`BLOCK_REASON_DESYNCHRONIZED`); under
+`AUTHORITATIVE` it returns an auto-admit outcome carrying a `MutationIntent`
+built with a `SystemActor{reason: SYSTEM_REASON_RECONCILIATION}` restoring
+`lastIntent`'s value, for the caller (`Lane`) to submit at `PriorityHigh`.
+Tests: no drift when observation matches `lastIntent`; block outcome under
 `OPERATOR_MANAGED` (requirement 12); auto-admit outcome under
 `AUTHORITATIVE` with the reconciliation intent's fields asserted; an
 in-flight mutation on the same field suppresses drift (it is the mutation's
-own observation, not drift).
+own observation, not drift); a `PARTIAL` observation never drifts (partial
+carries no authority, per `interfaces.ConflictingReads`'s doc comment).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/drift`
-
-### U7. Control-plane freeze
-Files: `src/modules/localnet/access/internal/freeze/{doc.go,freeze.go,freeze_test.go}`
-After: U4
-Change: `freeze.Gate` wraps admission and command-submission checks: while
-frozen, `Lane.Submit` and `mutation.Execute`'s submission step both fail
-fast with a typed frozen error, but a state machine already past submission
-(awaiting or processing `TerminalResultAck`) is unaffected — `Gate` exposes
-`AllowSideEffect() bool` and `AllowAcknowledgement() bool` separately so the
-acknowledgement barrier is never gated. `Freeze`/`Unfreeze` are idempotent
-and each transition is the caller's cue to emit `lane.frozen`/
-`lane.released`.
-Tests: submission blocked while frozen; an in-flight mutation's terminal
-ack still completes while frozen (requirement 13); double-freeze and
-double-unfreeze are no-ops; unfreeze immediately allows a queued submission
-that was rejected moments before to succeed on retry.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/freeze`
-
-### U8. Audit event construction and pre-release delivery
-Files: `src/modules/localnet/access/internal/audit/{doc.go,event.go,event_test.go}`
-After: U4
-Change: `audit.Deliverer` interface (`Deliver(ctx,
-*eventv1.DeviceOperationEvent) error`); `audit.Build*` functions construct
-each of the nine `detail` kinds from state-machine and lane inputs
-(`BuildPhaseTransitioned`, `BuildLaneBlocked`, ...,
-`BuildLaneFrozen`), filling `event_id` fresh, `occurred_at` from an injected
-clock, and bounded `attributes`/`correlation_ids` (idempotency key, trace id
-if present) within the proto's `max_pairs` limits. `mutation.state.go`'s
-release step (U4) is amended to call `Deliverer.Deliver` and block on its
-return before reporting a phase released.
-Tests: each `Build*` function against its message's `buf.validate` rules
-(field presence, bounded maps) using the generated validators; the
-release-blocks-on-deliver ordering (requirement 15) with a controllable
-fake; a `Deliver` error propagates as the operation's own error rather than
-being swallowed.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/audit`
-
-### U9. OpenTelemetry instrumentation
-Files: `src/modules/localnet/access/internal/telemetry/{doc.go,view.go,events.go,spans.go,metrics.go,telemetry_test.go}`
-After: U4
-Change: `telemetry.View` bundles a `trace.Tracer`, `metric.Meter`,
-`*slog.Logger`, and `propagation.TextMapPropagator`, constructed by the host
-from `service.Tracer(ctx)` etc. when run under `src/common/service`, or from
-directly supplied no-op/real values otherwise; every other internal package
-takes a `telemetry.View` rather than reading a global. `events.go` emits the
-nine named events (`flowseer.device.route.selected`,
-`flowseer.device.route.fallback`, `flowseer.device.discovery.completed`,
-`flowseer.device.firmware.epoch_changed`, `flowseer.device.recovery.started`,
-`flowseer.device.drift.detected`, `flowseer.device.lane.frozen`,
-`flowseer.device.lane.blocked`, `flowseer.device.lane.released`) as
-`otel.event.name`-tagged log records per the observability convention.
-`spans.go` starts `flowseer.device.operation` (CLIENT, one per admitted
-lane item, ending on `Result()`) and `flowseer.device.route` (INTERNAL,
-one per `SelectRoute`/pin resolution) with the extract-before-policy and
-link-not-parent rules from the trace-propagation solution when the envelope
-carries a `traceparent`. `metrics.go` defines the operation-duration
-histogram and a route/recovery counter, each capped to at most two
-attributes drawn only from `{operation class, outcome, route kind, reason,
-error.type}`.
-Tests: every metric recording call asserts its attribute set has at most
-two keys and each key is from the allowlist (a table-driven test enumerating
-every call site); event names and span names match the task's literal list
-via a constants table; a disabled-tracer view (no-op tracer) still lets a
-full mutation reach `RELEASED` (requirement 17); a trace propagated through
-a `traceparent` on `ExecuteRequest` links `flowseer.device.route` to it per
-the durable-hop rule.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access/internal/telemetry`
 
 ### U10. Lane orchestrator and facade
 Files: `src/modules/localnet/access/lane.go`, `src/modules/localnet/access/lane_test.go`,
