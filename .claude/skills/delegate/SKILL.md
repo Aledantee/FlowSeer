@@ -128,7 +128,11 @@ does not run the verifier. After every `worker_done`, merge the worker's
 branch into this worktree and run the verifier once, sandbox disabled, on the
 union of changed paths. When `check --wait` returns nothing, look at
 `git status` in the worker's worktree before calling it stalled: a written
-file with no commit means the worker is still testing.
+file with no commit means the worker is still testing. A clean tree, a
+final commit, and an agent that says Orca is not running means the worker
+sent its report from inside the sandbox: read its terminal tail for the
+summary, merge the branch, `worker-stop` then `worker-abandon` the
+dispatch, and mark the task completed by hand.
 
 Update the worktree comment at each checkpoint:
 
@@ -190,6 +194,20 @@ A delegate has none of this conversation. The brief states, in order:
 6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, or `.claude/settings.json`, no
    plan labels in code.
+6. For an Orca worker, how to reach Orca from inside its own sandbox. Copy
+   this paragraph into the brief verbatim:
+
+   > Every `orca` command (`orchestration send`, `check`, `ask`,
+   > `heartbeat`, `worker_done`) must run through the Bash tool with the
+   > parameter `dangerouslyDisableSandbox` set to `true`. The sandbox blocks
+   > Orca's local socket, and a sandboxed call reports "Orca is not running"
+   > even though it is. `buf generate` and the verifier script need the same
+   > setting. Send `worker_done` that way, once, with the injected task and
+   > dispatch ids.
+
+   A worker that does not get this finishes its work and cannot report it;
+   the coordinator then finds a committed branch with no `worker_done`,
+   settles the dispatch by hand, and loses the worker's summary.
 
 A brief for `Explore` or `repo-researcher` names the directories to search and
 leaves out `docs/plans/` unless the question is about a plan; the tree, the
