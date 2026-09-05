@@ -178,6 +178,85 @@ func counter64Var(entry snmp.OID, col, idx uint32, value uint64) vbFixture {
 	}}
 }
 
+// integerAt builds an INTEGER varbind for the instance of col at idx.
+// The column carries its own OID, so a fixture needs no entry constant.
+func integerAt(col snmp.AnyColumn, value int32, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.Integer32Var{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindInteger32},
+		Value:  value,
+	}}
+}
+
+// stringAt builds an OCTET STRING varbind for the instance of col at idx.
+func stringAt(col snmp.AnyColumn, value []byte, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.OctetStringVar{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindOctetString},
+		Value:  value,
+	}}
+}
+
+// counter32At builds a Counter32 varbind for the instance of col at idx.
+func counter32At(col snmp.AnyColumn, value uint32, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.Counter32Var{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindCounter32},
+		Value:  value,
+	}}
+}
+
+// counter64At builds a Counter64 varbind for the instance of col at idx.
+func counter64At(col snmp.AnyColumn, value uint64, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.Counter64Var{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindCounter64},
+		Value:  value,
+	}}
+}
+
+// gauge32At builds a Gauge32 varbind for the instance of col at idx.
+func gauge32At(col snmp.AnyColumn, value uint32, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.Gauge32Var{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindGauge32},
+		Value:  value,
+	}}
+}
+
+// objectIDAt builds an OBJECT IDENTIFIER varbind for the instance of col
+// at idx.
+func objectIDAt(col snmp.AnyColumn, value snmp.OID, idx ...uint32) vbFixture {
+	oid := col.OID().Append(idx...)
+
+	return vbFixture{oid: oid, vb: snmp.ObjectIDVar{
+		Header: snmp.Header{OID: oid, Kind: snmp.KindObjectID},
+		Value:  value,
+	}}
+}
+
+// bitsAt builds the OCTET STRING varbind a BITS column travels in, with
+// the given positions set: position p is bit 7-(p%8) of octet p/8, the
+// order RFC 2578 defines.
+func bitsAt(col snmp.AnyColumn, positions []uint32, idx ...uint32) vbFixture {
+	var octets []byte
+
+	for _, p := range positions {
+		for int(p/8) >= len(octets) {
+			octets = append(octets, 0)
+		}
+
+		octets[p/8] |= 0x80 >> (p % 8)
+	}
+
+	return stringAt(col, octets, idx...)
+}
+
 // stackVar builds the ifStackStatus varbind declaring that interface
 // higher runs over interface lower.
 func stackVar(higher, lower uint32) vbFixture {
