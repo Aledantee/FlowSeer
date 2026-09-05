@@ -9,23 +9,23 @@ import (
 // purposes. OperationKind distinguishes capabilities and, deliberately, a
 // mutation's own kind from a read's — a Coalescer key is only ever built
 // for a TypedRead in this module, never for a MutationIntent, so the two
-// never share a ticket even when Target names the same interface.
+// never share a Ticket even when Target names the same interface.
 type CoalesceKey struct {
 	Device        string
 	OperationKind string
 	Target        string
 }
 
-// ticket is the shared result one coalesced group of callers waits on.
-type ticket struct {
+// Ticket is the shared result one coalesced group of callers waits on.
+type Ticket struct {
 	done   chan struct{}
 	result any
 	err    error
 }
 
-// Wait blocks until the ticket's owner calls [Coalescer.Finish] for its key
+// Wait blocks until the Ticket's owner calls [Coalescer.Finish] for its key
 // or ctx is done, whichever comes first.
-func (t *ticket) Wait(ctx context.Context) (any, error) {
+func (t *Ticket) Wait(ctx context.Context) (any, error) {
 	select {
 	case <-t.done:
 		return t.result, t.err
@@ -40,32 +40,32 @@ func (t *ticket) Wait(ctx context.Context) (any, error) {
 // ready to use.
 type Coalescer struct {
 	mu       sync.Mutex
-	inflight map[CoalesceKey]*ticket
+	inflight map[CoalesceKey]*Ticket
 }
 
 // Start reports whether the caller is the first for key. When isNew is
 // true, the caller must do the work and call Finish exactly once with key;
 // every subsequent Start for the same key before Finish returns the same
-// ticket with isNew false, and the caller should Wait on it instead.
-func (c *Coalescer) Start(key CoalesceKey) (t *ticket, isNew bool) {
+// Ticket with isNew false, and the caller should Wait on it instead.
+func (c *Coalescer) Start(key CoalesceKey) (t *Ticket, isNew bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.inflight == nil {
-		c.inflight = make(map[CoalesceKey]*ticket)
+		c.inflight = make(map[CoalesceKey]*Ticket)
 	}
 
 	if existing, ok := c.inflight[key]; ok {
 		return existing, false
 	}
 
-	t = &ticket{done: make(chan struct{})}
+	t = &Ticket{done: make(chan struct{})}
 	c.inflight[key] = t
 
 	return t, true
 }
 
-// Finish delivers result and err to every caller waiting on key's ticket
+// Finish delivers result and err to every caller waiting on key's Ticket
 // and removes key from the in-flight set so the next Start for key admits
 // fresh work.
 func (c *Coalescer) Finish(key CoalesceKey, result any, err error) {

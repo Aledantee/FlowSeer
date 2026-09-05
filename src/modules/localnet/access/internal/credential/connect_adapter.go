@@ -87,7 +87,7 @@ type submissionStream interface {
 
 func relaySubmissionUpdates(ctx context.Context, stream submissionStream, updates chan<- SubmissionUpdate) {
 	defer close(updates)
-	defer stream.Close()
+	defer func() { _ = stream.Close() }()
 
 	for stream.Receive() {
 		msg := stream.Msg()

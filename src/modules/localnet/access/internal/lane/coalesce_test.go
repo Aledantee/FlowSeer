@@ -19,7 +19,7 @@ func TestCoalescerSharesOneResultAcrossConcurrentCallers(t *testing.T) {
 
 	second, isNew := c.Start(key)
 	if isNew {
-		t.Fatal("expected the second caller to join the in-flight ticket")
+		t.Fatal("expected the second caller to join the in-flight Ticket")
 	}
 
 	var wg sync.WaitGroup
