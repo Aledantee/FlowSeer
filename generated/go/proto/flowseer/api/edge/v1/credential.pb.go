@@ -4,11 +4,10 @@
 // 	protoc        (unknown)
 // source: flowseer/api/edge/v1/credential.proto
 
-// The two device-credential lifecycles decision 9 of the verified-device-
-// access record describes: a read credential for reads and preflight, and
-// a one-use submission grant that opens only after central's checkpoint
-// and carries the authority pulses the edge checks before each command.
-// Both ride these authenticated Connect calls and never the bus.
+// A read credential for reads and preflight, and a one-use submission grant
+// that opens only after central's checkpoint and carries the authority
+// pulses the edge checks before each command. Both ride authenticated
+// Connect calls and never the bus.
 
 package edgev1
 
@@ -185,9 +184,7 @@ func (b0 DeviceCredential_builder) Build() *DeviceCredential {
 }
 
 // Requests a read credential for a binding, under the device's pinned
-// access policy. The device and the binding are named as opaque
-// identifiers rather than typed refs, because api/inventory imports
-// api/edge and importing api/inventory back here would cycle the graph.
+// access policy.
 type AcquireReadCredentialRequest struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_DeviceId     *string                `protobuf:"bytes,1,opt,name=device_id,json=deviceId"`
