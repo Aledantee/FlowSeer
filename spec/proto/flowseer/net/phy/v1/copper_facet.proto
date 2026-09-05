@@ -1,0 +1,23 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/poe_facet.proto";
+import "flowseer/net/phy/v1/poe_port_detail.proto";
+import "flowseer/net/phy/v1/poe_settings.proto";
+
+// Facts only a copper Ethernet transport can have. Power over Ethernet is
+// delivered over the twisted pairs, so its intent, delivery state, and
+// per-port detail live here and nowhere else on the facet.
+message CopperFacet {
+  // Requested Power over Ethernet settings. Absent means no intent was
+  // supplied.
+  PoeSettings poe_settings = 1;
+  // Power over Ethernet capability and delivery state. Absent means the
+  // source supplied no PoE information.
+  PoeFacet poe = 2;
+  // The PSE port row behind the delivery state, with its source-local key
+  // and fault counters. Absent means the source reported no port row or
+  // the row could not be joined to this interface.
+  PoePortDetail poe_detail = 3;
+}

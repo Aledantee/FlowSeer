@@ -1,0 +1,36 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+import "flowseer/net/phy/v1/pse_oper_status.proto";
+import option "buf/validate/validate.proto";
+
+// The power budget of one power-sourcing group, per the pethMainPseTable of
+// the RFC 3621 Power Ethernet MIB
+// (https://www.rfc-editor.org/rfc/rfc3621.html). The group is a box in a
+// stack or a module in a rack; its index is the MIB's own key, not a
+// reference to any entity, so the value stands on its own until a home
+// embeds it.
+message PseBudget {
+  // The PSE group, per pethMainPseGroupIndex. Must be present.
+  uint32 pse_group = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.gt = 0
+  ];
+  // Nominal power of the group in milliwatts, per pethMainPsePower. Absent
+  // means unreported; zero is invalid when present.
+  uint32 power_milliwatts = 2 [(buf.validate.field).uint32.gt = 0];
+  // Operational status of the group. Absent means unreported.
+  PseOperStatus oper_status = 3;
+  // Measured power consumption of the group in milliwatts, per
+  // pethMainPseConsumptionPower. Absent means unreported; zero is an
+  // explicit zero-power measurement.
+  uint32 consumption_milliwatts = 4;
+  // Percentage of nominal power at which the source raises an alarm, per
+  // pethMainPseUsageThreshold. Absent means unreported; a present value is
+  // between 1 and 99 inclusive.
+  uint32 usage_threshold_percent = 5 [(buf.validate.field).uint32 = {
+    gte: 1
+    lte: 99
+  }];
+}

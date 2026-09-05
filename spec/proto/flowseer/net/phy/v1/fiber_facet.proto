@@ -1,0 +1,9 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Facts only an optical-fiber Ethernet transport can have. The arm carries
+// no fields yet: module identity and optical diagnostics belong to the
+// pluggable module on the facet, because a copper module in the same cage
+// reports them too. Presence of the arm states the medium.
+message FiberFacet {}

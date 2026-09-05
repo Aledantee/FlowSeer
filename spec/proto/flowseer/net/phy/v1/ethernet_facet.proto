@@ -3,16 +3,22 @@ edition = "2024";
 package flowseer.net.phy.v1;
 
 import "flowseer/net/phy/v1/auto_negotiation_facet.proto";
+import "flowseer/net/phy/v1/backplane_facet.proto";
+import "flowseer/net/phy/v1/copper_facet.proto";
 import "flowseer/net/phy/v1/ethernet_capabilities.proto";
+import "flowseer/net/phy/v1/ethernet_counters.proto";
 import "flowseer/net/phy/v1/ethernet_duplex.proto";
 import "flowseer/net/phy/v1/ethernet_fec_mode.proto";
-import "flowseer/net/phy/v1/ethernet_medium.proto";
-import "flowseer/net/phy/v1/poe_facet.proto";
-import "flowseer/net/phy/v1/transceiver_facet.proto";
+import "flowseer/net/phy/v1/fiber_facet.proto";
+import "flowseer/net/phy/v1/mau_link_mode.proto";
+import "flowseer/net/phy/v1/mau_type.proto";
+import "flowseer/net/phy/v1/other_transport.proto";
 import option "buf/validate/validate.proto";
 
 // Physical Ethernet attributes embedded by a physical interface kind. The
-// facet carries no interface or device identity.
+// facet carries no interface or device identity. Fields 1 through 9 and 30
+// and up are link facts every transport shares; the transport oneof holds
+// the facts only one medium can have.
 message EthernetFacet {
   option (buf.validate.message).cel = {
     id: "ethernet_facet.auto_negotiation_requires_support"
@@ -23,14 +29,9 @@ message EthernetFacet {
       "!has(this.applied_auto_negotiation.enabled) || !this.applied_auto_negotiation.enabled"
   };
 
-  // The link medium. Absent means the source did not report a medium.
-  EthernetMedium medium = 1;
-  // Power over Ethernet capability and state. Absent means the source supplied
-  // no PoE information.
-  PoeFacet poe = 2;
-  // Pluggable-transceiver presence and identity. Absent means the source
-  // supplied no transceiver information.
-  TransceiverFacet transceiver = 3;
+  reserved 1, 2, 3;
+  reserved medium, poe, transceiver;
+
   // Active forward-error-correction mode. Absent means no mode was reported.
   EthernetFecMode fec_mode = 4;
   // Physical-link capabilities. Absent means the source supplied no
@@ -45,4 +46,37 @@ message EthernetFacet {
   // Applied auto-negotiation value and progress. Absent means the source
   // supplied no running auto-negotiation facts.
   AutoNegotiationFacet applied_auto_negotiation = 8;
+  // The operational MAU type, per the ifMauType object of the RFC 4836 MAU
+  // MIB (https://www.rfc-editor.org/rfc/rfc4836.html). Absent means the
+  // source did not report a type or reported the unknown sentinel.
+  MauType mau_type = 9;
+
+  // The physical transport, when the source reported one. Absent means no
+  // transport was reported; a present arm carries only the facts that
+  // transport can have, and each may be sparsely populated.
+  oneof transport {
+    // Twisted-pair or another electrical copper medium.
+    CopperFacet copper = 10;
+    // An optical-fiber medium.
+    FiberFacet fiber = 11;
+    // A chassis or system backplane.
+    BackplaneFacet backplane = 12;
+    // A reported transport outside the named arms.
+    OtherTransport other = 13;
+  }
+
+  // Link modes this port advertised during auto-negotiation, per the
+  // ifMauAutoNegCapAdvertisedBits object of the RFC 4836 MAU MIB
+  // (https://www.rfc-editor.org/rfc/rfc4836.html). The list is an exact set;
+  // duplicates are invalid and unnamed modes remain valid. Empty means the
+  // source reported no advertised modes.
+  repeated MauLinkMode advertised_link_modes = 30 [(buf.validate.field).repeated.unique = true];
+  // Link modes the link partner advertised, per the
+  // ifMauAutoNegCapReceivedBits object of the RFC 4836 MAU MIB
+  // (https://www.rfc-editor.org/rfc/rfc4836.html). Same set rules as
+  // advertised_link_modes.
+  repeated MauLinkMode received_link_modes = 31 [(buf.validate.field).repeated.unique = true];
+  // Ethernet-specific error counters. Absent means the source reported no
+  // Ethernet counters at all; individual counters carry their own presence.
+  EthernetCounters counters = 32;
 }

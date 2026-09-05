@@ -1,0 +1,84 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// A link mode an Ethernet port can advertise or receive during
+// auto-negotiation. Integers are the bit positions of the
+// IANAifMauAutoNegCapBits textual convention in the IANA-MAU-MIB
+// (https://www.iana.org/assignments/ianamau-mib), mirroring IEEE 802.3
+// Clause 28 and Clause 73 technology abilities. Names put the PHY family
+// first and the rate last as a letter-prefixed token (MBPS10, GBPS1), because
+// a name segment cannot start with a digit; a mode without a
+// FULL suffix is half duplex where the standard has both. Unnamed positions
+// remain valid modes. Zero is a real mode, so a mode list is empty rather
+// than zero-filled when nothing was advertised.
+enum MauLinkMode {
+  // A mode outside the assigned positions.
+  MAU_LINK_MODE_OTHER = 0;
+  // 10BASE-T half duplex.
+  MAU_LINK_MODE_BASE_T_MBPS10 = 1;
+  // 10BASE-T full duplex.
+  MAU_LINK_MODE_BASE_T_MBPS10_FULL = 2;
+  // 100BASE-T4.
+  MAU_LINK_MODE_BASE_T4_MBPS100 = 3;
+  // 100BASE-TX half duplex.
+  MAU_LINK_MODE_BASE_TX_MBPS100 = 4;
+  // 100BASE-TX full duplex.
+  MAU_LINK_MODE_BASE_TX_MBPS100_FULL = 5;
+  // 100BASE-T2 half duplex.
+  MAU_LINK_MODE_BASE_T2_MBPS100 = 6;
+  // 100BASE-T2 full duplex.
+  MAU_LINK_MODE_BASE_T2_MBPS100_FULL = 7;
+  // PAUSE for full-duplex links.
+  MAU_LINK_MODE_FDX_PAUSE = 8;
+  // Asymmetric PAUSE for full-duplex links.
+  MAU_LINK_MODE_FDX_ASYMMETRIC_PAUSE = 9;
+  // Symmetric PAUSE for full-duplex links.
+  MAU_LINK_MODE_FDX_SYMMETRIC_PAUSE = 10;
+  // Asymmetric and symmetric PAUSE for full-duplex links.
+  MAU_LINK_MODE_FDX_BOTH_PAUSE = 11;
+  // 1000BASE-X half duplex.
+  MAU_LINK_MODE_BASE_X_GBPS1 = 12;
+  // 1000BASE-X full duplex.
+  MAU_LINK_MODE_BASE_X_GBPS1_FULL = 13;
+  // 1000BASE-T half duplex.
+  MAU_LINK_MODE_BASE_T_GBPS1 = 14;
+  // 1000BASE-T full duplex.
+  MAU_LINK_MODE_BASE_T_GBPS1_FULL = 15;
+  // 10GBASE-T.
+  MAU_LINK_MODE_BASE_T_GBPS10 = 16;
+  // 1000BASE-KX.
+  MAU_LINK_MODE_BASE_KX_GBPS1 = 17;
+  // 10GBASE-KX4.
+  MAU_LINK_MODE_BASE_KX4_GBPS10 = 18;
+  // 10GBASE-KR.
+  MAU_LINK_MODE_BASE_KR_GBPS10 = 19;
+  // 40GBASE-KR4.
+  MAU_LINK_MODE_BASE_KR4_GBPS40 = 20;
+  // 40GBASE-CR4.
+  MAU_LINK_MODE_BASE_CR4_GBPS40 = 21;
+  // 100GBASE-CR10.
+  MAU_LINK_MODE_BASE_CR10_GBPS100 = 22;
+  // 1000BASE-T1.
+  MAU_LINK_MODE_BASE_T1_GBPS1 = 23;
+  // 25GBASE-R with RS-FEC.
+  MAU_LINK_MODE_BASE_RS_GBPS25 = 24;
+  // 25GBASE-R.
+  MAU_LINK_MODE_BASE_R_GBPS25 = 25;
+  // RS-FEC requested for 25 Gb/s.
+  MAU_LINK_MODE_RS_FEC_REQUESTED_GBPS25 = 26;
+  // BASE-R FEC requested for 25 Gb/s.
+  MAU_LINK_MODE_BASE_FEC_REQUESTED_GBPS25 = 27;
+  // 25GBASE-T.
+  MAU_LINK_MODE_BASE_T_GBPS25 = 28;
+  // 40GBASE-T.
+  MAU_LINK_MODE_BASE_T_GBPS40 = 29;
+  // 100GBASE-CR4.
+  MAU_LINK_MODE_BASE_CR4_GBPS100 = 30;
+  // 100GBASE-KR4.
+  MAU_LINK_MODE_BASE_KR4_GBPS100 = 31;
+  // 100GBASE-KP4.
+  MAU_LINK_MODE_BASE_KP4_GBPS100 = 32;
+  // Master-slave configuration forced rather than negotiated.
+  MAU_LINK_MODE_FORCE_MASTER_SLAVE = 33;
+}

@@ -1,0 +1,8 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// A reported transport outside the copper, fiber, and backplane arms. The
+// arm carries no fields; presence of the arm states that the source named
+// a medium the facet does not model.
+message OtherTransport {}

@@ -1,0 +1,45 @@
+edition = "2024";
+
+package flowseer.net.phy.v1;
+
+// Cumulative Ethernet-specific error counters for one port. Each counter is
+// the value the source last reported, and an absent counter means the
+// source does not report it, never a zero. Counters are monotonic between
+// device restarts; consumers difference successive observations and treat a
+// decrease as a reset. Values follow the dot3StatsTable and
+// dot3HCStatsTable objects of the RFC 3635 Ethernet-like Interface MIB
+// (https://www.rfc-editor.org/rfc/rfc3635.html); a source with both 32-bit
+// and 64-bit columns reports the 64-bit value here. Generic packet and octet
+// counters belong to the interface, not to this message.
+message EthernetCounters {
+  // Frames received that were not an integral number of octets in length
+  // and failed the frame check sequence.
+  uint64 alignment_errors = 1;
+  // Frames received that were an integral number of octets in length and
+  // failed the frame check sequence.
+  uint64 fcs_errors = 2;
+  // Frames transmitted successfully after exactly one collision.
+  uint64 single_collision_frames = 3;
+  // Frames transmitted successfully after more than one collision.
+  uint64 multiple_collision_frames = 4;
+  // Frames whose first transmission attempt was delayed because the medium
+  // was busy.
+  uint64 deferred_transmissions = 5;
+  // Collisions detected later than one slot time into the transmission.
+  uint64 late_collisions = 6;
+  // Frames whose transmission failed after excessive collisions.
+  uint64 excessive_collisions = 7;
+  // Frames whose transmission failed because of an internal MAC sublayer
+  // transmit error not counted elsewhere.
+  uint64 internal_mac_transmit_errors = 8;
+  // Times the carrier sense condition was lost or never asserted while
+  // transmitting.
+  uint64 carrier_sense_errors = 9;
+  // Frames received that exceeded the maximum permitted frame size.
+  uint64 frame_too_longs = 10;
+  // Frames whose reception failed because of an internal MAC sublayer
+  // receive error not counted elsewhere.
+  uint64 internal_mac_receive_errors = 11;
+  // Times an invalid data symbol was received while carrier was present.
+  uint64 symbol_errors = 12;
+}
