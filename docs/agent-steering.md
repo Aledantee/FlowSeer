@@ -60,9 +60,18 @@ where a domain type belongs, what evidence is persuasive, or why an apparent
 shortcut violates an architectural boundary.
 
 Use a deterministic mechanism when compliance must not depend on model behavior.
-FlowSeer uses hooks to deny edits to generated sources, format supported files,
-and run fast layout checks. Linters and tests remain authoritative. The prose
-explains the boundary and the tool enforces what can be checked mechanically.
+FlowSeer uses hooks to deny edits to generated sources, keep writes out of the
+primary checkout, format supported files, and run fast layout checks. Linters
+and tests remain authoritative. The prose explains the boundary and the tool
+enforces what can be checked mechanically. A hook that cannot tell a decision
+from a mistake reports instead of denying: the policy-surface prompt, the
+suppression notice, and the unverified-edit message at Stop all leave the
+call to the person. A guard earns its deny by being precise: the Bash guard
+judges the operands of a mutating verb rather than any command that names
+`generated/`, the edit guard resolves paths whose parent directory does not
+exist yet, and the message-sync note stays silent about members the
+file-level comment names. A guard that fires more often on legitimate work
+than on the mistake it was written for gets narrowed, not explained.
 
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.

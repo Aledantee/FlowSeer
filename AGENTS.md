@@ -104,10 +104,14 @@ no remote. The Claude worktree hook defaults to the sibling
 
 Hooks in `tools/hooks/` (registered per runtime in `.claude/settings.json` and
 `.codex/hooks.json`) deny hand-edits to `generated/` and `buf.lock`, reject
-non-source files under `spec/proto/`, auto-run gofumpt/goimports and
-`buf format`/`buf lint` on edits, and check triad and ref message sync. Both
-runtimes' Stop hooks run the repository layout checks. Hooks are fast feedback,
-not the authority — `go test -race ./...` enforces the same invariants.
+non-source files under `spec/proto/`, deny file writes in the primary checkout
+on a protected branch, prompt for approval before an edit to a policy surface,
+auto-run gofumpt/goimports and `buf format`/`buf lint` on edits, check triad
+and ref message sync (a member the file-level comment names as deliberately
+absent is not reported), and flag newly added lint suppressions. Both
+runtimes' Stop hooks run the repository layout checks and name edits the
+verifier has not seen. Hooks are fast feedback, not the authority —
+`go test -race ./...` enforces the same invariants.
 
 ## Layout
 

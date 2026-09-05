@@ -54,9 +54,16 @@ check_family() {
   local missing=""
   local suffix
   for suffix in "$@"; do
-    if ! rg -q "^[[:space:]]*message[[:space:]]+${base}${suffix}[[:space:]]*\\{" "$HOOK_ROOT/spec/proto"; then
-      missing="$missing ${base}${suffix}"
+    if rg -q "^[[:space:]]*message[[:space:]]+${base}${suffix}[[:space:]]*\\{" "$HOOK_ROOT/spec/proto"; then
+      continue
     fi
+    # docs/conventions/protobuf.md asks the file-level comment of a
+    # deliberately partial family to name the absent member. A named member
+    # is a decision, not an omission, so it is not reported.
+    if grep -Eq "^[[:space:]]*//.*\\b${base}${suffix}\\b" "$absolute_file"; then
+      continue
+    fi
+    missing="$missing ${base}${suffix}"
   done
   if [ -n "$missing" ]; then
     sync_notes="$sync_notes${sync_notes:+$'\n'}- $base: no message found for$missing"
@@ -80,7 +87,7 @@ while IFS= read -r relative_file; do
 done <<<"$proto_files"
 
 if [ -n "$sync_notes" ]; then
-  sync_message="Message sync: edited schemas have missing Config/State/Event or GlobalRef/LocalRef counterparts:"$'\n'"$sync_notes"$'\n'"Add them or record why the family is deliberately partial as described in docs/conventions/protobuf.md."
+  sync_message="Message sync: edited schemas have missing Config/State/Event or GlobalRef/LocalRef counterparts:"$'\n'"$sync_notes"$'\n'"Add them, or name each absent member and why in the file-level doc comment as docs/conventions/protobuf.md describes; a named member is not reported again."
   context="$context${context:+$'\n\n'}$sync_message"
 fi
 

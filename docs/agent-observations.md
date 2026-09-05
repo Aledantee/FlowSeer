@@ -26,3 +26,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-05 close: no rule for work that skipped the plan
+Skill or agent: `.claude/skills/close/SKILL.md`, step 1.
+What happened: the branch's work followed plan's skip rule (no design choice), so no plan under `docs/plans/` carries `status: implemented`; the first signal has nothing to read and the step was not followed as written.
+Suggested change: when the branch changed no plan of its own, accept the commit range plus a fresh verifier receipt as the implementation signal, and say so in the report.

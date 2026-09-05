@@ -19,6 +19,25 @@ hook_paths() {
       -e 's/^\*\*\* Move to: (.*)$/\1/p'
 }
 
+# Prints the physical path of a directory that may not exist yet: the
+# deepest existing ancestor is resolved through symlinks and the missing
+# suffix is appended verbatim.
+hook_canonical_dir() {
+  local candidate="$1"
+  local parent
+  local suffix=""
+
+  while [[ ! -d "$candidate" ]]; do
+    suffix="/$(basename "$candidate")$suffix"
+    parent=$(dirname "$candidate")
+    [[ "$parent" != "$candidate" ]] || return 1
+    candidate=$parent
+  done
+
+  candidate=$(cd "$candidate" 2>/dev/null && pwd -P) || return 1
+  printf '%s%s\n' "$candidate" "$suffix"
+}
+
 # Prints the repository-relative path for a candidate file.
 # Returns 1 when the path cannot be resolved safely, 2 when the path is
 # absolute and lies outside the repository (repository policy does not apply).
@@ -28,7 +47,9 @@ hook_relative_path() {
   local relative_file
 
   if [[ "$candidate_file" == /* ]]; then
-    candidate_dir=$(cd "$(dirname "$candidate_file")" 2>/dev/null && pwd -P) || return 1
+    # A Write may create the file's parent directories, so resolve the
+    # deepest ancestor that exists and reattach the missing tail unchanged.
+    candidate_dir=$(hook_canonical_dir "$(dirname "$candidate_file")") || return 1
     candidate_file="$candidate_dir/$(basename "$candidate_file")"
   fi
 
@@ -57,6 +78,12 @@ hook_absolute_path() {
 hook_deny() {
   jq -n --arg reason "$1" \
     '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"deny",permissionDecisionReason:$reason}}'
+  exit 0
+}
+
+hook_ask() {
+  jq -n --arg reason "$1" \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",permissionDecision:"ask",permissionDecisionReason:$reason}}'
   exit 0
 }
 

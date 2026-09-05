@@ -1,13 +1,40 @@
 {
   "description": "FlowSeer repository policy and edit feedback.",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+          },
+          {
+            "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/pre-tool-policy.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/worktree-guard.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/protect-generated-bash.sh\""
           }
         ]
       }
@@ -23,6 +50,23 @@
           {
             "type": "command",
             "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/proto-check.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/suppression-warn.sh\""
+          },
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/mark-verification-dirty.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$(git rev-parse --show-toplevel)/tools/hooks/mark-verification-dirty.sh\""
           }
         ]
       }
