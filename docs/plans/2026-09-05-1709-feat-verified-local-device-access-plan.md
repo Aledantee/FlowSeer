@@ -4,12 +4,16 @@ type: feat
 date: 2026-09-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Verified Local Device Access, Contracts - Plan
+
+> Implemented. The two empty decision messages on `ResolveDesynchronizationRequest`
+> are named `AcceptObservedDecision` and `RestoreExpectedDecision`, because
+> a `State` suffix reads as a triad member to the message-sync hook.
 
 ## Goal
 

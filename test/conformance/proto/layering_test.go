@@ -12,11 +12,11 @@ import (
 	"testing"
 )
 
-// importOrder declares, for every schema-bearing package under
-// spec/proto/flowseer/net, the packages it may import. A package imports itself
-// freely; anything else it imports must be listed here. Adding a package to the
-// tree is one line in this table — leaving it out fails
-// TestNetImportOrderCoversEveryPackage rather than silently escaping the order.
+// importOrder declares, for every schema-bearing package under the roots in
+// orderedRoots, the packages it may import. A package imports itself freely;
+// anything else it imports must be listed here. Adding a package to the tree
+// is one line in this table — leaving it out fails
+// TestImportOrderCoversEveryPackage rather than silently escaping the order.
 var importOrder = map[string][]string{
 	"net/addr":   nil,
 	"net/packet": nil,
@@ -29,13 +29,33 @@ var importOrder = map[string][]string{
 
 	// A protocol may import any layer below it, and never another protocol.
 	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
+
+	// Boundary packages consume the primitives and never feed them. The two
+	// leaves, api/edge and device/policy, import nothing FlowSeer-owned so
+	// that inventory can name an edge and a policy without a cycle.
+	"api/edge":      nil,
+	"device/policy": nil,
+
+	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The operation values every device-access boundary shares. They reach
+	// api/edge for the responsible edge, so a boundary that imports them
+	// reaches api/edge only through here.
+	"device/access": {"api/edge", "api/inventory", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The operator API is one of the sibling boundary consumers; the
+	// execution envelope and the audit event, when they land, import
+	// device/access the same way and never this package.
+	"api/device": {"api/inventory", "device/access", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 }
 
-// netRoot is the tree the import order governs, relative to spec/proto.
-const netRoot = "flowseer/net"
+// orderedRoots are the trees the import order governs, relative to spec/proto.
+// flowseer/service stays out: it is the process-local bus contract and no
+// boundary package may import it.
+var orderedRoots = []string{"flowseer/net", "flowseer/api", "flowseer/device"}
 
-func TestNetImportOrder(t *testing.T) {
-	for _, file := range netProtoFiles(t) {
+func TestImportOrder(t *testing.T) {
+	for _, file := range orderedProtoFiles(t) {
 		pkg := protoPackage(file.rel)
 		for _, imported := range file.imports {
 			if !strings.HasPrefix(imported, "flowseer/") {
@@ -49,9 +69,9 @@ func TestNetImportOrder(t *testing.T) {
 	}
 }
 
-func TestNetImportOrderCoversEveryPackage(t *testing.T) {
+func TestImportOrderCoversEveryPackage(t *testing.T) {
 	seen := map[string]struct{}{}
-	for _, file := range netProtoFiles(t) {
+	for _, file := range orderedProtoFiles(t) {
 		seen[protoPackage(file.rel)] = struct{}{}
 	}
 
@@ -79,7 +99,13 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "protocol imports a layer", importer: "net/protocol/lldp", imported: "net/interface", want: true},
 		{name: "protocol imports another protocol", importer: "net/protocol/lldp", imported: "net/protocol/stp"},
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
-		{name: "import outside the net tree", importer: "net/interface", imported: "api/inventory"},
+		{name: "primitive imports a boundary", importer: "net/interface", imported: "api/inventory"},
+		{name: "inventory imports a leaf boundary", importer: "api/inventory", imported: "device/policy", want: true},
+		{name: "access values import inventory", importer: "device/access", imported: "api/inventory", want: true},
+		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
+		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
+		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
+		{name: "leaf boundary imports inventory", importer: "device/policy", imported: "api/inventory"},
 	}
 
 	for _, tt := range tests {
@@ -182,16 +208,30 @@ type protoFile struct {
 	imports []string
 }
 
-// netProtoFiles collects every .proto file under spec/proto/flowseer/net with the
+// orderedProtoFiles collects every .proto file under the ordered roots with the
 // import paths it declares. Directories holding no .proto file never appear, so
 // placeholders such as net/wlan/v1 stay out of the completeness check.
-func netProtoFiles(t *testing.T) []protoFile {
+func orderedProtoFiles(t *testing.T) []protoFile {
 	t.Helper()
 
 	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
 
 	var files []protoFile
-	err := filepath.WalkDir(filepath.Join(protoRoot, netRoot), func(path string, d fs.DirEntry, err error) error {
+	for _, root := range orderedRoots {
+		files = append(files, protoFilesUnder(t, protoRoot, root)...)
+	}
+	if len(files) == 0 {
+		t.Fatalf("no schemas found under %s", strings.Join(orderedRoots, ", "))
+	}
+
+	return files
+}
+
+func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
+	t.Helper()
+
+	var files []protoFile
+	err := filepath.WalkDir(filepath.Join(protoRoot, root), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -214,10 +254,7 @@ func netProtoFiles(t *testing.T) []protoFile {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("collecting schemas under %s: %v", netRoot, err)
-	}
-	if len(files) == 0 {
-		t.Fatalf("no schemas found under %s", netRoot)
+		t.Fatalf("collecting schemas under %s: %v", root, err)
 	}
 
 	return files

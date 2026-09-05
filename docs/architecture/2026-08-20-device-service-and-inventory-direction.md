@@ -2,7 +2,7 @@
 title: Device Service, Integrations, and Inventory - Direction
 type: direction
 date: 2026-08-20
-updated: 2026-09-03
+updated: 2026-09-05
 topic: device-service-and-inventory
 status: accepted-direction
 ---
@@ -189,7 +189,7 @@ never embedding.
 | **Device** | This physical box. Identity = serial (+ base MAC). | The box changes. |
 | **Integration** | A configured adapter instance: cloud tenant, controller, or a site's local network. Kind, config, credential ref, region, request budget, and the edge that hosts it where one does. | Added/verified/retired; host moves. Independent of any device. |
 | **Edge** | An enrolled process at a site that hosts integrations. Its own entity in `api/edge/v1`: registered key, setup key record, lifecycle, contact. | Enrolled, rekeyed, or retired by an operator. Independent of the integrations it hosts. |
-| **Binding** | "Device X is reachable via integration Y at integration-local address Z" (platform id, or IP:port+protocol for the local kind). Many per device. Status CANDIDATE / VERIFIED / DEGRADED / RETIRED, verified capabilities, last success. | Reachability changes; moves between controllers. |
+| **Binding** | "Device X is reachable via integration Y at integration-local address Z" (platform id, or IP:port plus the protocol the address answers on for the local kind; the route for an operation is chosen by the integration, not by the binding). Many per device. Status CANDIDATE / VERIFIED / DEGRADED / RETIRED, verified capabilities, last success. | Reachability changes; moves between controllers. |
 | **Placement** | "Device X belongs to tenant/site/zone Z" from a point in time. Source OPERATOR or DERIVED_FROM_SCOPE; operator wins. | Moves between sites. Append-only. |
 
 Supporting rows: **IntegrationScope** `(integration, platform_scope_id,
@@ -330,7 +330,11 @@ NATS cluster (per-tenant accounts, JetStream)  ◄── wss/TLS on 443 ──  
   conveniences, so every execute carries a deadline header and every *write*
   carries a client-generated idempotency key; the integration caches the first
   result under the key and replays it on retry (Stripe's model: UUID key,
-  identical response replayed, parameter-mismatch rejected, ~24 h TTL).
+  identical response replayed, parameter-mismatch rejected, ~24 h TTL). The
+  key deduplicates a retry and nothing more: what the device applied is
+  proven only by an independent read of the affected state, and a write is
+  released only after central has durably acknowledged that verification
+  (the [verified device access record](2026-09-05-verified-device-access-direction.md)).
 - **Events** — JetStream on `events.<tenant>.<integration>.>`; multiple
   consumers (state store, alerting, time-series, replay), durable, buffered
   when central is down.
@@ -393,8 +397,13 @@ snapshots.
   operator's retire ends its standing. When the fabric lands, an
   authenticated `EdgeService` RPC returns the NATS account, user credential,
   subject map, and cluster URLs. Device credentials never leave the secret
-  store except to the host running the integration, per request or as a
-  scoped lease. The contracts and the verifier's check order are in
+  store except to the host running the integration, per operation over the
+  same authenticated Connect channel: a read credential for reads and
+  preflight, and a one-use submission grant bound to the mutation's
+  sequence. There is no standing lease, and neither credentials nor write
+  authority ride the bus (decision 9 of the
+  [verified device access record](2026-09-05-verified-device-access-direction.md)).
+  The contracts and the verifier's check order are in
   `spec/proto/flowseer/api/edge/v1/README.md`.
 - **Exposing NATS** (even over wss/443) is a **second public surface** next to
   the web app's. Accepted deliberately: TLS + per-edge JWTs + accounts is how
@@ -475,10 +484,12 @@ for protobuf type renames.
 3. **Freshness is explicit.** Every live response carries `observed_at` and
    which binding answered. A cloud-mediated read is "live as the platform sees
    it", and says so.
-4. **Writes carry their guarantee level.** `Apply*` supports `validate_only`;
-   the result states atomicity (transactional / best-effort-verified /
-   accepted-by-platform-converging) and a read-back diff. Every write carries
-   an idempotency key. Nothing pretends to be atomic that is not.
+4. **Writes are verified, never assumed.** `Apply*` supports `validate_only`
+   and carries an idempotency key. The result states no atomicity level:
+   semantic verification through a fresh read of the affected state replaces
+   it, and that observation, surfaced in the device's status, is the
+   read-back. Nothing pretends to be atomic that is not, and nothing is
+   reported applied that was not observed.
 5. **Edition-2024 presence distinguishes unsupported from zero.** Unset means
    "this device does not provide it".
 6. **Errors cross the boundary through `errs`:** codes → Connect codes, Retry
@@ -538,8 +549,6 @@ for protobuf type renames.
   edge binary layout.
 - Whether trap/telemetry destination configuration is the facade's (a write on
   a device — current position: yes) or the ingestion plane's.
-- Credential handling between central and edge: scoped lease vs. per-request
-  delivery.
 - Published sweep-rate throttles or consent UX for active discovery have no
   found precedent; FlowSeer's opt-in-per-range rule stands on its own.
 

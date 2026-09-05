@@ -1,0 +1,89 @@
+edition = "2024";
+
+// The interface capability's typed intent and observation. An interface is
+// named by the device-local name the device spells; the Interface entity
+// and its ref are not decided yet, so nothing here is a ref.
+package flowseer.device.access.v1;
+
+import "flowseer/api/inventory/v1/provenance.proto";
+import "flowseer/net/interface/v1/admin_status.proto";
+import "flowseer/net/interface/v1/oper_status.proto";
+import option "buf/validate/validate.proto";
+
+// Whether an observation covers every field the operation needs.
+enum Completeness {
+  // No completeness named. Observations reject the zero value.
+  COMPLETENESS_UNSPECIFIED = 0;
+  // Every field the operation compares was read from the device.
+  COMPLETENESS_COMPLETE = 1;
+  // At least one compared field could not be read over this route. A
+  // partial observation carries no authority and cannot verify a mutation.
+  COMPLETENESS_PARTIAL = 2;
+}
+
+// The intent to set one interface's description.
+message InterfaceDescriptionChange {
+  // The device-local interface name, as the device spells it. Must be
+  // present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // The description to apply: printable ASCII, at most 64 characters, no
+  // control characters. Must be present; an empty string clears the
+  // description on the device.
+  string description = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[ -~]*$"
+  ];
+}
+
+// One interface as a route observed it, with the provenance of the read.
+message InterfaceObservation {
+  // The device-local interface name, as the device spells it. Must be
+  // present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // The description as read. Must be present; an empty string is a device
+  // with no description on this interface.
+  string description = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[ -~]*$"
+  ];
+  // The administratively requested state as read. Must be present; the
+  // zero value is rejected.
+  flowseer.net.interface.v1.AdminStatus admin_status = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The operational state as read. Must be present; the zero value is
+  // rejected.
+  flowseer.net.interface.v1.OperStatus oper_status = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Which binding, protocol, edge, and firmware epoch produced the read,
+  // and when. Must be present.
+  flowseer.api.inventory.v1.Provenance provenance = 5 [(buf.validate.field).required = true];
+  // Whether every compared field was read. Must be present; the zero value
+  // is rejected.
+  Completeness completeness = 6 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}

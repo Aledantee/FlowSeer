@@ -1,0 +1,204 @@
+edition = "2024";
+
+// The vocabulary every device-access boundary shares: the phases and
+// dispositions of a mutation, who asked for it, and the intent and state
+// messages the operator API, the execution envelope, and the audit event
+// all carry. Deliberately partial: MutationIntent is the intended side, so
+// there is no MutationConfig, and there is no MutationEvent here because
+// the durable audit record is its own package's contract.
+package flowseer.device.access.v1;
+
+import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/api/inventory/v1/device.proto";
+import "flowseer/device/access/v1/interface.proto";
+import "flowseer/device/policy/v1/handle.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// Where one mutation stands between being recorded and being released.
+// ACKNOWLEDGED, RELEASED, and ABANDONED are terminal for the device: each
+// carries a disposition, and only RELEASED lets the next mutation on the
+// device proceed.
+enum OperationPhase {
+  // No phase named. State rejects the zero value.
+  OPERATION_PHASE_UNSPECIFIED = 0;
+  // Central durably holds the intent; no side effect has happened.
+  OPERATION_PHASE_INTENT_RECORDED = 1;
+  // The device's lane accepted the intent and assigned its sequence.
+  OPERATION_PHASE_ADMITTED = 2;
+  // Central durably recorded that the command may reach the device. From
+  // here the effect is unknown until an observation says otherwise.
+  OPERATION_PHASE_POSSIBLY_APPLIED = 3;
+  // The edge is reading the affected state over a fresh session.
+  OPERATION_PHASE_OBSERVING = 4;
+  // The observation was ambiguous or unavailable; the edge observes again
+  // before it retries, and retries only within the declared horizon.
+  OPERATION_PHASE_RECOVERING = 5;
+  // An observation matched the intent. Not yet acknowledged by central.
+  OPERATION_PHASE_VERIFIED = 6;
+  // Central durably holds the terminal disposition.
+  OPERATION_PHASE_ACKNOWLEDGED = 7;
+  // The device's lane is free for the next mutation.
+  OPERATION_PHASE_RELEASED = 8;
+  // An authorized cancellation or a qualified timeout ended recovery. The
+  // effect on the device is unknown and the lane stays blocked until the
+  // observed recovery state is resolved.
+  OPERATION_PHASE_ABANDONED = 9;
+}
+
+// The terminal outcome of a mutation.
+enum Disposition {
+  // No disposition named. Terminal states reject the zero value.
+  DISPOSITION_UNSPECIFIED = 0;
+  // A fresh observation matched the intent.
+  DISPOSITION_VERIFIED = 1;
+  // Recovery was abandoned without establishing the effect.
+  DISPOSITION_INDETERMINATE_ABANDONED = 2;
+  // The device or the policy refused the change before any effect.
+  DISPOSITION_REJECTED = 3;
+}
+
+// Why a device's lane is not accepting the next mutation.
+enum BlockReason {
+  // No reason named. A blocked state rejects the zero value.
+  BLOCK_REASON_UNSPECIFIED = 0;
+  // A verified result awaits central's acknowledgement.
+  BLOCK_REASON_UNACKNOWLEDGED = 1;
+  // A mutation is in recovery and its effect is unknown.
+  BLOCK_REASON_INDETERMINATE = 2;
+  // An abandoned mutation's observed recovery state awaits an operator
+  // decision or a reconciliation intent.
+  BLOCK_REASON_RECOVERY_HOLD = 3;
+  // A managed field changed without a mutation explaining it.
+  BLOCK_REASON_DESYNCHRONIZED = 4;
+  // The firmware fingerprint differs from the one the evidence was learned
+  // under; discovery runs again before any write.
+  BLOCK_REASON_FIRMWARE_EPOCH_CHANGED = 5;
+  // Two complete reads disagreed, so no observation carries authority.
+  BLOCK_REASON_CONFLICTING_READS = 6;
+  // The hosting edge's heartbeat is stale, so nothing may be dispatched.
+  BLOCK_REASON_EDGE_STALE = 7;
+}
+
+// The reason a process, rather than a person, asked for a mutation.
+enum SystemReason {
+  // No reason named. System actors reject the zero value.
+  SYSTEM_REASON_UNSPECIFIED = 0;
+  // An authoritative device drifted and FlowSeer restores expected state.
+  SYSTEM_REASON_RECONCILIATION = 1;
+}
+
+// A person, named by the identity provider's stable subject.
+message OperatorRef {
+  // The subject identifier the identity provider assigns, stable across
+  // renames. Must be present.
+  string subject = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+}
+
+// A FlowSeer process acting on its own policy.
+message SystemActor {
+  // Why the process acted. Must be present; the zero value is rejected.
+  SystemReason reason = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}
+
+// Who asked for a mutation.
+message Actor {
+  // Exactly one principal.
+  oneof principal {
+    option (buf.validate.oneof).required = true;
+
+    OperatorRef operator = 1;
+    SystemActor system = 2;
+  }
+}
+
+// A request to move one device toward typed desired state. Recorded
+// centrally before any side effect; the sequence and phase live on
+// MutationState.
+message MutationIntent {
+  // The device to change. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // Client-generated key that makes a retried submission the same intent.
+  // Must be present.
+  string idempotency_key = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Who asked. Must be present.
+  Actor actor = 3 [(buf.validate.field).required = true];
+  // The policy version the intent is admitted under; a later policy edit
+  // does not change an intent in flight. Must be present.
+  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 4 [(buf.validate.field).required = true];
+  // The firmware fingerprint the caller expects. A device reporting
+  // another blocks the intent before any write. Must be present.
+  string expected_firmware_fingerprint = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+
+  // The typed change. Exactly one arm is set.
+  oneof change {
+    option (buf.validate.oneof).required = true;
+
+    InterfaceDescriptionChange interface_description = 10;
+  }
+}
+
+// One mutation as central holds it: the intent, its place in the device's
+// order, and where it stands.
+message MutationState {
+  option (buf.validate.message).cel = {
+    id: "mutation_state.disposition_matches_phase"
+    message: "disposition is set exactly when the phase is acknowledged, released, or abandoned"
+    expression: "has(this.disposition) == (this.phase in [7, 8, 9])"
+  };
+  option (buf.validate.message).cel = {
+    id: "mutation_state.blocked_since_matches_reason"
+    message: "blocked_since is set exactly when block_reason is set"
+    expression: "has(this.blocked_since) == has(this.block_reason)"
+  };
+
+  // The recorded intent. Must be present.
+  MutationIntent intent = 1 [(buf.validate.field).required = true];
+  // The per-device sequence central assigned at admission. Must be present
+  // and at least 1; sequences on one device only grow.
+  uint64 sequence = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // Where the mutation stands. Must be present; the zero value is rejected.
+  OperationPhase phase = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The terminal outcome. Set exactly while the phase is terminal; the
+  // zero value is rejected.
+  Disposition disposition = 4 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Why the device's lane is blocked. Unset means the lane is not blocked
+  // by this mutation; the zero value is rejected.
+  BlockReason block_reason = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // When the block began. Set exactly while block_reason is set.
+  google.protobuf.Timestamp blocked_since = 6;
+  // The edge that executes, or executed, the mutation. Must be present.
+  flowseer.api.edge.v1.EdgeGlobalRef responsible_edge = 7 [(buf.validate.field).required = true];
+}

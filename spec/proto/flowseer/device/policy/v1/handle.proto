@@ -1,0 +1,31 @@
+edition = "2024";
+
+// Opaque handles into the device service's policy store. A handle is a key
+// and a version, not an entity: it has no ref pair, no triad, and no place
+// in EntityType, because the store that resolves it lands with the device
+// service and nothing else may point at one.
+package flowseer.device.policy.v1;
+
+import option "buf/validate/validate.proto";
+
+// A pinned version of one device access policy. The policy itself never
+// crosses the wire; the handle lets a device name it and an operation pin
+// the exact version it was admitted under.
+message AccessPolicyHandle {
+  // The store's key for the policy. Must be present. One path segment:
+  // lowercase, digits, dot, underscore, and hyphen, starting with a letter
+  // or digit, so a key cannot traverse a directory or cross a separator.
+  string key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128,
+    (buf.validate.field).string.pattern = "^[a-z0-9][a-z0-9._-]*$"
+  ];
+  // The policy version this handle pins. Must be present and at least 1;
+  // versions only grow, and an operation admitted under one version is
+  // never re-read under another.
+  uint64 version = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}

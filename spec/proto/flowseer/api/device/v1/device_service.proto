@@ -1,0 +1,157 @@
+edition = "2024";
+
+// The operator-facing device API: typed reads and writes against one
+// device, routed through whichever integration and protocol the answering
+// edge chooses. No RPC names a protocol, a path, or a raw command.
+package flowseer.api.device.v1;
+
+import "flowseer/api/inventory/v1/device.proto";
+import "flowseer/device/access/v1/interface.proto";
+import "flowseer/device/access/v1/operation.proto";
+import option "buf/validate/validate.proto";
+
+service DeviceService {
+  // Reads one interface over the lowest-cost route that can answer
+  // completely. An SNMP read that turns out incomplete falls through to
+  // SSH inside this call; the response's provenance says which answered.
+  rpc ReadInterface(ReadInterfaceRequest) returns (ReadInterfaceResponse);
+  // Records an interface-description intent and admits it to the device's
+  // lane. The call returns at admission; the caller follows the mutation
+  // through GetDeviceAccessStatus. With validate_only set, the intent is
+  // checked against policy, firmware epoch, and lane state and nothing is
+  // recorded.
+  rpc ApplyInterfaceDescription(ApplyInterfaceDescriptionRequest) returns (ApplyInterfaceDescriptionResponse);
+  // Returns the device's high-watermark sequence, the unresolved mutation
+  // if any, and the last complete observation per interface.
+  rpc GetDeviceAccessStatus(GetDeviceAccessStatusRequest) returns (GetDeviceAccessStatusResponse);
+  // Ends recovery of a mutation whose effect could not be established. The
+  // mutation becomes abandoned and the lane stays blocked until the
+  // observed recovery state is resolved.
+  rpc AbandonMutation(AbandonMutationRequest) returns (AbandonMutationResponse);
+  // Resolves a blocked lane after abandonment or drift: accept the
+  // observed state as the new expectation, restore the expected state, or
+  // replace the interrupted intent with a new one.
+  rpc ResolveDesynchronization(ResolveDesynchronizationRequest) returns (ResolveDesynchronizationResponse);
+}
+
+message ReadInterfaceRequest {
+  // The device to read. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The device-local interface name, as the device spells it. Must be
+  // present.
+  string interface_name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+}
+
+message ReadInterfaceResponse {
+  // The observation, with the provenance of the route that answered. Must
+  // be present.
+  flowseer.device.access.v1.InterfaceObservation interface = 1 [(buf.validate.field).required = true];
+}
+
+message ApplyInterfaceDescriptionRequest {
+  option (buf.validate.message).cel = {
+    id: "apply_interface_description.change_is_interface_description"
+    message: "the intent must carry an interface_description change"
+    expression: "!has(this.intent) || has(this.intent.interface_description)"
+  };
+
+  // The intent to record. Its change must be an interface description.
+  // Must be present.
+  flowseer.device.access.v1.MutationIntent intent = 1 [(buf.validate.field).required = true];
+  // When true, the intent is checked and nothing is recorded; the response
+  // carries no mutation state. Unset means false.
+  bool validate_only = 2;
+}
+
+message ApplyInterfaceDescriptionResponse {
+  // The mutation as admitted. Unset exactly when the request set
+  // validate_only.
+  flowseer.device.access.v1.MutationState mutation = 1;
+}
+
+message GetDeviceAccessStatusRequest {
+  // The device. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+}
+
+message GetDeviceAccessStatusResponse {
+  option (buf.validate.message).cel = {
+    id: "device_access_status.unresolved_is_open"
+    message: "an unresolved mutation cannot be in the released phase"
+    expression: "!has(this.unresolved) || this.unresolved.phase != 8"
+  };
+
+  // The highest sequence central has assigned on this device. Zero means
+  // no mutation has been admitted.
+  uint64 high_watermark = 1 [(buf.validate.field).required = true];
+  // The mutation that still holds the lane. Unset means the lane is free.
+  flowseer.device.access.v1.MutationState unresolved = 2;
+  // The firmware fingerprint of the current epoch. Unset means no identity
+  // probe has completed yet.
+  string firmware_fingerprint = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The last complete observation of each interface, one row per
+  // interface name. Empty means nothing has been observed yet.
+  repeated flowseer.device.access.v1.InterfaceObservation interfaces = 4;
+}
+
+message AbandonMutationRequest {
+  // The device. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The sequence of the mutation to abandon. Must be present and at least
+  // 1.
+  uint64 sequence = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // Who abandons it. Must be present.
+  flowseer.device.access.v1.Actor actor = 3 [(buf.validate.field).required = true];
+}
+
+message AbandonMutationResponse {
+  // The mutation after abandonment. Must be present.
+  flowseer.device.access.v1.MutationState mutation = 1 [(buf.validate.field).required = true];
+}
+
+// Adopt the observed state as the new central expectation.
+message AcceptObservedDecision {}
+
+// Restore the central expectation on the device through a new sequenced
+// intent.
+message RestoreExpectedDecision {}
+
+message ResolveDesynchronizationRequest {
+  // The device. Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The sequence of the abandoned or desynchronized mutation. Must be
+  // present and at least 1.
+  uint64 sequence = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // Who decides. Must be present.
+  flowseer.device.access.v1.Actor actor = 3 [(buf.validate.field).required = true];
+
+  // The decision. Exactly one arm is set.
+  oneof decision {
+    option (buf.validate.oneof).required = true;
+
+    AcceptObservedDecision accept = 10;
+    RestoreExpectedDecision restore = 11;
+    // A new intent that replaces the interrupted one and is admitted as
+    // the next sequence.
+    flowseer.device.access.v1.MutationIntent replace = 12;
+  }
+}
+
+message ResolveDesynchronizationResponse {
+  // The mutation admitted by the decision. Unset for accept, which admits
+  // none.
+  flowseer.device.access.v1.MutationState mutation = 1;
+}

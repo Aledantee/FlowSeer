@@ -2,6 +2,7 @@ edition = "2024";
 
 package flowseer.api.inventory.v1;
 
+import "flowseer/api/edge/v1/edge.proto";
 import "flowseer/api/inventory/v1/binding.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
@@ -15,4 +16,25 @@ message Provenance {
   // read is live as the platform saw it, and this is when the platform saw
   // it. Must be present.
   google.protobuf.Timestamp observed_at = 2 [(buf.validate.field).required = true];
+  // The protocol that produced the payload. A route is chosen per
+  // operation, so this can differ between two responses over one binding.
+  // Must be present; the zero value is rejected.
+  ManagementProtocol protocol = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The edge whose process performed the observation. Must be present.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 4 [(buf.validate.field).required = true];
+  // The device's exact firmware fingerprint at observation time, as the
+  // identity probe reports it. Must be present; a consumer comparing two
+  // observations treats a different fingerprint as a different device
+  // epoch.
+  string firmware_fingerprint = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
 }
