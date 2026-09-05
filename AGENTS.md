@@ -99,8 +99,8 @@ authority — `go test -race ./...` enforces the same invariants.
 
 - Go (`go.aledante.io/FlowSeer`), one module unless a directory says otherwise:
   - `src/protocol/` — protocol and schema-language libraries; no domain types.
-  - `src/common/` — cross-cutting foundations (`errs`, `pump`, `service`); no
-    domain types.
+  - `src/common/` — cross-cutting foundations (`errs`, `pump`, `service`);
+    no domain types.
   - `src/modules/` — reusable modules a host assembles; see its README.
   - `src/services/` — control-plane services, assembled from modules.
   - `src/edge/` — applications built to run at the edge (may also run centrally).
