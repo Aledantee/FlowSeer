@@ -85,13 +85,18 @@ otherwise use `--base master`, or `--base HEAD` for uncommitted work.
 Record the outcome in the plan, in the same commit as the last unit. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
-`> Partially implemented: <units>.` with the reason.
+`> Partially implemented: <units>.` with the reason. A request that skipped
+the plan has nowhere to record this. In Orca the card entry below is then
+the only implementation signal `close` reads, so write it even for a small
+change; outside Orca the commit message carries the outcome and `close`
+asks the user.
 
-In Orca, mark the card for `close`:
+In Orca, mark the card for `close`, naming the plan path, or the request in
+a few words when there is no plan:
 
 ```bash
 orca worktree set --worktree active --workspace-status in-review \
-  --comment "implemented: <plan path>" --json
+  --comment "implemented: <plan path or request>" --json
 ```
 
 Use `partially implemented: <units>` and leave the status at `in-progress`
