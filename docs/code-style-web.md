@@ -1,12 +1,13 @@
 ---
 name: TypeScript & Web Style
-last_updated: 2026-08-16
+last_updated: 2026-09-06
 ---
 
 # FlowSeer — TypeScript & Web Style
 
-Conventions for web code under `frontend/web/`. This checkout has no frontend
-workspace, and `buf.gen.yaml` currently emits only Go and Connect-Go bindings.
+Conventions for web code under `frontend/web/`. The independent Vue workspace has its own
+package manifest and lockfile. `buf.gen.yaml` currently emits only Go and
+Connect-Go bindings.
 The web toolchain prescribed here uses pnpm, Vite, Vitest, ESLint (flat config),
 and `typescript-eslint`.
 

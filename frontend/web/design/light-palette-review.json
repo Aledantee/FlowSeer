@@ -1,0 +1,47 @@
+{
+  "source": "https://www.radix-ui.com/colors/custom?accent-light=5ECAD8&gray-light=858990&bg-light=F7F8FA",
+  "date": "2026-09-06",
+  "inputs": {
+    "accent": "#5ECAD8",
+    "gray": "#858990",
+    "background": "#F7F8FA"
+  },
+  "neutralHue": 261.8,
+  "neutralLight": [
+    [0.968, 0.001],
+    [0.957, 0.0021],
+    [0.929, 0.0032],
+    [0.903, 0.0043],
+    [0.88, 0.0054],
+    [0.855, 0.0065],
+    [0.82, 0.0082],
+    [0.759, 0.0112],
+    [0.61, 0.0115],
+    [0.574, 0.0112],
+    [0.47, 0.0097],
+    [0.242, 0.0069]
+  ],
+  "neutralHex": [
+    "#f4f4f5",
+    "#f0f1f2",
+    "#e6e7ea",
+    "#dddfe2",
+    "#d5d7db",
+    "#cdcfd4",
+    "#c1c4ca",
+    "#adb1b8",
+    "#7f838a",
+    "#75797f",
+    "#585b60",
+    "#1e2023"
+  ],
+  "roles": {
+    "page": "neutral 3",
+    "surface": "neutral 1",
+    "chrome": "neutral 2",
+    "line": "neutral 5",
+    "controlBorder": "neutral 10",
+    "secondaryText": "neutral 11"
+  },
+  "note": "Rendered Radix OKLCH values captured from the custom generator; neutral hex values converted to sRGB. Selection and status colors are semantic refinements, not direct ramp assignments."
+}
