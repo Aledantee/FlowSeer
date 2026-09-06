@@ -100,7 +100,15 @@ subject. That is why the hub keeps one stream per edge rather than one
 aggregate: the forwarder reads the edge from the stream's name and drops a
 record whose subject lies outside that edge's subtree
 (`TestForwarderRefusesARecordOutsideItsStreamsEdge`), so a relabeled record
-is refused where it is read, whatever the permission set allows. Before the
+is refused where it is read, whatever the permission set allows. A refusal
+is the one sign that an agent is trying to relabel another edge's data, so
+it is not a silent discard: the forwarder emits a WARN record, event name
+`flowseer.edgebus.record.refused`, carrying the stream's edge, the edge the
+subject claimed, the reason, and the subject, rate-limited to one per edge
+stream every ten seconds; and it counts `flowseer.edgebus.records.refused`
+labeled by reason (`foreign_subject`, `not_otel`) and signal, two closed
+sets, since an edge id is an identity the cardinality rule keeps off metric
+attributes. `Forwarder.Dropped` keeps the exact count for a test. Before the
 per-edge streams, that guarantee rested on a nonce no client path could
 learn; now it rests on where the record is stored, which no permission
 change can widen.
