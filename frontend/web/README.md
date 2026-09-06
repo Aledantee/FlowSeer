@@ -10,7 +10,7 @@ pnpm dev
 ```
 
 Open the URL Vite prints. Use Node 22.12 or newer and pnpm 11.25.0.
-The font is bundled locally. The app makes no requests to external services.
+The fonts are bundled locally. The app makes no requests to external services.
 
 ## Try the UI
 
@@ -55,12 +55,27 @@ is contained in the content area.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.
 - `src/style.css` defines the visual language and responsive layout.
+- `src/theme/language.css` defines shared typography, spacing, and control tokens.
+- `src/ComponentsView.vue` exposes component previews, foundations, and local drafts.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
 The lockfile pins resolved dependencies. TypeScript stays on 6.0 because the
 installed typescript-eslint version does not support TypeScript 7.
 Prettier owns formatting; ESLint checks code and Vue semantics with the standard
 Prettier compatibility configuration.
+
+## Components workspace
+
+Open `/components` from the sidebar. Try the button variants, inspect labeled
+health states, and compare typography under **Foundations**. The page shares
+buttons, status badges, and metric cards with the fleet views. Record a component
+question and stage, then choose **Save draft** to retain it in this browser.
+Drafts are personal local storage; unsaved edits are lost when leaving the page.
+
+The [design language](design/language.md) documents spacing, control states, and
+font research. Inter Variable is the interface font; DM Sans remains available
+in the comparison specimen. m3connect uses GT Standard, which remains a brand
+option with supplied licensed files.
 
 ## Design direction
 
