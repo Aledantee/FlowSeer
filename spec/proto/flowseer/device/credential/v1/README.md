@@ -16,9 +16,9 @@ an authenticated call, to the process that opens the session.
 snmp_v3 {
   user: "flowseer-ro"
   auth_protocol: SNMP_AUTH_PROTOCOL_SHA256
-  auth_passphrase: "..."
+  auth_passphrase: "correct horse battery"
   priv_protocol: SNMP_PRIV_PROTOCOL_AES128
-  priv_passphrase: "..."
+  priv_passphrase: "staple lamp cinder"
 }
 ```
 

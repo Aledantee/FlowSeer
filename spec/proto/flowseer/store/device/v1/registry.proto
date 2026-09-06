@@ -27,6 +27,11 @@ message DeviceRegistry {
     message: "each policy key appears once"
     expression: "this.policies.map(p, p.handle.key).unique()"
   };
+  option (buf.validate.message).cel = {
+    id: "device_registry.device_policies_listed"
+    message: "every device's access policy names a listed policy version"
+    expression: "this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))"
+  };
 
   // Must be present.
   RegistryIntegration integration = 1 [(buf.validate.field).required = true];
@@ -92,11 +97,12 @@ message RegistryPolicy {
   flowseer.device.policy.v1.CredentialHandle submission_credential = 3 [(buf.validate.field).required = true];
   // The host trust version the edge is told to require. Must be present.
   flowseer.device.policy.v1.HostTrustHandle host_trust = 4 [(buf.validate.field).required = true];
-  // The device's SSH host key as a base64 SHA-256 fingerprint, the
-  // material of host_trust. Must be present.
+  // The device's SSH host key as "SHA256:" followed by the unpadded base64
+  // digest, the one spelling ssh-keygen and the Go ssh package produce;
+  // the material of host_trust, delivered verbatim. Must be present.
   string ssh_host_key_sha256 = 5 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.pattern = "^(SHA256:)?[A-Za-z0-9+/]{43}=?$"
+    (buf.validate.field).string.pattern = "^SHA256:[A-Za-z0-9+/]{43}$"
   ];
   // How long a delivered read credential stays valid. Unset means five
   // minutes.

@@ -36,7 +36,7 @@ type DeviceLaneRecord struct {
 	xxx_hidden_Device                *v1.DeviceGlobalRef                  `protobuf:"bytes,1,opt,name=device"`
 	xxx_hidden_HighWatermark         uint64                               `protobuf:"varint,2,opt,name=high_watermark,json=highWatermark"`
 	xxx_hidden_Mutation              *v11.MutationState                   `protobuf:"bytes,3,opt,name=mutation"`
-	xxx_hidden_SubmittedAt           *timestamppb.Timestamp               `protobuf:"bytes,4,opt,name=submitted_at,json=submittedAt"`
+	xxx_hidden_AdmittedAt            *timestamppb.Timestamp               `protobuf:"bytes,4,opt,name=admitted_at,json=admittedAt"`
 	xxx_hidden_Dispatched            bool                                 `protobuf:"varint,5,opt,name=dispatched"`
 	xxx_hidden_LastReportedPhase     v11.OperationPhase                   `protobuf:"varint,6,opt,name=last_reported_phase,json=lastReportedPhase,enum=flowseer.device.access.v1.OperationPhase"`
 	xxx_hidden_DispatchConfirmed     bool                                 `protobuf:"varint,7,opt,name=dispatch_confirmed,json=dispatchConfirmed"`
@@ -99,9 +99,9 @@ func (x *DeviceLaneRecord) GetMutation() *v11.MutationState {
 	return nil
 }
 
-func (x *DeviceLaneRecord) GetSubmittedAt() *timestamppb.Timestamp {
+func (x *DeviceLaneRecord) GetAdmittedAt() *timestamppb.Timestamp {
 	if x != nil {
-		return x.xxx_hidden_SubmittedAt
+		return x.xxx_hidden_AdmittedAt
 	}
 	return nil
 }
@@ -195,8 +195,8 @@ func (x *DeviceLaneRecord) SetMutation(v *v11.MutationState) {
 	x.xxx_hidden_Mutation = v
 }
 
-func (x *DeviceLaneRecord) SetSubmittedAt(v *timestamppb.Timestamp) {
-	x.xxx_hidden_SubmittedAt = v
+func (x *DeviceLaneRecord) SetAdmittedAt(v *timestamppb.Timestamp) {
+	x.xxx_hidden_AdmittedAt = v
 }
 
 func (x *DeviceLaneRecord) SetDispatched(v bool) {
@@ -256,11 +256,11 @@ func (x *DeviceLaneRecord) HasMutation() bool {
 	return x.xxx_hidden_Mutation != nil
 }
 
-func (x *DeviceLaneRecord) HasSubmittedAt() bool {
+func (x *DeviceLaneRecord) HasAdmittedAt() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_SubmittedAt != nil
+	return x.xxx_hidden_AdmittedAt != nil
 }
 
 func (x *DeviceLaneRecord) HasLastReportedPhase() bool {
@@ -292,8 +292,8 @@ func (x *DeviceLaneRecord) ClearMutation() {
 	x.xxx_hidden_Mutation = nil
 }
 
-func (x *DeviceLaneRecord) ClearSubmittedAt() {
-	x.xxx_hidden_SubmittedAt = nil
+func (x *DeviceLaneRecord) ClearAdmittedAt() {
+	x.xxx_hidden_AdmittedAt = nil
 }
 
 func (x *DeviceLaneRecord) ClearLastReportedPhase() {
@@ -321,9 +321,9 @@ type DeviceLaneRecord_builder struct {
 	HighWatermark uint64
 	// The mutation that holds the lane. Unset means the lane is free.
 	Mutation *v11.MutationState
-	// When the open mutation was admitted, the start of its delayed-apply
-	// horizon. Set exactly with mutation.
-	SubmittedAt *timestamppb.Timestamp
+	// When the open mutation was admitted; carried on a resumed dispatch as
+	// the start of its delayed-apply horizon. Set exactly with mutation.
+	AdmittedAt *timestamppb.Timestamp
 	// Whether the edge ever reported the open mutation admitted. Survives
 	// an edge restart, unlike the confirmations below. Implicit presence.
 	Dispatched bool
@@ -337,7 +337,10 @@ type DeviceLaneRecord_builder struct {
 	// reports onboarded. Implicit presence.
 	CheckpointConfirmed bool
 	// The sequence whose hold resolution central recorded and the edge has
-	// not yet confirmed. Unset means none is owed.
+	// not yet confirmed. Unset means none is owed. This alone derives the
+	// hold row; an edge reporting onboarded leaves it as it is, since the
+	// resolution is re-sent and a restarted edge acknowledges it without a
+	// hold to clear.
 	HoldResolutionPending *uint64
 	// Reads in flight, keyed by the interface name the device spells.
 	OpenReads map[string]*OpenRead
@@ -363,7 +366,7 @@ func (b0 DeviceLaneRecord_builder) Build() *DeviceLaneRecord {
 	x.xxx_hidden_Device = b.Device
 	x.xxx_hidden_HighWatermark = b.HighWatermark
 	x.xxx_hidden_Mutation = b.Mutation
-	x.xxx_hidden_SubmittedAt = b.SubmittedAt
+	x.xxx_hidden_AdmittedAt = b.AdmittedAt
 	x.xxx_hidden_Dispatched = b.Dispatched
 	if b.LastReportedPhase != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 14)
@@ -388,15 +391,16 @@ func (b0 DeviceLaneRecord_builder) Build() *DeviceLaneRecord {
 
 // One read in flight, or just finished, on the device's lane.
 type OpenRead struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Sequence    uint64                 `protobuf:"varint,1,opt,name=sequence"`
-	xxx_hidden_Read        *v11.TypedRead         `protobuf:"bytes,2,opt,name=read"`
-	xxx_hidden_Deadline    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=deadline"`
-	xxx_hidden_Outcome     isOpenRead_Outcome     `protobuf_oneof:"outcome"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Sequence       uint64                 `protobuf:"varint,1,opt,name=sequence"`
+	xxx_hidden_Read           *v11.TypedRead         `protobuf:"bytes,2,opt,name=read"`
+	xxx_hidden_Deadline       *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=deadline"`
+	xxx_hidden_IdempotencyKey *string                `protobuf:"bytes,4,opt,name=idempotency_key,json=idempotencyKey"`
+	xxx_hidden_Outcome        isOpenRead_Outcome     `protobuf_oneof:"outcome"`
+	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
+	XXX_presence              [1]uint32
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *OpenRead) Reset() {
@@ -445,6 +449,16 @@ func (x *OpenRead) GetDeadline() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *OpenRead) GetIdempotencyKey() string {
+	if x != nil {
+		if x.xxx_hidden_IdempotencyKey != nil {
+			return *x.xxx_hidden_IdempotencyKey
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *OpenRead) GetObservation() *v11.InterfaceObservation {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Outcome.(*openRead_Observation); ok {
@@ -465,7 +479,7 @@ func (x *OpenRead) GetError() *v12.ErrorPayload {
 
 func (x *OpenRead) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *OpenRead) SetRead(v *v11.TypedRead) {
@@ -474,6 +488,11 @@ func (x *OpenRead) SetRead(v *v11.TypedRead) {
 
 func (x *OpenRead) SetDeadline(v *timestamppb.Timestamp) {
 	x.xxx_hidden_Deadline = v
+}
+
+func (x *OpenRead) SetIdempotencyKey(v string) {
+	x.xxx_hidden_IdempotencyKey = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
 }
 
 func (x *OpenRead) SetObservation(v *v11.InterfaceObservation) {
@@ -513,6 +532,13 @@ func (x *OpenRead) HasDeadline() bool {
 	return x.xxx_hidden_Deadline != nil
 }
 
+func (x *OpenRead) HasIdempotencyKey() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *OpenRead) HasOutcome() bool {
 	if x == nil {
 		return false
@@ -547,6 +573,11 @@ func (x *OpenRead) ClearRead() {
 
 func (x *OpenRead) ClearDeadline() {
 	x.xxx_hidden_Deadline = nil
+}
+
+func (x *OpenRead) ClearIdempotencyKey() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_IdempotencyKey = nil
 }
 
 func (x *OpenRead) ClearOutcome() {
@@ -593,6 +624,9 @@ type OpenRead_builder struct {
 	// After this the read is closed with a deadline error and its row is no
 	// longer owed. Must be present.
 	Deadline *timestamppb.Timestamp
+	// The key every dispatch of this read carries, minted once when the
+	// entry opens, so a re-sent dispatch is the same read. Must be present.
+	IdempotencyKey *string
 	// The read's outcome once it closed, kept for the waiter until the next
 	// write removes the entry. Unset means the read is still open.
 
@@ -607,11 +641,15 @@ func (b0 OpenRead_builder) Build() *OpenRead {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
 	x.xxx_hidden_Read = b.Read
 	x.xxx_hidden_Deadline = b.Deadline
+	if b.IdempotencyKey != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
+	}
 	if b.Observation != nil {
 		x.xxx_hidden_Outcome = &openRead_Observation{b.Observation}
 	}
@@ -762,12 +800,13 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9f\x0e\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaf\x10\n" +
 	"\x10DeviceLaneRecord\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
 	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
-	"\bmutation\x18\x03 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\x12=\n" +
-	"\fsubmitted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12%\n" +
+	"\bmutation\x18\x03 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\x12;\n" +
+	"\vadmitted_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"admittedAt\x12%\n" +
 	"\n" +
 	"dispatched\x18\x05 \x01(\bB\x05\xaa\x01\x02\b\x02R\n" +
 	"dispatched\x12e\n" +
@@ -792,14 +831,16 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1at\n" +
 	"\x15LastObservationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12E\n" +
-	"\x05value\x18\x02 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationR\x05value:\x028\x01:\x8f\x03\xbaH\x8b\x03\x1a\x8d\x01\n" +
-	"/device_lane_record.mutation_has_submission_time\x12,an open mutation carries its submission time\x1a,has(this.mutation) == has(this.submitted_at)\x1a\xf8\x01\n" +
-	"0device_lane_record.confirmations_need_a_mutation\x12=dispatch and checkpoint facts exist only for an open mutation\x1a\x84\x01has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))\"\xcc\x02\n" +
+	"\x05value\x18\x02 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationR\x05value:\x028\x01:\xa1\x05\xbaH\x9d\x05\x1a\x8a\x01\n" +
+	".device_lane_record.mutation_has_admission_time\x12+an open mutation carries its admission time\x1a+has(this.mutation) == has(this.admitted_at)\x1a\x92\x02\n" +
+	",device_lane_record.sequences_under_watermark\x12+no open sequence exceeds the high watermark\x1a\xb4\x01(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark)\x1a\xf8\x01\n" +
+	"0device_lane_record.confirmations_need_a_mutation\x12=dispatch and checkpoint facts exist only for an open mutation\x1a\x84\x01has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))\"\x82\x03\n" +
 	"\bOpenRead\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12@\n" +
 	"\x04read\x18\x02 \x01(\v2$.flowseer.device.access.v1.TypedReadB\x06\xbaH\x03\xc8\x01\x01R\x04read\x12>\n" +
-	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12S\n" +
+	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x124\n" +
+	"\x0fidempotency_key\x18\x04 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12S\n" +
 	"\vobservation\x18\n" +
 	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05errorB\t\n" +
@@ -829,7 +870,7 @@ var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{
 var file_flowseer_store_device_v1_lane_record_proto_depIdxs = []int32{
 	6,  // 0: flowseer.store.device.v1.DeviceLaneRecord.device:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
 	7,  // 1: flowseer.store.device.v1.DeviceLaneRecord.mutation:type_name -> flowseer.device.access.v1.MutationState
-	8,  // 2: flowseer.store.device.v1.DeviceLaneRecord.submitted_at:type_name -> google.protobuf.Timestamp
+	8,  // 2: flowseer.store.device.v1.DeviceLaneRecord.admitted_at:type_name -> google.protobuf.Timestamp
 	9,  // 3: flowseer.store.device.v1.DeviceLaneRecord.last_reported_phase:type_name -> flowseer.device.access.v1.OperationPhase
 	3,  // 4: flowseer.store.device.v1.DeviceLaneRecord.open_reads:type_name -> flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry
 	4,  // 5: flowseer.store.device.v1.DeviceLaneRecord.expected_descriptions:type_name -> flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntry

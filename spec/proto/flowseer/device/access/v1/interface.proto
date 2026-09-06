@@ -115,11 +115,11 @@ message InterfaceReadIntent {
 message TypedRead {
   // The policy version the read is admitted under and the read credential
   // is acquired against. Must be present.
-  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 2 [(buf.validate.field).required = true];
+  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 1 [(buf.validate.field).required = true];
 
   oneof read {
     option (buf.validate.oneof).required = true;
 
-    InterfaceReadIntent interface = 1;
+    InterfaceReadIntent interface = 10;
   }
 }

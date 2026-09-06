@@ -650,8 +650,9 @@ type RegistryPolicy_builder struct {
 	SubmissionCredential *v13.CredentialHandle
 	// The host trust version the edge is told to require. Must be present.
 	HostTrust *v13.HostTrustHandle
-	// The device's SSH host key as a base64 SHA-256 fingerprint, the
-	// material of host_trust. Must be present.
+	// The device's SSH host key as "SHA256:" followed by the unpadded base64
+	// digest, the one spelling ssh-keygen and the Go ssh package produce;
+	// the material of host_trust, delivered verbatim. Must be present.
 	SshHostKeySha256 *string
 	// How long a delivered read credential stays valid. Unset means five
 	// minutes.
@@ -678,13 +679,14 @@ var File_flowseer_store_device_v1_registry_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/store/device/v1/registry.proto\x12\x18flowseer.store.device.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/inventory/v1/binding.proto\x1a&flowseer/api/inventory/v1/device.proto\x1a+flowseer/api/inventory/v1/integration.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\xf7\x03\n" +
+	"'flowseer/store/device/v1/registry.proto\x12\x18flowseer.store.device.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a'flowseer/api/inventory/v1/binding.proto\x1a&flowseer/api/inventory/v1/device.proto\x1a+flowseer/api/inventory/v1/integration.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\xef\x05\n" +
 	"\x0eDeviceRegistry\x12W\n" +
 	"\vintegration\x18\x01 \x01(\v2-.flowseer.store.device.v1.RegistryIntegrationB\x06\xbaH\x03\xc8\x01\x01R\vintegration\x12M\n" +
 	"\adevices\x18\x02 \x03(\v2(.flowseer.store.device.v1.RegistryDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\x12O\n" +
-	"\bpolicies\x18\x03 \x03(\v2(.flowseer.store.device.v1.RegistryPolicyB\t\xbaH\x06\x92\x01\x03\x10\x80 R\bpolicies:\xeb\x01\xbaH\xe7\x01\x1at\n" +
+	"\bpolicies\x18\x03 \x03(\v2(.flowseer.store.device.v1.RegistryPolicyB\t\xbaH\x06\x92\x01\x03\x10\x80 R\bpolicies:\xe3\x03\xbaH\xdf\x03\x1at\n" +
 	"\"device_registry.device_refs_unique\x12\x18each device appears once\x1a4this.devices.map(d, d.config.ref.device.id).unique()\x1ao\n" +
-	"\"device_registry.policy_keys_unique\x12\x1ceach policy key appears once\x1a+this.policies.map(p, p.handle.key).unique()\"\xa1\x01\n" +
+	"\"device_registry.policy_keys_unique\x12\x1ceach policy key appears once\x1a+this.policies.map(p, p.handle.key).unique()\x1a\xf5\x01\n" +
+	"&device_registry.device_policies_listed\x12:every device's access policy names a listed policy version\x1a\x8e\x01this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))\"\xa1\x01\n" +
 	"\x13RegistryIntegration\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
 	"\x04edge\x18\x02 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\xd2\x03\n" +
@@ -696,14 +698,14 @@ const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizon\x12B\n" +
-	"\x12managed_interfaces\x18\a \x03(\tB\x13\xbaH\x10\x92\x01\r\x10\x80\x02\x18\x01\"\x06r\x04\x10\x01\x18@R\x11managedInterfaces\"\xab\x04\n" +
+	"\x12managed_interfaces\x18\a \x03(\tB\x13\xbaH\x10\x92\x01\r\x10\x80\x02\x18\x01\"\x06r\x04\x10\x01\x18@R\x11managedInterfaces\"\xa6\x04\n" +
 	"\x0eRegistryPolicy\x12M\n" +
 	"\x06handle\x18\x01 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\x06handle\x12\\\n" +
 	"\x0fread_credential\x18\x02 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x0ereadCredential\x12h\n" +
 	"\x15submission_credential\x18\x03 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x14submissionCredential\x12Q\n" +
 	"\n" +
-	"host_trust\x18\x04 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12X\n" +
-	"\x13ssh_host_key_sha256\x18\x05 \x01(\tB)\xbaH&\xc8\x01\x01r!2\x1f^(SHA256:)?[A-Za-z0-9+/]{43}=?$R\x10sshHostKeySha256\x12U\n" +
+	"host_trust\x18\x04 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12S\n" +
+	"\x13ssh_host_key_sha256\x18\x05 \x01(\tB$\xbaH!\xc8\x01\x01r\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256\x12U\n" +
 	"\x13read_credential_ttl\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x11readCredentialTtlB\xfe\x01\n" +
 	"\x1ccom.flowseer.store.device.v1B\rRegistryProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"

@@ -108,8 +108,9 @@ interface description on that switch.
       event/device/v1/      the durable DeviceOperationEvent audit record and the
                             AuditService that delivers it
       errs/v1/              the error wire payload the error-wire record describes
-      store/device/v1/      the device service's own storage records; imports the
-                            boundaries above and is imported by none
+      store/device/v1/      the device service's own storage records; imports
+                            api/inventory, api/edge, device/access, device/policy,
+                            device/credential, errs, and net/*, and is imported by none
     ```
 
     `api/inventory` imports `device/policy` and `api/edge`; `api/edge`

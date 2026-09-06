@@ -529,7 +529,7 @@ func (b0 InterfaceReadIntent_builder) Build() *InterfaceReadIntent {
 // capability's read intent is adding an arm.
 type TypedRead struct {
 	state                   protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_AccessPolicy *v12.AccessPolicyHandle `protobuf:"bytes,2,opt,name=access_policy,json=accessPolicy"`
+	xxx_hidden_AccessPolicy *v12.AccessPolicyHandle `protobuf:"bytes,1,opt,name=access_policy,json=accessPolicy"`
 	xxx_hidden_Read         isTypedRead_Read        `protobuf_oneof:"read"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
@@ -625,7 +625,7 @@ func (x *TypedRead) ClearInterface() {
 }
 
 const TypedRead_Read_not_set_case case_TypedRead_Read = 0
-const TypedRead_Interface_case case_TypedRead_Read = 1
+const TypedRead_Interface_case case_TypedRead_Read = 10
 
 func (x *TypedRead) WhichRead() case_TypedRead_Read {
 	if x == nil {
@@ -676,7 +676,7 @@ type isTypedRead_Read interface {
 }
 
 type typedRead_Interface struct {
-	Interface *InterfaceReadIntent `protobuf:"bytes,1,opt,name=interface,oneof"`
+	Interface *InterfaceReadIntent `protobuf:"bytes,10,opt,name=interface,oneof"`
 }
 
 func (*typedRead_Interface) isTypedRead_Read() {}
@@ -707,8 +707,9 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"\x13InterfaceReadIntent\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"\xc6\x01\n" +
 	"\tTypedRead\x12Z\n" +
-	"\raccess_policy\x18\x02 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
-	"\tinterface\x18\x01 \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
+	"\raccess_policy\x18\x01 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
+	"\tinterface\x18\n" +
+	" \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
 	"\x04read\x12\x05\xbaH\x02\b\x01*a\n" +
 	"\fCompleteness\x12\x1c\n" +
 	"\x18COMPLETENESS_UNSPECIFIED\x10\x00\x12\x19\n" +

@@ -39,7 +39,7 @@ type ExecuteRequest struct {
 	xxx_hidden_Deadline       *timestamppb.Timestamp     `protobuf:"bytes,2,opt,name=deadline"`
 	xxx_hidden_IdempotencyKey *string                    `protobuf:"bytes,3,opt,name=idempotency_key,json=idempotencyKey"`
 	xxx_hidden_Resume         bool                       `protobuf:"varint,4,opt,name=resume"`
-	xxx_hidden_SubmittedAt    *timestamppb.Timestamp     `protobuf:"bytes,5,opt,name=submitted_at,json=submittedAt"`
+	xxx_hidden_AdmittedAt     *timestamppb.Timestamp     `protobuf:"bytes,5,opt,name=admitted_at,json=admittedAt"`
 	xxx_hidden_Operation      isExecuteRequest_Operation `protobuf_oneof:"operation"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
@@ -103,9 +103,9 @@ func (x *ExecuteRequest) GetResume() bool {
 	return false
 }
 
-func (x *ExecuteRequest) GetSubmittedAt() *timestamppb.Timestamp {
+func (x *ExecuteRequest) GetAdmittedAt() *timestamppb.Timestamp {
 	if x != nil {
-		return x.xxx_hidden_SubmittedAt
+		return x.xxx_hidden_AdmittedAt
 	}
 	return nil
 }
@@ -146,8 +146,8 @@ func (x *ExecuteRequest) SetResume(v bool) {
 	x.xxx_hidden_Resume = v
 }
 
-func (x *ExecuteRequest) SetSubmittedAt(v *timestamppb.Timestamp) {
-	x.xxx_hidden_SubmittedAt = v
+func (x *ExecuteRequest) SetAdmittedAt(v *timestamppb.Timestamp) {
+	x.xxx_hidden_AdmittedAt = v
 }
 
 func (x *ExecuteRequest) SetMutation(v *v1.MutationIntent) {
@@ -187,11 +187,11 @@ func (x *ExecuteRequest) HasIdempotencyKey() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *ExecuteRequest) HasSubmittedAt() bool {
+func (x *ExecuteRequest) HasAdmittedAt() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_SubmittedAt != nil
+	return x.xxx_hidden_AdmittedAt != nil
 }
 
 func (x *ExecuteRequest) HasOperation() bool {
@@ -231,8 +231,8 @@ func (x *ExecuteRequest) ClearIdempotencyKey() {
 	x.xxx_hidden_IdempotencyKey = nil
 }
 
-func (x *ExecuteRequest) ClearSubmittedAt() {
-	x.xxx_hidden_SubmittedAt = nil
+func (x *ExecuteRequest) ClearAdmittedAt() {
+	x.xxx_hidden_AdmittedAt = nil
 }
 
 func (x *ExecuteRequest) ClearOperation() {
@@ -285,9 +285,12 @@ type ExecuteRequest_builder struct {
 	// observes before any retry, never submitting first. Unset means false,
 	// the ordinary path. Implicit presence: false and unset are one state.
 	Resume bool
-	// When central first admitted the mutation, the start of its
-	// delayed-apply horizon. Set exactly with resume.
-	SubmittedAt *timestamppb.Timestamp
+	// When central admitted the mutation. A resumed mutation measures its
+	// delayed-apply horizon from here, since the moment the command was
+	// handed to the device is lost with the edge that held it; the horizon
+	// therefore also covers dispatch and checkpoint, the conservative
+	// direction. Set exactly with resume.
+	AdmittedAt *timestamppb.Timestamp
 	// Exactly one operation.
 
 	// Fields of oneof xxx_hidden_Operation:
@@ -310,7 +313,7 @@ func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
 		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
 	}
 	x.xxx_hidden_Resume = b.Resume
-	x.xxx_hidden_SubmittedAt = b.SubmittedAt
+	x.xxx_hidden_AdmittedAt = b.AdmittedAt
 	if b.Mutation != nil {
 		x.xxx_hidden_Operation = &executeRequest_Mutation{b.Mutation}
 	}
@@ -1126,19 +1129,20 @@ var File_flowseer_integration_device_v1_execution_proto protoreflect.FileDescrip
 
 const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x05\n" +
+	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc7\x05\n" +
 	"\x0eExecuteRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
 	"\bdeadline\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x124\n" +
 	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12\x1d\n" +
-	"\x06resume\x18\x04 \x01(\bB\x05\xaa\x01\x02\b\x02R\x06resume\x12=\n" +
-	"\fsubmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12G\n" +
+	"\x06resume\x18\x04 \x01(\bB\x05\xaa\x01\x02\b\x02R\x06resume\x12;\n" +
+	"\vadmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"admittedAt\x12G\n" +
 	"\bmutation\x18\n" +
 	" \x01(\v2).flowseer.device.access.v1.MutationIntentH\x00R\bmutation\x12:\n" +
-	"\x04read\x18\v \x01(\v2$.flowseer.device.access.v1.TypedReadH\x00R\x04read:\xa6\x02\xbaH\xa2\x02\x1a\xa4\x01\n" +
-	"$execute_request.resume_is_a_mutation\x12<resume applies to a mutation and carries its submission time\x1a>!this.resume || (has(this.mutation) && has(this.submitted_at))\x1ay\n" +
-	")execute_request.submitted_at_needs_resume\x12$submitted_at is set only with resume\x1a&!has(this.submitted_at) || this.resumeB\x12\n" +
+	"\x04read\x18\v \x01(\v2$.flowseer.device.access.v1.TypedReadH\x00R\x04read:\xa1\x02\xbaH\x9d\x02\x1a\xa2\x01\n" +
+	"$execute_request.resume_is_a_mutation\x12;resume applies to a mutation and carries its admission time\x1a=!this.resume || (has(this.mutation) && has(this.admitted_at))\x1av\n" +
+	"(execute_request.admitted_at_needs_resume\x12#admitted_at is set only with resume\x1a%!has(this.admitted_at) || this.resumeB\x12\n" +
 	"\toperation\x12\x05\xbaH\x02\b\x01\"\xa2\x03\n" +
 	"\rExecuteResult\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
@@ -1192,7 +1196,7 @@ var file_flowseer_integration_device_v1_execution_proto_goTypes = []any{
 }
 var file_flowseer_integration_device_v1_execution_proto_depIdxs = []int32{
 	8,  // 0: flowseer.integration.device.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
-	8,  // 1: flowseer.integration.device.v1.ExecuteRequest.submitted_at:type_name -> google.protobuf.Timestamp
+	8,  // 1: flowseer.integration.device.v1.ExecuteRequest.admitted_at:type_name -> google.protobuf.Timestamp
 	9,  // 2: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.device.access.v1.MutationIntent
 	10, // 3: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.device.access.v1.TypedRead
 	11, // 4: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.device.access.v1.OperationPhase

@@ -77,13 +77,13 @@ func (x SubmissionAuthority) Number() protoreflect.EnumNumber {
 }
 
 // One device credential as delivered to an edge: the pinned handle naming
-// which version it is, and the opaque material itself.
+// which version it is, and the typed material itself.
 type DeviceCredential struct {
-	state                 protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_Credential *v1.CredentialHandle    `protobuf:"bytes,1,opt,name=credential"`
-	xxx_hidden_Material   *v11.CredentialMaterial `protobuf:"bytes,2,opt,name=material"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state                    protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Credential    *v1.CredentialHandle    `protobuf:"bytes,1,opt,name=credential"`
+	xxx_hidden_TypedMaterial *v11.CredentialMaterial `protobuf:"bytes,4,opt,name=typed_material,json=typedMaterial"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *DeviceCredential) Reset() {
@@ -118,9 +118,9 @@ func (x *DeviceCredential) GetCredential() *v1.CredentialHandle {
 	return nil
 }
 
-func (x *DeviceCredential) GetMaterial() *v11.CredentialMaterial {
+func (x *DeviceCredential) GetTypedMaterial() *v11.CredentialMaterial {
 	if x != nil {
-		return x.xxx_hidden_Material
+		return x.xxx_hidden_TypedMaterial
 	}
 	return nil
 }
@@ -129,8 +129,8 @@ func (x *DeviceCredential) SetCredential(v *v1.CredentialHandle) {
 	x.xxx_hidden_Credential = v
 }
 
-func (x *DeviceCredential) SetMaterial(v *v11.CredentialMaterial) {
-	x.xxx_hidden_Material = v
+func (x *DeviceCredential) SetTypedMaterial(v *v11.CredentialMaterial) {
+	x.xxx_hidden_TypedMaterial = v
 }
 
 func (x *DeviceCredential) HasCredential() bool {
@@ -140,19 +140,19 @@ func (x *DeviceCredential) HasCredential() bool {
 	return x.xxx_hidden_Credential != nil
 }
 
-func (x *DeviceCredential) HasMaterial() bool {
+func (x *DeviceCredential) HasTypedMaterial() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Material != nil
+	return x.xxx_hidden_TypedMaterial != nil
 }
 
 func (x *DeviceCredential) ClearCredential() {
 	x.xxx_hidden_Credential = nil
 }
 
-func (x *DeviceCredential) ClearMaterial() {
-	x.xxx_hidden_Material = nil
+func (x *DeviceCredential) ClearTypedMaterial() {
+	x.xxx_hidden_TypedMaterial = nil
 }
 
 type DeviceCredential_builder struct {
@@ -162,7 +162,7 @@ type DeviceCredential_builder struct {
 	Credential *v1.CredentialHandle
 	// The credential material, shaped for the adapter that uses it. Must be
 	// present.
-	Material *v11.CredentialMaterial
+	TypedMaterial *v11.CredentialMaterial
 }
 
 func (b0 DeviceCredential_builder) Build() *DeviceCredential {
@@ -170,7 +170,7 @@ func (b0 DeviceCredential_builder) Build() *DeviceCredential {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Credential = b.Credential
-	x.xxx_hidden_Material = b.Material
+	x.xxx_hidden_TypedMaterial = b.TypedMaterial
 	return m0
 }
 
@@ -457,9 +457,10 @@ type AcquireReadCredentialResponse_builder struct {
 	// When this credential stops being valid. There is no standing lease;
 	// the edge acquires a fresh one for the next read. Must be present.
 	ExpiresAt *timestamppb.Timestamp
-	// The device's SSH host key as a base64 SHA-256 fingerprint, with or
-	// without the "SHA256:" prefix; the material of the host_trust version.
-	// Set exactly when the material is a shell login.
+	// The device's SSH host key as "SHA256:" followed by the unpadded base64
+	// digest, the one spelling ssh-keygen and the Go ssh package produce;
+	// the material of the host_trust version. Set exactly when the material
+	// is a shell login.
 	SshHostKeySha256 *string
 }
 
@@ -769,9 +770,10 @@ type SubmissionGrant_builder struct {
 	// monotonic bound: no later pulse on this stream lowers it. Must be
 	// present.
 	Deadline *timestamppb.Timestamp
-	// The device's SSH host key as a base64 SHA-256 fingerprint, with or
-	// without the "SHA256:" prefix; the material of the host_trust version.
-	// Set exactly when the material is a shell login.
+	// The device's SSH host key as "SHA256:" followed by the unpadded base64
+	// digest, the one spelling ssh-keygen and the Go ssh package produce;
+	// the material of the host_trust version. Set exactly when the material
+	// is a shell login.
 	SshHostKeySha256 *string
 }
 
@@ -1073,17 +1075,17 @@ var File_flowseer_api_edge_v1_credential_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
-	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a,flowseer/device/credential/v1/material.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n" +
+	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a,flowseer/device/credential/v1/material.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd9\x01\n" +
 	"\x10DeviceCredential\x12S\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"credential\x12U\n" +
-	"\bmaterial\x18\x02 \x01(\v21.flowseer.device.credential.v1.CredentialMaterialB\x06\xbaH\x03\xc8\x01\x01R\bmaterial\"\xd0\x01\n" +
+	"credential\x12`\n" +
+	"\x0etyped_material\x18\x04 \x01(\v21.flowseer.device.credential.v1.CredentialMaterialB\x06\xbaH\x03\xc8\x01\x01R\rtypedMaterialJ\x04\b\x02\x10\x03R\bmaterial\"\xd0\x01\n" +
 	"\x1cAcquireReadCredentialRequest\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12Z\n" +
-	"\raccess_policy\x18\x03 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc2\x04\n" +
+	"\raccess_policy\x18\x03 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc3\x04\n" +
 	"\x1dAcquireReadCredentialResponse\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
@@ -1091,24 +1093,24 @@ const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12A\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12U\n" +
-	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB&\xbaH#r!2\x1f^(SHA256:)?[A-Za-z0-9+/]{43}=?$R\x10sshHostKeySha256:\xe3\x01\xbaH\xdf\x01\x1a\xdc\x01\n" +
-	"2acquire_read_credential_response.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1a_!has(this.credential) || (has(this.credential.material.shell) == has(this.ssh_host_key_sha256))\"\x9b\x01\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12P\n" +
+	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB!\xbaH\x1er\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256:\xe9\x01\xbaH\xe5\x01\x1a\xe2\x01\n" +
+	"2acquire_read_credential_response.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1ae!has(this.credential) || (has(this.credential.typed_material.shell) == has(this.ssh_host_key_sha256))\"\x9b\x01\n" +
 	"\x1bOpenDeviceSubmissionRequest\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12&\n" +
 	"\bsequence\x18\x03 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa1\x04\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa2\x04\n" +
 	"\x0fSubmissionGrant\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"credential\x12Q\n" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12>\n" +
-	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12U\n" +
-	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB&\xbaH#r!2\x1f^(SHA256:)?[A-Za-z0-9+/]{43}=?$R\x10sshHostKeySha256:\xd3\x01\xbaH\xcf\x01\x1a\xcc\x01\n" +
-	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1a_!has(this.credential) || (has(this.credential.material.shell) == has(this.ssh_host_key_sha256))\"\xa8\x01\n" +
+	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12P\n" +
+	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB!\xbaH\x1er\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256:\xd9\x01\xbaH\xd5\x01\x1a\xd2\x01\n" +
+	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1ae!has(this.credential) || (has(this.credential.typed_material.shell) == has(this.ssh_host_key_sha256))\"\xa8\x01\n" +
 	"\x0eAuthorityPulse\x12V\n" +
 	"\tauthority\x18\x01 \x01(\x0e2).flowseer.api.edge.v1.SubmissionAuthorityB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tauthority\x12>\n" +
@@ -1142,7 +1144,7 @@ var file_flowseer_api_edge_v1_credential_proto_goTypes = []any{
 }
 var file_flowseer_api_edge_v1_credential_proto_depIdxs = []int32{
 	8,  // 0: flowseer.api.edge.v1.DeviceCredential.credential:type_name -> flowseer.device.policy.v1.CredentialHandle
-	9,  // 1: flowseer.api.edge.v1.DeviceCredential.material:type_name -> flowseer.device.credential.v1.CredentialMaterial
+	9,  // 1: flowseer.api.edge.v1.DeviceCredential.typed_material:type_name -> flowseer.device.credential.v1.CredentialMaterial
 	10, // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
 	1,  // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
 	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle

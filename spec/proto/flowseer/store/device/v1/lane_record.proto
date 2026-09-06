@@ -17,9 +17,14 @@ import option "buf/validate/validate.proto";
 
 message DeviceLaneRecord {
   option (buf.validate.message).cel = {
-    id: "device_lane_record.mutation_has_submission_time"
-    message: "an open mutation carries its submission time"
-    expression: "has(this.mutation) == has(this.submitted_at)"
+    id: "device_lane_record.mutation_has_admission_time"
+    message: "an open mutation carries its admission time"
+    expression: "has(this.mutation) == has(this.admitted_at)"
+  };
+  option (buf.validate.message).cel = {
+    id: "device_lane_record.sequences_under_watermark"
+    message: "no open sequence exceeds the high watermark"
+    expression: "(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark)"
   };
   option (buf.validate.message).cel = {
     id: "device_lane_record.confirmations_need_a_mutation"
@@ -34,9 +39,9 @@ message DeviceLaneRecord {
   uint64 high_watermark = 2 [features.field_presence = IMPLICIT];
   // The mutation that holds the lane. Unset means the lane is free.
   flowseer.device.access.v1.MutationState mutation = 3;
-  // When the open mutation was admitted, the start of its delayed-apply
-  // horizon. Set exactly with mutation.
-  google.protobuf.Timestamp submitted_at = 4;
+  // When the open mutation was admitted; carried on a resumed dispatch as
+  // the start of its delayed-apply horizon. Set exactly with mutation.
+  google.protobuf.Timestamp admitted_at = 4;
   // Whether the edge ever reported the open mutation admitted. Survives
   // an edge restart, unlike the confirmations below. Implicit presence.
   bool dispatched = 5 [features.field_presence = IMPLICIT];
@@ -53,7 +58,10 @@ message DeviceLaneRecord {
   // reports onboarded. Implicit presence.
   bool checkpoint_confirmed = 8 [features.field_presence = IMPLICIT];
   // The sequence whose hold resolution central recorded and the edge has
-  // not yet confirmed. Unset means none is owed.
+  // not yet confirmed. Unset means none is owed. This alone derives the
+  // hold row; an edge reporting onboarded leaves it as it is, since the
+  // resolution is re-sent and a restarted edge acknowledges it without a
+  // hold to clear.
   uint64 hold_resolution_pending = 9 [(buf.validate.field).uint64.gte = 1];
   // Reads in flight, keyed by the interface name the device spells.
   map<string, OpenRead> open_reads = 10 [(buf.validate.field).map = {
@@ -114,6 +122,12 @@ message OpenRead {
   // After this the read is closed with a deadline error and its row is no
   // longer owed. Must be present.
   google.protobuf.Timestamp deadline = 3 [(buf.validate.field).required = true];
+  // The key every dispatch of this read carries, minted once when the
+  // entry opens, so a re-sent dispatch is the same read. Must be present.
+  string idempotency_key = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
 
   // The read's outcome once it closed, kept for the waiter until the next
   // write removes the entry. Unset means the read is still open.

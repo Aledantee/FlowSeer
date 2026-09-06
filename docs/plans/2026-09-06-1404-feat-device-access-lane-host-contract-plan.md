@@ -219,7 +219,7 @@ per stream, not per sequence, so it can.
    cancels the timer. An `ExecuteRequest` with `resume` set (central
    re-dispatching after an edge restart past a confirmed checkpoint)
    admits straight into `RECOVERING` with no baseline and `since` set to
-   the carried submission time; with no fence wired it verifies or
+   the carried admission time; with no fence wired it verifies or
    abandons. Example: with a fake `Wait`, two observations matching the
    pre-mutation read one minute apart retry once, emitting exactly one
    `PhaseTransitioned` (to `POSSIBLY_APPLIED`) and no record for the

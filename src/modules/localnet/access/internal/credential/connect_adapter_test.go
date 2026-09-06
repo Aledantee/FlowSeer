@@ -66,7 +66,7 @@ func pulseMessage(pulse *edgev1.AuthorityPulse) *edgev1.OpenDeviceSubmissionResp
 
 func newTestGrant() *edgev1.SubmissionGrant {
 	cred := &edgev1.DeviceCredential{}
-	cred.SetMaterial(shellMaterial("material"))
+	cred.SetTypedMaterial(shellMaterial("material"))
 
 	grant := &edgev1.SubmissionGrant{}
 	grant.SetCredential(cred)
@@ -109,7 +109,7 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = handle.Close() })
-	if got := handle.Grant().GetCredential().GetMaterial().GetShell().GetUsername(); got != "material" {
+	if got := handle.Grant().GetCredential().GetTypedMaterial().GetShell().GetUsername(); got != "material" {
 		t.Fatalf("expected the grant's credential material to round-trip, got %q", got)
 	}
 
@@ -241,7 +241,7 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 
 func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
 	cred := &edgev1.DeviceCredential{}
-	cred.SetMaterial(shellMaterial("read-material"))
+	cred.SetTypedMaterial(shellMaterial("read-material"))
 	resp := &edgev1.AcquireReadCredentialResponse{}
 	resp.SetCredential(cred)
 
@@ -258,7 +258,7 @@ func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AcquireReadCredential: %v", err)
 	}
-	if username := got.GetCredential().GetMaterial().GetShell().GetUsername(); username != "read-material" {
+	if username := got.GetCredential().GetTypedMaterial().GetShell().GetUsername(); username != "read-material" {
 		t.Fatalf("expected the credential material to round-trip, got %q", username)
 	}
 }

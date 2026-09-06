@@ -158,7 +158,7 @@ Design decisions:
 - **Journal: bucket `device-lanes`, one key per device, value
   `DeviceLaneRecord`, every write `Update` with the revision read.** The
   record holds the high watermark, the open `MutationState` with its
-  submission time, a durable `dispatched` bit set by the first `ADMITTED`
+  admission time, a durable `dispatched` bit set by the first `ADMITTED`
   report for that sequence, the open mutation's last reported phase
   (reads never touch it), whether the dispatch, the checkpoint, and the
   hold resolution were confirmed, `open_reads` (a map from interface name
@@ -203,7 +203,7 @@ Design decisions:
   whose dispatch is not confirmed, and whose block reason is none of
   `DESYNCHRONIZED`, `RECOVERY_HOLD`, `EDGE_STALE` owes `ExecuteRequest`,
   with `resume` set exactly when the phase is past `ADMITTED` and the
-  original submission time carried; a recovering record
+  original admission time carried; a recovering record
   (`INDETERMINATE`) therefore still owes its resume dispatch after an
   edge restart. A mutation at `POSSIBLY_APPLIED` whose checkpoint is not
   confirmed owes `CheckpointRequest` until `CheckpointAck`, or a
@@ -233,8 +233,9 @@ Design decisions:
   sequence can be owed at once and a sequence alone would not say which
   row the refusal answers; the kind is what makes a row-level negative
   confirmation expressible. `Onboarded` clears the
-  dispatch, checkpoint, and hold confirmations for the device and nothing
-  else, so the rows above re-derive the resume dispatch and the terminal
+  dispatch and checkpoint confirmations for the device and nothing else
+  (the hold row derives from the pending resolution alone), so the rows
+  above re-derive the resume dispatch and the terminal
   ack from the record alone; an edge restarted while parked before its
   checkpoint therefore resumes into recovery for a command it never sent
   and abandons at the horizon, the conservative direction and the common
@@ -393,7 +394,7 @@ Design decisions:
 
 1. `integration/device/v1` gains `HoldResolved`, `HoldResolvedAck`,
    `Onboarded`, `Refused` with the lane's code, `Dispatch`, `Report`,
-   `ExecuteRequest.resume` and `submitted_at`, `ExecuteResult.submitted`,
+   `ExecuteRequest.resume` and `admitted_at`, `ExecuteResult.submitted`,
    an empty `progress` arm on
    `ExecuteResult.outcome` for a non-terminal report, and `DispatchService`
    with `Subscribe` and `Report`; `device/access/v1` gains
@@ -403,7 +404,7 @@ Design decisions:
    matrix, the reports an edge must send (one per phase reached, a read's
    with its result, `Refused` with its code for a dispatch it cannot
    apply, and which codes are retryable), and the `resume` rule with the
-   carried submission time; its "one subject per device per edge" line
+   carried admission time; its "one subject per device per edge" line
    goes; the owed-row derivation is central's policy and lives in
    `src/services/device/README.md`. `device/credential/v1` and
    `store/device/v1` exist with READMEs; `store` joins `orderedRoots`.
@@ -422,7 +423,7 @@ Design decisions:
    `no-pending-wait` at a reported phase past `POSSIBLY_APPLIED`, and the
    record marks the checkpoint confirmed; a message owed while no stream
    is open is sent on the next open; `Onboarded` at `POSSIBLY_APPLIED`
-   re-dispatches with `resume` and the original submission time, and at
+   re-dispatches with `resume` and the original admission time, and at
    `ADMITTED` without `resume`; a read owed past its deadline is dropped
    and recorded failed; a disposed held intent owes nothing; an open
    read never delays a `CheckpointRequest`.

@@ -16,17 +16,19 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 )
 
+const readKey = "0192e6a0-0000-7000-8000-00000000a002"
+
 func laneRecord() storev1.DeviceLaneRecord_builder {
 	return storev1.DeviceLaneRecord_builder{
 		Device:        deviceRef(deviceID),
-		HighWatermark: 7,
+		HighWatermark: 42,
 	}
 }
 
 func openLaneRecord() storev1.DeviceLaneRecord_builder {
 	record := laneRecord()
 	record.Mutation = mutationState(accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED).Build()
-	record.SubmittedAt = timestamppb.New(edgeIssuedAt)
+	record.AdmittedAt = timestamppb.New(edgeIssuedAt)
 	record.Dispatched = true
 	record.DispatchConfirmed = true
 	record.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum()
@@ -35,10 +37,10 @@ func openLaneRecord() storev1.DeviceLaneRecord_builder {
 
 func TestDeviceLaneRecordRules(t *testing.T) {
 	noTime := openLaneRecord()
-	noTime.SubmittedAt = nil
+	noTime.AdmittedAt = nil
 
 	timeWithoutMutation := laneRecord()
-	timeWithoutMutation.SubmittedAt = timestamppb.New(edgeIssuedAt)
+	timeWithoutMutation.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	confirmedWithoutMutation := laneRecord()
 	confirmedWithoutMutation.DispatchConfirmed = true
@@ -49,9 +51,10 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	withReads := laneRecord()
 	withReads.OpenReads = map[string]*storev1.OpenRead{
 		"ethernet 1/1/1": storev1.OpenRead_builder{
-			Sequence: proto.Uint64(8),
-			Read:     typedRead("ethernet 1/1/1"),
-			Deadline: timestamppb.New(edgeIssuedAt.Add(30 * time.Second)),
+			Sequence:       proto.Uint64(8),
+			Read:           typedRead("ethernet 1/1/1"),
+			Deadline:       timestamppb.New(edgeIssuedAt.Add(30 * time.Second)),
+			IdempotencyKey: proto.String(readKey),
 		}.Build(),
 	}
 	withReads.ExpectedDescriptions = map[string]string{"ethernet 1/1/1": "uplink to core"}
@@ -63,14 +66,51 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	badReadKey := laneRecord()
 	badReadKey.OpenReads = map[string]*storev1.OpenRead{
 		"": storev1.OpenRead_builder{
-			Sequence: proto.Uint64(8),
-			Read:     typedRead("ethernet 1/1/1"),
-			Deadline: timestamppb.New(edgeIssuedAt),
+			Sequence:       proto.Uint64(8),
+			Read:           typedRead("ethernet 1/1/1"),
+			Deadline:       timestamppb.New(edgeIssuedAt),
+			IdempotencyKey: proto.String(readKey),
 		}.Build(),
 	}
 
+	dispatchedWithoutMutation := laneRecord()
+	dispatchedWithoutMutation.Dispatched = true
+
+	checkpointWithoutMutation := laneRecord()
+	checkpointWithoutMutation.CheckpointConfirmed = true
+
+	zeroPhase := openLaneRecord()
+	zeroPhase.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED.Enum()
+
+	holdPending := laneRecord()
+	holdPending.HoldResolutionPending = proto.Uint64(7)
+
+	holdZero := laneRecord()
+	holdZero.HoldResolutionPending = proto.Uint64(0)
+
+	sequencePastWatermark := openLaneRecord()
+	sequencePastWatermark.HighWatermark = 6
+
+	readPastWatermark := laneRecord()
+	readPastWatermark.OpenReads = map[string]*storev1.OpenRead{
+		"ethernet 1/1/1": storev1.OpenRead_builder{
+			Sequence:       proto.Uint64(8),
+			Read:           typedRead("ethernet 1/1/1"),
+			Deadline:       timestamppb.New(edgeIssuedAt),
+			IdempotencyKey: proto.String(readKey),
+		}.Build(),
+	}
+	readPastWatermark.HighWatermark = 7
+
 	runValidationCases(t, []validationCase{
 		{name: "free lane is valid", message: laneRecord().Build(), wantValid: true},
+		{name: "dispatched without a mutation is rejected", message: dispatchedWithoutMutation.Build()},
+		{name: "checkpoint confirmation without a mutation is rejected", message: checkpointWithoutMutation.Build()},
+		{name: "zero reported phase is rejected", message: zeroPhase.Build()},
+		{name: "pending hold resolution is valid", message: holdPending.Build(), wantValid: true},
+		{name: "hold resolution sequence zero is rejected", message: holdZero.Build()},
+		{name: "mutation sequence past the watermark is rejected", message: sequencePastWatermark.Build()},
+		{name: "read sequence past the watermark is rejected", message: readPastWatermark.Build()},
 		{name: "open mutation with its facts is valid", message: openLaneRecord().Build(), wantValid: true},
 		{name: "open mutation without a submission time is rejected", message: noTime.Build()},
 		{name: "submission time without a mutation is rejected", message: timeWithoutMutation.Build()},
@@ -84,10 +124,11 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 
 func TestOpenReadRules(t *testing.T) {
 	closedWithObservation := storev1.OpenRead_builder{
-		Sequence:    proto.Uint64(8),
-		Read:        typedRead("ethernet 1/1/1"),
-		Deadline:    timestamppb.New(edgeIssuedAt),
-		Observation: interfaceObservation().Build(),
+		Sequence:       proto.Uint64(8),
+		Read:           typedRead("ethernet 1/1/1"),
+		Deadline:       timestamppb.New(edgeIssuedAt),
+		IdempotencyKey: proto.String(readKey),
+		Observation:    interfaceObservation().Build(),
 	}.Build()
 
 	runValidationCases(t, []validationCase{
@@ -95,14 +136,24 @@ func TestOpenReadRules(t *testing.T) {
 		{
 			name: "open read without a deadline is rejected",
 			message: storev1.OpenRead_builder{
-				Sequence: proto.Uint64(8),
-				Read:     typedRead("ethernet 1/1/1"),
+				Sequence:       proto.Uint64(8),
+				Read:           typedRead("ethernet 1/1/1"),
+				IdempotencyKey: proto.String(readKey),
 			}.Build(),
 		},
 		{
 			name: "open read without the read is rejected",
 			message: storev1.OpenRead_builder{
+				Sequence:       proto.Uint64(8),
+				Deadline:       timestamppb.New(edgeIssuedAt),
+				IdempotencyKey: proto.String(readKey),
+			}.Build(),
+		},
+		{
+			name: "open read without an idempotency key is rejected",
+			message: storev1.OpenRead_builder{
 				Sequence: proto.Uint64(8),
+				Read:     typedRead("ethernet 1/1/1"),
 				Deadline: timestamppb.New(edgeIssuedAt),
 			}.Build(),
 		},
@@ -162,6 +213,29 @@ func TestDeviceRegistryRules(t *testing.T) {
 	badInterface := registryDevice(deviceID, "icx7150")
 	badInterface.SetManagedInterfaces([]string{"ethernet 1/1/1", "ethernet 1/1/1"})
 
+	badPort := registryDevice(deviceID, "icx7150")
+	badPort.SetSshPort(70000)
+
+	shortHorizon := registryDevice(deviceID, "icx7150")
+	shortHorizon.SetDelayedApplyHorizon(durationpb.New(500 * time.Millisecond))
+
+	unlistedPolicy := storev1.DeviceRegistry_builder{
+		Integration: integration,
+		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150")},
+		Policies:    []*storev1.RegistryPolicy{registryPolicy("other-policy")},
+	}.Build()
+
+	staleVersion := registryPolicy("icx7150-lab")
+	staleVersion.SetHandle(accessPolicyHandle("icx7150-lab", 2))
+	stalePolicy := storev1.DeviceRegistry_builder{
+		Integration: integration,
+		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150")},
+		Policies:    []*storev1.RegistryPolicy{staleVersion},
+	}.Build()
+
+	shortTTL := registryPolicy("icx7150-lab")
+	shortTTL.SetReadCredentialTtl(durationpb.New(time.Millisecond))
+
 	runValidationCases(t, []validationCase{
 		{name: "registry with one device and one policy is valid", message: valid, wantValid: true},
 		{name: "a device listed twice is rejected", message: duplicateDevice},
@@ -169,6 +243,11 @@ func TestDeviceRegistryRules(t *testing.T) {
 		{name: "registry without an integration is rejected", message: storev1.DeviceRegistry_builder{}.Build()},
 		{name: "device without a measured horizon is still a valid record", message: unmeasured, wantValid: true},
 		{name: "duplicate managed interfaces are rejected", message: badInterface},
+		{name: "a port above 65535 is rejected", message: badPort},
+		{name: "a horizon under one second is rejected", message: shortHorizon},
+		{name: "a device naming an unlisted policy is rejected", message: unlistedPolicy},
+		{name: "a device naming a stale policy version is rejected", message: stalePolicy},
+		{name: "a read credential ttl under one second is rejected", message: shortTTL},
 		{
 			name: "policy without a host key pin is rejected",
 			message: storev1.RegistryPolicy_builder{

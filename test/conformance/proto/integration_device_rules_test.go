@@ -30,19 +30,19 @@ func TestExecuteRequestRules(t *testing.T) {
 
 	resumed := executeRequest()
 	resumed.Resume = true
-	resumed.SubmittedAt = timestamppb.New(edgeIssuedAt)
+	resumed.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	resumedWithoutTime := executeRequest()
 	resumedWithoutTime.Resume = true
 
 	timeWithoutResume := executeRequest()
-	timeWithoutResume.SubmittedAt = timestamppb.New(edgeIssuedAt)
+	timeWithoutResume.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	resumedRead := executeRequest()
 	resumedRead.Mutation = nil
 	resumedRead.Read = typedRead("ethernet 1/1/1")
 	resumedRead.Resume = true
-	resumedRead.SubmittedAt = timestamppb.New(edgeIssuedAt)
+	resumedRead.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
 	noOperation := executeRequest()
 	noOperation.Mutation = nil

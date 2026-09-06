@@ -87,7 +87,7 @@ An `ExecuteRequest` with `resume` set is central re-dispatching a mutation
 after the edge restarted past central's own checkpoint. The command may
 already have been sent, so the edge admits the mutation straight into
 recovery and observes before any retry, never submitting first; the carried
-`submitted_at` is the start of the delayed-apply horizon, so a restart does
+`admitted_at` is the start of the delayed-apply horizon, so a restart does
 not reset it. An edge that restarted while parked before its checkpoint
 resumes into recovery for a command it never sent and abandons at the
 horizon: the conservative direction, and the common outcome of a restart.

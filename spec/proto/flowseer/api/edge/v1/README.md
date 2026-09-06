@@ -108,7 +108,10 @@ it: the same key, edge, audience, window, and nonce, procedure
 over the Connect-enveloped `OpenDeviceSubmissionRequest` for device
 `0192e6a0-0000-7000-8000-0000000000d1`, binding
 `0192e6a0-0000-7000-8000-0000000000b1`, sequence 42 (a zero flags byte, the
-big-endian message length, then the deterministic message bytes).
+big-endian message length, then the deterministic message bytes). The
+vector's body is a deterministic marshal; a middleware checking itself
+against it hashes the bytes it received, never a re-marshal of the decoded
+message, since a client's encoding need not be deterministic.
 
 ```
 Authorization: FlowSeer-Edge CrgBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI2L2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJA7CbFLzvZmR/jh2rq6sc+fB89EXI+K99j9O69oKmbsQc2AwMZpsAPlXngwrtopUzc5itWFa+FDYXe2DB+ZQOZBg

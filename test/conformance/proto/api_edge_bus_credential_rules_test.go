@@ -72,7 +72,7 @@ func deviceCredential(key string, version uint64) *edgev1.DeviceCredential {
 			Key:     proto.String(key),
 			Version: proto.Uint64(version),
 		}.Build(),
-		Material: snmpMaterial(),
+		TypedMaterial: snmpMaterial(),
 	}.Build()
 }
 
@@ -82,7 +82,7 @@ func shellDeviceCredential(key string, version uint64) *edgev1.DeviceCredential 
 			Key:     proto.String(key),
 			Version: proto.Uint64(version),
 		}.Build(),
-		Material: shellMaterial(),
+		TypedMaterial: shellMaterial(),
 	}.Build()
 }
 
@@ -248,9 +248,24 @@ func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 		Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
 	}.Build()
 
+	snmpGrantWithPin := edgev1.SubmissionGrant_builder{
+		Credential:       deviceCredential("icx7150-lab-submit", 1),
+		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
+		SshHostKeySha256: proto.String(hostKeyPin),
+	}.Build()
+	unprefixedPin := edgev1.SubmissionGrant_builder{
+		Credential:       shellDeviceCredential("icx7150-lab-submit", 1),
+		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
+		SshHostKeySha256: proto.String("47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="),
+	}.Build()
+
 	runValidationCases(t, []validationCase{
 		{name: "shell grant carries the host key pin", message: shellGrant, wantValid: true},
 		{name: "shell grant without a pin is rejected", message: shellGrantWithoutPin},
+		{name: "snmp grant with a pin is rejected", message: snmpGrantWithPin},
+		{name: "a pin without the SHA256 prefix is rejected", message: unprefixedPin},
 		{
 			name:      "grant is a valid first message",
 			message:   grant,

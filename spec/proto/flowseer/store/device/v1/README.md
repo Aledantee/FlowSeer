@@ -18,15 +18,27 @@ record alone, on any replica, after any restart:
 ```prototext
 device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
 high_watermark: 7
-mutation { intent { ... } sequence: 7 phase: OPERATION_PHASE_POSSIBLY_APPLIED ... }
-submitted_at { seconds: 1788700000 }
+mutation {
+  intent {
+    device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
+    idempotency_key: "0192e6a0-0000-7000-8000-00000000a001"
+    actor { operator { subject: "zitadel|2837" } }
+    access_policy { key: "icx7150-lab" version: 3 }
+    expected_firmware_fingerprint: "ICX7150-24P SPS10010g"
+    interface_description { interface_name: "ethernet 1/1/1" description: "uplink to core" }
+  }
+  sequence: 7
+  phase: OPERATION_PHASE_POSSIBLY_APPLIED
+  responsible_edge { edge { id: "0192e6a0-0000-7000-8000-0000000000ed" } }
+}
+admitted_at { seconds: 1788700000 }
 dispatched: true
 dispatch_confirmed: true
-checkpoint_confirmed: false
 last_reported_phase: OPERATION_PHASE_ADMITTED
 ```
 
-This record owes the edge a `CheckpointRequest` and nothing else. The
+This record owes the edge a `CheckpointRequest` and nothing else
+(`checkpoint_confirmed` is unset, which is false). The
 `dispatched` bit and the two confirmations differ in lifetime: an edge that
 restarts loses its lanes, so central clears the confirmations when the edge
 reports onboarded and re-derives what to send, while `dispatched` records
