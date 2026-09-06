@@ -21,7 +21,9 @@ the plan under `docs/plans/` that records this work, found among the files
 `git diff --name-only master...HEAD` lists. Work that skipped the plan under
 `plan`'s skip rule has none. A plan the branch touched for another reason,
 say a typo fix or a `superseded_by` field, is not this work's plan; say so
-and treat the work as planless. Planless work has no `status` field to
+and treat the work as planless. When the changed set holds a phase plan
+and the parent its `parent:` field names, the phase plan is this work's
+plan; the parent is reported, not gated on. Planless work has no `status` field to
 read, so its implementation signal is the card's `implemented:` entry with
 the card status `in-review`, a non-empty `master..HEAD` range, and the
 receipt signal. The report says the merge landed without a plan.
@@ -30,6 +32,7 @@ receipt signal. The report says the merge landed without a plan.
 | --- | --- | --- |
 | Implementation landed | plan frontmatter, or the card when the work is planless | `status: implemented`, or a comment beginning `implemented:` with `.workspaceStatus` `in-review` and commits in `master..HEAD` |
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
+| Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
 | Review verdict | Orca worktree comment, `review:` entry | `accept` or `accept after fixes` |
 | Lesson captured or declined | Orca worktree comment, `compound:` entry | a solution path, `no lesson`, or `observation logged` |
 
@@ -45,9 +48,11 @@ compound outcome, and for the implementation outcome when there is no plan,
 in one question and record the answers in the report.
 
 A failed signal whose remedy is another skill's work (a plan not
-implemented, a `partially implemented:` card entry, no review verdict, no
-compound outcome) stops the skill here: report which one and name the skill
-to run next. Do not merge a partial implementation because the landed units
+implemented, a `partially implemented:` card entry, a ledger unit that is
+not `passed` even when the plan says `implemented`, no review verdict, no
+compound outcome) stops the skill here: report which one, the ledger
+against the plan's `status` when they disagree, and name the skill to run
+next. An absent ledger is not a signal; planless work has none. Do not merge a partial implementation because the landed units
 pass. A failed signal with a mechanical remedy (a receipt older than the
 last commit, a dirty marker) is not a stop: name the remedy, ask the user
 whether to apply it, and re-read the signal after doing so. Planless work
@@ -130,7 +135,12 @@ Report a red verifier or a conflict as is, with the exact command and output.
 Resolve a conflict only when the resolution is mechanical; otherwise
 `git -C "$primary" merge --abort`, report the conflicting files, and stop.
 
-Do not delete the branch; Orca deletes it with the worktree.
+Do not delete the branch; Orca deletes it with the worktree. Remove the
+plan status ledger once the merge has landed, and say so in the report:
+
+```bash
+rm -f "$(git rev-parse --git-dir)/flowseer-plan-status.json"
+```
 
 ## 4. Mark the card
 
