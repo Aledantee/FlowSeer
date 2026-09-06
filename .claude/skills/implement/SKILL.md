@@ -36,8 +36,9 @@ Any non-zero exit, the one for an unknown object included, means not an
 ancestor: report the unit, compare its files with the tree, record the
 mismatch under Open questions, and ask the user before rewinding a unit.
 Then continue from `resume`. A ledger naming another plan is replaced only
-after the user confirms. When there is no ledger, write one with every
-unit `pending` before the first edit.
+after the user confirms. When the work has a plan and no ledger, write one
+with every unit `pending` before the first edit; a planless request keeps
+no ledger.
 
 Read the `docs/architecture/` record for the area, the `CONCEPTS.md` entries
 the plan uses, and the conventions for the files you will touch:
@@ -62,7 +63,9 @@ the user asked for it (see Units in workers). For each:
 3. Write or extend the tests the unit names. When the unit changes behavior,
    write the failing test first and watch it fail. A unit without a test
    needs a stated reason in the plan.
-4. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), commit
+4. Update the package README, convention doc, solution citations, and any
+   test or benchmark name the unit made false, in the same unit.
+5. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), commit
    the unit, then run the verifier for the unit's paths, sandbox disabled,
    in the background while you read on:
 
@@ -73,13 +76,12 @@ the user asked for it (see Units in workers). For each:
    When a unit leaves the package red until the next unit lands, verify
    those units together and say so.
 
-5. Update the package README, convention doc, solution citations, and any
-   test or benchmark name the unit made false, in the same unit. Write the
-   unit `passed` in the ledger with `git rev-parse HEAD` and the receipt's
-   `verified_at`, move `resume` to the next unit, and fill `note` only
-   when the unit produced a decision or pitfall the next unit needs, in
-   one line. A unit that cannot land is `blocked` with the reason in
-   `note`. In Orca, set the worktree comment to the unit that landed.
+6. Once that run reports green, write the unit `passed` in the ledger with
+   `git rev-parse HEAD` and that run's `verified_at` from the receipt,
+   move `resume` to the next unit, and fill `note` only when the unit
+   produced a decision or pitfall the next unit needs, in one line. A unit
+   that cannot land is `blocked` with the reason in `note`. In Orca, set
+   the worktree comment to the unit that landed.
 
 Plan labels stay in the plan: never write `U2`, `R4`, or a plan filename into
 code, comments, or commit messages.
@@ -117,8 +119,10 @@ Record the outcome in the plan, read from the ledger, in the same commit as
 the last unit; the ledger stays in place for `close` to gate on. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
-`> Partially implemented: <units>.` with the reason. A request that skipped
-the plan has nowhere to record this. In Orca the card entry below is then
+`> Partially implemented: <units>.` with the reason. When the plan carries
+a `parent:` field, fill this phase's `Landed:` line in the parent, and set
+the parent to `implemented` when this was its last phase, in the same
+commit. A request that skipped the plan has nowhere to record this. In Orca the card entry below is then
 the only implementation signal `close` reads, so write it even for a small
 change; outside Orca the commit message carries the outcome and `close`
 asks the user.

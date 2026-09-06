@@ -576,8 +576,20 @@ ledger_rc=$?
 set -e
 [[ $ledger_rc -eq 1 ]]
 [[ $ledger_output == *"plan 'docs/plans/missing-plan.md' does not exist"* ]]
-rm -f "$ledger"
 ok "plan status check rejects a ledger whose plan does not exist"
+
+write_ledger pending
+mkdir -p "$ledger_fixture/src/deeper"
+[[ -z $(cd "$ledger_fixture/src/deeper" && python3 "$ledger_script" 2>&1) ]]
+sed -i.bak 's#"id": "U2"#"id": "U1"#' "$ledger" && rm -f "$ledger.bak"
+set +e
+ledger_output=$(check_ledger)
+ledger_rc=$?
+set -e
+[[ $ledger_rc -eq 1 ]]
+[[ $ledger_output == *'units must not repeat an id'* ]]
+rm -f "$ledger"
+ok "plan status check resolves the plan from a subdirectory and rejects repeated ids"
 
 otel_wrapper=$repo_root/tools/test/service-otel-integration.sh
 wrapper_tmp=$fixture_parent/wrapper-tmp

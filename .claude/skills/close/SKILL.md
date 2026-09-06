@@ -23,9 +23,9 @@ the plan under `docs/plans/` that records this work, found among the files
 say a typo fix or a `superseded_by` field, is not this work's plan; say so
 and treat the work as planless. When the changed set holds a phase plan
 and the parent its `parent:` field names, the phase plan is this work's
-plan; the parent is reported, not gated on. Planless work has no `status` field to
-read, so its implementation signal is the card's `implemented:` entry with
-the card status `in-review`, a non-empty `master..HEAD` range, and the
+plan; the parent is reported, not gated on. Planless work has no `status`
+field to read, so its implementation signal is the card's `implemented:`
+entry with the card status `in-review`, a non-empty `master..HEAD` range, and the
 receipt signal. The report says the merge landed without a plan.
 
 | Signal | Where | Required value |
@@ -52,8 +52,9 @@ implemented, a `partially implemented:` card entry, a ledger unit that is
 not `passed` even when the plan says `implemented`, no review verdict, no
 compound outcome) stops the skill here: report which one, the ledger
 against the plan's `status` when they disagree, and name the skill to run
-next. An absent ledger is not a signal; planless work has none. Do not merge a partial implementation because the landed units
-pass. A failed signal with a mechanical remedy (a receipt older than the
+next. An absent ledger is not a signal; planless work has none. Do not
+merge a partial implementation because the landed units pass. A failed
+signal with a mechanical remedy (a receipt older than the
 last commit, a dirty marker) is not a stop: name the remedy, ask the user
 whether to apply it, and re-read the signal after doing so. Planless work
 done in the main conversation, or by `steer`, leaves no `implemented:`

@@ -79,6 +79,7 @@ status: planned
 execution: code | docs | mixed
 amends: <path of the plan or direction record this one changes, if any>
 superseded_by: <path of the replacing plan; only with status superseded>
+parent: <path of the parent plan; only in a phase plan>
 ---
 ```
 

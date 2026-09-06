@@ -35,9 +35,10 @@ cluster, in dependency order:
   parent's rather than repeating them.
 - Only the first phase is written implementation-ready. A later phase
   carries Goal, Decisions, and Requirements, `artifact_readiness:
-  needs-decisions`, and this line under its title: `> Re-planned by
-  \`plan\` when its turn comes; the tree will have moved.` `implement`
-  refuses such a plan and names `plan`.
+  needs-decisions`, and this line under its title: `> Re-planned by plan
+  when its turn comes; the tree will have moved.` `implement` refuses such
+  a plan and names `plan`. When a phase lands, `implement` fills its
+  `Landed:` line in the parent.
 
 An example: a nine-unit plan with four units in `src/protocol/smi` and
 five in `src/protocol/snmp` whose `After` lines depend on the first four

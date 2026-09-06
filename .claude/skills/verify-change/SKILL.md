@@ -46,9 +46,10 @@ matching dirty markers; `close` reads that receipt.
 
 `implement` keeps `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
 never committed, so a later session resumes a plan without re-deriving
-what landed. Every verifier run validates it first, before any gate, with
-`scripts/check-plan-status.py [LEDGER_PATH]`; an absent ledger passes, a
-malformed one fails the run naming the field. The shape:
+what landed. Every verifier run that runs a gate validates it first with
+`scripts/check-plan-status.py [LEDGER_PATH]`; `--print-selection` does
+not. An absent ledger passes, a malformed one fails the run naming the
+field. The shape:
 
 ```json
 {
@@ -69,6 +70,6 @@ malformed one fails the run naming the field. The shape:
 `passed` unit carries its commit and the receipt's `verified_at`.
 `resume` lists the `in_progress` units, or the next `pending` unit when
 none is in progress, and is empty once every unit is `passed`. `note` is
-one line, only for a decision or pitfall the next unit needs. `plan`
-resolves against the tree root and must exist. `close` gates the merge on
+one line, only for a decision or pitfall the next unit needs. Unit ids are
+unique. `plan` resolves against the tree root and must exist. `close` gates the merge on
 every unit being `passed` and removes the ledger after the merge.

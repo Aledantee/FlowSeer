@@ -4,7 +4,7 @@
 The ledger records which units of a plan have landed so that a later session
 resumes without re-deriving progress. A ledger that is absent passes; one that
 is present must match the shape `verify-change/SKILL.md` documents. Plan paths
-resolve against the current directory, which the verifier sets to the tree root.
+resolve against the tree root.
 """
 
 from __future__ import annotations
@@ -19,14 +19,18 @@ STATUSES = ("pending", "in_progress", "passed", "blocked")
 LEDGER_NAME = "flowseer-plan-status.json"
 
 
-def default_ledger_path() -> Path:
-    git_dir = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
+def git_path(flag: str) -> Path:
+    output = subprocess.run(
+        ["git", "rev-parse", flag],
         check=True,
         capture_output=True,
         text=True,
     ).stdout.strip()
-    return Path(git_dir) / LEDGER_NAME
+    return Path(output)
+
+
+def default_ledger_path() -> Path:
+    return git_path("--git-dir") / LEDGER_NAME
 
 
 def fail(message: str) -> None:
@@ -68,7 +72,7 @@ def check(ledger_path: Path) -> None:
     expect(ledger.get("contract") == CONTRACT, f"contract must be {CONTRACT!r}, got {ledger.get('contract')!r}")
     plan = ledger.get("plan")
     expect(isinstance(plan, str) and plan != "", "plan must be a non-empty string")
-    expect(Path(plan).is_file(), f"plan {plan!r} does not exist")
+    expect((git_path("--show-toplevel") / plan).is_file(), f"plan {plan!r} does not exist")
     resume = ledger.get("resume")
     expect(
         isinstance(resume, list) and all(isinstance(item, str) for item in resume),
@@ -79,6 +83,7 @@ def check(ledger_path: Path) -> None:
     for index, unit in enumerate(units):
         check_unit(index, unit)
     ids = {unit["id"] for unit in units}
+    expect(len(ids) == len(units), "units must not repeat an id")
     for item in resume:
         expect(item in ids, f"resume names {item!r}, which is not a unit id")
 

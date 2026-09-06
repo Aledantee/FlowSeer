@@ -53,9 +53,9 @@ while (($#)); do
   esac
 done
 
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(git rev-parse --show-toplevel)
 cd "$root"
-python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-plan-status.py"
 for index in "${!paths[@]}"; do
   paths[index]=${paths[index]#./}
 done
@@ -213,6 +213,9 @@ if [[ $print_selection == true ]]; then
   printf 'service_otel_integration=%s\n' "$service_otel_integration"
   exit 0
 fi
+
+need_tool python3
+run python3 "$script_dir/check-plan-status.py"
 
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 trap 'rm -rf "$build_dir"' EXIT
