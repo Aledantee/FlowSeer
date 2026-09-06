@@ -644,6 +644,39 @@ request refused, and the verifier doc saying the same;
 file;
 the six `EdgeService` and six `EdgeAdminService` RPCs per requirement 8;
 grant streams pulse every `PulseInterval`.
+
+The foundation landed as five stand-alone commits (verifier body-digest
+alignment; the registry loader/`DeviceResolver`; `Provider.Get` parsing
+`CredentialMaterial`; the edge store behind the verifier's key lookup; the
+assertion middleware). The RPCs remain, and these constraints are the
+brief, recorded here rather than carried so they survive a fresh session:
+
+- Grant stream (the seam that bit the access module and is flagged twice):
+  central sends a positive `SUBMISSION_AUTHORITY_AUTHORIZED` pulse —
+  authority is a value the edge reads, never inferred from what has not
+  arrived. A revocation is a `REVOKED` pulse; silence is not a revocation
+  and must never be the only signal, because the edge fails closed on
+  silence and the two halves would then disagree in the write-blocking
+  direction. The cadence makes the edge's "a positive `AUTHORIZED`
+  immediately before `Submit`" rule reachable rather than racy, and a
+  stream that ends carries a reason rather than closing bare, since the
+  edge treats a clean end as non-authorized. The grant is one-use per
+  stream, not per sequence; the recovery retry opens a second grant for the
+  same sequence, so the submission gate admits a sequence in recovery
+  (requirement 8).
+- Every write in the RPCs answers the two questions the whole plan turns
+  on: can it leave an obligation with no reachable terminator, and can it
+  leave the record owing nothing while something outside it still holds
+  open work.
+- `Enroll` is idempotent: a second `Enroll` with the same setup key returns
+  the same identity, never a fresh one. `Rekey` leaves the old key refusing,
+  not working. `AttachBus` mints the edge-scoped JWT through `edgebus` with
+  the permission set narrowed subject by subject in U2 — not widened to
+  suit an RPC without flagging it. `AcquireReadCredential` and
+  `OpenDeviceSubmission` resolve through the provider and the registry, so
+  the host-key pin coupling and the `CredentialMaterial` arms are already
+  contracted; build to them.
+
 Tests: requirement 8; the README's idempotent-enroll and stolen-key cases.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal spec/proto/flowseer/api/edge/v1`
 
