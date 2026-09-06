@@ -11,11 +11,23 @@ import (
 	"testing"
 	"time"
 
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 // testKey is the credential key every test fixture in this file uses.
 const testKey = "icx7150-lab-snmp"
+
+// materialText is a valid CredentialMaterial as prototext, its shell username
+// carrying marker so a test can tell which file's content a Get parsed.
+func materialText(marker string) []byte {
+	return []byte(`shell { username: "` + marker + `" password: "correct-horse" }`)
+}
+
+// materialUser reads back the marker materialText embedded.
+func materialUser(m *credentialv1.CredentialMaterial) string {
+	return m.GetShell().GetUsername()
+}
 
 func writeCredential(t *testing.T, dir string, content []byte, mode os.FileMode, version uint64) {
 	t.Helper()
@@ -56,15 +68,15 @@ func wantCode(t *testing.T, err error, want errs.Code) {
 
 func TestProviderGetValidCredential(t *testing.T) {
 	dir := t.TempDir()
-	writeCredential(t, dir, []byte("s3cr3t"), 0o600, 3)
+	writeCredential(t, dir, materialText("labuser"), 0o600, 3)
 	p := openProvider(t, dir)
 
 	got, err := p.Get(testKey, 3)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if string(got) != "s3cr3t" {
-		t.Errorf("material = %q, want %q", got, "s3cr3t")
+	if materialUser(got) != "labuser" {
+		t.Errorf("material user = %q, want %q", materialUser(got), "labuser")
 	}
 }
 
@@ -143,7 +155,7 @@ func TestProviderRefusesVersionMismatch(t *testing.T) {
 // observes a different file than the one it already read.
 func TestProviderRefusesRotationBetweenMaterialAndMetadata(t *testing.T) {
 	dir := t.TempDir()
-	writeCredential(t, dir, []byte("original-secret"), 0o600, 1)
+	writeCredential(t, dir, materialText("original-user"), 0o600, 1)
 	p := openProvider(t, dir)
 
 	p.afterMaterialRead = func() {
@@ -166,7 +178,7 @@ func TestProviderRefusesRotationBetweenMaterialAndMetadata(t *testing.T) {
 // check and a read.
 func TestProviderRefusesReplacementRace(t *testing.T) {
 	dir := t.TempDir()
-	writeCredential(t, dir, []byte("original-secret"), 0o600, 1)
+	writeCredential(t, dir, materialText("original-user"), 0o600, 1)
 	if err := os.WriteFile(filepath.Join(dir, "attacker"), []byte("attacker-secret"), 0o600); err != nil {
 		t.Fatalf("write attacker target: %v", err)
 	}
@@ -176,8 +188,8 @@ func TestProviderRefusesReplacementRace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Get: %v", err)
 	}
-	if string(got) != "original-secret" {
-		t.Fatalf("material = %q, want %q", got, "original-secret")
+	if materialUser(got) != "original-user" {
+		t.Fatalf("material user = %q, want %q", materialUser(got), "original-user")
 	}
 
 	credPath := filepath.Join(dir, testKey)
@@ -201,17 +213,17 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 	dir := t.TempDir()
 	credPath := filepath.Join(dir, testKey)
 	attackerPath := filepath.Join(dir, "attacker")
-	const original = "original-secret"
-	const attacker = "attacker-secret"
+	const originalUser = "original-user"
+	original := materialText(originalUser)
 
-	if err := os.WriteFile(attackerPath, []byte(attacker), 0o600); err != nil {
+	if err := os.WriteFile(attackerPath, []byte("attacker-secret"), 0o600); err != nil {
 		t.Fatalf("write attacker target: %v", err)
 	}
-	writeCredential(t, dir, []byte(original), 0o600, 1)
+	writeCredential(t, dir, original, 0o600, 1)
 	p := openProvider(t, dir)
 
 	regularStage := filepath.Join(dir, "regular-stage")
-	if err := os.WriteFile(regularStage, []byte(original), 0o600); err != nil {
+	if err := os.WriteFile(regularStage, original, 0o600); err != nil {
 		t.Fatalf("write regular staging file: %v", err)
 	}
 	symlinkStage := filepath.Join(dir, "symlink-stage")
@@ -242,10 +254,10 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 	deadline := time.Now().Add(200 * time.Millisecond)
 	for time.Now().Before(deadline) {
 		got, err := p.Get(testKey, 1)
-		if err == nil && string(got) != original {
+		if err == nil && materialUser(got) != originalUser {
 			stop.Store(true)
 			wg.Wait()
-			t.Fatalf("Get returned %q, must never return the swapped-in target's content", got)
+			t.Fatalf("Get returned user %q, must never return the swapped-in target's content", materialUser(got))
 		}
 		if err != nil {
 			if code, ok := errs.CodeOf(err); !ok || (code != ErrCodeSymlinkRefused && code != ErrCodeNotFound && code != ErrCodeRotatedDuringRead) {
@@ -268,7 +280,7 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("final Get: %v", err)
 	}
-	if string(got) != original {
-		t.Fatalf("material = %q, want %q", got, original)
+	if materialUser(got) != originalUser {
+		t.Fatalf("material user = %q, want %q", materialUser(got), originalUser)
 	}
 }

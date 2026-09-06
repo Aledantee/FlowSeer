@@ -9,8 +9,11 @@ import (
 	"os"
 	"regexp"
 
+	"buf.build/go/protovalidate"
 	"golang.org/x/sys/unix"
+	"google.golang.org/protobuf/encoding/prototext"
 
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -25,6 +28,7 @@ var (
 	ErrCodeInvalidMetadata   = errs.NewCode("credential/invalid-metadata")
 	ErrCodeVersionMismatch   = errs.NewCode("credential/version-mismatch")
 	ErrCodeRotatedDuringRead = errs.NewCode("credential/rotated-during-read")
+	ErrCodeInvalidMaterial   = errs.NewCode("credential/invalid-material")
 )
 
 // keyPattern is the same one-path-segment shape
@@ -78,12 +82,15 @@ func (p *Provider) Close() error {
 	return p.root.Close()
 }
 
-// Get returns the credential material stored under key, after validating
-// that its sidecar metadata declares wantVersion. key must be one path
-// segment in the same shape a CredentialHandle's key takes; a key
+// Get returns the credential material stored under key, parsed from the
+// prototext file into a CredentialMaterial, after validating that its sidecar
+// metadata declares wantVersion. The file holds the whole message — user name
+// and protocol identifiers included — so a rotation updates one place. key must
+// be one path segment in the same shape a CredentialHandle's key takes; a key
 // containing a path separator or a ".." segment is refused before any
-// filesystem call.
-func (p *Provider) Get(key string, wantVersion uint64) ([]byte, error) {
+// filesystem call. The material is parsed only after every security, version,
+// and rotation check passes, so those failures are reported over a parse error.
+func (p *Provider) Get(key string, wantVersion uint64) (*credentialv1.CredentialMaterial, error) {
 	if err := validateKey(key); err != nil {
 		return nil, err
 	}
@@ -142,7 +149,14 @@ func (p *Provider) Get(key string, wantVersion uint64) ([]byte, error) {
 		return nil, errs.New().Code(ErrCodeRotatedDuringRead).Attr("key", key).Msg("credential material rotated while its metadata was being read")
 	}
 
-	return data, nil
+	parsed := &credentialv1.CredentialMaterial{}
+	if err := prototext.Unmarshal(data, parsed); err != nil {
+		return nil, errs.From(err).Code(ErrCodeInvalidMaterial).Attr("key", key).Msg("parse credential material prototext")
+	}
+	if err := protovalidate.Validate(parsed); err != nil {
+		return nil, errs.From(err).Code(ErrCodeInvalidMaterial).Attr("key", key).Msg("credential material fails its schema rules")
+	}
+	return parsed, nil
 }
 
 func validateKey(key string) error {
