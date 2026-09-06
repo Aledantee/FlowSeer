@@ -586,8 +586,14 @@ against each row it can answer), one row per state naming the rows owed
 and each row's terminating condition, plus one case asserting the
 invariant over the whole table: every state either owes something,
 names the operator as its terminator, or is closed, and no state owes
-two rows for one sequence. A state added without a table row fails the
-exhaustiveness check.
+two rows for one sequence. Exactly two states land on the operator arm,
+each naming `ResolveDesynchronization` as the RPC that ends it: the
+abandoned mutation whose terminal ack is confirmed, and the held
+reconciliation intent under `OPERATOR_MANAGED`. Both owe nothing by
+design; a state that owes nothing without naming its terminator fails
+the invariant, which is what keeps a recovering record with cleared
+confirmations from passing as intentional. A state added without a
+table row fails the exhaustiveness check.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/journal`
 
 ### U4. Dispatch, report, and audit handlers
