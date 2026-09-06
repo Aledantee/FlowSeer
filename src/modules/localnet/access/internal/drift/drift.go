@@ -44,11 +44,17 @@ func Evaluate(observed *accessv1.InterfaceObservation, lastIntent *accessv1.Inte
 		return Outcome{}
 	}
 
-	if mode == inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED {
-		return Outcome{Drifted: true, Blocked: true}
+	// Only an explicit AUTHORITATIVE mode auto-reconciles; every other
+	// value, including UNSPECIFIED (a device whose management mode was
+	// never configured), takes the OPERATOR_MANAGED path and blocks for a
+	// human decision — the safer default when a mode was never chosen,
+	// since decision 6 states both modes as user-directed and neither as
+	// an implicit default.
+	if mode == inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE {
+		return Outcome{Drifted: true, Reconcile: reconciliationIntent(observed, lastIntent)}
 	}
 
-	return Outcome{Drifted: true, Reconcile: reconciliationIntent(observed, lastIntent)}
+	return Outcome{Drifted: true, Blocked: true}
 }
 
 // reconciliationIntent builds a SystemActor{RECONCILIATION} intent

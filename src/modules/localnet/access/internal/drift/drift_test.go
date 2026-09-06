@@ -75,6 +75,20 @@ func TestAuthoritativeAutoAdmitsReconciliation(t *testing.T) {
 	}
 }
 
+func TestUnspecifiedModeBlocksRatherThanAutoReconciling(t *testing.T) {
+	outcome := drift.Evaluate(observation("manual edit", true), lastIntent(), false,
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_UNSPECIFIED)
+	if !outcome.Drifted {
+		t.Fatal("Evaluate() reported no drift")
+	}
+	if !outcome.Blocked {
+		t.Error("an unconfigured management mode must block, not auto-reconcile, since neither mode is an implicit default")
+	}
+	if outcome.Reconcile != nil {
+		t.Error("an unconfigured management mode should not synthesize a reconciliation intent")
+	}
+}
+
 func TestInFlightMutationSuppressesDrift(t *testing.T) {
 	outcome := drift.Evaluate(observation("manual edit", true), lastIntent(), true,
 		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
