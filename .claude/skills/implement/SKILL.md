@@ -74,7 +74,9 @@ once when the user asked for it: up to three workers, one unit each,
 dispatched as `delegate` describes. The brief carries the plan path, the
 unit's text, the conventions for its files, and the focused test command.
 Workers do not run the verifier. After each report, merge the worker's branch
-here and run the verifier on the union of changed paths before the next wave.
+here, run the verifier on the union of changed paths, then release the
+worker and remove its worktree as `delegate` describes, before the next
+wave.
 
 ## 3. Finish
 
@@ -105,6 +107,10 @@ when units remain.
 Read the final diff against the plan's Definition of done and against
 `docs/code-style.md`, Rules for coding agents. Remove process narration,
 history references, and planning identifiers from comments.
+
+In Orca, no child worktree this task created remains: `orca worktree list
+--json` lists none whose `parentWorktreeId` is this worktree, other than
+the ones the report names with the reason they stayed.
 
 Report, outcome first: units done, commands run with results, deviations from
 the plan, residual risk. Do not run a review; the user asks for `review`. A

@@ -1,6 +1,6 @@
 ---
 name: close
-description: Land finished FlowSeer work by merging the current worktree's branch into master and leaving the worktree and its Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Refuses when any of the three has not run or the review verdict is not accept; never removes the worktree or the Orca session.
+description: Land finished FlowSeer work by merging the current worktree's branch into master and leaving the worktree and its Orca card ready for deletion. Use when asked to close, land, finish, or wrap up work after implement, review, and compound have run. Refuses when any of the three has not run or the review verdict is not accept; removes merged child worktrees but never its own worktree or the Orca session.
 argument-hint: "[plan path]"
 ---
 
@@ -9,9 +9,10 @@ argument-hint: "[plan path]"
 A merge into master lands for every other worktree, so this skill checks the
 evidence the other skills left before it merges, and stops with the missing
 step named when it is not there. It does not run `implement`, `review`, or
-`compound` itself. It never removes the worktree: `orca worktree rm` kills the
-terminal that issues it and discards the terminal history, so a person runs it
-after reading the report.
+`compound` itself. It never removes its own worktree: `orca worktree rm` kills
+the terminal that issues it and discards the terminal history, so a person
+runs it after reading the report. Child worktrees the task created are
+different: step 2 removes the merged ones, as `delegate` describes.
 
 ## 1. Read the checkpoints
 
@@ -96,7 +97,16 @@ orca terminal list --worktree active --json   # only this terminal remains
 ```
 
 Release a settled worker with `worker-release`; a running worker stops the
-skill. When master has moved, the verifier run that satisfies the receipt
+skill. A child worktree of this one whose branch has landed here is removed
+now, as `delegate` describes under Remove a finished child worktree; one
+whose branch did not land, or that holds uncommitted files, is named in
+the report and left alone:
+
+```bash
+orca worktree list --json   # entries whose parentWorktreeId is this worktree
+```
+
+When master has moved, the verifier run that satisfies the receipt
 signal uses the merge-base as its base, not `master`: `--base master`
 diffs against master's tip and pulls master's own changes into the scope.
 
