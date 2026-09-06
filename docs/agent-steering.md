@@ -130,7 +130,14 @@ A missing checkpoint stops the merge and names the skill to run next;
 does not trigger a review. The skill leaves the worktree ready for
 `orca worktree rm` and stops there: that command kills the terminal that
 issues it and discards the workspace's terminal history, so it stays a
-person's action taken after reading the report.
+person's action taken after reading the report. Child worktrees a session
+created for its workers are the opposite case, and `delegate` has the
+coordinator remove each one in the turn its branch lands. A run on
+2026-09-05 left five merged children under one worktree, each with its
+terminals open and its branch listed as live work, because
+`worker-release` closes only the agent terminal and no skill said who
+removes the rest; the coordinator had already read everything those
+terminals held.
 
 Keep each skill short and specific to this repository. Anthropic's authoring
 guidance caps a `SKILL.md` body at 500 lines and says a skill that restates

@@ -117,6 +117,33 @@ supervising:
 orca worktree create --name <slug> --parent-worktree active --agent <agent> --prompt "<brief>" --json
 ```
 
+## Remove a finished child worktree
+
+A child worktree this session created is this session's to remove, in the
+same turn its branch lands here. `worker-release` closes only the agent
+terminal; the worktree, its shell terminal, and its branch stay until
+someone runs `orca worktree rm`, and a merged child left behind shows in
+Orca as live work. The rule that a person removes the worktree covers the
+session's own worktree, where `orca worktree rm` kills the terminal that
+issues it. A child's terminals hold nothing the coordinator has not already
+read through `worker-read`.
+
+After the merge, the green verifier run, and `worker-release`:
+
+```bash
+child=$(orca orchestration worker-show --dispatch <dispatch_id> --json | jq -r .result.worker.worktree_id)
+git -C "${child#*::}" status --porcelain     # empty, or stop and report what is there
+orca worktree rm --worktree "id:$child" --json
+git branch -d <child branch>                 # refuses when the merge did not land here
+```
+
+A handed-off child has no dispatch: take its id from `orca worktree list
+--json`, where `parentWorktreeId` names this worktree. Never pass `--force`;
+uncommitted files in the child mean the worker left something behind, so
+say what and leave the worktree. A child whose branch did not land, because
+its worker failed or was abandoned, stays too and is named in the report
+with the reason, so the user can read it before it goes.
+
 ## Write the brief
 
 A delegate has none of this conversation. The brief states, in order:
