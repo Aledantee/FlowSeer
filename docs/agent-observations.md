@@ -26,3 +26,14 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-06 implement: Bash edits force a full verifier run
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2 and Finish.
+What happened: several unit edits went through `sed` and a Python
+heredoc in Bash. The Bash hook recorded a `<Bash mutation; verify with
+--full>` marker, so a documentation-only change ended in a full module
+race run of about twenty minutes, and the first attempt aborted because
+another worktree's golangci-lint was running. The step was followed as
+written; nothing in it says which tool to edit with.
+Suggested change: in step 2, say that edits go through the editor tools
+and that a Bash write to a source file costs a `--full` run at Finish.
