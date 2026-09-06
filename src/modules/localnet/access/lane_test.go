@@ -47,12 +47,14 @@ func completeObservation(description string) *accessv1.InterfaceObservation {
 	return obs
 }
 
-func mutationRequest(sequence uint64, fingerprint, description string) *integrationv1.ExecuteRequest {
+// mutationRequest always expects fingerprint "fw-A", matching every
+// newTestLane device's FingerprintOverride.
+func mutationRequest(sequence uint64, description string) *integrationv1.ExecuteRequest {
 	change := &accessv1.InterfaceDescriptionChange{}
 	change.SetInterfaceName("ethernet 1/1/1")
 	change.SetDescription(description)
 	intent := &accessv1.MutationIntent{}
-	intent.SetExpectedFirmwareFingerprint(fingerprint)
+	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
 	req := &integrationv1.ExecuteRequest{}
 	req.SetSequence(sequence)
@@ -130,7 +132,7 @@ func TestLaneMutationHappyPath(t *testing.T) {
 	l := newTestLane(t)
 	addDevice(t, l)
 
-	req := mutationRequest(1, "fw-A", "uplink to core")
+	req := mutationRequest(1, "uplink to core")
 	result, err := runMutation(t, l, "dev-1", req)
 	if err != nil {
 		t.Fatalf("Submit() error: %v", err)
@@ -321,7 +323,7 @@ func TestLaneManagementModeDrift(t *testing.T) {
 	})
 	addDevice(t, l)
 
-	req := mutationRequest(1, "fw-A", "uplink to core")
+	req := mutationRequest(1, "uplink to core")
 	if _, err := runMutation(t, l, "dev-1", req); err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
@@ -342,7 +344,7 @@ func TestLaneManagementModeDrift(t *testing.T) {
 	defer cancel()
 	if _, err := l.Submit(blockedCtx, access.SubmitOptions{
 		DeviceKey: "dev-1",
-		Request:   mutationRequest(2, "fw-A", "another change"),
+		Request:   mutationRequest(2, "another change"),
 		Priority:  lane.PriorityNormal,
 	}); err == nil {
 		t.Fatal("Submit() error = nil, want the hold to block a new mutation")
@@ -368,6 +370,63 @@ func TestLaneClosedRejectsSubmission(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("Submit() error = nil after Close, want a rejection")
+	}
+}
+
+// TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation
+// proves Close's own doc promise: an item admitted before Close still
+// reaches its terminal result, which requires HandleCheckpoint and
+// HandleTerminalAck to keep working for it after Close stops new
+// admissions.
+func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *testing.T) {
+	l := newTestLane(t)
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(20 * time.Millisecond)
+
+		if _, err := l.Close(context.Background()); err != nil {
+			t.Errorf("Close() error: %v", err)
+		}
+
+		checkpointReq := &integrationv1.CheckpointRequest{}
+		checkpointReq.SetSequence(1)
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := l.HandleCheckpoint("dev-1", checkpointReq); err == nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+
+		ack := &integrationv1.TerminalResultAck{}
+		ack.SetSequence(1)
+		ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+		deadline = time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := l.HandleTerminalAck("dev-1", ack); err == nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	result, err := l.Submit(context.Background(), access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   req,
+		Priority:  lane.PriorityNormal,
+	})
+	wg.Wait()
+	if err != nil {
+		t.Fatalf("Submit() error = %v, want the already-admitted mutation to still complete after Close", err)
+	}
+	if result.GetPhaseReached() != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
+		t.Errorf("PhaseReached = %v, want RELEASED", result.GetPhaseReached())
 	}
 }
 

@@ -204,11 +204,22 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 }
 
 func (l *Lane) device(deviceKey string) (*deviceState, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
 	if l.closed {
 		return nil, errs.New().Code(ErrCodeClosed).Msg("lane is closed")
 	}
+	return l.deviceRegardlessOfClosed(deviceKey)
+}
+
+// deviceRegardlessOfClosed looks up deviceKey without rejecting a closed
+// Lane: [Lane.HandleCheckpoint] and [Lane.HandleTerminalAck] deliver
+// central's messages to a mutation this Lane already admitted before
+// Close ran, and Close's own doc states such an item "continues to its
+// terminal result" — that promise requires central to still be able to
+// unblock it after Close, since Close stops new admissions, not delivery
+// to already-admitted work.
+func (l *Lane) deviceRegardlessOfClosed(deviceKey string) (*deviceState, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	ds, ok := l.devices[deviceKey]
 	if !ok {
 		return nil, errs.New().Code(ErrCodeUnknownDevice).Attr("device", deviceKey).
@@ -337,7 +348,7 @@ func (l *Lane) drain(ds *deviceState) {
 // sequence. A future host's message loop calls this from the execution
 // envelope's CheckpointRequest, per decision 4's barrier.
 func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointRequest) error {
-	ds, err := l.device(deviceKey)
+	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
 		return err
 	}
@@ -356,7 +367,7 @@ func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointR
 // HandleTerminalAck delivers central's TerminalResultAck, which frees the
 // device's lane for the next sequence per decision 4's barrier.
 func (l *Lane) HandleTerminalAck(deviceKey string, ack *integrationv1.TerminalResultAck) error {
-	ds, err := l.device(deviceKey)
+	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
 		return err
 	}
