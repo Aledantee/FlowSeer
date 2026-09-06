@@ -559,7 +559,7 @@ write_ledger pending
 [[ -z $(check_ledger "$ledger") ]]
 ok "plan status check accepts a well-formed ledger"
 
-write_ledger done
+write_ledger 'done'
 set +e
 ledger_output=$(check_ledger)
 ledger_rc=$?
