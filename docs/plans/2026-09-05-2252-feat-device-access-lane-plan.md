@@ -19,6 +19,20 @@ execution: code
 > clock-driven poll only a host with a live transport can run. See
 > `src/modules/localnet/access/README.md`'s "Scope of Lane.Submit's
 > automatic handling" section.
+>
+> Review-cycle addendum: U7's mid-operation firmware-epoch check
+> (decision 7, "for the life of the operation") was implemented and then
+> removed after review found it compared two values this module never
+> reconciles — `CurrentFingerprint` (epoch.Probe's own digest) against an
+> observation's `Provenance.firmware_fingerprint` (whatever the host's
+> `ProvenanceInputs` supplied, unrelated to the probe). On the documented
+> production path the two differ by construction, so the check blocked
+> every mutation rather than detecting a real epoch change. This stays an
+> open gap: a real check needs a fresh `epoch.Probe` run at observation
+> time compared against the earlier probe's own output, which needs the
+> same live transport the recovery/drift auto-wiring above is waiting on.
+> See the README's "Open gap: no mid-operation firmware-epoch re-check"
+> section; the central-service plan inherits both gaps together.
 
 ## Goal
 

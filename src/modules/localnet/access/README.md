@@ -154,3 +154,26 @@ this module through `src/common/service` and drives
 that poll is a later plan's job, per
 [the direction record](../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)'s
 own sequencing.
+
+## Open gap: no mid-operation firmware-epoch re-check
+
+Decision 7 blocks a typed mutation whose intent names a stale firmware
+fingerprint, and `mutation.Admitted` enforces that once, at admission,
+against `Lane`'s own probed `CurrentFingerprint`. There is deliberately no
+check after that: a device that reboots into new firmware between
+`CheckpointAck` and submission is not caught, because the only fingerprint
+available after admission is `InterfaceObservation.Provenance.firmware_fingerprint`
+— a field `interfaces.Read` copies verbatim from whatever the host's own
+`ProvenanceInputs` supplied, never from a probe this module ran. Comparing
+that value against `CurrentFingerprint` is not a mid-operation epoch check;
+the two are unrelated inputs with no defined relationship, and on the
+documented production path (a host sets `ProvenanceInputs.FirmwareFingerprint`
+as the schema requires, no `FingerprintOverride`) they differ by
+construction — blocking every mutation, not just a real epoch change. An
+earlier version of this code did compare them; it is deliberately removed.
+A real check needs a fresh `epoch.Probe` run at observation time compared
+against the fingerprint the earlier probe returned — probe output against
+probe output — which needs a live transport this module's synchronous
+`Submit` path does not have. That re-probe is the central-service plan's
+job, alongside the recovery/drift auto-wiring the previous section
+describes.

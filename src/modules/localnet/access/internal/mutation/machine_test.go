@@ -622,7 +622,9 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 		t.Fatalf("Checkpoint() error: %v", err)
 	}
 
-	deps.Freeze.Freeze(ctx)
+	if err := deps.Freeze.Freeze(ctx); err != nil {
+		t.Fatalf("Freeze() error: %v", err)
+	}
 
 	done := make(chan error, 1)
 	go func() { done <- m.Execute(context.Background()) }()
@@ -867,14 +869,26 @@ func TestResultFallsBackToErrorArmWhenNoObservationRecorded(t *testing.T) {
 	}
 }
 
-func TestObserveDetectsFirmwareEpochChangeMidOperation(t *testing.T) {
+// TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint
+// guards against reintroducing a mid-operation epoch check that compares
+// two values this module never reconciles: deps.CurrentFingerprint is
+// epoch.Probe's own digest, while an observation's provenance fingerprint
+// is whatever the host's ProvenanceInputs supplied to interfaces.Read —
+// copied through verbatim, never written from the probed value. On real
+// production wiring those two values differ by construction, so a check
+// comparing them would block every mutation. Observe must complete this
+// mismatch without error until a real re-probe-based check replaces it.
+func TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
 	deps.Submit = func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil }
 	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
 		obs := completeObservation("uplink to core")
 		prov := &inventoryv1.Provenance{}
-		prov.SetFirmwareFingerprint("fw-B") // deps.CurrentFingerprint is "fw-A"
+		// deps.CurrentFingerprint is "fw-A" (baseDeps); a real device's
+		// provenance fingerprint is never that value in production —
+		// this is the "SPS10010g" vs. a 64-char SHA-256 digest case.
+		prov.SetFirmwareFingerprint("SPS10010g")
 		obs.SetProvenance(prov)
 		return obs, nil
 	}
@@ -894,28 +908,11 @@ func TestObserveDetectsFirmwareEpochChangeMidOperation(t *testing.T) {
 		t.Fatalf("Execute() error: %v", err)
 	}
 
-	if _, err := m.Observe(ctx); err == nil {
-		t.Fatal("Observe() error = nil, want a firmware epoch change error")
-	} else if code, _ := errs.CodeOf(err); code != mutation.ErrCodeFirmwareEpoch {
-		t.Fatalf("Observe() error code = %v, want %v", code, mutation.ErrCodeFirmwareEpoch)
+	if _, err := m.Observe(ctx); err != nil {
+		t.Fatalf("Observe() error = %v, want nil despite the provenance/current fingerprint mismatch", err)
 	}
-
-	if got := m.BlockReason(); got != accessv1.BlockReason_BLOCK_REASON_FIRMWARE_EPOCH_CHANGED {
-		t.Errorf("BlockReason() = %v, want BLOCK_REASON_FIRMWARE_EPOCH_CHANGED", got)
-	}
-
-	found := false
-	for _, event := range deliverer.events {
-		if changed := event.GetFirmwareEpochChanged(); changed != nil {
-			found = true
-			if changed.GetPreviousFingerprint() != "fw-A" || changed.GetNewFingerprint() != "fw-B" {
-				t.Errorf("FirmwareEpochChanged = {previous: %q, new: %q}, want {previous: \"fw-A\", new: \"fw-B\"}",
-					changed.GetPreviousFingerprint(), changed.GetNewFingerprint())
-			}
-		}
-	}
-	if !found {
-		t.Error("expected a FirmwareEpochChanged audit event from the mid-operation check")
+	if got := m.BlockReason(); got != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED {
+		t.Errorf("BlockReason() = %v, want BLOCK_REASON_UNSPECIFIED (unblocked)", got)
 	}
 }
 

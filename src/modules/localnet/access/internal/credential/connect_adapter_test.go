@@ -189,17 +189,27 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 // relay goroutine starts, not by the goroutine itself, or that window
 // finds a nil stream and closes nothing. ctx stays Background() so only
 // Close, never context cancellation, can be what stops the relay here.
+// TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen proves
+// Close actually tears down the stream rather than the relay merely
+// noticing the stream end on its own. The stub paces its remaining
+// messages 10ms apart, so completing all of them naturally takes about
+// 2 seconds; Close is called right after the first pulse arrives, and
+// handle.Err() must become non-nil well before that natural completion —
+// on a pre-fix Close that closes nothing, the relay would instead keep
+// receiving paced pulses for the full ~2 seconds.
 func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T) {
 	grant := newTestGrant()
 	pulse := &edgev1.AuthorityPulse{}
 	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
 
-	// Enough pulses that the relay goroutine would still be running long
-	// after Close, if Close had not actually torn down the stream.
-	updates := make([]func() (*edgev1.OpenDeviceSubmissionResponse, error), 0, 101)
+	const pacedPulses = 200 // 10ms apart: ~2s to complete naturally
+	updates := make([]func() (*edgev1.OpenDeviceSubmissionResponse, error), 0, pacedPulses+1)
 	updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
-	for range 100 {
-		updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil })
+	for range pacedPulses {
+		updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) {
+			time.Sleep(10 * time.Millisecond)
+			return pulseMessage(pulse), nil
+		})
 	}
 
 	svc := &stubEdgeService{submissionUpdates: updates}
@@ -212,14 +222,24 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 		t.Fatalf("Open: %v", err)
 	}
 
+	deadline := time.Now().Add(5 * time.Second)
+	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the relay to read the first pulse")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
 	if err := handle.Close(); err != nil {
 		t.Fatalf("Close() error: %v", err)
 	}
 
-	deadline := time.Now().Add(5 * time.Second)
+	// Well under the ~2s the remaining paced pulses would need to
+	// complete naturally.
+	deadline = time.Now().Add(time.Second)
 	for handle.Err() == nil {
 		if time.Now().After(deadline) {
-			t.Fatal("timed out waiting for the relay to stop after Close; Close closed nothing")
+			t.Fatal("timed out waiting for the relay to stop after Close; Close closed nothing and the stream is still running its natural, paced course")
 		}
 		time.Sleep(time.Millisecond)
 	}

@@ -111,11 +111,19 @@ func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *acce
 	}
 
 	if !r.horizon.WithinHorizon(since, now) {
-		if err := r.machine.Abandon(ctx); err != nil {
-			return 0, obs, err
-		}
-		if r.hold != nil {
+		abandonErr := r.machine.Abandon(ctx)
+		// Engage on the machine's own durable phase, not on Abandon's
+		// return value: Abandon can fail only on an audit delivery, and
+		// by the time the LaneBlocked delivery it ends with might fail,
+		// the phase and block reason are already durably ABANDONED —
+		// engaging here regardless keeps the hold in step with the state
+		// that actually exists, rather than depending on a notification
+		// that may never arrive.
+		if r.hold != nil && r.machine.Phase() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
 			r.hold.Engage()
+		}
+		if abandonErr != nil {
+			return 0, obs, abandonErr
 		}
 		return OutcomeAbandoned, obs, nil
 	}

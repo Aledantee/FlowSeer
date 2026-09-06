@@ -10,6 +10,7 @@ import (
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/freeze"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/mutation"
@@ -20,6 +21,20 @@ import (
 type noopDeliverer struct{}
 
 func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+
+// failsOnLaneBlockedDeliverer fails only for a LaneBlocked event whose
+// reason is RECOVERY_HOLD, so PhaseTransitioned, EnterRecovering's own
+// INDETERMINATE LaneBlocked, and every other event this test's setup
+// needs deliver normally, and only Abandon's own trailing block() call
+// sees the simulated outage.
+type failsOnLaneBlockedDeliverer struct{}
+
+func (failsOnLaneBlockedDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+	if event.GetLaneBlocked().GetReason() == accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD {
+		return errors.New("audit delivery unavailable")
+	}
+	return nil
+}
 
 func observation(description string) *accessv1.InterfaceObservation {
 	return observationOf("ethernet 1/1/1", description)
@@ -37,6 +52,11 @@ func observationOf(interfaceName, description string) *accessv1.InterfaceObserva
 
 func recoveringMachine(t *testing.T, reads ...*accessv1.InterfaceObservation) *mutation.Machine {
 	t.Helper()
+	return recoveringMachineWithDeliverer(t, noopDeliverer{}, reads...)
+}
+
+func recoveringMachineWithDeliverer(t *testing.T, deliverer audit.Deliverer, reads ...*accessv1.InterfaceObservation) *mutation.Machine {
+	t.Helper()
 
 	view, err := telemetry.NewView(telemetry.ViewConfig{})
 	if err != nil {
@@ -48,7 +68,7 @@ func recoveringMachine(t *testing.T, reads ...*accessv1.InterfaceObservation) *m
 		CurrentFingerprint: "fw-A",
 		DeviceID:           "0192e6a0-0000-7000-8000-0000000000ed",
 		Freeze:             freeze.New(view),
-		Audit:              noopDeliverer{},
+		Audit:              deliverer,
 		Telemetry:          view,
 		Clock:              time.Now,
 		Read: func(context.Context) (*accessv1.InterfaceObservation, error) {
@@ -277,6 +297,39 @@ func TestHorizonElapsedWithNoCorroborationAbandons(t *testing.T) {
 	// else in this package's own return value does.
 	if !hold.Active() {
 		t.Error("Hold was not engaged after OutcomeAbandoned")
+	}
+}
+
+// TestAbandonEngagesHoldEvenWhenTheBlockedAuditDeliveryFails proves the
+// Hold is engaged from the machine's own durable phase, not from Abandon's
+// return value: Abandon's trailing block() call can fail purely on its own
+// LaneBlocked audit delivery after the phase and block reason are already
+// durably ABANDONED, and the Hold must still be engaged in that case, or a
+// degraded audit link would leave an abandoned mutation with no Hold and
+// Submit admitting the next mutation over its unresolved effect.
+func TestAbandonEngagesHoldEvenWhenTheBlockedAuditDeliveryFails(t *testing.T) {
+	changed := observation("something else entirely")
+	m := recoveringMachineWithDeliverer(t, failsOnLaneBlockedDeliverer{}, changed)
+
+	now := time.Now()
+	clock := func() time.Time { return now }
+	hold := &recovery.Hold{}
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, hold)
+	since := now
+	now = now.Add(2 * time.Minute)
+
+	outcome, _, err := runner.Attempt(context.Background(), since, observation("pre"))
+	if err == nil {
+		t.Fatal("Attempt() error = nil, want the LaneBlocked delivery failure surfaced")
+	}
+	if outcome == recovery.OutcomeAbandoned {
+		t.Error("Attempt() outcome = OutcomeAbandoned, want the zero value alongside the error")
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
+		t.Fatalf("Phase() = %v, want ABANDONED despite the audit delivery failure", got)
+	}
+	if !hold.Active() {
+		t.Error("Hold was not engaged despite the machine reaching ABANDONED")
 	}
 }
 

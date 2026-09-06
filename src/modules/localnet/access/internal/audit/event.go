@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -77,15 +78,24 @@ func boundCorrelationIDs(ids map[string]string) map[string]string {
 		if len(bounded) >= correlationIDsMaxPairs {
 			break
 		}
-		if len(k) > correlationIDsMaxKeyLen {
-			k = k[:correlationIDsMaxKeyLen]
-		}
-		if len(v) > correlationIDsMaxValueLen {
-			v = v[:correlationIDsMaxValueLen]
-		}
-		bounded[k] = v
+		bounded[truncateUTF8(k, correlationIDsMaxKeyLen)] = truncateUTF8(v, correlationIDsMaxValueLen)
 	}
 	return bounded
+}
+
+// truncateUTF8 cuts s to at most maxBytes bytes, backing off to the nearest
+// earlier rune boundary rather than a raw byte offset — a plain s[:n] can
+// split a multi-byte rune in two, producing a string that fails Go's
+// protobuf runtime's UTF-8 validation at marshal time, exactly the failure
+// this bound exists to prevent.
+func truncateUTF8(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	for maxBytes > 0 && !utf8.RuneStart(s[maxBytes]) {
+		maxBytes--
+	}
+	return s[:maxBytes]
 }
 
 func newEvent(clock Clock, common Common) *eventv1.DeviceOperationEvent {

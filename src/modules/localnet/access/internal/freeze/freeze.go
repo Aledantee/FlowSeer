@@ -101,13 +101,25 @@ func (g *Gate) Enter(ctx context.Context) (leave func(), err error) {
 	}
 }
 
-// Freeze stops new side effects from proceeding until [Gate.Unfreeze] is
-// called, and does not return until every side effect already admitted
-// through [Gate.Enter] has finished — decision 8's positive fencing depends
-// on Freeze itself proving no write is in flight, not merely on the frozen
-// flag other callers observe. Idempotent: freezing an already-frozen gate
-// emits nothing further and does not re-wait.
-func (g *Gate) Freeze(ctx context.Context) {
+// Freeze stops new side effects from proceeding immediately (before this
+// call returns, every goroutine's next AllowSideEffect/AwaitSideEffect
+// check sees it), and waits for every side effect already admitted through
+// [Gate.Enter] to finish before returning nil — decision 8's positive
+// fencing depends on Freeze itself proving no write is in flight, not
+// merely on the frozen flag other callers observe. That wait honors ctx: a
+// control plane fencing an edge precisely because it has gone unresponsive
+// must not be able to hang forever behind a write to that same
+// unresponsive device, so a canceled or expired ctx returns ctx.Err()
+// instead of blocking indefinitely — frozen stays set regardless, so new
+// side effects remain stopped even though this call gave up waiting for
+// the one already in flight. The wait itself runs unconditionally on
+// every call, concurrent or repeated: only the durable frozen flag and the
+// LaneFrozen telemetry event are idempotent, since a caller that gets
+// ctx.Err() from one Freeze call and immediately calls Freeze again with a
+// longer deadline must still be able to wait for the same drain, not have
+// a second call return early because some other call already flipped the
+// flag.
+func (g *Gate) Freeze(ctx context.Context) error {
 	g.mu.Lock()
 	alreadyFrozen := g.frozen
 	if !alreadyFrozen {
@@ -116,16 +128,37 @@ func (g *Gate) Freeze(ctx context.Context) {
 	}
 	g.mu.Unlock()
 
-	if !alreadyFrozen {
-		// Emitted while still holding the write lock, not after releasing
-		// it: this is the one point that has actually confirmed every
-		// entered side effect has left, so it is the accurate moment to
-		// say the freeze is in effect, not merely requested.
-		// Telemetry.LaneFrozen never blocks past a bounded local call
-		// (View's own doc), so holding the lock here is safe.
+	// sync.RWMutex has no cancellable Lock, so the acquisition itself runs
+	// on its own goroutine and this call races that against ctx. Emitted
+	// while still holding the write lock, not after releasing it: that is
+	// the one point that has actually confirmed every entered side effect
+	// has left, so it is the accurate moment to say the freeze is in
+	// effect, not merely requested. Telemetry.LaneFrozen never blocks past
+	// a bounded local call (View's own doc), so holding the lock here is
+	// safe.
+	acquired := make(chan struct{})
+	go func() {
 		g.barrier.Lock()
-		g.view.LaneFrozen(ctx)
+		close(acquired)
+	}()
+
+	select {
+	case <-acquired:
+		if !alreadyFrozen {
+			g.view.LaneFrozen(ctx)
+		}
 		g.barrier.Unlock()
+		return nil
+	case <-ctx.Done():
+		// The background goroutine may still be waiting for the write
+		// lock, or may acquire it after this call has already returned;
+		// release it whenever that happens so a later Freeze or Enter on
+		// this Gate never deadlocks on this abandoned attempt.
+		go func() {
+			<-acquired
+			g.barrier.Unlock()
+		}()
+		return ctx.Err()
 	}
 }
 

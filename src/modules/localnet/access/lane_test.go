@@ -204,6 +204,57 @@ func TestLaneReadHappyPath(t *testing.T) {
 	}
 }
 
+// TestCoalescedReadKeepsCallersLongerDeadlineInsteadOfOperationTimeout
+// proves a caller's own, longer deadline governs the detached read rather
+// than being clipped to Config.OperationTimeout: OperationTimeout is only
+// a fallback for a caller with no deadline at all, not a ceiling on one
+// that already has a longer one of its own.
+func TestCoalescedReadKeepsCallersLongerDeadlineInsteadOfOperationTimeout(t *testing.T) {
+	view, err := telemetry.NewView(telemetry.ViewConfig{})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	const shortOperationTimeout = 50 * time.Millisecond
+	const slowRead = 200 * time.Millisecond // longer than shortOperationTimeout
+	l := access.NewLane(access.Config{
+		QueueCapacity:    4,
+		DelayedEffect:    interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:            noopDeliverer{},
+		Telemetry:        view,
+		Clock:            time.Now,
+		OperationTimeout: shortOperationTimeout,
+	})
+	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(ctx context.Context, _ string) (*accessv1.InterfaceObservation, error) {
+			select {
+			case <-time.After(slowRead):
+				return completeObservation("uplink to core"), nil
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	longCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := l.Submit(longCtx, access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   readRequest(),
+		Priority:  lane.PriorityLow,
+	})
+	if err != nil {
+		t.Fatalf("Submit() error = %v, want the read to survive past the %v OperationTimeout under the caller's own longer deadline", err, shortOperationTimeout)
+	}
+	if result.GetObservation().GetDescription() != "uplink to core" {
+		t.Errorf("observation description = %q, want %q", result.GetObservation().GetDescription(), "uplink to core")
+	}
+}
+
 func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	view, err := telemetry.NewView(telemetry.ViewConfig{})
 	if err != nil {
@@ -542,24 +593,11 @@ func TestEvaluateDriftEngagesHoldEvenWhenAuditDeliveryFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewView() error: %v", err)
 	}
+	// failsOnDriftDeliverer only fails a DriftDetected event, so
+	// onboarding and the mutation this test drives through first succeed
+	// normally, and only the drift check itself sees the simulated
+	// outage.
 	l := access.NewLane(access.Config{
-		QueueCapacity:  4,
-		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
-		Audit:          noopDeliverer{},
-		Telemetry:      view,
-		Clock:          time.Now,
-		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
-	})
-	addDevice(t, l)
-
-	req := mutationRequest(1, "uplink to core")
-	if _, err := runMutation(t, l, req); err != nil {
-		t.Fatalf("Submit() error: %v", err)
-	}
-
-	// Swap in a deliverer that always fails, simulating an audit outage
-	// during the drift check itself.
-	l2 := access.NewLane(access.Config{
 		QueueCapacity:  4,
 		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:          failsOnDriftDeliverer{},
@@ -567,27 +605,34 @@ func TestEvaluateDriftEngagesHoldEvenWhenAuditDeliveryFails(t *testing.T) {
 		Clock:          time.Now,
 		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
 	})
-	addDevice(t, l2)
-	if _, err := runMutation(t, l2, mutationRequest(1, "uplink to core")); err != nil {
+	addDevice(t, l)
+	if _, err := runMutation(t, l, mutationRequest(1, "uplink to core")); err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
 
 	drifted := completeObservation("manual edit")
-	if _, err := l2.EvaluateDrift(context.Background(), "dev-1", drifted, false); err == nil {
+	if _, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false); err == nil {
 		t.Fatal("EvaluateDrift() error = nil, want the audit delivery failure surfaced")
 	}
 
 	// The hold must already be engaged despite the audit failure: an audit
 	// outage must not disable the safety block that keeps Submit from
-	// admitting another mutation over an unexplained change.
-	blockedCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if _, err := l2.Submit(blockedCtx, access.SubmitOptions{
+	// admitting another mutation over an unexplained change. Submit's
+	// hold check is synchronous — it never delivers a checkpoint or waits
+	// on anything — so a plain Background() context that would hang
+	// forever on the pre-fix ordering (hold engaged only after a
+	// successful audit emit, which never arrives) discriminates instead
+	// of a timeout that could also fire from an unrelated hang.
+	_, err = l.Submit(context.Background(), access.SubmitOptions{
 		DeviceKey: "dev-1",
 		Request:   mutationRequest(2, "another change"),
 		Priority:  lane.PriorityNormal,
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatal("Submit() error = nil, want the hold engaged despite the audit delivery failure")
+	}
+	if code, _ := errs.CodeOf(err); code != access.ErrCodeDesynchronized {
+		t.Fatalf("Submit() error code = %v, want %v", code, access.ErrCodeDesynchronized)
 	}
 }
 

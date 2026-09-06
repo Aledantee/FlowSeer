@@ -8,6 +8,13 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/freeze"
 )
 
+func mustFreeze(t *testing.T, g *freeze.Gate) {
+	t.Helper()
+	if err := g.Freeze(context.Background()); err != nil {
+		t.Fatalf("Freeze() error: %v", err)
+	}
+}
+
 func TestAwaitSideEffectReturnsImmediatelyWhenNeverFrozen(t *testing.T) {
 	g := freeze.New(nil)
 
@@ -27,7 +34,7 @@ func TestAwaitSideEffectReturnsImmediatelyWhenNeverFrozen(t *testing.T) {
 func TestAwaitSideEffectBlocksWhileFrozenAndReturnsOnUnfreeze(t *testing.T) {
 	g := freeze.New(nil)
 	ctx := context.Background()
-	g.Freeze(ctx)
+	mustFreeze(t, g)
 
 	if g.AllowSideEffect() {
 		t.Fatal("AllowSideEffect() = true while frozen")
@@ -60,7 +67,7 @@ func TestAwaitSideEffectBlocksWhileFrozenAndReturnsOnUnfreeze(t *testing.T) {
 
 func TestAwaitSideEffectHonorsContextCancellation(t *testing.T) {
 	g := freeze.New(nil)
-	g.Freeze(context.Background())
+	mustFreeze(t, g)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -83,8 +90,8 @@ func TestDoubleFreezeAndDoubleUnfreezeAreNoOps(t *testing.T) {
 	g := freeze.New(nil)
 	ctx := context.Background()
 
-	g.Freeze(ctx)
-	g.Freeze(ctx)
+	mustFreeze(t, g)
+	mustFreeze(t, g)
 	if g.AllowSideEffect() {
 		t.Fatal("AllowSideEffect() = true after double Freeze")
 	}
@@ -101,13 +108,12 @@ func TestDoubleFreezeAndDoubleUnfreezeAreNoOps(t *testing.T) {
 
 func TestAllowAcknowledgementIsAlwaysTrue(t *testing.T) {
 	g := freeze.New(nil)
-	ctx := context.Background()
 
 	if !g.AllowAcknowledgement() {
 		t.Fatal("AllowAcknowledgement() = false while unfrozen")
 	}
 
-	g.Freeze(ctx)
+	mustFreeze(t, g)
 	if !g.AllowAcknowledgement() {
 		t.Fatal("AllowAcknowledgement() = false while frozen; the acknowledgement barrier must never be gated")
 	}
@@ -122,10 +128,9 @@ func TestFreezeDoesNotReturnWhileASideEffectIsInFlight(t *testing.T) {
 		t.Fatalf("Enter() error: %v", err)
 	}
 
-	freezeDone := make(chan struct{})
+	freezeDone := make(chan error, 1)
 	go func() {
-		g.Freeze(context.Background())
-		close(freezeDone)
+		freezeDone <- g.Freeze(context.Background())
 	}()
 
 	select {
@@ -137,7 +142,10 @@ func TestFreezeDoesNotReturnWhileASideEffectIsInFlight(t *testing.T) {
 	leave()
 
 	select {
-	case <-freezeDone:
+	case err := <-freezeDone:
+		if err != nil {
+			t.Errorf("Freeze() error = %v, want nil", err)
+		}
 	case <-time.After(time.Second):
 		t.Fatal("Freeze() did not return after the in-flight side effect left")
 	}
@@ -145,7 +153,7 @@ func TestFreezeDoesNotReturnWhileASideEffectIsInFlight(t *testing.T) {
 
 func TestEnterBlocksAndRetriesAcrossAFreezeRace(t *testing.T) {
 	g := freeze.New(nil)
-	g.Freeze(context.Background())
+	mustFreeze(t, g)
 
 	done := make(chan error, 1)
 	go func() {
@@ -171,5 +179,80 @@ func TestEnterBlocksAndRetriesAcrossAFreezeRace(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Enter() did not return after Unfreeze")
+	}
+}
+
+// TestFreezeHonorsContextCancellationWhileWaitingForAnInFlightSideEffect
+// proves Freeze does not hang forever behind a write that never finishes:
+// a control plane fencing an edge precisely because it has gone
+// unresponsive must be able to give up waiting on that same edge's own
+// stuck write, rather than blocking indefinitely with no way to cancel.
+func TestFreezeHonorsContextCancellationWhileWaitingForAnInFlightSideEffect(t *testing.T) {
+	g := freeze.New(nil)
+
+	leave, err := g.Enter(context.Background())
+	if err != nil {
+		t.Fatalf("Enter() error: %v", err)
+	}
+	t.Cleanup(leave)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err = g.Freeze(ctx)
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Freeze() error = nil, want ctx's deadline exceeded error")
+	}
+	if elapsed > time.Second {
+		t.Fatalf("Freeze() took %v, want it to return at roughly its own 100ms deadline", elapsed)
+	}
+	// New side effects must still be stopped even though this call gave
+	// up waiting for the in-flight one.
+	if g.AllowSideEffect() {
+		t.Error("AllowSideEffect() = true after Freeze gave up waiting; frozen must stay set")
+	}
+}
+
+// TestFreezeWaitsEveryCallEvenWhenAlreadyFrozen proves the barrier wait is
+// not skipped for a Freeze call that finds the gate already frozen: only
+// the durable frozen flag and the LaneFrozen telemetry event are
+// idempotent, not the drain proof itself, or a second concurrent Freeze
+// call would return immediately while a side effect the first call is
+// still waiting on remains in flight.
+func TestFreezeWaitsEveryCallEvenWhenAlreadyFrozen(t *testing.T) {
+	g := freeze.New(nil)
+
+	leave, err := g.Enter(context.Background())
+	if err != nil {
+		t.Fatalf("Enter() error: %v", err)
+	}
+
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- g.Freeze(context.Background()) }()
+	time.Sleep(50 * time.Millisecond) // let the first Freeze call start waiting
+
+	secondDone := make(chan error, 1)
+	go func() { secondDone <- g.Freeze(context.Background()) }()
+
+	select {
+	case <-secondDone:
+		t.Fatal("second Freeze() returned while the side effect entered before either call was still in flight")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	leave()
+
+	for _, done := range []chan error{firstDone, secondDone} {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("Freeze() error = %v, want nil", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("a Freeze() call did not return after the in-flight side effect left")
+		}
 	}
 }

@@ -213,19 +213,24 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	return nil
 }
 
-// block delivers a LaneBlocked audit event and records the block reason and
-// when it began, matching MutationState.blocked_since_matches_reason. It
-// does not itself change Phase().
+// block records reason and when it began, matching
+// MutationState.blocked_since_matches_reason, then delivers a LaneBlocked
+// audit event and telemetry. It does not itself change Phase(). The state
+// write happens before the audit attempt, not after: a caller (recovery's
+// Runner, deciding whether to engage a Hold) must see the block took
+// effect even when the accompanying audit record's delivery fails —
+// mirroring EvaluateDrift's own engage-before-audit ordering — rather than
+// an undelivered notification silently leaving the machine unblocked.
 func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error {
-	event := audit.BuildLaneBlocked(m.deps.Clock, m.common(ctx), reason)
-	if err := m.deps.Audit.Emit(ctx, event); err != nil {
-		return errs.Wrap(err, "deliver lane blocked event")
-	}
-
 	m.mu.Lock()
 	m.blockReason = reason
 	m.blockedSince = m.deps.Clock()
 	m.mu.Unlock()
+
+	event := audit.BuildLaneBlocked(m.deps.Clock, m.common(ctx), reason)
+	if err := m.deps.Audit.Emit(ctx, event); err != nil {
+		return errs.Wrap(err, "deliver lane blocked event")
+	}
 
 	m.deps.Telemetry.LaneBlocked(ctx, reason)
 	return nil
@@ -358,28 +363,25 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 		return nil, errs.Wrap(readErr, "observe")
 	}
 
-	// Admitted only checked the fingerprint once, before any device
-	// contact; a reboot between checkpoint and this observation changes it
-	// mid-operation with no earlier chance to catch it. A mutation's own
-	// observation is the first evidence available afterward, so re-check
-	// here — decision 7 applies for the life of the operation, not only at
-	// admission.
-	if !m.IsRead() {
-		if observed := obs.GetProvenance().GetFirmwareFingerprint(); observed != "" && observed != m.deps.CurrentFingerprint {
-			m.deps.Telemetry.FirmwareEpochChanged(ctx)
-			event := audit.BuildFirmwareEpochChanged(m.deps.Clock, m.common(ctx), m.deps.CurrentFingerprint, observed)
-			if err := m.deps.Audit.Emit(ctx, event); err != nil {
-				return nil, errs.Wrap(err, "emit firmware epoch changed audit event")
-			}
-			if err := m.block(ctx, accessv1.BlockReason_BLOCK_REASON_FIRMWARE_EPOCH_CHANGED); err != nil {
-				return nil, err
-			}
-			return nil, errs.New().Code(ErrCodeFirmwareEpoch).
-				Attr("expected_fingerprint", m.deps.CurrentFingerprint).
-				Attr("observed_fingerprint", observed).
-				Msg("device firmware fingerprint changed mid-operation; the effect cannot be trusted")
-		}
-	}
+	// There is deliberately no mid-operation firmware-epoch re-check here.
+	// obs.GetProvenance().GetFirmwareFingerprint() and deps.CurrentFingerprint
+	// come from unrelated sources this module never reconciles:
+	// CurrentFingerprint is epoch.Probe's own hex SHA-256 digest (or a
+	// host's FingerprintOverride), while the observation's provenance
+	// fingerprint is whatever the host's own ProvenanceInputs supplied to
+	// interfaces.Read — copied through verbatim, never written from
+	// ds.fingerprint, since AddDevice does not return the probed digest to
+	// its caller. Comparing them is comparing values with no defined
+	// relationship, not detecting a real epoch change; on the documented
+	// production path (a host sets FirmwareFingerprint as the schema
+	// requires, no FingerprintOverride) the values differ by construction
+	// and this check blocked every mutation. A real mid-operation check
+	// needs a fresh identity probe at observation time compared against
+	// the probe's own earlier output — probe output to probe output, never
+	// probe output to a host-supplied provenance field — and that needs a
+	// live transport this module's synchronous Submit path does not have.
+	// See the README's "Scope of Lane.Submit's automatic handling" section
+	// for where that re-probe belongs.
 
 	m.mu.Lock()
 	m.lastObservation = obs

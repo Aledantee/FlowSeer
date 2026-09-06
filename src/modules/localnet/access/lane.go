@@ -52,14 +52,17 @@ type Config struct {
 	Audit                 audit.Deliverer
 	Telemetry             *telemetry.View
 	Clock                 func() time.Time
-	// OperationTimeout bounds one admitted item's device call — the actual
-	// work a coalesced read's joiners depend on, detached from any single
-	// caller's own context so one caller's cancellation cannot fail every
-	// other item queued behind it. Without its own bound that detached
-	// work would run forever against a device that accepts a connection
-	// but never answers, parking the device's drain goroutine and the
-	// coalescing ticket permanently. Zero is silently raised to a default
-	// of 30s.
+	// OperationTimeout bounds a coalesced read's device call — the actual
+	// work its joiners depend on, detached from any single caller's own
+	// context so one caller's cancellation cannot fail every other item
+	// queued behind it. It does not bound a mutation's Execute/Observe,
+	// which runs under the submitting caller's own context. Without its
+	// own bound the detached read would run forever against a device that
+	// accepts a connection but never answers, parking the device's drain
+	// goroutine and the coalescing ticket permanently. Zero is silently
+	// raised to a default of 30s; a caller's own deadline is never
+	// lengthened past this bound but may still cut a read shorter than it
+	// (the effective bound is whichever is sooner).
 	OperationTimeout time.Duration
 }
 
@@ -410,8 +413,20 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// ever gets a joiner, so with no bound of its own a device that
 	// accepts a connection but never answers would park this device's
 	// drain goroutine, and this coalescing key, forever — Config's
-	// OperationTimeout is that bound.
-	workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), l.cfg.OperationTimeout)
+	// OperationTimeout is that bound, but only a fallback: when this
+	// caller's own ctx already carries a deadline, the detached work keeps
+	// that deadline (its expiry, not its cancellation or Done channel)
+	// rather than being silently reduced to OperationTimeout — a caller
+	// with a legitimately longer budget for a slow read must not have it
+	// clipped to this module's own default. OperationTimeout applies only
+	// when ctx carries no deadline at all, which is the case the original
+	// bug needed bounded: an unbounded caller's read must still end
+	// somewhere.
+	timeout := l.cfg.OperationTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		timeout = time.Until(deadline)
+	}
+	workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	sub := &submission{ctx: workCtx, request: opts.Request, result: make(chan submissionOutcome, 1)}
 	if _, err := ds.queue.Submit(opts.Priority, sub); err != nil {
 		cancel()
@@ -786,8 +801,14 @@ func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrat
 }
 
 // Freeze pauses side effects across every device this Lane serves, per
-// decision 8's control-plane freeze.
-func (l *Lane) Freeze(ctx context.Context) { l.freeze.Freeze(ctx) }
+// decision 8's control-plane freeze, and does not return until every
+// side effect already in flight has finished — or ctx ends first, in
+// which case it returns ctx's error while leaving new side effects
+// stopped regardless. See [freeze.Gate.Freeze]'s doc for why the wait is
+// cancellable: a control plane fencing an edge precisely because it has
+// gone unresponsive must not be able to hang on that same edge's own
+// in-flight write.
+func (l *Lane) Freeze(ctx context.Context) error { return l.freeze.Freeze(ctx) }
 
 // Unfreeze resumes side effects.
 func (l *Lane) Unfreeze(ctx context.Context) { l.freeze.Unfreeze(ctx) }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"buf.build/go/protovalidate"
 
@@ -139,5 +140,61 @@ func TestDelivererErrorPropagates(t *testing.T) {
 
 	if err := sink.Emit(context.Background(), audit.BuildLaneReleased(fixedClock(), commonFixture())); err == nil {
 		t.Fatal("Emit() error = nil, want the sink's error")
+	}
+}
+
+func TestCorrelationIDsBoundedAtEachSchemaLimit(t *testing.T) {
+	// 10 pairs, over the schema's 8 max_pairs; deliberately unordered map
+	// iteration means any two must survive, not a specific two.
+	ids := make(map[string]string, 10)
+	for i := range 10 {
+		ids[string(rune('a'+i))] = "v"
+	}
+	common := commonFixture()
+	common.CorrelationIDs = ids
+
+	event := audit.BuildPhaseTransitioned(fixedClock(), common,
+		accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
+	validate(t, event)
+
+	if got := len(event.GetCorrelationIds()); got > 8 {
+		t.Errorf("correlation_ids has %d pairs, want at most 8", got)
+	}
+}
+
+func TestCorrelationIDsTruncatedOnRuneBoundaries(t *testing.T) {
+	// "€" (U+20AC) is 3 bytes in UTF-8, and neither the schema's 64-byte
+	// key bound nor its 128-byte value bound is a multiple of 3, so a
+	// plain byte-offset cut (s[:64], s[:128]) lands mid-rune here — a
+	// 2-byte rune repeated to the same bounds would not discriminate,
+	// since 64 and 128 are both even.
+	longKey := ""
+	for len(longKey) < 70 {
+		longKey += "€"
+	}
+	longValue := ""
+	for len(longValue) < 140 {
+		longValue += "€"
+	}
+	common := commonFixture()
+	common.CorrelationIDs = map[string]string{longKey: longValue}
+
+	event := audit.BuildPhaseTransitioned(fixedClock(), common,
+		accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
+	validate(t, event)
+
+	for k, v := range event.GetCorrelationIds() {
+		if len(k) > 64 {
+			t.Errorf("correlation_ids key %q is %d bytes, want at most 64", k, len(k))
+		}
+		if len(v) > 128 {
+			t.Errorf("correlation_ids value %q is %d bytes, want at most 128", v, len(v))
+		}
+		if !utf8.ValidString(k) {
+			t.Errorf("correlation_ids key %q is not valid UTF-8", k)
+		}
+		if !utf8.ValidString(v) {
+			t.Errorf("correlation_ids value %q is not valid UTF-8", v)
+		}
 	}
 }
