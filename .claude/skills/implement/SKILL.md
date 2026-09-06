@@ -15,9 +15,29 @@ argument-hint: "[plan path]"
 ## 1. Orient
 
 Read the plan's Goal, Decisions, and Units; the rest when a unit cites it.
-Check the plan's `status` and the current tree: a plan may be partly landed,
-and the tree wins over the plan about what exists. Record such a mismatch in
-the plan's Open questions before touching code.
+A plan whose `artifact_readiness` is `needs-decisions`, or whose Units name
+other plan files, is not executable: stop and name `plan` as the next
+skill. Check the plan's `status` and the current tree: a plan may be
+partly landed, and the tree wins over the plan about what exists. Record
+such a mismatch in the plan's Open questions before touching code.
+
+### Resume from the ledger
+
+The ledger at `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
+whose shape `verify-change`'s `SKILL.md` documents, records which units
+landed. When it exists and names this plan, read it before the first
+edit and check every `passed` commit:
+
+```bash
+git merge-base --is-ancestor <commit> HEAD
+```
+
+Any non-zero exit, the one for an unknown object included, means not an
+ancestor: report the unit, compare its files with the tree, record the
+mismatch under Open questions, and ask the user before rewinding a unit.
+Then continue from `resume`. A ledger naming another plan is replaced only
+after the user confirms. When there is no ledger, write one with every
+unit `pending` before the first edit.
 
 Read the `docs/architecture/` record for the area, the `CONCEPTS.md` entries
 the plan uses, and the conventions for the files you will touch:
@@ -31,9 +51,10 @@ task stay as they are; at Finish, report anything that appeared since.
 ## 2. Work each unit
 
 Take the units in the plan's order, or in parallel where `After` allows and
-the user asked for it (see Parallel units). For each:
+the user asked for it (see Units in workers). For each:
 
-1. Re-read the unit, then inspect the current source and tests for its files.
+1. Re-read the unit, set it `in_progress` in the ledger, then inspect the
+   current source and tests for its files.
 2. Make the smallest change that satisfies it. Search for an existing helper
    first; no abstraction with a single caller. Before calling a third-party
    API the tree does not already use, check its signature: `go doc` for Go,
@@ -41,9 +62,9 @@ the user asked for it (see Parallel units). For each:
 3. Write or extend the tests the unit names. When the unit changes behavior,
    write the failing test first and watch it fail. A unit without a test
    needs a stated reason in the plan.
-4. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), then the
-   verifier for the unit's paths, sandbox disabled, in the background while
-   you read on:
+4. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), commit
+   the unit, then run the verifier for the unit's paths, sandbox disabled,
+   in the background while you read on:
 
    ```bash
    .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
@@ -53,8 +74,12 @@ the user asked for it (see Parallel units). For each:
    those units together and say so.
 
 5. Update the package README, convention doc, solution citations, and any
-   test or benchmark name the unit made false, in the same unit. In Orca,
-   set the worktree comment to the unit that landed.
+   test or benchmark name the unit made false, in the same unit. Write the
+   unit `passed` in the ledger with `git rev-parse HEAD` and the receipt's
+   `verified_at`, move `resume` to the next unit, and fill `note` only
+   when the unit produced a decision or pitfall the next unit needs, in
+   one line. A unit that cannot land is `blocked` with the reason in
+   `note`. In Orca, set the worktree comment to the unit that landed.
 
 Plan labels stay in the plan: never write `U2`, `R4`, or a plan filename into
 code, comments, or commit messages.
@@ -67,16 +92,20 @@ Decisions, and continue.
 Delegate a bounded read-only question as `delegate` describes when it would
 cost more than a few file reads.
 
-### Parallel units
+### Units in workers
 
-Units marked `After: none`, or whose prerequisites have landed, may run at
-once when the user asked for it: up to three workers, one unit each,
+A phase plan (one with a `parent:` field) runs each unit in a worker, one
+at a time, unless the user asks for the main conversation: a fresh context
+per unit keeps the coordinator's own context to the ledger. Units marked
+`After: none`, or whose prerequisites have landed, may run at once when
+the user asked for it: up to three workers, one unit each. Both are
 dispatched as `delegate` describes. The brief carries the plan path, the
-unit's text, the conventions for its files, and the focused test command.
-Workers do not run the verifier. After each report, merge the worker's branch
-here, run the verifier on the union of changed paths, then release the
-worker and remove its worktree as `delegate` describes, before the next
-wave.
+unit's text, the conventions for its files, the focused test command, and
+the ledger notes of landed units. Workers do not run the verifier. After
+each report, merge the worker's branch here, run the verifier on the
+union of changed paths, write the ledger, then release the worker and
+remove its worktree as `delegate` describes, before the next wave. With
+concurrent workers, `resume` is written after the wave settles.
 
 ## 3. Finish
 
@@ -84,7 +113,8 @@ Run the verifier across everything the task changed, sandbox disabled. Pass
 the task's paths explicitly when the worktree holds unrelated changes;
 otherwise use `--base master`, or `--base HEAD` for uncommitted work.
 
-Record the outcome in the plan, in the same commit as the last unit. Set
+Record the outcome in the plan, read from the ledger, in the same commit as
+the last unit; the ledger stays in place for `close` to gate on. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
 `> Partially implemented: <units>.` with the reason. A request that skipped
