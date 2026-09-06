@@ -62,6 +62,11 @@ type DeviceSession struct {
 	Sess  snmp.Session
 	Shell InterfaceShellAdapter
 	Prov  InterfaceProvenanceInputs
+	// BindingID names the integration binding this device is reachable
+	// through, passed to SubmissionCredentialSource.Open as
+	// OpenDeviceSubmissionRequest's binding_id — required and
+	// UUID-constrained against a real EdgeService.
+	BindingID string
 
 	// ReadOverride and SubmitOverride, when set, replace the ordinary
 	// interfaces.Read/ShellAdapter.SetPortName path entirely. Production
@@ -181,16 +186,23 @@ func NewLane(cfg Config) *Lane {
 }
 
 // noopSubmissionSource is Config's default SubmissionCredentialSource when
-// a host has not wired a real one: it grants immediately with no
-// deadline-bearing authority pulses, which is correct for a facade with no
-// live central to revoke authority from.
+// a host has not wired a real one: it grants immediately, stays
+// AUTHORIZED, and never ends, which is correct for a facade with no live
+// central to revoke authority from.
 type noopSubmissionSource struct{}
 
-func (noopSubmissionSource) Open(context.Context, string, string, uint64) (*edgev1.SubmissionGrant, <-chan credential.SubmissionUpdate, error) {
-	updates := make(chan credential.SubmissionUpdate)
-	close(updates)
-	return &edgev1.SubmissionGrant{}, updates, nil
+func (noopSubmissionSource) Open(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
+	return noopSubmissionHandle{}, nil
 }
+
+type noopSubmissionHandle struct{}
+
+func (noopSubmissionHandle) Grant() *edgev1.SubmissionGrant { return &edgev1.SubmissionGrant{} }
+func (noopSubmissionHandle) Authority() edgev1.SubmissionAuthority {
+	return edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+}
+func (noopSubmissionHandle) Err() error   { return nil }
+func (noopSubmissionHandle) Close() error { return nil }
 
 // AddDevice registers a device this Lane serves, keyed by deviceKey (an
 // edge-local identifier; this package does not interpret it). It runs the
@@ -640,6 +652,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 	return mutation.Deps{
 		CurrentFingerprint: fingerprint,
 		DeviceID:           ds.key,
+		BindingID:          sess.BindingID,
 		Read: func(ctx context.Context) (*accessv1.InterfaceObservation, error) {
 			if sess.ReadOverride != nil {
 				return sess.ReadOverride(ctx, name)

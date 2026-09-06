@@ -15,23 +15,38 @@ type ReadCredentialSource interface {
 	AcquireReadCredential(ctx context.Context, deviceID, bindingID string, accessPolicy *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error)
 }
 
-// SubmissionUpdate is one message from an open submission stream: either
-// the one-use grant (always first) or a later authority pulse. Exactly one
-// field is set, mirroring OpenDeviceSubmissionResponse's oneof.
-type SubmissionUpdate struct {
-	Grant *edgev1.SubmissionGrant
-	Pulse *edgev1.AuthorityPulse
+// SubmissionHandle is what one open submission stream hands its caller: a
+// synchronous snapshot of the one-use grant and the current submission
+// authority, rather than a channel a caller must race to drain. Requirement
+// 8 asks for a positive AUTHORIZED check immediately before every command;
+// a channel-based design that treats "no pulse queued right now" as
+// authorization can miss a pulse that already arrived over the wire but has
+// not yet reached a consumer that happened not to be listening at that
+// instant (an unbuffered channel with a non-blocking reader drops exactly
+// that message). A synchronous snapshot updated by the transport as soon as
+// it reads a pulse off the wire — not gated on a consumer being ready to
+// receive it — closes that gap.
+type SubmissionHandle interface {
+	// Grant returns the one-use submission credential delivered when the
+	// stream opened.
+	Grant() *edgev1.SubmissionGrant
+	// Authority returns the most recently observed authority. Before any
+	// pulse arrives it is SUBMISSION_AUTHORITY_AUTHORIZED — the grant's own
+	// issuance implies authorization until told otherwise. A caller must
+	// check this immediately before submitting each command and proceed
+	// only when it is exactly SUBMISSION_AUTHORITY_AUTHORIZED.
+	Authority() edgev1.SubmissionAuthority
+	// Err returns why the underlying stream ended, once it has (nil until
+	// then, and nil for a stream that is still open). A caller must not
+	// treat a stream that ended for any reason other than an explicit
+	// revocation as still authorized — check Err() alongside Authority()
+	// rather than inferring a clean close from an unchanged Authority().
+	Err() error
+	// Close releases the underlying stream. Safe to call more than once.
+	Close() error
 }
 
-// SubmissionCredentialSource wraps EdgeService.OpenDeviceSubmission. Open
-// returns the stream's first message eagerly (production always sends the
-// grant first) and a channel of every message after it, including the
-// grant read to build the first value — a caller that wants every message
-// uniformly can also read updates from the start; both are provided
-// because the mutation state machine needs the grant to make progress but
-// the recovery package only cares about later pulses. The channel closes
-// when the stream ends; err reports why if it ended abnormally, checked
-// after the channel closes.
+// SubmissionCredentialSource wraps EdgeService.OpenDeviceSubmission.
 type SubmissionCredentialSource interface {
-	Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (grant *edgev1.SubmissionGrant, updates <-chan SubmissionUpdate, err error)
+	Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (SubmissionHandle, error)
 }

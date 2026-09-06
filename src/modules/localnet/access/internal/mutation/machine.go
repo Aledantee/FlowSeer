@@ -34,8 +34,15 @@ type Deps struct {
 	// learned by an identity probe. [Admitted] blocks a mutation whose
 	// intent names a different one, per decision 7.
 	CurrentFingerprint string
-	// DeviceID names the device for audit events built from this Machine.
+	// DeviceID names the device for audit events built from this Machine
+	// and is passed to Submission.Open as OpenDeviceSubmissionRequest's
+	// device_id, which is required and UUID-constrained.
 	DeviceID string
+	// BindingID names the integration binding running this mutation and is
+	// passed to Submission.Open as OpenDeviceSubmissionRequest's
+	// binding_id, likewise required and UUID-constrained: a real
+	// EdgeService rejects an empty value with InvalidArgument.
+	BindingID string
 
 	Read   func(ctx context.Context) (*accessv1.InterfaceObservation, error)
 	Submit func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange) error
@@ -178,32 +185,13 @@ func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointR
 	return ack, nil
 }
 
-// latestPulseRevoked drains every pulse already queued on updates without
-// blocking and reports whether the most recent one revoked submission
-// authority. No pulse queued yet means authority is still whatever the
-// grant conferred, so it reports false.
-func latestPulseRevoked(updates <-chan credential.SubmissionUpdate) bool {
-	revoked := false
-	for {
-		select {
-		case u, ok := <-updates:
-			if !ok {
-				return revoked
-			}
-			if u.Pulse != nil {
-				revoked = u.Pulse.GetAuthority() == edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED
-			}
-		default:
-			return revoked
-		}
-	}
-}
-
-// Execute submits the mutation's command, checking submission authority
-// immediately before doing so, per decision 9. For a read it is a no-op:
-// integration/device/v1's README states a read's phase_reached is
-// OBSERVING, so a read's device contact happens in [Machine.Observe], not
-// here.
+// Execute submits the mutation's command, requiring a positive
+// SUBMISSION_AUTHORITY_AUTHORIZED immediately before doing so, per decision
+// 9 — not merely the absence of a seen revocation, which a
+// not-yet-delivered pulse could satisfy while a revocation is already in
+// flight. For a read it is a no-op: integration/device/v1's README states a
+// read's phase_reached is OBSERVING, so a read's device contact happens in
+// [Machine.Observe], not here.
 func (m *Machine) Execute(ctx context.Context) error {
 	mutationIntent := m.req.GetMutation()
 	if mutationIntent == nil {
@@ -217,14 +205,22 @@ func (m *Machine) Execute(ctx context.Context) error {
 		return errs.Wrap(err, "await control-plane freeze")
 	}
 
-	_, updates, err := m.deps.Submission.Open(ctx, "", "", m.req.GetSequence())
+	handle, err := m.deps.Submission.Open(ctx, m.deps.DeviceID, m.deps.BindingID, m.req.GetSequence())
 	if err != nil {
 		return errs.Wrap(err, "open device submission")
 	}
+	defer func() { _ = handle.Close() }()
 
-	if latestPulseRevoked(updates) {
+	if handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 		return errs.New().Code(ErrCodeRevoked).
-			Msg("submission authority was revoked before the command was sent")
+			Msg("submission authority is not AUTHORIZED; the command is not sent")
+	}
+	if streamErr := handle.Err(); streamErr != nil {
+		return errs.Wrap(streamErr, "submission stream ended before the command was sent")
+	}
+	if deadline := handle.Grant().GetDeadline(); deadline != nil && deadline.AsTime().Before(m.deps.Clock()) {
+		return errs.New().Code(ErrCodeRevoked).
+			Msg("submission grant's deadline has already passed; the command is not sent")
 	}
 
 	// A cancellation delivered between CheckpointAck and here must be

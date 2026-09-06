@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
@@ -53,21 +55,35 @@ func (d *fakeDeliverer) Emit(ctx context.Context, event *eventv1.DeviceOperation
 	return nil
 }
 
-func fakeSubmission(pulses ...credential.SubmissionUpdate) credential.SubmissionCredentialSource {
-	return submissionFunc(func(_ context.Context, _, _ string, _ uint64) (*edgev1.SubmissionGrant, <-chan credential.SubmissionUpdate, error) {
-		ch := make(chan credential.SubmissionUpdate, len(pulses))
-		for _, p := range pulses {
-			ch <- p
-		}
-		close(ch)
-		grant := &edgev1.SubmissionGrant{}
-		return grant, ch, nil
+// fakeSubmission simulates a submission stream whose relay has already
+// processed every pulse in order by the time Execute checks Authority() —
+// the synchronous-snapshot contract [credential.SubmissionHandle] promises.
+// With none given, authority stays AUTHORIZED (what an issued grant implies
+// until told otherwise).
+func fakeSubmission(pulses ...*edgev1.AuthorityPulse) credential.SubmissionCredentialSource {
+	authority := edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+	for _, p := range pulses {
+		authority = p.GetAuthority()
+	}
+	return submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
+		return &fakeSubmissionHandle{grant: &edgev1.SubmissionGrant{}, authority: authority}, nil
 	})
 }
 
-type submissionFunc func(ctx context.Context, deviceID, bindingID string, sequence uint64) (*edgev1.SubmissionGrant, <-chan credential.SubmissionUpdate, error)
+type fakeSubmissionHandle struct {
+	grant     *edgev1.SubmissionGrant
+	authority edgev1.SubmissionAuthority
+	err       error
+}
 
-func (f submissionFunc) Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (*edgev1.SubmissionGrant, <-chan credential.SubmissionUpdate, error) {
+func (h *fakeSubmissionHandle) Grant() *edgev1.SubmissionGrant        { return h.grant }
+func (h *fakeSubmissionHandle) Authority() edgev1.SubmissionAuthority { return h.authority }
+func (h *fakeSubmissionHandle) Err() error                            { return h.err }
+func (h *fakeSubmissionHandle) Close() error                          { return nil }
+
+type submissionFunc func(ctx context.Context, deviceID, bindingID string, sequence uint64) (credential.SubmissionHandle, error)
+
+func (f submissionFunc) Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (credential.SubmissionHandle, error) {
 	return f(ctx, deviceID, bindingID, sequence)
 }
 
@@ -266,7 +282,7 @@ func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	pulse := &edgev1.AuthorityPulse{}
 	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
-	deps := baseDeps(deliverer, fakeSubmission(credential.SubmissionUpdate{Pulse: pulse}))
+	deps := baseDeps(deliverer, fakeSubmission(pulse))
 
 	var submitted bool
 	deps.Submit = func(_ context.Context, _ *accessv1.InterfaceDescriptionChange) error {
@@ -292,6 +308,87 @@ func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	}
 	if submitted {
 		t.Fatal("Submit was called despite a revoked authority pulse")
+	}
+}
+
+// TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse proves
+// Execute checks the handle's Err(), not just Authority(): a stream that
+// ended abnormally (a dropped connection) must never be treated as "still
+// authorized" merely because no explicit REVOKED pulse was ever seen.
+func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
+		return &fakeSubmissionHandle{
+			grant:     &edgev1.SubmissionGrant{},
+			authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
+			err:       errors.New("connection reset"),
+		}, nil
+	}))
+
+	var submitted bool
+	deps.Submit = func(_ context.Context, _ *accessv1.InterfaceDescriptionChange) error {
+		submitted = true
+		return nil
+	}
+
+	req := mutationRequest(1, "x")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+
+	ctx := context.Background()
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(1)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+
+	if err := m.Execute(ctx); err == nil {
+		t.Fatal("Execute() error = nil, want the broken stream's error")
+	}
+	if submitted {
+		t.Fatal("Submit was called despite the submission stream having ended abnormally")
+	}
+}
+
+// TestExpiredGrantDeadlineBlocksSubmission proves Execute consults the
+// grant's own deadline rather than only Authority(): a grant issued with a
+// deadline already in the past must not authorize a command.
+func TestExpiredGrantDeadlineBlocksSubmission(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	past := time.Now().Add(-time.Minute)
+	grant := &edgev1.SubmissionGrant{}
+	grant.SetDeadline(timestamppb.New(past))
+
+	deps := baseDeps(deliverer, submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
+		return &fakeSubmissionHandle{grant: grant, authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED}, nil
+	}))
+
+	var submitted bool
+	deps.Submit = func(_ context.Context, _ *accessv1.InterfaceDescriptionChange) error {
+		submitted = true
+		return nil
+	}
+
+	req := mutationRequest(1, "x")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+
+	ctx := context.Background()
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(1)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+
+	if err := m.Execute(ctx); err == nil {
+		t.Fatal("Execute() error = nil, want an expired-deadline error")
+	}
+	if submitted {
+		t.Fatal("Submit was called despite an already-expired grant deadline")
 	}
 }
 

@@ -2,6 +2,7 @@ package credential
 
 import (
 	"context"
+	"sync"
 
 	connect "connectrpc.com/connect"
 
@@ -41,9 +42,13 @@ func (a *ConnectAdapter) AcquireReadCredential(ctx context.Context, deviceID, bi
 
 // Open implements [SubmissionCredentialSource]. It reads the stream's first
 // message synchronously, since the mutation state machine cannot proceed
-// without the grant, and relays every later message to updates from a
-// background goroutine that exits when the stream ends or ctx is done.
-func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (*edgev1.SubmissionGrant, <-chan SubmissionUpdate, error) {
+// without the grant, and starts a background goroutine that keeps draining
+// the stream and updating the returned handle's authority snapshot for as
+// long as the stream stays open — independent of whether anything is
+// calling Authority() at any given moment, so a pulse is reflected the
+// instant this goroutine reads it off the wire, never only when a consumer
+// happens to be receiving from a channel.
+func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (SubmissionHandle, error) {
 	req := &edgev1.OpenDeviceSubmissionRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetBindingId(bindingID)
@@ -51,7 +56,7 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 
 	stream, err := a.Client.OpenDeviceSubmission(ctx, connect.NewRequest(req))
 	if err != nil {
-		return nil, nil, errs.Wrap(err, "open device submission")
+		return nil, errs.Wrap(err, "open device submission")
 	}
 
 	if !stream.Receive() {
@@ -60,19 +65,21 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 			streamErr = errs.New().Code(ErrCodeStream).Msg("submission stream closed before delivering a grant")
 		}
 
-		return nil, nil, errs.Wrap(streamErr, "open device submission")
+		return nil, errs.Wrap(streamErr, "open device submission")
 	}
 
 	grant := stream.Msg().GetGrant()
 	if grant == nil {
-		return nil, nil, errs.New().Code(ErrCodeStream).Msg("submission stream's first message was not a grant")
+		return nil, errs.New().Code(ErrCodeStream).Msg("submission stream's first message was not a grant")
 	}
 
-	updates := make(chan SubmissionUpdate)
+	h := &submissionHandle{
+		grant:     grant,
+		authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
+	}
+	go h.relay(ctx, stream)
 
-	go relaySubmissionUpdates(ctx, stream, updates)
-
-	return grant, updates, nil
+	return h, nil
 }
 
 // submissionStream is the subset of *connect.ServerStreamForClient
@@ -85,28 +92,76 @@ type submissionStream interface {
 	Close() error
 }
 
-func relaySubmissionUpdates(ctx context.Context, stream submissionStream, updates chan<- SubmissionUpdate) {
-	defer close(updates)
-	defer func() { _ = stream.Close() }()
+// submissionHandle implements [SubmissionHandle]. grant is immutable after
+// construction; authority and err are updated by relay under mu.
+type submissionHandle struct {
+	grant *edgev1.SubmissionGrant
+
+	mu        sync.Mutex
+	authority edgev1.SubmissionAuthority
+	err       error
+	stream    submissionStream
+}
+
+func (h *submissionHandle) Grant() *edgev1.SubmissionGrant { return h.grant }
+
+func (h *submissionHandle) Authority() edgev1.SubmissionAuthority {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.authority
+}
+
+func (h *submissionHandle) Err() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.err
+}
+
+func (h *submissionHandle) Close() error {
+	h.mu.Lock()
+	stream := h.stream
+	h.mu.Unlock()
+	if stream == nil {
+		return nil
+	}
+	return stream.Close()
+}
+
+// relay keeps draining stream for as long as it stays open, updating h's
+// authority under h.mu the instant each pulse is read — not when some
+// consumer next calls Authority() — and records why the stream ended
+// (including a nil-but-not-EOF close, which the caller must not treat as
+// "still authorized") before the handle reports it via Err().
+func (h *submissionHandle) relay(ctx context.Context, stream submissionStream) {
+	h.mu.Lock()
+	h.stream = stream
+	h.mu.Unlock()
 
 	for stream.Receive() {
-		msg := stream.Msg()
-
-		var u SubmissionUpdate
-
-		switch {
-		case msg.GetPulse() != nil:
-			u.Pulse = msg.GetPulse()
-		case msg.GetGrant() != nil:
-			u.Grant = msg.GetGrant()
-		default:
+		pulse := stream.Msg().GetPulse()
+		if pulse == nil {
 			continue
 		}
 
+		h.mu.Lock()
+		h.authority = pulse.GetAuthority()
+		h.mu.Unlock()
+
 		select {
-		case updates <- u:
 		case <-ctx.Done():
+			h.mu.Lock()
+			h.err = ctx.Err()
+			h.mu.Unlock()
 			return
+		default:
 		}
 	}
+
+	streamErr := stream.Err()
+	if streamErr == nil {
+		streamErr = errs.New().Code(ErrCodeStream).Msg("submission stream closed")
+	}
+	h.mu.Lock()
+	h.err = streamErr
+	h.mu.Unlock()
 }

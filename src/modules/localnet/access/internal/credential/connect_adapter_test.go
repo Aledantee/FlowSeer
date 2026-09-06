@@ -98,30 +98,33 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 
 	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
-	gotGrant, updates, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
+	handle, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	if string(gotGrant.GetCredential().GetMaterial()) != "material" {
-		t.Fatalf("expected the grant's credential material to round-trip, got %q", gotGrant.GetCredential().GetMaterial())
+	t.Cleanup(func() { _ = handle.Close() })
+	if string(handle.Grant().GetCredential().GetMaterial()) != "material" {
+		t.Fatalf("expected the grant's credential material to round-trip, got %q", handle.Grant().GetCredential().GetMaterial())
 	}
 
-	select {
-	case u := <-updates:
-		if u.Pulse == nil || u.Pulse.GetAuthority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
-			t.Fatalf("expected an AUTHORIZED pulse, got %+v", u)
+	// Authority() is a synchronous snapshot the relay goroutine updates as
+	// soon as it reads a pulse off the wire, independent of whether
+	// anything is polling at that instant — poll with a deadline rather
+	// than blocking on a channel receive.
+	deadline := time.Now().Add(5 * time.Second)
+	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for Authority() to reflect the AUTHORIZED pulse, got %v", handle.Authority())
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the pulse update")
+		time.Sleep(time.Millisecond)
 	}
 
-	select {
-	case _, ok := <-updates:
-		if ok {
-			t.Fatal("expected the updates channel to close once the stream ends")
+	deadline = time.Now().Add(5 * time.Second)
+	for handle.Err() == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for Err() to report the stream ending")
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the updates channel to close")
+		time.Sleep(time.Millisecond)
 	}
 }
 
@@ -131,7 +134,7 @@ func TestConnectAdapterOpenErrorsWhenStreamClosesBeforeGrant(t *testing.T) {
 
 	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
-	_, _, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
+	_, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
 	if err == nil {
 		t.Fatal("expected an error when the stream closes before a grant")
 	}
@@ -156,22 +159,21 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	_, ch, err := adapter.Open(ctx, "device-1", "binding-1", 1)
+	handle, err := adapter.Open(ctx, "device-1", "binding-1", 1)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 
 	cancel()
 
-	select {
-	case _, ok := <-ch:
-		if ok {
-			// Drain until closed; a buffered send racing the cancel is fine.
-			for range ch {
-			}
+	// The relay goroutine must observe the cancellation and stop rather
+	// than leak; Err() reports ctx.Err() once it does.
+	deadline := time.Now().Add(5 * time.Second)
+	for handle.Err() == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the relay to stop after cancellation")
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the relay to stop after cancellation")
+		time.Sleep(time.Millisecond)
 	}
 }
 
