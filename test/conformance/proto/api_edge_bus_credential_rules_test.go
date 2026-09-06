@@ -66,21 +66,21 @@ func TestAttachBusResponseRules(t *testing.T) {
 	})
 }
 
-func deviceCredential(key string, version uint64) *edgev1.DeviceCredential {
+func deviceCredential(key string) *edgev1.DeviceCredential {
 	return edgev1.DeviceCredential_builder{
 		Credential: policyv1.CredentialHandle_builder{
 			Key:     proto.String(key),
-			Version: proto.Uint64(version),
+			Version: proto.Uint64(1),
 		}.Build(),
 		TypedMaterial: snmpMaterial(),
 	}.Build()
 }
 
-func shellDeviceCredential(key string, version uint64) *edgev1.DeviceCredential {
+func shellDeviceCredential(key string) *edgev1.DeviceCredential {
 	return edgev1.DeviceCredential_builder{
 		Credential: policyv1.CredentialHandle_builder{
 			Key:     proto.String(key),
-			Version: proto.Uint64(version),
+			Version: proto.Uint64(1),
 		}.Build(),
 		TypedMaterial: shellMaterial(),
 	}.Build()
@@ -88,10 +88,10 @@ func shellDeviceCredential(key string, version uint64) *edgev1.DeviceCredential 
 
 const hostKeyPin = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
 
-func hostTrust(key string, version uint64) *policyv1.HostTrustHandle {
+func hostTrust(key string) *policyv1.HostTrustHandle {
 	return policyv1.HostTrustHandle_builder{
 		Key:     proto.String(key),
-		Version: proto.Uint64(version),
+		Version: proto.Uint64(1),
 	}.Build()
 }
 
@@ -130,8 +130,8 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		{
 			name: "response with credential, host trust, and expiry",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential: deviceCredential("icx7150-lab-snmp", 1),
-				HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+				Credential: deviceCredential("icx7150-lab-snmp"),
+				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:  timestamppb.New(time.Now().Add(time.Minute)),
 			}.Build(),
 			wantValid: true,
@@ -139,16 +139,16 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		{
 			name: "response missing expires_at is rejected",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential: deviceCredential("icx7150-lab-snmp", 1),
-				HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+				Credential: deviceCredential("icx7150-lab-snmp"),
+				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 			}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "shell material carries the host key pin",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential:       shellDeviceCredential("icx7150-lab-ssh", 1),
-				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				Credential:       shellDeviceCredential("icx7150-lab-ssh"),
+				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
 				SshHostKeySha256: proto.String(hostKeyPin),
 			}.Build(),
@@ -157,8 +157,8 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		{
 			name: "shell material without a pin is rejected",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential: shellDeviceCredential("icx7150-lab-ssh", 1),
-				HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+				Credential: shellDeviceCredential("icx7150-lab-ssh"),
+				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:  timestamppb.New(time.Now().Add(time.Minute)),
 			}.Build(),
 			wantValid: false,
@@ -166,8 +166,8 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		{
 			name: "snmp material with a pin is rejected",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential:       deviceCredential("icx7150-lab-snmp", 1),
-				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				Credential:       deviceCredential("icx7150-lab-snmp"),
+				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
 				SshHostKeySha256: proto.String(hostKeyPin),
 			}.Build(),
@@ -176,8 +176,8 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		{
 			name: "a pin that is not a sha256 fingerprint is rejected",
 			message: edgev1.AcquireReadCredentialResponse_builder{
-				Credential:       shellDeviceCredential("icx7150-lab-ssh", 1),
-				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				Credential:       shellDeviceCredential("icx7150-lab-ssh"),
+				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
 				SshHostKeySha256: proto.String("MD5:aa:bb"),
 			}.Build(),
@@ -215,8 +215,8 @@ func TestOpenDeviceSubmissionRules(t *testing.T) {
 func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 	grant := edgev1.OpenDeviceSubmissionResponse_builder{
 		Grant: edgev1.SubmissionGrant_builder{
-			Credential: deviceCredential("icx7150-lab-submit", 1),
-			HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+			Credential: deviceCredential("icx7150-lab-submit"),
+			HostTrust:  hostTrust("icx7150-lab-hostkey"),
 			Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
 		}.Build(),
 	}.Build()
@@ -237,26 +237,26 @@ func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 	}
 
 	shellGrant := edgev1.SubmissionGrant_builder{
-		Credential:       shellDeviceCredential("icx7150-lab-submit", 1),
-		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Credential:       shellDeviceCredential("icx7150-lab-submit"),
+		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
 		SshHostKeySha256: proto.String(hostKeyPin),
 	}.Build()
 	shellGrantWithoutPin := edgev1.SubmissionGrant_builder{
-		Credential: shellDeviceCredential("icx7150-lab-submit", 1),
-		HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+		Credential: shellDeviceCredential("icx7150-lab-submit"),
+		HostTrust:  hostTrust("icx7150-lab-hostkey"),
 		Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
 	}.Build()
 
 	snmpGrantWithPin := edgev1.SubmissionGrant_builder{
-		Credential:       deviceCredential("icx7150-lab-submit", 1),
-		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Credential:       deviceCredential("icx7150-lab-submit"),
+		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
 		SshHostKeySha256: proto.String(hostKeyPin),
 	}.Build()
 	unprefixedPin := edgev1.SubmissionGrant_builder{
-		Credential:       shellDeviceCredential("icx7150-lab-submit", 1),
-		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Credential:       shellDeviceCredential("icx7150-lab-submit"),
+		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
 		SshHostKeySha256: proto.String("47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="),
 	}.Build()

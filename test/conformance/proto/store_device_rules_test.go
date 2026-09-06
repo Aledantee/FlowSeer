@@ -52,7 +52,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	withReads.OpenReads = map[string]*storev1.OpenRead{
 		"ethernet 1/1/1": storev1.OpenRead_builder{
 			Sequence:       proto.Uint64(8),
-			Read:           typedRead("ethernet 1/1/1"),
+			Read:           typedRead(),
 			Deadline:       timestamppb.New(edgeIssuedAt.Add(30 * time.Second)),
 			IdempotencyKey: proto.String(readKey),
 		}.Build(),
@@ -67,7 +67,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	badReadKey.OpenReads = map[string]*storev1.OpenRead{
 		"": storev1.OpenRead_builder{
 			Sequence:       proto.Uint64(8),
-			Read:           typedRead("ethernet 1/1/1"),
+			Read:           typedRead(),
 			Deadline:       timestamppb.New(edgeIssuedAt),
 			IdempotencyKey: proto.String(readKey),
 		}.Build(),
@@ -101,7 +101,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	readPastWatermark.OpenReads = map[string]*storev1.OpenRead{
 		"ethernet 1/1/1": storev1.OpenRead_builder{
 			Sequence:       proto.Uint64(8),
-			Read:           typedRead("ethernet 1/1/1"),
+			Read:           typedRead(),
 			Deadline:       timestamppb.New(edgeIssuedAt),
 			IdempotencyKey: proto.String(readKey),
 		}.Build(),
@@ -133,7 +133,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 func TestOpenReadRules(t *testing.T) {
 	closedWithObservation := storev1.OpenRead_builder{
 		Sequence:       proto.Uint64(8),
-		Read:           typedRead("ethernet 1/1/1"),
+		Read:           typedRead(),
 		Deadline:       timestamppb.New(edgeIssuedAt),
 		IdempotencyKey: proto.String(readKey),
 		Observation:    interfaceObservation().Build(),
@@ -145,7 +145,7 @@ func TestOpenReadRules(t *testing.T) {
 			name: "open read without a deadline is rejected",
 			message: storev1.OpenRead_builder{
 				Sequence:       proto.Uint64(8),
-				Read:           typedRead("ethernet 1/1/1"),
+				Read:           typedRead(),
 				IdempotencyKey: proto.String(readKey),
 			}.Build(),
 		},
@@ -161,17 +161,17 @@ func TestOpenReadRules(t *testing.T) {
 			name: "open read without an idempotency key is rejected",
 			message: storev1.OpenRead_builder{
 				Sequence: proto.Uint64(8),
-				Read:     typedRead("ethernet 1/1/1"),
+				Read:     typedRead(),
 				Deadline: timestamppb.New(edgeIssuedAt),
 			}.Build(),
 		},
 	})
 }
 
-func registryDevice(id, name string) *storev1.RegistryDevice {
+func registryDevice(name string) *storev1.RegistryDevice {
 	return storev1.RegistryDevice_builder{
 		Config: inventoryv1.DeviceConfig_builder{
-			Ref:            deviceRef(id),
+			Ref:            deviceRef(deviceID),
 			Name:           proto.String(name),
 			ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED.Enum(),
 			AccessPolicy:   accessPolicyHandle("icx7150-lab", 3),
@@ -188,7 +188,7 @@ func registryPolicy(key string) *storev1.RegistryPolicy {
 		Handle:               accessPolicyHandle(key, 3),
 		ReadCredential:       policyv1.CredentialHandle_builder{Key: proto.String(key + "-snmp"), Version: proto.Uint64(1)}.Build(),
 		SubmissionCredential: policyv1.CredentialHandle_builder{Key: proto.String(key + "-ssh"), Version: proto.Uint64(1)}.Build(),
-		HostTrust:            hostTrust(key+"-hostkey", 1),
+		HostTrust:            hostTrust(key + "-hostkey"),
 		SshHostKeySha256:     proto.String(hostKeyPin),
 	}.Build()
 }
@@ -201,13 +201,13 @@ func TestDeviceRegistryRules(t *testing.T) {
 
 	valid := storev1.DeviceRegistry_builder{
 		Integration: integration,
-		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150")},
+		Devices:     []*storev1.RegistryDevice{registryDevice("icx7150")},
 		Policies:    []*storev1.RegistryPolicy{registryPolicy("icx7150-lab")},
 	}.Build()
 
 	duplicateDevice := storev1.DeviceRegistry_builder{
 		Integration: integration,
-		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150"), registryDevice(deviceID, "icx7150-again")},
+		Devices:     []*storev1.RegistryDevice{registryDevice("icx7150"), registryDevice("icx7150-again")},
 	}.Build()
 
 	duplicatePolicy := storev1.DeviceRegistry_builder{
@@ -215,21 +215,21 @@ func TestDeviceRegistryRules(t *testing.T) {
 		Policies:    []*storev1.RegistryPolicy{registryPolicy("icx7150-lab"), registryPolicy("icx7150-lab")},
 	}.Build()
 
-	unmeasured := registryDevice(deviceID, "icx7150")
+	unmeasured := registryDevice("icx7150")
 	unmeasured.ClearDelayedApplyHorizon()
 
-	badInterface := registryDevice(deviceID, "icx7150")
+	badInterface := registryDevice("icx7150")
 	badInterface.SetManagedInterfaces([]string{"ethernet 1/1/1", "ethernet 1/1/1"})
 
-	badPort := registryDevice(deviceID, "icx7150")
+	badPort := registryDevice("icx7150")
 	badPort.SetSshPort(70000)
 
-	shortHorizon := registryDevice(deviceID, "icx7150")
+	shortHorizon := registryDevice("icx7150")
 	shortHorizon.SetDelayedApplyHorizon(durationpb.New(500 * time.Millisecond))
 
 	unlistedPolicy := storev1.DeviceRegistry_builder{
 		Integration: integration,
-		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150")},
+		Devices:     []*storev1.RegistryDevice{registryDevice("icx7150")},
 		Policies:    []*storev1.RegistryPolicy{registryPolicy("other-policy")},
 	}.Build()
 
@@ -237,7 +237,7 @@ func TestDeviceRegistryRules(t *testing.T) {
 	staleVersion.SetHandle(accessPolicyHandle("icx7150-lab", 2))
 	stalePolicy := storev1.DeviceRegistry_builder{
 		Integration: integration,
-		Devices:     []*storev1.RegistryDevice{registryDevice(deviceID, "icx7150")},
+		Devices:     []*storev1.RegistryDevice{registryDevice("icx7150")},
 		Policies:    []*storev1.RegistryPolicy{staleVersion},
 	}.Build()
 
@@ -262,7 +262,7 @@ func TestDeviceRegistryRules(t *testing.T) {
 				Handle:               accessPolicyHandle("icx7150-lab", 3),
 				ReadCredential:       policyv1.CredentialHandle_builder{Key: proto.String("k-snmp"), Version: proto.Uint64(1)}.Build(),
 				SubmissionCredential: policyv1.CredentialHandle_builder{Key: proto.String("k-ssh"), Version: proto.Uint64(1)}.Build(),
-				HostTrust:            hostTrust("k-hostkey", 1),
+				HostTrust:            hostTrust("k-hostkey"),
 			}.Build(),
 		},
 	})

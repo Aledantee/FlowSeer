@@ -26,7 +26,7 @@ func executeRequest() integrationv1.ExecuteRequest_builder {
 func TestExecuteRequestRules(t *testing.T) {
 	asRead := executeRequest()
 	asRead.Mutation = nil
-	asRead.Read = typedRead("ethernet 1/1/1")
+	asRead.Read = typedRead()
 
 	resumed := executeRequest()
 	resumed.Resume = true
@@ -40,7 +40,7 @@ func TestExecuteRequestRules(t *testing.T) {
 
 	resumedRead := executeRequest()
 	resumedRead.Mutation = nil
-	resumedRead.Read = typedRead("ethernet 1/1/1")
+	resumedRead.Read = typedRead()
 	resumedRead.Resume = true
 	resumedRead.AdmittedAt = timestamppb.New(edgeIssuedAt)
 
