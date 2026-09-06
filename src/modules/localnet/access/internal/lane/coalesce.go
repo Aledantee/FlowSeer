@@ -17,6 +17,7 @@ type CoalesceKey struct {
 }
 
 // Ticket is the shared result one coalesced group of callers waits on.
+// Safe for concurrent use: Wait may be called from multiple goroutines.
 type Ticket struct {
 	done   chan struct{}
 	result any
@@ -37,7 +38,8 @@ func (t *Ticket) Wait(ctx context.Context) (any, error) {
 // Coalescer deduplicates concurrent identical reads: the first caller for a
 // key does the work and calls Finish; every other caller for the same key
 // while that work is in flight receives the same result. The zero value is
-// ready to use.
+// ready to use. Safe for concurrent use: Start and Finish may both be
+// called from multiple goroutines.
 type Coalescer struct {
 	mu       sync.Mutex
 	inflight map[CoalesceKey]*Ticket

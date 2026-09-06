@@ -2,6 +2,7 @@ package access_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -11,8 +12,10 @@ import (
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/epoch"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/lane"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
@@ -50,11 +53,15 @@ func completeObservation(description string) *accessv1.InterfaceObservation {
 // mutationRequest always expects fingerprint "fw-A", matching every
 // newTestLane device's FingerprintOverride.
 func mutationRequest(sequence uint64, description string) *integrationv1.ExecuteRequest {
+	return mutationRequestWithFingerprint(sequence, "fw-A", description)
+}
+
+func mutationRequestWithFingerprint(sequence uint64, fingerprint, description string) *integrationv1.ExecuteRequest {
 	change := &accessv1.InterfaceDescriptionChange{}
 	change.SetInterfaceName("ethernet 1/1/1")
 	change.SetDescription(description)
 	intent := &accessv1.MutationIntent{}
-	intent.SetExpectedFirmwareFingerprint("fw-A")
+	intent.SetExpectedFirmwareFingerprint(fingerprint)
 	intent.SetInterfaceDescription(change)
 	req := &integrationv1.ExecuteRequest{}
 	req.SetSequence(sequence)
@@ -76,11 +83,9 @@ func readRequest() *integrationv1.ExecuteRequest {
 // "uplink to core", with no SNMP or SSH fake needed.
 func addDevice(t *testing.T, l *access.Lane) {
 	t.Helper()
-	var reads int
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		FingerprintOverride: "fw-A",
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
-			reads++
 			return completeObservation("uplink to core"), nil
 		},
 		SubmitOverride: func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil },
@@ -90,10 +95,12 @@ func addDevice(t *testing.T, l *access.Lane) {
 	}
 }
 
-// runMutation drives one mutation admission through checkpoint and terminal
-// ack concurrently with Submit, since both block on external delivery.
-func runMutation(t *testing.T, l *access.Lane, deviceKey string, req *integrationv1.ExecuteRequest) (*integrationv1.ExecuteResult, error) {
+// runMutation drives one mutation admission for "dev-1" through checkpoint
+// and terminal ack concurrently with Submit, since both block on external
+// delivery.
+func runMutation(t *testing.T, l *access.Lane, req *integrationv1.ExecuteRequest) (*integrationv1.ExecuteResult, error) {
 	t.Helper()
+	const deviceKey = "dev-1"
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -133,7 +140,7 @@ func TestLaneMutationHappyPath(t *testing.T) {
 	addDevice(t, l)
 
 	req := mutationRequest(1, "uplink to core")
-	result, err := runMutation(t, l, "dev-1", req)
+	result, err := runMutation(t, l, req)
 	if err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
@@ -210,12 +217,15 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	typedRead2.SetInterface(readIntent2)
 	secondReq.SetRead(typedRead2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
 	// The second item is admitted (capacity 1, queue currently empty since
 	// the first was dequeued into processing) but a third must overload.
+	// Its own context has no deadline: it must complete once release
+	// closes, proving requirement 2's "every previously admitted item is
+	// still present and later executed" rather than merely not erroring.
+	secondDone := make(chan submitResult, 1)
 	go func() {
-		_, _ = l.Submit(ctx, access.SubmitOptions{DeviceKey: "dev-1", Request: secondReq, Priority: lane.PriorityLow})
+		result, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: secondReq, Priority: lane.PriorityLow})
+		secondDone <- submitResult{result: result, err: err}
 	}()
 	time.Sleep(50 * time.Millisecond)
 
@@ -230,9 +240,29 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	if err == nil {
 		t.Fatal("Submit() error = nil, want an overload error for the third concurrent admission")
 	}
+	if code, ok := errs.CodeOf(err); !ok || code != lane.ErrCodeOverload {
+		t.Errorf("Submit() code = %v, want %v", code, lane.ErrCodeOverload)
+	}
 
 	close(release)
 	<-firstDone
+
+	select {
+	case r := <-secondDone:
+		if r.err != nil {
+			t.Fatalf("second Submit() error = %v, want nil — the previously admitted item must still execute", r.err)
+		}
+		if got := r.result.GetObservation().GetDescription(); got != "x" {
+			t.Errorf("second Submit() observation description = %q, want %q", got, "x")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the previously admitted second item never completed after release")
+	}
+}
+
+type submitResult struct {
+	result *integrationv1.ExecuteResult
+	err    error
 }
 
 func TestLanePollCoalescing(t *testing.T) {
@@ -289,11 +319,71 @@ func TestLanePollCoalescing(t *testing.T) {
 	}
 }
 
-func TestLaneOnboardingRunsIdentityProbeBeforeFirstMutation(t *testing.T) {
+// TestLaneTwoIdenticalMutationsNeverCoalesce proves the actual invariant
+// the plan names ("a MutationIntent never coalesces even with an identical
+// interface target") where it actually lives — Lane.Submit only builds a
+// coalescing key for a TypedRead — rather than at the Coalescer's own
+// struct-equality level, which internal/lane/coalesce_test.go already
+// covers but cannot speak to Lane's behavior.
+func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 	l := newTestLane(t)
 
-	var probed bool
+	var submits int
+	var mu sync.Mutex
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return completeObservation("uplink to core"), nil
+		},
+		SubmitOverride: func(context.Context, *accessv1.InterfaceDescriptionChange) error {
+			mu.Lock()
+			submits++
+			mu.Unlock()
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	if _, err := runMutation(t, l, mutationRequest(1, "uplink to core")); err != nil {
+		t.Fatalf("first Submit() error: %v", err)
+	}
+	if _, err := runMutation(t, l, mutationRequest(2, "uplink to core")); err != nil {
+		t.Fatalf("second Submit() error: %v", err)
+	}
+
+	mu.Lock()
+	got := submits
+	mu.Unlock()
+	if got != 2 {
+		t.Errorf("Submit closure called %d times, want 2 — two identical mutations must never coalesce into one device round-trip", got)
+	}
+}
+
+// TestLaneOnboardingProbedFingerprintGatesTheFirstMutation proves the
+// identity probe's result is not merely run, but is actually what the
+// first mutation's fingerprint gate checks against: a mutation whose
+// expected fingerprint matches what the probe (via fakeIdentitySession,
+// which always answers "fw-A") returned is admitted, and one that names a
+// different fingerprint is blocked — the ordering requirement 16 asks for
+// stated as an observable effect rather than a bare "was it called" flag.
+func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
+	l := newTestLane(t)
+
+	fakeSess := fakeIdentitySession{onGet: func() {}}
+	// The exact fingerprint format is epoch.Probe's own concern (and is
+	// deliberately hashed there to stay within schema bounds — see
+	// TestProbeFingerprintNeverExceedsSchemaBound); this test only needs
+	// to know what the fake session's answer maps to, so it asks Probe
+	// directly rather than hardcoding the format.
+	wantFingerprint, err := epoch.Probe(context.Background(), fakeSess)
+	if err != nil {
+		t.Fatalf("epoch.Probe() error: %v", err)
+	}
+
+	var probed bool
+	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		Sess: fakeIdentitySession{onGet: func() { probed = true }},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
@@ -305,6 +395,22 @@ func TestLaneOnboardingRunsIdentityProbeBeforeFirstMutation(t *testing.T) {
 	}
 	if !probed {
 		t.Fatal("AddDevice did not run the identity probe")
+	}
+
+	// A mutation naming a different expected fingerprint must be blocked
+	// before any device contact.
+	if _, err := l.Submit(context.Background(), access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   mutationRequestWithFingerprint(1, "some-other-firmware", "x"),
+		Priority:  lane.PriorityNormal,
+	}); err == nil {
+		t.Fatal("Submit() with a mismatched fingerprint error = nil, want the firmware-epoch gate to block it")
+	}
+
+	// The matching fingerprint (what the probe actually returned) must be
+	// admitted and reach a terminal result.
+	if _, err := runMutation(t, l, mutationRequestWithFingerprint(2, wantFingerprint, "uplink to core")); err != nil {
+		t.Fatalf("Submit() with the probed fingerprint error = %v, want nil", err)
 	}
 }
 
@@ -324,7 +430,7 @@ func TestLaneManagementModeDrift(t *testing.T) {
 	addDevice(t, l)
 
 	req := mutationRequest(1, "uplink to core")
-	if _, err := runMutation(t, l, "dev-1", req); err != nil {
+	if _, err := runMutation(t, l, req); err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
 
@@ -546,3 +652,210 @@ func (fakeIdentitySession) BulkWalkRaw(context.Context, snmp.OID, ...snmp.CallOp
 }
 
 var _ = inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP
+
+// TestLaneRapidConcurrentSubmissionsAllComplete stress-tests the drain
+// handoff (the lost-wakeup window between a drainer's last empty Next() and
+// its Unlock) with many goroutines submitting to one device's queue back to
+// back, no synchronizing sleep between them. Before the recheck-and-retry
+// loop in Lane.drain, a lucky interleaving could leave an admitted item
+// with no active drainer, hanging its Submit call forever; running many
+// iterations under -race gives that interleaving many chances to occur.
+func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
+	const n = 200
+
+	view, err := telemetry.NewView(telemetry.ViewConfig{})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	l := access.NewLane(access.Config{
+		QueueCapacity: n,
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:         noopDeliverer{},
+		Telemetry:     view,
+		Clock:         time.Now,
+	})
+	addDevice(t, l)
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := range n {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_, errs[i] = l.Submit(ctx, access.SubmitOptions{
+				DeviceKey: "dev-1",
+				Request:   readRequestFor(fmt.Sprintf("eth-%d", i)),
+				Priority:  lane.PriorityLow,
+			})
+		}(i)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("not every concurrent Submit returned within 10s — an admitted item was likely stranded with no drainer")
+	}
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("Submit(%d) error: %v", i, err)
+		}
+	}
+}
+
+// TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork proves the active
+// drainer's own goroutine does not gate a caller's Submit past that
+// caller's own deadline: A becomes the drainer and blocks well past B's
+// short deadline; B's Submit must still return at B's own deadline rather
+// than waiting for A's item (or the whole drain loop) to finish.
+func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
+	l := newTestLane(t)
+
+	releaseA := make(chan struct{})
+	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(_ context.Context, name string) (*accessv1.InterfaceObservation, error) {
+			if name == "eth-A" {
+				<-releaseA
+			}
+			return completeObservation("uplink to core"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+	t.Cleanup(func() { close(releaseA) })
+
+	doneA := make(chan struct{})
+	go func() {
+		defer close(doneA)
+		_, _ = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-A"), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(50 * time.Millisecond) // let A become the active drainer and block
+
+	bCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err = l.Submit(bCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-B"), Priority: lane.PriorityLow})
+	elapsed := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Submit() for B error = nil, want context.DeadlineExceeded")
+	}
+	if elapsed > time.Second {
+		t.Fatalf("Submit() for B took %v, want it to return at roughly its own 100ms deadline regardless of A's still-running work", elapsed)
+	}
+}
+
+// TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry proves the
+// coalescing owner's own cancellation is never handed to a joiner as if it
+// were the shared work's outcome, and that the underlying read is not
+// killed by the owner's shorter deadline.
+func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) {
+	l := newTestLane(t)
+
+	release := make(chan struct{})
+	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
+			<-release
+			// If the owner's cancellation reached this call's own ctx, the
+			// real bug would manifest here too; assert nothing on ctx
+			// itself since workCtx is deliberately detached.
+			return completeObservation("uplink to core"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	ownerCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	ownerDone := make(chan error, 1)
+	go func() {
+		_, err := l.Submit(ownerCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest(), Priority: lane.PriorityLow})
+		ownerDone <- err
+	}()
+
+	var joinerResult *integrationv1.ExecuteResult
+	var joinerErr error
+	joinerDone := make(chan struct{})
+	go func() {
+		defer close(joinerDone)
+		joinerResult, joinerErr = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest(), Priority: lane.PriorityLow})
+	}()
+
+	time.Sleep(50 * time.Millisecond) // let both join the same coalescing key
+
+	if err := <-ownerDone; err == nil {
+		t.Fatal("owner's Submit() error = nil, want its own deadline to expire")
+	}
+
+	close(release)
+	<-joinerDone
+
+	if joinerErr != nil {
+		t.Fatalf("joiner's Submit() error = %v, want nil — the owner's expiry must not be handed to the joiner", joinerErr)
+	}
+	if got := joinerResult.GetObservation().GetDescription(); got != "uplink to core" {
+		t.Errorf("joiner's observation description = %q, want %q", got, "uplink to core")
+	}
+}
+
+// TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock proves a
+// redelivered CheckpointRequest for an already-satisfied wait returns an
+// error rather than blocking the caller forever on an orphaned channel.
+func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
+	l := newTestLane(t)
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+
+	go func() {
+		checkpointReq := &integrationv1.CheckpointRequest{}
+		checkpointReq.SetSequence(1)
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := l.HandleCheckpoint("dev-1", checkpointReq); err == nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+		ack := &integrationv1.TerminalResultAck{}
+		ack.SetSequence(1)
+		ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+		deadline = time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := l.HandleTerminalAck("dev-1", ack); err == nil {
+				break
+			}
+			time.Sleep(time.Millisecond)
+		}
+
+		// A redelivery of the same checkpoint after it was already
+		// consumed must return promptly with an error, never block.
+		done := make(chan error, 1)
+		go func() { done <- l.HandleCheckpoint("dev-1", checkpointReq) }()
+		select {
+		case err := <-done:
+			if err == nil {
+				t.Error("HandleCheckpoint() redelivery error = nil, want ErrCodeNoPendingWait")
+			}
+		case <-time.After(2 * time.Second):
+			t.Error("HandleCheckpoint() redelivery blocked instead of returning an error")
+		}
+	}()
+
+	if _, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: req, Priority: lane.PriorityNormal}); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+}

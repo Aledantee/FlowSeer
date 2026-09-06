@@ -102,3 +102,17 @@ func TestQueuePositionIsMonotonicAndNeverReassigned(t *testing.T) {
 		t.Fatalf("expected high's position to be unchanged by dequeue ordering, got %d want %d", dequeued.Position, high.Position)
 	}
 }
+
+func TestQueueRejectsPriorityUnspecified(t *testing.T) {
+	q := lane.NewQueue(2)
+	_, err := q.Submit(lane.PriorityUnspecified, "x")
+	if err == nil {
+		t.Fatal("Submit(PriorityUnspecified) error = nil, want ErrCodePriorityUnspecified")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != lane.ErrCodePriorityUnspecified {
+		t.Errorf("Submit(PriorityUnspecified) code = %v, want %v", code, lane.ErrCodePriorityUnspecified)
+	}
+	if q.Len() != 0 {
+		t.Errorf("Len() = %d, want 0 — a rejected submission must not be admitted", q.Len())
+	}
+}

@@ -11,6 +11,10 @@ import (
 // its configured capacity.
 var ErrCodeOverload = errs.NewCode("lane/overload")
 
+// ErrCodePriorityUnspecified identifies a Submit call rejected because it
+// passed the zero Priority value.
+var ErrCodePriorityUnspecified = errs.NewCode("lane/priority-unspecified")
+
 // Priority orders admission only. A Queue never reorders an admitted Item
 // relative to another once both are admitted with the same Priority; two
 // different Priorities are ordered high before low regardless of admission
@@ -89,7 +93,8 @@ func (h *itemHeap) Pop() any {
 }
 
 // Queue is one device's bounded admission FIFO. The zero value is not
-// usable; construct one with [NewQueue].
+// usable; construct one with [NewQueue]. Safe for concurrent use: Submit,
+// Next, and Len may all be called from multiple goroutines.
 type Queue struct {
 	capacity int
 
@@ -113,6 +118,11 @@ func NewQueue(capacity int) *Queue {
 // disturbing any previously admitted item, once the queue holds capacity
 // items still awaiting [Queue.Next].
 func (q *Queue) Submit(priority Priority, payload any) (*Item, error) {
+	if priority == PriorityUnspecified {
+		return nil, errs.New().Code(ErrCodePriorityUnspecified).
+			Msg("priority must not be PriorityUnspecified; a missing choice must not silently become the lowest priority")
+	}
+
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
