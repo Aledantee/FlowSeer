@@ -109,6 +109,12 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 	case lookupErr != nil:
 		return nil, errs.From(lookupErr).Code(ErrCodeKeyLookupFailed).Retryable().Attr("edge_id", edgeID).Msg("look up edge key")
 	case len(publicKey) != ed25519.PublicKeySize:
+		// This length check is load-bearing, not belt-and-braces: ed25519.Verify
+		// panics on a key that is not exactly PublicKeySize, and an unknown edge
+		// looks up to a nil key. Refusing it here is what turns the unknown-edge
+		// path — the first one an attacker reaches — into a bad-signature error
+		// rather than a crash. It must precede the Verify call below; do not
+		// remove it on the assumption Verify validates its own input.
 		return nil, errs.New().Code(ErrCodeBadSignature).Attr("edge_id", edgeID).Msg("no key registered for edge")
 	case !ed25519.Verify(publicKey, signed.GetPayload(), signed.GetSignature()):
 		return nil, errs.New().Code(ErrCodeBadSignature).Attr("edge_id", edgeID).Msg("assertion signature does not verify")
