@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // TestOptions_Commutative pins the "order-independent" property: any
@@ -14,7 +16,7 @@ import (
 // is a separate property.)
 func TestOptions_Commutative(t *testing.T) {
 	a := ApplyOptions(
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithTimeout(2*time.Second),
 		WithRetries(3),
 		WithMaxOIDs(40),
@@ -25,7 +27,7 @@ func TestOptions_Commutative(t *testing.T) {
 		WithMaxOIDs(40),
 		WithRetries(3),
 		WithTimeout(2*time.Second),
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 	)
 
 	if !reflect.DeepEqual(a, b) {
@@ -35,13 +37,13 @@ func TestOptions_Commutative(t *testing.T) {
 
 func TestOption_FieldsApplyIndividually(t *testing.T) {
 	cfg := ApplyOptions(
-		WithCommunity("private"),
+		WithCommunity(secret.NewString("private")),
 		WithTimeout(7*time.Second),
 		WithRetries(5),
 		WithMaxOIDs(25),
 		WithMinSecurity(MinSecurityNoAuth),
 	)
-	if cfg.Community != "private" {
+	if !cfg.Community.EqualString("private") {
 		t.Errorf("Community = %q", cfg.Community)
 	}
 	if cfg.Timeout != 7*time.Second {
@@ -105,13 +107,13 @@ func TestEnforceMinSecurity_V2cRejectedAtDefault(t *testing.T) {
 	// Default MinSecurity = MinSecurityAuthNoPriv. A v1/v2c session has
 	// no USM, so the effective level is noAuthNoPriv, which falls below
 	// the floor.
-	cfg := ApplyOptions(WithCommunity("public"))
+	cfg := ApplyOptions(WithCommunity(secret.NewString("public")))
 	if err := cfg.EnforceMinSecurity(); !errors.Is(err, ErrSecurityPolicy) {
 		t.Errorf("default floor: err = %v, want ErrSecurityPolicy", err)
 	}
 
 	// Explicit opt-in to MinSecurityNoAuth admits v1/v2c.
-	cfg = ApplyOptions(WithCommunity("public"), WithMinSecurity(MinSecurityNoAuth))
+	cfg = ApplyOptions(WithCommunity(secret.NewString("public")), WithMinSecurity(MinSecurityNoAuth))
 	if err := cfg.EnforceMinSecurity(); err != nil {
 		t.Errorf("MinSecurityNoAuth + v2c: err = %v, want nil", err)
 	}
@@ -142,11 +144,13 @@ func TestEnforceMinSecurity_V2cRejectedAtDefault(t *testing.T) {
 func TestEnforceMinSecurity_Matrix(t *testing.T) {
 	const pass = "secret"
 	noUSM := func() Option { return func(*SessionConfig) {} }
-	authNoPriv := func() Option { return WithUSM(USMConfig{Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass}) }
+	authNoPriv := func() Option {
+		return WithUSM(USMConfig{Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass)})
+	}
 	authPriv := func() Option {
 		return WithUSM(USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
-			PrivProtocol: PrivAES, PrivPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
+			PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(pass),
 		})
 	}
 
@@ -243,7 +247,7 @@ func TestEnforceMinSecurity_PrivacyWithoutAuth(t *testing.T) {
 			Username:       "u",
 			AuthProtocol:   AuthProtocolNone,
 			PrivProtocol:   PrivAES,
-			PrivPassphrase: "p",
+			PrivPassphrase: secret.NewString("p"),
 		},
 	}
 	err := cfg.EnforceMinSecurity()

@@ -16,10 +16,11 @@ import (
 	"errors"
 
 	"go.aledante.io/FlowSeer/generated/go/mib/snmpv2mib"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
-func description(ctx context.Context, target, community string) (string, error) {
+func description(ctx context.Context, target string, community secret.Value) (string, error) {
 	sess, err := snmp.NewSession(ctx, target, snmp.V2c,
 		snmp.WithCommunity(community))
 	if err != nil {

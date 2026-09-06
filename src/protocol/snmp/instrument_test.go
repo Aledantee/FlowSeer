@@ -10,6 +10,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // These are the repo's first OTel assertion tests. They use the OTel SDK
@@ -24,7 +26,7 @@ func dialInstrumented(t *testing.T, agent *mockAgent, opts ...Option) (Session, 
 	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 
 	base := []Option{
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth),
 		WithTimeout(time.Second),
 		WithTracerProvider(tp),
@@ -172,7 +174,7 @@ func TestInstrument_NoopDefault(t *testing.T) {
 func TestInstrument_NilProviderIsNoOp(t *testing.T) {
 	oid := MustOID(1, 3, 6, 1, 2, 1, 1, 1, 0)
 	agent := startMIBAgent(t, []mibEntry{{oid, octet(oid, "x")}}, mibBehavior{})
-	sess, err := NewSession(context.Background(), agent.addr.String(), V2c, WithCommunity("public"),
+	sess, err := NewSession(context.Background(), agent.addr.String(), V2c, WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth), WithTimeout(time.Second),
 		WithTracerProvider(nil), WithMeterProvider(nil),
 	)
@@ -224,7 +226,7 @@ func TestInstrument_V3SpanAttributes(t *testing.T) {
 	for _, s := range sr.Ended() {
 		for _, kv := range s.Attributes() {
 			val := kv.Value.String()
-			if val == cfg.AuthPassphrase || val == cfg.PrivPassphrase {
+			if cfg.AuthPassphrase.EqualString(val) || cfg.PrivPassphrase.EqualString(val) {
 				t.Fatalf("span attr %s leaked a passphrase", kv.Key)
 			}
 		}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/generated/go/mib/ifmib"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/snmp/test/integration/testenv"
 )
@@ -18,7 +19,7 @@ import (
 func t3DialReplay(t *testing.T, e ManifestEntry) snmp.Session {
 	t.Helper()
 	sess, err := snmp.NewSession(context.Background(), testenv.Target(), snmp.V2c,
-		snmp.WithCommunity(e.SnmpsimContext),
+		snmp.WithCommunity(secret.NewString(e.SnmpsimContext)),
 		snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 		snmp.WithTimeout(2*time.Second),
 		snmp.WithRetries(2),

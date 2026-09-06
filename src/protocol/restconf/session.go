@@ -77,7 +77,7 @@ func (s *Session) Close() error {
 // authorize stamps basic auth onto every request when configured.
 func (s *Session) authorize(req *http.Request) {
 	if s.opts.Username != "" {
-		req.SetBasicAuth(s.opts.Username, s.opts.Password)
+		req.SetBasicAuth(s.opts.Username, s.opts.Password.RevealString())
 	}
 }
 

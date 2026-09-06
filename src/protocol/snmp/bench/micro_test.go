@@ -10,6 +10,7 @@ import (
 
 	g "github.com/gosnmp/gosnmp"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -45,7 +46,7 @@ var (
 func dialNative(tb testing.TB, addr string) snmp.Session {
 	tb.Helper()
 	sess, err := snmp.NewSession(context.Background(), addr, snmp.V2c,
-		snmp.WithCommunity("public"),
+		snmp.WithCommunity(secret.NewString("public")),
 		snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 		snmp.WithTimeout(2*time.Second),
 		snmp.WithRetries(3),

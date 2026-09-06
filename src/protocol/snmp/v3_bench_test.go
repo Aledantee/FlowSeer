@@ -3,6 +3,8 @@ package snmp
 import (
 	"context"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // BenchmarkV3DecodeVerify measures the inbound v3 decode+HMAC-verify path (the
@@ -18,7 +20,7 @@ func BenchmarkV3DecodeVerify(b *testing.B) {
 		AuthProtocol:   AuthSHA,
 		PrivProtocol:   PrivProtocolNone,
 		EngineID:       mustHex("8000000001020304050607"),
-		AuthPassphrase: "auth-supersecret-passphrase",
+		AuthPassphrase: secret.NewString("auth-supersecret-passphrase"),
 	}
 	if err := cfg.Validate(); err != nil {
 		b.Fatalf("cfg: %v", err)

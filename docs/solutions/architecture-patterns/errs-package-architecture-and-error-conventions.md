@@ -548,10 +548,12 @@ own merits — session history.)
 
 ### The secret-material rule
 
-This is the convention `src/common/errs/doc.go:129-131` codifies and the migration
+This is the convention `src/common/errs/doc.go` codifies and the migration
 was required to audit against: raw secret material never becomes an attribute and
 never reaches a message — no keys, salts, passwords, or derived key bytes. Attach
-the length and the protocol name instead.
+the length and the protocol name instead. Material that has to be carried at all
+is a `secret.Value` (`src/common/secret`), which redacts itself wherever the
+error is rendered.
 
 The USM code reads this way throughout:
 

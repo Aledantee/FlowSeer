@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
 
@@ -177,7 +178,7 @@ type reactorConfig struct {
 	// it can satisfy (or fail) an in-flight request, so a forged reply on a
 	// guessed request-id cannot displace the genuine one.
 	version   Version
-	community string
+	community secret.Value
 
 	// usm is non-nil for a v3 session; the read-loop then routes datagrams
 	// through the USM gate and demuxes by msgID instead of request-id.
@@ -214,7 +215,7 @@ type reactor struct {
 	// version and community are the session's expected reply values; a
 	// datagram that does not match both is dropped in the read-loop.
 	version   Version
-	community string
+	community secret.Value
 
 	// inst is the shared instrumentation; nil when the reactor is used
 	// outside Dial (e.g. unit tests), in which case recording is skipped.
@@ -744,7 +745,7 @@ func (r *reactor) readLoop() {
 		// values is dropped+counted, so a forged reply on a guessed
 		// request-id cannot displace the genuine one. The community string
 		// is never logged or embedded in an error.
-		if m.version != r.version || m.community != r.community {
+		if m.version != r.version || !r.community.EqualString(m.community) {
 			r.dropped.Add(1)
 			service.Logger(r.logCtx).DebugContext(r.logCtx,
 				"dropping reply with mismatched version/community",

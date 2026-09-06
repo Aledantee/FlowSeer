@@ -1,6 +1,7 @@
 ---
 title: SNMP Collection Library — Architecture and Fast-Path Conventions
 date: 2026-08-17
+last_verified: 2026-09-06
 category: architecture-patterns
 module: src/protocol/snmp
 problem_type: architecture_pattern
@@ -316,6 +317,14 @@ The committed baseline records `BenchmarkGet/impl=flowseer` at 56 allocs/op and
 1824 B/op, `BenchmarkGetNext` at 56 allocs/op, `BenchmarkGetBulk` at 97, and
 `BenchmarkBulkWalk` at 481 (`src/protocol/snmp/bench/testdata/baseline-micro.txt:5`, `:15`, `:25`,
 `:35`).
+
+That file has since drifted from the tree. Measured on darwin/arm64 at
+`e9b0bc58` on 2026-09-06, `BenchmarkGetBulk` is 98 allocs/op and
+`BenchmarkBulkWalk` 1278 — so `task bench:gate` reports a large BulkWalk
+"regression" on any branch, and its headline percentages are not the change's
+delta. Until someone rebaselines, judge a suspected regression by benchmarking
+the merge base and the branch and comparing those two, and read the gate only
+for the direction it points.
 
 Per the 2026-08-16 session history, that `56` is post-optimization: four
 prototypes were each benchmarked against a fresh baseline with benchstat at

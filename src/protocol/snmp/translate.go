@@ -2,6 +2,7 @@ package snmp
 
 import (
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // translate.go bridges the structured PDU model (pdu.go) and the Session's
@@ -14,11 +15,11 @@ import (
 // validateResponse rejects a decoded response whose version or community
 // disagrees with the session configuration. The returned errors
 // never include the community string itself.
-func validateResponse(m *message, wantVer Version, wantCommunity string) error {
+func validateResponse(m *message, wantVer Version, wantCommunity secret.Value) error {
 	if m.version != wantVer {
 		return errs.Wrapf(ErrVersionMismatch, "got %s, want %s", m.version, wantVer)
 	}
-	if m.community != wantCommunity {
+	if !wantCommunity.EqualString(m.community) {
 		return ErrCommunityMismatch
 	}
 	return nil

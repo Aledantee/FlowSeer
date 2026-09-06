@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // SecurityLevel is the effective SNMPv3 USM security level implied by a
@@ -199,9 +200,8 @@ func (p PrivProtocol) valid() bool {
 }
 
 // USMConfig describes the SNMPv3 User-Based Security Model parameters for
-// a [Session]. Passphrase fields are sensitive: they are redacted from any
-// rendering of the struct ([USMConfig.String], [USMConfig.GoString],
-// [USMConfig.Format]) and from validation error messages.
+// a [Session]. The passphrases are [secret.Value]s, so any rendering of the
+// struct is redacted; validation messages name the field only.
 //
 // Validation is performed by [USMConfig.Validate]; [WithUSM] applies it
 // at option-construction time and surfaces the result via [NewSession].
@@ -211,13 +211,13 @@ type USMConfig struct {
 	// AuthProtocol selects the authentication algorithm. Use
 	// [AuthProtocolNone] for noAuth.
 	AuthProtocol AuthProtocol
-	// AuthPassphrase is the authentication secret. Sensitive.
-	AuthPassphrase string
+	// AuthPassphrase is the authentication secret.
+	AuthPassphrase secret.Value
 	// PrivProtocol selects the privacy algorithm. Use [PrivProtocolNone]
 	// for noPriv.
 	PrivProtocol PrivProtocol
-	// PrivPassphrase is the privacy secret. Sensitive.
-	PrivPassphrase string
+	// PrivPassphrase is the privacy secret.
+	PrivPassphrase secret.Value
 	// EngineID is the authoritative engine ID; if empty the Backend
 	// performs RFC 3414 engine discovery at session establishment.
 	EngineID []byte
@@ -253,16 +253,16 @@ func (c USMConfig) Validate() error {
 	if !c.PrivProtocol.valid() {
 		return errs.New().Attr("value", int(c.PrivProtocol)).Msg("USMConfig.PrivProtocol is not a known protocol")
 	}
-	if c.AuthProtocol == AuthProtocolNone && c.AuthPassphrase != "" {
+	if c.AuthProtocol == AuthProtocolNone && !c.AuthPassphrase.Empty() {
 		return errs.Msg("USMConfig.AuthPassphrase set but AuthProtocol is none")
 	}
-	if c.AuthProtocol != AuthProtocolNone && c.AuthPassphrase == "" {
+	if c.AuthProtocol != AuthProtocolNone && c.AuthPassphrase.Empty() {
 		return errs.Msg("USMConfig.AuthPassphrase is empty but AuthProtocol requires it")
 	}
-	if c.PrivProtocol == PrivProtocolNone && c.PrivPassphrase != "" {
+	if c.PrivProtocol == PrivProtocolNone && !c.PrivPassphrase.Empty() {
 		return errs.Msg("USMConfig.PrivPassphrase set but PrivProtocol is none")
 	}
-	if c.PrivProtocol != PrivProtocolNone && c.PrivPassphrase == "" {
+	if c.PrivProtocol != PrivProtocolNone && c.PrivPassphrase.Empty() {
 		return errs.Msg("USMConfig.PrivPassphrase is empty but PrivProtocol requires it")
 	}
 	if c.PrivProtocol != PrivProtocolNone && c.AuthProtocol == AuthProtocolNone {
@@ -275,79 +275,4 @@ func (c USMConfig) Validate() error {
 		return errs.New().Attr("length", n).Msg("USMConfig.EngineID length outside RFC 3411 range [5,32]")
 	}
 	return nil
-}
-
-// redactedPassphrase is the placeholder substituted for any passphrase
-// field in rendered [USMConfig] output. The literal is intentionally
-// distinct from any plausible passphrase.
-const redactedPassphrase = "[REDACTED]"
-
-// String returns a diagnostic view of the config with passphrase fields
-// redacted. The output never contains the raw passphrase value.
-//
-// String implements [fmt.Stringer].
-func (c USMConfig) String() string {
-	return c.renderRedacted(false)
-}
-
-// GoString returns the same redacted view used by [USMConfig.String], in
-// a form suitable for the %#v verb. The output never contains the raw
-// passphrase value.
-//
-// GoString implements [fmt.GoStringer].
-func (c USMConfig) GoString() string {
-	return c.renderRedacted(true)
-}
-
-// Format implements [fmt.Formatter] so that passphrase redaction applies
-// to %v, %+v, %#v, and %s consistently — including when the config is
-// embedded in another fmt-format-walking type.
-func (c USMConfig) Format(f fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		if f.Flag('#') {
-			_, _ = f.Write([]byte(c.GoString()))
-			return
-		}
-		_, _ = f.Write([]byte(c.String()))
-	case 's', 'q':
-		s := c.String()
-		if verb == 'q' {
-			fmt.Fprintf(f, "%q", s)
-			return
-		}
-		_, _ = f.Write([]byte(s))
-	default:
-		// Unknown verb: emit a Go-style identifier rather than the raw
-		// struct (which would leak passphrases via reflect-walking).
-		fmt.Fprintf(f, "%%!%c(snmp.USMConfig=%s)", verb, c.String())
-	}
-}
-
-// renderRedacted produces the canonical redacted rendering. When goSyntax
-// is true the output follows the %#v shape (qualified type name, named
-// fields, Go-quoted strings); otherwise it follows the %+v shape.
-func (c USMConfig) renderRedacted(goSyntax bool) string {
-	authPass := redactPassphrase(c.AuthPassphrase)
-	privPass := redactPassphrase(c.PrivPassphrase)
-	if goSyntax {
-		return fmt.Sprintf(
-			"snmp.USMConfig{Username:%q, AuthProtocol:%s, AuthPassphrase:%q, PrivProtocol:%s, PrivPassphrase:%q, EngineID:%#v}",
-			c.Username, c.AuthProtocol, authPass, c.PrivProtocol, privPass, c.EngineID,
-		)
-	}
-	return fmt.Sprintf(
-		"{Username:%s AuthProtocol:%s AuthPassphrase:%s PrivProtocol:%s PrivPassphrase:%s EngineID:%x}",
-		c.Username, c.AuthProtocol, authPass, c.PrivProtocol, privPass, c.EngineID,
-	)
-}
-
-// redactPassphrase returns [redactedPassphrase] when p is non-empty and
-// "" otherwise. Empty passphrases are not redacted because there is
-// nothing to hide and surfacing "" in diagnostics is informative.
-func redactPassphrase(p string) string {
-	if p == "" {
-		return ""
-	}
-	return redactedPassphrase
 }

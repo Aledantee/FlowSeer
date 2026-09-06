@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/netconf"
 	"go.aledante.io/FlowSeer/src/protocol/yang/test/integration/testenv"
 )
@@ -48,7 +49,7 @@ func dialT1(t *testing.T) *netconf.Session {
 	defer cancel()
 	s, err := netconf.Dial(ctx, t1Target, netconf.Options{
 		Username:              testenv.Netopeer2User,
-		Password:              testenv.Netopeer2Password,
+		Password:              secret.NewString(testenv.Netopeer2Password),
 		InsecureIgnoreHostKey: true,
 	})
 	if err != nil {

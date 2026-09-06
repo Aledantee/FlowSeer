@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // gnmiT4TargetsEnv discovers the live Aruba CX (and, where enabled,
@@ -24,7 +26,7 @@ const gnmiT4TargetsEnv = "YANG_GNMI_T4_TARGETS"
 type t4Target struct {
 	Addr     string
 	User     string
-	Password string
+	Password secret.Value
 }
 
 // t4Targets is populated by TestMain.
@@ -67,7 +69,7 @@ func parseT4Targets(raw string) ([]t4Target, error) {
 		if !ok || user == "" || pass == "" {
 			return nil, fmt.Errorf("entry %d: want host:port@user:password", i+1)
 		}
-		out = append(out, t4Target{Addr: addr, User: user, Password: pass})
+		out = append(out, t4Target{Addr: addr, User: user, Password: secret.NewString(pass)})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no targets parsed")

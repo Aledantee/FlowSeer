@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Trap is the decoded form of an SNMPv1 trap, SNMPv2c TRAP2, or SNMPv3
@@ -22,8 +23,8 @@ type Trap struct {
 	// Source is the apparent UDP source address of the trap. Backends
 	// should normalize IPv4-mapped IPv6 addresses to 4-byte form.
 	Source net.IP
-	// Community is the SNMPv1/v2c community string. Empty for v3.
-	Community string
+	// Community is the SNMPv1/v2c community string. Unset for v3.
+	Community secret.Value
 	// Version is the SNMP protocol version observed on the wire.
 	Version Version
 	// EngineID is the v3 authoritative engine ID. Empty for v1/v2c.

@@ -3,6 +3,8 @@ package netconf
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
+
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -20,11 +22,11 @@ const (
 type Options struct {
 	// Username authenticates the SSH transport. Required by Dial.
 	Username string
-	// Password enables SSH password authentication when non-empty.
-	Password string
-	// PrivateKeyPEM enables SSH public-key authentication when
-	// non-empty. Both may be set; the transport offers both.
-	PrivateKeyPEM []byte
+	// Password enables SSH password authentication when set.
+	Password secret.Value
+	// PrivateKeyPEM enables SSH public-key authentication when set.
+	// Both may be set; the transport offers both.
+	PrivateKeyPEM secret.Value
 
 	// HostKeySHA256 pins the peer's host key as the base64 SHA-256
 	// fingerprint (the ssh-keygen -lf form). Exactly one of

@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Conformance pins for the raw fast path's off-spec boundary: the
@@ -224,7 +226,7 @@ func TestRawWalk_NonCanonicalOIDArc_EagerFallback(t *testing.T) {
 	addr := startRawByteAgent(t, build)
 
 	sess, err := NewSession(context.Background(), addr, V2c,
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth),
 		WithTimeout(time.Second),
 		WithRetries(1),

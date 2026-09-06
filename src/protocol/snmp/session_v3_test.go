@@ -7,6 +7,8 @@ import (
 	"net"
 	"sync/atomic"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // dialV3 dials a native v3 session at the agent's address with the given USM
@@ -108,7 +110,7 @@ func TestV3Session_GetBulkHalving(t *testing.T) {
 // TestV3Session_MinSecurityFloor rejects an authNoPriv config under a
 // WithMinSecurity(authPriv) floor.
 func TestV3Session_MinSecurityFloor(t *testing.T) {
-	cfg := USMConfig{Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: "auth-passphrase-1234"}
+	cfg := USMConfig{Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("auth-passphrase-1234")}
 	_, err := NewSession(context.Background(), "127.0.0.1:16100", V3, WithUSM(cfg), WithMinSecurity(MinSecurityAuthPriv))
 	if !errors.Is(err, ErrSecurityPolicy) {
 		t.Fatalf("expected ErrSecurityPolicy, got %v", err)
@@ -119,7 +121,7 @@ func TestV3Session_MinSecurityFloor(t *testing.T) {
 // config (priv without auth) is rejected at Dial via the existing
 // Validate, without a new idiom.
 func TestV3Session_InvalidUSMRejected(t *testing.T) {
-	cfg := USMConfig{Username: "alice", PrivProtocol: PrivAES, PrivPassphrase: "p"}
+	cfg := USMConfig{Username: "alice", PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("p")}
 	_, err := NewSession(context.Background(), "127.0.0.1:16100", V3, WithUSM(cfg))
 	if err == nil {
 		t.Fatalf("priv-without-auth config should be rejected at Dial")

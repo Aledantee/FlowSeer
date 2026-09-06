@@ -6,6 +6,8 @@ import (
 	"net"
 	"sync/atomic"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // startScriptedGetNext returns each script entry in turn as the varbinds
@@ -40,7 +42,7 @@ func ifDescrRoot() OID { return MustOID(1, 3, 6, 1, 2, 1, 2, 2, 1, 2) }
 func dialWalk(t *testing.T, agent *mockAgent, opts ...Option) Session {
 	t.Helper()
 	base := []Option{
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth),
 	}
 	sess, err := NewSession(context.Background(), agent.addr.String(), V2c, append(base, opts...)...)

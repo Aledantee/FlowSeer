@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/gnmi"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
@@ -60,7 +61,7 @@ func (f *fakeServer) Subscribe(srv gpb.GNMI_SubscribeServer) error {
 // dialFake wires a Session against an in-process server.
 func dialFake(t *testing.T, f *fakeServer) *gnmi.Session {
 	t.Helper()
-	return dialFakeWithOptions(t, f, gnmi.Options{Plaintext: true, Username: "admin", Password: "secret"})
+	return dialFakeWithOptions(t, f, gnmi.Options{Plaintext: true, Username: "admin", Password: secret.NewString("secret")})
 }
 
 func dialFakeWithOptions(t *testing.T, f *fakeServer, opts gnmi.Options) *gnmi.Session {

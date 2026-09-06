@@ -8,6 +8,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -17,7 +18,7 @@ func makeTrap(oid snmp.OID) snmp.Trap {
 	snmpTrapOID := snmp.MustOID(1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0)
 	return snmp.Trap{
 		Source:    net.IPv4(10, 0, 0, 1),
-		Community: "public",
+		Community: secret.NewString("public"),
 		Version:   snmp.V2c,
 		VarBinds: []snmp.VarBind{
 			snmp.ObjectIDVar{

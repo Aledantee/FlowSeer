@@ -192,7 +192,7 @@ func (s *Session) withCreds(ctx context.Context) context.Context {
 	if s.opts.Username == "" {
 		return ctx
 	}
-	return metadata.AppendToOutgoingContext(ctx, "username", s.opts.Username, "password", s.opts.Password)
+	return metadata.AppendToOutgoingContext(ctx, "username", s.opts.Username, "password", s.opts.Password.RevealString())
 }
 
 // unaryCtx prepares a unary RPC context: closed check, timeout

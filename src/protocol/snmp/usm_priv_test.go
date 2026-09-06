@@ -6,6 +6,8 @@ import (
 	"errors"
 	"sync"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Independent fixtures generated with pysnmp 7.1.27 (rfc3414/3826 priv +
@@ -117,7 +119,7 @@ func TestPriv_AESCVectors(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			key, err := localizedPrivKey(c.auth, c.priv, vecPassphrase, vecEngineID)
+			key, err := localizedPrivKey(c.auth, c.priv, secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("localizedPrivKey: %v", err)
 			}
@@ -195,11 +197,11 @@ func TestPriv_WeakTripleDESWarns(t *testing.T) {
 // decrypted under an AES-256 (Blumenthal) key yields wrong plaintext (which
 // surfaces upstream as a BER-parse failure), never a panic.
 func TestPriv_AESCInteropDirection(t *testing.T) {
-	blum, err := localizedPrivKey(AuthMD5, PrivAES256, vecPassphrase, vecEngineID)
+	blum, err := localizedPrivKey(AuthMD5, PrivAES256, secret.NewString(vecPassphrase), vecEngineID)
 	if err != nil {
 		t.Fatalf("blum key: %v", err)
 	}
-	reeder, err := localizedPrivKey(AuthMD5, PrivAES256C, vecPassphrase, vecEngineID)
+	reeder, err := localizedPrivKey(AuthMD5, PrivAES256C, secret.NewString(vecPassphrase), vecEngineID)
 	if err != nil {
 		t.Fatalf("reeder key: %v", err)
 	}

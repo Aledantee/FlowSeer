@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/snmp/test/integration/testenv"
 )
@@ -73,9 +74,9 @@ func TestT1_USMMatrix(t *testing.T) {
 			usm := snmp.USMConfig{
 				Username:       row.user,
 				AuthProtocol:   row.auth,
-				AuthPassphrase: row.authPass,
+				AuthPassphrase: secret.NewString(row.authPass),
 				PrivProtocol:   row.priv,
-				PrivPassphrase: row.privPass,
+				PrivPassphrase: secret.NewString(row.privPass),
 			}
 			sess, err := t1DialV3(t, usm)
 			if err != nil {
@@ -131,8 +132,8 @@ func TestT1_USMMatrix_Native(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			sess, err := snmp.NewSession(context.Background(), testenv.Target(), snmp.V3,
 				snmp.WithUSM(snmp.USMConfig{
-					Username: user, AuthProtocol: auth, AuthPassphrase: authPass,
-					PrivProtocol: priv, PrivPassphrase: privPass,
+					Username: user, AuthProtocol: auth, AuthPassphrase: secret.NewString(authPass),
+					PrivProtocol: priv, PrivPassphrase: secret.NewString(privPass),
 				}),
 				snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 				snmp.WithTimeout(2*time.Second), snmp.WithRetries(2))

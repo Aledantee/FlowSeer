@@ -26,7 +26,7 @@ func TestT4TargetAddress(t *testing.T) {
 			if got := targets[0].Address(); got != tt.address {
 				t.Errorf("Address() = %q, want %q", got, tt.address)
 			}
-			if targets[0].Community != tt.community {
+			if !targets[0].Community.EqualString(tt.community) {
 				t.Error("parsed community differs from input")
 			}
 		})

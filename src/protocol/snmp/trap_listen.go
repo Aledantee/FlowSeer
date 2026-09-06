@@ -13,6 +13,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
 
@@ -239,7 +240,7 @@ func translateTrap(m *message, remote *net.UDPAddr) Trap {
 	t := Trap{
 		Received:  time.Now(),
 		Version:   m.version,
-		Community: m.community,
+		Community: secret.NewString(m.community),
 	}
 	if remote != nil {
 		if v4 := remote.IP.To4(); v4 != nil {

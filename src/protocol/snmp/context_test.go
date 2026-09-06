@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
 
@@ -54,7 +55,7 @@ func exerciseReactorLogger(ctx context.Context, t *testing.T) {
 		multiHomed:  true,
 		validateSrc: true,
 		version:     V2c,
-		community:   "public",
+		community:   secret.NewString("public"),
 	})
 	if err != nil {
 		t.Fatalf("starting reactor: %v", err)

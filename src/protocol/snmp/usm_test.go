@@ -5,8 +5,11 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // randomPassphrase returns a hex-encoded random string distinct from the
@@ -31,40 +34,40 @@ func TestUSMConfig_Validate(t *testing.T) {
 	}{
 		// Valid combos
 		{"noauth_nopriv", USMConfig{Username: "u"}, true},
-		{"auth_md5", USMConfig{Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass}, true},
-		{"auth_sha", USMConfig{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass}, true},
+		{"auth_md5", USMConfig{Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass)}, true},
+		{"auth_sha", USMConfig{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass)}, true},
 		{"auth_sha256_priv_aes", USMConfig{
-			Username: "u", AuthProtocol: AuthSHA256, AuthPassphrase: pass,
-			PrivProtocol: PrivAES, PrivPassphrase: pass,
+			Username: "u", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString(pass),
+			PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(pass),
 		}, true},
 		{"auth_sha256_priv_aes256", USMConfig{
-			Username: "u", AuthProtocol: AuthSHA256, AuthPassphrase: pass,
-			PrivProtocol: PrivAES256, PrivPassphrase: pass,
+			Username: "u", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString(pass),
+			PrivProtocol: PrivAES256, PrivPassphrase: secret.NewString(pass),
 		}, true},
 
 		// Invalid combos
 		{"empty_username", USMConfig{}, false},
 		{"auth_no_passphrase", USMConfig{Username: "u", AuthProtocol: AuthSHA}, false},
-		{"auth_none_with_passphrase", USMConfig{Username: "u", AuthPassphrase: pass}, false},
+		{"auth_none_with_passphrase", USMConfig{Username: "u", AuthPassphrase: secret.NewString(pass)}, false},
 		{"priv_no_passphrase", USMConfig{
-			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass),
 			PrivProtocol: PrivAES,
 		}, false},
 		{"priv_none_with_passphrase", USMConfig{
-			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass,
-			PrivPassphrase: pass,
+			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass),
+			PrivPassphrase: secret.NewString(pass),
 		}, false},
 		{"priv_without_auth", USMConfig{
 			Username: "u",
 			// AuthProtocol is None — but supplying a priv protocol +
 			// passphrase. This must fail with the "priv requires auth"
 			// branch, not the "auth set but no passphrase" branch.
-			PrivProtocol: PrivAES, PrivPassphrase: pass,
+			PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(pass),
 		}, false},
 		{"bad_auth_proto", USMConfig{Username: "u", AuthProtocol: AuthProtocol(99)}, false},
 		{"bad_priv_proto", USMConfig{
-			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass,
-			PrivProtocol: PrivProtocol(99), PrivPassphrase: pass,
+			Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass),
+			PrivProtocol: PrivProtocol(99), PrivPassphrase: secret.NewString(pass),
 		}, false},
 
 		// RFC 3411 §5 snmpEngineID length cases. Empty stays valid
@@ -72,23 +75,23 @@ func TestUSMConfig_Validate(t *testing.T) {
 		// values; 4 and 33 are out of range.
 		// Covers conformance matrix row: RFC 3411 §5 / snmpEngineID length.
 		{"engine_id_empty_ok", USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
 			EngineID: nil,
 		}, true},
 		{"engine_id_5_octets_ok", USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
 			EngineID: []byte{1, 2, 3, 4, 5},
 		}, true},
 		{"engine_id_32_octets_ok", USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
 			EngineID: bytes.Repeat([]byte{0xab}, 32),
 		}, true},
 		{"engine_id_4_octets_too_short", USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
 			EngineID: []byte{1, 2, 3, 4},
 		}, false},
 		{"engine_id_33_octets_too_long", USMConfig{
-			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: pass,
+			Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString(pass),
 			EngineID: bytes.Repeat([]byte{0xcd}, 33),
 		}, false},
 	}
@@ -117,12 +120,12 @@ func TestUSMConfig_ValidateError_NoPassphraseLeak(t *testing.T) {
 	// Configs that should fail validation and would carry the passphrase
 	// in a naïve error message.
 	configs := []USMConfig{
-		{Username: "u", AuthPassphrase: pass},                                                                              // auth=none, passphrase set
-		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass, PrivPassphrase: pass},                                 // priv=none, passphrase set
-		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass, PrivProtocol: PrivAES},                                // priv proto, no passphrase
-		{Username: "u", PrivProtocol: PrivAES, PrivPassphrase: pass},                                                       // priv without auth
-		{Username: "u", AuthProtocol: AuthProtocol(99), AuthPassphrase: pass},                                              // bad auth proto
-		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: pass, PrivProtocol: PrivProtocol(99), PrivPassphrase: pass}, // bad priv proto
+		{Username: "u", AuthPassphrase: secret.NewString(pass)},                                                                                                // auth=none, passphrase set
+		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass), PrivPassphrase: secret.NewString(pass)},                                 // priv=none, passphrase set
+		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass), PrivProtocol: PrivAES},                                                  // priv proto, no passphrase
+		{Username: "u", PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(pass)},                                                                         // priv without auth
+		{Username: "u", AuthProtocol: AuthProtocol(99), AuthPassphrase: secret.NewString(pass)},                                                                // bad auth proto
+		{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(pass), PrivProtocol: PrivProtocol(99), PrivPassphrase: secret.NewString(pass)}, // bad priv proto
 	}
 	for i, cfg := range configs {
 		err := cfg.Validate()
@@ -145,11 +148,14 @@ func TestUSMConfig_Format_NoPassphraseLeak(t *testing.T) {
 	cfg := USMConfig{
 		Username:       "user",
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: authPass,
+		AuthPassphrase: secret.NewString(authPass),
 		PrivProtocol:   PrivAES256,
-		PrivPassphrase: privPass,
+		PrivPassphrase: secret.NewString(privPass),
 		EngineID:       []byte{0x80, 0x00, 0x1f, 0x88, 0x01},
 	}
+
+	var logged bytes.Buffer
+	slog.New(slog.NewTextHandler(&logged, nil)).Info("session", "usm", cfg)
 
 	cases := []string{
 		fmt.Sprintf("%v", cfg),
@@ -157,8 +163,7 @@ func TestUSMConfig_Format_NoPassphraseLeak(t *testing.T) {
 		fmt.Sprintf("%#v", cfg),
 		fmt.Sprintf("%s", cfg),
 		fmt.Sprintf("%q", cfg),
-		cfg.String(),
-		cfg.GoString(),
+		logged.String(),
 	}
 	for i, rendered := range cases {
 		if strings.Contains(rendered, authPass) {
@@ -182,7 +187,7 @@ func TestUSMConfig_Format_Embedded(t *testing.T) {
 	cfg := USMConfig{
 		Username:       "u",
 		AuthProtocol:   AuthSHA,
-		AuthPassphrase: pass,
+		AuthPassphrase: secret.NewString(pass),
 	}
 	type wrapper struct {
 		Name string
@@ -204,13 +209,13 @@ func TestUSMConfig_Level(t *testing.T) {
 		want SecurityLevel
 	}{
 		{"noauth_nopriv", USMConfig{}, SecurityLevelNoAuthNoPriv},
-		{"auth_only", USMConfig{AuthProtocol: AuthSHA, AuthPassphrase: "p"}, SecurityLevelAuthNoPriv},
+		{"auth_only", USMConfig{AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString("p")}, SecurityLevelAuthNoPriv},
 		{"auth_and_priv", USMConfig{
-			AuthProtocol: AuthSHA256, AuthPassphrase: "p",
-			PrivProtocol: PrivAES, PrivPassphrase: "p",
+			AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("p"),
+			PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("p"),
 		}, SecurityLevelAuthPriv},
 		{"priv_without_auth_invalid", USMConfig{
-			PrivProtocol: PrivAES, PrivPassphrase: "p",
+			PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("p"),
 		}, SecurityLevelUnknown},
 	}
 	for _, tc := range cases {
@@ -230,7 +235,7 @@ func TestUSMConfig_Level(t *testing.T) {
 // packages — the per-backend test suite asserts that the error
 // surfaces from their own Dial.)
 func TestWithUSM_InvalidCapturedForDial(t *testing.T) {
-	bad := USMConfig{Username: "u", PrivProtocol: PrivAES, PrivPassphrase: "p"} // priv-without-auth
+	bad := USMConfig{Username: "u", PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("p")} // priv-without-auth
 	cfg := ApplyOptions(WithUSM(bad))
 	err := cfg.USMValidationError()
 	if err == nil {
@@ -250,7 +255,7 @@ func TestWithUSM_InvalidCapturedForDial(t *testing.T) {
 // Covers conformance matrix row: RFC 3411 §5 / snmpEngineID length.
 func TestUSMConfig_Validate_EngineIDErrorMessage(t *testing.T) {
 	cfg := USMConfig{
-		Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: "p",
+		Username: "u", AuthProtocol: AuthMD5, AuthPassphrase: secret.NewString("p"),
 		EngineID: []byte{1, 2, 3, 4}, // 4 octets
 	}
 	err := cfg.Validate()
@@ -353,9 +358,9 @@ func TestWithUSM_ValidApplies(t *testing.T) {
 	cfg := USMConfig{
 		Username:       "user",
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: "auth-pass",
+		AuthPassphrase: secret.NewString("auth-pass"),
 		PrivProtocol:   PrivAES256,
-		PrivPassphrase: "priv-pass",
+		PrivPassphrase: secret.NewString("priv-pass"),
 		// RFC 3411 §5 requires snmpEngineID to be 5..32 octets when
 		// non-empty; this fixture uses 5 octets (the lower bound).
 		EngineID: []byte{0x80, 0x00, 0x1f, 0x88, 0x01},
@@ -369,9 +374,9 @@ func TestWithUSM_ValidApplies(t *testing.T) {
 	}
 	if sc.USM.Username != cfg.Username ||
 		sc.USM.AuthProtocol != cfg.AuthProtocol ||
-		sc.USM.AuthPassphrase != cfg.AuthPassphrase ||
+		!sc.USM.AuthPassphrase.Equal(cfg.AuthPassphrase) ||
 		sc.USM.PrivProtocol != cfg.PrivProtocol ||
-		sc.USM.PrivPassphrase != cfg.PrivPassphrase ||
+		!sc.USM.PrivPassphrase.Equal(cfg.PrivPassphrase) ||
 		string(sc.USM.EngineID) != string(cfg.EngineID) {
 		t.Errorf("applied USMConfig mismatch:\n got %+v\nwant %+v", *sc.USM, cfg)
 	}

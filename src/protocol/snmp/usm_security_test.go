@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 const (
@@ -29,10 +31,10 @@ func mustContext(t *testing.T, auth AuthProtocol, priv PrivProtocol) *usmContext
 	t.Helper()
 	cfg := USMConfig{Username: "alice", AuthProtocol: auth, PrivProtocol: priv, EngineID: secTestEngine}
 	if auth != AuthProtocolNone {
-		cfg.AuthPassphrase = secTestAuthPass
+		cfg.AuthPassphrase = secret.NewString(secTestAuthPass)
 	}
 	if priv != PrivProtocolNone {
-		cfg.PrivPassphrase = secTestPrivPass
+		cfg.PrivPassphrase = secret.NewString(secTestPrivPass)
 	}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("invalid cfg: %v", err)
@@ -159,8 +161,8 @@ func TestUSM_WrongPrivKeyBERFails(t *testing.T) {
 	// Receiver with a *different* priv passphrase (same auth so HMAC passes,
 	// only the decrypt produces garbage).
 	cfg := USMConfig{
-		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secTestAuthPass,
-		PrivProtocol: PrivAES256, PrivPassphrase: "a-totally-different-priv-passphrase", EngineID: secTestEngine,
+		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString(secTestAuthPass),
+		PrivProtocol: PrivAES256, PrivPassphrase: secret.NewString("a-totally-different-priv-passphrase"), EngineID: secTestEngine,
 	}
 	recv, err := newUSMContext(context.Background(), cfg)
 	if err != nil {
@@ -174,7 +176,7 @@ func TestUSM_WrongPrivKeyBERFails(t *testing.T) {
 // TestUSM_NoKeysBeforeDiscovery confirms buildOutbound errors before
 // setEngine.
 func TestUSM_NoKeysBeforeDiscovery(t *testing.T) {
-	cfg := USMConfig{Username: "bob", AuthProtocol: AuthSHA, AuthPassphrase: secTestAuthPass}
+	cfg := USMConfig{Username: "bob", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(secTestAuthPass)}
 	u, err := newUSMContext(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("newUSMContext: %v", err)

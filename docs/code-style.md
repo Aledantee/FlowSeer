@@ -222,6 +222,13 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
   into logs as a field. Interpolating a value that exists to make the message
   readable is fine — most of `src/protocol/snmp` does exactly that. Never attach or
   interpolate raw secret material — attach a length and a protocol name instead.
+- In hand-written Go under `src/`, an exported field holding a password,
+  passphrase, private key, or community string is a `secret.Value`
+  (`src/common/secret`), never a `string` or `[]byte`. The type redacts itself
+  under `fmt`, JSON, and `slog`, so the struct holding it stays printable; the
+  `src/common/internal/secretguard` test fails when such a field takes a raw
+  type. Unexported fields are outside the rule, and a struct holding one is not
+  safe to print — see the package documentation.
 - Errors that cross a process boundary carry an `errs.NewCode("<package>/<name>")`
   code, their stable identity on the wire. Codes are append-only: never renamed,
   never reused for a different meaning.

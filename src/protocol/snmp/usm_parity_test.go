@@ -21,6 +21,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 func parityTarget(t *testing.T) string {
@@ -54,10 +56,10 @@ func parityDial(t *testing.T, target string, m int) Session {
 	c := parityMatrix[m]
 	usm := USMConfig{Username: c.user, AuthProtocol: c.auth, PrivProtocol: c.priv}
 	if c.auth != AuthProtocolNone {
-		usm.AuthPassphrase = c.ap
+		usm.AuthPassphrase = secret.NewString(c.ap)
 	}
 	if c.priv != PrivProtocolNone {
-		usm.PrivPassphrase = c.pp
+		usm.PrivPassphrase = secret.NewString(c.pp)
 	}
 	sess, err := NewSession(context.Background(), target, V3, WithUSM(usm),
 		WithMinSecurity(MinSecurityNoAuth),
@@ -124,7 +126,7 @@ func TestParity_GetNext_Bulk_Walk(t *testing.T) {
 func TestParity_WrongCredentialsRejected(t *testing.T) {
 	target := parityTarget(t)
 	sess, err := NewSession(context.Background(), target, V3,
-		WithUSM(USMConfig{Username: "shaaes", AuthProtocol: AuthSHA, AuthPassphrase: "WRONG-passphrase", PrivProtocol: PrivAES, PrivPassphrase: "priv-aes-passphrase"}),
+		WithUSM(USMConfig{Username: "shaaes", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString("WRONG-passphrase"), PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("priv-aes-passphrase")}),
 		WithMinSecurity(MinSecurityNoAuth), WithTimeout(time.Second), WithRetries(1))
 	if err != nil {
 		t.Fatalf("Dial: %v", err)

@@ -5,6 +5,8 @@ import (
 	"context"
 	"sync"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 func engCfg(engineID []byte, user, authPass string) USMConfig {
@@ -12,9 +14,9 @@ func engCfg(engineID []byte, user, authPass string) USMConfig {
 		Username:       user,
 		EngineID:       engineID,
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: authPass,
+		AuthPassphrase: secret.NewString(authPass),
 		PrivProtocol:   PrivAES,
-		PrivPassphrase: "priv-passphrase-1234",
+		PrivPassphrase: secret.NewString("priv-passphrase-1234"),
 	}
 }
 

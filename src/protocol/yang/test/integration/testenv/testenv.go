@@ -12,6 +12,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/gnmi"
 	"go.aledante.io/FlowSeer/src/protocol/netconf"
 	"go.aledante.io/FlowSeer/src/protocol/restconf"
@@ -34,7 +35,7 @@ func StartNetopeer2(ctx context.Context, contextDir string) (target string, clea
 		func(probeCtx context.Context, addr string) error {
 			s, err := netconf.Dial(probeCtx, addr, netconf.Options{
 				Username:              Netopeer2User,
-				Password:              Netopeer2Password,
+				Password:              secret.NewString(Netopeer2Password),
 				InsecureIgnoreHostKey: true,
 				DialTimeout:           5 * time.Second,
 			})

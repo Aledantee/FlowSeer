@@ -6,6 +6,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 var notifyOwnEngine = mustHex("80001f8800f100dca7ed00abcd")
@@ -60,9 +62,9 @@ func informCfg() USMConfig {
 	return USMConfig{
 		Username:       "alice",
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: "inform-auth-passphrase",
+		AuthPassphrase: secret.NewString("inform-auth-passphrase"),
 		PrivProtocol:   PrivAES,
-		PrivPassphrase: "inform-priv-passphrase",
+		PrivPassphrase: secret.NewString("inform-priv-passphrase"),
 	}
 }
 

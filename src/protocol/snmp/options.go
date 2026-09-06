@@ -10,6 +10,7 @@ import (
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Version selects the SNMP protocol version a [Session] uses on the wire.
@@ -55,7 +56,7 @@ func (v Version) String() string {
 // directly — use [ApplyOptions] or pass options to [NewSession].
 type SessionConfig struct {
 	// Community is the SNMPv1/v2c community string. Ignored for v3.
-	Community string
+	Community secret.Value
 	// Version is the SNMP protocol version. [VersionUnset] is rejected.
 	Version Version
 	// Timeout is the per-PDU wire timeout. Zero means "Backend default".
@@ -219,7 +220,7 @@ func ApplyCallOptions(opts ...CallOption) *CallConfig {
 
 // WithCommunity sets the SNMPv1/v2c community string. Ignored by SNMPv3
 // Sessions.
-func WithCommunity(community string) Option {
+func WithCommunity(community secret.Value) Option {
 	return func(c *SessionConfig) { c.Community = community }
 }
 

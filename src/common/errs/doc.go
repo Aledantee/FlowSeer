@@ -129,7 +129,10 @@
 // Raw secret material never becomes an attribute and never reaches a
 // message: no keys, salts, passwords, or derived key bytes. Attach the
 // length and the protocol name instead — "key_len", 16 and "proto",
-// "usm-aes" say everything a responder needs.
+// "usm-aes" say everything a responder needs. Material that has to be
+// attached at all is attached as a secret.Value, which renders redacted
+// through this package's log value — the value itself, never the
+// configuration struct that holds it.
 //
 // # Stacks
 //
