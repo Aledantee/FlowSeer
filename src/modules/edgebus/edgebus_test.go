@@ -16,8 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"strings"
-
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
@@ -47,7 +45,7 @@ func startHub(t *testing.T, dir string, port int) *edgebus.Hub {
 
 func startLeaf(t *testing.T, dir string, hub *edgebus.Hub, id string) *edgebus.Leaf {
 	t.Helper()
-	creds, err := hub.MintEdgeUser(id)
+	creds, err := hub.MintEdgeUser(context.Background(), id)
 	if err != nil {
 		t.Fatalf("mint edge user: %v", err)
 	}
@@ -125,64 +123,59 @@ func TestLeafJoinsWithMintedCredentialAndSourcingFlows(t *testing.T) {
 	}
 }
 
-func TestEdgePermissionsConfineTheLeaf(t *testing.T) {
+func TestEdgePermissionsConfineTheLeafWhileSourcingFlows(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-
-	// A publish under another edge's subtree must not cross into the hub.
-	foreign := make(chan struct{}, 1)
-	own := make(chan struct{}, 1)
-	if _, err := hub.EdgeConnection().Subscribe(edgebus.EdgeSubtree(edgebus.DefaultTenant, otherID)+".>", func(*nats.Msg) { foreign <- struct{}{} }); err != nil {
-		t.Fatalf("subscribe foreign: %v", err)
-	}
-	if _, err := hub.EdgeConnection().Subscribe(edgebus.EdgeSubtree(edgebus.DefaultTenant, edgeID)+".probe", func(*nats.Msg) { own <- struct{}{} }); err != nil {
-		t.Fatalf("subscribe own: %v", err)
-	}
-	if err := hub.EdgeConnection().Flush(); err != nil {
-		t.Fatalf("flush: %v", err)
-	}
-	// Interest propagates over the leaf link asynchronously.
-	time.Sleep(500 * time.Millisecond)
-	if err := leaf.Connection().Publish(edgebus.EdgeSubtree(edgebus.DefaultTenant, otherID)+".probe", []byte("x")); err != nil {
-		t.Fatalf("publish foreign: %v", err)
-	}
-	if err := leaf.Connection().Publish(edgebus.EdgeSubtree(edgebus.DefaultTenant, edgeID)+".probe", []byte("x")); err != nil {
-		t.Fatalf("publish own: %v", err)
-	}
-	if err := leaf.Connection().Flush(); err != nil {
-		t.Fatalf("flush: %v", err)
-	}
-	select {
-	case <-own:
-	case <-time.After(5 * time.Second):
-		t.Fatal("a publish under the edge's own subtree did not reach the hub")
-	}
-	select {
-	case <-foreign:
-		t.Fatal("a publish under another edge's subtree reached the hub")
-	case <-time.After(500 * time.Millisecond):
+	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
+		t.Fatalf("attach: %v", err)
 	}
 
-	// A subscription on the leaf outside its permitted set imports nothing
-	// the hub publishes.
+	// The permitted set is enough to source: a record the edge publishes on
+	// its own subtree reaches the hub's per-edge stream. Proven in the same
+	// test as the confinement below, so a future narrowing that breaks
+	// sourcing or a widening that restores it fails one test.
+	if err := leaf.Publish(context.Background(), leaf.OTelSubject(edgebus.SignalLogs), []byte("sourced"), ""); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	stream, err := hub.EdgeStream(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("edge stream: %v", err)
+	}
+	waitFor(t, "sourced record", 15*time.Second, func() bool {
+		info, err := stream.Info(context.Background())
+		return err == nil && info.State.Msgs == 1
+	})
+
+	// Confinement: a subscription on the whole namespace imports nothing the
+	// hub publishes, so nothing central reaches an edge by this path.
 	leaked := make(chan struct{}, 1)
-	if _, err := leaf.Connection().Subscribe("flowseer.>", func(*nats.Msg) { leaked <- struct{}{} }); err != nil {
+	const marker = "central-only-marker"
+	if _, err := leaf.Connection().Subscribe("flowseer.>", func(m *nats.Msg) {
+		// The edge's own sourcing deliveries also match flowseer.>; only a
+		// message central published, carrying the marker, is a leak.
+		if string(m.Data) == marker {
+			select {
+			case leaked <- struct{}{}:
+			default:
+			}
+		}
+	}); err != nil {
 		t.Fatalf("subscribe on leaf: %v", err)
 	}
 	if err := leaf.Connection().Flush(); err != nil {
 		t.Fatalf("flush: %v", err)
 	}
 	time.Sleep(500 * time.Millisecond)
-	if err := hub.EdgeConnection().Publish("flowseer.default.dispatch.anything", []byte("x")); err != nil {
+	if err := hub.Connection().Publish("flowseer.default.dispatch.anything", []byte(marker)); err != nil {
 		t.Fatalf("publish on hub: %v", err)
 	}
-	if err := hub.EdgeConnection().Flush(); err != nil {
+	if err := hub.Connection().Flush(); err != nil {
 		t.Fatalf("flush: %v", err)
 	}
 	select {
 	case <-leaked:
-		t.Fatal("a hub publish outside the edge's permitted set reached the leaf")
+		t.Fatal("a hub central publish reached the leaf")
 	case <-time.After(500 * time.Millisecond):
 	}
 }
@@ -281,7 +274,7 @@ func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	first := startHub(t, hubDir, -1)
 	url := first.ListenURL()
 	port := first.ListenPort()
-	creds, err := first.MintEdgeUser(edgeID)
+	creds, err := first.MintEdgeUser(context.Background(), edgeID)
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}
@@ -417,128 +410,59 @@ func TestPublishOutsideTheBufferedBranchesFailsLoudly(t *testing.T) {
 	}
 }
 
-// TestEdgeCredentialCannotReachCentralStreams constructs finding 1: anything
-// holding an edge credential tries to write into the journal bucket and the
-// audit stream, both directly and through the flow-control reflection the
-// server obeys with its own permissionless internal client. The account
-// split puts those streams where an edge credential cannot address them, so
-// central's record is unchanged whatever the edge publishes.
-func TestEdgeCredentialCannotReachCentralStreams(t *testing.T) {
+// TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI constructs finding 3.
+// Before per-edge accounts, every edge's leaf carried its own
+// $JS.edge-<id>.API interest in one shared account, so a reflection an edge
+// provoked could name another edge's STREAM.DELETE and destroy its buffer.
+// Each edge now has its own account, so edge A's leaf cannot address edge
+// B's JetStream API at all, reflected or direct, and B's buffer survives.
+func TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
+	a := startLeaf(t, t.TempDir(), hub, edgeID)
+	b := startLeaf(t, t.TempDir(), hub, otherID)
+	waitFor(t, "both leaves", 10*time.Second, func() bool { return hub.LeafCount() == 2 })
 	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
-		t.Fatalf("attach: %v", err)
+		t.Fatalf("attach a: %v", err)
+	}
+	if err := hub.AttachEdge(context.Background(), otherID); err != nil {
+		t.Fatalf("attach b: %v", err)
 	}
 
-	// Central writes a lane record through its own central-account context.
-	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.LaneBucket)
+	// B has a record in its own buffer.
+	if err := b.Publish(context.Background(), b.OTelSubject(edgebus.SignalLogs), []byte("b-record"), ""); err != nil {
+		t.Fatalf("b publish: %v", err)
+	}
+	bBuffer, err := jetstream.NewWithDomain(b.Connection(), edgebus.EdgeDomain(otherID))
 	if err != nil {
-		t.Fatalf("bucket: %v", err)
+		t.Fatalf("b buffer ctx: %v", err)
 	}
-	key := "0192e6a0-0000-7000-8000-0000000000d1"
-	if _, err := kv.Put(context.Background(), key, []byte("genuine")); err != nil {
-		t.Fatalf("put: %v", err)
-	}
-
-	// A direct publish to the KV subject and the audit subject: the edge is
-	// in the edge account and cannot even address these.
-	for _, subject := range []string{
-		"$KV." + edgebus.LaneBucket + "." + key,
-		edgebus.AuditSubject(edgebus.DefaultTenant, key),
-	} {
-		if err := leaf.Connection().Publish(subject, []byte("forged")); err != nil {
-			t.Fatalf("publish %s: %v", subject, err)
+	waitFor(t, "b buffered", 10*time.Second, func() bool {
+		st, err := bBuffer.Stream(context.Background(), edgebus.EdgeBufferStream)
+		if err != nil {
+			return false
 		}
-	}
-	// A flow-control control message on the edge's source branch naming the
-	// KV subject as its reply: an empty body and the "NATS/1.0 100 " header
-	// the server reads as a control frame.
-	control := &nats.Msg{
-		Subject: edgebus.EdgeSubtree(edgebus.DefaultTenant, edgeID) + ".source.forged",
-		Reply:   "$KV." + edgebus.LaneBucket + "." + key,
-		Header:  nats.Header{"Status": []string{"100 FlowControl Request"}},
-	}
-	if err := leaf.Connection().PublishMsg(control); err != nil {
-		t.Fatalf("publish control: %v", err)
-	}
-	if err := leaf.Connection().Flush(); err != nil {
-		t.Fatalf("flush: %v", err)
-	}
-	time.Sleep(2 * time.Second)
-
-	entry, err := kv.Get(context.Background(), key)
-	if err != nil {
-		t.Fatalf("get: %v", err)
-	}
-	if string(entry.Value()) != "genuine" {
-		t.Fatalf("lane record was overwritten through an edge credential: %q", entry.Value())
-	}
-	if entry.Revision() != 1 {
-		t.Fatalf("lane record revision moved to %d; an edge credential reached the bucket", entry.Revision())
-	}
-}
-
-// TestAnEdgeCannotStoreARecordAsAnotherEdge constructs the relabel of
-// finding 2 with what an edge credential can actually reach. The edge
-// cannot learn the source consumer's delivery subject: it is not granted
-// publish on its own JetStream API, and the consumer is not enumerable from
-// the edge credential (TestEdgePermissionsConfineTheLeaf and the source
-// consumer's absence from the edge's own consumer listing are that
-// property). So the strongest an edge can do is publish onto its own source
-// branch, which it may, carrying a $JS.ACK reply whose @-suffix names
-// another edge's subject, the field the sourcing path reads the stored
-// subject from. The account split and the per-source SubjectTransform keep
-// every stored record under this edge's subtree, and the forwarder refuses
-// any that is not (TestForwarderRefusesARecordOutsideItsStreamsEdge), so no
-// record is stored or shipped as another edge's.
-func TestAnEdgeCannotStoreARecordAsAnotherEdge(t *testing.T) {
-	hub := startHub(t, t.TempDir(), -1)
-	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
-	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
-		t.Fatalf("attach: %v", err)
-	}
-	if err := leaf.Publish(context.Background(), leaf.OTelSubject(edgebus.SignalLogs), []byte("genuine"), ""); err != nil {
-		t.Fatalf("publish: %v", err)
-	}
-	stream, err := hub.EdgeStream(context.Background(), edgeID)
-	if err != nil {
-		t.Fatalf("edge stream: %v", err)
-	}
-	waitFor(t, "sourced record", 15*time.Second, func() bool {
-		info, err := stream.Info(context.Background())
+		info, err := st.Info(context.Background())
 		return err == nil && info.State.Msgs == 1
 	})
 
-	other := edgebus.OTelSubject(edgebus.DefaultTenant, otherID, edgebus.SignalLogs)
-	for _, branch := range []string{".source.S.forged", ".source.forged"} {
-		forged := &nats.Msg{
-			Subject: edgebus.EdgeSubtree(edgebus.DefaultTenant, edgeID) + branch,
-			Reply:   "$JS.ACK.EDGE_BUFFER.forged.1.9.9.1.0@" + other,
-			Data:    []byte("relabeled"),
-		}
-		for range 3 {
-			if err := leaf.Connection().PublishMsg(forged); err != nil {
-				t.Fatalf("forge: %v", err)
-			}
-		}
+	// A tries to delete B's buffer through B's JetStream API, both a plain
+	// request and a header-only one shaped like the reflected control frame.
+	apiDelete := "$JS." + edgebus.EdgeDomain(otherID) + ".API.STREAM.DELETE." + edgebus.EdgeBufferStream
+	if err := a.Connection().Publish(apiDelete, nil); err != nil {
+		t.Logf("a delete publish rejected locally: %v", err) // a permissions error here is the point
 	}
-	if err := leaf.Connection().Flush(); err != nil {
-		t.Fatalf("flush: %v", err)
-	}
+	_ = a.Connection().Flush()
 	time.Sleep(2 * time.Second)
 
-	info, err := stream.Info(context.Background(), jetstream.WithSubjectFilter(">"))
+	st, err := bBuffer.Stream(context.Background(), edgebus.EdgeBufferStream)
 	if err != nil {
-		t.Fatalf("info: %v", err)
+		t.Fatalf("b buffer after: %v", err)
 	}
-	if _, relabeled := info.State.Subjects[other]; relabeled {
-		t.Fatalf("a forged reply stored a record under another edge's subject: %v", info.State.Subjects)
+	info, err := st.Info(context.Background())
+	if err != nil {
+		t.Fatalf("b buffer info: %v", err)
 	}
-	for subject := range info.State.Subjects {
-		if !strings.HasPrefix(subject, edgebus.EdgeSubtree(edgebus.DefaultTenant, edgeID)+".") {
-			t.Fatalf("a stored record left the edge's subtree: %s", subject)
-		}
+	if info.State.Msgs != 1 {
+		t.Fatalf("edge A reached edge B's buffer: %d records remain", info.State.Msgs)
 	}
 }

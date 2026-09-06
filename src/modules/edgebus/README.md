@@ -12,33 +12,42 @@ fixes the shape ("Edge attachment and enrollment"): an embedded leaf node per
 edge, its own JetStream domain, a bounded local buffer, and broker-enforced
 accounts.
 
-## Two accounts are the security boundary
+## Accounts are the security boundary, one per edge
 
 An edge credential can make the server publish for it, with the server's own
-internal client, into any stream in the edge's account: a JetStream
-flow-control control message (an empty body under a `NATS/1.0 100 ` status)
-names its own reply subject, and `processInboundSourceMsg` obeys it through a
-client subject to no permissions, before the check that would bind the
-message to the sourcing consumer. No permission list closes that, because the
-publish is the server's, not the edge's. So the journal and the audit stream
-must live where no edge credential reaches.
+internal client, into any stream and any JetStream API in the edge's account:
+a JetStream flow-control control message (an empty body whose header begins
+with the inlined status `NATS/1.0 100 `) names its own reply subject, and
+`processInboundSourceMsg` obeys it through a client subject to no
+permissions, before the check that would bind the message to the sourcing
+consumer. No permission list closes that, because the publish is the
+server's, not the edge's. The only boundary the reflection cannot cross is an
+account: an account imports and exports nothing here, so a reflected publish
+reaches only subjects in the account it was provoked in.
 
-The hub therefore runs two data accounts under its operator, plus the system
-account:
+The hub therefore runs the system account, a CENTRAL account, and one account
+per edge:
 
-- **EDGE** holds the per-edge source streams and the minted edge users; the
-  edges' leaf nodes join it. A reflected publish an edge provokes lands here,
-  where there is nothing central to address.
 - **CENTRAL** holds the `device-lanes` and `edges` key-value buckets and
-  `FLOWSEER_DEVICE_AUDIT`. Central writes them through its own CENTRAL-account
-  connection; no edge credential is in this account.
+  `FLOWSEER_DEVICE_AUDIT`, written through central's own CENTRAL-account
+  connection. No edge credential is in this account, so neither a direct
+  publish nor a reflected one from an edge can reach the journal.
+- **EDGE_<edge-id>**, created when the edge first attaches, holds that one
+  edge's source stream and its minted user; its leaf node joins it. A
+  reflection an edge provokes lands in its own account, where the only
+  addressable JetStream API is its own. Before per-edge accounts, one shared
+  edge account let a reflection name another edge's
+  `$JS.edge-<other>.API.STREAM.DELETE` and destroy its buffer
+  (`TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI`).
 
-`TestEdgeCredentialCannotReachCentralStreams` constructs the attack, direct
-and reflected, and asserts the lane record is untouched. The two accounts get
-separate JetStream disk budgets (half the store each by default), so
-telemetry volume in EDGE cannot exhaust the store the journal writes into,
-and each per-edge stream and the audit stream are bounded within their
-account.
+`TestAccountsCarryNoImportsOrExports` reads the signed account JWTs the server
+enforces and fails on a merge-back or on any import or export slipping in:
+the containment is structural, not a permission list. CENTRAL gets its own
+JetStream disk budget and each edge account its own, independent of one
+another, so no number of edges and no telemetry volume can exhaust the store
+the journal writes into; `JetStreamMaxStore` is a server-wide backstop rather
+than a reservation, since an unbounded edge count cannot be reserved for in
+advance.
 
 ## Subjects and streams
 
@@ -52,25 +61,28 @@ flowseer.<tenant>.audit.device.<device-id>                    central's audit re
 The edge's `EDGE_BUFFER` stream, in JetStream domain `edge-<edge-id>`, holds
 the `otel` and `ingest` branches, file-backed, bounded by bytes and age with
 the oldest record discarded first. For each attached edge the hub creates
-`FLOWSEER_EDGE_<edge-id>` in the EDGE account, a stream that sources that
+`FLOWSEER_EDGE_<edge-id>` in that edge's account, a stream that sources that
 edge's buffer and nothing else, across its leaf link through
 `$JS.edge-<edge-id>.API`, delivering on the `source` branch: that branch is
 inside the edge's publish permission and outside its buffer's subjects, which
 matters because JetStream refuses a consumer that would deliver into the
-stream it reads. A `SubjectTransform` on the source restricts it to the
-edge's own `otel` and `ingest` branches. One stream per edge is what makes a
-record's edge a fact of where it is stored rather than of the subject it
-carries; the forwarder relies on that below. A stream emptied by its age
-bound re-sources its edge's whole buffer on a hub restart, so the age is set
-comfortably longer than any forwarder outage.
+stream it reads. There is deliberately no `SubjectTransform` on the source: a
+transform that re-roots a subject (`{Source: ">", Destination: branch+".>"}`)
+prepends the branch to every subject, which corrupts a legitimate record
+rather than only re-rooting a forged one, and no single transform re-roots a
+foreign subject while leaving an in-branch one alone. One stream per edge in
+its own account is what keeps a record's edge honest: the stream it sits in,
+not the subject it carries. A stream emptied by its age bound re-sources its
+edge's whole buffer on a hub restart, so the age is set comfortably longer
+than any forwarder outage.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.
 
 ## The credential an edge is minted
 
-`Hub.MintEdgeUser` signs a user in the EDGE account with the minimal set that
-lets the hub source that edge's buffer and nothing more:
+`Hub.MintEdgeUser` signs a user in that edge's own account with the minimal
+set that lets the hub source its buffer and nothing more:
 
 | Direction | Allowed | Why |
 | --- | --- | --- |
@@ -87,13 +99,17 @@ crosses the link needs it, and it is the path that would let a caller read
 the source consumer's delivery subject through `CONSUMER.INFO`. Nor any
 `_INBOX` subject: the stock random inbox prefix matches none of these, and an
 account-wide `_INBOX` grant would reach central's own request replies.
-`TestEdgePermissionsConfineTheLeaf` proves a publish under another edge's
-subtree never crosses and a subscription on `flowseer.>` imports nothing,
-while sourcing still flows.
+`TestEdgePermissionsConfineTheLeafWhileSourcingFlows` proves the conjunction:
+the permitted set is enough to source the edge's own record, and a
+subscription on `flowseer.>` imports nothing central publishes, in one test,
+so a future narrowing that breaks sourcing or a widening that restores it
+fails a single test.
 
-The hub's keys (operator, system, EDGE, CENTRAL) are generated into
-`<StateDir>/keys` on first start and read back afterwards, so a restart keeps
-every minted credential valid. A leaf writes its credential to
+The operator, system, and CENTRAL keys are generated into `<StateDir>/keys`
+on first start; an edge's account key is generated there when it first
+attaches and read back afterwards, so a restart re-attaches every edge it had
+sourced and keeps every minted credential valid. A leaf writes its credential
+to
 `<StateDir>/hub.creds`, mode 0600, because a remote leaf authenticates from a
 file.
 
@@ -102,32 +118,32 @@ file.
 Constructed and proven:
 
 - It cannot write into the journal buckets or the audit stream, directly or
-  through the flow-control reflection: those are in CENTRAL, and the edge
-  credential is in EDGE (`TestEdgeCredentialCannotReachCentralStreams`).
-- A record it publishes carrying a forged `$JS.ACK` reply that names another
-  edge's subject is not stored under that subject: the account split, the
-  per-source `SubjectTransform`, and one stream per edge keep every stored
-  record under the edge's own subtree
-  (`TestAnEdgeCannotStoreARecordAsAnotherEdge`).
-- A forged record that did reach the aggregate would still not be shipped as
-  another edge's: the forwarder reads the edge from the stream's name and
-  drops a record whose subject is outside that edge's subtree, before posting
+  through the flow-control reflection: those are in CENTRAL and no edge
+  credential is in that account. The containment is the account boundary,
+  read from the JWTs by `TestAccountsCarryNoImportsOrExports`.
+- It cannot reach another edge's JetStream API to delete or purge its buffer:
+  each edge is its own account
+  (`TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI`).
+- A forged record that reached the aggregate would not be shipped as another
+  edge's: the forwarder reads the edge from the stream's name and drops a
+  record whose subject is outside that edge's subtree, before posting
   (`TestForwarderRefusesARecordOutsideItsStreamsEdge`).
 - A publish inside the subtree but on neither buffered branch is refused with
   `edgebus/leaf`, never acknowledged by nothing
   (`TestPublishOutsideTheBufferedBranchesFailsLoudly`).
 
-The edge cannot learn its source consumer's delivery subject: it has no
-publish on its own JetStream API, and the sourcing consumer does not appear
-in the edge's own consumer listing. That unreachability is a defence, not a
-guarantee; the account split and the forwarder refusal are the guarantees,
-and they hold whatever the delivery subject is.
-
-Residual, accepted: an edge can put arbitrary bytes into its own subtree,
-which is exactly what it can publish anyway; those records are its own data
-and are shipped as its own. A fake idle heartbeat can still force its own
-source consumer to retry and slow its own sourcing, a self-inflicted delay of
-one edge's telemetry with no reach beyond it.
+The source consumer's delivery subject is disclosed, not hidden: the hub's own
+consumer-create request carries it and is published on
+`$JS.edge-<edge-id>.API.CONSUMER.CREATE.EDGE_BUFFER`, inside the subscribe
+grant the edge must have for sourcing to work. Containment does not depend on
+the edge not knowing it. An edge that publishes a record with a forged
+`$JS.ACK` reply on its delivery subject can store that record under a foreign
+subject in its own source stream, but the record stays in the edge's own
+account and the forwarder refuses to ship it as another edge's; nothing
+central-visible is relabelled. That the store itself happens is the accepted
+residual: an edge can put arbitrary bytes, under an arbitrary subject, into
+its own account's stream, which is no more than it can already publish as its
+own data.
 
 ## Observability
 
@@ -197,7 +213,6 @@ never dials it.
 
 - Any dispatch, report, or audit subject. Those are Connect calls.
 - Announce subjects and capability advertisement.
-- A second tenant, and the per-account isolation and JWT revocation that go
-  with it. The `<tenant>` subject token is present but carries no broker
-  enforcement while one tenant runs; the EDGE and CENTRAL accounts are the
-  isolation that exists today.
+- A second tenant. The `<tenant>` subject token is present but carries no
+  broker enforcement while one tenant runs; the per-edge and CENTRAL accounts
+  are the isolation that exists today, within the one tenant.

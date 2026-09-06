@@ -10,9 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go/jetstream"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+
+	"go.aledante.io/FlowSeer/src/common/service"
 )
 
 func TestEdgeOfHubStream(t *testing.T) {
@@ -119,5 +122,55 @@ func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 	f.forward("edge-a", &fakeMsg{subject: OTelSubject(DefaultTenant, "edge-b", SignalLogs)})
 	if f.Dropped() != 2 || logs.Len() != 0 {
 		t.Fatalf("second refusal: dropped=%d logged=%q", f.Dropped(), logs.String())
+	}
+}
+
+func TestAccountsCarryNoImportsOrExports(t *testing.T) {
+	hub, err := StartHub(context.Background(), HubConfig{StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, ListenPort: 0})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	if err := hub.AttachEdge(context.Background(), "edge-a"); err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+
+	// Containment is that no account imports or exports anything, so a
+	// reflection provoked in one account can reach no subject in another.
+	// This reads the signed JWTs the server enforces, through the hub's own
+	// signing path, and fails on a merge-back or on any future
+	// import/export slipping in.
+	centralJWT, err := hub.keys.accountJWT(hub.keys.central, "CENTRAL", 1)
+	if err != nil {
+		t.Fatalf("central jwt: %v", err)
+	}
+	for name, encoded := range map[string]string{"central": centralJWT, "edge-a": hub.edges["edge-a"].accountJWT} {
+		claims, err := jwt.DecodeAccountClaims(encoded)
+		if err != nil {
+			t.Fatalf("%s decode: %v", name, err)
+		}
+		if len(claims.Imports) != 0 || len(claims.Exports) != 0 {
+			t.Fatalf("%s account has %d imports and %d exports, want none", name, len(claims.Imports), len(claims.Exports))
+		}
+	}
+
+	// The three account keys are distinct, and an edge user is issued by its
+	// own edge account, never central's.
+	centralPub, _ := hub.keys.central.PublicKey()
+	systemPub, _ := hub.keys.system.PublicKey()
+	edgePub, _ := hub.keys.edge["edge-a"].PublicKey()
+	if centralPub == edgePub || centralPub == systemPub || edgePub == systemPub {
+		t.Fatal("two accounts share a key")
+	}
+	creds, err := hub.MintEdgeUser(context.Background(), "edge-a")
+	if err != nil {
+		t.Fatalf("mint: %v", err)
+	}
+	uc, err := jwt.DecodeUserClaims(creds.UserJWT)
+	if err != nil {
+		t.Fatalf("user decode: %v", err)
+	}
+	if uc.Issuer != edgePub {
+		t.Fatalf("edge user issued by %s, want the edge account %s", uc.Issuer, edgePub)
 	}
 }

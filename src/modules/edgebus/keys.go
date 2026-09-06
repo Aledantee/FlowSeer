@@ -3,6 +3,8 @@ package edgebus
 import (
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nkeys"
@@ -14,21 +16,26 @@ import (
 // operator and account keys.
 var ErrCodeKeys = errs.NewCode("edgebus/keys")
 
-// hubKeys are the key pairs an operator-mode hub needs. The two data
-// accounts are kept apart on purpose: an edge credential can make the
-// server reflect a publish into any stream in its own account (a
-// JetStream flow-control control message names its own reply subject, and
-// the server obeys it with an internal client subject to no permissions),
-// so the journal and the audit stream must live where no edge credential
-// reaches. The edge account holds the per-edge source streams and the
-// minted edge users; the central account holds the lane and edge buckets
-// and the audit stream. They are generated on first start and read back
-// afterwards, so a restart keeps every minted credential valid.
+// hubKeys are the key pairs an operator-mode hub needs. Isolation is by
+// account, and it goes one level further than the journal: a JetStream
+// flow-control control message names its own reply subject, and the server
+// obeys it with an internal client subject to no permissions, so an edge
+// credential can make the server reflect a publish into any stream, and any
+// JetStream API, present in its own account. The central account (the
+// journal buckets and the audit stream) is one boundary; a separate account
+// per edge is the second, so one edge's reflection cannot address another
+// edge's JetStream API to delete its buffer. The operator, system, and
+// central keys are generated on first start; a per-edge account key is
+// generated when the edge first attaches and read back afterwards, so a
+// restart keeps every minted credential valid.
 type hubKeys struct {
+	dir      string
 	operator nkeys.KeyPair
 	system   nkeys.KeyPair
-	edge     nkeys.KeyPair
 	central  nkeys.KeyPair
+
+	mu   sync.Mutex
+	edge map[string]nkeys.KeyPair
 }
 
 func loadOrCreateKeys(dir string) (*hubKeys, error) {
@@ -44,15 +51,45 @@ func loadOrCreateKeys(dir string) (*hubKeys, error) {
 	if err != nil {
 		return nil, err
 	}
-	edge, err := loadOrCreateKey(filepath.Join(keysDir, "edge.nk"), nkeys.CreateAccount)
-	if err != nil {
-		return nil, err
-	}
 	central, err := loadOrCreateKey(filepath.Join(keysDir, "central.nk"), nkeys.CreateAccount)
 	if err != nil {
 		return nil, err
 	}
-	return &hubKeys{operator: operator, system: system, edge: edge, central: central}, nil
+	return &hubKeys{dir: keysDir, operator: operator, system: system, central: central, edge: map[string]nkeys.KeyPair{}}, nil
+}
+
+// persistedEdgeIDs lists the edges whose account keys are on disk, so a
+// restarted hub re-attaches every edge it had sourced.
+func (k *hubKeys) persistedEdgeIDs() ([]string, error) {
+	entries, err := os.ReadDir(k.dir)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeKeys).Msg("read keys directory")
+	}
+	var ids []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, "edge-") && strings.HasSuffix(name, ".nk") {
+			ids = append(ids, strings.TrimSuffix(strings.TrimPrefix(name, "edge-"), ".nk"))
+		}
+	}
+	return ids, nil
+}
+
+// edgeAccountKey returns the account key for one edge, creating and
+// persisting it on first use so a restarted hub signs the same account and
+// every credential minted under it stays valid.
+func (k *hubKeys) edgeAccountKey(edgeID string) (nkeys.KeyPair, error) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if pair, ok := k.edge[edgeID]; ok {
+		return pair, nil
+	}
+	pair, err := loadOrCreateKey(filepath.Join(k.dir, "edge-"+edgeID+".nk"), nkeys.CreateAccount)
+	if err != nil {
+		return nil, err
+	}
+	k.edge[edgeID] = pair
+	return pair, nil
 }
 
 func loadOrCreateKey(path string, create func() (nkeys.KeyPair, error)) (nkeys.KeyPair, error) {

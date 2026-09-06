@@ -147,51 +147,46 @@ func (f *Forwarder) follow(ctx context.Context) {
 	}
 }
 
-// discover attaches a durable consumer to every edge stream that has none.
+// discover attaches a durable consumer to every attached edge that has
+// none. Each edge's source stream lives in that edge's own account, so the
+// forwarder reads it through the hub's per-edge connection rather than one
+// shared context.
 func (f *Forwarder) discover(ctx context.Context) error {
-	names := f.hub.EdgeJetStream().StreamNames(ctx)
-	for name := range names.Name() {
-		edgeID, ok := edgeOfHubStream(name)
-		if !ok {
-			continue
-		}
+	for _, edgeID := range f.hub.AttachedEdges() {
 		f.mu.Lock()
-		_, following := f.consumers[name]
+		_, following := f.consumers[edgeID]
 		f.mu.Unlock()
 		if following {
 			continue
 		}
-		if err := f.attach(ctx, name, edgeID); err != nil {
+		if err := f.attach(ctx, edgeID); err != nil {
 			return err
 		}
-	}
-	if err := names.Err(); err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Msg("list edge streams")
 	}
 	return nil
 }
 
-func (f *Forwarder) attach(ctx context.Context, name, edgeID string) error {
-	stream, err := f.hub.EdgeJetStream().Stream(ctx, name)
+func (f *Forwarder) attach(ctx context.Context, edgeID string) error {
+	stream, err := f.hub.EdgeStream(ctx, edgeID)
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("look up edge stream")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("look up edge stream")
 	}
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		Durable:       "otel-forwarder",
+		Durable:       "otel_forwarder",
 		FilterSubject: "flowseer.*.edge.*.otel.>",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		AckWait:       f.cfg.Client.Timeout + 10*time.Second,
 		MaxDeliver:    forwarderMaxDeliver,
 	})
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("create forwarder consumer")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("create forwarder consumer")
 	}
 	consume, err := consumer.Consume(func(msg jetstream.Msg) { f.forward(edgeID, msg) })
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("start forwarder consumer")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("start forwarder consumer")
 	}
 	f.mu.Lock()
-	f.consumers[name] = consume
+	f.consumers[edgeID] = consume
 	f.mu.Unlock()
 	return nil
 }

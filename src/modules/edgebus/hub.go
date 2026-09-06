@@ -76,30 +76,44 @@ type HubConfig struct {
 // credential lives in the edge account and cannot address a central stream
 // even through a server-reflected publish.
 type Hub struct {
-	log    *quietLogger
-	cfg    HubConfig
-	keys   *hubKeys
-	opts   *server.Options
-	server *server.Server
+	log        *quietLogger
+	cfg        HubConfig
+	keys       *hubKeys
+	opts       *server.Options
+	server     *server.Server
+	resolver   *server.MemAccResolver
+	edgeBudget int64
 
 	central   *nats.Conn
 	centralJS jetstream.JetStream
-	edge      *nats.Conn
-	edgeJS    jetstream.JetStream
-
-	edgeAccountJWT string
 
 	mu       sync.Mutex
 	attachMu sync.Mutex
+	edges    map[string]*edgeAccount
 	closed   bool
 }
 
+// edgeAccount is central's own handle on one edge's account: the connection
+// the forwarder reads its source stream through, and the account JWT
+// MintEdgeUser returns to the edge.
+type edgeAccount struct {
+	conn       *nats.Conn
+	js         jetstream.JetStream
+	accountJWT string
+	key        nkeys.KeyPair
+}
+
 const (
-	defaultHubStoreBytes     = 1 << 30
 	defaultEdgeStreamBytes   = 64 << 20
 	defaultEdgeStreamMaxAge  = 24 * time.Hour
 	defaultAuditStreamBytes  = 256 << 20
 	defaultAuditDedupeWindow = 10 * time.Minute
+	// defaultCentralBudget reserves the central account's disk for the
+	// journal and the audit stream; defaultEdgeBudget bounds one edge's
+	// source stream plus margin. They are independent, so telemetry cannot
+	// starve the journal.
+	defaultCentralBudget = 512 << 20
+	defaultEdgeBudget    = 128 << 20
 )
 
 // StartHub starts the hub and creates the stores central owns. The returned
@@ -125,17 +139,20 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		return nil, err
 	}
 
-	maxStore := cfg.MaxStoreBytes
-	if maxStore <= 0 {
-		maxStore = defaultHubStoreBytes
+	// JetStreamMaxStore is a server-wide backstop; zero lets the server size
+	// it against the available disk. The per-account disk budgets below are
+	// the real guard: each account is limited to its own budget, so no
+	// number of edges can consume the store the journal writes into. A
+	// reserved MaxStoreBytes would have to exceed central plus every edge's
+	// budget at once, which an unbounded edge count cannot promise, so it
+	// stays a backstop rather than a reservation.
+	centralBudget := cfg.CentralBudgetBytes
+	if centralBudget <= 0 {
+		centralBudget = defaultCentralBudget
 	}
 	edgeBudget := cfg.EdgeBudgetBytes
 	if edgeBudget <= 0 {
-		edgeBudget = maxStore / 2
-	}
-	centralBudget := cfg.CentralBudgetBytes
-	if centralBudget <= 0 {
-		centralBudget = maxStore / 2
+		edgeBudget = defaultEdgeBudget
 	}
 
 	resolver := &server.MemAccResolver{}
@@ -143,15 +160,11 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	if err != nil {
 		return nil, err
 	}
-	edgeJWT, err := keys.accountJWT(keys.edge, "EDGE", edgeBudget)
-	if err != nil {
-		return nil, err
-	}
 	centralJWT, err := keys.accountJWT(keys.central, "CENTRAL", centralBudget)
 	if err != nil {
 		return nil, err
 	}
-	for pair, encoded := range map[nkeysPublic]string{keys.system: systemJWT, keys.edge: edgeJWT, keys.central: centralJWT} {
+	for pair, encoded := range map[nkeysPublic]string{keys.system: systemJWT, keys.central: centralJWT} {
 		pub, err := pair.PublicKey()
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeKeys).Msg("read account public key")
@@ -173,7 +186,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 		NoLog:                  true,
 		JetStream:              true,
 		JetStreamDomain:        HubDomain,
-		JetStreamMaxStore:      maxStore,
+		JetStreamMaxStore:      cfg.MaxStoreBytes,
 		StoreDir:               filepath.Join(cfg.StateDir, "jetstream"),
 		DisableJetStreamBanner: true,
 		TrustedOperators:       []*jwt.OperatorClaims{operator},
@@ -201,7 +214,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, edgeAccountJWT: edgeJWT}
+	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
 	defer func() {
 		if err != nil {
 			hub.Close()
@@ -220,12 +233,19 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	if err != nil {
 		return nil, err
 	}
-	hub.edge, hub.edgeJS, err = hub.connectAccount(srv, keys.edge, edgeJWT, "central-forwarder")
+	if err := hub.createStores(ctx); err != nil {
+		return nil, err
+	}
+	// Re-attach every edge whose account key persisted, so a restart
+	// restores the accounts and source streams the leaves reconnect into.
+	edgeIDs, err := keys.persistedEdgeIDs()
 	if err != nil {
 		return nil, err
 	}
-	if err := hub.createStores(ctx); err != nil {
-		return nil, err
+	for _, edgeID := range edgeIDs {
+		if _, err := hub.ensureEdgeAccount(ctx, edgeID); err != nil {
+			return nil, err
+		}
 	}
 	return hub, nil
 }
@@ -251,6 +271,29 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 		return nil, nil, errs.From(err).Code(ErrCodeHub).Attr("connection", name).Msg("create JetStream context")
 	}
 	return conn, js, nil
+}
+
+// waitForJetStream blocks until the account's JetStream answers an account
+// info request or the context ends, so a stream create does not race the
+// server provisioning a just-fetched account.
+func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		infoCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		_, err := js.AccountInfo(infoCtx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
 }
 
 func (h *Hub) createStores(ctx context.Context) error {
@@ -289,16 +332,8 @@ func (h *Hub) createStores(ctx context.Context) error {
 // credential can reach.
 func (h *Hub) JetStream() jetstream.JetStream { return h.centralJS }
 
-// EdgeJetStream is the edge-account context the forwarder consumes the
-// per-edge source streams through.
-func (h *Hub) EdgeJetStream() jetstream.JetStream { return h.edgeJS }
-
 // Connection is central's own connection into the central account.
 func (h *Hub) Connection() *nats.Conn { return h.central }
-
-// EdgeConnection is central's own connection into the edge account, where
-// the per-edge source streams and the edges' own traffic live.
-func (h *Hub) EdgeConnection() *nats.Conn { return h.edge }
 
 // Tenant is the subject-layout tenant token. Accounts are the isolation
 // boundary; the token distinguishes tenants within a subject once more than
@@ -322,23 +357,77 @@ func (h *Hub) ListenURL() string {
 // listener is disabled.
 func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 
-// MintEdgeUser mints the credential AttachBus returns for one edge: a user
-// in the edge account confined to that edge's subtree and the JetStream
-// subjects sourcing needs.
-func (h *Hub) MintEdgeUser(edgeID string) (EdgeCredentials, error) {
-	return h.keys.mintUser(h.keys.edge, h.edgeAccountJWT, "edge-"+edgeID, edgePermissions(edgeID))
-}
-
-// AttachEdge creates the edge-account stream that sources this edge's
-// buffer across the leaf link, one stream per edge so that which edge a
-// record came from is a fact of the stream it sits in, not of the subject
-// it carries. A SubjectTransform re-roots every sourced record under the
-// edge's own subtree, so a forged reply subject cannot store a record as
-// another edge's. Idempotent; serialized so two concurrent attaches cannot
-// lose one another's stream.
-func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
+// ensureEdgeAccount creates the edge's own account, central's connection
+// into it, and its source stream, once. Every per-edge structure hangs off
+// it: the account is the isolation boundary of finding 3, so one edge's
+// reflection can address nothing but its own subjects. Serialized against
+// concurrent attaches and against Close.
+func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccount, error) {
 	h.attachMu.Lock()
 	defer h.attachMu.Unlock()
+
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		return nil, errs.New().Code(ErrCodeHub).Msg("hub is closed")
+	}
+	if ea, ok := h.edges[edgeID]; ok {
+		h.mu.Unlock()
+		return ea, nil
+	}
+	srv := h.server
+	h.mu.Unlock()
+
+	key, err := h.keys.edgeAccountKey(edgeID)
+	if err != nil {
+		return nil, err
+	}
+	// The edge account holds one bounded source stream, so its disk budget
+	// is that stream's ceiling plus margin; it is independent of the
+	// central budget, so no number of edges can consume the journal's
+	// store.
+	budget := h.edgeBudget
+	accountJWT, err := h.keys.accountJWT(key, "EDGE_"+edgeID, budget)
+	if err != nil {
+		return nil, err
+	}
+	pub, err := publicKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.resolver.Store(pub, accountJWT); err != nil {
+		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("store edge account claims")
+	}
+	conn, js, err := h.connectAccount(srv, key, accountJWT, "edge-"+edgeID)
+	if err != nil {
+		return nil, err
+	}
+	ea := &edgeAccount{conn: conn, js: js, accountJWT: accountJWT, key: key}
+
+	// A newly fetched account's JetStream is provisioned a beat after the
+	// first connection; wait for it to answer before creating the stream.
+	if err := waitForJetStream(ctx, js); err != nil {
+		conn.Close()
+		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("wait for the edge account JetStream")
+	}
+	if err := h.createEdgeStream(ctx, js, edgeID); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		conn.Close()
+		return nil, errs.New().Code(ErrCodeHub).Msg("hub is closed")
+	}
+	h.edges[edgeID] = ea
+	h.mu.Unlock()
+	return ea, nil
+}
+
+// createEdgeStream creates the edge's source stream in its own account.
+func (h *Hub) createEdgeStream(ctx context.Context, js jetstream.JetStream, edgeID string) error {
 	branch := EdgeSubtree(DefaultTenant, edgeID)
 	maxBytes := h.cfg.EdgeStreamMaxBytes
 	if maxBytes <= 0 {
@@ -352,10 +441,16 @@ func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
 	// place the edge's leaf may publish; the default $JS.S prefix would be
 	// refused by that permission, and a branch inside the stream's own
 	// subjects would be refused by JetStream, which never lets a consumer
-	// deliver into the stream it reads. The transform maps whatever subject
-	// the delivery carried onto this edge's otel/ingest branches, so the
-	// stored subject is the edge's regardless of a forged reply.
-	if _, err := h.edgeJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+	// deliver into the stream it reads. There is deliberately no
+	// SubjectTransform: a transform that re-roots a subject
+	// ({Source: ">", Destination: branch + ".>"}) prepends the branch to
+	// every subject, which corrupts a legitimate record's subject rather
+	// than just re-rooting a forged one, and no single transform re-roots a
+	// foreign subject while leaving an in-branch one alone. Containment
+	// rests instead on the edge's own account (a forged reply cannot leave
+	// it) and on the forwarder, which refuses a record whose subject is
+	// outside this edge's subtree before shipping it.
+	if _, err := js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:      HubEdgeStream(edgeID),
 		Storage:   jetstream.FileStorage,
 		Retention: jetstream.LimitsPolicy,
@@ -368,10 +463,6 @@ func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
 				APIPrefix:     "$JS." + EdgeDomain(edgeID) + ".API",
 				DeliverPrefix: branch + ".source",
 			},
-			SubjectTransforms: []jetstream.SubjectTransformConfig{
-				{Source: branch + ".otel.>", Destination: branch + ".otel.>"},
-				{Source: branch + ".ingest.>", Destination: branch + ".ingest.>"},
-			},
 		}},
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("create the edge's hub stream")
@@ -379,9 +470,45 @@ func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
 	return nil
 }
 
+// MintEdgeUser mints the credential AttachBus returns for one edge: a user
+// in the edge's own account confined to that edge's subtree and the
+// JetStream subjects sourcing needs. It ensures the account and its source
+// stream exist first.
+func (h *Hub) MintEdgeUser(ctx context.Context, edgeID string) (EdgeCredentials, error) {
+	ea, err := h.ensureEdgeAccount(ctx, edgeID)
+	if err != nil {
+		return EdgeCredentials{}, err
+	}
+	return h.keys.mintUser(ea.key, ea.accountJWT, "edge-"+edgeID, edgePermissions(edgeID))
+}
+
+// AttachEdge ensures the edge's account, connection, and source stream
+// exist. Idempotent; safe against concurrent attaches.
+func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
+	_, err := h.ensureEdgeAccount(ctx, edgeID)
+	return err
+}
+
+// AttachedEdges lists the edges the hub currently sources.
+func (h *Hub) AttachedEdges() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	ids := make([]string, 0, len(h.edges))
+	for id := range h.edges {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
 // EdgeStream returns the edge-account stream that sources one edge's buffer.
 func (h *Hub) EdgeStream(ctx context.Context, edgeID string) (jetstream.Stream, error) {
-	stream, err := h.edgeJS.Stream(ctx, HubEdgeStream(edgeID))
+	h.mu.Lock()
+	ea, ok := h.edges[edgeID]
+	h.mu.Unlock()
+	if !ok {
+		return nil, errs.New().Code(ErrCodeHub).Attr("edge", edgeID).Msg("edge is not attached")
+	}
+	stream, err := ea.js.Stream(ctx, HubEdgeStream(edgeID))
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("look up the edge's hub stream")
 	}
@@ -408,14 +535,16 @@ func (h *Hub) Close() {
 		return
 	}
 	h.closed = true
-	central, edge, srv := h.central, h.edge, h.server
+	central, srv := h.central, h.server
+	edges := h.edges
+	h.edges = map[string]*edgeAccount{}
 	h.mu.Unlock()
 
+	for _, ea := range edges {
+		ea.conn.Close()
+	}
 	if central != nil {
 		central.Close()
-	}
-	if edge != nil {
-		edge.Close()
 	}
 	if srv != nil {
 		srv.Shutdown()
