@@ -1,0 +1,110 @@
+# edgebus
+
+The NATS carrier between an edge and central, assembled by both hosts. The
+device service starts the hub; the edge agent starts the leaf node and the
+loopback receiver. Nothing an edge must act on rides here: dispatches,
+reports, and audit records are Connect calls in `integration/device/v1` and
+`event/device/v1`. The bus carries what the edge publishes, the agent's own
+OpenTelemetry signals today and, on the same buffer, the device logs, traps,
+and change events the ingestion sources will add. The accepted
+[device-service record](../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
+fixes the shape ("Edge attachment and enrollment"): an embedded leaf node per
+edge, its own JetStream domain, a bounded local buffer, and one account per
+tenant enforced by the broker.
+
+## Subjects and streams
+
+```
+flowseer.<tenant>.edge.<edge-id>.otel.{logs,metrics,traces}   the agent's OTLP bodies
+flowseer.<tenant>.edge.<edge-id>.ingest.<source>.>            a future ingestion source
+flowseer.<tenant>.edge.<edge-id>.source.>                     the hub's sourcing deliveries
+flowseer.<tenant>.audit.device.<device-id>                    central's audit records
+```
+
+The edge's `EDGE_BUFFER` stream, in JetStream domain `edge-<edge-id>`, holds
+the `otel` and `ingest` branches, file-backed, bounded by bytes and age with
+the oldest record discarded first. The hub's `FLOWSEER_EDGE_BUFFER` sources
+every edge's buffer across its leaf link through `$JS.edge-<edge-id>.API`,
+delivering on the `source` branch: that branch is inside the edge's publish
+permission and outside its buffer's subjects, which matters because JetStream
+refuses a consumer that would deliver into the stream it reads. The hub also
+owns `FLOWSEER_DEVICE_AUDIT` and the `device-lanes` and `edges` key-value
+buckets the device service writes.
+
+A leaf without a distinct domain silently extends the hub's; `EdgeDomain`
+is the guard.
+
+## The credential an edge is minted
+
+`Hub.MintEdgeUser` signs a user in the tenant account whose permissions
+follow the traffic directions and nothing else:
+
+| Direction | Allowed |
+| --- | --- |
+| publish | `flowseer.<tenant>.edge.<edge-id>.>`, `$JS.edge-<edge-id>.API.>`, `_INBOX.<edge-id>.>`, `_INBOX.>`, `$JSC.R.>` |
+| subscribe | `$JS.edge-<edge-id>.API.>`, `_INBOX.<edge-id>.>`, `$JS.FC.>` |
+
+Publishing under the subtree is the edge's job; its own JetStream API and
+inbox are what the hub's sourcing requests reach and what the edge answers
+on; `_INBOX.>` is where a client's requests expect their replies and
+`$JSC.R.>` is where the hub server's own source client expects the answer
+to its consumer request. The subscribe side admits the sourcing requests
+and the flow-control replies the hub sends the sourcing consumer, so
+nothing central publishes reaches an edge by this path. Each of those
+subjects was found by bisecting a sourcing failure, not read from a
+document; a narrower set silently stalls sourcing with no warning on either
+server. `TestEdgePermissionsConfineTheLeaf` proves
+both: a publish under another edge's subtree never crosses, and a
+subscription on `flowseer.>` imports nothing. The hub runs one account,
+`default`, so the tenant token carries no broker enforcement until a second
+account exists.
+
+The hub's keys (operator, system account, tenant account) are generated
+into `<StateDir>/keys` on first start and read back afterwards, so a restart
+keeps every minted credential valid. A leaf writes its credential to
+`<StateDir>/hub.creds`, mode 0600, because a remote leaf authenticates from a
+file.
+
+## Durability
+
+Both servers declare their fsync policy with `service.BusFsyncPolicy` and go
+through `service.NormalizeFsync`, the rule the process-local bus follows, so
+the three embedded JetStream servers in the repository tell one durability
+story. Central declares `BusFsyncPerMessage` for the hub, which is the
+journal's authority; an edge declares `BusFsyncPeriodic` for its buffer,
+since a record lost to a power cut there is a gap in history. An undeclared
+policy refuses to start with `edgebus/config`.
+
+## OTLP over the bus
+
+The edge's runtime exports OTLP/HTTP to `Receiver`, bound to `127.0.0.1` on a
+kernel-chosen port so a collision cannot stop the agent. The receiver
+publishes each `/v1/{logs,metrics,traces}` body as received into the buffer
+and answers 200; the runtime keeps its batching and retry, a refused buffer
+answers 503 so the runtime retries, and a compressed body is refused with
+415 since the bytes are stored and forwarded unchanged. Central's `Forwarder`
+reads the `otel` subjects from the hub's aggregate with a durable consumer
+and posts each body to central's collector endpoint, acknowledging only on
+a 2xx. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the bytes end
+to end, and `TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect` is
+the evidence that sourcing across a leaf link survives the link dropping
+and returning. After a hub restart the source takes about forty seconds to
+re-establish, the server's own retry cadence; a record published meanwhile
+waits in the edge's buffer and arrives when it does.
+
+## TLS
+
+The hub's WebSocket listener serves Connect's certificate. An edge verifies
+it with `PinVerifier`, which accepts a leaf certificate whose SPKI SHA-256
+digest is among the anchors `EdgeProvisioning` and `EnrollResponse` carry,
+and both of the edge's dialers, the Connect client and the leaf remote,
+install the same verifier so they cannot drift apart. The WebSocket leaf
+path needs the leaf-node subsystem enabled, which the server keys on a leaf
+port, so the hub also binds a plain leaf listener on loopback; an edge never
+dials it.
+
+## What is deliberately absent
+
+- Any dispatch, report, or audit subject. Those are Connect calls.
+- Announce subjects and capability advertisement.
+- A second tenant account, and the JWT revocation push that goes with it.

@@ -14,6 +14,7 @@ inside an agent at the edge, written once here.
 | Module     | What it is                                                                 |
 | ---------- | -------------------------------------------------------------------------- |
 | `localnet` | SNMP side of the local-network integration kind: collector and mappers     |
+| `edgebus`  | NATS carrier between edge and central: hub, leaf node, OTLP receiver and forwarder |
 
 ## Admission
 

@@ -130,26 +130,9 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 	}
 
 	fsyncPolicy := config.FsyncPolicy
-	if fsyncPolicy == BusFsyncUnspecified {
-		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync policy must be declared: BusFsyncPeriodic survives a process kill, BusFsyncPerMessage also survives power loss")
-	}
-	if fsyncPolicy > BusFsyncPerMessage {
-		return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync policy is invalid")
-	}
-	fsyncInterval := time.Duration(0)
-	switch fsyncPolicy {
-	case BusFsyncPeriodic:
-		fsyncInterval = defaultBusFsyncInterval
-		if config.FsyncInterval != nil {
-			fsyncInterval = *config.FsyncInterval
-		}
-		if fsyncInterval < minimumBusFsyncInterval {
-			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval must be at least one millisecond")
-		}
-	case BusFsyncPerMessage:
-		if config.FsyncInterval != nil {
-			return normalizedBusConfig{}, errs.New().Code(errCodeBusConfig).Msg("local bus fsync interval requires periodic sync")
-		}
+	fsyncInterval, err := NormalizeFsync(fsyncPolicy, config.FsyncInterval)
+	if err != nil {
+		return normalizedBusConfig{}, errs.From(err).Code(errCodeBusConfig).Msg("normalize local bus fsync policy")
 	}
 
 	return normalizedBusConfig{
@@ -166,6 +149,39 @@ func normalizeBusConfig(identity Identity, config BusConfig) (normalizedBusConfi
 		fsyncPolicy:      fsyncPolicy,
 		fsyncInterval:    fsyncInterval,
 	}, nil
+}
+
+// NormalizeFsync validates a declared fsync policy and returns the periodic
+// sync interval an embedded NATS server should run with: the declared or
+// default interval under BusFsyncPeriodic, and zero under BusFsyncPerMessage,
+// where the server syncs before every acknowledgement instead. It is the one
+// rule every embedded JetStream server in the repository follows, the
+// process-local bus and the device fabric's hub and leaf alike, so that two
+// durable stores never tell two durability stories. An undeclared policy is
+// an error: a caller must choose.
+func NormalizeFsync(policy BusFsyncPolicy, interval *time.Duration) (time.Duration, error) {
+	if policy == BusFsyncUnspecified {
+		return 0, errs.New().Msg("fsync policy must be declared: BusFsyncPeriodic survives a process kill, BusFsyncPerMessage also survives power loss")
+	}
+	if policy > BusFsyncPerMessage {
+		return 0, errs.New().Msg("fsync policy is invalid")
+	}
+	switch policy {
+	case BusFsyncPeriodic:
+		resolved := defaultBusFsyncInterval
+		if interval != nil {
+			resolved = *interval
+		}
+		if resolved < minimumBusFsyncInterval {
+			return 0, errs.New().Msg("fsync interval must be at least one millisecond")
+		}
+		return resolved, nil
+	default:
+		if interval != nil {
+			return 0, errs.New().Msg("fsync interval requires periodic sync")
+		}
+		return 0, nil
+	}
 }
 
 func defaultedPositive(value, fallback int64) int64 {
