@@ -18,6 +18,17 @@ import option "buf/validate/validate.proto";
 
 // Central's dispatch of one operation to the edge hosting the device's lane.
 message ExecuteRequest {
+  option (buf.validate.message).cel = {
+    id: "execute_request.resume_is_a_mutation"
+    message: "resume applies to a mutation and carries its submission time"
+    expression: "!this.resume || (has(this.mutation) && has(this.submitted_at))"
+  };
+  option (buf.validate.message).cel = {
+    id: "execute_request.submitted_at_needs_resume"
+    message: "submitted_at is set only with resume"
+    expression: "!has(this.submitted_at) || this.resume"
+  };
+
   // The device's lane sequence this operation was admitted at. Must be
   // present and at least 1.
   uint64 sequence = 1 [
@@ -32,6 +43,15 @@ message ExecuteRequest {
     (buf.validate.field).required = true,
     (buf.validate.field).string.uuid = true
   ];
+
+  // Central has already recorded that the command may have reached the
+  // device: the edge admits the mutation straight into recovery and
+  // observes before any retry, never submitting first. Unset means false,
+  // the ordinary path. Implicit presence: false and unset are one state.
+  bool resume = 4 [features.field_presence = IMPLICIT];
+  // When central first admitted the mutation, the start of its
+  // delayed-apply horizon. Set exactly with resume.
+  google.protobuf.Timestamp submitted_at = 5;
 
   // Exactly one operation.
   oneof operation {
@@ -59,14 +79,26 @@ message ExecuteResult {
     }
   ];
 
+  // Whether the command was handed to the device before this report.
+  // False on a report from before submission, so central may dispose the
+  // mutation as rejected; true afterwards, so it may not. Implicit
+  // presence: false and unset are one state.
+  bool submitted = 3 [features.field_presence = IMPLICIT];
+
   // Exactly one outcome.
   oneof outcome {
     option (buf.validate.oneof).required = true;
 
     flowseer.device.access.v1.InterfaceObservation observation = 10;
     flowseer.errs.v1.ErrorPayload error = 11;
+    // A report of a phase reached with nothing to show yet.
+    Progress progress = 12;
   }
 }
+
+// The outcome arm of a report on a non-terminal phase: the edge reports
+// where the operation stands and nothing more.
+message Progress {}
 
 // Central's durable record that a command may reach the device, sent before
 // submission so a lost connection cannot become a duplicate command.
@@ -105,5 +137,26 @@ message TerminalResultAck {
       defined_only: true
       not_in: [0]
     }
+  ];
+}
+
+// Central's durable record that the hold an abandonment or a drift block
+// engaged on the device's lane is resolved, so the edge admits mutations
+// again.
+message HoldResolved {
+  // The abandoned or desynchronized sequence whose hold is resolved. Must
+  // be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}
+
+// The edge's confirmation that it cleared the hold.
+message HoldResolvedAck {
+  // The sequence whose hold was cleared. Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
   ];
 }

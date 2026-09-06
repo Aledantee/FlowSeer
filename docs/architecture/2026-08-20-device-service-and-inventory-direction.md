@@ -314,13 +314,29 @@ web / workflows
       │  Connect (typed device API; OpenFGA-guarded)
       ▼
 central device service ── inventory: devices, integrations, bindings, candidates, budgets
-      │  publishes exec.<integration>, subscribes events.<tenant>.>
+      │  Connect: dispatch stream to each edge, reports and audit records back;
+      │  JetStream: the lane journal and the audit stream, written by central only
       ▼
 NATS cluster (per-tenant accounts, JetStream)  ◄── wss/TLS on 443 ──  edge agent
       ▲                                                                  (embedded leaf node,
       └── cloud/controller adapters hosted centrally                      local JetStream buffer,
                                                                            protocol libraries)
 ```
+
+Amended 2026-09-06: request-response over ConnectRPC, observability over
+the bus. Every decision, in either direction, is a Connect call: central
+writes dispatches to a server stream each edge holds open
+(`integration/device/v1`'s `DispatchService.Subscribe`), the edge answers
+with unary reports, and the edge delivers each durable audit record over
+`event/device/v1`'s `AuditService.Deliver`, which central alone writes into
+the JetStream audit stream. The bus carries what the edge publishes and
+nothing it must act on: the agent's own OpenTelemetry signals today, device
+logs, traps, and change events as the ingestion sources land. The Execute
+and Events bullets below record the earlier shape; the reasons they gave
+for NATS (any replica can publish, durable buffering when central is down)
+now hold through the journal-derived outbox and the leaf's local buffer.
+R3 replicas on the hub wait for a deployment plan; a single-node hub with
+`sync_interval: always` is the shape until then.
 
 - **Announce** — heartbeat subjects; a live registry of integrations, their
   kinds, capabilities, and host health. One source of truth for "who's alive".

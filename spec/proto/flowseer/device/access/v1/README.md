@@ -74,6 +74,10 @@ envelope in `integration/device/v1` dispatches a `TypedRead` the same way it
 dispatches a `MutationIntent`, and any future read capability joins this
 oneof rather than inventing a second read shape.
 
+A `TypedRead` also carries the `AccessPolicyHandle` it is admitted under,
+because the edge acquires its read credential against that handle and a
+read reaches the edge with no `MutationIntent` to carry one.
+
 ## What is deliberately absent
 
 - Secrets, sessions, and transcripts. A `Provenance` names a binding, an

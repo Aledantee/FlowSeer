@@ -33,6 +33,18 @@ struct wide enough for the union of all nine. `LaneBlocked` carries the same
 `BlockReason` enum `MutationState` uses, so a reader never has to reconcile
 two vocabularies for the same concept.
 
+## Delivery
+
+`AuditService.Deliver` is how a record reaches the stream: the edge (or
+central's own drift detector) sends one `DeviceOperationEvent` per call over
+Connect, central writes it into the JetStream audit stream with the event
+id as the deduplication key, and answers only after the stream has
+acknowledged it. Central is the stream's only writer, and an error means the
+record is not held, so a caller that must not release state before its
+record is durable simply does not proceed on an error. Central derives
+nothing from the stream afterwards; the fingerprint and every other fact it
+acts on arrive through `integration/device/v1`'s reports.
+
 ## Why this package imports api/inventory directly
 
 Unlike the execution envelope in `integration/device/v1`, which never

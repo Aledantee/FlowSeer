@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 )
 
@@ -71,9 +72,21 @@ func deviceCredential(key string, version uint64) *edgev1.DeviceCredential {
 			Key:     proto.String(key),
 			Version: proto.Uint64(version),
 		}.Build(),
-		Material: []byte("s3cr3t"),
+		Material: snmpMaterial(),
 	}.Build()
 }
+
+func shellDeviceCredential(key string, version uint64) *edgev1.DeviceCredential {
+	return edgev1.DeviceCredential_builder{
+		Credential: policyv1.CredentialHandle_builder{
+			Key:     proto.String(key),
+			Version: proto.Uint64(version),
+		}.Build(),
+		Material: shellMaterial(),
+	}.Build()
+}
+
+const hostKeyPin = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
 
 func hostTrust(key string, version uint64) *policyv1.HostTrustHandle {
 	return policyv1.HostTrustHandle_builder{
@@ -131,6 +144,45 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 			}.Build(),
 			wantValid: false,
 		},
+		{
+			name: "shell material carries the host key pin",
+			message: edgev1.AcquireReadCredentialResponse_builder{
+				Credential:       shellDeviceCredential("icx7150-lab-ssh", 1),
+				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
+				SshHostKeySha256: proto.String(hostKeyPin),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "shell material without a pin is rejected",
+			message: edgev1.AcquireReadCredentialResponse_builder{
+				Credential: shellDeviceCredential("icx7150-lab-ssh", 1),
+				HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+				ExpiresAt:  timestamppb.New(time.Now().Add(time.Minute)),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "snmp material with a pin is rejected",
+			message: edgev1.AcquireReadCredentialResponse_builder{
+				Credential:       deviceCredential("icx7150-lab-snmp", 1),
+				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
+				SshHostKeySha256: proto.String(hostKeyPin),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "a pin that is not a sha256 fingerprint is rejected",
+			message: edgev1.AcquireReadCredentialResponse_builder{
+				Credential:       shellDeviceCredential("icx7150-lab-ssh", 1),
+				HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
+				SshHostKeySha256: proto.String("MD5:aa:bb"),
+			}.Build(),
+			wantValid: false,
+		},
 	})
 }
 
@@ -184,7 +236,21 @@ func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 		}
 	}
 
+	shellGrant := edgev1.SubmissionGrant_builder{
+		Credential:       shellDeviceCredential("icx7150-lab-submit", 1),
+		HostTrust:        hostTrust("icx7150-lab-hostkey", 1),
+		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
+		SshHostKeySha256: proto.String(hostKeyPin),
+	}.Build()
+	shellGrantWithoutPin := edgev1.SubmissionGrant_builder{
+		Credential: shellDeviceCredential("icx7150-lab-submit", 1),
+		HostTrust:  hostTrust("icx7150-lab-hostkey", 1),
+		Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
+	}.Build()
+
 	runValidationCases(t, []validationCase{
+		{name: "shell grant carries the host key pin", message: shellGrant, wantValid: true},
+		{name: "shell grant without a pin is rejected", message: shellGrantWithoutPin},
 		{
 			name:      "grant is a valid first message",
 			message:   grant,
@@ -210,4 +276,25 @@ func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 			wantValid: false,
 		},
 	})
+}
+
+func snmpMaterial() *credentialv1.CredentialMaterial {
+	return credentialv1.CredentialMaterial_builder{
+		SnmpV3: credentialv1.SnmpV3Credential_builder{
+			User:           proto.String("flowseer-ro"),
+			AuthProtocol:   credentialv1.SnmpAuthProtocol_SNMP_AUTH_PROTOCOL_SHA256.Enum(),
+			AuthPassphrase: proto.String("auth-passphrase"),
+			PrivProtocol:   credentialv1.SnmpPrivProtocol_SNMP_PRIV_PROTOCOL_AES128.Enum(),
+			PrivPassphrase: proto.String("priv-passphrase"),
+		}.Build(),
+	}.Build()
+}
+
+func shellMaterial() *credentialv1.CredentialMaterial {
+	return credentialv1.CredentialMaterial_builder{
+		Shell: credentialv1.ShellCredential_builder{
+			Username: proto.String("flowseer"),
+			Password: proto.String("shell-password"),
+		}.Build(),
+	}.Build()
 }

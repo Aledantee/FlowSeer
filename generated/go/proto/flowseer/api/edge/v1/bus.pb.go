@@ -192,10 +192,10 @@ type AttachBusResponse_builder struct {
 	// node authenticates with. Must be present.
 	UserCredential []byte
 	// Logical subject name to the concrete broker subject the edge publishes
-	// or subscribes on, for example "announce" or "execute". The vocabulary
-	// of logical names belongs to the module that builds the leaf node, not
-	// to this package; an empty map is valid for an edge with no binding
-	// yet.
+	// on, for example "otel". The leaf carries only what the edge publishes;
+	// the vocabulary of logical names belongs to the module that builds the
+	// leaf node, not to this package. An empty map is valid for an edge
+	// with nothing to publish yet.
 	Subjects map[string]string
 	// Cluster endpoints the leaf node dials, in preference order. At least
 	// one is required.

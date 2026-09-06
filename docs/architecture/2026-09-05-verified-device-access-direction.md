@@ -99,15 +99,22 @@ interface description on that switch.
     ```
     spec/proto/flowseer/
       device/policy/v1/     opaque handles: access policy, credential, host trust; imports nothing
+      device/credential/v1/ the typed credential material a handle resolves to; imports nothing
       device/access/v1/     operation values shared by every boundary: phase, disposition,
                             typed intents and observations
       api/device/v1/        DeviceService (Connect), the operator-facing typed API
-      integration/device/v1/ execution envelopes between central and an integration
-      event/device/v1/      the durable DeviceOperationEvent audit record
+      integration/device/v1/ execution envelopes between central and an integration, and
+                            the DispatchService that carries them
+      event/device/v1/      the durable DeviceOperationEvent audit record and the
+                            AuditService that delivers it
       errs/v1/              the error wire payload the error-wire record describes
+      store/device/v1/      the device service's own storage records; imports the
+                            boundaries above and is imported by none
     ```
 
-    `api/inventory` imports `device/policy` and `api/edge`; `device/access`
+    `api/inventory` imports `device/policy` and `api/edge`; `api/edge`
+    imports `device/policy` and `device/credential` (added 2026-09-06, when
+    the credential responses gained typed material); `device/access`
     imports `api/inventory`, `api/edge`, `device/policy`, and `net/*`;
     `api/device`, `integration/device`, and `event/device` each import
     `device/access` and `errs` and none of them imports another. The event

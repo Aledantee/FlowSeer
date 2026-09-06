@@ -12,6 +12,7 @@
 package edgev1
 
 import (
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -78,13 +79,11 @@ func (x SubmissionAuthority) Number() protoreflect.EnumNumber {
 // One device credential as delivered to an edge: the pinned handle naming
 // which version it is, and the opaque material itself.
 type DeviceCredential struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Credential  *v1.CredentialHandle   `protobuf:"bytes,1,opt,name=credential"`
-	xxx_hidden_Material    []byte                 `protobuf:"bytes,2,opt,name=material"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                 protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Credential *v1.CredentialHandle    `protobuf:"bytes,1,opt,name=credential"`
+	xxx_hidden_Material   *v11.CredentialMaterial `protobuf:"bytes,2,opt,name=material"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *DeviceCredential) Reset() {
@@ -119,7 +118,7 @@ func (x *DeviceCredential) GetCredential() *v1.CredentialHandle {
 	return nil
 }
 
-func (x *DeviceCredential) GetMaterial() []byte {
+func (x *DeviceCredential) GetMaterial() *v11.CredentialMaterial {
 	if x != nil {
 		return x.xxx_hidden_Material
 	}
@@ -130,12 +129,8 @@ func (x *DeviceCredential) SetCredential(v *v1.CredentialHandle) {
 	x.xxx_hidden_Credential = v
 }
 
-func (x *DeviceCredential) SetMaterial(v []byte) {
-	if v == nil {
-		v = []byte{}
-	}
+func (x *DeviceCredential) SetMaterial(v *v11.CredentialMaterial) {
 	x.xxx_hidden_Material = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *DeviceCredential) HasCredential() bool {
@@ -149,7 +144,7 @@ func (x *DeviceCredential) HasMaterial() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+	return x.xxx_hidden_Material != nil
 }
 
 func (x *DeviceCredential) ClearCredential() {
@@ -157,7 +152,6 @@ func (x *DeviceCredential) ClearCredential() {
 }
 
 func (x *DeviceCredential) ClearMaterial() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_Material = nil
 }
 
@@ -166,9 +160,9 @@ type DeviceCredential_builder struct {
 
 	// Names the credential version this material is. Must be present.
 	Credential *v1.CredentialHandle
-	// The credential material: a password, a community string, or a key,
-	// shaped by whatever protocol the binding uses. Must be present.
-	Material []byte
+	// The credential material, shaped for the adapter that uses it. Must be
+	// present.
+	Material *v11.CredentialMaterial
 }
 
 func (b0 DeviceCredential_builder) Build() *DeviceCredential {
@@ -176,10 +170,7 @@ func (b0 DeviceCredential_builder) Build() *DeviceCredential {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Credential = b.Credential
-	if b.Material != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_Material = b.Material
-	}
+	x.xxx_hidden_Material = b.Material
 	return m0
 }
 
@@ -326,12 +317,15 @@ func (b0 AcquireReadCredentialRequest_builder) Build() *AcquireReadCredentialReq
 }
 
 type AcquireReadCredentialResponse struct {
-	state                 protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Credential *DeviceCredential      `protobuf:"bytes,1,opt,name=credential"`
-	xxx_hidden_HostTrust  *v1.HostTrustHandle    `protobuf:"bytes,2,opt,name=host_trust,json=hostTrust"`
-	xxx_hidden_ExpiresAt  *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Credential       *DeviceCredential      `protobuf:"bytes,1,opt,name=credential"`
+	xxx_hidden_HostTrust        *v1.HostTrustHandle    `protobuf:"bytes,2,opt,name=host_trust,json=hostTrust"`
+	xxx_hidden_ExpiresAt        *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt"`
+	xxx_hidden_SshHostKeySha256 *string                `protobuf:"bytes,4,opt,name=ssh_host_key_sha256,json=sshHostKeySha256"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *AcquireReadCredentialResponse) Reset() {
@@ -380,6 +374,16 @@ func (x *AcquireReadCredentialResponse) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *AcquireReadCredentialResponse) GetSshHostKeySha256() string {
+	if x != nil {
+		if x.xxx_hidden_SshHostKeySha256 != nil {
+			return *x.xxx_hidden_SshHostKeySha256
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *AcquireReadCredentialResponse) SetCredential(v *DeviceCredential) {
 	x.xxx_hidden_Credential = v
 }
@@ -390,6 +394,11 @@ func (x *AcquireReadCredentialResponse) SetHostTrust(v *v1.HostTrustHandle) {
 
 func (x *AcquireReadCredentialResponse) SetExpiresAt(v *timestamppb.Timestamp) {
 	x.xxx_hidden_ExpiresAt = v
+}
+
+func (x *AcquireReadCredentialResponse) SetSshHostKeySha256(v string) {
+	x.xxx_hidden_SshHostKeySha256 = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *AcquireReadCredentialResponse) HasCredential() bool {
@@ -413,6 +422,13 @@ func (x *AcquireReadCredentialResponse) HasExpiresAt() bool {
 	return x.xxx_hidden_ExpiresAt != nil
 }
 
+func (x *AcquireReadCredentialResponse) HasSshHostKeySha256() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *AcquireReadCredentialResponse) ClearCredential() {
 	x.xxx_hidden_Credential = nil
 }
@@ -423,6 +439,11 @@ func (x *AcquireReadCredentialResponse) ClearHostTrust() {
 
 func (x *AcquireReadCredentialResponse) ClearExpiresAt() {
 	x.xxx_hidden_ExpiresAt = nil
+}
+
+func (x *AcquireReadCredentialResponse) ClearSshHostKeySha256() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_SshHostKeySha256 = nil
 }
 
 type AcquireReadCredentialResponse_builder struct {
@@ -436,6 +457,10 @@ type AcquireReadCredentialResponse_builder struct {
 	// When this credential stops being valid. There is no standing lease;
 	// the edge acquires a fresh one for the next read. Must be present.
 	ExpiresAt *timestamppb.Timestamp
+	// The device's SSH host key as a base64 SHA-256 fingerprint, with or
+	// without the "SHA256:" prefix; the material of the host_trust version.
+	// Set exactly when the material is a shell login.
+	SshHostKeySha256 *string
 }
 
 func (b0 AcquireReadCredentialResponse_builder) Build() *AcquireReadCredentialResponse {
@@ -445,6 +470,10 @@ func (b0 AcquireReadCredentialResponse_builder) Build() *AcquireReadCredentialRe
 	x.xxx_hidden_Credential = b.Credential
 	x.xxx_hidden_HostTrust = b.HostTrust
 	x.xxx_hidden_ExpiresAt = b.ExpiresAt
+	if b.SshHostKeySha256 != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_SshHostKeySha256 = b.SshHostKeySha256
+	}
 	return m0
 }
 
@@ -600,12 +629,15 @@ func (b0 OpenDeviceSubmissionRequest_builder) Build() *OpenDeviceSubmissionReque
 // The one-use submission credential, delivered exactly once as the first
 // message on the stream.
 type SubmissionGrant struct {
-	state                 protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Credential *DeviceCredential      `protobuf:"bytes,1,opt,name=credential"`
-	xxx_hidden_HostTrust  *v1.HostTrustHandle    `protobuf:"bytes,2,opt,name=host_trust,json=hostTrust"`
-	xxx_hidden_Deadline   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=deadline"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Credential       *DeviceCredential      `protobuf:"bytes,1,opt,name=credential"`
+	xxx_hidden_HostTrust        *v1.HostTrustHandle    `protobuf:"bytes,2,opt,name=host_trust,json=hostTrust"`
+	xxx_hidden_Deadline         *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=deadline"`
+	xxx_hidden_SshHostKeySha256 *string                `protobuf:"bytes,4,opt,name=ssh_host_key_sha256,json=sshHostKeySha256"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *SubmissionGrant) Reset() {
@@ -654,6 +686,16 @@ func (x *SubmissionGrant) GetDeadline() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *SubmissionGrant) GetSshHostKeySha256() string {
+	if x != nil {
+		if x.xxx_hidden_SshHostKeySha256 != nil {
+			return *x.xxx_hidden_SshHostKeySha256
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *SubmissionGrant) SetCredential(v *DeviceCredential) {
 	x.xxx_hidden_Credential = v
 }
@@ -664,6 +706,11 @@ func (x *SubmissionGrant) SetHostTrust(v *v1.HostTrustHandle) {
 
 func (x *SubmissionGrant) SetDeadline(v *timestamppb.Timestamp) {
 	x.xxx_hidden_Deadline = v
+}
+
+func (x *SubmissionGrant) SetSshHostKeySha256(v string) {
+	x.xxx_hidden_SshHostKeySha256 = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *SubmissionGrant) HasCredential() bool {
@@ -687,6 +734,13 @@ func (x *SubmissionGrant) HasDeadline() bool {
 	return x.xxx_hidden_Deadline != nil
 }
 
+func (x *SubmissionGrant) HasSshHostKeySha256() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
 func (x *SubmissionGrant) ClearCredential() {
 	x.xxx_hidden_Credential = nil
 }
@@ -697,6 +751,11 @@ func (x *SubmissionGrant) ClearHostTrust() {
 
 func (x *SubmissionGrant) ClearDeadline() {
 	x.xxx_hidden_Deadline = nil
+}
+
+func (x *SubmissionGrant) ClearSshHostKeySha256() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_SshHostKeySha256 = nil
 }
 
 type SubmissionGrant_builder struct {
@@ -710,6 +769,10 @@ type SubmissionGrant_builder struct {
 	// monotonic bound: no later pulse on this stream lowers it. Must be
 	// present.
 	Deadline *timestamppb.Timestamp
+	// The device's SSH host key as a base64 SHA-256 fingerprint, with or
+	// without the "SHA256:" prefix; the material of the host_trust version.
+	// Set exactly when the material is a shell login.
+	SshHostKeySha256 *string
 }
 
 func (b0 SubmissionGrant_builder) Build() *SubmissionGrant {
@@ -719,6 +782,10 @@ func (b0 SubmissionGrant_builder) Build() *SubmissionGrant {
 	x.xxx_hidden_Credential = b.Credential
 	x.xxx_hidden_HostTrust = b.HostTrust
 	x.xxx_hidden_Deadline = b.Deadline
+	if b.SshHostKeySha256 != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_SshHostKeySha256 = b.SshHostKeySha256
+	}
 	return m0
 }
 
@@ -1006,18 +1073,17 @@ var File_flowseer_api_edge_v1_credential_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
-	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8f\x01\n" +
+	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a,flowseer/device/credential/v1/material.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x01\n" +
 	"\x10DeviceCredential\x12S\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"credential\x12&\n" +
-	"\bmaterial\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\bmaterial\"\xd0\x01\n" +
+	"credential\x12U\n" +
+	"\bmaterial\x18\x02 \x01(\v21.flowseer.device.credential.v1.CredentialMaterialB\x06\xbaH\x03\xc8\x01\x01R\bmaterial\"\xd0\x01\n" +
 	"\x1cAcquireReadCredentialRequest\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12Z\n" +
-	"\raccess_policy\x18\x03 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\x85\x02\n" +
+	"\raccess_policy\x18\x03 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc2\x04\n" +
 	"\x1dAcquireReadCredentialResponse\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
@@ -1025,20 +1091,24 @@ const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12A\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\x9b\x01\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12U\n" +
+	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB&\xbaH#r!2\x1f^(SHA256:)?[A-Za-z0-9+/]{43}=?$R\x10sshHostKeySha256:\xe3\x01\xbaH\xdf\x01\x1a\xdc\x01\n" +
+	"2acquire_read_credential_response.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1a_!has(this.credential) || (has(this.credential.material.shell) == has(this.ssh_host_key_sha256))\"\x9b\x01\n" +
 	"\x1bOpenDeviceSubmissionRequest\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12&\n" +
 	"\bsequence\x18\x03 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xf4\x01\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa1\x04\n" +
 	"\x0fSubmissionGrant\x12N\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"credential\x12Q\n" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2*.flowseer.device.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12>\n" +
-	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\"\xa8\x01\n" +
+	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12U\n" +
+	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB&\xbaH#r!2\x1f^(SHA256:)?[A-Za-z0-9+/]{43}=?$R\x10sshHostKeySha256:\xd3\x01\xbaH\xcf\x01\x1a\xcc\x01\n" +
+	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1a_!has(this.credential) || (has(this.credential.material.shell) == has(this.ssh_host_key_sha256))\"\xa8\x01\n" +
 	"\x0eAuthorityPulse\x12V\n" +
 	"\tauthority\x18\x01 \x01(\x0e2).flowseer.api.edge.v1.SubmissionAuthorityB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tauthority\x12>\n" +
@@ -1065,28 +1135,30 @@ var file_flowseer_api_edge_v1_credential_proto_goTypes = []any{
 	(*AuthorityPulse)(nil),                // 6: flowseer.api.edge.v1.AuthorityPulse
 	(*OpenDeviceSubmissionResponse)(nil),  // 7: flowseer.api.edge.v1.OpenDeviceSubmissionResponse
 	(*v1.CredentialHandle)(nil),           // 8: flowseer.device.policy.v1.CredentialHandle
-	(*v1.AccessPolicyHandle)(nil),         // 9: flowseer.device.policy.v1.AccessPolicyHandle
-	(*v1.HostTrustHandle)(nil),            // 10: flowseer.device.policy.v1.HostTrustHandle
-	(*timestamppb.Timestamp)(nil),         // 11: google.protobuf.Timestamp
+	(*v11.CredentialMaterial)(nil),        // 9: flowseer.device.credential.v1.CredentialMaterial
+	(*v1.AccessPolicyHandle)(nil),         // 10: flowseer.device.policy.v1.AccessPolicyHandle
+	(*v1.HostTrustHandle)(nil),            // 11: flowseer.device.policy.v1.HostTrustHandle
+	(*timestamppb.Timestamp)(nil),         // 12: google.protobuf.Timestamp
 }
 var file_flowseer_api_edge_v1_credential_proto_depIdxs = []int32{
 	8,  // 0: flowseer.api.edge.v1.DeviceCredential.credential:type_name -> flowseer.device.policy.v1.CredentialHandle
-	9,  // 1: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
-	1,  // 2: flowseer.api.edge.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	10, // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
-	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.expires_at:type_name -> google.protobuf.Timestamp
-	1,  // 5: flowseer.api.edge.v1.SubmissionGrant.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	10, // 6: flowseer.api.edge.v1.SubmissionGrant.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
-	11, // 7: flowseer.api.edge.v1.SubmissionGrant.deadline:type_name -> google.protobuf.Timestamp
-	0,  // 8: flowseer.api.edge.v1.AuthorityPulse.authority:type_name -> flowseer.api.edge.v1.SubmissionAuthority
-	11, // 9: flowseer.api.edge.v1.AuthorityPulse.deadline:type_name -> google.protobuf.Timestamp
-	5,  // 10: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.grant:type_name -> flowseer.api.edge.v1.SubmissionGrant
-	6,  // 11: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.pulse:type_name -> flowseer.api.edge.v1.AuthorityPulse
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	9,  // 1: flowseer.api.edge.v1.DeviceCredential.material:type_name -> flowseer.device.credential.v1.CredentialMaterial
+	10, // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	1,  // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
+	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
+	12, // 5: flowseer.api.edge.v1.AcquireReadCredentialResponse.expires_at:type_name -> google.protobuf.Timestamp
+	1,  // 6: flowseer.api.edge.v1.SubmissionGrant.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
+	11, // 7: flowseer.api.edge.v1.SubmissionGrant.host_trust:type_name -> flowseer.device.policy.v1.HostTrustHandle
+	12, // 8: flowseer.api.edge.v1.SubmissionGrant.deadline:type_name -> google.protobuf.Timestamp
+	0,  // 9: flowseer.api.edge.v1.AuthorityPulse.authority:type_name -> flowseer.api.edge.v1.SubmissionAuthority
+	12, // 10: flowseer.api.edge.v1.AuthorityPulse.deadline:type_name -> google.protobuf.Timestamp
+	5,  // 11: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.grant:type_name -> flowseer.api.edge.v1.SubmissionGrant
+	6,  // 12: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.pulse:type_name -> flowseer.api.edge.v1.AuthorityPulse
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_edge_v1_credential_proto_init() }

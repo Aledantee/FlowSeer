@@ -10,6 +10,7 @@ import (
 	connect "connectrpc.com/connect"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
@@ -65,7 +66,7 @@ func pulseMessage(pulse *edgev1.AuthorityPulse) *edgev1.OpenDeviceSubmissionResp
 
 func newTestGrant() *edgev1.SubmissionGrant {
 	cred := &edgev1.DeviceCredential{}
-	cred.SetMaterial([]byte("material"))
+	cred.SetMaterial(shellMaterial("material"))
 
 	grant := &edgev1.SubmissionGrant{}
 	grant.SetCredential(cred)
@@ -108,8 +109,8 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = handle.Close() })
-	if string(handle.Grant().GetCredential().GetMaterial()) != "material" {
-		t.Fatalf("expected the grant's credential material to round-trip, got %q", handle.Grant().GetCredential().GetMaterial())
+	if got := handle.Grant().GetCredential().GetMaterial().GetShell().GetUsername(); got != "material" {
+		t.Fatalf("expected the grant's credential material to round-trip, got %q", got)
 	}
 
 	// Authority() is a synchronous snapshot the relay goroutine updates as
@@ -240,7 +241,7 @@ func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T)
 
 func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
 	cred := &edgev1.DeviceCredential{}
-	cred.SetMaterial([]byte("read-material"))
+	cred.SetMaterial(shellMaterial("read-material"))
 	resp := &edgev1.AcquireReadCredentialResponse{}
 	resp.SetCredential(cred)
 
@@ -257,9 +258,20 @@ func TestConnectAdapterAcquireReadCredentialTranslatesResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AcquireReadCredential: %v", err)
 	}
-	if string(got.GetCredential().GetMaterial()) != "read-material" {
-		t.Fatalf("expected the credential material to round-trip, got %q", got.GetCredential().GetMaterial())
+	if username := got.GetCredential().GetMaterial().GetShell().GetUsername(); username != "read-material" {
+		t.Fatalf("expected the credential material to round-trip, got %q", username)
 	}
+}
+
+// shellMaterial builds a shell credential whose username is the marker a
+// test checks for after the round trip.
+func shellMaterial(username string) *credentialv1.CredentialMaterial {
+	shell := &credentialv1.ShellCredential{}
+	shell.SetUsername(username)
+	shell.SetPassword("secret")
+	material := &credentialv1.CredentialMaterial{}
+	material.SetShell(shell)
+	return material
 }
 
 func TestConnectAdapterAcquireReadCredentialWrapsError(t *testing.T) {

@@ -63,6 +63,13 @@ func interfaceObservation() accessv1.InterfaceObservation_builder {
 	}
 }
 
+func typedRead(name string) *accessv1.TypedRead {
+	return accessv1.TypedRead_builder{
+		AccessPolicy: accessPolicyHandle("icx7150-lab", 3),
+		Interface:    interfaceReadIntent(name),
+	}.Build()
+}
+
 func interfaceReadIntent(name string) *accessv1.InterfaceReadIntent {
 	return accessv1.InterfaceReadIntent_builder{InterfaceName: proto.String(name)}.Build()
 }
@@ -80,10 +87,11 @@ func TestTypedReadRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name:      "interface read is valid",
-			message:   accessv1.TypedRead_builder{Interface: interfaceReadIntent("ethernet 1/1/1")}.Build(),
+			message:   typedRead("ethernet 1/1/1"),
 			wantValid: true,
 		},
-		{name: "read without an arm is rejected", message: accessv1.TypedRead_builder{}.Build()},
+		{name: "read without an arm is rejected", message: accessv1.TypedRead_builder{AccessPolicy: accessPolicyHandle("icx7150-lab", 3)}.Build()},
+		{name: "read without an access policy is rejected", message: accessv1.TypedRead_builder{Interface: interfaceReadIntent("ethernet 1/1/1")}.Build()},
 	}
 
 	runValidationCases(t, tests)

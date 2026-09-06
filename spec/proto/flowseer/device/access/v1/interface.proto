@@ -6,6 +6,7 @@ edition = "2024";
 package flowseer.device.access.v1;
 
 import "flowseer/api/inventory/v1/provenance.proto";
+import "flowseer/device/policy/v1/handle.proto";
 import "flowseer/net/interface/v1/admin_status.proto";
 import "flowseer/net/interface/v1/oper_status.proto";
 import option "buf/validate/validate.proto";
@@ -112,6 +113,10 @@ message InterfaceReadIntent {
 // device-access boundary that dispatches a read shares this shape; adding a
 // capability's read intent is adding an arm.
 message TypedRead {
+  // The policy version the read is admitted under and the read credential
+  // is acquired against. Must be present.
+  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 2 [(buf.validate.field).required = true];
+
   oneof read {
     option (buf.validate.oneof).required = true;
 

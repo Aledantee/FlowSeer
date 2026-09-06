@@ -1,0 +1,138 @@
+edition = "2024";
+
+// Central's durable record of one device's lane: the open mutation, what
+// the edge has confirmed about it, the open reads, and the expected and
+// last observed state per managed interface. Storage the device service
+// writes to its own bucket, not a boundary any other process reads. Not an
+// entity: nothing configures or observes a lane record, so there is no
+// triad and no ref pair.
+package flowseer.store.device.v1;
+
+import "flowseer/api/inventory/v1/device.proto";
+import "flowseer/device/access/v1/interface.proto";
+import "flowseer/device/access/v1/operation.proto";
+import "flowseer/errs/v1/error.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+message DeviceLaneRecord {
+  option (buf.validate.message).cel = {
+    id: "device_lane_record.mutation_has_submission_time"
+    message: "an open mutation carries its submission time"
+    expression: "has(this.mutation) == has(this.submitted_at)"
+  };
+  option (buf.validate.message).cel = {
+    id: "device_lane_record.confirmations_need_a_mutation"
+    message: "dispatch and checkpoint facts exist only for an open mutation"
+    expression: "has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))"
+  };
+
+  // Must be present.
+  flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
+  // The highest sequence assigned on this device, to mutations and reads
+  // alike. Implicit presence: zero and never assigned are one state.
+  uint64 high_watermark = 2 [features.field_presence = IMPLICIT];
+  // The mutation that holds the lane. Unset means the lane is free.
+  flowseer.device.access.v1.MutationState mutation = 3;
+  // When the open mutation was admitted, the start of its delayed-apply
+  // horizon. Set exactly with mutation.
+  google.protobuf.Timestamp submitted_at = 4;
+  // Whether the edge ever reported the open mutation admitted. Survives
+  // an edge restart, unlike the confirmations below. Implicit presence.
+  bool dispatched = 5 [features.field_presence = IMPLICIT];
+  // The phase the edge last reported for the open mutation. Unset means no
+  // report yet. The zero value is rejected.
+  flowseer.device.access.v1.OperationPhase last_reported_phase = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Whether the current dispatch of the open mutation is confirmed by the
+  // edge. Cleared when the edge reports onboarded. Implicit presence.
+  bool dispatch_confirmed = 7 [features.field_presence = IMPLICIT];
+  // Whether the edge acknowledged the checkpoint. Cleared when the edge
+  // reports onboarded. Implicit presence.
+  bool checkpoint_confirmed = 8 [features.field_presence = IMPLICIT];
+  // The sequence whose hold resolution central recorded and the edge has
+  // not yet confirmed. Unset means none is owed.
+  uint64 hold_resolution_pending = 9 [(buf.validate.field).uint64.gte = 1];
+  // Reads in flight, keyed by the interface name the device spells.
+  map<string, OpenRead> open_reads = 10 [(buf.validate.field).map = {
+    max_pairs: 256
+    keys: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+  }];
+  // The description central expects per managed interface, keyed by
+  // interface name. An interface absent here is not managed.
+  map<string, string> expected_descriptions = 11 [(buf.validate.field).map = {
+    max_pairs: 256
+    keys: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+    values: {
+      string: {max_len: 64}
+    }
+  }];
+  // The last complete observation per managed interface, keyed by
+  // interface name.
+  map<string, flowseer.device.access.v1.InterfaceObservation> last_observations = 12 [(buf.validate.field).map = {
+    max_pairs: 256
+    keys: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+  }];
+  // The firmware fingerprint the edge last reported. Unset means no probe
+  // has been reported yet.
+  string firmware_fingerprint = 13 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // The most recent idempotency keys and the sequences they were admitted
+  // at, oldest first; a resubmission with a listed key returns its
+  // sequence's state instead of admitting again.
+  repeated IdempotencyEntry idempotency = 14 [(buf.validate.field).repeated.max_items = 64];
+}
+
+// One read in flight, or just finished, on the device's lane.
+message OpenRead {
+  // Must be present and at least 1.
+  uint64 sequence = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+  // Must be present.
+  flowseer.device.access.v1.TypedRead read = 2 [(buf.validate.field).required = true];
+  // After this the read is closed with a deadline error and its row is no
+  // longer owed. Must be present.
+  google.protobuf.Timestamp deadline = 3 [(buf.validate.field).required = true];
+
+  // The read's outcome once it closed, kept for the waiter until the next
+  // write removes the entry. Unset means the read is still open.
+  oneof outcome {
+    flowseer.device.access.v1.InterfaceObservation observation = 10;
+    flowseer.errs.v1.ErrorPayload error = 11;
+  }
+}
+
+// One admitted idempotency key.
+message IdempotencyEntry {
+  // Must be present.
+  string idempotency_key = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // Must be present and at least 1.
+  uint64 sequence = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
+}

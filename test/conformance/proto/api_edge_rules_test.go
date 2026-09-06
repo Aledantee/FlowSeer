@@ -373,6 +373,59 @@ func TestEdgeAssertionHeaderVector(t *testing.T) {
 	}
 }
 
+// TestEdgeAssertionStreamOpenVector pins a second worked header, for a
+// server-stream open with a non-empty body: the body hashed is the
+// enveloped request message exactly as sent, so a middleware that hashes
+// the HTTP body bytes reproduces it.
+func TestEdgeAssertionStreamOpenVector(t *testing.T) {
+	seed := make([]byte, ed25519.SeedSize)
+	private := ed25519.NewKeyFromSeed(seed)
+
+	request := edgev1.OpenDeviceSubmissionRequest_builder{
+		DeviceId:  proto.String(deviceID),
+		BindingId: proto.String(bindingID),
+		Sequence:  proto.Uint64(42),
+	}.Build()
+	message, err := proto.MarshalOptions{Deterministic: true}.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	body := make([]byte, 5, 5+len(message))
+	body[1] = byte(len(message) >> 24)
+	body[2] = byte(len(message) >> 16)
+	body[3] = byte(len(message) >> 8)
+	body[4] = byte(len(message))
+	body = append(body, message...)
+	bodySum := sha256.Sum256(body)
+
+	assertion := edgeAssertion(30 * time.Second)
+	assertion.SetProcedure("/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission")
+	assertion.SetBodySha256(bodySum[:])
+
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
+	if err != nil {
+		t.Fatalf("marshal assertion: %v", err)
+	}
+	signed := edgev1.SignedEdgeAssertion_builder{
+		Payload:   payload,
+		Signature: ed25519.Sign(private, payload),
+	}.Build()
+	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
+	if err != nil {
+		t.Fatalf("marshal signed assertion: %v", err)
+	}
+	header := edgeHeaderTag + base64.RawStdEncoding.EncodeToString(wire)
+	t.Logf("stream open header vector: %s", header)
+
+	readme, err := os.ReadFile(filepath.Join("..", "..", "..", "spec", "proto", "flowseer", "api", "edge", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	if !strings.Contains(string(readme), header) {
+		t.Errorf("README does not carry the stream open header vector:\n%s", header)
+	}
+}
+
 func TestIntegrationConfigHostRules(t *testing.T) {
 	local := func(edge *edgev1.EdgeGlobalRef) *inventoryv1.IntegrationConfig {
 		return inventoryv1.IntegrationConfig_builder{

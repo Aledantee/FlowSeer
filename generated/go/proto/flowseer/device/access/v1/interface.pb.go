@@ -12,6 +12,7 @@ package accessv1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
+	v12 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -527,10 +528,11 @@ func (b0 InterfaceReadIntent_builder) Build() *InterfaceReadIntent {
 // device-access boundary that dispatches a read shares this shape; adding a
 // capability's read intent is adding an arm.
 type TypedRead struct {
-	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Read isTypedRead_Read       `protobuf_oneof:"read"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                   protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_AccessPolicy *v12.AccessPolicyHandle `protobuf:"bytes,2,opt,name=access_policy,json=accessPolicy"`
+	xxx_hidden_Read         isTypedRead_Read        `protobuf_oneof:"read"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *TypedRead) Reset() {
@@ -558,6 +560,13 @@ func (x *TypedRead) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+func (x *TypedRead) GetAccessPolicy() *v12.AccessPolicyHandle {
+	if x != nil {
+		return x.xxx_hidden_AccessPolicy
+	}
+	return nil
+}
+
 func (x *TypedRead) GetInterface() *InterfaceReadIntent {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Read.(*typedRead_Interface); ok {
@@ -567,12 +576,23 @@ func (x *TypedRead) GetInterface() *InterfaceReadIntent {
 	return nil
 }
 
+func (x *TypedRead) SetAccessPolicy(v *v12.AccessPolicyHandle) {
+	x.xxx_hidden_AccessPolicy = v
+}
+
 func (x *TypedRead) SetInterface(v *InterfaceReadIntent) {
 	if v == nil {
 		x.xxx_hidden_Read = nil
 		return
 	}
 	x.xxx_hidden_Read = &typedRead_Interface{v}
+}
+
+func (x *TypedRead) HasAccessPolicy() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_AccessPolicy != nil
 }
 
 func (x *TypedRead) HasRead() bool {
@@ -588,6 +608,10 @@ func (x *TypedRead) HasInterface() bool {
 	}
 	_, ok := x.xxx_hidden_Read.(*typedRead_Interface)
 	return ok
+}
+
+func (x *TypedRead) ClearAccessPolicy() {
+	x.xxx_hidden_AccessPolicy = nil
 }
 
 func (x *TypedRead) ClearRead() {
@@ -618,6 +642,9 @@ func (x *TypedRead) WhichRead() case_TypedRead_Read {
 type TypedRead_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The policy version the read is admitted under and the read credential
+	// is acquired against. Must be present.
+	AccessPolicy *v12.AccessPolicyHandle
 	// Fields of oneof xxx_hidden_Read:
 	Interface *InterfaceReadIntent
 	// -- end of xxx_hidden_Read
@@ -627,6 +654,7 @@ func (b0 TypedRead_builder) Build() *TypedRead {
 	m0 := &TypedRead{}
 	b, x := &b0, m0
 	_, _ = b, x
+	x.xxx_hidden_AccessPolicy = b.AccessPolicy
 	if b.Interface != nil {
 		x.xxx_hidden_Read = &typedRead_Interface{b.Interface}
 	}
@@ -657,7 +685,7 @@ var File_flowseer_device_access_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a*flowseer/api/inventory/v1/provenance.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\x89\x01\n" +
+	")flowseer/device/access/v1/interface.proto\x12\x19flowseer.device.access.v1\x1a*flowseer/api/inventory/v1/provenance.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a+flowseer/net/interface/v1/oper_status.proto\"\x89\x01\n" +
 	"\x1aInterfaceDescriptionChange\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x126\n" +
 	"\vdescription\x18\x02 \x01(\tB\x14\xbaH\x11\xc8\x01\x01r\f\x18@2\b^[ -~]*$R\vdescription\"\xed\a\n" +
@@ -677,8 +705,9 @@ const file_flowseer_device_access_v1_interface_proto_rawDesc = "" +
 	"8interface_observation.provenance_names_edge_and_firmware\x12gan interface observation's provenance names the edge that read it and the device's firmware fingerprint\x1aa!has(this.provenance) || (has(this.provenance.edge) && has(this.provenance.firmware_fingerprint))\x1a\x8c\x02\n" +
 	"8interface_observation.complete_sets_every_compared_field\x12Ra complete observation sets description, admin_status, oper_status, and provenance\x1a|this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))\"J\n" +
 	"\x13InterfaceReadIntent\x123\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"j\n" +
-	"\tTypedRead\x12N\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"\xc6\x01\n" +
+	"\tTypedRead\x12Z\n" +
+	"\raccess_policy\x18\x02 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12N\n" +
 	"\tinterface\x18\x01 \x01(\v2..flowseer.device.access.v1.InterfaceReadIntentH\x00R\tinterfaceB\r\n" +
 	"\x04read\x12\x05\xbaH\x02\b\x01*a\n" +
 	"\fCompleteness\x12\x1c\n" +
@@ -698,18 +727,20 @@ var file_flowseer_device_access_v1_interface_proto_goTypes = []any{
 	(v1.AdminStatus)(0),                // 5: flowseer.net.interface.v1.AdminStatus
 	(v1.OperStatus)(0),                 // 6: flowseer.net.interface.v1.OperStatus
 	(*v11.Provenance)(nil),             // 7: flowseer.api.inventory.v1.Provenance
+	(*v12.AccessPolicyHandle)(nil),     // 8: flowseer.device.policy.v1.AccessPolicyHandle
 }
 var file_flowseer_device_access_v1_interface_proto_depIdxs = []int32{
 	5, // 0: flowseer.device.access.v1.InterfaceObservation.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
 	6, // 1: flowseer.device.access.v1.InterfaceObservation.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
 	7, // 2: flowseer.device.access.v1.InterfaceObservation.provenance:type_name -> flowseer.api.inventory.v1.Provenance
 	0, // 3: flowseer.device.access.v1.InterfaceObservation.completeness:type_name -> flowseer.device.access.v1.Completeness
-	3, // 4: flowseer.device.access.v1.TypedRead.interface:type_name -> flowseer.device.access.v1.InterfaceReadIntent
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	8, // 4: flowseer.device.access.v1.TypedRead.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	3, // 5: flowseer.device.access.v1.TypedRead.interface:type_name -> flowseer.device.access.v1.InterfaceReadIntent
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_device_access_v1_interface_proto_init() }

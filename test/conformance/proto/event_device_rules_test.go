@@ -151,3 +151,10 @@ func TestDeviceOperationEventKindRules(t *testing.T) {
 
 	runValidationCases(t, tests)
 }
+
+func TestDeliverRequestRules(t *testing.T) {
+	runValidationCases(t, []validationCase{
+		{name: "delivery carries one event", message: eventv1.DeliverRequest_builder{Event: deviceOperationEvent().Build()}.Build(), wantValid: true},
+		{name: "delivery without an event is rejected", message: eventv1.DeliverRequest_builder{}.Build()},
+	})
+}

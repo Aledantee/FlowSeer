@@ -35,8 +35,12 @@ var importOrder = map[string][]string{
 	// inventory name a policy without a cycle. api/edge may import
 	// device/policy for the credential and host-trust handles its
 	// credential RPCs return, because device/policy imports nothing back.
-	"api/edge":      {"device/policy"},
-	"device/policy": nil,
+	// device/credential imports nothing either: api/edge carries the typed
+	// credential material on its credential responses, so it sits beside
+	// device/policy as a second leaf below api/edge.
+	"api/edge":          {"device/credential", "device/policy"},
+	"device/credential": nil,
+	"device/policy":     nil,
 
 	// The error wire payload. A leaf like device/policy: every boundary may
 	// carry an error, so nothing may depend on it.
@@ -61,6 +65,10 @@ var importOrder = map[string][]string{
 	"integration/device": {"device/access", "errs"},
 
 	"event/device": {"api/inventory", "device/access", "errs"},
+
+	// The device service's own storage: written and read by one process,
+	// above every boundary it embeds and imported by none.
+	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.
@@ -69,6 +77,7 @@ var importOrder = map[string][]string{
 var orderedRoots = []string{
 	"flowseer/net", "flowseer/api", "flowseer/device",
 	"flowseer/errs", "flowseer/integration", "flowseer/event",
+	"flowseer/store",
 }
 
 func TestImportOrder(t *testing.T) {
@@ -163,6 +172,13 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
 		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
+		{name: "edge imports credential material", importer: "api/edge", imported: "device/credential", want: true},
+		{name: "credential material imports edge", importer: "device/credential", imported: "api/edge"},
+		{name: "credential material imports policy handles", importer: "device/credential", imported: "device/policy"},
+		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
+		{name: "storage imports credential material", importer: "store/device", imported: "device/credential", want: true},
+		{name: "access values import storage", importer: "device/access", imported: "store/device"},
+		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
 	}
 

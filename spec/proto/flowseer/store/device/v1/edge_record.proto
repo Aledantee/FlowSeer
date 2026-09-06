@@ -1,0 +1,17 @@
+edition = "2024";
+
+// What the device service stores about one edge beyond its public record:
+// the digest of the setup key it was issued. Storage, not a boundary; the
+// record itself is the api/edge triad and needs none of its own.
+package flowseer.store.device.v1;
+
+import "flowseer/api/edge/v1/edge_admin_service.proto";
+import option "buf/validate/validate.proto";
+
+message StoredEdge {
+  // Must be present.
+  flowseer.api.edge.v1.EdgeRecord record = 1 [(buf.validate.field).required = true];
+  // SHA-256 of the whole setup key string most recently issued. Unset
+  // means no key was issued or the key was consumed.
+  bytes setup_key_hash = 2 [(buf.validate.field).bytes.len = 32];
+}

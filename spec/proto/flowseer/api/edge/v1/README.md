@@ -65,8 +65,10 @@ The verifier checks, in this order, and stops at the first failure:
    window, the nonce length, and the `procedure` and `body_sha256` shape.
 5. `procedure` equals the full Connect method name of the RPC being
    invoked, for example `/flowseer.api.edge.v1.EdgeService/Heartbeat`.
-6. `body_sha256` equals the SHA-256 of the request message's uncompressed
-   bytes exactly as received.
+6. `body_sha256` equals the SHA-256 of the HTTP request body exactly as
+   received. The edge sends requests uncompressed and central refuses a
+   compressed one, so the bytes hashed are the bytes on the wire; for a
+   server-stream call the body is the one enveloped request message.
 7. The edge's lifecycle is enrolled. A retired edge fails here, before any
    handler runs.
 8. `audience` equals the central deployment's configured value.
@@ -97,6 +99,19 @@ an empty body, deterministic serialization.
 
 ```
 Authorization: FlowSeer-Edge Cq0BCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIrL2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQBNz5MF25z/nq9bRdOT4oJEWA17sTJTatD0nn1TIfYuyFyicifeP7cpA1NCP0JzyZsCjx+MxN4zhY+4dpgi8WwU
+```
+
+A second worked header covers a server-stream open with a non-empty body,
+so a middleware that hashes the HTTP body bytes can check itself against
+it: the same key, edge, audience, window, and nonce, procedure
+`/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission`, and `body_sha256`
+over the Connect-enveloped `OpenDeviceSubmissionRequest` for device
+`0192e6a0-0000-7000-8000-0000000000d1`, binding
+`0192e6a0-0000-7000-8000-0000000000b1`, sequence 42 (a zero flags byte, the
+big-endian message length, then the deterministic message bytes).
+
+```
+Authorization: FlowSeer-Edge CrgBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI2L2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJA7CbFLzvZmR/jh2rq6sc+fB89EXI+K99j9O69oKmbsQc2AwMZpsAPlXngwrtopUzc5itWFa+FDYXe2DB+ZQOZBg
 ```
 
 Ed25519 is the only algorithm and the verifier has no way to be told
@@ -169,8 +184,11 @@ others.
 `AttachBus` hands an enrolled edge everything its embedded NATS leaf node
 needs: an `account_jwt` scoping it to its tenant's subject namespace, a
 `user_credential` (JWT and NKey seed) the leaf node authenticates with, a
-`subjects` map from logical name to concrete broker subject, and at least
-one `cluster_url` to dial. The vocabulary of logical subject names belongs
+`subjects` map from logical name to the concrete broker subject the edge
+publishes on, and at least one `cluster_url` to dial. The leaf carries what
+the edge publishes and nothing the edge must act on; dispatches, reports,
+and audit records are Connect calls in `integration/device/v1` and
+`event/device/v1`. The vocabulary of logical subject names belongs
 to the module that builds the leaf node, not to this package. An edge
 attaches once, as a whole, never per integration or per device; there is no
 request body beyond the assertion that authorizes the call. Re-attaching
@@ -183,9 +201,13 @@ under the device's pinned `AccessPolicyHandle`, scoped to a device id and a
 binding id passed as plain UUID strings rather than typed refs — `api/edge`
 sits below `api/inventory` in the import graph, so it cannot name a
 `DeviceGlobalRef` without cycling it. The response's `DeviceCredential`
-pairs the opaque credential material with a `CredentialHandle` naming
-exactly which version was used, alongside a `HostTrustHandle` and an
-`expires_at`. There is no standing lease: an edge acquires a fresh
+pairs a typed `CredentialMaterial` from `device/credential/v1` (an SNMPv3
+user or a shell login) with a `CredentialHandle` naming exactly which
+version it is, alongside a `HostTrustHandle` and an `expires_at`. The
+handle names the trust version; when the material is a shell login the
+response also carries `ssh_host_key_sha256`, the pin that version resolves
+to, and a rule ties the two together so an SNMP credential never carries a
+meaningless pin. There is no standing lease: an edge acquires a fresh
 credential for the next read rather than caching one past its expiry.
 
 ### Submission credential delivery
@@ -194,7 +216,8 @@ credential for the next read rather than caching one past its expiry.
 durably checkpointed `POSSIBLY_APPLIED` for the named sequence (the same
 sequence `flowseer.integration.device.v1.ExecuteRequest` carries). The
 first message is always a `SubmissionGrant` — a one-use `DeviceCredential`,
-a `HostTrustHandle`, and a `deadline` — and every message after it is an
+a `HostTrustHandle`, the same `ssh_host_key_sha256` rule as the read
+response, and a `deadline` — and every message after it is an
 `AuthorityPulse` the edge checks before it submits or continues submitting
 the command. The grant is delivered exactly once per stream so a one-use
 secret is never double-issued. A pulse's `deadline` only moves forward
@@ -218,10 +241,6 @@ obliges a cascading delete of attribute values and an existence check that
 need the edge store, which arrives with the first host. Until then nothing
 may reference an edge through an `EntityRef`; the conventions doc records
 the exception next to the tenant one.
-
-A typed credential body for SNMPv3 or SSH. `DeviceCredential.material`
-stays opaque bytes until an adapter needs a shape narrower than "whatever
-protocol the binding uses."
 
 A handler for any of the three RPCs above, and the Connect interceptor
 that verifies the assertion against them. Those need a running device

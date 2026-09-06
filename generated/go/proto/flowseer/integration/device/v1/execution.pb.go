@@ -38,6 +38,8 @@ type ExecuteRequest struct {
 	xxx_hidden_Sequence       uint64                     `protobuf:"varint,1,opt,name=sequence"`
 	xxx_hidden_Deadline       *timestamppb.Timestamp     `protobuf:"bytes,2,opt,name=deadline"`
 	xxx_hidden_IdempotencyKey *string                    `protobuf:"bytes,3,opt,name=idempotency_key,json=idempotencyKey"`
+	xxx_hidden_Resume         bool                       `protobuf:"varint,4,opt,name=resume"`
+	xxx_hidden_SubmittedAt    *timestamppb.Timestamp     `protobuf:"bytes,5,opt,name=submitted_at,json=submittedAt"`
 	xxx_hidden_Operation      isExecuteRequest_Operation `protobuf_oneof:"operation"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
@@ -94,6 +96,20 @@ func (x *ExecuteRequest) GetIdempotencyKey() string {
 	return ""
 }
 
+func (x *ExecuteRequest) GetResume() bool {
+	if x != nil {
+		return x.xxx_hidden_Resume
+	}
+	return false
+}
+
+func (x *ExecuteRequest) GetSubmittedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_SubmittedAt
+	}
+	return nil
+}
+
 func (x *ExecuteRequest) GetMutation() *v1.MutationIntent {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Operation.(*executeRequest_Mutation); ok {
@@ -114,7 +130,7 @@ func (x *ExecuteRequest) GetRead() *v1.TypedRead {
 
 func (x *ExecuteRequest) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *ExecuteRequest) SetDeadline(v *timestamppb.Timestamp) {
@@ -123,7 +139,15 @@ func (x *ExecuteRequest) SetDeadline(v *timestamppb.Timestamp) {
 
 func (x *ExecuteRequest) SetIdempotencyKey(v string) {
 	x.xxx_hidden_IdempotencyKey = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+}
+
+func (x *ExecuteRequest) SetResume(v bool) {
+	x.xxx_hidden_Resume = v
+}
+
+func (x *ExecuteRequest) SetSubmittedAt(v *timestamppb.Timestamp) {
+	x.xxx_hidden_SubmittedAt = v
 }
 
 func (x *ExecuteRequest) SetMutation(v *v1.MutationIntent) {
@@ -163,6 +187,13 @@ func (x *ExecuteRequest) HasIdempotencyKey() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *ExecuteRequest) HasSubmittedAt() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_SubmittedAt != nil
+}
+
 func (x *ExecuteRequest) HasOperation() bool {
 	if x == nil {
 		return false
@@ -198,6 +229,10 @@ func (x *ExecuteRequest) ClearDeadline() {
 func (x *ExecuteRequest) ClearIdempotencyKey() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_IdempotencyKey = nil
+}
+
+func (x *ExecuteRequest) ClearSubmittedAt() {
+	x.xxx_hidden_SubmittedAt = nil
 }
 
 func (x *ExecuteRequest) ClearOperation() {
@@ -245,6 +280,14 @@ type ExecuteRequest_builder struct {
 	// De-duplicates a resubmission of this dispatch after a connection
 	// interruption. Must be present.
 	IdempotencyKey *string
+	// Central has already recorded that the command may have reached the
+	// device: the edge admits the mutation straight into recovery and
+	// observes before any retry, never submitting first. Unset means false,
+	// the ordinary path. Implicit presence: false and unset are one state.
+	Resume bool
+	// When central first admitted the mutation, the start of its
+	// delayed-apply horizon. Set exactly with resume.
+	SubmittedAt *timestamppb.Timestamp
 	// Exactly one operation.
 
 	// Fields of oneof xxx_hidden_Operation:
@@ -258,14 +301,16 @@ func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
 	x.xxx_hidden_Deadline = b.Deadline
 	if b.IdempotencyKey != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
 	}
+	x.xxx_hidden_Resume = b.Resume
+	x.xxx_hidden_SubmittedAt = b.SubmittedAt
 	if b.Mutation != nil {
 		x.xxx_hidden_Operation = &executeRequest_Mutation{b.Mutation}
 	}
@@ -306,6 +351,7 @@ type ExecuteResult struct {
 	state                   protoimpl.MessageState  `protogen:"opaque.v1"`
 	xxx_hidden_Sequence     uint64                  `protobuf:"varint,1,opt,name=sequence"`
 	xxx_hidden_PhaseReached v1.OperationPhase       `protobuf:"varint,2,opt,name=phase_reached,json=phaseReached,enum=flowseer.device.access.v1.OperationPhase"`
+	xxx_hidden_Submitted    bool                    `protobuf:"varint,3,opt,name=submitted"`
 	xxx_hidden_Outcome      isExecuteResult_Outcome `protobuf_oneof:"outcome"`
 	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
 	XXX_presence            [1]uint32
@@ -354,6 +400,13 @@ func (x *ExecuteResult) GetPhaseReached() v1.OperationPhase {
 	return v1.OperationPhase(0)
 }
 
+func (x *ExecuteResult) GetSubmitted() bool {
+	if x != nil {
+		return x.xxx_hidden_Submitted
+	}
+	return false
+}
+
 func (x *ExecuteResult) GetObservation() *v1.InterfaceObservation {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Outcome.(*executeResult_Observation); ok {
@@ -372,14 +425,27 @@ func (x *ExecuteResult) GetError() *v11.ErrorPayload {
 	return nil
 }
 
+func (x *ExecuteResult) GetProgress() *Progress {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*executeResult_Progress); ok {
+			return x.Progress
+		}
+	}
+	return nil
+}
+
 func (x *ExecuteResult) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *ExecuteResult) SetPhaseReached(v v1.OperationPhase) {
 	x.xxx_hidden_PhaseReached = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *ExecuteResult) SetSubmitted(v bool) {
+	x.xxx_hidden_Submitted = v
 }
 
 func (x *ExecuteResult) SetObservation(v *v1.InterfaceObservation) {
@@ -396,6 +462,14 @@ func (x *ExecuteResult) SetError(v *v11.ErrorPayload) {
 		return
 	}
 	x.xxx_hidden_Outcome = &executeResult_Error{v}
+}
+
+func (x *ExecuteResult) SetProgress(v *Progress) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &executeResult_Progress{v}
 }
 
 func (x *ExecuteResult) HasSequence() bool {
@@ -435,6 +509,14 @@ func (x *ExecuteResult) HasError() bool {
 	return ok
 }
 
+func (x *ExecuteResult) HasProgress() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*executeResult_Progress)
+	return ok
+}
+
 func (x *ExecuteResult) ClearSequence() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Sequence = 0
@@ -461,9 +543,16 @@ func (x *ExecuteResult) ClearError() {
 	}
 }
 
+func (x *ExecuteResult) ClearProgress() {
+	if _, ok := x.xxx_hidden_Outcome.(*executeResult_Progress); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
 const ExecuteResult_Outcome_not_set_case case_ExecuteResult_Outcome = 0
 const ExecuteResult_Observation_case case_ExecuteResult_Outcome = 10
 const ExecuteResult_Error_case case_ExecuteResult_Outcome = 11
+const ExecuteResult_Progress_case case_ExecuteResult_Outcome = 12
 
 func (x *ExecuteResult) WhichOutcome() case_ExecuteResult_Outcome {
 	if x == nil {
@@ -474,6 +563,8 @@ func (x *ExecuteResult) WhichOutcome() case_ExecuteResult_Outcome {
 		return ExecuteResult_Observation_case
 	case *executeResult_Error:
 		return ExecuteResult_Error_case
+	case *executeResult_Progress:
+		return ExecuteResult_Progress_case
 	default:
 		return ExecuteResult_Outcome_not_set_case
 	}
@@ -487,11 +578,18 @@ type ExecuteResult_builder struct {
 	// The phase the edge reached before returning. Must be present; the zero
 	// value is rejected.
 	PhaseReached *v1.OperationPhase
+	// Whether the command was handed to the device before this report.
+	// False on a report from before submission, so central may dispose the
+	// mutation as rejected; true afterwards, so it may not. Implicit
+	// presence: false and unset are one state.
+	Submitted bool
 	// Exactly one outcome.
 
 	// Fields of oneof xxx_hidden_Outcome:
 	Observation *v1.InterfaceObservation
 	Error       *v11.ErrorPayload
+	// A report of a phase reached with nothing to show yet.
+	Progress *Progress
 	// -- end of xxx_hidden_Outcome
 }
 
@@ -500,18 +598,22 @@ func (b0 ExecuteResult_builder) Build() *ExecuteResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
 	if b.PhaseReached != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_PhaseReached = *b.PhaseReached
 	}
+	x.xxx_hidden_Submitted = b.Submitted
 	if b.Observation != nil {
 		x.xxx_hidden_Outcome = &executeResult_Observation{b.Observation}
 	}
 	if b.Error != nil {
 		x.xxx_hidden_Outcome = &executeResult_Error{b.Error}
+	}
+	if b.Progress != nil {
+		x.xxx_hidden_Outcome = &executeResult_Progress{b.Progress}
 	}
 	return m0
 }
@@ -538,9 +640,61 @@ type executeResult_Error struct {
 	Error *v11.ErrorPayload `protobuf:"bytes,11,opt,name=error,oneof"`
 }
 
+type executeResult_Progress struct {
+	// A report of a phase reached with nothing to show yet.
+	Progress *Progress `protobuf:"bytes,12,opt,name=progress,oneof"`
+}
+
 func (*executeResult_Observation) isExecuteResult_Outcome() {}
 
 func (*executeResult_Error) isExecuteResult_Outcome() {}
+
+func (*executeResult_Progress) isExecuteResult_Outcome() {}
+
+// The outcome arm of a report on a non-terminal phase: the edge reports
+// where the operation stands and nothing more.
+type Progress struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Progress) Reset() {
+	*x = Progress{}
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Progress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Progress) ProtoMessage() {}
+
+func (x *Progress) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type Progress_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 Progress_builder) Build() *Progress {
+	m0 := &Progress{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
 
 // Central's durable record that a command may reach the device, sent before
 // submission so a lost connection cannot become a duplicate command.
@@ -555,7 +709,7 @@ type CheckpointRequest struct {
 
 func (x *CheckpointRequest) Reset() {
 	*x = CheckpointRequest{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -567,7 +721,7 @@ func (x *CheckpointRequest) String() string {
 func (*CheckpointRequest) ProtoMessage() {}
 
 func (x *CheckpointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +787,7 @@ type CheckpointAck struct {
 
 func (x *CheckpointAck) Reset() {
 	*x = CheckpointAck{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -645,7 +799,7 @@ func (x *CheckpointAck) String() string {
 func (*CheckpointAck) ProtoMessage() {}
 
 func (x *CheckpointAck) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -712,7 +866,7 @@ type TerminalResultAck struct {
 
 func (x *TerminalResultAck) Reset() {
 	*x = TerminalResultAck{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +878,7 @@ func (x *TerminalResultAck) String() string {
 func (*TerminalResultAck) ProtoMessage() {}
 
 func (x *TerminalResultAck) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -811,29 +965,194 @@ func (b0 TerminalResultAck_builder) Build() *TerminalResultAck {
 	return m0
 }
 
+// Central's durable record that the hold an abandonment or a drift block
+// engaged on the device's lane is resolved, so the edge admits mutations
+// again.
+type HoldResolved struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Sequence    uint64                 `protobuf:"varint,1,opt,name=sequence"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HoldResolved) Reset() {
+	*x = HoldResolved{}
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HoldResolved) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HoldResolved) ProtoMessage() {}
+
+func (x *HoldResolved) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HoldResolved) GetSequence() uint64 {
+	if x != nil {
+		return x.xxx_hidden_Sequence
+	}
+	return 0
+}
+
+func (x *HoldResolved) SetSequence(v uint64) {
+	x.xxx_hidden_Sequence = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *HoldResolved) HasSequence() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HoldResolved) ClearSequence() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Sequence = 0
+}
+
+type HoldResolved_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The abandoned or desynchronized sequence whose hold is resolved. Must
+	// be present and at least 1.
+	Sequence *uint64
+}
+
+func (b0 HoldResolved_builder) Build() *HoldResolved {
+	m0 := &HoldResolved{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Sequence != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Sequence = *b.Sequence
+	}
+	return m0
+}
+
+// The edge's confirmation that it cleared the hold.
+type HoldResolvedAck struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Sequence    uint64                 `protobuf:"varint,1,opt,name=sequence"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *HoldResolvedAck) Reset() {
+	*x = HoldResolvedAck{}
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HoldResolvedAck) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HoldResolvedAck) ProtoMessage() {}
+
+func (x *HoldResolvedAck) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HoldResolvedAck) GetSequence() uint64 {
+	if x != nil {
+		return x.xxx_hidden_Sequence
+	}
+	return 0
+}
+
+func (x *HoldResolvedAck) SetSequence(v uint64) {
+	x.xxx_hidden_Sequence = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *HoldResolvedAck) HasSequence() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *HoldResolvedAck) ClearSequence() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Sequence = 0
+}
+
+type HoldResolvedAck_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The sequence whose hold was cleared. Must be present and at least 1.
+	Sequence *uint64
+}
+
+func (b0 HoldResolvedAck_builder) Build() *HoldResolvedAck {
+	m0 := &HoldResolvedAck{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Sequence != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Sequence = *b.Sequence
+	}
+	return m0
+}
+
 var File_flowseer_integration_device_v1_execution_proto protoreflect.FileDescriptor
 
 const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc7\x02\n" +
+	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x05\n" +
 	"\x0eExecuteRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
 	"\bdeadline\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x124\n" +
-	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12G\n" +
+	"\x0fidempotency_key\x18\x03 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12\x1d\n" +
+	"\x06resume\x18\x04 \x01(\bB\x05\xaa\x01\x02\b\x02R\x06resume\x12=\n" +
+	"\fsubmitted_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vsubmittedAt\x12G\n" +
 	"\bmutation\x18\n" +
 	" \x01(\v2).flowseer.device.access.v1.MutationIntentH\x00R\bmutation\x12:\n" +
-	"\x04read\x18\v \x01(\v2$.flowseer.device.access.v1.TypedReadH\x00R\x04readB\x12\n" +
-	"\toperation\x12\x05\xbaH\x02\b\x01\"\xb5\x02\n" +
+	"\x04read\x18\v \x01(\v2$.flowseer.device.access.v1.TypedReadH\x00R\x04read:\xa6\x02\xbaH\xa2\x02\x1a\xa4\x01\n" +
+	"$execute_request.resume_is_a_mutation\x12<resume applies to a mutation and carries its submission time\x1a>!this.resume || (has(this.mutation) && has(this.submitted_at))\x1ay\n" +
+	")execute_request.submitted_at_needs_resume\x12$submitted_at is set only with resume\x1a&!has(this.submitted_at) || this.resumeB\x12\n" +
+	"\toperation\x12\x05\xbaH\x02\b\x01\"\xa2\x03\n" +
 	"\rExecuteResult\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12]\n" +
 	"\rphase_reached\x18\x02 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fphaseReached\x12S\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fphaseReached\x12#\n" +
+	"\tsubmitted\x18\x03 \x01(\bB\x05\xaa\x01\x02\b\x02R\tsubmitted\x12S\n" +
 	"\vobservation\x18\n" +
 	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
-	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05errorB\x10\n" +
-	"\aoutcome\x12\x05\xbaH\x02\b\x01\";\n" +
+	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05error\x12F\n" +
+	"\bprogress\x18\f \x01(\v2(.flowseer.integration.device.v1.ProgressH\x00R\bprogressB\x10\n" +
+	"\aoutcome\x12\x05\xbaH\x02\b\x01\"\n" +
+	"\n" +
+	"\bProgress\";\n" +
 	"\x11CheckpointRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"7\n" +
@@ -844,37 +1163,48 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12W\n" +
 	"\vdisposition\x18\x02 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\vdispositionB\xa3\x02\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\vdisposition\"6\n" +
+	"\fHoldResolved\x12&\n" +
+	"\bsequence\x18\x01 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"9\n" +
+	"\x0fHoldResolvedAck\x12&\n" +
+	"\bsequence\x18\x01 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\xa3\x02\n" +
 	"\"com.flowseer.integration.device.v1B\x0eExecutionProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1;devicev1\xa2\x02\x03FID\xaa\x02\x1eFlowseer.Integration.Device.V1\xca\x02\x1eFlowseer\\Integration\\Device\\V1\xe2\x02*Flowseer\\Integration\\Device\\V1\\GPBMetadata\xea\x02!Flowseer::Integration::Device::V1b\beditionsp\xe9\a"
 
-var file_flowseer_integration_device_v1_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_flowseer_integration_device_v1_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_flowseer_integration_device_v1_execution_proto_goTypes = []any{
 	(*ExecuteRequest)(nil),          // 0: flowseer.integration.device.v1.ExecuteRequest
 	(*ExecuteResult)(nil),           // 1: flowseer.integration.device.v1.ExecuteResult
-	(*CheckpointRequest)(nil),       // 2: flowseer.integration.device.v1.CheckpointRequest
-	(*CheckpointAck)(nil),           // 3: flowseer.integration.device.v1.CheckpointAck
-	(*TerminalResultAck)(nil),       // 4: flowseer.integration.device.v1.TerminalResultAck
-	(*timestamppb.Timestamp)(nil),   // 5: google.protobuf.Timestamp
-	(*v1.MutationIntent)(nil),       // 6: flowseer.device.access.v1.MutationIntent
-	(*v1.TypedRead)(nil),            // 7: flowseer.device.access.v1.TypedRead
-	(v1.OperationPhase)(0),          // 8: flowseer.device.access.v1.OperationPhase
-	(*v1.InterfaceObservation)(nil), // 9: flowseer.device.access.v1.InterfaceObservation
-	(*v11.ErrorPayload)(nil),        // 10: flowseer.errs.v1.ErrorPayload
-	(v1.Disposition)(0),             // 11: flowseer.device.access.v1.Disposition
+	(*Progress)(nil),                // 2: flowseer.integration.device.v1.Progress
+	(*CheckpointRequest)(nil),       // 3: flowseer.integration.device.v1.CheckpointRequest
+	(*CheckpointAck)(nil),           // 4: flowseer.integration.device.v1.CheckpointAck
+	(*TerminalResultAck)(nil),       // 5: flowseer.integration.device.v1.TerminalResultAck
+	(*HoldResolved)(nil),            // 6: flowseer.integration.device.v1.HoldResolved
+	(*HoldResolvedAck)(nil),         // 7: flowseer.integration.device.v1.HoldResolvedAck
+	(*timestamppb.Timestamp)(nil),   // 8: google.protobuf.Timestamp
+	(*v1.MutationIntent)(nil),       // 9: flowseer.device.access.v1.MutationIntent
+	(*v1.TypedRead)(nil),            // 10: flowseer.device.access.v1.TypedRead
+	(v1.OperationPhase)(0),          // 11: flowseer.device.access.v1.OperationPhase
+	(*v1.InterfaceObservation)(nil), // 12: flowseer.device.access.v1.InterfaceObservation
+	(*v11.ErrorPayload)(nil),        // 13: flowseer.errs.v1.ErrorPayload
+	(v1.Disposition)(0),             // 14: flowseer.device.access.v1.Disposition
 }
 var file_flowseer_integration_device_v1_execution_proto_depIdxs = []int32{
-	5,  // 0: flowseer.integration.device.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
-	6,  // 1: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.device.access.v1.MutationIntent
-	7,  // 2: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.device.access.v1.TypedRead
-	8,  // 3: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.device.access.v1.OperationPhase
-	9,  // 4: flowseer.integration.device.v1.ExecuteResult.observation:type_name -> flowseer.device.access.v1.InterfaceObservation
-	10, // 5: flowseer.integration.device.v1.ExecuteResult.error:type_name -> flowseer.errs.v1.ErrorPayload
-	11, // 6: flowseer.integration.device.v1.TerminalResultAck.disposition:type_name -> flowseer.device.access.v1.Disposition
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	8,  // 0: flowseer.integration.device.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
+	8,  // 1: flowseer.integration.device.v1.ExecuteRequest.submitted_at:type_name -> google.protobuf.Timestamp
+	9,  // 2: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.device.access.v1.MutationIntent
+	10, // 3: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.device.access.v1.TypedRead
+	11, // 4: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.device.access.v1.OperationPhase
+	12, // 5: flowseer.integration.device.v1.ExecuteResult.observation:type_name -> flowseer.device.access.v1.InterfaceObservation
+	13, // 6: flowseer.integration.device.v1.ExecuteResult.error:type_name -> flowseer.errs.v1.ErrorPayload
+	2,  // 7: flowseer.integration.device.v1.ExecuteResult.progress:type_name -> flowseer.integration.device.v1.Progress
+	14, // 8: flowseer.integration.device.v1.TerminalResultAck.disposition:type_name -> flowseer.device.access.v1.Disposition
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_integration_device_v1_execution_proto_init() }
@@ -889,6 +1219,7 @@ func file_flowseer_integration_device_v1_execution_proto_init() {
 	file_flowseer_integration_device_v1_execution_proto_msgTypes[1].OneofWrappers = []any{
 		(*executeResult_Observation)(nil),
 		(*executeResult_Error)(nil),
+		(*executeResult_Progress)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -896,7 +1227,7 @@ func file_flowseer_integration_device_v1_execution_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_integration_device_v1_execution_proto_rawDesc), len(file_flowseer_integration_device_v1_execution_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
