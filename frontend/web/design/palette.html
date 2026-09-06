@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FlowSeer · m3connect palette</title>
+    <link rel="stylesheet" href="../src/style.css" />
+    <style>
+      .palette-header {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: var(--chrome);
+        color: var(--chrome-text);
+        padding: 18px 5vw;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--chrome-line);
+      }
+      .palette-header strong {
+        font-size: 16px;
+      }
+      .palette-header button {
+        background: var(--chrome-surface);
+        color: var(--chrome-text);
+        border-color: var(--control-border);
+      }
+      .palette-content {
+        padding: 38px 5vw;
+        max-width: 1700px;
+        margin: auto;
+      }
+      .palette-content h1 {
+        font-size: 36px;
+        margin-bottom: 12px;
+      }
+      .palette-content h2 {
+        font-size: 20px;
+        margin: 36px 0 12px;
+      }
+      .palette-content p {
+        max-width: 850px;
+        font-size: 14px;
+      }
+      .palette-meta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 20px 0;
+      }
+      .palette-meta a {
+        border: 1px solid var(--control-border);
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: var(--surface);
+      }
+      .palette-anchors {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(140px, 1fr));
+        gap: 12px;
+        margin: 24px 0;
+      }
+      .palette-anchor,
+      .palette-semantic {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 14px;
+        background: var(--surface);
+      }
+      .palette-anchor i {
+        display: block;
+        height: 50px;
+        margin-bottom: 12px;
+        border-radius: 4px;
+      }
+      .palette-anchor code {
+        display: block;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .palette-family {
+        margin: 28px 0;
+      }
+      .palette-family h3 {
+        font-size: 16px;
+        text-transform: capitalize;
+      }
+      .palette-family p {
+        font-size: 12px;
+        margin: 6px 0 12px;
+      }
+      .palette-ramp {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(54px, 1fr));
+        gap: 6px;
+        overflow: auto;
+        padding: 4px;
+      }
+      .palette-tone {
+        padding: 0 0 8px;
+        min-width: 54px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .palette-tone i {
+        display: block;
+        height: 65px;
+        background: var(--swatch);
+        margin-bottom: 8px;
+      }
+      .palette-tone b {
+        font-size: 12px;
+      }
+      .palette-tone:focus-visible {
+        outline: 3px solid var(--focus);
+      }
+      .palette-notes {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 24px 0;
+      }
+      .palette-notes article {
+        padding: 16px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .palette-notes h3 {
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      .palette-notes p {
+        font-size: 12px;
+      }
+      .palette-semantics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+        gap: 10px;
+      }
+      .palette-semantic {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .palette-semantic i {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+      }
+      .palette-semantic code {
+        font-size: 11px;
+      }
+      .palette-semantic small {
+        font-size: 11px;
+        margin-top: 5px;
+      }
+      .palette-example {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 22px;
+        margin: 25px 0;
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .palette-example .primary {
+        width: auto;
+        margin: 0;
+      }
+      .palette-example .status {
+        font-size: 12px;
+      }
+      .palette-chart {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin: 18px 0;
+      }
+      .palette-series {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+      }
+      .palette-series i {
+        width: 28px;
+        height: 5px;
+        background: var(--swatch);
+      }
+      #palette-status {
+        min-height: 24px;
+        font-size: 13px;
+        color: var(--accent-text);
+      }
+      .palette-footnote {
+        margin: 36px 0;
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+      .palette-footnote a {
+        color: var(--accent-text);
+        text-decoration: underline;
+      }
+      @media (max-width: 760px) {
+        .palette-anchors,
+        .palette-notes {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .palette-ramp {
+          grid-template-columns: repeat(12, 65px);
+        }
+        .palette-content h1 {
+          font-size: 27px;
+        }
+        .palette-header strong {
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="palette-header">
+      <strong>FlowSeer / m3connect color system</strong
+      ><button
+        id="palette-theme"
+        type="button"
+        aria-label="Dark mode"
+        role="switch"
+        aria-checked="true"
+      >
+        Dark / switch to light
+      </button>
+    </header>
+    <div class="palette-content">
+      <p>BRAND ANCHORS → TONAL SCALES → UI ROLES</p>
+      <h1>A full palette, built around the brand.</h1>
+      <p>
+        Coral for emphasis. Cyan for interaction. Neutral surfaces for long
+        sessions. The original m3connect colors stay intact; generated tones
+        give each color a useful range.
+      </p>
+      <div class="palette-meta">
+        <a href="palette.json" download>Download palette JSON</a
+        ><a href="../src/theme/scales.css" download>Download CSS scales</a
+        ><a href="palette-source.json" download>Download generator inputs</a
+        ><a href="/devices">Open operations console</a>
+      </div>
+      <div class="palette-anchors" id="palette-anchors"></div>
+      <h2>192 tones across eight color families</h2>
+      <p>
+        12 steps per family, separately tuned for light and dark backgrounds.
+        Click a swatch to copy its OKLCH value. Steps describe roles, not a
+        uniformly spaced brightness ladder.
+      </p>
+      <div class="palette-notes">
+        <article>
+          <h3>1–2 · Backgrounds</h3>
+          <p>Subtle tinted surfaces. Keep most workspace surfaces neutral.</p>
+        </article>
+        <article>
+          <h3>3–5 · Component fills</h3>
+          <p>
+            Default, hover, and selected fills. Pair with a tested text tone.
+          </p>
+        </article>
+        <article>
+          <h3>6–8 · Borders</h3>
+          <p>
+            Separators and stronger outlines. Essential outlines still need a
+            contrast check.
+          </p>
+        </article>
+        <article>
+          <h3>9–12 · Solids and text</h3>
+          <p>
+            9–10 for solid emphasis; 11–12 are text candidates. Preserve exact
+            brand anchors separately.
+          </p>
+        </article>
+      </div>
+      <div id="palette-status" role="status">
+        Select a tone to inspect and copy it.
+      </div>
+      <div id="palette-families"></div>
+      <h2>Audited UI roles</h2>
+      <p>
+        These are the console’s refined semantic colors. They preserve the
+        calmer surfaces and contrast improvements rather than applying every
+        generated tone automatically.
+      </p>
+      <div class="palette-example">
+        <button class="primary">Save assignment</button
+        ><span class="status healthy"><i></i>Healthy</span
+        ><span class="status degraded"><i></i>Degraded</span
+        ><span class="status offline"><i></i>Offline</span
+        ><span style="color: var(--accent-text)">Selected site</span
+        ><span style="color: var(--accent-orange-text)">m3 orange accent</span
+        ><span style="color: var(--muted)">Secondary information</span>
+      </div>
+      <div class="palette-semantics" id="palette-semantics"></div>
+      <h2>Charts and topology</h2>
+      <p>
+        Use cyan for sequential measurements. For categories, start with the six
+        families below, add direct labels and distinct markers, and keep
+        assignments stable. These colors are not a guarantee of color-vision
+        distinguishability; test the actual chart before shipping.
+      </p>
+      <div class="palette-chart" id="palette-chart"></div>
+      <div class="palette-footnote">
+        <p>
+          Generated using
+          <a href="https://www.radix-ui.com/colors/custom"
+            >Radix Custom Colors</a
+          >, with the brand colors observed on
+          <a href="https://www.m3connect.de/">m3connect.de</a>. Supporting
+          green, amber, rose, violet, and blue are UI extensions, not official
+          m3connect brand colors. Contrast-target refinement:
+          <a href="https://www.leonardocolor.io/">Adobe Leonardo</a>. Manual
+          OKLCH review: <a href="https://www.huetone.app/">Huetone</a>.
+        </p>
+        <p>
+          Captured 6 September 2026. OKLCH colors can exceed a display’s gamut;
+          check the rendered result. Only the named semantic pairs have
+          automated WCAG contrast gates. Arbitrary ramp combinations have no
+          accessibility guarantee.
+        </p>
+      </div>
+    </div>
+    <script type="module">
+      import palette from './palette.json'
+      const root = document.documentElement
+      const status = document.getElementById('palette-status')
+      const families = document.getElementById('palette-families')
+      const anchors = document.getElementById('palette-anchors')
+      const semantics = document.getElementById('palette-semantics')
+      const switcher = document.getElementById('palette-theme')
+      const titleCase = (text) =>
+        text
+          .replace(/([A-Z])/g, ' $1')
+          .replace(/^./, (letter) => letter.toUpperCase())
+      for (const [name, hex] of Object.entries(palette.anchors)) {
+        const item = document.createElement('div')
+        item.className = 'palette-anchor'
+        const swatch = document.createElement('i')
+        swatch.style.background = hex
+        const label = document.createElement('strong')
+        label.textContent =
+          name === 'coral' ? 'm3 orange / coral' : titleCase(name)
+        const value = document.createElement('code')
+        value.textContent = hex
+        item.append(swatch, label, value)
+        anchors.append(item)
+      }
+      for (const [name, family] of Object.entries(palette.families)) {
+        const section = document.createElement('section')
+        section.className = 'palette-family'
+        const heading = document.createElement('h3')
+        heading.textContent = name === 'coral' ? 'm3 orange / coral' : name
+        const description = document.createElement('p')
+        description.textContent = `${family.role} · seed ${family.seed}`
+        const ramp = document.createElement('div')
+        ramp.className = 'palette-ramp'
+        family.light.forEach((_, index) => {
+          const button = document.createElement('button')
+          button.className = 'palette-tone'
+          button.type = 'button'
+          button.setAttribute('aria-label', `Copy ${name} ${index + 1}`)
+          button.style.setProperty('--swatch', `var(--m3-${name}-${index + 1})`)
+          const color = document.createElement('i')
+          const number = document.createElement('b')
+          number.textContent = String(index + 1)
+          button.append(color, number)
+          button.addEventListener('click', async () => {
+            const [l, c] = family[root.dataset.theme][index]
+            const value = `oklch(${l} ${c} ${family.hue})`
+            try {
+              await navigator.clipboard.writeText(value)
+              status.textContent = `${name} ${index + 1}: ${value} copied.`
+            } catch {
+              status.textContent = `${name} ${index + 1}: ${value}. Select and copy this value manually.`
+            }
+          })
+          ramp.append(button)
+        })
+        section.append(heading, description, ramp)
+        families.append(section)
+      }
+      function renderSemantics() {
+        semantics.replaceChildren()
+        for (const [name, hex] of Object.entries(
+          palette.semantics[root.dataset.theme],
+        )) {
+          const item = document.createElement('div')
+          item.className = 'palette-semantic'
+          const swatch = document.createElement('i')
+          swatch.style.background = hex
+          const label = document.createElement('code')
+          label.textContent = name
+          const value = document.createElement('small')
+          value.textContent = hex
+          const text = document.createElement('div')
+          text.append(label, value)
+          item.append(swatch, text)
+          semantics.append(item)
+        }
+      }
+      switcher.addEventListener('click', () => {
+        const dark = root.dataset.theme !== 'dark'
+        root.dataset.theme = dark ? 'dark' : 'light'
+        switcher.setAttribute('aria-checked', String(dark))
+        switcher.textContent = dark
+          ? 'Dark / switch to light'
+          : 'Light / switch to dark'
+        status.textContent = `Showing ${root.dataset.theme} tones.`
+        renderSemantics()
+      })
+      for (const name of [
+        'cyan',
+        'coral',
+        'violet',
+        'green',
+        'amber',
+        'blue',
+      ]) {
+        const series = document.createElement('span')
+        series.className = 'palette-series'
+        series.style.setProperty('--swatch', `var(--m3-${name}-11)`)
+        const mark = document.createElement('i')
+        series.append(mark, titleCase(name))
+        document.getElementById('palette-chart').append(series)
+      }
+      renderSemantics()
+    </script>
+  </body>
+</html>

@@ -18,16 +18,19 @@
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",
+    "motion": "^13.2.0",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.10.0",
     "globals": "^17.12.0",
+    "happy-dom": "^20.14.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.69.0",

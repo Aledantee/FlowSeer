@@ -1,6 +1,7 @@
 export interface Tenant {
   id: string
   name: string
+  iconUrl?: string
   parentId?: string
 }
 export interface Site {
@@ -21,8 +22,17 @@ export interface Device {
   throughput: number
 }
 export const tenants: Tenant[] = [
-  { id: 'aurora', name: 'Aurora Hospitality' },
-  { id: 'aurora-de', name: 'Aurora Germany', parentId: 'aurora' },
+  {
+    id: 'aurora',
+    name: 'Aurora Hospitality',
+    iconUrl: '/tenant-icons/aurora.svg',
+  },
+  {
+    id: 'aurora-de',
+    name: 'Aurora Germany',
+    parentId: 'aurora',
+    iconUrl: '/tenant-icons/aurora.svg',
+  },
   { id: 'meridian', name: 'Meridian Workspaces' },
   { id: 'nord', name: 'Nord Retail' },
 ]

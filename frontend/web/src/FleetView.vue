@@ -1,7 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useMotionFeedback } from './motion/useMotionFeedback'
 import AppIcon from './components/AppIcon.vue'
+import AccountMenu from './components/AccountMenu.vue'
+import ReportBugButton from './components/ReportBugButton.vue'
+import HelpButton from './components/HelpButton.vue'
+import ThemeSwitcher from './components/ThemeSwitcher.vue'
+import TenantSwitcher from './components/TenantSwitcher.vue'
+import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import {
   devices,
   sites,
@@ -11,10 +18,29 @@ import {
   moveDevice,
 } from './domain/fleet'
 import type { Device } from './domain/fleet'
+const { play, cancel } = useMotionFeedback()
+const workspace = ref<HTMLElement>()
+const sidebar = ref<HTMLElement>()
+const navigation = ref<HTMLElement>()
+const mainShell = ref<HTMLElement>()
+const topbar = ref<HTMLElement>()
+let topbarObserver: ResizeObserver | undefined
+onMounted(() => {
+  topbarObserver = new ResizeObserver(() => {
+    if (topbar.value)
+      mainShell.value?.style.setProperty(
+        '--topbar-height',
+        `${topbar.value.offsetHeight}px`,
+      )
+  })
+  if (topbar.value) topbarObserver.observe(topbar.value)
+})
+onUnmounted(() => topbarObserver?.disconnect())
+const notice = ref<HTMLElement>()
 const route = useRoute()
 const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
-const live = ref(true)
+const sidebarCollapsed = ref(false)
 const tick = ref(0)
 const message = ref('')
 const detail = ref<HTMLDialogElement>()
@@ -28,6 +54,67 @@ const title = computed(
       view.value
     ] || 'Devices',
 )
+watch(view, async (page) => {
+  const previous = navigation.value
+    ?.querySelector('.active')
+    ?.getBoundingClientRect()
+  await nextTick()
+  if (view.value !== page || !previous) return
+  const highlight =
+    navigation.value?.querySelector<HTMLElement>('.nav-highlight')
+  if (!highlight || !highlight.getClientRects().length) return
+  const current = highlight.getBoundingClientRect()
+  play(
+    highlight,
+    {
+      transform: [
+        `translate(${previous.left - current.left}px, ${previous.top - current.top}px)`,
+        'none',
+      ],
+      width: [`${previous.width}px`, `${current.width}px`],
+    },
+    0.14,
+  )
+})
+watch(
+  () => [view.value, query('tenant'), query('site')],
+  () => play(workspace.value, { opacity: [0.85, 1] }, 0.12),
+  { flush: 'post' },
+)
+watch(
+  message,
+  (value) => {
+    if (value)
+      play(notice.value, {
+        opacity: [0.6, 1],
+        transform: ['translateY(-4px)', 'none'],
+      })
+  },
+  { flush: 'post' },
+)
+async function toggleSidebar() {
+  if (!sidebar.value || !mainShell.value) return
+  cancel(sidebar.value)
+  cancel(mainShell.value)
+  const width = getComputedStyle(sidebar.value).width
+  const margin = getComputedStyle(mainShell.value).marginLeft
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  await nextTick()
+  if (window.matchMedia('(min-width: 801px)').matches) {
+    play(sidebar.value, {
+      width: [width, getComputedStyle(sidebar.value).width],
+    })
+    play(mainShell.value, {
+      marginLeft: [margin, getComputedStyle(mainShell.value).marginLeft],
+    })
+  } else if (!sidebarCollapsed.value) {
+    play(
+      sidebar.value.querySelector('nav') ?? undefined,
+      { opacity: [0.6, 1] },
+      0.1,
+    )
+  }
+}
 function query(key: string): string {
   const value = route.query[key]
   return typeof value === 'string' ? value : ''
@@ -114,6 +201,11 @@ async function openDevice(device: Device) {
   destination.value = device.siteId
   await nextTick()
   detail.value?.showModal()
+  play(
+    detail.value,
+    { opacity: [0.75, 1], transform: ['translateX(12px)', 'none'] },
+    0.16,
+  )
 }
 function reassign() {
   if (!selected.value) return
@@ -123,7 +215,7 @@ function reassign() {
       device.id === updated.id ? updated : device,
     )
     selected.value = updated
-    message.value = `${updated.name} assigned to ${siteName(updated.siteId)} in this demo.`
+    message.value = `${updated.name} assigned to ${siteName(updated.siteId)}.`
     detail.value?.close()
   } catch (error: unknown) {
     message.value =
@@ -133,7 +225,6 @@ function reassign() {
 let timer: ReturnType<typeof setInterval> | undefined
 onMounted(() => {
   timer = setInterval(() => {
-    if (!live.value) return
     tick.value++
     for (const [index, device] of fleet.value.entries()) {
       if (device.health !== 'Offline')
@@ -148,30 +239,32 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
     <a class="skip-link" href="#main">Skip to main content</a>
-    <aside class="sidebar">
-      <a class="brand" href="/devices"
-        ><span class="brand-mark"><i></i><i></i><i></i></span>FlowSeer<span
-          class="brand-period"
-          >.</span
-        ></a
-      >
-      <div class="workspace">
-        <span class="workspace-avatar">m3</span>
-        <div>
-          <strong>Operations workspace</strong><small>Provider console</small>
-        </div>
-      </div>
+    <aside id="workspace-sidebar" ref="sidebar" class="sidebar brand-glow">
+      <TenantSwitcher
+        :tenants="tenants"
+        :selected="query('tenant')"
+        @change="setQuery('tenant', $event)"
+      />
       <div class="nav-label">WORKSPACE</div>
-      <nav aria-label="Main navigation">
+      <nav ref="navigation" aria-label="Main navigation">
         <RouterLink
           v-for="item in ['devices', 'sites', 'topology']"
           :key="item"
           :aria-label="item"
+          :title="item.charAt(0).toUpperCase() + item.slice(1)"
           :to="{ path: `/${item}`, query: route.query }"
-          :class="{ active: view === item }"
+          :class="{
+            active: view === item,
+            'desktop-navigation': item === 'topology',
+          }"
           :aria-current="view === item ? 'page' : undefined"
+          ><span
+            v-if="view === item"
+            class="nav-highlight"
+            aria-hidden="true"
+          ></span
           ><AppIcon :name="item" /><span>{{
             item.charAt(0).toUpperCase() + item.slice(1)
           }}</span
@@ -180,86 +273,70 @@ onUnmounted(() => clearInterval(timer))
           }}</span></RouterLink
         >
       </nav>
-      <div class="sidebar-note">
-        <span class="little-dot"></span><strong>Room to grow</strong>
-        <p>One view across your customers, sites, and network.</p>
-        <div class="mini-lines"><i></i><i></i><i></i></div>
-      </div>
-      <div class="operator">
-        <span class="avatar">OP</span>
-        <div><strong>Operator</strong><small>All customer tenants</small></div>
-        <span class="operator-dot"></span>
-      </div>
+      <AccountMenu />
+      <button
+        class="sidebar-toggle"
+        type="button"
+        aria-controls="workspace-sidebar"
+        :aria-expanded="!sidebarCollapsed"
+        :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :title="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        @click="toggleSidebar"
+      >
+        <svg
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="m10 4-4 4 4 4" />
+        </svg>
+      </button>
     </aside>
-    <div class="main-shell">
-      <header class="topbar">
-        <div class="breadcrumb">
-          Workspace <span>/</span> <strong>{{ title }}</strong>
+    <div ref="mainShell" class="main-shell">
+      <header ref="topbar" class="topbar">
+        <span class="topbar-glass brand-glow" aria-hidden="true"></span>
+        <div class="topbar-start">
+          <nav class="breadcrumb" aria-label="Breadcrumb">
+            <strong>{{ title }}</strong>
+            <span class="breadcrumb-separator" aria-hidden="true">/</span>
+            <div class="breadcrumb-scope">
+              Viewing
+              <ScopeSwitcher
+                label="Site scope"
+                :selected="query('site')"
+                :options="[
+                  { value: '', label: 'All sites' },
+                  ...scopedSites.map((site) => ({
+                    value: site.id,
+                    label: site.name,
+                  })),
+                ]"
+                @change="setQuery('site', $event)"
+              />
+            </div>
+          </nav>
         </div>
-        <div class="topbar-right">
-          <span class="demo-badge">DEMO WORKSPACE</span
-          ><span class="avatar small">OP</span>
+        <div class="topbar-tools">
+          <div class="product-brand" aria-label="FlowSeer">
+            <span class="flowseer-mark" aria-hidden="true"
+              ><i></i><i></i><i></i
+            ></span>
+            <span>FlowSeer</span>
+          </div>
+          <ThemeSwitcher />
+          <HelpButton />
+          <ReportBugButton />
         </div>
       </header>
-      <div class="scopebar">
-        <span class="scope-label">Viewing</span
-        ><label
-          ><span class="sr-only">Tenant scope</span
-          ><select
-            :value="query('tenant')"
-            @change="setQuery('tenant', valueOf($event))"
-          >
-            <option value="">All customer tenants</option>
-            <option
-              v-for="tenant in tenants"
-              :key="tenant.id"
-              :value="tenant.id"
-            >
-              {{ tenant.parentId ? '↳ ' : '' }}{{ tenant.name }}
-            </option>
-          </select></label
-        ><span class="scope-divider">/</span
-        ><label
-          ><span class="sr-only">Site scope</span
-          ><select
-            :value="query('site')"
-            @change="setQuery('site', valueOf($event))"
-          >
-            <option value="">All sites</option>
-            <option v-for="site in scopedSites" :key="site.id" :value="site.id">
-              {{ site.name }}
-            </option>
-          </select></label
-        ><span class="scope-hint">{{
-          query('tenant') ? 'Includes sub-tenants' : 'Across your organization'
-        }}</span>
-      </div>
-      <main id="main" tabindex="-1">
+      <main id="main" ref="workspace" tabindex="-1">
         <div class="page-heading">
           <div>
-            <div class="eyebrow">NETWORK OPERATIONS</div>
             <h1>{{ title }}</h1>
-            <p>
-              {{
-                view === 'devices'
-                  ? 'Monitor fleet health and find the devices that need attention.'
-                  : view === 'sites'
-                    ? 'A shared view of every location, with clear tenant ownership.'
-                    : 'Explore the connections within each site.'
-              }}
-            </p>
           </div>
-          <button
-            class="live-toggle"
-            :aria-pressed="live"
-            @click="live = !live"
-          >
-            <span :class="['little-dot', { paused: !live }]"></span
-            >{{ live ? 'Live demo' : 'Updates paused'
-            }}<span class="toggle-action">{{ live ? 'Pause' : 'Resume' }}</span>
-          </button>
         </div>
-        <div v-if="message" role="status" class="notice">
+        <div v-if="message" ref="notice" role="status" class="notice">
           {{ message
           }}<button aria-label="Dismiss notification" @click="message = ''">
             <AppIcon name="close" />
@@ -307,9 +384,7 @@ onUnmounted(() => clearInterval(timer))
             <div class="metric-number">
               {{ throughput }}<span class="metric-unit">Mbps</span>
             </div>
-            <span class="metric-note"
-              >Simulated · {{ live ? 'refreshes every 2.5s' : 'paused' }}</span
-            >
+            <span class="metric-note">Updates every 2.5s</span>
           </article>
         </section>
         <template v-if="view === 'devices'">
@@ -320,7 +395,11 @@ onUnmounted(() => clearInterval(timer))
             <span class="attention-icon">!</span>
             <div>
               <strong
-                >{{ scope.length - healthy }} devices need attention</strong
+                >{{ scope.length - healthy }}
+                {{
+                  scope.length - healthy === 1 ? 'device needs' : 'devices need'
+                }}
+                attention</strong
               ><span
                 >Review degraded or offline devices in the current scope.</span
               >
@@ -338,9 +417,7 @@ onUnmounted(() => clearInterval(timer))
                 <h2 id="inventory-title">
                   Device inventory <span>{{ scope.length }}</span>
                 </h2>
-                <p>All managed devices in your current scope.</p>
               </div>
-              <span class="subtle">Mock data · local session</span>
             </div>
             <div class="toolbar">
               <label class="search"
@@ -367,6 +444,29 @@ onUnmounted(() => clearInterval(timer))
                 {{ filtered.length === 1 ? 'result' : 'results' }}</span
               >
             </div>
+            <ul
+              v-if="filtered.length"
+              class="mobile-devices"
+              aria-label="Device status"
+            >
+              <li v-for="device in filtered" :key="device.id">
+                <button
+                  :aria-label="`View status for ${device.name}`"
+                  @click="openDevice(device)"
+                >
+                  <strong>{{ device.name }}</strong>
+                  <span :class="['status', device.health.toLowerCase()]"
+                    ><i></i>{{ device.health }}</span
+                  >
+                  <small
+                    >{{ siteName(device.siteId) }} · {{ device.address }}</small
+                  >
+                  <span class="mobile-device-action"
+                    >View status <AppIcon name="arrow"
+                  /></span>
+                </button>
+              </li>
+            </ul>
             <div class="table-scroll">
               <table>
                 <thead>
@@ -441,7 +541,7 @@ onUnmounted(() => clearInterval(timer))
               <span
                 >Showing {{ filtered.length }} of
                 {{ scope.length }} devices</span
-              ><span>Stable row order during live updates</span>
+              >
             </footer>
           </section>
         </template>
@@ -488,9 +588,7 @@ onUnmounted(() => clearInterval(timer))
           <div class="section-heading">
             <div>
               <h2>Site connections</h2>
-              <p>Illustrative links. Select a device to inspect it.</p>
             </div>
-            <span class="demo-badge">DEMO TOPOLOGY</span>
           </div>
           <div class="topology-grid">
             <article
@@ -518,13 +616,6 @@ onUnmounted(() => clearInterval(timer))
             </article>
           </div>
         </section>
-        <div class="page-footer">
-          <span class="footer-mark">FlowSeer</span
-          ><span>Operations workspace</span
-          ><span class="footer-right"
-            >Design preview · No live infrastructure connected</span
-          >
-        </div>
       </main>
     </div>
     <dialog ref="detail" class="device-dialog" aria-labelledby="detail-title">
@@ -574,8 +665,8 @@ onUnmounted(() => clearInterval(timer))
               {{ site.name }}
             </option></select
           ><button class="primary" :disabled="destination === selected.siteId">
-            Save demo assignment</button
-          ><small>Changes last until this page is reloaded.</small>
+            Save assignment
+          </button>
         </form></template
       >
     </dialog>
