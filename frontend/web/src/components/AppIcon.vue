@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{ name: string }>()
 const paths: Record<string, string> = {
+  components: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   logout: 'M10 4H4v16h6 M9 12h12 M17 8l4 4-4 4',
   bug: 'M8 8h8v7a4 4 0 0 1-8 0V8z M9 8V6a3 3 0 0 1 6 0v2 M12 9v10 M4 6l4 3 M16 9l4-3 M3 13h5 M16 13h5 M4 20l4-4 M16 16l4 4',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20 M9.5 9a2.5 2.5 0 1 1 4 2c-1 .6-1.5 1-1.5 3 M12 17v.1',
