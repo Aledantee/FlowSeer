@@ -1100,6 +1100,68 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 	}
 }
 
+// TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner proves
+// OperationTimeout is a floor, not a ceiling: a short-deadline owner's own
+// deadline must never become the detached work's deadline when a joiner
+// behind it has a longer one — that would hand the owner's expiry to the
+// joiner as its own outcome after only a fraction of the joiner's own
+// budget, the exact failure bug 542b303f fixed at the plain queue path.
+// The device answers after the owner's short deadline has already elapsed
+// but well within the joiner's own longer one and within OperationTimeout.
+func TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner(t *testing.T) {
+	l := newTestLane(t) // OperationTimeout defaults to 30s
+
+	release := make(chan struct{})
+	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
+			<-release
+			return completeObservation("uplink to core"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	ownerCtx, ownerCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer ownerCancel()
+	joinerCtx, joinerCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer joinerCancel()
+
+	ownerDone := make(chan error, 1)
+	go func() {
+		_, err := l.Submit(ownerCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest(), Priority: lane.PriorityLow})
+		ownerDone <- err
+	}()
+	time.Sleep(20 * time.Millisecond) // let the owner win coalescer.Start first
+
+	var joinerResult *integrationv1.ExecuteResult
+	var joinerErr error
+	joinerDone := make(chan struct{})
+	go func() {
+		defer close(joinerDone)
+		joinerResult, joinerErr = l.Submit(joinerCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest(), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(30 * time.Millisecond) // let the joiner join the same coalescing key
+
+	if err := <-ownerDone; err == nil {
+		t.Fatal("owner's Submit() error = nil, want its own 100ms deadline to expire")
+	}
+
+	// The device answers well after the owner's deadline has elapsed but
+	// long before the joiner's own 5s deadline.
+	time.Sleep(200 * time.Millisecond)
+	close(release)
+	<-joinerDone
+
+	if joinerErr != nil {
+		t.Fatalf("joiner's Submit() error = %v, want nil — the owner's short deadline must not become the detached work's deadline", joinerErr)
+	}
+	if got := joinerResult.GetObservation().GetDescription(); got != "uplink to core" {
+		t.Errorf("joiner's observation description = %q, want %q", got, "uplink to core")
+	}
+}
+
 // TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock proves a
 // redelivered CheckpointRequest for an already-satisfied wait returns an
 // error rather than blocking the caller forever on an orphaned channel.

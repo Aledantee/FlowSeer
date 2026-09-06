@@ -79,8 +79,10 @@ type Machine struct {
 // deps.CurrentFingerprint, it returns an error instead of a Machine — the
 // mutation never reaches ADMITTED under a stale epoch, per decision 7. A
 // read never carries an expected fingerprint and is never blocked here.
-// This check alone never emits flowseer.device.firmware.epoch_changed; see
-// [Machine.Observe]'s doc for where that event actually belongs.
+// This check alone never emits flowseer.device.firmware.epoch_changed —
+// nothing in this module does; see the access module README's "Open gap:
+// no mid-operation firmware-epoch re-check" section for why and what a
+// real fix needs.
 func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
 		if expected := mutationIntent.GetExpectedFirmwareFingerprint(); expected != deps.CurrentFingerprint {
@@ -88,11 +90,13 @@ func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 			// against central's own expectation, which can differ from
 			// the edge's cached fingerprint simply because central is
 			// stale, not because the device's firmware actually changed.
-			// [Machine.Observe]'s mid-operation comparison against a
-			// fresh observation is the one true epoch-change signal;
-			// emitting here would durably record one event per rejected
-			// intent, including a central retrying the same stale intent
-			// many times for a single (or no) real change.
+			// A real epoch-change signal would need a fresh probe at
+			// observation time compared against the earlier probe's own
+			// output — this module has no such check (see the README's
+			// "Open gap" section) — so emitting here would durably record
+			// one event per rejected intent, including a central
+			// retrying the same stale intent many times for a single (or
+			// no) real change.
 			return nil, errs.New().Code(ErrCodeFirmwareEpoch).
 				Attr("expected_fingerprint", expected).
 				Attr("current_fingerprint", deps.CurrentFingerprint).
@@ -380,8 +384,9 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 	// the probe's own earlier output — probe output to probe output, never
 	// probe output to a host-supplied provenance field — and that needs a
 	// live transport this module's synchronous Submit path does not have.
-	// See the README's "Scope of Lane.Submit's automatic handling" section
-	// for where that re-probe belongs.
+	// See the README's "Open gap: no mid-operation firmware-epoch
+	// re-check" section for where that re-probe belongs and what else is
+	// unwired alongside it.
 
 	m.mu.Lock()
 	m.lastObservation = obs

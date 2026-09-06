@@ -30,7 +30,7 @@ NewLane(Config) *Lane
   .Submit(ctx, SubmitOptions) (*ExecuteResult, error)
   .HandleCheckpoint(deviceKey, *CheckpointRequest) error
   .HandleTerminalAck(deviceKey, *TerminalResultAck) error
-  .Freeze(ctx) / .Unfreeze(ctx)
+  .Freeze(ctx) error / .Unfreeze(ctx)
   .EvaluateDrift(ctx, deviceKey, observed, inFlight) (drift.Outcome, error)
   .ResolveHold(deviceKey) error
   .Close(ctx) (ShutdownReport, error)
@@ -106,9 +106,6 @@ state machine's release step, per decision 13's audit-before-release rule.
 
 - `discovery.completed` (telemetry event and audit record) at
   `AddDevice`.
-- `firmware.epoch_changed` (telemetry event and audit record) at
-  `mutation.Admitted`, when an intent's expected fingerprint no longer
-  matches the device's current one.
 - `recovery.started`, `lane.blocked`, `lane.released` (telemetry event and
   audit record) and `drift.detected` (telemetry event and audit record) at
   their respective state-machine and drift-evaluation call sites.
@@ -123,8 +120,11 @@ state machine's release step, per decision 13's audit-before-release rule.
 
 Not yet wired, defined but never called from production code: the
 `route.selected`/`route.fallback` events, the
-`flowseer.device.route.selections` metric, and the
-`flowseer.device.route` span. The route dimension itself is already
+`flowseer.device.route.selections` metric, the
+`flowseer.device.route` span, and `firmware.epoch_changed` (telemetry
+event, audit record, and `BLOCK_REASON_FIRMWARE_EPOCH_CHANGED` alike —
+see "Open gap: no mid-operation firmware-epoch re-check" below for why).
+The route dimension itself is already
 available: `interfaces.Read` sets the winning observation's
 `Provenance.protocol` to the route that actually answered, `SelectRoute`
 returns the SSH route only from its own fallback branch (so
@@ -171,9 +171,38 @@ documented production path (a host sets `ProvenanceInputs.FirmwareFingerprint`
 as the schema requires, no `FingerprintOverride`) they differ by
 construction — blocking every mutation, not just a real epoch change. An
 earlier version of this code did compare them; it is deliberately removed.
-A real check needs a fresh `epoch.Probe` run at observation time compared
+
+The hole this leaves is wider than "between checkpoint and submission,"
+and it does not fail safe once a real firmware change happens:
+
+- `epoch.Probe` runs exactly once, in `AddDevice`, and `ds.fingerprint` is
+  never rewritten afterward. `CurrentFingerprint` is therefore central's
+  expectation compared against a digest learned once at onboarding, not
+  against the device's current firmware — the uncaught window is the
+  entire life of the `deviceState`, not one operation's checkpoint-to-submission
+  span.
+- After a real firmware change, the admission check becomes the mirror
+  image of the bug just removed: central learns the new fingerprint,
+  every subsequent intent names it, `Admitted` compares it against the
+  still-cached old one, and rejects every mutation for that device with
+  `ErrCodeFirmwareEpoch` permanently. There is no supported refresh path
+  — `Lane`'s own doc states that a second `AddDevice` for an
+  already-registered key replaces its `*deviceState` wholesale, orphaning
+  the queue and any in-flight drainer, and that onboarding must run
+  exactly once per device, never as a way to reset or reconfigure one
+  already added.
+- `evidence.Store.InvalidateFingerprint` has no production caller. Route
+  evidence recorded under the old firmware survives an epoch change
+  undisturbed, so this plan's requirement 7 ("invalidates every
+  route-evidence entry for the device... and forces `epoch.Probe` again")
+  is unmet as well as unwired.
+
+A real fix needs a fresh `epoch.Probe` run at observation time compared
 against the fingerprint the earlier probe returned — probe output against
-probe output — which needs a live transport this module's synchronous
-`Submit` path does not have. That re-probe is the central-service plan's
-job, alongside the recovery/drift auto-wiring the previous section
-describes.
+probe output, never probe output against a host-supplied provenance field
+— which needs a live transport this module's synchronous `Submit` path
+does not have, plus a decision on how a device's `CurrentFingerprint` gets
+refreshed once that probe detects a real change (and `InvalidateFingerprint`
+gets called) without requiring a disruptive re-`AddDevice`. That work is
+the central-service plan's job, alongside the recovery/drift auto-wiring
+the previous section describes.

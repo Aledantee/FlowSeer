@@ -28,11 +28,24 @@ execution: code
 > `ProvenanceInputs` supplied, unrelated to the probe). On the documented
 > production path the two differ by construction, so the check blocked
 > every mutation rather than detecting a real epoch change. This stays an
-> open gap: a real check needs a fresh `epoch.Probe` run at observation
-> time compared against the earlier probe's own output, which needs the
-> same live transport the recovery/drift auto-wiring above is waiting on.
+> open gap, and it is wider than one operation's window: `epoch.Probe`
+> runs exactly once, in `AddDevice`, and `CurrentFingerprint` is never
+> refreshed afterward, so the uncaught span is the device's entire
+> registered lifetime, not "between checkpoint and submission." Worse,
+> after a real firmware change the admission check becomes the mirror
+> image of the bug just removed — it rejects every subsequent mutation
+> for that device permanently, with no supported refresh path, since a
+> second `AddDevice` for an already-registered device replaces its state
+> wholesale rather than reconfiguring it. `evidence.Store.InvalidateFingerprint`
+> (requirement 7's "invalidates every route-evidence entry... and forces
+> epoch.Probe again") has no production caller either. A real check needs
+> a fresh `epoch.Probe` run at observation time compared against the
+> earlier probe's own output, which needs the same live transport the
+> recovery/drift auto-wiring above is waiting on, plus a decision on how
+> `CurrentFingerprint` gets refreshed without a disruptive re-`AddDevice`.
 > See the README's "Open gap: no mid-operation firmware-epoch re-check"
-> section; the central-service plan inherits both gaps together.
+> section; the central-service plan inherits all of this alongside the
+> recovery/drift gap.
 
 ## Goal
 

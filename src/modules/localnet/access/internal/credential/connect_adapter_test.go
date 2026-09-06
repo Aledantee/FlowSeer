@@ -183,13 +183,6 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 }
 
 // TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen proves
-// Close actually closes the stream even when called the instant Open
-// returns — Execute's deferred Close runs within microseconds whenever
-// Authority() is already REVOKED, and stream must be assigned before the
-// relay goroutine starts, not by the goroutine itself, or that window
-// finds a nil stream and closes nothing. ctx stays Background() so only
-// Close, never context cancellation, can be what stops the relay here.
-// TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen proves
 // Close actually tears down the stream rather than the relay merely
 // noticing the stream end on its own. The stub paces its remaining
 // messages 10ms apart, so completing all of them naturally takes about

@@ -2,10 +2,13 @@ package freeze_test
 
 import (
 	"context"
+	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/freeze"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 )
 
 func mustFreeze(t *testing.T, g *freeze.Gate) {
@@ -13,6 +16,43 @@ func mustFreeze(t *testing.T, g *freeze.Gate) {
 	if err := g.Freeze(context.Background()); err != nil {
 		t.Fatalf("Freeze() error: %v", err)
 	}
+}
+
+// eventCounter counts flowseer.device.lane.frozen and .released events,
+// safe for concurrent Freeze/Unfreeze calls from multiple goroutines.
+type eventCounter struct {
+	mu            sync.Mutex
+	frozenCount   int
+	releasedCount int
+}
+
+func (c *eventCounter) Enabled(context.Context, slog.Level) bool { return true }
+
+func (c *eventCounter) Handle(_ context.Context, r slog.Record) error {
+	r.Attrs(func(a slog.Attr) bool {
+		if a.Key != "otel.event.name" {
+			return true
+		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		switch a.Value.String() {
+		case "flowseer.device.lane.frozen":
+			c.frozenCount++
+		case "flowseer.device.lane.released":
+			c.releasedCount++
+		}
+		return false
+	})
+	return nil
+}
+
+func (c *eventCounter) WithAttrs([]slog.Attr) slog.Handler { return c }
+func (c *eventCounter) WithGroup(string) slog.Handler      { return c }
+
+func (c *eventCounter) counts() (frozen, released int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.frozenCount, c.releasedCount
 }
 
 func TestAwaitSideEffectReturnsImmediatelyWhenNeverFrozen(t *testing.T) {
@@ -254,5 +294,95 @@ func TestFreezeWaitsEveryCallEvenWhenAlreadyFrozen(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("a Freeze() call did not return after the in-flight side effect left")
 		}
+	}
+}
+
+// TestFreezeStillAnnouncesAfterAnEarlierAttemptsCtxExpired proves the
+// LaneFrozen event is not lost forever when the first Freeze call to
+// notice a drained gate never happens: an earlier call whose ctx expired
+// before the drain finished sets frozen but must not consume the
+// announcement, or every later Freeze call finding frozen already true
+// would skip emitting it, leaving Unfreeze's LaneReleased with no matching
+// LaneFrozen in the telemetry stream.
+func TestFreezeStillAnnouncesAfterAnEarlierAttemptsCtxExpired(t *testing.T) {
+	counter := &eventCounter{}
+	view, err := telemetry.NewView(telemetry.ViewConfig{Logger: slog.New(counter)})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	g := freeze.New(view)
+
+	leave, err := g.Enter(context.Background())
+	if err != nil {
+		t.Fatalf("Enter() error: %v", err)
+	}
+
+	// First attempt: ctx expires before the drain finishes.
+	shortCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := g.Freeze(shortCtx); err == nil {
+		t.Fatal("Freeze() error = nil, want the short ctx to expire first")
+	}
+	if frozen, _ := counter.counts(); frozen != 0 {
+		t.Fatalf("frozen event count = %d after the expired attempt, want 0", frozen)
+	}
+
+	// Second attempt, with time for the drain to finish: this is the call
+	// that must announce, since the first one gave up without seeing the
+	// drain complete.
+	longDone := make(chan error, 1)
+	go func() { longDone <- g.Freeze(context.Background()) }()
+
+	time.Sleep(50 * time.Millisecond)
+	leave()
+
+	select {
+	case err := <-longDone:
+		if err != nil {
+			t.Fatalf("Freeze() error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("second Freeze() did not return after the side effect left")
+	}
+
+	if frozen, _ := counter.counts(); frozen != 1 {
+		t.Errorf("frozen event count = %d after the drain completed, want exactly 1", frozen)
+	}
+
+	g.Unfreeze(context.Background())
+	if _, released := counter.counts(); released != 1 {
+		t.Errorf("released event count = %d after Unfreeze, want exactly 1 (matching the one frozen event)", released)
+	}
+}
+
+// TestUnfreezeEmitsNothingIfFreezeNeverAnnounced proves Unfreeze does not
+// emit LaneReleased when no Freeze call on this Gate ever finished its
+// drain — a release with no matching freeze would be as misleading in the
+// telemetry stream as the reverse.
+func TestUnfreezeEmitsNothingIfFreezeNeverAnnounced(t *testing.T) {
+	counter := &eventCounter{}
+	view, err := telemetry.NewView(telemetry.ViewConfig{Logger: slog.New(counter)})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	g := freeze.New(view)
+
+	leave, err := g.Enter(context.Background())
+	if err != nil {
+		t.Fatalf("Enter() error: %v", err)
+	}
+	defer leave()
+
+	shortCtx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	if err := g.Freeze(shortCtx); err == nil {
+		t.Fatal("Freeze() error = nil, want the short ctx to expire first")
+	}
+
+	g.Unfreeze(context.Background())
+
+	frozen, released := counter.counts()
+	if frozen != 0 || released != 0 {
+		t.Errorf("event counts = (frozen: %d, released: %d), want (0, 0) since Freeze never announced", frozen, released)
 	}
 }

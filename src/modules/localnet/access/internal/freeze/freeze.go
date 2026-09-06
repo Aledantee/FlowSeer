@@ -14,9 +14,10 @@ import (
 type Gate struct {
 	view *telemetry.View
 
-	mu       sync.Mutex
-	frozen   bool
-	released chan struct{}
+	mu        sync.Mutex
+	frozen    bool
+	announced bool
+	released  chan struct{}
 
 	// barrier is the counted barrier proving Freeze has actually stopped
 	// every in-flight side effect, not merely new ones: each entered side
@@ -112,17 +113,27 @@ func (g *Gate) Enter(ctx context.Context) (leave func(), err error) {
 // unresponsive device, so a canceled or expired ctx returns ctx.Err()
 // instead of blocking indefinitely — frozen stays set regardless, so new
 // side effects remain stopped even though this call gave up waiting for
-// the one already in flight. The wait itself runs unconditionally on
-// every call, concurrent or repeated: only the durable frozen flag and the
-// LaneFrozen telemetry event are idempotent, since a caller that gets
-// ctx.Err() from one Freeze call and immediately calls Freeze again with a
-// longer deadline must still be able to wait for the same drain, not have
-// a second call return early because some other call already flipped the
-// flag.
+// the one already in flight. Because of that, the drain wait itself runs
+// unconditionally on every call, concurrent or repeated, but the
+// LaneFrozen event is tracked separately from frozen (an announced flag,
+// not "the call that flipped frozen"): a Freeze whose ctx expired before
+// the drain finished must not lose the event forever just because every
+// later Freeze on this Gate now finds frozen already true — the first
+// call whose wait actually completes emits it, whichever call that is.
+//
+// One limitation Freeze does not resolve: if this call's ctx ends before
+// the drain finishes, its background goroutine stays queued for the write
+// lock. sync.RWMutex blocks new read-lock acquisitions once a writer is
+// waiting, so every [Gate.Enter] call parks uncancellably in that
+// goroutine's wait — even after a later [Gate.Unfreeze] — until the
+// original in-flight side effect's own leave() finally runs. This predates
+// Freeze's ctx support (the old Freeze queued the same writer from the
+// caller's own goroutine) and resolves itself as soon as that write ends;
+// it is called out here because it now persists silently past a Freeze
+// call that has already returned.
 func (g *Gate) Freeze(ctx context.Context) error {
 	g.mu.Lock()
-	alreadyFrozen := g.frozen
-	if !alreadyFrozen {
+	if !g.frozen {
 		g.frozen = true
 		g.released = make(chan struct{})
 	}
@@ -144,7 +155,11 @@ func (g *Gate) Freeze(ctx context.Context) error {
 
 	select {
 	case <-acquired:
-		if !alreadyFrozen {
+		g.mu.Lock()
+		shouldAnnounce := !g.announced
+		g.announced = true
+		g.mu.Unlock()
+		if shouldAnnounce {
 			g.view.LaneFrozen(ctx)
 		}
 		g.barrier.Unlock()
@@ -163,13 +178,19 @@ func (g *Gate) Freeze(ctx context.Context) error {
 }
 
 // Unfreeze allows side effects to proceed again. Idempotent: unfreezing an
-// already-unfrozen gate emits nothing further.
+// already-unfrozen gate emits nothing further. It also emits nothing if no
+// Freeze call on this Gate ever finished its drain and announced
+// LaneFrozen — every Freeze so far may have given up on its own ctx before
+// getting there — since a LaneReleased with no matching LaneFrozen in the
+// telemetry stream would be as misleading as the reverse.
 func (g *Gate) Unfreeze(ctx context.Context) {
 	g.mu.Lock()
 	wasFrozen := g.frozen
+	wasAnnounced := g.announced
 	var toClose chan struct{}
 	if wasFrozen {
 		g.frozen = false
+		g.announced = false
 		toClose = g.released
 		g.released = closedChan()
 	}
@@ -177,6 +198,8 @@ func (g *Gate) Unfreeze(ctx context.Context) {
 
 	if wasFrozen {
 		close(toClose)
+	}
+	if wasAnnounced {
 		g.view.LaneReleased(ctx)
 	}
 }

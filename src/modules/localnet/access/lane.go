@@ -52,17 +52,18 @@ type Config struct {
 	Audit                 audit.Deliverer
 	Telemetry             *telemetry.View
 	Clock                 func() time.Time
-	// OperationTimeout bounds a coalesced read's device call — the actual
-	// work its joiners depend on, detached from any single caller's own
-	// context so one caller's cancellation cannot fail every other item
-	// queued behind it. It does not bound a mutation's Execute/Observe,
-	// which runs under the submitting caller's own context. Without its
-	// own bound the detached read would run forever against a device that
-	// accepts a connection but never answers, parking the device's drain
-	// goroutine and the coalescing ticket permanently. Zero is silently
-	// raised to a default of 30s; a caller's own deadline is never
-	// lengthened past this bound but may still cut a read shorter than it
-	// (the effective bound is whichever is sooner).
+	// OperationTimeout is a FLOOR on a coalesced read's device call — the
+	// actual work its joiners depend on, detached from any single
+	// caller's own context so one caller's cancellation cannot fail every
+	// other item queued behind it. It does not bound a mutation's
+	// Execute/Observe, which runs under the submitting caller's own
+	// context. Without its own floor the detached read would run forever
+	// against a device that accepts a connection but never answers,
+	// parking the device's drain goroutine and the coalescing ticket
+	// permanently — but it is a floor, not a ceiling: a caller whose own
+	// deadline is longer than OperationTimeout keeps that longer
+	// deadline, since a joiner may depend on it, rather than being cut
+	// down to this default. Zero is silently raised to a default of 30s.
 	OperationTimeout time.Duration
 }
 
@@ -413,18 +414,21 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// ever gets a joiner, so with no bound of its own a device that
 	// accepts a connection but never answers would park this device's
 	// drain goroutine, and this coalescing key, forever — Config's
-	// OperationTimeout is that bound, but only a fallback: when this
-	// caller's own ctx already carries a deadline, the detached work keeps
-	// that deadline (its expiry, not its cancellation or Done channel)
-	// rather than being silently reduced to OperationTimeout — a caller
-	// with a legitimately longer budget for a slow read must not have it
-	// clipped to this module's own default. OperationTimeout applies only
-	// when ctx carries no deadline at all, which is the case the original
-	// bug needed bounded: an unbounded caller's read must still end
-	// somewhere.
+	// OperationTimeout is a FLOOR on the detached work's lifetime, not a
+	// ceiling: taking the caller's own deadline unconditionally would hand
+	// a short-deadline owner's timeout to a longer-deadline joiner as if
+	// it were the read's own outcome — exactly the bug this detachment
+	// exists to prevent, one call site removed. A caller with a longer
+	// deadline than OperationTimeout keeps it, since a joiner may be
+	// depending on that longer budget; a caller with none, or a shorter
+	// one, still gets at least OperationTimeout, since an unbounded or
+	// very short caller must not be the reason a joiner's own longer wait
+	// gets cut short either.
 	timeout := l.cfg.OperationTimeout
 	if deadline, ok := ctx.Deadline(); ok {
-		timeout = time.Until(deadline)
+		if until := time.Until(deadline); until > timeout {
+			timeout = until
+		}
 	}
 	workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	sub := &submission{ctx: workCtx, request: opts.Request, result: make(chan submissionOutcome, 1)}

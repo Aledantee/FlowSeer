@@ -50,7 +50,9 @@ func (v *View) DiscoveryCompleted(ctx context.Context, firmwareFingerprint strin
 
 // FirmwareEpochChanged emits flowseer.device.firmware.epoch_changed when a
 // device's firmware fingerprint differs from the one route evidence was
-// learned under.
+// learned under. No production code calls this today — see the access
+// module README's "Open gap: no mid-operation firmware-epoch re-check"
+// section.
 func (v *View) FirmwareEpochChanged(ctx context.Context) {
 	v.event(ctx, "flowseer.device.firmware.epoch_changed", "firmware epoch changed")
 }

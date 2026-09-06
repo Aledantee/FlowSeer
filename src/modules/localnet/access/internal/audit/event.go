@@ -173,7 +173,11 @@ func BuildDiscoveryCompleted(clock Clock, common Common, firmwareFingerprint str
 }
 
 // BuildFirmwareEpochChanged constructs the event for a device's firmware
-// fingerprint changing.
+// fingerprint changing. No production code calls this today: a real
+// mid-operation epoch check needs a fresh probe at observation time
+// compared against an earlier probe's own output, which this module does
+// not yet have — see the access module README's "Open gap: no
+// mid-operation firmware-epoch re-check" section.
 func BuildFirmwareEpochChanged(clock Clock, common Common, previous, next string) *eventv1.DeviceOperationEvent {
 	detail := &eventv1.FirmwareEpochChanged{}
 	detail.SetPreviousFingerprint(previous)
