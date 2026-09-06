@@ -70,6 +70,12 @@ type DeviceSession struct {
 }
 
 type submission struct {
+	// ctx is this submission's own caller's context, used to process this
+	// item regardless of which goroutine's Submit call becomes the
+	// device's active drainer. Using the drainer's own context instead
+	// would let one caller's cancellation spuriously fail every other
+	// item queued behind it on the same device.
+	ctx     context.Context
 	request *integrationv1.ExecuteRequest
 	result  chan submissionOutcome
 }
@@ -262,12 +268,12 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 		return l.submitAndCoalesce(ctx, ds, opts, key)
 	}
 
-	sub := &submission{request: opts.Request, result: make(chan submissionOutcome, 1)}
+	sub := &submission{ctx: ctx, request: opts.Request, result: make(chan submissionOutcome, 1)}
 	if _, err := ds.queue.Submit(opts.Priority, sub); err != nil {
 		return nil, err
 	}
 
-	l.drain(ctx, ds)
+	l.drain(ds)
 
 	select {
 	case outcome := <-sub.result:
@@ -281,13 +287,13 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 // key: it admits the item as usual, then delivers the result to every
 // coalesced waiter through the Coalescer ticket once processing completes.
 func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts SubmitOptions, key lane.CoalesceKey) (*integrationv1.ExecuteResult, error) {
-	sub := &submission{request: opts.Request, result: make(chan submissionOutcome, 1)}
+	sub := &submission{ctx: ctx, request: opts.Request, result: make(chan submissionOutcome, 1)}
 	if _, err := ds.queue.Submit(opts.Priority, sub); err != nil {
 		l.coalescer.Finish(key, nil, err)
 		return nil, err
 	}
 
-	l.drain(ctx, ds)
+	l.drain(ds)
 
 	select {
 	case outcome := <-sub.result:
@@ -304,7 +310,7 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 // until the queue empties. If another call is already draining, this call
 // returns immediately — the active drainer will reach the item this call
 // just admitted.
-func (l *Lane) drain(ctx context.Context, ds *deviceState) {
+func (l *Lane) drain(ds *deviceState) {
 	if !ds.draining.TryLock() {
 		return
 	}
@@ -316,7 +322,12 @@ func (l *Lane) drain(ctx context.Context, ds *deviceState) {
 			return
 		}
 		sub := item.Payload.(*submission)
-		result, err := l.process(ctx, ds, sub.request)
+		// Each item is processed under its own submitter's context, never
+		// the context of whichever goroutine happened to win the drain
+		// race: this device may drain several callers' items in one loop,
+		// and one caller's cancellation must never spuriously fail another
+		// caller's still-live item queued behind it.
+		result, err := l.process(sub.ctx, ds, sub.request)
 		sub.result <- submissionOutcome{result: result, err: err}
 	}
 }

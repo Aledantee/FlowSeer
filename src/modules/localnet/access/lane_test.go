@@ -371,6 +371,77 @@ func TestLaneClosedRejectsSubmission(t *testing.T) {
 	}
 }
 
+func readRequestFor(interfaceName string) *integrationv1.ExecuteRequest {
+	readIntent := &accessv1.InterfaceReadIntent{}
+	readIntent.SetInterfaceName(interfaceName)
+	typedRead := &accessv1.TypedRead{}
+	typedRead.SetInterface(readIntent)
+	req := &integrationv1.ExecuteRequest{}
+	req.SetRead(typedRead)
+	return req
+}
+
+// TestLaneOneCallersCancellationDoesNotPoisonAnother proves the drain loop
+// processes each queued item under its own submitter's context rather than
+// whichever caller happened to become the device's active drainer: A's
+// context is canceled while A is blocked as the active drainer, but B,
+// queued behind A on the same device with its own independent context,
+// still completes successfully.
+func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
+	l := newTestLane(t)
+
+	releaseA := make(chan struct{})
+	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		FingerprintOverride: "fw-A",
+		ReadOverride: func(ctx context.Context, name string) (*accessv1.InterfaceObservation, error) {
+			if name == "eth-A" {
+				<-releaseA
+				return nil, ctx.Err()
+			}
+			// A realistic caller would fail a request made with an
+			// already-canceled context; checking this here is what makes
+			// the test able to tell A's context from B's.
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			return completeObservation("uplink to core"), nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	ctxA, cancelA := context.WithCancel(context.Background())
+	doneA := make(chan struct{})
+	go func() {
+		defer close(doneA)
+		_, _ = l.Submit(ctxA, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-A"), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(50 * time.Millisecond) // let A become the active drainer and block in ReadOverride
+
+	var resultB *integrationv1.ExecuteResult
+	var errB error
+	doneB := make(chan struct{})
+	go func() {
+		defer close(doneB)
+		resultB, errB = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-B"), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(50 * time.Millisecond) // let B enqueue behind A
+
+	cancelA()
+	close(releaseA)
+
+	<-doneA
+	<-doneB
+
+	if errB != nil {
+		t.Fatalf("Submit() for B error = %v, want nil — B's own context was never canceled", errB)
+	}
+	if got := resultB.GetObservation().GetDescription(); got != "uplink to core" {
+		t.Errorf("B's observation description = %q, want %q", got, "uplink to core")
+	}
+}
+
 // fakeIdentitySession answers epoch.Probe's Get call and nothing else.
 type fakeIdentitySession struct {
 	onGet func()
