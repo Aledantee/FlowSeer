@@ -194,7 +194,7 @@ func dataPointAttributes(t *testing.T, m metricdata.Metrics) []attribute.Set {
 }
 
 // alwaysFailingSpanExporter proves an exporter failure never blocks or
-// fails the caller (requirement 17): ExportSpans always errors.
+// fails the caller: ExportSpans always errors.
 type alwaysFailingSpanExporter struct{}
 
 func (alwaysFailingSpanExporter) ExportSpans(context.Context, []sdktrace.ReadOnlySpan) error {

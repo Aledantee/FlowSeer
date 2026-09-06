@@ -7,7 +7,9 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 )
 
-// Gate is one device's control-plane freeze state. The zero value is not
+// Gate is the control-plane freeze state for every device one access.Lane
+// serves — a single Gate is shared across the whole Lane, not scoped to one
+// device, per decision 8's control-plane-wide freeze. The zero value is not
 // usable; construct with [New].
 type Gate struct {
 	view *telemetry.View
