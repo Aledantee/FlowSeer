@@ -715,6 +715,25 @@ their file comments name the absent triads.
 - This plan's `status` set with an outcome note under its title.
 - No requirement or unit labels in code, comments, or commit messages.
 
+## Follow-ups
+
+Carried out of U2 (edgebus), to log rather than lose:
+
+- A raw-frame security probe that constructs an actual JetStream
+  flow-control control message (inlined `NATS/1.0 100 ` status, empty body)
+  against the hub's WebSocket listener, to exercise the reflection path end
+  to end. It needs a hand-rolled WebSocket handshake and raw HPUB frame,
+  since the `nats.go` client cannot emit an inlined status; containment does
+  not rest on it (the account boundary and `TestAccountsCarryNoImportsOrExports`
+  do), so it is belt-and-braces, not a debt.
+- At `compound`, two edgebus learnings alongside the `ds.draining` release
+  rule: per-account JetStream `DiskStorage` reserves against the shared
+  `JetStreamMaxStore`, so budgets that sum to the store ceiling deny a later
+  account "jetstream not enabled" (a scaling failure a second edge surfaces);
+  and a hub that has forgotten its edge accounts cannot let a leaf
+  re-authenticate, so a restart must re-attach every persisted edge, which
+  only a restart test finds.
+
 ## Open questions
 
 None. The four questions of the first draft (leaf node, central-owned
