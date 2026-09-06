@@ -132,6 +132,26 @@ func TestVerifierAcceptsTheReadmeVector(t *testing.T) {
 	}
 }
 
+// TestVerifierAcceptsANonEmptyBody extends the happy path past the README
+// vector's empty body: the body-hash step must accept a correctly-hashed
+// non-empty body — the enveloped request message a stream open carries — not
+// only match sha256 of nothing.
+func TestVerifierAcceptsANonEmptyBody(t *testing.T) {
+	seed := make([]byte, ed25519.SeedSize)
+	private := ed25519.NewKeyFromSeed(seed)
+	public := private.Public().(ed25519.PublicKey)
+
+	body := []byte("a non-empty Connect-enveloped request body")
+	sum := sha256.Sum256(body)
+	assertion := testAssertion(func(a *edgev1.EdgeAssertion) { a.SetBodySha256(sum[:]) })
+	header := signHeader(t, private, assertion)
+	v := testVerifier(testIssuedAt.Add(3*time.Second), 5*time.Second, lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED))
+
+	if _, err := v.Verify(context.Background(), header, testProcedure, body); err != nil {
+		t.Fatalf("Verify with a non-empty body: %v", err)
+	}
+}
+
 func TestVerifierRejectsEachStep(t *testing.T) {
 	seed := make([]byte, ed25519.SeedSize)
 	private := ed25519.NewKeyFromSeed(seed)

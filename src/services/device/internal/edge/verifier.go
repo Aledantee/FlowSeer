@@ -70,7 +70,9 @@ func NewVerifier(audience string, clockSkew time.Duration, lookup KeyLookup) *Ve
 
 // Verify checks header against the invoked procedure's full Connect method
 // name (for example "/flowseer.api.edge.v1.EdgeService/Heartbeat") and the
-// uncompressed request bytes exactly as received, and returns the parsed
+// uncompressed HTTP request body bytes exactly as received — for a
+// server-stream open, the Connect-enveloped request message, the same bytes
+// the body-verifying middleware hashes off the wire — and returns the parsed
 // assertion once every step passes.
 func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []byte) (*edgev1.EdgeAssertion, error) {
 	raw, ok := strings.CutPrefix(header, HeaderScheme+" ")
