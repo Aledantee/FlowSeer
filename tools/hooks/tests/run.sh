@@ -524,6 +524,61 @@ selection_build_dirs=$(find "$selection_tmp" -maxdepth 1 -name 'flowseer-build.*
 [[ -z $selection_build_dirs ]]
 ok "verifier selection exits before recursively running hook tests"
 
+ledger_script=$repo_root/.claude/skills/verify-change/scripts/check-plan-status.py
+ledger_fixture=$fixture_parent/ledger-fixture
+mkdir -p "$ledger_fixture/docs/plans"
+git -C "$ledger_fixture" init -q
+printf '# ledger fixture plan\n' >"$ledger_fixture/docs/plans/example-plan.md"
+ledger=$ledger_fixture/.git/flowseer-plan-status.json
+
+check_ledger() {
+  (cd "$ledger_fixture" && python3 "$ledger_script" "$@" 2>&1)
+}
+
+write_ledger() {
+  cat >"$ledger" <<JSON
+{
+  "contract": "flowseer-plan-status/v1",
+  "plan": "docs/plans/example-plan.md",
+  "resume": ["U2"],
+  "units": [
+    {"id": "U1", "status": "passed", "commit": "abc1234",
+     "verified_at": "2026-09-06T12:00:00Z", "note": null},
+    {"id": "U2", "status": "$1", "commit": null, "verified_at": null, "note": null}
+  ]
+}
+JSON
+}
+
+[[ -z $(check_ledger) ]]
+[[ -z $(check_ledger "$ledger") ]]
+ok "plan status check passes when no ledger exists"
+
+write_ledger pending
+[[ -z $(check_ledger) ]]
+[[ -z $(check_ledger "$ledger") ]]
+ok "plan status check accepts a well-formed ledger"
+
+write_ledger done
+set +e
+ledger_output=$(check_ledger)
+ledger_rc=$?
+set -e
+[[ $ledger_rc -eq 1 ]]
+[[ $ledger_output == *'units[1].status must be one of pending, in_progress, passed, blocked'* ]]
+ok "plan status check names a status outside the allowed values"
+
+write_ledger pending
+sed -i.bak 's#docs/plans/example-plan.md#docs/plans/missing-plan.md#' "$ledger" && rm -f "$ledger.bak"
+set +e
+ledger_output=$(check_ledger)
+ledger_rc=$?
+set -e
+[[ $ledger_rc -eq 1 ]]
+[[ $ledger_output == *"plan 'docs/plans/missing-plan.md' does not exist"* ]]
+rm -f "$ledger"
+ok "plan status check rejects a ledger whose plan does not exist"
+
 otel_wrapper=$repo_root/tools/test/service-otel-integration.sh
 wrapper_tmp=$fixture_parent/wrapper-tmp
 wrapper_bin=$fixture_parent/wrapper-bin

@@ -55,6 +55,7 @@ done
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-plan-status.py"
 for index in "${!paths[@]}"; do
   paths[index]=${paths[index]#./}
 done
