@@ -197,6 +197,60 @@ func withAdmission(rec *storev1.DeviceLaneRecord) *storev1.DeviceLaneRecord {
 	return rec
 }
 
+// enumeratedStates is the roster of lane states the plan enumerates, by the
+// name each carries in laneStates. The cross-product invariant proves no state
+// strands and the behavior-coverage check proves every behavior is exhibited;
+// this list proves the readable table still documents each named situation, so
+// deleting a row whose behavior another row happens to share — which stays
+// green under both other checks — fails here as the documentation regression
+// it is. If the plan's enumeration and this list ever disagree, that is worth
+// failing on: update both together.
+var enumeratedStates = []string{
+	"no mutation, no reads",
+	"ADMITTED, dispatch unconfirmed",
+	"POSSIBLY_APPLIED, checkpoint unconfirmed",
+	"recovering owes nothing to the edge",
+	"VERIFIED awaiting RELEASED",
+	"REJECTED awaiting RELEASED",
+	"abandoned, ack owed",
+	"abandoned, ack confirmed, held",
+	"VERIFIED after Onboarded re-sends the terminal ack",
+	"REJECTED after Onboarded re-sends the terminal ack",
+	"recovering after Onboarded re-dispatches with resume",
+	"held reconciliation intent owes nothing",
+	"hold resolved, unconfirmed",
+	"abandon before dispatch: lane closed, hold resolved owed",
+	"restore owes hold and dispatch together",
+	"open read owes its dispatch",
+	"closed read owes nothing",
+	"expired read is swept, not owed",
+}
+
+// TestTableEnumeratesEveryNamedState holds the readable table and the plan's
+// enumeration in lockstep: the set of table row names must equal
+// enumeratedStates exactly, so a dropped row or an undocumented addition fails.
+func TestTableEnumeratesEveryNamedState(t *testing.T) {
+	want := map[string]bool{}
+	for _, name := range enumeratedStates {
+		want[name] = true
+	}
+	got := map[string]bool{}
+	for _, s := range laneStates() {
+		if got[s.name] {
+			t.Fatalf("duplicate table row %q", s.name)
+		}
+		got[s.name] = true
+		if !want[s.name] {
+			t.Errorf("table row %q is not in the plan's enumeration; add it to enumeratedStates and the plan", s.name)
+		}
+	}
+	for name := range want {
+		if !got[name] {
+			t.Errorf("plan enumerates %q but the table has no such row", name)
+		}
+	}
+}
+
 // TestOwedRowTable is the proof of the outbox decision: every enumerated
 // record state maps to exactly the rows it owes, Resume and Disposition
 // included.
