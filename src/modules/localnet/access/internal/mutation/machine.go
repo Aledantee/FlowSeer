@@ -111,14 +111,22 @@ func (m *Machine) common() audit.Common {
 }
 
 func (m *Machine) requirePhase(want accessv1.OperationPhase, method string) error {
-	if got := m.Phase(); got != want {
-		return errs.New().Code(ErrCodeOutOfOrder).
-			Attr("method", method).
-			Attr("phase", got.String()).
-			Attr("required_phase", want.String()).
-			Msgf("%s is only valid from %s", method, want)
+	return m.requireAnyPhase(method, want)
+}
+
+// requireAnyPhase rejects a call unless the mutation's current phase is one
+// of want.
+func (m *Machine) requireAnyPhase(method string, want ...accessv1.OperationPhase) error {
+	got := m.Phase()
+	for _, w := range want {
+		if got == w {
+			return nil
+		}
 	}
-	return nil
+	return errs.New().Code(ErrCodeOutOfOrder).
+		Attr("method", method).
+		Attr("phase", got.String()).
+		Msgf("%s is not valid from %s", method, got)
 }
 
 // transition delivers a PhaseTransitioned audit event for the move to to
@@ -258,25 +266,31 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 		return nil, err
 	}
 
-	obs, err := m.deps.Read(ctx)
-	if err != nil {
-		return nil, errs.Wrap(err, "observe")
+	obs, readErr := m.deps.Read(ctx)
+
+	// A recovery re-observation returns to RECOVERING rather than staying
+	// at OBSERVING, since OBSERVING is the transient sub-state of one
+	// observation attempt and RECOVERING is where a mutation rests between
+	// them — and it does so whether or not the read succeeded. A device
+	// that is still unreachable (the exact case recovery exists for) must
+	// leave the phase somewhere Observe can be called from again; leaving
+	// it stuck at OBSERVING on a read error would permanently wedge the
+	// mutation there, since OBSERVING is not itself a valid source phase
+	// for a later Observe call, and the horizon check that would abandon
+	// it never runs.
+	if phase == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
+		if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
+			return nil, err
+		}
+	}
+
+	if readErr != nil {
+		return nil, errs.Wrap(readErr, "observe")
 	}
 
 	m.mu.Lock()
 	m.lastObservation = obs
 	m.mu.Unlock()
-
-	// A recovery re-observation returns to RECOVERING rather than staying
-	// at OBSERVING, since OBSERVING is the transient sub-state of one
-	// observation attempt and RECOVERING is where a mutation rests between
-	// them; the ordinary path (from POSSIBLY_APPLIED or a read's ADMITTED)
-	// stays at OBSERVING for Compare to run next.
-	if phase == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
-		if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
-			return obs, err
-		}
-	}
 
 	return obs, nil
 }
@@ -291,6 +305,10 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 // DISPOSITION_UNSPECIFIED with a nil error: its own observation is the
 // result.
 func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObservation) (accessv1.Disposition, error) {
+	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, "Compare"); err != nil {
+		return accessv1.Disposition_DISPOSITION_UNSPECIFIED, err
+	}
+
 	m.mu.Lock()
 	obs := m.lastObservation
 	m.mu.Unlock()
@@ -328,6 +346,9 @@ func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObserva
 // walkthrough: "phase VERIFIED, with block_reason: UNACKNOWLEDGED until
 // central holds the result."
 func (m *Machine) MarkVerified(ctx context.Context) error {
+	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, "MarkVerified"); err != nil {
+		return err
+	}
 	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_VERIFIED); err != nil {
 		return err
 	}
@@ -343,6 +364,17 @@ func (m *Machine) MarkVerified(ctx context.Context) error {
 // BLOCK_REASON_INDETERMINATE: decision 5's ambiguity-stays-indeterminate
 // rule for a mutation whose effect could not yet be established.
 func (m *Machine) EnterRecovering(ctx context.Context) error {
+	// Valid from POSSIBLY_APPLIED (a submit or checkpoint step failed
+	// ambiguously before any observation), OBSERVING (the observation
+	// itself failed — the unreachable-device case recovery exists for),
+	// or RECOVERING (a caller may call this again; it is idempotent).
+	if err := m.requireAnyPhase("EnterRecovering",
+		accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED,
+		accessv1.OperationPhase_OPERATION_PHASE_OBSERVING,
+		accessv1.OperationPhase_OPERATION_PHASE_RECOVERING,
+	); err != nil {
+		return err
+	}
 	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
 		return err
 	}
@@ -362,6 +394,10 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 // resolved only by an explicit call outside this package (an operator
 // decision or a reconciliation intent), never by a retry.
 func (m *Machine) Abandon(ctx context.Context) error {
+	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_RECOVERING, "Abandon"); err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	from := m.phase
 	m.mu.Unlock()

@@ -537,6 +537,65 @@ func TestOutOfOrderTransitionIsRejected(t *testing.T) {
 	if err := m.Execute(context.Background()); err == nil {
 		t.Fatal("Execute() error = nil, want an out-of-order error")
 	}
+
+	// MarkVerified straight from ADMITTED must not resurrect the mutation
+	// into VERIFIED without any observation ever having been taken.
+	if err := m.MarkVerified(context.Background()); err == nil {
+		t.Fatal("MarkVerified() error = nil from ADMITTED, want an out-of-order error")
+	}
+
+	// Abandon is only valid from RECOVERING.
+	if err := m.Abandon(context.Background()); err == nil {
+		t.Fatal("Abandon() error = nil from ADMITTED, want an out-of-order error")
+	}
+}
+
+// TestAbandonAfterReleaseIsRejected proves a RELEASED (terminal) mutation
+// cannot be resurrected into ABANDONED.
+func TestAbandonAfterReleaseIsRejected(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	deps.Submit = func(_ context.Context, _ *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
+		return completeObservation("x"), nil
+	}
+
+	req := mutationRequest(9, "x")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	ctx := context.Background()
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(9)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+	if err := m.Execute(ctx); err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	if _, err := m.Observe(ctx); err != nil {
+		t.Fatalf("Observe() error: %v", err)
+	}
+	if _, err := m.Compare(ctx, nil); err != nil {
+		t.Fatalf("Compare() error: %v", err)
+	}
+	if err := m.MarkVerified(ctx); err != nil {
+		t.Fatalf("MarkVerified() error: %v", err)
+	}
+	termAck := &integrationv1.TerminalResultAck{}
+	termAck.SetSequence(9)
+	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+	if err := m.Acknowledge(ctx, termAck); err != nil {
+		t.Fatalf("Acknowledge() error: %v", err)
+	}
+
+	if err := m.Abandon(ctx); err == nil {
+		t.Fatal("Abandon() error = nil after RELEASED, want an out-of-order error")
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
+		t.Errorf("Phase() = %v, want RELEASED unchanged", got)
+	}
 }
 
 func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
