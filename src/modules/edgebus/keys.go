@@ -14,15 +14,21 @@ import (
 // operator and account keys.
 var ErrCodeKeys = errs.NewCode("edgebus/keys")
 
-// hubKeys are the three key pairs an operator-mode hub needs: the operator
-// that signs accounts, the system account the server runs its internals in,
-// and the one tenant account every edge and central itself connect to. They
-// are generated on first start into the state directory and read back
-// afterwards, so a restart keeps every credential it minted valid.
+// hubKeys are the key pairs an operator-mode hub needs. The two data
+// accounts are kept apart on purpose: an edge credential can make the
+// server reflect a publish into any stream in its own account (a
+// JetStream flow-control control message names its own reply subject, and
+// the server obeys it with an internal client subject to no permissions),
+// so the journal and the audit stream must live where no edge credential
+// reaches. The edge account holds the per-edge source streams and the
+// minted edge users; the central account holds the lane and edge buckets
+// and the audit stream. They are generated on first start and read back
+// afterwards, so a restart keeps every minted credential valid.
 type hubKeys struct {
 	operator nkeys.KeyPair
 	system   nkeys.KeyPair
-	tenant   nkeys.KeyPair
+	edge     nkeys.KeyPair
+	central  nkeys.KeyPair
 }
 
 func loadOrCreateKeys(dir string) (*hubKeys, error) {
@@ -38,11 +44,15 @@ func loadOrCreateKeys(dir string) (*hubKeys, error) {
 	if err != nil {
 		return nil, err
 	}
-	tenant, err := loadOrCreateKey(filepath.Join(keysDir, "tenant.nk"), nkeys.CreateAccount)
+	edge, err := loadOrCreateKey(filepath.Join(keysDir, "edge.nk"), nkeys.CreateAccount)
 	if err != nil {
 		return nil, err
 	}
-	return &hubKeys{operator: operator, system: system, tenant: tenant}, nil
+	central, err := loadOrCreateKey(filepath.Join(keysDir, "central.nk"), nkeys.CreateAccount)
+	if err != nil {
+		return nil, err
+	}
+	return &hubKeys{operator: operator, system: system, edge: edge, central: central}, nil
 }
 
 func loadOrCreateKey(path string, create func() (nkeys.KeyPair, error)) (nkeys.KeyPair, error) {
@@ -104,19 +114,20 @@ func (k *hubKeys) operatorJWT() (*jwt.OperatorClaims, error) {
 	return decoded, nil
 }
 
-// accountJWT signs one account's claims. JetStream is unlimited inside the
-// account; the hub's own store limit bounds it.
-func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, jetStream bool) (string, error) {
+// accountJWT signs one account's claims. diskBytes over zero gives the
+// account a JetStream disk budget, the per-account ceiling that keeps one
+// account's volume from starving the other; zero leaves JetStream off.
+func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, diskBytes int64) (string, error) {
 	pub, err := publicKey(account)
 	if err != nil {
 		return "", err
 	}
 	claims := jwt.NewAccountClaims(pub)
 	claims.Name = name
-	if jetStream {
+	if diskBytes > 0 {
 		claims.Limits.JetStreamLimits = jwt.JetStreamLimits{
 			MemoryStorage: jwt.NoLimit,
-			DiskStorage:   jwt.NoLimit,
+			DiskStorage:   diskBytes,
 			Streams:       jwt.NoLimit,
 			Consumer:      jwt.NoLimit,
 		}
@@ -128,9 +139,9 @@ func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, jetStream bool)
 	return encoded, nil
 }
 
-// EdgeCredentials is what AttachBus hands an edge: the tenant account's
-// JWT, the user JWT the leaf authenticates with, and the seed that signs
-// the server's nonce.
+// EdgeCredentials is what AttachBus hands an edge: the edge account's JWT,
+// the user JWT the leaf authenticates with, and the seed that signs the
+// server's nonce.
 type EdgeCredentials struct {
 	AccountJWT string
 	UserJWT    string
@@ -147,8 +158,10 @@ func (c EdgeCredentials) CredsFile() ([]byte, error) {
 	return creds, nil
 }
 
-// mintUser signs a user in the tenant account with the given permissions.
-func (k *hubKeys) mintUser(name string, permissions jwt.Permissions) (EdgeCredentials, error) {
+// mintUser signs a user in account with the given permissions and returns
+// it alongside that account's JWT. accountJWT is the encoded account the
+// user belongs to, so a caller need not re-encode it.
+func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permissions jwt.Permissions) (EdgeCredentials, error) {
 	user, err := nkeys.CreateUser()
 	if err != nil {
 		return EdgeCredentials{}, errs.From(err).Code(ErrCodeKeys).Msg("create user key")
@@ -164,30 +177,28 @@ func (k *hubKeys) mintUser(name string, permissions jwt.Permissions) (EdgeCreden
 	claims := jwt.NewUserClaims(userPub)
 	claims.Name = name
 	claims.Permissions = permissions
-	encoded, err := claims.Encode(k.tenant)
+	encoded, err := claims.Encode(account)
 	if err != nil {
 		return EdgeCredentials{}, errs.From(err).Code(ErrCodeKeys).Attr("user", name).Msg("encode user claims")
-	}
-	accountJWT, err := k.accountJWT(k.tenant, DefaultTenant, true)
-	if err != nil {
-		return EdgeCredentials{}, err
 	}
 	return EdgeCredentials{AccountJWT: accountJWT, UserJWT: encoded, Seed: string(seed)}, nil
 }
 
-// edgePermissions confines an edge's leaf to the traffic directions the
-// fabric needs. Publish: its own subtree, its own JetStream API and inbox
-// (so the hub can source its buffer), the hub's request inboxes, and the
-// $JSC.R reply subjects the hub's own source client attaches to its
-// consumer requests. Subscribe: that API and inbox, and the $JS.FC flow
-// control replies the hub sends the sourcing consumer. Nothing else the hub
-// publishes reaches the edge by this path.
-func edgePermissions(tenant, edgeID string) jwt.Permissions {
-	subtree := EdgeSubtree(tenant, edgeID) + ".>"
+// edgePermissions is the minimal set that lets the hub source an edge's
+// buffer and nothing more. Publish: the edge's own subtree, and the
+// $JSC.R reply subjects the hub's source client attaches to its consumer
+// request. Subscribe: the edge domain's JetStream API, so that request
+// reaches the edge, and the $JS.FC flow-control replies the sourcing
+// consumer sends. The edge is not granted publish on its own JetStream
+// API (nothing crosses the link needs it, and it is what would let a
+// caller read the source consumer's delivery subject) nor any _INBOX
+// subject (the stock random inbox prefix matches none of these and an
+// account-wide _INBOX grant would reach central's own request replies).
+func edgePermissions(edgeID string) jwt.Permissions {
+	subtree := EdgeSubtree(DefaultTenant, edgeID) + ".>"
 	api := "$JS." + EdgeDomain(edgeID) + ".API.>"
-	inbox := "_INBOX." + edgeID + ".>"
 	return jwt.Permissions{
-		Pub: jwt.Permission{Allow: jwt.StringList{subtree, api, inbox, "_INBOX.>", "$JSC.R.>"}},
-		Sub: jwt.Permission{Allow: jwt.StringList{api, inbox, "$JS.FC.>"}},
+		Pub: jwt.Permission{Allow: jwt.StringList{subtree, "$JSC.R.>"}},
+		Sub: jwt.Permission{Allow: jwt.StringList{api, "$JS.FC.>"}},
 	}
 }

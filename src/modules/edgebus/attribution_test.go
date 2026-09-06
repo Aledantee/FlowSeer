@@ -58,7 +58,7 @@ func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 	}
 	f := &Forwarder{
 		cfg:        ForwarderConfig{Endpoint: collector.URL, Client: collector.Client(), RetryDelay: time.Millisecond},
-		hub:        &Hub{tenant: DefaultTenant},
+		hub:        &Hub{},
 		logger:     slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})),
 		refused:    refused,
 		lastLogged: map[string]time.Time{},

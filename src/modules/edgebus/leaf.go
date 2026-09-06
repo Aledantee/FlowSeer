@@ -3,6 +3,7 @@ package edgebus
 import (
 	"context"
 	"crypto/tls"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -47,6 +48,10 @@ type LeafConfig struct {
 	BufferMaxAge   time.Duration
 	// StartupTimeout bounds server readiness. Zero means ten seconds.
 	StartupTimeout time.Duration
+	// Logger receives the embedded server's own warnings and errors, so a
+	// line like the local buffer filling reaches an operator. Nil discards
+	// them.
+	Logger *slog.Logger
 }
 
 // Leaf is the running leaf node and the edge's own connection to it.
@@ -127,7 +132,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("construct leaf server")
 	}
-	logger := newQuietLogger()
+	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
 	leaf := &Leaf{cfg: cfg, tenant: tenant, server: srv, log: logger}
@@ -212,6 +217,36 @@ func (l *Leaf) JetStream() jetstream.JetStream { return l.js }
 
 // HubConnected reports whether the leaf link to the hub is up right now.
 func (l *Leaf) HubConnected() bool { return l.server.NumLeafNodes() > 0 }
+
+// BufferState is what an agent surfaces as "buffering since ...": how much
+// the local buffer holds and how old its oldest unshipped record is. A
+// growing depth or age means the hub is not draining the buffer, whether
+// the link is down or the forwarder is behind.
+type BufferState struct {
+	// Records and Bytes are what the buffer currently holds.
+	Records uint64
+	Bytes   uint64
+	// Oldest is the age of the oldest record, or zero when the buffer is
+	// empty.
+	Oldest time.Duration
+}
+
+// BufferState reads the local buffer's depth and oldest-record age.
+func (l *Leaf) BufferState(ctx context.Context) (BufferState, error) {
+	stream, err := l.js.Stream(ctx, EdgeBufferStream)
+	if err != nil {
+		return BufferState{}, errs.From(err).Code(ErrCodeLeaf).Msg("look up the edge buffer")
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		return BufferState{}, errs.From(err).Code(ErrCodeLeaf).Msg("read the edge buffer state")
+	}
+	state := BufferState{Records: info.State.Msgs, Bytes: info.State.Bytes}
+	if info.State.Msgs > 0 {
+		state.Oldest = time.Since(info.State.FirstTime)
+	}
+	return state, nil
+}
 
 // Close closes the connection and stops the server, waiting for its
 // shutdown.

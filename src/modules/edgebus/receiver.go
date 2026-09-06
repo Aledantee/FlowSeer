@@ -28,6 +28,14 @@ const (
 // collision cannot stop the agent, and publishes every export body as
 // received into the leaf's buffer; the runtime keeps its batching and
 // retry, and central's forwarder posts the same bytes on.
+//
+// The runtime must export OTLP/HTTP with protobuf and no compression: the
+// receiver stores and forwards the bytes unchanged, so it accepts only
+// what it can pass on verbatim, and answers 415 to a compressed or
+// non-protobuf body. An agent host therefore pins Protocol http/protobuf
+// and leaves compression off rather than letting OTEL_EXPORTER_OTLP_*
+// environment variables choose gzip or grpc, which would make every export
+// fail against this receiver.
 type Receiver struct {
 	leaf     *Leaf
 	server   *http.Server

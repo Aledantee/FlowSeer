@@ -19,14 +19,19 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
+// ErrCodeForwarder identifies a failure starting the forwarder.
+var ErrCodeForwarder = errs.NewCode("edgebus/forwarder")
+
 // scopeName is this module's instrumentation scope.
 const scopeName = "go.aledante.io/FlowSeer/src/modules/edgebus"
 
 // refusal reasons, the closed set the refused-records counter is labeled
 // with.
 const (
-	reasonForeignSubject = "foreign_subject"
-	reasonNotOTel        = "not_otel"
+	reasonForeignSubject   = "foreign_subject"
+	reasonNotOTel          = "not_otel"
+	reasonCollectorReject  = "collector_rejected"
+	reasonDeliveryExceeded = "max_deliver_exceeded"
 )
 
 // refusedLogInterval rate-limits the refusal warning per edge stream: a
@@ -34,11 +39,13 @@ const (
 // log flood, while the counter keeps the full count.
 const refusedLogInterval = 10 * time.Second
 
-// ErrCodeForwarder identifies a failure starting the forwarder.
-var ErrCodeForwarder = errs.NewCode("edgebus/forwarder")
+// forwarderMaxDeliver bounds redelivery of a body the collector keeps
+// rejecting, so one malformed payload cannot be retried for the life of the
+// stream.
+const forwarderMaxDeliver = 8
 
-// ForwarderConfig declares where central ships the OpenTelemetry bodies
-// its edges publish. Construct with keyed fields.
+// ForwarderConfig declares where central ships the OpenTelemetry bodies its
+// edges publish. Construct with keyed fields.
 type ForwarderConfig struct {
 	// Endpoint is the collector's base URL; the signal paths are appended.
 	Endpoint string
@@ -48,32 +55,30 @@ type ForwarderConfig struct {
 	// Client sends the requests. Nil uses a client with a thirty-second
 	// timeout.
 	Client *http.Client
-	// RetryDelay is how long a failed body waits before the stream
+	// RetryDelay is how long a retryable failure waits before the stream
 	// redelivers it. Zero means five seconds.
 	RetryDelay time.Duration
 	// DiscoveryInterval is how often the forwarder looks for edges attached
 	// since it started. Zero means ten seconds.
 	DiscoveryInterval time.Duration
-	// Logger receives the refusal warning. Nil discards it; a host passes
-	// its runtime logger.
+	// Logger receives the refusal warnings. Nil discards them.
 	Logger *slog.Logger
 	// MeterProvider backs the refused-records counter. Nil records nothing.
 	MeterProvider metric.MeterProvider
 }
 
 // Forwarder follows every edge's hub stream and posts each OTLP body on,
-// unchanged, acknowledging only after the collector accepted it. The edge
-// a record belongs to is the stream it sits in, never the subject it
-// carries: a record whose subject lies outside that edge's subtree is
-// dropped, so no permission change can let one edge speak as another.
+// unchanged, acknowledging only after the collector accepted it. The edge a
+// record belongs to is the stream it sits in, never the subject it carries:
+// a record whose subject lies outside that edge's subtree is dropped, so no
+// permission change can let one edge speak as another.
 type Forwarder struct {
-	cfg    ForwarderConfig
-	hub    *Hub
-	cancel context.CancelFunc
-	done   chan struct{}
-
+	cfg     ForwarderConfig
+	hub     *Hub
 	logger  *slog.Logger
 	refused metric.Int64Counter
+	cancel  context.CancelFunc
+	done    chan struct{}
 
 	mu         sync.Mutex
 	consumers  map[string]jetstream.ConsumeContext
@@ -114,8 +119,8 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	}
 	runCtx, cancel := context.WithCancel(context.Background())
 	f := &Forwarder{
-		cfg: cfg, hub: hub, cancel: cancel, done: make(chan struct{}),
-		logger: logger, refused: refused,
+		cfg: cfg, hub: hub, logger: logger, refused: refused,
+		cancel: cancel, done: make(chan struct{}),
 		consumers: map[string]jetstream.ConsumeContext{}, lastLogged: map[string]time.Time{},
 	}
 	if err := f.discover(ctx); err != nil {
@@ -144,7 +149,7 @@ func (f *Forwarder) follow(ctx context.Context) {
 
 // discover attaches a durable consumer to every edge stream that has none.
 func (f *Forwarder) discover(ctx context.Context) error {
-	names := f.hub.JetStream().StreamNames(ctx)
+	names := f.hub.EdgeJetStream().StreamNames(ctx)
 	for name := range names.Name() {
 		edgeID, ok := edgeOfHubStream(name)
 		if !ok {
@@ -161,13 +166,13 @@ func (f *Forwarder) discover(ctx context.Context) error {
 		}
 	}
 	if err := names.Err(); err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Msg("list hub streams")
+		return errs.From(err).Code(ErrCodeForwarder).Msg("list edge streams")
 	}
 	return nil
 }
 
 func (f *Forwarder) attach(ctx context.Context, name, edgeID string) error {
-	stream, err := f.hub.JetStream().Stream(ctx, name)
+	stream, err := f.hub.EdgeJetStream().Stream(ctx, name)
 	if err != nil {
 		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("look up edge stream")
 	}
@@ -176,6 +181,7 @@ func (f *Forwarder) attach(ctx context.Context, name, edgeID string) error {
 		FilterSubject: "flowseer.*.edge.*.otel.>",
 		AckPolicy:     jetstream.AckExplicitPolicy,
 		AckWait:       f.cfg.Client.Timeout + 10*time.Second,
+		MaxDeliver:    forwarderMaxDeliver,
 	})
 	if err != nil {
 		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("create forwarder consumer")
@@ -204,7 +210,7 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(f.cfg.Endpoint, "/")+"/v1/"+string(signal), bytes.NewReader(msg.Data()))
 	if err != nil {
-		_ = msg.Term()
+		f.refuse(ctx, edgeID, msg, reasonCollectorReject, string(signal))
 		return
 	}
 	req.Header.Set("Content-Type", otlpContentType)
@@ -213,13 +219,32 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	}
 	resp, err := f.cfg.Client.Do(req)
 	if err != nil {
-		_ = msg.NakWithDelay(f.cfg.RetryDelay)
+		f.retry(msg, edgeID)
 		return
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		_ = msg.Ack()
+	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests:
+		f.retry(msg, edgeID)
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		// A permanent rejection: a malformed or oversized payload, including
+		// one an injection produced. Dropping it, not retrying it forever.
+		f.refuse(ctx, edgeID, msg, reasonCollectorReject, string(signal))
+	default:
+		f.retry(msg, edgeID)
+	}
+}
+
+// retry redelivers a body after the configured delay, or drops it once the
+// delivery count crosses the backstop so a persistently failing collector
+// cannot wedge the stream.
+func (f *Forwarder) retry(msg jetstream.Msg, edgeID string) {
+	if meta, err := msg.Metadata(); err == nil && meta.NumDelivered >= forwarderMaxDeliver {
+		f.record(edgeID, msg.Subject(), reasonDeliveryExceeded)
+		_ = msg.Term()
 		return
 	}
 	_ = msg.NakWithDelay(f.cfg.RetryDelay)
@@ -238,6 +263,20 @@ func (f *Forwarder) refuse(ctx context.Context, edgeID string, msg jetstream.Msg
 		attribute.String("flowseer.edgebus.reason", reason),
 		attribute.String("flowseer.device.signal", signal),
 	))
+	f.logRefusal(edgeID, msg.Subject(), reason)
+}
+
+// record counts a refusal without a live context, for the redelivery
+// backstop.
+func (f *Forwarder) record(edgeID, subject, reason string) {
+	f.refused.Add(context.Background(), 1, metric.WithAttributes(
+		attribute.String("flowseer.edgebus.reason", reason),
+		attribute.String("flowseer.device.signal", ""),
+	))
+	f.logRefusal(edgeID, subject, reason)
+}
+
+func (f *Forwarder) logRefusal(edgeID, subject, reason string) {
 	f.mu.Lock()
 	f.dropped++
 	now := time.Now()
@@ -249,12 +288,12 @@ func (f *Forwarder) refuse(ctx context.Context, edgeID string, msg jetstream.Msg
 	if !logIt {
 		return
 	}
-	f.logger.WarnContext(ctx, "record refused",
+	f.logger.Warn("record refused",
 		slog.String("otel.event.name", "flowseer.edgebus.record.refused"),
 		slog.String("flowseer.edgebus.reason", reason),
 		slog.String("flowseer.edge.id", edgeID),
-		slog.String("flowseer.edgebus.claimed_edge_id", claimedEdge(msg.Subject())),
-		slog.String("flowseer.edgebus.subject", msg.Subject()),
+		slog.String("flowseer.edgebus.claimed_edge_id", claimedEdge(subject)),
+		slog.String("flowseer.edgebus.subject", subject),
 	)
 }
 
@@ -268,22 +307,25 @@ func claimedEdge(subject string) string {
 	return parts[3]
 }
 
-// Dropped counts records refused for carrying a subject outside their
-// stream's edge, or no OTLP signal at all.
+// Dropped counts records refused: a foreign subject, no OTLP signal, a
+// collector rejection, or a body past the delivery backstop.
 func (f *Forwarder) Dropped() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.dropped
 }
 
-// Close stops discovery and every consumer; a body in flight finishes.
+// Close stops discovery and drains every consumer, waiting for each to
+// finish, so no consume goroutine outlives the call.
 func (f *Forwarder) Close() {
 	f.cancel()
 	<-f.done
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	for name, consume := range f.consumers {
+	consumers := f.consumers
+	f.consumers = map[string]jetstream.ConsumeContext{}
+	f.mu.Unlock()
+	for _, consume := range consumers {
 		consume.Drain()
-		delete(f.consumers, name)
+		<-consume.Closed()
 	}
 }
