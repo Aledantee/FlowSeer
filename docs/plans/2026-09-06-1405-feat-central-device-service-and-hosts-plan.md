@@ -213,8 +213,12 @@ Design decisions:
   terminal disposition on a mutation whose `dispatched` bit is set owes
   `TerminalResultAck` until the edge reports `RELEASED` or `ABANDONED`,
   or refuses because it holds no machine or the machine is already
-  terminal; either closes the record like a `RELEASED` report, advancing
-  the watermark and clearing the `MutationState`. A `Refused` answering a
+  terminal. For a released disposition any of those closes the record,
+  advancing the watermark and clearing the `MutationState`; for an
+  abandonment they confirm the ack (the last reported phase becomes
+  `ABANDONED`) and the mutation stays in the record with `RECOVERY_HOLD`
+  until `ResolveDesynchronization` clears it, since the operator resolves
+  by that sequence. A `Refused` answering a
   `TerminalResultAck` never re-disposes the mutation, whatever its code.
   A disposal that owes no `TerminalResultAck` (`dispatched` unset: a held
   intent, a terminal refusal before admission, `AbandonMutation` on an
@@ -224,7 +228,11 @@ Design decisions:
   `open_reads` entry owes its `ExecuteRequest` until the read's result or
   error report closes it; a row past its deadline is closed with a
   deadline error in the same CAS write. A `TerminalResultAck` is never
-  owed for a held or never-dispatched intent. `Onboarded` clears the
+  owed for a held or never-dispatched intent. `Refused` names the dispatch
+  kind beside the sequence and the code, because two rows for one
+  sequence can be owed at once and a sequence alone would not say which
+  row the refusal answers; the kind is what makes a row-level negative
+  confirmation expressible. `Onboarded` clears the
   dispatch, checkpoint, and hold confirmations for the device and nothing
   else, so the rows above re-derive the resume dispatch and the terminal
   ack from the record alone; an edge restarted while parked before its
@@ -370,7 +378,8 @@ Design decisions:
   must survive a restart.
 - **Storage messages live in `flowseer.store.device.v1`, a new `store`
   root in the layering table that imports `api/inventory`, `api/edge`,
-  `device/access`, `device/policy`, and `device/credential`; the
+  `device/access`, `device/policy`, `device/credential`, and `errs` (a
+  read that closes with a failure carries its `ErrorPayload`); the
   `importOrder` keys are `store/device` and `device/credential` (the
   table strips at the version segment), `device/credential` imports
   nothing, and `api/edge` gains it; decision 12 of the verified-access
@@ -435,8 +444,9 @@ Design decisions:
    `out-of-order`) disposes `REJECTED` and moves to `ACKNOWLEDGED`; an
    error report with `submitted` true at any phase is applied like a
    `RECOVERING` report (`INDETERMINATE`, phase left at `POSSIBLY_APPLIED`),
-   never `REJECTED`; `RELEASED` and
-   `ABANDONED` confirm the ack and close the record; `Refused` per the
+   never `REJECTED`; `RELEASED` confirms the ack and closes the record,
+   `ABANDONED` confirms it and leaves the held mutation for resolution;
+   `Refused` per the
    outbox decision, a refused `TerminalResultAck` closing the record the
    way `RELEASED` does and never re-disposing; a disposal with
    `dispatched` unset walking to `RELEASED` in the same write; a stale or
