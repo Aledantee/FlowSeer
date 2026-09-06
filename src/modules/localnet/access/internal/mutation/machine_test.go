@@ -6,13 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/freeze"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/mutation"
@@ -158,7 +161,7 @@ func TestFullHappyPathPhaseByPhase(t *testing.T) {
 	}
 
 	req := mutationRequest(42, "uplink to core")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -256,7 +259,7 @@ func TestReadArmStopsAtObserving(t *testing.T) {
 	}
 
 	req := readRequest(7)
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -272,7 +275,7 @@ func TestReadArmStopsAtObserving(t *testing.T) {
 		t.Fatalf("Phase() = %v, want OBSERVING", got)
 	}
 
-	result := m.Result()
+	result := m.Result(nil)
 	if result.GetPhaseReached() != accessv1.OperationPhase_OPERATION_PHASE_OBSERVING {
 		t.Errorf("Result().PhaseReached = %v, want OBSERVING", result.GetPhaseReached())
 	}
@@ -291,7 +294,7 @@ func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -332,7 +335,7 @@ func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testi
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -372,7 +375,7 @@ func TestExpiredGrantDeadlineBlocksSubmission(t *testing.T) {
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -403,7 +406,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 			return nil
 		}
 		req := mutationRequest(2, "x")
-		m, err := mutation.Admitted(context.Background(), req, deps)
+		m, err := mutation.Admitted(req, deps)
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
@@ -434,7 +437,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 			return completeObservation("x"), nil
 		}
 		req := mutationRequest(3, "x")
-		m, err := mutation.Admitted(context.Background(), req, deps)
+		m, err := mutation.Admitted(req, deps)
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
@@ -468,7 +471,7 @@ func TestConflictingReadsBlockInsteadOfVerifying(t *testing.T) {
 	}
 
 	req := mutationRequest(9, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -507,7 +510,7 @@ func TestPinnedRouteFailurePropagatesWithoutFallback(t *testing.T) {
 
 	req := readRequest(11)
 	deps.CurrentFingerprint = ""
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -528,7 +531,7 @@ func TestOutOfOrderTransitionIsRejected(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
 	req := mutationRequest(5, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -561,7 +564,7 @@ func TestAbandonAfterReleaseIsRejected(t *testing.T) {
 	}
 
 	req := mutationRequest(9, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -608,7 +611,7 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 	}
 
 	req := mutationRequest(6, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -660,7 +663,7 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 	}
 
 	req := mutationRequest(8, "x")
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -696,30 +699,267 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 	}
 }
 
-func TestAdmittedOnFirmwareEpochMismatchDeliversAuditEvent(t *testing.T) {
+// TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent proves the
+// admission-time check does NOT emit FirmwareEpochChanged: that comparison
+// is against central's own (possibly stale) expectation, not evidence that
+// the device's firmware actually changed, so recording it would durably log
+// once per rejected intent rather than once per real change. See
+// [Machine.Observe]'s mid-operation comparison for the one true emission
+// site, covered by TestObserveDetectsFirmwareEpochChangeMidOperation.
+func TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
 
 	req := mutationRequest(9, "x")
 	req.GetMutation().SetExpectedFirmwareFingerprint("stale-fingerprint")
 
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err == nil {
 		t.Fatal("Admitted() error = nil, want a firmware epoch mismatch error")
 	}
 	if m != nil {
 		t.Fatal("Admitted() returned a non-nil Machine alongside its error")
 	}
+	if code, _ := errs.CodeOf(err); code != mutation.ErrCodeFirmwareEpoch {
+		t.Fatalf("Admitted() error code = %v, want %v", code, mutation.ErrCodeFirmwareEpoch)
+	}
 
-	if len(deliverer.events) != 1 {
-		t.Fatalf("expected exactly one audit event, got %d", len(deliverer.events))
+	if len(deliverer.events) != 0 {
+		t.Fatalf("expected no audit event from the admission-time check, got %d", len(deliverer.events))
 	}
-	changed := deliverer.events[0].GetFirmwareEpochChanged()
-	if changed == nil {
-		t.Fatal("expected the delivered event to carry FirmwareEpochChanged")
+}
+
+// driveToVerified admits and drives req through Checkpoint, Execute,
+// Observe, Compare, and MarkVerified, leaving the Machine at VERIFIED — the
+// shared setup for the tests below that check Disposition/BlockReason/
+// BlockedSince at and after that phase.
+func driveToVerified(t *testing.T, req *integrationv1.ExecuteRequest, deps mutation.Deps) *mutation.Machine {
+	t.Helper()
+	deps.Submit = func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
+		return completeObservation("uplink to core"), nil
 	}
-	if changed.GetPreviousFingerprint() != "stale-fingerprint" || changed.GetNewFingerprint() != "fw-A" {
-		t.Fatalf("FirmwareEpochChanged = {previous: %q, new: %q}, want {previous: \"stale-fingerprint\", new: \"fw-A\"}",
-			changed.GetPreviousFingerprint(), changed.GetNewFingerprint())
+
+	ctx := context.Background()
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(req.GetSequence())
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+	if err := m.Execute(ctx); err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	if _, err := m.Observe(ctx); err != nil {
+		t.Fatalf("Observe() error: %v", err)
+	}
+	if _, err := m.Compare(ctx, nil); err != nil {
+		t.Fatalf("Compare() error: %v", err)
+	}
+	if err := m.MarkVerified(ctx); err != nil {
+		t.Fatalf("MarkVerified() error: %v", err)
+	}
+	return m
+}
+
+func TestVerifiedPhaseCarriesNoDispositionYet(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	m := driveToVerified(t, mutationRequest(20, "uplink to core"), deps)
+
+	// MutationState.disposition_matches_phase requires disposition set
+	// exactly at ACKNOWLEDGED, RELEASED, or ABANDONED; VERIFIED is none of
+	// those, so Disposition() must still report the zero value here even
+	// though the mutation's own outcome is already known to be VERIFIED.
+	if got := m.Disposition(); got != accessv1.Disposition_DISPOSITION_UNSPECIFIED {
+		t.Errorf("Disposition() at VERIFIED = %v, want DISPOSITION_UNSPECIFIED", got)
+	}
+	if got := m.BlockReason(); got != accessv1.BlockReason_BLOCK_REASON_UNACKNOWLEDGED {
+		t.Errorf("BlockReason() at VERIFIED = %v, want BLOCK_REASON_UNACKNOWLEDGED", got)
+	}
+	since, ok := m.BlockedSince()
+	if !ok {
+		t.Fatal("BlockedSince() ok = false while a block reason is set")
+	}
+	if since.IsZero() {
+		t.Error("BlockedSince() returned the zero time while blocked")
+	}
+}
+
+func TestAcknowledgeSetsDispositionAndReleaseClearsTheBlock(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	m := driveToVerified(t, mutationRequest(21, "uplink to core"), deps)
+
+	termAck := &integrationv1.TerminalResultAck{}
+	termAck.SetSequence(21)
+	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+	if err := m.Acknowledge(context.Background(), termAck); err != nil {
+		t.Fatalf("Acknowledge() error: %v", err)
+	}
+
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
+		t.Fatalf("Phase() = %v, want RELEASED", got)
+	}
+	if got := m.Disposition(); got != accessv1.Disposition_DISPOSITION_VERIFIED {
+		t.Errorf("Disposition() after Acknowledge = %v, want VERIFIED", got)
+	}
+	if got := m.BlockReason(); got != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED {
+		t.Errorf("BlockReason() after release = %v, want BLOCK_REASON_UNSPECIFIED", got)
+	}
+	if since, ok := m.BlockedSince(); ok || !since.IsZero() {
+		t.Errorf("BlockedSince() after release = (%v, %v), want (zero, false)", since, ok)
+	}
+}
+
+func TestAcknowledgeRejectsUnspecifiedDisposition(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	m := driveToVerified(t, mutationRequest(22, "uplink to core"), deps)
+
+	termAck := &integrationv1.TerminalResultAck{}
+	termAck.SetSequence(22)
+	// Disposition left at its zero value, DISPOSITION_UNSPECIFIED.
+	if err := m.Acknowledge(context.Background(), termAck); err == nil {
+		t.Fatal("Acknowledge() error = nil, want an error for an unspecified disposition")
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
+		t.Fatalf("Phase() after a rejected Acknowledge = %v, want VERIFIED (unchanged)", got)
+	}
+}
+
+func TestResultSetsErrorArmWhenGivenAnError(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	m, err := mutation.Admitted(readRequest(1), deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+
+	result := m.Result(errors.New("device unreachable"))
+	if result.GetError() == nil {
+		t.Fatal("expected the error arm to be set")
+	}
+	if result.GetObservation() != nil {
+		t.Error("expected the observation arm to be unset alongside the error arm")
+	}
+}
+
+func TestResultFallsBackToErrorArmWhenNoObservationRecorded(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	m, err := mutation.Admitted(readRequest(1), deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+
+	// Result called with a nil error before Observe ever ran: the required
+	// oneof must still end up with exactly one arm set, never neither.
+	result := m.Result(nil)
+	if result.GetObservation() != nil {
+		t.Fatal("expected no observation to have been recorded yet")
+	}
+	if result.GetError() == nil {
+		t.Fatal("expected Result() to fall back to the error arm rather than leave the oneof unset")
+	}
+}
+
+func TestObserveDetectsFirmwareEpochChangeMidOperation(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	deps.Submit = func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
+		obs := completeObservation("uplink to core")
+		prov := &inventoryv1.Provenance{}
+		prov.SetFirmwareFingerprint("fw-B") // deps.CurrentFingerprint is "fw-A"
+		obs.SetProvenance(prov)
+		return obs, nil
+	}
+
+	ctx := context.Background()
+	req := mutationRequest(30, "uplink to core")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(30)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+	if err := m.Execute(ctx); err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+
+	if _, err := m.Observe(ctx); err == nil {
+		t.Fatal("Observe() error = nil, want a firmware epoch change error")
+	} else if code, _ := errs.CodeOf(err); code != mutation.ErrCodeFirmwareEpoch {
+		t.Fatalf("Observe() error code = %v, want %v", code, mutation.ErrCodeFirmwareEpoch)
+	}
+
+	if got := m.BlockReason(); got != accessv1.BlockReason_BLOCK_REASON_FIRMWARE_EPOCH_CHANGED {
+		t.Errorf("BlockReason() = %v, want BLOCK_REASON_FIRMWARE_EPOCH_CHANGED", got)
+	}
+
+	found := false
+	for _, event := range deliverer.events {
+		if changed := event.GetFirmwareEpochChanged(); changed != nil {
+			found = true
+			if changed.GetPreviousFingerprint() != "fw-A" || changed.GetNewFingerprint() != "fw-B" {
+				t.Errorf("FirmwareEpochChanged = {previous: %q, new: %q}, want {previous: \"fw-A\", new: \"fw-B\"}",
+					changed.GetPreviousFingerprint(), changed.GetNewFingerprint())
+			}
+		}
+	}
+	if !found {
+		t.Error("expected a FirmwareEpochChanged audit event from the mid-operation check")
+	}
+}
+
+func TestCorrelationIDsCarryIdempotencyKeyAndTraceID(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	deps.Submit = func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
+		return completeObservation("uplink to core"), nil
+	}
+
+	req := mutationRequest(31, "uplink to core")
+	const idempotencyKey = "0192e6a0-0000-7000-8000-0000000000ee"
+	req.GetMutation().SetIdempotencyKey(idempotencyKey)
+
+	traceID, err := trace.TraceIDFromHex("4bf92f3577b34da6a3ce929d0e0e4736")
+	if err != nil {
+		t.Fatalf("TraceIDFromHex() error: %v", err)
+	}
+	spanID, err := trace.SpanIDFromHex("00f067aa0ba902b7")
+	if err != nil {
+		t.Fatalf("SpanIDFromHex() error: %v", err)
+	}
+	sc := trace.NewSpanContext(trace.SpanContextConfig{TraceID: traceID, SpanID: spanID, TraceFlags: trace.FlagsSampled})
+	ctx := trace.ContextWithSpanContext(context.Background(), sc)
+
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(31)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+
+	if len(deliverer.events) == 0 {
+		t.Fatal("expected at least one audit event from Checkpoint's transition")
+	}
+	ids := deliverer.events[len(deliverer.events)-1].GetCorrelationIds()
+	if ids["idempotency_key"] != idempotencyKey {
+		t.Errorf("correlation_ids[idempotency_key] = %q, want %q", ids["idempotency_key"], idempotencyKey)
+	}
+	if ids["trace_id"] != traceID.String() {
+		t.Errorf("correlation_ids[trace_id] = %q, want %q", ids["trace_id"], traceID.String())
 	}
 }

@@ -112,3 +112,64 @@ func TestAllowAcknowledgementIsAlwaysTrue(t *testing.T) {
 		t.Fatal("AllowAcknowledgement() = false while frozen; the acknowledgement barrier must never be gated")
 	}
 }
+
+func TestFreezeDoesNotReturnWhileASideEffectIsInFlight(t *testing.T) {
+	g := freeze.New(nil)
+	ctx := context.Background()
+
+	leave, err := g.Enter(ctx)
+	if err != nil {
+		t.Fatalf("Enter() error: %v", err)
+	}
+
+	freezeDone := make(chan struct{})
+	go func() {
+		g.Freeze(context.Background())
+		close(freezeDone)
+	}()
+
+	select {
+	case <-freezeDone:
+		t.Fatal("Freeze() returned while a side effect entered through Enter had not left")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	leave()
+
+	select {
+	case <-freezeDone:
+	case <-time.After(time.Second):
+		t.Fatal("Freeze() did not return after the in-flight side effect left")
+	}
+}
+
+func TestEnterBlocksAndRetriesAcrossAFreezeRace(t *testing.T) {
+	g := freeze.New(nil)
+	g.Freeze(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		leave, err := g.Enter(context.Background())
+		if err == nil {
+			leave()
+		}
+		done <- err
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("Enter() returned while frozen")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	g.Unfreeze(context.Background())
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("Enter() error = %v, want nil after Unfreeze", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Enter() did not return after Unfreeze")
+	}
+}

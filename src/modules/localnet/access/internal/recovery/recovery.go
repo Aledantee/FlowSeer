@@ -57,6 +57,7 @@ type Runner struct {
 	horizon interfaces.DelayedEffect
 	minGap  time.Duration
 	clock   func() time.Time
+	hold    *Hold
 
 	corroborations    int
 	lastCorroboration time.Time
@@ -67,9 +68,12 @@ type Runner struct {
 // [mutation.Machine.EnterRecovering] before constructing a Runner). fenced
 // may be nil. minGap is the minimum spacing decision 5's "repeated fresh
 // observations" requires between two observations that both count as
-// corroborating; clock lets a test control elapsed time.
-func New(machine *mutation.Machine, fenced Fenced, horizon interfaces.DelayedEffect, minGap time.Duration, clock func() time.Time) *Runner {
-	return &Runner{machine: machine, fenced: fenced, horizon: horizon, minGap: minGap, clock: clock}
+// corroborating; clock lets a test control elapsed time. hold is the
+// device's own Hold, engaged when Attempt abandons — a caller must pass the
+// same Hold [Lane.Submit] checks before admitting the device's next
+// mutation, or an abandonment leaves no trace blocking further admission.
+func New(machine *mutation.Machine, fenced Fenced, horizon interfaces.DelayedEffect, minGap time.Duration, clock func() time.Time, hold *Hold) *Runner {
+	return &Runner{machine: machine, fenced: fenced, horizon: horizon, minGap: minGap, clock: clock, hold: hold}
 }
 
 // Attempt observes the mutation's affected state — always, before any
@@ -109,6 +113,9 @@ func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *acce
 	if !r.horizon.WithinHorizon(since, now) {
 		if err := r.machine.Abandon(ctx); err != nil {
 			return 0, obs, err
+		}
+		if r.hold != nil {
+			r.hold.Engage()
 		}
 		return OutcomeAbandoned, obs, nil
 	}

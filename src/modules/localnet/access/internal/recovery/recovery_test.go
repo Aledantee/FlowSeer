@@ -70,7 +70,7 @@ func recoveringMachine(t *testing.T, reads ...*accessv1.InterfaceObservation) *m
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 	req := &integrationv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 	}
 
 	fenced := func(context.Context) (bool, error) { return true, nil }
-	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, time.Now)
+	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, time.Now, nil)
 
 	outcome, _, err := runner.Attempt(context.Background(), time.Now(), observation("pre"))
 	if err != nil {
@@ -143,7 +143,7 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 func TestFenceAuthorizesImmediateRetry(t *testing.T) {
 	m := recoveringMachine(t, observation("pre"))
 	fenced := func(context.Context) (bool, error) { return true, nil }
-	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, time.Now)
+	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, time.Now, nil)
 
 	outcome, _, err := runner.Attempt(context.Background(), time.Now(), observation("pre"))
 	if err != nil {
@@ -160,7 +160,7 @@ func TestTwoCorroboratingObservationsAcrossTheHorizonPermitRetry(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock)
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, nil)
 	since := now
 
 	outcome, _, err := runner.Attempt(context.Background(), since, pre)
@@ -205,7 +205,7 @@ func TestPersistentFenceStillAbandonsOnceTheHorizonElapses(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, clock)
+	runner := recovery.New(m, fenced, interfaces.DelayedEffect{Horizon: time.Minute}, time.Second, clock, nil)
 	since := now
 
 	outcome, _, err := runner.Attempt(context.Background(), since, observation("pre"))
@@ -233,7 +233,7 @@ func TestOneStaleObservationDoesNotPermitRetry(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock)
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, nil)
 	since := now
 
 	if _, _, err := runner.Attempt(context.Background(), since, pre); err != nil {
@@ -256,7 +256,8 @@ func TestHorizonElapsedWithNoCorroborationAbandons(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock)
+	hold := &recovery.Hold{}
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, hold)
 	since := now
 	now = now.Add(2 * time.Minute)
 
@@ -269,6 +270,13 @@ func TestHorizonElapsedWithNoCorroborationAbandons(t *testing.T) {
 	}
 	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
 		t.Errorf("Phase() = %v, want ABANDONED", got)
+	}
+	// Abandonment with no engaged Hold leaves the device's lane free to
+	// admit the next mutation over an effect recovery could not establish
+	// — the Runner must engage the caller's Hold itself, since nothing
+	// else in this package's own return value does.
+	if !hold.Active() {
+		t.Error("Hold was not engaged after OutcomeAbandoned")
 	}
 }
 
@@ -303,7 +311,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
-	m, err := mutation.Admitted(context.Background(), req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -318,7 +326,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock)
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, nil)
 	since := now
 
 	// First attempt: the read fails. This is the ordinary case recovery
@@ -361,7 +369,7 @@ func TestObservationsOfDifferentInterfacesNeverCorroborate(t *testing.T) {
 
 	now := time.Now()
 	clock := func() time.Time { return now }
-	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock)
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 5*time.Second, clock, nil)
 	since := now
 
 	if _, _, err := runner.Attempt(context.Background(), since, observation("pre")); err != nil {

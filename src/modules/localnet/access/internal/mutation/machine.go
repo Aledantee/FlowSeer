@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/trace"
+
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
@@ -18,10 +20,11 @@ import (
 
 // Error codes this package returns. See each function's doc for when.
 var (
-	ErrCodeFirmwareEpoch    = errs.NewCode("mutation/firmware-epoch")
-	ErrCodeOutOfOrder       = errs.NewCode("mutation/out-of-order")
-	ErrCodeRevoked          = errs.NewCode("mutation/revoked")
-	ErrCodeConflictingReads = errs.NewCode("mutation/conflicting-reads")
+	ErrCodeFirmwareEpoch          = errs.NewCode("mutation/firmware-epoch")
+	ErrCodeOutOfOrder             = errs.NewCode("mutation/out-of-order")
+	ErrCodeRevoked                = errs.NewCode("mutation/revoked")
+	ErrCodeConflictingReads       = errs.NewCode("mutation/conflicting-reads")
+	ErrCodeDispositionUnspecified = errs.NewCode("mutation/disposition-unspecified")
 )
 
 // Deps bundles this package's dependencies. Read, Submit, and Verify are
@@ -65,6 +68,7 @@ type Machine struct {
 	phase           accessv1.OperationPhase
 	disposition     accessv1.Disposition
 	blockReason     accessv1.BlockReason
+	blockedSince    time.Time
 	lastObservation *accessv1.InterfaceObservation
 }
 
@@ -73,18 +77,22 @@ type Machine struct {
 // "The device's lane sequence this operation was admitted at"). For a
 // mutation whose intent's expected firmware fingerprint differs from
 // deps.CurrentFingerprint, it returns an error instead of a Machine — the
-// mutation never reaches ADMITTED under a stale epoch, per decision 7 — and
-// records flowseer.device.firmware.epoch_changed. A read never carries an
-// expected fingerprint and is never blocked here.
-func Admitted(ctx context.Context, req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
+// mutation never reaches ADMITTED under a stale epoch, per decision 7. A
+// read never carries an expected fingerprint and is never blocked here.
+// This check alone never emits flowseer.device.firmware.epoch_changed; see
+// [Machine.Observe]'s doc for where that event actually belongs.
+func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
 		if expected := mutationIntent.GetExpectedFirmwareFingerprint(); expected != deps.CurrentFingerprint {
-			deps.Telemetry.FirmwareEpochChanged(ctx)
-			event := audit.BuildFirmwareEpochChanged(deps.Clock, audit.Common{Device: audit.Device{DeviceID: deps.DeviceID}}, expected, deps.CurrentFingerprint)
-			if err := deps.Audit.Emit(ctx, event); err != nil {
-				return nil, errs.Wrap(err, "emit firmware epoch changed audit event")
-			}
-
+			// No FirmwareEpochChanged event here: this comparison is
+			// against central's own expectation, which can differ from
+			// the edge's cached fingerprint simply because central is
+			// stale, not because the device's firmware actually changed.
+			// [Machine.Observe]'s mid-operation comparison against a
+			// fresh observation is the one true epoch-change signal;
+			// emitting here would durably record one event per rejected
+			// intent, including a central retrying the same stale intent
+			// many times for a single (or no) real change.
 			return nil, errs.New().Code(ErrCodeFirmwareEpoch).
 				Attr("expected_fingerprint", expected).
 				Attr("current_fingerprint", deps.CurrentFingerprint).
@@ -110,10 +118,57 @@ func (m *Machine) Phase() accessv1.OperationPhase {
 // MutationIntent.
 func (m *Machine) IsRead() bool { return m.req.GetMutation() == nil }
 
-func (m *Machine) common() audit.Common {
+// Disposition reports the mutation's terminal outcome. Meaningful only once
+// [Machine.Phase] is ACKNOWLEDGED, RELEASED, or ABANDONED — the zero value,
+// DISPOSITION_UNSPECIFIED, at any other phase, matching
+// MutationState.disposition_matches_phase.
+func (m *Machine) Disposition() accessv1.Disposition {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.disposition
+}
+
+// BlockReason reports why the device's lane is blocked, or
+// BLOCK_REASON_UNSPECIFIED when it is not.
+func (m *Machine) BlockReason() accessv1.BlockReason {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.blockReason
+}
+
+// BlockedSince reports when the current block began and whether one is in
+// effect. ok is false, and since the zero value, exactly when
+// [Machine.BlockReason] is BLOCK_REASON_UNSPECIFIED — matching
+// MutationState.blocked_since_matches_reason.
+func (m *Machine) BlockedSince() (since time.Time, ok bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.blockedSince, m.blockReason != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED
+}
+
+// correlationIDs builds the idempotency key and trace id an audit event
+// carries, bounded and copied so a caller's own map is never aliased or
+// mutated by [audit.newEvent]'s further bounding. A read carries no
+// idempotency key, since only a MutationIntent has one.
+func (m *Machine) correlationIDs(ctx context.Context) map[string]string {
+	ids := make(map[string]string, 2)
+	if key := m.req.GetMutation().GetIdempotencyKey(); key != "" {
+		ids["idempotency_key"] = key
+	}
+	if sc := trace.SpanContextFromContext(ctx); sc.HasTraceID() {
+		ids["trace_id"] = sc.TraceID().String()
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return ids
+}
+
+func (m *Machine) common(ctx context.Context) audit.Common {
 	return audit.Common{
-		Device:   audit.Device{DeviceID: m.deps.DeviceID},
-		Sequence: m.req.GetSequence(),
+		Device:         audit.Device{DeviceID: m.deps.DeviceID},
+		Sequence:       m.req.GetSequence(),
+		CorrelationIDs: m.correlationIDs(ctx),
 	}
 }
 
@@ -146,7 +201,7 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	from := m.phase
 	m.mu.Unlock()
 
-	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(), from, to)
+	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, to)
 	if err := m.deps.Audit.Emit(ctx, event); err != nil {
 		return errs.Wrap(err, "deliver phase transitioned event")
 	}
@@ -158,16 +213,18 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	return nil
 }
 
-// block delivers a LaneBlocked audit event and records the block reason.
-// It does not itself change Phase().
+// block delivers a LaneBlocked audit event and records the block reason and
+// when it began, matching MutationState.blocked_since_matches_reason. It
+// does not itself change Phase().
 func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error {
-	event := audit.BuildLaneBlocked(m.deps.Clock, m.common(), reason)
+	event := audit.BuildLaneBlocked(m.deps.Clock, m.common(ctx), reason)
 	if err := m.deps.Audit.Emit(ctx, event); err != nil {
 		return errs.Wrap(err, "deliver lane blocked event")
 	}
 
 	m.mu.Lock()
 	m.blockReason = reason
+	m.blockedSince = m.deps.Clock()
 	m.mu.Unlock()
 
 	m.deps.Telemetry.LaneBlocked(ctx, reason)
@@ -216,9 +273,15 @@ func (m *Machine) Execute(ctx context.Context) error {
 		return err
 	}
 
-	if err := m.deps.Freeze.AwaitSideEffect(ctx); err != nil {
+	// Held for the rest of this call, not just the check: Freeze must not
+	// return while this device write is still in flight, and a plain
+	// AwaitSideEffect only proves no freeze was active at the instant it
+	// returned.
+	leave, err := m.deps.Freeze.Enter(ctx)
+	if err != nil {
 		return errs.Wrap(err, "await control-plane freeze")
 	}
+	defer leave()
 
 	handle, err := m.deps.Submission.Open(ctx, m.deps.DeviceID, m.deps.BindingID, m.req.GetSequence())
 	if err != nil {
@@ -295,6 +358,29 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 		return nil, errs.Wrap(readErr, "observe")
 	}
 
+	// Admitted only checked the fingerprint once, before any device
+	// contact; a reboot between checkpoint and this observation changes it
+	// mid-operation with no earlier chance to catch it. A mutation's own
+	// observation is the first evidence available afterward, so re-check
+	// here — decision 7 applies for the life of the operation, not only at
+	// admission.
+	if !m.IsRead() {
+		if observed := obs.GetProvenance().GetFirmwareFingerprint(); observed != "" && observed != m.deps.CurrentFingerprint {
+			m.deps.Telemetry.FirmwareEpochChanged(ctx)
+			event := audit.BuildFirmwareEpochChanged(m.deps.Clock, m.common(ctx), m.deps.CurrentFingerprint, observed)
+			if err := m.deps.Audit.Emit(ctx, event); err != nil {
+				return nil, errs.Wrap(err, "emit firmware epoch changed audit event")
+			}
+			if err := m.block(ctx, accessv1.BlockReason_BLOCK_REASON_FIRMWARE_EPOCH_CHANGED); err != nil {
+				return nil, err
+			}
+			return nil, errs.New().Code(ErrCodeFirmwareEpoch).
+				Attr("expected_fingerprint", m.deps.CurrentFingerprint).
+				Attr("observed_fingerprint", observed).
+				Msg("device firmware fingerprint changed mid-operation; the effect cannot be trusted")
+		}
+	}
+
 	m.mu.Lock()
 	m.lastObservation = obs
 	m.mu.Unlock()
@@ -303,16 +389,19 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 }
 
 // Compare reports the mutation's disposition against the last call to
-// [Machine.Observe]. cached, if non-nil, is an earlier complete observation
-// of the same target this mutation must not silently override: if it
-// conflicts with the fresh observation on any compared field, no
-// observation carries authority (decision-record requirement) and Compare
-// blocks with BLOCK_REASON_CONFLICTING_READS instead of reporting a
-// disposition. A read has no intent to compare against and always reports
-// DISPOSITION_UNSPECIFIED with a nil error: its own observation is the
-// result.
+// [Machine.Observe]. Valid from OBSERVING (the ordinary path) or RECOVERING
+// (Observe's own re-observation transitions back to RECOVERING, per its doc
+// comment, so that is where a recovery retry's Compare call finds the
+// mutation — OperationPhase's own doc allows VERIFIED from either).
+// cached, if non-nil, is an earlier complete observation of the same target
+// this mutation must not silently override: if it conflicts with the fresh
+// observation on any compared field, no observation carries authority
+// (decision-record requirement) and Compare blocks with
+// BLOCK_REASON_CONFLICTING_READS instead of reporting a disposition. A read
+// has no intent to compare against and always reports DISPOSITION_UNSPECIFIED
+// with a nil error: its own observation is the result.
 func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObservation) (accessv1.Disposition, error) {
-	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, "Compare"); err != nil {
+	if err := m.requireAnyPhase("Compare", accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
 		return accessv1.Disposition_DISPOSITION_UNSPECIFIED, err
 	}
 
@@ -348,22 +437,24 @@ func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObserva
 	return accessv1.Disposition_DISPOSITION_UNSPECIFIED, nil
 }
 
-// MarkVerified transitions to VERIFIED and records the VERIFIED disposition
-// and BLOCK_REASON_UNACKNOWLEDGED, per the device/access/v1 README's
+// MarkVerified transitions to VERIFIED and records
+// BLOCK_REASON_UNACKNOWLEDGED, per the device/access/v1 README's
 // walkthrough: "phase VERIFIED, with block_reason: UNACKNOWLEDGED until
-// central holds the result."
+// central holds the result." Valid from OBSERVING or RECOVERING, matching
+// [Machine.Compare]'s doc for why a recovery retry's verification is found
+// at RECOVERING rather than OBSERVING.
 func (m *Machine) MarkVerified(ctx context.Context) error {
-	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, "MarkVerified"); err != nil {
+	if err := m.requireAnyPhase("MarkVerified", accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
 		return err
 	}
 	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_VERIFIED); err != nil {
 		return err
 	}
 
-	m.mu.Lock()
-	m.disposition = accessv1.Disposition_DISPOSITION_VERIFIED
-	m.mu.Unlock()
-
+	// disposition is not set here: MutationState.disposition_matches_phase
+	// requires it set only while the phase is ACKNOWLEDGED, RELEASED, or
+	// ABANDONED, and VERIFIED is none of those. [Machine.Acknowledge] sets
+	// it from central's own ack once the phase reaches ACKNOWLEDGED.
 	return m.block(ctx, accessv1.BlockReason_BLOCK_REASON_UNACKNOWLEDGED)
 }
 
@@ -390,7 +481,7 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	}
 
 	m.deps.Telemetry.RecoveryStarted(ctx)
-	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common())
+	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common(ctx))
 	return m.deps.Audit.Emit(ctx, event)
 }
 
@@ -399,9 +490,16 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 // an authorized cancellation or a qualified timeout abandons a mutation
 // whose effect recovery could not establish, and the hold that follows is
 // resolved only by an explicit call outside this package (an operator
-// decision or a reconciliation intent), never by a retry.
+// decision or a reconciliation intent), never by a retry. Valid from
+// RECOVERING (the ordinary case) or OBSERVING: a recovery re-observation
+// that fails to durably return to RECOVERING (its own second audit
+// delivery failed) must still be abandonable once the horizon elapses, or
+// that state has no exit at all.
 func (m *Machine) Abandon(ctx context.Context) error {
-	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_RECOVERING, "Abandon"); err != nil {
+	if err := m.requireAnyPhase("Abandon",
+		accessv1.OperationPhase_OPERATION_PHASE_RECOVERING,
+		accessv1.OperationPhase_OPERATION_PHASE_OBSERVING,
+	); err != nil {
 		return err
 	}
 
@@ -409,7 +507,7 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	from := m.phase
 	m.mu.Unlock()
 
-	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(), from, accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
+	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
 	if err := m.deps.Audit.Emit(ctx, event); err != nil {
 		return errs.Wrap(err, "deliver phase transitioned event")
 	}
@@ -417,10 +515,12 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	m.mu.Lock()
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 	m.disposition = accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED
-	m.blockReason = accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD
 	m.mu.Unlock()
 
-	return nil
+	// Routed through block, not set directly: the recovery hold is the one
+	// block reason that requires an operator decision, and needs the same
+	// audit record and telemetry event every other block reason gets.
+	return m.block(ctx, accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
 }
 
 // Acknowledge records central's TerminalResultAck, moves the phase to
@@ -433,6 +533,10 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 			Attr("ack_sequence", ack.GetSequence()).
 			Attr("admitted_sequence", m.req.GetSequence()).
 			Msg("acknowledgement sequence does not match the admitted request")
+	}
+	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_UNSPECIFIED {
+		return errs.New().Code(ErrCodeDispositionUnspecified).
+			Msg("acknowledgement disposition is unspecified; MutationState rejects the zero value at a terminal phase")
 	}
 	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_VERIFIED, "Acknowledge"); err != nil {
 		return err
@@ -451,24 +555,29 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 
 // release delivers both the PhaseTransitioned and LaneReleased audit events
 // before reporting RELEASED, so a Deliverer failure on either leaves
-// Phase() at ACKNOWLEDGED — requirement 15 and 17's ordering.
+// Phase() at ACKNOWLEDGED, and clears the block: RELEASED means the
+// device's lane is free for the next mutation, so
+// MutationState.blocked_since_matches_reason requires both block_reason
+// and blocked_since unset from here on.
 func (m *Machine) release(ctx context.Context) error {
 	m.mu.Lock()
 	from := m.phase
 	m.mu.Unlock()
 
-	phaseEvent := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(), from, accessv1.OperationPhase_OPERATION_PHASE_RELEASED)
+	phaseEvent := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, accessv1.OperationPhase_OPERATION_PHASE_RELEASED)
 	if err := m.deps.Audit.Emit(ctx, phaseEvent); err != nil {
 		return errs.Wrap(err, "deliver phase transitioned event")
 	}
 
-	releasedEvent := audit.BuildLaneReleased(m.deps.Clock, m.common())
+	releasedEvent := audit.BuildLaneReleased(m.deps.Clock, m.common(ctx))
 	if err := m.deps.Audit.Emit(ctx, releasedEvent); err != nil {
 		return errs.Wrap(err, "deliver lane released event")
 	}
 
 	m.mu.Lock()
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_RELEASED
+	m.blockReason = accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED
+	m.blockedSince = time.Time{}
 	m.mu.Unlock()
 
 	m.deps.Telemetry.LaneReleased(ctx)
@@ -476,19 +585,28 @@ func (m *Machine) release(ctx context.Context) error {
 }
 
 // Result builds this mutation's current ExecuteResult: the sequence, the
-// phase reached, and either the last observation or, for a caller that
-// tracks a failure separately, none. It may be called at any phase; a
-// caller building the wire result after Observe/Compare has already run
-// gets a populated Observation.
-func (m *Machine) Result() *integrationv1.ExecuteResult {
+// phase reached, and exactly one outcome arm, matching the wire message's
+// required oneof. Pass the error a caller's own operation failed with, or
+// nil for a call made after a successful Observe; err always wins the
+// oneof when non-nil. A nil err with no observation yet recorded (Result
+// called before Observe ever ran) still cannot leave the oneof unset, so it
+// falls back to reporting that absence as the error arm rather than
+// emitting an invalid message.
+func (m *Machine) Result(err error) *integrationv1.ExecuteResult {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	result := &integrationv1.ExecuteResult{}
 	result.SetSequence(m.req.GetSequence())
 	result.SetPhaseReached(m.phase)
-	if m.lastObservation != nil {
+
+	switch {
+	case err != nil:
+		result.SetError(errs.EncodeForClient(err))
+	case m.lastObservation != nil:
 		result.SetObservation(m.lastObservation)
+	default:
+		result.SetError(errs.EncodeForClient(errs.New().Msg("no observation was recorded for this operation")))
 	}
 	return result
 }

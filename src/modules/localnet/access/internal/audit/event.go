@@ -50,6 +50,44 @@ func (d Device) ref() *inventoryv1.DeviceGlobalRef {
 	return ref
 }
 
+// correlationIDsMaxPairs, correlationIDsMaxKeyLen, and
+// correlationIDsMaxValueLen mirror operation_event.proto's correlation_ids
+// map constraint exactly, so a caller-supplied identifier that would fail
+// protovalidate at the sink is bounded here instead — a build-time value
+// that is merely long must never turn into an Emit failure that leaves a
+// mutation's phase transition stuck, per decision 13's audit-before-release
+// rule making every Emit failure block progress.
+const (
+	correlationIDsMaxPairs    = 8
+	correlationIDsMaxKeyLen   = 64
+	correlationIDsMaxValueLen = 128
+)
+
+// boundCorrelationIDs copies ids into a fresh map, truncating any key or
+// value that exceeds the schema's bound and dropping pairs beyond the
+// schema's max_pairs, so the caller's own map is never aliased or mutated.
+// Returns nil for an empty or nil input, matching newEvent's "unset unless
+// non-empty" convention for the field.
+func boundCorrelationIDs(ids map[string]string) map[string]string {
+	if len(ids) == 0 {
+		return nil
+	}
+	bounded := make(map[string]string, min(len(ids), correlationIDsMaxPairs))
+	for k, v := range ids {
+		if len(bounded) >= correlationIDsMaxPairs {
+			break
+		}
+		if len(k) > correlationIDsMaxKeyLen {
+			k = k[:correlationIDsMaxKeyLen]
+		}
+		if len(v) > correlationIDsMaxValueLen {
+			v = v[:correlationIDsMaxValueLen]
+		}
+		bounded[k] = v
+	}
+	return bounded
+}
+
 func newEvent(clock Clock, common Common) *eventv1.DeviceOperationEvent {
 	event := &eventv1.DeviceOperationEvent{}
 	event.SetDevice(common.ref())
@@ -58,8 +96,8 @@ func newEvent(clock Clock, common Common) *eventv1.DeviceOperationEvent {
 	if common.Sequence != 0 {
 		event.SetSequence(common.Sequence)
 	}
-	if len(common.CorrelationIDs) > 0 {
-		event.SetCorrelationIds(common.CorrelationIDs)
+	if bounded := boundCorrelationIDs(common.CorrelationIDs); bounded != nil {
+		event.SetCorrelationIds(bounded)
 	}
 	return event
 }
