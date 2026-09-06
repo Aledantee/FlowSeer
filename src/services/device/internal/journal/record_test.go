@@ -314,8 +314,16 @@ func assertNoStrandedSequence(t *testing.T, rec *storev1.DeviceLaneRecord) {
 		}
 	}
 	for _, seq := range rec.GetHoldResolutionPending() {
+		// A pending hold's terminator is the owed HoldResolved row itself: the
+		// edge either acknowledges it (ConfirmHoldResolved removes the member)
+		// or refuses it terminally (the handler removes the moot member). Both
+		// are reached only through the owed row, so a pending hold that owes no
+		// row has no terminator — the strand this guards against. A re-homed
+		// device, where the edge never sees the row, is a resolver-level
+		// concern a pure-record invariant cannot see; the terminal-refusal
+		// removal discharges it.
 		if !inOwed[seq] {
-			t.Fatalf("hold sequence %d owes nothing: a stranded hold", seq)
+			t.Fatalf("hold sequence %d owes nothing and names no terminator: a stranded hold", seq)
 		}
 	}
 	for iface, r := range rec.GetOpenReads() {
@@ -432,6 +440,13 @@ func backgrounds() []background {
 			r.SetHoldResolutionPending([]uint64{100})
 			return r
 		}},
+		{"+two-holds", func(r *storev1.DeviceLaneRecord) *storev1.DeviceLaneRecord {
+			// The hold set at cardinality more than one: a dimension only ever
+			// exercised at size one is a dimension whose plural behaviour is
+			// untested. Both must owe their own row, on distinct sequences.
+			r.SetHoldResolutionPending([]uint64{100, 101})
+			return r
+		}},
 	}
 }
 
@@ -512,7 +527,7 @@ func mutationReachable(phase accessv1.OperationPhase, disp accessv1.Disposition,
 		return false, "dispatch_confirmed is set only by ReportAdmitted, which sets dispatched in the same write"
 	}
 	if hasDisp && !dispatched {
-		return false, "a disposition is written only when the edge holds the sequence; Dispose of an un-dispatched mutation closes the lane instead"
+		return false, "a disposition is written only when the edge holds the sequence: ReportVerified and ReportError follow admission, RejectDispatch of an un-dispatched mutation clears the lane rather than leaving one, and Dispose of an un-dispatched mutation closes the lane"
 	}
 	if block == accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD && !hasDisp {
 		return false, "RECOVERY_HOLD is written only by Dispose, which sets the abandoned disposition in the same write"

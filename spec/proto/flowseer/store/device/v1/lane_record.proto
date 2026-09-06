@@ -24,7 +24,7 @@ message DeviceLaneRecord {
   option (buf.validate.message).cel = {
     id: "device_lane_record.sequences_under_watermark"
     message: "no open sequence exceeds the high watermark"
-    expression: "(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark)"
+    expression: "(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark) && this.hold_resolution_pending.all(s, s <= this.high_watermark)"
   };
   option (buf.validate.message).cel = {
     id: "device_lane_record.confirmations_need_a_mutation"
@@ -68,6 +68,7 @@ message DeviceLaneRecord {
   // already pending.
   repeated uint64 hold_resolution_pending = 9 [(buf.validate.field).repeated = {
     unique: true
+    max_items: 64
     items: {
       uint64: {gte: 1}
     }

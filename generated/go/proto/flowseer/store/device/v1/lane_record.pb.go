@@ -788,7 +788,7 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb6\x10\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf9\x10\n" +
 	"\x10DeviceLaneRecord\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
 	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
@@ -801,8 +801,9 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x13last_reported_phase\x18\x06 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x11lastReportedPhase\x124\n" +
 	"\x12dispatch_confirmed\x18\a \x01(\bB\x05\xaa\x01\x02\b\x02R\x11dispatchConfirmed\x128\n" +
-	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12F\n" +
-	"\x17hold_resolution_pending\x18\t \x03(\x04B\x0e\xbaH\v\x92\x01\b\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12k\n" +
+	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12H\n" +
+	"\x17hold_resolution_pending\x18\t \x03(\x04B\x10\xbaH\r\x92\x01\n" +
+	"\x10@\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12k\n" +
 	"\n" +
 	"open_reads\x18\n" +
 	" \x03(\v29.flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntryB\x11\xbaH\x0e\x9a\x01\v\x10\x80\x02\"\x06r\x04\x10\x01\x18@R\topenReads\x12\x92\x01\n" +
@@ -819,9 +820,9 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1at\n" +
 	"\x15LastObservationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12E\n" +
-	"\x05value\x18\x02 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationR\x05value:\x028\x01:\xa1\x05\xbaH\x9d\x05\x1a\x8a\x01\n" +
-	".device_lane_record.mutation_has_admission_time\x12+an open mutation carries its admission time\x1a+has(this.mutation) == has(this.admitted_at)\x1a\x92\x02\n" +
-	",device_lane_record.sequences_under_watermark\x12+no open sequence exceeds the high watermark\x1a\xb4\x01(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark)\x1a\xf8\x01\n" +
+	"\x05value\x18\x02 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationR\x05value:\x028\x01:\xe2\x05\xbaH\xde\x05\x1a\x8a\x01\n" +
+	".device_lane_record.mutation_has_admission_time\x12+an open mutation carries its admission time\x1a+has(this.mutation) == has(this.admitted_at)\x1a\xd3\x02\n" +
+	",device_lane_record.sequences_under_watermark\x12+no open sequence exceeds the high watermark\x1a\xf5\x01(!has(this.mutation) || !has(this.mutation.sequence) || this.mutation.sequence <= this.high_watermark) && this.open_reads.all(k, this.open_reads[k].sequence <= this.high_watermark) && this.hold_resolution_pending.all(s, s <= this.high_watermark)\x1a\xf8\x01\n" +
 	"0device_lane_record.confirmations_need_a_mutation\x12=dispatch and checkpoint facts exist only for an open mutation\x1a\x84\x01has(this.mutation) || (!this.dispatched && !this.dispatch_confirmed && !this.checkpoint_confirmed && !has(this.last_reported_phase))\"\x82\x03\n" +
 	"\bOpenRead\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +

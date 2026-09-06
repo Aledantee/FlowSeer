@@ -91,6 +91,9 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	holdDuplicate := laneRecord()
 	holdDuplicate.HoldResolutionPending = []uint64{7, 7}
 
+	holdPastWatermark := laneRecord()
+	holdPastWatermark.HoldResolutionPending = []uint64{43}
+
 	sequencePastWatermark := openLaneRecord()
 	sequencePastWatermark.HighWatermark = 6
 
@@ -113,6 +116,7 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 		{name: "multiple pending hold resolutions are valid", message: holdPending.Build(), wantValid: true},
 		{name: "hold resolution sequence zero is rejected", message: holdZero.Build()},
 		{name: "duplicate hold resolution sequences are rejected", message: holdDuplicate.Build()},
+		{name: "hold resolution sequence past the watermark is rejected", message: holdPastWatermark.Build()},
 		{name: "mutation sequence past the watermark is rejected", message: sequencePastWatermark.Build()},
 		{name: "read sequence past the watermark is rejected", message: readPastWatermark.Build()},
 		{name: "open mutation with its facts is valid", message: openLaneRecord().Build(), wantValid: true},

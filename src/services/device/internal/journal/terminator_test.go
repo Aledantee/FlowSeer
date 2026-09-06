@@ -6,6 +6,7 @@ import (
 	"time"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
@@ -281,4 +282,139 @@ func TestDisposeAdvancesEvenAMutationThatOwesNothing(t *testing.T) {
 	if !rec.GetMutation().HasDisposition() {
 		t.Fatal("Dispose silently no-oped on a mutation that owed nothing")
 	}
+}
+
+// TestRejectDispatchBranchesOnDispatched proves the fix for the amendment's
+// over-reach: a terminal refusal must not wipe a mutation the edge already
+// admitted, because the device may still hold the command.
+func TestRejectDispatchBranchesOnDispatched(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("undispatched: the lane is freed", func(t *testing.T) {
+		j := newJournal(t)
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f01"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		state, err := j.RejectDispatch(ctx, deviceID, 1)
+		if err != nil {
+			t.Fatalf("reject: %v", err)
+		}
+		if state.GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED {
+			t.Fatalf("returned disposition %v, want REJECTED", state.GetDisposition())
+		}
+		rec, _ := j.Record(ctx, deviceID)
+		if rec.HasMutation() {
+			t.Fatal("an un-dispatched refusal left the mutation open")
+		}
+		if rows := journal.OwedRows(rec, time.Now()); len(rows) != 0 {
+			t.Fatalf("an un-dispatched refusal left rows owed: %v", rows)
+		}
+	})
+
+	t.Run("dispatched: the mutation is kept and owes its ack", func(t *testing.T) {
+		j := newJournal(t)
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f02"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+			t.Fatalf("admitted: %v", err)
+		}
+		// The device may already hold the possibly-applied command, so the
+		// mutation must not be dropped.
+		state, err := j.RejectDispatch(ctx, deviceID, 1)
+		if err != nil {
+			t.Fatalf("reject: %v", err)
+		}
+		if state.GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED {
+			t.Fatalf("returned disposition %v, want REJECTED", state.GetDisposition())
+		}
+		rec, _ := j.Record(ctx, deviceID)
+		if !rec.HasMutation() || !rec.GetDispatched() {
+			t.Fatalf("a dispatched refusal dropped the mutation: mutation=%v dispatched=%v", rec.HasMutation(), rec.GetDispatched())
+		}
+		owesAck := false
+		for _, o := range journal.OwedRows(rec, time.Now()) {
+			if o.Kind == journal.OwedTerminalAck {
+				owesAck = true
+			}
+		}
+		if !owesAck {
+			t.Fatal("a dispatched refusal does not owe the terminal ack the edge's RELEASED report ends")
+		}
+		// The edge's RELEASED report then frees the lane through the ordinary path.
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+			t.Fatalf("released: %v", err)
+		}
+		rec, _ = j.Record(ctx, deviceID)
+		if rec.HasMutation() {
+			t.Fatal("RELEASED did not free the rejected mutation")
+		}
+	})
+}
+
+// TestTerminatorInvocabilityUnderAFullHoldSet answers the question the cap
+// raises: is a terminator still invocable on a record whose hold set is full.
+// A terminator that does not add a hold is unaffected; one that does hits the
+// cap as a loud, named refusal, not a silent no-op or a strand.
+func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
+	ctx := context.Background()
+
+	// fill seeds the pending-hold set to capacity with sequences that will not
+	// collide with the mutation Admit assigns (Admit starts at 1).
+	fill := func(t *testing.T, j *journal.Journal) {
+		t.Helper()
+		for s := uint64(100); s < 100+64; s++ {
+			if err := j.ResolveHold(ctx, deviceID, s); err != nil {
+				t.Fatalf("seed hold %d: %v", s, err)
+			}
+		}
+	}
+
+	t.Run("a non-hold-adding terminator still acts", func(t *testing.T) {
+		j := newJournal(t)
+		fill(t, j)
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f03"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+			t.Fatalf("admitted: %v", err)
+		}
+		if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+			t.Fatalf("ConfirmCheckpoint refused on a full hold set: %v", err)
+		}
+	})
+
+	t.Run("abandoning an un-dispatched mutation hits a named wall", func(t *testing.T) {
+		j := newJournal(t)
+		fill(t, j)
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f04"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		// Dispose of an un-dispatched mutation must add a hold, which the full
+		// set refuses — loudly, with the reason named, not silently.
+		_, err := j.Dispose(ctx, deviceID, 1)
+		if code, _ := errs.CodeOf(err); code != journal.ErrCodeHoldsFull {
+			t.Fatalf("Dispose error code = %v, want holds-full", code)
+		}
+		rec, _ := j.Record(ctx, deviceID)
+		if !rec.HasMutation() {
+			t.Fatal("a refused abandon left the mutation half-disposed")
+		}
+	})
+
+	t.Run("abandoning a dispatched mutation is unaffected", func(t *testing.T) {
+		j := newJournal(t)
+		fill(t, j)
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f05"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+			t.Fatalf("admitted: %v", err)
+		}
+		// A dispatched mutation abandons into a recovery hold, which does not
+		// touch the pending-hold set, so the full set does not block it.
+		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+			t.Fatalf("Dispose of a dispatched mutation refused on a full hold set: %v", err)
+		}
+	})
 }

@@ -2,6 +2,7 @@ package dispatchapi
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -262,4 +263,49 @@ func refusedReport(kind integrationv1.DispatchKind, code string) *integrationv1.
 	req.SetDeviceId(deviceID)
 	req.SetRefused(refused)
 	return req
+}
+
+func TestListsFailureLeavesTheExecuteRowOwed(t *testing.T) {
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true, listsErr: errors.New("registry unavailable")},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+		Resend:   50 * time.Millisecond,
+	})
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	// An unknown-device refusal is terminal only if the registry says the
+	// device is gone. When the registry cannot answer, the row stays owed
+	// rather than disposing on a transient failure.
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unknown-device"))
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
+		t.Fatalf("a refusal under a Lists failure disposed the mutation: %+v", rec.GetMutation())
+	}
+	if len(pass(t, svc)) != 1 {
+		t.Fatal("a refusal under a Lists failure stopped the execute row being owed")
+	}
+}
+
+func TestHostsFailureIsSurfaced(t *testing.T) {
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true, hostsErr: errors.New("registry unavailable")},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+	})
+	ack := &integrationv1.CheckpointAck{}
+	ack.SetSequence(1)
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(deviceID)
+	req.SetCheckpointAck(ack)
+	// A binding lookup that fails is surfaced, not read as permission granted.
+	if _, err := svc.Report(context.Background(), connect.NewRequest(req)); err == nil {
+		t.Fatal("a Hosts failure was swallowed; the report was accepted")
+	}
 }

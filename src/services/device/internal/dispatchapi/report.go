@@ -201,14 +201,34 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 			return nil
 		}
 		if terminal {
-			// The edge refused before the command reached the device: dispose
-			// REJECTED and free the lane without setting dispatched or owing a
-			// terminal ack for a command that never ran.
-			return s.cfg.Journal.RejectDispatch(ctx, deviceID, seq)
+			// A terminal refusal disposes the mutation REJECTED; RejectDispatch
+			// frees the lane if the edge never admitted it, or keeps it and owes
+			// the terminal ack if it had. It returns the disposed state, but
+			// central emits no audit event of its own in this unit — the audit
+			// path here is edge-to-AuditService only — so the state is not
+			// consumed yet; a central-originated rejection event belongs with
+			// central's other emitted records (drift), not here.
+			_, err := s.cfg.Journal.RejectDispatch(ctx, deviceID, seq)
+			return err
 		}
 		return nil // a retryable code leaves the row owed until the operator ends it
+	case integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED:
+		terminal, err := s.terminalRefusal(ctx, deviceID, refused.GetCode())
+		if err != nil {
+			s.log.WarnContext(ctx, "could not classify a hold-resolved refusal; leaving the row owed",
+				"device", deviceID, "code", refused.GetCode(), "error", err)
+			return nil
+		}
+		if terminal {
+			// The edge durably cannot act on the hold — it does not know the
+			// device, or the device is re-homed — so its lane hold does not
+			// exist and the obligation is moot, not pending. Remove the member
+			// rather than owe it forever against a peer that cannot discharge it.
+			return s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, seq)
+		}
+		return nil // a retryable hold-resolved refusal leaves the row owed for re-send
 	default:
-		return nil // a hold-resolved refusal leaves the row owed for re-send
+		return nil
 	}
 }
 

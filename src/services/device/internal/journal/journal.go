@@ -29,6 +29,11 @@ var (
 	// ErrCodeState is a write invalid for the record's current state, such
 	// as admitting over an open mutation.
 	ErrCodeState = errs.NewCode("journal/state")
+	// ErrCodeHoldsFull is a hold resolution refused because the device's
+	// pending-hold set is at capacity: a wall an operator hits when abandons
+	// or resolutions pile up faster than the edge acknowledges them, rather
+	// than a record that grows until it fails the bucket's budget.
+	ErrCodeHoldsFull = errs.NewCode("journal/holds-full")
 	// ErrCodeDecode is a stored record that will not unmarshal.
 	ErrCodeDecode = errs.NewCode("journal/decode")
 )
@@ -40,6 +45,10 @@ const (
 	// maxIdempotencyKeys is how many recent keys a record remembers for
 	// resubmission dedup.
 	maxIdempotencyKeys = 64
+	// maxPendingHolds bounds the pending hold-resolution set, matching the
+	// schema's repeated max_items and the idempotency list's shape, so the
+	// record cannot grow without limit against the bucket's budget.
+	maxPendingHolds = 64
 )
 
 // Journal is central's per-device lane store over the device-lanes bucket.
@@ -420,9 +429,11 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 		m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
 		m.SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
 		if !rec.GetDispatched() {
+			if err := addHold(rec, deviceID, sequence); err != nil {
+				return err // refuse before clearing, so the abandon is atomic
+			}
 			state = m // detached: the record's mutation is cleared below
 			clearMutation(rec)
-			addHold(rec, sequence)
 			return nil
 		}
 		m.SetBlockReason(accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
@@ -437,21 +448,35 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 }
 
 // RejectDispatch disposes a mutation REJECTED because the edge refused its
-// dispatch before the command reached the device, and frees the lane in the
-// same write. Unlike an error report, a refusal is proof the edge did not run
-// the command and holds nothing, so dispatched is left unset — the bit means
-// "the command may have reached the device" — and no terminal ack is owed; the
-// disposal walks to RELEASED at once, so the lane is never blocked with
-// nothing owed. A stale sequence or an already-terminal mutation is ignored.
-func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence uint64) error {
-	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+// dispatch, and how it does so turns on whether the edge had reported the
+// mutation admitted. When it had not (dispatched unset), the refusal is proof
+// the command never reached the device: the lane is freed at once and no
+// terminal ack is owed. When it had (dispatched set — a resumed dispatch after
+// Onboarded, refused because the firmware epoch changed), the command may
+// already have reached the device, so the mutation is kept and disposed
+// REJECTED with dispatched untouched; the terminal ack is then owed and the
+// edge's RELEASED report frees the lane through the ordinary path. Either way
+// it returns the disposed state for the caller to audit. A stale sequence or
+// an already-terminal mutation is ignored.
+func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence uint64) (*accessv1.MutationState, error) {
+	var state *accessv1.MutationState
+	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		m := rec.GetMutation()
 		if m == nil || m.GetSequence() != sequence || m.HasDisposition() {
 			return errSkip
 		}
-		clearMutation(rec)
+		m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED)
+		m.SetDisposition(accessv1.Disposition_DISPOSITION_REJECTED)
+		state = m
+		if !rec.GetDispatched() {
+			clearMutation(rec) // never reached the device: free the lane at once
+		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return state, nil
 }
 
 // ResolveHold records that an abandoned or desynchronized sequence's hold is
@@ -460,7 +485,9 @@ func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence 
 // for the resolution's own intent.
 func (j *Journal) ResolveHold(ctx context.Context, deviceID string, sequence uint64) error {
 	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		addHold(rec, sequence)
+		if err := addHold(rec, deviceID, sequence); err != nil {
+			return err
+		}
 		if m := rec.GetMutation(); m != nil && m.GetSequence() == sequence {
 			clearMutation(rec)
 		}
@@ -522,14 +549,23 @@ func clearMutation(rec *storev1.DeviceLaneRecord) {
 }
 
 // addHold adds a sequence to the pending hold-resolution set, keeping it a set
-// (a re-resolution of a sequence already pending is a no-op).
-func addHold(rec *storev1.DeviceLaneRecord, sequence uint64) {
-	for _, s := range rec.GetHoldResolutionPending() {
+// (a re-resolution of a sequence already pending is a no-op). It refuses with
+// ErrCodeHoldsFull when the set is at capacity and the sequence is new, so an
+// operator piling up resolutions the edge has not acknowledged hits a wall
+// that names the reason rather than growing the record silently.
+func addHold(rec *storev1.DeviceLaneRecord, deviceID string, sequence uint64) error {
+	holds := rec.GetHoldResolutionPending()
+	for _, s := range holds {
 		if s == sequence {
-			return
+			return nil
 		}
 	}
-	rec.SetHoldResolutionPending(append(rec.GetHoldResolutionPending(), sequence))
+	if len(holds) >= maxPendingHolds {
+		return errs.New().Code(ErrCodeHoldsFull).Attr("device", deviceID).
+			Msg("pending hold resolutions are at capacity; the edge must acknowledge some before more can be recorded")
+	}
+	rec.SetHoldResolutionPending(append(holds, sequence))
+	return nil
 }
 
 // removeHold drops a sequence from the pending hold-resolution set and reports
