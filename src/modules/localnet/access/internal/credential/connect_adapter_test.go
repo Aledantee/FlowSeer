@@ -85,8 +85,13 @@ func newTestServer(t *testing.T, svc *stubEdgeService) *httptest.Server {
 
 func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testing.T) {
 	grant := newTestGrant()
+	// AUTHORIZED is the handle's own starting value (Open sets it before
+	// the relay goroutine reads anything), so a REVOKED pulse is the only
+	// one that proves the relay goroutine actually wrote what it read: the
+	// test would pass unchanged against a relay that never touched
+	// h.authority at all if this pulse stayed AUTHORIZED.
 	pulse := &edgev1.AuthorityPulse{}
-	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
+	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
 
 	svc := &stubEdgeService{
 		submissionUpdates: []func() (*edgev1.OpenDeviceSubmissionResponse, error){
@@ -112,9 +117,9 @@ func TestConnectAdapterOpenTranslatesFirstMessageToGrantAndRestToPulses(t *testi
 	// anything is polling at that instant — poll with a deadline rather
 	// than blocking on a channel receive.
 	deadline := time.Now().Add(5 * time.Second)
-	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+	for handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
 		if time.Now().After(deadline) {
-			t.Fatalf("timed out waiting for Authority() to reflect the AUTHORIZED pulse, got %v", handle.Authority())
+			t.Fatalf("timed out waiting for Authority() to reflect the REVOKED pulse, got %v", handle.Authority())
 		}
 		time.Sleep(time.Millisecond)
 	}
@@ -172,6 +177,49 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 	for handle.Err() == nil {
 		if time.Now().After(deadline) {
 			t.Fatal("timed out waiting for the relay to stop after cancellation")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+// TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen proves
+// Close actually closes the stream even when called the instant Open
+// returns — Execute's deferred Close runs within microseconds whenever
+// Authority() is already REVOKED, and stream must be assigned before the
+// relay goroutine starts, not by the goroutine itself, or that window
+// finds a nil stream and closes nothing. ctx stays Background() so only
+// Close, never context cancellation, can be what stops the relay here.
+func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T) {
+	grant := newTestGrant()
+	pulse := &edgev1.AuthorityPulse{}
+	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED)
+
+	// Enough pulses that the relay goroutine would still be running long
+	// after Close, if Close had not actually torn down the stream.
+	updates := make([]func() (*edgev1.OpenDeviceSubmissionResponse, error), 0, 101)
+	updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return grantMessage(grant), nil })
+	for range 100 {
+		updates = append(updates, func() (*edgev1.OpenDeviceSubmissionResponse, error) { return pulseMessage(pulse), nil })
+	}
+
+	svc := &stubEdgeService{submissionUpdates: updates}
+	server := newTestServer(t, svc)
+
+	adapter := &credential.ConnectAdapter{Client: edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)}
+
+	handle, err := adapter.Open(context.Background(), "device-1", "binding-1", 1)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	if err := handle.Close(); err != nil {
+		t.Fatalf("Close() error: %v", err)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for handle.Err() == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for the relay to stop after Close; Close closed nothing")
 		}
 		time.Sleep(time.Millisecond)
 	}

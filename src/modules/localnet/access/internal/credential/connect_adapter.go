@@ -76,6 +76,7 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 	h := &submissionHandle{
 		grant:     grant,
 		authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
+		stream:    stream,
 	}
 	go h.relay(ctx, stream)
 
@@ -92,8 +93,11 @@ type submissionStream interface {
 	Close() error
 }
 
-// submissionHandle implements [SubmissionHandle]. grant is immutable after
-// construction; authority and err are updated by relay under mu.
+// submissionHandle implements [SubmissionHandle]. grant and stream are
+// immutable after construction — stream is set in [ConnectAdapter.Open]
+// itself, before the relay goroutine starts, so Close can never race the
+// goroutine to see a nil stream and silently close nothing; authority and
+// err are updated by relay under mu.
 type submissionHandle struct {
 	grant *edgev1.SubmissionGrant
 
@@ -133,10 +137,6 @@ func (h *submissionHandle) Close() error {
 // (including a nil-but-not-EOF close, which the caller must not treat as
 // "still authorized") before the handle reports it via Err().
 func (h *submissionHandle) relay(ctx context.Context, stream submissionStream) {
-	h.mu.Lock()
-	h.stream = stream
-	h.mu.Unlock()
-
 	for stream.Receive() {
 		pulse := stream.Msg().GetPulse()
 		if pulse == nil {

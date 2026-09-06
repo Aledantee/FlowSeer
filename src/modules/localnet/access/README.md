@@ -124,25 +124,33 @@ state machine's release step, per decision 13's audit-before-release rule.
 Not yet wired, defined but never called from production code: the
 `route.selected`/`route.fallback` events, the
 `flowseer.device.route.selections` metric, and the
-`flowseer.device.route` span. Wiring them honestly needs
-`internal/capability/interfaces`' route resolution to report which route
-answered and whether it fell through back up to `Lane`, which it does not
-do today; bolting a fixed `fellThrough: false` onto every observation here
-would misrepresent decision 1's fallback case rather than fix it. That
-plumbing is a separate unit of work, not a call-site change.
+`flowseer.device.route` span. The route dimension itself is already
+available: `interfaces.Read` sets the winning observation's
+`Provenance.protocol` to the route that actually answered, `SelectRoute`
+returns the SSH route only from its own fallback branch (so
+`protocol == MANAGEMENT_PROTOCOL_SSH` from a route-independent read is
+exactly the fall-through case), and `Lane.recordEvidence` already reads
+that same provenance. What is missing is a signal on the SUBMIT path
+(`Machine.Execute` never observes a route the way a read does) and on a
+read that fails before any observation completes, plus a decision on where
+the route span's boundaries sit relative to the operation span and a
+recovery retry. That is a design question for a later unit, not a
+call-site change these Lane.process/recordEvidence edits could have made
+safely.
 
 ## Scope of `Lane.Submit`'s automatic handling
 
-`Lane.process` (the drain loop `Submit` calls into) runs the ordinary
+`Lane.process` (what the background drainer runs per queued item — see
+[Lane.drain]'s doc comment for how an item reaches it) runs the ordinary
 phase-by-phase path only: plan, checkpoint, execute, observe, compare, and
 — for a verified mutation — acknowledge and release. An ambiguous or
 failed step (an execute error, a non-`VERIFIED` disposition, a conflicting
 read) is reported as `Submit`'s own error rather than automatically
 retried. Automatic recovery (`internal/recovery`) and drift resolution
 (`internal/drift`) are proven directly by their own package tests;
-wiring their retry loop into this synchronous drain needs a real
-clock-driven poll only a host with a live transport can run — the edge
-host that assembles this module through `src/common/service` and drives
+wiring their retry loop into this drain needs a real clock-driven poll
+only a host with a live transport can run — the edge host that assembles
+this module through `src/common/service` and drives
 that poll is a later plan's job, per
 [the direction record](../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)'s
 own sequencing.

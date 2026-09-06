@@ -8,7 +8,8 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 )
 
-// Outcome is what [Evaluate] decided.
+// Outcome is what [Evaluate] decided, or what a caller substituted when it
+// chose not to call Evaluate at all.
 type Outcome struct {
 	// Drifted reports whether the observation differs from lastIntent. When
 	// false, every other field is the zero value.
@@ -20,6 +21,14 @@ type Outcome struct {
 	// admitted at the caller's own high priority. Nil unless Drifted is
 	// true and Blocked is false.
 	Reconcile *accessv1.MutationIntent
+	// Suppressed is true when a caller skipped calling Evaluate entirely —
+	// [access.Lane.EvaluateDrift] sets it for a device already under an
+	// unresolved recovery or drift hold — rather than Evaluate itself
+	// finding no drift. Distinguishes "not evaluated" from "evaluated,
+	// clean": a periodic drift poll that only checks Drifted/Blocked would
+	// otherwise report a held device, whose effect on the device is still
+	// unknown, as indistinguishable from a genuinely clean one.
+	Suppressed bool
 }
 
 // Evaluate compares observed against lastIntent — the last acknowledged

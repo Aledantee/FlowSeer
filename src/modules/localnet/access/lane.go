@@ -9,6 +9,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -51,6 +52,15 @@ type Config struct {
 	Audit                 audit.Deliverer
 	Telemetry             *telemetry.View
 	Clock                 func() time.Time
+	// OperationTimeout bounds one admitted item's device call — the actual
+	// work a coalesced read's joiners depend on, detached from any single
+	// caller's own context so one caller's cancellation cannot fail every
+	// other item queued behind it. Without its own bound that detached
+	// work would run forever against a device that accepts a connection
+	// but never answers, parking the device's drain goroutine and the
+	// coalescing ticket permanently. Zero is silently raised to a default
+	// of 30s.
+	OperationTimeout time.Duration
 }
 
 // DeviceSession is what one device needs to answer capability calls: an
@@ -123,7 +133,12 @@ type deviceState struct {
 // from multiple goroutines. AddDevice is not safe to race against a Submit
 // for the same not-yet-added deviceKey — the caller must ensure a device is
 // added before any Submit names it, which every production call path does
-// (onboarding runs once, before the device's lane can receive work).
+// (onboarding runs once, before the device's lane can receive work). A
+// second AddDevice for an already-registered deviceKey replaces its
+// *deviceState wholesale, orphaning that device's own queue and any
+// in-flight drainer goroutine still working through it: onboarding for one
+// device must run exactly once, never as a way to reset or reconfigure an
+// already-added one.
 type Lane struct {
 	cfg       Config
 	evid      *evidence.Store
@@ -164,6 +179,10 @@ func (l *Lane) Close(_ context.Context) (ShutdownReport, error) {
 	return ShutdownReport{}, nil
 }
 
+// defaultOperationTimeout bounds an admitted item's device call when
+// Config.OperationTimeout is unset.
+const defaultOperationTimeout = 30 * time.Second
+
 // NewLane constructs a Lane governed by cfg. No device is known until
 // [Lane.AddDevice] registers one.
 func NewLane(cfg Config) *Lane {
@@ -178,6 +197,19 @@ func NewLane(cfg Config) *Lane {
 		// bearing, not cosmetic.
 		cfg.Clock = time.Now
 	}
+	if cfg.Audit == nil {
+		// Unlike *telemetry.View, audit.Deliverer is a plain interface
+		// with no nil-receiver guard of its own: a nil Audit reaches
+		// internal/mutation's Emit calls unguarded and panics on the
+		// first admitted mutation. AddDevice and EvaluateDrift each
+		// tolerate a nil Audit locally, which made a host reasonably
+		// conclude Audit was optional everywhere; default it here so it
+		// is optional everywhere, not just at those two call sites.
+		cfg.Audit = noopDeliverer{}
+	}
+	if cfg.OperationTimeout <= 0 {
+		cfg.OperationTimeout = defaultOperationTimeout
+	}
 	return &Lane{
 		cfg:     cfg,
 		evid:    evidence.NewStore(cfg.EvidencePolicy),
@@ -185,6 +217,14 @@ func NewLane(cfg Config) *Lane {
 		devices: make(map[string]*deviceState),
 	}
 }
+
+// noopDeliverer is Config's default audit.Deliverer when a host has not
+// wired a real one: every Emit succeeds immediately without recording
+// anything, so a host that has no durable audit sink yet does not need to
+// name one to use this module at all.
+type noopDeliverer struct{}
+
+func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
 
 // noopSubmissionSource is Config's default SubmissionCredentialSource when
 // a host has not wired a real one: it grants immediately, stays
@@ -365,10 +405,16 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// so the owner giving up early must not kill it, and the owner's
 	// cancellation must never be handed to every joiner as if it were the
 	// read's own outcome (that is exactly the bug 542b303f fixed for the
-	// plain queue path but left open here).
-	workCtx := context.WithoutCancel(ctx)
+	// plain queue path but left open here). Detached is not unbounded,
+	// though: every TypedRead routes through this path whether or not it
+	// ever gets a joiner, so with no bound of its own a device that
+	// accepts a connection but never answers would park this device's
+	// drain goroutine, and this coalescing key, forever — Config's
+	// OperationTimeout is that bound.
+	workCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), l.cfg.OperationTimeout)
 	sub := &submission{ctx: workCtx, request: opts.Request, result: make(chan submissionOutcome, 1)}
 	if _, err := ds.queue.Submit(opts.Priority, sub); err != nil {
+		cancel()
 		l.coalescer.Finish(key, nil, err)
 		return nil, err
 	}
@@ -378,9 +424,12 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// One goroutine, independent of any single caller's context, owns
 	// finishing the ticket from the work's actual outcome — never from a
 	// caller's own timeout — so every other joiner still waiting on
-	// ticket.Wait sees the real result.
+	// ticket.Wait sees the real result. It cancels workCtx once the work
+	// is done, releasing the timer promptly rather than waiting out the
+	// full OperationTimeout on every ordinary completion.
 	done := make(chan submissionOutcome, 1)
 	go func() {
+		defer cancel()
 		outcome := <-sub.result
 		l.coalescer.Finish(key, outcome.result, outcome.err)
 		done <- outcome
@@ -394,21 +443,21 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	}
 }
 
-// drain becomes the device's sole active worker if none is already running,
-// processing every currently- and newly-admitted item in Position order
-// until the queue empties. If another call is already draining, this call
-// returns immediately — the active drainer will reach the item this call
-// just admitted.
-// drain runs on its own goroutine so Submit's own select only ever waits on
-// its own context and result channel — the drainer never borrows a caller's
-// deadline for work that caller did not admit. It stops trying to become
-// the active worker once TryLock fails (some other goroutine already is
-// one), and, on its own exit, re-checks the queue length after unlocking:
-// Queue and draining are independent locks, so an item admitted in the gap
-// between this goroutine's last empty Next() and its Unlock would otherwise
-// sit forever with no drainer — the recheck-and-retry loop closes that
-// window instead of relying on the racing Submit's own drain call to win a
-// TryLock it may lose only because this goroutine has not unlocked yet.
+// drain spawns a goroutine that becomes the device's sole active worker if
+// none is already running, processing every currently- and
+// newly-admitted item in Position order until the queue empties; if
+// another call's goroutine is already draining, this one's goroutine loses
+// the TryLock and exits immediately. Nothing guarantees that the item this
+// call just admitted is reached by the drainer already running when this
+// call was made — a racing exit can leave the queue non-empty right after
+// this call's own goroutine gives up — which is why the loop below
+// re-checks the queue length after unlocking and retries TryLock itself
+// rather than trusting some other call's goroutine to pick the item up.
+// Running on its own goroutine, independent of any admitting Submit call,
+// is what lets Submit's own select wait only on its own context and result
+// channel: the drainer never borrows one caller's deadline for another
+// caller's still-queued work, and one caller's own item finishing does not
+// wait on the drainer's subsequent work on a different caller's item.
 func (l *Lane) drain(ds *deviceState) {
 	go func() {
 		for {
@@ -549,9 +598,9 @@ func (ds *deviceState) awaitTerminalAck(ctx context.Context, seq uint64) (*integ
 // conflicting read) is reported as this call's error rather than being
 // automatically retried: automatic recovery and drift resolution are this
 // module's internal/recovery and internal/drift packages, exercised
-// directly by their own tests; wiring their retry loop into this
-// synchronous drain requires a real clock-driven poll only a host with a
-// live transport can run (see README's onboarding section), so this
+// directly by their own tests; wiring their retry loop into this drain
+// requires a real clock-driven poll only a host with a live transport can
+// run (see README's onboarding section), so this
 // package's own tests drive recovery and drift explicitly rather than
 // through Submit.
 func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.ExecuteRequest) (result *integrationv1.ExecuteResult, err error) {
@@ -572,7 +621,7 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	ds.stateMu.Unlock()
 
 	deps := l.machineDeps(ds, fingerprint, req)
-	m, err := mutation.Admitted(ctx, req, deps)
+	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -609,7 +658,7 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	}
 
 	if m.IsRead() {
-		return m.Result(), nil
+		return m.Result(nil), nil
 	}
 
 	if disposition != accessv1.Disposition_DISPOSITION_VERIFIED {
@@ -641,7 +690,7 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	ds.lastIntent = req.GetMutation().GetInterfaceDescription()
 	ds.stateMu.Unlock()
 
-	return m.Result(), nil
+	return m.Result(nil), nil
 }
 
 // classifyError reduces err to the bounded, low-cardinality error.type
@@ -757,9 +806,10 @@ func (l *Lane) EvaluateDrift(ctx context.Context, deviceKey string, observed *ac
 	// difference from lastIntent as drift here would report the lane's own
 	// unresolved change as an out-of-band one. The hold's own resolution
 	// path — not a second, competing drift block — is what un-sticks this
-	// device.
+	// device. Suppressed, not a bare zero value, so a caller can tell
+	// "not evaluated" from "evaluated, clean."
 	if ds.hold.Active() {
-		return drift.Outcome{}, nil
+		return drift.Outcome{Suppressed: true}, nil
 	}
 
 	ds.stateMu.Lock()
@@ -769,14 +819,25 @@ func (l *Lane) EvaluateDrift(ctx context.Context, deviceKey string, observed *ac
 	outcome := drift.Evaluate(observed, lastIntent, inFlight, l.cfg.ManagementMode)
 	if outcome.Drifted {
 		l.cfg.Telemetry.DriftDetected(ctx)
-		if l.cfg.Audit != nil {
-			event := audit.BuildDriftDetected(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, observed.GetInterfaceName())
-			if err := l.cfg.Audit.Emit(ctx, event); err != nil {
-				return drift.Outcome{}, errs.Wrap(err, "emit drift detected audit event")
-			}
-		}
+		// Engage the hold before the audit call, not after: the hold is a
+		// safety block, and decision 13's audit-before-release rule
+		// governs releasing state, not blocking it. An audit outage must
+		// not disable the block that keeps Submit from admitting another
+		// mutation over an unexplained change.
 		if outcome.Blocked {
 			ds.hold.Engage()
+		}
+		if l.cfg.Audit != nil {
+			// field_name names the field that changed (schema comment),
+			// not the interface: drift.Evaluate only ever compares the
+			// description, so the field itself is always "description" —
+			// qualified by interface, since a device has more than one and
+			// the event carries no other way to say which.
+			fieldName := observed.GetInterfaceName() + ".description"
+			event := audit.BuildDriftDetected(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, fieldName)
+			if err := l.cfg.Audit.Emit(ctx, event); err != nil {
+				return outcome, errs.Wrap(err, "emit drift detected audit event")
+			}
 		}
 	}
 	return outcome, nil

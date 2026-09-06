@@ -2,6 +2,7 @@ package access_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -29,6 +30,18 @@ import (
 type noopDeliverer struct{}
 
 func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+
+// failsOnDriftDeliverer fails only for a DriftDetected event, so the
+// onboarding and mutation machinery's own audit calls succeed and only the
+// drift check itself sees the simulated outage.
+type failsOnDriftDeliverer struct{}
+
+func (failsOnDriftDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+	if event.GetDriftDetected() != nil {
+		return errors.New("audit delivery unavailable")
+	}
+	return nil
+}
 
 // spyDeliverer records every event handed to it, guarded by mu since
 // EvaluateDrift and Submit may call it from different goroutines in a test.
@@ -486,6 +499,98 @@ func TestLaneManagementModeDrift(t *testing.T) {
 	}
 }
 
+func TestEvaluateDriftReportsSuppressedWhenAlreadyHeld(t *testing.T) {
+	l := newTestLane(t)
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+	if _, err := runMutation(t, l, req); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	drifted := completeObservation("manual edit")
+	outcome, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false)
+	if err != nil {
+		t.Fatalf("EvaluateDrift() error: %v", err)
+	}
+	if !outcome.Blocked {
+		t.Fatal("expected the first drift evaluation to block and engage the hold")
+	}
+
+	// A second evaluation while the hold from the first is still active
+	// must report that it was not evaluated at all, not a bare zero value
+	// indistinguishable from "evaluated, clean" — a periodic drift poll
+	// must be able to tell the two apart.
+	outcome, err = l.EvaluateDrift(context.Background(), "dev-1", drifted, false)
+	if err != nil {
+		t.Fatalf("EvaluateDrift() error: %v", err)
+	}
+	if !outcome.Suppressed {
+		t.Error("expected Suppressed = true for a device already under a hold")
+	}
+	if outcome.Drifted {
+		t.Error("expected Drifted = false alongside Suppressed, not a real evaluation result")
+	}
+
+	if err := l.ResolveHold("dev-1"); err != nil {
+		t.Fatalf("ResolveHold() error: %v", err)
+	}
+}
+
+func TestEvaluateDriftEngagesHoldEvenWhenAuditDeliveryFails(t *testing.T) {
+	view, err := telemetry.NewView(telemetry.ViewConfig{})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	l := access.NewLane(access.Config{
+		QueueCapacity:  4,
+		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:          noopDeliverer{},
+		Telemetry:      view,
+		Clock:          time.Now,
+		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
+	})
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+	if _, err := runMutation(t, l, req); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	// Swap in a deliverer that always fails, simulating an audit outage
+	// during the drift check itself.
+	l2 := access.NewLane(access.Config{
+		QueueCapacity:  4,
+		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:          failsOnDriftDeliverer{},
+		Telemetry:      view,
+		Clock:          time.Now,
+		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
+	})
+	addDevice(t, l2)
+	if _, err := runMutation(t, l2, mutationRequest(1, "uplink to core")); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	drifted := completeObservation("manual edit")
+	if _, err := l2.EvaluateDrift(context.Background(), "dev-1", drifted, false); err == nil {
+		t.Fatal("EvaluateDrift() error = nil, want the audit delivery failure surfaced")
+	}
+
+	// The hold must already be engaged despite the audit failure: an audit
+	// outage must not disable the safety block that keeps Submit from
+	// admitting another mutation over an unexplained change.
+	blockedCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := l2.Submit(blockedCtx, access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   mutationRequest(2, "another change"),
+		Priority:  lane.PriorityNormal,
+	}); err == nil {
+		t.Fatal("Submit() error = nil, want the hold engaged despite the audit delivery failure")
+	}
+}
+
 func TestLaneDriftDeliversAuditEvent(t *testing.T) {
 	view, err := telemetry.NewView(telemetry.ViewConfig{})
 	if err != nil {
@@ -520,8 +625,9 @@ func TestLaneDriftDeliversAuditEvent(t *testing.T) {
 	if detail == nil {
 		t.Fatal("expected the last delivered event to carry DriftDetected")
 	}
-	if detail.GetFieldName() != drifted.GetInterfaceName() {
-		t.Fatalf("DriftDetected.FieldName = %q, want %q", detail.GetFieldName(), drifted.GetInterfaceName())
+	wantFieldName := drifted.GetInterfaceName() + ".description"
+	if detail.GetFieldName() != wantFieldName {
+		t.Fatalf("DriftDetected.FieldName = %q, want %q", detail.GetFieldName(), wantFieldName)
 	}
 }
 
@@ -679,12 +785,6 @@ func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
 				<-releaseA
 				return nil, ctx.Err()
 			}
-			// A realistic caller would fail a request made with an
-			// already-canceled context; checking this here is what makes
-			// the test able to tell A's context from B's.
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
 			return completeObservation("uplink to core"), nil
 		},
 	})
@@ -792,14 +892,14 @@ func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
 	})
 	addDevice(t, l)
 	var wg sync.WaitGroup
-	errs := make([]error, n)
+	submitErrs := make([]error, n)
 	for i := range n {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_, errs[i] = l.Submit(ctx, access.SubmitOptions{
+			_, submitErrs[i] = l.Submit(ctx, access.SubmitOptions{
 				DeviceKey: "dev-1",
 				Request:   readRequestFor(fmt.Sprintf("eth-%d", i)),
 				Priority:  lane.PriorityLow,
@@ -819,7 +919,7 @@ func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
 		t.Fatal("not every concurrent Submit returned within 10s — an admitted item was likely stranded with no drainer")
 	}
 
-	for i, err := range errs {
+	for i, err := range submitErrs {
 		if err != nil {
 			t.Errorf("Submit(%d) error: %v", i, err)
 		}
@@ -828,18 +928,27 @@ func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
 
 // TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork proves the active
 // drainer's own goroutine does not gate a caller's Submit past that
-// caller's own deadline: A becomes the drainer and blocks well past B's
-// short deadline; B's Submit must still return at B's own deadline rather
-// than waiting for A's item (or the whole drain loop) to finish.
+// caller's own item completing: A becomes the drainer, B enqueues behind A
+// while A is still inside its own read, and once A's own read returns, the
+// SAME drainer goroutine moves on to B's item and blocks there — forever,
+// in this test. A's own Submit call must still return promptly: drain runs
+// on its own goroutine, so Submit's own select waits only on its own result
+// channel, never on the drain loop finishing every item it was handed.
+// Before that fix, l.drain(ds) ran synchronously inside Submit's own call,
+// so A's Submit would not return until B's item did too.
 func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
 	l := newTestLane(t)
 
-	releaseA := make(chan struct{})
+	bEnqueued := make(chan struct{})
+	releaseB := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		FingerprintOverride: "fw-A",
 		ReadOverride: func(_ context.Context, name string) (*accessv1.InterfaceObservation, error) {
-			if name == "eth-A" {
-				<-releaseA
+			switch name {
+			case "eth-A":
+				<-bEnqueued // hold A in its own item until B is queued behind it
+			case "eth-B":
+				<-releaseB // then trap the same drainer goroutine in B's item
 			}
 			return completeObservation("uplink to core"), nil
 		},
@@ -847,28 +956,47 @@ func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AddDevice() error: %v", err)
 	}
-	t.Cleanup(func() { close(releaseA) })
 
-	doneA := make(chan struct{})
-	go func() {
-		defer close(doneA)
-		_, _ = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-A"), Priority: lane.PriorityLow})
-	}()
-	time.Sleep(50 * time.Millisecond) // let A become the active drainer and block
-
-	bCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	aCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	doneA := make(chan struct{})
+	var errA error
+	go func() {
+		defer close(doneA)
+		_, errA = l.Submit(aCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-A"), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(50 * time.Millisecond) // let A become the active drainer and block in its own read
+
+	doneB := make(chan struct{})
+	go func() {
+		defer close(doneB)
+		_, _ = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-B"), Priority: lane.PriorityLow})
+	}()
+	time.Sleep(50 * time.Millisecond) // let B enqueue behind A on the same drainer
+
+	close(bEnqueued) // A's own read may now complete; the drainer moves on to B's, which blocks on releaseB
+
 	start := time.Now()
-	_, err = l.Submit(bCtx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequestFor("eth-B"), Priority: lane.PriorityLow})
+	select {
+	case <-doneA:
+	case <-time.After(2 * time.Second):
+		t.Fatal("A's Submit() did not return after its own item completed; the drainer's continued work on B's item blocked it")
+	}
 	elapsed := time.Since(start)
 
-	if err == nil {
-		t.Fatal("Submit() for B error = nil, want context.DeadlineExceeded")
+	if errA != nil {
+		t.Fatalf("Submit() for A error = %v, want nil", errA)
 	}
 	if elapsed > time.Second {
-		t.Fatalf("Submit() for B took %v, want it to return at roughly its own 100ms deadline regardless of A's still-running work", elapsed)
+		t.Fatalf("Submit() for A took %v after B's item was already queued, want it to return promptly once its own item finished", elapsed)
 	}
+
+	// B's item is still blocked on releaseB, the same drainer goroutine
+	// still inside it, since this test's assertion concerns A alone —
+	// release and join it now so no goroutine leaks past this test.
+	close(releaseB)
+	<-doneB
 }
 
 // TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry proves the
@@ -930,48 +1058,84 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 // TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock proves a
 // redelivered CheckpointRequest for an already-satisfied wait returns an
 // error rather than blocking the caller forever on an orphaned channel.
+// TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock proves three
+// concurrent CheckpointRequest deliveries for the same sequence, while the
+// mutation is genuinely parked in awaitCheckpoint, never leave a caller
+// blocked: exactly one succeeds and the rest return an error promptly. A
+// capacity-1 buffered channel checked and sent to as two separate,
+// non-atomic steps lets a second delivery silently refill the buffer right
+// after the drainer consumes the first, leaving a third with nobody ever
+// left to receive it — this needs three concurrent deliveries to
+// reproduce, since two never fill the buffer twice.
 func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 	l := newTestLane(t)
 	addDevice(t, l)
 
 	req := mutationRequest(1, "uplink to core")
 
+	submitDone := make(chan error, 1)
 	go func() {
-		checkpointReq := &integrationv1.CheckpointRequest{}
-		checkpointReq.SetSequence(1)
-		deadline := time.Now().Add(2 * time.Second)
-		for time.Now().Before(deadline) {
-			if err := l.HandleCheckpoint("dev-1", checkpointReq); err == nil {
-				break
-			}
-			time.Sleep(time.Millisecond)
-		}
-		ack := &integrationv1.TerminalResultAck{}
-		ack.SetSequence(1)
-		ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
-		deadline = time.Now().Add(2 * time.Second)
-		for time.Now().Before(deadline) {
-			if err := l.HandleTerminalAck("dev-1", ack); err == nil {
-				break
-			}
-			time.Sleep(time.Millisecond)
-		}
-
-		// A redelivery of the same checkpoint after it was already
-		// consumed must return promptly with an error, never block.
-		done := make(chan error, 1)
-		go func() { done <- l.HandleCheckpoint("dev-1", checkpointReq) }()
-		select {
-		case err := <-done:
-			if err == nil {
-				t.Error("HandleCheckpoint() redelivery error = nil, want ErrCodeNoPendingWait")
-			}
-		case <-time.After(2 * time.Second):
-			t.Error("HandleCheckpoint() redelivery blocked instead of returning an error")
-		}
+		_, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: req, Priority: lane.PriorityNormal})
+		submitDone <- err
 	}()
+	time.Sleep(50 * time.Millisecond) // let Submit become the drainer and park in awaitCheckpoint
 
-	if _, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: req, Priority: lane.PriorityNormal}); err != nil {
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(1)
+
+	const attempts = 3
+	type attemptResult struct {
+		err     error
+		blocked bool
+	}
+	results := make(chan attemptResult, attempts)
+	var wg sync.WaitGroup
+	for range attempts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			done := make(chan error, 1)
+			go func() { done <- l.HandleCheckpoint("dev-1", checkpointReq) }()
+			select {
+			case err := <-done:
+				results <- attemptResult{err: err}
+			case <-time.After(2 * time.Second):
+				results <- attemptResult{blocked: true}
+			}
+		}()
+	}
+	wg.Wait()
+	close(results)
+
+	successes, blocked := 0, 0
+	for r := range results {
+		if r.blocked {
+			blocked++
+			continue
+		}
+		if r.err == nil {
+			successes++
+		}
+	}
+	if successes != 1 {
+		t.Errorf("expected exactly one of %d concurrent HandleCheckpoint deliveries to succeed, got %d", attempts, successes)
+	}
+	if blocked != 0 {
+		t.Errorf("%d HandleCheckpoint call(s) blocked instead of returning an error", blocked)
+	}
+
+	ack := &integrationv1.TerminalResultAck{}
+	ack.SetSequence(1)
+	ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := l.HandleTerminalAck("dev-1", ack); err == nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	if err := <-submitDone; err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
 }
