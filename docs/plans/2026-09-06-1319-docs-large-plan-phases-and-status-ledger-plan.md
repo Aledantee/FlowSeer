@@ -4,11 +4,13 @@ type: docs
 date: 2026-09-06
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Large Plans in Phases with a Status Ledger - Plan
+
+> Implemented. The ledger check is `.claude/skills/verify-change/scripts/check-plan-status.py`; the phase method is `.claude/skills/plan/references/phases.md`.
 
 ## Goal
 
