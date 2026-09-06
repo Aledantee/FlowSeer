@@ -1,0 +1,51 @@
+# Split a large plan into phases
+
+A plan over six units or 300 lines is checked for dependency clusters. A
+plan that outlives one session is otherwise implemented by a later session
+that re-derives what landed and why; a phase plan is small enough to land
+in one, and the ledger `implement` keeps carries the rest across.
+
+## Find the clusters
+
+Group the units by the files they touch and the `After` edges between
+them: two units that touch the same package or that one `After` line
+connects belong to one cluster. Confirm the grouping against the real
+dependency graph where the packages already exist, `go list -deps` for Go
+and the module graph in `buf.yaml` for schema. A unit that creates a new
+package joins the cluster of the units that import it.
+
+One cluster means the plan stays whole: say so under Decisions, with the
+cluster as the reason, and keep the plan under 300 lines by cutting what
+the implementer can decide alone.
+
+## Write the parent and the phases
+
+More than one cluster produces a parent plan and one phase plan per
+cluster, in dependency order:
+
+- The parent keeps the Goal, Decisions, and Requirements for the whole
+  change. Its Units are the phases, each with `Files:` naming the phase
+  plan path, `After:` naming the earlier phases, and a `Landed:` line that
+  stays empty until the phase's plan reads `implemented`. The parent's
+  `status` is `planned` until the last phase lands, then `implemented`;
+  it never reads `partially-implemented`, since that means units landed.
+- Each phase plan is a full plan at
+  `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md` with a `parent:`
+  frontmatter field naming the parent path. Its Decisions cite the
+  parent's rather than repeating them.
+- Only the first phase is written implementation-ready. A later phase
+  carries Goal, Decisions, and Requirements, `artifact_readiness:
+  needs-decisions`, and this line under its title: `> Re-planned by
+  \`plan\` when its turn comes; the tree will have moved.` `implement`
+  refuses such a plan and names `plan`.
+
+An example: a nine-unit plan with four units in `src/protocol/smi` and
+five in `src/protocol/snmp` whose `After` lines depend on the first four
+becomes a parent with two phase units and two phase plans. Nine units that
+all touch `src/protocol/snmp` stay one plan.
+
+## Review and hand off
+
+Step 4 dispatches the reviewer against the parent and the first phase
+together. The handoff names the parent, the phase that is ready, and the
+phases that wait for re-planning.
