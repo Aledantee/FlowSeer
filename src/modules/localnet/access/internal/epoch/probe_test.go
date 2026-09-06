@@ -3,6 +3,7 @@ package epoch_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -74,6 +75,24 @@ func TestProbeCombinesSysDescrAndSysObjectID(t *testing.T) {
 	}
 	if fp == "" {
 		t.Fatal("expected a non-empty fingerprint")
+	}
+}
+
+// TestProbeFingerprintNeverExceedsSchemaBound proves the fingerprint stays
+// bounded even when a device's sysDescr is long operator-controlled free
+// text, since the schema caps the fingerprint field at 128 characters.
+func TestProbeFingerprintNeverExceedsSchemaBound(t *testing.T) {
+	const schemaMaxLen = 128
+
+	longDescr := strings.Repeat("Ruckus ICX7150-24P Switch with a very verbose vendor banner string ", 20)
+	sess := &identitySession{descr: longDescr, objectID: snmp.MustOID(1, 3, 6, 1, 4, 1, 1991, 1, 3, 1)}
+
+	fp, err := epoch.Probe(context.Background(), sess)
+	if err != nil {
+		t.Fatalf("Probe: %v", err)
+	}
+	if len(fp) > schemaMaxLen {
+		t.Fatalf("expected fingerprint to stay within the schema's %d-char bound, got %d chars: %q", schemaMaxLen, len(fp), fp)
 	}
 }
 

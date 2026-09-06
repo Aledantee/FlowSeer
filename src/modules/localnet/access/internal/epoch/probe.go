@@ -2,6 +2,8 @@ package epoch
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -27,7 +29,9 @@ var (
 // stale, so it does not go through [interfaces.SelectRoute] or any other
 // capability-scoped path. The fingerprint is opaque and stable only insofar
 // as sysDescr and sysObjectID are: a firmware upgrade that changes either
-// yields a new fingerprint.
+// yields a new fingerprint. It is the hex SHA-256 of the two values, not
+// their raw concatenation, since sysDescr is operator-controlled free text
+// that can exceed the schema's fingerprint length limit.
 func Probe(ctx context.Context, sess snmp.Session) (fingerprint string, err error) {
 	vbs, err := sess.Get(ctx, []snmp.OID{oidSysDescr, oidSysObjectID})
 	if err != nil {
@@ -54,7 +58,9 @@ func Probe(ctx context.Context, sess snmp.Session) (fingerprint string, err erro
 	b.WriteByte('|')
 	b.WriteString(objectID)
 
-	return b.String(), nil
+	sum := sha256.Sum256([]byte(b.String()))
+
+	return hex.EncodeToString(sum[:]), nil
 }
 
 func octetString(vb snmp.VarBind) (string, bool) {
