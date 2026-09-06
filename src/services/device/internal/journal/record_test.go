@@ -442,7 +442,7 @@ func backgrounds() []background {
 		}},
 		{"+two-holds", func(r *storev1.DeviceLaneRecord) *storev1.DeviceLaneRecord {
 			// The hold set at cardinality more than one: a dimension only ever
-			// exercised at size one is a dimension whose plural behaviour is
+			// exercised at size one is a dimension whose plural behavior is
 			// untested. Both must owe their own row, on distinct sequences.
 			r.SetHoldResolutionPending([]uint64{100, 101})
 			return r

@@ -57,7 +57,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 	cases := []struct {
 		name      string
 		owe       func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64)
-		terminate func(t *testing.T, j *journal.Journal, seq uint64) error
+		terminate func(j *journal.Journal, seq uint64) error
 	}{
 		{
 			// Terminator: the edge's HoldResolvedAck, ConfirmHoldResolved.
@@ -68,7 +68,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedHoldResolved, 5
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.ConfirmHoldResolved(ctx, deviceID, seq)
 			},
 		},
@@ -82,7 +82,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				seq := admit(t, j, "0192e6a0-0000-7000-8000-000000000e01")
 				return journal.OwedExecute, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				_, err := j.Dispose(ctx, deviceID, seq)
 				return err
 			},
@@ -102,7 +102,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedExecute, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				_, err := j.Dispose(ctx, deviceID, seq)
 				return err
 			},
@@ -117,7 +117,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedCheckpoint, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.ConfirmCheckpoint(ctx, deviceID, seq)
 			},
 		},
@@ -131,7 +131,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedRead, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.CloseRead(ctx, deviceID, readIface, seq, &accessv1.InterfaceObservation{}, nil)
 			},
 		},
@@ -151,7 +151,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedTerminalAck, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: seq})
 			},
 		},
@@ -170,7 +170,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				return journal.OwedTerminalAck, seq
 			},
-			terminate: func(t *testing.T, j *journal.Journal, seq uint64) error {
+			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq})
 			},
 		},
@@ -197,7 +197,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				if !owesRow(t, j, kind, seq) {
 					t.Fatalf("setup did not owe kind=%d seq=%d", kind, seq)
 				}
-				if err := c.terminate(t, j, seq); err != nil {
+				if err := c.terminate(j, seq); err != nil {
 					t.Fatalf("named terminator could not act on the owing record: %v", err)
 				}
 				if owesRow(t, j, kind, seq) {
