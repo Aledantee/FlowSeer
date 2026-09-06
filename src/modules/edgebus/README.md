@@ -23,13 +23,16 @@ flowseer.<tenant>.audit.device.<device-id>                    central's audit re
 
 The edge's `EDGE_BUFFER` stream, in JetStream domain `edge-<edge-id>`, holds
 the `otel` and `ingest` branches, file-backed, bounded by bytes and age with
-the oldest record discarded first. The hub's `FLOWSEER_EDGE_BUFFER` sources
-every edge's buffer across its leaf link through `$JS.edge-<edge-id>.API`,
+the oldest record discarded first. For each attached edge the hub creates
+`FLOWSEER_EDGE_<edge-id>`, a stream that sources that edge's buffer and
+nothing else, across its leaf link through `$JS.edge-<edge-id>.API`,
 delivering on the `source` branch: that branch is inside the edge's publish
 permission and outside its buffer's subjects, which matters because JetStream
-refuses a consumer that would deliver into the stream it reads. The hub also
-owns `FLOWSEER_DEVICE_AUDIT` and the `device-lanes` and `edges` key-value
-buckets the device service writes.
+refuses a consumer that would deliver into the stream it reads. One stream
+per edge is what makes a record's edge a fact of where it is stored rather
+than of the subject it carries; the forwarder relies on that below. The hub
+also owns `FLOWSEER_DEVICE_AUDIT` and the `device-lanes` and `edges`
+key-value buckets the device service writes.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain`
 is the guard.
@@ -87,17 +90,20 @@ another edge's subject is dropped by the hub, not stored under that subject
 subtree but on neither buffered branch is refused with `edgebus/leaf`, never
 acknowledged by nothing (`TestPublishOutsideTheBufferedBranchesFailsLoudly`).
 
-The residual: the hub's source consumer delivers on
-`<subtree>.source.S.<nonce>`, a subject the edge may publish on. The
-consumer is ephemeral, unlisted, and unpersisted, so no client path learns
-the nonce, but the embedded server's own memory holds it, and a compromised
-agent process could publish a record there with a header naming another
-edge's subject. One aggregate stream cannot tell which edge delivered a
-record, so it would store it under the forged subject. The structural fix
-is one hub stream per edge, sourcing only that edge, with the forwarder
-deriving the edge from the stream name and refusing a record whose subject
-is not under that edge's subtree; it waits for a second edge and is
-recorded here rather than left to be rediscovered.
+What remains is the delivery subject itself: the hub's source consumer
+delivers on `<subtree>.source.S.<nonce>`, which the edge may publish on.
+The consumer is ephemeral, unlisted, and unpersisted, so no client path
+learns the nonce, but the embedded server's own memory holds it, and a
+compromised agent process could publish a record there with a header
+naming another edge's subject, which the hub would store under that
+subject. That is why the hub keeps one stream per edge rather than one
+aggregate: the forwarder reads the edge from the stream's name and drops a
+record whose subject lies outside that edge's subtree
+(`TestForwarderRefusesARecordOutsideItsStreamsEdge`), so a relabeled record
+is refused where it is read, whatever the permission set allows. Before the
+per-edge streams, that guarantee rested on a nonce no client path could
+learn; now it rests on where the record is stored, which no permission
+change can widen.
 
 ## OTLP over the bus
 
@@ -107,9 +113,9 @@ publishes each `/v1/{logs,metrics,traces}` body as received into the buffer
 and answers 200; the runtime keeps its batching and retry, a refused buffer
 answers 503 so the runtime retries, and a compressed body is refused with
 415 since the bytes are stored and forwarded unchanged. Central's `Forwarder`
-reads the `otel` subjects from the hub's aggregate with a durable consumer
-and posts each body to central's collector endpoint, acknowledging only on
-a 2xx. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the bytes end
+follows every edge's hub stream with a durable consumer, discovering edges
+attached after it started on an interval, and posts each body to central's
+collector endpoint, acknowledging only on a 2xx. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the bytes end
 to end, and `TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect` is
 the evidence that sourcing across a leaf link survives the link dropping
 and returning. After a hub restart the source takes about forty seconds to

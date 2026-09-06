@@ -209,15 +209,6 @@ func (h *Hub) createStores(ctx context.Context) error {
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create audit stream")
 	}
-	if _, err := h.js.Stream(ctx, HubBufferStream); err != nil {
-		if _, err := h.js.CreateStream(ctx, jetstream.StreamConfig{
-			Name:      HubBufferStream,
-			Storage:   jetstream.FileStorage,
-			Retention: jetstream.LimitsPolicy,
-		}); err != nil {
-			return errs.From(err).Code(ErrCodeHub).Msg("create hub buffer stream")
-		}
-	}
 	return nil
 }
 
@@ -255,40 +246,39 @@ func (h *Hub) MintEdgeUser(edgeID string) (EdgeCredentials, error) {
 	return h.keys.mintUser("edge-"+edgeID, edgePermissions(h.tenant, edgeID))
 }
 
-// AddEdgeSource makes the hub buffer stream source the edge's own buffer
-// across the leaf link. Idempotent.
-func (h *Hub) AddEdgeSource(ctx context.Context, edgeID string) error {
-	stream, err := h.js.Stream(ctx, HubBufferStream)
-	if err != nil {
-		return errs.From(err).Code(ErrCodeHub).Msg("look up hub buffer stream")
-	}
-	info, err := stream.Info(ctx)
-	if err != nil {
-		return errs.From(err).Code(ErrCodeHub).Msg("read hub buffer stream")
-	}
-	cfg := info.Config
-	prefix := "$JS." + EdgeDomain(edgeID) + ".API"
-	for _, source := range cfg.Sources {
-		if source.External != nil && source.External.APIPrefix == prefix {
-			return nil
-		}
-	}
+// AttachEdge creates the hub stream that sources this edge's buffer across
+// the leaf link, one stream per edge so that which edge a record came from
+// is a fact of the stream it sits in. Idempotent.
+func (h *Hub) AttachEdge(ctx context.Context, edgeID string) error {
 	// The edge's consumer delivers into the hub on the source branch of the
 	// edge's own subtree, the one place the edge's leaf may publish; the
 	// default $JS.S prefix would be refused by that permission, and a branch
 	// inside the buffer stream's own subjects would be refused by JetStream,
 	// which never lets a consumer deliver into the stream it reads.
-	cfg.Sources = append(cfg.Sources, &jetstream.StreamSource{
-		Name: EdgeBufferStream,
-		External: &jetstream.ExternalStream{
-			APIPrefix:     prefix,
-			DeliverPrefix: EdgeSubtree(h.tenant, edgeID) + ".source",
-		},
-	})
-	if _, err := h.js.UpdateStream(ctx, cfg); err != nil {
-		return errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("add edge source to hub buffer stream")
+	if _, err := h.js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:      HubEdgeStream(edgeID),
+		Storage:   jetstream.FileStorage,
+		Retention: jetstream.LimitsPolicy,
+		Sources: []*jetstream.StreamSource{{
+			Name: EdgeBufferStream,
+			External: &jetstream.ExternalStream{
+				APIPrefix:     "$JS." + EdgeDomain(edgeID) + ".API",
+				DeliverPrefix: EdgeSubtree(h.tenant, edgeID) + ".source",
+			},
+		}},
+	}); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("create the edge's hub stream")
 	}
 	return nil
+}
+
+// EdgeStream returns the hub stream that sources one edge's buffer.
+func (h *Hub) EdgeStream(ctx context.Context, edgeID string) (jetstream.Stream, error) {
+	stream, err := h.js.Stream(ctx, HubEdgeStream(edgeID))
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeHub).Attr("edge", edgeID).Msg("look up the edge's hub stream")
+	}
+	return stream, nil
 }
 
 // LeafCount reports how many leaf nodes are connected.

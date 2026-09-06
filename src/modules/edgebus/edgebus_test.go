@@ -96,19 +96,19 @@ func TestLeafJoinsWithMintedCredentialAndSourcingFlows(t *testing.T) {
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
 
-	if err := hub.AddEdgeSource(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
-	if err := hub.AddEdgeSource(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
 		t.Fatalf("add edge source twice: %v", err)
 	}
 
 	if err := leaf.Publish(context.Background(), leaf.Subject("otel.logs"), []byte("record-1"), ""); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
-	stream, err := hub.JetStream().Stream(context.Background(), edgebus.HubBufferStream)
+	stream, err := hub.EdgeStream(context.Background(), edgeID)
 	if err != nil {
-		t.Fatalf("hub stream: %v", err)
+		t.Fatalf("edge stream: %v", err)
 	}
 	waitFor(t, "sourced record", 10*time.Second, func() bool {
 		info, err := stream.Info(context.Background())
@@ -234,7 +234,7 @@ func TestReceiverToForwarderCarriesBodiesUnchanged(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AddEdgeSource(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
 	receiver, err := edgebus.StartReceiver(leaf)
@@ -285,7 +285,7 @@ func TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect(t *testing.T) {
 	}
 	leaf := startLeafWith(t, t.TempDir(), url, edgeID, creds)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return first.LeafCount() == 1 })
-	if err := first.AddEdgeSource(context.Background(), edgeID); err != nil {
+	if err := first.AttachEdge(context.Background(), edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
 	first.Close()
@@ -426,15 +426,15 @@ func TestForgedSourceHeadersDoNotRelabelRecords(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
 	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
-	if err := hub.AddEdgeSource(context.Background(), edgeID); err != nil {
+	if err := hub.AttachEdge(context.Background(), edgeID); err != nil {
 		t.Fatalf("add edge source: %v", err)
 	}
 	if err := leaf.Publish(context.Background(), leaf.OTelSubject(edgebus.SignalLogs), []byte("genuine"), ""); err != nil {
 		t.Fatalf("publish: %v", err)
 	}
-	stream, err := hub.JetStream().Stream(context.Background(), edgebus.HubBufferStream)
+	stream, err := hub.EdgeStream(context.Background(), edgeID)
 	if err != nil {
-		t.Fatalf("hub stream: %v", err)
+		t.Fatalf("edge stream: %v", err)
 	}
 	waitFor(t, "sourced record", 15*time.Second, func() bool {
 		info, err := stream.Info(context.Background())

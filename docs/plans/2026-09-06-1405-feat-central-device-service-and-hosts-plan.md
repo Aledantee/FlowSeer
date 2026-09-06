@@ -295,8 +295,12 @@ Design decisions:
   operator mode, one operator key and one `default` account generated on
   first start, `MemAccResolver`, `SyncAlways`, a leaf listener over
   WebSocket with Connect's certificate, JetStream domain `hub`, the
-  journal bucket, the audit stream, a source stream `FLOWSEER_EDGE_BUFFER`
-  aggregating every edge's buffer, and a forwarder that reads the OTel
+  journal bucket, the audit stream, one stream `FLOWSEER_EDGE_<edge-id>`
+  per attached edge sourcing that edge's buffer alone (attribution by
+  stream, decided during U2 after a forged-header probe showed one
+  aggregate could not tell which edge delivered a record), and a forwarder
+  that follows every edge stream, drops a record whose subject lies
+  outside its stream's edge, and reads the OTel
   subjects from it and pushes OTLP to central's configured endpoint
   through the `src/common/service` client. Edge side: `nats-server` as a
   library with one `RemoteLeafOpts` to the hub, its own JetStream domain

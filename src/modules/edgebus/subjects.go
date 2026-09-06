@@ -17,9 +17,11 @@ const (
 	// EdgeBufferStream is the file-backed stream on the edge's own JetStream
 	// domain holding everything the edge has published and not yet shipped.
 	EdgeBufferStream = "EDGE_BUFFER"
-	// HubBufferStream is the hub's aggregate of every edge's buffer, sourced
-	// across the leaf links.
-	HubBufferStream = "FLOWSEER_EDGE_BUFFER"
+	// HubEdgeStreamPrefix starts the name of the hub stream that sources one
+	// edge's buffer; the edge id follows. One stream per edge is what makes
+	// a record's edge a fact of where it is stored rather than of the
+	// subject it carries.
+	HubEdgeStreamPrefix = "FLOWSEER_EDGE_"
 	// AuditStream holds every DeviceOperationEvent central writes.
 	AuditStream = "FLOWSEER_DEVICE_AUDIT"
 	// LaneBucket is the key-value bucket the device service's lane records
@@ -56,6 +58,25 @@ func OTelSubject(tenant, edgeID string, signal OTelSignal) string {
 // AuditSubject is where central writes the audit record of one device.
 func AuditSubject(tenant, deviceID string) string {
 	return fmt.Sprintf("flowseer.%s.audit.device.%s", tenant, deviceID)
+}
+
+// HubEdgeStream names the hub stream that sources one edge's buffer.
+func HubEdgeStream(edgeID string) string {
+	return HubEdgeStreamPrefix + edgeID
+}
+
+// edgeOfHubStream reads the edge id back out of a hub edge stream's name;
+// ok is false for any other stream.
+func edgeOfHubStream(name string) (string, bool) {
+	if !strings.HasPrefix(name, HubEdgeStreamPrefix) || len(name) == len(HubEdgeStreamPrefix) {
+		return "", false
+	}
+	return strings.TrimPrefix(name, HubEdgeStreamPrefix), true
+}
+
+// belongsToEdge reports whether subject lies under the edge's own subtree.
+func belongsToEdge(tenant, edgeID, subject string) bool {
+	return strings.HasPrefix(subject, EdgeSubtree(tenant, edgeID)+".")
 }
 
 // EdgeDomain is the JetStream domain an edge's leaf node runs.

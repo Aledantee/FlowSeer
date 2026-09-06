@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -30,17 +31,29 @@ type ForwarderConfig struct {
 	// RetryDelay is how long a failed body waits before the stream
 	// redelivers it. Zero means five seconds.
 	RetryDelay time.Duration
+	// DiscoveryInterval is how often the forwarder looks for edges attached
+	// since it started. Zero means ten seconds.
+	DiscoveryInterval time.Duration
 }
 
-// Forwarder reads every OTLP body from the hub's buffer and posts it on,
-// unchanged, acknowledging only after the collector accepted it.
+// Forwarder follows every edge's hub stream and posts each OTLP body on,
+// unchanged, acknowledging only after the collector accepted it. The edge
+// a record belongs to is the stream it sits in, never the subject it
+// carries: a record whose subject lies outside that edge's subtree is
+// dropped, so no permission change can let one edge speak as another.
 type Forwarder struct {
-	cfg      ForwarderConfig
-	consumer jetstream.ConsumeContext
-	done     chan struct{}
+	cfg    ForwarderConfig
+	hub    *Hub
+	cancel context.CancelFunc
+	done   chan struct{}
+
+	mu        sync.Mutex
+	consumers map[string]jetstream.ConsumeContext
+	dropped   int
 }
 
-// StartForwarder attaches the durable consumer and forwards until Close.
+// StartForwarder attaches to every edge stream present now and to each one
+// attached later, and forwards until Close.
 func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwarder, error) {
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")
@@ -51,32 +64,91 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	if cfg.RetryDelay == 0 {
 		cfg.RetryDelay = 5 * time.Second
 	}
-	stream, err := hub.JetStream().Stream(ctx, HubBufferStream)
+	if cfg.DiscoveryInterval == 0 {
+		cfg.DiscoveryInterval = 10 * time.Second
+	}
+	runCtx, cancel := context.WithCancel(context.Background())
+	f := &Forwarder{cfg: cfg, hub: hub, cancel: cancel, done: make(chan struct{}), consumers: map[string]jetstream.ConsumeContext{}}
+	if err := f.discover(ctx); err != nil {
+		cancel()
+		return nil, err
+	}
+	go f.follow(runCtx)
+	return f, nil
+}
+
+// follow re-runs discovery on the configured interval so an edge attached
+// after the forwarder started gets its consumer.
+func (f *Forwarder) follow(ctx context.Context) {
+	defer close(f.done)
+	ticker := time.NewTicker(f.cfg.DiscoveryInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = f.discover(ctx)
+		}
+	}
+}
+
+// discover attaches a durable consumer to every edge stream that has none.
+func (f *Forwarder) discover(ctx context.Context) error {
+	names := f.hub.JetStream().StreamNames(ctx)
+	for name := range names.Name() {
+		edgeID, ok := edgeOfHubStream(name)
+		if !ok {
+			continue
+		}
+		f.mu.Lock()
+		_, following := f.consumers[name]
+		f.mu.Unlock()
+		if following {
+			continue
+		}
+		if err := f.attach(ctx, name, edgeID); err != nil {
+			return err
+		}
+	}
+	if err := names.Err(); err != nil {
+		return errs.From(err).Code(ErrCodeForwarder).Msg("list hub streams")
+	}
+	return nil
+}
+
+func (f *Forwarder) attach(ctx context.Context, name, edgeID string) error {
+	stream, err := f.hub.JetStream().Stream(ctx, name)
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeForwarder).Msg("look up hub buffer stream")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("look up edge stream")
 	}
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Durable:       "otel-forwarder",
 		FilterSubject: "flowseer.*.edge.*.otel.>",
 		AckPolicy:     jetstream.AckExplicitPolicy,
-		AckWait:       cfg.Client.Timeout + 10*time.Second,
+		AckWait:       f.cfg.Client.Timeout + 10*time.Second,
 	})
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeForwarder).Msg("create forwarder consumer")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("create forwarder consumer")
 	}
-	f := &Forwarder{cfg: cfg, done: make(chan struct{})}
-	f.consumer, err = consumer.Consume(f.forward)
+	consume, err := consumer.Consume(func(msg jetstream.Msg) { f.forward(edgeID, msg) })
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeForwarder).Msg("start forwarder consumer")
+		return errs.From(err).Code(ErrCodeForwarder).Attr("stream", name).Msg("start forwarder consumer")
 	}
-	return f, nil
+	f.mu.Lock()
+	f.consumers[name] = consume
+	f.mu.Unlock()
+	return nil
 }
 
-func (f *Forwarder) forward(msg jetstream.Msg) {
+func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	signal, ok := signalOf(msg.Subject())
-	if !ok {
-		// Not an OTLP body; the filter should not deliver it, and there is
-		// nothing to retry.
+	if !ok || !belongsToEdge(f.hub.Tenant(), edgeID, msg.Subject()) {
+		// Either not an OTLP body, or a record claiming another edge's
+		// subject from inside this edge's stream. Neither is retried.
+		f.mu.Lock()
+		f.dropped++
+		f.mu.Unlock()
 		_ = msg.Term()
 		return
 	}
@@ -105,10 +177,22 @@ func (f *Forwarder) forward(msg jetstream.Msg) {
 	_ = msg.NakWithDelay(f.cfg.RetryDelay)
 }
 
-// Close stops consuming; a body in flight finishes.
+// Dropped counts records refused for carrying a subject outside their
+// stream's edge, or no OTLP signal at all.
+func (f *Forwarder) Dropped() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.dropped
+}
+
+// Close stops discovery and every consumer; a body in flight finishes.
 func (f *Forwarder) Close() {
-	if f.consumer != nil {
-		f.consumer.Drain()
-		f.consumer = nil
+	f.cancel()
+	<-f.done
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for name, consume := range f.consumers {
+		consume.Drain()
+		delete(f.consumers, name)
 	}
 }
