@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-05
+last_updated: 2026-09-06
 ---
 
 # Agent steering
@@ -203,6 +203,39 @@ vets, tests, and lints the changed packages and their importers (a
 fixpoint over `go list` dependency and test-import data) and keeps the
 module-wide scope for `--full`; workers run their package's focused tests
 and the coordinator runs the verifier once after merging.
+
+Split large plans into phases and carry progress in a ledger, not in the
+conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
+reports frontier models resolving far fewer multi-file tasks than on
+SWE-Bench Verified, and the Claude Code issue tracker records the
+mechanism from the user's side, where a compacted session retries a
+rejected approach and forgets the tracker files it wrote. The measured
+mitigations agree on the shape: milestone-triggered, structured context
+reset beats append-only context and free-running summarization
+(Context-Folding, "Context as a Tool"), a summary that reads well can
+still break the next step (Slipstream), and Anthropic's harness for
+long-running agents keeps a JSON feature list with a pass field because
+the model overwrites JSON less readily than Markdown. So `implement`
+keeps `flowseer-plan-status.json` in the worktree's git directory, beside
+the verifier receipt: per unit an id, status, commit, verifier time, and a
+one-line note for a decision the next unit needs. The verifier validates
+it on every run, `close` gates the merge on every unit `passed` and removes
+it after the merge, and a resumed session checks each recorded commit
+against `HEAD` before editing. The ledger is temporary by construction;
+a STATE.md or per-wave directory would be a second artifact format, and
+the strongest community counter-signal is ceremony fatigue with
+multi-artifact frameworks. Phase boundaries follow dependency cohesion:
+cohesion-aware partitioning gained 11 to 14 points over naive splitting,
+and naive parallel splitting scored below sequential execution, so `plan`
+clusters units by the files they touch and the `After` edges between
+them, and only the first phase is written implementation-ready, since
+as-needed decomposition (ADaPT) beats fixed baselines. Units of a
+phase plan run one at a time in fresh worker contexts; the CAID and STORM
+results disagree on isolation versus shared state for parallel workers,
+and Cognition's case against multi-agents concerns parallel work on one
+deliverable, which sequential units avoid. The six-unit trigger is a
+starting value from community reports of three to five phases per plan;
+no controlled study varies wave size.
 
 Drop what the repository cannot use. There is no remote, so pull-request,
 CI-watching, and push skills are inert here. Cross-model review would send
@@ -481,6 +514,51 @@ Sources checked on 2026-09-05 for documentation lookup and research skills:
   explanation goes before the claim does.
 - Orca CLI and orchestration guides, served version-matched by the binary
   through `orca skills get orca-cli` and `orca skills get orchestration`.
+
+Sources checked on 2026-09-06 for phase plans and the status ledger:
+
+- [Anthropic, "Effective harnesses for long-running agents"](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents):
+  an initializer writes a feature-list JSON with a pass field and a
+  progress file; JSON because the model overwrites it less readily than
+  Markdown; one feature per session, verified end to end before it is
+  marked done.
+- [Anthropic, memory tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/memory-tool):
+  the multisession pattern reads memory files first, works one feature
+  at a time, and updates the progress log at session end.
+- [OpenAI, "Run long horizon tasks with Codex"](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex):
+  a plan file as source of truth, milestones small enough for one loop,
+  validation and repair before the next milestone.
+- ["Context as a Tool"](https://arxiv.org/abs/2512.22087): milestone-
+  triggered compression into stable facts, condensed memory, and recent
+  turns; 57.6% on SWE-Bench Verified over append-only baselines.
+- ["Scaling Long-Horizon LLM Agent via Context-Folding"](https://arxiv.org/abs/2510.11967):
+  folding a subtask into an outcome summary matches ReAct with a tenfold
+  smaller active context and beats summarization-based management.
+- [Slipstream](https://arxiv.org/abs/2605.08580): compaction validated by
+  whether later steps still succeed; a coherent summary can still carry
+  incorrect behavior forward.
+- [ADaPT](https://arxiv.org/abs/2311.05772): decomposition only where the
+  executor fails, with large gains over fixed strong baselines.
+- ["When Parallelism Pays Off"](https://arxiv.org/abs/2606.00953):
+  cohesion-aware partitioning along the dependency graph gained 11 to 14
+  points over naive splitting on DevEval and CodeProjectEval; naive
+  file-based parallelism scored below sequential execution.
+- [SWE-Bench Pro](https://arxiv.org/abs/2509.16941): multi-file,
+  long-horizon tasks; resolution rates far below SWE-Bench Verified.
+- [CAID](https://arxiv.org/abs/2603.21489) and
+  [STORM](https://arxiv.org/abs/2605.20563): isolated worktrees with a
+  test-gated integrator improve PaperBench and Commit0; a shared workspace
+  with write-time conflict detection beats that isolation on Commit0-Lite.
+  The disagreement concerns parallel workers, which sequential units avoid.
+- [Cognition, "Don't Build Multi-Agents"](https://cognition.com/blog/dont-build-multi-agents):
+  parallel subagents on one deliverable make conflicting implicit
+  decisions; share full context, compress with a dedicated model.
+- [Manus, "Context Engineering for AI Agents"](https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus):
+  a recited todo file keeps the plan in recent attention; the file system
+  as restorable context.
+- [Claude Code issue #29890](https://github.com/anthropics/claude-code/issues/29890):
+  after compaction the session retries rejected approaches and forgets
+  the tracker files it wrote to survive compaction.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only

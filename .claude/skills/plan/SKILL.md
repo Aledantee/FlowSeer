@@ -79,6 +79,7 @@ status: planned
 execution: code | docs | mixed
 amends: <path of the plan or direction record this one changes, if any>
 superseded_by: <path of the replacing plan; only with status superseded>
+parent: <path of the parent plan; only in a phase plan>
 ---
 ```
 
@@ -134,7 +135,9 @@ Rules:
   never both `none`.
 - Requirement and unit labels (R1, U2) stay in the plan and never enter code,
   comments, or commit messages.
-- Over 300 lines, split the plan or cut what the implementer can decide alone.
+- Over six units or 300 lines, cut what the implementer can decide alone,
+  then load `references/phases.md` and split along its dependency
+  clusters into a parent plan and phase plans.
 
 ## 4. Review the plan
 

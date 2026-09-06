@@ -111,7 +111,8 @@ orca worktree set --worktree active --comment "unit 2 landed; verifying unit 3" 
 ```
 
 A full handoff creates the worktree with the brief as its prompt and stops
-supervising:
+supervising. The brief carries the whole ledger when one exists, since
+the child worktree has its own git directory:
 
 ```bash
 orca worktree create --name <slug> --parent-worktree active --agent <agent> --prompt "<brief>" --json
@@ -157,7 +158,10 @@ A delegate has none of this conversation. The brief states, in order:
    failure scenario each, or the changed paths, the focused test command and
    its result, and the commit hash. Outcome first, no preamble or closing
    summary, no word budget.
-5. The boundaries: no edits outside the named files, no changes to
+5. For a unit of a plan with a ledger (`verify-change`'s `SKILL.md`
+   documents it), the `note` line of every landed unit, verbatim, and
+   nothing else from the ledger.
+6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, or `.claude/settings.json`, no
    plan labels in code.
 

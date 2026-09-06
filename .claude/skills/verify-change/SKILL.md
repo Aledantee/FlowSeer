@@ -41,3 +41,35 @@ blocked command and reason.
 
 A successful run records its scope in the worktree's git metadata and clears
 matching dirty markers; `close` reads that receipt.
+
+## Plan status ledger
+
+`implement` keeps `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
+never committed, so a later session resumes a plan without re-deriving
+what landed. Every verifier run that runs a gate validates it first with
+`scripts/check-plan-status.py [LEDGER_PATH]`; `--print-selection` does
+not. An absent ledger passes, a malformed one fails the run naming the
+field. The shape:
+
+```json
+{
+  "contract": "flowseer-plan-status/v1",
+  "plan": "docs/plans/2026-09-06-1319-docs-example-plan.md",
+  "resume": ["U2"],
+  "units": [
+    {"id": "U1", "status": "passed", "commit": "d037089c",
+     "verified_at": "2026-09-06T12:10:00Z",
+     "note": "Diagnostics keep the source span; the catalog is generated."},
+    {"id": "U2", "status": "in_progress", "commit": null,
+     "verified_at": null, "note": null}
+  ]
+}
+```
+
+`status` is one of `pending`, `in_progress`, `passed`, `blocked`; a
+`passed` unit carries its commit and the receipt's `verified_at`.
+`resume` lists the `in_progress` units, or the next `pending` unit when
+none is in progress, and is empty once every unit is `passed`. `note` is
+one line, only for a decision or pitfall the next unit needs. Unit ids are
+unique. `plan` resolves against the tree root and must exist. `close` gates the merge on
+every unit being `passed` and removes the ledger after the merge.
