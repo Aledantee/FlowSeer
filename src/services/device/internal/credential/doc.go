@@ -15,4 +15,10 @@
 // symlink swapped into the mount after the directory was opened is
 // refused at the kernel call itself rather than raced between a check and
 // a read.
+//
+// Get returns the file parsed into a CredentialMaterial, but parses it only
+// after every security, version, and rotation check has passed. A malformed
+// file therefore surfaces as a parse error only when nothing else was wrong;
+// it never masks a symlink, an insecure mode, a version mismatch, or a
+// mid-rotation read, so the reported cause is the one to act on.
 package credential
