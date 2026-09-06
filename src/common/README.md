@@ -7,8 +7,10 @@ nothing of FlowSeer's own.
 | ---------------------- | ------------------------------------------------------------------- |
 | `errs`                 | error types, codes, and boundary filtering                           |
 | `pump`                 | shared work-pump concurrency primitive                              |
+| `secret`               | redacting carrier for credential material                           |
 | `service`              | process-local module runtime, supervision, delivery, and telemetry  |
 | `internal/netpenguard` | build guard limiting heavy dependencies to `src/edge/netpen`        |
+| `internal/secretguard` | build guard keeping credential material out of raw string fields    |
 
 ## What belongs here
 

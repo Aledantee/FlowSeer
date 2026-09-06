@@ -87,15 +87,15 @@ func sshConfig(opts Options) (*ssh.ClientConfig, error) {
 		return nil, errs.New().Code(ErrCodeTransport).Msg("options: username is required")
 	}
 	var auth []ssh.AuthMethod
-	if len(opts.PrivateKeyPEM) > 0 {
-		signer, err := ssh.ParsePrivateKey(opts.PrivateKeyPEM)
+	if !opts.PrivateKeyPEM.Empty() {
+		signer, err := ssh.ParsePrivateKey(opts.PrivateKeyPEM.Reveal())
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeTransport).Msg("options: parse private key")
 		}
 		auth = append(auth, ssh.PublicKeys(signer))
 	}
-	if opts.Password != "" {
-		auth = append(auth, ssh.Password(opts.Password))
+	if !opts.Password.Empty() {
+		auth = append(auth, ssh.Password(opts.Password.RevealString()))
 	}
 	if len(auth) == 0 {
 		return nil, errs.New().Code(ErrCodeTransport).Msg("options: a password or private key is required")

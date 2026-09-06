@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/restconf"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
@@ -23,7 +24,7 @@ func dialTest(t *testing.T, handler http.Handler) *restconf.Session {
 	t.Cleanup(srv.Close)
 	s, err := restconf.Dial(context.Background(), srv.URL, restconf.Options{
 		Username:   "admin",
-		Password:   "secret",
+		Password:   secret.NewString("secret"),
 		HTTPClient: srv.Client(),
 	})
 	if err != nil {

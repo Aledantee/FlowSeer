@@ -5,6 +5,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // buildV3Trap builds an authenticated (and optionally encrypted) SNMPv3
@@ -32,9 +34,9 @@ func trapCfg() USMConfig {
 	return USMConfig{
 		Username:       "alice",
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: "trap-auth-passphrase",
+		AuthPassphrase: secret.NewString("trap-auth-passphrase"),
 		PrivProtocol:   PrivAES,
-		PrivPassphrase: "trap-priv-passphrase",
+		PrivPassphrase: secret.NewString("trap-priv-passphrase"),
 	}
 }
 
@@ -139,7 +141,7 @@ func TestV3Trap_SecurityLevelFloor(t *testing.T) {
 	ts, addr := startTrapListener(t, WithUSMTable([]USMConfig{reg}))
 
 	// authNoPriv sender (same engineID + userName + auth passphrase).
-	weak := USMConfig{Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: "trap-auth-passphrase"}
+	weak := USMConfig{Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("trap-auth-passphrase")}
 	before := ts.Dropped()
 	sendDatagram(t, addr, buildV3Trap(t, weak, trapSender, 5, 1000, snmpTrapVarBinds()))
 	if _, ok := nextTrap(ts, 300*time.Millisecond); ok {

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // mustHex decodes a hex string fixture or fails the package's test setup.
@@ -79,7 +81,7 @@ func TestLocalizedAuthKey_AllProtocols(t *testing.T) {
 	wantWidth := map[string]int{"MD5": 16, "SHA1": 20, "SHA224": 28, "SHA256": 32, "SHA384": 48, "SHA512": 64}
 	for _, v := range authKDFVectors {
 		t.Run(v.name, func(t *testing.T) {
-			got, err := localizedAuthKey(authProtoByName[v.name], vecPassphrase, vecEngineID)
+			got, err := localizedAuthKey(authProtoByName[v.name], secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("localizedAuthKey: %v", err)
 			}
@@ -109,14 +111,14 @@ func TestLocalizedPrivKey_Extension(t *testing.T) {
 	for _, v := range privExtendVectors {
 		t.Run(v.name, func(t *testing.T) {
 			cell := privCell[v.name]
-			blum, err := localizedPrivKey(cell.auth, cell.priv, vecPassphrase, vecEngineID)
+			blum, err := localizedPrivKey(cell.auth, cell.priv, secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("Blumenthal localizedPrivKey: %v", err)
 			}
 			if !bytes.Equal(blum, v.blumenthal) {
 				t.Fatalf("Blumenthal mismatch:\n got %x\nwant %x", blum, v.blumenthal)
 			}
-			reeder, err := localizedPrivKey(cell.auth, cVariantFor(cell.priv), vecPassphrase, vecEngineID)
+			reeder, err := localizedPrivKey(cell.auth, cVariantFor(cell.priv), secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("Reeder localizedPrivKey: %v", err)
 			}
@@ -136,11 +138,11 @@ func TestLocalizedPrivKey_Extension(t *testing.T) {
 // least as wide as the priv key (SHA-256 + AES-256), Blumenthal and Reeder
 // are byte-identical (no extension occurs).
 func TestLocalizedPrivKey_Equivalence(t *testing.T) {
-	blum, err := localizedPrivKey(AuthSHA256, PrivAES256, vecPassphrase, vecEngineID)
+	blum, err := localizedPrivKey(AuthSHA256, PrivAES256, secret.NewString(vecPassphrase), vecEngineID)
 	if err != nil {
 		t.Fatalf("Blumenthal: %v", err)
 	}
-	reeder, err := localizedPrivKey(AuthSHA256, PrivAES256C, vecPassphrase, vecEngineID)
+	reeder, err := localizedPrivKey(AuthSHA256, PrivAES256C, secret.NewString(vecPassphrase), vecEngineID)
 	if err != nil {
 		t.Fatalf("Reeder: %v", err)
 	}
@@ -155,7 +157,7 @@ func TestLocalizedPrivKey_3DES(t *testing.T) {
 	for _, v := range priv3DESVectors {
 		t.Run(v.name, func(t *testing.T) {
 			cell := privCell[v.name]
-			got, err := localizedPrivKey(cell.auth, cell.priv, vecPassphrase, vecEngineID)
+			got, err := localizedPrivKey(cell.auth, cell.priv, secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("localizedPrivKey: %v", err)
 			}
@@ -174,7 +176,7 @@ func TestLocalizedPrivKey_3DES(t *testing.T) {
 func TestLocalizedPrivKey_DESTruncation(t *testing.T) {
 	for _, proto := range []PrivProtocol{PrivDES, PrivAES} {
 		t.Run(proto.String(), func(t *testing.T) {
-			got, err := localizedPrivKey(AuthSHA, proto, vecPassphrase, vecEngineID)
+			got, err := localizedPrivKey(AuthSHA, proto, secret.NewString(vecPassphrase), vecEngineID)
 			if err != nil {
 				t.Fatalf("localizedPrivKey: %v", err)
 			}

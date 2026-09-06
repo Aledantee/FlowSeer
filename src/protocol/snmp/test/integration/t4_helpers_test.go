@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -18,7 +19,7 @@ import (
 type t4Target struct {
 	Host      string
 	Port      uint16
-	Community string
+	Community secret.Value
 }
 
 // String returns a stable identifier suitable for use as a subtest
@@ -77,7 +78,7 @@ func parseT4Targets(s string) ([]t4Target, error) {
 			return nil, fmt.Errorf("entry %d: %w", i, err)
 		}
 
-		out = append(out, t4Target{Host: host, Port: port, Community: community})
+		out = append(out, t4Target{Host: host, Port: port, Community: secret.NewString(community)})
 	}
 	return out, nil
 }

@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // session is the [Session] implementation: it builds request PDUs, drives the
@@ -25,9 +26,14 @@ type session struct {
 	r         *reactor
 	inst      *instruments
 	version   Version
-	community string
-	timeout   time.Duration
-	retries   int
+	community secret.Value
+	// communityWire is the community in the form the encoder needs. It is
+	// revealed once here rather than per request: the wire form is built
+	// for every PDU, and a reveal on that path would allocate a fresh
+	// unwipeable copy each time.
+	communityWire string
+	timeout       time.Duration
+	retries       int
 
 	ignoreNonIncreasing bool
 	maxWalkVars         int
@@ -707,7 +713,7 @@ func (s *session) exchange(ctx context.Context, op string, req *message, callCfg
 func (s *session) newRequest(typ pduType, vbs []VarBind) *message {
 	return &message{
 		version:   s.version,
-		community: s.community,
+		community: s.communityWire,
 		pdu:       pdu{typ: typ, varbinds: vbs},
 	}
 }
@@ -717,7 +723,7 @@ func (s *session) newRequest(typ pduType, vbs []VarBind) *message {
 func (s *session) newBulkRequest(oids []OID, nonRepeaters, maxRepetitions int) *message {
 	return &message{
 		version:   s.version,
-		community: s.community,
+		community: s.communityWire,
 		pdu: pdu{
 			typ:            pduGetBulkRequest,
 			nonRepeaters:   nonRepeaters,

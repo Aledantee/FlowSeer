@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // defaultTimeout bounds each request when the caller's context
@@ -24,14 +25,14 @@ type Options struct {
 	// Username and Password enable HTTP basic auth, the scheme ICX
 	// and IOS-XE RESTCONF use.
 	Username string
-	Password string
+	Password secret.Value
 
 	// CACertPEM verifies the peer with a private CA bundle instead of
 	// the system pool.
 	CACertPEM []byte
 	// ClientCertPEM and ClientKeyPEM enable mutual TLS.
 	ClientCertPEM []byte
-	ClientKeyPEM  []byte
+	ClientKeyPEM  secret.Value
 	// InsecureSkipTLSVerify disables server-certificate verification.
 	// An explicit lab-device opt-in, never a default.
 	InsecureSkipTLSVerify bool
@@ -75,8 +76,8 @@ func (o Options) httpClient() (*http.Client, error) {
 		}
 		tlsCfg.RootCAs = pool
 	}
-	if len(o.ClientCertPEM) > 0 || len(o.ClientKeyPEM) > 0 {
-		cert, err := tls.X509KeyPair(o.ClientCertPEM, o.ClientKeyPEM)
+	if len(o.ClientCertPEM) > 0 || !o.ClientKeyPEM.Empty() {
+		cert, err := tls.X509KeyPair(o.ClientCertPEM, o.ClientKeyPEM.Reveal())
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeTransport).Msg("options: load client certificate")
 		}

@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // usm_security.go is the single composition point for the USM crypto units
@@ -40,8 +41,8 @@ type usmContext struct {
 	authProto AuthProtocol
 	privProto PrivProtocol
 
-	authPass string
-	privPass string
+	authPass secret.Value
+	privPass secret.Value
 
 	logCtx context.Context
 

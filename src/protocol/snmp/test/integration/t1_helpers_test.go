@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/snmp/test/integration/testenv"
 )
@@ -22,7 +23,7 @@ func t1DialV2c(t *testing.T) snmp.Session {
 		t.Fatal("testenv.Target() is empty; t1 TestMain did not seed the target")
 	}
 	base := []snmp.Option{
-		snmp.WithCommunity("public"),
+		snmp.WithCommunity(secret.NewString("public")),
 		snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 		snmp.WithTimeout(2 * time.Second),
 		snmp.WithRetries(2),

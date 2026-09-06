@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"math"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // SNMPv3/USM crypto + lifecycle pins.
@@ -71,11 +73,11 @@ func TestUSM_KeyDerivationPerPrivPassphrase(t *testing.T) {
 	const priv = PrivAES256
 	engine := mustHex("8000000001020304050607")
 
-	k1, err := localizedPrivKey(auth, priv, "priv-passphrase-AAAA", engine)
+	k1, err := localizedPrivKey(auth, priv, secret.NewString("priv-passphrase-AAAA"), engine)
 	if err != nil {
 		t.Fatalf("localizedPrivKey 1: %v", err)
 	}
-	k2, err := localizedPrivKey(auth, priv, "priv-passphrase-BBBB", engine)
+	k2, err := localizedPrivKey(auth, priv, secret.NewString("priv-passphrase-BBBB"), engine)
 	if err != nil {
 		t.Fatalf("localizedPrivKey 2: %v", err)
 	}

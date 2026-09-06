@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // TestSession_AsSnmpInterface pins the contract that *session satisfies
@@ -120,7 +122,7 @@ func octet(oid OID, s string) VarBind {
 func dialNative(t *testing.T, agent *mockAgent, version Version) Session {
 	t.Helper()
 	sess, err := NewSession(context.Background(), agent.addr.String(), version,
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth),
 		WithTimeout(time.Second),
 		WithRetries(1),
@@ -328,7 +330,7 @@ func TestSession_GetBulk_TooBigBackoff(t *testing.T) {
 func dialNativeShort(t *testing.T, agent *mockAgent, version Version) Session {
 	t.Helper()
 	sess, err := NewSession(context.Background(), agent.addr.String(), version,
-		WithCommunity("public"),
+		WithCommunity(secret.NewString("public")),
 		WithMinSecurity(MinSecurityNoAuth),
 		WithTimeout(150*time.Millisecond),
 		WithRetries(0),

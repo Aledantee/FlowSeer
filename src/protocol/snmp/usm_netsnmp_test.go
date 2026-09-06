@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // usm_netsnmp_test.go is a live-peer integration check for v3 notification
@@ -45,8 +47,8 @@ func TestNetSNMP_V3TrapReception(t *testing.T) {
 
 	reg := USMConfig{
 		Username: user, EngineID: senderEngine,
-		AuthProtocol: AuthSHA, AuthPassphrase: nsAuthPass,
-		PrivProtocol: PrivAES, PrivPassphrase: nsPrivPass,
+		AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(nsAuthPass),
+		PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(nsPrivPass),
 	}
 	ts, addr := startTrapListener(t, WithUSMTable([]USMConfig{reg}))
 
@@ -89,8 +91,8 @@ func TestNetSNMP_V3InformReception(t *testing.T) {
 
 	reg := USMConfig{
 		Username: user, EngineID: ownEngine, // registered under OUR engineID
-		AuthProtocol: AuthSHA, AuthPassphrase: nsAuthPass,
-		PrivProtocol: PrivAES, PrivPassphrase: nsPrivPass,
+		AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString(nsAuthPass),
+		PrivProtocol: PrivAES, PrivPassphrase: secret.NewString(nsPrivPass),
 	}
 
 	// Capture the listener so the post-restart quarantine can be lifted (a

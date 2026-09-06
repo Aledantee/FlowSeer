@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // makeTrap constructs a deterministic Trap for use as pump input.
@@ -18,7 +20,7 @@ func makeTrap(t *testing.T, i int) Trap {
 	oid := makeOID(t, fmt.Sprintf("1.3.6.1.6.3.1.1.5.%d", i+1))
 	return Trap{
 		Source:    net.IPv4(127, 0, 0, byte(i+1)),
-		Community: "public",
+		Community: secret.NewString("public"),
 		Version:   V2c,
 		VarBinds: []VarBind{
 			Counter32Var{Header: Header{OID: oid, Kind: KindCounter32}, Value: uint32(100 + i)},
@@ -48,7 +50,7 @@ func TestTrapStream_PushHappyPath(t *testing.T) {
 		t.Fatalf("yielded %d traps, want %d", len(got), n)
 	}
 	for i := range got {
-		if got[i].Community != want[i].Community {
+		if !got[i].Community.Equal(want[i].Community) {
 			t.Errorf("trap[%d].Community = %q, want %q", i, got[i].Community, want[i].Community)
 		}
 		if !got[i].Source.Equal(want[i].Source) {
@@ -79,7 +81,7 @@ func TestTrapStream_NextHappyPath(t *testing.T) {
 	count := 0
 	for ts.Next() {
 		got := ts.Current()
-		if got.Community != "public" {
+		if !got.Community.EqualString("public") {
 			t.Errorf("trap[%d].Community = %q, want %q", count, got.Community, "public")
 		}
 		count++
@@ -398,7 +400,7 @@ func TestTrapOptions_Apply(t *testing.T) {
 	cfg := ApplyTrapOptions(
 		WithAllowedSources(*ipnet),
 		WithMaxTrapsPerSecond(100),
-		WithUSMTable([]USMConfig{{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: "p"}}),
+		WithUSMTable([]USMConfig{{Username: "u", AuthProtocol: AuthSHA, AuthPassphrase: secret.NewString("p")}}),
 		WithTrapBufferSize(512),
 	)
 	if len(cfg.AllowedSources()) != 1 {

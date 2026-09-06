@@ -133,6 +133,7 @@ func NewSession(ctx context.Context, target string, version Version, opts ...Opt
 		inst:                inst,
 		version:             cfg.Version,
 		community:           cfg.Community,
+		communityWire:       cfg.Community.RevealString(),
 		timeout:             timeout,
 		retries:             retries,
 		ignoreNonIncreasing: cfg.IgnoreNonIncreasing,

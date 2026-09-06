@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Default timeouts, applied by [Options.withDefaults].
@@ -27,7 +28,7 @@ type Options struct {
 	// Username and Password travel as gNMI metadata on every RPC,
 	// the convention AOS-CX and IOS-XE gNMI use.
 	Username string
-	Password string
+	Password secret.Value
 
 	// CACertPEM verifies the peer with a private CA bundle (server
 	// TLS).
@@ -35,7 +36,7 @@ type Options struct {
 	// ClientCertPEM and ClientKeyPEM enable mutual TLS; combine with
 	// CACertPEM for a private CA.
 	ClientCertPEM []byte
-	ClientKeyPEM  []byte
+	ClientKeyPEM  secret.Value
 	// InsecureSkipTLSVerify runs TLS but skips server verification.
 	// An explicit lab-device opt-in.
 	InsecureSkipTLSVerify bool
@@ -91,8 +92,8 @@ func (o Options) transportCredentials() (credentials.TransportCredentials, error
 		}
 		cfg.RootCAs = pool
 	}
-	if len(o.ClientCertPEM) > 0 || len(o.ClientKeyPEM) > 0 {
-		cert, err := tls.X509KeyPair(o.ClientCertPEM, o.ClientKeyPEM)
+	if len(o.ClientCertPEM) > 0 || !o.ClientKeyPEM.Empty() {
+		cert, err := tls.X509KeyPair(o.ClientCertPEM, o.ClientKeyPEM.Reveal())
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeTransport).Msg("options: load client certificate")
 		}

@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // mockAgent is a UDP responder for reactor tests. Each decoded request is
@@ -108,7 +110,7 @@ func newTestReactor(t *testing.T, peer *net.UDPAddr, c tcfg) *testReactor {
 		// getReq builds V2c/"public" requests, and the mock agent echoes
 		// those, so the reactor must expect the same to accept replies.
 		version:   V2c,
-		community: "public",
+		community: secret.NewString("public"),
 	})
 	if err != nil {
 		t.Fatalf("newReactor: %v", err)

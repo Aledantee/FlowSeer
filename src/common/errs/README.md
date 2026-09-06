@@ -75,7 +75,9 @@ symbolized only when logged.
 
 ## Conventions
 
-- Never attach raw secret material. Attach a length and a protocol name.
+- Never attach raw secret material. Attach a length and a protocol name. A
+  value that must be carried is a `secret.Value`, which renders redacted
+  wherever the error does.
 - A field earns a place in the payload only if a mechanism consumes it — the
   process, a retry loop, `errors.Is`, or the boundary filter. Facts a reader
   merely finds interesting are attributes.

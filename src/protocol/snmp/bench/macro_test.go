@@ -11,6 +11,7 @@ import (
 
 	g "github.com/gosnmp/gosnmp"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -67,7 +68,7 @@ func macroEnv(tb testing.TB) macroCfg {
 func dialNativeV2c(tb testing.TB, c macroCfg) snmp.Session {
 	tb.Helper()
 	sess, err := snmp.NewSession(context.Background(), c.agent, snmp.V2c,
-		snmp.WithCommunity(c.community),
+		snmp.WithCommunity(secret.NewString(c.community)),
 		snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 		snmp.WithTimeout(3*time.Second),
 		snmp.WithRetries(2),
@@ -224,9 +225,9 @@ func BenchmarkMacroColdStartV3USM(b *testing.B) {
 				SecurityParameters: &g.UsmSecurityParameters{
 					UserName:                 usm.Username,
 					AuthenticationProtocol:   usm.gosnmpAuth(),
-					AuthenticationPassphrase: usm.AuthPassphrase,
+					AuthenticationPassphrase: usm.AuthPassphrase.RevealString(),
 					PrivacyProtocol:          usm.gosnmpPriv(),
-					PrivacyPassphrase:        usm.PrivPassphrase,
+					PrivacyPassphrase:        usm.PrivPassphrase.RevealString(),
 				},
 				Timeout: 3 * time.Second,
 				Retries: 2,
@@ -428,9 +429,9 @@ func v3USMFromEnv(tb testing.TB) (benchUSM, bool) {
 		USMConfig: snmp.USMConfig{
 			Username:       user,
 			AuthProtocol:   auth,
-			AuthPassphrase: os.Getenv("FLOWSEER_BENCH_V3_AUTHPASS"),
+			AuthPassphrase: secret.NewString(os.Getenv("FLOWSEER_BENCH_V3_AUTHPASS")),
 			PrivProtocol:   priv,
-			PrivPassphrase: os.Getenv("FLOWSEER_BENCH_V3_PRIVPASS"),
+			PrivPassphrase: secret.NewString(os.Getenv("FLOWSEER_BENCH_V3_PRIVPASS")),
 		},
 		authProto: authProto,
 		privProto: privProto,

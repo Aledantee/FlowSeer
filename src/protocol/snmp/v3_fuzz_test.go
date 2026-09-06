@@ -3,6 +3,8 @@ package snmp
 import (
 	"context"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // v3_fuzz_test.go is the cross-cutting hardening harness. The no-panic /
@@ -96,8 +98,8 @@ func FuzzVerifyInbound(f *testing.F) {
 		f.Add(s)
 	}
 	cfg := USMConfig{
-		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: "fuzz-auth-passphrase",
-		PrivProtocol: PrivAES, PrivPassphrase: "fuzz-priv-passphrase", EngineID: mustHex("8000000001020304"),
+		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("fuzz-auth-passphrase"),
+		PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("fuzz-priv-passphrase"), EngineID: mustHex("8000000001020304"),
 	}
 	u, err := newUSMContext(context.Background(), cfg)
 	if err != nil {
@@ -126,8 +128,8 @@ func FuzzListenerHandlePacket(f *testing.F) {
 	// A listener with one registered engine and one with none, to exercise
 	// both the resolved and the zero-engine drop paths.
 	regCfg := USMConfig{
-		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: "fuzz-auth-passphrase",
-		PrivProtocol: PrivAES, PrivPassphrase: "fuzz-priv-passphrase", EngineID: mustHex("8000000001020304"),
+		Username: "alice", AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("fuzz-auth-passphrase"),
+		PrivProtocol: PrivAES, PrivPassphrase: secret.NewString("fuzz-priv-passphrase"), EngineID: mustHex("8000000001020304"),
 	}
 	withEngine := newFuzzListener(f, mustHex("80001f8800ffffffff000001"), []USMConfig{regCfg})
 	zeroEngine := newFuzzListener(f, mustHex("80001f8800ffffffff000002"), nil)

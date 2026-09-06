@@ -26,3 +26,22 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-06 verify-change: the gate misses tagged files and a nested module
+Skill or agent: `.claude/skills/verify-change/SKILL.md` and
+`scripts/verify-change.sh`.
+What happened: a breaking type change across the protocol libraries passed
+the verifier on every changed path while two files did not compile —
+`src/protocol/snmp/bench/macro_test.go` (behind `snmp_bench_macro`, in the
+nested bench module) and `src/protocol/snmp/usm_parity_test.go` (behind
+`snmp_parity`). The verifier builds untagged targets only, so nothing in the
+default gate reaches either. Both were found later by sweeping build tags by
+hand. Separately, one invocation whose paths spanned the main module and
+`src/protocol/snmp/bench` put the bench package in the main module's target
+list and failed with "main module does not contain package
+go.aledante.io/FlowSeer/src/protocol/snmp/bench"; splitting the invocation per
+module works. The steps were followed as written.
+Suggested change: group changed paths by their nearest `go.mod` before
+building the target list, and add a step that names the build tags touching
+the changed packages (`grep -rh '^//go:build'`) and vets each one after a
+change to an exported signature or field type.

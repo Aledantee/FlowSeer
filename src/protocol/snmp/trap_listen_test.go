@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // startTrapListener binds a native trap listener on an ephemeral loopback
@@ -121,7 +123,7 @@ func TestTrap_V2cReceive(t *testing.T) {
 	if !ok {
 		t.Fatal("no v2c trap received")
 	}
-	if tr.Version != V2c || tr.Community != "public" {
+	if tr.Version != V2c || !tr.Community.EqualString("public") {
 		t.Fatalf("trap meta: version=%s community=%s", tr.Version, tr.Community)
 	}
 	if len(tr.VarBinds) != 2 {
@@ -228,7 +230,7 @@ func TestTrap_V3DroppedAndEngineUnsupported(t *testing.T) {
 	// Validate/ErrEngineNeedsID, not ErrV3Unsupported.
 	valid := USMConfig{
 		Username: "u1", EngineID: []byte{0x80, 0, 0, 1, 2, 3},
-		AuthProtocol: AuthSHA256, AuthPassphrase: "auth-passphrase-1234",
+		AuthProtocol: AuthSHA256, AuthPassphrase: secret.NewString("auth-passphrase-1234"),
 	}
 	if err := ts.RegisterEngine(valid); err != nil {
 		t.Fatalf("RegisterEngine(valid) err = %v, want nil", err)

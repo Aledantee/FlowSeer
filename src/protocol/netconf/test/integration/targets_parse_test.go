@@ -35,7 +35,7 @@ func TestParseT4Targets(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			if len(got) != 1 || got[0].Addr != tc.addr || got[0].User != "operator" || got[0].Password != "secret" {
+			if len(got) != 1 || got[0].Addr != tc.addr || got[0].User != "operator" || !got[0].Password.EqualString("secret") {
 				t.Error("parsed target differs from the requested address and credentials")
 			}
 		})

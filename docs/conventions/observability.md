@@ -158,6 +158,9 @@ Do not repeat timestamp, severity, body, Resource identity, or trace context as
 custom attributes. Do not attach unrestricted payloads, request bodies,
 configuration, headers, carriers, or error objects. Allowlist and redact exported
 fields; a key-name denylist cannot detect a secret stored under an innocent key.
+Credential material carries its own classification: a `secret.Value`
+(`src/common/secret`) renders redacted wherever it is attached, so attach the
+value or its length, never the configuration struct that holds it.
 
 ### Distinguish logs from named events
 

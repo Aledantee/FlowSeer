@@ -8,6 +8,7 @@ import (
 	"hash"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // usm_kdf.go derives the localized USM auth/priv keys from a passphrase and
@@ -109,7 +110,7 @@ func localize(newHash func() hash.Hash, key, engineID []byte) []byte {
 // localizedAuthKey returns the localized authentication key Kul for the
 // given protocol, passphrase, and authoritative engineID. engineID must be
 // known (non-empty) — discovery populates it before this is called.
-func localizedAuthKey(proto AuthProtocol, passphrase string, engineID []byte) ([]byte, error) {
+func localizedAuthKey(proto AuthProtocol, passphrase secret.Value, engineID []byte) ([]byte, error) {
 	newHash, err := authHashFor(proto)
 	if err != nil {
 		return nil, err
@@ -117,7 +118,7 @@ func localizedAuthKey(proto AuthProtocol, passphrase string, engineID []byte) ([
 	if len(engineID) == 0 {
 		return nil, errs.Msg("key derivation requires a known engineID")
 	}
-	ku := expandPassphrase(newHash, []byte(passphrase))
+	ku := expandPassphrase(newHash, passphrase.Reveal())
 	return localize(newHash, ku, engineID), nil
 }
 
@@ -136,7 +137,7 @@ func localizedAuthKey(proto AuthProtocol, passphrase string, engineID []byte) ([
 // The split only changes the bytes when the auth hash is narrower than the
 // priv key (e.g. MD5/SHA-1 + AES-192/256, SHA-224 + AES-256); with a wide
 // enough hash the two schemes are byte-identical.
-func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassphrase string, engineID []byte) ([]byte, error) {
+func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassphrase secret.Value, engineID []byte) ([]byte, error) {
 	newHash, err := authHashFor(authProto)
 	if err != nil {
 		return nil, err
@@ -149,7 +150,7 @@ func localizedPrivKey(authProto AuthProtocol, privProto PrivProtocol, privPassph
 		return nil, errs.Msg("key derivation requires a known engineID")
 	}
 
-	ku := expandPassphrase(newHash, []byte(privPassphrase))
+	ku := expandPassphrase(newHash, privPassphrase.Reveal())
 	kul := localize(newHash, ku, engineID)
 
 	switch privProto {

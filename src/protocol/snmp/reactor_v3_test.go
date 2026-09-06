@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // v3Agent is a USM-aware UDP responder for v3 reactor tests. It answers an
@@ -159,9 +161,9 @@ func baseCfg() USMConfig {
 	return USMConfig{
 		Username:       "alice",
 		AuthProtocol:   AuthSHA256,
-		AuthPassphrase: "auth-passphrase-1234",
+		AuthPassphrase: secret.NewString("auth-passphrase-1234"),
 		PrivProtocol:   PrivAES,
-		PrivPassphrase: "priv-passphrase-1234",
+		PrivPassphrase: secret.NewString("priv-passphrase-1234"),
 	}
 }
 

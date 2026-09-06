@@ -5,13 +5,15 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // t4Target is one live device.
 type t4Target struct {
 	Addr     string
 	User     string
-	Password string
+	Password secret.Value
 }
 
 // parseT4Targets parses the env contract.
@@ -41,7 +43,7 @@ func parseT4Targets(raw string) ([]t4Target, error) {
 		if err != nil || n == 0 {
 			return nil, fmt.Errorf("entry %d: port must be between 1 and 65535", i+1)
 		}
-		out = append(out, t4Target{Addr: addr, User: user, Password: pass})
+		out = append(out, t4Target{Addr: addr, User: user, Password: secret.NewString(pass)})
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no targets parsed")

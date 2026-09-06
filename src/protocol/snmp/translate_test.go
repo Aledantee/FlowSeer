@@ -3,6 +3,8 @@ package snmp
 import (
 	"errors"
 	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 func TestCompareOID(t *testing.T) {
@@ -54,17 +56,17 @@ func TestPDUError(t *testing.T) {
 
 func TestValidateResponse(t *testing.T) {
 	good := &message{version: V2c, community: "public"}
-	if err := validateResponse(good, V2c, "public"); err != nil {
+	if err := validateResponse(good, V2c, secret.NewString("public")); err != nil {
 		t.Fatalf("matching response should validate: %v", err)
 	}
-	if err := validateResponse(&message{version: V1, community: "public"}, V2c, "public"); !errors.Is(err, ErrVersionMismatch) {
+	if err := validateResponse(&message{version: V1, community: "public"}, V2c, secret.NewString("public")); !errors.Is(err, ErrVersionMismatch) {
 		t.Fatalf("version mismatch err = %v", err)
 	}
-	if err := validateResponse(&message{version: V2c, community: "secret"}, V2c, "public"); !errors.Is(err, ErrCommunityMismatch) {
+	if err := validateResponse(&message{version: V2c, community: "secret"}, V2c, secret.NewString("public")); !errors.Is(err, ErrCommunityMismatch) {
 		t.Fatalf("community mismatch err = %v", err)
 	}
 	// The community-mismatch error must not leak the community value.
-	err := validateResponse(&message{version: V2c, community: "topsecret"}, V2c, "public")
+	err := validateResponse(&message{version: V2c, community: "topsecret"}, V2c, secret.NewString("public"))
 	if err != nil && contains(err.Error(), "topsecret") {
 		t.Fatalf("error text leaks community string: %q", err.Error())
 	}

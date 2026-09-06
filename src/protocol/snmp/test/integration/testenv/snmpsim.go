@@ -15,6 +15,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -111,7 +112,7 @@ func waitForSnmpsimReady(ctx context.Context, target, community string) error {
 	sysUpTime := snmp.MustOID(1, 3, 6, 1, 2, 1, 1, 3, 0)
 	return waitReady(ctx, snmpsimReadyTimeout, snmpsimProbeBackoff, func(ctx context.Context) error {
 		sess, err := snmp.NewSession(ctx, target, snmp.V2c,
-			snmp.WithCommunity(community),
+			snmp.WithCommunity(secret.NewString(community)),
 			snmp.WithMinSecurity(snmp.MinSecurityNoAuth),
 			snmp.WithTimeout(2*time.Second),
 			snmp.WithRetries(1),

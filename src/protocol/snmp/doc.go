@@ -28,7 +28,7 @@
 // [ListenTraps].
 //
 //	sess, err := snmp.NewSession(ctx, "udp://10.0.0.1:161",
-//	    snmp.V2c, snmp.WithCommunity("public"))
+//	    snmp.V2c, snmp.WithCommunity(secret.NewString("public")))
 //
 // # Wire implementation
 //

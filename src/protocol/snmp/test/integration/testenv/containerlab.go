@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -41,9 +42,9 @@ const srlinuxProbeBackoff = 2 * time.Second
 var SRLinuxUSMConfig = snmp.USMConfig{
 	Username:       "flowseer",
 	AuthProtocol:   snmp.AuthSHA256,
-	AuthPassphrase: "flowseer-auth-passphrase",
+	AuthPassphrase: secret.NewString("flowseer-auth-passphrase"),
 	PrivProtocol:   snmp.PrivAES256,
-	PrivPassphrase: "flowseer-priv-passphrase",
+	PrivPassphrase: secret.NewString("flowseer-priv-passphrase"),
 }
 
 // ExecFn is the shape of the containerlab exec callback returned by
