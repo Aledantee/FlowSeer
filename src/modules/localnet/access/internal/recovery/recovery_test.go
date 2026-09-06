@@ -70,7 +70,7 @@ func recoveringMachine(t *testing.T, reads ...*accessv1.InterfaceObservation) *m
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 	req := &integrationv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}

@@ -7,6 +7,11 @@ import (
 	"testing"
 	"time"
 
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
@@ -24,6 +29,26 @@ import (
 type noopDeliverer struct{}
 
 func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+
+// spyDeliverer records every event handed to it, guarded by mu since
+// EvaluateDrift and Submit may call it from different goroutines in a test.
+type spyDeliverer struct {
+	mu     sync.Mutex
+	events []*eventv1.DeviceOperationEvent
+}
+
+func (d *spyDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.events = append(d.events, event)
+	return nil
+}
+
+func (d *spyDeliverer) recorded() []*eventv1.DeviceOperationEvent {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]*eventv1.DeviceOperationEvent(nil), d.events...)
+}
 
 func newTestLane(t *testing.T) *access.Lane {
 	t.Helper()
@@ -458,6 +483,97 @@ func TestLaneManagementModeDrift(t *testing.T) {
 
 	if err := l.ResolveHold("dev-1"); err != nil {
 		t.Fatalf("ResolveHold() error: %v", err)
+	}
+}
+
+func TestLaneDriftDeliversAuditEvent(t *testing.T) {
+	view, err := telemetry.NewView(telemetry.ViewConfig{})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	deliverer := &spyDeliverer{}
+	l := access.NewLane(access.Config{
+		QueueCapacity:  4,
+		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:          deliverer,
+		Telemetry:      view,
+		Clock:          time.Now,
+		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
+	})
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+	if _, err := runMutation(t, l, req); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	drifted := completeObservation("manual edit")
+	if _, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false); err != nil {
+		t.Fatalf("EvaluateDrift() error: %v", err)
+	}
+
+	events := deliverer.recorded()
+	if len(events) == 0 {
+		t.Fatal("expected at least one audit event")
+	}
+	detail := events[len(events)-1].GetDriftDetected()
+	if detail == nil {
+		t.Fatal("expected the last delivered event to carry DriftDetected")
+	}
+	if detail.GetFieldName() != drifted.GetInterfaceName() {
+		t.Fatalf("DriftDetected.FieldName = %q, want %q", detail.GetFieldName(), drifted.GetInterfaceName())
+	}
+}
+
+func TestLaneProcessRecordsOperationSpanAndMetric(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	spanRecorder := tracetest.NewSpanRecorder()
+	view, err := telemetry.NewView(telemetry.ViewConfig{
+		MeterProvider:  sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+		TracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spanRecorder)),
+	})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	l := access.NewLane(access.Config{
+		QueueCapacity: 4,
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		Audit:         noopDeliverer{},
+		Telemetry:     view,
+		Clock:         time.Now,
+	})
+	addDevice(t, l)
+
+	req := mutationRequest(1, "uplink to core")
+	if _, err := runMutation(t, l, req); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &rm); err != nil {
+		t.Fatalf("Collect() error: %v", err)
+	}
+	found := false
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name == "flowseer.device.operation.duration" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Error("expected process() to record flowseer.device.operation.duration")
+	}
+
+	spans := spanRecorder.Ended()
+	sawOperationSpan := false
+	for _, span := range spans {
+		if span.Name() == "flowseer.device.operation" {
+			sawOperationSpan = true
+		}
+	}
+	if !sawOperationSpan {
+		t.Error("expected process() to start the flowseer.device.operation span")
 	}
 }
 

@@ -2,6 +2,7 @@ package access
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -553,13 +554,25 @@ func (ds *deviceState) awaitTerminalAck(ctx context.Context, seq uint64) (*integ
 // live transport can run (see README's onboarding section), so this
 // package's own tests drive recovery and drift explicitly rather than
 // through Submit.
-func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.ExecuteRequest) (*integrationv1.ExecuteResult, error) {
+func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.ExecuteRequest) (result *integrationv1.ExecuteResult, err error) {
+	operationClass := "interface_read"
+	if req.GetMutation() != nil {
+		operationClass = "interface_description"
+	}
+
+	start := l.cfg.Clock()
+	ctx, endSpan := l.cfg.Telemetry.StartOperation(ctx, operationClass)
+	defer func() {
+		endSpan(&err, classifyError)
+		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
+	}()
+
 	ds.stateMu.Lock()
 	fingerprint := ds.fingerprint
 	ds.stateMu.Unlock()
 
 	deps := l.machineDeps(ds, fingerprint, req)
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(ctx, req, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -629,6 +642,35 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	ds.stateMu.Unlock()
 
 	return m.Result(), nil
+}
+
+// classifyError reduces err to the bounded, low-cardinality error.type
+// string the observability convention requires: a mutation package error
+// code when there is one, else "context.deadline_exceeded" or
+// "context.canceled" for the two ctx errors, else "unknown" — never the raw
+// error text, which is unbounded and may embed device-specific values.
+func classifyError(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
+	}
+}
+
+// classifyErrorOrEmpty is [classifyError], but returns "" for a nil err —
+// [telemetry.View.RecordOperationDuration] requires an empty error.type on
+// a successful operation to keep its attribute set to at most two members.
+func classifyErrorOrEmpty(err error) string {
+	if err == nil {
+		return ""
+	}
+	return classifyError(err)
 }
 
 // interfaceName returns the device-local interface name req's mutation or
@@ -727,6 +769,12 @@ func (l *Lane) EvaluateDrift(ctx context.Context, deviceKey string, observed *ac
 	outcome := drift.Evaluate(observed, lastIntent, inFlight, l.cfg.ManagementMode)
 	if outcome.Drifted {
 		l.cfg.Telemetry.DriftDetected(ctx)
+		if l.cfg.Audit != nil {
+			event := audit.BuildDriftDetected(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, observed.GetInterfaceName())
+			if err := l.cfg.Audit.Emit(ctx, event); err != nil {
+				return drift.Outcome{}, errs.Wrap(err, "emit drift detected audit event")
+			}
+		}
 		if outcome.Blocked {
 			ds.hold.Engage()
 		}

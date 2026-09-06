@@ -73,13 +73,20 @@ type Machine struct {
 // "The device's lane sequence this operation was admitted at"). For a
 // mutation whose intent's expected firmware fingerprint differs from
 // deps.CurrentFingerprint, it returns an error instead of a Machine — the
-// mutation never reaches ADMITTED under a stale epoch, per decision 7. A
-// read never carries an expected fingerprint and is never blocked here.
-func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
+// mutation never reaches ADMITTED under a stale epoch, per decision 7 — and
+// records flowseer.device.firmware.epoch_changed. A read never carries an
+// expected fingerprint and is never blocked here.
+func Admitted(ctx context.Context, req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
-		if mutationIntent.GetExpectedFirmwareFingerprint() != deps.CurrentFingerprint {
+		if expected := mutationIntent.GetExpectedFirmwareFingerprint(); expected != deps.CurrentFingerprint {
+			deps.Telemetry.FirmwareEpochChanged(ctx)
+			event := audit.BuildFirmwareEpochChanged(deps.Clock, audit.Common{Device: audit.Device{DeviceID: deps.DeviceID}}, expected, deps.CurrentFingerprint)
+			if err := deps.Audit.Emit(ctx, event); err != nil {
+				return nil, errs.Wrap(err, "emit firmware epoch changed audit event")
+			}
+
 			return nil, errs.New().Code(ErrCodeFirmwareEpoch).
-				Attr("expected_fingerprint", mutationIntent.GetExpectedFirmwareFingerprint()).
+				Attr("expected_fingerprint", expected).
 				Attr("current_fingerprint", deps.CurrentFingerprint).
 				Msg("device firmware fingerprint differs from the intent's expectation")
 		}

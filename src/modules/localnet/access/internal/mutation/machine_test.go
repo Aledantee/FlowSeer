@@ -158,7 +158,7 @@ func TestFullHappyPathPhaseByPhase(t *testing.T) {
 	}
 
 	req := mutationRequest(42, "uplink to core")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestReadArmStopsAtObserving(t *testing.T) {
 	}
 
 	req := readRequest(7)
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testi
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestExpiredGrantDeadlineBlocksSubmission(t *testing.T) {
 	}
 
 	req := mutationRequest(1, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -403,7 +403,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 			return nil
 		}
 		req := mutationRequest(2, "x")
-		m, err := mutation.Admitted(req, deps)
+		m, err := mutation.Admitted(context.Background(), req, deps)
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
@@ -434,7 +434,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 			return completeObservation("x"), nil
 		}
 		req := mutationRequest(3, "x")
-		m, err := mutation.Admitted(req, deps)
+		m, err := mutation.Admitted(context.Background(), req, deps)
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
@@ -468,7 +468,7 @@ func TestConflictingReadsBlockInsteadOfVerifying(t *testing.T) {
 	}
 
 	req := mutationRequest(9, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -507,7 +507,7 @@ func TestPinnedRouteFailurePropagatesWithoutFallback(t *testing.T) {
 
 	req := readRequest(11)
 	deps.CurrentFingerprint = ""
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -528,7 +528,7 @@ func TestOutOfOrderTransitionIsRejected(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
 	req := mutationRequest(5, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -561,7 +561,7 @@ func TestAbandonAfterReleaseIsRejected(t *testing.T) {
 	}
 
 	req := mutationRequest(9, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -608,7 +608,7 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 	}
 
 	req := mutationRequest(6, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -660,7 +660,7 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 	}
 
 	req := mutationRequest(8, "x")
-	m, err := mutation.Admitted(req, deps)
+	m, err := mutation.Admitted(context.Background(), req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
@@ -693,5 +693,33 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 
 	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
 		t.Fatalf("Phase() = %v, want VERIFIED (last durable value before the failed release)", got)
+	}
+}
+
+func TestAdmittedOnFirmwareEpochMismatchDeliversAuditEvent(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+
+	req := mutationRequest(9, "x")
+	req.GetMutation().SetExpectedFirmwareFingerprint("stale-fingerprint")
+
+	m, err := mutation.Admitted(context.Background(), req, deps)
+	if err == nil {
+		t.Fatal("Admitted() error = nil, want a firmware epoch mismatch error")
+	}
+	if m != nil {
+		t.Fatal("Admitted() returned a non-nil Machine alongside its error")
+	}
+
+	if len(deliverer.events) != 1 {
+		t.Fatalf("expected exactly one audit event, got %d", len(deliverer.events))
+	}
+	changed := deliverer.events[0].GetFirmwareEpochChanged()
+	if changed == nil {
+		t.Fatal("expected the delivered event to carry FirmwareEpochChanged")
+	}
+	if changed.GetPreviousFingerprint() != "stale-fingerprint" || changed.GetNewFingerprint() != "fw-A" {
+		t.Fatalf("FirmwareEpochChanged = {previous: %q, new: %q}, want {previous: \"stale-fingerprint\", new: \"fw-A\"}",
+			changed.GetPreviousFingerprint(), changed.GetNewFingerprint())
 	}
 }
