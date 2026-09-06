@@ -246,7 +246,10 @@ Design decisions:
   may land after the dispatch), `access/unknown-device` while the
   registry lists the device, and a context deadline; terminal are
   `mutation/firmware-epoch` and `access/unknown-device` for a device the
-  registry does not list, which dispose the mutation `REJECTED`. A
+  registry does not list, which dispose the mutation `REJECTED`. These
+  codes are wire contract: the edge's lane module emits them and central
+  classifies by them, so a change to one side must change the other, or
+  the U9 code-equality test fails. A
   retryable row does not self-terminate: an edge that never returns
   leaves it owed until the operator ends it with `AbandonMutation`, the
   asymmetry with `open_reads`, which expire on their deadline. The
@@ -703,6 +706,14 @@ proven before the change, and the approval checkpoint, which records the
 approval the user gave on 2026-09-06 for this device and this change on
 the grounds that it is a test device, and covers nothing beyond them;
 the lab config files carry placeholders, never addresses or secrets.
+Also a code-equality test, cheap only here because the end-to-end binary
+already links both sides: central's refusal-code constants
+(`dispatchapi`) must equal the lane module's exported codes for the codes
+that cross the wire (`access/no-pending-wait`, `access/unknown-device`,
+`mutation/firmware-epoch`), which requires the lane module to export the
+ones it emits — a code that crosses a process boundary is public
+contract whatever package produces it. This is the real link the U4
+review's finding 9 left as documented constants.
 Tests: requirement 10.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/test/integration docs/runbooks deploy/lab`
 

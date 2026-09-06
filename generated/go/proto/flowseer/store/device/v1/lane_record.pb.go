@@ -41,7 +41,7 @@ type DeviceLaneRecord struct {
 	xxx_hidden_LastReportedPhase     v11.OperationPhase                   `protobuf:"varint,6,opt,name=last_reported_phase,json=lastReportedPhase,enum=flowseer.device.access.v1.OperationPhase"`
 	xxx_hidden_DispatchConfirmed     bool                                 `protobuf:"varint,7,opt,name=dispatch_confirmed,json=dispatchConfirmed"`
 	xxx_hidden_CheckpointConfirmed   bool                                 `protobuf:"varint,8,opt,name=checkpoint_confirmed,json=checkpointConfirmed"`
-	xxx_hidden_HoldResolutionPending uint64                               `protobuf:"varint,9,opt,name=hold_resolution_pending,json=holdResolutionPending"`
+	xxx_hidden_HoldResolutionPending []uint64                             `protobuf:"varint,9,rep,packed,name=hold_resolution_pending,json=holdResolutionPending"`
 	xxx_hidden_OpenReads             map[string]*OpenRead                 `protobuf:"bytes,10,rep,name=open_reads,json=openReads" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	xxx_hidden_ExpectedDescriptions  map[string]string                    `protobuf:"bytes,11,rep,name=expected_descriptions,json=expectedDescriptions" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	xxx_hidden_LastObservations      map[string]*v11.InterfaceObservation `protobuf:"bytes,12,rep,name=last_observations,json=lastObservations" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -136,11 +136,11 @@ func (x *DeviceLaneRecord) GetCheckpointConfirmed() bool {
 	return false
 }
 
-func (x *DeviceLaneRecord) GetHoldResolutionPending() uint64 {
+func (x *DeviceLaneRecord) GetHoldResolutionPending() []uint64 {
 	if x != nil {
 		return x.xxx_hidden_HoldResolutionPending
 	}
-	return 0
+	return nil
 }
 
 func (x *DeviceLaneRecord) GetOpenReads() map[string]*OpenRead {
@@ -216,9 +216,8 @@ func (x *DeviceLaneRecord) SetCheckpointConfirmed(v bool) {
 	x.xxx_hidden_CheckpointConfirmed = v
 }
 
-func (x *DeviceLaneRecord) SetHoldResolutionPending(v uint64) {
+func (x *DeviceLaneRecord) SetHoldResolutionPending(v []uint64) {
 	x.xxx_hidden_HoldResolutionPending = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 14)
 }
 
 func (x *DeviceLaneRecord) SetOpenReads(v map[string]*OpenRead) {
@@ -270,13 +269,6 @@ func (x *DeviceLaneRecord) HasLastReportedPhase() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
 }
 
-func (x *DeviceLaneRecord) HasHoldResolutionPending() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
-}
-
 func (x *DeviceLaneRecord) HasFirmwareFingerprint() bool {
 	if x == nil {
 		return false
@@ -299,11 +291,6 @@ func (x *DeviceLaneRecord) ClearAdmittedAt() {
 func (x *DeviceLaneRecord) ClearLastReportedPhase() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
 	x.xxx_hidden_LastReportedPhase = v11.OperationPhase_OPERATION_PHASE_UNSPECIFIED
-}
-
-func (x *DeviceLaneRecord) ClearHoldResolutionPending() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 8)
-	x.xxx_hidden_HoldResolutionPending = 0
 }
 
 func (x *DeviceLaneRecord) ClearFirmwareFingerprint() {
@@ -340,8 +327,12 @@ type DeviceLaneRecord_builder struct {
 	// not yet confirmed. Unset means none is owed. This alone derives the
 	// hold row; an edge reporting onboarded leaves it as it is, since the
 	// resolution is re-sent and a restarted edge acknowledges it without a
-	// hold to clear.
-	HoldResolutionPending *uint64
+	// hold to clear. A set, not one value: a restore admits a new intent at the
+	// next sequence while the abandoned sequence's hold is still unacknowledged,
+	// so more than one hold can be pending at once, and abandoning an
+	// un-dispatched intent adds its sequence here rather than replacing what is
+	// already pending.
+	HoldResolutionPending []uint64
 	// Reads in flight, keyed by the interface name the device spells.
 	OpenReads map[string]*OpenRead
 	// The description central expects per managed interface, keyed by
@@ -374,10 +365,7 @@ func (b0 DeviceLaneRecord_builder) Build() *DeviceLaneRecord {
 	}
 	x.xxx_hidden_DispatchConfirmed = b.DispatchConfirmed
 	x.xxx_hidden_CheckpointConfirmed = b.CheckpointConfirmed
-	if b.HoldResolutionPending != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 14)
-		x.xxx_hidden_HoldResolutionPending = *b.HoldResolutionPending
-	}
+	x.xxx_hidden_HoldResolutionPending = b.HoldResolutionPending
 	x.xxx_hidden_OpenReads = b.OpenReads
 	x.xxx_hidden_ExpectedDescriptions = b.ExpectedDescriptions
 	x.xxx_hidden_LastObservations = b.LastObservations
@@ -800,7 +788,7 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xaf\x10\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb6\x10\n" +
 	"\x10DeviceLaneRecord\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
 	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
@@ -813,8 +801,8 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x13last_reported_phase\x18\x06 \x01(\x0e2).flowseer.device.access.v1.OperationPhaseB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x11lastReportedPhase\x124\n" +
 	"\x12dispatch_confirmed\x18\a \x01(\bB\x05\xaa\x01\x02\b\x02R\x11dispatchConfirmed\x128\n" +
-	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12?\n" +
-	"\x17hold_resolution_pending\x18\t \x01(\x04B\a\xbaH\x042\x02(\x01R\x15holdResolutionPending\x12k\n" +
+	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12F\n" +
+	"\x17hold_resolution_pending\x18\t \x03(\x04B\x0e\xbaH\v\x92\x01\b\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12k\n" +
 	"\n" +
 	"open_reads\x18\n" +
 	" \x03(\v29.flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntryB\x11\xbaH\x0e\x9a\x01\v\x10\x80\x02\"\x06r\x04\x10\x01\x18@R\topenReads\x12\x92\x01\n" +

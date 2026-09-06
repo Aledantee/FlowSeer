@@ -129,7 +129,7 @@ func laneStates() []laneState {
 	}
 	holdResolvedUnconfirmed := func() *storev1.DeviceLaneRecord {
 		rec := &storev1.DeviceLaneRecord{}
-		rec.SetHoldResolutionPending(5)
+		rec.SetHoldResolutionPending([]uint64{5})
 		return rec
 	}
 	abandonBeforeDispatch := func() *storev1.DeviceLaneRecord {
@@ -137,12 +137,12 @@ func laneStates() []laneState {
 		// reported admitted: the lane is closed and a hold-resolved row
 		// releases the edge, which may already hold the ExecuteRequest.
 		rec := &storev1.DeviceLaneRecord{}
-		rec.SetHoldResolutionPending(7)
+		rec.SetHoldResolutionPending([]uint64{7})
 		return rec
 	}
 	restoreWrite := func() *storev1.DeviceLaneRecord {
 		rec := withAdmission(&storev1.DeviceLaneRecord{})
-		rec.SetHoldResolutionPending(7)
+		rec.SetHoldResolutionPending([]uint64{7})
 		rec.SetMutation(mut(8, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED))
 		return rec
 	}
@@ -313,8 +313,8 @@ func assertNoStrandedSequence(t *testing.T, rec *storev1.DeviceLaneRecord) {
 			t.Fatalf("mutation sequence %d owes nothing and names no terminator: a stranded lane", seq)
 		}
 	}
-	if rec.HasHoldResolutionPending() {
-		if seq := rec.GetHoldResolutionPending(); !inOwed[seq] {
+	for _, seq := range rec.GetHoldResolutionPending() {
+		if !inOwed[seq] {
 			t.Fatalf("hold sequence %d owes nothing: a stranded hold", seq)
 		}
 	}
@@ -368,7 +368,7 @@ func TestTableExhibitsEveryReachableMutationBehavior(t *testing.T) {
 func TestOwedComposesAdditively(t *testing.T) {
 	rec := withAdmission(&storev1.DeviceLaneRecord{})
 	rec.SetMutation(mut(7, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED))
-	rec.SetHoldResolutionPending(5)
+	rec.SetHoldResolutionPending([]uint64{5})
 	rec.SetOpenReads(map[string]*storev1.OpenRead{"eth1": openRead(9, now.Add(time.Minute))})
 
 	combined := rowsOf(OwedRows(rec, now))
@@ -393,7 +393,7 @@ func TestOwedComposesAdditively(t *testing.T) {
 func mutationOnly(rec *storev1.DeviceLaneRecord) *storev1.DeviceLaneRecord {
 	c := proto.Clone(rec).(*storev1.DeviceLaneRecord)
 	c.SetOpenReads(nil)
-	c.ClearHoldResolutionPending()
+	c.SetHoldResolutionPending(nil)
 	return c
 }
 
@@ -429,7 +429,7 @@ func backgrounds() []background {
 			return r
 		}},
 		{"+hold", func(r *storev1.DeviceLaneRecord) *storev1.DeviceLaneRecord {
-			r.SetHoldResolutionPending(100)
+			r.SetHoldResolutionPending([]uint64{100})
 			return r
 		}},
 	}

@@ -11,6 +11,7 @@ import (
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -77,6 +78,17 @@ func deviceRef() *inventoryv1.DeviceGlobalRef {
 	local.SetId(deviceID)
 	device.SetDevice(local)
 	return device
+}
+
+// holdPending reports whether the record's pending hold-resolution set holds
+// the sequence.
+func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
+	for _, s := range rec.GetHoldResolutionPending() {
+		if s == sequence {
+			return true
+		}
+	}
+	return false
 }
 
 func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
@@ -282,14 +294,14 @@ func TestDisposeAndResolveHold(t *testing.T) {
 	if rec.HasMutation() {
 		t.Fatal("ResolveHold did not clear the held mutation")
 	}
-	if !rec.HasHoldResolutionPending() || rec.GetHoldResolutionPending() != 1 {
-		t.Fatalf("hold resolution pending = %v", rec.GetHoldResolutionPending())
+	if !holdPending(rec, 1) {
+		t.Fatalf("hold resolution pending = %v, want 1 present", rec.GetHoldResolutionPending())
 	}
 	if err := j.ConfirmHoldResolved(ctx, deviceID, 1); err != nil {
 		t.Fatalf("confirm hold: %v", err)
 	}
 	rec, _ = j.Record(ctx, deviceID)
-	if rec.HasHoldResolutionPending() {
+	if holdPending(rec, 1) {
 		t.Fatal("ConfirmHoldResolved did not clear the pending row")
 	}
 }
@@ -423,8 +435,8 @@ func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 	if rec.HasMutation() {
 		t.Fatal("abandon-before-dispatch left the mutation open: the lane holds forever")
 	}
-	if !rec.HasHoldResolutionPending() || rec.GetHoldResolutionPending() != 1 {
-		t.Fatalf("hold resolution pending = %v, want 1", rec.GetHoldResolutionPending())
+	if !holdPending(rec, 1) {
+		t.Fatalf("hold resolution pending = %v, want 1 present", rec.GetHoldResolutionPending())
 	}
 	// The lane is free for the next admission.
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010202"), edgeRef()); err != nil {
@@ -432,21 +444,34 @@ func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 	}
 }
 
-func TestResolveHoldRefusesADifferentPendingSequence(t *testing.T) {
+func TestResolveHoldAccumulatesDistinctSequences(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
+	// Two different holds can be pending at once — the restore arm resolves an
+	// abandoned sequence while a new intent's own hold is still owed — so a
+	// second resolution adds rather than overwrites, and neither hold's row
+	// vanishes before the edge acknowledges it.
 	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
 		t.Fatalf("first resolve: %v", err)
 	}
-	// A second, different hold cannot overwrite the first before the edge
-	// acknowledges it, or the first hold's row would vanish with nothing to
-	// re-derive it.
-	if err := j.ResolveHold(ctx, deviceID, 6); err == nil {
-		t.Fatal("ResolveHold overwrote an unacknowledged hold resolution")
+	if err := j.ResolveHold(ctx, deviceID, 6); err != nil {
+		t.Fatalf("second resolve: %v", err)
 	}
-	// Re-resolving the same sequence is idempotent.
+	// Re-resolving a pending sequence is idempotent: the set does not grow.
 	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
 		t.Fatalf("idempotent resolve: %v", err)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if !holdPending(rec, 5) || !holdPending(rec, 6) || len(rec.GetHoldResolutionPending()) != 2 {
+		t.Fatalf("pending holds = %v, want {5, 6}", rec.GetHoldResolutionPending())
+	}
+	// Confirming one leaves the other owed.
+	if err := j.ConfirmHoldResolved(ctx, deviceID, 5); err != nil {
+		t.Fatalf("confirm 5: %v", err)
+	}
+	rec, _ = j.Record(ctx, deviceID)
+	if holdPending(rec, 5) || !holdPending(rec, 6) {
+		t.Fatalf("after confirming 5, pending = %v, want {6}", rec.GetHoldResolutionPending())
 	}
 }
 
@@ -575,7 +600,7 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 			t.Fatalf("resolve: %v", err)
 		}
 		rec, _ := j.Record(ctx, deviceID)
-		if rec.HasMutation() || !rec.HasHoldResolutionPending() {
+		if rec.HasMutation() || !holdPending(rec, 1) {
 			t.Fatal("ResolveDesynchronization did not free the held abandonment")
 		}
 	})

@@ -65,10 +65,11 @@ func permitsDispatch(reason accessv1.BlockReason) bool {
 func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 	var owed []Owed
 
-	// The hold-resolution row: an independent sequence, cleared by the
-	// edge's HoldResolvedAck.
-	if record.HasHoldResolutionPending() {
-		owed = append(owed, Owed{Kind: OwedHoldResolved, Sequence: record.GetHoldResolutionPending()})
+	// The hold-resolution rows: independent sequences, each cleared by the
+	// edge's HoldResolvedAck. More than one can be pending when a restore
+	// admits a new intent while an abandoned sequence's hold is unacknowledged.
+	for _, seq := range record.GetHoldResolutionPending() {
+		owed = append(owed, Owed{Kind: OwedHoldResolved, Sequence: seq})
 	}
 
 	if m := record.GetMutation(); m != nil {

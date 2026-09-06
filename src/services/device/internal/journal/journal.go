@@ -392,14 +392,12 @@ func (j *Journal) ConfirmCheckpoint(ctx context.Context, deviceID string, sequen
 
 // ConfirmHoldResolved clears a hold-resolution row the edge acknowledged.
 func (j *Journal) ConfirmHoldResolved(ctx context.Context, deviceID string, sequence uint64) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		if !rec.HasHoldResolutionPending() || rec.GetHoldResolutionPending() != sequence {
+	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+		if !removeHold(rec, sequence) {
 			return errSkip
 		}
-		rec.ClearHoldResolutionPending()
 		return nil
 	})
-	return err
 }
 
 // Dispose is AbandonMutation: it ends a non-terminal mutation. When the edge
@@ -422,12 +420,9 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 		m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
 		m.SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
 		if !rec.GetDispatched() {
-			if rec.HasHoldResolutionPending() && rec.GetHoldResolutionPending() != sequence {
-				return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a different hold resolution is still pending")
-			}
 			state = m // detached: the record's mutation is cleared below
 			clearMutation(rec)
-			rec.SetHoldResolutionPending(sequence)
+			addHold(rec, sequence)
 			return nil
 		}
 		m.SetBlockReason(accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
@@ -441,24 +436,36 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 	return state, nil
 }
 
+// RejectDispatch disposes a mutation REJECTED because the edge refused its
+// dispatch before the command reached the device, and frees the lane in the
+// same write. Unlike an error report, a refusal is proof the edge did not run
+// the command and holds nothing, so dispatched is left unset — the bit means
+// "the command may have reached the device" — and no terminal ack is owed; the
+// disposal walks to RELEASED at once, so the lane is never blocked with
+// nothing owed. A stale sequence or an already-terminal mutation is ignored.
+func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence uint64) error {
+	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+		m := rec.GetMutation()
+		if m == nil || m.GetSequence() != sequence || m.HasDisposition() {
+			return errSkip
+		}
+		clearMutation(rec)
+		return nil
+	})
+}
+
 // ResolveHold records that an abandoned or desynchronized sequence's hold is
 // resolved, so the owed-row derivation sends HoldResolved and the edge's ack
 // clears it. It clears a held mutation at that sequence so the lane is free
 // for the resolution's own intent.
 func (j *Journal) ResolveHold(ctx context.Context, deviceID string, sequence uint64) error {
-	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		if rec.HasHoldResolutionPending() && rec.GetHoldResolutionPending() != sequence {
-			// The field holds one sequence; overwriting it would drop a hold
-			// row the edge has not yet acknowledged, and nothing re-derives it.
-			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a different hold resolution is still pending")
-		}
-		rec.SetHoldResolutionPending(sequence)
+	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+		addHold(rec, sequence)
 		if m := rec.GetMutation(); m != nil && m.GetSequence() == sequence {
 			clearMutation(rec)
 		}
 		return nil
 	})
-	return err
 }
 
 // SetExpected records the description central expects on one interface, the
@@ -512,6 +519,30 @@ func clearMutation(rec *storev1.DeviceLaneRecord) {
 	rec.SetDispatchConfirmed(false)
 	rec.SetCheckpointConfirmed(false)
 	rec.ClearLastReportedPhase()
+}
+
+// addHold adds a sequence to the pending hold-resolution set, keeping it a set
+// (a re-resolution of a sequence already pending is a no-op).
+func addHold(rec *storev1.DeviceLaneRecord, sequence uint64) {
+	for _, s := range rec.GetHoldResolutionPending() {
+		if s == sequence {
+			return
+		}
+	}
+	rec.SetHoldResolutionPending(append(rec.GetHoldResolutionPending(), sequence))
+}
+
+// removeHold drops a sequence from the pending hold-resolution set and reports
+// whether it was there.
+func removeHold(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
+	holds := rec.GetHoldResolutionPending()
+	for i, s := range holds {
+		if s == sequence {
+			rec.SetHoldResolutionPending(append(holds[:i:i], holds[i+1:]...))
+			return true
+		}
+	}
+	return false
 }
 
 func ensureDevice(rec *storev1.DeviceLaneRecord, device *inventoryv1.DeviceGlobalRef) {

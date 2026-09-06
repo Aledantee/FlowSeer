@@ -24,7 +24,10 @@ const (
 )
 
 type fakeResolver struct {
-	lists bool
+	lists    bool
+	listsErr error
+	notHost  bool
+	hostsErr error
 }
 
 func (f fakeResolver) Devices(context.Context, string) ([]string, error) {
@@ -32,7 +35,12 @@ func (f fakeResolver) Devices(context.Context, string) ([]string, error) {
 }
 
 func (f fakeResolver) Horizon(context.Context, string) (time.Duration, error) { return horizon, nil }
-func (f fakeResolver) Lists(context.Context, string) bool                     { return f.lists }
+
+func (f fakeResolver) Lists(context.Context, string) (bool, error) { return f.lists, f.listsErr }
+
+func (f fakeResolver) Hosts(context.Context, string, string) (bool, error) {
+	return !f.notHost, f.hostsErr
+}
 
 type capture struct {
 	msgs []*integrationv1.SubscribeResponse
@@ -43,7 +51,7 @@ func (c *capture) Send(m *integrationv1.SubscribeResponse) error {
 	return nil
 }
 
-func newFixture(t *testing.T) (*Service, *journal.Journal, jetstream.KeyValue) {
+func newJournalKV(t *testing.T) (*journal.Journal, jetstream.KeyValue) {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -58,13 +66,19 @@ func newFixture(t *testing.T) (*Service, *journal.Journal, jetstream.KeyValue) {
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
-	j := journal.New(kv, nil)
+	return journal.New(kv, nil), kv
+}
+
+func newFixture(t *testing.T) (*Service, *journal.Journal, jetstream.KeyValue) {
+	t.Helper()
+	j, kv := newJournalKV(t)
 	svc := New(Config{
-		Journal:  j,
-		Resolver: fakeResolver{lists: true},
-		Watch:    kv,
-		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
-		Resend:   50 * time.Millisecond,
+		Journal:       j,
+		Resolver:      fakeResolver{lists: true},
+		Watch:         kv,
+		EdgeID:        func(context.Context) (string, error) { return edgeID, nil },
+		Resend:        50 * time.Millisecond,
+		SweepInterval: 20 * time.Millisecond,
 	})
 	return svc, j, kv
 }
@@ -257,7 +271,8 @@ func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 	if _, err := j.OpenRead(ctx, deviceID, deviceRef(deviceID), "ethernet 1/1/1", typedRead(), "0192e6a0-0000-7000-8000-000000000f03", time.Now().Add(-time.Second)); err != nil {
 		t.Fatalf("open read: %v", err)
 	}
-	go svc.RunSweeper(ctx, kv)
+	done := svc.RunSweeper(ctx, kv)
+	t.Cleanup(func() { cancel(); <-done })
 
 	deadline := time.Now().Add(5 * time.Second)
 	for {

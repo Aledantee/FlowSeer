@@ -83,10 +83,13 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	zeroPhase.LastReportedPhase = accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED.Enum()
 
 	holdPending := laneRecord()
-	holdPending.HoldResolutionPending = proto.Uint64(7)
+	holdPending.HoldResolutionPending = []uint64{7, 8}
 
 	holdZero := laneRecord()
-	holdZero.HoldResolutionPending = proto.Uint64(0)
+	holdZero.HoldResolutionPending = []uint64{0}
+
+	holdDuplicate := laneRecord()
+	holdDuplicate.HoldResolutionPending = []uint64{7, 7}
 
 	sequencePastWatermark := openLaneRecord()
 	sequencePastWatermark.HighWatermark = 6
@@ -107,8 +110,9 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 		{name: "dispatched without a mutation is rejected", message: dispatchedWithoutMutation.Build()},
 		{name: "checkpoint confirmation without a mutation is rejected", message: checkpointWithoutMutation.Build()},
 		{name: "zero reported phase is rejected", message: zeroPhase.Build()},
-		{name: "pending hold resolution is valid", message: holdPending.Build(), wantValid: true},
+		{name: "multiple pending hold resolutions are valid", message: holdPending.Build(), wantValid: true},
 		{name: "hold resolution sequence zero is rejected", message: holdZero.Build()},
+		{name: "duplicate hold resolution sequences are rejected", message: holdDuplicate.Build()},
 		{name: "mutation sequence past the watermark is rejected", message: sequencePastWatermark.Build()},
 		{name: "read sequence past the watermark is rejected", message: readPastWatermark.Build()},
 		{name: "open mutation with its facts is valid", message: openLaneRecord().Build(), wantValid: true},

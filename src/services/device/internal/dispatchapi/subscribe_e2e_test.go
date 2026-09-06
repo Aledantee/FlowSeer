@@ -19,7 +19,17 @@ import (
 // the record change wakes the loop. This exercises the running relay, not the
 // pass in isolation.
 func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
-	svc, j, _ := newFixture(t)
+	j, kv := newJournalKV(t)
+	// Resend far longer than the test's patience, so the read that arrives
+	// after the record change can only have come from the watch waking the
+	// loop, not from the fallback ticker. With Watch nil this test would hang.
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+		Resend:   10 * time.Minute,
+	})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

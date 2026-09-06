@@ -32,18 +32,28 @@ var (
 	ErrCodeEdge = errs.NewCode("dispatchapi/edge")
 	// ErrCodeResolve is a failure to resolve the devices an edge hosts.
 	ErrCodeResolve = errs.NewCode("dispatchapi/resolve")
+	// ErrCodeForbidden is a report about a device the calling edge does not
+	// host.
+	ErrCodeForbidden = errs.NewCode("dispatchapi/forbidden")
 )
 
 // DeviceResolver names the devices an edge hosts and the per-device facts the
 // relay needs that live in the registry rather than the lane record: the
-// delayed-apply horizon a mutation's deadline is measured against, and
-// whether the registry still lists a device (which decides whether an
-// unknown-device refusal is retryable or terminal). The registry service
-// implements it; tests supply a fake.
+// delayed-apply horizon a mutation's deadline is measured against, whether the
+// registry still lists a device (which decides whether an unknown-device
+// refusal is retryable or terminal), and whether an edge hosts a device (which
+// binds a report or an audit delivery to the edge the assertion names). The
+// registry service implements it; tests supply a fake.
+//
+// Lists returns an error rather than a bare bool so a transient registry
+// failure is not read as "the device is gone", which would permanently reject
+// an operator's in-flight mutation; on an error the refusal leaves the row
+// owed instead.
 type DeviceResolver interface {
 	Devices(ctx context.Context, edgeID string) ([]string, error)
 	Horizon(ctx context.Context, deviceID string) (time.Duration, error)
-	Lists(ctx context.Context, deviceID string) bool
+	Lists(ctx context.Context, deviceID string) (bool, error)
+	Hosts(ctx context.Context, edgeID, deviceID string) (bool, error)
 }
 
 // Config wires the relay to the journal, the registry, and the lane bucket it
@@ -61,8 +71,13 @@ type Config struct {
 	// assertion middleware populated.
 	EdgeID func(ctx context.Context) (string, error)
 	// Resend is one backoff step: how often an open stream re-derives while a
-	// row stays owed, and how often the sweeper closes expired reads.
+	// row stays owed.
 	Resend time.Duration
+	// SweepInterval is how often the background sweeper lists the bucket and
+	// closes expired reads. It is separate from Resend because a full key
+	// replay every backoff step is far more work than enforcing read deadlines
+	// needs; nil uses a slower default.
+	SweepInterval time.Duration
 	// SweepError is the error an expired read is closed with. Optional.
 	SweepError func() *errsv1.ErrorPayload
 	// Clock is the time source for a mutation's deadline; nil uses the wall
@@ -72,14 +87,18 @@ type Config struct {
 	Logger *slog.Logger
 }
 
-const defaultResend = 2 * time.Second
+const (
+	defaultResend        = 2 * time.Second
+	defaultSweepInterval = 30 * time.Second
+)
 
 // Service implements the DispatchService handler and runs the relay.
 type Service struct {
-	cfg    Config
-	clock  func() time.Time
-	resend time.Duration
-	log    *slog.Logger
+	cfg           Config
+	clock         func() time.Time
+	resend        time.Duration
+	sweepInterval time.Duration
+	log           *slog.Logger
 }
 
 // New constructs the relay. Journal, Resolver, and EdgeID must be set.
@@ -92,11 +111,15 @@ func New(cfg Config) *Service {
 	if resend <= 0 {
 		resend = defaultResend
 	}
+	sweep := cfg.SweepInterval
+	if sweep <= 0 {
+		sweep = defaultSweepInterval
+	}
 	log := cfg.Logger
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Service{cfg: cfg, clock: clock, resend: resend, log: log}
+	return &Service{cfg: cfg, clock: clock, resend: resend, sweepInterval: sweep, log: log}
 }
 
 // Subscribe holds the stream open for one edge, deriving and sending every row

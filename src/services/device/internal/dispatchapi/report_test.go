@@ -125,8 +125,13 @@ func TestReportRefusedFirmwareEpochDisposesRejected(t *testing.T) {
 	}
 	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "mutation/firmware-epoch"))
 	rec, _ := j.Record(ctx, deviceID)
-	if rec.GetMutation().GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED {
-		t.Fatalf("firmware-epoch refusal disposed %v, want REJECTED", rec.GetMutation().GetDisposition())
+	// The refusal frees the lane without setting dispatched or owing a terminal
+	// ack for a command the edge refused before it reached the device.
+	if rec.HasMutation() {
+		t.Fatalf("firmware-epoch refusal left a mutation open: %+v", rec.GetMutation())
+	}
+	if rows := journal.OwedRows(rec, time.Now()); len(rows) != 0 {
+		t.Fatalf("firmware-epoch refusal left rows owed: %v", rows)
 	}
 }
 
@@ -155,6 +160,96 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	rec, _ = j.Record(ctx, deviceID)
 	if !rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal past POSSIBLY_APPLIED did not confirm the checkpoint")
+	}
+}
+
+func TestRetryableExecuteRefusalLeavesTheRowOwed(t *testing.T) {
+	svc, j, _ := newFixture(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b06"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	// A retryable code is not terminal: the record is unchanged and the execute
+	// row stays owed until the edge admits it or an operator ends it.
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/lane-closed"))
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetMutation() == nil || rec.GetMutation().HasDisposition() {
+		t.Fatalf("a retryable refusal disposed the mutation: %+v", rec.GetMutation())
+	}
+	if len(pass(t, svc)) != 1 {
+		t.Fatal("a retryable refusal stopped the execute row being owed")
+	}
+}
+
+func TestRefusedTerminalAckOnAbandonmentConfirmsIt(t *testing.T) {
+	svc, j, _ := newFixture(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b07"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+	// The edge holds no machine for an abandoned sequence and refuses the
+	// terminal ack. That must confirm the ack, not be dropped and re-sent
+	// forever.
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK, "access/lane-closed"))
+	rec, _ := j.Record(ctx, deviceID)
+	for _, o := range journal.OwedRows(rec, time.Now()) {
+		if o.Kind == journal.OwedTerminalAck {
+			t.Fatal("a refused terminal ack on an abandonment is still owed")
+		}
+	}
+}
+
+func TestRefusedHoldResolvedLeavesTheRowOwed(t *testing.T) {
+	svc, j, _ := newFixture(t)
+	ctx := context.Background()
+	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
+		t.Fatalf("resolve hold: %v", err)
+	}
+	refused := &integrationv1.Refused{}
+	refused.SetSequence(5)
+	refused.SetKind(integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED)
+	refused.SetCode("access/lane-closed")
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(deviceID)
+	req.SetRefused(refused)
+	report(t, svc, req)
+	rec, _ := j.Record(ctx, deviceID)
+	pending := false
+	for _, s := range rec.GetHoldResolutionPending() {
+		if s == 5 {
+			pending = true
+		}
+	}
+	if !pending {
+		t.Fatal("a hold-resolved refusal dropped the pending hold")
+	}
+}
+
+func TestReportRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true, notHost: true},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+	})
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(deviceID)
+	ack := &integrationv1.CheckpointAck{}
+	ack.SetSequence(1)
+	req.SetCheckpointAck(ack)
+	_, err := svc.Report(context.Background(), connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("Report accepted a report about a device the edge does not host")
+	}
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v, want permission denied", connect.CodeOf(err))
 	}
 }
 

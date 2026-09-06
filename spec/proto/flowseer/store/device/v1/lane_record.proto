@@ -61,8 +61,17 @@ message DeviceLaneRecord {
   // not yet confirmed. Unset means none is owed. This alone derives the
   // hold row; an edge reporting onboarded leaves it as it is, since the
   // resolution is re-sent and a restarted edge acknowledges it without a
-  // hold to clear.
-  uint64 hold_resolution_pending = 9 [(buf.validate.field).uint64.gte = 1];
+  // hold to clear. A set, not one value: a restore admits a new intent at the
+  // next sequence while the abandoned sequence's hold is still unacknowledged,
+  // so more than one hold can be pending at once, and abandoning an
+  // un-dispatched intent adds its sequence here rather than replacing what is
+  // already pending.
+  repeated uint64 hold_resolution_pending = 9 [(buf.validate.field).repeated = {
+    unique: true
+    items: {
+      uint64: {gte: 1}
+    }
+  }];
   // Reads in flight, keyed by the interface name the device spells.
   map<string, OpenRead> open_reads = 10 [(buf.validate.field).map = {
     max_pairs: 256

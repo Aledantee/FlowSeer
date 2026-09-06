@@ -45,10 +45,34 @@ func (refusing) Publish(context.Context, string, []byte, string) error {
 	return errors.New("stream refused the publish")
 }
 
+// binding authorizes a delivery; hosts controls whether the calling edge is
+// said to host the device.
+type binding struct {
+	hosts bool
+}
+
+func (binding) EdgeID(context.Context) (string, error) { return "edge-1", nil }
+func (b binding) Hosts(context.Context, string, string) (bool, error) {
+	return b.hosts, nil
+}
+
 func TestDeliverFailsWhenTheStreamRefuses(t *testing.T) {
-	svc := auditapi.New(refusing{}, tenant)
+	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
 	if err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e001"); err == nil {
 		t.Fatal("Deliver answered success though the stream refused the publish")
+	}
+}
+
+func TestDeliverRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
+	// The publisher would succeed; the binding must stop the delivery first,
+	// so a forged device id never reaches the central-owned stream.
+	svc := auditapi.New(refusing{}, binding{hosts: false}, tenant)
+	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e0ff")
+	if err == nil {
+		t.Fatal("Deliver accepted an event for a device the edge does not host")
+	}
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("code = %v, want permission denied", connect.CodeOf(err))
 	}
 }
 
@@ -64,7 +88,7 @@ func TestDeliverIsDurableAndDeduplicates(t *testing.T) {
 	}
 	t.Cleanup(hub.Close)
 
-	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, tenant)
+	svc := auditapi.New(auditapi.JetStreamPublisher{JS: hub.JetStream()}, binding{hosts: true}, tenant)
 
 	const id = "0192e6a0-0000-7000-8000-00000000e002"
 	if err := deliver(t, svc, id); err != nil {

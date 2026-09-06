@@ -2,6 +2,7 @@ package dispatchapi
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
@@ -15,8 +16,11 @@ import (
 )
 
 // ErrCodeReadDeadline is the error an open read is closed with when its
-// deadline passes with no observation.
-var ErrCodeReadDeadline = errs.NewCode("access/read-deadline")
+// deadline passes with no observation. It is declared under this package's own
+// prefix: errs.NewCode panics on a duplicate registration, and the access/
+// prefix belongs to the lane module, which the end-to-end binary links
+// alongside this one.
+var ErrCodeReadDeadline = errs.NewCode("dispatchapi/read-deadline")
 
 // sender is the dispatch target. A *connect.ServerStream satisfies it; a test
 // captures the sent messages through the same interface.
@@ -179,29 +183,37 @@ type KeyLister interface {
 	Keys(ctx context.Context, opts ...jetstream.WatchOpt) ([]string, error)
 }
 
-// RunSweeper closes expired reads on every device on a schedule, so a read
-// whose edge holds no open stream is still closed when its deadline passes and
-// its waiter is not left hanging. It runs until ctx is done and is meant to be
-// launched in its own goroutine by the host. Subscribe sweeps the connected
-// edges' devices on every pass; this covers the rest.
-func (s *Service) RunSweeper(ctx context.Context, bucket KeyLister) {
-	ticker := time.NewTicker(s.resend)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			s.sweepAll(ctx, bucket)
+// RunSweeper closes expired reads on every device on its own schedule, so a
+// read whose edge holds no open stream is still closed when its deadline
+// passes and its waiter is not left hanging (Subscribe sweeps the connected
+// edges' devices on every pass; this covers the rest). It runs a goroutine
+// until ctx is done and returns a channel closed when that goroutine exits, so
+// the host — and a test — can join it rather than leak it.
+func (s *Service) RunSweeper(ctx context.Context, bucket KeyLister) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(s.sweepInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				s.sweepAll(ctx, bucket)
+			}
 		}
-	}
+	}()
+	return done
 }
 
 func (s *Service) sweepAll(ctx context.Context, bucket KeyLister) {
 	keys, err := bucket.Keys(ctx)
 	if err != nil {
-		s.log.WarnContext(ctx, "sweeper could not list devices", "error", err)
-		return
+		if !errors.Is(err, jetstream.ErrNoKeysFound) {
+			s.log.WarnContext(ctx, "sweeper could not list devices", "error", err)
+		}
+		return // an empty bucket is not an error worth logging every tick
 	}
 	for _, deviceID := range keys {
 		if _, err := s.cfg.Journal.SweepExpiredReads(ctx, deviceID, s.clock(), s.sweepError()); err != nil {
