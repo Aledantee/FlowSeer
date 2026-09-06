@@ -37,24 +37,31 @@ type Owed struct {
 	Disposition accessv1.Disposition // OwedTerminalAck only
 }
 
-// blockingReasons are the block reasons that forbid dispatching a mutation:
-// it is held for an operator or for discovery, not owed to the edge.
-func isBlocking(reason accessv1.BlockReason) bool {
+// permitsDispatch reports whether a block reason still lets central dispatch
+// the mutation. The set is a permit-list on purpose: a reason added later
+// blocks dispatch until someone lists it here, which is the safe default. A
+// mutation with no block reason (the zero value) permits dispatch.
+func permitsDispatch(reason accessv1.BlockReason) bool {
 	switch reason {
-	case accessv1.BlockReason_BLOCK_REASON_DESYNCHRONIZED,
-		accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD,
-		accessv1.BlockReason_BLOCK_REASON_EDGE_STALE:
+	case accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED,
+		accessv1.BlockReason_BLOCK_REASON_UNACKNOWLEDGED,
+		accessv1.BlockReason_BLOCK_REASON_INDETERMINATE:
 		return true
 	default:
+		// RECOVERY_HOLD, DESYNCHRONIZED, FIRMWARE_EPOCH_CHANGED,
+		// CONFLICTING_READS, EDGE_STALE: nothing is dispatched until an
+		// operator, the edge's return, or a fresh probe clears the block.
 		return false
 	}
 }
 
-// Owed derives every message the record owes the edge, at time now. Rows
+// OwedRows derives every message the record owes the edge, at time now. Rows
 // are independent and keyed by sequence; the derivation is total, so the
 // outbox relay is a pure function of the record. A read whose deadline has
-// passed owes nothing here — it is swept by [ExpiredReads] in the same CAS
-// write that records it failed.
+// passed owes nothing here — it is due for the sweep, which
+// [Journal.SweepExpiredReads] performs by closing it with a deadline error.
+// Until that sweep runs the read owes no row and is not stranded: the promise
+// that it is closed is one the relay keeps by calling the sweep.
 func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 	var owed []Owed
 
@@ -75,19 +82,21 @@ func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 			// record only until the edge reports RELEASED, so a present
 			// mutation still owes; an abandonment keeps the mutation held
 			// past the ack, so it owes only until the last reported phase
-			// is ABANDONED, after which the operator terminates it.
-			if !(m.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED &&
-				record.GetLastReportedPhase() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED) {
+			// is ABANDONED, after which ResolveDesynchronization ends it.
+			if m.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED ||
+				record.GetLastReportedPhase() != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
 				owed = append(owed, Owed{Kind: OwedTerminalAck, Sequence: seq, Disposition: m.GetDisposition()})
 			}
 		case hasDisposition:
-			// dispatched unset: central disposed it without the edge ever
-			// holding it, and closes it in the same write, so nothing is
-			// owed. Such a state never persists.
-		case isBlocking(m.GetBlockReason()):
-			// Held for an operator (DESYNCHRONIZED, RECOVERY_HOLD) or for
-			// discovery (EDGE_STALE): owes nothing; the operator or the
-			// epoch refresh terminates it.
+			// A terminal disposition can only reach the record with dispatched
+			// set: every path that writes one runs when the edge holds the
+			// sequence (ReportVerified and ReportError follow admission), and
+			// Dispose of an un-dispatched mutation closes the lane rather than
+			// leaving a disposition here. So this arm is unreachable, kept as
+			// the statement that a disposition without dispatch never persists.
+		case !permitsDispatch(m.GetBlockReason()):
+			// Blocked for an operator, the edge's return, or a fresh probe:
+			// owes nothing; the terminator is not a row central sends.
 		case !record.GetDispatchConfirmed():
 			owed = append(owed, Owed{
 				Kind:     OwedExecute,
@@ -104,7 +113,7 @@ func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 			continue // closed, awaiting removal
 		}
 		if deadline := read.GetDeadline(); deadline != nil && !deadline.AsTime().After(now) {
-			continue // expired, due for the sweep
+			continue // expired: due for the sweep, a promise SweepExpiredReads keeps
 		}
 		owed = append(owed, Owed{Kind: OwedRead, Sequence: read.GetSequence()})
 	}
@@ -113,7 +122,9 @@ func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 }
 
 // ExpiredReads returns the interface names of open reads whose deadline has
-// passed with no outcome, which the relay closes with a deadline error.
+// passed with no outcome. It is the pure counterpart to
+// [Journal.SweepExpiredReads]: it names what is due without writing, so a test
+// or a caller can decide before the sweep records the deadline errors.
 func ExpiredReads(record *storev1.DeviceLaneRecord, now time.Time) []string {
 	var expired []string
 	for name, read := range record.GetOpenReads() {
@@ -127,24 +138,30 @@ func ExpiredReads(record *storev1.DeviceLaneRecord, now time.Time) []string {
 	return expired
 }
 
-// OperatorTerminated reports whether the record's mutation is one only
-// ResolveDesynchronization can end: a held reconciliation intent
-// (DESYNCHRONIZED, no disposition) or an abandoned mutation whose terminal
-// ack the edge has confirmed (ABANDONED reported). Both owe nothing by
-// design; the invariant test uses this to tell an intentional
-// nothing-owed state from a stranded one.
-func OperatorTerminated(record *storev1.DeviceLaneRecord) bool {
+// TerminatorNamed reports whether the record's open mutation names a
+// terminator that exists and can act on its sequence — the test that a
+// nothing-owed mutation is bounded rather than stranded. Two arms, each an
+// invocable RPC, not a label:
+//
+//   - A non-terminal mutation (no disposition) is ended by AbandonMutation,
+//     which [Journal.Dispose] applies to any sequence whose mutation has no
+//     disposition. When the mutation is blocked in recovery its bound is the
+//     recovery horizon, from blocked_since, that expires into that same call.
+//   - An abandoned mutation whose terminal ack the edge has confirmed
+//     (INDETERMINATE_ABANDONED, last reported phase ABANDONED) is resolved by
+//     ResolveDesynchronization, which [Journal.ResolveHold] applies to that
+//     sequence.
+//
+// A terminal mutation that is not the confirmed-abandoned case owes its
+// terminal ack instead, so it is not covered here.
+func TerminatorNamed(record *storev1.DeviceLaneRecord) bool {
 	m := record.GetMutation()
 	if m == nil {
 		return false
 	}
-	if m.GetBlockReason() == accessv1.BlockReason_BLOCK_REASON_DESYNCHRONIZED && !m.HasDisposition() {
-		return true
+	if !m.HasDisposition() {
+		return true // AbandonMutation ends any non-terminal mutation
 	}
-	if m.HasDisposition() &&
-		m.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED &&
-		record.GetLastReportedPhase() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
-		return true
-	}
-	return false
+	return m.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED &&
+		record.GetLastReportedPhase() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 }

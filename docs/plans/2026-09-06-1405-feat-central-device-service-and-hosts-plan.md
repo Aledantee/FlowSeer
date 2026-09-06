@@ -416,8 +416,9 @@ Design decisions:
    `TestOrderedRootsCoverEveryTopLevelTree`.
 2. `journal.Admit` assigns the next sequence and stores the intent at
    `ADMITTED` in one CAS write; the same idempotency key returns the
-   recorded state; two concurrent `Admit` calls on one device yield n and
-   n+1.
+   recorded state; a second, different intent is refused while a mutation
+   holds the lane, so two concurrent `Admit` calls on one device yield one
+   admission and one refusal.
 3. A `Subscribe` handler sends every owed row on open, sends within one
    backoff step of a record change, re-sends while owed, stops on the
    row's confirmation or negative confirmation, sends a mutation row and
@@ -453,9 +454,12 @@ Design decisions:
    `ABANDONED` confirms it and leaves the held mutation for resolution;
    `Refused` per the
    outbox decision, a refused `TerminalResultAck` closing the record the
-   way `RELEASED` does and never re-disposing; a disposal with
-   `dispatched` unset walking to `RELEASED` in the same write; a stale or
-   duplicate report is ignored. Example: a retry after a `RECOVERING` report opens a second
+   way `RELEASED` does and never re-disposing; `Dispose` of a mutation the
+   edge never reported admitted (`dispatched` unset) closing the lane and
+   owing `HoldResolved` in the same write, so an edge that already holds
+   the dispatch is released; a report that would regress a terminal
+   mutation, or that arrives before the edge's admission is recorded, and
+   any stale or duplicate report, is ignored. Example: a retry after a `RECOVERING` report opens a second
    grant for the same sequence.
 6. `DeviceService` behaves as its README says, plus:
    `ApplyInterfaceDescription` refuses a stale
@@ -585,20 +589,32 @@ after `Onboarded` cleared the confirmations; a recovering record after
 `Onboarded`; a disposal with `dispatched` unset; a held reconciliation
 intent; a hold resolved and unconfirmed; the restore write that leaves
 `HoldResolved` and a new `ExecuteRequest` owed together with the
-dispatch refused `access/desynchronized` first; each `open_reads` state
-including a colliding poll and an expired entry; every `Refused` code
-against each row it can answer), one row per state naming the rows owed
-and each row's terminating condition, plus one case asserting the
-invariant over the whole table: every state either owes something,
-names the operator as its terminator, or is closed, and no state owes
-two rows for one sequence. Exactly two states land on the operator arm,
-each naming `ResolveDesynchronization` as the RPC that ends it: the
-abandoned mutation whose terminal ack is confirmed, and the held
-reconciliation intent under `OPERATOR_MANAGED`. Both owe nothing by
-design; a state that owes nothing without naming its terminator fails
-the invariant, which is what keeps a recovering record with cleared
-confirmations from passing as intentional. A state added without a
-table row fails the exhaustiveness check.
+dispatch; the abandon-before-dispatch close; each `open_reads` state
+including a colliding poll and an expired entry) as one shared slice,
+each row naming the rows owed with their `Resume` and `Disposition`
+payloads. Two assertions run over that slice and, decisively, over a
+generated cross product of every mutation the journal can write — phase,
+disposition, and block reason taken from the enum descriptors so a value
+added to the schema enters the space on its own, times the dispatch
+facts, times a hold and read background — filtered by an explicit
+reachability predicate that excludes a combination only for a stated
+schema rule or a fact about which journal method writes it. The invariant
+is quantified per open sequence: for the mutation's sequence, the hold's,
+and each unclosed read's, that sequence owes a row, or (the mutation)
+names a terminator, or (a read) is past its deadline and due for the
+sweep — so an owed row on one sequence cannot mask a stranded state on
+another. A terminator is an invocable RPC, not a label: a non-terminal
+mutation is ended by `AbandonMutation`, bounded by the recovery horizon
+when it is blocked; an abandoned mutation whose ack the edge confirmed is
+ended by `ResolveDesynchronization`; a separate test invokes each and
+shows it moves the record forward. The generated sweep is the proof that
+no reachable state strands — the reachable behaviors are exactly the six
+that owe a row and the one that owes nothing but names a terminator; the
+stranded signature is provably absent, and reintroducing it turns the
+sweep red. The readable table additionally must exhibit every reachable
+behavior, so a new enum value that produces an unhandled behavior fails
+until a row demonstrates it; a wholly new record field still escapes,
+which only field reflection would catch.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/journal`
 
 ### U4. Dispatch, report, and audit handlers

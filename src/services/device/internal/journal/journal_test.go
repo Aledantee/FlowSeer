@@ -10,6 +10,7 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -70,6 +71,14 @@ func edgeRef() *edgev1.EdgeGlobalRef {
 	return ref
 }
 
+func deviceRef() *inventoryv1.DeviceGlobalRef {
+	device := &inventoryv1.DeviceGlobalRef{}
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(deviceID)
+	device.SetDevice(local)
+	return device
+}
+
 func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
@@ -121,7 +130,7 @@ func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
 	}
 }
 
-func TestConcurrentAdmitYieldsDistinctSequences(t *testing.T) {
+func TestConcurrentAdmitYieldsOneAdmissionAndOneRefusal(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
 
@@ -203,20 +212,35 @@ func TestApplyReportWalksThePhasesAndClosesTheRecord(t *testing.T) {
 	}
 }
 
-func TestApplyReportErrorBeforeSubmissionClosesRatherThanRecovers(t *testing.T) {
+func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000d001"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
-	// An error at ADMITTED, before the command was submitted (dispatched
-	// still false), closes the record rather than entering recovery.
+	// An error before the command was submitted — a firmware-epoch block, or
+	// an Execute failure before the device latched — proves the edge holds the
+	// sequence but nothing reached the device. Central disposes REJECTED and
+	// owes the terminal ack the edge waits for; it does not close the record
+	// and leave the edge waiting for an ack that never comes.
 	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportError, Sequence: 1, Submitted: false}); err != nil {
 		t.Fatalf("error report: %v", err)
 	}
 	rec, _ := j.Record(ctx, deviceID)
+	m := rec.GetMutation()
+	if m == nil {
+		t.Fatal("a pre-submission error closed the record instead of disposing REJECTED")
+	}
+	if m.GetDisposition() != accessv1.Disposition_DISPOSITION_REJECTED || !rec.GetDispatched() {
+		t.Fatalf("disposition %v, dispatched %v; want REJECTED and dispatched so the ack is owed", m.GetDisposition(), rec.GetDispatched())
+	}
+	// The edge's RELEASED report then closes it through the ordinary path.
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportReleased, Sequence: 1}); err != nil {
+		t.Fatalf("released: %v", err)
+	}
+	rec, _ = j.Record(ctx, deviceID)
 	if rec.HasMutation() {
-		t.Fatal("a pre-submission error left a mutation open")
+		t.Fatal("RELEASED did not close the rejected mutation")
 	}
 }
 
@@ -284,7 +308,7 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 	intent.SetInterfaceName("ethernet 1/1/1")
 	read.SetInterface(intent)
 
-	seq, err := j.OpenRead(ctx, deviceID, "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f001", time.Now().Add(30*time.Second))
+	seq, err := j.OpenRead(ctx, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f001", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("open read: %v", err)
 	}
@@ -292,7 +316,7 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 		t.Fatalf("read sequence = %d, want 1", seq)
 	}
 	// A second poll of the same interface while the first is open skips.
-	again, err := j.OpenRead(ctx, deviceID, "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f002", time.Now().Add(30*time.Second))
+	again, err := j.OpenRead(ctx, deviceID, deviceRef(), "ethernet 1/1/1", read, "0192e6a0-0000-7000-8000-00000000f002", time.Now().Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("second open: %v", err)
 	}
@@ -301,11 +325,258 @@ func TestOpenAndCloseReadShareTheCounter(t *testing.T) {
 	}
 	obs := &accessv1.InterfaceObservation{}
 	obs.SetInterfaceName("ethernet 1/1/1")
-	if err := j.CloseRead(ctx, deviceID, "ethernet 1/1/1", obs, nil); err != nil {
+	if err := j.CloseRead(ctx, deviceID, "ethernet 1/1/1", seq, obs, nil); err != nil {
 		t.Fatalf("close read: %v", err)
 	}
 	rec, _ := j.Record(ctx, deviceID)
 	if !rec.GetOpenReads()["ethernet 1/1/1"].HasObservation() {
 		t.Fatal("CloseRead did not record the observation")
 	}
+}
+
+func typedRead() *accessv1.TypedRead {
+	read := &accessv1.TypedRead{}
+	policy := &policyv1.AccessPolicyHandle{}
+	policy.SetKey("icx7150-lab")
+	policy.SetVersion(3)
+	read.SetAccessPolicy(policy)
+	intent := &accessv1.InterfaceReadIntent{}
+	intent.SetInterfaceName("ethernet 1/1/1")
+	read.SetInterface(intent)
+	return read
+}
+
+func TestReadmissionAfterOnboardedConfirmsWithoutRedispatchLoop(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010001"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	// The edge restarts: Onboarded clears the per-dispatch confirmation, so the
+	// mutation is re-dispatched with resume, but dispatched survives.
+	if err := j.MarkOnboarded(ctx, deviceID); err != nil {
+		t.Fatalf("onboarded: %v", err)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetDispatchConfirmed() || !rec.GetDispatched() {
+		t.Fatalf("after Onboarded: dispatched %v confirmed %v, want true and false", rec.GetDispatched(), rec.GetDispatchConfirmed())
+	}
+	// The resume dispatch is re-admitted. This must re-confirm the dispatch and
+	// not regress POSSIBLY_APPLIED back to ADMITTED, so the execute row stops
+	// being owed rather than being re-sent on every relay pass forever.
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		t.Fatalf("re-admitted: %v", err)
+	}
+	rec, _ = j.Record(ctx, deviceID)
+	if !rec.GetDispatchConfirmed() {
+		t.Fatal("re-admission after Onboarded did not re-confirm the dispatch: the execute row is owed forever")
+	}
+	if rec.GetMutation().GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
+		t.Fatalf("re-admission regressed the phase to %v", rec.GetMutation().GetPhase())
+	}
+}
+
+func TestReportCannotOverwriteOperatorAbandonment(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010101"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+	// An in-flight verified report for the same sequence lands after the
+	// operator abandoned it. It must not overwrite the abandonment with a
+	// verified disposition central would then owe a verified ack for.
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportVerified, Sequence: 1}); err != nil {
+		t.Fatalf("late verified: %v", err)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetMutation().GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		t.Fatalf("late report overwrote the abandonment: disposition %v", rec.GetMutation().GetDisposition())
+	}
+}
+
+func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010201"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	// The operator abandons before the edge ever reported the mutation
+	// admitted. Nothing reached the device, so the lane closes and a
+	// hold-resolved row releases an edge that may already hold the dispatch.
+	state, err := j.Dispose(ctx, deviceID, 1)
+	if err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+	if state.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		t.Fatalf("returned disposition %v", state.GetDisposition())
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.HasMutation() {
+		t.Fatal("abandon-before-dispatch left the mutation open: the lane holds forever")
+	}
+	if !rec.HasHoldResolutionPending() || rec.GetHoldResolutionPending() != 1 {
+		t.Fatalf("hold resolution pending = %v, want 1", rec.GetHoldResolutionPending())
+	}
+	// The lane is free for the next admission.
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010202"), edgeRef()); err != nil {
+		t.Fatalf("admit after abandon-before-dispatch: %v", err)
+	}
+}
+
+func TestResolveHoldRefusesADifferentPendingSequence(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
+		t.Fatalf("first resolve: %v", err)
+	}
+	// A second, different hold cannot overwrite the first before the edge
+	// acknowledges it, or the first hold's row would vanish with nothing to
+	// re-derive it.
+	if err := j.ResolveHold(ctx, deviceID, 6); err == nil {
+		t.Fatal("ResolveHold overwrote an unacknowledged hold resolution")
+	}
+	// Re-resolving the same sequence is idempotent.
+	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
+		t.Fatalf("idempotent resolve: %v", err)
+	}
+}
+
+func TestCloseReadIgnoresAStaleSequence(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+	const iface = "ethernet 1/1/1"
+
+	seq1, err := j.OpenRead(ctx, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010301", time.Now().Add(30*time.Second))
+	if err != nil {
+		t.Fatalf("open read 1: %v", err)
+	}
+	// Close it, then open a second read on the same interface, which reuses the
+	// entry and takes the next sequence.
+	if err := j.CloseRead(ctx, deviceID, iface, seq1, &accessv1.InterfaceObservation{}, nil); err != nil {
+		t.Fatalf("close read 1: %v", err)
+	}
+	seq2, err := j.OpenRead(ctx, deviceID, deviceRef(), iface, typedRead(), "0192e6a0-0000-7000-8000-000000010302", time.Now().Add(30*time.Second))
+	if err != nil {
+		t.Fatalf("open read 2: %v", err)
+	}
+	if seq2 == seq1 {
+		t.Fatalf("second read reused sequence %d", seq2)
+	}
+	// A late result for the first read must not land on the second.
+	stale := &accessv1.InterfaceObservation{}
+	stale.SetInterfaceName("stale")
+	if err := j.CloseRead(ctx, deviceID, iface, seq1, stale, nil); err != nil {
+		t.Fatalf("stale close: %v", err)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetOpenReads()[iface].HasOutcome() {
+		t.Fatal("a stale result for an earlier read closed the read that succeeded it")
+	}
+}
+
+func TestSweepExpiredReadsClosesExpiredAndSkipsAnswered(t *testing.T) {
+	j := newJournal(t)
+	ctx := context.Background()
+
+	expired := &accessv1.TypedRead{}
+	expired.SetAccessPolicy(typedRead().GetAccessPolicy())
+	ei := &accessv1.InterfaceReadIntent{}
+	ei.SetInterfaceName("eth-expired")
+	expired.SetInterface(ei)
+	if _, err := j.OpenRead(ctx, deviceID, deviceRef(), "eth-expired", expired, "0192e6a0-0000-7000-8000-000000010401", time.Now().Add(-time.Second)); err != nil {
+		t.Fatalf("open expired: %v", err)
+	}
+	answered := &accessv1.TypedRead{}
+	answered.SetAccessPolicy(typedRead().GetAccessPolicy())
+	ai := &accessv1.InterfaceReadIntent{}
+	ai.SetInterfaceName("eth-answered")
+	answered.SetInterface(ai)
+	answeredSeq, err := j.OpenRead(ctx, deviceID, deviceRef(), "eth-answered", answered, "0192e6a0-0000-7000-8000-000000010402", time.Now().Add(-time.Second))
+	if err != nil {
+		t.Fatalf("open answered: %v", err)
+	}
+	// The answered read got its observation just before the sweep, though its
+	// deadline has also passed. The sweep must leave it alone.
+	if err := j.CloseRead(ctx, deviceID, "eth-answered", answeredSeq, &accessv1.InterfaceObservation{}, nil); err != nil {
+		t.Fatalf("answer: %v", err)
+	}
+	errPayload := &errsv1.ErrorPayload{}
+	swept, err := j.SweepExpiredReads(ctx, deviceID, time.Now(), errPayload)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if len(swept) != 1 || swept[0] != "eth-expired" {
+		t.Fatalf("swept %v, want [eth-expired]", swept)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if !rec.GetOpenReads()["eth-expired"].HasError() {
+		t.Fatal("the sweep did not record the deadline error")
+	}
+	if !rec.GetOpenReads()["eth-answered"].HasObservation() {
+		t.Fatal("the sweep overwrote an answered read")
+	}
+}
+
+// TestTerminatorsAreInvocable proves the invariant's terminator arms are not
+// labels: for each nothing-owed state that names a terminator, the terminator's
+// journal method actually acts on the record and moves it forward.
+func TestTerminatorsAreInvocable(t *testing.T) {
+	t.Run("AbandonMutation ends a recovering mutation", func(t *testing.T) {
+		j := newJournal(t)
+		ctx := context.Background()
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010501"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+			t.Fatalf("admitted: %v", err)
+		}
+		if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+			t.Fatalf("checkpoint: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
+			t.Fatalf("recovering: %v", err)
+		}
+		// Recovering owes nothing; AbandonMutation is its terminator.
+		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+			t.Fatalf("dispose: %v", err)
+		}
+		rec, _ := j.Record(ctx, deviceID)
+		if !rec.GetMutation().HasDisposition() {
+			t.Fatal("AbandonMutation did not terminate the recovering mutation")
+		}
+	})
+	t.Run("ResolveDesynchronization frees a held abandonment", func(t *testing.T) {
+		j := newJournal(t)
+		ctx := context.Background()
+		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000010601"), edgeRef()); err != nil {
+			t.Fatalf("admit: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+			t.Fatalf("admitted: %v", err)
+		}
+		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+			t.Fatalf("dispose: %v", err)
+		}
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
+			t.Fatalf("abandoned: %v", err)
+		}
+		// The held abandonment owes nothing; ResolveDesynchronization is its
+		// terminator, and it moves the record to a hold-resolved row.
+		if err := j.ResolveHold(ctx, deviceID, 1); err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		rec, _ := j.Record(ctx, deviceID)
+		if rec.HasMutation() || !rec.HasHoldResolutionPending() {
+			t.Fatal("ResolveDesynchronization did not free the held abandonment")
+		}
+	})
 }
