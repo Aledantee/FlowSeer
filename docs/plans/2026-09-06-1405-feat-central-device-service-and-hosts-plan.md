@@ -653,6 +653,16 @@ Files: `src/services/device/internal/deviceapi/`, `internal/drift/`,
 After: U3, U4, U5
 Change: requirements 6 and 7; `errs` codes map to Connect codes per the
 error-wire record; the owed-row table in `src/services/device/README.md`.
+Also emits central's audit record for a dispatch central disposes itself,
+alongside the `DriftDetected` one and from central's own scope: when a
+terminal `Refused` disposes a mutation `REJECTED` (`RejectDispatch`, U4), a
+`DeviceOperationEvent` for that sequence carrying the `REJECTED` disposition
+and the refusing code, so a firmware-epoch rejection leaves a durable trace
+and an operator resubmitting the idempotency key after the lane closed reads
+the rejection rather than only `RELEASED`. U4's `RejectDispatch` returns the
+disposed state for this; the report handler is not central's audit-emission
+site, so the event is emitted here. The carrier is U6's to shape — a
+disposition-and-code field on `LaneReleased`, or the event's attributes.
 Tests: each RPC's happy path and its refusal cases; the drift table for
 both modes and all three resolution arms.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal`
