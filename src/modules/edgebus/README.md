@@ -75,6 +75,30 @@ journal's authority; an edge declares `BusFsyncPeriodic` for its buffer,
 since a record lost to a power cut there is a gap in history. An undeclared
 policy refuses to start with `edgebus/config`.
 
+## What a compromised edge can and cannot do
+
+The permission set is the boundary, and it was found by widening until
+sourcing worked, so what the last widening let in was checked rather than
+assumed. A publish on the edge's own `otel` or `ingest` subjects is captured
+by its buffer and sourced honestly, which is the ordinary path. A publish
+dressed with a sourcing ack reply and a `Nats-Stream-Source` header naming
+another edge's subject is dropped by the hub, not stored under that subject
+(`TestForgedSourceHeadersDoNotRelabelRecords`). A publish inside the
+subtree but on neither buffered branch is refused with `edgebus/leaf`, never
+acknowledged by nothing (`TestPublishOutsideTheBufferedBranchesFailsLoudly`).
+
+The residual: the hub's source consumer delivers on
+`<subtree>.source.S.<nonce>`, a subject the edge may publish on. The
+consumer is ephemeral, unlisted, and unpersisted, so no client path learns
+the nonce, but the embedded server's own memory holds it, and a compromised
+agent process could publish a record there with a header naming another
+edge's subject. One aggregate stream cannot tell which edge delivered a
+record, so it would store it under the forged subject. The structural fix
+is one hub stream per edge, sourcing only that edge, with the forwarder
+deriving the edge from the stream name and refusing a record whose subject
+is not under that edge's subtree; it waits for a second edge and is
+recorded here rather than left to be rediscovered.
+
 ## OTLP over the bus
 
 The edge's runtime exports OTLP/HTTP to `Receiver`, bound to `127.0.0.1` on a

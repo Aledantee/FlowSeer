@@ -397,3 +397,74 @@ func selfSigned(t *testing.T) *x509.Certificate {
 	}
 	return cert
 }
+
+func TestPublishOutsideTheBufferedBranchesFailsLoudly(t *testing.T) {
+	hub := startHub(t, t.TempDir(), -1)
+	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// Inside the edge's subtree but on neither buffered branch: no stream
+	// holds it, so the publish must fail rather than be acknowledged by
+	// nothing.
+	err := leaf.Publish(ctx, leaf.Subject("misc.record"), []byte("lost?"), "")
+	if err == nil {
+		t.Fatal("a publish outside the buffered branches was acknowledged")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeLeaf {
+		t.Fatalf("publish error: %v (code %q)", err, code)
+	}
+}
+
+// TestForgedSourceHeadersDoNotRelabelRecords: a record the edge publishes
+// on its own otel subject is captured by its buffer and sourced honestly;
+// the same publish dressed with a sourcing ack reply and a header naming
+// another edge's subject is dropped rather than stored under that subject.
+// The consumer's actual delivery subject is ephemeral, unlisted, and
+// unpersisted, so no client path reaches it; only the embedded server's
+// memory holds it, which is the residual the README records.
+func TestForgedSourceHeadersDoNotRelabelRecords(t *testing.T) {
+	hub := startHub(t, t.TempDir(), -1)
+	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 })
+	if err := hub.AddEdgeSource(context.Background(), edgeID); err != nil {
+		t.Fatalf("add edge source: %v", err)
+	}
+	if err := leaf.Publish(context.Background(), leaf.OTelSubject(edgebus.SignalLogs), []byte("genuine"), ""); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.HubBufferStream)
+	if err != nil {
+		t.Fatalf("hub stream: %v", err)
+	}
+	waitFor(t, "sourced record", 15*time.Second, func() bool {
+		info, err := stream.Info(context.Background())
+		return err == nil && info.State.Msgs == 1
+	})
+
+	forged := &nats.Msg{
+		Subject: leaf.OTelSubject(edgebus.SignalLogs),
+		Reply:   "$JS.ACK.EDGE_BUFFER.JS_SRC_forged.1.2.2.1.0",
+		Header:  nats.Header{},
+		Data:    []byte("forged"),
+	}
+	forged.Header.Set("Nats-Stream-Source", "EDGE_BUFFER:forged 2 > > "+edgebus.OTelSubject(edgebus.DefaultTenant, otherID, edgebus.SignalLogs))
+	for range 2 {
+		if err := leaf.Connection().PublishMsg(forged); err != nil {
+			t.Fatalf("forge: %v", err)
+		}
+	}
+	if err := leaf.Connection().Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	time.Sleep(2 * time.Second)
+	info, err := stream.Info(context.Background(), jetstream.WithSubjectFilter(">"))
+	if err != nil {
+		t.Fatalf("info: %v", err)
+	}
+	if info.State.Msgs != 1 {
+		t.Fatalf("aggregate holds %d records after forged publishes, want 1; subjects %v", info.State.Msgs, info.State.Subjects)
+	}
+	if _, relabeled := info.State.Subjects[edgebus.OTelSubject(edgebus.DefaultTenant, otherID, edgebus.SignalLogs)]; relabeled {
+		t.Fatal("a forged header relabeled a record under another edge's subject")
+	}
+}
