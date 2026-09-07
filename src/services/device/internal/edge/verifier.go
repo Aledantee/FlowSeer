@@ -19,6 +19,9 @@ import (
 
 // HeaderScheme is the Authorization scheme every authenticated EdgeService
 // call carries: "Authorization: FlowSeer-Edge <base64 SignedEdgeAssertion>".
+// The edge agent has its own copy, since this package is internal to the
+// device service. The api/edge README's worked header vector is what keeps
+// them from drifting: the agent's signer is tested against that string.
 const HeaderScheme = "FlowSeer-Edge"
 
 // Error codes, one per rejected verifier step. A caller distinguishes a
