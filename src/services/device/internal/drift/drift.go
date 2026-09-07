@@ -49,6 +49,20 @@ type Audit interface {
 	DriftDetected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error
 }
 
+// Telemetry reports a detection as a signal, beside the durable record the
+// audit stream keeps. The device service's own instrumentation scope
+// implements it; a nil one emits nothing, which is what a test that does not
+// care about signals leaves unset.
+//
+// It is separate from [Audit] because the two answer different questions and
+// fail differently. The audit record is what an operator reads about one
+// device months later and a failure to write it stops the poll; the signal is
+// what a dashboard counts and what wakes someone, and losing one costs a
+// data point.
+type Telemetry interface {
+	DriftDetected(ctx context.Context, deviceID, iface, expected, observed string, mode inventoryv1.DeviceManagementMode)
+}
+
 // Config wires the poller.
 type Config struct {
 	// Journal holds the expectations, the observations, and the reads.
@@ -57,6 +71,10 @@ type Config struct {
 	Resolver DeviceResolver
 	// Audit records each detection.
 	Audit Audit
+	// Telemetry reports each detection as an event and a measurement.
+	// Optional: without it a detection is still recorded and still acted on,
+	// and nothing counts it.
+	Telemetry Telemetry
 	// Interval is how long between passes over every device. Zero uses a
 	// default; the record's write cost is two writes per managed interface per
 	// interval, so a deployment with many managed interfaces lengthens it.
@@ -210,8 +228,21 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 	// The record goes out before the intent is admitted. An audit record with
 	// no intent behind it is a detection an operator can still see and act on;
 	// an intent with no record is a held lane with nothing saying why.
+	// The audit record goes first, and the signal only after it lands.
+	//
+	// Both orders lose something when the second write fails, and these two
+	// losses are not equal. A record with no event is a detection an operator
+	// finds in the stream, which is where they look for what happened to a
+	// device; an event with no record is an alarm about a detection that left
+	// no durable trace, which is the shape of an incident nobody can
+	// reconstruct. Reversing these two lines is what the test named for this
+	// ordering catches.
 	if err := p.cfg.Audit.DriftDetected(ctx, deviceRef(deviceID, record), iface, expected, observed.GetDescription()); err != nil {
 		return err
+	}
+	if p.cfg.Telemetry != nil {
+		p.cfg.Telemetry.DriftDetected(ctx, deviceID, iface, expected, observed.GetDescription(),
+			entry.GetConfig().GetManagementMode())
 	}
 
 	if record.GetFirmwareFingerprint() == "" {

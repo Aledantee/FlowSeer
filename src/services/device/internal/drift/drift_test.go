@@ -8,6 +8,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
@@ -58,6 +59,18 @@ type recorder struct {
 	err   error
 }
 
+// signals is the telemetry seam: it records what the poll reported and, like
+// the audit recorder, in the order it was called.
+type signals struct {
+	seen []detection
+	mode inventoryv1.DeviceManagementMode
+}
+
+func (s *signals) DriftDetected(_ context.Context, _, iface, expected, observed string, mode inventoryv1.DeviceManagementMode) {
+	s.seen = append(s.seen, detection{iface: iface, expected: expected, observed: observed})
+	s.mode = mode
+}
+
 func (r *recorder) DriftDetected(_ context.Context, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
 	if r.err != nil {
 		return r.err
@@ -83,9 +96,11 @@ type harness struct {
 	poller   *drift.Poller
 	journal  *journal.Journal
 	recorder *recorder
+	signals  *signals
 }
 
-func newHarness(t *testing.T, mode inventoryv1.DeviceManagementMode) *harness {
+// newBucket starts a hub and returns the lane bucket its journal writes to.
+func newBucket(t *testing.T) jetstream.KeyValue {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -100,18 +115,26 @@ func newHarness(t *testing.T, mode inventoryv1.DeviceManagementMode) *harness {
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
+	return kv
+}
+
+func newHarness(t *testing.T, mode inventoryv1.DeviceManagementMode) *harness {
+	t.Helper()
+	kv := newBucket(t)
 	j := journal.New(kv, nil)
 	rec := &recorder{}
+	sig := &signals{}
 	poller, err := drift.New(drift.Config{
-		Journal:  j,
-		Resolver: &resolver{entry: registryEntry(mode)},
-		Audit:    rec,
-		Interval: time.Minute,
+		Journal:   j,
+		Resolver:  &resolver{entry: registryEntry(mode)},
+		Audit:     rec,
+		Telemetry: sig,
+		Interval:  time.Minute,
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	return &harness{poller: poller, journal: j, recorder: rec}
+	return &harness{poller: poller, journal: j, recorder: rec, signals: sig}
 }
 
 func deviceRef() *inventoryv1.DeviceGlobalRef {
@@ -448,4 +471,87 @@ func operatorIntent() *accessv1.MutationIntent {
 	intent.SetExpectedFirmwareFingerprint(fingerprint)
 	intent.SetInterfaceDescription(change)
 	return intent
+}
+
+// A detection produces exactly one event, carrying what the record carries.
+func TestADetectionReportsOneSignalCarryingWhatItFound(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
+	seeObserved(t, h, "someone else's description")
+
+	h.poller.Pass(ctx)
+
+	if len(h.signals.seen) != 1 {
+		t.Fatalf("signals = %+v, want exactly one", h.signals.seen)
+	}
+	got := h.signals.seen[0]
+	if got.iface != iface || got.expected != expected || got.observed != "someone else's description" {
+		t.Errorf("signal = %+v, want the difference the record holds", got)
+	}
+	if h.signals.mode != inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED {
+		t.Errorf("mode = %v, want the device's own", h.signals.mode)
+	}
+}
+
+// The audit record is written before the signal is reported, and this is the
+// test that holds the order.
+//
+// Both writes can fail and the two losses are not equal. A record with no
+// signal is a detection an operator finds in the stream, which is where they
+// look for what happened to a device. A signal with no record is an alarm
+// about a detection that left no durable trace — someone is woken to
+// investigate something that cannot be reconstructed. Reverse the two lines in
+// judge and this test fails, which is the only thing holding them in that
+// order: on the happy path the ordering is invisible.
+func TestASignalIsNotReportedForADetectionTheStreamRefused(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+	seeObserved(t, h, "someone else's description")
+	h.recorder.err = errAudit
+
+	h.poller.Pass(ctx)
+
+	if len(h.signals.seen) != 0 {
+		t.Fatalf("a signal was reported for a detection nothing recorded: %+v", h.signals.seen)
+	}
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if record.HasMutation() {
+		t.Fatal("the poll admitted an intent behind a detection it could not record")
+	}
+}
+
+// A poll with no telemetry wired still detects, records and acts. The signal
+// is what a dashboard counts; losing it must not stop the work.
+func TestAPollWithNoTelemetryStillRecordsAndActs(t *testing.T) {
+	ctx := context.Background()
+	kv := newBucket(t)
+	j := journal.New(kv, nil)
+	rec := &recorder{}
+	poller, err := drift.New(drift.Config{
+		Journal:  j,
+		Resolver: &resolver{entry: registryEntry(inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)},
+		Audit:    rec,
+		Interval: time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	h := &harness{poller: poller, journal: j, recorder: rec}
+	seeObserved(t, h, "someone else's description")
+
+	poller.Pass(ctx)
+
+	if len(rec.found) != 1 {
+		t.Fatalf("detections = %d, want the difference recorded", len(rec.found))
+	}
+	record, err := j.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if !record.HasMutation() {
+		t.Fatal("the poll recorded a detection and admitted nothing")
+	}
 }
