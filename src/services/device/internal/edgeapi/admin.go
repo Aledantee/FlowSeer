@@ -476,11 +476,12 @@ func connectErr(err error) error {
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case ErrCodeNotFound:
 		return connect.NewError(connect.CodeNotFound, err)
-	case ErrCodeLifecycle, ErrCodeSetupKey, ErrCodePolicy:
+	case ErrCodeLifecycle, ErrCodeSetupKey, ErrCodePolicy,
+		ErrCodeNotCheckpointed, ErrCodeAuthorityWithdrawn, ErrCodeGrantExpired:
 		return connect.NewError(connect.CodeFailedPrecondition, err)
 	case ErrCodeSetupKeyRefused, ErrCodeForbidden:
 		return connect.NewError(connect.CodePermissionDenied, err)
-	case edgestore.ErrCodeConflict, edgestore.ErrCodeStore, ErrCodeBus:
+	case edgestore.ErrCodeConflict, edgestore.ErrCodeStore, ErrCodeBus, ErrCodeAuthorityUnknown:
 		return connect.NewError(connect.CodeUnavailable, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)

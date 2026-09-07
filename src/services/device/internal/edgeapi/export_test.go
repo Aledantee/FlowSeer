@@ -13,3 +13,10 @@ import (
 func ContextWithVerifiedAssertion(ctx context.Context, assertion *edgev1.EdgeAssertion) context.Context {
 	return context.WithValue(ctx, assertionKey{}, assertion)
 }
+
+// OpenSubmission runs the submission stream against sender. Test-only: the
+// production path is [Service.OpenDeviceSubmission], whose Connect ServerStream
+// has no exported constructor.
+func (s *Service) OpenSubmission(ctx context.Context, msg *edgev1.OpenDeviceSubmissionRequest, sender submissionSender) error {
+	return s.openSubmission(ctx, msg, sender)
+}

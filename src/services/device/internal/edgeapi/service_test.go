@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
@@ -27,6 +28,10 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
+
+// Service implements every RPC the generated handler requires; a missing one is
+// a wiring bug the host would only find at start-up.
+var _ edgev1connect.EdgeServiceHandler = (*edgeapi.Service)(nil)
 
 const (
 	testDeviceID  = "0192e6a0-0000-7000-8000-0000000000d1"
@@ -118,6 +123,7 @@ type harness struct {
 	edge     *edgeapi.Service
 	store    *edgestore.Store
 	creds    *fakeCredentials
+	lanes    *fakeLanes
 	record   *edgev1.EdgeRecord
 	setupKey string
 	edgeID   string
@@ -141,10 +147,12 @@ func newHarness(t *testing.T) *harness {
 	h.edgeID = refOf(h.record).GetEdge().GetId()
 
 	anchor := make([]byte, 32)
-	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID), h.creds, hub, edgeapi.ServiceConfig{
-		Audience:     "flowseer-central",
-		TrustAnchors: [][]byte{anchor},
-		ClusterURLs:  []string{"wss://central.example.test:4223"},
+	h.lanes = &fakeLanes{}
+	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID), h.lanes, h.creds, hub, edgeapi.ServiceConfig{
+		Audience:      "flowseer-central",
+		TrustAnchors:  [][]byte{anchor},
+		ClusterURLs:   []string{"wss://central.example.test:4223"},
+		PulseInterval: 5 * time.Millisecond,
 	}, func() time.Time { return h.now }, nil)
 	if err != nil {
 		t.Fatalf("NewService: %v", err)

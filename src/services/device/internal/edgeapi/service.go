@@ -75,6 +75,9 @@ type ServiceConfig struct {
 	// ClusterURLs are the endpoints an edge's leaf node dials, in preference
 	// order. At least one is required.
 	ClusterURLs []string
+	// PulseInterval is how often an open submission stream restates the
+	// edge's authority. Zero uses the default.
+	PulseInterval time.Duration
 }
 
 const (
@@ -88,6 +91,7 @@ const (
 type Service struct {
 	store    *edgestore.Store
 	registry *registry.Registry
+	lanes    LaneRecords
 	creds    CredentialSource
 	bus      BusMinter
 	cfg      ServiceConfig
@@ -98,7 +102,7 @@ type Service struct {
 // NewService constructs the edge handler. A nil clock uses the wall clock and a
 // nil logger discards. It returns an error for a configuration that would leave
 // an edge trusting anything or unable to reach the bus.
-func NewService(store *edgestore.Store, reg *registry.Registry, creds CredentialSource, bus BusMinter, cfg ServiceConfig, clock func() time.Time, log *slog.Logger) (*Service, error) {
+func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecords, creds CredentialSource, bus BusMinter, cfg ServiceConfig, clock func() time.Time, log *slog.Logger) (*Service, error) {
 	if cfg.Audience == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("edge service names no audience")
 	}
@@ -124,7 +128,7 @@ func NewService(store *edgestore.Store, reg *registry.Registry, creds Credential
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Service{store: store, registry: reg, creds: creds, bus: bus, cfg: cfg, clock: clock, log: log}, nil
+	return &Service{store: store, registry: reg, lanes: lanes, creds: creds, bus: bus, cfg: cfg, clock: clock, log: log}, nil
 }
 
 // Heartbeat records that the edge is alive, what version it is running, and
@@ -198,8 +202,11 @@ func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Reques
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
 	}
-	policy, err := s.resolveAccess(ctx, edgeID, req.Msg.GetDeviceId(), req.Msg.GetBindingId(), req.Msg.GetAccessPolicy())
+	policy, err := s.resolveAccess(ctx, edgeID, req.Msg.GetDeviceId(), req.Msg.GetBindingId())
 	if err != nil {
+		return nil, connectErr(err)
+	}
+	if err := matchesPinnedPolicy(req.Msg.GetAccessPolicy(), policy.GetHandle(), req.Msg.GetDeviceId()); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -227,10 +234,10 @@ func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Reques
 	return connect.NewResponse(resp.Build()), nil
 }
 
-// resolveAccess checks that the calling edge hosts the device, that the binding
-// is the one the registry lists for it, and that the request names the access
-// policy version the device pins, then resolves that version.
-func (s *Service) resolveAccess(ctx context.Context, edgeID, deviceID, bindingID string, requested *policyv1.AccessPolicyHandle) (*storev1.RegistryPolicy, error) {
+// resolveAccess checks that the calling edge hosts the device and that the
+// binding is the one the registry lists for it, then resolves the access policy
+// version the device pins.
+func (s *Service) resolveAccess(ctx context.Context, edgeID, deviceID, bindingID string) (*storev1.RegistryPolicy, error) {
 	hosts, err := s.registry.Hosts(ctx, edgeID, deviceID)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodePolicy).Attr("edge", edgeID).Attr("device", deviceID).
@@ -251,15 +258,22 @@ func (s *Service) resolveAccess(ctx context.Context, edgeID, deviceID, bindingID
 	}
 
 	pinned := device.GetConfig().GetAccessPolicy()
-	if requested.GetKey() != pinned.GetKey() || requested.GetVersion() != pinned.GetVersion() {
-		return nil, errs.New().Code(ErrCodePolicy).Attr("device", deviceID).
-			Attr("requested_version", requested.GetVersion()).Attr("pinned_version", pinned.GetVersion()).
-			Msg("request does not name the access policy the device pins")
-	}
 	policy, ok := s.registry.Policy(pinned.GetKey(), pinned.GetVersion())
 	if !ok {
 		return nil, errs.New().Code(ErrCodePolicy).Attr("device", deviceID).Attr("policy", pinned.GetKey()).
 			Msg("registry lists no such access policy version")
 	}
 	return policy, nil
+}
+
+// matchesPinnedPolicy refuses a request admitted under a policy version other
+// than the one the device pins, so an operation never runs under a version it
+// was not admitted under.
+func matchesPinnedPolicy(requested, pinned *policyv1.AccessPolicyHandle, deviceID string) error {
+	if requested.GetKey() == pinned.GetKey() && requested.GetVersion() == pinned.GetVersion() {
+		return nil
+	}
+	return errs.New().Code(ErrCodePolicy).Attr("device", deviceID).
+		Attr("requested_version", requested.GetVersion()).Attr("pinned_version", pinned.GetVersion()).
+		Msg("request does not name the access policy the device pins")
 }
