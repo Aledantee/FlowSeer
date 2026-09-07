@@ -1083,6 +1083,44 @@ access module is deleted by the lane host contract plan. And
 rather than answering with an empty list, so an edge host test that invents an
 edge id gets an error instead of silence.
 
+**U8's enrollment ordering, decided before the code.** The edge persists its
+Ed25519 key pair, then calls `Enroll`, then persists the response. Every
+crash point in that order recovers:
+
+| Crash point | A restart finds | What it does |
+| --- | --- | --- |
+| before the key is written | no key, no enrollment | generates a key and enrolls; the setup key is still `ISSUED` |
+| after the key, before `Enroll` | a key, no enrollment | enrolls with that key; the setup key is still `ISSUED` |
+| after `Enroll` returns, before its response is written | a key, no enrollment | enrolls again with the same key; central's setup key is `CONSUMED` and the registered key matches, so the same answer comes back |
+| after the response is written | a key and an enrollment | skips enrollment and heartbeats |
+
+The reverse order has a point with no way back. Enroll first, crash before
+the key is written, and central holds a public key whose private half never
+reached disk. The edge cannot sign, so it cannot call anything — including
+`Rekey`, which needs an assertion signed by the key it is replacing. The
+only remedy is an operator retiring the edge and issuing a new setup key,
+because `IssueSetupKey` refuses an `ENROLLED` one. One order loses a round
+trip; the other loses the edge.
+
+What makes the third row recover is `Enroll`'s idempotency, and that is
+central's property rather than the edge's: the same setup key with the same
+public key returns the same response and writes nothing
+(`edgeapi/enroll.go`'s `consumeSetupKey`, and the api/edge README states it).
+The edge's crash recovery therefore depends on a remote invariant, which is
+worth naming because nothing on the edge would fail if central stopped
+holding it — the edge would simply be unable to re-enroll after a crash in
+that one window, in the field, on a path no edge test exercises.
+
+**And the freeze must be distinguishable from never having fired.** Freezing
+the lane after two missed heartbeats is a mechanism whose whole purpose is to
+act when nothing is happening, which is the shape that hid the drift
+detector, the evidence cache and the pre-mutation baseline in this build. A
+test that asserts "no mutation was applied" passes for a lane that froze, a
+lane whose device was unreachable, and a lane that was never asked. The
+freeze gets its own observable — the `lane.frozen` record already exists per
+device — so a test asserts the freeze happened rather than that nothing else
+did.
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
