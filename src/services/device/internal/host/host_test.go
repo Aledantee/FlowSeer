@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -97,6 +98,17 @@ func writeRegistry(t *testing.T, dir string) string {
 // base URL its API answers on.
 func runningService(t *testing.T) string {
 	t.Helper()
+	base, _, _ := runningServiceWithControl(t)
+	return base
+}
+
+// runningServiceWithControl is runningService for a test that drives the
+// shutdown itself. stop cancels the service and waitStopped blocks for
+// Run's result; both are safe to call more than once, and the cleanup calls
+// them too, so a test that stops the service itself does not leave the
+// cleanup waiting on a result already taken.
+func runningServiceWithControl(t *testing.T) (base string, stop func(), waitStopped func() error) {
+	t.Helper()
 	dir := t.TempDir()
 	stateDir := filepath.Join(dir, "state")
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
@@ -131,19 +143,33 @@ edges {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- host.Run(ctx, cfg, "test") }()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case err := <-done:
-			if err != nil {
-				t.Errorf("the service stopped with %v, want a clean shutdown", err)
+
+	var stopOnce, waitOnce sync.Once
+	var runErr error
+	var timedOut bool
+	stop = func() { stopOnce.Do(cancel) }
+	waitStopped = func() error {
+		waitOnce.Do(func() {
+			select {
+			case runErr = <-done:
+			case <-time.After(30 * time.Second):
+				timedOut = true
 			}
-		case <-time.After(30 * time.Second):
+		})
+		if timedOut {
 			t.Error("the service did not stop within thirty seconds of cancellation")
+		}
+		return runErr
+	}
+
+	t.Cleanup(func() {
+		stop()
+		if err := waitStopped(); err != nil {
+			t.Errorf("the service stopped with %v, want a clean shutdown", err)
 		}
 	})
 
-	return fmt.Sprintf("https://127.0.0.1:%d", apiPort)
+	return fmt.Sprintf("https://127.0.0.1:%d", apiPort), stop, waitStopped
 }
 
 // insecureClient trusts whatever the service generated. An edge pins the

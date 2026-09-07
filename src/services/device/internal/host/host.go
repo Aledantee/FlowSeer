@@ -29,8 +29,9 @@ const (
 	serviceName      = "device"
 	serviceNamespace = "flowseer"
 	// shutdownGrace bounds how long the API listener waits for calls in
-	// flight. An edge holds a dispatch stream open indefinitely, so this is
-	// the point at which those are cut rather than a deadline they respect.
+	// flight before they are cut. An edge holds a dispatch stream open
+	// indefinitely, so for those this is not a deadline they respect: the
+	// grace expires and the connections are closed underneath them.
 	shutdownGrace = 5 * time.Second
 	// maxEdgeBody bounds a request body from an edge. The middleware reads it
 	// whole to hash it, so the bound is what stops an unauthenticated caller
@@ -301,7 +302,22 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		case <-ctx.Done():
 			shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 			defer cancel()
-			_ = server.Shutdown(shutdown)
+			// Shutdown never cuts an active connection: it closes the
+			// listeners, closes idle connections, and returns the
+			// context's error once the grace passes, leaving in-flight
+			// handlers running. An edge holds a dispatch stream open
+			// indefinitely, so that error is the ordinary case here, not
+			// an anomaly — and discarding it returned from Run with those
+			// handler goroutines still looping against a bus their module
+			// had already closed.
+			//
+			// In production the process exits and takes them with it. In
+			// an in-process host, which the end-to-end test needs so it
+			// can start and stop central repeatedly, they survive the test
+			// that created them.
+			if err := server.Shutdown(shutdown); err != nil {
+				_ = server.Close()
+			}
 			<-errCh
 			return nil
 		}
