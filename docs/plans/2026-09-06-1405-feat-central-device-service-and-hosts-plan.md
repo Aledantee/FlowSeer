@@ -843,6 +843,13 @@ verification passed", and exits 0 having run no build, vet, race, or lint.
 Every `Verify:` line above therefore names files, through `git ls-files`;
 a line naming a bare directory is not a gate.
 
+The sweep that followed found one thing: an import ordering in the access
+module's credential adapter test. golangci-lint over every package of every
+module, and gofumpt and goimports over every non-generated file, report
+nothing else. So the debt the directory arguments hid was this work's own —
+the packages that had drifted are the ones these plans have been editing,
+not ones nobody has touched.
+
 The race suite must run outside the agent Bash sandbox. `httptest` cannot
 bind `[::1]:0` under it, so `src/common/service`, `src/modules/edgebus`,
 and `src/services/device/internal/dispatchapi` panic with

@@ -67,11 +67,21 @@ type submissionSender interface {
 // terminator nor a closed record with work still outstanding: the mutation's
 // own terminators are exactly what they were before the stream opened.
 //
-// The grant is delivered once, as the first message, so a one-use secret is
-// never handed out twice on one stream. It is one-use per stream and not per
-// sequence: a mutation that reached recovery and retries opens a second stream
-// for the same sequence, which the gate admits because the record still holds
-// that sequence at POSSIBLY_APPLIED.
+// The grant is delivered once, as the first message, so it is never handed out
+// twice on one stream. It is one-use per stream and not per sequence: a mutation
+// that reached recovery and retries opens a second stream for the same sequence,
+// which the gate admits because the record still holds that sequence at
+// POSSIBLY_APPLIED.
+//
+// Two streams for one sequence therefore deliver the same credential twice, and
+// that is not a secret issued twice. One-use is a property of how the edge uses
+// the credential at the device; the material is the version the policy pins,
+// read from the provider, not something central mints per grant and could burn.
+// The two streams are one edge reconnecting, never two principals: the gate has
+// already established that the caller is the edge that hosts the device. If
+// central ever mints per-grant material, one-use becomes a binding central holds
+// rather than a rule the edge follows, and it needs a durable marker on the lane
+// record — nothing here would enforce it.
 func (s *Service) OpenDeviceSubmission(ctx context.Context, req *connect.Request[edgev1.OpenDeviceSubmissionRequest], stream *connect.ServerStream[edgev1.OpenDeviceSubmissionResponse]) error {
 	return s.openSubmission(ctx, req.Msg, stream)
 }
