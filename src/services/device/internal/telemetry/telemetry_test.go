@@ -35,7 +35,8 @@ func TestTheEventCarriesTheDeviceTheInterfaceAndBothDescriptions(t *testing.T) {
 
 	view.DriftDetected(context.Background(), "0192e6a0-0000-7000-8000-0000000000d1", "ethernet 1/1/1",
 		"uplink to core", "uplink to core b",
-		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE,
+		telemetry.DriftOutcomeDispatched)
 
 	var record map[string]any
 	if err := json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &record); err != nil {
@@ -67,10 +68,10 @@ func TestTheCounterCarriesTheManagementModeAndNothingElse(t *testing.T) {
 
 	view.DriftDetected(context.Background(), "0192e6a0-0000-7000-8000-0000000000d1", "ethernet 1/1/1",
 		"uplink to core", "uplink to core b",
-		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED, telemetry.DriftOutcomeHeld)
 	view.DriftDetected(context.Background(), "0192e6a0-0000-7000-8000-0000000000d2", "ethernet 1/1/9",
 		"spare", "patched to lab",
-		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED)
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED, telemetry.DriftOutcomeHeld)
 
 	var collected metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &collected); err != nil {
@@ -85,8 +86,8 @@ func TestTheCounterCarriesTheManagementModeAndNothingElse(t *testing.T) {
 	if point.Value != 2 {
 		t.Errorf("count = %d, want 2", point.Value)
 	}
-	if got := point.Attributes.Len(); got != 1 {
-		t.Fatalf("the counter carries %d attributes, want only the management mode: %v", got, point.Attributes.ToSlice())
+	if got := point.Attributes.Len(); got != 2 {
+		t.Fatalf("the counter carries %d attributes, want the mode and the outcome: %v", got, point.Attributes.ToSlice())
 	}
 	mode, ok := point.Attributes.Value("flowseer.device.management_mode")
 	if !ok || mode.AsString() != "DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED" {
@@ -100,7 +101,7 @@ func TestTheCounterCarriesTheManagementModeAndNothingElse(t *testing.T) {
 func TestTheCounterIsNamedAndUnitedAsDocumented(t *testing.T) {
 	view, reader := newView(t, &bytes.Buffer{})
 	view.DriftDetected(context.Background(), "d", "i", "a", "b",
-		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE, telemetry.DriftOutcomeDispatched)
 
 	var collected metricdata.ResourceMetrics
 	if err := reader.Collect(context.Background(), &collected); err != nil {
@@ -134,7 +135,7 @@ func TestTheCounterIsNamedAndUnitedAsDocumented(t *testing.T) {
 func TestANilViewEmitsNothing(_ *testing.T) {
 	var view *telemetry.View
 	view.DriftDetected(context.Background(), "d", "i", "a", "b",
-		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+		inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE, telemetry.DriftOutcomeDispatched)
 }
 
 func findCounter(t *testing.T, collected *metricdata.ResourceMetrics, name string) metricdata.Sum[int64] {

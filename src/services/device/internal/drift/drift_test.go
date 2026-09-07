@@ -21,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/drift"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 var errAudit = errors.New("stream refused the publish")
@@ -62,13 +63,17 @@ type recorder struct {
 // signals is the telemetry seam: it records what the poll reported and, like
 // the audit recorder, in the order it was called.
 type signals struct {
-	seen []detection
-	mode inventoryv1.DeviceManagementMode
+	seen     []detection
+	mode     inventoryv1.DeviceManagementMode
+	outcomes []telemetry.DriftOutcome
 }
 
-func (s *signals) DriftDetected(_ context.Context, _, iface, expected, observed string, mode inventoryv1.DeviceManagementMode) {
+func (s *signals) DriftDetected(_ context.Context, _, iface, expected, observed string,
+	mode inventoryv1.DeviceManagementMode, outcome telemetry.DriftOutcome,
+) {
 	s.seen = append(s.seen, detection{iface: iface, expected: expected, observed: observed})
 	s.mode = mode
+	s.outcomes = append(s.outcomes, outcome)
 }
 
 func (r *recorder) DriftDetected(_ context.Context, _ *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
@@ -425,6 +430,12 @@ func TestDriftWithNoLearnedFirmwareEpochRecordsTheDetectionAndAdmitsNothing(t *t
 	if record.HasMutation() {
 		t.Fatalf("the poll admitted %v with no epoch to decide it against", record.GetMutation())
 	}
+	// This arm admits nothing, so the lane stays free and the same condition
+	// is detected again on every pass. The label is what keeps the counter
+	// from reading that repetition as a drift rate.
+	if got := h.signals.outcomes; len(got) != 1 || got[0] != telemetry.DriftOutcomeNoEpoch {
+		t.Fatalf("outcomes = %v, want one no_epoch", got)
+	}
 }
 
 // The first pass over a device central has never written to creates its lane
@@ -490,6 +501,24 @@ func TestADetectionReportsOneSignalCarryingWhatItFound(t *testing.T) {
 	}
 	if h.signals.mode != inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED {
 		t.Errorf("mode = %v, want the device's own", h.signals.mode)
+	}
+	if got := h.signals.outcomes; len(got) != 1 || got[0] != telemetry.DriftOutcomeHeld {
+		t.Fatalf("outcomes = %v, want one held", got)
+	}
+}
+
+// An AUTHORITATIVE detection says central is putting the description back,
+// which is a different thing from a detection nobody can act on. Both are
+// drift; only one of them stops repeating.
+func TestAnAuthoritativeDetectionReportsThatItWasDispatched(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+	seeObserved(t, h, "someone else's description")
+
+	h.poller.Pass(ctx)
+
+	if got := h.signals.outcomes; len(got) != 1 || got[0] != telemetry.DriftOutcomeDispatched {
+		t.Fatalf("outcomes = %v, want one dispatched", got)
 	}
 }
 

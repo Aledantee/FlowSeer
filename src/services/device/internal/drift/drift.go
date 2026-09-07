@@ -28,6 +28,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // ErrCodeConfig is a poller that cannot be built from the configuration given.
@@ -60,7 +61,8 @@ type Audit interface {
 // what a dashboard counts and what wakes someone, and losing one costs a
 // data point.
 type Telemetry interface {
-	DriftDetected(ctx context.Context, deviceID, iface, expected, observed string, mode inventoryv1.DeviceManagementMode)
+	DriftDetected(ctx context.Context, deviceID, iface, expected, observed string,
+		mode inventoryv1.DeviceManagementMode, outcome telemetry.DriftOutcome)
 }
 
 // Config wires the poller.
@@ -240,10 +242,6 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 	if err := p.cfg.Audit.DriftDetected(ctx, deviceRef(deviceID, record), iface, expected, observed.GetDescription()); err != nil {
 		return err
 	}
-	if p.cfg.Telemetry != nil {
-		p.cfg.Telemetry.DriftDetected(ctx, deviceID, iface, expected, observed.GetDescription(),
-			entry.GetConfig().GetManagementMode())
-	}
 
 	if record.GetFirmwareFingerprint() == "" {
 		// Central admits this intent on its own behalf, so nobody else can
@@ -261,9 +259,15 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 		p.log.WarnContext(ctx, "drift detected but not acted on",
 			"device", deviceID, "interface", iface,
 			"reason", "central has not learned this device's firmware epoch, so it cannot admit an intent of its own")
+		p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), telemetry.DriftOutcomeNoEpoch)
 		return nil
 	}
-	return p.record(ctx, deviceID, entry, record, iface, expected)
+
+	if err := p.record(ctx, deviceID, entry, record, iface, expected); err != nil {
+		return err
+	}
+	p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), outcomeFor(entry))
+	return nil
 }
 
 // record admits central's response to the difference, which the device's
@@ -283,6 +287,34 @@ func (p *Poller) record(ctx context.Context, deviceID string, entry *storev1.Reg
 			accessv1.BlockReason_BLOCK_REASON_DESYNCHRONIZED)
 	}
 	return err
+}
+
+// report is the signal half of a detection, sent after the durable half has
+// landed: the audit record always, and the intent where there is one. It
+// carries what central did, because an admitted detection increments once and
+// waits for an operator while an unactionable one repeats every pass.
+func (p *Poller) report(
+	ctx context.Context,
+	deviceID string,
+	entry *storev1.RegistryDevice,
+	iface, expected, observed string,
+	outcome telemetry.DriftOutcome,
+) {
+	if p.cfg.Telemetry == nil {
+		return
+	}
+	p.cfg.Telemetry.DriftDetected(ctx, deviceID, iface, expected, observed,
+		entry.GetConfig().GetManagementMode(), outcome)
+}
+
+// outcomeFor names which admission arm the device's mode takes, so the signal
+// says whether central is putting the description back or waiting to be told
+// what to do.
+func outcomeFor(entry *storev1.RegistryDevice) telemetry.DriftOutcome {
+	if entry.GetConfig().GetManagementMode() == inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE {
+		return telemetry.DriftOutcomeDispatched
+	}
+	return telemetry.DriftOutcomeHeld
 }
 
 // reread opens the next poll read, and reports whether the lane is now held —

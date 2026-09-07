@@ -38,6 +38,34 @@ const (
 	attrKeyExpected       = "flowseer.device.description.expected"
 	attrKeyObserved       = "flowseer.device.description.observed"
 	attrKeyManagementMode = attribute.Key("flowseer.device.management_mode")
+	attrKeyDriftOutcome   = attribute.Key("flowseer.device.drift.outcome")
+)
+
+// DriftOutcome is what central did about a difference it found. It is a closed
+// set so it can be a metric label, and it is on the counter because without it
+// the counter measures two different things at once.
+//
+// Every arm that admits an intent takes the device's lane, and the poll skips
+// a device whose lane is held — so an admitted detection increments once and
+// then stops until an operator resolves it. The arm that admits nothing does
+// not self-limit: the lane stays free and the same unresolved condition
+// increments on every pass, forever on a device no read ever reaches. Without
+// this label a drift dashboard reads high for a reason that is not drift, and
+// the rate it shows is the poll interval.
+type DriftOutcome string
+
+const (
+	// DriftOutcomeDispatched is a reconciliation intent admitted and left
+	// dispatchable: central is putting the expected description back.
+	DriftOutcomeDispatched DriftOutcome = "dispatched"
+	// DriftOutcomeHeld is an intent admitted and blocked for the operator to
+	// accept, restore, or replace.
+	DriftOutcomeHeld DriftOutcome = "held"
+	// DriftOutcomeNoEpoch is a detection central cannot act on because it has
+	// not learned the device's firmware epoch, which an intent must name.
+	// It repeats every pass until a read reports one, so it is a condition to
+	// read as a level rather than a rate.
+	DriftOutcomeNoEpoch DriftOutcome = "no_epoch"
 )
 
 // View is the instrumentation the host builds once and the service's internal
@@ -81,15 +109,19 @@ func NewView(cfg ViewConfig) (*View, error) {
 }
 
 // DriftDetected reports one managed interface found carrying something other
-// than what central expects.
+// than what central expects, and what central did about it.
 //
 // The event carries the device, the interface, and both descriptions, because
 // an operator reading it has to see what changed without going to fetch the
-// record. The counter carries only the management mode, which decides what
-// central does about a difference and has two values: the interface name is
-// per device and the descriptions are unbounded operator-written text, so
-// neither can be a series.
-func (v *View) DriftDetected(ctx context.Context, deviceID, iface, expected, observed string, mode inventoryv1.DeviceManagementMode) {
+// record. The counter carries the management mode and the outcome, four
+// combinations in all: the interface name is per device and the descriptions
+// are unbounded operator-written text, so neither can be a series.
+func (v *View) DriftDetected(
+	ctx context.Context,
+	deviceID, iface, expected, observed string,
+	mode inventoryv1.DeviceManagementMode,
+	outcome DriftOutcome,
+) {
 	if v == nil {
 		return
 	}
@@ -100,6 +132,10 @@ func (v *View) DriftDetected(ctx context.Context, deviceID, iface, expected, obs
 		slog.String(attrKeyInterface, iface),
 		slog.String(attrKeyExpected, expected),
 		slog.String(attrKeyObserved, observed),
+		slog.String(string(attrKeyDriftOutcome), string(outcome)),
 	)
-	v.driftDetections.Add(ctx, 1, metric.WithAttributes(attrKeyManagementMode.String(mode.String())))
+	v.driftDetections.Add(ctx, 1, metric.WithAttributes(
+		attrKeyManagementMode.String(mode.String()),
+		attrKeyDriftOutcome.String(string(outcome)),
+	))
 }
