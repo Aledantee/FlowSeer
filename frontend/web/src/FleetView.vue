@@ -249,11 +249,17 @@ onUnmounted(() => clearInterval(timer))
   <div class="shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
     <a class="skip-link" href="#main">Skip to main content</a>
     <aside id="workspace-sidebar" ref="sidebar" class="sidebar brand-glow">
-      <TenantSwitcher
-        :tenants="tenants"
-        :selected="query('tenant')"
-        @change="setQuery('tenant', $event)"
-      />
+      <div
+        class="product-brand"
+        role="img"
+        aria-label="FlowSeer"
+        title="FlowSeer"
+      >
+        <span class="flowseer-mark" aria-hidden="true"
+          ><i></i><i></i><i></i
+        ></span>
+        <span>FlowSeer</span>
+      </div>
       <div class="nav-label">WORKSPACE</div>
       <nav ref="navigation" aria-label="Main navigation">
         <RouterLink
@@ -280,7 +286,6 @@ onUnmounted(() => clearInterval(timer))
           }}</span></RouterLink
         >
       </nav>
-      <AccountMenu />
       <button
         class="sidebar-toggle"
         type="button"
@@ -306,6 +311,14 @@ onUnmounted(() => clearInterval(timer))
         <span class="topbar-glass brand-glow" aria-hidden="true"></span>
         <div class="topbar-start">
           <nav class="breadcrumb" aria-label="Breadcrumb">
+            <template v-if="tenants.length > 1">
+              <TenantSwitcher
+                :tenants="tenants"
+                :selected="query('tenant')"
+                @change="setQuery('tenant', $event)"
+              />
+              <span class="breadcrumb-separator" aria-hidden="true">/</span>
+            </template>
             <strong>{{ title }}</strong>
             <span
               v-if="view !== 'components'"
@@ -331,15 +344,10 @@ onUnmounted(() => clearInterval(timer))
           </nav>
         </div>
         <div class="topbar-tools">
-          <div class="product-brand" aria-label="FlowSeer">
-            <span class="flowseer-mark" aria-hidden="true"
-              ><i></i><i></i><i></i
-            ></span>
-            <span>FlowSeer</span>
-          </div>
           <ThemeSwitcher />
           <HelpButton />
           <ReportBugButton />
+          <AccountMenu />
         </div>
       </header>
       <main id="main" ref="workspace" tabindex="-1">

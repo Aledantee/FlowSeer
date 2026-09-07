@@ -12,7 +12,9 @@ const trigger = ref<HTMLButtonElement>()
 const menu = ref<HTMLDivElement>()
 const opened = ref(false)
 const name = computed(
-  () => props.options.find((option) => option.value === props.selected)?.label,
+  () =>
+    props.options.find((option) => option.value === props.selected)?.label ??
+    'Unavailable selection',
 )
 let prefix = ''
 let lastKey = 0

@@ -24,16 +24,21 @@ The Devices page supports search, status filters, name sorting, an attention vie
 and a keyboard-accessible details dialog. Sites opens the inventory for a location.
 Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
-A slim arrow in a curved extension of the sidebar edge collapses navigation to
-icons on desktop. The control sits midway down the edge and shares its background. Tenant
-selection truncates with an ellipsis only when its name does not fit; the tooltip and dropdown retain the full name. The collapsed rail has a fixed
-72px width. On small screens, the arrow sits beside the tenant selector and
-hides or reveals the navigation links above the content; tenant context stays visible.
+A curved tab midway down the sidebar edge collapses navigation to icons on
+desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
+On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
+the navigation links above the content.
 
-The FlowSeer icon and name sit at the top right, next to theme and help controls.
-The tenant name stays inline at the top of the sidebar. Multiple available tenants
-use a themed popover with arrow-key navigation, type-ahead, and outside-click dismissal; one available tenant renders plain text with no selector.
-The available list is supplied to `TenantSwitcher` independently of site filtering.
+The sidebar, curved tab, and rounded inner corner share the top bar’s diagonal
+ribbons and fine highlights, forming one continuous navigation frame.
+The top bar blurs content scrolling beneath it. Both themes retain a tinted base
+so controls remain readable when backdrop blur is unavailable.
+
+The FlowSeer icon and name sit at the top left of the sidebar. When multiple
+tenants are available, the first breadcrumb is a tenant selector, followed by the
+page and site scope. Both selectors use themed popovers with arrow-key
+navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
+site scope. The available tenant list is independent of site filtering.
 
 The icon-only theme switch at the top right crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip; reduced
@@ -175,10 +180,6 @@ states, and replacement of a single site assignment. Browser checks cover the
 interactive preview; production accessibility and fleet-scale performance remain
 to be evaluated when those features are implemented.
 
-Tenants may supply an `iconUrl`. When the inline name overflows its available
-width, that icon replaces the shortened label. Full names remain in the tooltip
-and dropdown. Missing or failed icons fall back to an ellipsis.
-
-The account control sits at the bottom left of the sidebar. Clicking the operator name opens
+The account icon sits at the far right of the top bar. Clicking it opens
 a popover containing logout; Escape or an outside click dismisses it. Logout
 remains disabled until sign-in is connected.
