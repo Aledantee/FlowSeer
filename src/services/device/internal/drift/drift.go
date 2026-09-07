@@ -221,9 +221,12 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 		// for the same reason. Admitting anyway writes an intent that fails
 		// its own schema rules and, under AUTHORITATIVE, dispatches it.
 		//
-		// The detection above still stands: an operator can see it, and the
-		// next read's report teaches central the epoch, after which the
-		// following pass admits normally.
+		// The detection above still stands, so this device is reported as
+		// drifted on every pass until the epoch is known. That repetition is
+		// the point rather than a leak: the poll's own next read reports an
+		// observation, a complete one always names the firmware epoch, and
+		// the pass after that admits normally. An alarm nothing can clear
+		// would be noise; this one is cleared by the system's next action.
 		p.log.WarnContext(ctx, "drift detected but not acted on",
 			"device", deviceID, "interface", iface,
 			"reason", "central has not learned this device's firmware epoch, so it cannot admit an intent of its own")
