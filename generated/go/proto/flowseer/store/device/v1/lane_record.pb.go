@@ -346,7 +346,8 @@ type DeviceLaneRecord_builder struct {
 	FirmwareFingerprint *string
 	// The most recent idempotency keys and the sequences they were admitted
 	// at, oldest first; a resubmission with a listed key returns its
-	// sequence's state instead of admitting again.
+	// sequence's state instead of admitting again, once its intent is shown
+	// to be the one the key was admitted with.
 	Idempotency []*IdempotencyEntry
 }
 
@@ -678,6 +679,7 @@ type IdempotencyEntry struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_IdempotencyKey *string                `protobuf:"bytes,1,opt,name=idempotency_key,json=idempotencyKey"`
 	xxx_hidden_Sequence       uint64                 `protobuf:"varint,2,opt,name=sequence"`
+	xxx_hidden_IntentDigest   []byte                 `protobuf:"bytes,4,opt,name=intent_digest,json=intentDigest"`
 	xxx_hidden_Disposition    v11.Disposition        `protobuf:"varint,3,opt,name=disposition,enum=flowseer.device.access.v1.Disposition"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
@@ -727,9 +729,16 @@ func (x *IdempotencyEntry) GetSequence() uint64 {
 	return 0
 }
 
+func (x *IdempotencyEntry) GetIntentDigest() []byte {
+	if x != nil {
+		return x.xxx_hidden_IntentDigest
+	}
+	return nil
+}
+
 func (x *IdempotencyEntry) GetDisposition() v11.Disposition {
 	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
 			return x.xxx_hidden_Disposition
 		}
 	}
@@ -738,17 +747,25 @@ func (x *IdempotencyEntry) GetDisposition() v11.Disposition {
 
 func (x *IdempotencyEntry) SetIdempotencyKey(v string) {
 	x.xxx_hidden_IdempotencyKey = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *IdempotencyEntry) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *IdempotencyEntry) SetIntentDigest(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_IntentDigest = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
 func (x *IdempotencyEntry) SetDisposition(v v11.Disposition) {
 	x.xxx_hidden_Disposition = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *IdempotencyEntry) HasIdempotencyKey() bool {
@@ -765,11 +782,18 @@ func (x *IdempotencyEntry) HasSequence() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *IdempotencyEntry) HasDisposition() bool {
+func (x *IdempotencyEntry) HasIntentDigest() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *IdempotencyEntry) HasDisposition() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *IdempotencyEntry) ClearIdempotencyKey() {
@@ -782,8 +806,13 @@ func (x *IdempotencyEntry) ClearSequence() {
 	x.xxx_hidden_Sequence = 0
 }
 
-func (x *IdempotencyEntry) ClearDisposition() {
+func (x *IdempotencyEntry) ClearIntentDigest() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_IntentDigest = nil
+}
+
+func (x *IdempotencyEntry) ClearDisposition() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Disposition = v11.Disposition_DISPOSITION_UNSPECIFIED
 }
 
@@ -794,6 +823,14 @@ type IdempotencyEntry_builder struct {
 	IdempotencyKey *string
 	// Must be present and at least 1.
 	Sequence *uint64
+	// A digest of the intent this key was admitted with, so a key that returns
+	// a recorded state is a key whose intent matched. The caller promises that
+	// one key means one intent; central cannot take that on trust, because a
+	// resubmission that differs would otherwise be answered with a description
+	// of the new intent attached to a sequence that did something else. Eight
+	// bytes: this detects a client reusing a key by mistake, not a forger.
+	// Must be present.
+	IntentDigest []byte
 	// How the sequence ended, recorded when its mutation closed and the record
 	// stopped holding it. Unset while the mutation is still open, when the
 	// record itself carries the state. It is what a resubmission after the
@@ -807,15 +844,19 @@ func (b0 IdempotencyEntry_builder) Build() *IdempotencyEntry {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.IdempotencyKey != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
 	}
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
+	if b.IntentDigest != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_IntentDigest = b.IntentDigest
+	}
 	if b.Disposition != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_Disposition = *b.Disposition
 	}
 	return m0
@@ -870,11 +911,13 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\vobservation\x18\n" +
 	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05errorB\t\n" +
-	"\aoutcome\"\xc6\x01\n" +
+	"\aoutcome\"\xf7\x01\n" +
 	"\x10IdempotencyEntry\x124\n" +
 	"\x0fidempotency_key\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12T\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12/\n" +
+	"\rintent_digest\x18\x04 \x01(\fB\n" +
+	"\xbaH\a\xc8\x01\x01z\x02h\bR\fintentDigest\x12T\n" +
 	"\vdisposition\x18\x03 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdispositionB\x80\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x0fLaneRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"

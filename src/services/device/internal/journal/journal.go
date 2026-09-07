@@ -1,7 +1,9 @@
 package journal
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"time"
 
@@ -36,7 +38,16 @@ var (
 	ErrCodeHoldsFull = errs.NewCode("journal/holds-full")
 	// ErrCodeDecode is a stored record that will not unmarshal.
 	ErrCodeDecode = errs.NewCode("journal/decode")
+	// ErrCodeIdempotencyMismatch is a resubmission carrying a key the record
+	// already admitted, with a different intent behind it. One key means one
+	// intent, and answering with the new one would describe it as something
+	// central recorded when it recorded something else.
+	ErrCodeIdempotencyMismatch = errs.NewCode("journal/idempotency-mismatch")
 )
+
+// intentDigestLen is how much of the intent's SHA-256 the record keeps, and
+// matches the schema's own bound on the field.
+const intentDigestLen = 8
 
 const (
 	// casRetries bounds one operation's compare-and-set attempts; one writer
@@ -138,7 +149,11 @@ func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.
 func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		if seq, ok := recordedSequence(rec, intent.GetIdempotencyKey()); ok {
+		seq, recorded, err := recordedSequence(rec, deviceID, intent)
+		if err != nil {
+			return err
+		}
+		if recorded {
 			state = recordedState(rec, seq, intent, edge)
 			return errSkip
 		}
@@ -515,8 +530,12 @@ type Resolution struct {
 func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string, res Resolution) (*accessv1.MutationState, *accessv1.MutationState, error) {
 	var resolved, admitted *accessv1.MutationState
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		if key := res.Intent.GetIdempotencyKey(); key != "" {
-			if seq, ok := recordedSequence(rec, key); ok {
+		if res.Intent != nil {
+			seq, recorded, err := recordedSequence(rec, deviceID, res.Intent)
+			if err != nil {
+				return err
+			}
+			if recorded {
 				admitted = recordedState(rec, seq, res.Intent, res.Edge)
 				return errSkip
 			}
@@ -643,7 +662,7 @@ func admitIntent(rec *storev1.DeviceLaneRecord, intent *accessv1.MutationIntent,
 	m.SetResponsibleEdge(edge)
 	rec.SetMutation(m)
 	rec.SetAdmittedAt(timestamppb.New(now))
-	rememberKey(rec, intent.GetIdempotencyKey(), seq)
+	rememberKey(rec, intent.GetIdempotencyKey(), seq, intentDigest(intent))
 	return m
 }
 
@@ -741,13 +760,28 @@ func ensureDevice(rec *storev1.DeviceLaneRecord, device *inventoryv1.DeviceGloba
 	}
 }
 
-func recordedSequence(rec *storev1.DeviceLaneRecord, key string) (uint64, bool) {
-	for _, entry := range rec.GetIdempotency() {
-		if entry.GetIdempotencyKey() == key {
-			return entry.GetSequence(), true
-		}
+// recordedSequence reports the sequence an idempotency key was admitted at,
+// and refuses a key whose intent is not the one it was admitted with. The
+// refusal is what makes the recorded state safe to answer with: the record
+// keeps no intent of its own past the close, so a match here is the only
+// thing that makes describing the caller's intent as the recorded one true.
+func recordedSequence(rec *storev1.DeviceLaneRecord, deviceID string, intent *accessv1.MutationIntent) (uint64, bool, error) {
+	key := intent.GetIdempotencyKey()
+	if key == "" {
+		return 0, false, nil
 	}
-	return 0, false
+	for _, entry := range rec.GetIdempotency() {
+		if entry.GetIdempotencyKey() != key {
+			continue
+		}
+		if !bytes.Equal(entry.GetIntentDigest(), intentDigest(intent)) {
+			return 0, false, errs.New().Code(ErrCodeIdempotencyMismatch).Attr("device", deviceID).
+				Attr("sequence", entry.GetSequence()).
+				Msg("this idempotency key was admitted with a different intent")
+		}
+		return entry.GetSequence(), true, nil
+	}
+	return 0, false, nil
 }
 
 func recordedState(rec *storev1.DeviceLaneRecord, seq uint64, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) *accessv1.MutationState {
@@ -772,10 +806,28 @@ func recordedState(rec *storev1.DeviceLaneRecord, seq uint64, intent *accessv1.M
 	return m
 }
 
-func rememberKey(rec *storev1.DeviceLaneRecord, key string, seq uint64) {
+// intentDigest identifies an intent well enough to catch a caller reusing one
+// idempotency key for two different requests. Deterministic marshaling keeps
+// the digest stable for the same message across processes and library
+// versions; eight bytes of SHA-256 is a collision every few billion intents on
+// one device, against a mistake, not an adversary.
+func intentDigest(intent *accessv1.MutationIntent) []byte {
+	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(intent)
+	if err != nil {
+		// An intent that will not marshal cannot be stored either, so the
+		// admission that follows fails on its own. Digesting the error keeps
+		// this total without inventing a match.
+		wire = []byte(err.Error())
+	}
+	sum := sha256.Sum256(wire)
+	return sum[:intentDigestLen]
+}
+
+func rememberKey(rec *storev1.DeviceLaneRecord, key string, seq uint64, digest []byte) {
 	entry := &storev1.IdempotencyEntry{}
 	entry.SetIdempotencyKey(key)
 	entry.SetSequence(seq)
+	entry.SetIntentDigest(digest)
 	keys := append(rec.GetIdempotency(), entry)
 	if len(keys) > maxIdempotencyKeys {
 		keys = keys[len(keys)-maxIdempotencyKeys:]

@@ -60,7 +60,11 @@ func TestDeviceLaneRecordRules(t *testing.T) {
 	withReads.ExpectedDescriptions = map[string]string{"ethernet 1/1/1": "uplink to core"}
 	withReads.LastObservations = map[string]*accessv1.InterfaceObservation{"ethernet 1/1/1": interfaceObservation().Build()}
 	withReads.Idempotency = []*storev1.IdempotencyEntry{
-		storev1.IdempotencyEntry_builder{IdempotencyKey: proto.String(idempotencyKey), Sequence: proto.Uint64(7)}.Build(),
+		storev1.IdempotencyEntry_builder{
+			IdempotencyKey: proto.String(idempotencyKey),
+			Sequence:       proto.Uint64(7),
+			IntentDigest:   []byte("12345678"),
+		}.Build(),
 	}
 
 	badReadKey := laneRecord()

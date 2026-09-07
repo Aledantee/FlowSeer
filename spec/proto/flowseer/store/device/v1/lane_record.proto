@@ -116,7 +116,8 @@ message DeviceLaneRecord {
   ];
   // The most recent idempotency keys and the sequences they were admitted
   // at, oldest first; a resubmission with a listed key returns its
-  // sequence's state instead of admitting again.
+  // sequence's state instead of admitting again, once its intent is shown
+  // to be the one the key was admitted with.
   repeated IdempotencyEntry idempotency = 14 [(buf.validate.field).repeated.max_items = 64];
 }
 
@@ -158,6 +159,17 @@ message IdempotencyEntry {
   uint64 sequence = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).uint64.gte = 1
+  ];
+  // A digest of the intent this key was admitted with, so a key that returns
+  // a recorded state is a key whose intent matched. The caller promises that
+  // one key means one intent; central cannot take that on trust, because a
+  // resubmission that differs would otherwise be answered with a description
+  // of the new intent attached to a sequence that did something else. Eight
+  // bytes: this detects a client reusing a key by mistake, not a forger.
+  // Must be present.
+  bytes intent_digest = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 8
   ];
   // How the sequence ended, recorded when its mutation closed and the record
   // stopped holding it. Unset while the mutation is still open, when the

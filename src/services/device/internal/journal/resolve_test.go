@@ -353,3 +353,78 @@ func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
 		})
 	}
 }
+
+// The record keeps no intent past a close, so the state a resubmission reads
+// is built from the intent the caller just sent. That is only true while one
+// key means one intent, which is the caller's promise and not something
+// central can take on trust: a key reused for a different request would
+// otherwise be answered with a description of the new intent attached to a
+// sequence that did something else.
+func TestAKeyReusedForADifferentIntentIsRefused(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	const key = "0192e6a0-0000-7000-8000-000000000c01"
+
+	first, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+
+	different := mutationIntent(key)
+	different.SetExpectedFirmwareFingerprint("fastiron-09.0.10")
+	_, err = j.Admit(ctx, deviceID, different, edgeRef())
+	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
+		t.Fatalf("error code = %v, want an idempotency mismatch", code)
+	}
+
+	rec, _ := j.Record(ctx, deviceID)
+	if rec.GetHighWatermark() != first.GetSequence() {
+		t.Errorf("the refused resubmission assigned a sequence: watermark %d", rec.GetHighWatermark())
+	}
+	if got := rec.GetMutation().GetIntent().GetExpectedFirmwareFingerprint(); got == "fastiron-09.0.10" {
+		t.Error("the refused resubmission overwrote the recorded intent")
+	}
+}
+
+// The same intent under the same key still reads back, which is the point of
+// the key.
+func TestAKeyResubmittedWithTheSameIntentStillEchoes(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	intent := mutationIntent("0192e6a0-0000-7000-8000-000000000c02")
+
+	first, err := j.Admit(ctx, deviceID, intent, edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	again, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c02"), edgeRef())
+	if err != nil {
+		t.Fatalf("resubmit: %v", err)
+	}
+	if again.GetSequence() != first.GetSequence() {
+		t.Errorf("resubmission = %d, want the recorded %d", again.GetSequence(), first.GetSequence())
+	}
+}
+
+// The resolution arms admit through the same door and need the same guard.
+func TestAResolutionKeyReusedForADifferentIntentIsRefused(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	const key = "0192e6a0-0000-7000-8000-000000000c03"
+	held := heldIntent(t, j, "0192e6a0-0000-7000-8000-000000000c04")
+
+	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+		Sequence: held, Intent: mutationIntent(key), Edge: edgeRef(),
+	}); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	different := mutationIntent(key)
+	different.SetExpectedFirmwareFingerprint("fastiron-09.0.10")
+	_, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+		Sequence: held, Intent: different, Edge: edgeRef(),
+	})
+	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
+		t.Fatalf("error code = %v, want an idempotency mismatch", code)
+	}
+}

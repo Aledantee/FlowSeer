@@ -932,6 +932,15 @@ verification passed", and exits 0 having run no build, vet, race, or lint.
 Every `Verify:` line above therefore names files, through `git ls-files`;
 a line naming a bare directory is not a gate.
 
+The verifier also runs `buf breaking --against master` over the proto paths it
+is given, and `spec/proto/flowseer/api/device/` and `spec/proto/flowseer/store/`
+do not exist on `master` — U1 adds them on the branch. Path-filtered breaking
+over either package therefore fails with "no .proto files were targeted", which
+reads like a broken change and is not: unfiltered `buf breaking --against
+master` passes, and so does a path `master` does have. It is the directory
+problem's relative — a gate whose output misdescribes the change — except that
+this one fails loudly rather than passing silently.
+
 The sweep that followed found one thing: an import ordering in the access
 module's credential adapter test. golangci-lint over every package of every
 module, and gofumpt and goimports over every non-generated file, report
