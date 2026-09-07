@@ -24,8 +24,8 @@ var ClientErrors = connecterr.Table{
 	journal.ErrCodeConflict: {Code: connect.CodeUnavailable, UserMsg: "the device's record is being written concurrently; retry"},
 	journal.ErrCodeStore:    {Code: connect.CodeUnavailable, UserMsg: "the device's record cannot be reached right now"},
 
-	journal.ErrCodeState:     {Code: connect.CodeFailedPrecondition, UserMsg: "the device's record does not admit this report"},
-	journal.ErrCodeHoldsFull: {Code: connect.CodeResourceExhausted, UserMsg: "the device holds as many unresolved mutations as it can"},
+	journal.ErrCodeState:     {Code: connect.CodeFailedPrecondition, UserMsg: "the device's record does not allow this operation"},
+	journal.ErrCodeHoldsFull: {Code: connect.CodeResourceExhausted, UserMsg: "the device holds as many unresolved mutations as it can; some must be acknowledged before more are recorded"},
 
 	ErrCodeReadDeadline:   {Code: connect.CodeInternal},
 	journal.ErrCodeDecode: {Code: connect.CodeInternal},

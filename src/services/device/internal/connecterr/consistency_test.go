@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
+	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 )
@@ -23,6 +24,7 @@ import (
 func TestNoCodeAnswersTwoDifferentThings(t *testing.T) {
 	for _, conflict := range conflicts(map[string]connecterr.Table{
 		"auditapi":    auditapi.ClientErrors,
+		"deviceapi":   deviceapi.ClientErrors,
 		"dispatchapi": dispatchapi.ClientErrors,
 		"edgeapi":     edgeapi.ClientErrors,
 	}) {
