@@ -124,7 +124,7 @@ func runMutation(t *testing.T, l *access.Lane, req *integrationv1.ExecuteRequest
 			ack := &integrationv1.TerminalResultAck{}
 			ack.SetSequence(req.GetSequence())
 			ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
-			if err := l.HandleTerminalAck(deviceKey, ack); err == nil {
+			if err := l.HandleTerminalAck(context.Background(), deviceKey, ack); err == nil {
 				break
 			}
 			time.Sleep(time.Millisecond)
@@ -576,7 +576,7 @@ func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *te
 		ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 		deadline = time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
-			if err := l.HandleTerminalAck("dev-1", ack); err == nil {
+			if err := l.HandleTerminalAck(context.Background(), "dev-1", ack); err == nil {
 				break
 			}
 			time.Sleep(time.Millisecond)
@@ -1030,7 +1030,7 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 	ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if err := l.HandleTerminalAck("dev-1", ack); err == nil {
+		if err := l.HandleTerminalAck(context.Background(), "dev-1", ack); err == nil {
 			break
 		}
 		time.Sleep(time.Millisecond)

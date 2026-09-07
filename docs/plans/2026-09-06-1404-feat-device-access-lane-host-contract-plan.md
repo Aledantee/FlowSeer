@@ -267,10 +267,13 @@ per stream, not per sequence, so it can.
 ## Out of scope
 
 The hosts, the bus, the journal, and the route signals; see the central
-plan and its named follow-up. Removing `EvaluateDrift` here leaves no
-component detecting drift until the central plan's drift unit lands; that
-window is accepted, since the edge's detection was already wrong after an
-operator's `accept`.
+plan and its named follow-up. Removing `EvaluateDrift` here was planned to
+leave a window with no component detecting drift, accepted because the
+edge's detection was already wrong after an operator's `accept`. The window
+does not exist: this plan was sequenced after the central plan's units
+rather than alongside them, so central's drift poll was already live at
+`13c4c949` when the removal landed, and detection passed from one component
+to the other with no gap.
 
 ## Units
 

@@ -547,9 +547,16 @@ func TestOutOfOrderTransitionIsRejected(t *testing.T) {
 		t.Fatal("MarkVerified() error = nil from ADMITTED, want an out-of-order error")
 	}
 
-	// Abandon is only valid from RECOVERING.
-	if err := m.Abandon(context.Background()); err == nil {
-		t.Fatal("Abandon() error = nil from ADMITTED, want an out-of-order error")
+	// Abandon is deliberately NOT in this list. It is valid from every open
+	// phase, ADMITTED included, because central's INDETERMINATE_ABANDONED
+	// reaches a mutation wherever it rests and an edge that never came back
+	// can be resting at admission. What it refuses is a terminal machine;
+	// TestAbandonAfterReleaseIsRejected covers that.
+	if err := m.Abandon(context.Background()); err != nil {
+		t.Fatalf("Abandon() from ADMITTED error = %v, want nil", err)
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
+		t.Errorf("Phase() = %v, want ABANDONED", got)
 	}
 }
 

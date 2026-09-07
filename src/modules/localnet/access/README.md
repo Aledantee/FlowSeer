@@ -15,8 +15,8 @@ emitted. Grounded in
 
 ## Exported surface
 
-`Lane` (`lane.go`) is the only exported type beyond the capability facade
-functions in `access.go`. Every other type — `internal/evidence`,
+`Lane` and `Reporter` (`lane.go`) are the exported types beyond the
+capability facade functions in `access.go`. Every other type — `internal/evidence`,
 `internal/epoch`, `internal/lane`, `internal/credential`,
 `internal/telemetry`, `internal/freeze`, `internal/audit`,
 `internal/mutation`, `internal/recovery` — stays
@@ -29,11 +29,66 @@ NewLane(Config) *Lane
   .AddDevice(ctx, deviceKey, DeviceSession) error   // onboarding: runs the identity probe
   .Submit(ctx, SubmitOptions) (*ExecuteResult, error)
   .HandleCheckpoint(deviceKey, *CheckpointRequest) error
-  .HandleTerminalAck(deviceKey, *TerminalResultAck) error
+  .HandleTerminalAck(ctx, deviceKey, *TerminalResultAck) error
   .Freeze(ctx) error / .Unfreeze(ctx)
-  .ResolveHold(deviceKey) error                     // clears a recovery hold
+  .ResolveHold(ctx, deviceKey, *HoldResolved) error // clears a recovery hold
   .Close(ctx) (ShutdownReport, error)
 ```
+
+## What the lane tells its host, and what it asks of it
+
+`Config.Reporter` is how everything this lane learns reaches central. The
+lane calls it on the goroutine doing the work and never waits: a report is
+one-way, and the host is the only party that can retry a delivery. An
+implementation hands the message to its own queue and returns. A nil
+`Reporter` is a no-op, and no operation ever fails because a report could
+not be made — which is why the methods return nothing at all.
+
+For one mutation a host sees a progress report at admission, the
+`CheckpointAck`, the observation at `VERIFIED`, and the terminal phase; on
+failure, an error report carrying `submitted`. A read is reported once with
+its observation, and each caller of a coalesced read gets its own message
+under its own sequence — central admitted each read separately and is owed
+an answer for each.
+
+`submitted` is the field the rest of the system turns on. False means the
+command provably never left this edge, so central may dispose the mutation
+`REJECTED`; true means the device may hold the change, and it must not.
+
+## How an acknowledgement is applied
+
+`HandleTerminalAck` decides central's `TerminalResultAck` synchronously,
+against the mutation's phase as it stands, and either applies it before
+returning or refuses it with nothing changed. It is not handed to the
+waiting mutation to apply later: an acknowledgement stored for later has to
+be re-validated every time the phase moves and re-armed on every path out of
+a rest point, and central would have been told "accepted" by a call that
+could not yet know whether it was.
+
+| Disposition | Accepted at | Then |
+| --- | --- | --- |
+| `VERIFIED` | `VERIFIED` | `ACKNOWLEDGED`, then `RELEASED` |
+| `REJECTED` | `ADMITTED`, or `POSSIBLY_APPLIED` before the command went out | `ACKNOWLEDGED`, then `RELEASED` |
+| `INDETERMINATE_ABANDONED` | any open phase | `ABANDONED`, and the device's lane is held |
+
+Three refusals, which central must tell apart: `access/no-pending-wait` (no
+mutation open at that sequence), `access/already-terminal` (it ended, and
+its own report is on the way), and `mutation/out-of-order` (the disposition
+does not fit the phase). All three leave the mutation exactly as it was.
+
+The `REJECTED` row is a latch, not a check. `Machine.Acknowledge` sets its
+cancellation only while the command has not gone out, and `Execute` marks
+the command sent only while no cancellation is set — both under the
+machine's own lock, so exactly one of "central released this `REJECTED`" and
+"the device was changed" can ever be true. Disposing a mutation `REJECTED`
+after the command went out would record that nothing happened to a device
+that was changed, which is the one outcome this lane must never produce.
+
+An acknowledgement whose own audit delivery fails part-way returns the error
+with its decision already marked, and central re-sends; the identical
+acknowledgement is then accepted and finishes the same walk. The mutation
+waits for that re-send rather than failing on its own, because failing would
+engage a recovery hold over a mutation central has already released.
 
 ## Lane position vs. central sequence
 

@@ -25,6 +25,13 @@ var (
 	ErrCodeRevoked                = errs.NewCode("mutation/revoked")
 	ErrCodeConflictingReads       = errs.NewCode("mutation/conflicting-reads")
 	ErrCodeDispositionUnspecified = errs.NewCode("mutation/disposition-unspecified")
+	// ErrCodeAlreadyTerminal answers an acknowledgement for a mutation that
+	// has already ended. Its prefix names the module boundary central sees
+	// rather than the package that produces it: this code travels back over
+	// the dispatch stream as part of the refusal contract, so it belongs to
+	// the same namespace as the lane's own codes, and [access] re-exports it
+	// under that name.
+	ErrCodeAlreadyTerminal = errs.NewCode("access/already-terminal")
 )
 
 // Deps bundles this package's dependencies. Read, Submit, and Verify are
@@ -64,12 +71,35 @@ type Machine struct {
 	req  *integrationv1.ExecuteRequest
 	deps Deps
 
+	// done is closed exactly once, when the mutation reaches a terminal
+	// phase. Every rest point selects on it, so an acknowledgement applied
+	// by central's own goroutine releases a mutation parked anywhere.
+	done chan struct{}
+
 	mu              sync.Mutex
 	phase           accessv1.OperationPhase
 	disposition     accessv1.Disposition
 	blockReason     accessv1.BlockReason
 	blockedSince    time.Time
 	lastObservation *accessv1.InterfaceObservation
+	terminated      bool
+
+	// submitted and canceled are the two halves of a one-winner race
+	// between "central released this mutation REJECTED" and "the command
+	// reached the device". Each is set only while the other is false, both
+	// under mu, so exactly one of them can ever be true: a REJECTED
+	// acknowledgement either arrives in time to stop the command or is
+	// refused. Nothing clears either one.
+	submitted bool
+	canceled  bool
+	// verified and abandoning record which terminal walk an accepted
+	// acknowledgement chose, so a re-sent acknowledgement after a failed
+	// audit delivery resumes the same one.
+	verified   bool
+	abandoning bool
+	// cancelWaits cancels the context [Machine.Execute] runs its waits
+	// under, and is nil whenever Execute is not parked in one.
+	cancelWaits context.CancelFunc
 }
 
 // Admitted constructs a Machine in phase ADMITTED for req, which already
@@ -107,6 +137,7 @@ func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	return &Machine{
 		req:   req,
 		deps:  deps,
+		done:  make(chan struct{}),
 		phase: accessv1.OperationPhase_OPERATION_PHASE_ADMITTED,
 	}, nil
 }
@@ -121,6 +152,12 @@ func (m *Machine) Phase() accessv1.OperationPhase {
 // IsRead reports whether this Machine drives a TypedRead rather than a
 // MutationIntent.
 func (m *Machine) IsRead() bool { return m.req.GetMutation() == nil }
+
+// Sequence is central's lane sequence for this operation, fixed at
+// admission. Safe to read without the lock precisely because it never
+// changes, which is what lets a caller match an incoming acknowledgement
+// against this mutation before taking any of its locks.
+func (m *Machine) Sequence() uint64 { return m.req.GetSequence() }
 
 // Disposition reports the mutation's terminal outcome. Meaningful only once
 // [Machine.Phase] is ACKNOWLEDGED, RELEASED, or ABANDONED — the zero value,
@@ -148,6 +185,60 @@ func (m *Machine) BlockedSince() (since time.Time, ok bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.blockedSince, m.blockReason != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED
+}
+
+// Done is closed when this mutation reaches a terminal phase, whichever
+// goroutine takes it there. A step that parks — the checkpoint wait, the
+// freeze wait and grant open inside [Machine.Execute], the wait for
+// central's acknowledgement — selects on it, so an acknowledgement applied
+// on central's own goroutine releases the parked one instead of waiting for
+// a deadline to expire.
+func (m *Machine) Done() <-chan struct{} { return m.done }
+
+// IsTerminal reports whether this mutation has ended, in RELEASED or
+// ABANDONED.
+func (m *Machine) IsTerminal() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.terminalLocked()
+}
+
+func (m *Machine) terminalLocked() bool {
+	return m.phase == accessv1.OperationPhase_OPERATION_PHASE_RELEASED ||
+		m.phase == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
+}
+
+// Submitted reports whether the command was handed to the device. It is
+// what an [integrationv1.ExecuteResult] carries as submitted, and what
+// decides whether an error means "provably nothing was sent" (central may
+// dispose it REJECTED) or "the effect is unknown" (it must not).
+func (m *Machine) Submitted() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.submitted
+}
+
+// Canceled reports whether an accepted REJECTED acknowledgement stopped
+// this mutation before its command was sent. It stays true even when the
+// acknowledgement's own audit delivery failed part-way and the mutation is
+// therefore not yet terminal, which is the state that tells a caller to
+// wait for central's re-send rather than to treat the step error as its
+// own.
+func (m *Machine) Canceled() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.canceled
+}
+
+// closeDoneLocked marks the mutation terminal and releases everything
+// parked on Done. The caller must hold mu. Idempotent: the terminal phase
+// is written by more than one path, and a second close would panic.
+func (m *Machine) closeDoneLocked() {
+	if m.terminated {
+		return
+	}
+	m.terminated = true
+	close(m.done)
 }
 
 // correlationIDs builds the idempotency key and trace id an audit event
@@ -217,6 +308,31 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	return nil
 }
 
+// transitionWithDisposition is [Machine.transition] for a move that also
+// settles the mutation's outcome. Phase and disposition are written in one
+// critical section because MutationState.disposition_matches_phase is an
+// invariant at every instant a reader can observe, not merely at rest: a
+// concurrent Disposition() call must never find ACKNOWLEDGED paired with
+// DISPOSITION_UNSPECIFIED, which is exactly what two separate writes under
+// two separate locks would expose.
+func (m *Machine) transitionWithDisposition(ctx context.Context, to accessv1.OperationPhase, disposition accessv1.Disposition) error {
+	m.mu.Lock()
+	from := m.phase
+	m.mu.Unlock()
+
+	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, to)
+	if err := m.deps.Audit.Emit(ctx, event); err != nil {
+		return errs.Wrap(err, "deliver phase transitioned event")
+	}
+
+	m.mu.Lock()
+	m.phase = to
+	m.disposition = disposition
+	m.mu.Unlock()
+
+	return nil
+}
+
 // block records reason and when it began, matching
 // MutationState.blocked_since_matches_reason, then delivers a LaneBlocked
 // audit event and telemetry. It does not itself change Phase(). The state
@@ -281,17 +397,43 @@ func (m *Machine) Execute(ctx context.Context) error {
 		return err
 	}
 
+	// Every wait below runs under waitCtx rather than the caller's own
+	// context, so an accepted REJECTED acknowledgement can end them the
+	// moment it is applied instead of leaving this mutation parked until
+	// the submitter's deadline. Publishing the cancel under mu, and
+	// clearing it on the way out, is what lets Acknowledge reach a wait
+	// that is running right now without reaching one that is not.
+	waitCtx, cancelWaits := context.WithCancel(ctx)
+	defer cancelWaits()
+
+	m.mu.Lock()
+	if m.canceled {
+		m.mu.Unlock()
+		return errs.New().Code(ErrCodeOutOfOrder).
+			Msg("mutation was released REJECTED before execution began; the command is not sent")
+	}
+	m.cancelWaits = cancelWaits
+	m.mu.Unlock()
+	defer func() {
+		m.mu.Lock()
+		m.cancelWaits = nil
+		m.mu.Unlock()
+	}()
+
 	// Held for the rest of this call, not just the check: Freeze must not
 	// return while this device write is still in flight, and a plain
 	// AwaitSideEffect only proves no freeze was active at the instant it
-	// returned.
-	leave, err := m.deps.Freeze.Enter(ctx)
+	// returned. Gate.Enter's own barrier RLock is not cancellable, so a
+	// cancel delivered while this call is parked in it takes effect when it
+	// unparks — which is early enough, because the latch below is the only
+	// thing standing between here and the command going out.
+	leave, err := m.deps.Freeze.Enter(waitCtx)
 	if err != nil {
 		return errs.Wrap(err, "await control-plane freeze")
 	}
 	defer leave()
 
-	handle, err := m.deps.Submission.Open(ctx, m.deps.DeviceID, m.deps.BindingID, m.req.GetSequence())
+	handle, err := m.deps.Submission.Open(waitCtx, m.deps.DeviceID, m.deps.BindingID, m.req.GetSequence())
 	if err != nil {
 		return errs.Wrap(err, "open device submission")
 	}
@@ -313,11 +455,28 @@ func (m *Machine) Execute(ctx context.Context) error {
 	// honored: the command is never sent. Once Submit is called, decision
 	// 5 takes over — a lost connection during or after submission does not
 	// fail the mutation; Observe/recovery handle that ambiguity instead.
-	if err := ctx.Err(); err != nil {
+	if err := waitCtx.Err(); err != nil {
 		return errs.Wrap(err, "context ended before submission")
 	}
 
-	if err := m.deps.Submit(ctx, mutationIntent.GetInterfaceDescription()); err != nil {
+	// The latch. Taking canceled and setting submitted in one critical
+	// section is what makes "released REJECTED" and "command sent" mutually
+	// exclusive rather than merely unlikely: Acknowledge sets canceled only
+	// while submitted is false under this same lock, so whichever of the two
+	// reaches mu first wins outright and the other is refused. Checking
+	// waitCtx above is not a substitute — the cancel it observes is
+	// delivered asynchronously, and a mutation could pass that check and
+	// still be canceled before reaching here.
+	m.mu.Lock()
+	if m.canceled {
+		m.mu.Unlock()
+		return errs.New().Code(ErrCodeOutOfOrder).
+			Msg("mutation was released REJECTED before the command was sent")
+	}
+	m.submitted = true
+	m.mu.Unlock()
+
+	if err := m.deps.Submit(waitCtx, mutationIntent.GetInterfaceDescription()); err != nil {
 		return errs.Wrap(err, "submit mutation")
 	}
 
@@ -496,20 +655,23 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 // an authorized cancellation or a qualified timeout abandons a mutation
 // whose effect recovery could not establish, and the hold that follows is
 // resolved only by an explicit call outside this package (an operator
-// decision or a reconciliation intent), never by a retry. Valid from
-// RECOVERING (the ordinary case) or OBSERVING: a recovery re-observation
-// that fails to durably return to RECOVERING (its own second audit
-// delivery failed) must still be abandonable once the horizon elapses, or
-// that state has no exit at all.
+// decision or a reconciliation intent), never by a retry.
+//
+// Valid from any open phase, not only RECOVERING. Two callers need that:
+// a recovery re-observation that failed to durably return to RECOVERING
+// (its own second audit delivery failed) must still be abandonable once
+// the horizon elapses, or that state has no exit at all; and central's own
+// INDETERMINATE_ABANDONED acknowledgement is accepted wherever the
+// mutation rests, since an edge that never comes back can be parked
+// anywhere. A mutation that has already ended is refused — the decision
+// belongs to whoever ended it.
 func (m *Machine) Abandon(ctx context.Context) error {
-	if err := m.requireAnyPhase("Abandon",
-		accessv1.OperationPhase_OPERATION_PHASE_RECOVERING,
-		accessv1.OperationPhase_OPERATION_PHASE_OBSERVING,
-	); err != nil {
-		return err
-	}
-
 	m.mu.Lock()
+	if m.terminalLocked() {
+		m.mu.Unlock()
+		return errs.New().Code(ErrCodeAlreadyTerminal).
+			Msg("mutation has already ended; it cannot be abandoned")
+	}
 	from := m.phase
 	m.mu.Unlock()
 
@@ -521,6 +683,7 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	m.mu.Lock()
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 	m.disposition = accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED
+	m.closeDoneLocked()
 	m.mu.Unlock()
 
 	// Routed through block, not set directly: the recovery hold is the one
@@ -529,10 +692,30 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	return m.block(ctx, accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
 }
 
-// Acknowledge records central's TerminalResultAck, moves the phase to
-// ACKNOWLEDGED, then to RELEASED — decision 4's barrier: only a durable
-// terminal disposition central acknowledges back frees the device's lane
-// for the next sequence.
+// Acknowledge applies central's TerminalResultAck to this mutation at the
+// door: it decides the acknowledgement against the phase and the submit
+// latch under mu, marks the outcome, and only then walks the mutation to
+// its terminal phase. It is called on central's own goroutine, not the
+// submitter's, so it reaches a mutation resting anywhere.
+//
+// Nothing is stored for later. An acknowledgement held to be re-validated
+// when the phase moves has to be re-armed on every path that leaves a rest
+// point, and every such path is a chance to drop it; deciding here, under
+// the lock that also guards the phase, leaves nothing to re-validate.
+//
+// The three refusals differ in what the caller should do. out-of-order is a
+// disposition this phase does not allow and nothing changed, so central
+// must re-derive what it owes. already-terminal means this mutation has
+// ended and its own terminal report is on the way. A disposition of
+// UNSPECIFIED is refused outright: MutationState rejects the zero value at
+// a terminal phase, so accepting it would write a record the schema
+// forbids.
+//
+// A failed audit delivery part-way through leaves the mark set and returns
+// the error. Central re-sends, and the identical acknowledgement is
+// accepted again — the door's checks all still pass, because the marks do
+// not change the phase they are checked against — and resumes the same
+// terminal walk.
 func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalResultAck) error {
 	if ack.GetSequence() != m.req.GetSequence() {
 		return errs.New().Code(ErrCodeOutOfOrder).
@@ -540,23 +723,73 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 			Attr("admitted_sequence", m.req.GetSequence()).
 			Msg("acknowledgement sequence does not match the admitted request")
 	}
-	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_UNSPECIFIED {
+	disposition := ack.GetDisposition()
+	if disposition == accessv1.Disposition_DISPOSITION_UNSPECIFIED {
 		return errs.New().Code(ErrCodeDispositionUnspecified).
 			Msg("acknowledgement disposition is unspecified; MutationState rejects the zero value at a terminal phase")
 	}
-	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_VERIFIED, "Acknowledge"); err != nil {
-		return err
-	}
-
-	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED); err != nil {
-		return err
-	}
 
 	m.mu.Lock()
-	m.disposition = ack.GetDisposition()
+	if m.terminalLocked() {
+		m.mu.Unlock()
+		return errs.New().Code(ErrCodeAlreadyTerminal).
+			Attr("phase", m.Phase().String()).
+			Msg("mutation has already ended; its terminal report is on the way")
+	}
+
+	var cancel context.CancelFunc
+	switch disposition {
+	case accessv1.Disposition_DISPOSITION_VERIFIED:
+		if m.phase != accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
+			m.mu.Unlock()
+			return m.outOfOrder(disposition)
+		}
+		m.verified = true
+	case accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED:
+		// Accepted at every open phase. An edge that never comes back is
+		// the case this exists for, and it can be resting anywhere.
+		m.abandoning = true
+	case accessv1.Disposition_DISPOSITION_REJECTED:
+		// Only while the command provably has not gone out: at ADMITTED,
+		// or at POSSIBLY_APPLIED with the submit latch still open. After
+		// the latch the device may already hold the change, and disposing
+		// it REJECTED would record that nothing happened when something
+		// might have.
+		if m.submitted || (m.phase != accessv1.OperationPhase_OPERATION_PHASE_ADMITTED &&
+			m.phase != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED) {
+			m.mu.Unlock()
+			return m.outOfOrder(disposition)
+		}
+		m.canceled = true
+		cancel = m.cancelWaits
+	default:
+		m.mu.Unlock()
+		return m.outOfOrder(disposition)
+	}
 	m.mu.Unlock()
 
+	// Outside mu: the mutation this wakes may take mu on its way out, and
+	// it can only find canceled already set, never unset.
+	if cancel != nil {
+		cancel()
+	}
+
+	if disposition == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		return m.Abandon(ctx)
+	}
+	if err := m.transitionWithDisposition(ctx, accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED, disposition); err != nil {
+		return err
+	}
 	return m.release(ctx)
+}
+
+// outOfOrder reports a disposition this mutation's phase does not allow,
+// with nothing changed.
+func (m *Machine) outOfOrder(disposition accessv1.Disposition) error {
+	return errs.New().Code(ErrCodeOutOfOrder).
+		Attr("phase", m.Phase().String()).
+		Attr("disposition", disposition.String()).
+		Msgf("%s is not a valid acknowledgement from %s", disposition, m.Phase())
 }
 
 // release delivers both the PhaseTransitioned and LaneReleased audit events
@@ -584,6 +817,7 @@ func (m *Machine) release(ctx context.Context) error {
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_RELEASED
 	m.blockReason = accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED
 	m.blockedSince = time.Time{}
+	m.closeDoneLocked()
 	m.mu.Unlock()
 
 	m.deps.Telemetry.LaneReleased(ctx)
@@ -605,6 +839,7 @@ func (m *Machine) Result(err error) *integrationv1.ExecuteResult {
 	result := &integrationv1.ExecuteResult{}
 	result.SetSequence(m.req.GetSequence())
 	result.SetPhaseReached(m.phase)
+	result.SetSubmitted(m.submitted)
 
 	switch {
 	case err != nil:
@@ -614,5 +849,22 @@ func (m *Machine) Result(err error) *integrationv1.ExecuteResult {
 	default:
 		result.SetError(errs.EncodeForClient(errs.New().Msg("no observation was recorded for this operation")))
 	}
+	return result
+}
+
+// Progress builds a non-terminal report: where the mutation has reached and
+// whether its command went out, with the empty progress arm
+// integration/device/v1 defines for a report that is neither an observation
+// nor an error. Admission and entry into recovery are reported this way —
+// central needs to know a mutation moved without being told it finished.
+func (m *Machine) Progress() *integrationv1.ExecuteResult {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	result := &integrationv1.ExecuteResult{}
+	result.SetSequence(m.req.GetSequence())
+	result.SetPhaseReached(m.phase)
+	result.SetSubmitted(m.submitted)
+	result.SetProgress(&integrationv1.Progress{})
 	return result
 }

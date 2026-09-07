@@ -22,6 +22,8 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/recovery"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
+
+	"google.golang.org/protobuf/proto"
 )
 
 // Error codes lane.go returns. See each function's doc for when.
@@ -31,6 +33,50 @@ var (
 	ErrCodeDesynchronized    = errs.NewCode("access/desynchronized")
 	ErrCodeRecoveryAmbiguous = errs.NewCode("access/recovery-ambiguous")
 )
+
+// Refusal codes produced inside internal/mutation and re-exported here.
+// They cross the wire to central alongside the codes above, and a code that
+// leaves the process is public contract whatever package produces it — so a
+// host branching on what an acknowledgement was refused for finds every
+// answer in one place rather than reaching into an internal package it
+// cannot import.
+var (
+	// ErrCodeAlreadyTerminal answers an acknowledgement for a mutation
+	// that has already ended; its own terminal report is on the way.
+	ErrCodeAlreadyTerminal = mutation.ErrCodeAlreadyTerminal
+	// ErrCodeOutOfOrder answers a disposition the mutation's phase does
+	// not allow, with nothing changed.
+	ErrCodeOutOfOrder = mutation.ErrCodeOutOfOrder
+)
+
+// Reporter receives everything this lane owes its host to pass on to
+// central: each phase a mutation reaches, each observation, and each
+// acknowledgement of a message central sent. The lane calls it on the
+// goroutine that did the work.
+//
+// An implementation must return at once and must not do I/O. The lane
+// reports while it holds a device's drain lock, so a Reporter that blocked
+// on a network send would stall every other operation queued for that
+// device behind whatever central's connection is doing — and the whole
+// point of reporting is that it is one-way. Hand the message to a queue and
+// return; delivering it is the host's problem, and the host is the only
+// party that can retry it.
+//
+// A nil Reporter is a no-op. The lane never fails an operation because a
+// report could not be made, which is why these methods return nothing:
+// there is no failure for a caller to act on.
+type Reporter interface {
+	// Reported carries one ExecuteResult: a progress report at admission
+	// and on entering recovery, an observation for a read or a verified
+	// mutation, an error, or a terminal phase.
+	Reported(ctx context.Context, result *integrationv1.ExecuteResult)
+	// CheckpointAcked carries the acknowledgement of central's
+	// CheckpointRequest.
+	CheckpointAcked(ctx context.Context, ack *integrationv1.CheckpointAck)
+	// HoldResolvedAcked carries the acknowledgement of central's
+	// HoldResolved.
+	HoldResolvedAcked(ctx context.Context, ack *integrationv1.HoldResolvedAck)
+}
 
 // Config carries every dependency [Lane] needs. Construct with keyed
 // fields and do not mutate afterward; [NewLane] copies it once and every
@@ -45,6 +91,7 @@ type Config struct {
 	RecoveryMinGap        time.Duration
 	Fenced                recovery.Fenced
 	ReadCredentials       credential.ReadCredentialSource
+	Reporter              Reporter
 	SubmissionCredentials credential.SubmissionCredentialSource
 	Audit                 audit.Deliverer
 	Telemetry             *telemetry.View
@@ -117,11 +164,15 @@ type deviceState struct {
 	waitMu       sync.Mutex
 	waitingSeq   uint64
 	checkpointCh chan *integrationv1.CheckpointRequest
-	termAckCh    chan *integrationv1.TerminalResultAck
 
 	stateMu     sync.Mutex
 	fingerprint string
 	hold        recovery.Hold
+	// current is the machine central's acknowledgements address: set when a
+	// mutation is admitted, cleared when it finishes. A read never sets it —
+	// central acknowledges nothing about a read — so a mutation's ack is
+	// never delivered to a read that happens to be running.
+	current *mutation.Machine
 }
 
 // Lane is the edge-resident runtime that admits every read, probe,
@@ -371,11 +422,24 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 		key := lane.CoalesceKey{Device: opts.DeviceKey, OperationKind: "interface_read", Target: read.GetInterface().GetInterfaceName()}
 		ticket, isNew := l.coalescer.Start(key)
 		if !isNew {
-			result, err := ticket.Wait(ctx)
+			shared, err := ticket.Wait(ctx)
 			if err != nil {
 				return nil, err
 			}
-			execResult, _ := result.(*integrationv1.ExecuteResult)
+			execResult, _ := shared.(*integrationv1.ExecuteResult)
+			// Every joiner gets its own copy carrying its own sequence, and
+			// reports it. Central admitted each of these reads separately and
+			// is owed an answer for each; that the edge served them with one
+			// device call is the edge's business. Cloned rather than
+			// relabelled in place, since the owner and every other joiner hold
+			// the same message and a shared sequence field would be the last
+			// writer's.
+			if execResult != nil {
+				joined, _ := proto.Clone(execResult).(*integrationv1.ExecuteResult)
+				joined.SetSequence(opts.Request.GetSequence())
+				l.report(ctx, joined)
+				return joined, nil
+			}
 			return execResult, nil
 		}
 		return l.submitAndCoalesce(ctx, ds, opts, key)
@@ -538,35 +602,67 @@ func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointR
 	return nil
 }
 
-// HandleTerminalAck delivers central's TerminalResultAck, which frees the
-// device's lane for the next sequence per decision 4's barrier.
-func (l *Lane) HandleTerminalAck(deviceKey string, ack *integrationv1.TerminalResultAck) error {
+// HandleTerminalAck applies central's TerminalResultAck to the mutation it
+// addresses and returns what central should do about it. It is answered
+// synchronously, on central's own goroutine: the acknowledgement is decided
+// against the mutation's phase as it stands right now, and either takes
+// effect before this call returns or is refused with nothing changed.
+//
+// It is not handed to the waiting mutation to apply later. A stored
+// acknowledgement has to be re-validated whenever the phase moves and
+// re-armed on every path out of a rest point, and central would be told
+// "accepted" by a call that could not yet know whether it was.
+//
+// A refusal is central's to act on: no-pending-wait means this device holds
+// no mutation at that sequence, already-terminal means the mutation ended
+// and its own report is on the way, and out-of-order means the disposition
+// does not fit the phase. An error from the acknowledgement's own audit
+// delivery is returned too, with the decision already marked, so central
+// re-sends and the identical acknowledgement completes the walk.
+func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *integrationv1.TerminalResultAck) error {
 	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
 		return err
 	}
 
-	ds.waitMu.Lock()
-	defer ds.waitMu.Unlock()
-	ch := ds.termAckCh
-	match := ds.waitingSeq == ack.GetSequence()
-	if ch == nil || !match {
+	// The sequence comparison is safe outside the machine's own lock: a
+	// Machine's sequence is fixed at admission and never changes, so only
+	// the identity of ds.current can race here, and that is read under
+	// stateMu.
+	ds.stateMu.Lock()
+	m := ds.current
+	ds.stateMu.Unlock()
+	if m == nil || m.Sequence() != ack.GetSequence() {
 		return errs.New().Code(ErrCodeNoPendingWait).
-			Msgf("no mutation on device %s is waiting for a terminal ack at sequence %d", deviceKey, ack.GetSequence())
+			Msgf("no mutation on device %s is open at sequence %d", deviceKey, ack.GetSequence())
 	}
-	// See HandleCheckpoint's comment: send and clear under one lock so an
-	// at-least-once redelivery cannot block forever on an orphaned channel.
-	select {
-	case ch <- ack:
-	default:
-		return errs.New().Code(ErrCodeNoPendingWait).
-			Msgf("terminal ack for device %s sequence %d was already delivered", deviceKey, ack.GetSequence())
+
+	if err := m.Acknowledge(ctx, ack); err != nil {
+		return err
 	}
-	ds.termAckCh = nil
+
+	// An abandonment leaves the device's lane held: the mutation's effect
+	// was never established, and only an explicit resolution admits another
+	// one. Engaged after Acknowledge returns, since Acknowledge is what
+	// decides whether the abandonment was accepted at all.
+	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		ds.hold.Engage()
+	}
 	return nil
 }
 
-func (ds *deviceState) awaitCheckpoint(ctx context.Context, seq uint64) (*integrationv1.CheckpointRequest, error) {
+// errMutationEnded reports that a wait ended because central's
+// acknowledgement turned the mutation terminal rather than because the step
+// completed. It is never returned to a caller: process reads the machine
+// and reports the terminal phase instead.
+var errMutationEnded = errors.New("mutation ended before this step completed")
+
+// awaitCheckpoint blocks until central's CheckpointRequest for seq arrives,
+// the mutation ends, or ctx does. It selects on the machine's Done because
+// a REJECTED acknowledgement is accepted at ADMITTED — which is exactly
+// where this wait sits — and a mutation released here must never go on to
+// execute.
+func (ds *deviceState) awaitCheckpoint(ctx context.Context, m *mutation.Machine, seq uint64) (*integrationv1.CheckpointRequest, error) {
 	ch := make(chan *integrationv1.CheckpointRequest, 1)
 	ds.waitMu.Lock()
 	ds.waitingSeq = seq
@@ -581,26 +677,8 @@ func (ds *deviceState) awaitCheckpoint(ctx context.Context, seq uint64) (*integr
 	select {
 	case req := <-ch:
 		return req, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func (ds *deviceState) awaitTerminalAck(ctx context.Context, seq uint64) (*integrationv1.TerminalResultAck, error) {
-	ch := make(chan *integrationv1.TerminalResultAck, 1)
-	ds.waitMu.Lock()
-	ds.waitingSeq = seq
-	ds.termAckCh = ch
-	ds.waitMu.Unlock()
-	defer func() {
-		ds.waitMu.Lock()
-		ds.termAckCh = nil
-		ds.waitMu.Unlock()
-	}()
-
-	select {
-	case ack := <-ch:
-		return ack, nil
+	case <-m.Done():
+		return nil, errMutationEnded
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -641,66 +719,135 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	}
 
 	if !m.IsRead() {
-		checkpointReq, err := ds.awaitCheckpoint(ctx, req.GetSequence())
+		// Published before the first rest point, so an acknowledgement that
+		// arrives while this mutation is parked at the very first wait finds
+		// it. Cleared on the way out, whichever way it goes.
+		ds.stateMu.Lock()
+		ds.current = m
+		ds.stateMu.Unlock()
+		defer func() {
+			ds.stateMu.Lock()
+			ds.current = nil
+			ds.stateMu.Unlock()
+		}()
+
+		l.report(ctx, m.Progress())
+
+		checkpointReq, err := ds.awaitCheckpoint(ctx, m, req.GetSequence())
 		if err != nil {
-			return nil, errs.Wrap(err, "await checkpoint")
+			return l.afterStep(ctx, ds, m, errs.Wrap(err, "await checkpoint"))
 		}
-		if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
-			return nil, err
+		ack, err := m.Checkpoint(ctx, checkpointReq)
+		if err != nil {
+			return l.afterStep(ctx, ds, m, err)
 		}
+		l.reportCheckpoint(ctx, ack)
+
 		if err := m.Execute(ctx); err != nil {
-			ds.hold.Engage()
-			return nil, errs.Wrap(err, "execute")
+			return l.afterStep(ctx, ds, m, errs.Wrap(err, "execute"))
 		}
 	}
 
 	obs, err := m.Observe(ctx)
 	if err != nil {
-		if !m.IsRead() {
-			ds.hold.Engage()
-		}
-		return nil, errs.Wrap(err, "observe")
+		return l.afterStep(ctx, ds, m, errs.Wrap(err, "observe"))
 	}
 	l.recordEvidence(ds, fingerprint, req, obs)
 
 	disposition, err := m.Compare(ctx, nil)
 	if err != nil {
-		if !m.IsRead() {
-			ds.hold.Engage()
-		}
-		return nil, err
+		return l.afterStep(ctx, ds, m, err)
 	}
 
 	if m.IsRead() {
-		return m.Result(nil), nil
+		result := m.Result(nil)
+		l.report(ctx, result)
+		return result, nil
 	}
 
 	if disposition != accessv1.Disposition_DISPOSITION_VERIFIED {
 		// The mutation may have reached the device but was never verified:
 		// decision 5's ambiguity-stays-indeterminate rule means the lane
 		// must not admit another mutation on top of an unresolved change.
-		// The caller drives internal/recovery explicitly (see this
-		// function's doc comment); until it resolves this device's hold
-		// (or an operator/reconciliation call does), Submit refuses every
-		// further mutation for it.
-		ds.hold.Engage()
-		return nil, errs.New().Code(ErrCodeRecoveryAmbiguous).
-			Msg("mutation was not verified; drive internal/recovery explicitly for this sequence")
+		// Until an explicit resolution clears this device's hold, Submit
+		// refuses every further mutation for it.
+		return l.afterStep(ctx, ds, m, errs.New().Code(ErrCodeRecoveryAmbiguous).
+			Msg("mutation was not verified; its effect on the device is unresolved"))
 	}
 
 	if err := m.MarkVerified(ctx); err != nil {
-		return nil, err
+		return l.afterStep(ctx, ds, m, err)
 	}
 
-	termAck, err := ds.awaitTerminalAck(ctx, req.GetSequence())
-	if err != nil {
-		return nil, errs.Wrap(err, "await terminal acknowledgement")
-	}
-	if err := m.Acknowledge(ctx, termAck); err != nil {
-		return nil, err
+	// Reported before the wait, not after it: central decides what to
+	// acknowledge from this report, so a report withheld until the
+	// acknowledgement arrived would wait on something it has to cause.
+	l.report(ctx, m.Result(nil))
+
+	select {
+	case <-m.Done():
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 
-	return m.Result(nil), nil
+	result = m.Result(nil)
+	l.report(ctx, result)
+	return result, nil
+}
+
+// afterStep decides what a failed step means, since central's
+// acknowledgement is applied on its own goroutine and can end a mutation
+// while the step it was running is still parked.
+//
+// A terminal machine means the acknowledgement already ended this mutation:
+// the step error is the wake-up, not a failure, so the terminal report goes
+// out and no hold is engaged — central has already said what happened.
+//
+// Canceled but not terminal means an acknowledgement was accepted and its
+// own audit delivery failed part-way through. The decision stands and
+// central will re-send it, so this waits for the re-send under a context
+// detached from the submitter's, whose deadline has nothing to do with how
+// long central takes. Bounded, because a central that never re-sends must
+// not park this device's drainer forever.
+//
+// Otherwise the error is what it says, and a mutation whose effect is now
+// unknown holds the lane.
+func (l *Lane) afterStep(ctx context.Context, ds *deviceState, m *mutation.Machine, err error) (*integrationv1.ExecuteResult, error) {
+	if !m.IsRead() && !m.IsTerminal() && m.Canceled() {
+		waitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), l.cfg.OperationTimeout)
+		defer cancel()
+		select {
+		case <-m.Done():
+		case <-waitCtx.Done():
+		}
+	}
+
+	if m.IsTerminal() {
+		result := m.Result(nil)
+		l.report(ctx, result)
+		return result, nil
+	}
+
+	if !m.IsRead() {
+		ds.hold.Engage()
+	}
+	l.report(ctx, m.Result(err))
+	return nil, err
+}
+
+// report hands one result to the host's Reporter, if it wired one.
+func (l *Lane) report(ctx context.Context, result *integrationv1.ExecuteResult) {
+	if l.cfg.Reporter == nil {
+		return
+	}
+	l.cfg.Reporter.Reported(ctx, result)
+}
+
+func (l *Lane) reportCheckpoint(ctx context.Context, ack *integrationv1.CheckpointAck) {
+	if l.cfg.Reporter == nil {
+		return
+	}
+	l.cfg.Reporter.CheckpointAcked(ctx, ack)
 }
 
 // classifyError reduces err to the bounded, low-cardinality error.type
@@ -808,13 +955,23 @@ func (l *Lane) Freeze(ctx context.Context) error { return l.freeze.Freeze(ctx) }
 // Unfreeze resumes side effects.
 func (l *Lane) Unfreeze(ctx context.Context) { l.freeze.Unfreeze(ctx) }
 
-// ResolveHold clears deviceKey's recovery hold, admitting mutations
-// again.
-func (l *Lane) ResolveHold(deviceKey string) error {
+// ResolveHold clears deviceKey's recovery hold, admitting mutations again,
+// and reports the acknowledgement central's HoldResolved is waiting for.
+// The acknowledgement is reported only after the hold is actually cleared:
+// central takes it as proof that this edge will accept the next mutation,
+// and one sent ahead of the clear would be a promise about a lane still
+// refusing work.
+func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *integrationv1.HoldResolved) error {
 	ds, err := l.device(deviceKey)
 	if err != nil {
 		return err
 	}
 	ds.hold.Resolve()
+
+	if l.cfg.Reporter != nil {
+		ack := &integrationv1.HoldResolvedAck{}
+		ack.SetSequence(resolved.GetSequence())
+		l.cfg.Reporter.HoldResolvedAcked(ctx, ack)
+	}
 	return nil
 }
