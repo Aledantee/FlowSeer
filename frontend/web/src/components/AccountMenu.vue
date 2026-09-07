@@ -2,23 +2,31 @@
 import { ref, useId } from 'vue'
 import AppIcon from './AppIcon.vue'
 const id = useId()
+const trigger = ref<HTMLButtonElement>()
 const menu = ref<HTMLDivElement>()
 const open = ref(false)
+function positionMenu() {
+  if (!trigger.value || !menu.value) return
+  const rect = trigger.value.getBoundingClientRect()
+  menu.value.style.top = `${rect.bottom + 6}px`
+  menu.value.style.right = `${Math.max(12, window.innerWidth - rect.right)}px`
+}
 </script>
 
 <template>
-  <footer class="account-footer">
+  <div class="account-control">
     <button
+      ref="trigger"
       class="account-trigger"
+      type="button"
       aria-label="Operator account"
       title="Operator"
       :popovertarget="id"
       :aria-expanded="open"
       :aria-controls="id"
+      @click="positionMenu"
     >
       <span class="avatar" aria-hidden="true">OP</span>
-      <span>Operator</span>
-      <span aria-hidden="true">⌃</span>
     </button>
     <div
       :id="id"
@@ -35,5 +43,5 @@ const open = ref(false)
         <AppIcon name="logout" /> Log out
       </button>
     </div>
-  </footer>
+  </div>
 </template>

@@ -280,7 +280,6 @@ onUnmounted(() => clearInterval(timer))
           }}</span></RouterLink
         >
       </nav>
-      <AccountMenu />
       <button
         class="sidebar-toggle"
         type="button"
@@ -347,6 +346,7 @@ onUnmounted(() => clearInterval(timer))
           <ThemeSwitcher />
           <HelpButton />
           <ReportBugButton />
+          <AccountMenu />
         </div>
       </header>
       <main id="main" ref="workspace" tabindex="-1">

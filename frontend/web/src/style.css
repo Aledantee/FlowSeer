@@ -1643,23 +1643,19 @@ td small {
   object-fit: contain;
 }
 
-.account-footer {
-  display: flex;
-  justify-content: flex-end;
+.account-control {
   flex-shrink: 0;
-  padding: 4px 20px;
-  background: var(--chrome);
   color: var(--chrome-text);
 }
 .account-trigger {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
   border: 0;
   background: transparent;
   color: inherit;
-  font-size: 12px;
-  padding: 4px 8px;
+  padding: 0;
 }
 .account-trigger .avatar {
   width: 26px;
@@ -1672,9 +1668,10 @@ td small {
 }
 .account-menu {
   position: fixed;
-  inset: auto 20px 54px auto;
+  inset: auto;
   margin: 0;
   width: 200px;
+  max-width: calc(100vw - 24px);
   padding: 5px;
   background: var(--chrome);
   color: var(--chrome-text);
@@ -1730,51 +1727,9 @@ td small {
   }
 }
 
-.sidebar > .account-footer {
-  margin-top: auto;
-  padding: 12px 0;
-  justify-content: flex-start;
-  background: transparent;
-}
-.sidebar .account-menu {
-  inset: auto auto 68px 12px;
-}
-@media (min-width: 801px) {
-  .sidebar-collapsed .account-trigger {
-    padding: 4px;
-  }
-  .sidebar-collapsed .account-trigger > span:not(.avatar) {
+@media (max-width: 380px) {
+  .product-brand > span:last-child {
     display: none;
-  }
-}
-@media (max-width: 800px) {
-  .sidebar > .account-footer {
-    position: fixed;
-    bottom: 0;
-    left: 12px;
-    z-index: 4;
-  }
-}
-
-@media (min-width: 801px) {
-  .sidebar-collapsed .sidebar > .account-footer {
-    justify-content: center;
-  }
-}
-@media (max-width: 800px) {
-  .sidebar > .account-footer {
-    left: 0;
-    right: 0;
-    height: 48px;
-    padding: 4px 14px;
-    background: var(--chrome);
-    border-top: 1px solid var(--chrome-line);
-  }
-  .main-shell {
-    margin-bottom: 48px;
-  }
-  .sidebar .account-menu {
-    bottom: 54px;
   }
 }
 

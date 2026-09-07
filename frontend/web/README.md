@@ -185,6 +185,6 @@ Tenants may supply an `iconUrl`. When the inline name overflows its available
 width, that icon replaces the shortened label. Full names remain in the tooltip
 and dropdown. Missing or failed icons fall back to an ellipsis.
 
-The account control sits at the bottom left of the sidebar. Clicking the operator name opens
+The account icon sits at the far right of the top bar. Clicking it opens
 a popover containing logout; Escape or an outside click dismisses it. Logout
 remains disabled until sign-in is connected.
