@@ -1,0 +1,237 @@
+package host_test
+
+import (
+	"context"
+	"crypto/tls"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	connect "connectrpc.com/connect"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/services/device/internal/host"
+)
+
+const (
+	testEdgeID   = "0192e6a0-0000-7000-8000-0000000000ed"
+	testDeviceID = "0192e6a0-0000-7000-8000-0000000000d1"
+)
+
+// freePort asks the kernel for a port and gives it straight back, so the
+// configuration can name one before the service binds it.
+func freePort(t *testing.T) int {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve a port: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	if err := listener.Close(); err != nil {
+		t.Fatalf("release the port: %v", err)
+	}
+	return port
+}
+
+func writeRegistry(t *testing.T, dir string) string {
+	t.Helper()
+	handle := policyv1.AccessPolicyHandle_builder{Key: proto.String("icx7150-lab"), Version: proto.Uint64(3)}.Build()
+	reg := storev1.DeviceRegistry_builder{
+		Integration: storev1.RegistryIntegration_builder{
+			Ref: inventoryv1.IntegrationGlobalRef_builder{
+				Integration: inventoryv1.IntegrationLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-0000000000c1")}.Build(),
+			}.Build(),
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+			}.Build(),
+		}.Build(),
+		Devices: []*storev1.RegistryDevice{storev1.RegistryDevice_builder{
+			Config: inventoryv1.DeviceConfig_builder{
+				Ref:            inventoryv1.DeviceGlobalRef_builder{Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build()}.Build(),
+				Name:           proto.String("icx7150"),
+				ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED.Enum(),
+				AccessPolicy:   handle,
+			}.Build(),
+			Binding: inventoryv1.BindingGlobalRef_builder{
+				Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-0000000000b1")}.Build(),
+			}.Build(),
+			Ip:                  addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build(),
+			DelayedApplyHorizon: durationpb.New(30 * time.Second),
+			ManagedInterfaces:   []string{"ethernet 1/1/1"},
+		}.Build()},
+		Policies: []*storev1.RegistryPolicy{storev1.RegistryPolicy_builder{
+			Handle:               handle,
+			ReadCredential:       policyv1.CredentialHandle_builder{Key: proto.String("icx7150-lab-snmp"), Version: proto.Uint64(1)}.Build(),
+			SubmissionCredential: policyv1.CredentialHandle_builder{Key: proto.String("icx7150-lab-ssh"), Version: proto.Uint64(1)}.Build(),
+			HostTrust:            policyv1.HostTrustHandle_builder{Key: proto.String("icx7150-lab-hostkey"), Version: proto.Uint64(1)}.Build(),
+			SshHostKeySha256:     proto.String("SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"),
+		}.Build()},
+	}.Build()
+
+	body, err := prototext.Marshal(reg)
+	if err != nil {
+		t.Fatalf("marshal registry: %v", err)
+	}
+	path := filepath.Join(dir, "registry.textproto")
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("write registry: %v", err)
+	}
+	return path
+}
+
+// runningService starts a whole device service on loopback and returns the
+// base URL its API answers on.
+func runningService(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, "state")
+	if err := os.MkdirAll(stateDir, 0o700); err != nil {
+		t.Fatalf("state dir: %v", err)
+	}
+	credentialRoot := filepath.Join(dir, "credentials")
+	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
+		t.Fatalf("credential dir: %v", err)
+	}
+
+	apiPort, busPort := freePort(t), freePort(t)
+	body := fmt.Sprintf(`
+state_dir: %q
+registry_path: %q
+credential_root: %q
+listeners {
+  api: "127.0.0.1:%d"
+  bus: "127.0.0.1:%d"
+}
+edges {
+  central_url: "https://127.0.0.1:%d"
+  assertion_audience: "flowseer-device-test"
+  cluster_urls: "ws://127.0.0.1:%d"
+}
+`, stateDir, writeRegistry(t, dir), credentialRoot, apiPort, busPort, apiPort, busPort)
+
+	cfg, err := host.LoadConfig(writeConfig(t, body))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- host.Run(ctx, cfg, "test") }()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("the service stopped with %v, want a clean shutdown", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("the service did not stop within thirty seconds of cancellation")
+		}
+	})
+
+	return fmt.Sprintf("https://127.0.0.1:%d", apiPort)
+}
+
+// insecureClient trusts whatever the service generated. An edge pins the
+// digest instead; this test is not the edge.
+func insecureClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // a loopback service that generated its own certificate this second
+		},
+		Timeout: 10 * time.Second,
+	}
+}
+
+// The whole service starts from a file and answers an operator: the hub comes
+// up, the four modules that need it find it, the API listener serves the
+// certificate the host obtained, and a call reaches the handler behind both
+// interceptors and comes back with the registry's own answer.
+func TestTheServiceStartsFromAFileAndAnswers(t *testing.T) {
+	base := runningService(t)
+	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+
+	msg := &devicev1.GetDeviceAccessStatusRequest{}
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId("0192e6a0-0000-7000-8000-0000000000ff")
+	device := &inventoryv1.DeviceGlobalRef{}
+	device.SetDevice(local)
+	msg.SetDevice(device)
+
+	_, err := callWhenServing(t, client, msg)
+
+	if got := connect.CodeOf(err); got != connect.CodeNotFound {
+		t.Fatalf("code = %v, want not_found for a device the registry does not list (%v)", got, err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "no such device") {
+		t.Errorf("message = %q, want the operator's sentence", err.Error())
+	}
+}
+
+// The device the registry does list is answered from the journal, which means
+// the lane bucket the hub created is reachable through the handle the modules
+// waited on.
+func TestAListedDeviceIsAnsweredFromTheJournal(t *testing.T) {
+	base := runningService(t)
+	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+
+	msg := &devicev1.GetDeviceAccessStatusRequest{}
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(testDeviceID)
+	device := &inventoryv1.DeviceGlobalRef{}
+	device.SetDevice(local)
+	msg.SetDevice(device)
+
+	resp, err := callWhenServing(t, client, msg)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	if got := resp.Msg.GetHighWatermark(); got != 0 {
+		t.Errorf("high watermark = %d, want the empty record's zero", got)
+	}
+	if resp.Msg.HasUnresolved() {
+		t.Errorf("a device nothing has been applied to reports unresolved work: %v", resp.Msg.GetUnresolved())
+	}
+}
+
+// callWhenServing retries until the listener is up, then returns whatever the
+// service answered. A dial failure and a refusal are both Unavailable over
+// Connect, so the two are told apart by the message rather than the code:
+// nothing else in this service produces a connection error.
+func callWhenServing(
+	t *testing.T, client devicev1connect.DeviceServiceClient, msg *devicev1.GetDeviceAccessStatusRequest,
+) (*connect.Response[devicev1.GetDeviceAccessStatusResponse], error) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		resp, err := client.GetDeviceAccessStatus(context.Background(), connect.NewRequest(msg))
+		if err == nil || !dialFailure(err) {
+			return resp, err
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the api never came up: %v", err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+func dialFailure(err error) bool {
+	return strings.Contains(err.Error(), "connection refused") ||
+		strings.Contains(err.Error(), "connect: ") ||
+		strings.Contains(err.Error(), "EOF")
+}

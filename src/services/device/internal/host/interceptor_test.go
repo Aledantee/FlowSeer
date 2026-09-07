@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	connect "connectrpc.com/connect"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
@@ -19,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // theCause is the sentence an operator must never see and an engineer must
@@ -45,15 +48,33 @@ func (f *failing) ApplyInterfaceDescription(
 // serve runs the handler behind both interceptors and returns a client for it.
 func serve(t *testing.T, handler devicev1connect.DeviceServiceHandler, log *slog.Logger) devicev1connect.DeviceServiceClient {
 	t.Helper()
+	client, _ := serveWithMetrics(t, handler, log)
+	return client
+}
+
+// serveWithMetrics runs the handler behind both interceptors and hands back a
+// client and the reader the duration histogram lands in.
+func serveWithMetrics(
+	t *testing.T, handler devicev1connect.DeviceServiceHandler, log *slog.Logger,
+) (devicev1connect.DeviceServiceClient, *sdkmetric.ManualReader) {
+	t.Helper()
+	reader := sdkmetric.NewManualReader()
+	view, err := telemetry.NewView(telemetry.ViewConfig{
+		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+		Logger:        log,
+	})
+	if err != nil {
+		t.Fatalf("NewView: %v", err)
+	}
 	path, h := devicev1connect.NewDeviceServiceHandler(handler, connect.WithInterceptors(
-		host.LoggingInterceptor(log),
+		host.TelemetryInterceptor(log, view),
 		host.ValidatingInterceptor(),
 	))
 	mux := http.NewServeMux()
 	mux.Handle(path, h)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
-	return devicev1connect.NewDeviceServiceClient(server.Client(), server.URL)
+	return devicev1connect.NewDeviceServiceClient(server.Client(), server.URL), reader
 }
 
 // The failure the caller is given and the failure the log records are two
@@ -196,4 +217,64 @@ func (r *refusing) ApplyInterfaceDescription(
 ) (*connect.Response[devicev1.ApplyInterfaceDescriptionResponse], error) {
 	return nil, deviceapi.ClientErrors.Wrap(
 		errs.New().Code(deviceapi.ErrCodeUnknownDevice).Msg("registry lists no such device"))
+}
+
+// The histogram is what makes a DEBUG refusal safe: the aggregate question a
+// refusal raises — how often, and with what — is a metric's to answer. It
+// counts every call, so its count is the denominator any failure rate is taken
+// over, and it carries the classified error only on the calls that failed.
+func TestEveryCallIsMeasuredAndOnlyFailuresCarryTheirError(t *testing.T) {
+	client, reader := serveWithMetrics(t, &refusing{}, slog.New(slog.DiscardHandler))
+	if _, err := client.ApplyInterfaceDescription(context.Background(), connect.NewRequest(validApply())); err == nil {
+		t.Fatal("the refused call succeeded")
+	}
+
+	succeeded, okReader := serveWithMetrics(t, &succeeding{}, slog.New(slog.DiscardHandler))
+	if _, err := succeeded.ApplyInterfaceDescription(context.Background(), connect.NewRequest(validApply())); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	refused := onlyPoint(t, reader)
+	if _, ok := refused.Attributes.Value("error.type"); !ok {
+		t.Errorf("a refused call carries no error.type: %v", refused.Attributes.ToSlice())
+	}
+	if got, ok := refused.Attributes.Value("error.type"); ok && got.AsString() != "deviceapi/unknown-device" {
+		t.Errorf("error.type = %v, want the errs code", got)
+	}
+	if got, ok := refused.Attributes.Value("rpc.method"); !ok || !strings.HasSuffix(got.AsString(), "/ApplyInterfaceDescription") {
+		t.Errorf("rpc.method = %v, present = %v", got, ok)
+	}
+
+	ok := onlyPoint(t, okReader)
+	if _, carries := ok.Attributes.Value("error.type"); carries {
+		t.Errorf("a successful call carries an error.type: %v", ok.Attributes.ToSlice())
+	}
+	if ok.Count != 1 {
+		t.Errorf("count = %d, want the successful call counted", ok.Count)
+	}
+}
+
+func onlyPoint(t *testing.T, reader *sdkmetric.ManualReader) metricdata.HistogramDataPoint[float64] {
+	t.Helper()
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &collected); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+	for _, scope := range collected.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if m.Name != "rpc.server.call.duration" {
+				continue
+			}
+			histogram, isHistogram := m.Data.(metricdata.Histogram[float64])
+			if !isHistogram {
+				t.Fatalf("%s is %T, want a float64 histogram", m.Name, m.Data)
+			}
+			if len(histogram.DataPoints) != 1 {
+				t.Fatalf("%d series, want one", len(histogram.DataPoints))
+			}
+			return histogram.DataPoints[0]
+		}
+	}
+	t.Fatal("rpc.server.call.duration was not collected")
+	return metricdata.HistogramDataPoint[float64]{}
 }

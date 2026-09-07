@@ -16,6 +16,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	"go.opentelemetry.io/otel/semconv/v1.43.0/rpcconv"
 
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -74,6 +75,7 @@ const (
 type View struct {
 	logger          *slog.Logger
 	driftDetections metric.Int64Counter
+	rpcDuration     rpcconv.ServerCallDuration
 }
 
 // ViewConfig supplies what a [View] is built from. A nil MeterProvider records
@@ -105,7 +107,37 @@ func NewView(cfg ViewConfig) (*View, error) {
 		return nil, errs.From(err).Code(ErrCodeInstrument).Msg("build drift detection counter")
 	}
 
-	return &View{logger: logger, driftDetections: driftDetections}, nil
+	rpcDuration, err := rpcconv.NewServerCallDuration(meter)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeInstrument).Msg("build rpc server duration histogram")
+	}
+
+	return &View{logger: logger, driftDetections: driftDetections, rpcDuration: rpcDuration}, nil
+}
+
+// RecordRPC records one served call's duration.
+//
+// This is the aggregate view of the API, and it is what makes it safe to log a
+// refused call at DEBUG. A refusal is an answer the caller acted on, so a line
+// per refusal buries the failures nobody chose; but "how often is this RPC
+// refused, and with what" is a real operational question, and it is a metric's
+// question rather than a log's. Someone reading the interceptor's DEBUG level
+// as an oversight should read this first.
+//
+// errType is the classified error for a failed call and empty for one that
+// succeeded, so the histogram's count is the denominator every failure rate is
+// taken over. Both attributes are closed sets: the procedures this service
+// serves, and the codes it declares.
+func (v *View) RecordRPC(ctx context.Context, procedure string, seconds float64, errType string) {
+	if v == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{semconv.RPCMethodKey.String(procedure)}
+	if errType != "" {
+		attrs = append(attrs, semconv.ErrorTypeKey.String(errType))
+	}
+	v.rpcDuration.Record(ctx, seconds, rpcconv.SystemNameConnectrpc, attrs...)
 }
 
 // DriftDetected reports one managed interface found carrying something other

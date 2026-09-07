@@ -571,6 +571,8 @@ type laneHolds struct {
 	dropped    []string
 	err        error
 	devicesErr error
+	open       map[string]uint64
+	openErr    error
 }
 
 func (l *laneHolds) Devices(context.Context, string) ([]string, error) {
@@ -586,6 +588,14 @@ func (l *laneHolds) DropHolds(_ context.Context, deviceID string) error {
 	}
 	l.dropped = append(l.dropped, deviceID)
 	return nil
+}
+
+func (l *laneHolds) OpenMutation(_ context.Context, deviceID string) (uint64, bool, error) {
+	if l.openErr != nil {
+		return 0, false, l.openErr
+	}
+	sequence, open := l.open[deviceID]
+	return sequence, open, nil
 }
 
 // A hold tells an edge to clear its own. A retired edge will never take it, so
@@ -697,5 +707,71 @@ func TestRetireEdgeSucceedsWhenTheRegistryDescribesAnotherEdge(t *testing.T) {
 	}
 	if len(holds.dropped) != 0 {
 		t.Fatalf("dropped %v, want nothing", holds.dropped)
+	}
+}
+
+// Retirement ends no mutation, so every lane the edge still held is now work
+// only an operator can end. Handing it back with the retirement is the
+// difference between ending those lanes today and finding one stuck weeks
+// later, and the rows carry what AbandonMutation takes.
+func TestRetireEdgeNamesTheLanesItOrphaned(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{
+		devices: []string{"device-b", "device-a", "device-c"},
+		open:    map[string]uint64{"device-a": 7, "device-c": 12},
+	}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+		Edge: refOf(record),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("RetireEdge: %v", err)
+	}
+
+	orphaned := resp.Msg.GetOrphaned()
+	if len(orphaned) != 2 {
+		t.Fatalf("orphaned = %v, want the two devices holding an open mutation", orphaned)
+	}
+	if got := orphaned[0].GetDeviceId(); got != "device-a" {
+		t.Errorf("first orphan = %q, want device-a; the list is in device order", got)
+	}
+	if got := orphaned[0].GetSequence(); got != 7 {
+		t.Errorf("device-a sequence = %d, want the one AbandonMutation takes", got)
+	}
+	if got := orphaned[1].GetDeviceId(); got != "device-c" {
+		t.Errorf("second orphan = %q, want device-c", got)
+	}
+	if len(holds.dropped) != 3 {
+		t.Errorf("dropped holds on %v, want all three devices", holds.dropped)
+	}
+}
+
+// A record that cannot be read must not shorten the list. An operator acting
+// on a short one takes it for the whole answer and leaves a lane held by an
+// edge that is never coming back.
+func TestRetireEdgeRefusesRatherThanReportingAShortOrphanList(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{devices: []string{"device-a"}, openErr: errors.New("bucket unreachable")}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+		Edge: refOf(record),
+	}.Build())); err == nil {
+		t.Fatal("an unreadable lane record was reported as no open mutation")
 	}
 }

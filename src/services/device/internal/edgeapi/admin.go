@@ -3,6 +3,7 @@ package edgeapi
 import (
 	"context"
 	"encoding/base64"
+	"slices"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -79,11 +80,13 @@ type AdminService struct {
 }
 
 // LaneHolds is the part of the lane journal retirement touches: which devices
-// an edge hosts, and forgetting the hold resolutions those devices still owe
-// it. Nothing here ends a mutation.
+// an edge hosts, forgetting the hold resolutions those devices still owe it,
+// and reading what open work retiring the edge leaves behind. Nothing here
+// ends a mutation.
 type LaneHolds interface {
 	Devices(ctx context.Context, edgeID string) ([]string, error)
 	DropHolds(ctx context.Context, deviceID string) error
+	OpenMutation(ctx context.Context, deviceID string) (sequence uint64, open bool, err error)
 }
 
 // NewAdminService constructs the admin handler over the edge store, the lane
@@ -284,18 +287,31 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		}
 	}
 
-	if err := s.dropLaneHolds(ctx, edgeID); err != nil {
+	orphaned, err := s.resolveLanes(ctx, edgeID)
+	if err != nil {
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
+	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{
+		Edge:     s.reported(stored),
+		Orphaned: orphaned,
+	}.Build()), nil
 }
 
-// dropLaneHolds forgets what this edge's devices still owe it. A hold is an
-// instruction to an edge to clear its own; a retired edge will never take it,
-// so keeping it pending asserts an obligation against a peer that cannot
-// discharge it, and enough of them wall off the abandons an operator working
-// around a dead edge has to make.
+// resolveLanes forgets what this edge's devices still owe it, and reports the
+// work retiring it orphaned.
+//
+// The forgetting: a hold is an instruction to an edge to clear its own; a
+// retired edge will never take it, so keeping it pending asserts an obligation
+// against a peer that cannot discharge it, and enough of them wall off the
+// abandons an operator working around a dead edge has to make.
+//
+// The reporting: retirement ends no mutation, so every lane the edge still
+// held is work only an operator can end. Handing it back with the retirement
+// is the difference between ending those lanes today and finding one stuck
+// weeks later. The rows carry the device and the sequence AbandonMutation
+// takes; DeviceService.ListEdgeOpenMutations answers the same question
+// afterwards with the phase each stopped at.
 //
 // This is a cascade from the edge record into lane records, and retirement
 // deliberately does not cascade otherwise: it ends no mutation, because
@@ -305,27 +321,45 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 //
 // A failure here is returned rather than swallowed, and retirement is
 // idempotent, so the operator's retry finishes what this call started.
-func (s *AdminService) dropLaneHolds(ctx context.Context, edgeID string) error {
+func (s *AdminService) resolveLanes(ctx context.Context, edgeID string) ([]*edgev1.OrphanedLane, error) {
 	if s.holds == nil {
-		return nil
+		return nil, nil
 	}
 	devices, err := s.holds.Devices(ctx, edgeID)
 	if code, ok := errs.CodeOf(err); ok && code == registry.ErrCodeUnknownEdge {
 		// The deployment's registry describes another edge, so this one hosts
-		// no lane and there is nothing to drop. Retirement still has to
-		// finish: an edge can be created and retired without ever appearing in
-		// a registry, and refusing would leave its record standing.
-		return nil
+		// no lane: nothing to drop and nothing orphaned. Retirement still has
+		// to finish, because an edge can be created and retired without ever
+		// appearing in a registry, and refusing would leave its record
+		// standing.
+		return nil, nil
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	slices.Sort(devices)
+	var orphaned []*edgev1.OrphanedLane
 	for _, deviceID := range devices {
 		if err := s.holds.DropHolds(ctx, deviceID); err != nil {
-			return err
+			return nil, err
 		}
+		sequence, open, err := s.holds.OpenMutation(ctx, deviceID)
+		if err != nil {
+			// One unreadable record must not shorten the list. An operator
+			// acting on a short one would take it for the whole answer and
+			// leave a lane held by an edge that is never coming back.
+			return nil, err
+		}
+		if !open {
+			continue
+		}
+		lane := &edgev1.OrphanedLane{}
+		lane.SetDeviceId(deviceID)
+		lane.SetSequence(sequence)
+		orphaned = append(orphaned, lane)
 	}
-	return nil
+	return orphaned, nil
 }
 
 // GetEdge returns one edge's record.
