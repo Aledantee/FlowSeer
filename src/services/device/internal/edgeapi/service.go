@@ -142,7 +142,7 @@ func NewService(store *edgestore.Store, reg *registry.Registry, lanes LaneRecord
 func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[edgev1.HeartbeatRequest]) (*connect.Response[edgev1.HeartbeatResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 
 	now := s.clock()
@@ -173,7 +173,7 @@ func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[edgev1.Hea
 func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.AttachBusRequest]) (*connect.Response[edgev1.AttachBusResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 
 	creds, err := s.bus.MintEdgeUser(ctx, edgeID)
@@ -200,7 +200,7 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.Attac
 func (s *Service) AcquireReadCredential(ctx context.Context, req *connect.Request[edgev1.AcquireReadCredentialRequest]) (*connect.Response[edgev1.AcquireReadCredentialResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 	policy, err := s.resolveAccess(ctx, edgeID, req.Msg.GetDeviceId(), req.Msg.GetBindingId())
 	if err != nil {

@@ -42,7 +42,7 @@ const (
 func (s *Service) Report(ctx context.Context, req *connect.Request[integrationv1.ReportRequest]) (*connect.Response[integrationv1.ReportResponse], error) {
 	deviceID := req.Msg.GetDeviceId()
 	if err := s.authorizeDevice(ctx, deviceID); err != nil {
-		return nil, err
+		return nil, connectErr(err)
 	}
 	var err error
 	switch req.Msg.WhichReport() {
@@ -60,7 +60,7 @@ func (s *Service) Report(ctx context.Context, req *connect.Request[integrationv1
 		err = errs.New().Code(ErrCodeReport).Attr("device", deviceID).Msg("report carries no known arm")
 	}
 	if err != nil {
-		return nil, err
+		return nil, connectErr(err)
 	}
 	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
 }
@@ -239,15 +239,15 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 func (s *Service) authorizeDevice(ctx context.Context, deviceID string) error {
 	edgeID, err := s.cfg.EdgeID(ctx)
 	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, errs.From(err).Code(ErrCodeEdge).Msg("identify reporting edge"))
+		return errs.From(err).Code(ErrCodeEdge).Msg("identify reporting edge")
 	}
 	hosts, err := s.cfg.Resolver.Hosts(ctx, edgeID, deviceID)
 	if err != nil {
 		return errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("device", deviceID).Msg("resolve edge-device binding")
 	}
 	if !hosts {
-		return connect.NewError(connect.CodePermissionDenied,
-			errs.New().Code(ErrCodeForbidden).Attr("edge", edgeID).Attr("device", deviceID).Msg("edge does not host this device"))
+		return errs.New().Code(ErrCodeForbidden).Attr("edge", edgeID).Attr("device", deviceID).
+			Msg("edge does not host this device")
 	}
 	return nil
 }

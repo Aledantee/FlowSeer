@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -24,7 +25,9 @@ import (
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
@@ -752,5 +755,36 @@ func TestConcurrentIssueAndEnrollLeaveACoherentRecord(t *testing.T) {
 		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
 			t.Fatal("the enrolled key is not the one the enrolling caller registered")
 		}
+	}
+}
+
+// A credential file that will not parse is the sharpest case of the leak: the
+// prototext error quotes the offending line of the file, and passing the errs
+// error to connect puts that line in the response the edge reads.
+func TestAcquireReadCredentialSendsNoCredentialFileContentToTheEdge(t *testing.T) {
+	h, edgeID, _, _ := enrolledHarness(t)
+	const marker = "ssh_password_hunter2"
+	parseErr := prototext.Unmarshal([]byte(marker+`: "x"`), &credentialv1.CredentialMaterial{})
+	if parseErr == nil {
+		t.Fatal("the malformed credential parsed; the test proves nothing")
+	}
+	if !strings.Contains(parseErr.Error(), marker) {
+		t.Fatalf("the parse error names no file content (%v); the test proves nothing", parseErr)
+	}
+	h.creds.err = errs.From(parseErr).Code(credential.ErrCodeInvalidMaterial).Attr("key", "icx7150-lab-read").
+		Msg("parse credential material prototext")
+
+	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(edgev1.AcquireReadCredentialRequest_builder{
+		DeviceId:     proto.String(testDeviceID),
+		BindingId:    proto.String(testBindingID),
+		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),
+	}.Build()))
+
+	wantConnectCode(t, err, connect.CodeInternal)
+	if strings.Contains(err.Error(), marker) {
+		t.Fatalf("the edge was sent a line of the credential file: %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "credential material") {
+		t.Errorf("the edge was told what central failed to read: %q", err.Error())
 	}
 }

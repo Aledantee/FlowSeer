@@ -458,32 +458,3 @@ func decodePageToken(token string) (string, error) {
 	}
 	return string(id), nil
 }
-
-// connectErr gives a failure the Connect code its caller branches on. An
-// unmapped code is Internal, so a new failure is never quietly mistaken for a
-// request the caller can fix.
-//
-// A refused setup key and a device the edge does not host are both
-// PermissionDenied and say no more, because the caller must not learn from the
-// code which of the several ways it failed.
-func connectErr(err error) error {
-	code, ok := errs.CodeOf(err)
-	if !ok {
-		return err
-	}
-	switch code {
-	case ErrCodeRequest, ErrCodePageToken, ErrCodeKeyProof:
-		return connect.NewError(connect.CodeInvalidArgument, err)
-	case ErrCodeNotFound:
-		return connect.NewError(connect.CodeNotFound, err)
-	case ErrCodeLifecycle, ErrCodeSetupKey, ErrCodePolicy,
-		ErrCodeNotCheckpointed, ErrCodeAuthorityWithdrawn, ErrCodeGrantExpired:
-		return connect.NewError(connect.CodeFailedPrecondition, err)
-	case ErrCodeSetupKeyRefused, ErrCodeForbidden:
-		return connect.NewError(connect.CodePermissionDenied, err)
-	case edgestore.ErrCodeConflict, edgestore.ErrCodeStore, ErrCodeBus, ErrCodeAuthorityUnknown:
-		return connect.NewError(connect.CodeUnavailable, err)
-	default:
-		return connect.NewError(connect.CodeInternal, err)
-	}
-}

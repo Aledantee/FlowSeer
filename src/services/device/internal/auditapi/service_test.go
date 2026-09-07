@@ -3,6 +3,7 @@ package auditapi_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	connect "connectrpc.com/connect"
@@ -121,4 +122,21 @@ func streamMsgs(ctx context.Context, t *testing.T, hub *edgebus.Hub) uint64 {
 		t.Fatalf("stream info: %v", err)
 	}
 	return info.State.Msgs
+}
+
+// The audit stream is central's, and what refused a publish on it is central's
+// business: the edge learns to deliver again, not what the stream said.
+func TestDeliverSendsNoStreamDetailToTheEdge(t *testing.T) {
+	svc := auditapi.New(refusing{}, binding{hosts: true}, tenant)
+
+	err := deliver(t, svc, "0192e6a0-0000-7000-8000-00000000e002")
+	if err == nil {
+		t.Fatal("Deliver answered success though the stream refused the publish")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Errorf("code = %v, want unavailable", got)
+	}
+	if strings.Contains(err.Error(), "stream refused the publish") {
+		t.Errorf("the edge was sent the stream's own refusal: %q", err.Error())
+	}
 }

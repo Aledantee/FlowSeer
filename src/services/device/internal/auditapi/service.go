@@ -72,24 +72,26 @@ func (s *Service) Deliver(ctx context.Context, req *connect.Request[eventv1.Deli
 
 	edgeID, err := s.binding.EdgeID(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, errs.From(err).Code(ErrCodeEdge).Msg("identify delivering edge"))
+		return nil, connectErr(errs.From(err).Code(ErrCodeEdge).Msg("identify delivering edge"))
 	}
 	hosts, err := s.binding.Hosts(ctx, edgeID, deviceID)
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("device", deviceID).Msg("resolve edge-device binding")
+		return nil, connectErr(errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Attr("device", deviceID).
+			Msg("resolve edge-device binding"))
 	}
 	if !hosts {
-		return nil, connect.NewError(connect.CodePermissionDenied,
-			errs.New().Code(ErrCodeForbidden).Attr("edge", edgeID).Attr("device", deviceID).Msg("edge does not host this device"))
+		return nil, connectErr(errs.New().Code(ErrCodeForbidden).Attr("edge", edgeID).Attr("device", deviceID).
+			Msg("edge does not host this device"))
 	}
 
 	data, err := proto.Marshal(event)
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event")
+		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event"))
 	}
 	subject := edgebus.AuditSubject(s.tenant, deviceID)
 	if err := s.stream.Publish(ctx, subject, data, event.GetEventId()); err != nil {
-		return nil, errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Attr("event", event.GetEventId()).Msg("publish audit event")
+		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).
+			Attr("event", event.GetEventId()).Msg("publish audit event"))
 	}
 	return connect.NewResponse(&eventv1.DeliverResponse{}), nil
 }

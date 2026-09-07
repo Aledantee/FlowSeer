@@ -168,11 +168,11 @@ func consumeSetupKey(current *storev1.StoredEdge, key, edgeID string, public ed2
 func (s *Service) Rekey(ctx context.Context, req *connect.Request[edgev1.RekeyRequest]) (*connect.Response[edgev1.RekeyResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 	nonce, err := AssertionNonceFromContext(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeUnauthenticated, err)
+		return nil, unauthenticated(err)
 	}
 
 	public, err := keyProofPublicKey(req.Msg.GetProof(), func(payload *edgev1.KeyProofPayload) error {

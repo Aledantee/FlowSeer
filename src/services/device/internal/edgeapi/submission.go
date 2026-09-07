@@ -93,7 +93,7 @@ func (s *Service) OpenDeviceSubmission(ctx context.Context, req *connect.Request
 func (s *Service) openSubmission(ctx context.Context, msg *edgev1.OpenDeviceSubmissionRequest, stream submissionSender) error {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, err)
+		return unauthenticated(err)
 	}
 	deviceID := msg.GetDeviceId()
 	sequence := msg.GetSequence()

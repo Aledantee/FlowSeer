@@ -128,14 +128,14 @@ func New(cfg Config) *Service {
 func (s *Service) Subscribe(ctx context.Context, _ *connect.Request[integrationv1.SubscribeRequest], stream *connect.ServerStream[integrationv1.SubscribeResponse]) error {
 	edgeID, err := s.cfg.EdgeID(ctx)
 	if err != nil {
-		return connect.NewError(connect.CodeUnauthenticated, errs.From(err).Code(ErrCodeEdge).Msg("identify subscribing edge"))
+		return connectErr(errs.From(err).Code(ErrCodeEdge).Msg("identify subscribing edge"))
 	}
 
 	var updates <-chan jetstream.KeyValueEntry
 	if s.cfg.Watch != nil {
 		watcher, err := s.cfg.Watch.WatchAll(ctx, jetstream.IgnoreDeletes())
 		if err != nil {
-			return errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("watch lane bucket")
+			return connectErr(errs.From(err).Code(ErrCodeResolve).Attr("edge", edgeID).Msg("watch lane bucket"))
 		}
 		defer func() { _ = watcher.Stop() }()
 		updates = watcher.Updates()
@@ -146,7 +146,7 @@ func (s *Service) Subscribe(ctx context.Context, _ *connect.Request[integrationv
 
 	for {
 		if err := s.dispatchPass(ctx, edgeID, stream); err != nil {
-			return err
+			return connectErr(err)
 		}
 		select {
 		case <-ctx.Done():

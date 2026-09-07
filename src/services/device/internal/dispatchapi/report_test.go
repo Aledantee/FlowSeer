@@ -3,6 +3,7 @@ package dispatchapi
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -307,5 +308,35 @@ func TestHostsFailureIsSurfaced(t *testing.T) {
 	// A binding lookup that fails is surfaced, not read as permission granted.
 	if _, err := svc.Report(context.Background(), connect.NewRequest(req)); err == nil {
 		t.Fatal("a Hosts failure was swallowed; the report was accepted")
+	}
+}
+
+// The reporting edge is authenticated but not trusted with central's own
+// transports: a registry lookup that fails names its bus and its subject, and
+// that text must not ride back on the refusal.
+func TestReportSendsNoResolverDetailToTheReportingEdge(t *testing.T) {
+	const detail = "nats: no responders available for registry lookup"
+	j, kv := newJournalKV(t)
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true, hostsErr: errors.New(detail)},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+	})
+	ack := &integrationv1.CheckpointAck{}
+	ack.SetSequence(1)
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(deviceID)
+	req.SetCheckpointAck(ack)
+
+	_, err := svc.Report(context.Background(), connect.NewRequest(req))
+	if err == nil {
+		t.Fatal("a Hosts failure was swallowed; the report was accepted")
+	}
+	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
+		t.Errorf("code = %v, want unavailable", got)
+	}
+	if strings.Contains(err.Error(), detail) {
+		t.Errorf("the edge was sent central's transport detail: %q", err.Error())
 	}
 }
