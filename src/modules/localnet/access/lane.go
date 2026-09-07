@@ -233,7 +233,14 @@ type openMutation struct {
 	// acknowledgement path — and the channel holds exactly one buffered
 	// send, so a second would either block forever or, worse, be dropped.
 	answered sync.Once
-	// stopPoll ends this mutation's recovery poll. Nil until one starts.
+	// stopPoll ends this mutation's recovery poll, and is nil until one
+	// starts. Written and read under deviceState.stateMu, like polled: it
+	// is assigned on the goroutine that entered recovery and read by
+	// HandleTerminalAck and Close on theirs. Without that lock an
+	// acknowledgement landing in the window between the poll starting and
+	// the assignment becoming visible cancels nothing — bounded damage,
+	// since the poll notices the terminal machine on its next tick, but a
+	// real race the detector finds eventually as unexplained CI flakiness.
 	stopPoll context.CancelFunc
 	// polled says recovery has taken this mutation over, so the process
 	// call that admitted it has returned and will answer nobody. It decides
@@ -248,10 +255,14 @@ type openMutation struct {
 }
 
 // endPoll stops the recovery poll if one is running. Safe to call more than
-// once and on a mutation that never entered recovery.
-func (o *openMutation) endPoll() {
-	if o.stopPoll != nil {
-		o.stopPoll()
+// once and on a mutation that never entered recovery. The caller must not
+// hold ds.stateMu; endPoll takes it to read stopPoll.
+func (o *openMutation) endPoll(ds *deviceState) {
+	ds.stateMu.Lock()
+	stop := o.stopPoll
+	ds.stateMu.Unlock()
+	if stop != nil {
+		stop()
 	}
 }
 
@@ -336,7 +347,7 @@ func (l *Lane) Close(_ context.Context) (ShutdownReport, error) {
 		open := ds.current
 		ds.stateMu.Unlock()
 		if open != nil {
-			open.endPoll()
+			open.endPoll(ds)
 		}
 	}
 	return ShutdownReport{}, nil
@@ -901,7 +912,7 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 	polled := open.polled
 	ds.stateMu.Unlock()
 	if polled && open.machine.IsTerminal() {
-		open.endPoll()
+		open.endPoll(ds)
 		l.endMutation(ctx, ds, open, open.machine.Result(nil), nil)
 	}
 	return nil
@@ -1196,8 +1207,15 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 	ds.stateMu.Unlock()
 
 	l.startRecoveryPoll(ctx, ds, open, since, baseline)
-	_ = cause
-	return stepOutcome{}
+
+	// cause is returned with owed false: process records it on this
+	// operation's span and duration metric — why the mutation left the
+	// synchronous path, which is the question an operator asks first — and
+	// answers nobody, because the poll now owns that. It is deliberately
+	// not in the report to central, which carries the phase and the
+	// progress arm; central needs to know the mutation is recovering, and
+	// the local reason a step failed is not something it can act on.
+	return stepOutcome{err: cause}
 }
 
 // endMutation reports a mutation's outcome and answers its caller, exactly
@@ -1207,6 +1225,16 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 // goroutine forever.
 func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutation, result *integrationv1.ExecuteResult, err error) {
 	open.answered.Do(func() {
+		// A hold engaged because a mutation's effect was unknown is
+		// answered by learning what the effect was. Once this mutation
+		// verified — whether the ordinary path or a recovery poll
+		// established it — the ambiguity the hold exists for is gone, and
+		// leaving it engaged would mean every recovery that succeeds still
+		// needs an operator to unblock the device. An abandonment is the
+		// case that keeps its hold, and it engages one of its own.
+		if open.machine.Verified() {
+			ds.hold.Resolve()
+		}
 		if err != nil {
 			l.report(ctx, open.machine.Result(err))
 		} else if result != nil {
@@ -1249,7 +1277,9 @@ func (l *Lane) reportCheckpoint(ctx context.Context, ack *integrationv1.Checkpoi
 func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
 	budget := l.cfg.DelayedEffect.Horizon + l.cfg.RecoveryPollInterval
 	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
+	ds.stateMu.Lock()
 	open.stopPoll = cancel
+	ds.stateMu.Unlock()
 
 	runner := recovery.New(open.machine, l.cfg.Fenced, l.cfg.DelayedEffect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
 
@@ -1290,6 +1320,19 @@ func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation
 		l.drain(ds)
 		l.endRecoveryPoll(ctx, ds, open)
 		return true
+	}
+
+	if open.machine.Verified() {
+		// Verified and waiting on central's acknowledgement. Attempt would
+		// call Observe, which refuses from VERIFIED — a permanent refusal
+		// this loop cannot tell from a transient step failure, so it would
+		// go on reading the device every interval for the rest of the
+		// budget and treating each refusal as retryable. Nothing here is
+		// retryable: the answer is known and the acknowledgement is the
+		// only thing outstanding.
+		ds.draining.Unlock()
+		l.drain(ds)
+		return false
 	}
 
 	outcome, _, err := runner.Attempt(ctx, since, baseline)
@@ -1354,6 +1397,19 @@ func (l *Lane) retryUnderLock(ctx context.Context, open *openMutation) error {
 func (l *Lane) endRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation) {
 	m := open.machine
 	if m.IsTerminal() {
+		l.endMutation(ctx, ds, open, m.Result(nil), nil)
+		return
+	}
+
+	// VERIFIED is a resting place, not an unfinished one. A poll that
+	// established the mutation applied and then ran out of budget waiting
+	// for central's acknowledgement knows exactly what happened to the
+	// device, and answering that caller "the effect could not be
+	// established" would be the lane contradicting its own evidence — which
+	// it has already reported to central. The two facts are different and
+	// the caller needs this one: the effect is known, the acknowledgement
+	// is not.
+	if m.Phase() == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
 		l.endMutation(ctx, ds, open, m.Result(nil), nil)
 		return
 	}

@@ -71,6 +71,10 @@ type recoveringLane struct {
 	holdMu   sync.Mutex
 	holdRead chan struct{}
 	inRead   chan struct{}
+
+	// applied flips the device to showing the mutation's own description,
+	// so a later recovery poll observes it as having landed after all.
+	applied atomic.Bool
 }
 
 func newRecoveringLane(t *testing.T, horizon, interval time.Duration) *recoveringLane {
@@ -108,7 +112,9 @@ func newRecoveringLane(t *testing.T, horizon, interval time.Duration) *recoverin
 				}
 				<-gate
 			}
-			// Never the mutation's description, so nothing ever verifies.
+			if r.applied.Load() {
+				return completeObservation("uplink to core"), nil
+			}
 			return completeObservation("stale description"), nil
 		},
 		SubmitOverride: func(context.Context, *accessv1.InterfaceDescriptionChange) error {
@@ -385,5 +391,90 @@ func TestARecoveryThatDecidesNothingStillAnswersItsCaller(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("a recovery that decided nothing left its caller blocked forever")
+	}
+}
+
+// TestARecoveryThatVerifiedButWasNeverAcknowledgedSaysSo is the difference
+// between two facts the caller must not have conflated: "the effect is
+// unknown" and "the effect is known and central never acknowledged it".
+//
+// MarkVerified leaves the machine at VERIFIED, which is a real resting
+// place and not terminal — RELEASED and ABANDONED are. So a poll that
+// verifies and then runs out of budget waiting for an acknowledgement must
+// not be answered as recovery-ambiguous: the effect was established, the
+// evidence went to central, and telling the caller the opposite of what the
+// lane knows is worse than telling it nothing.
+//
+// Asserting the result carries the verified phase, not merely that no error
+// came back: "did not error" would pass for a lane that answered anything.
+func TestARecoveryThatVerifiedButWasNeverAcknowledgedSaysSo(t *testing.T) {
+	r := newRecoveringLane(t, 50*time.Millisecond, 2*time.Second)
+	done := r.submitMutation(t)
+
+	// The device now shows the change after all, so the next poll verifies.
+	r.applied.Store(true)
+	r.wait.tick(t)
+	waitForPhase(t, r.reporter, accessv1.OperationPhase_OPERATION_PHASE_VERIFIED)
+
+	// No acknowledgement ever arrives; the poll's budget is the terminator.
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("Submit() error = %v, want the verified result: the effect was established", got.err)
+		}
+		if got.result.GetPhaseReached() != accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
+			t.Errorf("PhaseReached = %v, want VERIFIED", got.result.GetPhaseReached())
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the exhausted poll never answered the caller")
+	}
+}
+
+// TestASuccessfulRecoveryReleasesTheDeviceHold covers what happens after.
+// The hold is engaged when a mutation's effect becomes unknown; once a poll
+// establishes that it applied and central acknowledges it, the ambiguity
+// the hold existed for is gone. Leaving it engaged would mean every
+// recovery that succeeds still needs an operator to unblock the device,
+// which is the opposite of what recovering means.
+func TestASuccessfulRecoveryReleasesTheDeviceHold(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+	done := r.submitMutation(t)
+
+	r.applied.Store(true)
+	r.wait.tick(t)
+	waitForPhase(t, r.reporter, accessv1.OperationPhase_OPERATION_PHASE_VERIFIED)
+
+	if err := deliverAck(t, r.lane, terminalAck(recoverySequence, accessv1.Disposition_DISPOSITION_VERIFIED)); err != nil {
+		t.Fatalf("HandleTerminalAck() error: %v", err)
+	}
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("Submit() error: %v", got.err)
+		}
+		if got.result.GetPhaseReached() != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
+			t.Errorf("PhaseReached = %v, want RELEASED", got.result.GetPhaseReached())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the acknowledgement never answered the caller")
+	}
+
+	// The next mutation must be admitted: nothing is unresolved any more.
+	r.applied.Store(false)
+	next := make(chan error, 1)
+	go func() {
+		_, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(2),
+		})
+		next <- err
+	}()
+	select {
+	case err := <-next:
+		if code, _ := errs.CodeOf(err); code == access.ErrCodeDesynchronized {
+			t.Fatal("the device is still held after a recovery that verified: a successful recovery must clear its own hold")
+		}
+	case <-time.After(2 * time.Second):
+		// Admitted and running, which is the point.
 	}
 }

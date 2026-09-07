@@ -229,6 +229,22 @@ func (m *Machine) Submitted() bool {
 	return m.submitted
 }
 
+// Verified reports whether this mutation's effect was established: the
+// observation showed the change applied, on the ordinary path or on a
+// recovery poll. It stays true once the mutation is released, which is what
+// lets a caller tell a mutation that ended knowing what happened from one
+// that ended not knowing.
+func (m *Machine) Verified() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.verifiedLocked()
+}
+
+func (m *Machine) verifiedLocked() bool {
+	return m.phase == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED ||
+		m.disposition == accessv1.Disposition_DISPOSITION_VERIFIED
+}
+
 // Canceled reports whether an accepted REJECTED acknowledgement stopped
 // this mutation before its command was sent. It stays true even when the
 // acknowledgement's own audit delivery failed part-way and the mutation is

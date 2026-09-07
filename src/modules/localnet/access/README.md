@@ -262,6 +262,19 @@ a mutation nobody is left holding is a `Submit` that never returns. Whichever
 party gets there first answers exactly once; the result channel holds one
 buffered send and a second would block its sender forever.
 
+A verified mutation is a fifth state, and the one easiest to get wrong.
+`VERIFIED` is not terminal — `RELEASED` and `ABANDONED` are — so a poll that
+established the change applied and then ran out of budget waiting for
+central's acknowledgement is *not* recovery-ambiguous. The effect is known
+and was reported; the acknowledgement is what is missing, and those are
+different facts. The caller gets the verified result.
+
+**A recovery that verified clears its own hold.** The hold exists because a
+mutation's effect was unknown; establishing that it applied is the answer to
+that question. Leaving it engaged would mean every successful recovery still
+needed an operator to unblock the device. An abandonment is the case that
+keeps a hold, and engages one of its own.
+
 An abandonment is a *result*, not an error: the caller has to report it to
 central, and central disposes the mutation from what it says. Failing the
 call instead would leave a host with something to log and nothing to send.
