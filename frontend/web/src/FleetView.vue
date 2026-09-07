@@ -307,6 +307,13 @@ onUnmounted(() => clearInterval(timer))
         <div class="topbar-start">
           <nav class="breadcrumb" aria-label="Breadcrumb">
             <strong>{{ title }}</strong>
+            <template v-if="tenants.length > 1">
+              <span class="breadcrumb-separator" aria-hidden="true">/</span>
+              <span class="breadcrumb-tenant">{{
+                tenants.find((tenant) => tenant.id === query('tenant'))?.name ||
+                'All tenants'
+              }}</span>
+            </template>
             <span
               v-if="view !== 'components'"
               class="breadcrumb-separator"

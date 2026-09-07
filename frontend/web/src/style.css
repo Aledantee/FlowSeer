@@ -385,6 +385,10 @@ html:has(.shell) {
   font-size: 12px;
   color: var(--chrome-muted);
 }
+.breadcrumb-tenant {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .breadcrumb-separator {
   margin: 0;
   color: var(--chrome-muted);
