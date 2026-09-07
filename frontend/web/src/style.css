@@ -8,40 +8,40 @@
   color: var(--text);
   background: var(--page);
   font-synthesis: none;
-  --chrome: #e4e6e8;
-  --chrome-surface: #cfdee1;
-  --chrome-hover: #d8dade;
-  --chrome-line: #c5c8ce;
-  --chrome-text: #30343a;
-  --chrome-muted: #585b60;
-  --control-border: #75797f;
-  --focus: #286f7f;
-  --connection: #657f88;
+  --chrome: #cbd1d6;
+  --chrome-surface: #b8cdd2;
+  --chrome-hover: #bac4cc;
+  --chrome-line: #929da8;
+  --chrome-text: #20262d;
+  --chrome-muted: #424b55;
+  --control-border: #596570;
+  --focus: #124d5d;
+  --connection: #4f6973;
   --coral: #ff451d;
   --on-coral: #061518;
-  --chrome-focus: #286f7f;
+  --chrome-focus: #124d5d;
   --cyan: #5ecad8;
-  --muted: #585b60;
-  --line: #c5c8ce;
+  --muted: #424b55;
+  --line: #929da8;
   color-scheme: light;
-  --text: #30343a;
-  --page: #d8dade;
-  --surface: #e9eaec;
-  --panel-surface: #e1e5e8;
-  --surface-subtle: #e4e6e8;
-  --surface-hover: #d8dade;
-  --accent-text: #176575;
-  --accent-orange-text: #b33116;
-  --healthy-surface: #e5efe9;
-  --healthy-text: #226843;
-  --warning-surface: #faf0cf;
-  --warning-border: #c5a94c;
-  --warning-text: #82601f;
-  --offline-surface: #f2e5e8;
-  --offline-text: #993b46;
-  --offline-border: #caa2ad;
-  --info-surface: #e3eef0;
-  --info-border: #9cbdc5;
+  --text: #20262d;
+  --page: #bec3ca;
+  --surface: #dce0e4;
+  --panel-surface: #cdd3d9;
+  --surface-subtle: #d4d9de;
+  --surface-hover: #c1cbd3;
+  --accent-text: #125263;
+  --accent-orange-text: #8e2c16;
+  --healthy-surface: #c9ddd0;
+  --healthy-text: #1e5135;
+  --warning-surface: #e8d9a7;
+  --warning-border: #8d753a;
+  --warning-text: #60450f;
+  --offline-surface: #e3c9cf;
+  --offline-text: #792e3b;
+  --offline-border: #95616e;
+  --info-surface: #c7dbe0;
+  --info-border: #5b747d;
 }
 :root[data-theme='dark'] {
   --chrome: #191b1e;
@@ -506,12 +506,11 @@ main {
   color: var(--healthy-text);
 }
 .sparkline {
-  color: #319aac;
+  color: var(--accent-text);
   letter-spacing: 1px;
   font-size: 20px;
   margin-left: auto;
   line-height: 1;
-  opacity: 0.8;
 }
 .attention {
   display: flex;
