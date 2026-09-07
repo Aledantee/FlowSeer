@@ -1,0 +1,155 @@
+edition = "2024";
+
+// The device service's own deployment configuration, read from an
+// operator-written prototext file at start. Storage, not a boundary, and not
+// an entity: no triad, no ref pair.
+package flowseer.store.device.v1;
+
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+// Everything the device service host needs to assemble itself: where its
+// state lives, what it listens on, what an edge is told, and the intervals
+// its background work runs at.
+//
+// A deployment writes one of these. Every duration may be left unset, and
+// each says what the host does then, so a working file is short.
+message DeviceServiceConfig {
+  // The directory the service owns: the hub's JetStream store, the keys it
+  // mints accounts with, and the certificate it serves. Must be present and
+  // absolute, because the service resolves nothing against its working
+  // directory.
+  string state_dir = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // The prototext DeviceRegistry file. Must be present; the service serves no
+  // device it does not find there.
+  string registry_path = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // The directory the credential files are mounted under, one file per
+  // credential version. Must be present and absolute.
+  string credential_root = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+
+  // Must be present.
+  ServiceListeners listeners = 4 [(buf.validate.field).required = true];
+  // Must be present.
+  EdgeProvisioning edges = 5 [(buf.validate.field).required = true];
+  // Where telemetry goes. Unset exports none and forwards none, which is a
+  // deployment choosing to run without a collector rather than a mistake.
+  ServiceTelemetry telemetry = 6;
+  // Intervals for the background work. Unset takes every default.
+  ServiceIntervals intervals = 7;
+}
+
+// The two addresses the service binds: one for the APIs, one for the leaf
+// nodes its edges attach with.
+message ServiceListeners {
+  option (buf.validate.message).cel = {
+    id: "service_listeners.key_accompanies_certificate"
+    message: "a certificate and its private key are named together"
+    expression: "has(this.certificate_file) == has(this.private_key_file)"
+  };
+
+  // host:port for the Connect APIs. Must be present. A host of 0.0.0.0 or ::
+  // binds every interface; a port of 0 asks the kernel for one, which is for
+  // tests rather than a deployment.
+  string api = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // host:port for the bus's WebSocket listener. Must be present. It serves
+  // the same certificate the API does, so an edge pins one digest for both.
+  string bus = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 3,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // The certificate and private key to serve, in PEM. Unset means the service
+  // generates a self-signed pair into state_dir on first start and reuses it
+  // afterwards, printing the digest an edge pins once. A deployment with its
+  // own chain names it here instead.
+  string certificate_file = 3 [(buf.validate.field).string.max_len = 4096];
+  // The private key for certificate_file. Present exactly when it is.
+  string private_key_file = 4 [(buf.validate.field).string.max_len = 4096];
+}
+
+// What an edge is told when it enrolls, and what it must prove to be heard.
+message EdgeProvisioning {
+  // The base URL an edge dials this deployment at. Must be present.
+  string central_url = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The value an edge puts in every assertion and this service checks. Must
+  // be present: an assertion with nothing to be addressed to is replayable at
+  // any other deployment that trusts the same key.
+  string assertion_audience = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // The endpoints an edge's leaf node dials, in preference order. At least
+  // one is required. They point at the bus listener above, which may be a
+  // different name from central_url when a load balancer fronts one and not
+  // the other.
+  repeated string cluster_urls = 3 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 8,
+    (buf.validate.field).repeated.items.string.uri = true
+  ];
+  // How much clock difference an assertion may carry. Unset means one minute.
+  google.protobuf.Duration assertion_clock_skew = 4 [(buf.validate.field).duration.gte = {seconds: 0}];
+}
+
+// Where the service's own telemetry and its edges' forwarded telemetry go.
+message ServiceTelemetry {
+  // The OTLP collector's base URL. The signal paths are appended, so this is
+  // one endpoint for logs, metrics and traces. Must be present.
+  string endpoint = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Headers sent with every export, an authorization header for example.
+  // Values are secret; they belong in this file only where the file itself is
+  // a secret.
+  map<string, string> headers = 2 [(buf.validate.field).map.max_pairs = 16];
+}
+
+// How often the background work runs. Every field is optional and names its
+// own default, because a deployment that cares about none of them writes none
+// of them.
+message ServiceIntervals {
+  // How long between drift passes over every device. Unset means five
+  // minutes. Each managed interface costs two record writes per pass, so a
+  // deployment with many of them lengthens this.
+  google.protobuf.Duration drift = 1 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How long one drift read may stay open before it is closed as failed.
+  // Unset means the drift interval, so a read has until the next pass.
+  google.protobuf.Duration drift_read_deadline = 2 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // One backoff step: how often an open dispatch stream re-sends a row that
+  // is still owed. Unset means two seconds.
+  google.protobuf.Duration dispatch_resend = 3 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How often expired reads are swept and closed. Unset means thirty
+  // seconds. It is separate from dispatch_resend because listing every key is
+  // far more work than enforcing deadlines needs.
+  google.protobuf.Duration read_sweep = 4 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How often an open submission stream restates the edge's authority. Unset
+  // means the service default.
+  google.protobuf.Duration submission_pulse = 5 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How long after its last heartbeat an edge is reported stale, and how long
+  // until it is reported dormant. Unset means three minutes and one hour.
+  google.protobuf.Duration edge_stale_after = 6 [(buf.validate.field).duration.gte = {seconds: 1}];
+  google.protobuf.Duration edge_dormant_after = 7 [(buf.validate.field).duration.gte = {seconds: 1}];
+}

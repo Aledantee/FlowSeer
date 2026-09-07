@@ -757,10 +757,11 @@ func (b0 RetireEdgeRequest_builder) Build() *RetireEdgeRequest {
 }
 
 type RetireEdgeResponse struct {
-	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Edge *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Edge     *EdgeRecord            `protobuf:"bytes,1,opt,name=edge"`
+	xxx_hidden_Orphaned *[]*OrphanedLane       `protobuf:"bytes,2,rep,name=orphaned"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *RetireEdgeResponse) Reset() {
@@ -795,8 +796,21 @@ func (x *RetireEdgeResponse) GetEdge() *EdgeRecord {
 	return nil
 }
 
+func (x *RetireEdgeResponse) GetOrphaned() []*OrphanedLane {
+	if x != nil {
+		if x.xxx_hidden_Orphaned != nil {
+			return *x.xxx_hidden_Orphaned
+		}
+	}
+	return nil
+}
+
 func (x *RetireEdgeResponse) SetEdge(v *EdgeRecord) {
 	x.xxx_hidden_Edge = v
+}
+
+func (x *RetireEdgeResponse) SetOrphaned(v []*OrphanedLane) {
+	x.xxx_hidden_Orphaned = &v
 }
 
 func (x *RetireEdgeResponse) HasEdge() bool {
@@ -815,6 +829,13 @@ type RetireEdgeResponse_builder struct {
 
 	// The edge after retirement. Must be present.
 	Edge *EdgeRecord
+	// The lanes the retirement orphaned, in device-id order. Retirement ends no
+	// mutation, so each of these is work only an operator can end, through
+	// DeviceService.AbandonMutation with the device and the sequence named
+	// here. DeviceService.ListEdgeOpenMutations answers the same question with
+	// the phase each mutation stopped at and its whole recorded state. Empty
+	// means the edge held none.
+	Orphaned []*OrphanedLane
 }
 
 func (b0 RetireEdgeResponse_builder) Build() *RetireEdgeResponse {
@@ -822,6 +843,121 @@ func (b0 RetireEdgeResponse_builder) Build() *RetireEdgeResponse {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Edge = b.Edge
+	x.xxx_hidden_Orphaned = &b.Orphaned
+	return m0
+}
+
+// One mutation left open on a device the retired edge hosted.
+type OrphanedLane struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_DeviceId    *string                `protobuf:"bytes,1,opt,name=device_id,json=deviceId"`
+	xxx_hidden_Sequence    uint64                 `protobuf:"varint,2,opt,name=sequence"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *OrphanedLane) Reset() {
+	*x = OrphanedLane{}
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OrphanedLane) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrphanedLane) ProtoMessage() {}
+
+func (x *OrphanedLane) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *OrphanedLane) GetDeviceId() string {
+	if x != nil {
+		if x.xxx_hidden_DeviceId != nil {
+			return *x.xxx_hidden_DeviceId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OrphanedLane) GetSequence() uint64 {
+	if x != nil {
+		return x.xxx_hidden_Sequence
+	}
+	return 0
+}
+
+func (x *OrphanedLane) SetDeviceId(v string) {
+	x.xxx_hidden_DeviceId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *OrphanedLane) SetSequence(v uint64) {
+	x.xxx_hidden_Sequence = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *OrphanedLane) HasDeviceId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *OrphanedLane) HasSequence() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *OrphanedLane) ClearDeviceId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_DeviceId = nil
+}
+
+func (x *OrphanedLane) ClearSequence() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Sequence = 0
+}
+
+type OrphanedLane_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The device, as DeviceLocalRef.id spells it. This API does not depend on
+	// the device API — the dependency runs the other way, since a device
+	// reference names the edge responsible for it — so the device is named here
+	// by identifier rather than by reference. Must be present.
+	DeviceId *string
+	// The sequence AbandonMutation takes. Must be present and at least 1.
+	Sequence *uint64
+}
+
+func (b0 OrphanedLane_builder) Build() *OrphanedLane {
+	m0 := &OrphanedLane{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.DeviceId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_DeviceId = b.DeviceId
+	}
+	if b.Sequence != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Sequence = *b.Sequence
+	}
 	return m0
 }
 
@@ -834,7 +970,7 @@ type GetEdgeRequest struct {
 
 func (x *GetEdgeRequest) Reset() {
 	*x = GetEdgeRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -846,7 +982,7 @@ func (x *GetEdgeRequest) String() string {
 func (*GetEdgeRequest) ProtoMessage() {}
 
 func (x *GetEdgeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[9]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -903,7 +1039,7 @@ type GetEdgeResponse struct {
 
 func (x *GetEdgeResponse) Reset() {
 	*x = GetEdgeResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -915,7 +1051,7 @@ func (x *GetEdgeResponse) String() string {
 func (*GetEdgeResponse) ProtoMessage() {}
 
 func (x *GetEdgeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[10]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1111,7 @@ type ListEdgesRequest struct {
 
 func (x *ListEdgesRequest) Reset() {
 	*x = ListEdgesRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -987,7 +1123,7 @@ func (x *ListEdgesRequest) String() string {
 func (*ListEdgesRequest) ProtoMessage() {}
 
 func (x *ListEdgesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[11]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1085,7 +1221,7 @@ type ListEdgesResponse struct {
 
 func (x *ListEdgesResponse) Reset() {
 	*x = ListEdgesResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1097,7 +1233,7 @@ func (x *ListEdgesResponse) String() string {
 func (*ListEdgesResponse) ProtoMessage() {}
 
 func (x *ListEdgesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[12]
+	mi := &file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1200,9 +1336,14 @@ const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\x16RevokeSetupKeyResponse\x12<\n" +
 	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"T\n" +
 	"\x11RetireEdgeRequest\x12?\n" +
-	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"R\n" +
+	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\x9d\x01\n" +
 	"\x12RetireEdgeResponse\x12<\n" +
-	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"Q\n" +
+	"\x04edge\x18\x01 \x01(\v2 .flowseer.api.edge.v1.EdgeRecordB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12I\n" +
+	"\borphaned\x18\x02 \x03(\v2\".flowseer.api.edge.v1.OrphanedLaneB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\borphaned\"`\n" +
+	"\fOrphanedLane\x12(\n" +
+	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12&\n" +
+	"\bsequence\x18\x02 \x01(\x04B\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"Q\n" +
 	"\x0eGetEdgeRequest\x12?\n" +
 	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"O\n" +
 	"\x0fGetEdgeResponse\x12<\n" +
@@ -1228,7 +1369,7 @@ const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponseB\xec\x01\n" +
 	"\x18com.flowseer.api.edge.v1B\x15EdgeAdminServiceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_flowseer_api_edge_v1_edge_admin_service_proto_goTypes = []any{
 	(*EdgeRecord)(nil),             // 0: flowseer.api.edge.v1.EdgeRecord
 	(*CreateEdgeRequest)(nil),      // 1: flowseer.api.edge.v1.CreateEdgeRequest
@@ -1239,50 +1380,52 @@ var file_flowseer_api_edge_v1_edge_admin_service_proto_goTypes = []any{
 	(*RevokeSetupKeyResponse)(nil), // 6: flowseer.api.edge.v1.RevokeSetupKeyResponse
 	(*RetireEdgeRequest)(nil),      // 7: flowseer.api.edge.v1.RetireEdgeRequest
 	(*RetireEdgeResponse)(nil),     // 8: flowseer.api.edge.v1.RetireEdgeResponse
-	(*GetEdgeRequest)(nil),         // 9: flowseer.api.edge.v1.GetEdgeRequest
-	(*GetEdgeResponse)(nil),        // 10: flowseer.api.edge.v1.GetEdgeResponse
-	(*ListEdgesRequest)(nil),       // 11: flowseer.api.edge.v1.ListEdgesRequest
-	(*ListEdgesResponse)(nil),      // 12: flowseer.api.edge.v1.ListEdgesResponse
-	(*EdgeConfig)(nil),             // 13: flowseer.api.edge.v1.EdgeConfig
-	(*EdgeState)(nil),              // 14: flowseer.api.edge.v1.EdgeState
-	(*timestamppb.Timestamp)(nil),  // 15: google.protobuf.Timestamp
-	(*EdgeProvisioning)(nil),       // 16: flowseer.api.edge.v1.EdgeProvisioning
-	(*EdgeGlobalRef)(nil),          // 17: flowseer.api.edge.v1.EdgeGlobalRef
+	(*OrphanedLane)(nil),           // 9: flowseer.api.edge.v1.OrphanedLane
+	(*GetEdgeRequest)(nil),         // 10: flowseer.api.edge.v1.GetEdgeRequest
+	(*GetEdgeResponse)(nil),        // 11: flowseer.api.edge.v1.GetEdgeResponse
+	(*ListEdgesRequest)(nil),       // 12: flowseer.api.edge.v1.ListEdgesRequest
+	(*ListEdgesResponse)(nil),      // 13: flowseer.api.edge.v1.ListEdgesResponse
+	(*EdgeConfig)(nil),             // 14: flowseer.api.edge.v1.EdgeConfig
+	(*EdgeState)(nil),              // 15: flowseer.api.edge.v1.EdgeState
+	(*timestamppb.Timestamp)(nil),  // 16: google.protobuf.Timestamp
+	(*EdgeProvisioning)(nil),       // 17: flowseer.api.edge.v1.EdgeProvisioning
+	(*EdgeGlobalRef)(nil),          // 18: flowseer.api.edge.v1.EdgeGlobalRef
 }
 var file_flowseer_api_edge_v1_edge_admin_service_proto_depIdxs = []int32{
-	13, // 0: flowseer.api.edge.v1.EdgeRecord.config:type_name -> flowseer.api.edge.v1.EdgeConfig
-	14, // 1: flowseer.api.edge.v1.EdgeRecord.state:type_name -> flowseer.api.edge.v1.EdgeState
-	15, // 2: flowseer.api.edge.v1.CreateEdgeRequest.setup_key_expires_at:type_name -> google.protobuf.Timestamp
+	14, // 0: flowseer.api.edge.v1.EdgeRecord.config:type_name -> flowseer.api.edge.v1.EdgeConfig
+	15, // 1: flowseer.api.edge.v1.EdgeRecord.state:type_name -> flowseer.api.edge.v1.EdgeState
+	16, // 2: flowseer.api.edge.v1.CreateEdgeRequest.setup_key_expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 3: flowseer.api.edge.v1.CreateEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	16, // 4: flowseer.api.edge.v1.CreateEdgeResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
-	17, // 5: flowseer.api.edge.v1.IssueSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	15, // 6: flowseer.api.edge.v1.IssueSetupKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	17, // 4: flowseer.api.edge.v1.CreateEdgeResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
+	18, // 5: flowseer.api.edge.v1.IssueSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	16, // 6: flowseer.api.edge.v1.IssueSetupKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
 	0,  // 7: flowseer.api.edge.v1.IssueSetupKeyResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	16, // 8: flowseer.api.edge.v1.IssueSetupKeyResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
-	17, // 9: flowseer.api.edge.v1.RevokeSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	17, // 8: flowseer.api.edge.v1.IssueSetupKeyResponse.provisioning:type_name -> flowseer.api.edge.v1.EdgeProvisioning
+	18, // 9: flowseer.api.edge.v1.RevokeSetupKeyRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
 	0,  // 10: flowseer.api.edge.v1.RevokeSetupKeyResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	17, // 11: flowseer.api.edge.v1.RetireEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	18, // 11: flowseer.api.edge.v1.RetireEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
 	0,  // 12: flowseer.api.edge.v1.RetireEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	17, // 13: flowseer.api.edge.v1.GetEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	0,  // 14: flowseer.api.edge.v1.GetEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
-	0,  // 15: flowseer.api.edge.v1.ListEdgesResponse.edges:type_name -> flowseer.api.edge.v1.EdgeRecord
-	1,  // 16: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:input_type -> flowseer.api.edge.v1.CreateEdgeRequest
-	3,  // 17: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:input_type -> flowseer.api.edge.v1.IssueSetupKeyRequest
-	5,  // 18: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:input_type -> flowseer.api.edge.v1.RevokeSetupKeyRequest
-	7,  // 19: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:input_type -> flowseer.api.edge.v1.RetireEdgeRequest
-	9,  // 20: flowseer.api.edge.v1.EdgeAdminService.GetEdge:input_type -> flowseer.api.edge.v1.GetEdgeRequest
-	11, // 21: flowseer.api.edge.v1.EdgeAdminService.ListEdges:input_type -> flowseer.api.edge.v1.ListEdgesRequest
-	2,  // 22: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:output_type -> flowseer.api.edge.v1.CreateEdgeResponse
-	4,  // 23: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:output_type -> flowseer.api.edge.v1.IssueSetupKeyResponse
-	6,  // 24: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:output_type -> flowseer.api.edge.v1.RevokeSetupKeyResponse
-	8,  // 25: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:output_type -> flowseer.api.edge.v1.RetireEdgeResponse
-	10, // 26: flowseer.api.edge.v1.EdgeAdminService.GetEdge:output_type -> flowseer.api.edge.v1.GetEdgeResponse
-	12, // 27: flowseer.api.edge.v1.EdgeAdminService.ListEdges:output_type -> flowseer.api.edge.v1.ListEdgesResponse
-	22, // [22:28] is the sub-list for method output_type
-	16, // [16:22] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	9,  // 13: flowseer.api.edge.v1.RetireEdgeResponse.orphaned:type_name -> flowseer.api.edge.v1.OrphanedLane
+	18, // 14: flowseer.api.edge.v1.GetEdgeRequest.edge:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	0,  // 15: flowseer.api.edge.v1.GetEdgeResponse.edge:type_name -> flowseer.api.edge.v1.EdgeRecord
+	0,  // 16: flowseer.api.edge.v1.ListEdgesResponse.edges:type_name -> flowseer.api.edge.v1.EdgeRecord
+	1,  // 17: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:input_type -> flowseer.api.edge.v1.CreateEdgeRequest
+	3,  // 18: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:input_type -> flowseer.api.edge.v1.IssueSetupKeyRequest
+	5,  // 19: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:input_type -> flowseer.api.edge.v1.RevokeSetupKeyRequest
+	7,  // 20: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:input_type -> flowseer.api.edge.v1.RetireEdgeRequest
+	10, // 21: flowseer.api.edge.v1.EdgeAdminService.GetEdge:input_type -> flowseer.api.edge.v1.GetEdgeRequest
+	12, // 22: flowseer.api.edge.v1.EdgeAdminService.ListEdges:input_type -> flowseer.api.edge.v1.ListEdgesRequest
+	2,  // 23: flowseer.api.edge.v1.EdgeAdminService.CreateEdge:output_type -> flowseer.api.edge.v1.CreateEdgeResponse
+	4,  // 24: flowseer.api.edge.v1.EdgeAdminService.IssueSetupKey:output_type -> flowseer.api.edge.v1.IssueSetupKeyResponse
+	6,  // 25: flowseer.api.edge.v1.EdgeAdminService.RevokeSetupKey:output_type -> flowseer.api.edge.v1.RevokeSetupKeyResponse
+	8,  // 26: flowseer.api.edge.v1.EdgeAdminService.RetireEdge:output_type -> flowseer.api.edge.v1.RetireEdgeResponse
+	11, // 27: flowseer.api.edge.v1.EdgeAdminService.GetEdge:output_type -> flowseer.api.edge.v1.GetEdgeResponse
+	13, // 28: flowseer.api.edge.v1.EdgeAdminService.ListEdges:output_type -> flowseer.api.edge.v1.ListEdgesResponse
+	23, // [23:29] is the sub-list for method output_type
+	17, // [17:23] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_edge_v1_edge_admin_service_proto_init() }
@@ -1298,7 +1441,7 @@ func file_flowseer_api_edge_v1_edge_admin_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc), len(file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

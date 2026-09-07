@@ -66,8 +66,10 @@ var importOrder = map[string][]string{
 
 	"event/device": {"api/inventory", "device/access", "errs"},
 
-	// The device service's own storage: written and read by one process,
-	// above every boundary it embeds and imported by none.
+	// The device service's own files: the records it writes to its stores and
+	// the operator-written prototext it reads at start. One process owns both,
+	// so this root sits above every boundary it embeds and is imported by
+	// none.
 	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 }
 

@@ -143,6 +143,18 @@ lifecycle and binding reachability do not.
 | `PENDING` | `RETIRED` | `RetireEdge` on an edge that never enrolled |
 | `RETIRED` | `PENDING` | `IssueSetupKey` on a retired edge |
 
+Retiring an edge ends its standing and withdraws any outstanding setup key.
+It ends no device work: a mutation the edge was carrying stays open on its
+lane record, because abandoning live work across a fleet destroys something
+no operator asked to lose and hides a device that may carry a half-applied
+change. So `RetireEdgeResponse` names what it orphaned — the device and the
+sequence for each open mutation — and the operator ends each one through
+`DeviceService.AbandonMutation`. `DeviceService.ListEdgeOpenMutations` answers
+the same question afterwards, with the phase each mutation stopped at. What
+retirement does resolve is the pending hold resolutions those devices owed
+the edge: a hold is an instruction to an edge to clear its own, and a retired
+edge will never take it.
+
 An enrolled edge that lost its private key cannot rekey, because rekey is
 signed by the key it lost. The path is `RetireEdge`, `IssueSetupKey`, a new
 provisioning file, and a fresh `Enroll`; the edge keeps its id and history.

@@ -1,13 +1,14 @@
 # Device service storage
 
-The `flowseer.store.device.v1` package holds what the device service writes
-to its own stores: the lane record per device in the `device-lanes`
-key-value bucket, the edge record in the `edges` bucket, and the registry it
-reads from an operator-written prototext file. Nothing outside the service
-reads these messages. They live under `spec/proto` because every message
-FlowSeer persists needs a schema someone can read in five years, and they
-sit under their own `store` root so the layering table can say they import
-boundary packages and are imported by none.
+The `flowseer.store.device.v1` package holds the device service's own files:
+the records it writes and the operator-written prototext it reads. The lane
+record per device lives in the `device-lanes` key-value bucket and the edge
+record in the `edges` bucket; the registry and the service's deployment
+configuration are files an operator writes and the service reads at start.
+Nothing outside the service reads any of them. They live under `spec/proto`
+because every message FlowSeer persists or parses needs a schema someone can
+read in five years, and they sit under their own `store` root so the layering
+table can say they import boundary packages and are imported by none.
 
 ## The lane record
 
@@ -59,11 +60,43 @@ validated before anything else runs. A policy names credential versions and
 a host-key pin; the credential material itself lives in the mounted files
 `flowseer.device.credential.v1` describes, never here.
 
+## The service configuration
+
+`DeviceServiceConfig` is what one deployment of the service is: the directory
+it owns, the files it reads, the two addresses it binds, what an edge is told
+when it enrolls, and where telemetry goes. Every interval is optional and
+documents the default it falls back to, so a working file is short:
+
+```prototext
+state_dir: "/var/lib/flowseer/device"
+registry_path: "/etc/flowseer/registry.textproto"
+credential_root: "/etc/flowseer/credentials"
+listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+}
+edges {
+  central_url: "https://central.example.test"
+  assertion_audience: "flowseer-device-central"
+  cluster_urls: "wss://central.example.test:8444"
+}
+telemetry { endpoint: "https://collector.example.test" }
+```
+
+That file names no certificate, so the service generates a self-signed pair
+into `state_dir` on first start and prints the digest an edge pins. A
+deployment with its own chain names `certificate_file` and `private_key_file`
+instead, and the two are named together or not at all.
+
 ## What is deliberately absent
 
 - A triad or a ref pair for any message here. A record is written and read
-  by one service; nothing observes or configures it.
-- Secrets. The registry names credential versions; the lane record holds
-  observations and expectations.
+  by one service, and its configuration is read by the one process it
+  configures; nothing observes or configures either from outside.
+- Secrets, with one named exception. The registry names credential versions
+  and the lane record holds observations and expectations; the only field
+  here that can carry one is `ServiceTelemetry.headers`, which says so, and a
+  deployment that puts a token there is choosing to treat the configuration
+  file as a secret.
 - A tenant. Scope is ambient, and the bucket a record lives in is per
   deployment.
