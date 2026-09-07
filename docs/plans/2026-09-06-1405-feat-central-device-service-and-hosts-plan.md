@@ -856,10 +856,21 @@ pin printed once; no local bus is declared.
 The host's logging interceptor must unwrap the errors the handlers return,
 not format them. U6 made a handler's error render its client-facing
 sentence from `Error()`, so `%v` or `%s` on one logs the sanitized text and
-silently drops the cause chain; the chain is still there, reachable through
-`errors.Is`, `errs.CodeOf`, and the error's `LogValue`. A logging line that
+silently drops the cause chain. So does `errs.From(err).Msg(...)`, which was
+this brief's first suggestion and is wrong for the same reason: it recovers
+the code and the merged attributes but renders its own message through the
+client-facing wrapper, whose `Error()` is the sanitized sentence and stops
+there. What works is `errors.As` to the `*errs.Error` in the chain, logged as
+a value so its `LogValue` renders the whole tree. A logging line that
 looks right and records nothing useful is found during an incident, not
 before one.
+
+Beside it, a validating interceptor. The handlers rely on the request-level
+schema rules and none of them re-states one, which is the right division and
+holds only if something enforces them; nothing did. An intent with no
+idempotency key reached the journal and spent one of the sixty-four
+remembered slots on an empty string the schema says must be a uuid, and an
+intent with no change arm was admitted with nothing to apply.
 U7 also owes the drift telemetry event, which U6 deliberately did not build.
 The audit half is done — `centralaudit.DriftDetected` writes the durable
 record — and the telemetry half waits here because the meter and the tracer
@@ -884,7 +895,9 @@ U7 there is no drift telemetry anywhere. What it needs:
 
 Tests: config validation; a start-and-serve smoke test; the interceptor
 records the internal cause of a failure whose client sentence names none of
-it; a detection emits the event once, with the descriptions off the metric.
+it, through a real Connect round trip; an unvalidated request never reaches
+its handler; a detection emits the event once, with the descriptions off the
+metric.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/**')`
 
 U6 is complete. What follows is for whoever takes U7.
