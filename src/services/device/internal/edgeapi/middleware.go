@@ -10,6 +10,11 @@
 // binding dissolved. On success it puts the verified edge id in the request
 // context, where the report and audit handlers read it to bind the call to the
 // device it names.
+//
+// The package also holds [AdminService], the operator's side of an edge's life.
+// It authenticates no edge and is served behind the operator authorization
+// instead of the middleware, but it writes the same records: the setup key an
+// edge enrolls with is minted, stored as a digest, and withdrawn here.
 package edgeapi
 
 import (

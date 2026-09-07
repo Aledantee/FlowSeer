@@ -78,6 +78,20 @@ func (s *Store) Lookup(ctx context.Context, edgeID string) (ed25519.PublicKey, e
 	return ed25519.PublicKey(state.GetPublicKey()), state.GetLifecycle(), nil
 }
 
+// Keys returns every stored edge id in ascending order. An empty bucket
+// returns no keys and no error, so a listing over a deployment with no edges
+// is an empty page rather than a failure.
+func (s *Store) Keys(ctx context.Context) ([]string, error) {
+	keys, err := s.kv.Keys(ctx)
+	if errors.Is(err, jetstream.ErrNoKeysFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStore).Msg("list edge records")
+	}
+	return keys, nil
+}
+
 // Mutate runs fn against the edge's record under compare-and-set, retrying on
 // a revision conflict. fn receives the current record, or nil when the edge
 // has none, and returns the record to store. Returning ErrSkip stores nothing.

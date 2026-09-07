@@ -35,10 +35,10 @@ func keypair(t *testing.T) (ed25519.PrivateKey, ed25519.PublicKey) {
 	return private, public
 }
 
-// signedHeader builds a valid assertion for procedure and body, signs it, and
+// signedHeader builds a valid assertion for testPath and body, signs it, and
 // renders the Authorization header. issued_at is real-now so the clock window
 // passes against the verifier's wall clock.
-func signedHeader(t *testing.T, private ed25519.PrivateKey, procedure string, body []byte) string {
+func signedHeader(t *testing.T, private ed25519.PrivateKey, body []byte) string {
 	t.Helper()
 	nonce := make([]byte, 16)
 	for i := range nonce {
@@ -52,7 +52,7 @@ func signedHeader(t *testing.T, private ed25519.PrivateKey, procedure string, bo
 		IssuedAt:   timestamppb.New(now),
 		ExpiresAt:  timestamppb.New(now.Add(30 * time.Second)),
 		Nonce:      nonce,
-		Procedure:  proto.String(procedure),
+		Procedure:  proto.String(testPath),
 		BodySha256: sum[:],
 	}.Build()
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(a)
@@ -67,9 +67,11 @@ func signedHeader(t *testing.T, private ed25519.PrivateKey, procedure string, bo
 	return edge.HeaderScheme + " " + base64.RawStdEncoding.EncodeToString(wire)
 }
 
-func lookup(public ed25519.PublicKey, lifecycle edgev1.EdgeLifecycle, err error) edge.KeyLookup {
+// lookup answers as the edge store does for an enrolled edge, or fails the
+// lookup when err is set.
+func lookup(public ed25519.PublicKey, err error) edge.KeyLookup {
 	return func(context.Context, string) (ed25519.PublicKey, edgev1.EdgeLifecycle, error) {
-		return public, lifecycle, err
+		return public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED, err
 	}
 }
 
@@ -98,9 +100,9 @@ func TestMiddlewarePassesAValidAssertionAndCarriesTheEdgeID(t *testing.T) {
 	private, public := keypair(t)
 	body := []byte("request-body")
 	req := httptest.NewRequest(http.MethodPost, testPath, strings.NewReader(string(body)))
-	req.Header.Set("Authorization", signedHeader(t, private, testPath, body))
+	req.Header.Set("Authorization", signedHeader(t, private, body))
 
-	spy, code := serve(t, lookup(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED, nil), req)
+	spy, code := serve(t, lookup(public, nil), req)
 	if code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", code)
 	}
@@ -116,9 +118,9 @@ func TestMiddlewareRefusesABadAssertionWithoutRunningTheHandler(t *testing.T) {
 	private, public := keypair(t)
 	req := httptest.NewRequest(http.MethodPost, testPath, strings.NewReader("body"))
 	// A header signed over a different body than the request carries.
-	req.Header.Set("Authorization", signedHeader(t, private, testPath, []byte("other-body")))
+	req.Header.Set("Authorization", signedHeader(t, private, []byte("other-body")))
 
-	spy, code := serve(t, lookup(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED, nil), req)
+	spy, code := serve(t, lookup(public, nil), req)
 	if code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", code)
 	}
@@ -131,10 +133,10 @@ func TestMiddlewareRefusesACompressedRequest(t *testing.T) {
 	private, public := keypair(t)
 	body := []byte("body")
 	req := httptest.NewRequest(http.MethodPost, testPath, strings.NewReader(string(body)))
-	req.Header.Set("Authorization", signedHeader(t, private, testPath, body))
+	req.Header.Set("Authorization", signedHeader(t, private, body))
 	req.Header.Set("Content-Encoding", "gzip")
 
-	spy, code := serve(t, lookup(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED, nil), req)
+	spy, code := serve(t, lookup(public, nil), req)
 	if code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", code)
 	}
@@ -147,11 +149,11 @@ func TestMiddlewareRefusesWhenTheLookupCannotAnswer(t *testing.T) {
 	private, public := keypair(t)
 	body := []byte("body")
 	req := httptest.NewRequest(http.MethodPost, testPath, strings.NewReader(string(body)))
-	req.Header.Set("Authorization", signedHeader(t, private, testPath, body))
+	req.Header.Set("Authorization", signedHeader(t, private, body))
 
 	// A could-not-tell lookup failure must refuse the call, retryably, not
 	// let it proceed.
-	spy, code := serve(t, lookup(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED, errors.New("bucket unreachable")), req)
+	spy, code := serve(t, lookup(public, errors.New("bucket unreachable")), req)
 	if code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", code)
 	}
