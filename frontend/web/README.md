@@ -25,21 +25,20 @@ and a keyboard-accessible details dialog. Sites opens the inventory for a locati
 Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
-desktop. Tenant icons occupy a fixed slot beside the name; missing or
-failed images use a building icon. The collapsed rail centers the icon and keeps
-the full tenant name in its accessible label and tooltip. Its width is 64px.
-On small screens, the arrow sits beside the tenant selector and hides or reveals
-the navigation links above the content; tenant context stays visible.
+desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
+On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
+the navigation links above the content.
 
 The sidebar, curved tab, and rounded inner corner share the top bar’s diagonal
 ribbons and fine highlights, forming one continuous navigation frame.
 The top bar blurs content scrolling beneath it. Both themes retain a tinted base
 so controls remain readable when backdrop blur is unavailable.
 
-The FlowSeer icon and name sit at the top right, next to theme and help controls.
-The tenant name stays inline at the top of the sidebar. Multiple available tenants
-use a themed popover with arrow-key navigation, type-ahead, and outside-click dismissal; one available tenant renders plain text with no selector.
-The available list is supplied to `TenantSwitcher` independently of site filtering.
+The FlowSeer icon and name sit at the top left of the sidebar. When multiple
+tenants are available, the first breadcrumb is a tenant selector, followed by the
+page and site scope. Both selectors use themed popovers with arrow-key
+navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
+site scope. The available tenant list is independent of site filtering.
 
 The icon-only theme switch at the top right crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip; reduced
