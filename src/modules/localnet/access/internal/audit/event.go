@@ -196,17 +196,6 @@ func BuildRecoveryStarted(clock Clock, common Common) *eventv1.DeviceOperationEv
 	return event
 }
 
-// BuildDriftDetected constructs the event for a managed field changing
-// without an admitted mutation explaining it.
-func BuildDriftDetected(clock Clock, common Common, fieldName string) *eventv1.DeviceOperationEvent {
-	detail := &eventv1.DriftDetected{}
-	detail.SetFieldName(fieldName)
-
-	event := newEvent(clock, common)
-	event.SetDriftDetected(detail)
-	return event
-}
-
 // BuildLaneFrozen constructs the event for the lane pausing because the
 // hosting edge's own contact could not be confirmed.
 func BuildLaneFrozen(clock Clock, common Common) *eventv1.DeviceOperationEvent {

@@ -63,12 +63,6 @@ func (v *View) RecoveryStarted(ctx context.Context) {
 	v.event(ctx, "flowseer.device.recovery.started", "recovery started")
 }
 
-// DriftDetected emits flowseer.device.drift.detected when a managed field
-// changed without an admitted mutation explaining it.
-func (v *View) DriftDetected(ctx context.Context) {
-	v.event(ctx, "flowseer.device.drift.detected", "drift detected")
-}
-
 // LaneFrozen emits flowseer.device.lane.frozen when the lane pauses because
 // the hosting edge's own contact could not be confirmed.
 func (v *View) LaneFrozen(ctx context.Context) {

@@ -4,8 +4,8 @@ The edge-resident runtime for one local-network integration's device
 access: a bounded, ordered per-device lane that admits reads and
 mutations, resolves route evidence and firmware epochs, drives the
 interface capability through the mutation state machine (plan, checkpoint,
-execute, observe, compare, result), recovers from ambiguity, detects and
-resolves drift under both management modes, honors a control-plane freeze,
+execute, observe, compare, result), recovers from ambiguity, honors a
+control-plane freeze,
 and reports a subset of the named OpenTelemetry signals plus the durable
 `flowseer.event.device.v1.DeviceOperationEvent` audit record before
 releasing the lane — see "Named events, spans, and the audit record" below
@@ -19,7 +19,7 @@ emitted. Grounded in
 functions in `access.go`. Every other type — `internal/evidence`,
 `internal/epoch`, `internal/lane`, `internal/credential`,
 `internal/telemetry`, `internal/freeze`, `internal/audit`,
-`internal/mutation`, `internal/recovery`, `internal/drift` — stays
+`internal/mutation`, `internal/recovery` — stays
 internal; a caller composes device access only through `Lane` or the
 lower-level `access.Read*`/`access.Set*`/`access.Verify*` facade functions
 for the interface capability directly.
@@ -31,8 +31,7 @@ NewLane(Config) *Lane
   .HandleCheckpoint(deviceKey, *CheckpointRequest) error
   .HandleTerminalAck(deviceKey, *TerminalResultAck) error
   .Freeze(ctx) error / .Unfreeze(ctx)
-  .EvaluateDrift(ctx, deviceKey, observed, inFlight) (drift.Outcome, error)
-  .ResolveHold(deviceKey) error
+  .ResolveHold(deviceKey) error                     // clears a recovery hold
   .Close(ctx) (ShutdownReport, error)
 ```
 
@@ -85,9 +84,9 @@ per-metric attribute — distinguishes across edges.
 
 ## Named events, spans, and the audit record
 
-`internal/telemetry` defines the nine `flowseer.device.*` named events
+`internal/telemetry` defines the eight `flowseer.device.*` named events
 (`route.selected`, `route.fallback`, `discovery.completed`,
-`firmware.epoch_changed`, `recovery.started`, `drift.detected`,
+`firmware.epoch_changed`, `recovery.started`,
 `lane.frozen`, `lane.blocked`, `lane.released`) as OpenTelemetry Events —
 `otel.event.name`-tagged log records — and two spans,
 `flowseer.device.operation` (INTERNAL, the bounded admission-to-result
@@ -107,8 +106,7 @@ state machine's release step, per decision 13's audit-before-release rule.
 - `discovery.completed` (telemetry event and audit record) at
   `AddDevice`.
 - `recovery.started`, `lane.blocked`, `lane.released` (telemetry event and
-  audit record) and `drift.detected` (telemetry event and audit record) at
-  their respective state-machine and drift-evaluation call sites.
+  audit record) at their respective state-machine call sites.
 - `lane.frozen` and the freeze-path `lane.released` (telemetry event only)
   at `Freeze`/`Unfreeze` — `internal/freeze.Gate` is shared across every
   device this Lane serves, not scoped to one device, so it has no
@@ -146,14 +144,25 @@ phase-by-phase path only: plan, checkpoint, execute, observe, compare, and
 — for a verified mutation — acknowledge and release. An ambiguous or
 failed step (an execute error, a non-`VERIFIED` disposition, a conflicting
 read) is reported as `Submit`'s own error rather than automatically
-retried. Automatic recovery (`internal/recovery`) and drift resolution
-(`internal/drift`) are proven directly by their own package tests;
-wiring their retry loop into this drain needs a real clock-driven poll
+retried. Automatic recovery (`internal/recovery`) is proven directly by its
+own package tests; wiring its retry loop into this drain needs a real
+clock-driven poll
 only a host with a live transport can run — the edge host that assembles
 this module through `src/common/service` and drives
 that poll is a later plan's job, per
 [the direction record](../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)'s
 own sequencing.
+
+This module does not detect drift. It once did, comparing a fresh
+observation against the last intent it had acknowledged, and that answer
+was wrong as soon as an operator accepted a difference: the edge had no
+way to learn that the change it was calling drift had since become the
+expected value. Detection belongs where the expectation is recorded, so
+it lives in the device service (`src/services/device/internal/drift`),
+which polls each managed interface through this lane's ordinary read path
+and compares against what central expects. What stays here is the block
+that detection leads to — `ResolveHold` still clears a hold, and a
+mutation is still refused while one is active.
 
 ## Open gap: no mid-operation firmware-epoch re-check
 
@@ -204,5 +213,5 @@ probe output, never probe output against a host-supplied provenance field
 does not have, plus a decision on how a device's `CurrentFingerprint` gets
 refreshed once that probe detects a real change (and `InvalidateFingerprint`
 gets called) without requiring a disruptive re-`AddDevice`. That work is
-the central-service plan's job, alongside the recovery/drift auto-wiring
-the previous section describes.
+the central-service plan's job, alongside the recovery auto-wiring the
+previous section describes.

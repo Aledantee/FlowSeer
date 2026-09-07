@@ -40,7 +40,6 @@ func namedEventCases(v *telemetry.View) []struct {
 		}},
 		{"flowseer.device.firmware.epoch_changed", func(ctx context.Context) { v.FirmwareEpochChanged(ctx) }},
 		{"flowseer.device.recovery.started", func(ctx context.Context) { v.RecoveryStarted(ctx) }},
-		{"flowseer.device.drift.detected", func(ctx context.Context) { v.DriftDetected(ctx) }},
 		{"flowseer.device.lane.frozen", func(ctx context.Context) { v.LaneFrozen(ctx) }},
 		{"flowseer.device.lane.blocked", func(ctx context.Context) {
 			v.LaneBlocked(ctx, accessv1.BlockReason_BLOCK_REASON_CONFLICTING_READS)

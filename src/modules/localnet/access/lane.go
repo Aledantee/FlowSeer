@@ -7,7 +7,6 @@ import (
 	"time"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
@@ -15,7 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
-	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/drift"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/epoch"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/evidence"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/freeze"
@@ -46,7 +44,6 @@ type Config struct {
 	DelayedEffect         interfaces.DelayedEffect
 	RecoveryMinGap        time.Duration
 	Fenced                recovery.Fenced
-	ManagementMode        inventoryv1.DeviceManagementMode
 	ReadCredentials       credential.ReadCredentialSource
 	SubmissionCredentials credential.SubmissionCredentialSource
 	Audit                 audit.Deliverer
@@ -124,7 +121,6 @@ type deviceState struct {
 
 	stateMu     sync.Mutex
 	fingerprint string
-	lastIntent  *accessv1.InterfaceDescriptionChange
 	hold        recovery.Hold
 }
 
@@ -133,7 +129,7 @@ type deviceState struct {
 // serves, one ordered lane per device, per the direction record's decision
 // 3. Construct with [NewLane]; the zero value is not usable. Safe for
 // concurrent use: Submit, AddDevice, HandleCheckpoint, HandleTerminalAck,
-// Freeze, Unfreeze, EvaluateDrift, ResolveHold, and Close may all be called
+// Freeze, Unfreeze, ResolveHold, and Close may all be called
 // from multiple goroutines. AddDevice is not safe to race against a Submit
 // for the same not-yet-added deviceKey — the caller must ensure a device is
 // added before any Submit names it, which every production call path does
@@ -205,10 +201,10 @@ func NewLane(cfg Config) *Lane {
 		// Unlike *telemetry.View, audit.Deliverer is a plain interface
 		// with no nil-receiver guard of its own: a nil Audit reaches
 		// internal/mutation's Emit calls unguarded and panics on the
-		// first admitted mutation. AddDevice and EvaluateDrift each
-		// tolerate a nil Audit locally, which made a host reasonably
-		// conclude Audit was optional everywhere; default it here so it
-		// is optional everywhere, not just at those two call sites.
+		// first admitted mutation. AddDevice tolerates a nil Audit
+		// locally, which made a host reasonably conclude Audit was
+		// optional everywhere; default it here so it is optional
+		// everywhere, not just at that one call site.
 		cfg.Audit = noopDeliverer{}
 	}
 	if cfg.OperationTimeout <= 0 {
@@ -615,13 +611,12 @@ func (ds *deviceState) awaitTerminalAck(ctx context.Context, seq uint64) (*integ
 // compare, and — for a verified mutation — acknowledge and release. An
 // ambiguous or failed step (an execute error, a non-VERIFIED disposition, a
 // conflicting read) is reported as this call's error rather than being
-// automatically retried: automatic recovery and drift resolution are this
-// module's internal/recovery and internal/drift packages, exercised
-// directly by their own tests; wiring their retry loop into this drain
-// requires a real clock-driven poll only a host with a live transport can
-// run (see README's onboarding section), so this
-// package's own tests drive recovery and drift explicitly rather than
-// through Submit.
+// automatically retried: automatic recovery is this module's
+// internal/recovery package, exercised directly by its own tests; wiring
+// its retry loop into this drain requires a real clock-driven poll only a
+// host with a live transport can run (see README's onboarding section), so
+// this package's own tests drive recovery explicitly rather than through
+// Submit.
 func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.ExecuteRequest) (result *integrationv1.ExecuteResult, err error) {
 	operationClass := "interface_read"
 	if req.GetMutation() != nil {
@@ -704,10 +699,6 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	if err := m.Acknowledge(ctx, termAck); err != nil {
 		return nil, err
 	}
-
-	ds.stateMu.Lock()
-	ds.lastIntent = req.GetMutation().GetInterfaceDescription()
-	ds.stateMu.Unlock()
 
 	return m.Result(nil), nil
 }
@@ -817,59 +808,8 @@ func (l *Lane) Freeze(ctx context.Context) error { return l.freeze.Freeze(ctx) }
 // Unfreeze resumes side effects.
 func (l *Lane) Unfreeze(ctx context.Context) { l.freeze.Unfreeze(ctx) }
 
-// EvaluateDrift runs drift detection for deviceKey against a fresh
-// observation, per decision 6. See [drift.Evaluate].
-func (l *Lane) EvaluateDrift(ctx context.Context, deviceKey string, observed *accessv1.InterfaceObservation, inFlight bool) (drift.Outcome, error) {
-	ds, err := l.device(deviceKey)
-	if err != nil {
-		return drift.Outcome{}, err
-	}
-
-	// A hold already names an unresolved mutation whose effect on this
-	// device is unknown; lastIntent may not yet reflect it (it is only
-	// updated after a successful terminal acknowledgement), so treating a
-	// difference from lastIntent as drift here would report the lane's own
-	// unresolved change as an out-of-band one. The hold's own resolution
-	// path — not a second, competing drift block — is what un-sticks this
-	// device. Suppressed, not a bare zero value, so a caller can tell
-	// "not evaluated" from "evaluated, clean."
-	if ds.hold.Active() {
-		return drift.Outcome{Suppressed: true}, nil
-	}
-
-	ds.stateMu.Lock()
-	lastIntent := ds.lastIntent
-	ds.stateMu.Unlock()
-
-	outcome := drift.Evaluate(observed, lastIntent, inFlight, l.cfg.ManagementMode)
-	if outcome.Drifted {
-		l.cfg.Telemetry.DriftDetected(ctx)
-		// Engage the hold before the audit call, not after: the hold is a
-		// safety block, and decision 13's audit-before-release rule
-		// governs releasing state, not blocking it. An audit outage must
-		// not disable the block that keeps Submit from admitting another
-		// mutation over an unexplained change.
-		if outcome.Blocked {
-			ds.hold.Engage()
-		}
-		if l.cfg.Audit != nil {
-			// field_name names the field that changed (schema comment),
-			// not the interface: drift.Evaluate only ever compares the
-			// description, so the field itself is always "description" —
-			// qualified by interface, since a device has more than one and
-			// the event carries no other way to say which.
-			fieldName := observed.GetInterfaceName() + ".description"
-			event := audit.BuildDriftDetected(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, fieldName)
-			if err := l.cfg.Audit.Emit(ctx, event); err != nil {
-				return outcome, errs.Wrap(err, "emit drift detected audit event")
-			}
-		}
-	}
-	return outcome, nil
-}
-
-// ResolveHold clears deviceKey's recovery or drift hold, admitting
-// mutations again.
+// ResolveHold clears deviceKey's recovery hold, admitting mutations
+// again.
 func (l *Lane) ResolveHold(deviceKey string) error {
 	ds, err := l.device(deviceKey)
 	if err != nil {

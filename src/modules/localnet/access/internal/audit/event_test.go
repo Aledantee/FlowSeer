@@ -72,10 +72,6 @@ func TestBuildRecoveryStartedValidates(t *testing.T) {
 	validate(t, audit.BuildRecoveryStarted(fixedClock(), commonFixture()))
 }
 
-func TestBuildDriftDetectedValidates(t *testing.T) {
-	validate(t, audit.BuildDriftDetected(fixedClock(), commonFixture(), "description"))
-}
-
 func TestBuildLaneFrozenValidates(t *testing.T) {
 	// LaneFrozen is a lane-level event with no single mutation in scope, so
 	// Sequence stays unset.

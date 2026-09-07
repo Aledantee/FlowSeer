@@ -222,9 +222,8 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 // audit event and telemetry. It does not itself change Phase(). The state
 // write happens before the audit attempt, not after: a caller (recovery's
 // Runner, deciding whether to engage a Hold) must see the block took
-// effect even when the accompanying audit record's delivery fails —
-// mirroring EvaluateDrift's own engage-before-audit ordering — rather than
-// an undelivered notification silently leaving the machine unblocked.
+// effect even when the accompanying audit record's delivery fails, rather
+// than an undelivered notification silently leaving the machine unblocked.
 func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error {
 	m.mu.Lock()
 	m.blockReason = reason

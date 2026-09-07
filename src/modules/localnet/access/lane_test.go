@@ -2,7 +2,6 @@ package access_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -31,38 +30,6 @@ type noopDeliverer struct{}
 
 func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
 
-// failsOnDriftDeliverer fails only for a DriftDetected event, so the
-// onboarding and mutation machinery's own audit calls succeed and only the
-// drift check itself sees the simulated outage.
-type failsOnDriftDeliverer struct{}
-
-func (failsOnDriftDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
-	if event.GetDriftDetected() != nil {
-		return errors.New("audit delivery unavailable")
-	}
-	return nil
-}
-
-// spyDeliverer records every event handed to it, guarded by mu since
-// EvaluateDrift and Submit may call it from different goroutines in a test.
-type spyDeliverer struct {
-	mu     sync.Mutex
-	events []*eventv1.DeviceOperationEvent
-}
-
-func (d *spyDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.events = append(d.events, event)
-	return nil
-}
-
-func (d *spyDeliverer) recorded() []*eventv1.DeviceOperationEvent {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	return append([]*eventv1.DeviceOperationEvent(nil), d.events...)
-}
-
 func newTestLane(t *testing.T) *access.Lane {
 	t.Helper()
 	view, err := telemetry.NewView(telemetry.ViewConfig{})
@@ -90,8 +57,8 @@ func completeObservation(description string) *accessv1.InterfaceObservation {
 
 // mutationRequest always expects fingerprint "fw-A", matching every
 // newTestLane device's FingerprintOverride.
-func mutationRequest(sequence uint64, description string) *integrationv1.ExecuteRequest {
-	return mutationRequestWithFingerprint(sequence, "fw-A", description)
+func mutationRequest(sequence uint64) *integrationv1.ExecuteRequest {
+	return mutationRequestWithFingerprint(sequence, "fw-A", "uplink to core")
 }
 
 func mutationRequestWithFingerprint(sequence uint64, fingerprint, description string) *integrationv1.ExecuteRequest {
@@ -177,7 +144,7 @@ func TestLaneMutationHappyPath(t *testing.T) {
 	l := newTestLane(t)
 	addDevice(t, l)
 
-	req := mutationRequest(1, "uplink to core")
+	req := mutationRequest(1)
 	result, err := runMutation(t, l, req)
 	if err != nil {
 		t.Fatalf("Submit() error: %v", err)
@@ -435,10 +402,10 @@ func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 		t.Fatalf("AddDevice() error: %v", err)
 	}
 
-	if _, err := runMutation(t, l, mutationRequest(1, "uplink to core")); err != nil {
+	if _, err := runMutation(t, l, mutationRequest(1)); err != nil {
 		t.Fatalf("first Submit() error: %v", err)
 	}
-	if _, err := runMutation(t, l, mutationRequest(2, "uplink to core")); err != nil {
+	if _, err := runMutation(t, l, mutationRequest(2)); err != nil {
 		t.Fatalf("second Submit() error: %v", err)
 	}
 
@@ -503,179 +470,6 @@ func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 	}
 }
 
-func TestLaneManagementModeDrift(t *testing.T) {
-	view, err := telemetry.NewView(telemetry.ViewConfig{})
-	if err != nil {
-		t.Fatalf("NewView() error: %v", err)
-	}
-	l := access.NewLane(access.Config{
-		QueueCapacity:  4,
-		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
-		Audit:          noopDeliverer{},
-		Telemetry:      view,
-		Clock:          time.Now,
-		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
-	})
-	addDevice(t, l)
-
-	req := mutationRequest(1, "uplink to core")
-	if _, err := runMutation(t, l, req); err != nil {
-		t.Fatalf("Submit() error: %v", err)
-	}
-
-	drifted := completeObservation("manual edit")
-	outcome, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false)
-	if err != nil {
-		t.Fatalf("EvaluateDrift() error: %v", err)
-	}
-	if !outcome.Drifted {
-		t.Fatal("EvaluateDrift() reported no drift after an unexplained change")
-	}
-	if !outcome.Blocked {
-		t.Error("default ManagementMode should behave as OPERATOR_MANAGED (blocked)")
-	}
-
-	blockedCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if _, err := l.Submit(blockedCtx, access.SubmitOptions{
-		DeviceKey: "dev-1",
-		Request:   mutationRequest(2, "another change"),
-		Priority:  lane.PriorityNormal,
-	}); err == nil {
-		t.Fatal("Submit() error = nil, want the hold to block a new mutation")
-	}
-
-	if err := l.ResolveHold("dev-1"); err != nil {
-		t.Fatalf("ResolveHold() error: %v", err)
-	}
-}
-
-func TestEvaluateDriftReportsSuppressedWhenAlreadyHeld(t *testing.T) {
-	l := newTestLane(t)
-	addDevice(t, l)
-
-	req := mutationRequest(1, "uplink to core")
-	if _, err := runMutation(t, l, req); err != nil {
-		t.Fatalf("Submit() error: %v", err)
-	}
-
-	drifted := completeObservation("manual edit")
-	outcome, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false)
-	if err != nil {
-		t.Fatalf("EvaluateDrift() error: %v", err)
-	}
-	if !outcome.Blocked {
-		t.Fatal("expected the first drift evaluation to block and engage the hold")
-	}
-
-	// A second evaluation while the hold from the first is still active
-	// must report that it was not evaluated at all, not a bare zero value
-	// indistinguishable from "evaluated, clean" — a periodic drift poll
-	// must be able to tell the two apart.
-	outcome, err = l.EvaluateDrift(context.Background(), "dev-1", drifted, false)
-	if err != nil {
-		t.Fatalf("EvaluateDrift() error: %v", err)
-	}
-	if !outcome.Suppressed {
-		t.Error("expected Suppressed = true for a device already under a hold")
-	}
-	if outcome.Drifted {
-		t.Error("expected Drifted = false alongside Suppressed, not a real evaluation result")
-	}
-
-	if err := l.ResolveHold("dev-1"); err != nil {
-		t.Fatalf("ResolveHold() error: %v", err)
-	}
-}
-
-func TestEvaluateDriftEngagesHoldEvenWhenAuditDeliveryFails(t *testing.T) {
-	view, err := telemetry.NewView(telemetry.ViewConfig{})
-	if err != nil {
-		t.Fatalf("NewView() error: %v", err)
-	}
-	// failsOnDriftDeliverer only fails a DriftDetected event, so
-	// onboarding and the mutation this test drives through first succeed
-	// normally, and only the drift check itself sees the simulated
-	// outage.
-	l := access.NewLane(access.Config{
-		QueueCapacity:  4,
-		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
-		Audit:          failsOnDriftDeliverer{},
-		Telemetry:      view,
-		Clock:          time.Now,
-		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
-	})
-	addDevice(t, l)
-	if _, err := runMutation(t, l, mutationRequest(1, "uplink to core")); err != nil {
-		t.Fatalf("Submit() error: %v", err)
-	}
-
-	drifted := completeObservation("manual edit")
-	if _, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false); err == nil {
-		t.Fatal("EvaluateDrift() error = nil, want the audit delivery failure surfaced")
-	}
-
-	// The hold must already be engaged despite the audit failure: an audit
-	// outage must not disable the safety block that keeps Submit from
-	// admitting another mutation over an unexplained change. Submit's
-	// hold check is synchronous — it never delivers a checkpoint or waits
-	// on anything — so a plain Background() context that would hang
-	// forever on the pre-fix ordering (hold engaged only after a
-	// successful audit emit, which never arrives) discriminates instead
-	// of a timeout that could also fire from an unrelated hang.
-	_, err = l.Submit(context.Background(), access.SubmitOptions{
-		DeviceKey: "dev-1",
-		Request:   mutationRequest(2, "another change"),
-		Priority:  lane.PriorityNormal,
-	})
-	if err == nil {
-		t.Fatal("Submit() error = nil, want the hold engaged despite the audit delivery failure")
-	}
-	if code, _ := errs.CodeOf(err); code != access.ErrCodeDesynchronized {
-		t.Fatalf("Submit() error code = %v, want %v", code, access.ErrCodeDesynchronized)
-	}
-}
-
-func TestLaneDriftDeliversAuditEvent(t *testing.T) {
-	view, err := telemetry.NewView(telemetry.ViewConfig{})
-	if err != nil {
-		t.Fatalf("NewView() error: %v", err)
-	}
-	deliverer := &spyDeliverer{}
-	l := access.NewLane(access.Config{
-		QueueCapacity:  4,
-		DelayedEffect:  interfaces.DelayedEffect{Horizon: time.Minute},
-		Audit:          deliverer,
-		Telemetry:      view,
-		Clock:          time.Now,
-		ManagementMode: inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED,
-	})
-	addDevice(t, l)
-
-	req := mutationRequest(1, "uplink to core")
-	if _, err := runMutation(t, l, req); err != nil {
-		t.Fatalf("Submit() error: %v", err)
-	}
-
-	drifted := completeObservation("manual edit")
-	if _, err := l.EvaluateDrift(context.Background(), "dev-1", drifted, false); err != nil {
-		t.Fatalf("EvaluateDrift() error: %v", err)
-	}
-
-	events := deliverer.recorded()
-	if len(events) == 0 {
-		t.Fatal("expected at least one audit event")
-	}
-	detail := events[len(events)-1].GetDriftDetected()
-	if detail == nil {
-		t.Fatal("expected the last delivered event to carry DriftDetected")
-	}
-	wantFieldName := drifted.GetInterfaceName() + ".description"
-	if detail.GetFieldName() != wantFieldName {
-		t.Fatalf("DriftDetected.FieldName = %q, want %q", detail.GetFieldName(), wantFieldName)
-	}
-}
-
 func TestLaneProcessRecordsOperationSpanAndMetric(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	spanRecorder := tracetest.NewSpanRecorder()
@@ -695,7 +489,7 @@ func TestLaneProcessRecordsOperationSpanAndMetric(t *testing.T) {
 	})
 	addDevice(t, l)
 
-	req := mutationRequest(1, "uplink to core")
+	req := mutationRequest(1)
 	if _, err := runMutation(t, l, req); err != nil {
 		t.Fatalf("Submit() error: %v", err)
 	}
@@ -755,7 +549,7 @@ func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *te
 	l := newTestLane(t)
 	addDevice(t, l)
 
-	req := mutationRequest(1, "uplink to core")
+	req := mutationRequest(1)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -1178,7 +972,7 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 	l := newTestLane(t)
 	addDevice(t, l)
 
-	req := mutationRequest(1, "uplink to core")
+	req := mutationRequest(1)
 
 	submitDone := make(chan error, 1)
 	go func() {
