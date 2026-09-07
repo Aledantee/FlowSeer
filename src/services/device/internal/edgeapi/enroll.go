@@ -96,33 +96,55 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[edgev1.Enroll
 	}
 
 	if _, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
-		if current == nil {
-			return nil, notFound(edgeID)
-		}
-		state := current.GetRecord().GetState()
-		key := state.GetSetupKey()
-		if key.GetStatus() != edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
-			// Another replica enrolled between the read above and this write.
-			// Its answer is the same identity, so accept it rather than
-			// registering a second key over the first.
-			if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
-				return nil, errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).
-					Msg("setup key was already used to register another key")
-			}
-			return nil, edgestore.ErrSkip
-		}
-		key.SetStatus(edgev1.SetupKeyStatus_SETUP_KEY_STATUS_CONSUMED)
-		state.SetLifecycle(edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED)
-		state.SetContact(edgev1.EdgeContact_EDGE_CONTACT_ACTIVE)
-		state.SetPublicKey(public)
-		state.SetEnrolledAt(timestamppb.New(now))
-		state.SetLastSeenAt(timestamppb.New(now))
-		return current, nil
+		return consumeSetupKey(current, key, edgeID, public, now)
 	}); err != nil {
 		return nil, connectErr(err)
 	}
 
 	return s.enrollResponse(edgeID, now), nil
+}
+
+// consumeSetupKey is the enrollment write, run by the store against whatever the
+// record holds at write time.
+//
+// It re-runs the digest comparison rather than trusting the one that
+// authenticated the caller, because that one ran against a record read two round
+// trips earlier and this runs against the record being written. They have to be
+// one decision. An operator whose setup key leaked reaches for IssueSetupKey,
+// which leaves a fresh ISSUED key on the record; a caller holding the old key
+// that landed in the window between the two reads would otherwise consume the
+// replacement it never presented and register itself as the edge, with the
+// remedy for the leak being what opened the hole. Anything added here that
+// authorizes a write must check what it is authorizing against, not inherit a
+// decision made before the record was re-read.
+func consumeSetupKey(current *storev1.StoredEdge, key, edgeID string, public ed25519.PublicKey, now time.Time) (*storev1.StoredEdge, error) {
+	if current == nil {
+		return nil, notFound(edgeID)
+	}
+	if !setupKeyMatches(key, current) {
+		return nil, errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).Msg("setup key does not enroll")
+	}
+
+	state := current.GetRecord().GetState()
+	stored := state.GetSetupKey()
+	if stored.GetStatus() != edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
+		// Another replica enrolled between the read above and this write. Its
+		// answer is the same identity, so accept it rather than registering a
+		// second key over the first.
+		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
+			return nil, errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).
+				Msg("setup key was already used to register another key")
+		}
+		return nil, edgestore.ErrSkip
+	}
+
+	stored.SetStatus(edgev1.SetupKeyStatus_SETUP_KEY_STATUS_CONSUMED)
+	state.SetLifecycle(edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED)
+	state.SetContact(edgev1.EdgeContact_EDGE_CONTACT_ACTIVE)
+	state.SetPublicKey(public)
+	state.SetEnrolledAt(timestamppb.New(now))
+	state.SetLastSeenAt(timestamppb.New(now))
+	return current, nil
 }
 
 // Rekey replaces the calling edge's registered key with the one its proof

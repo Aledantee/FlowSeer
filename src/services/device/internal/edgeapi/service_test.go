@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -671,5 +672,85 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	}
 	if got := resp.Msg.GetEdge().GetState().GetContact(); got != edgev1.EdgeContact_EDGE_CONTACT_ACTIVE {
 		t.Errorf("contact after a heartbeat = %v, want active", got)
+	}
+}
+
+// A leaked setup key's remedy is IssueSetupKey, so the replacement is issued
+// exactly while the leak holder is trying to use the old key. The enrollment
+// write is handed the record that write lands on, which is not the record the
+// caller was authenticated against, so it has to refuse a key it did not see.
+// Reaching this state through a real race is not reliably schedulable, so the
+// record is built as the operator's write would have left it.
+func TestEnrollRefusesToConsumeAReplacementKeyItNeverSaw(t *testing.T) {
+	h := newHarness(t)
+	leaked := h.setupKey
+	ref := refOf(h.record)
+	public, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	// The operator replaces the leaked key; the record now holds a fresh ISSUED
+	// key whose digest is not the leaked one's.
+	if _, err := h.admin.IssueSetupKey(context.Background(), connect.NewRequest(
+		edgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
+		t.Fatalf("IssueSetupKey: %v", err)
+	}
+	replaced := storedEdge(t, h.store, ref)
+	if got := replaced.GetRecord().GetState().GetSetupKey().GetStatus(); got != edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
+		t.Fatalf("replacement status = %v, want issued; the case needs a live key to land on", got)
+	}
+
+	if _, err := edgeapi.ConsumeSetupKey(replaced, leaked, ref.GetEdge().GetId(), public, testClock); err == nil {
+		t.Fatal("the leaked key consumed the replacement it never presented")
+	}
+	state := replaced.GetRecord().GetState()
+	if state.GetLifecycle() == edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
+		t.Fatal("a refused enrollment still enrolled the edge")
+	}
+	if ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
+		t.Fatal("a refused enrollment still registered the caller's key")
+	}
+}
+
+// Under real contention an edge still ends up coherent: whichever caller
+// enrolled consumed the key it presented and registered the key it named.
+func TestConcurrentIssueAndEnrollLeaveACoherentRecord(t *testing.T) {
+	ctx := context.Background()
+	for range 50 {
+		h := newHarness(t)
+		leaked := h.setupKey
+		ref := refOf(h.record)
+		public, private, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			t.Fatalf("keygen: %v", err)
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, _ = h.edge.Enroll(ctx, connect.NewRequest(edgev1.EnrollRequest_builder{
+				SetupKey: proto.String(leaked),
+				Proof:    enrollProof(t, private, public, leaked),
+			}.Build()))
+		}()
+		go func() {
+			defer wg.Done()
+			_, _ = h.admin.IssueSetupKey(ctx, connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: ref}.Build()))
+		}()
+		wg.Wait()
+
+		state := storedEdge(t, h.store, ref).GetRecord().GetState()
+		if state.GetLifecycle() != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
+			continue
+		}
+		if got := state.GetSetupKey().GetId(); got != keyIDOf(leaked) {
+			t.Fatalf("enrolled by consuming setup key %q, which the caller never presented; it held %q",
+				got, keyIDOf(leaked))
+		}
+		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
+			t.Fatal("the enrolled key is not the one the enrolling caller registered")
+		}
 	}
 }
