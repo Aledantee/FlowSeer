@@ -118,6 +118,20 @@ func openSubmission(t *testing.T, h *harness, edgeID string, sequence uint64) (*
 	return collector, cancel, done
 }
 
+// waitEnd returns the error the stream ended with. A regression that leaves the
+// stream running reads as a failure naming the case rather than as a hang the
+// whole package's timeout reports.
+func waitEnd(t *testing.T, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stream did not end")
+		return nil
+	}
+}
+
 func checkpointedHarness(t *testing.T) (*harness, string) {
 	t.Helper()
 	h, edgeID, _, _ := enrolledHarness(t)
@@ -132,7 +146,7 @@ func TestSubmissionDeliversTheGrantOnceAndThenOnlyPulses(t *testing.T) {
 
 	stream.waitFor(t, 3)
 	cancel()
-	if err := <-done; !errors.Is(err, context.Canceled) {
+	if err := waitEnd(t, done); !errors.Is(err, context.Canceled) {
 		t.Fatalf("stream ended with %v, want the cancellation", err)
 	}
 
@@ -207,7 +221,7 @@ func TestSubmissionRevokesWithAPulseAndEndsWithAReason(t *testing.T) {
 			stream.waitFor(t, 2)
 			h.lanes.set(tc.record, nil)
 
-			err := <-done
+			err := waitEnd(t, done)
 			if err == nil {
 				t.Fatal("the stream ended cleanly; the edge reads a bare end as non-authorized and learns nothing")
 			}
@@ -232,7 +246,7 @@ func TestSubmissionEndsWithAReasonWhenCentralCannotTell(t *testing.T) {
 	stream.waitFor(t, 2)
 	h.lanes.set(nil, errors.New("bucket unreachable"))
 
-	err := <-done
+	err := waitEnd(t, done)
 	if got := connect.CodeOf(err); got != connect.CodeUnavailable {
 		t.Fatalf("end code = %v, want unavailable (%v)", got, err)
 	}
@@ -248,8 +262,14 @@ func TestSubmissionOpensOnlyForACheckpointedSequence(t *testing.T) {
 		name  string
 		phase accessv1.OperationPhase
 	}{
+		{"intent recorded", accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED},
 		{"admitted", accessv1.OperationPhase_OPERATION_PHASE_ADMITTED},
 		{"observing", accessv1.OperationPhase_OPERATION_PHASE_OBSERVING},
+		// The retry path rests on the journal never writing RECOVERING to the
+		// mutation's own phase, only to last_reported_phase. If that changes,
+		// the second grant a retry needs would be refused here rather than
+		// silently: this row is what says so.
+		{"recovering", accessv1.OperationPhase_OPERATION_PHASE_RECOVERING},
 		{"verified", accessv1.OperationPhase_OPERATION_PHASE_VERIFIED},
 		{"acknowledged", accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED},
 		{"abandoned", accessv1.OperationPhase_OPERATION_PHASE_ABANDONED},
@@ -260,7 +280,7 @@ func TestSubmissionOpensOnlyForACheckpointedSequence(t *testing.T) {
 
 			stream, cancel, done := openSubmission(t, h, edgeID, 42)
 			defer cancel()
-			err := <-done
+			err := waitEnd(t, done)
 			if got := connect.CodeOf(err); got != connect.CodeFailedPrecondition {
 				t.Fatalf("open code = %v, want failed_precondition (%v)", got, err)
 			}
@@ -271,12 +291,57 @@ func TestSubmissionOpensOnlyForACheckpointedSequence(t *testing.T) {
 	}
 }
 
+// The schema forbids a terminal disposition beside POSSIBLY_APPLIED, but the
+// journal writes without validating, so the gate refuses the state rather than
+// trusting every journal arm to move the phase along with the disposition.
+func TestSubmissionRefusesATerminalDispositionWhateverThePhaseSays(t *testing.T) {
+	h, edgeID := checkpointedHarness(t)
+	record := laneRecord(42, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED, testClock)
+	record.GetMutation().SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
+	h.lanes.set(record, nil)
+
+	stream, cancel, done := openSubmission(t, h, edgeID, 42)
+	defer cancel()
+	err := waitEnd(t, done)
+	if got := connect.CodeOf(err); got != connect.CodeFailedPrecondition {
+		t.Fatalf("open code = %v, want failed_precondition (%v)", got, err)
+	}
+	if len(stream.messages()) != 0 {
+		t.Fatal("a refused open still sent the grant")
+	}
+}
+
+// Retiring an edge has to reach a write already in flight, not only its next
+// call. The verifier refuses a retired edge at step 7, but an open stream makes
+// no further calls for it to refuse.
+func TestRetiringAnEdgeRevokesAnOpenSubmission(t *testing.T) {
+	h, edgeID := checkpointedHarness(t)
+	stream, cancel, done := openSubmission(t, h, edgeID, 42)
+	defer cancel()
+
+	stream.waitFor(t, 2)
+	if _, err := h.admin.RetireEdge(context.Background(), connect.NewRequest(
+		edgev1.RetireEdgeRequest_builder{Edge: edgeRefFor(edgeID)}.Build())); err != nil {
+		t.Fatalf("RetireEdge: %v", err)
+	}
+
+	err := waitEnd(t, done)
+	if got := connect.CodeOf(err); got != connect.CodeFailedPrecondition {
+		t.Fatalf("end code = %v, want failed_precondition (%v)", got, err)
+	}
+	messages := stream.messages()
+	last := messages[len(messages)-1]
+	if !last.HasPulse() || last.GetPulse().GetAuthority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
+		t.Fatal("a retired edge's stream ended without a REVOKED pulse")
+	}
+}
+
 func TestSubmissionRefusesASequenceTheLaneDoesNotHold(t *testing.T) {
 	h, edgeID := checkpointedHarness(t)
 
 	stream, cancel, done := openSubmission(t, h, edgeID, 43)
 	defer cancel()
-	err := <-done
+	err := waitEnd(t, done)
 	if got := connect.CodeOf(err); got != connect.CodeFailedPrecondition {
 		t.Fatalf("open code = %v, want failed_precondition (%v)", got, err)
 	}
@@ -310,7 +375,7 @@ func TestSubmissionRefusesAGrantPastTheHorizon(t *testing.T) {
 
 	stream, cancel, done := openSubmission(t, h, edgeID, 42)
 	defer cancel()
-	err := <-done
+	err := waitEnd(t, done)
 	if got := connect.CodeOf(err); got != connect.CodeFailedPrecondition {
 		t.Fatalf("open code = %v, want failed_precondition (%v)", got, err)
 	}

@@ -54,6 +54,10 @@ type submissionSender interface {
 // mutation sequence and then streams the authority the edge checks before every
 // command it sends.
 //
+// Authority covers both the mutation and the edge: every tick re-reads the lane
+// record and the edge's lifecycle, so retiring an edge ends a write already in
+// flight rather than only its next call.
+//
 // Authority is a value on the wire, never an inference from what has not
 // arrived. Every pulse carries AUTHORIZED or REVOKED; silence is not a
 // revocation, and the edge fails closed on it, so a central that went quiet
@@ -141,11 +145,11 @@ func (s *Service) openSubmission(ctx context.Context, msg *edgev1.OpenDeviceSubm
 		return err
 	}
 
-	return s.pulse(ctx, deviceID, sequence, deadline, stream)
+	return s.pulse(ctx, edgeID, deviceID, sequence, deadline, stream)
 }
 
 // pulse restates the edge's authority until it ends, and says why it ended.
-func (s *Service) pulse(ctx context.Context, deviceID string, sequence uint64, deadline time.Time, stream submissionSender) error {
+func (s *Service) pulse(ctx context.Context, edgeID, deviceID string, sequence uint64, deadline time.Time, stream submissionSender) error {
 	ticker := time.NewTicker(s.pulseInterval())
 	defer ticker.Stop()
 
@@ -170,6 +174,25 @@ func (s *Service) pulse(ctx context.Context, deviceID string, sequence uint64, d
 			// retryable reason lets the edge fail closed and reopen.
 			return connectErr(errs.From(err).Code(ErrCodeAuthorityUnknown).Retryable().Attr("device", deviceID).
 				Msg("read lane record"))
+		}
+		// The edge's standing is read every tick, not only at open. The
+		// assertion verifier refuses a retired edge's next call, but this
+		// stream was authorized when it opened and makes no further calls, so
+		// without this central would go on stating AUTHORIZED to an edge an
+		// operator has just retired, for as long as the horizon runs. Retiring
+		// an edge is what ends its standing outright, and that has to be true
+		// of a write already in flight.
+		_, lifecycle, err := s.store.Lookup(ctx, edgeID)
+		if err != nil {
+			return connectErr(errs.From(err).Code(ErrCodeAuthorityUnknown).Retryable().Attr("edge", edgeID).
+				Msg("read edge record"))
+		}
+		if lifecycle != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
+			if err := s.send(stream, edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
+				return err
+			}
+			return connectErr(errs.New().Code(ErrCodeAuthorityWithdrawn).Attr("edge", edgeID).
+				Attr("lifecycle", lifecycle.String()).Msg("edge is no longer enrolled"))
 		}
 		if withdrawn := checkpointed(record, sequence); withdrawn != nil {
 			if err := s.send(stream, edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
@@ -213,6 +236,12 @@ func (s *Service) pulseInterval() time.Duration {
 // POSSIBLY_APPLIED here, because a RECOVERING report moves the last reported
 // phase and not the mutation's own, which is what lets its retry open a second
 // grant for the same sequence.
+//
+// A terminal disposition refuses whatever the phase says. The schema forbids one
+// alongside POSSIBLY_APPLIED, but the journal marshals its records without
+// validating them, so that rule holds only as long as every journal arm
+// remembers to move the phase with the disposition. A gate on a credential does
+// not rest on that.
 func checkpointed(record *storev1.DeviceLaneRecord, sequence uint64) error {
 	mutation := record.GetMutation()
 	if mutation == nil {
@@ -222,7 +251,7 @@ func checkpointed(record *storev1.DeviceLaneRecord, sequence uint64) error {
 		return errs.New().Code(ErrCodeNotCheckpointed).Attr("sequence", sequence).
 			Attr("open_sequence", mutation.GetSequence()).Msg("another mutation holds the lane")
 	}
-	if mutation.GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
+	if mutation.GetPhase() != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED || mutation.HasDisposition() {
 		return errs.New().Code(ErrCodeNotCheckpointed).Attr("sequence", sequence).
 			Attr("phase", mutation.GetPhase().String()).Msg("mutation is not checkpointed for submission")
 	}

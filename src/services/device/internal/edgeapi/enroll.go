@@ -44,10 +44,17 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[edgev1.Enroll
 		return nil, connectErr(err)
 	}
 	// The presented key is compared against the stored digest in constant time,
-	// and against a fixed zero digest when the edge holds none, so an
-	// identifier that names no live key costs the same as one that does. An
-	// early-return compare here would accept and reject correctly in every test
-	// and leak the secret by timing.
+	// and against a fixed zero digest when the edge holds none, so a wrong
+	// secret against a real identifier costs exactly what the right one costs.
+	// An early-return compare here would accept and reject correctly in every
+	// test and leak the secret by timing.
+	//
+	// The path in front of it is not uniform and is not meant to be: an
+	// unknown identifier is one bucket read and a known one is two, so timing
+	// says whether a 26-character identifier names an edge. That is the half
+	// of the key string documented safe to log and carried in the clear on
+	// SetupKey.id, and the digest is over the whole string, so learning it
+	// shortens no search for the secret.
 	if !setupKeyMatches(key, stored) {
 		return nil, connectErr(errs.New().Code(ErrCodeSetupKeyRefused).Attr("setup_key_id", keyID).
 			Msg("setup key does not enroll"))
@@ -155,7 +162,9 @@ func consumeSetupKey(current *storev1.StoredEdge, key, edgeID string, public ed2
 //
 // An OpenDeviceSubmission stream the edge opened under the old key keeps
 // running: a stream is authorized when it opens, and its grant's own deadline
-// bounds it. Ending the edge's standing outright is RetireEdge.
+// bounds it. Rekey replaces which key signs, not who the edge is. Ending the
+// edge's standing outright is RetireEdge, which does reach an open stream,
+// because its pulse loop re-reads the lifecycle every tick.
 func (s *Service) Rekey(ctx context.Context, req *connect.Request[edgev1.RekeyRequest]) (*connect.Response[edgev1.RekeyResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
@@ -229,7 +238,7 @@ func setupKeyID(key string) (string, bool) {
 // setupKeyMatches compares a presented key against an edge's stored digest in
 // constant time. An edge with no record, or one holding no digest, compares
 // against a fixed zero digest of the same length, so the comparison runs to
-// completion either way and its duration says nothing about which case it was.
+// completion either way rather than returning early on a length mismatch.
 func setupKeyMatches(key string, stored *storev1.StoredEdge) bool {
 	digest := hashSetupKey(key)
 	want := stored.GetSetupKeyHash()
