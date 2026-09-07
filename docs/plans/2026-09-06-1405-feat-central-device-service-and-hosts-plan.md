@@ -991,6 +991,98 @@ last phase; the agent's own log records reaching the hub after a link
 drop.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/edge/README.md')`
 
+U7 is complete. What follows is for whoever takes U8.
+
+**What U8 will meet, not what U7 built.** Central runs: `cmd/device` reads a
+prototext `DeviceServiceConfig`, obtains a certificate, and starts five
+modules. The edge host talks to it across seams that are all in place —
+`EdgeService` for enrollment, rekey, heartbeat, `AttachBus` and the credential
+calls; `DispatchService.Subscribe` and `Report`; `AuditService.Deliver`. The
+things below are the ones a fresh session gets wrong because nothing in the
+signature says them.
+
+**The certificate pin is the edge's whole trust anchor, and it is persisted.**
+Central serves one key on the API listener and the bus listener alike, so an
+edge pins one SPKI digest for both. The digest is logged once, at generation,
+and recomputable from the certificate file; a restart says which certificate
+it loaded and deliberately not its digest. What matters for U8: a central that
+generated a fresh key on each start would refuse every edge already in the
+field, with no way back but re-provisioning each by hand. If the edge host's
+tests spin central up repeatedly against one state directory, that is the
+property they are relying on. `EnrollResponse.trust_anchors` replaces the set
+an edge was provisioned with, and `edgebus.PinnedTLSConfig` is the client side
+for both the Connect dialer and the leaf remote — the same verifier, so the
+two cannot drift apart.
+
+**`Enroll` is served in front of the assertion middleware; everything else on
+those three services is behind it.** An edge signs every other call with the
+key central registered, over the request body bytes as received and the
+invoked procedure. The edge must send uncompressed — central refuses a
+compressed request before verifying, because the bytes hashed have to be the
+bytes on the wire. For a server-stream open, the body is the one
+Connect-enveloped request message. The api/edge README carries two worked
+header vectors, one unary and one stream-open, and a conformance test fails if
+they drift.
+
+**The operator surface has no authorization check.** `DeviceService` and
+`EdgeAdminService` sit in front of the middleware, because an operator holds
+no edge key. Nothing replaced it; the deployment's network boundary is what
+stands in until OpenFGA lands, and `src/services/device/README.md` states it
+as a deployment constraint. Requirement 8's first draft said otherwise and was
+corrected — it described a design nobody could build.
+
+**Errors are sanitized outward and unwrapped inward, and the two are one
+mechanism.** A handler's error renders its client-facing sentence from
+`Error()`, so anything that formats it — `%v`, `%s`, or `errs.From(err).Msg()`
+— logs the sanitized text and drops the cause. The host interceptor reaches
+past the client-facing wrapper with `errors.As` to the `*errs.Error` and logs
+that. An edge-side reporter that logs a Connect error it received will hit the
+same trap from the other end: what arrives on the wire is the sanitized
+sentence plus an `ErrorPayload` detail, and the code is what to branch on.
+
+**The hub handshake, and why the supervision strategy is load-bearing.** The
+service runtime starts a supervisor's children concurrently — it schedules
+every child and returns before any `Setup` begins — so declaration order is
+not startup order. Central's four hub-dependent modules wait on a handle
+bounded by their own attempt context. The part that is easy to break: a
+dependent reads the hub's resources once and uses them for the whole attempt,
+which is only safe because the root supervisor is `RestForOne` with the hub
+first, so a rebuilt hub takes every module after it. Change that strategy and
+the modules behind it hold closed connections. The edge host has the same
+shape — the leaf node, the reporter queue and the `Subscribe` loop all depend
+on the attachment — so it needs the same answer, and `internal/host/handle.go`
+is the worked one.
+
+**Method, not confession: three tests here passed for reasons adjacent to the
+ones they named.** A certificate test that asserted the pin is logged only at
+generation could not fail, because the load path had no logger and so could
+not log anything — the absence it proved was of a capability, not a behaviour.
+A generation test for the hub handle passed with the fix removed, because a
+later nil check did the work the channel swap was credited with. And the
+fixture problem U6 left: `held()` built a mutation the edge had not
+acknowledged, so every resolve test treated an illegal state as legal. All
+three were found by reverting the fix and watching the test fail, and all
+three look identical to a test that works. Assume a test written for a fix
+does not test it until you have watched it fail without it — U8's re-send
+queue, freeze-on-missed-heartbeat and duplicate-dispatch cases are exactly
+that shape.
+
+**A gate that reports success on something the wide gate refuses.** Error
+codes are unique across the repository, enforced by a source scan in a test
+inside `src/common/errs`. A per-slice verifier over changed packages never
+runs it, so this unit's `telemetry/instrument` collided with the access
+module's and passed six slices of green checks before `go test -race ./...`
+refused it. The same holds for every repository-wide namespace: telemetry
+scope names, metric and event names, bus subjects, bucket names. A unit that
+adds a name from one of those runs the wide gate.
+
+**Two smaller facts.** The edge no longer detects drift — central does, from
+its own instrumentation scope, and `telemetry.View.DriftDetected` on the
+access module is deleted by the lane host contract plan. And
+`registry.Devices` now refuses an edge id the registry does not describe
+rather than answering with an empty list, so an edge host test that invents an
+edge id gets an error instead of silence.
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
