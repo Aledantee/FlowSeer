@@ -27,7 +27,7 @@ Topology illustrates connections and opens the same device details. Traffic upda
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. Tenant icons occupy a fixed slot beside the name; missing or
 failed images use a building icon. The collapsed rail centers the icon and keeps
-the full tenant name in its accessible label and tooltip. Its width is 72px.
+the full tenant name in its accessible label and tooltip. Its width is 64px.
 On small screens, the arrow sits beside the tenant selector and hides or reveals
 the navigation links above the content; tenant context stays visible.
 

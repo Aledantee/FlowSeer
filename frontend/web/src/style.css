@@ -1244,11 +1244,11 @@ td small {
 @media (min-width: 801px) {
   .sidebar-collapsed .sidebar {
     --sidebar-inset: 8px;
-    width: 72px;
+    width: 64px;
     padding: 10px 8px 0;
   }
   .sidebar-collapsed .main-shell {
-    margin-left: 72px;
+    margin-left: 64px;
   }
   .sidebar-collapsed .nav-label,
   .sidebar-collapsed .sidebar nav a span:not(.nav-highlight) {
