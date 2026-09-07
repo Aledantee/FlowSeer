@@ -36,6 +36,14 @@ type ShellAdapter interface {
 // InterfaceObservation's Provenance requires them together whenever
 // Provenance itself is present, since this capability is always
 // edge-mediated, never a cloud-mediated integration answering centrally.
+//
+// FirmwareFingerprint is the one field with two kinds of caller.
+// access.Lane overwrites whatever it is given with the fingerprint its own
+// identity probe returned, because an observation's provenance must name
+// the epoch the lane actually observed under rather than one a host
+// supplied and may not have refreshed. Callers of the package-level facade
+// functions in access.go have no probe behind them and set it themselves;
+// what they put here is what the observation carries.
 type ProvenanceInputs struct {
 	Binding             *inventoryv1.BindingGlobalRef
 	Edge                *edgev1.EdgeGlobalRef

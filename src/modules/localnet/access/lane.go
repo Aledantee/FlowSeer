@@ -9,6 +9,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -112,32 +113,66 @@ type Config struct {
 	OperationTimeout time.Duration
 }
 
-// DeviceSession is what one device needs to answer capability calls: an
-// SNMP session and, optionally, a shell adapter for the fallback route.
-// Sess must not be nil; Shell may be, when the device has no shell adapter
-// configured. [Lane.AddDevice] copies it once; the fields themselves
-// (Sess, Shell, the override closures) must be safe for the concurrent use
-// this device's lane may make of them afterward.
+// SNMPSession is one open SNMP session and the way to close it. The lane
+// closes every session it opens, at the end of the operation that opened
+// it.
+type SNMPSession struct {
+	Session snmp.Session
+	Close   func() error
+}
+
+// ShellSession is one open shell session and the way to close it.
+type ShellSession struct {
+	Adapter InterfaceShellAdapter
+	Close   func() error
+}
+
+// DeviceSession is how the lane reaches one device. It is a set of
+// factories, not a live connection: every operation opens its own session
+// from credential material acquired for that operation and closes it when
+// the operation ends.
+//
+// That is the whole point of the shape. A standing session outlives the
+// credential it was opened with, so a credential central revoked would go
+// on working for as long as the connection stayed up, and revocation would
+// mean nothing until something happened to drop it. Opening per operation
+// means the authority is checked by the act of acquiring, every time.
+//
+// [Lane.AddDevice] copies this struct once. The closures must be safe for
+// the concurrent use one device's lane makes of them.
 type DeviceSession struct {
-	Sess  snmp.Session
-	Shell InterfaceShellAdapter
-	Prov  InterfaceProvenanceInputs
+	// OpenSNMP opens an SNMP session from material acquired for this
+	// operation. Required: the identity probe at onboarding and every read
+	// go through it.
+	OpenSNMP func(ctx context.Context, credential *edgev1.DeviceCredential) (SNMPSession, error)
+	// OpenShell opens a shell session. Used for the fallback read route
+	// and for a mutation's own command, and may be nil for a device with
+	// no shell adapter — a mutation on such a device fails rather than
+	// silently doing nothing.
+	OpenShell func(ctx context.Context, credential *edgev1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
+
+	// AccessPolicy is the handle the onboarding identity probe acquires
+	// its credential under. A read carries its own on TypedRead, since
+	// central decides per read which policy admitted it; onboarding has no
+	// TypedRead to carry one, so it comes from here.
+	AccessPolicy *policyv1.AccessPolicyHandle
+
+	Prov InterfaceProvenanceInputs
 	// BindingID names the integration binding this device is reachable
-	// through, passed to SubmissionCredentialSource.Open as
-	// OpenDeviceSubmissionRequest's binding_id — required and
-	// UUID-constrained against a real EdgeService.
+	// through, passed to the credential sources as
+	// OpenDeviceSubmissionRequest's and AcquireReadCredentialRequest's
+	// binding_id — required and UUID-constrained against a real
+	// EdgeService.
 	BindingID string
 
-	// ReadOverride and SubmitOverride, when set, replace the ordinary
-	// interfaces.Read/ShellAdapter.SetPortName path entirely. Production
-	// wiring leaves both nil; a test that wants to drive the lane without
-	// a full SNMP or SSH fake sets one or both directly.
+	// ReadOverride and SubmitOverride, when set, replace the device call
+	// itself — interfaces.Read, or the shell's SetPortName. They do not
+	// replace acquiring a credential, and they never bypass it: a test
+	// using one still proves the acquisition happened, which is the
+	// property most worth not being able to switch off. Production wiring
+	// leaves both nil.
 	ReadOverride   func(ctx context.Context, interfaceName string) (*accessv1.InterfaceObservation, error)
 	SubmitOverride func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange) error
-	// FingerprintOverride, when set, is used as the device's starting
-	// firmware fingerprint instead of running [epoch.Probe] against Sess —
-	// which must otherwise be non-nil.
-	FingerprintOverride string
 }
 
 type submission struct {
@@ -248,6 +283,15 @@ func NewLane(cfg Config) *Lane {
 	if cfg.SubmissionCredentials == nil {
 		cfg.SubmissionCredentials = noopSubmissionSource{}
 	}
+	if cfg.ReadCredentials == nil {
+		// Same reasoning as the submission default: a facade with no live
+		// central to acquire from must still be able to read, and a nil
+		// interface here would panic on the first read rather than saying
+		// so. The no-op source returns an empty credential, which a host's
+		// own OpenSNMP is free to interpret as "use whatever this device
+		// was configured with".
+		cfg.ReadCredentials = noopReadSource{}
+	}
 	if cfg.Clock == nil {
 		// Unlike a nil *telemetry.View (every View method guards a nil
 		// receiver) or a nil Deliverer/Telemetry, a nil Clock panics on
@@ -290,6 +334,14 @@ func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error 
 // a host has not wired a real one: it grants immediately, stays
 // AUTHORIZED, and never ends, which is correct for a facade with no live
 // central to revoke authority from.
+// noopReadSource is Config's default ReadCredentialSource: it grants an
+// empty credential immediately and never expires.
+type noopReadSource struct{}
+
+func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error) {
+	return &edgev1.AcquireReadCredentialResponse{}, nil
+}
+
 type noopSubmissionSource struct{}
 
 func (noopSubmissionSource) Open(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
@@ -311,13 +363,13 @@ func (noopSubmissionHandle) Close() error { return nil }
 // firmware fingerprint, per the onboarding sequence this module's README
 // documents.
 func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSession) error {
-	fingerprint := session.FingerprintOverride
-	if fingerprint == "" {
-		probed, err := epoch.Probe(ctx, session.Sess)
-		if err != nil {
-			return errs.Wrap(err, "identity probe")
-		}
-		fingerprint = probed
+	// The onboarding probe acquires its own credential, under the handle
+	// this device was registered with, and opens a session that lives only
+	// as long as the probe. There is no cached session to reuse afterwards:
+	// the next operation acquires again.
+	fingerprint, err := l.probeIdentity(ctx, deviceKey, session)
+	if err != nil {
+		return err
 	}
 
 	l.cfg.Telemetry.DiscoveryCompleted(ctx, fingerprint)
@@ -361,6 +413,52 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 		fingerprint: fingerprint,
 	}
 	return nil
+}
+
+// probeIdentity acquires a read credential for deviceKey under the
+// device's own access-policy handle, opens an SNMP session from it, runs
+// the route-independent identity probe, and closes the session.
+func (l *Lane) probeIdentity(ctx context.Context, deviceKey string, session DeviceSession) (string, error) {
+	credential, _, err := l.acquireRead(ctx, deviceKey, session, session.AccessPolicy)
+	if err != nil {
+		return "", err
+	}
+	if session.OpenSNMP == nil {
+		return "", errs.New().Msg("device has no SNMP session factory; the identity probe cannot run")
+	}
+	opened, err := session.OpenSNMP(ctx, credential)
+	if err != nil {
+		return "", errs.Wrap(err, "open snmp session for the identity probe")
+	}
+	defer closeSession(opened.Close)
+
+	fingerprint, err := epoch.Probe(ctx, opened.Session)
+	if err != nil {
+		return "", errs.Wrap(err, "identity probe")
+	}
+	return fingerprint, nil
+}
+
+// acquireRead gets a fresh read credential for one operation. The handle is
+// the caller's: a read passes the one TypedRead.access_policy carries,
+// since central decides per read which policy admitted it, and onboarding
+// passes the device's own.
+func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session DeviceSession, handle *policyv1.AccessPolicyHandle) (*edgev1.DeviceCredential, string, error) {
+	response, err := l.cfg.ReadCredentials.AcquireReadCredential(ctx, deviceKey, session.BindingID, handle)
+	if err != nil {
+		return nil, "", errs.Wrap(err, "acquire read credential")
+	}
+	return response.GetCredential(), response.GetSshHostKeySha256(), nil
+}
+
+// closeSession runs a session's closer and discards its error. A device
+// that answered the operation and then failed to hang up cleanly has not
+// invalidated the answer, and reporting the close instead would replace a
+// real result with a housekeeping failure.
+func closeSession(closer func() error) {
+	if closer != nil {
+		_ = closer()
+	}
 }
 
 // device looks up deviceKey, rejecting the call once [Lane.Close] has run.
@@ -930,19 +1028,61 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 		DeviceID:           ds.key,
 		BindingID:          sess.BindingID,
 		Read: func(ctx context.Context) (*accessv1.InterfaceObservation, error) {
+			// Acquired before the override is consulted, so a test that
+			// replaces the device call cannot also skip the acquisition.
+			credential, hostKey, err := l.acquireRead(ctx, ds.key, sess, req.GetRead().GetAccessPolicy())
+			if err != nil {
+				return nil, err
+			}
 			if sess.ReadOverride != nil {
 				return sess.ReadOverride(ctx, name)
 			}
-			return interfaces.Read(ctx, sess.Sess, sess.Shell, name, sess.Prov, nil, interfaces.Freshness{}, l.cfg.Clock())
+			if sess.OpenSNMP == nil {
+				return nil, errs.New().Msg("device has no SNMP session factory; a read cannot be served")
+			}
+			opened, err := sess.OpenSNMP(ctx, credential)
+			if err != nil {
+				return nil, errs.Wrap(err, "open snmp session")
+			}
+			defer closeSession(opened.Close)
+
+			// The shell is opened only for the fallback route, and only when
+			// the device has one. interfaces.Read decides whether it needs
+			// it; opening it unconditionally would mean an SSH login on every
+			// SNMP read.
+			var shell InterfaceShellAdapter
+			if sess.OpenShell != nil {
+				openedShell, err := sess.OpenShell(ctx, credential, hostKey)
+				if err != nil {
+					return nil, errs.Wrap(err, "open shell session")
+				}
+				defer closeSession(openedShell.Close)
+				shell = openedShell.Adapter
+			}
+
+			// The fingerprint the lane probed wins over whatever a host put
+			// in Prov: an observation's provenance must name the epoch this
+			// lane actually observed under, not one a caller supplied.
+			prov := sess.Prov
+			prov.FirmwareFingerprint = fingerprint
+			return interfaces.Read(ctx, opened.Session, shell, name, prov, nil, interfaces.Freshness{}, l.cfg.Clock())
 		},
-		Submit: func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange) error {
+		Submit: func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
 			if sess.SubmitOverride != nil {
 				return sess.SubmitOverride(ctx, intent)
 			}
-			if sess.Shell == nil {
-				return errs.New().Msg("device has no shell adapter configured; a mutation cannot be submitted")
+			if sess.OpenShell == nil {
+				return errs.New().Msg("device has no shell session factory; a mutation cannot be submitted")
 			}
-			return sess.Shell.SetPortName(ctx, intent.GetInterfaceName(), intent.GetDescription())
+			// The command is sent over a session opened from the grant's own
+			// material, pinned to the host key the grant names. The grant is
+			// one-use and this is the use.
+			opened, err := sess.OpenShell(ctx, grant.GetCredential(), grant.GetSshHostKeySha256())
+			if err != nil {
+				return errs.Wrap(err, "open shell session for the command")
+			}
+			defer closeSession(opened.Close)
+			return opened.Adapter.SetPortName(ctx, intent.GetInterfaceName(), intent.GetDescription())
 		},
 		Submission: l.cfg.SubmissionCredentials,
 		Freeze:     l.freeze,

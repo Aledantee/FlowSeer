@@ -54,8 +54,12 @@ type Deps struct {
 	// EdgeService rejects an empty value with InvalidArgument.
 	BindingID string
 
-	Read   func(ctx context.Context) (*accessv1.InterfaceObservation, error)
-	Submit func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange) error
+	Read func(ctx context.Context) (*accessv1.InterfaceObservation, error)
+	// Submit sends the command over a session the caller opens from the
+	// grant's own material. The grant is passed rather than captured
+	// because it is acquired inside Execute, immediately before the command
+	// and after the authority check, and is one-use.
+	Submit func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
 	Verify func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange, since, now time.Time) (*accessv1.InterfaceObservation, interfaces.VerificationDisposition, error)
 
 	Submission credential.SubmissionCredentialSource
@@ -476,7 +480,7 @@ func (m *Machine) Execute(ctx context.Context) error {
 	m.submitted = true
 	m.mu.Unlock()
 
-	if err := m.deps.Submit(waitCtx, mutationIntent.GetInterfaceDescription()); err != nil {
+	if err := m.deps.Submit(waitCtx, handle.Grant(), mutationIntent.GetInterfaceDescription()); err != nil {
 		return errs.Wrap(err, "submit mutation")
 	}
 

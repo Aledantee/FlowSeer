@@ -15,7 +15,8 @@ emitted. Grounded in
 
 ## Exported surface
 
-`Lane` and `Reporter` (`lane.go`) are the exported types beyond the
+`Lane`, `Reporter`, `DeviceSession`, `SNMPSession` and `ShellSession`
+(`lane.go`) are the exported types beyond the
 capability facade functions in `access.go`. Every other type — `internal/evidence`,
 `internal/epoch`, `internal/lane`, `internal/credential`,
 `internal/telemetry`, `internal/freeze`, `internal/audit`,
@@ -26,7 +27,7 @@ for the interface capability directly.
 
 ```
 NewLane(Config) *Lane
-  .AddDevice(ctx, deviceKey, DeviceSession) error   // onboarding: runs the identity probe
+  .AddDevice(ctx, deviceKey, DeviceSession) error   // onboarding: acquires, probes, closes
   .Submit(ctx, SubmitOptions) (*ExecuteResult, error)
   .HandleCheckpoint(deviceKey, *CheckpointRequest) error
   .HandleTerminalAck(ctx, deviceKey, *TerminalResultAck) error
@@ -34,6 +35,34 @@ NewLane(Config) *Lane
   .ResolveHold(ctx, deviceKey, *HoldResolved) error // clears a recovery hold
   .Close(ctx) (ShutdownReport, error)
 ```
+
+## How the lane reaches a device
+
+`DeviceSession` is a set of factories, not a connection. Every operation
+acquires its own credential through `Config.ReadCredentials`, opens a
+session from it, and closes that session when the operation ends —
+onboarding's identity probe under the handle `DeviceSession.AccessPolicy`
+carries, each read under the handle central put on that read's
+`TypedRead.access_policy`, and a mutation's command over a shell opened from
+the submission grant's own material, pinned to the host key the grant names.
+
+A standing session would outlive the credential it was opened with, so a
+credential central revoked would keep working for as long as the connection
+stayed up. Acquiring per operation means the authority is checked by the act
+of acquiring, every time. The cost is one acquisition per read, which is
+what `AcquireReadCredential` is shaped for — there is no standing lease to
+cache.
+
+`ReadOverride` and `SubmitOverride` replace the device call itself and are
+for tests. They do not replace the acquisition, which happens first
+regardless: a hook able to skip it would let the rest of this package's
+tests pass with the credential path switched off.
+
+The observation's `FirmwareFingerprint` provenance is the lane's probed
+value, overwriting whatever a host put in `DeviceSession.Prov` — an
+observation must name the epoch it was actually taken under. The
+package-level facade functions in `access.go` have no probe behind them, so
+their callers set it themselves.
 
 ## What the lane tells its host, and what it asks of it
 

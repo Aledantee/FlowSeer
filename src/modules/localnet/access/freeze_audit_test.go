@@ -61,7 +61,7 @@ func (d *frozenSpy) fail(devices ...string) {
 func addNamedDevice(t *testing.T, l *access.Lane, deviceKey string) error {
 	t.Helper()
 	return l.AddDevice(context.Background(), deviceKey, access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},

@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/mutation"
@@ -40,7 +41,7 @@ func TestSubmitLatchLetsOnlyOneOfCancelAndCommandWin(t *testing.T) {
 		var commands atomic.Int64
 		deliverer := newFakeDeliverer()
 		deps := baseDeps(deliverer, fakeSubmission())
-		deps.Submit = func(context.Context, *accessv1.InterfaceDescriptionChange) error {
+		deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 			commands.Add(1)
 			return nil
 		}

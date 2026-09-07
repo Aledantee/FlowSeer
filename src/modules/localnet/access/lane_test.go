@@ -12,6 +12,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
@@ -55,10 +56,10 @@ func completeObservation(description string) *accessv1.InterfaceObservation {
 	return obs
 }
 
-// mutationRequest always expects fingerprint "fw-A", matching every
-// newTestLane device's FingerprintOverride.
+// mutationRequest expects whatever the fixture identity probe returns,
+// which is what every fixture device's OpenSNMP answers.
 func mutationRequest(sequence uint64) *integrationv1.ExecuteRequest {
-	return mutationRequestWithFingerprint(sequence, "fw-A", "uplink to core")
+	return mutationRequestWithFingerprint(sequence, probedFingerprint(), "uplink to core")
 }
 
 func mutationRequestWithFingerprint(sequence uint64, fingerprint, description string) *integrationv1.ExecuteRequest {
@@ -89,7 +90,7 @@ func readRequest() *integrationv1.ExecuteRequest {
 func addDevice(t *testing.T, l *access.Lane) {
 	t.Helper()
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -192,7 +193,7 @@ func TestCoalescedReadKeepsCallersLongerDeadlineInsteadOfOperationTimeout(t *tes
 		OperationTimeout: shortOperationTimeout,
 	})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(ctx context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			select {
 			case <-time.After(slowRead):
@@ -240,7 +241,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	// queue is genuinely full for the overload check.
 	release := make(chan struct{})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			return completeObservation("x"), nil
@@ -328,7 +329,7 @@ func TestLanePollCoalescing(t *testing.T) {
 	var mu sync.Mutex
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			mu.Lock()
 			reads++
@@ -387,7 +388,7 @@ func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 	var submits int
 	var mu sync.Mutex
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -420,9 +421,8 @@ func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 // TestLaneOnboardingProbedFingerprintGatesTheFirstMutation proves the
 // identity probe's result is not merely run, but is actually what the
 // first mutation's fingerprint gate checks against: a mutation whose
-// expected fingerprint matches what the probe (via fakeIdentitySession,
-// which always answers "fw-A") returned is admitted, and one that names a
-// different fingerprint is blocked — the ordering requirement 16 asks for
+// expected fingerprint matches what the probe returned is admitted, and
+// one that names a different fingerprint is blocked — the ordering requirement 16 asks for
 // stated as an observable effect rather than a bare "was it called" flag.
 func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 	l := newTestLane(t)
@@ -440,7 +440,12 @@ func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 
 	var probed bool
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		Sess: fakeIdentitySession{onGet: func() { probed = true }},
+		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+			return access.SNMPSession{
+				Session: fakeIdentitySession{onGet: func() { probed = true }},
+				Close:   func() error { return nil },
+			}, nil
+		},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -618,7 +623,7 @@ func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
 
 	releaseA := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(ctx context.Context, name string) (*accessv1.InterfaceObservation, error) {
 			if name == "eth-A" {
 				<-releaseA
@@ -781,7 +786,7 @@ func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
 	bEnqueued := make(chan struct{})
 	releaseB := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(_ context.Context, name string) (*accessv1.InterfaceObservation, error) {
 			switch name {
 			case "eth-A":
@@ -847,7 +852,7 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			// If the owner's cancellation reached this call's own ctx, the
@@ -907,7 +912,7 @@ func TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner(t *testing.
 
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		FingerprintOverride: "fw-A",
+		OpenSNMP: probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			return completeObservation("uplink to core"), nil
