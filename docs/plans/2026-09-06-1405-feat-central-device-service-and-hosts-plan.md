@@ -811,8 +811,8 @@ disposed state for this; the report handler is not central's audit-emission
 site, so the event is emitted here. The carrier is U6's to shape — a
 disposition-and-code field on `LaneReleased`, or the event's attributes.
 Also tells an operator what retiring an edge left behind. `RetireEdge` ends
-the edge's standing and withdraws its setup key, and it deliberately touches
-no lane record: an admin call that silently abandons mutations across device
+the edge's standing and withdraws its setup key, and it deliberately abandons
+no mutation: an admin call that silently abandons mutations across device
 records is a blast radius nobody asked for, and `AbandonMutation` is already
 the RPC for an edge that never comes back. But the operator must learn what
 they now have to abandon rather than finding it later in a stuck lane, so
@@ -820,6 +820,26 @@ they now have to abandon rather than finding it later in a stuck lane, so
 records hold an open mutation, and the central host wires it behind
 `RetireEdge`'s response. The shape is U6's to choose; what is fixed is that
 retirement is not silent about the work it orphans.
+
+`RetireEdge` also drops the pending hold resolutions on that edge's devices.
+A hold exists to tell an edge to clear its own; with no edge the obligation
+is moot rather than pending, and leaving it owed asserts an obligation
+against a peer that cannot discharge it. Retirement is the moment central
+learns the edge will not acknowledge, so it is where to act on it. It also
+makes the pending-hold wall unreachable in the one case that reaches it: the
+set fills at `maxPendingHolds`, drains only through the edge's
+`HoldResolvedAck`, and refuses further abandons — so an operator working
+through a dead edge, which is exactly who abandons repeatedly, would
+otherwise wall themselves in. Retiring the edge they are working around
+clears it.
+
+That is a cascade from an edge record into lane records, which the paragraph
+above says retirement does not do, and the next reader will take it for a
+change of mind. It is not. Abandoning a live mutation destroys work an
+operator did not ask to lose and hides a device that may carry a
+half-applied change; dropping a hold removes an instruction addressed to a
+peer that no longer exists. The first is a decision only the operator can
+make, the second is a fact retirement establishes.
 Tests: each RPC's happy path and its refusal cases; the drift table for
 both modes and all three resolution arms; retiring an edge that holds an
 open mutation names that device.

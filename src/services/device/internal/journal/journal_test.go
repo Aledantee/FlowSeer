@@ -2,9 +2,12 @@ package journal_test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/nats-io/nats.go/jetstream"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
@@ -21,6 +24,14 @@ const deviceID = "0192e6a0-0000-7000-8000-0000000000d1"
 
 func newJournal(t *testing.T) *journal.Journal {
 	t.Helper()
+	j, _ := newJournalKV(t)
+	return j
+}
+
+// newJournalKV also hands back the bucket, so a test can read the record's
+// revision and count the writes an operation took.
+func newJournalKV(t *testing.T) (*journal.Journal, jetstream.KeyValue) {
+	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
 		FsyncPolicy: service.BusFsyncPeriodic,
@@ -34,7 +45,12 @@ func newJournal(t *testing.T) *journal.Journal {
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
-	return journal.New(kv, nil)
+	return journal.New(kv, nil), kv
+}
+
+// holdKey names the intent whose abandonment seeds one pending hold.
+func holdKey(n int) string {
+	return fmt.Sprintf("0192e6a0-0000-7000-8000-%012d", n)
 }
 
 func mutationIntent(key string) *accessv1.MutationIntent {
@@ -89,6 +105,22 @@ func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
 		}
 	}
 	return false
+}
+
+// pendingHold puts one hold into the record the way the journal produces one:
+// a mutation abandoned before the edge reported it admitted closes the lane
+// and leaves the sequence's hold owed. It returns that sequence.
+func pendingHold(t *testing.T, j *journal.Journal, key string) uint64 {
+	t.Helper()
+	ctx := context.Background()
+	state, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	if err != nil {
+		t.Fatalf("admit for hold: %v", err)
+	}
+	if _, err := j.Dispose(ctx, deviceID, state.GetSequence()); err != nil {
+		t.Fatalf("dispose for hold: %v", err)
+	}
+	return state.GetSequence()
 }
 
 func TestAdmitAssignsSequencesAndDeduplicates(t *testing.T) {
@@ -256,7 +288,7 @@ func TestApplyReportErrorBeforeSubmissionDisposesRejected(t *testing.T) {
 	}
 }
 
-func TestDisposeAndResolveHold(t *testing.T) {
+func TestDisposeAndResolveDesynchronization(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-00000000e001"), edgeRef()); err != nil {
@@ -279,7 +311,7 @@ func TestDisposeAndResolveHold(t *testing.T) {
 		state.GetBlockReason() != accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD {
 		t.Fatalf("disposed state = %v / %v", state.GetDisposition(), state.GetBlockReason())
 	}
-	// The mutation stays held until ResolveHold clears it.
+	// The mutation stays held until ResolveDesynchronization clears it.
 	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: 1}); err != nil {
 		t.Fatalf("abandoned: %v", err)
 	}
@@ -287,12 +319,12 @@ func TestDisposeAndResolveHold(t *testing.T) {
 	if !rec.HasMutation() {
 		t.Fatal("abandonment closed the record; it must stay held for resolution")
 	}
-	if err := j.ResolveHold(ctx, deviceID, 1); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 		t.Fatalf("resolve: %v", err)
 	}
 	rec, _ = j.Record(ctx, deviceID)
 	if rec.HasMutation() {
-		t.Fatal("ResolveHold did not clear the held mutation")
+		t.Fatal("ResolveDesynchronization did not clear the held mutation")
 	}
 	if !holdPending(rec, 1) {
 		t.Fatalf("hold resolution pending = %v, want 1 present", rec.GetHoldResolutionPending())
@@ -444,34 +476,30 @@ func TestDisposeBeforeDispatchClosesAndOwesHoldResolved(t *testing.T) {
 	}
 }
 
-func TestResolveHoldAccumulatesDistinctSequences(t *testing.T) {
+func TestPendingHoldsAccumulateAsASet(t *testing.T) {
 	j := newJournal(t)
 	ctx := context.Background()
 	// Two different holds can be pending at once — the restore arm resolves an
 	// abandoned sequence while a new intent's own hold is still owed — so a
 	// second resolution adds rather than overwrites, and neither hold's row
 	// vanishes before the edge acknowledges it.
-	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
-		t.Fatalf("first resolve: %v", err)
-	}
-	if err := j.ResolveHold(ctx, deviceID, 6); err != nil {
-		t.Fatalf("second resolve: %v", err)
-	}
+	first := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000501")
+	second := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000502")
 	// Re-resolving a pending sequence is idempotent: the set does not grow.
-	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: first}); err != nil {
 		t.Fatalf("idempotent resolve: %v", err)
 	}
 	rec, _ := j.Record(ctx, deviceID)
-	if !holdPending(rec, 5) || !holdPending(rec, 6) || len(rec.GetHoldResolutionPending()) != 2 {
-		t.Fatalf("pending holds = %v, want {5, 6}", rec.GetHoldResolutionPending())
+	if !holdPending(rec, first) || !holdPending(rec, second) || len(rec.GetHoldResolutionPending()) != 2 {
+		t.Fatalf("pending holds = %v, want {%d, %d}", rec.GetHoldResolutionPending(), first, second)
 	}
 	// Confirming one leaves the other owed.
-	if err := j.ConfirmHoldResolved(ctx, deviceID, 5); err != nil {
-		t.Fatalf("confirm 5: %v", err)
+	if err := j.ConfirmHoldResolved(ctx, deviceID, first); err != nil {
+		t.Fatalf("confirm %d: %v", first, err)
 	}
 	rec, _ = j.Record(ctx, deviceID)
-	if holdPending(rec, 5) || !holdPending(rec, 6) {
-		t.Fatalf("after confirming 5, pending = %v, want {6}", rec.GetHoldResolutionPending())
+	if holdPending(rec, first) || !holdPending(rec, second) {
+		t.Fatalf("pending holds = %v, want only %d", rec.GetHoldResolutionPending(), second)
 	}
 }
 
@@ -596,7 +624,7 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 		}
 		// The held abandonment owes nothing; ResolveDesynchronization is its
 		// terminator, and it moves the record to a hold-resolved row.
-		if err := j.ResolveHold(ctx, deviceID, 1); err != nil {
+		if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: 1}); err != nil {
 			t.Fatalf("resolve: %v", err)
 		}
 		rec, _ := j.Record(ctx, deviceID)

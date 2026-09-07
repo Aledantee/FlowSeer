@@ -150,8 +150,8 @@ func ExpiredReads(record *storev1.DeviceLaneRecord, now time.Time) []string {
 //     recovery horizon, from blocked_since, that expires into that same call.
 //   - An abandoned mutation whose terminal ack the edge has confirmed
 //     (INDETERMINATE_ABANDONED, last reported phase ABANDONED) is resolved by
-//     ResolveDesynchronization, which [Journal.ResolveHold] applies to that
-//     sequence.
+//     ResolveDesynchronization, which [Journal.ResolveDesynchronization]
+//     applies to that sequence.
 //
 // A terminal mutation that is not the confirmed-abandoned case owes its
 // terminal ack instead, so it is not covered here.

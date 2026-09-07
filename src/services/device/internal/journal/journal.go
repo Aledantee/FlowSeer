@@ -138,7 +138,6 @@ func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.
 func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		ensureDevice(rec, intent.GetDevice())
 		if seq, ok := recordedSequence(rec, intent.GetIdempotencyKey()); ok {
 			state = recordedState(rec, seq)
 			return errSkip
@@ -146,17 +145,7 @@ func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.M
 		if rec.HasMutation() {
 			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a mutation already holds this device's lane")
 		}
-		seq := rec.GetHighWatermark() + 1
-		rec.SetHighWatermark(seq)
-		m := &accessv1.MutationState{}
-		m.SetIntent(intent)
-		m.SetSequence(seq)
-		m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
-		m.SetResponsibleEdge(edge)
-		rec.SetMutation(m)
-		rec.SetAdmittedAt(timestamppb.New(j.clock()))
-		rememberKey(rec, intent.GetIdempotencyKey(), seq)
-		state = m
+		state = admitIntent(rec, intent, edge, j.clock())
 		return nil
 	})
 	if err != nil {
@@ -479,20 +468,103 @@ func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence 
 	return state, nil
 }
 
-// ResolveHold records that an abandoned or desynchronized sequence's hold is
-// resolved, so the owed-row derivation sends HoldResolved and the edge's ack
-// clears it. It clears a held mutation at that sequence so the lane is free
-// for the resolution's own intent.
-func (j *Journal) ResolveHold(ctx context.Context, deviceID string, sequence uint64) error {
-	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		if err := addHold(rec, deviceID, sequence); err != nil {
-			return err
+// Resolution is one arm of the operator's ResolveDesynchronization, in the
+// terms the record keeps: which held sequence ends, what central expects on
+// the interface afterwards, and what takes the resolved mutation's place.
+type Resolution struct {
+	// Sequence is the held sequence being resolved: a mutation abandoned into
+	// a recovery hold, or an intent the drift poll is holding.
+	Sequence uint64
+	// Interface and Expected adopt what the device actually carries as the new
+	// expectation, which is the accept arm. An empty Interface leaves the
+	// expectation alone; an empty Expected is a description a device really
+	// can carry, so the two cannot be one field.
+	Interface string
+	Expected  string
+	// Intent is admitted at the next sequence, in the same write: the restore
+	// arm's reconciliation intent, or the replace arm's carried one. Nil
+	// admits nothing, which is the accept arm.
+	Intent *accessv1.MutationIntent
+	// Edge is the intent's responsible edge, required with Intent.
+	Edge *edgev1.EdgeGlobalRef
+}
+
+// ResolveDesynchronization ends a held sequence and admits its replacement in
+// one compare-and-set write, and returns the resolved state and the admitted
+// one — either may be nil, since the accept arm admits nothing and a sequence
+// whose mutation the record already closed has no state left to return.
+//
+// One write because the two halves cannot be separated safely. Resolving frees
+// the lane and stops the drift poll seeing a held mutation; admitting is what
+// records the operator's decision. A central that stopped between them would
+// leave the hold resolved, the edge released, drift free to re-evaluate, and
+// the operator believing the expected state was being put back while nothing
+// recorded it. [Journal.Admit] refuses over a held mutation, so the two-call
+// shape is not merely riskier, it is the only other shape available.
+//
+// The arms differ only in what they carry. An intent the drift poll held at
+// ADMITTED never reached the device, so it is disposed REJECTED and released
+// here, never ABANDONED. A sequence already abandoned is terminal and keeps
+// its disposition; only its hold is resolved. Either way the sequence's hold
+// is recorded, so the edge is told to clear its own before the next dispatch.
+//
+// A resubmission carrying an idempotency key the record already holds returns
+// the recorded state and writes nothing, so a lost response is retried rather
+// than resolved twice.
+func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string, res Resolution) (*accessv1.MutationState, *accessv1.MutationState, error) {
+	var resolved, admitted *accessv1.MutationState
+	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+		if key := res.Intent.GetIdempotencyKey(); key != "" {
+			if seq, ok := recordedSequence(rec, key); ok {
+				admitted = recordedState(rec, seq)
+				return errSkip
+			}
 		}
-		if m := rec.GetMutation(); m != nil && m.GetSequence() == sequence {
+
+		m := rec.GetMutation()
+		switch {
+		case m != nil && m.GetSequence() == res.Sequence:
+			if !m.HasDisposition() {
+				// Held at ADMITTED and never dispatched: the disposition is
+				// REJECTED, and the phase moves to RELEASED in this one write
+				// so the record never holds a disposition its phase forbids.
+				m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_RELEASED)
+				m.SetDisposition(accessv1.Disposition_DISPOSITION_REJECTED)
+			}
+			resolved = m // detached: the record's mutation is cleared below
+			if err := addHold(rec, deviceID, res.Sequence); err != nil {
+				return err // refuse before clearing, so the resolution is atomic
+			}
 			clearMutation(rec)
+		case m != nil:
+			return errs.New().Code(ErrCodeState).Attr("device", deviceID).
+				Msg("another mutation holds this device's lane")
+		case holdPending(rec, res.Sequence):
+			// The abandonment already closed the lane and recorded the hold;
+			// the arm's own intent is all that is left to admit.
+		default:
+			return errs.New().Code(ErrCodeState).Attr("device", deviceID).
+				Msg("no held sequence to resolve")
+		}
+
+		if res.Interface != "" {
+			expected := rec.GetExpectedDescriptions()
+			if expected == nil {
+				expected = map[string]string{}
+			}
+			expected[res.Interface] = res.Expected
+			rec.SetExpectedDescriptions(expected)
+		}
+
+		if res.Intent != nil {
+			admitted = admitIntent(rec, res.Intent, res.Edge, j.clock())
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return resolved, admitted, nil
 }
 
 // SetExpected records the description central expects on one interface, the
@@ -539,6 +611,33 @@ func (j *Journal) mutateMutation(ctx context.Context, deviceID string, sequence 
 }
 
 // clearMutation closes an open mutation and its per-mutation confirmations.
+// admitIntent records intent at the next sequence, at ADMITTED, and takes the
+// lane. The caller has already established that the lane is free.
+func admitIntent(rec *storev1.DeviceLaneRecord, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, now time.Time) *accessv1.MutationState {
+	ensureDevice(rec, intent.GetDevice())
+	seq := rec.GetHighWatermark() + 1
+	rec.SetHighWatermark(seq)
+	m := &accessv1.MutationState{}
+	m.SetIntent(intent)
+	m.SetSequence(seq)
+	m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
+	m.SetResponsibleEdge(edge)
+	rec.SetMutation(m)
+	rec.SetAdmittedAt(timestamppb.New(now))
+	rememberKey(rec, intent.GetIdempotencyKey(), seq)
+	return m
+}
+
+// holdPending reports whether the sequence's hold resolution is still owed.
+func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
+	for _, s := range rec.GetHoldResolutionPending() {
+		if s == sequence {
+			return true
+		}
+	}
+	return false
+}
+
 func clearMutation(rec *storev1.DeviceLaneRecord) {
 	rec.ClearMutation()
 	rec.ClearAdmittedAt()
@@ -554,12 +653,10 @@ func clearMutation(rec *storev1.DeviceLaneRecord) {
 // operator piling up resolutions the edge has not acknowledged hits a wall
 // that names the reason rather than growing the record silently.
 func addHold(rec *storev1.DeviceLaneRecord, deviceID string, sequence uint64) error {
-	holds := rec.GetHoldResolutionPending()
-	for _, s := range holds {
-		if s == sequence {
-			return nil
-		}
+	if holdPending(rec, sequence) {
+		return nil
 	}
+	holds := rec.GetHoldResolutionPending()
 	if len(holds) >= maxPendingHolds {
 		return errs.New().Code(ErrCodeHoldsFull).Attr("device", deviceID).
 			Msg("pending hold resolutions are at capacity; the edge must acknowledge some before more can be recorded")

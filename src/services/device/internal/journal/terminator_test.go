@@ -63,10 +63,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 			// Terminator: the edge's HoldResolvedAck, ConfirmHoldResolved.
 			name: "hold resolved / ConfirmHoldResolved",
 			owe: func(t *testing.T, j *journal.Journal) (journal.OwedKind, uint64) {
-				if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
-					t.Fatalf("resolve hold: %v", err)
-				}
-				return journal.OwedHoldResolved, 5
+				return journal.OwedHoldResolved, pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000e00")
 			},
 			terminate: func(j *journal.Journal, seq uint64) error {
 				return j.ConfirmHoldResolved(ctx, deviceID, seq)
@@ -178,13 +175,12 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 
 	backgrounds := []struct {
 		name string
-		seed func(t *testing.T, j *journal.Journal)
+		// seed returns the sequence whose hold it left pending, or zero.
+		seed func(t *testing.T, j *journal.Journal) uint64
 	}{
-		{"no hold", func(*testing.T, *journal.Journal) {}},
-		{"hold pending for another sequence", func(t *testing.T, j *journal.Journal) {
-			if err := j.ResolveHold(ctx, deviceID, 99); err != nil {
-				t.Fatalf("seed hold: %v", err)
-			}
+		{"no hold", func(*testing.T, *journal.Journal) uint64 { return 0 }},
+		{"hold pending for another sequence", func(t *testing.T, j *journal.Journal) uint64 {
+			return pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000e99")
 		}},
 	}
 
@@ -192,7 +188,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 		for _, c := range cases {
 			t.Run(bg.name+"/"+c.name, func(t *testing.T) {
 				j := newJournal(t)
-				bg.seed(t, j)
+				unrelated := bg.seed(t, j)
 				kind, seq := c.owe(t, j)
 				if !owesRow(t, j, kind, seq) {
 					t.Fatalf("setup did not owe kind=%d seq=%d", kind, seq)
@@ -205,7 +201,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 				}
 				// The terminator must not clobber an unrelated pending hold.
 				rec, _ := j.Record(ctx, deviceID)
-				if bg.name != "no hold" && !holdPending(rec, 99) {
+				if unrelated != 0 && !holdPending(rec, unrelated) {
 					t.Fatal("the terminator dropped an unrelated pending hold")
 				}
 			})
@@ -221,9 +217,7 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 func TestAbandonedHoldResolvableUnderAnOlderHold(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)
-	if err := j.ResolveHold(ctx, deviceID, 99); err != nil { // an older, unacknowledged hold
-		t.Fatalf("seed hold: %v", err)
-	}
+	older := pendingHold(t, j, "0192e6a0-0000-7000-8000-000000000e07") // an older, unacknowledged hold
 	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000e08"), edgeRef())
 	if err != nil {
 		t.Fatalf("admit: %v", err)
@@ -239,14 +233,14 @@ func TestAbandonedHoldResolvableUnderAnOlderHold(t *testing.T) {
 		t.Fatalf("abandoned: %v", err)
 	}
 	// The mutation owes nothing now; ResolveDesynchronization must free it.
-	if err := j.ResolveHold(ctx, deviceID, seq); err != nil {
+	if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq}); err != nil {
 		t.Fatalf("ResolveDesynchronization refused under an older hold: %v", err)
 	}
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.HasMutation() {
 		t.Fatal("ResolveDesynchronization did not free the abandoned mutation")
 	}
-	if !holdPending(rec, 99) || !holdPending(rec, seq) {
+	if !holdPending(rec, older) || !holdPending(rec, seq) {
 		t.Fatalf("both holds should be pending, got %v", rec.GetHoldResolutionPending())
 	}
 }
@@ -359,27 +353,27 @@ func TestRejectDispatchBranchesOnDispatched(t *testing.T) {
 func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	ctx := context.Background()
 
-	// fill seeds the pending-hold set to capacity with sequences that will not
-	// collide with the mutation Admit assigns (Admit starts at 1).
+	// fill seeds the pending-hold set to capacity the way an operator reaches
+	// it: abandoning one un-dispatched mutation after another, each of which
+	// closes the lane and leaves its own hold owed.
 	fill := func(t *testing.T, j *journal.Journal) {
 		t.Helper()
-		for s := uint64(100); s < 100+64; s++ {
-			if err := j.ResolveHold(ctx, deviceID, s); err != nil {
-				t.Fatalf("seed hold %d: %v", s, err)
-			}
+		for s := range 64 {
+			pendingHold(t, j, holdKey(s))
 		}
 	}
 
 	t.Run("a non-hold-adding terminator still acts", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f03"), edgeRef()); err != nil {
+		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f03"), edgeRef())
+		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
-		if err := j.ConfirmCheckpoint(ctx, deviceID, 1); err != nil {
+		if err := j.ConfirmCheckpoint(ctx, deviceID, state.GetSequence()); err != nil {
 			t.Fatalf("ConfirmCheckpoint refused on a full hold set: %v", err)
 		}
 	})
@@ -387,12 +381,13 @@ func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	t.Run("abandoning an un-dispatched mutation hits a named wall", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f04"), edgeRef()); err != nil {
+		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f04"), edgeRef())
+		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
 		// Dispose of an un-dispatched mutation must add a hold, which the full
 		// set refuses — loudly, with the reason named, not silently.
-		_, err := j.Dispose(ctx, deviceID, 1)
+		_, err = j.Dispose(ctx, deviceID, state.GetSequence())
 		if code, _ := errs.CodeOf(err); code != journal.ErrCodeHoldsFull {
 			t.Fatalf("Dispose error code = %v, want holds-full", code)
 		}
@@ -405,15 +400,16 @@ func TestTerminatorInvocabilityUnderAFullHoldSet(t *testing.T) {
 	t.Run("abandoning a dispatched mutation is unaffected", func(t *testing.T) {
 		j := newJournal(t)
 		fill(t, j)
-		if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f05"), edgeRef()); err != nil {
+		state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000f05"), edgeRef())
+		if err != nil {
 			t.Fatalf("admit: %v", err)
 		}
-		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: state.GetSequence()}); err != nil {
 			t.Fatalf("admitted: %v", err)
 		}
 		// A dispatched mutation abandons into a recovery hold, which does not
 		// touch the pending-hold set, so the full set does not block it.
-		if _, err := j.Dispose(ctx, deviceID, 1); err != nil {
+		if _, err := j.Dispose(ctx, deviceID, state.GetSequence()); err != nil {
 			t.Fatalf("Dispose of a dispatched mutation refused on a full hold set: %v", err)
 		}
 	})

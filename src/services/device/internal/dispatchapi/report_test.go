@@ -210,11 +210,18 @@ func TestRefusedTerminalAckOnAbandonmentConfirmsIt(t *testing.T) {
 func TestRefusedHoldResolvedLeavesTheRowOwed(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
-	if err := j.ResolveHold(ctx, deviceID, 5); err != nil {
-		t.Fatalf("resolve hold: %v", err)
+	// A hold gets into the record by abandoning a mutation the edge never
+	// reported admitted: the lane closes and the sequence's hold is owed.
+	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d05"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	seq := state.GetSequence()
+	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+		t.Fatalf("dispose: %v", err)
 	}
 	refused := &integrationv1.Refused{}
-	refused.SetSequence(5)
+	refused.SetSequence(seq)
 	refused.SetKind(integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED)
 	refused.SetCode("access/lane-closed")
 	req := &integrationv1.ReportRequest{}
@@ -224,7 +231,7 @@ func TestRefusedHoldResolvedLeavesTheRowOwed(t *testing.T) {
 	rec, _ := j.Record(ctx, deviceID)
 	pending := false
 	for _, s := range rec.GetHoldResolutionPending() {
-		if s == 5 {
+		if s == seq {
 			pending = true
 		}
 	}
