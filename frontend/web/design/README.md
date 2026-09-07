@@ -110,7 +110,10 @@ Apply `brand-glow` to every connected chrome surface:
 
 ```html
 <aside class="sidebar brand-glow">...</aside>
-<header class="topbar brand-glow">...</header>
+<header class="topbar">
+  <span class="topbar-glass brand-glow" aria-hidden="true"></span>
+  ...
+</header>
 ```
 
 The layered gradients share viewport coordinates through `background-attachment:
@@ -125,11 +128,12 @@ angle controlled by `--glow-ribbon-angle`. Ribbon positions are intentionally
 asymmetric gradient stops; avoid a repeating pattern that makes the chrome
 look segmented.
 `--glow-base`, `--glow-teal`, and `--glow-orange` use the console's theme-specific navigation background, cyan,
-and coral tokens. Override parameters after the utility rule, consistently on
-all connected surfaces:
+and coral tokens. The root owns these parameters so the sidebar, top bar, rounded corner, and
+collapse tab inherit the same values. For example, adjust the light theme at
+the root:
 
 ```css
-.brand-glow {
+:root:not([data-theme='dark']) {
   --glow-strength: 18%;
   --glow-height: 160px;
 }

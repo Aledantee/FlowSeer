@@ -85,7 +85,12 @@ range, then restored the text.
 | Desktop, 1280 × 850, collapsed | 5.42:1               |
 | Phone, 390 × 844, expanded     | 5.21:1               |
 
-These samples cover the default unscrolled frame in Chromium. They do not prove
+A scrolled Chromium check at 520px also compared the header with isolation
+enabled and disabled: the header pixels were identical. Disabling backdrop blur
+changed the header pixels, confirming that blur operates with the current
+isolated stacking context.
+
+The contrast samples cover the default unscrolled frame in Chromium. They do not prove
 contrast for every scroll position, tenant image, operating-system control, or
 browser renderer. Automated results and semantic-pair tests supplement visual
 inspection; this audit is not a claim of whole-application WCAG conformance.

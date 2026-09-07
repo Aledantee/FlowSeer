@@ -249,7 +249,12 @@ onUnmounted(() => clearInterval(timer))
   <div class="shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
     <a class="skip-link" href="#main">Skip to main content</a>
     <aside id="workspace-sidebar" ref="sidebar" class="sidebar brand-glow">
-      <div class="product-brand" aria-label="FlowSeer" title="FlowSeer">
+      <div
+        class="product-brand"
+        role="img"
+        aria-label="FlowSeer"
+        title="FlowSeer"
+      >
         <span class="flowseer-mark" aria-hidden="true"
           ><i></i><i></i><i></i
         ></span>
