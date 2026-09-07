@@ -30,13 +30,21 @@ Every row is independent, and more than one can be owed at once: a mutation
 and several reads on the same device are unrelated messages that happen to
 share a lane. Nothing ranks them.
 
+The one mutation's own rows are the exception, and they are ordered rather
+than independent: a mutation owes an `ExecuteRequest` or a
+`CheckpointRequest`, never both. Re-dispatch has to precede the checkpoint,
+so the checkpoint row is only reached once `dispatch_confirmed` is set. It
+matters after an `Onboarded` report clears both confirmations on a record at
+`POSSIBLY_APPLIED`: what is owed then is the `ExecuteRequest` alone, carrying
+`resume`, and not a checkpoint for a dispatch the edge has not acknowledged.
+
 ### What a record owes
 
 | Row | Owed while | Stops on |
 | --- | --- | --- |
 | `HoldResolved` | the sequence is in `hold_resolution_pending` | `HoldResolvedAck` for that sequence |
-| `ExecuteRequest` | an open mutation has no disposition, its block reason permits dispatch, and `dispatch_confirmed` is unset | the edge's `ADMITTED` report, which sets `dispatched` and moves the phase to `POSSIBLY_APPLIED` in the same write |
-| `CheckpointRequest` | the mutation's phase is `POSSIBLY_APPLIED` and `checkpoint_confirmed` is unset | `CheckpointAck`, or a `Refused` carrying `access/no-pending-wait` while the last reported phase is at or past `POSSIBLY_APPLIED` |
+| `ExecuteRequest` | an open mutation has no disposition, its block reason permits dispatch, and `dispatch_confirmed` is unset | the edge's `ADMITTED` report, which sets `dispatch_confirmed` and moves the phase to `POSSIBLY_APPLIED` in the same write |
+| `CheckpointRequest` | `dispatch_confirmed` is set, the mutation's phase is `POSSIBLY_APPLIED`, and `checkpoint_confirmed` is unset | `CheckpointAck`, or a `Refused` carrying `access/no-pending-wait` while the last reported phase is at or past `POSSIBLY_APPLIED` |
 | `TerminalResultAck` | the mutation has a disposition and `dispatched` is set | the edge reporting `RELEASED` or `ABANDONED`, or refusing because it holds no machine or the machine is already terminal |
 | `ExecuteRequest` (read) | an `open_reads` entry has no outcome and its deadline has not passed | the report that closes it, or the sweep that closes it with a deadline error |
 

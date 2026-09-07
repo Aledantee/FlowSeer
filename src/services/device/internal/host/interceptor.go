@@ -93,7 +93,7 @@ func (i telemetryInterceptor) record(ctx context.Context, procedure string, star
 
 	i.log.Log(ctx, levelFor(code), "rpc call failed",
 		slog.String(string(semconv.RPCSystemNameKey), "connectrpc"),
-		slog.String(string(semconv.RPCMethodKey), procedure),
+		slog.String(string(semconv.RPCMethodKey), telemetry.RPCMethod(procedure)),
 		slog.String(string(semconv.RPCResponseStatusCodeKey), code.String()),
 		slog.String(string(semconv.ErrorTypeKey), errorType(err, code)),
 		slog.Any("error", internalCause(err)),

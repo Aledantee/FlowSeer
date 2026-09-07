@@ -155,3 +155,21 @@ func findCounter(t *testing.T, collected *metricdata.ResourceMetrics, name strin
 	t.Fatalf("%s was not collected", name)
 	return metricdata.Sum[int64]{}
 }
+
+// TestRPCMethodMatchesTheConventionsVocabulary pins the value rpc.method
+// takes. semconv v1.43.0 defines it as the fully-qualified logical method
+// name — "com.example.ExampleService/exampleMethod" — and defines no
+// rpc.service at all, so the service-qualified name belongs here whole,
+// without Connect's leading slash.
+func TestRPCMethodMatchesTheConventionsVocabulary(t *testing.T) {
+	const procedure = "/flowseer.api.device.v1.DeviceService/ApplyInterfaceDescription"
+	want := "flowseer.api.device.v1.DeviceService/ApplyInterfaceDescription"
+	if got := telemetry.RPCMethod(procedure); got != want {
+		t.Errorf("RPCMethod(%q) = %q, want %q", procedure, got, want)
+	}
+	// Idempotent: a procedure already without the slash is unchanged, so a
+	// caller that has trimmed it does not lose its first segment.
+	if got := telemetry.RPCMethod(want); got != want {
+		t.Errorf("RPCMethod(%q) = %q, want it unchanged", want, got)
+	}
+}

@@ -11,6 +11,7 @@ package telemetry
 import (
 	"context"
 	"log/slog"
+	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -136,7 +137,7 @@ func (v *View) RecordRPC(ctx context.Context, procedure string, seconds float64,
 		return
 	}
 
-	attrs := []attribute.KeyValue{semconv.RPCMethodKey.String(procedure)}
+	attrs := []attribute.KeyValue{semconv.RPCMethodKey.String(RPCMethod(procedure))}
 	if errType != "" {
 		attrs = append(attrs, semconv.ErrorTypeKey.String(errType))
 	}
@@ -173,4 +174,24 @@ func (v *View) DriftDetected(
 		attrKeyManagementMode.String(mode.String()),
 		attrKeyDriftOutcome.String(string(outcome)),
 	))
+}
+
+// RPCMethod is the value semconv's rpc.method takes for a Connect procedure.
+//
+// In semconv v1.43.0 — the version this repository pins — rpc.method is "the
+// fully-qualified logical name of the method from the RPC interface
+// perspective", and its examples are "com.example.ExampleService/exampleMethod"
+// and "EchoService/Echo". There is no rpc.service attribute in that version at
+// all. So the service-qualified name belongs here, whole, and the only thing
+// that needed correcting was the leading slash: Connect's Procedure is
+// "/flowseer.api.device.v1.DeviceService/ApplyInterfaceDescription" and the
+// convention's vocabulary has no leading slash.
+//
+// Recorded because a review read this as the older convention, where
+// rpc.method is the bare method name and rpc.service carries the service, and
+// splitting the procedure to match that would have written a value the pinned
+// version does not define and dropped half of one it does. Check the version
+// in go.mod before changing this.
+func RPCMethod(procedure string) string {
+	return strings.TrimPrefix(procedure, "/")
 }

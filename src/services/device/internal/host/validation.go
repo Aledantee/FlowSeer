@@ -48,9 +48,21 @@ func (v validatingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFu
 	}
 }
 
-// WrapStreamingHandler validates nothing. A server stream's open message is
-// read by the handler rather than delivered here, and each handler validates
-// what it receives; wrapping this would claim a check it does not perform.
+// WrapStreamingHandler validates nothing, and neither streaming handler runs
+// protovalidate on its open message.
+//
+// What each does instead is check the fields it uses against something
+// authoritative: Subscribe ignores its request entirely and works from the
+// edge identity the assertion middleware established, and OpenDeviceSubmission
+// reads device_id, binding_id and sequence and resolves each against the
+// registry and the lane record. A field nobody reads is a field no constraint
+// on it could protect.
+//
+// So this is a choice rather than a limitation — an interceptor can wrap
+// StreamingHandlerConn.Receive and validate the message as it is read — and
+// it is recorded as one. The previous comment said the handlers validate what
+// they receive, which is not what they do, and would have let a handler that
+// started trusting an unchecked field look covered.
 func (v validatingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return next
 }
