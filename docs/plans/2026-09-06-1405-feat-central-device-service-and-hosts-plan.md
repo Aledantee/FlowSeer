@@ -552,7 +552,7 @@ verified-access record's decision 12 lists the two new packages; the
 access module's credential adapter and its test follow the typed
 material so the module builds after this unit.
 Tests: one valid and one invalid case per new rule; the layering cases.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flowseer test/conformance/proto docs/architecture`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'spec/proto/flowseer/**' 'test/conformance/proto/**' 'docs/architecture/**')`
 
 ### U2. edgebus
 Files: `src/modules/edgebus/{hub.go,leaf.go,jwt.go,receiver.go,forwarder.go,fsync.go,doc.go,README.md}`,
@@ -571,7 +571,7 @@ hub source stream and the forwarder's fake endpoint byte for byte; records
 published while the hub link is down arrive after reconnect (the Stop
 condition's evidence); an undeclared fsync policy fails start; the audit stream
 stores a duplicate `event_id` once; the bucket survives a stop and start.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/edgebus src/modules/README.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/edgebus/**') src/modules/README.md`
 
 ### U3. Journal
 Files: `src/services/device/internal/journal/{journal.go,record.go,doc.go}` and tests
@@ -618,7 +618,7 @@ sweep red. The readable table additionally must exhibit every reachable
 behavior, so a new enum value that produces an unhandled behavior fails
 until a row demonstrates it; a wholly new record field still escapes,
 which only field reflection would catch.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/journal`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/journal/**')`
 
 ### U4. Dispatch, report, and audit handlers
 Files: `src/services/device/internal/dispatchapi/`, `internal/auditapi/` and tests
@@ -628,7 +628,7 @@ Change: the `Subscribe` handler over `Owed()` per requirement 3; the
 requirement 4.
 Tests: requirements 3 and 4; requirement 5 is proven at the journal in U3
 and exercised here through the handler.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal/dispatchapi src/services/device/internal/auditapi`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/dispatchapi/**' 'src/services/device/internal/auditapi/**')`
 
 ### U5. Registry, edge store, and EdgeService handlers
 Files: `src/services/device/internal/registry/`, `internal/edgestore/`,
@@ -698,6 +698,17 @@ not CRUD — that is the fact that decides the level of care:
    those are deployment config the host supplies, not minted here. `GetEdge`
    and `ListEdges` are store reads; `ListEdges` pages over the bucket keys in
    a stable order with an opaque token.
+   These six also maintain the index enrollment needs, because they are the
+   only writes that change which key is live. `EnrollRequest` carries the key
+   string and no edge ref, so an enrollment can reach a record only through
+   the key's identifier; without an index that is a scan of every edge on the
+   one RPC with no assertion in front of it, which an unauthenticated caller
+   can drive. The `edges` bucket therefore holds a second key class,
+   `setupkey_<identifier>` naming the edge, written after the record and
+   dropped when the key is withdrawn. A crash between the two writes, and a
+   replaced key's leftover entry, both fail closed: the index is a lookup
+   hint, and what admits an enrollment is the digest comparison against the
+   edge the hint reached.
 2. `Enroll`, `Rekey`, `Heartbeat`, `AttachBus`, `AcquireReadCredential`.
    `Enroll` consumes the setup key: hash the presented key and compare to
    the stored hash in constant time (`crypto/subtle.ConstantTimeCompare`) —
@@ -721,7 +732,7 @@ not an edge, so its authorization is the operator middleware, not the edge
 verifier.
 
 Tests: requirement 8; the README's idempotent-enroll and stolen-key cases.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal spec/proto/flowseer/api/edge/v1`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/**' 'spec/proto/flowseer/api/edge/v1/**')`
 
 ### U6. DeviceService handlers and drift
 Files: `src/services/device/internal/deviceapi/`, `internal/drift/`,
@@ -739,9 +750,20 @@ the rejection rather than only `RELEASED`. U4's `RejectDispatch` returns the
 disposed state for this; the report handler is not central's audit-emission
 site, so the event is emitted here. The carrier is U6's to shape — a
 disposition-and-code field on `LaneReleased`, or the event's attributes.
+Also tells an operator what retiring an edge left behind. `RetireEdge` ends
+the edge's standing and withdraws its setup key, and it deliberately touches
+no lane record: an admin call that silently abandons mutations across device
+records is a blast radius nobody asked for, and `AbandonMutation` is already
+the RPC for an edge that never comes back. But the operator must learn what
+they now have to abandon rather than finding it later in a stuck lane, so
+`DeviceService` grows the read that names, for one edge, the devices whose
+records hold an open mutation, and the central host wires it behind
+`RetireEdge`'s response. The shape is U6's to choose; what is fixed is that
+retirement is not silent about the work it orphans.
 Tests: each RPC's happy path and its refusal cases; the drift table for
-both modes and all three resolution arms.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal`
+both modes and all three resolution arms; retiring an edge that holds an
+open mutation names that device.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/**')`
 
 ### U7. Central host
 Files: `src/services/device/cmd/device/main.go`, `src/services/device/internal/host/`,
@@ -752,7 +774,7 @@ Change: `service.Run` with modules `hub`, `forwarder`, `journal`,
 prototext config; self-signed certificate on first start with its SPKI
 pin printed once; no local bus is declared.
 Tests: config validation; a start-and-serve smoke test.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/**')`
 
 ### U8. Edge host
 Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/{identity,busattach,dispatch,lanehost}/`,
@@ -774,7 +796,7 @@ enters recovery and a non-resumed one after a restart at `ADMITTED`
 executes once; a refused `Deliver` holding the machine at its
 last phase; the agent's own log records reaching the hub after a link
 drop.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/edge/agent`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/edge/README.md')`
 
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
@@ -801,7 +823,7 @@ ones it emits — a code that crosses a process boundary is public
 contract whatever package produces it. This is the real link the U4
 review's finding 9 left as documented constants.
 Tests: requirement 10.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/test/integration docs/runbooks deploy/lab`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/test/integration/**' 'docs/runbooks/**' 'deploy/lab/**')`
 
 ## Verification
 
@@ -811,6 +833,21 @@ go build ./... && go vet ./...
 go test -race ./src/modules/localnet/access/... ./src/modules/edgebus/... ./src/services/device/... ./src/edge/agent/... ./test/conformance/proto/...
 .claude/skills/verify-change/scripts/verify-change.sh --full
 ```
+
+Two things about running those, both of which look like broken code when
+met cold.
+
+The verifier classifies its arguments by file extension, so a directory
+selects no gates: it runs the whitespace check, prints "FlowSeer
+verification passed", and exits 0 having run no build, vet, race, or lint.
+Every `Verify:` line above therefore names files, through `git ls-files`;
+a line naming a bare directory is not a gate.
+
+The race suite must run outside the agent Bash sandbox. `httptest` cannot
+bind `[::1]:0` under it, so `src/common/service`, `src/modules/edgebus`,
+and `src/services/device/internal/dispatchapi` panic with
+`failed to listen on a port: bind: operation not permitted`. That is the
+sandbox, not those three packages; they pass unsandboxed.
 
 The message-sync hook must report nothing for the two new schema packages;
 their file comments name the absent triads.

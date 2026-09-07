@@ -305,7 +305,7 @@ removed, `block`'s comment in `machine.go` no longer justified by
 the README's opening paragraph, exported-surface listing, and signal
 list no longer claim drift.
 Tests: requirements 1, 2, 5, 6.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**')`
 
 ### U2. Recovery polls under the drain lock
 Files: `src/modules/localnet/access/lane.go`, `lane_test.go`,
@@ -326,7 +326,7 @@ of Lane.Submit" section rewritten to describe the loop and the
 drainer's liveness during it.
 Tests: requirement 3 with a fake `Wait`; the audit record count per poll
 and per retry.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**')`
 
 ### U3. Epoch re-probe and refresh
 Files: `src/modules/localnet/access/lane.go`, `lane_test.go`,
@@ -341,14 +341,14 @@ comment updated; the README's "Open gap" section becomes "Firmware epoch"
 and states the two probe points and the discard rule.
 Tests: requirement 4, including that evidence under the old fingerprint
 no longer answers `Consult`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**')`
 
 ## Verification
 
 ```bash
 go build ./... && go vet ./...
 go test -race ./src/modules/localnet/access/...
-.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access
+.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**')
 ```
 
 ## Definition of done

@@ -143,6 +143,9 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edge
 	if err != nil {
 		return nil, connectErr(err)
 	}
+	if err := s.store.IndexSetupKey(ctx, key.record.GetId(), edgeID); err != nil {
+		return nil, connectErr(err)
+	}
 
 	return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
 		Edge:         stored.GetRecord(),
@@ -164,6 +167,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[e
 		return nil, connectErr(err)
 	}
 
+	var replaced string
 	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
@@ -173,12 +177,16 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[e
 			return nil, errs.New().Code(ErrCodeLifecycle).Attr("edge", edgeID).
 				Msg("an enrolled edge takes no setup key; retire it first")
 		}
+		replaced = outstandingKeyID(state)
 		state.SetLifecycle(edgev1.EdgeLifecycle_EDGE_LIFECYCLE_PENDING)
 		state.SetSetupKey(key.record)
 		current.SetSetupKeyHash(key.hash)
 		return current, nil
 	})
 	if err != nil {
+		return nil, connectErr(err)
+	}
+	if err := s.reindexSetupKey(ctx, edgeID, key.record.GetId(), replaced); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -197,6 +205,7 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 		return nil, connectErr(err)
 	}
 
+	var revoked string
 	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
@@ -206,11 +215,15 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 			return nil, errs.New().Code(ErrCodeSetupKey).Attr("edge", edgeID).Attr("status", key.GetStatus().String()).
 				Msg("edge has no outstanding setup key")
 		}
+		revoked = key.GetId()
 		key.SetStatus(edgev1.SetupKeyStatus_SETUP_KEY_STATUS_REVOKED)
 		current.ClearSetupKeyHash()
 		return current, nil
 	})
 	if err != nil {
+		return nil, connectErr(err)
+	}
+	if err := s.store.UnindexSetupKey(ctx, revoked); err != nil {
 		return nil, connectErr(err)
 	}
 
@@ -232,6 +245,7 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		return nil, connectErr(err)
 	}
 
+	var revoked string
 	stored, err := s.store.Mutate(ctx, edgeID, func(current *storev1.StoredEdge) (*storev1.StoredEdge, error) {
 		if current == nil {
 			return nil, notFound(edgeID)
@@ -240,6 +254,7 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		if state.GetLifecycle() == edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED {
 			return nil, edgestore.ErrSkip
 		}
+		revoked = outstandingKeyID(state)
 		state.SetLifecycle(edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED)
 		if key := state.GetSetupKey(); key.GetStatus() == edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
 			key.SetStatus(edgev1.SetupKeyStatus_SETUP_KEY_STATUS_REVOKED)
@@ -249,6 +264,12 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 	})
 	if err != nil {
 		return nil, connectErr(err)
+	}
+
+	if revoked != "" {
+		if err := s.store.UnindexSetupKey(ctx, revoked); err != nil {
+			return nil, connectErr(err)
+		}
 	}
 
 	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{Edge: stored.GetRecord()}.Build()), nil
@@ -315,6 +336,31 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[edgev
 		resp.NextPageToken = proto.String(encodePageToken(keys[len(keys)-1]))
 	}
 	return connect.NewResponse(resp.Build()), nil
+}
+
+// outstandingKeyID is the identifier of the key an edge can still enroll with,
+// or an empty string when it has none. A consumed or already withdrawn key
+// leaves no index entry to drop.
+func outstandingKeyID(state *edgev1.EdgeState) string {
+	key := state.GetSetupKey()
+	if key.GetStatus() != edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
+		return ""
+	}
+	return key.GetId()
+}
+
+// reindexSetupKey points the issued key's identifier at the edge before
+// dropping the replaced one's entry, so no window leaves both unusable. The
+// replaced entry is safe to outlive its key: the enrollment that reaches an
+// edge through it still fails the digest comparison.
+func (s *AdminService) reindexSetupKey(ctx context.Context, edgeID, issued, replaced string) error {
+	if err := s.store.IndexSetupKey(ctx, issued, edgeID); err != nil {
+		return err
+	}
+	if replaced == "" || replaced == issued {
+		return nil
+	}
+	return s.store.UnindexSetupKey(ctx, replaced)
 }
 
 // mintedSetupKey is one freshly drawn key in the three shapes it is needed in:

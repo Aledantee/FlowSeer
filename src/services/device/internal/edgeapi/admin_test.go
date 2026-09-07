@@ -424,3 +424,124 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 		t.Error("more trust anchors than the schema allows were accepted")
 	}
 }
+
+func TestAnIssuedSetupKeyResolvesToItsEdge(t *testing.T) {
+	admin, store := newAdmin(t)
+	record, key := createEdge(t, admin)
+
+	got, err := store.EdgeForSetupKey(context.Background(), keyIDOf(key))
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey: %v", err)
+	}
+	if want := refOf(record).GetEdge().GetId(); got != want {
+		t.Fatalf("edge for setup key = %q, want %q", got, want)
+	}
+}
+
+func TestAnUnknownSetupKeyResolvesToNoEdge(t *testing.T) {
+	_, store := newAdmin(t)
+	got, err := store.EdgeForSetupKey(context.Background(), "aaaaaaaaaaaaaaaaaaaaaaaaaa")
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey: %v", err)
+	}
+	if got != "" {
+		t.Fatalf("an unissued identifier resolved to %q", got)
+	}
+}
+
+func TestWithdrawingASetupKeyDropsItsIndexEntry(t *testing.T) {
+	ctx := context.Background()
+	cases := []struct {
+		name     string
+		withdraw func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef)
+	}{
+		{"revoke", func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef) {
+			if _, err := admin.RevokeSetupKey(ctx, connect.NewRequest(edgev1.RevokeSetupKeyRequest_builder{Edge: ref}.Build())); err != nil {
+				t.Fatalf("RevokeSetupKey: %v", err)
+			}
+		}},
+		{"retire", func(t *testing.T, admin *edgeapi.AdminService, ref *edgev1.EdgeGlobalRef) {
+			if _, err := admin.RetireEdge(ctx, connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: ref}.Build())); err != nil {
+				t.Fatalf("RetireEdge: %v", err)
+			}
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			admin, store := newAdmin(t)
+			record, key := createEdge(t, admin)
+			tc.withdraw(t, admin, refOf(record))
+
+			got, err := store.EdgeForSetupKey(ctx, keyIDOf(key))
+			if err != nil {
+				t.Fatalf("EdgeForSetupKey: %v", err)
+			}
+			if got != "" {
+				t.Fatalf("a withdrawn key still resolves to %q", got)
+			}
+		})
+	}
+}
+
+func TestReissuingMovesTheIndexToTheNewKey(t *testing.T) {
+	ctx := context.Background()
+	admin, store := newAdmin(t)
+	record, first := createEdge(t, admin)
+
+	resp, err := admin.IssueSetupKey(ctx, connect.NewRequest(edgev1.IssueSetupKeyRequest_builder{Edge: refOf(record)}.Build()))
+	if err != nil {
+		t.Fatalf("IssueSetupKey: %v", err)
+	}
+	second := resp.Msg.GetProvisioning().GetSetupKey()
+
+	got, err := store.EdgeForSetupKey(ctx, keyIDOf(second))
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey: %v", err)
+	}
+	if want := refOf(record).GetEdge().GetId(); got != want {
+		t.Fatalf("the issued key resolves to %q, want %q", got, want)
+	}
+	stale, err := store.EdgeForSetupKey(ctx, keyIDOf(first))
+	if err != nil {
+		t.Fatalf("EdgeForSetupKey: %v", err)
+	}
+	if stale != "" {
+		t.Fatalf("the replaced key still resolves to %q", stale)
+	}
+}
+
+func TestRetiringAnEnrolledEdgeSucceedsWithNoOutstandingKey(t *testing.T) {
+	admin, store := newAdmin(t)
+	record, _ := createEdge(t, admin)
+	enroll(t, store, refOf(record))
+
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()))
+	if err != nil {
+		t.Fatalf("RetireEdge on an enrolled edge: %v", err)
+	}
+	if got := resp.Msg.GetEdge().GetState().GetLifecycle(); got != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED {
+		t.Errorf("lifecycle = %v, want retired", got)
+	}
+}
+
+func TestListEdgesSkipsTheSetupKeyIndexEntries(t *testing.T) {
+	admin, _ := newAdmin(t)
+	for i := 0; i < 3; i++ {
+		createEdge(t, admin)
+	}
+
+	resp, err := admin.ListEdges(context.Background(), connect.NewRequest(&edgev1.ListEdgesRequest{}))
+	if err != nil {
+		t.Fatalf("ListEdges: %v", err)
+	}
+	if got := len(resp.Msg.GetEdges()); got != 3 {
+		t.Fatalf("listed %d edges, want 3; index entries must not be listed as edges", got)
+	}
+}
+
+// keyIDOf is the middle segment of a setup key string, the part the index is
+// keyed by.
+func keyIDOf(key string) string {
+	return key[len("fse1_") : len("fse1_")+26]
+}

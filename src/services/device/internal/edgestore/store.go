@@ -1,5 +1,8 @@
 // Package edgestore is central's durable record of every edge, in the edges
-// key-value bucket, one key per edge id. It holds the edge's public record and
+// key-value bucket, one key per edge id, alongside an index from each
+// outstanding setup key's identifier to the edge it was issued to, which is how
+// an enrollment carrying only the key string reaches a record. It holds the
+// edge's public record and
 // the digest of the setup key it was last issued, and it is the source the
 // assertion verifier's key lookup reads: the enrolled edge's Ed25519 public
 // key and lifecycle. Every write is a compare-and-set on one edge's record, so
@@ -10,6 +13,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"strings"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
@@ -78,6 +82,65 @@ func (s *Store) Lookup(ctx context.Context, edgeID string) (ed25519.PublicKey, e
 	return ed25519.PublicKey(state.GetPublicKey()), state.GetLifecycle(), nil
 }
 
+// setupKeyIndexPrefix marks the bucket keys that index a setup key identifier
+// to the edge it was issued to. An edge id is a UUID and carries no underscore,
+// so the two key classes cannot collide.
+const setupKeyIndexPrefix = "setupkey_"
+
+// EdgeForSetupKey returns the edge a setup key identifier was issued to, or an
+// empty id when no entry names it.
+//
+// The index is a lookup hint and never an authentication decision. Enrollment
+// carries only the key string, so the identifier is the only way to reach a
+// candidate record; what admits the enrollment is hashing the presented key and
+// comparing it against that edge's stored digest. A stale entry — one left by a
+// replaced key, or by a crash between the record write and the index write —
+// therefore resolves to an edge whose digest does not match, and the enrollment
+// is refused. Nothing may treat a hit here as proof that the caller holds the
+// key.
+func (s *Store) EdgeForSetupKey(ctx context.Context, keyID string) (string, error) {
+	entry, err := s.kv.Get(ctx, setupKeyIndexPrefix+keyID)
+	if errors.Is(err, jetstream.ErrKeyNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", errs.From(err).Code(ErrCodeStore).Msg("read setup key index")
+	}
+	ref := &edgev1.EdgeGlobalRef{}
+	if err := proto.Unmarshal(entry.Value(), ref); err != nil {
+		return "", errs.From(err).Code(ErrCodeDecode).Msg("decode setup key index entry")
+	}
+	return ref.GetEdge().GetId(), nil
+}
+
+// IndexSetupKey points a setup key identifier at an edge. Callers write the
+// edge's record first: an index entry lost to a crash leaves a key that cannot
+// be found and is re-issued, while an entry written before the digest it
+// belongs to would point a live key at a record that does not hold it.
+func (s *Store) IndexSetupKey(ctx context.Context, keyID, edgeID string) error {
+	ref := edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: &edgeID}.Build(),
+	}.Build()
+	data, err := proto.Marshal(ref)
+	if err != nil {
+		return errs.From(err).Code(ErrCodeDecode).Attr("edge", edgeID).Msg("encode setup key index entry")
+	}
+	if _, err := s.kv.Put(ctx, setupKeyIndexPrefix+keyID, data); err != nil {
+		return errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("write setup key index")
+	}
+	return nil
+}
+
+// UnindexSetupKey drops a setup key identifier's entry. An entry that outlives
+// the digest it was written beside is harmless, so a caller that cannot delete
+// one has not left a key usable.
+func (s *Store) UnindexSetupKey(ctx context.Context, keyID string) error {
+	if err := s.kv.Delete(ctx, setupKeyIndexPrefix+keyID); err != nil {
+		return errs.From(err).Code(ErrCodeStore).Msg("delete setup key index")
+	}
+	return nil
+}
+
 // Keys returns every stored edge id in ascending order. An empty bucket
 // returns no keys and no error, so a listing over a deployment with no edges
 // is an empty page rather than a failure.
@@ -89,7 +152,13 @@ func (s *Store) Keys(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStore).Msg("list edge records")
 	}
-	return keys, nil
+	edges := keys[:0]
+	for _, key := range keys {
+		if !strings.HasPrefix(key, setupKeyIndexPrefix) {
+			edges = append(edges, key)
+		}
+	}
+	return edges, nil
 }
 
 // Mutate runs fn against the edge's record under compare-and-set, retrying on
