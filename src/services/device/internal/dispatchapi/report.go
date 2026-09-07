@@ -203,13 +203,11 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 		if terminal {
 			// A terminal refusal disposes the mutation REJECTED; RejectDispatch
 			// frees the lane if the edge never admitted it, or keeps it and owes
-			// the terminal ack if it had. It returns the disposed state, but
-			// central emits no audit event of its own in this unit — the audit
-			// path here is edge-to-AuditService only — so the state is not
-			// consumed yet; a central-originated rejection event belongs with
-			// central's other emitted records (drift), not here.
-			_, err := s.cfg.Journal.RejectDispatch(ctx, deviceID, seq)
-			return err
+			// the terminal ack if it had. The disposal is central's own
+			// decision, so central writes the audit record for it, through the
+			// emitter rather than from here: the reason the edge refused lives
+			// nowhere else once the lane closes.
+			return s.rejectDispatch(ctx, deviceID, seq, refused.GetCode())
 		}
 		return nil // a retryable code leaves the row owed until the operator ends it
 	case integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED:
@@ -297,4 +295,31 @@ func deviceRef(id string) *inventoryv1.DeviceGlobalRef {
 	ref := &inventoryv1.DeviceGlobalRef{}
 	ref.SetDevice(local)
 	return ref
+}
+
+// rejectDispatch disposes the mutation and records why. The record is written
+// after the disposal, not before: the disposal is what the operator's next
+// call reads, and a failed publish must not leave a mutation the edge refused
+// still holding the lane. A lost record is reported, never swallowed.
+func (s *Service) rejectDispatch(ctx context.Context, deviceID string, sequence uint64, code string) error {
+	rec, err := s.cfg.Journal.Record(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	from := rec.GetMutation().GetPhase()
+	device := rec.GetDevice()
+
+	state, err := s.cfg.Journal.RejectDispatch(ctx, deviceID, sequence)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return nil // already terminal, or a stale sequence: nothing was disposed
+	}
+	if s.cfg.Audit == nil {
+		s.log.WarnContext(ctx, "central rejected a dispatch with no audit emitter wired; the reason is not recorded",
+			"device", deviceID, "sequence", sequence, "code", code)
+		return nil
+	}
+	return s.cfg.Audit.DispatchRejected(ctx, device, state, from, code)
 }

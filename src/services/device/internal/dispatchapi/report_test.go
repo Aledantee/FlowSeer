@@ -347,3 +347,82 @@ func TestReportSendsNoResolverDetailToTheReportingEdge(t *testing.T) {
 		t.Errorf("the edge was sent central's transport detail: %q", err.Error())
 	}
 }
+
+// recordingAudit captures what central asked to have recorded about its own
+// decision.
+type recordingAudit struct {
+	calls int
+	state *accessv1.MutationState
+	from  accessv1.OperationPhase
+	code  string
+	err   error
+}
+
+func (r *recordingAudit) DispatchRejected(_ context.Context, _ *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, code string) error {
+	r.calls++
+	r.state, r.from, r.code = state, from, code
+	return r.err
+}
+
+// A firmware-epoch refusal is terminal, and the reason lives nowhere else once
+// the lane closes: the record keeps the disposition, not why it was reached.
+func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
+	ctx := context.Background()
+	j, kv := newJournalKV(t)
+	audit := &recordingAudit{}
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+		Audit:    audit,
+	})
+	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c07"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	seq := state.GetSequence()
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, codeFirmwareEpoch))
+
+	if audit.calls != 1 {
+		t.Fatalf("central recorded %d rejections, want 1", audit.calls)
+	}
+	if got := audit.state.GetDisposition(); got != accessv1.Disposition_DISPOSITION_REJECTED {
+		t.Errorf("recorded disposition = %v, want rejected", got)
+	}
+	if audit.code != codeFirmwareEpoch {
+		t.Errorf("recorded code = %q, want the refusing code", audit.code)
+	}
+	if audit.from != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
+		t.Errorf("recorded from-phase = %v, want the phase the mutation was in", audit.from)
+	}
+}
+
+// A retryable refusal disposes nothing, so there is nothing to record: an
+// audit record for a mutation still in flight would say it ended when it did
+// not.
+func TestARetryableRefusalRecordsNothing(t *testing.T) {
+	ctx := context.Background()
+	j, kv := newJournalKV(t)
+	audit := &recordingAudit{}
+	svc := New(Config{
+		Journal:  j,
+		Resolver: fakeResolver{lists: true},
+		Watch:    kv,
+		EdgeID:   func(context.Context) (string, error) { return edgeID, nil },
+		Audit:    audit,
+	})
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c08"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, "access/unreachable"))
+
+	if audit.calls != 0 {
+		t.Errorf("central recorded %d rejections for a retryable refusal, want 0", audit.calls)
+	}
+}

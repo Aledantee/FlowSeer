@@ -19,6 +19,8 @@ import (
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go/jetstream"
 
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -56,6 +58,14 @@ type DeviceResolver interface {
 	Hosts(ctx context.Context, edgeID, deviceID string) (bool, error)
 }
 
+// CentralAudit records what central decides on its own about a mutation. The
+// report handler is not where central's audit records are shaped — this is the
+// seam to the component that shapes them, so a refusal the edge reports and a
+// rejection central writes stay one decision with one record.
+type CentralAudit interface {
+	DispatchRejected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error
+}
+
 // Config wires the relay to the journal, the registry, and the lane bucket it
 // watches for change signals.
 type Config struct {
@@ -83,6 +93,10 @@ type Config struct {
 	// Clock is the time source for a mutation's deadline; nil uses the wall
 	// clock.
 	Clock func() time.Time
+	// Audit records central's own rejection of a dispatch. Optional, and its
+	// absence is logged where it matters: without it a rejection still
+	// happens and leaves no trace of why.
+	Audit CentralAudit
 	// Logger records a row that cannot be dispatched; nil discards.
 	Logger *slog.Logger
 }
