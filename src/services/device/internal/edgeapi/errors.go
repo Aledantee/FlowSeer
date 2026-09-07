@@ -13,7 +13,7 @@ import (
 // caller learns only that.
 const msgUnauthenticated = "the call is not authenticated"
 
-// clientErrors is what an edge or an operator learns from each failure these
+// ClientErrors is what an edge or an operator learns from each failure these
 // services return, including the store codes they pass through unchanged.
 //
 // A refused setup key and a device the calling edge does not host are both
@@ -21,7 +21,10 @@ const msgUnauthenticated = "the call is not authenticated"
 // learn from the answer which of the several ways it failed. Everything the
 // caller can do nothing about leaves the message empty, which reports the
 // generic string rather than naming a bucket, a transport, or a file.
-var clientErrors = connecterr.Table{
+// It is exported so the cross-service consistency check can read it: one
+// code must not answer two different things depending which handler a caller
+// reached.
+var ClientErrors = connecterr.Table{
 	ErrCodeRequest:   {Code: connect.CodeInvalidArgument, UserMsg: "the request is not well-formed"},
 	ErrCodePageToken: {Code: connect.CodeInvalidArgument, UserMsg: "the page token did not come from this service"},
 	ErrCodeKeyProof:  {Code: connect.CodeInvalidArgument, UserMsg: "the key proof does not verify for this call"},
@@ -58,7 +61,7 @@ var clientErrors = connecterr.Table{
 // only text that caller may see. An unmapped code is Internal, so a new
 // failure is never quietly mistaken for a request the caller can fix.
 func connectErr(err error) error {
-	return clientErrors.Wrap(err)
+	return ClientErrors.Wrap(err)
 }
 
 // unauthenticated answers a handler reached without a verified edge.

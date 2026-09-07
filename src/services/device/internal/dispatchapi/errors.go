@@ -7,12 +7,15 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
 
-// clientErrors is what a reporting or subscribing edge learns from each
+// ClientErrors is what a reporting or subscribing edge learns from each
 // failure this service returns, including the journal codes it passes through.
 // A journal conflict is the edge's to retry; a store failure is not, but the
 // edge retries anyway because the report is what it owes central, so both are
 // Unavailable.
-var clientErrors = connecterr.Table{
+// It is exported so the cross-service consistency check can read it: one
+// code must not answer two different things depending which handler a caller
+// reached.
+var ClientErrors = connecterr.Table{
 	ErrCodeEdge:      {Code: connect.CodeUnauthenticated, UserMsg: "the call is not authenticated"},
 	ErrCodeForbidden: {Code: connect.CodePermissionDenied, UserMsg: "the request was refused"},
 	ErrCodeReport:    {Code: connect.CodeInvalidArgument, UserMsg: "the report carries no arm central can apply"},
@@ -33,5 +36,5 @@ var clientErrors = connecterr.Table{
 // assertion the middleware verified, not one central trusts with its own
 // transports and paths. An unmapped code is Internal.
 func connectErr(err error) error {
-	return clientErrors.Wrap(err)
+	return ClientErrors.Wrap(err)
 }

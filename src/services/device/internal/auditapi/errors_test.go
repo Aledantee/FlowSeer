@@ -17,7 +17,7 @@ func TestEveryCodeThisPackageDeclaresIsMapped(t *testing.T) {
 		if !strings.HasPrefix(code.String(), "auditapi/") {
 			continue
 		}
-		if _, ok := clientErrors[code]; !ok {
+		if _, ok := ClientErrors[code]; !ok {
 			t.Errorf("%s has no client mapping", code)
 		}
 	}

@@ -833,7 +833,16 @@ Change: `service.Run` with modules `hub`, `forwarder`, `journal`,
 `connect`, `drift`;
 prototext config; self-signed certificate on first start with its SPKI
 pin printed once; no local bus is declared.
-Tests: config validation; a start-and-serve smoke test.
+The host's logging interceptor must unwrap the errors the handlers return,
+not format them. U6 made a handler's error render its client-facing
+sentence from `Error()`, so `%v` or `%s` on one logs the sanitized text and
+silently drops the cause chain; the chain is still there, reachable through
+`errors.Is`, `errs.CodeOf`, and the error's `LogValue`. A logging line that
+looks right and records nothing useful is found during an incident, not
+before one.
+Tests: config validation; a start-and-serve smoke test; the interceptor
+records the internal cause of a failure whose client sentence names none of
+it.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/**')`
 
 ### U8. Edge host
