@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    :root {
+      --bar-cyan: #5ECAD8;
+      --bar-coral: #FF451D;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bar-cyan: #1997A8;
+        --bar-coral: #E03510;
+      }
+    }
+  </style>
+  <g transform="translate(16 16) skewX(-13) translate(-16 -16)">
+    <rect x="5.5" y="4.5" width="5" height="23" rx="1.5" fill="var(--bar-cyan)" />
+    <rect x="13.5" y="0" width="5" height="32" rx="1.5" fill="var(--bar-cyan)" />
+    <rect x="21.5" y="7.5" width="5" height="17" rx="1.5" fill="var(--bar-coral)" />
+  </g>
+</svg>

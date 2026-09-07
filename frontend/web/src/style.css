@@ -212,26 +212,10 @@ html:has(.shell) {
   border-radius: 5px;
 }
 .flowseer-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  width: 27px;
+  display: block;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
-  transform: skew(-13deg);
-}
-.flowseer-mark i {
-  width: 5px;
-  height: 23px;
-  border-radius: 1px;
-  background: var(--cyan);
-}
-.flowseer-mark i:nth-child(2) {
-  height: 32px;
-}
-.flowseer-mark i:nth-child(3) {
-  height: 17px;
-  background: var(--coral);
 }
 .tenant-name {
   font-size: 12px;
@@ -1362,7 +1346,7 @@ td small {
 }
 .product-brand .flowseer-mark {
   width: 26px;
-  height: 30px;
+  height: 26px;
 }
 .help-button {
   display: grid;

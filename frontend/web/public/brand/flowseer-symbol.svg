@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none">
+  <defs>
+    <linearGradient id="symPillarCyan1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#83D9DF" />
+      <stop offset="100%" stop-color="#3AA3B0" />
+    </linearGradient>
+    <linearGradient id="symPillarCyanApex" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D7FBFC" />
+      <stop offset="35%" stop-color="#5ECAD8" />
+      <stop offset="100%" stop-color="#28818D" />
+    </linearGradient>
+    <linearGradient id="symPillarCoral" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFA885" />
+      <stop offset="40%" stop-color="#FF451D" />
+      <stop offset="100%" stop-color="#BD2F0E" />
+    </linearGradient>
+  </defs>
+  <g transform="translate(128 128) skewX(-13) translate(-128 -128)">
+    <rect x="56" y="58" width="36" height="140" rx="18" fill="url(#symPillarCyan1)" />
+    <rect x="110" y="28" width="36" height="200" rx="18" fill="url(#symPillarCyanApex)" />
+    <rect x="164" y="78" width="36" height="100" rx="18" fill="url(#symPillarCoral)" />
+  </g>
+</svg>
