@@ -677,6 +677,49 @@ brief, recorded here rather than carried so they survive a fresh session:
   the host-key pin coupling and the `CredentialMaterial` arms are already
   contracted; build to them.
 
+Successor note for the RPCs (written at handoff, from reading the twelve
+contracts). Build them in three slices, and treat the first two as crypto,
+not CRUD — that is the fact that decides the level of care:
+
+1. The six `EdgeAdminService` RPCs, together, because they share the
+   setup-key machinery and the lifecycle state machine and splitting them
+   would split that. `CreateEdge`/`IssueSetupKey` generate a setup key,
+   show it once in `EdgeProvisioning`, and never return it again; the store
+   holds only its SHA-256 (`StoredEdge.setup_key_hash`). The key string is
+   `fse1_<26-char id>_<52-char secret>`, lowercase base32 (`a-z2-7`) without
+   padding — the id is `SetupKey.key_id`, safe to log; the secret is not.
+   Generate the secret from `crypto/rand`; weak randomness passes every
+   unit test. `IssueSetupKey` replaces an unused key and returns a retired
+   edge to pending; `RevokeSetupKey` clears the unused key; `RetireEdge`
+   moves to retired so the edge's key is refused from the next call (the
+   verifier's lifecycle step already enforces "enrolled only", so retiring
+   is a store write, not new verifier code). `EdgeProvisioning` also carries
+   `central_url` and the trust anchors (SPKI SHA-256 digests) the edge pins;
+   those are deployment config the host supplies, not minted here. `GetEdge`
+   and `ListEdges` are store reads; `ListEdges` pages over the bucket keys in
+   a stable order with an opaque token.
+2. `Enroll`, `Rekey`, `Heartbeat`, `AttachBus`, `AcquireReadCredential`.
+   `Enroll` consumes the setup key: hash the presented key and compare to
+   the stored hash in constant time (`crypto/subtle.ConstantTimeCompare`) —
+   an early-return compare accepts and rejects correctly in every test and
+   leaks the secret by timing. It is idempotent per the api/edge README: a
+   second `Enroll` with the same key and the same public key returns the
+   same enrolled identity, never a fresh one; enrollment installs the edge's
+   Ed25519 public key into `EdgeState`, which the verifier's key lookup then
+   reads. `Rekey` replaces the public key and leaves the old one refusing.
+   `AttachBus` mints the edge-scoped JWT through `edgebus.MintEdgeUser` with
+   the U2 permission set — do not widen it. `AcquireReadCredential` resolves
+   the read-credential handle through the registry and `credential.Provider`
+   and carries the host-key pin coupled to a `shell` material arm.
+3. `OpenDeviceSubmission` alone — the grant stream, to the pulse-not-silence
+   rules recorded above. Highest risk; give it its own slice and the two
+   questions at every write.
+
+These are all authenticated behind the assertion middleware (landed), which
+puts the verified edge id in the context; `EdgeAdminService` is the operator,
+not an edge, so its authorization is the operator middleware, not the edge
+verifier.
+
 Tests: requirement 8; the README's idempotent-enroll and stolen-key cases.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/services/device/internal spec/proto/flowseer/api/edge/v1`
 
