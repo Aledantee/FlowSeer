@@ -156,6 +156,14 @@ func applyRequest(intent *accessv1.MutationIntent, validateOnly bool) *connect.R
 	return connect.NewRequest(msg)
 }
 
+// observationAt is observation with the reading time named, for the cases that
+// turn on whether central saw the interface before or after a mutation.
+func observationAt(description string, observedAt time.Time) *accessv1.InterfaceObservation {
+	obs := observation(description)
+	obs.GetProvenance().SetObservedAt(timestamppb.New(observedAt))
+	return obs
+}
+
 func observation(description string) *accessv1.InterfaceObservation {
 	binding := &inventoryv1.BindingLocalRef{}
 	binding.SetId("0192e6a0-0000-7000-8000-0000000000b1")
@@ -680,6 +688,38 @@ func closeARead(t *testing.T, h *harness, obs *accessv1.InterfaceObservation) {
 	}
 	if err := h.journal.CloseRead(ctx, deviceID, iface, seq, obs, nil); err != nil {
 		t.Fatalf("close read: %v", err)
+	}
+}
+
+// Accepting adopts what the device carries, and an observation from before the
+// mutation was admitted describes what it carried before the write nobody
+// could establish. Adopting it would record an expectation the device may not
+// match, and the drift poll would then dispatch central's own stale value back
+// over whatever the operator's abandoned write actually left there.
+func TestResolveAcceptRefusesAnObservationOlderThanTheMutation(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	seq := held(t, h)
+	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, "uplink to core"); err != nil {
+		t.Fatalf("set expected: %v", err)
+	}
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	closeARead(t, h, observationAt("what it carried before", record.GetAdmittedAt().AsTime().Add(-time.Minute)))
+
+	msg := resolveRequest(seq)
+	msg.SetAccept(&devicev1.AcceptObservedDecision{})
+	_, err = h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
+	wantCode(t, err, connect.CodeFailedPrecondition)
+
+	record, err = h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if got := record.GetExpectedDescriptions()[iface]; got != "uplink to core" {
+		t.Fatalf("expected description = %q, want the refusal to have adopted nothing", got)
 	}
 }
 

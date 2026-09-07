@@ -44,6 +44,11 @@ var (
 	// ErrCodeNoExpectation is a restore for an interface central holds no
 	// expected description for: there is nothing to put back.
 	ErrCodeNoExpectation = errs.NewCode("deviceapi/no-expectation")
+	// ErrCodeStaleObservation is an accept whose only observation of the
+	// interface was made before the mutation being resolved. It describes the
+	// device before the write nobody could establish, so it is not what the
+	// device carries.
+	ErrCodeStaleObservation = errs.NewCode("deviceapi/stale-observation")
 	// ErrCodeRequest is a request the handler cannot act on as asked.
 	ErrCodeRequest = errs.NewCode("deviceapi/request")
 	// ErrCodeReadFailed is a read the edge answered with an error, or one

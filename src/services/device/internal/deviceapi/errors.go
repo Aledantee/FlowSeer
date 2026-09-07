@@ -27,6 +27,7 @@ var ClientErrors = connecterr.Table{
 	ErrCodeFirmwareEpoch:               {Code: connect.CodeFailedPrecondition, UserMsg: "the device reports a firmware epoch other than the one the intent expects"},
 	ErrCodeLaneHeld:                    {Code: connect.CodeFailedPrecondition, UserMsg: "a mutation still holds this device's lane"},
 	ErrCodeNoExpectation:               {Code: connect.CodeFailedPrecondition, UserMsg: "there is nothing recorded for this interface to resolve against"},
+	ErrCodeStaleObservation:            {Code: connect.CodeFailedPrecondition, UserMsg: "the last reading of this interface is older than the mutation being resolved; read it again before accepting what it shows"},
 	registry.ErrCodeHorizonUnset:       {Code: connect.CodeFailedPrecondition, UserMsg: "the device has no measured delayed-apply horizon, so no change can be bounded"},
 	journal.ErrCodeIdempotencyMismatch: {Code: connect.CodeAlreadyExists, UserMsg: "this idempotency key was already used for a different request"},
 	journal.ErrCodeState:               {Code: connect.CodeFailedPrecondition, UserMsg: "the device's record does not allow this operation"},

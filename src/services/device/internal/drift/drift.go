@@ -210,8 +210,24 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 	// The record goes out before the intent is admitted. An audit record with
 	// no intent behind it is a detection an operator can still see and act on;
 	// an intent with no record is a held lane with nothing saying why.
-	if err := p.cfg.Audit.DriftDetected(ctx, record.GetDevice(), iface, expected, observed.GetDescription()); err != nil {
+	if err := p.cfg.Audit.DriftDetected(ctx, deviceRef(deviceID, record), iface, expected, observed.GetDescription()); err != nil {
 		return err
+	}
+
+	if record.GetFirmwareFingerprint() == "" {
+		// Central admits this intent on its own behalf, so nobody else can
+		// supply the epoch it is decided against, and an intent must name one
+		// — the same rule ResolveDesynchronization's restore arm states, and
+		// for the same reason. Admitting anyway writes an intent that fails
+		// its own schema rules and, under AUTHORITATIVE, dispatches it.
+		//
+		// The detection above still stands: an operator can see it, and the
+		// next read's report teaches central the epoch, after which the
+		// following pass admits normally.
+		p.log.WarnContext(ctx, "drift detected but not acted on",
+			"device", deviceID, "interface", iface,
+			"reason", "central has not learned this device's firmware epoch, so it cannot admit an intent of its own")
+		return nil
 	}
 	return p.record(ctx, deviceID, entry, record, iface, expected)
 }
@@ -257,7 +273,7 @@ func (p *Poller) reread(ctx context.Context, deviceID string, entry *storev1.Reg
 	intent.SetInterfaceName(iface)
 	read.SetInterface(intent)
 
-	_, err = p.cfg.Journal.OpenRead(ctx, deviceID, record.GetDevice(), iface, read,
+	_, err = p.cfg.Journal.OpenRead(ctx, deviceID, deviceRef(deviceID, record), iface, read,
 		uuid.NewString(), p.clock().Add(p.deadline))
 	return false, err
 }
@@ -284,6 +300,22 @@ func reconciliationIntent(record *storev1.DeviceLaneRecord, entry *storev1.Regis
 	intent.SetExpectedFirmwareFingerprint(record.GetFirmwareFingerprint())
 	intent.SetInterfaceDescription(change)
 	return intent
+}
+
+// deviceRef names the device a read is opened for. The record supplies it once
+// there is one; the first poll of a device central has never written to has no
+// record to take it from, and the ref is required on the one this read
+// creates.
+func deviceRef(deviceID string, record *storev1.DeviceLaneRecord) *inventoryv1.DeviceGlobalRef {
+	if ref := record.GetDevice(); ref.GetDevice().GetId() != "" {
+		return ref
+	}
+
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(deviceID)
+	ref := &inventoryv1.DeviceGlobalRef{}
+	ref.SetDevice(local)
+	return ref
 }
 
 func edgeRef(edgeID string) *edgev1.EdgeGlobalRef {

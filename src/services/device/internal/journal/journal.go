@@ -179,7 +179,7 @@ func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.M
 		if rec.HasMutation() {
 			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a mutation already holds this device's lane")
 		}
-		state = admitIntent(rec, intent, edge, j.clock())
+		state = admitIntent(rec, deviceID, intent, edge, j.clock())
 		if reason != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED {
 			state.SetBlockReason(reason)
 			state.SetBlockedSince(timestamppb.New(j.clock()))
@@ -195,11 +195,12 @@ func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.M
 // OpenRead assigns a read the next sequence and records it, unless the
 // interface already has an open read, in which case it returns that read's
 // sequence and writes nothing. device names the record's device so a read
-// that arrives before the first mutation still writes a valid record.
+// that arrives before the first mutation still writes a valid record; an
+// absent ref is built from deviceID rather than left unset.
 func (j *Journal) OpenRead(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface string, read *accessv1.TypedRead, idempotencyKey string, deadline time.Time) (uint64, error) {
 	var seq uint64
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		ensureDevice(rec, device)
+		ensureDevice(rec, device, deviceID)
 		reads := rec.GetOpenReads()
 		if reads == nil {
 			reads = map[string]*storev1.OpenRead{}
@@ -638,7 +639,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 		}
 
 		if res.Intent != nil {
-			admitted = admitIntent(rec, res.Intent, res.Edge, j.clock())
+			admitted = admitIntent(rec, deviceID, res.Intent, res.Edge, j.clock())
 		}
 		return nil
 	})
@@ -670,7 +671,7 @@ func (j *Journal) DropHolds(ctx context.Context, deviceID string) error {
 // baseline the drift poll compares against.
 func (j *Journal) SetExpected(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface, description string) error {
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
-		ensureDevice(rec, device)
+		ensureDevice(rec, device, deviceID)
 		setExpected(rec, iface, description)
 		return nil
 	})
@@ -683,7 +684,7 @@ func (j *Journal) SetFingerprint(ctx context.Context, deviceID string, device *i
 		if rec.GetFirmwareFingerprint() == fingerprint {
 			return errSkip
 		}
-		ensureDevice(rec, device)
+		ensureDevice(rec, device, deviceID)
 		rec.SetFirmwareFingerprint(fingerprint)
 		return nil
 	})
@@ -707,8 +708,8 @@ func (j *Journal) mutateMutation(ctx context.Context, deviceID string, sequence 
 // clearMutation closes an open mutation and its per-mutation confirmations.
 // admitIntent records intent at the next sequence, at ADMITTED, and takes the
 // lane. The caller has already established that the lane is free.
-func admitIntent(rec *storev1.DeviceLaneRecord, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, now time.Time) *accessv1.MutationState {
-	ensureDevice(rec, intent.GetDevice())
+func admitIntent(rec *storev1.DeviceLaneRecord, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, now time.Time) *accessv1.MutationState {
+	ensureDevice(rec, intent.GetDevice(), deviceID)
 	seq := rec.GetHighWatermark() + 1
 	rec.SetHighWatermark(seq)
 	m := &accessv1.MutationState{}
@@ -821,10 +822,30 @@ func removeHold(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
 	return false
 }
 
-func ensureDevice(rec *storev1.DeviceLaneRecord, device *inventoryv1.DeviceGlobalRef) {
-	if !rec.HasDevice() {
-		rec.SetDevice(device)
+func ensureDevice(rec *storev1.DeviceLaneRecord, device *inventoryv1.DeviceGlobalRef, deviceID string) {
+	if rec.HasDevice() {
+		return
 	}
+	if device.GetDevice().GetId() == "" {
+		// The field is required on a stored record, and a caller with no ref
+		// to hand is the ordinary first-write case rather than a mistake: the
+		// drift poll opens a read on a device that has never been written to.
+		// Building the ref from the key the write is addressed by keeps the
+		// record valid; passing the caller's nil through would persist a
+		// record failing its own schema rules, which nothing dereferences
+		// today and something eventually will.
+		device = deviceRef(deviceID)
+	}
+	rec.SetDevice(device)
+}
+
+// deviceRef builds a device ref from the id a record is keyed by.
+func deviceRef(id string) *inventoryv1.DeviceGlobalRef {
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId(id)
+	ref := &inventoryv1.DeviceGlobalRef{}
+	ref.SetDevice(local)
+	return ref
 }
 
 // recordedSequence reports the sequence an idempotency key was admitted at,

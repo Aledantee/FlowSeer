@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -360,6 +361,68 @@ func TestADetectionThatCannotBeRecordedAdmitsNothing(t *testing.T) {
 	record, _ := h.journal.Record(ctx, deviceID)
 	if record.HasMutation() {
 		t.Error("an unrecorded detection still held the lane")
+	}
+}
+
+// Central admits a reconciliation intent on its own behalf, so nobody else can
+// supply the firmware epoch it is decided against — and an intent must name
+// one. Without the guard the poll admits an intent that fails MutationIntent's
+// own rules and, under AUTHORITATIVE, dispatches it.
+func TestDriftWithNoLearnedFirmwareEpochRecordsTheDetectionAndAdmitsNothing(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, expected); err != nil {
+		t.Fatalf("set expected: %v", err)
+	}
+	read := &accessv1.TypedRead{}
+	handle := &policyv1.AccessPolicyHandle{}
+	handle.SetKey("icx7150-lab")
+	handle.SetVersion(3)
+	read.SetAccessPolicy(handle)
+	intent := &accessv1.InterfaceReadIntent{}
+	intent.SetInterfaceName(iface)
+	read.SetInterface(intent)
+	seq, err := h.journal.OpenRead(ctx, deviceID, deviceRef(), iface, read, uuid.NewString(), time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("open read: %v", err)
+	}
+	if err := h.journal.CloseRead(ctx, deviceID, iface, seq, observation("someone else's description"), nil); err != nil {
+		t.Fatalf("close read: %v", err)
+	}
+
+	h.poller.Pass(ctx)
+
+	if len(h.recorder.found) != 1 {
+		t.Fatalf("detections = %d, want the difference recorded", len(h.recorder.found))
+	}
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if record.HasMutation() {
+		t.Fatalf("the poll admitted %v with no epoch to decide it against", record.GetMutation())
+	}
+}
+
+// The first pass over a device central has never written to creates its lane
+// record, and that record must name its device: the field is required, and a
+// stored record that fails its own rules is found by whatever reads it next,
+// not here.
+func TestTheFirstPassOverAnUnwrittenDeviceStoresARecordNamingIt(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t, inventoryv1.DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE)
+
+	h.poller.Pass(ctx)
+
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if got := record.GetDevice().GetDevice().GetId(); got != deviceID {
+		t.Fatalf("record device = %q, want %q", got, deviceID)
+	}
+	if err := protovalidate.Validate(record); err != nil {
+		t.Fatalf("the stored record fails its schema rules: %v", err)
 	}
 }
 

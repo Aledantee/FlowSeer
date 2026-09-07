@@ -6,6 +6,7 @@ import (
 	connect "connectrpc.com/connect"
 
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -101,6 +102,9 @@ func (s *Service) resolution(
 			return resolution, errs.New().Code(ErrCodeNoExpectation).Attr("device", deviceID).
 				Attr("interface", iface).Msg("no observation of this interface to accept")
 		}
+		if err := freshEnoughToAccept(record, observed, deviceID, iface); err != nil {
+			return resolution, err
+		}
 		resolution.Interface = iface
 		resolution.Expected = observed.GetDescription()
 	case msg.HasRestore():
@@ -138,4 +142,31 @@ func (s *Service) resolution(
 	}
 
 	return resolution, nil
+}
+
+// freshEnoughToAccept refuses an observation central made before the mutation
+// being resolved was admitted.
+//
+// Accepting adopts what the device carries. A mutation is resolved because
+// nobody could establish what it did, so an observation from before it was
+// admitted says what the device carried before the write, which is exactly the
+// thing in doubt. Adopting it records an expectation the device may not match:
+// an abandoned write of "uplink to core b" over an observed "…a" would leave
+// central expecting "…a", detecting drift against the device's actual "…b" on
+// the next pass, and under AUTHORITATIVE dispatching a write of a value the
+// operator never chose.
+//
+// The operator reads the interface again and accepts what that read returns.
+func freshEnoughToAccept(record *storev1.DeviceLaneRecord, observed *accessv1.InterfaceObservation, deviceID, iface string) error {
+	admitted := record.GetAdmittedAt()
+	if admitted == nil {
+		return nil // no open mutation to be older than
+	}
+	observedAt := observed.GetProvenance().GetObservedAt()
+	if observedAt != nil && observedAt.AsTime().After(admitted.AsTime()) {
+		return nil
+	}
+
+	return errs.New().Code(ErrCodeStaleObservation).Attr("device", deviceID).Attr("interface", iface).
+		Msg("the last observation of this interface predates the mutation being resolved")
 }
