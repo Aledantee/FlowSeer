@@ -49,6 +49,10 @@ var (
 	// ErrCodeOutOfOrder answers a disposition the mutation's phase does
 	// not allow, with nothing changed.
 	ErrCodeOutOfOrder = mutation.ErrCodeOutOfOrder
+	// ErrCodeFirmwareEpoch reports that the device's firmware changed:
+	// either the intent named an epoch the device is no longer running, or
+	// it changed under an operation already in flight.
+	ErrCodeFirmwareEpoch = mutation.ErrCodeFirmwareEpoch
 )
 
 // Reporter receives everything this lane owes its host to pass on to
@@ -553,6 +557,42 @@ func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session Device
 		return nil, "", errs.Wrap(err, "acquire read credential")
 	}
 	return response.GetCredential(), response.GetSshHostKeySha256(), nil
+}
+
+// reprobeEpoch runs the identity probe against a session opened for it and
+// reports the device's firmware fingerprint now.
+//
+// Probe output against probe output, never probe output against a
+// host-supplied provenance field: the two come from unrelated sources this
+// module does not reconcile, and comparing them blocked every mutation the
+// first time it was tried.
+func (l *Lane) reprobeEpoch(ctx context.Context, ds *deviceState, session DeviceSession) (string, error) {
+	return l.probeIdentity(ctx, ds.key, session)
+}
+
+// epochChanged refreshes the device's fingerprint, drops every piece of
+// evidence learned under the old one, and records the change.
+//
+// The state write comes before the audit attempt, like the recovery hold's:
+// a firmware change is a fact about the device, and an audit outage must not
+// leave the lane working under an epoch it has already established is wrong.
+// The returned error is the record's delivery, not the refresh.
+func (l *Lane) epochChanged(ctx context.Context, ds *deviceState, previous, next string) error {
+	ds.stateMu.Lock()
+	ds.fingerprint = next
+	ds.stateMu.Unlock()
+
+	// Evidence says "this route answered this kind for this device under
+	// this epoch". The epoch is part of that claim, so a change makes every
+	// entry for the device unusable however long its lifetime has left.
+	l.evid.InvalidateFingerprint(ds.key, next)
+
+	l.cfg.Telemetry.FirmwareEpochChanged(ctx)
+	event := audit.BuildFirmwareEpochChanged(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: ds.key}}, previous, next)
+	if err := l.cfg.Audit.Emit(ctx, event); err != nil {
+		return errs.Wrap(err, "deliver firmware epoch changed event")
+	}
+	return nil
 }
 
 // closeSession runs a session's closer and discards its error. A device
@@ -1069,6 +1109,23 @@ func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Mac
 		l.report(ctx, m.Result(err))
 		return nil, err
 	}
+	// A read is discarded across an epoch boundary for the same reason a
+	// mutation's observation is: the device that answered is not the device
+	// the read was planned against, so there is no honest fingerprint to
+	// label the provenance with. A read has nothing to recover, so it fails
+	// and its caller re-reads under the new epoch.
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
+			l.report(ctx, m.Result(err))
+			return nil, err
+		}
+		err := errs.New().Code(mutation.ErrCodeFirmwareEpoch).
+			Attr("expected_fingerprint", fingerprint).
+			Attr("current_fingerprint", probed).
+			Msg("device firmware changed while the read was in flight; the observation is discarded")
+		l.report(ctx, m.Result(err))
+		return nil, err
+	}
 	l.recordEvidence(ds, fingerprint, req, obs)
 
 	if _, err := m.Compare(ctx, nil); err != nil {
@@ -1128,7 +1185,30 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// and can only verify or abandon.
 	baseline, baselineErr := m.Peek(ctx)
 	if baselineErr != nil {
+		// Swallowed on purpose, and safe only because Peek can fail for
+		// device reasons alone: it reads through deps and checks no phase,
+		// so an error here means the device would not answer, never that
+		// the lane asked at the wrong moment. That is a property of Peek's
+		// body two files away. Add a guard to Peek and this swallow starts
+		// hiding a lane bug again — which is exactly how the baseline came
+		// to be missing on every mutation while every test passed, since
+		// routing it through Observe made it fail for a phase reason that
+		// looks identical from here.
+		//
+		// A device that cannot be read may still accept the command, and
+		// refusing to try would make an unreadable device unmanageable. But
+		// recovery then has nothing to corroborate against and the mutation
+		// can only verify or abandon, so the degradation goes on the span:
+		// it is invisible in every other signal.
+		l.cfg.Telemetry.NoteBaselineUnavailable(ctx, classifyError(baselineErr))
 		baseline = nil
+	}
+
+	// Probed alongside the baseline, before anything is sent. An intent
+	// central built against one firmware must not be applied to another:
+	// the command's meaning is the firmware's, not central's.
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
 
 	l.report(ctx, m.Progress())
@@ -1151,6 +1231,20 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	obs, err := m.Observe(ctx)
 	if err != nil {
 		return l.enterRecovery(ctx, ds, open, submittedAt, baseline, errs.Wrap(err, "observe"))
+	}
+
+	// Probed again before the observation is trusted for anything. An
+	// observation taken across an epoch boundary has no honest fingerprint
+	// to label its provenance with — the device that answered is not the
+	// device the read was planned against — so it is discarded rather than
+	// recorded under either epoch.
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
+			return l.enterRecovery(ctx, ds, open, submittedAt, baseline, err)
+		}
+		return l.enterRecovery(ctx, ds, open, submittedAt, baseline,
+			errs.New().Code(mutation.ErrCodeFirmwareEpoch).
+				Msg("device firmware changed while the mutation was in flight; the observation is discarded"))
 	}
 	l.recordEvidence(ds, fingerprint, req, obs)
 
@@ -1181,6 +1275,36 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 		return stepOutcome{err: ctx.Err(), owed: true}
 	}
 	return stepOutcome{result: m.Result(nil), owed: true}
+}
+
+// epochBlocked handles a firmware change found before the command went
+// out. Nothing was sent, so this is not ambiguity: the mutation is refused
+// with submitted false, which is what tells central it may dispose it
+// REJECTED, and the machine waits on Done for that acknowledgement rather
+// than the lane deciding on central's behalf.
+func (l *Lane) epochBlocked(ctx context.Context, ds *deviceState, open *openMutation, previous, next string) stepOutcome {
+	m := open.machine
+	if err := l.epochChanged(ctx, ds, previous, next); err != nil {
+		return stepOutcome{err: err, owed: true}
+	}
+	if err := m.BlockFirmwareEpoch(ctx); err != nil {
+		return stepOutcome{err: err, owed: true}
+	}
+
+	err := errs.New().Code(mutation.ErrCodeFirmwareEpoch).
+		Attr("expected_fingerprint", previous).
+		Attr("current_fingerprint", next).
+		Msg("device firmware changed before the command was sent; the command is not sent")
+	l.report(ctx, m.Result(err))
+
+	// The command provably never left, so there is nothing to recover and
+	// nothing to hold. Central is told, and decides.
+	select {
+	case <-m.Done():
+		return stepOutcome{result: m.Result(nil), owed: true}
+	case <-ctx.Done():
+		return stepOutcome{err: err, owed: true}
+	}
 }
 
 // afterStep decides what a failed step means, since central's

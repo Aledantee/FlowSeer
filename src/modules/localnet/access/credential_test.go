@@ -87,14 +87,26 @@ func TestEveryReadAndTheOnboardingProbeAcquireTheirOwnCredential(t *testing.T) {
 		}
 	}
 
+	// Each read acquires under the handle it carries, in order. The
+	// identity probe also acquires, under the device's own handle, and it
+	// runs at onboarding and again after every observation to check the
+	// firmware epoch — so the sequence interleaves. What matters is that
+	// the read handles are exactly the ones central sent, once each: a
+	// probe acquisition can never stand in for a read's.
 	handles, _ = source.acquisitions()
-	want := []string{"onboarding-policy", "read-policy-a", "read-policy-b"}
-	if len(handles) != len(want) {
-		t.Fatalf("handles = %v, want %v: one acquisition per operation", handles, want)
+	var readHandles []string
+	for _, handle := range handles {
+		if handle != "onboarding-policy" {
+			readHandles = append(readHandles, handle)
+		}
+	}
+	want := []string{"read-policy-a", "read-policy-b"}
+	if len(readHandles) != len(want) {
+		t.Fatalf("read handles = %v (all acquisitions %v), want %v", readHandles, handles, want)
 	}
 	for i := range want {
-		if handles[i] != want[i] {
-			t.Fatalf("handles = %v, want %v: each read must acquire under the handle it carries", handles, want)
+		if readHandles[i] != want[i] {
+			t.Fatalf("read handles = %v, want %v: each read must acquire under the handle it carries", readHandles, want)
 		}
 	}
 }
@@ -128,7 +140,13 @@ func TestReadOverrideStillAcquiresACredential(t *testing.T) {
 	}
 
 	handles, _ := source.acquisitions()
-	if len(handles) != 2 || handles[1] != "read-policy" {
+	var sawReadPolicy bool
+	for _, handle := range handles {
+		if handle == "read-policy" {
+			sawReadPolicy = true
+		}
+	}
+	if !sawReadPolicy {
 		t.Fatalf("handles = %v, want the overridden read to have acquired under read-policy", handles)
 	}
 }
@@ -185,6 +203,18 @@ func TestSessionsAreOpenedAndClosedPerOperation(t *testing.T) {
 	}
 	if opened.Load() != 1 || closed.Load() != 1 {
 		t.Fatalf("after onboarding opened=%d closed=%d, want 1 and 1", opened.Load(), closed.Load())
+	}
+
+	// Every session opened is closed, however many operations run: the
+	// count is what would show a leak, and a test asserting only that a
+	// session was opened would never see one.
+	req := readRequest()
+	req.GetRead().SetAccessPolicy(policyHandle("read-policy", 1))
+	if _, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: req}); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+	if opened.Load() != closed.Load() {
+		t.Errorf("opened=%d closed=%d: every session opened must be closed", opened.Load(), closed.Load())
 	}
 }
 

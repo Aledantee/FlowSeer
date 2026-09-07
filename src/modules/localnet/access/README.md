@@ -309,54 +309,48 @@ a durable stream for the whole horizon and bury the `RecoveryStarted` and the
 terminal record that actually answer "what happened to this device". A retry
 is recorded, once, because resending a command to a device is a real event.
 
-## Open gap: no mid-operation firmware-epoch re-check
+## Firmware epoch
 
-Decision 7 blocks a typed mutation whose intent names a stale firmware
-fingerprint, and `mutation.Admitted` enforces that once, at admission,
-against `Lane`'s own probed `CurrentFingerprint`. There is deliberately no
-check after that: a device that reboots into new firmware between
-`CheckpointAck` and submission is not caught, because the only fingerprint
-available after admission is `InterfaceObservation.Provenance.firmware_fingerprint`
-— a field `interfaces.Read` copies verbatim from whatever the host's own
-`ProvenanceInputs` supplied, never from a probe this module ran. Comparing
-that value against `CurrentFingerprint` is not a mid-operation epoch check;
-the two are unrelated inputs with no defined relationship, and on the
-documented production path (a host sets `ProvenanceInputs.FirmwareFingerprint`
-as the schema requires, no `FingerprintOverride`) they differ by
-construction — blocking every mutation, not just a real epoch change. An
-earlier version of this code did compare them; it is deliberately removed.
+The lane probes the device's identity at three points: once at `AddDevice`,
+once before a mutation's command goes out, and once after every observation.
+Each probe opens its own session from a credential acquired for it, and each
+comparison is probe output against probe output — never probe output against
+the provenance fingerprint a host supplied, which are values with no defined
+relationship and whose comparison blocked every mutation the first time it
+was tried.
 
-The hole this leaves is wider than "between checkpoint and submission,"
-and it does not fail safe once a real firmware change happens:
+A change found **before the command** blocks the mutation with
+`BLOCK_REASON_FIRMWARE_EPOCH_CHANGED` and refuses it with
+`mutation/firmware-epoch` and `submitted` false. An intent central built
+against one firmware must not be applied to another: the command's meaning
+belongs to the firmware. Nothing was sent, so there is nothing to recover
+and no hold to engage — the lane reports and waits for central to dispose
+it, rather than deciding on central's behalf.
 
-- `epoch.Probe` runs exactly once, in `AddDevice`, and `ds.fingerprint` is
-  never rewritten afterward. `CurrentFingerprint` is therefore central's
-  expectation compared against a digest learned once at onboarding, not
-  against the device's current firmware — the uncaught window is the
-  entire life of the `deviceState`, not one operation's checkpoint-to-submission
-  span.
-- After a real firmware change, the admission check becomes the mirror
-  image of the bug just removed: central learns the new fingerprint,
-  every subsequent intent names it, `Admitted` compares it against the
-  still-cached old one, and rejects every mutation for that device with
-  `ErrCodeFirmwareEpoch` permanently. There is no supported refresh path
-  — `Lane`'s own doc states that a second `AddDevice` for an
-  already-registered key replaces its `*deviceState` wholesale, orphaning
-  the queue and any in-flight drainer, and that onboarding must run
-  exactly once per device, never as a way to reset or reconfigure one
-  already added.
-- `evidence.Store.InvalidateFingerprint` has no production caller. Route
-  evidence recorded under the old firmware survives an epoch change
-  undisturbed, so this plan's requirement 7 ("invalidates every
-  route-evidence entry for the device... and forces `epoch.Probe` again")
-  is unmet as well as unwired.
+A change found **after an observation** discards the observation. An
+observation taken across an epoch boundary has no honest fingerprint to
+label its provenance with, because the device that answered is not the
+device the operation was planned against. A read fails and its caller
+re-reads under the new epoch; a mutation enters recovery, where the next
+poll re-observes under the new one.
 
-A real fix needs a fresh `epoch.Probe` run at observation time compared
-against the fingerprint the earlier probe returned — probe output against
-probe output, never probe output against a host-supplied provenance field
-— which needs a live transport this module's synchronous `Submit` path
-does not have, plus a decision on how a device's `CurrentFingerprint` gets
-refreshed once that probe detects a real change (and `InvalidateFingerprint`
-gets called) without requiring a disruptive re-`AddDevice`. That work is
-the central-service plan's job, alongside the recovery auto-wiring the
-previous section describes.
+Either way the device's fingerprint is refreshed before the record is
+delivered — a firmware change is a fact about the device, and an audit
+outage must not leave the lane working under an epoch it has established is
+wrong — and `flowseer.device.firmware.epoch_changed` plus the
+`FirmwareEpochChanged` record name both fingerprints.
+
+The cost is one extra probe per operation: an SNMP round trip and a
+credential acquisition per read and per mutation, on top of the operation's
+own. That buys the guarantee that no observation this lane returns and no
+command it sends crosses an epoch boundary unnoticed.
+
+**Evidence invalidation has no reader yet.** An epoch change calls
+`evidence.Store.InvalidateFingerprint`, which drops every entry recorded
+under the old fingerprint. Nothing in this module calls `Consult`, so
+nothing consumes that cache today: `recordEvidence` writes it and no
+operation reads it. The invalidation is correct and unobservable, and
+removing it fails no test. It is wired now because the alternative is
+recording evidence under a stale epoch and remembering to invalidate later,
+which is the harder thing to get right; wiring `Consult` into route
+selection is named as a follow-up on the lane host contract plan.

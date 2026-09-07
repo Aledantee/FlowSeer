@@ -4,12 +4,21 @@ type: feat
 date: 2026-09-06
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/plans/2026-09-05-2252-feat-device-access-lane-plan.md
 ---
 
 # Device Access Lane Host Contract - Plan
+
+Implemented on 2026-09-07 across seven slices: drift removal, the
+acknowledgement door and reporter, the freeze audit, per-operation sessions
+and credentials, the recovery decisions, the recovery poll, resume with the
+dequeue hold re-check, and the epoch re-probe. Two defects in the unit's own
+earlier slices were found by reversal rather than by review — a submit latch
+whose test could not reach it, and a pre-mutation baseline that never ran —
+and both are recorded in the commits that fixed them. The route-evidence
+follow-up below was found by enumeration before writing code.
 
 The changes `src/modules/localnet/access` needs before a host can drive it:
 an outward reporter, an acknowledgement that reaches a mutation at any open
@@ -397,6 +406,24 @@ a parked mutation at all, given the lane's per-device ordering guarantee.
 Reads and mutations are already distinguished at admission (a hold refuses
 mutations and lets reads through), so the answer is probably yes, but it
 needs deciding rather than assuming.
+
+**Route evidence is written and never read.** `evidence.Store.Record` has
+one caller and `Consult` has none outside the store's own tests, so the
+cache the lane maintains answers no question. The epoch unit wires
+`InvalidateFingerprint` into the re-probe, which is correct and currently
+unobservable — removing it fails no test, because nothing downstream can
+tell an invalidated cache from a populated one.
+
+It is left wired rather than removed: recording evidence under an epoch that
+has changed, and remembering to invalidate it when a reader finally arrives,
+is the harder thing to get right. What the follow-up owes is the reader —
+`Consult` in route selection, so a route proven under the current epoch can
+answer without a fresh probe — and only then does the invalidation have a
+test that can fail.
+
+Found by enumerating what writes evidence, what reads it, and what keys it,
+before touching the invalidation. That enumeration is cheap and has now
+turned up two dead mechanisms in this module.
 
 ## Open questions
 

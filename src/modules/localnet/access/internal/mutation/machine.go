@@ -120,10 +120,12 @@ type Machine struct {
 // deps.CurrentFingerprint, it returns an error instead of a Machine — the
 // mutation never reaches ADMITTED under a stale epoch, per decision 7. A
 // read never carries an expected fingerprint and is never blocked here.
-// This check alone never emits flowseer.device.firmware.epoch_changed —
-// nothing in this module does; see the access module README's "Open gap:
-// no mid-operation firmware-epoch re-check" section for why and what a
-// real fix needs.
+// This check alone never emits flowseer.device.firmware.epoch_changed. It
+// compares central's expectation against the edge's cached fingerprint, and
+// those can differ simply because central is stale. The real epoch signal
+// comes from access.Lane's own re-probe, which compares one probe's output
+// against an earlier probe's; see the access module README's "Firmware
+// epoch" section.
 func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 	if mutationIntent := req.GetMutation(); mutationIntent != nil {
 		if expected := mutationIntent.GetExpectedFirmwareFingerprint(); expected != deps.CurrentFingerprint {
@@ -565,26 +567,15 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 		return nil, errs.Wrap(readErr, "observe")
 	}
 
-	// There is deliberately no mid-operation firmware-epoch re-check here.
-	// obs.GetProvenance().GetFirmwareFingerprint() and deps.CurrentFingerprint
-	// come from unrelated sources this module never reconciles:
-	// CurrentFingerprint is epoch.Probe's own hex SHA-256 digest (or a
-	// host's FingerprintOverride), while the observation's provenance
-	// fingerprint is whatever the host's own ProvenanceInputs supplied to
-	// interfaces.Read — copied through verbatim, never written from
-	// ds.fingerprint, since AddDevice does not return the probed digest to
-	// its caller. Comparing them is comparing values with no defined
-	// relationship, not detecting a real epoch change; on the documented
-	// production path (a host sets FirmwareFingerprint as the schema
-	// requires, no FingerprintOverride) the values differ by construction
-	// and this check blocked every mutation. A real mid-operation check
-	// needs a fresh identity probe at observation time compared against
-	// the probe's own earlier output — probe output to probe output, never
-	// probe output to a host-supplied provenance field — and that needs a
-	// live transport this module's synchronous Submit path does not have.
-	// See the README's "Open gap: no mid-operation firmware-epoch
-	// re-check" section for where that re-probe belongs and what else is
-	// unwired alongside it.
+	// No firmware-epoch re-check here, deliberately, and not because there
+	// should not be one: access.Lane runs it, around this call. The check
+	// cannot live here, because the only fingerprints this type holds are
+	// deps.CurrentFingerprint (a probe digest) and the observation's own
+	// provenance fingerprint (whatever the host supplied to
+	// interfaces.Read). Those come from unrelated sources with no defined
+	// relationship, and comparing them blocked every mutation on the
+	// documented production path. A real check needs two probes, and only
+	// the Lane has a session factory to take the second one with.
 
 	m.mu.Lock()
 	m.lastObservation = obs
@@ -714,6 +705,14 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	m.deps.Telemetry.RecoveryStarted(ctx)
 	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common(ctx))
 	return m.deps.Audit.Emit(ctx, event)
+}
+
+// BlockFirmwareEpoch blocks the lane with FIRMWARE_EPOCH_CHANGED for a
+// mutation whose device changed firmware before the command was sent. It
+// does not move the phase: nothing was submitted, so the mutation is still
+// exactly where it was, waiting for central to dispose it.
+func (m *Machine) BlockFirmwareEpoch(ctx context.Context) error {
+	return m.block(ctx, accessv1.BlockReason_BLOCK_REASON_FIRMWARE_EPOCH_CHANGED)
 }
 
 // Resume admits a mutation central is re-dispatching after an edge restart,

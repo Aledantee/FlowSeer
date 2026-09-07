@@ -670,6 +670,10 @@ func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
 // fakeIdentitySession answers epoch.Probe's Get call and nothing else.
 type fakeIdentitySession struct {
 	onGet func()
+	// descr is what the probe reads as sysDescr, and therefore what the
+	// firmware fingerprint is derived from. Empty means the default, so
+	// every existing fixture keeps the fingerprint it had.
+	descr string
 }
 
 func (f fakeIdentitySession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.CallOption) ([]snmp.VarBind, error) {
@@ -680,7 +684,11 @@ func (f fakeIdentitySession) Get(_ context.Context, oids []snmp.OID, _ ...snmp.C
 			vbs[i] = snmp.ObjectIDVar{Header: snmp.Header{OID: oid, Kind: snmp.KindObjectID}, Value: snmp.MustOID(1, 3, 6, 1, 4, 1, 1)}
 			continue
 		}
-		vbs[i] = snmp.OctetStringVar{Header: snmp.Header{OID: oid, Kind: snmp.KindOctetString}, Value: []byte("fw-A")}
+		descr := f.descr
+		if descr == "" {
+			descr = "fw-A"
+		}
+		vbs[i] = snmp.OctetStringVar{Header: snmp.Header{OID: oid, Kind: snmp.KindOctetString}, Value: []byte(descr)}
 	}
 	return vbs, nil
 }

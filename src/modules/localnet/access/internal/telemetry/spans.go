@@ -53,6 +53,24 @@ func (v *View) StartOperation(ctx context.Context, operationClass string) (conte
 	return ctx, end(span)
 }
 
+// NoteBaselineUnavailable marks the current operation span as having run
+// without a pre-mutation baseline, with a bounded reason.
+//
+// It is an attribute rather than an event because it is not a thing that
+// happened to the device, it is a property of this operation: recovery for
+// it cannot corroborate, so the mutation can only verify or abandon. That
+// degradation is otherwise invisible — a mutation with no baseline behaves
+// exactly like one whose device was simply never going to agree — and an
+// invisible degradation is one that can be permanent without anyone
+// noticing, which is how the baseline came to be missing for every mutation
+// in the first place.
+func (v *View) NoteBaselineUnavailable(ctx context.Context, reason string) {
+	if v == nil {
+		return
+	}
+	trace.SpanFromContext(ctx).SetAttributes(attrKeyBaselineUnavailable.String(reason))
+}
+
 // StartRoute starts the flowseer.device.route span for one route attempt: a
 // CLIENT span, since this is the actual outbound SNMP or SSH call to the
 // device. On the ordinary path it is a child of the current context's span

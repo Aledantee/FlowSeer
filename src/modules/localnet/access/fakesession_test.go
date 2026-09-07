@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"sync/atomic"
+	"testing"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
@@ -11,6 +12,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/epoch"
+	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // probeFactory is the OpenSNMP every fixture device uses: it hands out the
@@ -139,4 +141,21 @@ func (a shellAdapter) SetPortName(_ context.Context, name, text string) error {
 	defer a.owner.mu.Unlock()
 	a.owner.commands = append(a.owner.commands, name+"="+text)
 	return nil
+}
+
+// identityAnswering builds a probe session reporting descr as the device's
+// sysDescr, which is what its firmware fingerprint is derived from.
+func identityAnswering(descr string) snmp.Session {
+	return fakeIdentitySession{onGet: func() {}, descr: descr}
+}
+
+// fingerprintOf is the fingerprint epoch.Probe derives from descr. Asked of
+// Probe rather than hard-coded, for the same reason probedFingerprint is.
+func fingerprintOf(t *testing.T, descr string) string {
+	t.Helper()
+	fingerprint, err := epoch.Probe(context.Background(), identityAnswering(descr))
+	if err != nil {
+		t.Fatalf("epoch.Probe(%q) error: %v", descr, err)
+	}
+	return fingerprint
 }

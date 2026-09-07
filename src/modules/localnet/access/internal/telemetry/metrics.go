@@ -20,6 +20,11 @@ const (
 	attrKeyOutcome   = attribute.Key("flowseer.device.outcome")
 )
 
+// attrKeyBaselineUnavailable carries why a mutation ran without its
+// pre-mutation baseline. Bounded: it takes an error classification, never
+// raw error text.
+var attrKeyBaselineUnavailable = attribute.Key("flowseer.device.baseline_unavailable")
+
 func attrOperationClass(operationClass string) attribute.KeyValue {
 	return attrKeyOperation.String(operationClass)
 }
