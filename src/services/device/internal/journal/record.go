@@ -55,6 +55,27 @@ func permitsDispatch(reason accessv1.BlockReason) bool {
 	}
 }
 
+// terminalAckOwed reports whether the record's mutation still owes the edge a
+// TerminalResultAck: a terminal disposition the edge was dispatched and has
+// not yet confirmed. An abandonment is confirmed by the edge's ABANDONED
+// report and stays in the record afterwards; every other disposition is
+// confirmed by the report that closes the record, so a mutation still present
+// with one still owes.
+//
+// Two callers need the same answer and would drift apart if each spelled it.
+// [OwedRows] sends the row, and [Journal.ResolveDesynchronization] must refuse
+// to end a mutation while it is owed: closing the record withdraws the row, and
+// the edge is left parked on an acknowledgement nothing will ever send.
+func terminalAckOwed(record *storev1.DeviceLaneRecord) bool {
+	m := record.GetMutation()
+	if m == nil || !m.HasDisposition() || !record.GetDispatched() {
+		return false
+	}
+
+	return m.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED ||
+		record.GetLastReportedPhase() != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
+}
+
 // OwedRows derives every message the record owes the edge, at time now. Rows
 // are independent and keyed by sequence; the derivation is total, so the
 // outbox relay is a pure function of the record. A read whose deadline has
@@ -84,8 +105,7 @@ func OwedRows(record *storev1.DeviceLaneRecord, now time.Time) []Owed {
 			// mutation still owes; an abandonment keeps the mutation held
 			// past the ack, so it owes only until the last reported phase
 			// is ABANDONED, after which ResolveDesynchronization ends it.
-			if m.GetDisposition() != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED ||
-				record.GetLastReportedPhase() != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
+			if terminalAckOwed(record) {
 				owed = append(owed, Owed{Kind: OwedTerminalAck, Sequence: seq, Disposition: m.GetDisposition()})
 			}
 		case hasDisposition:

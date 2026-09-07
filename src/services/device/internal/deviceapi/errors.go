@@ -30,6 +30,7 @@ var ClientErrors = connecterr.Table{
 	registry.ErrCodeHorizonUnset:       {Code: connect.CodeFailedPrecondition, UserMsg: "the device has no measured delayed-apply horizon, so no change can be bounded"},
 	journal.ErrCodeIdempotencyMismatch: {Code: connect.CodeAlreadyExists, UserMsg: "this idempotency key was already used for a different request"},
 	journal.ErrCodeState:               {Code: connect.CodeFailedPrecondition, UserMsg: "the device's record does not allow this operation"},
+	journal.ErrCodeAckPending:          {Code: connect.CodeFailedPrecondition, UserMsg: "the edge has not yet acknowledged how this mutation ended; resolve it once it has"},
 
 	journal.ErrCodeHoldsFull: {Code: connect.CodeResourceExhausted, UserMsg: "the device holds as many unresolved mutations as it can; some must be acknowledged before more are recorded"},
 

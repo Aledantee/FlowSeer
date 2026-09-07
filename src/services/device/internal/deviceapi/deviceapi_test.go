@@ -428,7 +428,48 @@ func held(t *testing.T, h *harness) uint64 {
 	if _, err := h.journal.Dispose(ctx, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
+	// The edge confirms the abandonment. A hold is resolvable only once it
+	// has: without this report the mutation still owes its terminal
+	// acknowledgement and every resolution below would be refused, which is
+	// what TestResolveRefusesWhileTheEdgeStillOwesItsAcknowledgement covers.
+	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
+		t.Fatalf("abandoned report: %v", err)
+	}
 	return seq
+}
+
+// An operator who abandons a mutation and immediately resolves it is the
+// natural sequence of actions and the one that used to break the edge: the
+// resolution closed the record, the terminal acknowledgement stopped being
+// owed, and the edge sat waiting for it while central dispatched the
+// replacement into a lane the old sequence still held.
+func TestResolveRefusesWhileTheEdgeStillOwesItsAcknowledgement(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	seq := applied.Msg.GetMutation().GetSequence()
+	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted report: %v", err)
+	}
+	if _, err := h.journal.Dispose(ctx, deviceID, seq); err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+
+	msg := resolveRequest(seq)
+	msg.SetAccept(&devicev1.AcceptObservedDecision{})
+	_, err = h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
+	wantCode(t, err, connect.CodeFailedPrecondition)
+
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if !record.HasMutation() {
+		t.Fatal("the refused resolution closed the mutation anyway")
+	}
 }
 
 func resolveRequest(sequence uint64) *devicev1.ResolveDesynchronizationRequest {

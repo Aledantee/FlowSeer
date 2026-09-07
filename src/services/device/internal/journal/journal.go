@@ -36,6 +36,11 @@ var (
 	// or resolutions pile up faster than the edge acknowledges them, rather
 	// than a record that grows until it fails the bucket's budget.
 	ErrCodeHoldsFull = errs.NewCode("journal/holds-full")
+	// ErrCodeAckPending is a resolution of a mutation whose terminal
+	// acknowledgement the edge still owes. It is separate from ErrCodeState
+	// because the operator's next action is different: nothing about the
+	// request is wrong and nothing else has to change, it is simply too early.
+	ErrCodeAckPending = errs.NewCode("journal/ack-pending")
 	// ErrCodeDecode is a stored record that will not unmarshal.
 	ErrCodeDecode = errs.NewCode("journal/decode")
 	// ErrCodeIdempotencyMismatch is a resubmission carrying a key the record
@@ -558,6 +563,11 @@ type Resolution struct {
 // its disposition; only its hold is resolved. Either way the sequence's hold
 // is recorded, so the edge is told to clear its own before the next dispatch.
 //
+// An abandonment the edge has not acknowledged yet is refused with
+// [ErrCodeAckPending], which is [TerminatorNamed]'s rule enforced: while the
+// terminal acknowledgement is owed, closing the record would withdraw it and
+// leave the edge waiting on an answer nothing would send.
+//
 // A resubmission carrying an idempotency key the record already holds returns
 // the recorded state and writes nothing, so a lost response is retried rather
 // than resolved twice.
@@ -570,6 +580,16 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 				return err
 			}
 			if recorded {
+				if seq <= res.Sequence {
+					// The key was admitted for an earlier sequence, not by this
+					// resolution: a replacement is always admitted past the
+					// sequence it replaces. Echoing that older state would
+					// answer the operator with a success while the hold they
+					// asked to resolve still stands.
+					return errs.New().Code(ErrCodeIdempotencyMismatch).Attr("device", deviceID).
+						Attr("sequence", seq).Attr("resolving", res.Sequence).
+						Msg("this idempotency key was already admitted for an earlier sequence")
+				}
 				admitted = recordedState(rec, seq, res.Intent, res.Edge)
 				return errSkip
 			}
@@ -578,6 +598,18 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 		m := rec.GetMutation()
 		switch {
 		case m != nil && m.GetSequence() == res.Sequence:
+			if terminalAckOwed(rec) {
+				// The edge still holds this sequence and is waiting to be told
+				// how it ended. Closing the record here withdraws the owed
+				// TerminalResultAck, so the edge would sit in its acknowledgement
+				// wait until its own operation context expired while central
+				// dispatched the replacement into a lane it still occupies.
+				// [TerminatorNamed] already says this arm is the terminator only
+				// once the edge has confirmed; this is that rule enforced.
+				return errs.New().Code(ErrCodeAckPending).Attr("device", deviceID).
+					Attr("sequence", res.Sequence).
+					Msg("the edge has not acknowledged how this mutation ended")
+			}
 			if !m.HasDisposition() {
 				// Held at ADMITTED and never dispatched: the disposition is
 				// REJECTED, and the phase moves to RELEASED in this one write

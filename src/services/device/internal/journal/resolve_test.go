@@ -133,6 +133,11 @@ func TestResolveDesynchronizationKeepsAnAbandonedDisposition(t *testing.T) {
 	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
 		t.Fatalf("dispose: %v", err)
 	}
+	// The edge confirms the abandonment. Without this the terminal ack is
+	// still owed and the resolution is refused, which the test below covers.
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAbandoned, Sequence: seq}); err != nil {
+		t.Fatalf("abandoned: %v", err)
+	}
 
 	resolved, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
 	if err != nil {
@@ -140,6 +145,45 @@ func TestResolveDesynchronizationKeepsAnAbandonedDisposition(t *testing.T) {
 	}
 	if got := resolved.GetDisposition(); got != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		t.Errorf("disposition = %v, want the abandonment's own", got)
+	}
+}
+
+// Resolving an abandonment the edge has not acknowledged is refused. The
+// abandonment owes the edge a TerminalResultAck, and closing the record here
+// would withdraw that row: the edge would stay parked in its acknowledgement
+// wait until its own operation context expired, while central admitted the
+// replacement into a lane the old sequence still occupied. Reversing the guard
+// makes this test fail and every other resolve test pass, which is how the bug
+// survived — the shared fixture built this state and treated it as legal.
+func TestResolveDesynchronizationRefusesAnAbandonmentTheEdgeHasNotAcknowledged(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a14"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	seq := state.GetSequence()
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+
+	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
+	if code, _ := errs.CodeOf(err); code != journal.ErrCodeAckPending {
+		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeAckPending)
+	}
+	rec, err := j.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if !rec.HasMutation() {
+		t.Fatal("the refused resolution closed the mutation anyway")
+	}
+	owed := journal.OwedRows(rec, time.Now())
+	if len(owed) != 1 || owed[0].Kind != journal.OwedTerminalAck || owed[0].Sequence != seq {
+		t.Fatalf("owed = %+v, want the terminal ack for %d", owed, seq)
 	}
 }
 
@@ -179,6 +223,53 @@ func TestResolveDesynchronizationOwesOnlyTheHoldAndTheNewIntent(t *testing.T) {
 		if got[kind] != seq {
 			t.Errorf("kind %d owed at %d, want %d", kind, got[kind], seq)
 		}
+	}
+}
+
+// A key the record already holds from an earlier admission is not this
+// resolution's own retry. Echoing that older sequence's state would answer the
+// operator with a success while the hold they asked about still stands, so the
+// echo is limited to a key admitted past the sequence being resolved — which
+// is where a replacement always lands.
+func TestAResolutionKeyAdmittedForAnEarlierSequenceIsRefused(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	key := "0192e6a0-0000-7000-8000-000000000a15"
+
+	earlier, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+		Kind:     journal.ReportAdmitted,
+		Sequence: earlier.GetSequence(),
+	}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	if _, err := j.Dispose(ctx, deviceID, earlier.GetSequence()); err != nil {
+		t.Fatalf("dispose: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+		Kind:     journal.ReportAbandoned,
+		Sequence: earlier.GetSequence(),
+	}); err != nil {
+		t.Fatalf("abandoned: %v", err)
+	}
+
+	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{
+		Sequence: earlier.GetSequence(),
+		Intent:   mutationIntent(key),
+		Edge:     edgeRef(),
+	})
+	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
+		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeIdempotencyMismatch)
+	}
+	rec, err := j.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if !rec.HasMutation() {
+		t.Fatal("the refused resolution closed the mutation anyway")
 	}
 }
 
