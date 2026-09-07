@@ -1147,8 +1147,13 @@ not ones nobody has touched.
 The race suite must run outside the agent Bash sandbox. `httptest` cannot
 bind `[::1]:0` under it, so `src/common/service`, `src/modules/edgebus`,
 and `src/services/device/internal/dispatchapi` panic with
-`failed to listen on a port: bind: operation not permitted`. That is the
-sandbox, not those three packages; they pass unsandboxed.
+`failed to listen on a port: bind: operation not permitted`, and
+`src/modules/localnet/access/internal/capability/fastiron` fails the same
+way binding its SSH test listener. That is the sandbox, not those four
+packages; they pass unsandboxed. Run the wide gate with `-count=1`: a
+cached PASS from an earlier unsandboxed run makes a sandbox-hostile package
+report `ok` under the sandbox without executing anything, which is the third
+gate in this build to report success for a reason unrelated to the code.
 
 The message-sync hook must report nothing for the two new schema packages;
 their file comments name the absent triads.

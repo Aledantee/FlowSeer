@@ -162,11 +162,17 @@ state machine's release step, per decision 13's audit-before-release rule.
   `AddDevice`.
 - `recovery.started`, `lane.blocked`, `lane.released` (telemetry event and
   audit record) at their respective state-machine call sites.
-- `lane.frozen` and the freeze-path `lane.released` (telemetry event only)
-  at `Freeze`/`Unfreeze` — `internal/freeze.Gate` is shared across every
-  device this Lane serves, not scoped to one device, so it has no
-  `audit.Common.Device` to attribute an audit record to; only the
-  telemetry event fires there.
+- `lane.frozen` at `Freeze` as one telemetry event plus one audit record
+  per registered device, and the freeze-path `lane.released` at `Unfreeze`
+  as a telemetry event only. `internal/freeze.Gate` is shared across every
+  device this Lane serves and has no `audit.Common.Device` to attribute a
+  record to, so `Lane` emits the records itself, over the devices it knows.
+  The gate is frozen before any record goes out and stays frozen whatever
+  the deliveries do — a fence is called when something is already wrong,
+  often the audit path itself. `Freeze` returns the joined delivery errors
+  and remembers which devices were recorded, so a retry emits only what is
+  missing; `Unfreeze` forgets the fence, and a device added while frozen
+  gets its record at `AddDevice`, before it is registered.
 - The `flowseer.device.operation` span and the
   `flowseer.device.operation.duration` metric, around `Lane.process`'s
   per-item work.

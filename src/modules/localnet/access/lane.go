@@ -3,6 +3,7 @@ package access
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -199,6 +200,13 @@ type Lane struct {
 	mu      sync.Mutex
 	devices map[string]*deviceState
 	closed  bool
+
+	// freezeMu guards frozenDelivered and serializes the emission of
+	// LaneFrozen records, so two concurrent Freeze calls cannot both decide
+	// the same device still owes one. It is never held across Gate.Freeze's
+	// drain wait, which can block behind a device write.
+	freezeMu        sync.Mutex
+	frozenDelivered map[string]bool
 }
 
 // ErrCodeClosed identifies a Submit call rejected because [Lane.Close] has
@@ -262,10 +270,11 @@ func NewLane(cfg Config) *Lane {
 		cfg.OperationTimeout = defaultOperationTimeout
 	}
 	return &Lane{
-		cfg:     cfg,
-		evid:    evidence.NewStore(cfg.EvidencePolicy),
-		freeze:  freeze.New(cfg.Telemetry),
-		devices: make(map[string]*deviceState),
+		cfg:             cfg,
+		evid:            evidence.NewStore(cfg.EvidencePolicy),
+		freeze:          freeze.New(cfg.Telemetry),
+		devices:         make(map[string]*deviceState),
+		frozenDelivered: make(map[string]bool),
 	}
 }
 
@@ -316,6 +325,25 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 		event := audit.BuildDiscoveryCompleted(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, fingerprint)
 		if err := l.cfg.Audit.Emit(ctx, event); err != nil {
 			return errs.Wrap(err, "deliver discovery completed event")
+		}
+	}
+
+	// A device added while the lane is fenced is fenced from its first
+	// moment, and the audit stream has to say so — otherwise the only
+	// devices a reader can see under the fence are the ones that happened
+	// to be registered when it was called. Emitted before the device is
+	// registered, so a failed delivery leaves no device behind claiming a
+	// record that was never written; the caller retries AddDevice.
+	if !l.freeze.AllowSideEffect() {
+		l.freezeMu.Lock()
+		event := audit.BuildLaneFrozen(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}})
+		emitErr := l.cfg.Audit.Emit(ctx, event)
+		if emitErr == nil {
+			l.frozenDelivered[deviceKey] = true
+		}
+		l.freezeMu.Unlock()
+		if emitErr != nil {
+			return errs.Wrap(emitErr, "deliver lane frozen event")
 		}
 	}
 
@@ -943,17 +971,73 @@ func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrat
 }
 
 // Freeze pauses side effects across every device this Lane serves, per
-// decision 8's control-plane freeze, and does not return until every
-// side effect already in flight has finished — or ctx ends first, in
-// which case it returns ctx's error while leaving new side effects
-// stopped regardless. See [freeze.Gate.Freeze]'s doc for why the wait is
-// cancellable: a control plane fencing an edge precisely because it has
-// gone unresponsive must not be able to hang on that same edge's own
-// in-flight write.
-func (l *Lane) Freeze(ctx context.Context) error { return l.freeze.Freeze(ctx) }
+// decision 8's control-plane freeze, and records one LaneFrozen audit
+// event per registered device. It does not return until every side effect
+// already in flight has finished — or ctx ends first, in which case it
+// carries ctx's error while leaving new side effects stopped regardless.
+// See [freeze.Gate.Freeze]'s doc for why the wait is cancellable: a control
+// plane fencing an edge precisely because it has gone unresponsive must not
+// be able to hang on that same edge's own in-flight write.
+//
+// The gate is frozen before any record is emitted, and stays frozen
+// whatever the emissions do. A fence is called when something is already
+// wrong, quite often the audit path itself, and an audit outage must not be
+// able to leave the devices unfenced — the same ordering the recovery hold
+// uses, for the same reason.
+//
+// The returned error joins the gate's own and every failed delivery. A
+// caller that retries gets only the records still missing: which devices
+// were recorded is remembered, so a deliverer that failed for one device
+// out of three does not produce three more records on the next attempt. The
+// set is cleared by [Lane.Unfreeze], so the next fence records afresh.
+func (l *Lane) Freeze(ctx context.Context) error {
+	gateErr := l.freeze.Freeze(ctx)
+	return errors.Join(gateErr, l.recordFrozen(ctx))
+}
 
-// Unfreeze resumes side effects.
-func (l *Lane) Unfreeze(ctx context.Context) { l.freeze.Unfreeze(ctx) }
+// recordFrozen emits the LaneFrozen record for every registered device that
+// does not already have one, outside l.mu, since a Deliverer is a host's
+// code and may do anything.
+func (l *Lane) recordFrozen(ctx context.Context) error {
+	l.freezeMu.Lock()
+	defer l.freezeMu.Unlock()
+
+	l.mu.Lock()
+	keys := make([]string, 0, len(l.devices))
+	for key := range l.devices {
+		keys = append(keys, key)
+	}
+	l.mu.Unlock()
+	// Sorted so a partial failure is reproducible: which devices got their
+	// record before a deliverer failed should not depend on map iteration
+	// order, or a retry would resume from somewhere different each time.
+	slices.Sort(keys)
+
+	var failures []error
+	for _, key := range keys {
+		if l.frozenDelivered[key] {
+			continue
+		}
+		event := audit.BuildLaneFrozen(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: key}})
+		if err := l.cfg.Audit.Emit(ctx, event); err != nil {
+			failures = append(failures, errs.Wrap(err, "deliver lane frozen event"))
+			continue
+		}
+		l.frozenDelivered[key] = true
+	}
+	return errors.Join(failures...)
+}
+
+// Unfreeze resumes side effects and forgets which devices were recorded
+// frozen, so the next Freeze records every device again rather than
+// treating an old fence's records as covering a new one.
+func (l *Lane) Unfreeze(ctx context.Context) {
+	l.freezeMu.Lock()
+	clear(l.frozenDelivered)
+	l.freezeMu.Unlock()
+
+	l.freeze.Unfreeze(ctx)
+}
 
 // ResolveHold clears deviceKey's recovery hold, admitting mutations again,
 // and reports the acknowledgement central's HoldResolved is waiting for.

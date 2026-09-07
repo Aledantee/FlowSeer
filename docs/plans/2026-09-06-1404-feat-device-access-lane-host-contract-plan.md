@@ -350,9 +350,17 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files
 
 ```bash
 go build ./... && go vet ./...
-go test -race ./src/modules/localnet/access/...
+go test -race -count=1 ./src/modules/localnet/access/...
 .claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**')
 ```
+
+Run these outside the agent Bash sandbox.
+`internal/capability/fastiron` binds an SSH test listener and fails there
+with `bind: operation not permitted`, which is the sandbox and not the
+package. `-count=1` is not decoration: a cached PASS from an earlier
+unsandboxed run makes that package report `ok` under the sandbox without
+running a thing, so a sandboxed run with the cache warm looks green and has
+tested nothing.
 
 ## Definition of done
 
