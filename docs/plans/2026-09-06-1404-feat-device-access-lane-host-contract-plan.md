@@ -407,7 +407,7 @@ Reads and mutations are already distinguished at admission (a hold refuses
 mutations and lets reads through), so the answer is probably yes, but it
 needs deciding rather than assuming.
 
-**Route evidence is written and never read.** `evidence.Store.Record` has
+**Wire `Consult` into route selection.** Route evidence is written and never read. `evidence.Store.Record` has
 one caller and `Consult` has none outside the store's own tests, so the
 cache the lane maintains answers no question. The epoch unit wires
 `InvalidateFingerprint` into the re-probe, which is correct and currently

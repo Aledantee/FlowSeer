@@ -1712,10 +1712,19 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 
 // recordEvidence records which route answered req's operation, when the
 // observation is complete enough to say so, per decision 1's live
-// per-operation evidence. A record failure (no configured lifetime for this
-// operation kind) is not this call's problem to report — evidence is a
-// caching optimization for a later admission, never a gate this one needs
-// to pass — so the error is discarded.
+// per-operation evidence.
+//
+// The error is discarded, and Record has exactly one failure: this
+// operation kind has no configured evidence lifetime. That is a
+// configuration fact, identical on every call for that kind, so reporting
+// it would fail every operation of that kind over a cache nobody has to
+// consult — evidence is an optimization for a later admission, never a gate
+// this operation needs to pass.
+//
+// Revisit this when Consult gains a caller. A silently failed Record then
+// becomes a reader that silently finds nothing and re-probes forever, which
+// is the same shape as the baseline that never ran: a degraded path
+// indistinguishable from the healthy one from outside.
 func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrationv1.ExecuteRequest, obs *accessv1.InterfaceObservation) {
 	if obs.GetCompleteness() != accessv1.Completeness_COMPLETENESS_COMPLETE {
 		return
