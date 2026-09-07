@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -58,7 +59,7 @@ func newStoreOver(t *testing.T, hub *edgebus.Hub) *edgestore.Store {
 func newAdminOver(t *testing.T, store *edgestore.Store, clock func() time.Time) *edgeapi.AdminService {
 	t.Helper()
 	anchor := make([]byte, 32)
-	admin, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
+	admin, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{anchor},
 	}, edgeapi.NewContact(0, 0), clock)
@@ -416,13 +417,13 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	store := edgestore.New(nil)
 	anchor := make([]byte, 32)
 
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, edgeapi.NewContact(0, 0), nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("a provisioning with no central url was accepted")
 	}
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, edgeapi.NewContact(0, 0), nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("a provisioning with no trust anchor was accepted")
 	}
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 31)},
 	}, edgeapi.NewContact(0, 0), nil); err == nil {
@@ -433,7 +434,7 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	for i := range tooMany {
 		tooMany[i] = make([]byte, 32)
 	}
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
+	if _, err := edgeapi.NewAdminService(store, nil, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: tooMany,
 	}, edgeapi.NewContact(0, 0), nil); err == nil {
@@ -560,4 +561,103 @@ func TestListEdgesSkipsTheSetupKeyIndexEntries(t *testing.T) {
 // keyed by.
 func keyIDOf(key string) string {
 	return key[len("fse1_") : len("fse1_")+26]
+}
+
+// laneHolds records what retirement asked of the lane records.
+type laneHolds struct {
+	devices []string
+	dropped []string
+	err     error
+}
+
+func (l *laneHolds) Devices(context.Context, string) ([]string, error) { return l.devices, nil }
+
+func (l *laneHolds) DropHolds(_ context.Context, deviceID string) error {
+	if l.err != nil {
+		return l.err
+	}
+	l.dropped = append(l.dropped, deviceID)
+	return nil
+}
+
+// A hold tells an edge to clear its own. A retired edge will never take it, so
+// keeping it pending owes something to a peer that cannot discharge it — and
+// enough of them wall off the abandons the operator now has to make.
+func TestRetireEdgeForgetsWhatItsDevicesOwedIt(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{devices: []string{"device-a", "device-b"}}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+		Edge: refOf(record),
+	}.Build())); err != nil {
+		t.Fatalf("RetireEdge: %v", err)
+	}
+
+	if len(holds.dropped) != 2 {
+		t.Fatalf("dropped holds on %v, want both devices", holds.dropped)
+	}
+}
+
+// Retirement ends no mutation: abandoning live work destroys something the
+// operator did not ask to lose, and AbandonMutation is where they say so.
+func TestRetireEdgeEndsNoMutation(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{devices: []string{"device-a"}}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+		Edge: refOf(record),
+	}.Build())); err != nil {
+		t.Fatalf("RetireEdge: %v", err)
+	}
+
+	// The only lane-record call retirement makes is the hold drop. Anything
+	// that ended a mutation would have to be another method on this seam.
+	if got := holds.dropped; len(got) != 1 || got[0] != "device-a" {
+		t.Errorf("retirement touched the lane records as %v", got)
+	}
+}
+
+// A drop that fails is reported, and retirement is idempotent, so the
+// operator's retry finishes what the first call started rather than leaving
+// the edge retired with its holds still owed and nothing saying so.
+func TestRetireEdgeReportsAFailedDropAndFinishesOnRetry(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{devices: []string{"device-a"}, err: errors.New("bucket unreachable")}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+	req := edgev1.RetireEdgeRequest_builder{Edge: refOf(record)}.Build()
+
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(req)); err == nil {
+		t.Fatal("a failed hold drop was swallowed")
+	}
+
+	holds.err = nil
+	if _, err := admin.RetireEdge(context.Background(), connect.NewRequest(req)); err != nil {
+		t.Fatalf("retry after a failed drop: %v", err)
+	}
+	if len(holds.dropped) != 1 {
+		t.Errorf("the retry dropped %v, want the device the first call could not", holds.dropped)
+	}
 }

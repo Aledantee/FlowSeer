@@ -51,6 +51,9 @@ const (
 	// DeviceServiceResolveDesynchronizationProcedure is the fully-qualified name of the DeviceService's
 	// ResolveDesynchronization RPC.
 	DeviceServiceResolveDesynchronizationProcedure = "/flowseer.api.device.v1.DeviceService/ResolveDesynchronization"
+	// DeviceServiceListEdgeOpenMutationsProcedure is the fully-qualified name of the DeviceService's
+	// ListEdgeOpenMutations RPC.
+	DeviceServiceListEdgeOpenMutationsProcedure = "/flowseer.api.device.v1.DeviceService/ListEdgeOpenMutations"
 )
 
 // DeviceServiceClient is a client for the flowseer.api.device.v1.DeviceService service.
@@ -76,6 +79,10 @@ type DeviceServiceClient interface {
 	// observed state as the new expectation, restore the expected state, or
 	// replace the interrupted intent with a new one.
 	ResolveDesynchronization(context.Context, *connect.Request[v1.ResolveDesynchronizationRequest]) (*connect.Response[v1.ResolveDesynchronizationResponse], error)
+	// Names the devices whose lanes one edge is still holding open work on.
+	// Retiring an edge orphans that work rather than ending it, and this is
+	// what tells an operator which lanes they now have to abandon.
+	ListEdgeOpenMutations(context.Context, *connect.Request[v1.ListEdgeOpenMutationsRequest]) (*connect.Response[v1.ListEdgeOpenMutationsResponse], error)
 }
 
 // NewDeviceServiceClient constructs a client for the flowseer.api.device.v1.DeviceService service.
@@ -119,6 +126,12 @@ func NewDeviceServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(deviceServiceMethods.ByName("ResolveDesynchronization")),
 			connect.WithClientOptions(opts...),
 		),
+		listEdgeOpenMutations: connect.NewClient[v1.ListEdgeOpenMutationsRequest, v1.ListEdgeOpenMutationsResponse](
+			httpClient,
+			baseURL+DeviceServiceListEdgeOpenMutationsProcedure,
+			connect.WithSchema(deviceServiceMethods.ByName("ListEdgeOpenMutations")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -129,6 +142,7 @@ type deviceServiceClient struct {
 	getDeviceAccessStatus     *connect.Client[v1.GetDeviceAccessStatusRequest, v1.GetDeviceAccessStatusResponse]
 	abandonMutation           *connect.Client[v1.AbandonMutationRequest, v1.AbandonMutationResponse]
 	resolveDesynchronization  *connect.Client[v1.ResolveDesynchronizationRequest, v1.ResolveDesynchronizationResponse]
+	listEdgeOpenMutations     *connect.Client[v1.ListEdgeOpenMutationsRequest, v1.ListEdgeOpenMutationsResponse]
 }
 
 // ReadInterface calls flowseer.api.device.v1.DeviceService.ReadInterface.
@@ -156,6 +170,11 @@ func (c *deviceServiceClient) ResolveDesynchronization(ctx context.Context, req 
 	return c.resolveDesynchronization.CallUnary(ctx, req)
 }
 
+// ListEdgeOpenMutations calls flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations.
+func (c *deviceServiceClient) ListEdgeOpenMutations(ctx context.Context, req *connect.Request[v1.ListEdgeOpenMutationsRequest]) (*connect.Response[v1.ListEdgeOpenMutationsResponse], error) {
+	return c.listEdgeOpenMutations.CallUnary(ctx, req)
+}
+
 // DeviceServiceHandler is an implementation of the flowseer.api.device.v1.DeviceService service.
 type DeviceServiceHandler interface {
 	// Reads one interface over the lowest-cost route that can answer
@@ -179,6 +198,10 @@ type DeviceServiceHandler interface {
 	// observed state as the new expectation, restore the expected state, or
 	// replace the interrupted intent with a new one.
 	ResolveDesynchronization(context.Context, *connect.Request[v1.ResolveDesynchronizationRequest]) (*connect.Response[v1.ResolveDesynchronizationResponse], error)
+	// Names the devices whose lanes one edge is still holding open work on.
+	// Retiring an edge orphans that work rather than ending it, and this is
+	// what tells an operator which lanes they now have to abandon.
+	ListEdgeOpenMutations(context.Context, *connect.Request[v1.ListEdgeOpenMutationsRequest]) (*connect.Response[v1.ListEdgeOpenMutationsResponse], error)
 }
 
 // NewDeviceServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -218,6 +241,12 @@ func NewDeviceServiceHandler(svc DeviceServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(deviceServiceMethods.ByName("ResolveDesynchronization")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deviceServiceListEdgeOpenMutationsHandler := connect.NewUnaryHandler(
+		DeviceServiceListEdgeOpenMutationsProcedure,
+		svc.ListEdgeOpenMutations,
+		connect.WithSchema(deviceServiceMethods.ByName("ListEdgeOpenMutations")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/flowseer.api.device.v1.DeviceService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeviceServiceReadInterfaceProcedure:
@@ -230,6 +259,8 @@ func NewDeviceServiceHandler(svc DeviceServiceHandler, opts ...connect.HandlerOp
 			deviceServiceAbandonMutationHandler.ServeHTTP(w, r)
 		case DeviceServiceResolveDesynchronizationProcedure:
 			deviceServiceResolveDesynchronizationHandler.ServeHTTP(w, r)
+		case DeviceServiceListEdgeOpenMutationsProcedure:
+			deviceServiceListEdgeOpenMutationsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -257,4 +288,8 @@ func (UnimplementedDeviceServiceHandler) AbandonMutation(context.Context, *conne
 
 func (UnimplementedDeviceServiceHandler) ResolveDesynchronization(context.Context, *connect.Request[v1.ResolveDesynchronizationRequest]) (*connect.Response[v1.ResolveDesynchronizationResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.api.device.v1.DeviceService.ResolveDesynchronization is not implemented"))
+}
+
+func (UnimplementedDeviceServiceHandler) ListEdgeOpenMutations(context.Context, *connect.Request[v1.ListEdgeOpenMutationsRequest]) (*connect.Response[v1.ListEdgeOpenMutationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations is not implemented"))
 }

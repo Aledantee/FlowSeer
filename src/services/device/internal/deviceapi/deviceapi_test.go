@@ -59,6 +59,13 @@ func (r *resolver) Horizon(_ context.Context, id string) (time.Duration, error) 
 	return entry.GetDelayedApplyHorizon().AsDuration(), nil
 }
 
+func (r *resolver) Devices(_ context.Context, id string) ([]string, error) {
+	if r.missing || id != edgeID {
+		return nil, nil
+	}
+	return []string{deviceID}, nil
+}
+
 func (r *resolver) EdgeID() string { return edgeID }
 
 func registryEntry(horizon time.Duration) *storev1.RegistryDevice {
@@ -655,5 +662,53 @@ func TestResolveRestoreRefusesBeforeCentralKnowsTheFirmwareEpoch(t *testing.T) {
 	record, _ := h.journal.Record(ctx, deviceID)
 	if record.GetHighWatermark() != seq {
 		t.Error("a refused restore assigned a sequence")
+	}
+}
+
+// Retiring an edge orphans its lanes rather than ending them, so the operator
+// has to be told which ones — with the sequence they will abandon and the
+// phase it stopped at, not just how many.
+func TestListEdgeOpenMutationsNamesWhatRetiringAnEdgeWouldOrphan(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	msg := &devicev1.ListEdgeOpenMutationsRequest{}
+	msg.SetEdgeId(edgeID)
+	resp, err := h.svc.ListEdgeOpenMutations(ctx, connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+
+	validate(t, resp.Msg)
+	rows := resp.Msg.GetOpen()
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	if got := rows[0].GetDevice().GetDevice().GetId(); got != deviceID {
+		t.Errorf("device = %q, want the held one", got)
+	}
+	if got := rows[0].GetMutation().GetSequence(); got != applied.Msg.GetMutation().GetSequence() {
+		t.Errorf("sequence = %d, want the held mutation's", got)
+	}
+	if got := rows[0].GetMutation().GetPhase(); got != accessv1.OperationPhase_OPERATION_PHASE_ADMITTED {
+		t.Errorf("phase = %v, want the phase it stopped at", got)
+	}
+}
+
+func TestListEdgeOpenMutationsReportsNothingWhenNoLaneIsHeld(t *testing.T) {
+	h := newHarness(t)
+
+	msg := &devicev1.ListEdgeOpenMutationsRequest{}
+	msg.SetEdgeId(edgeID)
+	resp, err := h.svc.ListEdgeOpenMutations(context.Background(), connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(resp.Msg.GetOpen()) != 0 {
+		t.Errorf("rows = %d, want none", len(resp.Msg.GetOpen()))
 	}
 }

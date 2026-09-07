@@ -59,6 +59,7 @@ var (
 // device pins, and whether it is listed at all. The registry implements it.
 type DeviceResolver interface {
 	Device(deviceID string) (*storev1.RegistryDevice, bool)
+	Devices(ctx context.Context, edgeID string) ([]string, error)
 	Horizon(ctx context.Context, deviceID string) (time.Duration, error)
 	EdgeID() string
 }

@@ -568,6 +568,24 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 	return resolved, admitted, nil
 }
 
+// DropHolds forgets every hold resolution this device still owes an edge. It
+// is what retiring an edge does to the lanes it hosted: a hold exists to tell
+// an edge to clear its own, so with no edge left to tell, the obligation is
+// moot rather than pending, and owing it forever is what fills the pending set
+// and walls off the abandons an operator working around a dead edge needs.
+//
+// It ends no mutation. Abandoning live work is a decision only an operator
+// makes, and AbandonMutation is where they make it.
+func (j *Journal) DropHolds(ctx context.Context, deviceID string) error {
+	return j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
+		if len(rec.GetHoldResolutionPending()) == 0 {
+			return errSkip
+		}
+		rec.SetHoldResolutionPending(nil)
+		return nil
+	})
+}
+
 // SetExpected records the description central expects on one interface, the
 // baseline the drift poll compares against.
 func (j *Journal) SetExpected(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface, description string) error {

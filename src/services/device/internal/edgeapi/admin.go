@@ -71,16 +71,26 @@ type Provisioning struct {
 // not the assertion middleware. Safe for concurrent use.
 type AdminService struct {
 	store        *edgestore.Store
+	holds        LaneHolds
 	provisioning Provisioning
 	contact      Contact
 	clock        func() time.Time
 }
 
-// NewAdminService constructs the admin handler over the edge store, the
-// provisioning the deployment ships, and the contact derivation its reads
-// report. A nil clock uses the wall clock. It returns an error when the
+// LaneHolds is the part of the lane journal retirement touches: which devices
+// an edge hosts, and forgetting the hold resolutions those devices still owe
+// it. Nothing here ends a mutation.
+type LaneHolds interface {
+	Devices(ctx context.Context, edgeID string) ([]string, error)
+	DropHolds(ctx context.Context, deviceID string) error
+}
+
+// NewAdminService constructs the admin handler over the edge store, the lane
+// journal retirement drops holds through, the provisioning the deployment
+// ships, and the contact derivation its reads report. holds may be nil, which
+// leaves retirement touching no lane record at all. A nil clock uses the wall clock. It returns an error when the
 // provisioning would produce an edge that pins nothing or cannot find central.
-func NewAdminService(store *edgestore.Store, provisioning Provisioning, contact Contact, clock func() time.Time) (*AdminService, error) {
+func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provisioning, contact Contact, clock func() time.Time) (*AdminService, error) {
 	if provisioning.CentralURL == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("provisioning names no central url")
 	}
@@ -100,7 +110,7 @@ func NewAdminService(store *edgestore.Store, provisioning Provisioning, contact 
 	if clock == nil {
 		clock = time.Now
 	}
-	return &AdminService{store: store, provisioning: provisioning, contact: contact, clock: clock}, nil
+	return &AdminService{store: store, holds: holds, provisioning: provisioning, contact: contact, clock: clock}, nil
 }
 
 // CreateEdge creates a pending edge and issues its first setup key. The key
@@ -273,7 +283,41 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		}
 	}
 
+	if err := s.dropLaneHolds(ctx, edgeID); err != nil {
+		return nil, connectErr(err)
+	}
+
 	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
+}
+
+// dropLaneHolds forgets what this edge's devices still owe it. A hold is an
+// instruction to an edge to clear its own; a retired edge will never take it,
+// so keeping it pending asserts an obligation against a peer that cannot
+// discharge it, and enough of them wall off the abandons an operator working
+// around a dead edge has to make.
+//
+// This is a cascade from the edge record into lane records, and retirement
+// deliberately does not cascade otherwise: it ends no mutation, because
+// abandoning live work destroys something an operator did not ask to lose and
+// hides a device that may carry a half-applied change. Removing an
+// instruction addressed to a peer that no longer exists is not that.
+//
+// A failure here is returned rather than swallowed, and retirement is
+// idempotent, so the operator's retry finishes what this call started.
+func (s *AdminService) dropLaneHolds(ctx context.Context, edgeID string) error {
+	if s.holds == nil {
+		return nil
+	}
+	devices, err := s.holds.Devices(ctx, edgeID)
+	if err != nil {
+		return err
+	}
+	for _, deviceID := range devices {
+		if err := s.holds.DropHolds(ctx, deviceID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // GetEdge returns one edge's record.
