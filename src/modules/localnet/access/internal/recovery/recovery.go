@@ -90,6 +90,12 @@ func New(machine *mutation.Machine, fenced Fenced, horizon interfaces.DelayedEff
 // baseline "unchanged" corroboration compares against. since is when the
 // mutation was submitted, the horizon's start.
 //
+// Attempt owns every state change it decides. OutcomeAbandoned is returned
+// with the Machine already ABANDONED, and OutcomeVerified with it already
+// VERIFIED; neither is an instruction to the caller. Only OutcomeRetry
+// leaves work for one, and that work is resending the command, which this
+// package has no way to do.
+//
 // Verification is decided before the horizon, and the horizon before the
 // fence. The first ordering is the one that matters: a poll whose
 // observation shows the mutation applied has answered the question recovery
@@ -130,6 +136,20 @@ func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *acce
 			return 0, obs, compareErr
 		}
 		if disposition == accessv1.Disposition_DISPOSITION_VERIFIED {
+			// Marked here, not by the caller, for the same reason
+			// abandonment is: the decision and the state change are one
+			// step. A caller told "this verified" and trusted to mark it
+			// holds an obligation created somewhere else, and a caller
+			// that returns, errors, or is canceled before discharging it
+			// leaves the mutation resting at RECOVERING with nothing left
+			// to move it and nothing anywhere that notices.
+			//
+			// A failed audit delivery inside MarkVerified surfaces as this
+			// call's error, and the poll retries the same step on its next
+			// tick — the same contract Abandon's own failure has.
+			if err := r.machine.MarkVerified(ctx); err != nil {
+				return 0, obs, err
+			}
 			return OutcomeVerified, obs, nil
 		}
 	}

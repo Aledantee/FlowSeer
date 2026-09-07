@@ -2,6 +2,7 @@ package recovery_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -127,4 +128,72 @@ func TestRecoveryPollsAreRecordFreeAndARetryIsNot(t *testing.T) {
 	if len(deliverer.phaseTransitions) != 0 {
 		t.Fatalf("the poll after a retry emitted %v, want none", deliverer.phaseTransitions)
 	}
+}
+
+// TestVerificationIsMarkedByAttemptNotLeftToTheCaller is the obligation
+// test. Attempt returns OutcomeVerified with the machine already at
+// VERIFIED, so there is no window between deciding and marking for a caller
+// to be canceled in.
+//
+// The reversal to picture is a caller that returns between the two: with
+// the mark left to the caller, the machine rests at RECOVERING with the
+// poll gone and nothing anywhere that notices. Asserting the phase right
+// after Attempt returns — with no caller action in between at all — is what
+// makes that window's absence observable.
+func TestVerificationIsMarkedByAttemptNotLeftToTheCaller(t *testing.T) {
+	m := recoveringMachine(t, observation("uplink to core"))
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Hour}, 0, time.Now, nil)
+
+	outcome, _, err := runner.Attempt(context.Background(), time.Now(), observation("old description"))
+	if err != nil {
+		t.Fatalf("Attempt() error: %v", err)
+	}
+	if outcome != recovery.OutcomeVerified {
+		t.Fatalf("Attempt() outcome = %v, want %v", outcome, recovery.OutcomeVerified)
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
+		t.Fatalf("Phase() = %v immediately after Attempt returned, want VERIFIED: the mark must not be an obligation left to the caller", got)
+	}
+}
+
+// TestAFailedVerificationRecordSurfacesAsAnAttemptError proves the failure
+// path leaves the poll something to retry rather than a half-applied
+// decision: MarkVerified's audit delivery fails, Attempt returns the error,
+// and the machine has not moved. The next tick runs the same step.
+func TestAFailedVerificationRecordSurfacesAsAnAttemptError(t *testing.T) {
+	deliverer := &failVerifiedTransition{}
+	m := recoveringMachineWithDeliverer(t, deliverer, observation("uplink to core"))
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Hour}, 0, time.Now, nil)
+
+	deliverer.arm()
+	outcome, _, err := runner.Attempt(context.Background(), time.Now(), observation("old description"))
+	if err == nil {
+		t.Fatalf("Attempt() error = nil (outcome %v), want the failed record surfaced", outcome)
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
+		t.Errorf("Phase() = %v, want the mutation left at RECOVERING for the next poll", got)
+	}
+
+	// The next tick, with the audit path working, completes the step.
+	outcome, _, err = runner.Attempt(context.Background(), time.Now(), observation("old description"))
+	if err != nil {
+		t.Fatalf("the retried Attempt() error: %v", err)
+	}
+	if outcome != recovery.OutcomeVerified {
+		t.Fatalf("the retried Attempt() outcome = %v, want %v", outcome, recovery.OutcomeVerified)
+	}
+}
+
+// failVerifiedTransition fails exactly one PhaseTransitioned to VERIFIED,
+// once armed.
+type failVerifiedTransition struct{ armed bool }
+
+func (d *failVerifiedTransition) arm() { d.armed = true }
+
+func (d *failVerifiedTransition) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+	if d.armed && event.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
+		d.armed = false
+		return errors.New("audit delivery unavailable")
+	}
+	return nil
 }

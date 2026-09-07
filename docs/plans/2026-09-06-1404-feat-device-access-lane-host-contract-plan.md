@@ -380,6 +380,24 @@ tested nothing.
   with the `Close`-after-acquire check beside it.
 - No requirement or unit labels in code, comments, or commit messages.
 
+## Follow-ups
+
+**A parked checkpoint wait holds the device's drain lock.** `process` runs
+inside the drain loop, which holds `ds.draining` for the whole call
+including `awaitCheckpoint`. So a mutation waiting for central's
+`CheckpointRequest` holds that device's drain lock for as long as central
+takes, and no read for that device is served in the meantime. This predates
+these plans and is not what the recovery-poll unit changes — but it is the
+same shape one call site over, which is why it is written down here rather
+than left to be found in production.
+
+Stated as behaviour, not as a remedy, because the remedy is a design
+question this slice cannot answer: whether a read may be admitted alongside
+a parked mutation at all, given the lane's per-device ordering guarantee.
+Reads and mutations are already distinguished at admission (a hold refuses
+mutations and lets reads through), so the answer is probably yes, but it
+needs deciding rather than assuming.
+
 ## Open questions
 
 None beyond the central plan's decisions, which this plan follows.
