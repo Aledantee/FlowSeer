@@ -87,10 +87,18 @@ type Reporter interface {
 // NewLane. QueueCapacity below 1 is silently raised to 1 rather than
 // rejected.
 type Config struct {
-	QueueCapacity         int
-	EvidencePolicy        evidence.Policy
-	DelayedEffect         interfaces.DelayedEffect
-	RecoveryMinGap        time.Duration
+	QueueCapacity  int
+	EvidencePolicy evidence.Policy
+	DelayedEffect  interfaces.DelayedEffect
+	RecoveryMinGap time.Duration
+	// RecoveryPollInterval spaces one mutation's recovery polls. Zero is
+	// raised to a default of 30s.
+	RecoveryPollInterval time.Duration
+	// Wait blocks for d or until ctx ends, reporting whether the full
+	// interval elapsed. It exists so a test can drive the recovery loop
+	// without spending the horizon in real time; production leaves it nil
+	// and gets a timer.
+	Wait                  func(ctx context.Context, d time.Duration) bool
 	Fenced                recovery.Fenced
 	ReadCredentials       credential.ReadCredentialSource
 	Reporter              Reporter
@@ -204,11 +212,47 @@ type deviceState struct {
 	stateMu     sync.Mutex
 	fingerprint string
 	hold        recovery.Hold
-	// current is the machine central's acknowledgements address: set when a
-	// mutation is admitted, cleared when it finishes. A read never sets it —
+	// current is the mutation central's acknowledgements address: set when
+	// one is admitted, cleared when it finishes. A read never sets it —
 	// central acknowledges nothing about a read — so a mutation's ack is
 	// never delivered to a read that happens to be running.
-	current *mutation.Machine
+	current *openMutation
+}
+
+// openMutation is one admitted mutation and the caller still waiting on it.
+// It exists because a mutation in recovery outlives the process call that
+// admitted it: the drain loop returns, and the poll timer, or central's
+// acknowledgement arriving on its own goroutine, is what eventually ends
+// it. Whichever of them gets there first answers the caller.
+type openMutation struct {
+	machine *mutation.Machine
+	sub     *submission
+
+	// answered guards the one send on sub.result. Three parties can reach
+	// it — the drain loop on the ordinary path, the poll timer, and the
+	// acknowledgement path — and the channel holds exactly one buffered
+	// send, so a second would either block forever or, worse, be dropped.
+	answered sync.Once
+	// stopPoll ends this mutation's recovery poll. Nil until one starts.
+	stopPoll context.CancelFunc
+	// polled says recovery has taken this mutation over, so the process
+	// call that admitted it has returned and will answer nobody. It decides
+	// which party ends the mutation when central's acknowledgement arrives:
+	// while false, process is still running and blocked on Done, and it
+	// answers its own caller once its operation telemetry is closed;
+	// answering from the acknowledgement's goroutine instead would hand the
+	// caller a result before the span and duration metric for it existed.
+	// Written and read under deviceState.stateMu, the same lock that guards
+	// current.
+	polled bool
+}
+
+// endPoll stops the recovery poll if one is running. Safe to call more than
+// once and on a mutation that never entered recovery.
+func (o *openMutation) endPoll() {
+	if o.stopPoll != nil {
+		o.stopPoll()
+	}
 }
 
 // Lane is the edge-resident runtime that admits every read, probe,
@@ -250,7 +294,7 @@ var ErrCodeClosed = errs.NewCode("access/lane-closed")
 
 // ShutdownReport summarizes a [Lane.Close] call. It is currently empty:
 // Close does not implement the plan's requirement 18 in full. It does stop
-// new admission, and each already-admitted Submit call independently
+// new admission and cancel every device's recovery poll, and each already-admitted Submit call independently
 // returns on its own passed-in context regardless of how long the
 // background drainer spends on other items (drain runs on its own
 // goroutine; see [Lane.drain]'s doc comment). What it does not do: wait for
@@ -261,21 +305,62 @@ var ErrCodeClosed = errs.NewCode("access/lane-closed")
 // reserved for that accounting once it exists.
 type ShutdownReport struct{}
 
-// Close stops the Lane from admitting new work. Already-admitted items
-// continue to their terminal result on whichever goroutine is draining
-// them; Close does not wait for them and enforces no deadline on them —
-// see [ShutdownReport]'s doc for exactly what requirement 18 this does and
-// does not satisfy.
+// Close stops the Lane from admitting new work and cancels every device's
+// recovery poll. Already-admitted items continue to their terminal result
+// on whichever goroutine is draining them; Close does not wait for them and
+// enforces no deadline on them — see [ShutdownReport]'s doc for exactly
+// what requirement 18 this does and does not satisfy.
+//
+// Canceling the polls is not optional tidying. A poll runs under a context
+// detached from any caller's, for up to the horizon, and holds a reference
+// to the device's drain lock; a Lane closed without canceling them leaves
+// goroutines contending for the lock of a lane nobody is using, and a test
+// that closes and rebuilds a Lane inherits the previous one's polls.
+//
+// A poll already holding the lock finishes the step it is running — it
+// cannot be interrupted mid-device-call — and starts no further one: the
+// check after acquiring the lock reads the closed flag, so a poll parked in
+// Lock at the moment of Close releases without running anything. Each poll
+// answers its own caller on the way out.
 func (l *Lane) Close(_ context.Context) (ShutdownReport, error) {
 	l.mu.Lock()
 	l.closed = true
+	devices := make([]*deviceState, 0, len(l.devices))
+	for _, ds := range l.devices {
+		devices = append(devices, ds)
+	}
 	l.mu.Unlock()
+
+	for _, ds := range devices {
+		ds.stateMu.Lock()
+		open := ds.current
+		ds.stateMu.Unlock()
+		if open != nil {
+			open.endPoll()
+		}
+	}
 	return ShutdownReport{}, nil
 }
 
 // defaultOperationTimeout bounds an admitted item's device call when
 // Config.OperationTimeout is unset.
 const defaultOperationTimeout = 30 * time.Second
+
+// defaultRecoveryPollInterval spaces recovery polls when
+// Config.RecoveryPollInterval is unset.
+const defaultRecoveryPollInterval = 30 * time.Second
+
+// waitFor is Config.Wait's default: a real timer.
+func waitFor(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
 
 // NewLane constructs a Lane governed by cfg. No device is known until
 // [Lane.AddDevice] registers one.
@@ -312,6 +397,12 @@ func NewLane(cfg Config) *Lane {
 	}
 	if cfg.OperationTimeout <= 0 {
 		cfg.OperationTimeout = defaultOperationTimeout
+	}
+	if cfg.RecoveryPollInterval <= 0 {
+		cfg.RecoveryPollInterval = defaultRecoveryPollInterval
+	}
+	if cfg.Wait == nil {
+		cfg.Wait = waitFor
 	}
 	return &Lane{
 		cfg:             cfg,
@@ -665,6 +756,21 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 // channel: the drainer never borrows one caller's deadline for another
 // caller's still-queued work, and one caller's own item finishing does not
 // wait on the drainer's subsequent work on a different caller's item.
+//
+// The release rule, which belongs to ds.draining rather than to this
+// function: any acquirer of that lock must, on release, drain the queue and
+// re-check its length. It is not enough for this loop to do it, because a
+// submitter whose TryLock loses exits at once and never retries — so an
+// item admitted while some other acquirer held the lock would have no
+// drainer at all until its caller gave up. The recovery poll timer is the
+// second acquirer and meets the rule by calling drain after unlocking.
+//
+// State the rule per acquirer and unconditionally, never as "whoever holds
+// it last". Two acquirers each draining is harmless: the loser of the
+// TryLock exits immediately. Two acquirers each assuming the other will is
+// the lost wakeup, and it only shows up under a timing nobody reproduces on
+// purpose. A rule that requires each acquirer to know about the others is
+// also the rule that breaks when a third one is added.
 func (l *Lane) drain(ds *deviceState) {
 	go func() {
 		for {
@@ -683,8 +789,13 @@ func (l *Lane) drain(ds *deviceState) {
 				// several callers' items in one loop, and one caller's
 				// cancellation or deadline must never spuriously fail
 				// another caller's still-live item queued behind it.
-				result, err := l.process(sub.ctx, ds, sub.request)
-				sub.result <- submissionOutcome{result: result, err: err}
+				//
+				// process answers the submission itself rather than
+				// returning an outcome to send here, because a mutation
+				// that enters recovery has no outcome yet: process
+				// returns, this loop moves on, and the poll timer or
+				// central's acknowledgement answers the caller later.
+				l.process(sub.ctx, ds, sub)
 			}
 			ds.draining.Unlock()
 			if ds.queue.Len() == 0 {
@@ -758,14 +869,14 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 	// the identity of ds.current can race here, and that is read under
 	// stateMu.
 	ds.stateMu.Lock()
-	m := ds.current
+	open := ds.current
 	ds.stateMu.Unlock()
-	if m == nil || m.Sequence() != ack.GetSequence() {
+	if open == nil || open.machine.Sequence() != ack.GetSequence() {
 		return errs.New().Code(ErrCodeNoPendingWait).
 			Msgf("no mutation on device %s is open at sequence %d", deviceKey, ack.GetSequence())
 	}
 
-	if err := m.Acknowledge(ctx, ack); err != nil {
+	if err := open.machine.Acknowledge(ctx, ack); err != nil {
 		return err
 	}
 
@@ -776,7 +887,35 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		ds.hold.Engage()
 	}
+
+	// A mutation in recovery has no process call left waiting on it: the
+	// drain loop returned when it entered recovery, and this
+	// acknowledgement is what ends it. Answer the caller here, and stop the
+	// poll — it has nothing left to decide. answer is once-only, so doing
+	// this on the ordinary path too, where process is still running and
+	// will answer, costs nothing and needs no test of which path this is.
+	// Only a mutation recovery has taken over is ended here. Otherwise the
+	// process call that admitted it is parked on Done, which this
+	// acknowledgement just closed, and it will answer its own caller.
+	ds.stateMu.Lock()
+	polled := open.polled
+	ds.stateMu.Unlock()
+	if polled && open.machine.IsTerminal() {
+		open.endPoll()
+		l.endMutation(ctx, ds, open, open.machine.Result(nil), nil)
+	}
 	return nil
+}
+
+// clearCurrent releases ds.current, but only if it is still open: a
+// mutation that already finished and was replaced by the next one must not
+// have its successor cleared out from under it by a late caller.
+func (ds *deviceState) clearCurrent(open *openMutation) {
+	ds.stateMu.Lock()
+	defer ds.stateMu.Unlock()
+	if ds.current == open {
+		ds.current = nil
+	}
 }
 
 // errMutationEnded reports that a wait ended because central's
@@ -812,25 +951,52 @@ func (ds *deviceState) awaitCheckpoint(ctx context.Context, m *mutation.Machine,
 	}
 }
 
-// process runs one admitted request through the mutation state machine's
-// ordinary path: plan, checkpoint (mutation only), execute, observe,
-// compare, and — for a verified mutation — acknowledge and release. An
-// ambiguous or failed step (an execute error, a non-VERIFIED disposition, a
-// conflicting read) is reported as this call's error rather than being
-// automatically retried: automatic recovery is this module's
-// internal/recovery package, exercised directly by its own tests; wiring
-// its retry loop into this drain requires a real clock-driven poll only a
-// host with a live transport can run (see README's onboarding section), so
-// this package's own tests drive recovery explicitly rather than through
-// Submit.
-func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.ExecuteRequest) (result *integrationv1.ExecuteResult, err error) {
+// process runs one admitted request through the mutation state machine:
+// plan, checkpoint (mutation only), execute, observe, compare, and — for a
+// verified mutation — the wait for central's acknowledgement and release.
+//
+// It answers sub itself rather than returning an outcome to the drain loop,
+// because not every path has one: a mutation whose effect could not be
+// established enters recovery, and this call returns having answered
+// nothing, leaving the poll timer or central's acknowledgement to answer
+// the caller later.
+//
+// The two defers are ordered deliberately. Go runs them last-registered
+// first, so the telemetry defer below runs before the answering one: a
+// caller holding this operation's result can rely on the span and the
+// duration metric for it already existing. Answering first would let a test
+// — or a host — observe a finished operation whose own signals had not been
+// recorded yet, which is a race that reproduces about one run in ten and
+// reads as a flaky exporter.
+func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
+	req := sub.request
 	operationClass := "interface_read"
 	if req.GetMutation() != nil {
 		operationClass = "interface_description"
 	}
 
+	var (
+		result *integrationv1.ExecuteResult
+		err    error
+		open   *openMutation
+		// owed is whether this call still owes its caller an answer. It
+		// goes false exactly when recovery takes the mutation over.
+		owed = true
+	)
+
 	start := l.cfg.Clock()
 	ctx, endSpan := l.cfg.Telemetry.StartOperation(ctx, operationClass)
+
+	defer func() {
+		if !owed {
+			return
+		}
+		if open != nil {
+			l.endMutation(ctx, ds, open, result, err)
+			return
+		}
+		sub.result <- submissionOutcome{result: result, err: err}
+	}()
 	defer func() {
 		endSpan(&err, classifyError)
 		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
@@ -841,70 +1007,113 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	ds.stateMu.Unlock()
 
 	deps := l.machineDeps(ds, fingerprint, req)
-	m, err := mutation.Admitted(req, deps)
+	m, admitErr := mutation.Admitted(req, deps)
+	if admitErr != nil {
+		err = admitErr
+		return
+	}
+
+	if m.IsRead() {
+		result, err = l.processRead(ctx, ds, m, req, fingerprint)
+		return
+	}
+
+	open = &openMutation{machine: m, sub: sub}
+	ds.stateMu.Lock()
+	ds.current = open
+	ds.stateMu.Unlock()
+
+	step := l.processMutation(ctx, ds, open, req, fingerprint)
+	result, err, owed = step.result, step.err, step.owed
+}
+
+// processRead runs a read to its observation. A read never enters recovery
+// and never waits on central, so it always has an outcome to return.
+func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Machine, req *integrationv1.ExecuteRequest, fingerprint string) (*integrationv1.ExecuteResult, error) {
+	obs, err := m.Observe(ctx)
 	if err != nil {
+		err = errs.Wrap(err, "observe")
+		l.report(ctx, m.Result(err))
+		return nil, err
+	}
+	l.recordEvidence(ds, fingerprint, req, obs)
+
+	if _, err := m.Compare(ctx, nil); err != nil {
+		l.report(ctx, m.Result(err))
 		return nil, err
 	}
 
-	if !m.IsRead() {
-		// Published before the first rest point, so an acknowledgement that
-		// arrives while this mutation is parked at the very first wait finds
-		// it. Cleared on the way out, whichever way it goes.
-		ds.stateMu.Lock()
-		ds.current = m
-		ds.stateMu.Unlock()
-		defer func() {
-			ds.stateMu.Lock()
-			ds.current = nil
-			ds.stateMu.Unlock()
-		}()
+	result := m.Result(nil)
+	l.report(ctx, result)
+	return result, nil
+}
 
-		l.report(ctx, m.Progress())
+// stepOutcome is what one phase path decided, and who owes the caller an
+// answer for it. owed false means recovery has taken the mutation over and
+// its poll, or central's acknowledgement, will answer instead. There is no
+// third possibility, and there must not be: a path that neither answered
+// nor handed off leaves Submit blocked with nothing left running that could
+// unblock it.
+type stepOutcome struct {
+	result *integrationv1.ExecuteResult
+	err    error
+	owed   bool
+}
 
-		checkpointReq, err := ds.awaitCheckpoint(ctx, m, req.GetSequence())
-		if err != nil {
-			return l.afterStep(ctx, ds, m, errs.Wrap(err, "await checkpoint"))
-		}
-		ack, err := m.Checkpoint(ctx, checkpointReq)
-		if err != nil {
-			return l.afterStep(ctx, ds, m, err)
-		}
-		l.reportCheckpoint(ctx, ack)
+// processMutation runs a mutation's phases.
+func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openMutation, req *integrationv1.ExecuteRequest, fingerprint string) stepOutcome {
+	m := open.machine
 
-		if err := m.Execute(ctx); err != nil {
-			return l.afterStep(ctx, ds, m, errs.Wrap(err, "execute"))
-		}
+	// The pre-mutation read, taken before the command goes out. It is the
+	// baseline recovery corroborates against: two later observations that
+	// both match it say the device still holds what it held before, so the
+	// command did not land, and that is what authorizes a retry. A failed
+	// baseline is not fatal — a device that cannot be read may still accept
+	// the command, and refusing to try would make an unreadable device
+	// unmanageable — but recovery then has nothing to corroborate against
+	// and can only verify or abandon.
+	baseline, baselineErr := m.Observe(ctx)
+	if baselineErr != nil {
+		baseline = nil
+	}
+
+	l.report(ctx, m.Progress())
+
+	checkpointReq, err := ds.awaitCheckpoint(ctx, m, req.GetSequence())
+	if err != nil {
+		return l.afterStep(ctx, ds, open, errs.Wrap(err, "await checkpoint"), baseline)
+	}
+	ack, err := m.Checkpoint(ctx, checkpointReq)
+	if err != nil {
+		return l.afterStep(ctx, ds, open, err, baseline)
+	}
+	l.reportCheckpoint(ctx, ack)
+
+	submittedAt := l.cfg.Clock()
+	if err := m.Execute(ctx); err != nil {
+		return l.afterStep(ctx, ds, open, errs.Wrap(err, "execute"), baseline)
 	}
 
 	obs, err := m.Observe(ctx)
 	if err != nil {
-		return l.afterStep(ctx, ds, m, errs.Wrap(err, "observe"))
+		return l.enterRecovery(ctx, ds, open, submittedAt, baseline, errs.Wrap(err, "observe"))
 	}
 	l.recordEvidence(ds, fingerprint, req, obs)
 
 	disposition, err := m.Compare(ctx, nil)
 	if err != nil {
-		return l.afterStep(ctx, ds, m, err)
-	}
-
-	if m.IsRead() {
-		result := m.Result(nil)
-		l.report(ctx, result)
-		return result, nil
+		return l.afterStep(ctx, ds, open, err, baseline)
 	}
 
 	if disposition != accessv1.Disposition_DISPOSITION_VERIFIED {
-		// The mutation may have reached the device but was never verified:
-		// decision 5's ambiguity-stays-indeterminate rule means the lane
-		// must not admit another mutation on top of an unresolved change.
-		// Until an explicit resolution clears this device's hold, Submit
-		// refuses every further mutation for it.
-		return l.afterStep(ctx, ds, m, errs.New().Code(ErrCodeRecoveryAmbiguous).
-			Msg("mutation was not verified; its effect on the device is unresolved"))
+		// The command went out and the device does not show it. Whether it
+		// landed is unknown, which is recovery's whole subject.
+		return l.enterRecovery(ctx, ds, open, submittedAt, baseline,
+			errs.New().Code(ErrCodeRecoveryAmbiguous).Msg("mutation was not verified by its observation"))
 	}
 
 	if err := m.MarkVerified(ctx); err != nil {
-		return l.afterStep(ctx, ds, m, err)
+		return l.afterStep(ctx, ds, open, err, baseline)
 	}
 
 	// Reported before the wait, not after it: central decides what to
@@ -915,12 +1124,9 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 	select {
 	case <-m.Done():
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return stepOutcome{err: ctx.Err(), owed: true}
 	}
-
-	result = m.Result(nil)
-	l.report(ctx, result)
-	return result, nil
+	return stepOutcome{result: m.Result(nil), owed: true}
 }
 
 // afterStep decides what a failed step means, since central's
@@ -928,8 +1134,9 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 // while the step it was running is still parked.
 //
 // A terminal machine means the acknowledgement already ended this mutation:
-// the step error is the wake-up, not a failure, so the terminal report goes
-// out and no hold is engaged — central has already said what happened.
+// the step error is the wake-up, not a failure, so its own terminal result
+// is the answer and no hold is engaged — central has already said what
+// happened.
 //
 // Canceled but not terminal means an acknowledgement was accepted and its
 // own audit delivery failed part-way through. The decision stands and
@@ -938,10 +1145,13 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, req *integrationv1.
 // long central takes. Bounded, because a central that never re-sends must
 // not park this device's drainer forever.
 //
-// Otherwise the error is what it says, and a mutation whose effect is now
-// unknown holds the lane.
-func (l *Lane) afterStep(ctx context.Context, ds *deviceState, m *mutation.Machine, err error) (*integrationv1.ExecuteResult, error) {
-	if !m.IsRead() && !m.IsTerminal() && m.Canceled() {
+// An error after the command went out enters recovery rather than failing.
+// The lane cannot say the mutation did not happen, and an error reported
+// with submitted true is a claim central would have to guess about.
+func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutation, err error, baseline *accessv1.InterfaceObservation) stepOutcome {
+	m := open.machine
+
+	if !m.IsTerminal() && m.Canceled() {
 		waitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), l.cfg.OperationTimeout)
 		defer cancel()
 		select {
@@ -951,16 +1161,60 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, m *mutation.Machi
 	}
 
 	if m.IsTerminal() {
-		result := m.Result(nil)
-		l.report(ctx, result)
-		return result, nil
+		return stepOutcome{result: m.Result(nil), owed: true}
 	}
 
-	if !m.IsRead() {
-		ds.hold.Engage()
+	if m.Submitted() {
+		return l.enterRecovery(ctx, ds, open, l.cfg.Clock(), baseline, err)
 	}
-	l.report(ctx, m.Result(err))
-	return nil, err
+
+	// Provably nothing was sent. Central may dispose this REJECTED, which
+	// is what submitted false on the report tells it.
+	ds.hold.Engage()
+	return stepOutcome{err: err, owed: true}
+}
+
+// enterRecovery moves a mutation whose effect is unknown into RECOVERING,
+// engages the device's hold, and starts the poll that will end it. It
+// answers nobody: the caller stays blocked in Submit until the poll or
+// central's acknowledgement decides, which is what the false return says.
+func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation, cause error) stepOutcome {
+	m := open.machine
+	ds.hold.Engage()
+
+	if err := m.EnterRecovering(ctx); err != nil {
+		// Recovery could not be entered, so no poll will run and nothing
+		// else will answer this caller. Fail it here rather than leaving
+		// it blocked on a loop that does not exist.
+		return stepOutcome{err: errs.Wrap(err, "enter recovery"), owed: true}
+	}
+
+	l.report(ctx, m.Progress())
+
+	ds.stateMu.Lock()
+	open.polled = true
+	ds.stateMu.Unlock()
+
+	l.startRecoveryPoll(ctx, ds, open, since, baseline)
+	_ = cause
+	return stepOutcome{}
+}
+
+// endMutation reports a mutation's outcome and answers its caller, exactly
+// once however many parties reach it. The drain loop, the recovery poll and
+// central's acknowledgement can all be the one that ends a mutation, and
+// sub.result holds exactly one buffered send — a second would block that
+// goroutine forever.
+func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutation, result *integrationv1.ExecuteResult, err error) {
+	open.answered.Do(func() {
+		if err != nil {
+			l.report(ctx, open.machine.Result(err))
+		} else if result != nil {
+			l.report(ctx, result)
+		}
+		open.sub.result <- submissionOutcome{result: result, err: err}
+		ds.clearCurrent(open)
+	})
 }
 
 // report hands one result to the host's Reporter, if it wired one.
@@ -976,6 +1230,136 @@ func (l *Lane) reportCheckpoint(ctx context.Context, ack *integrationv1.Checkpoi
 		return
 	}
 	l.cfg.Reporter.CheckpointAcked(ctx, ack)
+}
+
+// startRecoveryPoll runs one mutation's recovery on its own goroutine until
+// the mutation ends or the poll's own budget runs out.
+//
+// The context is detached from the submitter's. A caller's deadline says
+// how long it will wait for an answer, not how long the device's effect
+// stays unknown, and a mutation whose submitter gave up still holds this
+// device's lane until something resolves it. It is bounded all the same, by
+// the horizon plus one interval: the horizon is when Attempt abandons, and
+// the extra interval leaves room for the poll that does the abandoning.
+//
+// Every exit answers the caller. That is the property to keep: a poll that
+// returned without answering would leave Submit blocked with nothing left
+// running that could ever unblock it, and nothing anywhere reporting that
+// it had happened.
+func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
+	budget := l.cfg.DelayedEffect.Horizon + l.cfg.RecoveryPollInterval
+	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
+	open.stopPoll = cancel
+
+	runner := recovery.New(open.machine, l.cfg.Fenced, l.cfg.DelayedEffect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
+
+	go func() {
+		defer cancel()
+		for {
+			if !l.cfg.Wait(pollCtx, l.cfg.RecoveryPollInterval) {
+				l.endRecoveryPoll(pollCtx, ds, open)
+				return
+			}
+			if done := l.pollOnce(pollCtx, ds, open, runner, since, baseline); done {
+				return
+			}
+		}
+	}()
+}
+
+// pollOnce runs one recovery attempt under the device's drain lock and
+// reports whether the poll is finished.
+//
+// The lock is taken with a blocking Lock rather than a TryLock: this poll
+// is the device's work for the moment it runs, not an optional extra, and a
+// TryLock that lost would silently skip a tick. It is held only for the
+// attempt itself, so reads admitted meanwhile are served between polls
+// rather than waiting out the horizon.
+func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation, runner *recovery.Runner, since time.Time, baseline *accessv1.InterfaceObservation) bool {
+	ds.draining.Lock()
+
+	// Checked after acquiring, before any step. A poll parked in Lock when
+	// Close canceled it must release without running: by the time it wins
+	// the lock the lane may be shutting down, and the check it made before
+	// blocking says nothing about now.
+	l.mu.Lock()
+	closed := l.closed
+	l.mu.Unlock()
+	if closed || ctx.Err() != nil || open.machine.IsTerminal() {
+		ds.draining.Unlock()
+		l.drain(ds)
+		l.endRecoveryPoll(ctx, ds, open)
+		return true
+	}
+
+	outcome, _, err := runner.Attempt(ctx, since, baseline)
+	if err == nil && outcome == recovery.OutcomeRetry {
+		// The retry runs under the same lock: it is the same device's
+		// single ordered piece of work, and releasing between the decision
+		// and the command would let a read interleave with a resubmission.
+		err = l.retryUnderLock(ctx, open)
+	}
+
+	ds.draining.Unlock()
+	// The release rule, stated on drain: an acquirer drains on release, and
+	// never on the assumption that another acquirer will. A submitter whose
+	// TryLock lost while this poll held the lock exited at once and will not
+	// come back for its own item.
+	l.drain(ds)
+
+	if err != nil {
+		// A failed step — a fence that errored, an abandonment whose audit
+		// delivery failed — keeps the poll and retries the same step next
+		// tick. It is not this mutation's outcome.
+		return false
+	}
+
+	switch outcome {
+	case recovery.OutcomeVerified:
+		// Attempt has already marked it VERIFIED. Report, and wait for
+		// central's acknowledgement to end it; the poll keeps running so
+		// its budget stays the terminator if that never comes.
+		l.report(ctx, open.machine.Result(nil))
+		return false
+	case recovery.OutcomeAbandoned:
+		l.endRecoveryPoll(ctx, ds, open)
+		return true
+	default:
+		return false
+	}
+}
+
+// retryUnderLock resends the command for a mutation recovery authorized a
+// retry for. The caller holds ds.draining.
+func (l *Lane) retryUnderLock(ctx context.Context, open *openMutation) error {
+	m := open.machine
+	if err := m.Retry(ctx); err != nil {
+		return err
+	}
+	if err := m.Execute(ctx); err != nil {
+		return errs.Wrap(err, "retry execute")
+	}
+	return nil
+}
+
+// endRecoveryPoll answers the caller with whatever the mutation ended as,
+// and releases it. It is the poll's single exit, so no path out of the loop
+// can forget to answer.
+//
+// A mutation that is not terminal here ran out of budget: the horizon plus
+// one interval passed with no verification, no abandonment, and no
+// acknowledgement. The caller is told so rather than left blocked — an
+// answer nobody likes is still an answer, and the alternative is a Submit
+// that never returns and a device whose hold nothing explains.
+func (l *Lane) endRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation) {
+	m := open.machine
+	if m.IsTerminal() {
+		l.endMutation(ctx, ds, open, m.Result(nil), nil)
+		return
+	}
+
+	l.endMutation(ctx, ds, open, nil, errs.New().Code(ErrCodeRecoveryAmbiguous).
+		Msg("recovery ended without establishing the mutation's effect; the device's lane is held"))
 }
 
 // classifyError reduces err to the bounded, low-cardinality error.type

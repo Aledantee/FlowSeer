@@ -228,31 +228,49 @@ safely.
 
 ## Scope of `Lane.Submit`'s automatic handling
 
-`Lane.process` (what the background drainer runs per queued item — see
-[Lane.drain]'s doc comment for how an item reaches it) runs the ordinary
-phase-by-phase path only: plan, checkpoint, execute, observe, compare, and
-— for a verified mutation — acknowledge and release. An ambiguous or
-failed step (an execute error, a non-`VERIFIED` disposition, a conflicting
-read) is reported as `Submit`'s own error rather than automatically
-retried. Automatic recovery (`internal/recovery`) is proven directly by its
-own package tests; wiring its retry loop into this drain needs a real
-clock-driven poll
-only a host with a live transport can run — the edge host that assembles
-this module through `src/common/service` and drives
-that poll is a later plan's job, per
-[the direction record](../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)'s
-own sequencing.
+`Lane.process` (what the background drainer runs per queued item) runs the
+phase-by-phase path: plan, checkpoint, execute, observe, compare, and — for
+a verified mutation — the wait for central's acknowledgement and release.
 
-This module does not detect drift. It once did, comparing a fresh
-observation against the last intent it had acknowledged, and that answer
-was wrong as soon as an operator accepted a difference: the edge had no
-way to learn that the change it was calling drift had since become the
-expected value. Detection belongs where the expectation is recorded, so
-it lives in the device service (`src/services/device/internal/drift`),
-which polls each managed interface through this lane's ordinary read path
-and compares against what central expects. What stays here is the block
-that detection leads to — `ResolveHold` still clears a hold, and a
-mutation is still refused while one is active.
+A mutation whose effect it cannot establish does not fail. It enters
+`RECOVERING`, the device's hold is engaged, `process` returns having
+answered nobody, and a per-device poll takes the mutation over. `Submit` is
+still blocked; what changes is who will unblock it.
+
+The poll takes `ds.draining` with a blocking `Lock`, checks its context and
+the lane's closed flag *after* acquiring, runs one `recovery.Runner.Attempt`,
+releases, and drains. It is not a queue item: a queue item would need a
+payload type, a capacity reservation and an outcome contract the drain loop
+does not have, and could be refused by a full queue on the very tick that
+would have abandoned. Holding the lock for the attempt alone gives the same
+single active worker with none of that, and reads admitted meanwhile are
+served between polls rather than waiting out the horizon.
+
+**The release rule.** Any acquirer of `ds.draining` must, on release, drain
+the queue and re-check its length. It belongs to the lock, not to any one
+acquirer: a submitter whose `TryLock` loses exits immediately and never
+retries, so an item admitted while another acquirer held the lock would have
+no drainer at all. State it per acquirer and unconditionally — two acquirers
+each draining is harmless, two each assuming the other will is a lost wakeup
+that reproduces under no timing anybody arranges on purpose.
+
+**Every exit answers the caller.** A recovering mutation can end four ways:
+its observation verifies it, the horizon abandons it, central acknowledges
+it, or `Lane.Close` cancels the poll. If none of those happens the poll's own
+budget — the horizon plus one interval — expires and answers anyway, because
+a mutation nobody is left holding is a `Submit` that never returns. Whichever
+party gets there first answers exactly once; the result channel holds one
+buffered send and a second would block its sender forever.
+
+An abandonment is a *result*, not an error: the caller has to report it to
+central, and central disposes the mutation from what it says. Failing the
+call instead would leave a host with something to log and nothing to send.
+
+**What recovery records.** Polls are silent. Recording each poll's
+`OBSERVING` and `RECOVERING` transitions would put two records per poll into
+a durable stream for the whole horizon and bury the `RecoveryStarted` and the
+terminal record that actually answer "what happened to this device". A retry
+is recorded, once, because resending a command to a device is a real event.
 
 ## Open gap: no mid-operation firmware-epoch re-check
 
