@@ -652,18 +652,20 @@ func (b0 EdgeConfig_builder) Build() *EdgeConfig {
 // The observed side of one edge: the key it registered, the setup key it
 // was issued, and where it stands.
 type EdgeState struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref         *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=ref"`
-	xxx_hidden_Lifecycle   EdgeLifecycle          `protobuf:"varint,2,opt,name=lifecycle,enum=flowseer.api.edge.v1.EdgeLifecycle"`
-	xxx_hidden_Contact     EdgeContact            `protobuf:"varint,3,opt,name=contact,enum=flowseer.api.edge.v1.EdgeContact"`
-	xxx_hidden_PublicKey   []byte                 `protobuf:"bytes,4,opt,name=public_key,json=publicKey"`
-	xxx_hidden_SetupKey    *SetupKey              `protobuf:"bytes,5,opt,name=setup_key,json=setupKey"`
-	xxx_hidden_EnrolledAt  *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=enrolled_at,json=enrolledAt"`
-	xxx_hidden_LastSeenAt  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_seen_at,json=lastSeenAt"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref            *EdgeGlobalRef         `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Lifecycle      EdgeLifecycle          `protobuf:"varint,2,opt,name=lifecycle,enum=flowseer.api.edge.v1.EdgeLifecycle"`
+	xxx_hidden_Contact        EdgeContact            `protobuf:"varint,3,opt,name=contact,enum=flowseer.api.edge.v1.EdgeContact"`
+	xxx_hidden_PublicKey      []byte                 `protobuf:"bytes,4,opt,name=public_key,json=publicKey"`
+	xxx_hidden_SetupKey       *SetupKey              `protobuf:"bytes,5,opt,name=setup_key,json=setupKey"`
+	xxx_hidden_EnrolledAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=enrolled_at,json=enrolledAt"`
+	xxx_hidden_LastSeenAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=last_seen_at,json=lastSeenAt"`
+	xxx_hidden_AgentVersion   *string                `protobuf:"bytes,8,opt,name=agent_version,json=agentVersion"`
+	xxx_hidden_BufferingSince *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=buffering_since,json=bufferingSince"`
+	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
+	XXX_presence              [1]uint32
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *EdgeState) Reset() {
@@ -744,18 +746,35 @@ func (x *EdgeState) GetLastSeenAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *EdgeState) GetAgentVersion() string {
+	if x != nil {
+		if x.xxx_hidden_AgentVersion != nil {
+			return *x.xxx_hidden_AgentVersion
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *EdgeState) GetBufferingSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_BufferingSince
+	}
+	return nil
+}
+
 func (x *EdgeState) SetRef(v *EdgeGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
 func (x *EdgeState) SetLifecycle(v EdgeLifecycle) {
 	x.xxx_hidden_Lifecycle = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 9)
 }
 
 func (x *EdgeState) SetContact(v EdgeContact) {
 	x.xxx_hidden_Contact = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 9)
 }
 
 func (x *EdgeState) SetPublicKey(v []byte) {
@@ -763,7 +782,7 @@ func (x *EdgeState) SetPublicKey(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_PublicKey = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 9)
 }
 
 func (x *EdgeState) SetSetupKey(v *SetupKey) {
@@ -776,6 +795,15 @@ func (x *EdgeState) SetEnrolledAt(v *timestamppb.Timestamp) {
 
 func (x *EdgeState) SetLastSeenAt(v *timestamppb.Timestamp) {
 	x.xxx_hidden_LastSeenAt = v
+}
+
+func (x *EdgeState) SetAgentVersion(v string) {
+	x.xxx_hidden_AgentVersion = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 9)
+}
+
+func (x *EdgeState) SetBufferingSince(v *timestamppb.Timestamp) {
+	x.xxx_hidden_BufferingSince = v
 }
 
 func (x *EdgeState) HasRef() bool {
@@ -827,6 +855,20 @@ func (x *EdgeState) HasLastSeenAt() bool {
 	return x.xxx_hidden_LastSeenAt != nil
 }
 
+func (x *EdgeState) HasAgentVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *EdgeState) HasBufferingSince() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_BufferingSince != nil
+}
+
 func (x *EdgeState) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -858,6 +900,15 @@ func (x *EdgeState) ClearLastSeenAt() {
 	x.xxx_hidden_LastSeenAt = nil
 }
 
+func (x *EdgeState) ClearAgentVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_AgentVersion = nil
+}
+
+func (x *EdgeState) ClearBufferingSince() {
+	x.xxx_hidden_BufferingSince = nil
+}
+
 type EdgeState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -878,6 +929,13 @@ type EdgeState_builder struct {
 	EnrolledAt *timestamppb.Timestamp
 	// When the last authenticated call arrived. Unset means never enrolled.
 	LastSeenAt *timestamppb.Timestamp
+	// The edge agent's build version, as its last heartbeat reported it. Unset
+	// means no heartbeat has arrived.
+	AgentVersion *string
+	// Since when the edge has been holding data it could not deliver, as its
+	// last heartbeat reported. Unset means the last heartbeat reported nothing
+	// buffered.
+	BufferingSince *timestamppb.Timestamp
 }
 
 func (b0 EdgeState_builder) Build() *EdgeState {
@@ -886,20 +944,25 @@ func (b0 EdgeState_builder) Build() *EdgeState {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Lifecycle != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 9)
 		x.xxx_hidden_Lifecycle = *b.Lifecycle
 	}
 	if b.Contact != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 9)
 		x.xxx_hidden_Contact = *b.Contact
 	}
 	if b.PublicKey != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 9)
 		x.xxx_hidden_PublicKey = b.PublicKey
 	}
 	x.xxx_hidden_SetupKey = b.SetupKey
 	x.xxx_hidden_EnrolledAt = b.EnrolledAt
 	x.xxx_hidden_LastSeenAt = b.LastSeenAt
+	if b.AgentVersion != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 9)
+		x.xxx_hidden_AgentVersion = b.AgentVersion
+	}
+	x.xxx_hidden_BufferingSince = b.BufferingSince
 	return m0
 }
 
@@ -1066,7 +1129,7 @@ const file_flowseer_api_edge_v1_edge_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"\xb0\x05\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"\xa6\x06\n" +
 	"\tEdgeState\x12=\n" +
 	"\x03ref\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12P\n" +
 	"\tlifecycle\x18\x02 \x01(\x0e2#.flowseer.api.edge.v1.EdgeLifecycleB\r\xbaH\n" +
@@ -1078,7 +1141,10 @@ const file_flowseer_api_edge_v1_edge_proto_rawDesc = "" +
 	"\venrolled_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"enrolledAt\x12<\n" +
 	"\flast_seen_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"lastSeenAt:\xea\x01\xbaH\xe6\x01\x1as\n" +
+	"lastSeenAt\x12/\n" +
+	"\ragent_version\x18\b \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\fagentVersion\x12C\n" +
+	"\x0fbuffering_since\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\x0ebufferingSince:\xea\x01\xbaH\xe6\x01\x1as\n" +
 	"\x1bedge_state.enrolled_has_key\x12'an enrolled edge carries its public key\x1a+this.lifecycle != 2 || has(this.public_key)\x1ao\n" +
 	"\x1fedge_state.enrolled_has_contact\x12\"an enrolled edge names its contact\x1a(this.lifecycle != 2 || this.contact != 0\"\xca\x02\n" +
 	"\tEdgeEvent\x12=\n" +
@@ -1132,14 +1198,15 @@ var file_flowseer_api_edge_v1_edge_proto_depIdxs = []int32{
 	5,  // 8: flowseer.api.edge.v1.EdgeState.setup_key:type_name -> flowseer.api.edge.v1.SetupKey
 	9,  // 9: flowseer.api.edge.v1.EdgeState.enrolled_at:type_name -> google.protobuf.Timestamp
 	9,  // 10: flowseer.api.edge.v1.EdgeState.last_seen_at:type_name -> google.protobuf.Timestamp
-	4,  // 11: flowseer.api.edge.v1.EdgeEvent.ref:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
-	0,  // 12: flowseer.api.edge.v1.EdgeEvent.from:type_name -> flowseer.api.edge.v1.EdgeLifecycle
-	0,  // 13: flowseer.api.edge.v1.EdgeEvent.to:type_name -> flowseer.api.edge.v1.EdgeLifecycle
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	9,  // 11: flowseer.api.edge.v1.EdgeState.buffering_since:type_name -> google.protobuf.Timestamp
+	4,  // 12: flowseer.api.edge.v1.EdgeEvent.ref:type_name -> flowseer.api.edge.v1.EdgeGlobalRef
+	0,  // 13: flowseer.api.edge.v1.EdgeEvent.from:type_name -> flowseer.api.edge.v1.EdgeLifecycle
+	0,  // 14: flowseer.api.edge.v1.EdgeEvent.to:type_name -> flowseer.api.edge.v1.EdgeLifecycle
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_edge_v1_edge_proto_init() }

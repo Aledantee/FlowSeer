@@ -147,6 +147,12 @@ An enrolled edge that lost its private key cannot rekey, because rekey is
 signed by the key it lost. The path is `RetireEdge`, `IssueSetupKey`, a new
 provisioning file, and a fresh `Enroll`; the edge keeps its id and history.
 
+A heartbeat also records what the edge is running and whether it is holding
+data it could not deliver, so an operator sees a backlog without waiting for
+the edge to give up on it. Each heartbeat describes the edge as it is at that
+moment: one reporting nothing buffered clears the timestamp rather than
+leaving the last one standing.
+
 Contact walks `ACTIVE`, `STALE`, `DORMANT` and back on the next heartbeat.
 A dormant edge is still enrolled. Its next call is authenticated exactly
 like any other, so an edge that was unplugged for a year reattaches without

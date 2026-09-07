@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
@@ -468,6 +469,36 @@ func TestHeartbeatRecordsLivenessAndReturnsCentralsClock(t *testing.T) {
 	stored := storedEdge(t, h.store, edgeRefFor(edgeID))
 	if got := stored.GetRecord().GetState().GetLastSeenAt().AsTime(); !got.Equal(h.now) {
 		t.Errorf("last_seen_at = %v, want %v", got, h.now)
+	}
+	if got := stored.GetRecord().GetState().GetAgentVersion(); got != "v0.1.0" {
+		t.Errorf("agent_version = %q, want the version the edge reported", got)
+	}
+}
+
+func TestHeartbeatClearsABacklogThatHasDrained(t *testing.T) {
+	h, edgeID, _, _ := enrolledHarness(t)
+	ref := edgeRefFor(edgeID)
+	buffering := testClock.Add(-time.Hour)
+
+	h.now = testClock.Add(time.Minute)
+	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(edgev1.HeartbeatRequest_builder{
+		AgentVersion:   proto.String("v0.1.0"),
+		BufferingSince: timestamppb.New(buffering),
+	}.Build())); err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+	if got := storedEdge(t, h.store, ref).GetRecord().GetState().GetBufferingSince().AsTime(); !got.Equal(buffering) {
+		t.Fatalf("buffering_since = %v, want %v", got, buffering)
+	}
+
+	h.now = testClock.Add(2 * time.Minute)
+	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(edgev1.HeartbeatRequest_builder{
+		AgentVersion: proto.String("v0.1.0"),
+	}.Build())); err != nil {
+		t.Fatalf("Heartbeat: %v", err)
+	}
+	if storedEdge(t, h.store, ref).GetRecord().GetState().HasBufferingSince() {
+		t.Fatal("a drained backlog is still reported as buffering")
 	}
 }
 

@@ -127,14 +127,15 @@ func NewService(store *edgestore.Store, reg *registry.Registry, creds Credential
 	return &Service{store: store, registry: reg, creds: creds, bus: bus, cfg: cfg, clock: clock, log: log}, nil
 }
 
-// Heartbeat records that the edge is alive and returns central's clock, which a
-// device booting with a dead battery uses for its assertion timestamps until
-// its own clock is synchronized.
+// Heartbeat records that the edge is alive, what version it is running, and
+// how long it has been holding data it could not deliver, and returns central's
+// clock, which a device booting with a dead battery uses for its assertion
+// timestamps until its own clock is synchronized.
 //
-// The call is the only thing recorded. The agent version and the buffering
-// timestamp the request carries have nowhere to live in EdgeState yet, so
-// central reads neither; contact is derived from when this call last landed.
-func (s *Service) Heartbeat(ctx context.Context, _ *connect.Request[edgev1.HeartbeatRequest]) (*connect.Response[edgev1.HeartbeatResponse], error) {
+// A heartbeat that reports nothing buffered clears the stored timestamp. Each
+// one describes the edge as it is now, so leaving the last one standing would
+// show an operator a backlog that has already drained.
+func (s *Service) Heartbeat(ctx context.Context, req *connect.Request[edgev1.HeartbeatRequest]) (*connect.Response[edgev1.HeartbeatResponse], error) {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnauthenticated, err)
@@ -145,7 +146,14 @@ func (s *Service) Heartbeat(ctx context.Context, _ *connect.Request[edgev1.Heart
 		if current == nil {
 			return nil, notFound(edgeID)
 		}
-		current.GetRecord().GetState().SetLastSeenAt(timestamppb.New(now))
+		state := current.GetRecord().GetState()
+		state.SetLastSeenAt(timestamppb.New(now))
+		state.SetAgentVersion(req.Msg.GetAgentVersion())
+		if buffering := req.Msg.GetBufferingSince(); buffering != nil {
+			state.SetBufferingSince(buffering)
+		} else {
+			state.ClearBufferingSince()
+		}
 		return current, nil
 	}); err != nil {
 		return nil, connectErr(err)
