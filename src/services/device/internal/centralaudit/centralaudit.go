@@ -38,6 +38,10 @@ const (
 	AttrDisposition = "disposition"
 	// AttrRefusalCode is the code the edge refused the dispatch with.
 	AttrRefusalCode = "refusal_code"
+	// AttrExpected is the description central expected on a drifted interface.
+	AttrExpected = "expected"
+	// AttrObserved is the description the device actually carried.
+	AttrObserved = "observed"
 )
 
 // Publisher places one record on the audit stream under a message id. The
@@ -87,6 +91,33 @@ func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.Devi
 		AttrRefusalCode: structpb.NewStringValue(refusalCode),
 	})
 	event.SetPhaseTransitioned(detail)
+
+	return e.emit(ctx, device.GetDevice().GetId(), event)
+}
+
+// DriftDetected records central finding a managed interface carrying
+// something other than what central expects, with no mutation of its own in
+// flight to explain it.
+//
+// The record carries no sequence: at the moment of detection there is no
+// mutation this is about — the reconciliation intent central admits next gets
+// its own sequence, and this is the observation that caused it. What the
+// record has to survive is the difference itself, so both values ride as
+// attributes: an auditor reading "drift on ethernet 1/1/1" and nothing else
+// cannot tell a typo from a device someone else is administering.
+func (e *Emitter) DriftDetected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
+	detail := &eventv1.DriftDetected{}
+	detail.SetFieldName(iface)
+
+	event := &eventv1.DeviceOperationEvent{}
+	event.SetDevice(device)
+	event.SetEventId(uuid.NewString())
+	event.SetOccurredAt(timestamppb.New(e.clock()))
+	event.SetAttributes(map[string]*structpb.Value{
+		AttrExpected: structpb.NewStringValue(expected),
+		AttrObserved: structpb.NewStringValue(observed),
+	})
+	event.SetDriftDetected(detail)
 
 	return e.emit(ctx, device.GetDevice().GetId(), event)
 }

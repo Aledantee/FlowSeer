@@ -7,8 +7,11 @@ import (
 
 	"buf.build/go/protovalidate"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 )
@@ -427,4 +430,64 @@ func TestAResolutionKeyReusedForADifferentIntentIsRefused(t *testing.T) {
 	if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
 		t.Fatalf("error code = %v, want an idempotency mismatch", code)
 	}
+}
+
+// A verified change is what central expects from now on, and the read-back
+// that proved it is what the interface last showed. Both land in the write
+// that records the verification: without the expectation nothing is managed,
+// and the drift poll has no baseline to compare a later read against.
+func TestAVerifiedMutationLeavesTheExpectationAndTheObservationBehind(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000d01"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	seq := state.GetSequence()
+	applied := state.GetIntent().GetInterfaceDescription()
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+
+	proof := completeObservation(applied.GetInterfaceName(), applied.GetDescription())
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{
+		Kind: journal.ReportVerified, Sequence: seq, Observation: proof,
+	}); err != nil {
+		t.Fatalf("verified: %v", err)
+	}
+
+	rec, _ := j.Record(ctx, deviceID)
+	if got := rec.GetExpectedDescriptions()[applied.GetInterfaceName()]; got != applied.GetDescription() {
+		t.Errorf("expected description = %q, want what the mutation applied", got)
+	}
+	if got := rec.GetLastObservations()[applied.GetInterfaceName()]; got == nil {
+		t.Error("the read-back that proved the change was not kept")
+	} else if got.GetDescription() != applied.GetDescription() {
+		t.Errorf("last observation = %q, want the proof", got.GetDescription())
+	}
+}
+
+// completeObservation is a read-back an edge would report: complete, with the
+// provenance a complete observation must carry.
+func completeObservation(iface, description string) *accessv1.InterfaceObservation {
+	binding := &inventoryv1.BindingLocalRef{}
+	binding.SetId("0192e6a0-0000-7000-8000-0000000000b1")
+	bindingRef := &inventoryv1.BindingGlobalRef{}
+	bindingRef.SetBinding(binding)
+
+	provenance := &inventoryv1.Provenance{}
+	provenance.SetBinding(bindingRef)
+	provenance.SetObservedAt(timestamppb.New(time.Now()))
+	provenance.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
+	provenance.SetEdge(edgeRef())
+	provenance.SetFirmwareFingerprint("fastiron-08.0.95")
+
+	obs := &accessv1.InterfaceObservation{}
+	obs.SetInterfaceName(iface)
+	obs.SetDescription(description)
+	obs.SetAdminStatus(interfacev1.AdminStatus_ADMIN_STATUS_UP)
+	obs.SetOperStatus(interfacev1.OperStatus_OPER_STATUS_UP)
+	obs.SetProvenance(provenance)
+	obs.SetCompleteness(accessv1.Completeness_COMPLETENESS_COMPLETE)
+	return obs
 }

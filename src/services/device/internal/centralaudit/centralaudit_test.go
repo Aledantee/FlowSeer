@@ -97,3 +97,36 @@ func TestDispatchRejectedReportsAFailedPublish(t *testing.T) {
 		t.Fatalf("error code = %v, want a publish failure", code)
 	}
 }
+
+// A drift record has to carry both values. "Drift on ethernet 1/1/1" and
+// nothing else does not tell an auditor a typo from a device someone else is
+// administering.
+func TestDriftDetectedRecordsBothValues(t *testing.T) {
+	pub := &publisher{}
+	emitter := centralaudit.New(pub, edgebus.DefaultTenant, nil)
+
+	err := emitter.DriftDetected(context.Background(), deviceRef(), "ethernet 1/1/1", "uplink to core", "temporary")
+	if err != nil {
+		t.Fatalf("DriftDetected: %v", err)
+	}
+
+	event := &eventv1.DeviceOperationEvent{}
+	if err := proto.Unmarshal(pub.data, event); err != nil {
+		t.Fatalf("unmarshal published event: %v", err)
+	}
+	if err := protovalidate.Validate(event); err != nil {
+		t.Errorf("the published event fails its schema rules: %v", err)
+	}
+	if got := event.GetDriftDetected().GetFieldName(); got != "ethernet 1/1/1" {
+		t.Errorf("field name = %q, want the interface", got)
+	}
+	if got := event.GetAttributes()[centralaudit.AttrExpected].GetStringValue(); got != "uplink to core" {
+		t.Errorf("expected attribute = %q", got)
+	}
+	if got := event.GetAttributes()[centralaudit.AttrObserved].GetStringValue(); got != "temporary" {
+		t.Errorf("observed attribute = %q", got)
+	}
+	if event.HasSequence() {
+		t.Error("a detection carries a sequence; no mutation exists yet at that moment")
+	}
+}

@@ -147,6 +147,20 @@ func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.
 // sequence, in one CAS write. A resubmission carrying an idempotency key the
 // record already holds returns the recorded state without admitting again.
 func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) (*accessv1.MutationState, error) {
+	return j.admit(ctx, deviceID, intent, edge, accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED)
+}
+
+// AdmitBlocked admits an intent that is recorded but must not be dispatched,
+// under the reason that holds it. It is how a device whose configuration a
+// person owns records a difference central found: the intent takes the lane,
+// which stops anything else being admitted behind it, and waits for the
+// operator to accept, restore, or replace it. The owed-row derivation refuses
+// to dispatch a blocked mutation, so the hold needs no second mechanism.
+func (j *Journal) AdmitBlocked(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
+	return j.admit(ctx, deviceID, intent, edge, reason)
+}
+
+func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef, reason accessv1.BlockReason) (*accessv1.MutationState, error) {
 	var state *accessv1.MutationState
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		seq, recorded, err := recordedSequence(rec, deviceID, intent)
@@ -161,6 +175,10 @@ func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.M
 			return errs.New().Code(ErrCodeState).Attr("device", deviceID).Msg("a mutation already holds this device's lane")
 		}
 		state = admitIntent(rec, intent, edge, j.clock())
+		if reason != accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED {
+			state.SetBlockReason(reason)
+			state.SetBlockedSince(timestamppb.New(j.clock()))
+		}
 		return nil
 	})
 	if err != nil {
@@ -301,6 +319,10 @@ type Report struct {
 	Kind      ReportKind
 	Sequence  uint64
 	Submitted bool
+	// Observation is the read-back the edge verified the mutation with, when
+	// it sent one. On ReportVerified it becomes the interface's last
+	// observation, which is what proves the change took.
+	Observation *accessv1.InterfaceObservation
 }
 
 // ApplyReport applies an edge report scoped to the open mutation's sequence.
@@ -334,6 +356,18 @@ func (j *Journal) ApplyReport(ctx context.Context, deviceID string, rep Report) 
 			m.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 			m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED)
 			rec.SetLastReportedPhase(accessv1.OperationPhase_OPERATION_PHASE_VERIFIED)
+			// A verified change is what central expects from now on, and the
+			// read-back that proved it is what the interface last showed.
+			// Both land in this write: an expectation with no observation
+			// behind it would have the drift poll comparing against a value
+			// nobody confirmed, and an observation with no expectation would
+			// not be kept at all.
+			if change := m.GetIntent().GetInterfaceDescription(); change != nil {
+				setExpected(rec, change.GetInterfaceName(), change.GetDescription())
+				if obs := rep.Observation; obs != nil {
+					keepLastObservation(rec, change.GetInterfaceName(), obs)
+				}
+			}
 		case ReportRecovering:
 			m.SetBlockReason(accessv1.BlockReason_BLOCK_REASON_INDETERMINATE)
 			m.SetBlockedSince(timestamppb.New(j.clock()))
@@ -568,12 +602,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 		}
 
 		if res.Interface != "" {
-			expected := rec.GetExpectedDescriptions()
-			if expected == nil {
-				expected = map[string]string{}
-			}
-			expected[res.Interface] = res.Expected
-			rec.SetExpectedDescriptions(expected)
+			setExpected(rec, res.Interface, res.Expected)
 		}
 
 		if res.Intent != nil {
@@ -610,12 +639,7 @@ func (j *Journal) DropHolds(ctx context.Context, deviceID string) error {
 func (j *Journal) SetExpected(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface, description string) error {
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		ensureDevice(rec, device)
-		expected := rec.GetExpectedDescriptions()
-		if expected == nil {
-			expected = map[string]string{}
-		}
-		expected[iface] = description
-		rec.SetExpectedDescriptions(expected)
+		setExpected(rec, iface, description)
 		return nil
 	})
 	return err
@@ -674,6 +698,17 @@ func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
 		}
 	}
 	return false
+}
+
+// setExpected records what central expects on one interface, which is also
+// what makes the interface managed as far as the record is concerned.
+func setExpected(rec *storev1.DeviceLaneRecord, iface, description string) {
+	expected := rec.GetExpectedDescriptions()
+	if expected == nil {
+		expected = map[string]string{}
+	}
+	expected[iface] = description
+	rec.SetExpectedDescriptions(expected)
 }
 
 // keepLastObservation records a complete observation as what central last saw

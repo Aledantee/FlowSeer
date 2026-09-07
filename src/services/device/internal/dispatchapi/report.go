@@ -143,7 +143,7 @@ func mutationReport(result *integrationv1.ExecuteResult) (journal.Report, bool) 
 	default:
 		return journal.Report{}, false
 	}
-	return journal.Report{Kind: kind, Sequence: seq}, true
+	return journal.Report{Kind: kind, Sequence: seq, Observation: result.GetObservation()}, true
 }
 
 // closeReadResult closes an open read with its observation or error; a
