@@ -867,6 +867,18 @@ their file comments name the absent triads.
 
 ## Follow-ups
 
+**Operator action trail.** Nothing records that an operator created an edge,
+issued or revoked a setup key, or retired an edge. Minting a setup key is the
+most privileged operator action there is, and after an incident there is no
+way to answer who minted which key for which edge. It is not in this plan
+because the audit stream here is device-scoped by design — it answers what was
+done to a device, with the retention and access that question deserves — and
+an operator-action trail is a different scope with a different retention and
+access story. Building one inside a unit about edge lifecycle would put it in
+the wrong place permanently, and a scope invented to close a review line
+outlives the review. The api/edge README now says plainly that the trail does
+not exist rather than claiming the action is audited.
+
 Carried out of U2 (edgebus), to log rather than lose:
 
 - A raw-frame security probe that constructs an actual JetStream

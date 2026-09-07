@@ -162,8 +162,16 @@ before its first `Enroll`.
 ## What central holds and what an attacker gets
 
 Central stores public keys and setup key hashes. A central breach yields
-the ability to mint setup keys, which is already the most privileged
-operator action and is audited; it does not yield any edge's identity.
+the ability to mint setup keys, which is the most privileged operator
+action there is; it does not yield any edge's identity.
+
+Minting leaves no trail. The audit stream FlowSeer writes is device-scoped
+— it holds what was done to a device — so nothing today records that an
+operator created an edge, issued it a setup key, revoked one, or retired
+the edge, and someone reconstructing an incident cannot answer those
+questions from FlowSeer at all. The trail belongs in an operator-action
+scope of its own, with its own retention and access; writing it to the
+device stream would put the answer in the wrong place permanently.
 
 A setup key read out of a shipped box lets the reader enroll as that edge
 once. The real device then fails its own enrollment visibly, and the
