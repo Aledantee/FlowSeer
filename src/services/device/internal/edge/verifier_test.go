@@ -115,7 +115,50 @@ func testVerifier(at time.Time, skew time.Duration, lookup KeyLookup) *Verifier 
 	return v
 }
 
+// readmeVector is the worked header published in
+// spec/proto/flowseer/api/edge/v1/README.md, character for character.
+//
+// It has to be the literal. This test was named for the vector and built its
+// own header with signHeader and this package's own HeaderScheme, so it was a
+// round trip through one implementation: change the scheme, the base64
+// alphabet or the payload encoding here and both halves moved together and
+// the test still passed. Nothing on this side was pinned to the published
+// contract at all — and this is the side that decides whether a real edge is
+// accepted, so a drift here rejects every edge in the field with no test
+// anywhere noticing.
+const readmeVector = "FlowSeer-Edge Cq0BCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIrL2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQBNz5MF25z/nq9bRdOT4oJEWA17sTJTatD0nn1TIfYuyFyicifeP7cpA1NCP0JzyZsCjx+MxN4zhY+4dpgi8WwU"
+
+// The verifier accepts the published vector as it is written: the edge
+// agent's signer produces exactly this string, and a conformance test keeps
+// it in the README. Together those are the two directions — the agent
+// produces the contract, this accepts it — and neither test alone shows the
+// two implementations agree with anything but themselves.
 func TestVerifierAcceptsTheReadmeVector(t *testing.T) {
+	seed := make([]byte, ed25519.SeedSize)
+	private := ed25519.NewKeyFromSeed(seed)
+	public := private.Public().(ed25519.PublicKey)
+
+	v := testVerifier(testIssuedAt.Add(3*time.Second), 5*time.Second, lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED))
+
+	got, err := v.Verify(context.Background(), readmeVector, testProcedure, nil)
+	if err != nil {
+		t.Fatalf("Verify the published vector: %v", err)
+	}
+	if got.GetEdge().GetEdge().GetId() != testEdgeID {
+		t.Errorf("edge id = %q, want %q", got.GetEdge().GetEdge().GetId(), testEdgeID)
+	}
+	if got.GetAudience() != testAudience {
+		t.Errorf("audience = %q, want %q", got.GetAudience(), testAudience)
+	}
+	if got.GetProcedure() != testProcedure {
+		t.Errorf("procedure = %q, want %q", got.GetProcedure(), testProcedure)
+	}
+}
+
+// TestVerifierAcceptsWhatItBuilds is the round trip the test above used to
+// be. Kept, because it exercises signHeader for every other case in this
+// file, and named for what it actually proves.
+func TestVerifierAcceptsWhatItBuilds(t *testing.T) {
 	seed := make([]byte, ed25519.SeedSize)
 	private := ed25519.NewKeyFromSeed(seed)
 	public := private.Public().(ed25519.PublicKey)
@@ -123,12 +166,8 @@ func TestVerifierAcceptsTheReadmeVector(t *testing.T) {
 	header := signHeader(t, private, testAssertion(nil))
 	v := testVerifier(testIssuedAt.Add(3*time.Second), 5*time.Second, lookupReturning(public, edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED))
 
-	got, err := v.Verify(context.Background(), header, testProcedure, nil)
-	if err != nil {
+	if _, err := v.Verify(context.Background(), header, testProcedure, nil); err != nil {
 		t.Fatalf("Verify: %v", err)
-	}
-	if got.GetEdge().GetEdge().GetId() != testEdgeID {
-		t.Errorf("edge id = %q, want %q", got.GetEdge().GetEdge().GetId(), testEdgeID)
 	}
 }
 

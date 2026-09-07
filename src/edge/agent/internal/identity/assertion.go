@@ -17,10 +17,17 @@ import (
 // HeaderScheme is the Authorization scheme every assertion-bearing call
 // uses. The verifier has its own copy (the device service's internal/edge
 // package, which nothing outside that service may import), so this is a
-// mirrored constant and the api/edge README's worked header vector is what
-// keeps the two honest: TestTheHeaderMatchesTheSpecifiedVector below builds a
-// header from the README's fixed inputs and compares it to the README's own
-// string, scheme included. Change either copy alone and that fails.
+// mirrored constant. Neither copy is authoritative: the api/edge README's
+// worked header vector is, and both sides are tested against it as a literal
+// — this package's signer must produce that exact string, and the verifier's
+// TestVerifierAcceptsTheReadmeVector must accept it. Change either copy alone
+// and one of those two fails.
+//
+// The mirroring is not the constant. The signer and the verifier are two
+// halves of one protocol in two packages, and moving a string somewhere
+// shared would leave the implementations as separate as they are while
+// looking as though something had been unified. The plan names consolidating
+// them into one assertion module as a follow-up.
 const HeaderScheme = "FlowSeer-Edge"
 
 // assertionLifetime is how long an assertion is valid. The schema caps it at

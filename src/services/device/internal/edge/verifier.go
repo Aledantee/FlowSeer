@@ -20,8 +20,15 @@ import (
 // HeaderScheme is the Authorization scheme every authenticated EdgeService
 // call carries: "Authorization: FlowSeer-Edge <base64 SignedEdgeAssertion>".
 // The edge agent has its own copy, since this package is internal to the
-// device service. The api/edge README's worked header vector is what keeps
-// them from drifting: the agent's signer is tested against that string.
+// device service. Neither copy is authoritative; the api/edge README's worked
+// header vector is, and both sides are tested against it as a literal — the
+// agent's signer must produce it and TestVerifierAcceptsTheReadmeVector must
+// accept it. Two tests, one published string, both directions.
+//
+// The direction that matters more is this one. A drift here rejects every
+// edge in the field, and until that test used the literal, nothing on this
+// side was pinned to the contract at all: the test named for the vector built
+// its own header with this very constant, so both halves moved together.
 const HeaderScheme = "FlowSeer-Edge"
 
 // Error codes, one per rejected verifier step. A caller distinguishes a

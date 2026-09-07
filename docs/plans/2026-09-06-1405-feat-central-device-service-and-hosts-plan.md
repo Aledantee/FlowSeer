@@ -1242,6 +1242,22 @@ credentials in this service's registry, and the port that serves the operator
 API is the one that yields them, so "the port is not exposed beyond the host"
 is a step in that runbook rather than background.
 
+**One assertion module holding the signer and the verifier.** They are two
+halves of one protocol living in two packages — `src/edge/agent/internal/identity`
+signs, `src/services/device/internal/edge` verifies — with the Authorization
+scheme mirrored between them because the second is internal to the device
+service. What keeps them honest today is the api/edge README's worked header
+vector, tested as a literal from both sides: the signer must produce that
+string and the verifier must accept it. That is real coverage of the wire
+contract and it is enough for now.
+
+What it does not do is make them one implementation. Moving the shared
+constant somewhere neutral would be worse than the honest copy — it would
+look like consolidation while leaving both encoders and both parsers exactly
+where they are. The real change is a module owning the scheme, the signing
+and the verification together, which is a design change rather than a
+refactor, and out of scope for the units that built these two.
+
 **Operator action trail.** Nothing records that an operator created an edge,
 issued or revoked a setup key, or retired an edge. Minting a setup key is the
 most privileged operator action there is, and after an incident there is no
