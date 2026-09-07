@@ -227,7 +227,20 @@ func TestEnrollConsumesTheKeyAndRegistersTheEdgesOwnKey(t *testing.T) {
 	}
 }
 
-func TestEnrollIsIdempotentForTheSameKeyAndPublicKey(t *testing.T) {
+// An edge persists its key pair, calls Enroll, then persists the response.
+// A crash in the window between the call returning and the response reaching
+// disk leaves an edge holding the key central registered with no record of
+// having enrolled, and its only way forward is to call again with the same
+// setup key.
+//
+// So this is not only the replica race that consumeSetupKey's branch was
+// written for. Named for the edge because that is who it strands: refusing
+// the retry leaves an edge that can sign but does not know its own id or
+// audience, so it cannot build an assertion, so it cannot Rekey — and the
+// remedy is an operator retiring it and issuing a fresh setup key, for a
+// crash. The whole response is asserted, not just the identity, because the
+// retry exists to get the rest of it.
+func TestEnrollIsIdempotentSoAnEdgeCanRetryAfterACrash(t *testing.T) {
 	h := newHarness(t)
 	record, setupKey := h.record, h.setupKey
 	public, private, err := ed25519.GenerateKey(nil)
@@ -251,6 +264,22 @@ func TestEnrollIsIdempotentForTheSameKeyAndPublicKey(t *testing.T) {
 	}
 	if first.Msg.GetEdge().GetEdge().GetId() != second.Msg.GetEdge().GetEdge().GetId() {
 		t.Fatal("a repeated enrollment returned a different identity")
+	}
+	// Everything the edge persists from this response, since a retry that
+	// returned the identity alone would still leave it unable to sign.
+	if second.Msg.GetAudience() != first.Msg.GetAudience() {
+		t.Errorf("audience = %q on the retry, want %q", second.Msg.GetAudience(), first.Msg.GetAudience())
+	}
+	if len(second.Msg.GetTrustAnchors()) != len(first.Msg.GetTrustAnchors()) {
+		t.Errorf("trust anchors = %d on the retry, want %d", len(second.Msg.GetTrustAnchors()), len(first.Msg.GetTrustAnchors()))
+	}
+	for i := range first.Msg.GetTrustAnchors() {
+		if !bytes.Equal(second.Msg.GetTrustAnchors()[i], first.Msg.GetTrustAnchors()[i]) {
+			t.Errorf("trust anchor %d differs on the retry", i)
+		}
+	}
+	if second.Msg.GetServerTime() == nil {
+		t.Error("the retry carries no server time; the edge trusts it for assertion timestamps")
 	}
 
 	stored := storedEdge(t, h.store, refOf(record))

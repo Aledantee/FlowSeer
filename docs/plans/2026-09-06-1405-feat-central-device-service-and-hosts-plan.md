@@ -1111,6 +1111,14 @@ worth naming because nothing on the edge would fail if central stopped
 holding it — the edge would simply be unable to re-enroll after a crash in
 that one window, in the field, on a path no edge test exercises.
 
+Named on central's side rather than only here, because a note on the
+depending side is read by someone who already knows. The line is at the
+handler's `CONSUMED` branch in `edgeapi/enroll.go`, which is where an edge's
+retry is actually answered — not at `consumeSetupKey`'s equality check, which
+serves the replica race its own comment describes and which an edge retrying
+never reaches. Getting that wrong was found by reverting each branch in turn
+and seeing which one a test noticed.
+
 **And the freeze must be distinguishable from never having fired.** Freezing
 the lane after two missed heartbeats is a mechanism whose whole purpose is to
 act when nothing is happening, which is the shape that hid the drift

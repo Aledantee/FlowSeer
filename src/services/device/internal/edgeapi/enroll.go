@@ -89,6 +89,22 @@ func (s *Service) Enroll(ctx context.Context, req *connect.Request[edgev1.Enroll
 		return nil, connectErr(err)
 	}
 
+	// An already-consumed key presented with the key it registered is an edge
+	// retrying, and answering it is what makes an edge's crash recoverable.
+	//
+	// An edge persists its key pair, calls Enroll, then persists the
+	// response. A crash between the call returning and the response reaching
+	// disk leaves an edge holding the key central registered with no record
+	// of having enrolled, and calling again with the same setup key is its
+	// only way forward. Refusing here strands it: it can sign, but it does
+	// not know its own id or audience, so it cannot build an assertion, so it
+	// cannot Rekey — and the remedy would be an operator retiring the edge
+	// and issuing a fresh setup key, for a crash.
+	//
+	// Nothing on the edge fails if this is tightened; the edge simply cannot
+	// re-enroll, in the field, in a window no edge test reaches.
+	// TestEnrollIsIdempotentSoAnEdgeCanRetryAfterACrash is the test that
+	// fails instead, and its name says whose recovery it is for.
 	if setupKey.GetStatus() == edgev1.SetupKeyStatus_SETUP_KEY_STATUS_CONSUMED {
 		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
 			s.log.WarnContext(ctx, "setup key presented with another key",
@@ -135,9 +151,13 @@ func consumeSetupKey(current *storev1.StoredEdge, key, edgeID string, public ed2
 	state := current.GetRecord().GetState()
 	stored := state.GetSetupKey()
 	if stored.GetStatus() != edgev1.SetupKeyStatus_SETUP_KEY_STATUS_ISSUED {
-		// Another replica enrolled between the read above and this write. Its
-		// answer is the same identity, so accept it rather than registering a
-		// second key over the first.
+		// Another replica enrolled between the read above and this write.
+		// Its answer is the same identity, so accept it rather than
+		// registering a second key over the first.
+		//
+		// This is the race only. An edge retrying after a crash never
+		// reaches here: the handler sees CONSUMED on its own read and
+		// answers from there, which is where that recovery is documented.
 		if !ed25519.PublicKey(state.GetPublicKey()).Equal(public) {
 			return nil, errs.New().Code(ErrCodeSetupKeyRefused).Attr("edge", edgeID).
 				Msg("setup key was already used to register another key")
