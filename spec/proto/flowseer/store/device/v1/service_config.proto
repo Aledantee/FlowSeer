@@ -14,6 +14,13 @@ import option "buf/validate/validate.proto";
 //
 // A deployment writes one of these. Every duration may be left unset, and
 // each says what the host does then, so a working file is short.
+//
+// The bus's storage bounds are deliberately not here. The JetStream store
+// ceiling, the per-account budgets that keep edge telemetry from starving the
+// journal, and the per-edge stream bounds all come from the defaults in
+// src/modules/edgebus, which no deployment has yet had reason to move off. An
+// operator who runs out of room is looking for a knob that was not forgotten:
+// it is one field away when a deployment needs it.
 message DeviceServiceConfig {
   // The directory the service owns: the hub's JetStream store, the keys it
   // mints accounts with, and the certificate it serves. Must be present and

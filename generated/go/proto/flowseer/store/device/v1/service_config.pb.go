@@ -31,6 +31,13 @@ const (
 //
 // A deployment writes one of these. Every duration may be left unset, and
 // each says what the host does then, so a working file is short.
+//
+// The bus's storage bounds are deliberately not here. The JetStream store
+// ceiling, the per-account budgets that keep edge telemetry from starving the
+// journal, and the per-edge stream bounds all come from the defaults in
+// src/modules/edgebus, which no deployment has yet had reason to move off. An
+// operator who runs out of room is looking for a knob that was not forgotten:
+// it is one field away when a deployment needs it.
 type DeviceServiceConfig struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_StateDir       *string                `protobuf:"bytes,1,opt,name=state_dir,json=stateDir"`
