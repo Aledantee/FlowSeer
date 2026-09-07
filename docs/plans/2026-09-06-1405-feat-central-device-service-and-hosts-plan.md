@@ -478,10 +478,18 @@ Design decisions:
    `DriftInterval`; a differing complete observation with no open
    mutation emits `DriftDetected` and records a reconciliation intent per
    the mode.
-8. `EdgeService`, `DispatchService`, `AuditService`, and
-   `EdgeAdminService` are served behind an HTTP middleware that verifies
+8. `EdgeService`, `DispatchService`, and `AuditService` are served behind an
+   HTTP middleware that verifies
    the assertion against the raw request body and path before Connect
-   decodes it, for unary and stream-open calls alike;
+   decodes it, for unary and stream-open calls alike. `EdgeAdminService` is
+   not, and this requirement's first draft was wrong to say so: an operator
+   holds no edge key, so that check would refuse every admin call. It and
+   `DeviceService` are served in front of the middleware with no
+   authorization check of their own, which `src/services/device/README.md`
+   states as a deployment constraint — the network boundary stands in until
+   OpenFGA lands, which this plan puts out of scope. `Enroll` is also in
+   front of the middleware, since it happens before central holds a key to
+   verify it with, and carries its own proof;
    `Enroll` is idempotent per the api/edge README; `AttachBus` returns a
    user JWT scoped to the edge's subtree; the credential RPCs resolve
    handles through

@@ -26,8 +26,11 @@ import (
 const scopeName = "go.aledante.io/FlowSeer/src/services/device"
 
 // ErrCodeInstrument is a failure constructing one of this service's metric
-// instruments.
-var ErrCodeInstrument = errs.NewCode("telemetry/instrument")
+// instruments. The code names the device service's scope rather than this
+// package, because the access module's telemetry package already owns
+// "telemetry/instrument" and a code is unique across the repository — two
+// packages of the same name are exactly where that collides.
+var ErrCodeInstrument = errs.NewCode("device-telemetry/instrument")
 
 // Attribute keys. The management mode is the only one a metric carries: it has
 // two values. The device and the interface identify one occurrence and belong
