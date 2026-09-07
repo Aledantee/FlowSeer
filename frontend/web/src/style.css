@@ -200,7 +200,9 @@ html:has(.shell) {
   color: var(--chrome-text);
   display: flex;
   flex-direction: column;
-  padding: 27px 18px 0;
+  padding: 10px 18px 0;
+  border-right: 1px solid
+    color-mix(in srgb, var(--chrome-line) 50%, transparent);
 }
 .tenant-switcher {
   position: relative;
@@ -1181,25 +1183,22 @@ td small {
 }
 .sidebar-toggle {
   position: absolute;
-  top: 50%;
-  right: -16px;
+  top: 78px;
+  right: -18px;
   z-index: 3;
-  transform: translateY(-50%);
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 64px;
+  width: 36px;
+  height: 36px;
   padding: 0;
-  background: transparent;
-  color: var(--chrome-muted);
-  border: 0;
-}
-.sidebar-toggle::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--chrome);
-  clip-path: path('M0 0H16C16 12 30 12 30 24V40C30 52 16 52 16 64H0Z');
+  background: color-mix(in srgb, var(--chrome) 82%, transparent);
+  color: var(--chrome-text);
+  border: 1px solid color-mix(in srgb, var(--chrome-line) 75%, transparent);
+  border-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 #ffffff18,
+    0 4px 14px #00000018;
+  backdrop-filter: blur(18px);
 }
 .sidebar-toggle svg {
   position: relative;
@@ -1210,7 +1209,8 @@ td small {
   transform: rotate(180deg);
 }
 .sidebar-toggle:hover {
-  color: var(--chrome-text);
+  background: var(--chrome-hover);
+  border-color: var(--chrome-focus);
 }
 @media (max-width: 800px) {
   .sidebar {
@@ -1222,11 +1222,8 @@ td small {
   .sidebar-toggle {
     top: 18px;
     right: 8px;
-    height: 48px;
-    transform: none;
-  }
-  .sidebar-toggle::before {
-    display: none;
+    width: 40px;
+    height: 40px;
   }
   .sidebar-toggle svg {
     transform: rotate(90deg);
@@ -1239,7 +1236,7 @@ td small {
   .sidebar-collapsed .sidebar {
     --sidebar-inset: 8px;
     width: 72px;
-    padding: 27px 8px 0;
+    padding: 10px 8px 0;
   }
   .sidebar-collapsed .main-shell {
     margin-left: 72px;
@@ -1593,23 +1590,43 @@ td small {
 }
 
 .tenant-label {
-  position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   font-size: 12px;
 }
 .tenant-label-text {
+  min-width: 0;
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tenant-label-text.tenant-label-measure {
-  position: absolute;
-  visibility: hidden;
-  width: max-content;
+.tenant-label-badge {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--chrome-focus);
+  background: color-mix(in srgb, var(--chrome-surface) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chrome-focus) 25%, transparent);
+  box-shadow: inset 0 1px 0 #ffffff20;
+}
+@media (min-width: 801px) {
+  .sidebar-collapsed .tenant-label {
+    justify-content: center;
+  }
+  .sidebar-collapsed .tenant-label-text,
+  .sidebar-collapsed .tenant-switcher .scope-chevron {
+    display: none;
+  }
+  .sidebar-collapsed .tenant-switcher .scope-trigger {
+    min-height: 44px;
+    padding: 6px 0;
+  }
 }
 .tenant-label-icon {
   display: block;
@@ -1682,14 +1699,17 @@ td small {
 }
 .topbar {
   isolation: isolate;
-  background: color-mix(in srgb, var(--chrome) 78%, transparent);
+  background: transparent;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--chrome-line) 45%, transparent);
+  box-shadow: 0 4px 20px #00000008;
 }
 .topbar-glass {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  mask-image: linear-gradient(to bottom, #000 0% 58%, transparent 100%);
+  backdrop-filter: blur(24px) saturate(140%);
 }
 .topbar::after {
   background: var(--chrome);

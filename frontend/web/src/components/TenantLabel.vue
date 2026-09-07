@@ -1,49 +1,29 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
+import { ref, watch } from 'vue'
+import AppIcon from './AppIcon.vue'
+
 const props = defineProps<{ name: string; iconUrl?: string }>()
-const label = ref<HTMLSpanElement>()
-const text = ref<HTMLSpanElement>()
-const truncated = ref(false)
 const failed = ref(false)
-let observer: ResizeObserver | undefined
-function measure() {
-  truncated.value =
-    !!label.value &&
-    !!text.value &&
-    text.value.scrollWidth > label.value.clientWidth
-}
-onMounted(() => {
-  observer = new ResizeObserver(measure)
-  if (label.value) observer.observe(label.value)
-  if (text.value) observer.observe(text.value)
-  measure()
-})
-onUnmounted(() => observer?.disconnect())
 watch(
-  () => [props.name, props.iconUrl],
-  async () => {
+  () => props.iconUrl,
+  () => {
     failed.value = false
-    await nextTick()
-    measure()
   },
 )
 </script>
 
 <template>
-  <span ref="label" class="tenant-label" :title="name" :aria-label="name">
-    <span
-      ref="text"
-      class="tenant-label-text"
-      :class="{ 'tenant-label-measure': truncated && iconUrl && !failed }"
-      :aria-hidden="truncated && !!iconUrl && !failed"
-      >{{ name }}</span
-    >
-    <img
-      v-if="truncated && iconUrl && !failed"
-      :src="iconUrl"
-      alt=""
-      class="tenant-label-icon"
-      @error="failed = true"
-    />
+  <span class="tenant-label" :title="name" :aria-label="name">
+    <span class="tenant-label-badge" aria-hidden="true">
+      <img
+        v-if="iconUrl && !failed"
+        :src="iconUrl"
+        alt=""
+        class="tenant-label-icon"
+        @error="failed = true"
+      />
+      <AppIcon v-else name="sites" />
+    </span>
+    <span class="tenant-label-text">{{ name }}</span>
   </span>
 </template>

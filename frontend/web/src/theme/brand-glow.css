@@ -2,10 +2,10 @@
   --glow-base: var(--chrome, #191b1e);
   --glow-teal: var(--cyan, #5ecad8);
   --glow-orange: var(--coral, #ff451d);
-  --glow-strength: 20%;
-  --glow-height: 340px;
+  --glow-strength: 30%;
+  --glow-height: 560px;
   --glow-ribbon-angle: 112deg;
-  background-color: var(--glow-base);
+  background-color: color-mix(in srgb, var(--glow-base) 82%, transparent);
   background-image:
     linear-gradient(
       to bottom,
@@ -15,16 +15,19 @@
     ),
     linear-gradient(
       var(--glow-ribbon-angle),
-      transparent 4%,
-      rgb(from var(--glow-base) r g b / 16%) 13%,
-      rgb(from var(--glow-teal) r g b / 5%) 14.5%,
-      transparent 24% 33%,
-      rgb(from var(--glow-base) r g b / 8%) 39%,
-      rgb(from var(--glow-teal) r g b / 3%) 40.5%,
-      transparent 54% 62%,
-      rgb(from var(--glow-base) r g b / 14%) 69%,
-      rgb(from var(--glow-orange) r g b / 5%) 70.5%,
-      transparent 86%
+      transparent 8%,
+      rgb(from var(--glow-teal) r g b / 3%) 15%,
+      rgb(from var(--glow-teal) r g b / 14%) 22%,
+      rgb(255 255 255 / 18%) 22.15%,
+      rgb(from var(--glow-teal) r g b / 6%) 22.5%,
+      transparent 31% 42%,
+      rgb(from var(--glow-teal) r g b / 9%) 48%,
+      rgb(255 255 255 / 12%) 48.15%,
+      transparent 48.5% 62%,
+      rgb(from var(--glow-orange) r g b / 10%) 70%,
+      rgb(255 255 255 / 14%) 70.15%,
+      rgb(from var(--glow-orange) r g b / 3%) 70.5%,
+      transparent 84%
     ),
     radial-gradient(
       ellipse 75% 160% at 0% 75%,
@@ -44,5 +47,5 @@
 }
 
 :root:not([data-theme='dark']) .brand-glow {
-  --glow-strength: 6%;
+  --glow-strength: 13%;
 }
