@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FlowSeer · Official Brand Icon System</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --bg: #061518;
+        --canvas: #0a1e22;
+        --surface: #102b31;
+        --border: #1c424b;
+        --text: #e5f3f5;
+        --text-muted: #82a3a8;
+        --cyan: #5ecad8;
+        --cyan-bright: #83d9df;
+        --coral: #ff451d;
+        --coral-soft: #ff8c61;
+        --font:
+          -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+      }
+
+      [data-theme='light'] {
+        --bg: #f3f3f2;
+        --canvas: #e6e7ea;
+        --surface: #ffffff;
+        --border: #d5d9dc;
+        --text: #1c2329;
+        --text-muted: #64748b;
+        --cyan: #1997a8;
+        --cyan-bright: #0d7d8d;
+        --coral: #e03510;
+        --coral-soft: #ff5a36;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: var(--font);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.5;
+        padding: 40px 24px 80px;
+        transition:
+          background 0.25s ease,
+          color 0.25s ease;
+      }
+
+      .container {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 48px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .brand-title {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+      }
+
+      .brand-title h1 {
+        font-size: 32px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 3px 10px;
+        background: rgba(94, 202, 216, 0.15);
+        color: var(--cyan);
+        border: 1px solid rgba(94, 202, 216, 0.3);
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .subtitle {
+        color: var(--text-muted);
+        font-size: 15px;
+        max-width: 680px;
+      }
+
+      .theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .theme-toggle:hover {
+        border-color: var(--cyan);
+      }
+
+      .grid-concepts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 32px;
+        margin-bottom: 56px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s,
+          border-color 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        border-color: var(--cyan);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+      }
+
+      .icon-preview {
+        width: 180px;
+        height: 180px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .icon-preview img {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      .card h3 {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+
+      .card .meta-pill {
+        font-size: 11px;
+        color: var(--coral);
+        font-weight: 600;
+        margin-bottom: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .card p {
+        font-size: 14px;
+        color: var(--text-muted);
+        line-height: 1.6;
+        margin-bottom: 24px;
+        flex-grow: 1;
+      }
+
+      .card-actions {
+        display: flex;
+        gap: 12px;
+        width: 100%;
+      }
+
+      .btn {
+        flex: 1;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        border-radius: 8px;
+        text-decoration: none;
+        cursor: pointer;
+        text-align: center;
+        transition:
+          background 0.2s,
+          color 0.2s;
+      }
+      .btn-primary {
+        background: rgba(94, 202, 216, 0.15);
+        border: 1px solid rgba(94, 202, 216, 0.4);
+        color: var(--cyan);
+      }
+      .btn-primary:hover {
+        background: var(--cyan);
+        color: #061518;
+      }
+      .btn-secondary {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+      }
+      .btn-secondary:hover {
+        color: var(--text);
+        border-color: var(--text-muted);
+      }
+
+      /* Section Styles */
+      .section-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      /* Scale Matrix */
+      .scale-section {
+        margin-bottom: 56px;
+        background: var(--canvas);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+      }
+
+      .scale-row {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+      }
+      .scale-row:last-child {
+        margin-bottom: 0;
+      }
+
+      .scale-label {
+        width: 200px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .scale-items {
+        display: flex;
+        align-items: flex-end;
+        gap: 28px;
+        flex-wrap: wrap;
+      }
+
+      .scale-box {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      .scale-box span {
+        font-size: 11px;
+        color: var(--text-muted);
+        font-family: monospace;
+      }
+
+      /* Context Mockups */
+      .mockup-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 24px;
+        margin-bottom: 48px;
+      }
+
+      .mockup-card {
+        background: var(--canvas);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px;
+        overflow: hidden;
+      }
+
+      .mockup-card h4 {
+        font-size: 15px;
+        margin-bottom: 16px;
+        color: var(--text-muted);
+      }
+
+      /* Topbar Mockup */
+      .nav-bar-mockup {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 52px;
+        padding: 0 16px;
+        background: #061518;
+        border: 1px solid #17383f;
+        border-radius: 8px;
+      }
+      .nav-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 600;
+        color: #fff;
+        font-size: 15px;
+      }
+      .nav-tools {
+        display: flex;
+        gap: 12px;
+        color: #82a3a8;
+        font-size: 12px;
+      }
+
+      /* Browser Tab Mockup */
+      .browser-bar-mockup {
+        background: #171e24;
+        border-radius: 8px;
+        padding: 8px 12px 0;
+        border: 1px solid #28333d;
+      }
+      .browser-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background: #061518;
+        border-radius: 6px 6px 0 0;
+        color: #e5f3f5;
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .tab-close {
+        font-size: 14px;
+        opacity: 0.6;
+        margin-left: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <div class="brand-title">
+            <h1>FlowSeer</h1>
+            <span class="badge">Official Brand Assets</span>
+          </div>
+          <p class="subtitle">
+            FlowSeer's official vector identity: the Kinetic Flow Mark. Built
+            around -13° kinetic shear, cyan telemetry streams, and an actionable
+            coral accent on deep obsidian teal.
+          </p>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">
+          <span id="themeLabel">☀️ Switch to Light Mode</span>
+        </button>
+      </header>
+
+      <h2 class="section-title">Brand Assets</h2>
+      <div class="grid-concepts">
+        <!-- Full App Icon Tile -->
+        <div class="card">
+          <div class="icon-preview">
+            <img src="flowseer-icon.svg" alt="FlowSeer App Icon" />
+          </div>
+          <span class="meta-pill">Application Icon Tile</span>
+          <h3>FlowSeer App Icon</h3>
+          <p>
+            Complete 512x512 squircle application icon with deep obsidian teal
+            background, 112° ambient brand glow ribbon, and the three kinetic
+            telemetry pillars with specular highlights.
+          </p>
+          <div class="card-actions">
+            <a href="flowseer-icon.svg" download class="btn btn-primary"
+              >Download App Icon</a
+            >
+          </div>
+        </div>
+
+        <!-- Standalone Symbol -->
+        <div class="card">
+          <div class="icon-preview">
+            <img
+              src="flowseer-symbol.svg"
+              alt="FlowSeer Symbol"
+              style="width: 140px; height: 140px"
+            />
+          </div>
+          <span class="meta-pill">Vector Brand Symbol</span>
+          <h3>FlowSeer Symbol Mark</h3>
+          <p>
+            Transparent vector brand symbol mark. Ideal for navigation headers,
+            CLI terminal banners, documentation, and embedded UI components.
+          </p>
+          <div class="card-actions">
+            <a href="flowseer-symbol.svg" download class="btn btn-primary"
+              >Download Symbol</a
+            >
+            <a href="/favicon.svg" download class="btn btn-secondary"
+              >Favicon SVG</a
+            >
+          </div>
+        </div>
+      </div>
+
+      <!-- Scale Matrix -->
+      <div class="scale-section">
+        <h2 class="section-title">Resolution & Scale Matrix</h2>
+        <p
+          style="color: var(--text-muted); font-size: 14px; margin-bottom: 24px"
+        >
+          Evaluating performance across 96px (dock/preview), 48px (app
+          launcher), 32px (console header), 24px (toolbar), and 16px (browser
+          favicon).
+        </p>
+
+        <!-- Row for App Icon -->
+        <div class="scale-row">
+          <div class="scale-label">App Icon (Tile)</div>
+          <div class="scale-items">
+            <div class="scale-box">
+              <img
+                src="flowseer-icon.svg"
+                width="96"
+                height="96"
+                alt="96px tile"
+              />
+              <span>96px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="flowseer-icon.svg"
+                width="48"
+                height="48"
+                alt="48px tile"
+              />
+              <span>48px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="flowseer-icon.svg"
+                width="32"
+                height="32"
+                alt="32px tile"
+              />
+              <span>32px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="flowseer-icon.svg"
+                width="24"
+                height="24"
+                alt="24px tile"
+              />
+              <span>24px</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row for Symbol -->
+        <div class="scale-row">
+          <div class="scale-label">Brand Symbol (Vector)</div>
+          <div class="scale-items">
+            <div class="scale-box">
+              <img
+                src="flowseer-symbol.svg"
+                width="48"
+                height="48"
+                alt="48px symbol"
+              />
+              <span>48px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="flowseer-symbol.svg"
+                width="32"
+                height="32"
+                alt="32px symbol"
+              />
+              <span>32px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="flowseer-symbol.svg"
+                width="24"
+                height="24"
+                alt="24px symbol"
+              />
+              <span>24px</span>
+            </div>
+            <div class="scale-box">
+              <img
+                src="/favicon.svg"
+                width="16"
+                height="16"
+                alt="16px favicon"
+              />
+              <span>16px (fav)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- UI Mockups -->
+      <h2 class="section-title">Production Integrations</h2>
+      <div class="mockup-grid">
+        <!-- Browser Tab Mockup with Official Favicon -->
+        <div class="mockup-card">
+          <h4>Browser Tab & Favicon</h4>
+          <div class="browser-bar-mockup">
+            <div class="browser-tab">
+              <img src="/favicon.svg" width="16" height="16" alt="favicon" />
+              <span>FlowSeer · Operations</span>
+              <span class="tab-close">×</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Topbar Header Mockup with Official SVG Symbol -->
+        <div class="mockup-card">
+          <h4>FlowSeer Console Navigation Topbar</h4>
+          <div class="nav-bar-mockup">
+            <div class="nav-brand">
+              <img
+                src="flowseer-symbol.svg"
+                width="24"
+                height="24"
+                alt="brand"
+              />
+              <span>FlowSeer</span>
+            </div>
+            <div class="nav-tools">
+              <span>Scope: Global</span>
+              <span>Theme ☀️</span>
+              <span>Help (?)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function toggleTheme() {
+        const isLight =
+          document.documentElement.getAttribute('data-theme') === 'light'
+        document.documentElement.setAttribute(
+          'data-theme',
+          isLight ? 'dark' : 'light',
+        )
+        document.getElementById('themeLabel').textContent = isLight
+          ? '☀️ Switch to Light Mode'
+          : '🌙 Switch to Dark Mode'
+      }
+    </script>
+  </body>
+</html>
