@@ -90,20 +90,27 @@ message ServiceListeners {
     expression: "has(this.certificate_file) == has(this.private_key_file)"
   };
 
-  // host:port for the Connect APIs. Must be present. A host of 0.0.0.0 or ::
+  // host:port for the Connect APIs. Must be present, and must carry a port:
+  // an address with none is read as "pick a free one", which is right for a
+  // test and makes a typo indistinguishable from it. A host of 0.0.0.0 or ::
   // binds every interface; a port of 0 asks the kernel for one, which is for
   // tests rather than a deployment.
   string api = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 3,
-    (buf.validate.field).string.max_len = 256
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^.+:[0-9]{1,5}$"
   ];
-  // host:port for the bus's WebSocket listener. Must be present. It serves
-  // the same certificate the API does, so an edge pins one digest for both.
+  // host:port for the bus's WebSocket listener. Must be present and must
+  // carry a port, for the same reason api does — and more sharply, since an
+  // edge dials the cluster_urls this same file names and a bus on an
+  // unpredictable port matches none of them. It serves the same certificate
+  // the API does, so an edge pins one digest for both.
   string bus = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 3,
-    (buf.validate.field).string.max_len = 256
+    (buf.validate.field).string.max_len = 256,
+    (buf.validate.field).string.pattern = "^.+:[0-9]{1,5}$"
   ];
   // The certificate and private key to serve, in PEM. Unset means the service
   // generates a self-signed pair into state_dir on first start and reuses it

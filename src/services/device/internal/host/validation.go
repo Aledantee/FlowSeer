@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -100,7 +101,7 @@ func violationSummary(err error) string {
 	seen := make(map[string]struct{}, len(validation.Violations))
 	named := make([]string, 0, len(validation.Violations))
 	for _, violation := range validation.Violations {
-		field := violation.Proto.GetField().String()
+		field := fieldPath(violation.Proto.GetField())
 		if field == "" {
 			field = "the message"
 		}
@@ -113,4 +114,27 @@ func violationSummary(err error) string {
 	}
 	sort.Strings(named)
 	return strings.Join(named, "; ")
+}
+
+// fieldPath renders a violation's field as a dotted name — "interface.name" —
+// from the path's field names alone.
+//
+// Two things it deliberately does not do. It does not call the message's own
+// String(), which is the prototext form of the whole FieldPath
+// (`elements:{field_name:"description"}`) rather than a field name, and was
+// what this produced before. And it does not use protovalidate's own
+// FieldPathString, which appends subscripts: an index is harmless, but a map
+// key is a caller-supplied value, and this string goes into the message
+// returned to that caller under a promise that it carries no field values.
+// No validated request message has a map today, which is the only reason
+// that was latent rather than live.
+func fieldPath(path *validate.FieldPath) string {
+	elements := path.GetElements()
+	names := make([]string, 0, len(elements))
+	for _, element := range elements {
+		if name := element.GetFieldName(); name != "" {
+			names = append(names, name)
+		}
+	}
+	return strings.Join(names, ".")
 }

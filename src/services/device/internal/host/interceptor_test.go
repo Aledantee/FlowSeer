@@ -169,19 +169,42 @@ func (s *succeeding) ApplyInterfaceDescription(
 	return connect.NewResponse(&devicev1.ApplyInterfaceDescriptionResponse{}), nil
 }
 
+// abandoned is a handler whose own context was canceled — the caller hung
+// up mid-call — which is what it returns.
+type abandoned struct {
+	devicev1connect.UnimplementedDeviceServiceHandler
+	entered bool
+}
+
+func (a *abandoned) ApplyInterfaceDescription(
+	context.Context, *connect.Request[devicev1.ApplyInterfaceDescriptionRequest],
+) (*connect.Response[devicev1.ApplyInterfaceDescriptionResponse], error) {
+	a.entered = true
+	return nil, context.Canceled
+}
+
 // A caller that hangs up has not been failed by the service, and an edge
 // reconnecting its stream would otherwise log an error each time.
+//
+// The handler has to run for this to test anything. An earlier version
+// canceled the client's context before the call, so http.Client.Do failed
+// locally, no request reached the server, and the assertion was made against
+// a log buffer that was empty because neither the handler nor the
+// interceptor had ever run — the branch it names had no coverage at all. The
+// entered check below is what keeps that from coming back.
 func TestACallTheCallerAbandonedIsNotLoggedAsAFailure(t *testing.T) {
 	var logged bytes.Buffer
-	client := serve(t, &failing{}, slog.New(slog.NewJSONHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	handler := &abandoned{}
+	client := serve(t, handler, slog.New(slog.NewJSONHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, err := client.ApplyInterfaceDescription(ctx, connect.NewRequest(validApply())); err == nil {
-		t.Fatal("the canceled call succeeded")
+	if _, err := client.ApplyInterfaceDescription(context.Background(), connect.NewRequest(validApply())); err == nil {
+		t.Fatal("the abandoned call succeeded")
+	}
+	if !handler.entered {
+		t.Fatal("the handler never ran, so the interceptor saw no call: this test would pass for any behavior")
 	}
 	if strings.Contains(logged.String(), "rpc call failed") {
-		t.Fatalf("a canceled call was logged as a failure: %s", logged.String())
+		t.Fatalf("an abandoned call was logged as a failure: %s", logged.String())
 	}
 }
 

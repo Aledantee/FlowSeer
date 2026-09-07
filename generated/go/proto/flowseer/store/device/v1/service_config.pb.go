@@ -542,12 +542,17 @@ func (x *ServiceListeners) ClearPrivateKeyFile() {
 type ServiceListeners_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// host:port for the Connect APIs. Must be present. A host of 0.0.0.0 or ::
+	// host:port for the Connect APIs. Must be present, and must carry a port:
+	// an address with none is read as "pick a free one", which is right for a
+	// test and makes a typo indistinguishable from it. A host of 0.0.0.0 or ::
 	// binds every interface; a port of 0 asks the kernel for one, which is for
 	// tests rather than a deployment.
 	Api *string
-	// host:port for the bus's WebSocket listener. Must be present. It serves
-	// the same certificate the API does, so an edge pins one digest for both.
+	// host:port for the bus's WebSocket listener. Must be present and must
+	// carry a port, for the same reason api does — and more sharply, since an
+	// edge dials the cluster_urls this same file names and a bus on an
+	// unpredictable port matches none of them. It serves the same certificate
+	// the API does, so an edge pins one digest for both.
 	Bus *string
 	// The certificate and private key to serve, in PEM. Unset means the service
 	// generates a self-signed pair into state_dir on first start and reuses it
@@ -1088,12 +1093,10 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x05edges\x18\x05 \x01(\v2*.flowseer.store.device.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\x05edges\x12H\n" +
 	"\ttelemetry\x18\x06 \x01(\v2*.flowseer.store.device.v1.ServiceTelemetryR\ttelemetry\x12H\n" +
 	"\tintervals\x18\a \x01(\v2*.flowseer.store.device.v1.ServiceIntervalsR\tintervals\x12?\n" +
-	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\"\xe6\x02\n" +
-	"\x10ServiceListeners\x12\x1f\n" +
-	"\x03api\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x03\x18\x80\x02R\x03api\x12\x1f\n" +
-	"\x03bus\x18\x02 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x03\x18\x80\x02R\x03bus\x123\n" +
+	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\"\x88\x03\n" +
+	"\x10ServiceListeners\x120\n" +
+	"\x03api\x18\x01 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03api\x120\n" +
+	"\x03bus\x18\x02 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03bus\x123\n" +
 	"\x10certificate_file\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0fcertificateFile\x122\n" +
 	"\x10private_key_file\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0eprivateKeyFile:\xa6\x01\xbaH\xa2\x01\x1a\x9f\x01\n" +
 	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\x8e\x02\n" +

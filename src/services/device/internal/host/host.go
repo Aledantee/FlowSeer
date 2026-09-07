@@ -313,6 +313,13 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		Handler:           handler,
 		TLSConfig:         h.serverTLS(),
 		ReadHeaderTimeout: 10 * time.Second,
+		// Without this, net/http writes a recovered handler panic and every
+		// TLS handshake failure to the standard logger: plain lines on
+		// stderr, outside the JSON stream everything else in this process
+		// goes to, with no service attributes and no trace correlation. A
+		// handshake failure is how a misprovisioned edge presents, so these
+		// are lines an operator needs to be able to find with the rest.
+		ErrorLog: slog.NewLogLogger(service.Logger(ctx).Handler(), slog.LevelWarn),
 	}
 
 	return service.Attempt{Runner: func(ctx context.Context) error {

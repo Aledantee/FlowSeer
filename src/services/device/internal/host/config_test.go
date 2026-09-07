@@ -175,3 +175,36 @@ func TestLogLevelIsConfigurable(t *testing.T) {
 		})
 	}
 }
+
+// TestAListenerWithoutAPortIsRefused covers the typo that used to start a
+// healthy-looking service. An address with no port reads as "pick a free
+// one", so the bus would listen somewhere unpredictable while every edge
+// dialed the cluster_urls the same file named — with nothing logging a
+// mismatch, because from the service's side nothing was wrong.
+func TestAListenerWithoutAPortIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		from    string
+		to      string
+		refused bool
+	}{
+		{"bus with no port", `bus: "0.0.0.0:8444"`, `bus: "central.example.test"`, true},
+		{"api with no port", `api: "0.0.0.0:8443"`, `api: "central.example.test"`, true},
+		{"a port of zero is still a port", `api: "0.0.0.0:8443"`, `api: "0.0.0.0:0"`, false},
+		{"ipv6 keeps its brackets", `api: "0.0.0.0:8443"`, `api: "[::1]:8443"`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := strings.Replace(validConfig, tc.from, tc.to, 1)
+			if body == validConfig {
+				t.Fatalf("the fixture no longer contains %q; this test is not exercising what it names", tc.from)
+			}
+			_, err := host.LoadConfig(writeConfig(t, body))
+			if tc.refused && err == nil {
+				t.Fatal("LoadConfig() error = nil, want the address without a port refused at load")
+			}
+			if !tc.refused && err != nil {
+				t.Fatalf("LoadConfig() error = %v, want it accepted", err)
+			}
+		})
+	}
+}

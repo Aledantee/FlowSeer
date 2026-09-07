@@ -172,8 +172,14 @@ func auditPublisher(hub *edgebus.Hub) auditapi.JetStreamPublisher {
 	return auditapi.JetStreamPublisher{JS: hub.JetStream()}
 }
 
-// portOf is the port half of a host:port, or -1 when it names none, which is
-// what the hub reads as "pick a free one".
+// portOf is the port half of a host:port.
+//
+// It returns -1 when the address names no parsable port, which the hub reads
+// as "pick a free one". That is unreachable from a validated configuration:
+// the schema requires both listener addresses to end in a port, precisely
+// because an address without one used to start a healthy-looking service on
+// an unpredictable port while every edge dialed the cluster_urls the same
+// file named, with nothing logging the mismatch.
 func portOf(address string) int {
 	_, port, err := net.SplitHostPort(address)
 	if err != nil {
