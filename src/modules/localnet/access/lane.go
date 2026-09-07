@@ -624,6 +624,16 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 		return nil, errs.New().Msg("mutation request must carry a sequence")
 	}
 
+	// A resumed mutation's horizon runs from when central first admitted
+	// it, not from now. Without that time there is no correct horizon to
+	// give it, and the plausible fallback — the clock — is the specific bug
+	// resume exists to avoid: an edge that crash-loops restarts the horizon
+	// on every run and the mutation never abandons. Refused rather than
+	// guessed, because guessing fails silently and only in the field.
+	if opts.Request.GetResume() && opts.Request.GetAdmittedAt() == nil {
+		return nil, errs.New().Msg("a resumed mutation must carry the admission time its horizon runs from")
+	}
+
 	// internal/lane.Queue rejects PriorityUnspecified outright (a missing
 	// choice must never silently become the lowest priority); at this
 	// facade a caller leaving SubmitOptions.Priority at its zero value in a
@@ -1013,6 +1023,18 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
 	}()
 
+	// Re-checked here, not only at admission. Submit's own check happens
+	// when the item is queued; the hold can be engaged by the item ahead of
+	// this one in the same queue. Without this, two mutations admitted
+	// before the first failed would both run — the second over a device
+	// whose state the first left unknown, which is the one thing a hold
+	// exists to prevent.
+	if req.GetMutation() != nil && ds.hold.Active() {
+		err = errs.New().Code(ErrCodeDesynchronized).
+			Msg("this device's lane is on hold; call ResolveHold before admitting another mutation")
+		return
+	}
+
 	ds.stateMu.Lock()
 	fingerprint := ds.fingerprint
 	ds.stateMu.Unlock()
@@ -1075,6 +1097,27 @@ type stepOutcome struct {
 func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openMutation, req *integrationv1.ExecuteRequest, fingerprint string) stepOutcome {
 	m := open.machine
 
+	if req.GetResume() {
+		// Central is re-dispatching a mutation whose checkpoint it already
+		// holds confirmed. There is nothing to checkpoint again and nothing
+		// to execute — the command may already have gone out on the run
+		// that died — so this goes straight into recovery, where the only
+		// question left is what the device actually holds.
+		//
+		// No baseline: the pre-mutation read belonged to a process that is
+		// gone, and reading the device now would capture whatever state the
+		// mutation may already have produced, which is the opposite of a
+		// baseline. Recovery therefore cannot corroborate, so a resumed
+		// mutation verifies or abandons; with no fence wired it cannot
+		// retry, which the plan accepts.
+		if err := m.Resume(ctx); err != nil {
+			return stepOutcome{err: errs.Wrap(err, "resume"), owed: true}
+		}
+		l.report(ctx, m.Progress())
+		return l.enterRecovery(ctx, ds, open, req.GetAdmittedAt().AsTime(), nil,
+			errs.New().Code(ErrCodeRecoveryAmbiguous).Msg("resumed after an edge restart; the mutation's effect is unknown"))
+	}
+
 	// The pre-mutation read, taken before the command goes out. It is the
 	// baseline recovery corroborates against: two later observations that
 	// both match it say the device still holds what it held before, so the
@@ -1083,7 +1126,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// the command, and refusing to try would make an unreadable device
 	// unmanageable — but recovery then has nothing to corroborate against
 	// and can only verify or abandon.
-	baseline, baselineErr := m.Observe(ctx)
+	baseline, baselineErr := m.Peek(ctx)
 	if baselineErr != nil {
 		baseline = nil
 	}
@@ -1232,6 +1275,15 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 		// leaving it engaged would mean every recovery that succeeds still
 		// needs an operator to unblock the device. An abandonment is the
 		// case that keeps its hold, and it engages one of its own.
+		//
+		// Safe against a verified mutation that central then disposes
+		// INDETERMINATE_ABANDONED, which Acknowledge accepts at every open
+		// phase: by the time this runs, Acknowledge has already moved the
+		// phase to ABANDONED and set the disposition, so Verified reads
+		// false and the hold HandleTerminalAck just engaged survives. That
+		// depends on Acknowledge finishing its terminal walk before
+		// returning — if it ever marks and defers the phase change, this
+		// check starts clearing a hold central asked for.
 		if open.machine.Verified() {
 			ds.hold.Resolve()
 		}

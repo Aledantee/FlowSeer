@@ -593,6 +593,21 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 	return obs, nil
 }
 
+// Peek reads the device without touching the mutation's phase, emitting a
+// record, or recording the observation as the one Compare will judge.
+//
+// It is the pre-mutation baseline: what the device held before the command
+// went out, which recovery corroborates against — two later observations
+// matching it say the command did not land. Deliberately not Observe. An
+// observation is a phase the mutation moves through and a record in the
+// audit stream; this is a read taken while the mutation is still at
+// ADMITTED, and routing it through Observe both refuses (ADMITTED is not a
+// valid source phase for a mutation) and, if it did not, would move the
+// phase out from under Checkpoint.
+func (m *Machine) Peek(ctx context.Context) (*accessv1.InterfaceObservation, error) {
+	return m.deps.Read(ctx)
+}
+
 // Compare reports the mutation's disposition against the last call to
 // [Machine.Observe]. Valid from OBSERVING (the ordinary path) or RECOVERING
 // (Observe's own re-observation transitions back to RECOVERING, per its doc
@@ -699,6 +714,37 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	m.deps.Telemetry.RecoveryStarted(ctx)
 	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common(ctx))
 	return m.deps.Audit.Emit(ctx, event)
+}
+
+// Resume admits a mutation central is re-dispatching after an edge restart,
+// past a checkpoint central already holds confirmed. It moves ADMITTED to
+// POSSIBLY_APPLIED and latches submitted.
+//
+// Latching submitted is the point, not a side effect. Central only re-sends
+// with resume once it has recorded the checkpoint, which means the command
+// may already have reached the device on the run that died — nobody can
+// say. From here a REJECTED acknowledgement must be refused, because
+// disposing this mutation "nothing happened" would record that about a
+// device that may be holding the change.
+//
+// The caller supplies the horizon start from the request's carried
+// admission time, never from its own clock: an edge that crash-loops would
+// otherwise restart the horizon on every run and the mutation would never
+// abandon.
+func (m *Machine) Resume(ctx context.Context) error {
+	if m.IsRead() {
+		return errs.New().Code(ErrCodeOutOfOrder).Msg("resume is not valid for a read operation")
+	}
+	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "Resume"); err != nil {
+		return err
+	}
+	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.submitted = true
+	m.mu.Unlock()
+	return nil
 }
 
 // Retry returns a mutation in recovery to POSSIBLY_APPLIED so its command

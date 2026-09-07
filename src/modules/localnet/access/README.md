@@ -279,6 +279,30 @@ An abandonment is a *result*, not an error: the caller has to report it to
 central, and central disposes the mutation from what it says. Failing the
 call instead would leave a host with something to log and nothing to send.
 
+**A resumed dispatch.** Central re-sends an `ExecuteRequest` with `resume`
+set after an edge restart, past a checkpoint it already holds confirmed.
+That mutation admits straight into `RECOVERING`: nothing to checkpoint
+again, nothing to execute — the command may have gone out on the run that
+died — and no baseline, since reading the device now would capture whatever
+state the mutation may already have produced. With nothing to corroborate
+against it verifies or abandons; it cannot retry.
+
+Its horizon runs from `ExecuteRequest.admitted_at`, never from the edge's
+clock. An edge that crash-loops would otherwise restart the horizon on every
+run, and the mutation would never abandon — a device held forever by
+something always just about to time out, with nothing reporting it. A
+`resume` carrying no admission time is refused rather than given a guess.
+
+`Machine.Resume` also latches `submitted`, so a `REJECTED` acknowledgement
+is refused from there on: central re-dispatches only past a confirmed
+checkpoint, so the command may already be on the device.
+
+**The hold is re-checked at dequeue**, not only at admission. `Submit`
+checks when the item is queued; the hold can be engaged by the item ahead of
+it in the same queue. Without the second check, two mutations admitted
+before the first failed both run, and the second runs over a device whose
+state the first left unknown.
+
 **What recovery records.** Polls are silent. Recording each poll's
 `OBSERVING` and `RECOVERING` transitions would put two records per poll into
 a durable stream for the whole horizon and bury the `RecoveryStarted` and the

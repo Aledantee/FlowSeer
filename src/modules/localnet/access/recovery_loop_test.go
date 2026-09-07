@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -477,4 +479,227 @@ func TestASuccessfulRecoveryReleasesTheDeviceHold(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		// Admitted and running, which is the point.
 	}
+}
+
+// resumedRequest is central re-dispatching a mutation after an edge
+// restart, carrying the admission time its horizon runs from.
+func resumedRequest(sequence uint64, admittedAt time.Time) *integrationv1.ExecuteRequest {
+	req := mutationRequest(sequence)
+	req.SetResume(true)
+	req.SetAdmittedAt(timestamppb.New(admittedAt))
+	return req
+}
+
+// TestAResumedMutationKeepsTheHorizonItWasAdmittedUnder is the test the
+// silent failure needs. A resumed mutation whose horizon restarts at the
+// edge's restart never abandons: every run gets a fresh horizon, every run
+// dies before it elapses, and the device is held forever by a mutation that
+// is always just about to time out. Nothing reports it and it only happens
+// in the field.
+//
+// The admission time here is already past the horizon, so a correct
+// implementation abandons on its first poll. That boundary is the only
+// observable that separates the two: at any point before it, a fresh
+// horizon and a carried one behave identically.
+func TestAResumedMutationKeepsTheHorizonItWasAdmittedUnder(t *testing.T) {
+	r := newRecoveringLane(t, time.Minute, time.Minute)
+
+	done := make(chan submitted, 1)
+	go func() {
+		result, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			// Admitted an hour ago, under a one-minute horizon.
+			Request: resumedRequest(recoverySequence, time.Now().Add(-time.Hour)),
+		})
+		done <- submitted{result, err}
+	}()
+
+	// No checkpoint is delivered: central already holds it confirmed, and a
+	// resumed mutation that waited for one would hang.
+	waitForPhase(t, r.reporter, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING)
+	r.wait.tick(t)
+
+	select {
+	case got := <-done:
+		if got.err != nil {
+			t.Fatalf("Submit() error = %v, want the abandonment as a result", got.err)
+		}
+		if got.result.GetPhaseReached() != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
+			t.Fatalf("PhaseReached = %v, want ABANDONED on the first poll: the carried admission time is already past the horizon", got.result.GetPhaseReached())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the resumed mutation never ended; its horizon restarted")
+	}
+}
+
+// TestAResumedMutationRefusesARejectedAcknowledgement is the latch under
+// resume. Central re-dispatches with resume only past a confirmed
+// checkpoint, so the command may already have reached the device on the run
+// that died. Disposing it REJECTED would record that nothing happened about
+// a device that may be holding the change.
+func TestAResumedMutationRefusesARejectedAcknowledgement(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+
+	done := make(chan submitted, 1)
+	go func() {
+		result, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   resumedRequest(recoverySequence, time.Now()),
+		})
+		done <- submitted{result, err}
+	}()
+	waitForPhase(t, r.reporter, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING)
+
+	err := deliverAck(t, r.lane, terminalAck(recoverySequence, accessv1.Disposition_DISPOSITION_REJECTED))
+	if err == nil {
+		t.Fatal("HandleTerminalAck(REJECTED) error = nil, want it refused: a resumed command may already have landed")
+	}
+	if code, _ := errs.CodeOf(err); code != access.ErrCodeOutOfOrder {
+		t.Errorf("refusal code = %v, want %v", code, access.ErrCodeOutOfOrder)
+	}
+
+	// An abandonment is accepted, which is how central ends one of these.
+	if err := deliverAck(t, r.lane, terminalAck(recoverySequence, accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)); err != nil {
+		t.Fatalf("HandleTerminalAck(INDETERMINATE_ABANDONED) error: %v", err)
+	}
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the acknowledgement never answered the caller")
+	}
+}
+
+// TestAResumeWithNoAdmissionTimeIsRefused covers the input that cannot be
+// given a correct horizon. Refusing is the point: the plausible fallback is
+// the clock, and that is exactly the restart-the-horizon bug.
+func TestAResumeWithNoAdmissionTimeIsRefused(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+
+	req := mutationRequest(recoverySequence)
+	req.SetResume(true)
+	_, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   req,
+	})
+	if err == nil {
+		t.Fatal("Submit() error = nil, want a resume with no admission time refused")
+	}
+}
+
+// TestASecondMutationQueuedBehindAFailedOneIsRefusedAtDequeue is the
+// admission check's blind spot. Submit checks the hold when the item is
+// queued; the hold is engaged by the item ahead of this one in the same
+// queue, after that check has already passed. Without a re-check at dequeue
+// both run, and the second runs over a device whose state the first left
+// unknown — the one thing a hold exists to prevent.
+func TestASecondMutationQueuedBehindAFailedOneIsRefusedAtDequeue(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+
+	// Park the first mutation's baseline read so the second can be queued
+	// behind it while no hold is engaged yet.
+	r.holdMu.Lock()
+	gate := make(chan struct{})
+	entered := make(chan struct{}, 1)
+	r.holdRead, r.inRead = gate, entered
+	r.holdMu.Unlock()
+
+	first := make(chan submitted, 1)
+	go func() {
+		result, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(recoverySequence),
+		})
+		first <- submitted{result, err}
+	}()
+	select {
+	case <-entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the first mutation never reached the device")
+	}
+
+	// Queued now: Submit's own hold check passes, because nothing is held.
+	second := make(chan submitted, 1)
+	go func() {
+		result, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(recoverySequence + 1),
+		})
+		second <- submitted{result, err}
+	}()
+	time.Sleep(50 * time.Millisecond)
+
+	r.holdMu.Lock()
+	r.holdRead, r.inRead = nil, nil
+	r.holdMu.Unlock()
+	close(gate)
+
+	// The first enters recovery and engages the hold. The second is
+	// dequeued after that and must be refused rather than executed.
+	deliverCheckpoint(t, r.lane, recoverySequence)
+
+	select {
+	case got := <-second:
+		if code, _ := errs.CodeOf(got.err); code != access.ErrCodeDesynchronized {
+			t.Fatalf("the queued mutation returned result %v, error %v; want %v", got.result, got.err, access.ErrCodeDesynchronized)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the queued mutation was never dequeued")
+	}
+}
+
+// TestTheBaselineReadIsActuallyTaken exists because it was not. The
+// baseline went through Machine.Observe, which refuses from ADMITTED for a
+// mutation, so it failed on every mutation and the failure was swallowed by
+// the "a device that cannot be read may still accept the command" branch.
+// Recovery therefore never had anything to corroborate against, and
+// corroboration-driven retry was unreachable — with no symptom, because a
+// nil baseline is exactly what an unreadable device also produces.
+//
+// The observable is the device being read before the command, not the
+// baseline value itself: a lane that took the baseline and discarded it
+// would still be wrong, but a lane that never read the device cannot have
+// one at all.
+func TestTheBaselineReadIsActuallyTaken(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+
+	readsBeforeCommand := make(chan int64, 1)
+	r.holdMu.Lock()
+	r.holdRead, r.inRead = nil, nil
+	r.holdMu.Unlock()
+
+	done := make(chan submitted, 1)
+	go func() {
+		result, err := r.lane.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(recoverySequence),
+		})
+		done <- submitted{result, err}
+	}()
+
+	// The mutation parks at its checkpoint wait, which is after the
+	// baseline read and before anything is sent to the device.
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if r.submits.Load() == 0 && r.reads.Load() > 0 {
+			readsBeforeCommand <- r.reads.Load()
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	select {
+	case n := <-readsBeforeCommand:
+		if n < 1 {
+			t.Fatalf("the device was read %d times before the command, want at least the baseline", n)
+		}
+	default:
+		t.Fatal("the device was never read before the command: no baseline was taken")
+	}
+
+	deliverCheckpoint(t, r.lane, recoverySequence)
+	waitForPhase(t, r.reporter, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING)
+	if err := deliverAck(t, r.lane, terminalAck(recoverySequence, accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)); err != nil {
+		t.Fatalf("HandleTerminalAck() error: %v", err)
+	}
+	<-done
 }
