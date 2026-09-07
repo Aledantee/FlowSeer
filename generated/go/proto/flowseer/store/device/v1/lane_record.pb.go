@@ -678,6 +678,7 @@ type IdempotencyEntry struct {
 	state                     protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_IdempotencyKey *string                `protobuf:"bytes,1,opt,name=idempotency_key,json=idempotencyKey"`
 	xxx_hidden_Sequence       uint64                 `protobuf:"varint,2,opt,name=sequence"`
+	xxx_hidden_Disposition    v11.Disposition        `protobuf:"varint,3,opt,name=disposition,enum=flowseer.device.access.v1.Disposition"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -726,14 +727,28 @@ func (x *IdempotencyEntry) GetSequence() uint64 {
 	return 0
 }
 
+func (x *IdempotencyEntry) GetDisposition() v11.Disposition {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_Disposition
+		}
+	}
+	return v11.Disposition(0)
+}
+
 func (x *IdempotencyEntry) SetIdempotencyKey(v string) {
 	x.xxx_hidden_IdempotencyKey = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *IdempotencyEntry) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *IdempotencyEntry) SetDisposition(v v11.Disposition) {
+	x.xxx_hidden_Disposition = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
 func (x *IdempotencyEntry) HasIdempotencyKey() bool {
@@ -750,6 +765,13 @@ func (x *IdempotencyEntry) HasSequence() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *IdempotencyEntry) HasDisposition() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
 func (x *IdempotencyEntry) ClearIdempotencyKey() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_IdempotencyKey = nil
@@ -760,6 +782,11 @@ func (x *IdempotencyEntry) ClearSequence() {
 	x.xxx_hidden_Sequence = 0
 }
 
+func (x *IdempotencyEntry) ClearDisposition() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Disposition = v11.Disposition_DISPOSITION_UNSPECIFIED
+}
+
 type IdempotencyEntry_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -767,6 +794,12 @@ type IdempotencyEntry_builder struct {
 	IdempotencyKey *string
 	// Must be present and at least 1.
 	Sequence *uint64
+	// How the sequence ended, recorded when its mutation closed and the record
+	// stopped holding it. Unset while the mutation is still open, when the
+	// record itself carries the state. It is what a resubmission after the
+	// close reads: without it the answer is a bare released, which an operator
+	// cannot tell from success. The zero value is rejected.
+	Disposition *v11.Disposition
 }
 
 func (b0 IdempotencyEntry_builder) Build() *IdempotencyEntry {
@@ -774,12 +807,16 @@ func (b0 IdempotencyEntry_builder) Build() *IdempotencyEntry {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.IdempotencyKey != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_IdempotencyKey = b.IdempotencyKey
 	}
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_Sequence = *b.Sequence
+	}
+	if b.Disposition != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Disposition = *b.Disposition
 	}
 	return m0
 }
@@ -833,11 +870,13 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\vobservation\x18\n" +
 	" \x01(\v2/.flowseer.device.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
 	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05errorB\t\n" +
-	"\aoutcome\"p\n" +
+	"\aoutcome\"\xc6\x01\n" +
 	"\x10IdempotencyEntry\x124\n" +
 	"\x0fidempotency_key\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\x80\x02\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12T\n" +
+	"\vdisposition\x18\x03 \x01(\x0e2&.flowseer.device.access.v1.DispositionB\n" +
+	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\vdispositionB\x80\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x0fLaneRecordProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_store_device_v1_lane_record_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
@@ -855,6 +894,7 @@ var file_flowseer_store_device_v1_lane_record_proto_goTypes = []any{
 	(*v11.TypedRead)(nil),            // 10: flowseer.device.access.v1.TypedRead
 	(*v11.InterfaceObservation)(nil), // 11: flowseer.device.access.v1.InterfaceObservation
 	(*v12.ErrorPayload)(nil),         // 12: flowseer.errs.v1.ErrorPayload
+	(v11.Disposition)(0),             // 13: flowseer.device.access.v1.Disposition
 }
 var file_flowseer_store_device_v1_lane_record_proto_depIdxs = []int32{
 	6,  // 0: flowseer.store.device.v1.DeviceLaneRecord.device:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
@@ -869,13 +909,14 @@ var file_flowseer_store_device_v1_lane_record_proto_depIdxs = []int32{
 	8,  // 9: flowseer.store.device.v1.OpenRead.deadline:type_name -> google.protobuf.Timestamp
 	11, // 10: flowseer.store.device.v1.OpenRead.observation:type_name -> flowseer.device.access.v1.InterfaceObservation
 	12, // 11: flowseer.store.device.v1.OpenRead.error:type_name -> flowseer.errs.v1.ErrorPayload
-	1,  // 12: flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry.value:type_name -> flowseer.store.device.v1.OpenRead
-	11, // 13: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry.value:type_name -> flowseer.device.access.v1.InterfaceObservation
-	14, // [14:14] is the sub-list for method output_type
-	14, // [14:14] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	13, // 12: flowseer.store.device.v1.IdempotencyEntry.disposition:type_name -> flowseer.device.access.v1.Disposition
+	1,  // 13: flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntry.value:type_name -> flowseer.store.device.v1.OpenRead
+	11, // 14: flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntry.value:type_name -> flowseer.device.access.v1.InterfaceObservation
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_lane_record_proto_init() }

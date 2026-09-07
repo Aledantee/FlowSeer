@@ -139,7 +139,7 @@ func (j *Journal) Admit(ctx context.Context, deviceID string, intent *accessv1.M
 	var state *accessv1.MutationState
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if seq, ok := recordedSequence(rec, intent.GetIdempotencyKey()); ok {
-			state = recordedState(rec, seq)
+			state = recordedState(rec, seq, intent, edge)
 			return errSkip
 		}
 		if rec.HasMutation() {
@@ -199,6 +199,7 @@ func (j *Journal) CloseRead(ctx context.Context, deviceID, iface string, sequenc
 		}
 		if obs != nil {
 			entry.SetObservation(obs)
+			keepLastObservation(rec, iface, obs)
 		} else {
 			entry.SetError(errPayload)
 		}
@@ -325,7 +326,7 @@ func (j *Journal) ApplyReport(ctx context.Context, deviceID string, rep Report) 
 		case ReportReleased, ReportRefused:
 			// A released disposition, or a refused terminal ack, frees the
 			// lane the same way; the edge's RELEASED report is the barrier.
-			clearMutation(rec)
+			closeMutation(rec, m)
 		case ReportAbandoned:
 			rec.SetLastReportedPhase(accessv1.OperationPhase_OPERATION_PHASE_ABANDONED)
 		case ReportError:
@@ -422,7 +423,7 @@ func (j *Journal) Dispose(ctx context.Context, deviceID string, sequence uint64)
 				return err // refuse before clearing, so the abandon is atomic
 			}
 			state = m // detached: the record's mutation is cleared below
-			clearMutation(rec)
+			closeMutation(rec, m)
 			return nil
 		}
 		m.SetBlockReason(accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
@@ -458,7 +459,7 @@ func (j *Journal) RejectDispatch(ctx context.Context, deviceID string, sequence 
 		m.SetDisposition(accessv1.Disposition_DISPOSITION_REJECTED)
 		state = m
 		if !rec.GetDispatched() {
-			clearMutation(rec) // never reached the device: free the lane at once
+			closeMutation(rec, m) // never reached the device: free the lane at once
 		}
 		return nil
 	})
@@ -516,7 +517,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
 		if key := res.Intent.GetIdempotencyKey(); key != "" {
 			if seq, ok := recordedSequence(rec, key); ok {
-				admitted = recordedState(rec, seq)
+				admitted = recordedState(rec, seq, res.Intent, res.Edge)
 				return errSkip
 			}
 		}
@@ -535,7 +536,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 			if err := addHold(rec, deviceID, res.Sequence); err != nil {
 				return err // refuse before clearing, so the resolution is atomic
 			}
-			clearMutation(rec)
+			closeMutation(rec, m)
 		case m != nil:
 			return errs.New().Code(ErrCodeState).Attr("device", deviceID).
 				Msg("another mutation holds this device's lane")
@@ -638,6 +639,44 @@ func holdPending(rec *storev1.DeviceLaneRecord, sequence uint64) bool {
 	return false
 }
 
+// keepLastObservation records a complete observation as what central last saw
+// on a managed interface, which is what the drift comparison and the status
+// call read. An interface central holds no expected description for is not
+// managed, so its read leaves nothing behind but its own closed entry: a
+// one-off read of any of a switch's ports must not start growing the record a
+// row at a time. A partial observation is not kept either, since a comparison
+// against one would be a comparison against fields nobody read.
+func keepLastObservation(rec *storev1.DeviceLaneRecord, iface string, obs *accessv1.InterfaceObservation) {
+	if obs.GetCompleteness() != accessv1.Completeness_COMPLETENESS_COMPLETE {
+		return
+	}
+	if _, managed := rec.GetExpectedDescriptions()[iface]; !managed {
+		return
+	}
+	observations := rec.GetLastObservations()
+	if observations == nil {
+		observations = map[string]*accessv1.InterfaceObservation{}
+	}
+	observations[iface] = obs
+	rec.SetLastObservations(observations)
+}
+
+// closeMutation frees the lane and keeps, on the sequence's idempotency entry,
+// the disposition it ended at. That is all the record retains of a closed
+// mutation, and a resubmission after the close has nothing else to read: told
+// only that the sequence reached its end, an operator cannot tell a rejection
+// from a success. Every path that closes a mutation has already set its
+// disposition, so the entry is never left saying nothing.
+func closeMutation(rec *storev1.DeviceLaneRecord, m *accessv1.MutationState) {
+	for _, entry := range rec.GetIdempotency() {
+		if entry.GetSequence() == m.GetSequence() {
+			entry.SetDisposition(m.GetDisposition())
+			break
+		}
+	}
+	clearMutation(rec)
+}
+
 func clearMutation(rec *storev1.DeviceLaneRecord) {
 	rec.ClearMutation()
 	rec.ClearAdmittedAt()
@@ -693,17 +732,25 @@ func recordedSequence(rec *storev1.DeviceLaneRecord, key string) (uint64, bool) 
 	return 0, false
 }
 
-func recordedState(rec *storev1.DeviceLaneRecord, seq uint64) *accessv1.MutationState {
+func recordedState(rec *storev1.DeviceLaneRecord, seq uint64, intent *accessv1.MutationIntent, edge *edgev1.EdgeGlobalRef) *accessv1.MutationState {
 	if m := rec.GetMutation(); m != nil && m.GetSequence() == seq {
 		return m
 	}
-	// The mutation has closed and the record no longer holds its disposition or
-	// intent. A resubmission after the close learns only that the sequence
-	// reached a terminal state, reported as RELEASED with its sequence; the
-	// terminal disposition is not retained past the close.
+	// The mutation closed and the record kept only how it ended. The intent
+	// and the edge come from this call: the same idempotency key is the same
+	// intent, which is what makes the key idempotent, so echoing the caller's
+	// own is not a claim about anything the record forgot.
 	m := &accessv1.MutationState{}
+	m.SetIntent(intent)
 	m.SetSequence(seq)
 	m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_RELEASED)
+	m.SetResponsibleEdge(edge)
+	for _, entry := range rec.GetIdempotency() {
+		if entry.GetSequence() == seq && entry.HasDisposition() {
+			m.SetDisposition(entry.GetDisposition())
+			break
+		}
+	}
 	return m
 }
 

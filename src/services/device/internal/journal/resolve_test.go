@@ -262,3 +262,94 @@ func TestResolveDesynchronizationRefusesASequenceNothingHolds(t *testing.T) {
 		t.Error("the refusal disturbed the held mutation")
 	}
 }
+
+// A resubmission after the lane closed has to read how the sequence ended.
+// The record keeps only the disposition, on the idempotency entry, and the
+// state built from it has to satisfy the schema rule that ties a disposition
+// to a terminal phase — a rule nothing enforced here before, because the
+// invalid value never reached storage and only ever existed in a response.
+func TestResubmissionAfterTheCloseReadsHowTheSequenceEnded(t *testing.T) {
+	ctx := context.Background()
+
+	cases := []struct {
+		name  string
+		close func(t *testing.T, j *journal.Journal, seq uint64)
+		want  accessv1.Disposition
+	}{
+		{
+			name: "verified then released",
+			close: func(t *testing.T, j *journal.Journal, seq uint64) {
+				for _, kind := range []journal.ReportKind{journal.ReportAdmitted, journal.ReportVerified, journal.ReportReleased} {
+					if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
+						t.Fatalf("report %v: %v", kind, err)
+					}
+				}
+			},
+			want: accessv1.Disposition_DISPOSITION_VERIFIED,
+		},
+		{
+			name: "verified then a refused terminal ack",
+			close: func(t *testing.T, j *journal.Journal, seq uint64) {
+				for _, kind := range []journal.ReportKind{journal.ReportAdmitted, journal.ReportVerified, journal.ReportRefused} {
+					if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: kind, Sequence: seq}); err != nil {
+						t.Fatalf("report %v: %v", kind, err)
+					}
+				}
+			},
+			want: accessv1.Disposition_DISPOSITION_VERIFIED,
+		},
+		{
+			name: "abandoned before the edge reported it admitted",
+			close: func(t *testing.T, j *journal.Journal, seq uint64) {
+				if _, err := j.Dispose(ctx, deviceID, seq); err != nil {
+					t.Fatalf("dispose: %v", err)
+				}
+			},
+			want: accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED,
+		},
+		{
+			name: "refused by the edge before dispatch",
+			close: func(t *testing.T, j *journal.Journal, seq uint64) {
+				if _, err := j.RejectDispatch(ctx, deviceID, seq); err != nil {
+					t.Fatalf("reject: %v", err)
+				}
+			},
+			want: accessv1.Disposition_DISPOSITION_REJECTED,
+		},
+		{
+			name: "resolved while held",
+			close: func(t *testing.T, j *journal.Journal, seq uint64) {
+				if _, _, err := j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq}); err != nil {
+					t.Fatalf("resolve: %v", err)
+				}
+			},
+			want: accessv1.Disposition_DISPOSITION_REJECTED,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			j := newJournal(t)
+			intent := mutationIntent("0192e6a0-0000-7000-8000-000000000b01")
+			state, err := j.Admit(ctx, deviceID, intent, edgeRef())
+			if err != nil {
+				t.Fatalf("admit: %v", err)
+			}
+			c.close(t, j, state.GetSequence())
+
+			again, err := j.Admit(ctx, deviceID, intent, edgeRef())
+			if err != nil {
+				t.Fatalf("resubmit: %v", err)
+			}
+			if again.GetSequence() != state.GetSequence() {
+				t.Errorf("the resubmission was admitted again, at %d", again.GetSequence())
+			}
+			if got := again.GetDisposition(); got != c.want {
+				t.Errorf("disposition = %v, want %v", got, c.want)
+			}
+			if err := protovalidate.Validate(again); err != nil {
+				t.Errorf("the resubmission's state fails its schema rules: %v", err)
+			}
+		})
+	}
+}

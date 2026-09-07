@@ -159,4 +159,13 @@ message IdempotencyEntry {
     (buf.validate.field).required = true,
     (buf.validate.field).uint64.gte = 1
   ];
+  // How the sequence ended, recorded when its mutation closed and the record
+  // stopped holding it. Unset while the mutation is still open, when the
+  // record itself carries the state. It is what a resubmission after the
+  // close reads: without it the answer is a bare released, which an operator
+  // cannot tell from success. The zero value is rejected.
+  flowseer.device.access.v1.Disposition disposition = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
 }
