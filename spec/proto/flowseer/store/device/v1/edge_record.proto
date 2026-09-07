@@ -11,7 +11,10 @@ import option "buf/validate/validate.proto";
 message StoredEdge {
   // Must be present.
   flowseer.api.edge.v1.EdgeRecord record = 1 [(buf.validate.field).required = true];
-  // SHA-256 of the whole setup key string most recently issued. Unset
-  // means no key was issued or the key was consumed.
+  // SHA-256 of the whole setup key string most recently issued. It outlives
+  // the key's consumption, because a repeated enrollment must recognize the
+  // key it already consumed and answer with the same identity; it is cleared
+  // when the key is revoked or the edge retired. Unset means no key was
+  // issued, or the one issued was withdrawn.
   bytes setup_key_hash = 2 [(buf.validate.field).bytes.len = 32];
 }

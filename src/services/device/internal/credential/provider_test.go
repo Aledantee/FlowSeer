@@ -244,7 +244,7 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 				_ = os.Symlink(attackerPath, symlinkStage)
 			} else {
 				_ = os.Rename(regularStage, credPath)
-				_ = os.WriteFile(regularStage, []byte(original), 0o600)
+				_ = os.WriteFile(regularStage, original, 0o600)
 			}
 			toggle = !toggle
 			time.Sleep(time.Microsecond)
@@ -273,7 +273,7 @@ func TestProviderConcurrentSwapNeverLeaksTheReplacedTarget(t *testing.T) {
 	// Leave the fixture in its regular-file state so the final assertion
 	// below observes a normal read.
 	_ = os.Remove(credPath)
-	if err := os.WriteFile(credPath, []byte(original), 0o600); err != nil {
+	if err := os.WriteFile(credPath, original, 0o600); err != nil {
 		t.Fatalf("restore credential file: %v", err)
 	}
 	got, err := p.Get(testKey, 1)

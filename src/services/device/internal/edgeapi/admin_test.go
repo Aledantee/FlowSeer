@@ -30,7 +30,9 @@ var setupKeyPattern = regexp.MustCompile(`^fse1_[a-z2-7]{26}_[a-z2-7]{52}$`)
 
 var testClock = time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 
-func newAdmin(t *testing.T) (*edgeapi.AdminService, *edgestore.Store) {
+// newHub starts the embedded hub the tests run against: it holds the edges
+// bucket and mints the bus credentials AttachBus returns, so neither is faked.
+func newHub(t *testing.T) *edgebus.Hub {
 	t.Helper()
 	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
 		StateDir:    t.TempDir(),
@@ -41,21 +43,35 @@ func newAdmin(t *testing.T) (*edgeapi.AdminService, *edgestore.Store) {
 		t.Fatalf("start hub: %v", err)
 	}
 	t.Cleanup(hub.Close)
+	return hub
+}
+
+func newStoreOver(t *testing.T, hub *edgebus.Hub) *edgestore.Store {
+	t.Helper()
 	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
 	if err != nil {
 		t.Fatalf("bucket: %v", err)
 	}
+	return edgestore.New(kv)
+}
 
-	store := edgestore.New(kv)
+func newAdminOver(t *testing.T, store *edgestore.Store, clock func() time.Time) *edgeapi.AdminService {
+	t.Helper()
 	anchor := make([]byte, 32)
 	admin, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{anchor},
-	}, func() time.Time { return testClock })
+	}, edgeapi.NewContact(0, 0), clock)
 	if err != nil {
 		t.Fatalf("NewAdminService: %v", err)
 	}
-	return admin, store
+	return admin
+}
+
+func newAdmin(t *testing.T) (*edgeapi.AdminService, *edgestore.Store) {
+	t.Helper()
+	store := newStoreOver(t, newHub(t))
+	return newAdminOver(t, store, func() time.Time { return testClock }), store
 }
 
 func createEdge(t *testing.T, admin *edgeapi.AdminService) (*edgev1.EdgeRecord, string) {
@@ -400,16 +416,16 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	store := edgestore.New(nil)
 	anchor := make([]byte, 32)
 
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{TrustAnchors: [][]byte{anchor}}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("a provisioning with no central url was accepted")
 	}
-	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, nil); err == nil {
+	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{CentralURL: "https://central.example.test"}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("a provisioning with no trust anchor was accepted")
 	}
 	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: [][]byte{make([]byte, 31)},
-	}, nil); err == nil {
+	}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("a trust anchor that is not a sha-256 digest was accepted")
 	}
 
@@ -420,7 +436,7 @@ func TestNewAdminServiceRefusesProvisioningAnEdgeCannotPin(t *testing.T) {
 	if _, err := edgeapi.NewAdminService(store, edgeapi.Provisioning{
 		CentralURL:   "https://central.example.test",
 		TrustAnchors: tooMany,
-	}, nil); err == nil {
+	}, edgeapi.NewContact(0, 0), nil); err == nil {
 		t.Error("more trust anchors than the schema allows were accepted")
 	}
 }

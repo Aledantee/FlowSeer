@@ -114,8 +114,11 @@ type StoredEdge_builder struct {
 
 	// Must be present.
 	Record *v1.EdgeRecord
-	// SHA-256 of the whole setup key string most recently issued. Unset
-	// means no key was issued or the key was consumed.
+	// SHA-256 of the whole setup key string most recently issued. It outlives
+	// the key's consumption, because a repeated enrollment must recognize the
+	// key it already consumed and answer with the same identity; it is cleared
+	// when the key is revoked or the edge retired. Unset means no key was
+	// issued, or the one issued was withdrawn.
 	SetupKeyHash []byte
 }
 

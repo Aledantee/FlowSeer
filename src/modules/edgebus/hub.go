@@ -613,9 +613,11 @@ func (l *quietLogger) lastError() string {
 	return l.last
 }
 
-func (*quietLogger) Noticef(string, ...any)              {}
-func (l *quietLogger) Warnf(format string, args ...any)  { l.record(slog.LevelWarn, format, args...) }
+func (*quietLogger) Noticef(string, ...any)             {}
+func (l *quietLogger) Warnf(format string, args ...any) { l.record(slog.LevelWarn, format, args...) }
+
 func (l *quietLogger) Fatalf(format string, args ...any) { l.record(slog.LevelError, format, args...) }
+
 func (l *quietLogger) Errorf(format string, args ...any) { l.record(slog.LevelError, format, args...) }
 func (*quietLogger) Debugf(string, ...any)               {}
 func (*quietLogger) Tracef(string, ...any)               {}

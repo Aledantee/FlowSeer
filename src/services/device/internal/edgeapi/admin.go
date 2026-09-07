@@ -72,14 +72,15 @@ type Provisioning struct {
 type AdminService struct {
 	store        *edgestore.Store
 	provisioning Provisioning
+	contact      Contact
 	clock        func() time.Time
 }
 
-// NewAdminService constructs the admin handler over the edge store and the
-// provisioning the deployment ships. A nil clock uses the wall clock. It
-// returns an error when the provisioning would produce an edge that pins
-// nothing or cannot find central.
-func NewAdminService(store *edgestore.Store, provisioning Provisioning, clock func() time.Time) (*AdminService, error) {
+// NewAdminService constructs the admin handler over the edge store, the
+// provisioning the deployment ships, and the contact derivation its reads
+// report. A nil clock uses the wall clock. It returns an error when the
+// provisioning would produce an edge that pins nothing or cannot find central.
+func NewAdminService(store *edgestore.Store, provisioning Provisioning, contact Contact, clock func() time.Time) (*AdminService, error) {
 	if provisioning.CentralURL == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("provisioning names no central url")
 	}
@@ -99,7 +100,7 @@ func NewAdminService(store *edgestore.Store, provisioning Provisioning, clock fu
 	if clock == nil {
 		clock = time.Now
 	}
-	return &AdminService{store: store, provisioning: provisioning, clock: clock}, nil
+	return &AdminService{store: store, provisioning: provisioning, contact: contact, clock: clock}, nil
 }
 
 // CreateEdge creates a pending edge and issues its first setup key. The key
@@ -148,7 +149,7 @@ func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edge
 	}
 
 	return connect.NewResponse(edgev1.CreateEdgeResponse_builder{
-		Edge:         stored.GetRecord(),
+		Edge:         s.reported(stored),
 		Provisioning: s.provisioningFor(key.str),
 	}.Build()), nil
 }
@@ -191,7 +192,7 @@ func (s *AdminService) IssueSetupKey(ctx context.Context, req *connect.Request[e
 	}
 
 	return connect.NewResponse(edgev1.IssueSetupKeyResponse_builder{
-		Edge:         stored.GetRecord(),
+		Edge:         s.reported(stored),
 		Provisioning: s.provisioningFor(key.str),
 	}.Build()), nil
 }
@@ -227,7 +228,7 @@ func (s *AdminService) RevokeSetupKey(ctx context.Context, req *connect.Request[
 		return nil, connectErr(err)
 	}
 
-	return connect.NewResponse(edgev1.RevokeSetupKeyResponse_builder{Edge: stored.GetRecord()}.Build()), nil
+	return connect.NewResponse(edgev1.RevokeSetupKeyResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
 // RetireEdge ends an edge's standing: its assertions are refused from the next
@@ -272,7 +273,7 @@ func (s *AdminService) RetireEdge(ctx context.Context, req *connect.Request[edge
 		}
 	}
 
-	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{Edge: stored.GetRecord()}.Build()), nil
+	return connect.NewResponse(edgev1.RetireEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
 // GetEdge returns one edge's record.
@@ -288,7 +289,7 @@ func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[edgev1.
 	if stored == nil {
 		return nil, connectErr(notFound(edgeID))
 	}
-	return connect.NewResponse(edgev1.GetEdgeResponse_builder{Edge: stored.GetRecord()}.Build()), nil
+	return connect.NewResponse(edgev1.GetEdgeResponse_builder{Edge: s.reported(stored)}.Build()), nil
 }
 
 // ListEdges returns one page of edges in ascending identifier order. The token
@@ -328,7 +329,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[edgev
 		if stored == nil {
 			continue // listed and then gone; the page is a snapshot, not a lock
 		}
-		edges = append(edges, stored.GetRecord())
+		edges = append(edges, s.reported(stored))
 	}
 
 	resp := edgev1.ListEdgesResponse_builder{Edges: edges}
@@ -336,6 +337,15 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[edgev
 		resp.NextPageToken = proto.String(encodePageToken(keys[len(keys)-1]))
 	}
 	return connect.NewResponse(resp.Build()), nil
+}
+
+// reported is one stored edge as the admin service returns it, with the
+// contact its last heartbeat implies rather than the one the record was last
+// written with.
+func (s *AdminService) reported(stored *storev1.StoredEdge) *edgev1.EdgeRecord {
+	record := stored.GetRecord()
+	s.contact.Apply(record, s.clock())
+	return record
 }
 
 // outstandingKeyID is the identifier of the key an edge can still enroll with,
@@ -449,22 +459,28 @@ func decodePageToken(token string) (string, error) {
 	return string(id), nil
 }
 
-// connectErr gives an admin failure the Connect code an operator's client
-// branches on. An unmapped code is Internal, so a new failure is never
-// mistaken for a request the operator can fix.
+// connectErr gives a failure the Connect code its caller branches on. An
+// unmapped code is Internal, so a new failure is never quietly mistaken for a
+// request the caller can fix.
+//
+// A refused setup key and a device the edge does not host are both
+// PermissionDenied and say no more, because the caller must not learn from the
+// code which of the several ways it failed.
 func connectErr(err error) error {
 	code, ok := errs.CodeOf(err)
 	if !ok {
 		return err
 	}
 	switch code {
-	case ErrCodeRequest, ErrCodePageToken:
+	case ErrCodeRequest, ErrCodePageToken, ErrCodeKeyProof:
 		return connect.NewError(connect.CodeInvalidArgument, err)
 	case ErrCodeNotFound:
 		return connect.NewError(connect.CodeNotFound, err)
-	case ErrCodeLifecycle, ErrCodeSetupKey:
+	case ErrCodeLifecycle, ErrCodeSetupKey, ErrCodePolicy:
 		return connect.NewError(connect.CodeFailedPrecondition, err)
-	case edgestore.ErrCodeConflict, edgestore.ErrCodeStore:
+	case ErrCodeSetupKeyRefused, ErrCodeForbidden:
+		return connect.NewError(connect.CodePermissionDenied, err)
+	case edgestore.ErrCodeConflict, edgestore.ErrCodeStore, ErrCodeBus:
 		return connect.NewError(connect.CodeUnavailable, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)

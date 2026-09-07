@@ -39,6 +39,7 @@ const (
 // and the forwarder ships.
 type OTelSignal string
 
+// The three OpenTelemetry signals, spelled as the subject token each takes.
 const (
 	SignalLogs    OTelSignal = "logs"
 	SignalMetrics OTelSignal = "metrics"
@@ -53,6 +54,18 @@ func EdgeSubtree(tenant, edgeID string) string {
 // OTelSubject is where an edge publishes one signal's OTLP bodies.
 func OTelSubject(tenant, edgeID string, signal OTelSignal) string {
 	return EdgeSubtree(tenant, edgeID) + ".otel." + string(signal)
+}
+
+// EdgePublishSubjects maps the logical names an edge's leaf node knows to the
+// concrete subjects it publishes on. The vocabulary lives here because the
+// module that builds the leaf node owns it; AttachBus hands the map on
+// unchanged and chooses none of it.
+func EdgePublishSubjects(tenant, edgeID string) map[string]string {
+	subjects := make(map[string]string, 3)
+	for _, signal := range []OTelSignal{SignalLogs, SignalMetrics, SignalTraces} {
+		subjects["otel."+string(signal)] = OTelSubject(tenant, edgeID, signal)
+	}
+	return subjects
 }
 
 // AuditSubject is where central writes the audit record of one device.

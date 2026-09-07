@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"strings"
 
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 )
@@ -39,17 +40,41 @@ var ErrCodeNoEdge = errs.NewCode("edgeapi/no-edge")
 // submission-open message.
 const defaultMaxBody = 1 << 20
 
-type edgeIDKey struct{}
+type assertionKey struct{}
 
 // EdgeIDFromContext returns the verified edge id the middleware placed in ctx.
 // The dispatch relay's EdgeID hook and the audit handler's binding read the
 // calling edge through it.
 func EdgeIDFromContext(ctx context.Context) (string, error) {
-	id, ok := ctx.Value(edgeIDKey{}).(string)
-	if !ok || id == "" {
-		return "", errs.New().Code(ErrCodeNoEdge).Msg("request context carries no verified edge")
+	assertion, err := assertionFromContext(ctx)
+	if err != nil {
+		return "", err
+	}
+	id := assertion.GetEdge().GetEdge().GetId()
+	if id == "" {
+		return "", errs.New().Code(ErrCodeNoEdge).Msg("verified assertion names no edge")
 	}
 	return id, nil
+}
+
+// AssertionNonceFromContext returns the nonce of the verified assertion that
+// authorized this call. Rekey binds its key proof to it, so the proof cannot be
+// replayed onto a different call; the verifier has already refused a nonce seen
+// twice within its window.
+func AssertionNonceFromContext(ctx context.Context) ([]byte, error) {
+	assertion, err := assertionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return assertion.GetNonce(), nil
+}
+
+func assertionFromContext(ctx context.Context) (*edgev1.EdgeAssertion, error) {
+	assertion, ok := ctx.Value(assertionKey{}).(*edgev1.EdgeAssertion)
+	if !ok || assertion == nil {
+		return nil, errs.New().Code(ErrCodeNoEdge).Msg("request context carries no verified edge")
+	}
+	return assertion, nil
 }
 
 // Middleware verifies the assertion on every wrapped call.
@@ -104,10 +129,11 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		}
 
 		// Restore the body for the inner handler, which reads it fresh, and
-		// hand the verified edge id down for the binding checks.
+		// hand the verified assertion down: the binding checks read its edge,
+		// and Rekey reads its nonce.
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		r.ContentLength = int64(len(body))
-		ctx := context.WithValue(r.Context(), edgeIDKey{}, assertion.GetEdge().GetEdge().GetId())
+		ctx := context.WithValue(r.Context(), assertionKey{}, assertion)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
