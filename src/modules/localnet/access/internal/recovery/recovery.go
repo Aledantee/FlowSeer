@@ -28,6 +28,10 @@ const (
 	// OutcomeAbandoned means the Machine has been transitioned to
 	// ABANDONED; no further attempt should be made.
 	OutcomeAbandoned
+	// OutcomeVerified means this poll's observation shows the mutation
+	// applied after all. The caller marks it verified and waits for
+	// central's acknowledgement; no further attempt should be made.
+	OutcomeVerified
 )
 
 // String returns the outcome's name for logging and diagnostics.
@@ -39,6 +43,8 @@ func (o Outcome) String() string {
 		return "retry"
 	case OutcomeAbandoned:
 		return "abandoned"
+	case OutcomeVerified:
+		return "verified"
 	default:
 		return "unspecified"
 	}
@@ -84,13 +90,21 @@ func New(machine *mutation.Machine, fenced Fenced, horizon interfaces.DelayedEff
 // baseline "unchanged" corroboration compares against. since is when the
 // mutation was submitted, the horizon's start.
 //
-// The horizon is checked before the fence: once it has elapsed, Attempt
-// abandons regardless of a fence's answer, so a Fenced implementation that
-// stays true forever cannot keep authorizing retries past the horizon with
-// no bound at all. A fence-authorized or corroboration-authorized retry
-// resets the corroboration counter, so "two corroborating observations"
-// authorizes exactly one retry, never an unbounded stream of them for the
-// remaining horizon.
+// Verification is decided before the horizon, and the horizon before the
+// fence. The first ordering is the one that matters: a poll whose
+// observation shows the mutation applied has answered the question recovery
+// was asking, and abandoning it because that poll happened to be the one
+// that crossed the horizon would record a device as indeterminate while
+// holding the evidence that it is not. The horizon bounds how long we go on
+// not knowing, not what we do when we find out.
+//
+// The horizon is checked before the fence so that once it has elapsed,
+// Attempt abandons regardless of a fence's answer: a Fenced implementation
+// that stays true forever cannot keep authorizing retries past the horizon
+// with no bound at all. A fence-authorized or corroboration-authorized
+// retry resets the corroboration counter, so "two corroborating
+// observations" authorizes exactly one retry, never an unbounded stream of
+// them for the remaining horizon.
 func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *accessv1.InterfaceObservation) (Outcome, *accessv1.InterfaceObservation, error) {
 	obs, observeErr := r.machine.Observe(ctx)
 	now := r.clock()
@@ -108,6 +122,16 @@ func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *acce
 		}
 	default:
 		r.corroborations = 0
+	}
+
+	if observeErr == nil {
+		disposition, compareErr := r.machine.Compare(ctx, nil)
+		if compareErr != nil {
+			return 0, obs, compareErr
+		}
+		if disposition == accessv1.Disposition_DISPOSITION_VERIFIED {
+			return OutcomeVerified, obs, nil
+		}
 	}
 
 	if !r.horizon.WithinHorizon(since, now) {

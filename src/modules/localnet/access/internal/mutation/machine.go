@@ -101,6 +101,13 @@ type Machine struct {
 	// audit delivery resumes the same one.
 	verified   bool
 	abandoning bool
+	// inRecovery is set while this mutation is being polled by recovery,
+	// and is what makes an observation record-free. It is not the same as
+	// "phase is RECOVERING": a retry moves the phase to POSSIBLY_APPLIED
+	// and the mutation is still in recovery, and that is exactly the window
+	// where a phase-based test would start emitting a record per poll
+	// again.
+	inRecovery bool
 	// cancelWaits cancels the context [Machine.Execute] runs its waits
 	// under, and is nil whenever Execute is not parked in one.
 	cancelWaits context.CancelFunc
@@ -503,26 +510,39 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 			Msg("observe is only valid from POSSIBLY_APPLIED, RECOVERING, or ADMITTED for a read")
 	}
 
-	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_OBSERVING); err != nil {
-		return nil, err
+	m.mu.Lock()
+	recovering := m.inRecovery
+	m.mu.Unlock()
+
+	if !recovering {
+		if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_OBSERVING); err != nil {
+			return nil, err
+		}
 	}
 
 	obs, readErr := m.deps.Read(ctx)
 
-	// A recovery re-observation returns to RECOVERING rather than staying
-	// at OBSERVING, since OBSERVING is the transient sub-state of one
-	// observation attempt and RECOVERING is where a mutation rests between
-	// them — and it does so whether or not the read succeeded. A device
-	// that is still unreachable (the exact case recovery exists for) must
-	// leave the phase somewhere Observe can be called from again; leaving
-	// it stuck at OBSERVING on a read error would permanently wedge the
-	// mutation there, since OBSERVING is not itself a valid source phase
-	// for a later Observe call, and the horizon check that would abandon
-	// it never runs.
-	if phase == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
-		if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
-			return nil, err
-		}
+	if recovering {
+		// A recovery observation emits no audit record and leaves the
+		// mutation at RECOVERING, which is where it rests between polls.
+		//
+		// No record, because recovery polls every RecoveryPollInterval for
+		// up to the whole horizon: recording the OBSERVING and RECOVERING
+		// transitions would put two records per poll into a durable stream
+		// whose readers are asking what happened to the device, and bury
+		// the RecoveryStarted and the terminal record that answer them
+		// under hundreds that do not. The phase is set directly here for
+		// the same reason — there is no record for it to follow.
+		//
+		// Set rather than left alone, because a retry moves the phase to
+		// POSSIBLY_APPLIED and the next poll's Observe must still leave the
+		// mutation somewhere a later Observe and Compare can be called
+		// from. Leaving it stuck at OBSERVING on a read error would wedge
+		// the mutation, since OBSERVING is not a valid source phase for
+		// either.
+		m.mu.Lock()
+		m.phase = accessv1.OperationPhase_OPERATION_PHASE_RECOVERING
+		m.mu.Unlock()
 	}
 
 	if readErr != nil {
@@ -570,7 +590,10 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 // has no intent to compare against and always reports DISPOSITION_UNSPECIFIED
 // with a nil error: its own observation is the result.
 func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObservation) (accessv1.Disposition, error) {
-	if err := m.requireAnyPhase("Compare", accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
+	if err := m.requireAnyPhase("Compare",
+		accessv1.OperationPhase_OPERATION_PHASE_OBSERVING,
+		accessv1.OperationPhase_OPERATION_PHASE_RECOVERING,
+	); err != nil {
 		return accessv1.Disposition_DISPOSITION_UNSPECIFIED, err
 	}
 
@@ -620,6 +643,10 @@ func (m *Machine) MarkVerified(ctx context.Context) error {
 		return err
 	}
 
+	m.mu.Lock()
+	m.inRecovery = false
+	m.mu.Unlock()
+
 	// disposition is not set here: MutationState.disposition_matches_phase
 	// requires it set only while the phase is ACKNOWLEDGED, RELEASED, or
 	// ABANDONED, and VERIFIED is none of those. [Machine.Acknowledge] sets
@@ -649,9 +676,35 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 		return err
 	}
 
+	m.mu.Lock()
+	m.inRecovery = true
+	m.mu.Unlock()
+
 	m.deps.Telemetry.RecoveryStarted(ctx)
 	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common(ctx))
 	return m.deps.Audit.Emit(ctx, event)
+}
+
+// Retry returns a mutation in recovery to POSSIBLY_APPLIED so its command
+// can be sent again, and is the one step of a recovery poll that is
+// recorded: exactly one PhaseTransitioned, because resending a command to a
+// device is a real event and the observations around it are not.
+//
+// The submit latch is deliberately not reset. submitted stays true because
+// the command did go out, once, and a REJECTED acknowledgement offered
+// during a retry must still be refused — the device may already hold the
+// change whether or not this attempt succeeds.
+func (m *Machine) Retry(ctx context.Context) error {
+	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_RECOVERING, "Retry"); err != nil {
+		return err
+	}
+	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	m.inRecovery = true
+	m.mu.Unlock()
+	return nil
 }
 
 // Abandon ends recovery in ABANDONED with disposition
@@ -687,6 +740,7 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	m.mu.Lock()
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 	m.disposition = accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED
+	m.inRecovery = false
 	m.closeDoneLocked()
 	m.mu.Unlock()
 
