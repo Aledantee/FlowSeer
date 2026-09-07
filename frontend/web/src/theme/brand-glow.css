@@ -1,4 +1,6 @@
-.brand-glow {
+.brand-glow,
+.main-shell::before,
+.sidebar-toggle::before {
   --glow-base: var(--chrome, #191b1e);
   --glow-teal: var(--cyan, #5ecad8);
   --glow-orange: var(--coral, #ff451d);
@@ -46,6 +48,8 @@
   background-repeat: no-repeat;
 }
 
-:root:not([data-theme='dark']) .brand-glow {
+:root:not([data-theme='dark']) .brand-glow,
+:root:not([data-theme='dark']) .main-shell::before,
+:root:not([data-theme='dark']) .sidebar-toggle::before {
   --glow-strength: 13%;
 }

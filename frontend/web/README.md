@@ -24,14 +24,15 @@ The Devices page supports search, status filters, name sorting, an attention vie
 and a keyboard-accessible details dialog. Sites opens the inventory for a location.
 Topology illustrates connections and opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
-A glass arrow button near the top of the sidebar edge collapses navigation to
-icons on desktop. Tenant icons occupy a fixed slot beside the name; missing or
+A curved tab midway down the sidebar edge collapses navigation to icons on
+desktop. Tenant icons occupy a fixed slot beside the name; missing or
 failed images use a building icon. The collapsed rail centers the icon and keeps
 the full tenant name in its accessible label and tooltip. Its width is 72px.
 On small screens, the arrow sits beside the tenant selector and hides or reveals
 the navigation links above the content; tenant context stays visible.
 
-The sidebar and top bar share translucent diagonal ribbons with fine highlights.
+The sidebar, curved tab, and rounded inner corner share the top bar’s diagonal
+ribbons and fine highlights, forming one continuous navigation frame.
 The top bar blurs content scrolling beneath it. Both themes retain a tinted base
 so controls remain readable when backdrop blur is unavailable.
 
