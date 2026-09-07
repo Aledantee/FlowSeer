@@ -50,6 +50,23 @@ type busResources struct {
 // strategy is load-bearing, not a default, and withdraw below is what makes
 // the next generation's waiters block for the new hub rather than take the old
 // one.
+//
+// What makes the swap safe today is narrower than it looks, and an earlier
+// version of this comment gave the wrong reason — that a failed Setup is
+// retried. It is not that. A hub attempt that has published can only end
+// through supervisor cancellation: its runner returns solely on ctx.Done, and
+// the service declares no message bus, so there is no delivery goroutine that
+// could end the attempt on its own. Cancellation reaches the dependents first,
+// because RestForOne quiesces every module after the hub before the hub's own
+// replacement starts. So no dependent is ever running against a withdrawn
+// generation.
+//
+// The distinction matters to whoever changes the runtime next. "A failed Setup
+// is retried" would still be true of a runtime where a module could end its
+// own attempt, and that runtime would break this — a hub whose runner returned
+// for its own reasons would withdraw while its dependents were mid-write. A
+// true conclusion from a false reason is worse than no comment, because the
+// person checking whether their change is safe checks the reason.
 type hubHandle struct {
 	mu      sync.Mutex
 	ready   chan struct{}

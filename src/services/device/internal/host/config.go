@@ -9,6 +9,7 @@
 package host
 
 import (
+	"log/slog"
 	"os"
 	"time"
 
@@ -70,6 +71,25 @@ func parseConfig(data []byte, path string) (*Config, error) {
 // StateDir is the directory the service owns: the bus store, the keys it mints
 // accounts with, and the certificate it serves.
 func (c *Config) StateDir() string { return c.msg.GetStateDir() }
+
+// LogLevel is how much this deployment wants written locally. Unset is INFO,
+// which is what the observability convention calls the production default;
+// DEBUG is what an engineer raises it to during an incident to see the
+// per-call reason behind a refusal.
+func (c *Config) LogLevel() slog.Level {
+	switch c.msg.GetLogLevel() {
+	case storev1.LogLevel_LOG_LEVEL_DEBUG:
+		return slog.LevelDebug
+	case storev1.LogLevel_LOG_LEVEL_WARN:
+		return slog.LevelWarn
+	case storev1.LogLevel_LOG_LEVEL_ERROR:
+		return slog.LevelError
+	case storev1.LogLevel_LOG_LEVEL_UNSPECIFIED, storev1.LogLevel_LOG_LEVEL_INFO:
+		return slog.LevelInfo
+	default:
+		return slog.LevelInfo
+	}
+}
 
 // RegistryPath is the prototext registry file.
 func (c *Config) RegistryPath() string { return c.msg.GetRegistryPath() }

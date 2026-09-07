@@ -55,6 +55,30 @@ message DeviceServiceConfig {
   ServiceTelemetry telemetry = 6;
   // Intervals for the background work. Unset takes every default.
   ServiceIntervals intervals = 7;
+  // How much the service logs locally. Unset is INFO.
+  //
+  // A deployment raises this to DEBUG to see the per-call detail behind a
+  // refusal: the interceptor grades a refused call's reason at DEBUG on the
+  // argument that an operator can turn it on when they need it, which is
+  // only true if there is something to turn.
+  LogLevel log_level = 8;
+}
+
+// The local log level, matching slog's own levels. This governs what the
+// service writes to its own output; what it exports to a collector is the
+// telemetry pipeline's concern, not this field's.
+enum LogLevel {
+  // Unset. Treated as LOG_LEVEL_INFO.
+  LOG_LEVEL_UNSPECIFIED = 0;
+  // Detailed diagnosis, protocol decisions, and normal high-volume
+  // occurrences, including the reason behind every refused call.
+  LOG_LEVEL_DEBUG = 1;
+  // Lifecycle and operator-relevant state changes. The default.
+  LOG_LEVEL_INFO = 2;
+  // Unexpected behaviour that was handled.
+  LOG_LEVEL_WARN = 3;
+  // An owned operation failed and was abandoned.
+  LOG_LEVEL_ERROR = 4;
 }
 
 // The two addresses the service binds: one for the APIs, one for the leaf

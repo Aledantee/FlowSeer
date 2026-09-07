@@ -25,6 +25,65 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// The local log level, matching slog's own levels. This governs what the
+// service writes to its own output; what it exports to a collector is the
+// telemetry pipeline's concern, not this field's.
+type LogLevel int32
+
+const (
+	// Unset. Treated as LOG_LEVEL_INFO.
+	LogLevel_LOG_LEVEL_UNSPECIFIED LogLevel = 0
+	// Detailed diagnosis, protocol decisions, and normal high-volume
+	// occurrences, including the reason behind every refused call.
+	LogLevel_LOG_LEVEL_DEBUG LogLevel = 1
+	// Lifecycle and operator-relevant state changes. The default.
+	LogLevel_LOG_LEVEL_INFO LogLevel = 2
+	// Unexpected behaviour that was handled.
+	LogLevel_LOG_LEVEL_WARN LogLevel = 3
+	// An owned operation failed and was abandoned.
+	LogLevel_LOG_LEVEL_ERROR LogLevel = 4
+)
+
+// Enum value maps for LogLevel.
+var (
+	LogLevel_name = map[int32]string{
+		0: "LOG_LEVEL_UNSPECIFIED",
+		1: "LOG_LEVEL_DEBUG",
+		2: "LOG_LEVEL_INFO",
+		3: "LOG_LEVEL_WARN",
+		4: "LOG_LEVEL_ERROR",
+	}
+	LogLevel_value = map[string]int32{
+		"LOG_LEVEL_UNSPECIFIED": 0,
+		"LOG_LEVEL_DEBUG":       1,
+		"LOG_LEVEL_INFO":        2,
+		"LOG_LEVEL_WARN":        3,
+		"LOG_LEVEL_ERROR":       4,
+	}
+)
+
+func (x LogLevel) Enum() *LogLevel {
+	p := new(LogLevel)
+	*p = x
+	return p
+}
+
+func (x LogLevel) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (LogLevel) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_store_device_v1_service_config_proto_enumTypes[0].Descriptor()
+}
+
+func (LogLevel) Type() protoreflect.EnumType {
+	return &file_flowseer_store_device_v1_service_config_proto_enumTypes[0]
+}
+
+func (x LogLevel) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // Everything the device service host needs to assemble itself: where its
 // state lives, what it listens on, what an edge is told, and the intervals
 // its background work runs at.
@@ -47,6 +106,7 @@ type DeviceServiceConfig struct {
 	xxx_hidden_Edges          *EdgeProvisioning      `protobuf:"bytes,5,opt,name=edges"`
 	xxx_hidden_Telemetry      *ServiceTelemetry      `protobuf:"bytes,6,opt,name=telemetry"`
 	xxx_hidden_Intervals      *ServiceIntervals      `protobuf:"bytes,7,opt,name=intervals"`
+	xxx_hidden_LogLevel       LogLevel               `protobuf:"varint,8,opt,name=log_level,json=logLevel,enum=flowseer.store.device.v1.LogLevel"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -136,19 +196,28 @@ func (x *DeviceServiceConfig) GetIntervals() *ServiceIntervals {
 	return nil
 }
 
+func (x *DeviceServiceConfig) GetLogLevel() LogLevel {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 7) {
+			return x.xxx_hidden_LogLevel
+		}
+	}
+	return LogLevel_LOG_LEVEL_UNSPECIFIED
+}
+
 func (x *DeviceServiceConfig) SetStateDir(v string) {
 	x.xxx_hidden_StateDir = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 8)
 }
 
 func (x *DeviceServiceConfig) SetRegistryPath(v string) {
 	x.xxx_hidden_RegistryPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
 }
 
 func (x *DeviceServiceConfig) SetCredentialRoot(v string) {
 	x.xxx_hidden_CredentialRoot = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
 }
 
 func (x *DeviceServiceConfig) SetListeners(v *ServiceListeners) {
@@ -165,6 +234,11 @@ func (x *DeviceServiceConfig) SetTelemetry(v *ServiceTelemetry) {
 
 func (x *DeviceServiceConfig) SetIntervals(v *ServiceIntervals) {
 	x.xxx_hidden_Intervals = v
+}
+
+func (x *DeviceServiceConfig) SetLogLevel(v LogLevel) {
+	x.xxx_hidden_LogLevel = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 8)
 }
 
 func (x *DeviceServiceConfig) HasStateDir() bool {
@@ -216,6 +290,13 @@ func (x *DeviceServiceConfig) HasIntervals() bool {
 	return x.xxx_hidden_Intervals != nil
 }
 
+func (x *DeviceServiceConfig) HasLogLevel() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
 func (x *DeviceServiceConfig) ClearStateDir() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_StateDir = nil
@@ -247,6 +328,11 @@ func (x *DeviceServiceConfig) ClearIntervals() {
 	x.xxx_hidden_Intervals = nil
 }
 
+func (x *DeviceServiceConfig) ClearLogLevel() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_LogLevel = LogLevel_LOG_LEVEL_UNSPECIFIED
+}
+
 type DeviceServiceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -270,6 +356,13 @@ type DeviceServiceConfig_builder struct {
 	Telemetry *ServiceTelemetry
 	// Intervals for the background work. Unset takes every default.
 	Intervals *ServiceIntervals
+	// How much the service logs locally. Unset is INFO.
+	//
+	// A deployment raises this to DEBUG to see the per-call detail behind a
+	// refusal: the interceptor grades a refused call's reason at DEBUG on the
+	// argument that an operator can turn it on when they need it, which is
+	// only true if there is something to turn.
+	LogLevel *LogLevel
 }
 
 func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
@@ -277,21 +370,25 @@ func (b0 DeviceServiceConfig_builder) Build() *DeviceServiceConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.StateDir != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 8)
 		x.xxx_hidden_StateDir = b.StateDir
 	}
 	if b.RegistryPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
 		x.xxx_hidden_RegistryPath = b.RegistryPath
 	}
 	if b.CredentialRoot != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
 		x.xxx_hidden_CredentialRoot = b.CredentialRoot
 	}
 	x.xxx_hidden_Listeners = b.Listeners
 	x.xxx_hidden_Edges = b.Edges
 	x.xxx_hidden_Telemetry = b.Telemetry
 	x.xxx_hidden_Intervals = b.Intervals
+	if b.LogLevel != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 8)
+		x.xxx_hidden_LogLevel = *b.LogLevel
+	}
 	return m0
 }
 
@@ -981,7 +1078,7 @@ var File_flowseer_store_device_v1_service_config_proto protoreflect.FileDescript
 
 const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xe1\x03\n" +
+	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xa2\x04\n" +
 	"\x13DeviceServiceConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x122\n" +
 	"\rregistry_path\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -990,7 +1087,8 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\tlisteners\x18\x04 \x01(\v2*.flowseer.store.device.v1.ServiceListenersB\x06\xbaH\x03\xc8\x01\x01R\tlisteners\x12H\n" +
 	"\x05edges\x18\x05 \x01(\v2*.flowseer.store.device.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\x05edges\x12H\n" +
 	"\ttelemetry\x18\x06 \x01(\v2*.flowseer.store.device.v1.ServiceTelemetryR\ttelemetry\x12H\n" +
-	"\tintervals\x18\a \x01(\v2*.flowseer.store.device.v1.ServiceIntervalsR\tintervals\"\xe6\x02\n" +
+	"\tintervals\x18\a \x01(\v2*.flowseer.store.device.v1.ServiceIntervalsR\tintervals\x12?\n" +
+	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\"\xe6\x02\n" +
 	"\x10ServiceListeners\x12\x1f\n" +
 	"\x03api\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x03\x18\x80\x02R\x03api\x12\x1f\n" +
@@ -1027,38 +1125,47 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x10edge_stale_after\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x0eedgeStaleAfter\x12S\n" +
 	"\x12edge_dormant_after\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x10edgeDormantAfterB\x83\x02\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x10edgeDormantAfter*w\n" +
+	"\bLogLevel\x12\x19\n" +
+	"\x15LOG_LEVEL_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fLOG_LEVEL_DEBUG\x10\x01\x12\x12\n" +
+	"\x0eLOG_LEVEL_INFO\x10\x02\x12\x12\n" +
+	"\x0eLOG_LEVEL_WARN\x10\x03\x12\x13\n" +
+	"\x0fLOG_LEVEL_ERROR\x10\x04B\x83\x02\n" +
 	"\x1ccom.flowseer.store.device.v1B\x12ServiceConfigProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1;devicev1\xa2\x02\x03FSD\xaa\x02\x18Flowseer.Store.Device.V1\xca\x02\x18Flowseer\\Store\\Device\\V1\xe2\x02$Flowseer\\Store\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Store::Device::V1b\beditionsp\xe9\a"
 
+var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_store_device_v1_service_config_proto_goTypes = []any{
-	(*DeviceServiceConfig)(nil), // 0: flowseer.store.device.v1.DeviceServiceConfig
-	(*ServiceListeners)(nil),    // 1: flowseer.store.device.v1.ServiceListeners
-	(*EdgeProvisioning)(nil),    // 2: flowseer.store.device.v1.EdgeProvisioning
-	(*ServiceTelemetry)(nil),    // 3: flowseer.store.device.v1.ServiceTelemetry
-	(*ServiceIntervals)(nil),    // 4: flowseer.store.device.v1.ServiceIntervals
-	nil,                         // 5: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	(*durationpb.Duration)(nil), // 6: google.protobuf.Duration
+	(LogLevel)(0),               // 0: flowseer.store.device.v1.LogLevel
+	(*DeviceServiceConfig)(nil), // 1: flowseer.store.device.v1.DeviceServiceConfig
+	(*ServiceListeners)(nil),    // 2: flowseer.store.device.v1.ServiceListeners
+	(*EdgeProvisioning)(nil),    // 3: flowseer.store.device.v1.EdgeProvisioning
+	(*ServiceTelemetry)(nil),    // 4: flowseer.store.device.v1.ServiceTelemetry
+	(*ServiceIntervals)(nil),    // 5: flowseer.store.device.v1.ServiceIntervals
+	nil,                         // 6: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	(*durationpb.Duration)(nil), // 7: google.protobuf.Duration
 }
 var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
-	1,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
-	2,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeProvisioning
-	3,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
-	4,  // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
-	6,  // 4: flowseer.store.device.v1.EdgeProvisioning.assertion_clock_skew:type_name -> google.protobuf.Duration
-	5,  // 5: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	6,  // 6: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
-	6,  // 7: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
-	6,  // 8: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
-	6,  // 9: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
-	6,  // 10: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
-	6,  // 11: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
-	6,  // 12: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	2,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
+	3,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeProvisioning
+	4,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
+	5,  // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
+	0,  // 4: flowseer.store.device.v1.DeviceServiceConfig.log_level:type_name -> flowseer.store.device.v1.LogLevel
+	7,  // 5: flowseer.store.device.v1.EdgeProvisioning.assertion_clock_skew:type_name -> google.protobuf.Duration
+	6,  // 6: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	7,  // 7: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
+	7,  // 8: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration
+	7,  // 9: flowseer.store.device.v1.ServiceIntervals.dispatch_resend:type_name -> google.protobuf.Duration
+	7,  // 10: flowseer.store.device.v1.ServiceIntervals.read_sweep:type_name -> google.protobuf.Duration
+	7,  // 11: flowseer.store.device.v1.ServiceIntervals.submission_pulse:type_name -> google.protobuf.Duration
+	7,  // 12: flowseer.store.device.v1.ServiceIntervals.edge_stale_after:type_name -> google.protobuf.Duration
+	7,  // 13: flowseer.store.device.v1.ServiceIntervals.edge_dormant_after:type_name -> google.protobuf.Duration
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_device_v1_service_config_proto_init() }
@@ -1071,13 +1178,14 @@ func file_flowseer_store_device_v1_service_config_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_device_v1_service_config_proto_rawDesc), len(file_flowseer_store_device_v1_service_config_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_store_device_v1_service_config_proto_goTypes,
 		DependencyIndexes: file_flowseer_store_device_v1_service_config_proto_depIdxs,
+		EnumInfos:         file_flowseer_store_device_v1_service_config_proto_enumTypes,
 		MessageInfos:      file_flowseer_store_device_v1_service_config_proto_msgTypes,
 	}.Build()
 	File_flowseer_store_device_v1_service_config_proto = out.File

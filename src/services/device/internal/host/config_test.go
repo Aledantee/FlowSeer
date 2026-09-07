@@ -1,6 +1,7 @@
 package host_test
 
 import (
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,5 +144,34 @@ func TestLoadConfigReportsAMissingFile(t *testing.T) {
 	_, err := host.LoadConfig(filepath.Join(t.TempDir(), "absent.textproto"))
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigLoad {
 		t.Fatalf("error = %v, want code %v", err, host.ErrCodeConfigLoad)
+	}
+}
+
+// TestLogLevelIsConfigurable covers the field the interceptor's DEBUG
+// grading depends on. Refusals are logged at DEBUG on the argument that an
+// operator can raise the level when they need the detail; with the level
+// hard-coded to INFO that argument was false, and the per-refusal reason an
+// engineer wants during an incident could not be turned on at all.
+func TestLogLevelIsConfigurable(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		line string
+		want slog.Level
+	}{
+		{"unset is info", "", slog.LevelInfo},
+		{"explicit info", "log_level: LOG_LEVEL_INFO\n", slog.LevelInfo},
+		{"debug", "log_level: LOG_LEVEL_DEBUG\n", slog.LevelDebug},
+		{"warn", "log_level: LOG_LEVEL_WARN\n", slog.LevelWarn},
+		{"error", "log_level: LOG_LEVEL_ERROR\n", slog.LevelError},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := host.LoadConfig(writeConfig(t, validConfig+tc.line))
+			if err != nil {
+				t.Fatalf("LoadConfig: %v", err)
+			}
+			if got := cfg.LogLevel(); got != tc.want {
+				t.Errorf("LogLevel() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

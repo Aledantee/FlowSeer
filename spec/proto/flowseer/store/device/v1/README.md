@@ -84,9 +84,15 @@ telemetry { endpoint: "https://collector.example.test" }
 ```
 
 That file names no certificate, so the service generates a self-signed pair
-into `state_dir` on first start and prints the digest an edge pins. A
-deployment with its own chain names `certificate_file` and `private_key_file`
-instead, and the two are named together or not at all.
+into `state_dir` on first start — creating the directory if it is not there
+— and prints the digest an edge pins. A deployment with its own chain names
+`certificate_file` and `private_key_file` instead, and the two are named
+together or not at all.
+
+`log_level` is unset above, which is `INFO`. Raise it to `LOG_LEVEL_DEBUG`
+to get the reason behind every refused call: the request interceptor grades
+refusals at DEBUG precisely so an incident can turn them on, and before this
+field existed there was no way to.
 
 ## What is deliberately absent
 

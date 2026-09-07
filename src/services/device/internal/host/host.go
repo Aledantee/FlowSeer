@@ -51,7 +51,11 @@ func Run(ctx context.Context, cfg *Config, version string) error {
 		return errs.New().Code(ErrCodeStart).Msg("the service was given no configuration")
 	}
 
-	base := slog.New(slog.NewJSONHandler(newStderr(), &slog.HandlerOptions{Level: slog.LevelInfo}))
+	// From configuration, not hard-coded: the request interceptor grades a
+	// refused call's reason at DEBUG on the argument that an operator can
+	// raise the level when they need the detail, and that argument only
+	// holds if raising it is possible without a rebuild.
+	base := slog.New(slog.NewJSONHandler(newStderr(), &slog.HandlerOptions{Level: cfg.LogLevel()}))
 	reg, err := registry.Load(cfg.RegistryPath())
 	if err != nil {
 		return err
@@ -145,6 +149,25 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	}
 	h.hub.publish(resources)
 
+	// The runtime does not guarantee the Runner below ever runs: it
+	// re-checks the coordinator after Setup returns, and a module context
+	// canceled while Setup was in flight ends the attempt without calling
+	// it. StartHub generating keys and initializing JetStream is the
+	// slowest thing in startup, so that window is reachable — and an
+	// attempt that ended there would leave the embedded server, its
+	// WebSocket listener and its JetStream store running, with the handle
+	// still pointing at a live generation nobody owns.
+	//
+	// This narrows the window rather than closing it: cancellation between
+	// this check and the runtime's own leaves the same leak. Closing it
+	// needs a cleanup hook on service.Attempt, whose lifetime contract this
+	// Setup does not currently satisfy, and that is a runtime change.
+	if err := ctx.Err(); err != nil {
+		h.hub.withdraw()
+		hub.Close()
+		return service.Attempt{}, err
+	}
+
 	return service.Attempt{Runner: func(ctx context.Context) error {
 		<-ctx.Done()
 		// Withdraw before closing, so a module starting in the gap waits for
@@ -201,6 +224,13 @@ func (h *assembly) setupForwarder(ctx context.Context) (service.Attempt, error) 
 		MeterProvider: service.MeterProvider(ctx),
 	})
 	if err != nil {
+		return service.Attempt{}, err
+	}
+	// See setupHub: the Runner is not guaranteed to run, so an attempt
+	// canceled during Setup would leave this forwarder's goroutines and
+	// its subscription behind.
+	if err := ctx.Err(); err != nil {
+		forwarder.Close()
 		return service.Attempt{}, err
 	}
 
