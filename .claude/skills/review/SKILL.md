@@ -1,7 +1,7 @@
 ---
 name: review
-description: Review a FlowSeer change (working tree, branch, commit, or paths) for correctness, regressions, missing tests, and violations of the repository conventions, and report verified findings by severity. Use when asked to review code, check a diff, or judge a change before commit. Report-only unless the user asks to apply fixes.
-argument-hint: "[base ref | commit | paths]"
+description: Review a FlowSeer change (working tree, branch, commit, or paths) or a named subject (a package, a mechanism, a contract, a concern crossing packages) for correctness, regressions, missing tests, and violations of the repository conventions, and report verified findings by severity. Use when asked to review code, check a diff, judge a change before commit, or audit standing code; a subject spanning several units is reviewed unit by unit in parallel, then at its seams. Report-only unless the user asks to apply fixes.
+argument-hint: "[base ref | commit | paths | subject]"
 ---
 
 # Review a FlowSeer change
@@ -14,9 +14,26 @@ argument-hint: "[base ref | commit | paths]"
 | a base ref or "the branch" | `git diff <base>...HEAD` |
 | a commit | `git show <sha>` |
 | paths | those files, whole |
+| a subject: a package, a mechanism, a contract, a concern that crosses packages | the code that subject reaches, resolved below |
 
 List the changed files. Read the intended behavior from the plan under
 `docs/plans/`, the commit message, or the user's words.
+
+A subject has no diff, and the questions change with it. Nothing is new, so a
+problem that predates today is a finding rather than a footnote: the reason to
+review a subject is that the standing code is in doubt, not a change to it. Take
+the specification from the `docs/architecture/` record, the convention doc, the
+package README, or the user's sentence. Where the subject has none, say so in
+the report rather than inventing one.
+
+Resolve the subject to a file set first, with `Explore` when it names a concept
+instead of a directory. Then decide whether that set is one unit or several. A
+unit is a body of code one reader holds at once: a package with its tests and
+README, or one side of a contract. Split when the subject spans packages a
+single reader would end up skimming, when it crosses a generated boundary, or
+when it runs past roughly 1,500 lines. Name the units and the seams between them
+in the report, because a wrong decomposition is the likeliest way this scope
+misses something.
 
 ## 2. Load the applicable rules
 
@@ -44,6 +61,40 @@ One reviewer covers about 1,500 changed lines or one subsystem, its docs
 included. Above that, dispatch one reviewer per subsystem with its own diff
 file, in parallel. Split by file group, never by persona.
 
+### A subject with several units
+
+Review each unit alone before anything looks at the whole. A reader who starts
+from the interplay talks himself out of a local bug by assigning it to somebody
+else's contract.
+
+Dispatch one `independent-reviewer` per unit, in parallel within the limit
+`delegate` sets, each with its own file list, its own specification, and only
+the conventions that unit needs. Give a unit reviewer the names of its
+neighbours and the contract it is meant to keep, and tell it to judge its own
+files: something it suspects about a neighbour comes back as a question, not a
+finding.
+
+Then review the interplay from the unit reports and the code at the seams. This
+pass is what the scope exists for, and it asks what no unit reviewer could see:
+
+- Do both sides of a contract mean the same thing by it, including the cases
+  each treats as impossible?
+- Does a mirrored artifact still match its origin: the Config/State/Event
+  triad, each LocalRef/GlobalRef pair, the conventions doc against the `.proto`?
+- Does an invariant one unit maintains hold where another relies on it, or only
+  where it is written?
+- Is one concept modelled twice under different rules, and which copy is the
+  code of record?
+- Does a boundary a `docs/architecture/` record fixes still hold? If it moved,
+  decide whether the record or the code is wrong.
+- Do an error, a timeout, and a cancellation cross the seam with their meaning
+  intact?
+
+Dispatch a second reviewer for the interplay only when the seam files alone
+exceed one reader, briefed with the unit reports as input. Otherwise this is the
+coordinator's own reading, and the unit reviewers' unanswered questions are its
+agenda.
+
 While the reviewer runs, read the hunks that change behavior in full and skim
 the rest, asking:
 
@@ -67,6 +118,9 @@ tree and introduced by this change. Drop findings that rest on a misreading;
 mark the ones you could not confirm as unverified. List problems that predate
 the change under "pre-existing", verified to the same standard. A hunk
 unrelated to the change inside an in-scope file is a note, not a finding.
+A subject scope drops the second half of that test and keeps no pre-existing
+section: confirm the failure is real in the current tree, because age is not
+what disqualifies a finding here.
 Prove a point with a throwaway test in the scratchpad directory when reading
 is not enough; never add files to the repository during a review. Never pad
 the list.
@@ -81,6 +135,14 @@ keeping what `implement` wrote:
 ```bash
 orca worktree set --worktree active --comment "<existing>; review: rework" --json
 ```
+
+A subject scope reports its units and seams first, so the reader can see what
+was covered, then the interplay findings, then the unit findings under their
+unit. Its verdict judges the subject (sound, sound with fixes, unsound), and it
+never goes in the worktree comment: `close` reads a `review:` entry there as a
+verdict on the branch, and a subject review has not looked at the branch.
+Findings too large to fix in place go to `plan` with what this review
+established, not into a fix attempt at the end of an audit.
 
 Report only. When the user asks to apply the fixes, make them, run the
 verifier on the changed paths, report what changed, and set the verdict to
