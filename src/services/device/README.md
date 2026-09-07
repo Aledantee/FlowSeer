@@ -124,14 +124,43 @@ central detecting itself.
 
 ## Deployment
 
-**The operator surface has no authorization check.** `DeviceService` and
-`EdgeAdminService` are served in front of the edge-assertion middleware,
-because an operator holds no edge key and that check would refuse every call.
-Nothing has replaced it: any caller that can reach the API port can apply an
-interface description, abandon a mutation, or retire an edge. OpenFGA guards
-are the intended replacement and are out of the plan that built this, so
-until they land the deployment's own network boundary is the only thing in
-front of those two services. Do not expose the API port beyond it.
+**The operator surface has no authorization check, and the blast radius is
+the whole deployment.** `DeviceService` and `EdgeAdminService` are served in
+front of the edge-assertion middleware, because an operator holds no edge key
+and that check would refuse every call. Nothing has replaced it.
+
+What a caller that reaches the API port can do is not three RPC effects. It
+can take over any edge and read out every device credential that edge is
+bound to:
+
+1. `RetireEdge` on an enrolled edge.
+2. `IssueSetupKey` on it — refused for an `ENROLLED` edge, accepted for a
+   `RETIRED` one, which it returns to `PENDING` and hands back the key.
+3. `Enroll` with a keypair of the caller's own.
+
+The caller is now that edge as far as the verifier is concerned, and
+`AcquireReadCredential` and `OpenDeviceSubmission` hand it the parsed
+`CredentialMaterial` — the SNMP community, the SSH username and secret — for
+every device the registry binds to it. The edge-assertion middleware does not
+help against this, because the key it checks is the one the attacker just
+registered.
+
+The request body limit is also narrower than it looks: it wraps only the
+middleware-mounted paths, so `DeviceService` and `EdgeAdminService` accept an
+unbounded body from the same unauthenticated caller.
+
+This gap is accepted for now rather than overlooked. Authorization for the
+operator and admin surfaces is a named follow-up (OpenFGA), and until it
+lands the deployment's own network boundary is the only thing in front of
+those two services. Do not expose the API port beyond it — and understand
+that what the boundary is protecting is the device credentials, not just the
+operator API.
+
+There is also no operator action trail: nothing records that someone created
+an edge, minted or revoked a setup key, or retired one. Minting a setup key
+is the most privileged action here, and after an incident there is no way to
+answer who minted which key for which edge. The audit stream is
+device-scoped by design and is not that trail.
 
 The edge-facing services — `EdgeService`, `DispatchService`, `AuditService` —
 are verified: every call carries a fresh assertion signed by the key central

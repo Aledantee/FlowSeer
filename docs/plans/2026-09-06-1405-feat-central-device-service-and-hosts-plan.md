@@ -1173,6 +1173,29 @@ their file comments name the absent triads.
 
 ## Follow-ups
 
+**Authorization for the operator and admin surfaces (OpenFGA).** `DeviceService`
+and `EdgeAdminService` are served with no authorization check, and the
+reachable consequence is not the three RPC effects the first draft of the
+service README listed. A caller that reaches the API port runs `RetireEdge`,
+then `IssueSetupKey` — which refuses an `ENROLLED` edge but accepts a
+`RETIRED` one, returns it to `PENDING`, and hands back the key — then
+`Enroll` with its own key, and is that edge. Every device the registry binds
+to it then yields its `CredentialMaterial` through `AcquireReadCredential`
+and `OpenDeviceSubmission`. The assertion middleware cannot help, because the
+attacker registered the key it checks. The body limit wraps only the
+middleware paths, so those two services also accept an unbounded body.
+
+Accepted for now, on the user's decision of 2026-09-07, with the deployment's
+network boundary standing in. Written down as a decision rather than left as
+an omission: a gap someone plans around is a different thing from one they
+panic about or quietly "fix" in a way nobody reviewed. The service README
+states the full radius, so an operator deciding where to put this knows the
+boundary is protecting device credentials rather than an operator API.
+U9's runbook carries the lab consequence: the lab run puts real switch
+credentials in this service's registry, and the port that serves the operator
+API is the one that yields them, so "the port is not exposed beyond the host"
+is a step in that runbook rather than background.
+
 **Operator action trail.** Nothing records that an operator created an edge,
 issued or revoked a setup key, or retired an edge. Minting a setup key is the
 most privileged operator action there is, and after an incident there is no

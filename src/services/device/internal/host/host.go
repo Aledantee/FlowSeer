@@ -32,6 +32,22 @@ const (
 	// flight before they are cut. An edge holds a dispatch stream open
 	// indefinitely, so for those this is not a deadline they respect: the
 	// grace expires and the connections are closed underneath them.
+	//
+	// It does less than "let in-flight calls finish" suggests. The
+	// supervisor cancels every child in reverse declaration order and only
+	// then waits, so the hub's cancel lands microseconds after the API's and
+	// its runner closes the central NATS connection at once. For the rest of
+	// the grace the API is nominally draining, but every call that touches
+	// the journal, the edge store or the audit stream fails on a closed
+	// connection — an ApplyInterfaceDescription accepted a second before
+	// shutdown returns unavailable rather than completing.
+	//
+	// Nothing is corrupted: each write is a single compare-and-set and the
+	// caller learns it failed. What actually finishes inside this grace is
+	// the calls that touch nothing durable. Giving the API a real drain
+	// would mean the connect module owning shutdown before the hub's runner
+	// returns, which is an ordering the runtime expresses through
+	// declaration order and this service does not currently arrange.
 	shutdownGrace = 5 * time.Second
 	// maxEdgeBody bounds a request body from an edge. The middleware reads it
 	// whole to hash it, so the bound is what stops an unauthenticated caller
