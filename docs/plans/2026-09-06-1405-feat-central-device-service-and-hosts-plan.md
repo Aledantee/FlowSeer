@@ -727,9 +727,57 @@ not CRUD — that is the fact that decides the level of care:
    questions at every write.
 
 These are all authenticated behind the assertion middleware (landed), which
-puts the verified edge id in the context; `EdgeAdminService` is the operator,
+puts the verified assertion in the context; `EdgeAdminService` is the operator,
 not an edge, so its authorization is the operator middleware, not the edge
 verifier.
+
+U5 is complete. What follows is for whoever takes U6, and it is the part that
+is not recoverable from the diff.
+
+**Where U6 starts.** Everything it consumes is in place: `edgestore` holds the
+edge records and the setup-key index, `edgeapi` serves both services,
+`journal` is untouched by U5. Its first move is the `errs`-to-Connect mapping
+above, because that is a live leak and it replaces
+`edgeapi.connectErr`, which every U5 handler calls. `connectErr`'s default
+arm is deliberately `Internal`: an unmapped code is never quietly reported as
+something the caller can fix, and every new code has to be added to the switch
+or its tests fail loudly. Keep that property.
+
+**The comments that are load-bearing, and why they are where they are.** Three
+say things that no reader can recover from the code around them, and each sits
+where someone would otherwise do the wrong thing. `EdgeForSetupKey` says the
+index is a lookup hint and never an authentication decision, because an index
+hit is the natural thing to mistake for proof. `consumeSetupKey` says the
+check and the write it authorizes must be one decision, at the point where the
+next gate would be added. The grant's contract says why the same credential on
+two streams is not one secret twice, and what would change if central ever
+minted per-grant material. Move them with the code if the code moves.
+
+**The recurring defect, four times in one unit.** Every one was a claim that
+had stopped being true, not a broken mechanism: the api/edge README saying
+setup-key minting is audited when nothing records it; `EdgeContact` documented
+as derived when nothing derived it, so an edge silent for a year reported
+active; `StoredEdge.setup_key_hash` documented as cleared on consumption when
+idempotent enrollment needs it kept; and this unit's own comment claiming a
+uniform-cost lookup the path in front of the comparison does not provide. The
+enrollment race was the same shape one layer down — a check that was true when
+it ran and false when it was relied on. Reading the prose against the code,
+rather than the code against itself, is what found all five. Do it to U6's
+README before writing its handlers.
+
+**Two things that will look like defects and are not.** The setup-key digest
+survives the key's consumption, deliberately: a repeated `Enroll` has to
+recognize the key it already consumed, and the digest buys a thief nothing
+because the `CONSUMED` branch also requires a proof signed by the registered
+private half. And a device's `contact` is never read back from storage; it is
+derived on every admin read, so a record's stored value is a leftover and not
+the answer.
+
+**The verifier lies when handed a directory.** Every `Verify:` line names files
+through `git ls-files`; check any new one actually selects gates before
+trusting it. The same applies to a test: three tests in this unit were written,
+passed, and only caught their defect after the fix was reverted to see them
+fail. Two of them did not fail at all the first time and had to be rewritten.
 
 Tests: requirement 8; the README's idempotent-enroll and stolen-key cases.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/**' 'spec/proto/flowseer/api/edge/v1/**')`
@@ -740,6 +788,18 @@ Files: `src/services/device/internal/deviceapi/`, `internal/drift/`,
 After: U3, U4, U5
 Change: requirements 6 and 7; `errs` codes map to Connect codes per the
 error-wire record; the owed-row table in `src/services/device/README.md`.
+The `errs`-to-Connect mapping is a fix here, not a feature. U5's handlers
+build their Connect errors by passing the `errs` error straight to
+`connect.NewError`, whose message is `Error()` — the error's own text
+followed by its whole cause chain, which the error-wire record calls
+trusted-internal. So central already leaks internal text to untrusted
+callers, sharpest on `Enroll`, the one RPC with no assertion in front of it:
+a bucket failure returns the NATS transport detail to an unauthenticated
+caller, and a credential prototext parse failure quotes the offending line
+of a credential file. The mapping U6 builds must go through
+`errs.EncodeForClient`, keeping the code-to-`connect.Code` switch and using
+the sanitized user message, and it must replace `edgeapi.connectErr` rather
+than sitting beside it.
 Also emits central's audit record for a dispatch central disposes itself,
 alongside the `DriftDetected` one and from central's own scope: when a
 terminal `Refused` disposes a mutation `REJECTED` (`RejectDispatch`, U4), a
