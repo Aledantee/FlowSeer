@@ -3,6 +3,7 @@ package host_test
 import (
 	"bytes"
 	"encoding/hex"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -180,5 +181,52 @@ func TestASuppliedCertificateThatCannotBeReadIsRefused(t *testing.T) {
 	_, err = host.ObtainCertificate(cfg, logTo(&bytes.Buffer{}))
 	if code, _ := errs.CodeOf(err); code != host.ErrCodeCertificate {
 		t.Fatalf("error = %v, want code %v", err, host.ErrCodeCertificate)
+	}
+}
+
+// TestFirstStartCreatesTheStateDirectory covers the path a packaged
+// deployment actually takes: a state directory named in configuration that
+// does not exist yet.
+//
+// Nothing covered it, because every test here used t.TempDir — which
+// exists — and the smoke test made the directory itself. Two documents said
+// the service creates it; it did not, and a first start exited with a bare
+// "no such file or directory" from os.WriteFile.
+//
+// The assertion that the directory did not exist beforehand is the guard
+// that keeps this test about what it says: without it, a future helper that
+// pre-created the directory would leave this passing while covering nothing.
+func TestFirstStartCreatesTheStateDirectory(t *testing.T) {
+	parent := t.TempDir()
+	stateDir := filepath.Join(parent, "does-not-exist-yet", "state")
+	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
+		t.Fatalf("the state directory already exists (%v); this test covers the case where it does not", err)
+	}
+
+	cfg := configIn(t, stateDir)
+	certificate, err := host.ObtainCertificate(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("ObtainCertificate() on a missing state directory: %v", err)
+	}
+	if len(certificate.SPKI) == 0 {
+		t.Error("the generated certificate carries no SPKI digest")
+	}
+
+	info, err := os.Stat(stateDir)
+	if err != nil {
+		t.Fatalf("the state directory was not created: %v", err)
+	}
+	if perm := info.Mode().Perm(); perm != 0o700 {
+		t.Errorf("state directory mode = %o, want 700: it holds the service's private key", perm)
+	}
+
+	// The pair is on disk and a second start reads it back, which is what
+	// the persistence is for — an edge pins the digest of the first one.
+	second, err := host.ObtainCertificate(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("the second ObtainCertificate(): %v", err)
+	}
+	if !bytes.Equal(certificate.SPKI, second.SPKI) {
+		t.Error("the second start generated a different key; every edge in the field would be refused")
 	}
 }

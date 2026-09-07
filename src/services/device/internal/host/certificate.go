@@ -69,6 +69,18 @@ func ObtainCertificate(cfg *Config, log *slog.Logger) (*Certificate, error) {
 		return nil, errs.From(err).Code(ErrCodeCertificate).Attr("path", certificateFile).
 			Msg("look for the persisted certificate")
 	}
+	// The state directory is this service's to create. Nothing else has
+	// made it by now: Run obtains the certificate before the runtime starts
+	// a single module, and the only other MkdirAll on this path is inside
+	// the hub's key loading, which happens later. A packaged deployment
+	// naming a directory that does not exist yet — the ordinary first start
+	// — otherwise exits with a bare "no such file or directory" from
+	// os.WriteFile, and both this doc and the store schema's README say the
+	// service generates the pair into the state directory on first start.
+	if err := os.MkdirAll(cfg.StateDir(), 0o700); err != nil {
+		return nil, errs.From(err).Code(ErrCodeCertificate).Attr("path", cfg.StateDir()).
+			Msg("create the state directory")
+	}
 	return generateCertificate(cfg, certificateFile, keyFile, log)
 }
 

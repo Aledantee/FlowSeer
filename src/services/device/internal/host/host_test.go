@@ -110,10 +110,12 @@ func runningService(t *testing.T) string {
 func runningServiceWithControl(t *testing.T) (base string, stop func(), waitStopped func() error) {
 	t.Helper()
 	dir := t.TempDir()
+	// Deliberately not created. A packaged deployment names a state
+	// directory that does not exist yet on its first start, and that is the
+	// one path nothing covered while every test made it first — so the
+	// smoke tests take the real path and would fail if the service stopped
+	// creating it.
 	stateDir := filepath.Join(dir, "state")
-	if err := os.MkdirAll(stateDir, 0o700); err != nil {
-		t.Fatalf("state dir: %v", err)
-	}
 	credentialRoot := filepath.Join(dir, "credentials")
 	if err := os.MkdirAll(credentialRoot, 0o700); err != nil {
 		t.Fatalf("credential dir: %v", err)
