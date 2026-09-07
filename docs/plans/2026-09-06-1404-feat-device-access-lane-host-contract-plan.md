@@ -295,7 +295,11 @@ latch, `Done()`, and the terminal walks per disposition; `Execute`'s
 waits under a cancellable context; `awaitCheckpoint` selecting on
 `Done()`; `process` reading the machine after any step error; the
 submission completed once by whoever turns the machine terminal;
-`DeviceSession.OpenSNMP`, `OpenShell`, `AccessPolicy`, and the endpoint,
+`DeviceSession.OpenSNMP`, `OpenShell`, and `AccessPolicy` — no endpoint
+field, contrary to this line's first draft: the host builds the factories
+per device and captures the address in them, so a field here would be an
+address the lane holds and never reads, and a second place for it to be
+wrong;
 `ReadCredentials` defaulted and used at read time, `Deps.Submit` taking
 the grant; `FingerprintOverride` deleted and tests reworked to a fake
 probe session; `Lane.Freeze` per its decision, with the delivered set

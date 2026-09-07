@@ -144,12 +144,12 @@ type DeviceSession struct {
 	// OpenSNMP opens an SNMP session from material acquired for this
 	// operation. Required: the identity probe at onboarding and every read
 	// go through it.
-	OpenSNMP func(ctx context.Context, credential *edgev1.DeviceCredential) (SNMPSession, error)
+	OpenSNMP func(ctx context.Context, cred *edgev1.DeviceCredential) (SNMPSession, error)
 	// OpenShell opens a shell session. Used for the fallback read route
 	// and for a mutation's own command, and may be nil for a device with
 	// no shell adapter — a mutation on such a device fails rather than
 	// silently doing nothing.
-	OpenShell func(ctx context.Context, credential *edgev1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
+	OpenShell func(ctx context.Context, cred *edgev1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
 
 	// AccessPolicy is the handle the onboarding identity probe acquires
 	// its credential under. A read carries its own on TypedRead, since
@@ -330,18 +330,20 @@ type noopDeliverer struct{}
 
 func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
 
-// noopSubmissionSource is Config's default SubmissionCredentialSource when
-// a host has not wired a real one: it grants immediately, stays
-// AUTHORIZED, and never ends, which is correct for a facade with no live
-// central to revoke authority from.
-// noopReadSource is Config's default ReadCredentialSource: it grants an
-// empty credential immediately and never expires.
+// noopReadSource is Config's default ReadCredentialSource when a host has
+// not wired a real one: it returns an empty credential immediately, which a
+// host's own OpenSNMP is free to read as "use whatever this device was
+// configured with".
 type noopReadSource struct{}
 
 func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error) {
 	return &edgev1.AcquireReadCredentialResponse{}, nil
 }
 
+// noopSubmissionSource is Config's default SubmissionCredentialSource when
+// a host has not wired a real one: it grants immediately, stays
+// AUTHORIZED, and never ends, which is correct for a facade with no live
+// central to revoke authority from.
 type noopSubmissionSource struct{}
 
 func (noopSubmissionSource) Open(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
@@ -419,14 +421,14 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 // device's own access-policy handle, opens an SNMP session from it, runs
 // the route-independent identity probe, and closes the session.
 func (l *Lane) probeIdentity(ctx context.Context, deviceKey string, session DeviceSession) (string, error) {
-	credential, _, err := l.acquireRead(ctx, deviceKey, session, session.AccessPolicy)
+	cred, _, err := l.acquireRead(ctx, deviceKey, session, session.AccessPolicy)
 	if err != nil {
 		return "", err
 	}
 	if session.OpenSNMP == nil {
 		return "", errs.New().Msg("device has no SNMP session factory; the identity probe cannot run")
 	}
-	opened, err := session.OpenSNMP(ctx, credential)
+	opened, err := session.OpenSNMP(ctx, cred)
 	if err != nil {
 		return "", errs.Wrap(err, "open snmp session for the identity probe")
 	}
@@ -1030,7 +1032,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 		Read: func(ctx context.Context) (*accessv1.InterfaceObservation, error) {
 			// Acquired before the override is consulted, so a test that
 			// replaces the device call cannot also skip the acquisition.
-			credential, hostKey, err := l.acquireRead(ctx, ds.key, sess, req.GetRead().GetAccessPolicy())
+			cred, hostKey, err := l.acquireRead(ctx, ds.key, sess, req.GetRead().GetAccessPolicy())
 			if err != nil {
 				return nil, err
 			}
@@ -1040,7 +1042,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 			if sess.OpenSNMP == nil {
 				return nil, errs.New().Msg("device has no SNMP session factory; a read cannot be served")
 			}
-			opened, err := sess.OpenSNMP(ctx, credential)
+			opened, err := sess.OpenSNMP(ctx, cred)
 			if err != nil {
 				return nil, errs.Wrap(err, "open snmp session")
 			}
@@ -1052,7 +1054,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 			// SNMP read.
 			var shell InterfaceShellAdapter
 			if sess.OpenShell != nil {
-				openedShell, err := sess.OpenShell(ctx, credential, hostKey)
+				openedShell, err := sess.OpenShell(ctx, cred, hostKey)
 				if err != nil {
 					return nil, errs.Wrap(err, "open shell session")
 				}
