@@ -860,10 +860,93 @@ silently drops the cause chain; the chain is still there, reachable through
 `errors.Is`, `errs.CodeOf`, and the error's `LogValue`. A logging line that
 looks right and records nothing useful is found during an incident, not
 before one.
+U7 also owes the drift telemetry event, which U6 deliberately did not build.
+The audit half is done — `centralaudit.DriftDetected` writes the durable
+record — and the telemetry half waits here because the meter and the tracer
+are the host's to wire: an emitter built in the poller would either have no
+provider or construct an ad-hoc one, which is how the access module ended up
+with nine named events, three of them with no production emitter and some at
+the wrong level with unbounded labels. This is urgent rather than tidy,
+because the companion plan deletes the edge's own detector: between U6 and
+U7 there is no drift telemetry anywhere. What it needs:
+
+- Event `flowseer.device.drift.detected`, emitted from the device service's
+  own instrumentation scope — central detects drift, so the record and the
+  event are both central's, and neither is the edge's any more.
+- The emission site is `drift.Poller.judge`, beside the audit record it
+  already writes, so an event exists exactly when a detection does.
+- Attributes: the device id, the interface name, and the expected and
+  observed descriptions. Only the interface name is bounded enough to be a
+  metric label, and even that is per-device; the two descriptions are
+  operator-written text and belong on the event and the log, never on a
+  metric. A counter, if one is wanted, is labeled by the device's management
+  mode, which has two values.
+
 Tests: config validation; a start-and-serve smoke test; the interceptor
 records the internal cause of a failure whose client sentence names none of
-it.
+it; a detection emits the event once, with the descriptions off the metric.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/**')`
+
+U6 is complete. What follows is for whoever takes U7.
+
+**Where U7 starts.** Everything it assembles exists: `journal`, `edgestore`,
+`registry`, `credential`, `edgeapi`, `dispatchapi`, `auditapi`, `deviceapi`,
+`centralaudit`, `drift`, and the `connecterr` mapping every handler answers
+through. Nothing in U6 wires a server, a provider, or a config file, so U7 is
+assembly and the two obligations above. The one seam with no production
+implementation is `deviceapi.RecordWatcher`; `deviceapi.NewKVWatcher` is it,
+and it wants the lane bucket.
+
+**Four seams a fresh session will meet cold.** Each exists because the
+alternative was found to be wrong, not because it was the first shape tried.
+
+- `journal.ResolveDesynchronization` is one CAS write that disposes a held
+  sequence, records its hold, rewrites the expectation, and admits the
+  replacement. It replaced `ResolveHold`, which is gone: resolving and
+  admitting as two writes leaves a window where the lane is free, the hold
+  resolved, and the operator's intent unrecorded, and `Admit` refuses over a
+  held mutation so there was no third shape. Do not add a second door.
+- Two admission doors, `Admit` and `AdmitBlocked`, share one implementation.
+  The blocked one is how a drift intent takes the lane without being
+  dispatched; the owed-row derivation refuses to dispatch a blocked mutation,
+  so nothing else enforces the hold.
+- The expectation writer lives in the `ReportVerified` arm. A verified change
+  is what central expects from then on, and that write is also what makes an
+  interface managed as far as the record is concerned — which is what gates
+  `keepLastObservation`. Three behaviors hang off one map: what drift compares
+  against, which interfaces the status call reports, and which reads leave a
+  row behind.
+- `connecterr.Table` per serving package, with a cross-service check that one
+  code answers the same thing everywhere. The check found a real disagreement
+  the day it was written.
+
+**What U6 learned that is not already recorded.** The recurring defect showed
+up twice more, both times as a claim nothing kept true: a `MutationState`
+synthesized for a resubmission that failed three of its own schema rules and
+had never been validated because it only ever existed in a response, and an
+idempotency echo that described the caller's new intent as the recorded one
+because nothing compared them. Both were found by asking what a change
+inherits rather than by a failing test. The generalizable one is the write
+ordering: when two writes can each fail, order them so the survivable failure
+is the one that happens, and pin the order with a test that fails when it is
+reversed — the ordering is invisible in the happy path, so nothing else holds
+it in place.
+
+**Three things that will look like defects and are not.** An interface central
+holds no expected description for is polled but never judged: central has
+applied nothing to it, and adopting whatever the first read found would be an
+expectation nobody asked for. `RetireEdge` drops pending holds but ends no
+mutation — dropping an instruction addressed to a peer that no longer exists
+is not the same as destroying work an operator did not ask to lose. And the
+audit record for a detection goes out before the intent is admitted, on
+purpose.
+
+**A verifier sharp edge U7 will hit.** Its `Verify` line names
+`src/services/device/**`, which now includes proto-adjacent paths only
+indirectly — but if a `Verify` line ever names a path under
+`spec/proto/flowseer/api/device/` or `spec/proto/flowseer/store/`, the
+`buf breaking` step fails with "no .proto files were targeted", because
+`master` has neither package. The Verification section above records it.
 
 ### U8. Edge host
 Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/{identity,busattach,dispatch,lanehost}/`,
