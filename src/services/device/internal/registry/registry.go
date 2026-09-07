@@ -30,6 +30,10 @@ var (
 	ErrCodeLoad = errs.NewCode("registry/load")
 	// ErrCodeInvalid is a registry that parses but fails its schema rules.
 	ErrCodeInvalid = errs.NewCode("registry/invalid")
+	// ErrCodeUnknownEdge is a question about an edge this registry does not
+	// describe. It is an error rather than an empty answer because every
+	// caller would read the empty answer as "that edge hosts nothing".
+	ErrCodeUnknownEdge = errs.NewCode("registry/unknown-edge")
 	// ErrCodeHorizonUnset is a device whose delayed-apply horizon is not set,
 	// so a mutation's deadline cannot be measured and the row stays owed.
 	ErrCodeHorizonUnset = errs.NewCode("device/horizon-unset")
@@ -113,11 +117,20 @@ func (r *Registry) ReadCredentialTTL(p *storev1.RegistryPolicy) time.Duration {
 	return defaultReadCredentialTTL
 }
 
-// Devices names the devices an edge hosts. Only the registry's own edge hosts
-// any; every device belongs to it.
+// Devices names the devices an edge hosts. A registry describes one edge and
+// every device in it belongs to that edge, so another edge's id is a question
+// this registry cannot answer.
+//
+// It is refused rather than answered with an empty list. A deployment can
+// enroll a second edge before its registry describes one, and every caller
+// reads an empty list as "that edge hosts nothing": retirement would drop no
+// hold resolutions, the orphan listing would report no stranded work, and the
+// dispatch relay would hold a stream open owing nothing. All three are silent
+// with one edge and wrong with two.
 func (r *Registry) Devices(_ context.Context, edgeID string) ([]string, error) {
 	if edgeID != r.edgeID {
-		return nil, nil
+		return nil, errs.New().Code(ErrCodeUnknownEdge).Attr("edge", edgeID).
+			Msg("this registry describes a different edge")
 	}
 	ids := make([]string, 0, len(r.devices))
 	for id := range r.devices {

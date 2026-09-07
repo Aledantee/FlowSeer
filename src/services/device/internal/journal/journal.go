@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"time"
 
@@ -193,10 +194,16 @@ func (j *Journal) admit(ctx context.Context, deviceID string, intent *accessv1.M
 }
 
 // OpenRead assigns a read the next sequence and records it, unless the
-// interface already has an open read, in which case it returns that read's
+// interface already has a live open read, in which case it returns that read's
 // sequence and writes nothing. device names the record's device so a read
 // that arrives before the first mutation still writes a valid record; an
 // absent ref is built from deviceID rather than left unset.
+//
+// A read whose deadline has passed is not joined. It owes no row and is due to
+// be closed with a deadline error, so joining it would answer this caller with
+// the previous read's failure instead of reading the device — the sweep and
+// this call would otherwise race to decide which. Replacing it is what the
+// sweep was going to do to it anyway.
 func (j *Journal) OpenRead(ctx context.Context, deviceID string, device *inventoryv1.DeviceGlobalRef, iface string, read *accessv1.TypedRead, idempotencyKey string, deadline time.Time) (uint64, error) {
 	var seq uint64
 	err := j.mutate(ctx, deviceID, func(rec *storev1.DeviceLaneRecord) error {
@@ -205,7 +212,7 @@ func (j *Journal) OpenRead(ctx context.Context, deviceID string, device *invento
 		if reads == nil {
 			reads = map[string]*storev1.OpenRead{}
 		}
-		if existing, ok := reads[iface]; ok && !existing.HasOutcome() {
+		if existing, ok := reads[iface]; ok && !existing.HasOutcome() && !readExpired(existing, j.clock()) {
 			seq = existing.GetSequence()
 			return errSkip
 		}
@@ -221,6 +228,14 @@ func (j *Journal) OpenRead(ctx context.Context, deviceID string, device *invento
 		return nil
 	})
 	return seq, err
+}
+
+// readExpired reports whether an open read's deadline has passed at now. An
+// entry with no deadline never expires; nothing writes one today, and treating
+// a missing bound as an elapsed one would drop reads that are still running.
+func readExpired(read *storev1.OpenRead, now time.Time) bool {
+	deadline := read.GetDeadline()
+	return deadline != nil && !deadline.AsTime().After(now)
 }
 
 // CloseRead sets an open read's outcome; a later write removes the entry
@@ -895,20 +910,69 @@ func recordedState(rec *storev1.DeviceLaneRecord, seq uint64, intent *accessv1.M
 }
 
 // intentDigest identifies an intent well enough to catch a caller reusing one
-// idempotency key for two different requests. Deterministic marshaling keeps
-// the digest stable for the same message across processes and library
-// versions; eight bytes of SHA-256 is a collision every few billion intents on
-// one device, against a mistake, not an adversary.
+// idempotency key for two different requests. Eight bytes of SHA-256 is a
+// collision every few billion intents on one device, against a mistake, not an
+// adversary.
+//
+// The digest is taken over the projection below rather than the marshaled
+// message. Deterministic marshaling is stable only within one binary —
+// protobuf-go says so, and names fingerprinting as a use that must define its
+// own canonicalization — so digesting the wire bytes would let a routine
+// dependency bump change every live digest. The operator's own unchanged
+// retry would then come back as "this key was used for a different request",
+// with no way forward but a fresh key, which is the second admission the key
+// exists to prevent.
+//
+// Each part is written length-prefixed so no two field values can run
+// together into the same bytes. A field added to MutationIntent must be added
+// here too, which [TestIntentDigestCoversEveryIntentField] is there to force:
+// a field the projection omits is a difference two intents can carry while
+// digesting alike.
 func intentDigest(intent *accessv1.MutationIntent) []byte {
-	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(intent)
-	if err != nil {
-		// An intent that will not marshal cannot be stored either, so the
-		// admission that follows fails on its own. Digesting the error keeps
-		// this total without inventing a match.
-		wire = []byte(err.Error())
+	sum := sha256.New()
+	writePart := func(part string) {
+		var size [8]byte
+		binary.BigEndian.PutUint64(size[:], uint64(len(part)))
+		_, _ = sum.Write(size[:])
+		_, _ = sum.Write([]byte(part))
 	}
-	sum := sha256.Sum256(wire)
-	return sum[:intentDigestLen]
+
+	writePart(intent.GetDevice().GetDevice().GetId())
+	writePart(intent.GetIdempotencyKey())
+	writePart(actorPart(intent.GetActor()))
+	writePart(intent.GetAccessPolicy().GetKey())
+	var policyVersion [8]byte
+	binary.BigEndian.PutUint64(policyVersion[:], intent.GetAccessPolicy().GetVersion())
+	_, _ = sum.Write(policyVersion[:])
+	writePart(intent.GetExpectedFirmwareFingerprint())
+	writePart(changePart(intent))
+
+	return sum.Sum(nil)[:intentDigestLen]
+}
+
+// actorPart names who asked, with the arm it came from, so an operator subject
+// can never project to the same string as a system reason.
+func actorPart(actor *accessv1.Actor) string {
+	switch {
+	case actor.HasOperator():
+		return "operator:" + actor.GetOperator().GetSubject()
+	case actor.HasSystem():
+		return "system:" + actor.GetSystem().GetReason().String()
+	default:
+		return "none:"
+	}
+}
+
+// changePart names the typed change, with its arm, so a change arm added later
+// cannot project to the empty string the way an unset one does.
+func changePart(intent *accessv1.MutationIntent) string {
+	switch intent.WhichChange() {
+	case accessv1.MutationIntent_InterfaceDescription_case:
+		change := intent.GetInterfaceDescription()
+		return "interface_description:" + change.GetInterfaceName() + "=" + change.GetDescription()
+	default:
+		return "none:"
+	}
 }
 
 func rememberKey(rec *storev1.DeviceLaneRecord, key string, seq uint64, digest []byte) {

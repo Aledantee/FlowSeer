@@ -14,6 +14,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
 
 // Error codes the admin handler returns.
@@ -309,6 +310,13 @@ func (s *AdminService) dropLaneHolds(ctx context.Context, edgeID string) error {
 		return nil
 	}
 	devices, err := s.holds.Devices(ctx, edgeID)
+	if code, ok := errs.CodeOf(err); ok && code == registry.ErrCodeUnknownEdge {
+		// The deployment's registry describes another edge, so this one hosts
+		// no lane and there is nothing to drop. Retirement still has to
+		// finish: an edge can be created and retired without ever appearing in
+		// a registry, and refusing would leave its record standing.
+		return nil
+	}
 	if err != nil {
 		return err
 	}

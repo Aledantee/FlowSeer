@@ -15,6 +15,7 @@ import (
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
@@ -632,4 +633,114 @@ func TestTerminatorsAreInvocable(t *testing.T) {
 			t.Fatal("ResolveDesynchronization did not free the held abandonment")
 		}
 	})
+}
+
+// The digest is taken over a named projection of the intent's fields, so every
+// field an operator can vary must reach it. A field the projection misses is a
+// difference two intents can carry while digesting alike, and the key that was
+// meant to catch the reuse answers it instead.
+func TestEveryProjectedIntentFieldChangesTheDigest(t *testing.T) {
+	const key = "0192e6a0-0000-7000-8000-0000000000c1"
+	cases := map[string]func(*accessv1.MutationIntent){
+		"device": func(i *accessv1.MutationIntent) {
+			local := &inventoryv1.DeviceLocalRef{}
+			local.SetId("0192e6a0-0000-7000-8000-0000000000d9")
+			ref := &inventoryv1.DeviceGlobalRef{}
+			ref.SetDevice(local)
+			i.SetDevice(ref)
+		},
+		"operator subject": func(i *accessv1.MutationIntent) {
+			op := &accessv1.OperatorRef{}
+			op.SetSubject("zitadel|2")
+			i.GetActor().SetOperator(op)
+		},
+		"actor arm": func(i *accessv1.MutationIntent) {
+			system := &accessv1.SystemActor{}
+			system.SetReason(accessv1.SystemReason_SYSTEM_REASON_RECONCILIATION)
+			i.GetActor().SetSystem(system)
+		},
+		"policy key":     func(i *accessv1.MutationIntent) { i.GetAccessPolicy().SetKey("icx7150-prod") },
+		"policy version": func(i *accessv1.MutationIntent) { i.GetAccessPolicy().SetVersion(4) },
+		"firmware epoch": func(i *accessv1.MutationIntent) { i.SetExpectedFirmwareFingerprint("ICX7150-24P SPS10011a") },
+		"interface name": func(i *accessv1.MutationIntent) { i.GetInterfaceDescription().SetInterfaceName("ethernet 1/1/2") },
+		"description":    func(i *accessv1.MutationIntent) { i.GetInterfaceDescription().SetDescription("uplink to spare") },
+	}
+
+	for name, vary := range cases {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			j := newJournal(t)
+			if _, err := j.Admit(ctx, deviceID, mutationIntent(key), edgeRef()); err != nil {
+				t.Fatalf("admit: %v", err)
+			}
+			changed := mutationIntent(key)
+			vary(changed)
+
+			_, err := j.Admit(ctx, deviceID, changed, edgeRef())
+			if code, _ := errs.CodeOf(err); code != journal.ErrCodeIdempotencyMismatch {
+				t.Fatalf("re-admit error = %v, want code %v", err, journal.ErrCodeIdempotencyMismatch)
+			}
+		})
+	}
+}
+
+// A forcing function, not a proof about today: it fails when MutationIntent
+// gains a field, so whoever adds one decides whether the digest's projection
+// covers it rather than finding out from a key that stopped catching reuse.
+func TestIntentDigestProjectionCoversEveryIntentField(t *testing.T) {
+	want := map[int32]string{
+		1:  "device",
+		2:  "idempotency_key",
+		3:  "actor",
+		4:  "access_policy",
+		5:  "expected_firmware_fingerprint",
+		10: "interface_description",
+	}
+
+	fields := (&accessv1.MutationIntent{}).ProtoReflect().Descriptor().Fields()
+	got := map[int32]string{}
+	for i := range fields.Len() {
+		field := fields.Get(i)
+		got[int32(field.Number())] = string(field.Name())
+	}
+	if len(got) != len(want) {
+		t.Fatalf("MutationIntent fields = %v, want %v; add the new one to intentDigest's projection", got, want)
+	}
+	for number, name := range want {
+		if got[number] != name {
+			t.Errorf("field %d = %q, want %q", number, got[number], name)
+		}
+	}
+}
+
+// A read past its deadline owes no row and is waiting to be closed with a
+// deadline error. Joining it would answer a fresh caller with the previous
+// read's failure instead of reading the device, so the entry is replaced.
+func TestAReadPastItsDeadlineIsNotJoined(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+
+	stale, err := j.OpenRead(ctx, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c8", time.Now().Add(-time.Minute))
+	if err != nil {
+		t.Fatalf("open expired read: %v", err)
+	}
+	fresh, err := j.OpenRead(ctx, deviceID, deviceRef(), readIface, typedRead(), "0192e6a0-0000-7000-8000-0000000000c9", time.Now().Add(time.Minute))
+	if err != nil {
+		t.Fatalf("open fresh read: %v", err)
+	}
+
+	if fresh == stale {
+		t.Fatalf("the fresh read joined the expired one at sequence %d", stale)
+	}
+	rec, err := j.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if got := rec.GetOpenReads()[readIface].GetSequence(); got != fresh {
+		t.Fatalf("open read = %d, want the fresh one at %d", got, fresh)
+	}
+	owed := journal.OwedRows(rec, time.Now())
+	if len(owed) != 1 || owed[0].Sequence != fresh {
+		t.Fatalf("owed = %+v, want the fresh read at %d", owed, fresh)
+	}
 }

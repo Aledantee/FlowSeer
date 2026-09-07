@@ -17,10 +17,12 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 )
 
 var _ edgev1connect.EdgeAdminServiceHandler = (*edgeapi.AdminService)(nil)
@@ -565,12 +567,18 @@ func keyIDOf(key string) string {
 
 // laneHolds records what retirement asked of the lane records.
 type laneHolds struct {
-	devices []string
-	dropped []string
-	err     error
+	devices    []string
+	dropped    []string
+	err        error
+	devicesErr error
 }
 
-func (l *laneHolds) Devices(context.Context, string) ([]string, error) { return l.devices, nil }
+func (l *laneHolds) Devices(context.Context, string) ([]string, error) {
+	if l.devicesErr != nil {
+		return nil, l.devicesErr
+	}
+	return l.devices, nil
+}
 
 func (l *laneHolds) DropHolds(_ context.Context, deviceID string) error {
 	if l.err != nil {
@@ -659,5 +667,35 @@ func TestRetireEdgeReportsAFailedDropAndFinishesOnRetry(t *testing.T) {
 	}
 	if len(holds.dropped) != 1 {
 		t.Errorf("the retry dropped %v, want the device the first call could not", holds.dropped)
+	}
+}
+
+// An edge can be created and retired without a registry ever describing it, so
+// a registry that answers "this is not my edge" leaves retirement nothing to
+// drop rather than something to fail on. Every other lookup failure still
+// stops the call, which the test above covers.
+func TestRetireEdgeSucceedsWhenTheRegistryDescribesAnotherEdge(t *testing.T) {
+	store := newStoreOver(t, newHub(t))
+	holds := &laneHolds{devicesErr: errs.New().Code(registry.ErrCodeUnknownEdge).Msg("this registry describes a different edge")}
+	admin, err := edgeapi.NewAdminService(store, holds, edgeapi.Provisioning{
+		CentralURL:   "https://central.example.test",
+		TrustAnchors: [][]byte{make([]byte, 32)},
+	}, edgeapi.NewContact(0, 0), func() time.Time { return testClock })
+	if err != nil {
+		t.Fatalf("NewAdminService: %v", err)
+	}
+	record, _ := createEdge(t, admin)
+
+	resp, err := admin.RetireEdge(context.Background(), connect.NewRequest(edgev1.RetireEdgeRequest_builder{
+		Edge: refOf(record),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("RetireEdge: %v", err)
+	}
+	if got := resp.Msg.GetEdge().GetState().GetLifecycle(); got != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_RETIRED {
+		t.Fatalf("lifecycle = %v, want retired", got)
+	}
+	if len(holds.dropped) != 0 {
+		t.Fatalf("dropped %v, want nothing", holds.dropped)
 	}
 }

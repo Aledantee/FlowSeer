@@ -20,8 +20,9 @@ import (
 // must not answer two different things depending which handler a caller
 // reached.
 var ClientErrors = connecterr.Table{
-	ErrCodeRequest:       {Code: connect.CodeInvalidArgument, UserMsg: "the request is not one this service can act on"},
-	ErrCodeUnknownDevice: {Code: connect.CodeNotFound, UserMsg: "no such device"},
+	ErrCodeRequest:              {Code: connect.CodeInvalidArgument, UserMsg: "the request is not one this service can act on"},
+	ErrCodeUnknownDevice:        {Code: connect.CodeNotFound, UserMsg: "no such device"},
+	registry.ErrCodeUnknownEdge: {Code: connect.CodeNotFound, UserMsg: "this deployment's registry describes a different edge"},
 
 	ErrCodePolicy:                      {Code: connect.CodeFailedPrecondition, UserMsg: "the intent names an access policy version the device does not pin"},
 	ErrCodeFirmwareEpoch:               {Code: connect.CodeFailedPrecondition, UserMsg: "the device reports a firmware epoch other than the one the intent expects"},

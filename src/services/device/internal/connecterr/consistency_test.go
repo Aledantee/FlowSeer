@@ -32,9 +32,11 @@ func TestNoCodeAnswersTwoDifferentThings(t *testing.T) {
 	}
 }
 
-// The tables share no code today, so the check above proves nothing on its
-// own. This is what proves the check: two tables that disagree, one on the
-// Connect code and one on the message.
+// The tables do share codes — deviceapi and dispatchapi both answer the
+// journal's conflict, store, state, holds-full and decode codes, and agree on
+// all five — so the check above passes on real data. What it cannot show is
+// that it would fail on bad data, which is what this proves: two tables that
+// disagree, one on the Connect code and one on the message.
 func TestTheConsistencyCheckCatchesADisagreement(t *testing.T) {
 	code := errs.NewCode("connecterrtest/shared")
 	other := errs.NewCode("connecterrtest/shared-text")

@@ -160,3 +160,23 @@ func TestListsReportsMembership(t *testing.T) {
 		t.Fatalf("Lists(unlisted) = %v, %v", listed, err)
 	}
 }
+
+// A registry describes one edge. Answering another edge's id with an empty
+// list reads as "that edge hosts nothing", which is the answer retirement
+// takes to mean there are no hold resolutions to drop and the orphan listing
+// takes to mean no work was stranded. Both are wrong the moment a deployment
+// has a second edge, and neither says so.
+func TestDevicesRefusesAnEdgeTheRegistryDoesNotDescribe(t *testing.T) {
+	r, err := load(t, validRegistry(validDevice(nil)))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	devices, err := r.Devices(context.Background(), "0192e6a0-0000-7000-8000-0000000000ff")
+	if code, _ := errs.CodeOf(err); code != registry.ErrCodeUnknownEdge {
+		t.Fatalf("Devices error code = %v, want registry/unknown-edge", code)
+	}
+	if devices != nil {
+		t.Fatalf("Devices = %v, want nothing beside the refusal", devices)
+	}
+}
