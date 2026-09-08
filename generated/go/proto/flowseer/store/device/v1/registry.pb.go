@@ -433,7 +433,8 @@ type RegistryDevice_builder struct {
 	SshPort *uint32
 	// The longest a mutation may take to become visible to a fresh read,
 	// measured on the fixture. Unset means unmeasured, and a mutation is
-	// refused until it is set.
+	// refused until it is set — centrally, and again by the edge the device
+	// is listed to. Reads are unaffected.
 	DelayedApplyHorizon *durationpb.Duration
 	// The interfaces central holds an expected description for and polls
 	// for drift, by the name the device spells. Empty means none.

@@ -2,7 +2,6 @@ package access_test
 
 import (
 	"context"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,37 +13,56 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 )
 
-// TestAddDeviceRefusesADeviceWithNoMeasuredHorizon covers the device a
-// central registry lists without a measured horizon. It is refused before
-// any device contact, and the refusal is checked by what did not happen —
-// no credential acquired, no session opened — because a probe that failed
-// on its own would produce an error too, and from the caller's side the two
-// are the same shape.
-func TestAddDeviceRefusesADeviceWithNoMeasuredHorizon(t *testing.T) {
+// TestAnUnmeasuredHorizonRefusesTheMutationAndNotTheDevice covers the
+// device a central registry lists without a measured horizon. The horizon
+// bounds how long a mutation's effect may stay unknown, so a mutation on
+// such a device has no moment at which recovery may correctly abandon; a
+// read has no effect to become visible and is unaffected. Refusing the
+// device instead would stop its drift polling and would answer central's
+// read with "unknown device", which is false — the device is registered and
+// the edge is holding it.
+func TestAnUnmeasuredHorizonRefusesTheMutationAndNotTheDevice(t *testing.T) {
 	source := &recordingCredentials{}
 	l := laneWithCredentials(t, source)
-	var opened, closed atomic.Int64
 
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     countingProbeFactory(&opened, &closed),
+		OpenSNMP:     probeFactory(),
 		AccessPolicy: policyHandle("onboarding-policy", 3),
 		BindingID:    "binding-1",
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return completeObservation("uplink to core"), nil
+		},
+		SubmitOverride: func(context.Context, *accessv1.InterfaceDescriptionChange) error { return nil },
 	})
+	if err != nil {
+		t.Fatalf("AddDevice() error = %v, want an unmeasured device onboarded", err)
+	}
 
+	// Onboarded means onboarded: the identity probe ran and acquired for
+	// itself, which is what a registered device costs.
+	if handles, _ := source.acquisitions(); len(handles) != 1 {
+		t.Fatalf("acquisitions after onboarding = %v, want the identity probe's one", handles)
+	}
+
+	// Bounded, because a lane that admitted this mutation would not fail
+	// it: it would run to a recovery whose budget is the unmeasured horizon
+	// plus one interval, and block this test for as long as that takes. The
+	// deadline turns that into a failure rather than a hang, and it cannot
+	// be mistaken for the refusal — a context that expired carries no code.
+	mutationCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err = l.Submit(mutationCtx, access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   mutationRequest(1),
+	})
 	if code, _ := errs.CodeOf(err); code != access.ErrCodeHorizonUnmeasured {
-		t.Fatalf("AddDevice() code = %v (err %v), want %v", code, err, access.ErrCodeHorizonUnmeasured)
-	}
-	if handles, _ := source.acquisitions(); len(handles) != 0 {
-		t.Errorf("acquisitions = %v, want none: the refusal must precede the onboarding probe", handles)
-	}
-	if got := opened.Load(); got != 0 {
-		t.Errorf("sessions opened = %d, want 0", got)
+		t.Errorf("Submit(mutation) code = %v (err %v), want %v", code, err, access.ErrCodeHorizonUnmeasured)
 	}
 
-	// Refused means not served, not "served with a horizon of zero".
-	_, err = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()})
-	if code, _ := errs.CodeOf(err); code != access.ErrCodeUnknownDevice {
-		t.Errorf("Submit() after the refusal: code = %v (err %v), want %v", code, err, access.ErrCodeUnknownDevice)
+	// The read is the assertion that separates "this mutation cannot be
+	// bounded" from "this device is not served".
+	if _, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()}); err != nil {
+		t.Errorf("Submit(read) error = %v, want the read served on an unmeasured device", err)
 	}
 }
 

@@ -58,9 +58,17 @@ measured per device on that device's own fixture, and one edge serves
 devices whose horizons differ by orders of magnitude — a lane-wide value
 abandons the slow device at the fast device's horizon, reporting a mutation
 as never applied while it is still landing, or holds the fast device's lane
-for the slow one's horizon. `AddDevice` refuses a session that leaves it
-zero, before the onboarding probe: an unmeasured device is not served at
-all, rather than served with its mutations decided by a number nobody chose.
+for the slow one's horizon.
+
+A zero horizon means unmeasured, and `Submit` refuses a *mutation* on that
+device with `access/horizon-unmeasured` before it takes a queue slot: the
+horizon is what bounds how long a mutation's effect may stay unknown, so
+without it there is no moment at which recovery may correctly abandon. The
+device is onboarded and read as usual. A read has no effect to become
+visible, so the same fact says nothing about reading the device, and
+refusing the device outright would stop its drift polling and answer
+central's read with "unknown device" — which is false, and sends whoever
+debugs it looking for a registration bug that does not exist.
 
 `ReadOverride` and `SubmitOverride` replace the device call itself and are
 for tests. They do not replace the acquisition, which happens first
@@ -145,16 +153,16 @@ the direction record's decision 3.
 1. A host calls `Lane.AddDevice`, supplying a `DeviceSession` (an SNMP
    session, an optional shell adapter, provenance inputs, and the device's
    measured delayed-apply horizon).
-2. `AddDevice` refuses a device whose horizon is unmeasured, before any
-   device contact. Otherwise it runs `internal/epoch.Probe` — a
-   route-independent SNMP `sysDescr`/`sysObjectID` read — to learn the
-   device's starting firmware fingerprint, records `flowseer.device.discovery.completed`, and
+2. `AddDevice` runs `internal/epoch.Probe` — a route-independent SNMP
+   `sysDescr`/`sysObjectID` read — to learn the device's starting firmware
+   fingerprint, records `flowseer.device.discovery.completed`, and
    delivers a `DiscoveryCompleted` audit event.
 3. The device is registered with an empty per-device `lane.Queue`. The
    first `Lane.Submit` for that device may now be admitted; a mutation
    whose intent names a different firmware fingerprint than the one
    `AddDevice` learned is blocked at `mutation.Admitted` before any device
-   contact, per decision 7.
+   contact, per decision 7, and a mutation on a device whose horizon is
+   unmeasured is refused before that.
 
 ## Metric cardinality
 

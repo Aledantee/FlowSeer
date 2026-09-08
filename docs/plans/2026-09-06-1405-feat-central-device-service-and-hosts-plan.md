@@ -1269,6 +1269,16 @@ different measured horizons abandons one of them at the other's. That is a
 change to the access module rather than to a wire, and it is why this unit
 touches `lanehost` as well.
 
+An unmeasured horizon refuses the mutation, not the device. The first
+implementation refused the device at `AddDevice`, which is a wider rule than
+the fact supports: the horizon bounds how long a *mutation's* effect may stay
+unknown, a read has no effect to become visible, and refusing the device stops
+its drift polling and answers central's read with `access/unknown-device` —
+false, since the device is registered and the edge is holding it, and a
+sentence that sends whoever debugs it looking for a registration bug there is
+no trace of. It also puts the edge and central's registry, which refuses only
+the mutation, in disagreement about what the same fact means.
+
 **Staleness is the accepted answer.** The edge lists after attachment and
 again on each `Subscribe` reconnection, and holds what it was last told
 between listings. Stale-but-consistent beats fresh-but-inconsistent within
@@ -1279,11 +1289,48 @@ be rediscovered.
 Breaking `api/edge/v1` after U1 is a fact rather than a risk: nothing outside
 this repository consumes it, and the standing rule welcomes the change.
 
-Tests: an agent that lists, onboards what it was told, and refuses a device
-whose listing carries no horizon; a listing served only to the edge the
-assertion names; two devices with different horizons, each abandoning at its
-own.
+Tests: an agent that lists and onboards what it was told; a device listed
+with no horizon onboarded and read, with a mutation on it refused; a listing
+served only to the edge the assertion names; two devices with different
+horizons, each abandoning at its own.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/services/device/internal/edgeapi/**' 'spec/proto/flowseer/api/edge/**')`
+
+### U8c. Updating a registered device's session
+Files: `src/modules/localnet/access/lane.go`, `src/modules/localnet/access/README.md`,
+`src/edge/agent/internal/lanehost/`
+After: U8b
+Change: a `Lane` call that updates a registered device's session, and the
+agent using it in place of U8b's divergence signal.
+
+U8b's onboarder holds the devices it has already added and adds only the
+new ones, because a second `AddDevice` for a registered key replaces its
+`deviceState` wholesale and orphans that device's queue and any in-flight
+drainer. So a device whose horizon or address is corrected centrally keeps
+the values it was first listed with until the agent restarts. U8b makes
+that visible rather than silent — a re-list carrying a device the edge
+already holds with different fields records which fields diverged — and
+the operator's experience without that signal is the reason: they measure
+the horizon, set it centrally, mutations keep failing
+`access/horizon-unmeasured`, and nothing connects the two facts.
+
+The signal is not the fix, and the fix is not plumbing. An update must not
+disturb the device's queue, its drainer, its firmware fingerprint, or an
+open mutation's state — and the question it turns on is what happens to a
+mutation already in flight against the old address and the old horizon at
+the moment the update arrives. It finishes under the values it started
+with, it is refused, or it is re-targeted mid-operation, and only the
+first two are defensible: this is the same hazard that decided against
+riding the address on the credential response, where a mutation's
+`Execute` and its verifying `Observe` acquire separately and an address
+that changed between them reports a device verified that was never
+touched. Whichever answer this unit takes, the horizon a recovery poll is
+already running under must not change under it.
+
+Tests: an update that leaves a queued item and a running drainer alone; a
+device whose horizon is corrected mid-life accepting a mutation it
+previously refused; an update arriving while a mutation is in flight,
+asserting which values that mutation finished under.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**' 'src/edge/agent/**')`
 
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,

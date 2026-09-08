@@ -183,7 +183,9 @@ type DeviceSession struct {
 	// serves devices whose horizons differ by orders of magnitude, and a
 	// lane-wide value abandons the slow device at the fast device's
 	// horizon — reporting a mutation as never applied while it is still
-	// landing. [Lane.AddDevice] refuses a session that leaves it zero.
+	// landing. Zero means unmeasured: the device is served, and
+	// [Lane.Submit] refuses a mutation on it with [ErrCodeHorizonUnmeasured]
+	// while a read, which has no effect to become visible, runs as usual.
 	DelayedEffect InterfaceDelayedEffect
 
 	// ReadOverride and SubmitOverride, when set, replace the device call
@@ -480,17 +482,6 @@ func (noopSubmissionHandle) Close() error { return nil }
 // firmware fingerprint, per the onboarding sequence this module's README
 // documents.
 func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSession) error {
-	// Refused before the probe, so an unmeasured device costs no device
-	// contact. The horizon is what bounds a mutation's recovery, and a
-	// device registered without one would take work this lane could only
-	// abandon at an arbitrary moment — so the device is not served at all
-	// until it has been measured, rather than served in a way that decides
-	// mutations by a number nobody chose.
-	if session.DelayedEffect.Horizon <= 0 {
-		return errs.New().Code(ErrCodeHorizonUnmeasured).Attr("device", deviceKey).
-			Msg("device has no measured delayed-apply horizon")
-	}
-
 	// The onboarding probe acquires its own credential, under the handle
 	// this device was registered with, and opens a session that lives only
 	// as long as the probe. There is no cached session to reuse afterwards:
@@ -711,6 +702,19 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 	if ds.hold.Active() && opts.Request.GetMutation() != nil {
 		return nil, errs.New().Code(ErrCodeDesynchronized).
 			Msg("this device's lane is on hold; call ResolveHold before admitting another mutation")
+	}
+
+	// A mutation on a device whose horizon was never measured is refused
+	// here, before it takes a queue slot. The horizon is what bounds how
+	// long the effect of a mutation may stay unknown, so without it there
+	// is no moment at which recovery may correctly abandon — and every
+	// substitute is a number nobody measured. It refuses the mutation and
+	// not the device: a read has no effect to become visible, so the same
+	// fact says nothing about reading this device, and central's registry
+	// draws the line in the same place.
+	if opts.Request.GetMutation() != nil && ds.session.DelayedEffect.Horizon <= 0 {
+		return nil, errs.New().Code(ErrCodeHorizonUnmeasured).Attr("device", opts.DeviceKey).
+			Msg("this device's delayed-apply horizon has never been measured; a mutation on it cannot be bounded")
 	}
 
 	// Poll coalescing: a TypedRead matching one already queued or in flight
