@@ -515,6 +515,23 @@ Design decisions:
     `restore` after abandonment; the audit stream holds the expected kinds
     in order.
 
+    Three of those five are blocked on U8f: a mutation currently never
+    verifies, so there is no resolved apply, no result to kill central
+    between a checkpoint and, and no abandonment to restore after. The
+    assembled run itself is not blocked and landed first — onboarding and
+    an operator's read both work end to end — but neither of those is a
+    clause this requirement names.
+
+    Only the edge needs a substituted clock. Central's device service holds
+    one `time.Now()` outside its tests, for certificate validity; the
+    journal and the drift poller both already take an injected clock and the
+    host passes nil to each. What that clock drives is `admitted_at`,
+    `blocked_since` and `readExpired`, none of which abandonment depends on
+    — `AbandonMutation` decides on phase, not on elapsed time. So central's
+    seam exists and is merely unexposed through `Run`. The likely first
+    caller is requirement 3's expiring read rather than anything here, and
+    the work when it comes is exposing `journal.New`'s existing parameter.
+
 ## Out of scope
 
 Item 7 itself. Multi-node hub and R3 replicas. The ingestion plane
@@ -1468,6 +1485,101 @@ a hub fixture built here would be most of that harness built twice, with
 the second one the real one.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/edge/README.md')`
 
+### U8f. The access policy a mutation's own observation reads under
+Files: `src/modules/localnet/access/lane.go`, its tests,
+`src/services/device/test/integration/testdata/mutation-verification-repro/`
+After: U8e. **Before U8g and U9**, which are both blocked on it.
+Change: a mutation applies to the device and is never verified. The
+end-to-end found it; no unit test on either side can, because both halves
+are individually correct.
+
+**The symptom.** An operator's `ApplyInterfaceDescription` reaches the
+device and the description is written — the fixture device holds it and
+recorded the command. The mutation then sits at `POSSIBLY_APPLIED` with
+`BLOCK_REASON_INDETERMINATE` and never leaves, through the recovery
+poll's whole budget.
+
+**The cause**, from central's own log at `LOG_LEVEL_DEBUG`:
+
+```
+rpc.method: flowseer.api.edge.v1.EdgeService/AcquireReadCredential
+rpc.response.status_code: invalid_argument
+error: request fails its schema rules: access_policy: value is required
+```
+
+`machineDeps` builds one `Read` closure for every operation and sources
+the policy handle from `req.GetRead().GetAccessPolicy()` at `lane.go:1691`.
+An `ExecuteRequest` carries exactly one of `mutation` or `read`, so on a
+mutation `GetRead()` is nil, the handle is nil, and central refuses the
+acquisition before any session is opened. The read path works because
+central puts the handle on the `TypedRead` it dispatches; the mutation
+path has no `TypedRead` to carry one.
+
+The handle the closure needs is already in the request:
+`MutationIntent.access_policy` is required, and it is the policy version
+the intent was admitted under, which is the one this observation should
+read under. `DeviceSession.AccessPolicy` is the onboarding probe's and is
+the wrong answer here — central decides per operation which policy
+admitted it, and an observation taken under the session's handle would
+report the wrong one whenever a policy version has moved since onboarding.
+
+**One defect, seen twice.** The mutation's own post-write observation and
+every recovery poll's re-observation go through the same closure, so both
+fail identically. That is why the mutation is neither verified nor
+abandoned: three acquisitions over a hundred seconds, all refused the same
+way. The recovery poll does run — an earlier reading that it did not was
+made on a twenty-second window against a thirty-second
+`defaultRecoveryPollInterval`.
+
+Tests: an applied description is verified and the lane left free, which
+is requirement 10's first clause and currently unreachable; and the
+acquisition carries the mutation's own handle rather than the session's,
+asserted on the handle's version so a fix that passed the session's
+would fail. The second is what stops the obvious wrong fix.
+
+**Reversal to run before claiming it fixed:** with the fix in, change the
+registry policy version so the session's handle and the intent's differ,
+and confirm the acquisition carries the intent's.
+
+The reproduction is committed under `testdata/` with a README saying how
+to run it and what it prints. It is kept because the assembled run is the
+only thing that shows this, and rebuilding it costs more than keeping it.
+One caution is recorded there: the fixture's session counter counts SNMP
+session opens rather than credential acquisitions, and reading it as
+acquisitions sent this investigation down a wrong path once.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go')`
+
+### U8g. The Onboarded report the edge never sends
+Files: `src/modules/localnet/access/lane.go`, `src/edge/agent/host/report.go`,
+`src/edge/agent/internal/report/`, `src/edge/agent/internal/dispatch/`
+After: U8f.
+Change: nothing in production code builds an `Onboarded` report.
+`SetOnboarded` appears twice in the repository and both are tests. Central's
+`applyOnboarded` is complete, the edge's report queue classifies the kind and
+documents it as never dropped, and `access.Reporter` has no onboarding method
+— so the lane cannot tell its host that a device was onboarded, and the
+fingerprint its identity probe learned never leaves the edge.
+
+Two consequences. Central learns a fingerprint only from a read's provenance,
+so an operator's first mutation on a freshly onboarded device is impossible
+until they have done a read, and nothing says so. And `MarkOnboarded` is never
+called, so requirement 3's "`Onboarded` at `POSSIBLY_APPLIED` re-dispatches
+with `resume` and the original admission time" has no trigger: the
+edge-restart recovery path cannot run.
+
+Four things to settle in the spec rather than discover: whether the queue's
+drain honours the retention the comment asserts; what orders an `Onboarded`
+against a dispatch the edge has already answered, given `applyOnboarded`
+clears per-dispatch confirmations, or what it costs that nothing does;
+whether the report carries the fingerprint or central re-derives it; and the
+test that makes it worth doing, which is an edge restarting mid-mutation and
+central re-dispatching with `resume`.
+
+This was called U8f in discussion before the mutation-path defect was found.
+It is renamed rather than reordered, so that the unit letters keep running in
+the order the units do, as U8b through U8e already do.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
@@ -1568,6 +1680,14 @@ above are examples, not the list — a run over
 `src/services/device/internal/host`, whose `httptest` server panics with the
 same `bind: operation not permitted`, and naming a fifth package here would
 only leave the next session to find a sixth.
+
+A listener that can be asked for any free port is still not one every test
+can use. The API reports what it bound, which is what makes port 0 usable —
+and the end-to-end still cannot use it, because the agent reads central's
+address from its provisioning file before anything binds and has to keep
+dialing that one address across a central restart. Same shape as the bus and
+its `cluster_urls`: the constraint is not the listener's, it is that somebody
+wrote the address down first.
 
 `golangci-lint` runs `misspell` with a US dictionary, over prose in comments
 and test messages as well as identifiers. It rejects British spellings
