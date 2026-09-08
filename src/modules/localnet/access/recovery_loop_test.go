@@ -88,7 +88,6 @@ func newRecoveringLane(t *testing.T, horizon, interval time.Duration) *recoverin
 	r := &recoveringLane{wait: newFakeWait(), reporter: &recordingReporter{}}
 	r.lane = access.NewLane(access.Config{
 		QueueCapacity:        4,
-		DelayedEffect:        interfaces.DelayedEffect{Horizon: horizon},
 		Audit:                noopDeliverer{},
 		Telemetry:            view,
 		Clock:                time.Now,
@@ -99,7 +98,8 @@ func newRecoveringLane(t *testing.T, horizon, interval time.Duration) *recoverin
 	})
 
 	err = r.lane.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: horizon},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			r.reads.Add(1)
 			r.holdMu.Lock()

@@ -39,7 +39,6 @@ func newTestLane(t *testing.T) *access.Lane {
 	}
 	return access.NewLane(access.Config{
 		QueueCapacity: 4,
-		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:         noopDeliverer{},
 		Telemetry:     view,
 		Clock:         time.Now,
@@ -90,7 +89,8 @@ func readRequest() *integrationv1.ExecuteRequest {
 func addDevice(t *testing.T, l *access.Lane) {
 	t.Helper()
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -186,14 +186,14 @@ func TestCoalescedReadKeepsCallersLongerDeadlineInsteadOfOperationTimeout(t *tes
 	const slowRead = 200 * time.Millisecond // longer than shortOperationTimeout
 	l := access.NewLane(access.Config{
 		QueueCapacity:    4,
-		DelayedEffect:    interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:            noopDeliverer{},
 		Telemetry:        view,
 		Clock:            time.Now,
 		OperationTimeout: shortOperationTimeout,
 	})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(ctx context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			select {
 			case <-time.After(slowRead):
@@ -230,7 +230,6 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	}
 	l := access.NewLane(access.Config{
 		QueueCapacity: 1,
-		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:         noopDeliverer{},
 		Telemetry:     view,
 		Clock:         time.Now,
@@ -241,7 +240,8 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	// queue is genuinely full for the overload check.
 	release := make(chan struct{})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			return completeObservation("x"), nil
@@ -329,7 +329,8 @@ func TestLanePollCoalescing(t *testing.T) {
 	var mu sync.Mutex
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			mu.Lock()
 			reads++
@@ -388,7 +389,8 @@ func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 	var submits int
 	var mu sync.Mutex
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -440,6 +442,7 @@ func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 
 	var probed bool
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
 		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{
 				Session: fakeIdentitySession{onGet: func() { probed = true }},
@@ -487,7 +490,6 @@ func TestLaneProcessRecordsOperationSpanAndMetric(t *testing.T) {
 	}
 	l := access.NewLane(access.Config{
 		QueueCapacity: 4,
-		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:         noopDeliverer{},
 		Telemetry:     view,
 		Clock:         time.Now,
@@ -623,7 +625,8 @@ func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
 
 	releaseA := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(ctx context.Context, name string) (*accessv1.InterfaceObservation, error) {
 			if name == "eth-A" {
 				<-releaseA
@@ -737,7 +740,6 @@ func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
 	}
 	l := access.NewLane(access.Config{
 		QueueCapacity: n,
-		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:         noopDeliverer{},
 		Telemetry:     view,
 		Clock:         time.Now,
@@ -794,7 +796,8 @@ func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
 	bEnqueued := make(chan struct{})
 	releaseB := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(_ context.Context, name string) (*accessv1.InterfaceObservation, error) {
 			switch name {
 			case "eth-A":
@@ -860,7 +863,8 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			// If the owner's cancellation reached this call's own ctx, the
@@ -920,7 +924,8 @@ func TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner(t *testing.
 
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			<-release
 			return completeObservation("uplink to core"), nil

@@ -68,7 +68,6 @@ func newEpochLane(t *testing.T, identity *switchableIdentity, deliverer auditDel
 	}
 	l := access.NewLane(access.Config{
 		QueueCapacity:        4,
-		DelayedEffect:        interfaces.DelayedEffect{Horizon: time.Hour},
 		Audit:                deliverer,
 		Telemetry:            view,
 		Clock:                time.Now,
@@ -77,6 +76,7 @@ func newEpochLane(t *testing.T, identity *switchableIdentity, deliverer auditDel
 		RecoveryPollInterval: time.Minute,
 	})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
 		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},
@@ -106,6 +106,7 @@ func TestAFirmwareChangeBeforeTheCommandStopsIt(t *testing.T) {
 	var submits atomic.Int64
 	// Replace the device's submit hook so the test can count commands.
 	if err := l.AddDevice(context.Background(), "dev-2", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
 		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},

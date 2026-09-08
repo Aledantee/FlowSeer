@@ -32,7 +32,6 @@ func laneWithCredentials(t *testing.T, source *recordingCredentials) *access.Lan
 	}
 	return access.NewLane(access.Config{
 		QueueCapacity:    4,
-		DelayedEffect:    interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:            noopDeliverer{},
 		Telemetry:        view,
 		Clock:            time.Now,
@@ -55,9 +54,10 @@ func TestEveryReadAndTheOnboardingProbeAcquireTheirOwnCredential(t *testing.T) {
 	l := laneWithCredentials(t, source)
 
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     probeFactory(),
-		AccessPolicy: policyHandle("onboarding-policy", 3),
-		BindingID:    "binding-1",
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		AccessPolicy:  policyHandle("onboarding-policy", 3),
+		BindingID:     "binding-1",
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -120,8 +120,9 @@ func TestReadOverrideStillAcquiresACredential(t *testing.T) {
 	l := laneWithCredentials(t, source)
 
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     probeFactory(),
-		AccessPolicy: policyHandle("onboarding-policy", 1),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		AccessPolicy:  policyHandle("onboarding-policy", 1),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -159,8 +160,9 @@ func TestAFailedAcquisitionFailsTheOperation(t *testing.T) {
 	l := laneWithCredentials(t, source)
 
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     probeFactory(),
-		AccessPolicy: policyHandle("onboarding-policy", 1),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		AccessPolicy:  policyHandle("onboarding-policy", 1),
 	})
 	if err != nil {
 		t.Fatalf("AddDevice() error: %v", err)
@@ -171,8 +173,9 @@ func TestAFailedAcquisitionFailsTheOperation(t *testing.T) {
 
 	// A second device cannot even onboard.
 	err = l.AddDevice(context.Background(), "dev-2", access.DeviceSession{
-		OpenSNMP:     countingProbeFactory(&opened, &atomic.Int64{}),
-		AccessPolicy: policyHandle("onboarding-policy", 1),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      countingProbeFactory(&opened, &atomic.Int64{}),
+		AccessPolicy:  policyHandle("onboarding-policy", 1),
 	})
 	if err == nil {
 		t.Fatal("AddDevice() error = nil, want the failed acquisition surfaced")
@@ -192,8 +195,9 @@ func TestSessionsAreOpenedAndClosedPerOperation(t *testing.T) {
 
 	var opened, closed atomic.Int64
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     countingProbeFactory(&opened, &closed),
-		AccessPolicy: policyHandle("onboarding-policy", 1),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      countingProbeFactory(&opened, &closed),
+		AccessPolicy:  policyHandle("onboarding-policy", 1),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -237,7 +241,6 @@ func TestTheCommandGoesOverASessionOpenedFromTheGrant(t *testing.T) {
 	}
 	l := access.NewLane(access.Config{
 		QueueCapacity:         4,
-		DelayedEffect:         interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:                 noopDeliverer{},
 		Telemetry:             view,
 		Clock:                 time.Now,
@@ -247,9 +250,10 @@ func TestTheCommandGoesOverASessionOpenedFromTheGrant(t *testing.T) {
 	})
 
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP:     probeFactory(),
-		OpenShell:    shell.open,
-		AccessPolicy: policyHandle("onboarding-policy", 1),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		OpenShell:     shell.open,
+		AccessPolicy:  policyHandle("onboarding-policy", 1),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},

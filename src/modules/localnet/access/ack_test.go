@@ -87,7 +87,6 @@ func laneWithReporter(t *testing.T, reporter access.Reporter, deliverer auditDel
 	}
 	return access.NewLane(access.Config{
 		QueueCapacity:    4,
-		DelayedEffect:    interfaces.DelayedEffect{Horizon: time.Minute},
 		Audit:            deliverer,
 		Telemetry:        view,
 		Clock:            time.Now,
@@ -101,7 +100,8 @@ func laneWithReporter(t *testing.T, reporter access.Reporter, deliverer auditDel
 func addDeviceCountingSubmits(t *testing.T, l *access.Lane, submits *atomic.Int64) {
 	t.Helper()
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},
@@ -569,7 +569,8 @@ func TestCoalescedReadReportsOncePerJoiner(t *testing.T) {
 
 	release := make(chan struct{})
 	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(_ context.Context, _ string) (*accessv1.InterfaceObservation, error) {
 			// Hold the first read open so the second call coalesces onto
 			// it rather than racing to become a second ticket.

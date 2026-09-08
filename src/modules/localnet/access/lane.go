@@ -34,6 +34,7 @@ var (
 	ErrCodeNoPendingWait     = errs.NewCode("access/no-pending-wait")
 	ErrCodeDesynchronized    = errs.NewCode("access/desynchronized")
 	ErrCodeRecoveryAmbiguous = errs.NewCode("access/recovery-ambiguous")
+	ErrCodeHorizonUnmeasured = errs.NewCode("access/horizon-unmeasured")
 )
 
 // Refusal codes produced inside internal/mutation and re-exported here.
@@ -93,7 +94,6 @@ type Reporter interface {
 type Config struct {
 	QueueCapacity  int
 	EvidencePolicy evidence.Policy
-	DelayedEffect  interfaces.DelayedEffect
 	RecoveryMinGap time.Duration
 	// RecoveryPollInterval spaces one mutation's recovery polls. Zero is
 	// raised to a default of 30s.
@@ -176,6 +176,15 @@ type DeviceSession struct {
 	// binding_id — required and UUID-constrained against a real
 	// EdgeService.
 	BindingID string
+
+	// DelayedEffect is how long a mutation on this device may take to
+	// become visible to a fresh read, measured on this device's own
+	// fixture. Required, and per device rather than per lane: one edge
+	// serves devices whose horizons differ by orders of magnitude, and a
+	// lane-wide value abandons the slow device at the fast device's
+	// horizon — reporting a mutation as never applied while it is still
+	// landing. [Lane.AddDevice] refuses a session that leaves it zero.
+	DelayedEffect InterfaceDelayedEffect
 
 	// ReadOverride and SubmitOverride, when set, replace the device call
 	// itself — interfaces.Read, or the shell's SetPortName. They do not
@@ -471,6 +480,17 @@ func (noopSubmissionHandle) Close() error { return nil }
 // firmware fingerprint, per the onboarding sequence this module's README
 // documents.
 func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSession) error {
+	// Refused before the probe, so an unmeasured device costs no device
+	// contact. The horizon is what bounds a mutation's recovery, and a
+	// device registered without one would take work this lane could only
+	// abandon at an arbitrary moment — so the device is not served at all
+	// until it has been measured, rather than served in a way that decides
+	// mutations by a number nobody chose.
+	if session.DelayedEffect.Horizon <= 0 {
+		return errs.New().Code(ErrCodeHorizonUnmeasured).Attr("device", deviceKey).
+			Msg("device has no measured delayed-apply horizon")
+	}
+
 	// The onboarding probe acquires its own credential, under the handle
 	// this device was registered with, and opens a session that lives only
 	// as long as the probe. There is no cached session to reuse afterwards:
@@ -1443,21 +1463,23 @@ func (l *Lane) reportCheckpoint(ctx context.Context, ack *integrationv1.Checkpoi
 // how long it will wait for an answer, not how long the device's effect
 // stays unknown, and a mutation whose submitter gave up still holds this
 // device's lane until something resolves it. It is bounded all the same, by
-// the horizon plus one interval: the horizon is when Attempt abandons, and
-// the extra interval leaves room for the poll that does the abandoning.
+// this device's own horizon plus one interval: the horizon is when Attempt
+// abandons, and the extra interval leaves room for the poll that does the
+// abandoning.
 //
 // Every exit answers the caller. That is the property to keep: a poll that
 // returned without answering would leave Submit blocked with nothing left
 // running that could ever unblock it, and nothing anywhere reporting that
 // it had happened.
 func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
-	budget := l.cfg.DelayedEffect.Horizon + l.cfg.RecoveryPollInterval
+	effect := ds.session.DelayedEffect
+	budget := effect.Horizon + l.cfg.RecoveryPollInterval
 	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
 	ds.stateMu.Lock()
 	open.stopPoll = cancel
 	ds.stateMu.Unlock()
 
-	runner := recovery.New(open.machine, l.cfg.Fenced, l.cfg.DelayedEffect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
+	runner := recovery.New(open.machine, l.cfg.Fenced, effect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
 
 	go func() {
 		defer cancel()

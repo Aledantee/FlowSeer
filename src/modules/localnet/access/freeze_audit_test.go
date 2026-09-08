@@ -13,6 +13,7 @@ import (
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 )
 
 // frozenSpy records the device of every LaneFrozen record it is handed and
@@ -61,7 +62,8 @@ func (d *frozenSpy) fail(devices ...string) {
 func addNamedDevice(t *testing.T, l *access.Lane, deviceKey string) error {
 	t.Helper()
 	return l.AddDevice(context.Background(), deviceKey, access.DeviceSession{
-		OpenSNMP: probeFactory(),
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
 			return completeObservation("uplink to core"), nil
 		},

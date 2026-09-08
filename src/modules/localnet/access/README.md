@@ -53,6 +53,15 @@ of acquiring, every time. The cost is one acquisition per read, which is
 what `AcquireReadCredential` is shaped for — there is no standing lease to
 cache.
 
+The delayed-apply horizon is on the `DeviceSession`, not on `Config`. It is
+measured per device on that device's own fixture, and one edge serves
+devices whose horizons differ by orders of magnitude — a lane-wide value
+abandons the slow device at the fast device's horizon, reporting a mutation
+as never applied while it is still landing, or holds the fast device's lane
+for the slow one's horizon. `AddDevice` refuses a session that leaves it
+zero, before the onboarding probe: an unmeasured device is not served at
+all, rather than served with its mutations decided by a number nobody chose.
+
 `ReadOverride` and `SubmitOverride` replace the device call itself and are
 for tests. They do not replace the acquisition, which happens first
 regardless: a hook able to skip it would let the rest of this package's
@@ -134,10 +143,12 @@ the direction record's decision 3.
 ## Onboarding sequence
 
 1. A host calls `Lane.AddDevice`, supplying a `DeviceSession` (an SNMP
-   session, an optional shell adapter, and provenance inputs).
-2. `AddDevice` runs `internal/epoch.Probe` — a route-independent SNMP
-   `sysDescr`/`sysObjectID` read — to learn the device's starting firmware
-   fingerprint, records `flowseer.device.discovery.completed`, and
+   session, an optional shell adapter, provenance inputs, and the device's
+   measured delayed-apply horizon).
+2. `AddDevice` refuses a device whose horizon is unmeasured, before any
+   device contact. Otherwise it runs `internal/epoch.Probe` — a
+   route-independent SNMP `sysDescr`/`sysObjectID` read — to learn the
+   device's starting firmware fingerprint, records `flowseer.device.discovery.completed`, and
    delivers a `DiscoveryCompleted` audit event.
 3. The device is registered with an empty per-device `lane.Queue`. The
    first `Lane.Submit` for that device may now be admitted; a mutation
