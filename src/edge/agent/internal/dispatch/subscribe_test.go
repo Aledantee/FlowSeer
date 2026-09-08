@@ -195,3 +195,33 @@ func TestAHandlerErrorDoesNotDropTheStream(t *testing.T) {
 		t.Errorf("handled %d messages, want all 3: one failure must not end the stream", got)
 	}
 }
+
+// TestACentralThatServesAndClosesLooksHealthyExceptForMessages is the case
+// Contact's doc had no story for. A central accepting every stream and
+// closing it immediately leaves Connections climbing and Failures at zero,
+// which reads as a working edge — and the backoff is meanwhile doubling to
+// its ceiling, because it resets on a delivered message and none arrive.
+//
+// The test exists to keep the doc honest rather than to change behaviour:
+// Messages is the number that separates this from a healthy loop, and it must
+// stay at zero here or the doc's advice is wrong.
+func TestACentralThatServesAndClosesLooksHealthyExceptForMessages(t *testing.T) {
+	central := &centralStream{}
+	contact := &dispatch.Contact{}
+	handler := &handlerFake{}
+
+	runFor(t, dispatch.Config{
+		Client: servedClient(t, central), Handler: handler,
+		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
+	}, contact, 3)
+
+	if got := contact.Connections(); got < 3 {
+		t.Errorf("Connections() = %d, want at least 3: central served every stream", got)
+	}
+	if got := contact.Failures(); got != 0 {
+		t.Errorf("Failures() = %d, want 0: nothing failed", got)
+	}
+	if got := contact.Messages(); got != 0 {
+		t.Errorf("Messages() = %d, want 0: this is the number that shows nothing is arriving", got)
+	}
+}

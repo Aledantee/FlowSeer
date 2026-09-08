@@ -49,6 +49,15 @@ type Handler interface {
 // refused, and the number meant to prove a client is alive is then non-zero
 // for a client that has never reached anything. A stream is counted once it
 // has delivered a message or ended without error.
+//
+// It counts contact, not useful service, and the difference has a case. A
+// central that accepts every stream and closes it immediately leaves
+// Connections climbing, Failures at zero, and the loop backing off to its
+// ceiling — because the backoff resets on a delivered message and that
+// central delivers none. Read against the two numbers above, that looks
+// healthy; it is a loop degrading quietly. Neither number is wrong, and a
+// watcher that needs to tell them apart wants Messages, which stays at zero
+// there and does not for a working edge.
 type Contact struct {
 	connections atomic.Int64
 	failures    atomic.Int64
@@ -91,7 +100,7 @@ type Config struct {
 // a loop that has never succeeded is visible as a number rather than as
 // silence.
 //
-// The backoff resets on a successful open, not on a successful message. A
+// The backoff resets on a delivered message, not on a successful open. A
 // stream that opens and immediately drops is a failing central, and resetting
 // on the open alone would retry it a thousand times a second.
 func Run(ctx context.Context, cfg Config, contact *Contact) error {
