@@ -970,7 +970,7 @@ indirectly — but if a `Verify` line ever names a path under
 `master` has neither package. The Verification section above records it.
 
 ### U8. Edge host
-Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/{identity,busattach,dispatch,lanehost}/`,
+Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/{identity,busattach,dispatch,report,lanehost}/`,
 `src/edge/agent/README.md`, `src/edge/README.md`
 After: U2, U4, U5, and U3 of the lane host contract plan
 Change: requirement 9; `AttachBus` then the leaf from `edgebus`, with the
@@ -1220,6 +1220,70 @@ interval, the deadline and the interval want separating rather than both being
 raised — a longer interval also delays detecting a central that really is
 gone. Obvious once measured, invisible until then, so the runbook records the
 observed latency whether or not it looks interesting.
+
+### U8b. What the edge is told about a device
+Files: `spec/proto/flowseer/api/edge/v1/edge_service.proto`,
+`spec/proto/flowseer/api/edge/v1/README.md`, `generated/**`,
+`src/services/device/internal/edgeapi/`, `src/edge/agent/internal/lanehost/`
+After: U8's session factories
+Change: `EdgeService.ListDevices`, and the agent using it.
+
+This unit exists because the agent could open a session to a device it
+cannot locate. `RegistryDevice` holds the management address, the ports, the
+binding, the access policy and the measured horizon; nothing sends any of it
+to the edge, and requirement 9's "onboards every device central's registry
+lists for it" assumed a listing RPC that does not exist. Absent data has no
+failing test and no compile error, so it survived every gate until something
+had to use it.
+
+**Why a listing rather than the credential response.** The address and the
+host-key pin are needed at the same moment and look like a pair, but they
+fail in opposite directions. A changed host key fails closed: the pin refuses
+and the caller gets an error. A changed address fails open, silently, against
+a different real device that answers normally. Riding the same per-operation
+mechanism would put a stable fact on a revocable call — and a mutation's
+`Execute` and its verifying `Observe` acquire separate credentials, so an
+address that changed between them sends the command to one device and reads
+the verification from another, with the lane reporting VERIFIED about a box
+it never touched. Agent-side configuration was rejected for making the
+address a second source of truth; carrying it on each dispatch, for having
+the same per-operation hazard and repeating a stable fact on every message.
+
+**What one listed device carries**, all of it read from the registry the
+edge cannot see:
+
+- the device id, its management address, and the SNMP and SSH ports;
+- the access policy handle, which `DeviceSession.AccessPolicy` needs for the
+  onboarding probe and has no other source;
+- the binding ref, which `OpenDeviceSubmission` requires as a UUID and
+  `ProvenanceInputs.Binding` puts on every observation — a second gap the
+  enumeration found, with the same shape as the address;
+- the measured delayed-apply horizon, which is the third.
+
+**The horizon is not only a missing field.** `RegistryDevice.delayed_apply_horizon`
+is per device and fixture-measured — its own comment says an unmeasured one
+refuses mutations — while `access.Config.DelayedEffect` is lane-wide, one
+horizon for every device the edge serves. Delivering it is not enough: the
+horizon has to move onto `DeviceSession`, or an edge serving two devices with
+different measured horizons abandons one of them at the other's. That is a
+change to the access module rather than to a wire, and it is why this unit
+touches `lanehost` as well.
+
+**Staleness is the accepted answer.** The edge lists after attachment and
+again on each `Subscribe` reconnection, and holds what it was last told
+between listings. Stale-but-consistent beats fresh-but-inconsistent within
+one operation, which is the same argument that kept the address off the
+credential response. Say it in the message comment rather than leaving it to
+be rediscovered.
+
+Breaking `api/edge/v1` after U1 is a fact rather than a risk: nothing outside
+this repository consumes it, and the standing rule welcomes the change.
+
+Tests: an agent that lists, onboards what it was told, and refuses a device
+whose listing carries no horizon; a listing served only to the edge the
+assertion names; two devices with different horizons, each abandoning at its
+own.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/services/device/internal/edgeapi/**' 'spec/proto/flowseer/api/edge/**')`
 
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
