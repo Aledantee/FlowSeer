@@ -61,6 +61,13 @@ var (
 // acknowledgement of a message central sent. The lane calls it on the
 // goroutine that did the work.
 //
+// Every method names the device. None of the three messages does — a
+// sequence is unique per device and the execution envelope leaves
+// addressing to the transport — while ReportRequest.device_id is required,
+// so a Reporter without this parameter is handed a checkpoint
+// acknowledgement it cannot address. The lane knows the device at every
+// call site; the host would have to reconstruct it, and cannot.
+//
 // An implementation must return at once and must not do I/O. The lane
 // reports while it holds a device's drain lock, so a Reporter that blocked
 // on a network send would stall every other operation queued for that
@@ -76,13 +83,13 @@ type Reporter interface {
 	// Reported carries one ExecuteResult: a progress report at admission
 	// and on entering recovery, an observation for a read or a verified
 	// mutation, an error, or a terminal phase.
-	Reported(ctx context.Context, result *integrationv1.ExecuteResult)
+	Reported(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult)
 	// CheckpointAcked carries the acknowledgement of central's
 	// CheckpointRequest.
-	CheckpointAcked(ctx context.Context, ack *integrationv1.CheckpointAck)
+	CheckpointAcked(ctx context.Context, deviceKey string, ack *integrationv1.CheckpointAck)
 	// HoldResolvedAcked carries the acknowledgement of central's
 	// HoldResolved.
-	HoldResolvedAcked(ctx context.Context, ack *integrationv1.HoldResolvedAck)
+	HoldResolvedAcked(ctx context.Context, deviceKey string, ack *integrationv1.HoldResolvedAck)
 }
 
 // Config carries every dependency [Lane] needs. Construct with keyed
@@ -108,8 +115,15 @@ type Config struct {
 	Reporter              Reporter
 	SubmissionCredentials credential.SubmissionCredentialSource
 	Audit                 audit.Deliverer
-	Telemetry             *telemetry.View
-	Clock                 func() time.Time
+	// Telemetry is this lane's instrumentation scope, built with
+	// [NewTelemetry]. Nil is tolerated — every method guards it, and a
+	// facade with no exporter is a legitimate way to use this module — and
+	// it means the lane's spans, metrics and events do not exist. Nothing
+	// reports that, because this module has no logger to report it with:
+	// the View is its output. A host with providers passes one, and the
+	// agent host always does.
+	Telemetry *telemetry.View
+	Clock     func() time.Time
 	// OperationTimeout is a FLOOR on a coalesced read's device call — the
 	// actual work its joiners depend on, detached from any single
 	// caller's own context so one caller's cancellation cannot fail every
@@ -741,7 +755,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 			if execResult != nil {
 				joined, _ := proto.Clone(execResult).(*integrationv1.ExecuteResult)
 				joined.SetSequence(opts.Request.GetSequence())
-				l.report(ctx, joined)
+				l.report(ctx, opts.DeviceKey, joined)
 				return joined, nil
 			}
 			return execResult, nil
@@ -1130,7 +1144,7 @@ func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Mac
 	obs, err := m.Observe(ctx)
 	if err != nil {
 		err = errs.Wrap(err, "observe")
-		l.report(ctx, m.Result(err))
+		l.report(ctx, ds.key, m.Result(err))
 		return nil, err
 	}
 	// A read is discarded across an epoch boundary for the same reason a
@@ -1140,25 +1154,25 @@ func (l *Lane) processRead(ctx context.Context, ds *deviceState, m *mutation.Mac
 	// and its caller re-reads under the new epoch.
 	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
 		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
-			l.report(ctx, m.Result(err))
+			l.report(ctx, ds.key, m.Result(err))
 			return nil, err
 		}
 		err := errs.New().Code(mutation.ErrCodeFirmwareEpoch).
 			Attr("expected_fingerprint", fingerprint).
 			Attr("current_fingerprint", probed).
 			Msg("device firmware changed while the read was in flight; the observation is discarded")
-		l.report(ctx, m.Result(err))
+		l.report(ctx, ds.key, m.Result(err))
 		return nil, err
 	}
 	l.recordEvidence(ds, fingerprint, req, obs)
 
 	if _, err := m.Compare(ctx, nil); err != nil {
-		l.report(ctx, m.Result(err))
+		l.report(ctx, ds.key, m.Result(err))
 		return nil, err
 	}
 
 	result := m.Result(nil)
-	l.report(ctx, result)
+	l.report(ctx, ds.key, result)
 	return result, nil
 }
 
@@ -1194,7 +1208,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 		if err := m.Resume(ctx); err != nil {
 			return stepOutcome{err: errs.Wrap(err, "resume"), owed: true}
 		}
-		l.report(ctx, m.Progress())
+		l.report(ctx, ds.key, m.Progress())
 		return l.enterRecovery(ctx, ds, open, req.GetAdmittedAt().AsTime(), nil,
 			errs.New().Code(ErrCodeRecoveryAmbiguous).Msg("resumed after an edge restart; the mutation's effect is unknown"))
 	}
@@ -1235,7 +1249,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
 
-	l.report(ctx, m.Progress())
+	l.report(ctx, ds.key, m.Progress())
 
 	checkpointReq, err := ds.awaitCheckpoint(ctx, m, req.GetSequence())
 	if err != nil {
@@ -1245,7 +1259,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	if err != nil {
 		return l.afterStep(ctx, ds, open, err, baseline)
 	}
-	l.reportCheckpoint(ctx, ack)
+	l.reportCheckpoint(ctx, ds.key, ack)
 
 	submittedAt := l.cfg.Clock()
 	if err := m.Execute(ctx); err != nil {
@@ -1291,7 +1305,7 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// Reported before the wait, not after it: central decides what to
 	// acknowledge from this report, so a report withheld until the
 	// acknowledgement arrived would wait on something it has to cause.
-	l.report(ctx, m.Result(nil))
+	l.report(ctx, ds.key, m.Result(nil))
 
 	select {
 	case <-m.Done():
@@ -1319,7 +1333,7 @@ func (l *Lane) epochBlocked(ctx context.Context, ds *deviceState, open *openMuta
 		Attr("expected_fingerprint", previous).
 		Attr("current_fingerprint", next).
 		Msg("device firmware changed before the command was sent; the command is not sent")
-	l.report(ctx, m.Result(err))
+	l.report(ctx, ds.key, m.Result(err))
 
 	// The command provably never left, so there is nothing to recover and
 	// nothing to hold. Central is told, and decides.
@@ -1391,7 +1405,7 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 		return stepOutcome{err: errs.Wrap(err, "enter recovery"), owed: true}
 	}
 
-	l.report(ctx, m.Progress())
+	l.report(ctx, ds.key, m.Progress())
 
 	ds.stateMu.Lock()
 	open.polled = true
@@ -1436,9 +1450,9 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 			ds.hold.Resolve()
 		}
 		if err != nil {
-			l.report(ctx, open.machine.Result(err))
+			l.report(ctx, ds.key, open.machine.Result(err))
 		} else if result != nil {
-			l.report(ctx, result)
+			l.report(ctx, ds.key, result)
 		}
 		open.sub.result <- submissionOutcome{result: result, err: err}
 		ds.clearCurrent(open)
@@ -1446,18 +1460,18 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 }
 
 // report hands one result to the host's Reporter, if it wired one.
-func (l *Lane) report(ctx context.Context, result *integrationv1.ExecuteResult) {
+func (l *Lane) report(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult) {
 	if l.cfg.Reporter == nil {
 		return
 	}
-	l.cfg.Reporter.Reported(ctx, result)
+	l.cfg.Reporter.Reported(ctx, deviceKey, result)
 }
 
-func (l *Lane) reportCheckpoint(ctx context.Context, ack *integrationv1.CheckpointAck) {
+func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *integrationv1.CheckpointAck) {
 	if l.cfg.Reporter == nil {
 		return
 	}
-	l.cfg.Reporter.CheckpointAcked(ctx, ack)
+	l.cfg.Reporter.CheckpointAcked(ctx, deviceKey, ack)
 }
 
 // startRecoveryPoll runs one mutation's recovery on its own goroutine until
@@ -1564,7 +1578,7 @@ func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation
 		// Attempt has already marked it VERIFIED. Report, and wait for
 		// central's acknowledgement to end it; the poll keeps running so
 		// its budget stays the terminator if that never comes.
-		l.report(ctx, open.machine.Result(nil))
+		l.report(ctx, ds.key, open.machine.Result(nil))
 		return false
 	case recovery.OutcomeAbandoned:
 		l.endRecoveryPoll(ctx, ds, open)
@@ -1848,7 +1862,7 @@ func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *inte
 	if l.cfg.Reporter != nil {
 		ack := &integrationv1.HoldResolvedAck{}
 		ack.SetSequence(resolved.GetSequence())
-		l.cfg.Reporter.HoldResolvedAcked(ctx, ack)
+		l.cfg.Reporter.HoldResolvedAcked(ctx, deviceKey, ack)
 	}
 	return nil
 }

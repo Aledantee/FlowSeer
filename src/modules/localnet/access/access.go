@@ -8,12 +8,65 @@ import (
 	"context"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
+
+// ReadCredentialSource is the seam the lane acquires a read credential
+// through, for every read and for the onboarding probe.
+//
+// It and the two below are aliases rather than repeats: the interfaces live
+// beside the adapter that implements them, and a host that could not name
+// them could not fill them. [SubmissionHandle] is why this matters more than
+// tidiness — [SubmissionCredentialSource]'s Open returns it, and a method
+// returning a type the caller may not name cannot be written outside this
+// module at all. Naming a seam and being unable to fill it is what this
+// facade exists to prevent; see [NewFastIronShell] for the same argument
+// about the shell adapter.
+type ReadCredentialSource = credential.ReadCredentialSource
+
+// SubmissionCredentialSource is the seam a mutation opens its one-use grant
+// through.
+type SubmissionCredentialSource = credential.SubmissionCredentialSource
+
+// SubmissionHandle is what one open submission stream hands its caller: the
+// grant, and the authority to check before each command.
+type SubmissionHandle = credential.SubmissionHandle
+
+// NewConnectCredentials builds both credential sources over a live
+// EdgeService client: the read credential each read and the onboarding probe
+// acquire, and the one-use grant a mutation submits under.
+//
+// One adapter satisfies both, and both are returned from one call because a
+// host wiring one and forgetting the other gets a lane that reads devices and
+// silently cannot mutate them — the no-op default grants immediately, stays
+// AUTHORIZED and never ends, which is right for a facade with no central and
+// wrong for a host that has one.
+func NewConnectCredentials(client edgev1connect.EdgeServiceClient) (ReadCredentialSource, SubmissionCredentialSource) {
+	adapter := &credential.ConnectAdapter{Client: client}
+	return adapter, adapter
+}
+
+// Telemetry is the lane's own instrumentation scope. A nil one is tolerated
+// by every method, so a host that cannot construct one gets a lane whose
+// spans and metrics are silently off — which is why [NewTelemetry] is
+// exported rather than left inside.
+type Telemetry = telemetry.View
+
+// TelemetryConfig is what a Telemetry is built from: the host's providers,
+// not its tracer.
+type TelemetryConfig = telemetry.ViewConfig
+
+// NewTelemetry builds the lane's instrumentation scope. It names itself
+// rather than reusing the host runtime's scope, per the observability
+// convention, so a host passes its providers and not its tracer.
+func NewTelemetry(cfg TelemetryConfig) (*Telemetry, error) { return telemetry.NewView(cfg) }
 
 // InterfaceShellAdapter is the seam a firmware-specific SSH adapter
 // implements for the interface capability; fastiron.Adapter is the first.

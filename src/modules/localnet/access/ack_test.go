@@ -25,24 +25,46 @@ type recordingReporter struct {
 	results     []*integrationv1.ExecuteResult
 	checkpoints []*integrationv1.CheckpointAck
 	holds       []*integrationv1.HoldResolvedAck
+	devices     []string
+	ackDevices  []string
+	holdDevices []string
 }
 
-func (r *recordingReporter) Reported(_ context.Context, result *integrationv1.ExecuteResult) {
+func (r *recordingReporter) Reported(_ context.Context, deviceKey string, result *integrationv1.ExecuteResult) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.results = append(r.results, result)
+	r.devices = append(r.devices, deviceKey)
 }
 
-func (r *recordingReporter) CheckpointAcked(_ context.Context, ack *integrationv1.CheckpointAck) {
+func (r *recordingReporter) CheckpointAcked(_ context.Context, deviceKey string, ack *integrationv1.CheckpointAck) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.checkpoints = append(r.checkpoints, ack)
+	r.ackDevices = append(r.ackDevices, deviceKey)
 }
 
-func (r *recordingReporter) HoldResolvedAcked(_ context.Context, ack *integrationv1.HoldResolvedAck) {
+func (r *recordingReporter) HoldResolvedAcked(_ context.Context, deviceKey string, ack *integrationv1.HoldResolvedAck) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.holds = append(r.holds, ack)
+	r.holdDevices = append(r.holdDevices, deviceKey)
+}
+
+// reportedDevices is the device named alongside each report, in order. A
+// report central cannot address is a report it cannot record, so which
+// device a report named is part of what the reporter carries.
+func (r *recordingReporter) reportedDevices() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.devices...)
+}
+
+// ackedDevices is the same for the two acknowledgements.
+func (r *recordingReporter) ackedDevices() (checkpoints, holds []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.ackDevices...), append([]string(nil), r.holdDevices...)
 }
 
 func (r *recordingReporter) reported() []*integrationv1.ExecuteResult {
@@ -551,6 +573,19 @@ func TestReportOrderForAVerifiedMutation(t *testing.T) {
 	// The verified report carries the observation that proved it.
 	if reporter.reported()[1].GetObservation() == nil {
 		t.Error("the VERIFIED report carries no observation")
+	}
+
+	// Every report and both acknowledgements name the device. Central's
+	// ReportRequest requires one and none of these messages carries it, so a
+	// report the host cannot address is a report central never records.
+	for _, device := range reporter.reportedDevices() {
+		if device != "dev-1" {
+			t.Errorf("a report named device %q, want dev-1", device)
+		}
+	}
+	checkpointDevices, _ := reporter.ackedDevices()
+	if len(checkpointDevices) != 1 || checkpointDevices[0] != "dev-1" {
+		t.Errorf("checkpoint acknowledgements named %v, want one naming dev-1", checkpointDevices)
 	}
 
 	acks := reporter.checkpointAcks()

@@ -17,7 +17,18 @@ emitted. Grounded in
 
 `Lane`, `Reporter`, `DeviceSession`, `SNMPSession` and `ShellSession`
 (`lane.go`) are the exported types beyond the
-capability facade functions in `access.go`. Every other type — `internal/evidence`,
+capability facade functions in `access.go`, which also exports the seams a
+host has to fill: `ReadCredentialSource`, `SubmissionCredentialSource` and
+`SubmissionHandle` with `NewConnectCredentials`, and `Telemetry` with
+`NewTelemetry`.
+
+Those are aliases and constructors rather than new code, and the reason they
+exist is worth keeping: a host outside this module cannot name a type in
+`internal/`, so it cannot write a method returning one — which made
+`SubmissionCredentialSource` impossible to implement and `Config.Telemetry`
+impossible to fill. The module's own tests could not catch that, because they
+live under this directory and may name everything. The test that does is in
+`src/edge/agent/internal/host`, which may not. Every other type — `internal/evidence`,
 `internal/epoch`, `internal/lane`, `internal/credential`,
 `internal/telemetry`, `internal/freeze`, `internal/audit`,
 `internal/mutation`, `internal/recovery` — stays
@@ -82,6 +93,13 @@ package-level facade functions in `access.go` have no probe behind them, so
 their callers set it themselves.
 
 ## What the lane tells its host, and what it asks of it
+
+`Config.Reporter` names the device on every call. None of the three
+messages it carries does — a sequence is unique per device, and the
+execution envelope leaves addressing to the transport — while central's
+`ReportRequest` requires a device id, so a reporter without it is handed a
+checkpoint acknowledgement it cannot address. The lane knows the device at
+every call site and the host does not.
 
 `Config.Reporter` is how everything this lane learns reaches central. The
 lane calls it on the goroutine doing the work and never waits: a report is
