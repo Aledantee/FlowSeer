@@ -1145,7 +1145,7 @@ exceptions are operations already in flight when contact was lost, and the
 `Onboarded` an edge sends at start. Both are bounded by devices times
 in-flight operations.
 
-A hard ceiling still exists, as a defence against a bug producing unbounded
+A hard ceiling still exists, as a defense against a bug producing unbounded
 distinct keys rather than against an absent central. At it, the oldest entry
 is dropped and counted, because almost every report is one central will ask
 for again: the outbox re-derives what it holds no report for, the edge answers
