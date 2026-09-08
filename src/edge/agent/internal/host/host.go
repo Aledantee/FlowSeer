@@ -261,6 +261,11 @@ func edgeRefOf(edgeID string) *edgev1.EdgeGlobalRef {
 // runAll runs every loop until one of them returns or ctx ends, and answers
 // with the first error any of them gave.
 //
+// It is a dozen lines rather than errgroup.WithContext because nothing else
+// in this repository uses errgroup: it is an indirect dependency, and one
+// join is a thin reason to promote it to a direct one. If a second caller
+// ever wants the same shape, take the library and delete this.
+//
 // One returning ends the attempt, whether it failed or not. These three share
 // the lane: a heartbeat that stopped would leave nothing to freeze the lane
 // on lost contact, and a dispatch loop that stopped would leave a queue

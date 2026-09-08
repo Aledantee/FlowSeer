@@ -1450,11 +1450,22 @@ looks exactly like an edge with no devices assigned. The
 startup listing too, and the agent README says a first listing failure is
 not fatal and what it looks like when it happens.
 
-Tests: the ordering, asserted by what each link was handed rather than by
-the calls succeeding — an exporter built against the receiver's own bound
-address, a signed `AttachBus`, a dispatch loop holding the onboarder's
-lane; a failed enrollment exiting non-zero; a failed first listing leaving
-the agent running with the listing failure recorded.
+Tests: the startup chain as far as a fake central can see it, which is up
+to the attachment and no further — the order the calls arrived in and which
+of them carried an assertion; a refused enrollment ending the run, asserted
+on the error's code rather than on what did not happen, because an agent
+that carried on would fail a moment later at the empty anchor set and look
+identical from outside; the attachment pinning the anchors the enrollment
+returned rather than the provisioned ones.
+
+Everything past the attachment needs a live hub — the receiver binding, the
+exporter pointed at its address, the lane, and the three loops — so it is
+asserted by the unit tests of the pieces rather than by an assembled run:
+`dispatch` covers the re-list before every attempt and a failed listing
+still opening the stream, `lanehost` covers the onboarder and the endpoint
+its session factories are built with. **U9 proves the assembled run**, and
+a hub fixture built here would be most of that harness built twice, with
+the second one the real one.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/edge/README.md')`
 
 ### U9. End-to-end and item 7 readiness
