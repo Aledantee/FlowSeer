@@ -1168,6 +1168,12 @@ go test -race ./src/modules/localnet/access/... ./src/modules/edgebus/... ./src/
 Two things about running those, both of which look like broken code when
 met cold.
 
+A third: `src/edge/` holds two Go modules. `src/edge/netpen/` has its own
+`go.mod`, so a glob of `src/edge/**` hands the verifier packages the main
+module does not contain and it fails listing them. U8's `Verify` line names
+`src/edge/agent/**` for that reason, and a wider glob is not a wider check —
+it is a broken one.
+
 The verifier classifies its arguments by file extension, so a directory
 selects no gates: it runs the whitespace check, prints "FlowSeer
 verification passed", and exits 0 having run no build, vet, race, or lint.

@@ -55,11 +55,11 @@ func startLeaf(t *testing.T, dir string, hub *edgebus.Hub, id string) *edgebus.L
 func startLeafWith(t *testing.T, dir, url, id string, creds edgebus.EdgeCredentials) *edgebus.Leaf {
 	t.Helper()
 	leaf, err := edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
-		StateDir:    dir,
-		EdgeID:      id,
-		HubURLs:     []string{url},
-		Credentials: creds,
-		FsyncPolicy: service.BusFsyncPeriodic,
+		StateDir:        dir,
+		EdgeID:          id,
+		HubURLs:         []string{url},
+		CredentialsFile: credsFileFor(t, creds),
+		FsyncPolicy:     service.BusFsyncPeriodic,
 	})
 	if err != nil {
 		t.Fatalf("start leaf: %v", err)
@@ -465,4 +465,16 @@ func TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI(t *testing.T) {
 	if info.State.Msgs != 1 {
 		t.Fatalf("edge A reached edge B's buffer: %d records remain", info.State.Msgs)
 	}
+}
+
+// credsFileFor renders minted credentials the way AttachBus does before
+// they cross the wire, so a test builds a leaf from the same bytes an edge
+// receives.
+func credsFileFor(t *testing.T, creds edgebus.EdgeCredentials) []byte {
+	t.Helper()
+	body, err := creds.CredsFile()
+	if err != nil {
+		t.Fatalf("render credentials: %v", err)
+	}
+	return body
 }

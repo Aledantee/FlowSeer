@@ -33,8 +33,17 @@ type LeafConfig struct {
 	Tenant string
 	// HubURLs are the hub listeners to dial, in preference order.
 	HubURLs []string
-	// Credentials are what AttachBus returned.
-	Credentials EdgeCredentials
+	// CredentialsFile is the rendered .creds bytes the leaf authenticates
+	// with — exactly what AttachBus returns in user_credential.
+	//
+	// The rendered file rather than the three parts it is made of, because
+	// that is what crosses the wire. Central mints the user, renders it once
+	// with EdgeCredentials.CredsFile, and sends the bytes; an edge that had
+	// to hand this the parts would have to parse the file back apart so this
+	// could render it again, and a round trip through a format nobody needs
+	// to reverse is a place for the two renderings to differ. An in-process
+	// caller holding EdgeCredentials calls CredsFile itself.
+	CredentialsFile []byte
 	// TLS is the client configuration for a wss hub, normally
 	// PinnedTLSConfig with the edge's anchors. Nil dials plain ws.
 	TLS *tls.Config
@@ -95,12 +104,11 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	if err := os.MkdirAll(cfg.StateDir, 0o700); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("create leaf state directory")
 	}
-	creds, err := cfg.Credentials.CredsFile()
-	if err != nil {
-		return nil, err
+	if len(cfg.CredentialsFile) == 0 {
+		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs the credentials AttachBus returned")
 	}
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
-	if err := os.WriteFile(credsPath, creds, 0o600); err != nil {
+	if err := os.WriteFile(credsPath, cfg.CredentialsFile, 0o600); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("store hub credentials")
 	}
 	urls, err := parseURLs(cfg.HubURLs)
