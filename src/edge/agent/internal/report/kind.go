@@ -39,9 +39,10 @@ func keyOf(report *integrationv1.ReportRequest) key {
 	case report.HasOnboarded():
 		return key{device: device, kind: kindOnboarded}
 	default:
-		// An arm this build does not know. Keyed so it cannot supersede
-		// anything real, and kept rather than dropped: central asked for a
-		// report and this is one.
+		// An arm this build does not know. Kept rather than dropped —
+		// something asked for a report and this is one — and Report gives it
+		// a distinct sequence from the queue's own counter, so it supersedes
+		// neither a real report nor another unknown one.
 		return key{device: device, kind: kindUnknown}
 	}
 }

@@ -93,7 +93,11 @@ func (q *Queue) drain(ctx context.Context) {
 		q.mu.Unlock()
 
 		q.sent.Add(1)
-		if q.confirm != nil && sequenceOf(k) != 0 {
+		// Only for a report that names a real operation. An unknown arm
+		// carries this queue's own counter in the sequence slot so it cannot
+		// supersede anything, and passing that to the registry would confirm
+		// an operation nobody ran.
+		if q.confirm != nil && k.kind != kindUnknown && sequenceOf(k) != 0 {
 			q.confirm.Confirmed(k.device, k.sequence)
 		}
 	}

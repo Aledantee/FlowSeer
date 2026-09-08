@@ -133,10 +133,20 @@ func (q *Queue) Report(_ context.Context, report *integrationv1.ReportRequest) {
 	k := keyOf(report)
 
 	q.mu.Lock()
+	q.sequence++
+	if k.kind == kindUnknown {
+		// Each unknown report gets its own key, so one can never replace
+		// another. Superseding is a judgment — that a later report answers
+		// the same question as an earlier one — and this is the branch that
+		// has already admitted it cannot make it: it does not know what
+		// these messages are. Keying them together would silently lose one
+		// per device in a build that adds two arms at once, and the loss
+		// would look like central never asking.
+		k.sequence = q.sequence
+	}
 	if _, superseding := q.pending[k]; !superseding && len(q.pending) >= q.ceiling {
 		q.evictOldestLocked()
 	}
-	q.sequence++
 	q.pending[k] = entry{report: report, admitted: q.sequence}
 	q.mu.Unlock()
 
@@ -145,6 +155,13 @@ func (q *Queue) Report(_ context.Context, report *integrationv1.ReportRequest) {
 
 // evictOldestLocked drops the oldest entry that may be dropped. The caller
 // must hold mu.
+//
+// Oldest by last write, not by first admission: an entry's admitted value is
+// refreshed when a newer report supersedes it, so a device reporting steadily
+// keeps its place while a device that reported once and went quiet loses
+// its. That is the intended trade — the actively reporting device is the one
+// whose report central is most likely still waiting on — and it is worth
+// naming because the natural reading of "oldest" is the other one.
 //
 // Oldest rather than newest, because almost every report is one central will
 // ask for again: its outbox re-derives whatever it holds no report for, the

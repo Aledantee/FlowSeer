@@ -289,3 +289,47 @@ func (c *selectiveCentral) Report(
 	c.accepted++
 	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
 }
+
+// TestAnUnknownArmSupersedesNothing covers the branch that exists because
+// this build does not know every report a future one might send.
+//
+// Superseding is a judgment — that a later report answers the same question
+// as an earlier one — and this is the branch that has already admitted it
+// cannot make it. Keying two unknown reports together would lose one per
+// device in a build that adds two arms at once, silently, and the loss would
+// look like central never asking for it.
+func TestAnUnknownArmSupersedesNothing(t *testing.T) {
+	central := &centralFake{refuse: true}
+	confirm := &confirmSpy{}
+	q := newQueue(t, central, confirm, 0)
+
+	// Two reports with no arm this build recognizes, and a real one for the
+	// same device, which they must not displace either.
+	q.Report(context.Background(), unknownReport("dev-1"))
+	q.Report(context.Background(), unknownReport("dev-1"))
+	q.Report(context.Background(), resultReport("dev-1", 3, "real"))
+
+	if got := q.Pending(); got != 3 {
+		t.Fatalf("Pending() = %d, want 3: neither unknown report may replace the other or the real one", got)
+	}
+
+	central.setRefuse(false)
+	drainOnce(t, q, central, 3)
+
+	if got := len(central.got()); got != 3 {
+		t.Errorf("central received %d reports, want 3", got)
+	}
+	// And an unknown report confirms no operation: its sequence slot holds
+	// the queue's own counter, not a sequence anybody dispatched.
+	if confirm.count() != 1 {
+		t.Errorf("confirmed %d operations, want 1: only the real report names one", confirm.count())
+	}
+}
+
+// unknownReport is a report whose arm this build does not recognize, which is
+// what an edge older than its central receives.
+func unknownReport(device string) *integrationv1.ReportRequest {
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(device)
+	return req
+}
