@@ -15,6 +15,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -55,6 +56,16 @@ func completeObservation(description string) *accessv1.InterfaceObservation {
 	return obs
 }
 
+// fixturePolicy is the handle central puts on every dispatched operation.
+// Both arms carry one as a required field, so a request without one is a
+// request central could not have sent — and every fixture here omitted one
+// until a mutation's observation was found to be sourcing its handle from
+// the arm it does not have. A fixture that builds an invalid request cannot
+// catch a bug about reading that request.
+func fixturePolicy() *policyv1.AccessPolicyHandle {
+	return policyHandle("fixture-policy", 1)
+}
+
 // mutationRequest expects whatever the fixture identity probe returns,
 // which is what every fixture device's OpenSNMP answers.
 func mutationRequest(sequence uint64) *integrationv1.ExecuteRequest {
@@ -68,6 +79,7 @@ func mutationRequestWithFingerprint(sequence uint64, fingerprint, description st
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint(fingerprint)
 	intent.SetInterfaceDescription(change)
+	intent.SetAccessPolicy(fixturePolicy())
 	req := &integrationv1.ExecuteRequest{}
 	req.SetSequence(sequence)
 	req.SetMutation(intent)
@@ -79,6 +91,7 @@ func readRequest() *integrationv1.ExecuteRequest {
 	readIntent.SetInterfaceName("ethernet 1/1/1")
 	typedRead := &accessv1.TypedRead{}
 	typedRead.SetInterface(readIntent)
+	typedRead.SetAccessPolicy(fixturePolicy())
 	req := &integrationv1.ExecuteRequest{}
 	req.SetRead(typedRead)
 	return req
@@ -259,6 +272,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 		readIntent.SetInterfaceName("eth-first")
 		typedRead := &accessv1.TypedRead{}
 		typedRead.SetInterface(readIntent)
+		typedRead.SetAccessPolicy(fixturePolicy())
 		req.SetRead(typedRead)
 		_, _ = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: req, Priority: lane.PriorityLow})
 	}()
@@ -272,6 +286,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	readIntent2.SetInterfaceName("eth-second")
 	typedRead2 := &accessv1.TypedRead{}
 	typedRead2.SetInterface(readIntent2)
+	typedRead2.SetAccessPolicy(fixturePolicy())
 	secondReq.SetRead(typedRead2)
 
 	// The second item is admitted (capacity 1, queue currently empty since
@@ -291,6 +306,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	readIntent3.SetInterfaceName("eth-third")
 	typedRead3 := &accessv1.TypedRead{}
 	typedRead3.SetInterface(readIntent3)
+	typedRead3.SetAccessPolicy(fixturePolicy())
 	thirdReq.SetRead(typedRead3)
 
 	_, err = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: thirdReq, Priority: lane.PriorityLow})
@@ -609,6 +625,7 @@ func readRequestFor(interfaceName string) *integrationv1.ExecuteRequest {
 	readIntent.SetInterfaceName(interfaceName)
 	typedRead := &accessv1.TypedRead{}
 	typedRead.SetInterface(readIntent)
+	typedRead.SetAccessPolicy(fixturePolicy())
 	req := &integrationv1.ExecuteRequest{}
 	req.SetRead(typedRead)
 	return req

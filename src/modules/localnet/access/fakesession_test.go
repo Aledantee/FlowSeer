@@ -58,6 +58,7 @@ var probedFingerprint = sync.OnceValue(func() string {
 type recordingCredentials struct {
 	mu       sync.Mutex
 	handles  []string
+	versions []uint64
 	devices  []string
 	bindings []string
 	hostKey  string
@@ -76,6 +77,7 @@ func (c *recordingCredentials) AcquireReadCredential(
 	c.devices = append(c.devices, deviceID)
 	c.bindings = append(c.bindings, bindingID)
 	c.handles = append(c.handles, handle.GetKey())
+	c.versions = append(c.versions, handle.GetVersion())
 
 	credential := &edgev1.DeviceCredential{}
 	if c.material != nil {
@@ -87,6 +89,16 @@ func (c *recordingCredentials) AcquireReadCredential(
 		response.SetSshHostKeySha256(c.hostKey)
 	}
 	return response, nil
+}
+
+// handleVersions is the version of each acquisition's handle, in the same
+// order as acquisitions. Separate from the keys because the two can differ
+// independently: a deployment reuses one policy key and bumps its version, so
+// a handle taken from the wrong place has the right key and the wrong version.
+func (c *recordingCredentials) handleVersions() []uint64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]uint64(nil), c.versions...)
 }
 
 func (c *recordingCredentials) acquisitions() (handles, devices []string) {

@@ -35,6 +35,7 @@ var (
 	ErrCodeDesynchronized    = errs.NewCode("access/desynchronized")
 	ErrCodeRecoveryAmbiguous = errs.NewCode("access/recovery-ambiguous")
 	ErrCodeHorizonUnmeasured = errs.NewCode("access/horizon-unmeasured")
+	ErrCodeNoAccessPolicy    = errs.NewCode("access/no-access-policy")
 )
 
 // Refusal codes produced inside internal/mutation and re-exported here.
@@ -1672,6 +1673,43 @@ func interfaceName(req *integrationv1.ExecuteRequest) string {
 	return req.GetRead().GetInterface().GetInterfaceName()
 }
 
+// readPolicyFor is the access-policy handle req's observation is taken under.
+//
+// It comes from the request's own operation arm, never from the device
+// session. Central decides per operation which policy admitted it: a mutation
+// is observed under the policy version its intent was admitted under, and a
+// read under the one its TypedRead carries. DeviceSession.AccessPolicy is the
+// onboarding probe's and would label an observation with the wrong version
+// whenever a policy has moved since the device was onboarded.
+//
+// Exhaustive over the arms, and a handle it cannot source fails here rather
+// than traveling. Every call between this point and central's own request
+// validation accepts a nil handle, so central refuses it as a schema
+// violation three layers from the code that had nothing to send — which is
+// how the mutation arm stayed broken through every test on both sides. The
+// next arm added hits this in its own package instead.
+func readPolicyFor(req *integrationv1.ExecuteRequest) (*policyv1.AccessPolicyHandle, error) {
+	var handle *policyv1.AccessPolicyHandle
+	switch which := req.WhichOperation(); which {
+	case integrationv1.ExecuteRequest_Mutation_case:
+		handle = req.GetMutation().GetAccessPolicy()
+	case integrationv1.ExecuteRequest_Read_case:
+		handle = req.GetRead().GetAccessPolicy()
+	default:
+		return nil, errs.New().Code(ErrCodeNoAccessPolicy).Attr("operation", int(which)).
+			Msg("this operation carries no arm an access policy handle can be read from")
+	}
+	if handle.GetKey() == "" {
+		// Required on both arms, so an empty one means central sent a
+		// request its own schema forbids. Refused here for the same reason
+		// as an unknown arm: the alternative is a remote validation error
+		// about a field this edge never filled in.
+		return nil, errs.New().Code(ErrCodeNoAccessPolicy).Attr("operation", int(req.WhichOperation())).
+			Msg("this operation's access policy handle is absent")
+	}
+	return handle, nil
+}
+
 // machineDeps builds this request's Read/Submit closures bound to the one
 // interface it targets and ds's session, since [mutation.Deps.Read] and
 // [mutation.Deps.Submit] carry no target of their own — every other field
@@ -1686,9 +1724,13 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 		DeviceID:           ds.key,
 		BindingID:          sess.BindingID,
 		Read: func(ctx context.Context) (*accessv1.InterfaceObservation, error) {
+			handle, err := readPolicyFor(req)
+			if err != nil {
+				return nil, err
+			}
 			// Acquired before the override is consulted, so a test that
 			// replaces the device call cannot also skip the acquisition.
-			cred, hostKey, err := l.acquireRead(ctx, ds.key, sess, req.GetRead().GetAccessPolicy())
+			cred, hostKey, err := l.acquireRead(ctx, ds.key, sess, handle)
 			if err != nil {
 				return nil, err
 			}
