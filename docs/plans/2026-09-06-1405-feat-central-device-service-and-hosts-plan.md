@@ -1350,6 +1350,102 @@ mutation, and one arriving after it not refusing, with the result saying
 its values were superseded.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**' 'src/edge/agent/**')`
 
+### U8d. The agent's configuration
+Files: `spec/proto/flowseer/store/edge/v1/agent_config.proto`,
+`spec/proto/flowseer/store/edge/v1/README.md`, `generated/**`,
+`test/conformance/proto/layering_test.go`, `src/edge/agent/internal/host/config.go`
+After: U8b
+Change: the prototext file an edge host is deployed with, and its loader.
+
+The agent has no configuration surface at all: no schema, no loader, no
+flags. One prototext file per deployment is the answer central already
+gives (`DeviceServiceConfig`), and splitting the same deployment across a
+file and a flag set would mean two places to look and two to get wrong.
+
+**It points at the provisioning file rather than restating it.**
+`EdgeProvisioning` already carries the central URL, the setup key and the
+trust anchors — everything about joining — and it is what an operator
+receives at issue time. Copying those three fields into a second file would
+make the provisioned values and the configured ones two sources of truth
+for the same facts, with no mechanism keeping them equal. So `AgentConfig`
+names a path to it, and what it holds itself is what the provisioning does
+not describe: the state directory, the intervals, the local buffer's
+bounds, and the log level.
+
+**The setup key's handling is central's, not a fresh invention.**
+`ServiceTelemetry.headers` says values are secret and belong in a file only
+where the file itself is a secret; the provisioning file is that, and its
+schema comment says so. The edge's exposure is worse than central's,
+because the file sits on the least-trusted machine in the system — and
+bounded, because the key is single-use and consumed at enrollment, after
+which the file is no longer what an attacker wants. The identity store is:
+it holds the private key that *is* this edge. Both facts belong in the
+schema comment, since the operator reading it is the one choosing the
+file's mode.
+
+**No OTLP endpoint.** The agent's telemetry goes to the loopback receiver
+`busattach` binds, which forwards over the leaf; the endpoint is the
+receiver's own bound address and changes on every start. A configurable one
+would be a second, wrong answer to a question already answered.
+
+Lane bounds — queue capacity, recovery poll interval, operation timeout —
+stay on the access module's defaults, for the reason `DeviceServiceConfig`
+gives about the bus's storage bounds: a knob nobody has needed is one field
+away when a deployment needs it, and an unused field is a thing to keep
+correct.
+
+`store/edge` is a new schema package, so the import-order table gains a
+line: it reaches `api/edge` for nothing yet and the primitives for nothing
+yet, which is worth saying out loud rather than leaving the table to imply
+a dependency the file does not have.
+
+Tests: a file missing a required field refused at load, naming the field; a
+file naming a provisioning path that does not exist refused at load rather
+than at first call; defaults applied for every unset duration.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'spec/proto/flowseer/store/edge/**' 'src/edge/agent/internal/host/**' 'test/conformance/proto/**')`
+
+### U8e. The agent entrypoint
+Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/host/`,
+`src/edge/agent/README.md`, `src/edge/README.md`
+After: U8d
+Change: `cmd/agent/main.go` and the host that assembles the agent, closing
+U8.
+
+**One ordered chain, written in one place with each link's reason.** Each
+link is forced by a different fact, and none of them is visible from the
+call it constrains:
+
+1. The receiver binds before the exporter is built. The receiver's loopback
+   port is fresh on every start, so an exporter pointed at the previous
+   one exports into nothing — and exports into nothing quietly.
+2. The identity is established before the attachment. `AttachBus` is a
+   signed call.
+3. The lane exists before the dispatch loop runs. A dispatch for a device
+   with no lane has nowhere to go.
+4. The onboarder has the lane, and the dispatch loop has the onboarder. The
+   onboarder adds devices to the lane, and the loop re-lists before every
+   attempt so a dispatch never arrives for a device the edge has not
+   onboarded.
+
+**Enrollment and attachment failing are fatal; nothing else is.** Without
+an identity there is nothing to carry on with — every call but `Enroll` is
+signed, so an agent that could not enroll can do nothing but exit and let
+its supervisor try again. A first `ListDevices` that fails is not fatal for
+the same reason a later one is not: an edge that can still serve the
+devices it holds is worth more than one that stops. But at startup it holds
+none, so it comes up serving nothing and refusing every dispatch, which
+looks exactly like an edge with no devices assigned. The
+`flowseer.edge.devices.listing_failed` event must therefore fire on the
+startup listing too, and the agent README says a first listing failure is
+not fatal and what it looks like when it happens.
+
+Tests: the ordering, asserted by what each link was handed rather than by
+the calls succeeding — an exporter built against the receiver's own bound
+address, a signed `AttachBus`, a dispatch loop holding the onboarder's
+lane; a failed enrollment exiting non-zero; a failed first listing leaving
+the agent running with the listing failure recorded.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**' 'src/edge/README.md')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
