@@ -23,6 +23,18 @@ const (
 // What ships with an edge before its first boot: where central is, how to
 // trust it, and the one-time key that lets the edge join. The operator
 // receives it once at issue time and never again.
+//
+// Central produces it rather than being configured to agree with it: the
+// deployment's own flowseer.store.device.v1.EdgeEnrollmentPolicy is where
+// central_url comes from, and the admin service fills the rest in from the
+// certificate it serves and the key it just issued. Nothing keeps two copies
+// of these values in step, because there are not two copies.
+//
+// The file holds a secret and must be protected as one. The setup key is
+// single-use and consumed at enrollment, so what an attacker gains from a
+// stale file is nothing; what they gain from a fresh one is one enrollment
+// as this edge, which the real edge's own failed enrollment then makes
+// visible.
 type EdgeProvisioning struct {
 	state                   protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_CentralUrl   *string                `protobuf:"bytes,1,opt,name=central_url,json=centralUrl"`

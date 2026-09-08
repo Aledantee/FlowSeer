@@ -103,7 +103,7 @@ type DeviceServiceConfig struct {
 	xxx_hidden_RegistryPath   *string                `protobuf:"bytes,2,opt,name=registry_path,json=registryPath"`
 	xxx_hidden_CredentialRoot *string                `protobuf:"bytes,3,opt,name=credential_root,json=credentialRoot"`
 	xxx_hidden_Listeners      *ServiceListeners      `protobuf:"bytes,4,opt,name=listeners"`
-	xxx_hidden_Edges          *EdgeProvisioning      `protobuf:"bytes,5,opt,name=edges"`
+	xxx_hidden_Edges          *EdgeEnrollmentPolicy  `protobuf:"bytes,5,opt,name=edges"`
 	xxx_hidden_Telemetry      *ServiceTelemetry      `protobuf:"bytes,6,opt,name=telemetry"`
 	xxx_hidden_Intervals      *ServiceIntervals      `protobuf:"bytes,7,opt,name=intervals"`
 	xxx_hidden_LogLevel       LogLevel               `protobuf:"varint,8,opt,name=log_level,json=logLevel,enum=flowseer.store.device.v1.LogLevel"`
@@ -175,7 +175,7 @@ func (x *DeviceServiceConfig) GetListeners() *ServiceListeners {
 	return nil
 }
 
-func (x *DeviceServiceConfig) GetEdges() *EdgeProvisioning {
+func (x *DeviceServiceConfig) GetEdges() *EdgeEnrollmentPolicy {
 	if x != nil {
 		return x.xxx_hidden_Edges
 	}
@@ -224,7 +224,7 @@ func (x *DeviceServiceConfig) SetListeners(v *ServiceListeners) {
 	x.xxx_hidden_Listeners = v
 }
 
-func (x *DeviceServiceConfig) SetEdges(v *EdgeProvisioning) {
+func (x *DeviceServiceConfig) SetEdges(v *EdgeEnrollmentPolicy) {
 	x.xxx_hidden_Edges = v
 }
 
@@ -350,7 +350,7 @@ type DeviceServiceConfig_builder struct {
 	// Must be present.
 	Listeners *ServiceListeners
 	// Must be present.
-	Edges *EdgeProvisioning
+	Edges *EdgeEnrollmentPolicy
 	// Where telemetry goes. Unset exports none and forwards none, which is a
 	// deployment choosing to run without a collector rather than a mistake.
 	Telemetry *ServiceTelemetry
@@ -586,8 +586,16 @@ func (b0 ServiceListeners_builder) Build() *ServiceListeners {
 	return m0
 }
 
-// What an edge is told when it enrolls, and what it must prove to be heard.
-type EdgeProvisioning struct {
+// What an edge is told when it enrolls, and what it must prove to be heard
+// on every call afterwards.
+//
+// It is the source of the flowseer.api.edge.v1.EdgeProvisioning file an
+// operator receives at issue time: central_url and this deployment's setup
+// key and trust anchors are what ships with an edge, and assertion_audience
+// is what EnrollResponse then tells that edge to put in every assertion. The
+// two messages are not duplicates of each other and must not be kept in step
+// by hand — one produces the other.
+type EdgeEnrollmentPolicy struct {
 	state                         protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_CentralUrl         *string                `protobuf:"bytes,1,opt,name=central_url,json=centralUrl"`
 	xxx_hidden_AssertionAudience  *string                `protobuf:"bytes,2,opt,name=assertion_audience,json=assertionAudience"`
@@ -599,20 +607,20 @@ type EdgeProvisioning struct {
 	sizeCache                     protoimpl.SizeCache
 }
 
-func (x *EdgeProvisioning) Reset() {
-	*x = EdgeProvisioning{}
+func (x *EdgeEnrollmentPolicy) Reset() {
+	*x = EdgeEnrollmentPolicy{}
 	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *EdgeProvisioning) String() string {
+func (x *EdgeEnrollmentPolicy) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*EdgeProvisioning) ProtoMessage() {}
+func (*EdgeEnrollmentPolicy) ProtoMessage() {}
 
-func (x *EdgeProvisioning) ProtoReflect() protoreflect.Message {
+func (x *EdgeEnrollmentPolicy) ProtoReflect() protoreflect.Message {
 	mi := &file_flowseer_store_device_v1_service_config_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -624,7 +632,7 @@ func (x *EdgeProvisioning) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *EdgeProvisioning) GetCentralUrl() string {
+func (x *EdgeEnrollmentPolicy) GetCentralUrl() string {
 	if x != nil {
 		if x.xxx_hidden_CentralUrl != nil {
 			return *x.xxx_hidden_CentralUrl
@@ -634,7 +642,7 @@ func (x *EdgeProvisioning) GetCentralUrl() string {
 	return ""
 }
 
-func (x *EdgeProvisioning) GetAssertionAudience() string {
+func (x *EdgeEnrollmentPolicy) GetAssertionAudience() string {
 	if x != nil {
 		if x.xxx_hidden_AssertionAudience != nil {
 			return *x.xxx_hidden_AssertionAudience
@@ -644,74 +652,74 @@ func (x *EdgeProvisioning) GetAssertionAudience() string {
 	return ""
 }
 
-func (x *EdgeProvisioning) GetClusterUrls() []string {
+func (x *EdgeEnrollmentPolicy) GetClusterUrls() []string {
 	if x != nil {
 		return x.xxx_hidden_ClusterUrls
 	}
 	return nil
 }
 
-func (x *EdgeProvisioning) GetAssertionClockSkew() *durationpb.Duration {
+func (x *EdgeEnrollmentPolicy) GetAssertionClockSkew() *durationpb.Duration {
 	if x != nil {
 		return x.xxx_hidden_AssertionClockSkew
 	}
 	return nil
 }
 
-func (x *EdgeProvisioning) SetCentralUrl(v string) {
+func (x *EdgeEnrollmentPolicy) SetCentralUrl(v string) {
 	x.xxx_hidden_CentralUrl = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
-func (x *EdgeProvisioning) SetAssertionAudience(v string) {
+func (x *EdgeEnrollmentPolicy) SetAssertionAudience(v string) {
 	x.xxx_hidden_AssertionAudience = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *EdgeProvisioning) SetClusterUrls(v []string) {
+func (x *EdgeEnrollmentPolicy) SetClusterUrls(v []string) {
 	x.xxx_hidden_ClusterUrls = v
 }
 
-func (x *EdgeProvisioning) SetAssertionClockSkew(v *durationpb.Duration) {
+func (x *EdgeEnrollmentPolicy) SetAssertionClockSkew(v *durationpb.Duration) {
 	x.xxx_hidden_AssertionClockSkew = v
 }
 
-func (x *EdgeProvisioning) HasCentralUrl() bool {
+func (x *EdgeEnrollmentPolicy) HasCentralUrl() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
-func (x *EdgeProvisioning) HasAssertionAudience() bool {
+func (x *EdgeEnrollmentPolicy) HasAssertionAudience() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *EdgeProvisioning) HasAssertionClockSkew() bool {
+func (x *EdgeEnrollmentPolicy) HasAssertionClockSkew() bool {
 	if x == nil {
 		return false
 	}
 	return x.xxx_hidden_AssertionClockSkew != nil
 }
 
-func (x *EdgeProvisioning) ClearCentralUrl() {
+func (x *EdgeEnrollmentPolicy) ClearCentralUrl() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CentralUrl = nil
 }
 
-func (x *EdgeProvisioning) ClearAssertionAudience() {
+func (x *EdgeEnrollmentPolicy) ClearAssertionAudience() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_AssertionAudience = nil
 }
 
-func (x *EdgeProvisioning) ClearAssertionClockSkew() {
+func (x *EdgeEnrollmentPolicy) ClearAssertionClockSkew() {
 	x.xxx_hidden_AssertionClockSkew = nil
 }
 
-type EdgeProvisioning_builder struct {
+type EdgeEnrollmentPolicy_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The base URL an edge dials this deployment at. Must be present.
@@ -729,8 +737,8 @@ type EdgeProvisioning_builder struct {
 	AssertionClockSkew *durationpb.Duration
 }
 
-func (b0 EdgeProvisioning_builder) Build() *EdgeProvisioning {
-	m0 := &EdgeProvisioning{}
+func (b0 EdgeEnrollmentPolicy_builder) Build() *EdgeEnrollmentPolicy {
+	m0 := &EdgeEnrollmentPolicy{}
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CentralUrl != nil {
@@ -1083,14 +1091,14 @@ var File_flowseer_store_device_v1_service_config_proto protoreflect.FileDescript
 
 const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xa2\x04\n" +
+	"-flowseer/store/device/v1/service_config.proto\x12\x18flowseer.store.device.v1\x1a\x1egoogle/protobuf/duration.proto\"\xa6\x04\n" +
 	"\x13DeviceServiceConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x122\n" +
 	"\rregistry_path\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80 R\fregistryPath\x128\n" +
 	"\x0fcredential_root\x18\x03 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\x0ecredentialRoot\x12P\n" +
-	"\tlisteners\x18\x04 \x01(\v2*.flowseer.store.device.v1.ServiceListenersB\x06\xbaH\x03\xc8\x01\x01R\tlisteners\x12H\n" +
-	"\x05edges\x18\x05 \x01(\v2*.flowseer.store.device.v1.EdgeProvisioningB\x06\xbaH\x03\xc8\x01\x01R\x05edges\x12H\n" +
+	"\tlisteners\x18\x04 \x01(\v2*.flowseer.store.device.v1.ServiceListenersB\x06\xbaH\x03\xc8\x01\x01R\tlisteners\x12L\n" +
+	"\x05edges\x18\x05 \x01(\v2..flowseer.store.device.v1.EdgeEnrollmentPolicyB\x06\xbaH\x03\xc8\x01\x01R\x05edges\x12H\n" +
 	"\ttelemetry\x18\x06 \x01(\v2*.flowseer.store.device.v1.ServiceTelemetryR\ttelemetry\x12H\n" +
 	"\tintervals\x18\a \x01(\v2*.flowseer.store.device.v1.ServiceIntervalsR\tintervals\x12?\n" +
 	"\tlog_level\x18\b \x01(\x0e2\".flowseer.store.device.v1.LogLevelR\blogLevel\"\x88\x03\n" +
@@ -1099,8 +1107,8 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x03bus\x18\x02 \x01(\tB\x1e\xbaH\x1b\xc8\x01\x01r\x16\x10\x03\x18\x80\x022\x0f^.+:[0-9]{1,5}$R\x03bus\x123\n" +
 	"\x10certificate_file\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0fcertificateFile\x122\n" +
 	"\x10private_key_file\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x80 R\x0eprivateKeyFile:\xa6\x01\xbaH\xa2\x01\x1a\x9f\x01\n" +
-	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\x8e\x02\n" +
-	"\x10EdgeProvisioning\x12/\n" +
+	"-service_listeners.key_accompanies_certificate\x124a certificate and its private key are named together\x1a8has(this.certificate_file) == has(this.private_key_file)\"\x92\x02\n" +
+	"\x14EdgeEnrollmentPolicy\x12/\n" +
 	"\vcentral_url\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\x80\x10\x88\x01\x01R\n" +
 	"centralUrl\x12<\n" +
 	"\x12assertion_audience\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -1140,22 +1148,22 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 var file_flowseer_store_device_v1_service_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_store_device_v1_service_config_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_flowseer_store_device_v1_service_config_proto_goTypes = []any{
-	(LogLevel)(0),               // 0: flowseer.store.device.v1.LogLevel
-	(*DeviceServiceConfig)(nil), // 1: flowseer.store.device.v1.DeviceServiceConfig
-	(*ServiceListeners)(nil),    // 2: flowseer.store.device.v1.ServiceListeners
-	(*EdgeProvisioning)(nil),    // 3: flowseer.store.device.v1.EdgeProvisioning
-	(*ServiceTelemetry)(nil),    // 4: flowseer.store.device.v1.ServiceTelemetry
-	(*ServiceIntervals)(nil),    // 5: flowseer.store.device.v1.ServiceIntervals
-	nil,                         // 6: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
-	(*durationpb.Duration)(nil), // 7: google.protobuf.Duration
+	(LogLevel)(0),                // 0: flowseer.store.device.v1.LogLevel
+	(*DeviceServiceConfig)(nil),  // 1: flowseer.store.device.v1.DeviceServiceConfig
+	(*ServiceListeners)(nil),     // 2: flowseer.store.device.v1.ServiceListeners
+	(*EdgeEnrollmentPolicy)(nil), // 3: flowseer.store.device.v1.EdgeEnrollmentPolicy
+	(*ServiceTelemetry)(nil),     // 4: flowseer.store.device.v1.ServiceTelemetry
+	(*ServiceIntervals)(nil),     // 5: flowseer.store.device.v1.ServiceIntervals
+	nil,                          // 6: flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
+	(*durationpb.Duration)(nil),  // 7: google.protobuf.Duration
 }
 var file_flowseer_store_device_v1_service_config_proto_depIdxs = []int32{
 	2,  // 0: flowseer.store.device.v1.DeviceServiceConfig.listeners:type_name -> flowseer.store.device.v1.ServiceListeners
-	3,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeProvisioning
+	3,  // 1: flowseer.store.device.v1.DeviceServiceConfig.edges:type_name -> flowseer.store.device.v1.EdgeEnrollmentPolicy
 	4,  // 2: flowseer.store.device.v1.DeviceServiceConfig.telemetry:type_name -> flowseer.store.device.v1.ServiceTelemetry
 	5,  // 3: flowseer.store.device.v1.DeviceServiceConfig.intervals:type_name -> flowseer.store.device.v1.ServiceIntervals
 	0,  // 4: flowseer.store.device.v1.DeviceServiceConfig.log_level:type_name -> flowseer.store.device.v1.LogLevel
-	7,  // 5: flowseer.store.device.v1.EdgeProvisioning.assertion_clock_skew:type_name -> google.protobuf.Duration
+	7,  // 5: flowseer.store.device.v1.EdgeEnrollmentPolicy.assertion_clock_skew:type_name -> google.protobuf.Duration
 	6,  // 6: flowseer.store.device.v1.ServiceTelemetry.headers:type_name -> flowseer.store.device.v1.ServiceTelemetry.HeadersEntry
 	7,  // 7: flowseer.store.device.v1.ServiceIntervals.drift:type_name -> google.protobuf.Duration
 	7,  // 8: flowseer.store.device.v1.ServiceIntervals.drift_read_deadline:type_name -> google.protobuf.Duration

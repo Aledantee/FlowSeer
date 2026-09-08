@@ -1363,16 +1363,27 @@ gives (`DeviceServiceConfig`), and splitting the same deployment across a
 file and a flag set would mean two places to look and two to get wrong.
 
 **It points at the provisioning file rather than restating it.**
-`EdgeProvisioning` already carries the central URL, the setup key and the
-trust anchors — everything about joining — and it is what an operator
-receives at issue time. Copying those three fields into a second file would
+`flowseer.api.edge.v1.EdgeProvisioning` already carries the central URL, the
+setup key and the trust anchors — everything about joining — and it is what
+an operator receives at issue time.
+
+Two messages carried that name. `store/device/v1`'s held central's own side
+— the URL it publishes, the assertion audience and skew it checks, the
+cluster URLs it hands out — and shared exactly one field with the api-side
+one, so a sentence naming "EdgeProvisioning" was ambiguous between a message
+an edge reads and a message central is configured with. The store-side one
+is now `EdgeEnrollmentPolicy`, because the api-side name is what an operator
+sees on the artifact in their hands and central's is the policy that
+produces it. Both comments say which produces which, since the person who
+would break the correspondence is editing one of them and has no reason to
+look at the other. Copying those three fields into a second file would
 make the provisioned values and the configured ones two sources of truth
 for the same facts, with no mechanism keeping them equal. So `AgentConfig`
 names a path to it, and what it holds itself is what the provisioning does
 not describe: the state directory, the intervals, the local buffer's
 bounds, and the log level.
 
-**The setup key's handling is central's, not a fresh invention.**
+**The setup key's handling follows the precedent, not a fresh invention.**
 `ServiceTelemetry.headers` says values are secret and belong in a file only
 where the file itself is a secret; the provisioning file is that, and its
 schema comment says so. The edge's exposure is worse than central's,

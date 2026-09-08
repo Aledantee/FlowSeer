@@ -49,7 +49,7 @@ message DeviceServiceConfig {
   // Must be present.
   ServiceListeners listeners = 4 [(buf.validate.field).required = true];
   // Must be present.
-  EdgeProvisioning edges = 5 [(buf.validate.field).required = true];
+  EdgeEnrollmentPolicy edges = 5 [(buf.validate.field).required = true];
   // Where telemetry goes. Unset exports none and forwards none, which is a
   // deployment choosing to run without a collector rather than a mistake.
   ServiceTelemetry telemetry = 6;
@@ -121,8 +121,16 @@ message ServiceListeners {
   string private_key_file = 4 [(buf.validate.field).string.max_len = 4096];
 }
 
-// What an edge is told when it enrolls, and what it must prove to be heard.
-message EdgeProvisioning {
+// What an edge is told when it enrolls, and what it must prove to be heard
+// on every call afterwards.
+//
+// It is the source of the flowseer.api.edge.v1.EdgeProvisioning file an
+// operator receives at issue time: central_url and this deployment's setup
+// key and trust anchors are what ships with an edge, and assertion_audience
+// is what EnrollResponse then tells that edge to put in every assertion. The
+// two messages are not duplicates of each other and must not be kept in step
+// by hand — one produces the other.
+message EdgeEnrollmentPolicy {
   // The base URL an edge dials this deployment at. Must be present.
   string central_url = 1 [
     (buf.validate.field).required = true,

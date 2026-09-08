@@ -75,6 +75,13 @@ var importOrder = map[string][]string{
 	// so this root sits above every boundary it embeds and is imported by
 	// none.
 	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The agent's own deployment file. It imports nothing FlowSeer-owned and
+	// is imported by nothing: what an edge is told about central lives in
+	// api/edge's EdgeProvisioning, which this package names by path rather
+	// than by type, so the dependency an entry here would suggest does not
+	// exist.
+	"store/edge": nil,
 }
 
 // orderedRoots are the trees the import order governs, relative to spec/proto.

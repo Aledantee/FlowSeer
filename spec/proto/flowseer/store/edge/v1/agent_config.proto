@@ -1,0 +1,122 @@
+edition = "2024";
+
+// The device access agent's own deployment configuration, read from an
+// operator-written prototext file at start. Storage, not a boundary, and not
+// an entity: no triad, no ref pair.
+package flowseer.store.edge.v1;
+
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+// Everything the agent needs to assemble itself that its provisioning does
+// not already say: where its state lives, how often its background work runs,
+// how much it may buffer, and how much it logs.
+//
+// A deployment writes one of these. Every duration may be left unset and each
+// says what the agent does then, so a working file is three lines.
+//
+// It names the provisioning file rather than restating it. Where central is,
+// how to trust it, and the key that joins are all in
+// flowseer.api.edge.v1.EdgeProvisioning, which the operator already has;
+// copying those three fields here would make two sources of truth for the
+// same facts with nothing keeping them equal.
+//
+// There is no telemetry endpoint, and its absence is a decision rather than
+// an omission. The agent exports to the loopback OTLP receiver it binds for
+// itself, which forwards over its leaf node, and that address is fresh on
+// every start — so a configured endpoint would be a second answer to a
+// question this deployment has already answered, and the wrong one whenever
+// the two differ.
+//
+// The lane's own bounds — queue capacity, recovery poll interval, operation
+// timeout — are the access module's defaults, which no deployment has yet
+// had reason to move off. An operator looking for one is looking for a knob
+// that was not forgotten: it is one field away when a deployment needs it.
+message AgentConfig {
+  // The directory the agent owns: its key pair, its enrollment answer, and
+  // the leaf node's credential file and buffer. Must be present and
+  // absolute, because the agent resolves nothing against its working
+  // directory.
+  //
+  // It holds this edge's private key, which is the whole of what this edge
+  // is, and it must be protected as such. Central holds only the public
+  // half, so an edge whose directory is read by someone else is an edge an
+  // operator has to retire and enroll again.
+  string state_dir = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // The prototext flowseer.api.edge.v1.EdgeProvisioning file this edge was
+  // shipped with. Must be present; it is where central is and how to trust
+  // it, and an agent has nothing to dial without it.
+  //
+  // It holds a secret and belongs on disk only as one. The setup key it
+  // carries is single-use and consumed at enrollment, so the file matters
+  // most before the edge's first successful start and hardly at all after
+  // it; state_dir is the thing worth protecting from then on.
+  string provisioning_path = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 4096
+  ];
+
+  // Intervals for the work that runs on its own. Unset takes every default.
+  AgentIntervals intervals = 3;
+  // What the agent may hold locally while central is unreachable. Unset
+  // takes the bus module's defaults.
+  AgentBuffer buffer = 4;
+  // How much the agent logs locally. Unset is INFO.
+  AgentLogLevel log_level = 5;
+}
+
+// How often the agent's background work runs. Every field is optional and
+// names its own default, because a deployment that cares about none of them
+// writes none of them.
+message AgentIntervals {
+  // How long between heartbeats, and the deadline on each one. Unset means
+  // thirty seconds.
+  //
+  // It bounds the attempt as well as spacing them: a call that never returns
+  // is contact lost by any useful definition, and one that is not counted as
+  // a miss stops the counter exactly when it matters. Two consecutive misses
+  // freeze this edge's lane, so a deployment whose central answers slower
+  // than this interval freezes devices for a central that is merely slow.
+  google.protobuf.Duration heartbeat = 1 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // The first and the longest wait between attempts to reopen the dispatch
+  // stream, doubling in between. Unset means one second and thirty.
+  google.protobuf.Duration dispatch_backoff_min = 2 [(buf.validate.field).duration.gte = {seconds: 1}];
+  google.protobuf.Duration dispatch_backoff_max = 3 [(buf.validate.field).duration.gte = {seconds: 1}];
+}
+
+// What the agent may hold locally while central is unreachable. This bounds
+// the edge's own telemetry only; the reports it owes central are bounded by
+// the operations that caused them.
+message AgentBuffer {
+  // The most disk the leaf node's buffer may take. Unset takes the bus
+  // module's default.
+  int64 max_bytes = 1 [(buf.validate.field).int64.gte = 1];
+  // How long a buffered record is kept before it is dropped. Unset takes the
+  // bus module's default.
+  google.protobuf.Duration max_age = 2 [(buf.validate.field).duration.gte = {seconds: 1}];
+}
+
+// How much the agent logs locally.
+//
+// It is this package's own enum rather than a shared one, per the enum
+// convention: central's flowseer.store.device.v1.LogLevel says the same
+// things for a different process, and a shared enum package would know about
+// everything above it.
+enum AgentLogLevel {
+  // Unset. Treated as AGENT_LOG_LEVEL_INFO.
+  AGENT_LOG_LEVEL_UNSPECIFIED = 0;
+  // Detailed diagnosis, protocol decisions, and normal high-volume
+  // occurrences.
+  AGENT_LOG_LEVEL_DEBUG = 1;
+  // Lifecycle and operator-relevant state changes. The default.
+  AGENT_LOG_LEVEL_INFO = 2;
+  // Unexpected behaviour that was handled.
+  AGENT_LOG_LEVEL_WARN = 3;
+  // An owned operation failed and was abandoned.
+  AGENT_LOG_LEVEL_ERROR = 4;
+}
