@@ -9,13 +9,35 @@ import (
 	"time"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
+	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
 
 // InterfaceShellAdapter is the seam a firmware-specific SSH adapter
 // implements for the interface capability; fastiron.Adapter is the first.
 type InterfaceShellAdapter = interfaces.ShellAdapter
+
+// NewFastIronShell builds the FastIron shell adapter over an already-dialed
+// SSH session, and logs it in to privileged mode.
+//
+// It is here because this facade exists so a caller outside this module never
+// imports an internal path, and the FastIron adapter is the one implementation
+// of [InterfaceShellAdapter] the module ships. Without it a host can name the
+// seam and cannot fill it, which leaves it either reimplementing the
+// firmware's commands or reaching into internal/ — and the second is what the
+// facade is for preventing.
+//
+// enablePassword is written, redacted, only if the device answers the enable
+// command with a password prompt; empty means none is expected.
+func NewFastIronShell(ctx context.Context, session *ssh.Session, enablePassword string) (InterfaceShellAdapter, error) {
+	adapter := &fastiron.Adapter{Session: session, EnablePassword: enablePassword}
+	if err := adapter.Login(ctx); err != nil {
+		return nil, err
+	}
+	return adapter, nil
+}
 
 // InterfaceProvenanceInputs are the fields a caller supplies that the
 // capability cannot derive itself: which binding and edge answered, and
