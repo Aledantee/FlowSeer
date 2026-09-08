@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"time"
 
@@ -62,7 +63,7 @@ const (
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
-func Run(ctx context.Context, cfg *Config, version string) error {
+func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if cfg == nil {
 		return errs.New().Code(ErrCodeStart).Msg("the service was given no configuration")
 	}
@@ -88,6 +89,7 @@ func Run(ctx context.Context, cfg *Config, version string) error {
 
 	h := &assembly{
 		cfg:         cfg,
+		opts:        opts,
 		registry:    reg,
 		credentials: credentials,
 		certificate: certificate,
@@ -116,11 +118,32 @@ func Run(ctx context.Context, cfg *Config, version string) error {
 	})
 }
 
+// Options are what a caller embedding this service in its own process can
+// observe about it. The zero value is the packaged deployment: a process that
+// reads its configuration, serves, and reports through its log.
+type Options struct {
+	// Bound is called with the address the API listener actually bound, once
+	// per attempt at the connect module, after the bind and before anything
+	// is served on it. Nil means nobody is watching.
+	//
+	// It exists because the configuration may name port 0 — the schema says
+	// so — and the kernel's answer is otherwise reachable only by reading the
+	// startup log, which an embedding caller has no way to parse back. The
+	// log line carries the same address for the operator.
+	//
+	// It runs on the goroutine setting the module up, so one that blocks
+	// holds startup. It is called again on a module restart, with whatever
+	// the new attempt bound, which for a configured port is the same address
+	// and for port 0 is a different one.
+	Bound func(api string)
+}
+
 // assembly holds what every attempt of every module draws from: the things
 // that outlive a module attempt because they are read from disk once, and the
 // handle to the things that do not.
 type assembly struct {
 	cfg         *Config
+	opts        Options
 	registry    *registry.Registry
 	credentials *credential.Provider
 	certificate *Certificate
@@ -324,8 +347,35 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	if err != nil {
 		return service.Attempt{}, err
 	}
+	// Bound here rather than inside ListenAndServeTLS, because that call
+	// keeps the address it resolved to itself. The schema says a port of 0
+	// asks the kernel for one, and an operator who writes that — or whose
+	// configured port is taken by something else — needs to be told which
+	// port they got. So does anyone reading the log to find out where the
+	// service came up. Binding before the runner also moves an address
+	// already in use from a failure the runner reports asynchronously to
+	// one Setup returns, which is where a configuration failure belongs.
+	listener, err := net.Listen("tcp", h.cfg.APIAddress())
+	if err != nil {
+		return service.Attempt{}, errs.From(err).Code(ErrCodeStart).
+			Attr("address", h.cfg.APIAddress()).Msg("bind the device api listener")
+	}
+	// Same window as the hub's, and narrowed the same way for the same
+	// reason: an attempt whose Runner is never called would leave this
+	// listener bound with nothing serving it, and a restart would then fail
+	// to bind the port it just lost. See setupHub for why this narrows the
+	// window rather than closing it.
+	if err := ctx.Err(); err != nil {
+		_ = listener.Close()
+		return service.Attempt{}, err
+	}
+	bound := listener.Addr().String()
+	service.Logger(ctx).Info("device api listening", slog.String("flowseer.device.api.address", bound))
+	if h.opts.Bound != nil {
+		h.opts.Bound(bound)
+	}
+
 	server := &http.Server{
-		Addr:              h.cfg.APIAddress(),
 		Handler:           handler,
 		TLSConfig:         h.serverTLS(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -342,8 +392,10 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		errCh := make(chan error, 1)
 		go func() {
 			// The certificate and key are already in TLSConfig; ServeTLS
-			// takes them from there when both paths are empty.
-			errCh <- server.ListenAndServeTLS("", "")
+			// takes them from there when both paths are empty. It closes
+			// the listener on return, including the ErrServerClosed return
+			// from Shutdown below, so nothing else has to.
+			errCh <- server.ServeTLS(listener, "", "")
 		}()
 
 		select {
@@ -351,7 +403,7 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 			if errors.Is(err, http.ErrServerClosed) {
 				return nil
 			}
-			return errs.From(err).Code(ErrCodeStart).Attr("address", h.cfg.APIAddress()).Msg("serve the device api")
+			return errs.From(err).Code(ErrCodeStart).Attr("address", bound).Msg("serve the device api")
 		case <-ctx.Done():
 			shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
 			defer cancel()

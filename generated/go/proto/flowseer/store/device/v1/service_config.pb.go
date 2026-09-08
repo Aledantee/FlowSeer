@@ -545,8 +545,15 @@ type ServiceListeners_builder struct {
 	// host:port for the Connect APIs. Must be present, and must carry a port:
 	// an address with none is read as "pick a free one", which is right for a
 	// test and makes a typo indistinguishable from it. A host of 0.0.0.0 or ::
-	// binds every interface; a port of 0 asks the kernel for one, which is for
-	// tests rather than a deployment.
+	// binds every interface; a port of 0 asks the kernel for one, and the
+	// service logs and reports the address it actually bound, so a caller that
+	// wrote 0 can find out which port it got.
+	//
+	// The bus field below cannot take 0 for a reason that does not apply here,
+	// and the two are worth reading together: the API can take a port it did
+	// not choose because nothing else has to know it in advance, while the bus
+	// cannot because an edge dials the cluster_urls this same file names. Each
+	// listener has exactly the half the other lacks, which is why they differ.
 	Api *string
 	// host:port for the bus's WebSocket listener. Must be present and must
 	// carry a port, for the same reason api does — and more sharply, since an

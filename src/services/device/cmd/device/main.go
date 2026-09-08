@@ -49,7 +49,7 @@ func main() {
 		os.Exit(exitConfig)
 	}
 
-	if err := host.Run(context.Background(), cfg, version); err != nil {
+	if err := host.Run(context.Background(), cfg, version, host.Options{}); err != nil {
 		fmt.Fprintf(os.Stderr, "device: %v\n", err)
 		os.Exit(errs.ExitCode(err))
 	}

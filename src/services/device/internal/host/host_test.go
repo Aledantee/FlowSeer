@@ -35,6 +35,12 @@ const (
 
 // freePort asks the kernel for a port and gives it straight back, so the
 // configuration can name one before the service binds it.
+//
+// It is a race: between the release and the service's bind, anything on the
+// machine may take the port. The API listener no longer needs it — that
+// address is configured as port 0 and read back from Options.Bound — but the
+// bus still does, because an edge dials the cluster_urls the same file names
+// and those have to be written before the service starts.
 func freePort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -121,30 +127,46 @@ func runningServiceWithControl(t *testing.T) (base string, stop func(), waitStop
 		t.Fatalf("credential dir: %v", err)
 	}
 
-	apiPort, busPort := freePort(t), freePort(t)
+	busPort := freePort(t)
+	// The API asks the kernel for a port, which is what the schema says port
+	// 0 is for, and the address comes back through Options.Bound below.
+	// central_url carries no port for the same reason: it is what an edge is
+	// told at issue time, nothing here dials what is issued, and a port
+	// written before the bind would be a guess.
 	body := fmt.Sprintf(`
 state_dir: %q
 registry_path: %q
 credential_root: %q
 listeners {
-  api: "127.0.0.1:%d"
+  api: "127.0.0.1:0"
   bus: "127.0.0.1:%d"
 }
 edges {
-  central_url: "https://127.0.0.1:%d"
+  central_url: "https://127.0.0.1"
   assertion_audience: "flowseer-device-test"
   cluster_urls: "ws://127.0.0.1:%d"
 }
-`, stateDir, writeRegistry(t, dir), credentialRoot, apiPort, busPort, apiPort, busPort)
+`, stateDir, writeRegistry(t, dir), credentialRoot, busPort, busPort)
 
 	cfg, err := host.LoadConfig(writeConfig(t, body))
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
 
+	// Buffered and sent to without blocking: a module restart binds again and
+	// reports again, and the service must not stall on a test that has
+	// already taken the first address.
+	apiBound := make(chan string, 1)
+	options := host.Options{Bound: func(api string) {
+		select {
+		case apiBound <- api:
+		default:
+		}
+	}}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- host.Run(ctx, cfg, "test") }()
+	go func() { done <- host.Run(ctx, cfg, "test", options) }()
 
 	var stopOnce, waitOnce sync.Once
 	var runErr error
@@ -171,7 +193,20 @@ edges {
 		}
 	})
 
-	return fmt.Sprintf("https://127.0.0.1:%d", apiPort), stop, waitStopped
+	var api string
+	select {
+	case api = <-apiBound:
+	case err := <-done:
+		// Recorded through the same once, so the cleanup's waitStopped
+		// returns it instead of waiting thirty seconds for a result this
+		// select already took.
+		waitOnce.Do(func() { runErr = err })
+		t.Fatalf("the service stopped before it bound its API listener: %v", err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("the service did not report a bound API address within thirty seconds")
+	}
+
+	return "https://" + api, stop, waitStopped
 }
 
 // insecureClient trusts whatever the service generated. An edge pins the
@@ -262,4 +297,37 @@ func dialFailure(err error) bool {
 	return strings.Contains(err.Error(), "connection refused") ||
 		strings.Contains(err.Error(), "connect: ") ||
 		strings.Contains(err.Error(), "EOF")
+}
+
+// The service reports the port the kernel gave it, and serves on that one.
+//
+// The schema tells an operator that a port of 0 asks the kernel for one, and
+// until the listener was bound here rather than inside ListenAndServeTLS
+// there was no way to find out the answer: the address never reached the
+// process, and the only line carrying it printed the ":0" from the file. The
+// two halves are asserted together on purpose. A reported address that
+// nothing serves on, and a service that serves somewhere it did not report,
+// are both the failure this exists to rule out, and either one alone would
+// pass an assertion on the other.
+func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
+	base := runningService(t)
+
+	port := base[strings.LastIndex(base, ":")+1:]
+	if port == "" || port == "0" {
+		t.Fatalf("the service reported %q, want an address carrying the port it bound", base)
+	}
+
+	// Dialed rather than inferred. The reported address is only worth
+	// something if it is the one accepting connections.
+	client := devicev1connect.NewDeviceServiceClient(insecureClient(), base)
+	msg := &devicev1.GetDeviceAccessStatusRequest{}
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId("0192e6a0-0000-7000-8000-0000000000ff")
+	device := &inventoryv1.DeviceGlobalRef{}
+	device.SetDevice(local)
+	msg.SetDevice(device)
+
+	if _, err := callWhenServing(t, client, msg); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Errorf("a call to the reported address answered %v, want the handler's not-found", err)
+	}
 }
