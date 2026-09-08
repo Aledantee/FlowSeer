@@ -207,6 +207,20 @@ func TestAReportIsKeptUntilCentralAnswers(t *testing.T) {
 	if confirm.count() != 1 {
 		t.Errorf("confirmed %d operations, want 1: the registry and this queue share one drain condition", confirm.count())
 	}
+
+	// Contact lost again, with a fresh report. The queue does not remember
+	// that central was reachable a moment ago: every report is held until
+	// this one is confirmed on its own.
+	central.setRefuse(true)
+	q.Report(context.Background(), resultReport("dev-1", 4, "after"))
+	drainOnce(t, q, central, 1)
+
+	if got := q.Pending(); got != 1 {
+		t.Errorf("Pending() = %d after contact was lost again, want 1", got)
+	}
+	if confirm.count() != 1 {
+		t.Errorf("confirmed %d operations, want still 1: nothing new was accepted", confirm.count())
+	}
 }
 
 // TestTheCeilingDropsOldestAndNeverOnboarded pins what the edge sacrifices
