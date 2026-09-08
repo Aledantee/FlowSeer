@@ -1048,10 +1048,28 @@ bounded by their own attempt context. The part that is easy to break: a
 dependent reads the hub's resources once and uses them for the whole attempt,
 which is only safe because the root supervisor is `RestForOne` with the hub
 first, so a rebuilt hub takes every module after it. Change that strategy and
-the modules behind it hold closed connections. The edge host has the same
-shape — the leaf node, the reporter queue and the `Subscribe` loop all depend
-on the attachment — so it needs the same answer, and `internal/host/handle.go`
-is the worked one.
+the modules behind it hold closed connections.
+
+This paragraph then said the edge host has the same shape, with the leaf, the
+reporter queue and the `Subscribe` loop all depending on the attachment. It
+does not, and they do not. The decision above — every request and response is
+ConnectRPC, the bus carries observability only — means the `Subscribe` loop,
+the report queue and the audit deliverer are Connect clients over pinned TLS,
+built from the enrollment's trust anchors. None of them touches the leaf.
+Confirmed by construction once all three existed: nothing outside
+`internal/busattach` references an `Attachment` or a `Leaf`.
+
+So the attachment has exactly one consumer, the agent's own telemetry endpoint
+— the receiver binds a fresh loopback port on every start, so an exporter
+pointed at an old one exports into nothing. That is a supervision ordering for
+the entrypoint to arrange, not a handle: a mechanism for publishing one
+generation's resources to several waiters, given one waiter, is a variable.
+
+Left as the record of a claim that was reasonable when written and false once
+the code existed. The rule it illustrates is the one this build keeps
+producing: the plan is the artifact that changes when the code disagrees with
+it, and a successor note is a pointer to what to check rather than a
+description of what is there.
 
 **Method, not confession: three tests here passed for reasons adjacent to the
 ones they named.** A certificate test that asserted the pin is logged only at
@@ -1161,14 +1179,25 @@ one device's stuck report cost every other device on the edge. Spilling to
 disk is a durability promise this queue does not make and the journal already
 does.
 
-**The host handle is an E3 deliverable, and this is its trigger.** It has been
-deferred from E1 and from E2 on the same argument — a coordination mechanism
+**The host handle is not built, because its trigger turned out to be false.**
+It was deferred from E1 and E2 on the argument that a coordination mechanism
 with fewer dependents than it coordinates is tested against a situation that
-does not exist. The argument was right both times and stops being right when
-the third dependent lands, which is E3's re-send queue: the leaf, the
-`Subscribe` loop and the queue all take their resources from one bus
-attachment and must all end when it does. That is a fact someone can check
-rather than a judgment to re-make, which is the point of writing it here.
+does not exist, and made an E3 deliverable on a written trigger: three
+dependents on one bus attachment — the leaf, the `Subscribe` loop and the
+re-send queue.
+
+Checking that trigger rather than assuming it, once all three existed, showed
+only one dependent. The bus carries observability only, so the `Subscribe`
+loop, the queue and the deliverer are all Connect clients over pinned TLS from
+the enrollment's trust anchors, and nothing outside `internal/busattach`
+references an `Attachment` or a `Leaf`. What the attachment actually feeds is
+the agent's own telemetry endpoint, which changes on every start because the
+receiver binds a fresh loopback port.
+
+So the entrypoint arranges it as supervision ordering — the telemetry export
+belongs with the attachment and ends with it — and there is no handle. Writing
+the trigger down is what made this findable: a judgment re-made each slice
+would have been re-made a third time and the mechanism eventually built.
 
 **A number for the lab run to settle.** The agent's heartbeat bounds each
 attempt by the heartbeat interval, so a central that is alive but answers
