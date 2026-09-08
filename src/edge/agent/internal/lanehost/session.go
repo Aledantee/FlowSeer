@@ -125,8 +125,15 @@ func privProtocol(protocol credentialv1.SnmpPrivProtocol) (snmp.PrivProtocol, er
 	case credentialv1.SnmpPrivProtocol_SNMP_PRIV_PROTOCOL_AES256:
 		return snmp.PrivAES256, nil
 	case credentialv1.SnmpPrivProtocol_SNMP_PRIV_PROTOCOL_UNSPECIFIED:
+		// Named as the device's configuration rather than the credential's,
+		// because that is what an operator meeting this has to change. Every
+		// field of SnmpV3Credential is required, so this system manages
+		// devices at authPriv only; a device configured authNoPriv produces
+		// a credential central populated correctly and this call refuses,
+		// and "no privacy protocol" would send the operator to look at
+		// credential delivery, which is not where the problem is.
 		return snmp.PrivProtocolNone, errs.New().Code(ErrCodeSession).
-			Msg("credential names no SNMPv3 privacy protocol")
+			Msg("this device is managed at a security level below authPriv, which is not supported; check its SNMPv3 configuration")
 	default:
 		return snmp.PrivProtocolNone, errs.New().Code(ErrCodeSession).
 			Attr("protocol", protocol.String()).Msg("unknown SNMPv3 privacy protocol")

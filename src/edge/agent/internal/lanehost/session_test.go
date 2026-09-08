@@ -103,7 +103,7 @@ func TestAnUnspecifiedSNMPProtocolIsRefused(t *testing.T) {
 			"no privacy protocol", snmpMaterial(
 				credentialv1.SnmpAuthProtocol_SNMP_AUTH_PROTOCOL_SHA256,
 				credentialv1.SnmpPrivProtocol_SNMP_PRIV_PROTOCOL_UNSPECIFIED),
-			"no SNMPv3 privacy protocol",
+			"below authPriv",
 		},
 		{
 			"no snmp material at all", &credentialv1.CredentialMaterial{},

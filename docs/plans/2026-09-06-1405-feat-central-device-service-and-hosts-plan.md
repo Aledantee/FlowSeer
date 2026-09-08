@@ -1199,6 +1199,18 @@ belongs with the attachment and ends with it — and there is no handle. Writing
 the trigger down is what made this findable: a judgment re-made each slice
 would have been re-made a third time and the mechanism eventually built.
 
+**A precondition for the lab run, checkable before the switch is powered
+on.** This system manages devices at SNMPv3 authPriv only — every field of
+`SnmpV3Credential` is required — with AES-128, 192 or 256 for privacy. The
+lab ICX7150 must be configured that way before item 7, and confirming it
+costs nothing beforehand.
+
+Afterwards it costs a session and looks like something else entirely: an edge
+refuses to open the SNMP session, on a credential-delivery path with nothing
+wrong with it, and the first place anyone looks is central's credential
+population. The runbook checks the device's SNMPv3 security level as a step,
+alongside powering the switch on.
+
 **A number for the lab run to settle.** The agent's heartbeat bounds each
 attempt by the heartbeat interval, so a central that is alive but answers
 slower than one interval is indistinguishable from one that is down, and two
