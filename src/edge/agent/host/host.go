@@ -81,7 +81,7 @@ const (
 //
 // The attachment is closed after the runtime returns, in that order: the
 // telemetry export lives as long as the attachment and ends with it.
-func Run(ctx context.Context, cfg *Config, version string) error {
+func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if cfg == nil {
 		return errs.New().Code(ErrCodeStart).Msg("the agent was given no configuration")
 	}
@@ -124,6 +124,7 @@ func Run(ctx context.Context, cfg *Config, version string) error {
 
 	assembly := &assembly{
 		cfg:      cfg,
+		opts:     opts,
 		edgeID:   edgeID,
 		edge:     edgeClient,
 		dispatch: dispatchClient,
@@ -154,6 +155,7 @@ func Run(ctx context.Context, cfg *Config, version string) error {
 // established once, before the runtime started.
 type assembly struct {
 	cfg      *Config
+	opts     Options
 	edgeID   string
 	edge     edgev1connect.EdgeServiceClient
 	dispatch integrationv1connect.DispatchServiceClient
@@ -183,7 +185,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 		Reporter:              reporter,
 		Audit:                 report.NewDeliverer(a.audit, a.edgeID),
 		Telemetry:             telemetry,
-		Clock:                 time.Now,
+		Clock:                 a.clock(),
 	})
 
 	// The demultiplexer and the queue each need the other: the demultiplexer
@@ -205,7 +207,11 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 		Client: a.edge,
 		Lane:   lane,
 		Edge:   edgeRefOf(a.edgeID),
-		Logger: log,
+		// Nil for a packaged deployment, which is what NewOnboarder reads
+		// as the real dialers.
+		OpenSNMP:  a.opts.OpenSNMP,
+		OpenShell: a.opts.OpenShell,
+		Logger:    log,
 	})
 	if err != nil {
 		return service.Attempt{}, err
@@ -239,6 +245,17 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 				}, contact)
 			})
 	}}, nil
+}
+
+// clock is the lane's source of time: what the deployment substituted, or the
+// wall clock. The lane treats a nil Clock as time.Now too, but reads it in
+// enough places that a nil arriving there would be a nil this package failed
+// to resolve rather than a default it chose.
+func (a *assembly) clock() func() time.Time {
+	if a.opts.Clock != nil {
+		return a.opts.Clock
+	}
+	return time.Now
 }
 
 // confirmations forwards a confirmation from the report queue to the

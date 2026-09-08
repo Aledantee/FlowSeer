@@ -138,7 +138,7 @@ func TestTheAgentEnrollsFirstAndSignsEverythingAfterwards(t *testing.T) {
 	cfg := agentAgainst(t, central)
 
 	// The run ends at AttachBus, which this central refuses.
-	if err := host.Run(context.Background(), cfg, "v0-test"); err == nil {
+	if err := host.Run(context.Background(), cfg, "v0-test", host.Options{}); err == nil {
 		t.Fatal("Run() error = nil, want the failed attachment surfaced")
 	}
 
@@ -167,7 +167,7 @@ func TestAnAgentThatCannotEnrollStopsThere(t *testing.T) {
 	central := &orderedCentral{refuse: true}
 	cfg := agentAgainst(t, central)
 
-	err := host.Run(context.Background(), cfg, "v0-test")
+	err := host.Run(context.Background(), cfg, "v0-test", host.Options{})
 
 	// The code, not merely that an error came back. An agent that logged the
 	// enrollment and carried on fails a moment later anyway — its empty
@@ -206,7 +206,7 @@ func TestTheAttachmentPinsWhatTheEnrollmentReturned(t *testing.T) {
 	central := &orderedCentral{anchors: [][]byte{}}
 	cfg := agentAgainst(t, central)
 
-	err := host.Run(context.Background(), cfg, "v0-test")
+	err := host.Run(context.Background(), cfg, "v0-test", host.Options{})
 	if err == nil {
 		t.Fatal("Run() error = nil, want the empty anchor set refused")
 	}
