@@ -7,6 +7,7 @@ package flowseer.api.edge.v1;
 
 import "flowseer/api/edge/v1/bus.proto";
 import "flowseer/api/edge/v1/credential.proto";
+import "flowseer/api/edge/v1/device.proto";
 import "flowseer/api/edge/v1/edge.proto";
 import "flowseer/api/edge/v1/key_proof.proto";
 import "google/protobuf/timestamp.proto";
@@ -27,6 +28,12 @@ service EdgeService {
   // Hands the calling edge its NATS account, user credential, subject map,
   // and cluster URLs. Bus credentials never ride the bus itself.
   rpc AttachBus(AttachBusRequest) returns (AttachBusResponse);
+  // Names the devices the calling edge serves, and for each one where it
+  // answers, the binding that reaches it, the access policy it pins, and
+  // its measured delayed-apply horizon. The edge lists after attaching and
+  // again whenever it reconnects its dispatch stream, and holds what it was
+  // last told in between.
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
   // Delivers a device read credential for a binding, under the device's
   // pinned access policy. Delivery is per operation; there is no standing
   // lease.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"regexp"
+	"slices"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -191,6 +192,70 @@ func (s *Service) AttachBus(ctx context.Context, _ *connect.Request[edgev1.Attac
 		Subjects:       edgebus.EdgePublishSubjects(s.bus.Tenant(), edgeID),
 		ClusterUrls:    s.cfg.ClusterURLs,
 	}.Build()), nil
+}
+
+// ListDevices names the devices the calling edge serves and what it needs to
+// reach each one: the management address and ports, the binding, the pinned
+// access policy, and the measured delayed-apply horizon.
+//
+// It is a listing of its own rather than a rider on the credential calls
+// because the two kinds of fact fail in opposite directions. A host key that
+// changed fails closed — the pin refuses and the caller gets an error — while
+// an address that changed fails open, against a different device that answers
+// normally. A mutation acquires separately for its command and for the
+// observation that verifies it, so an address riding those calls could send
+// the command to one device and read the verification from another, with the
+// lane reporting the mutation verified about a box it never touched.
+//
+// A device the registry lists without a measured horizon is listed all the
+// same, with the field unset. The edge serves it and refuses a mutation on
+// it, which is what central does with the same fact; omitting it from the
+// listing would instead leave the edge unable to tell a device it must not
+// mutate from one central has never heard of, and would stop its reads for a
+// property only mutations depend on.
+func (s *Service) ListDevices(ctx context.Context, _ *connect.Request[edgev1.ListDevicesRequest]) (*connect.Response[edgev1.ListDevicesResponse], error) {
+	edgeID, err := EdgeIDFromContext(ctx)
+	if err != nil {
+		return nil, unauthenticated(err)
+	}
+
+	// The registry refuses an edge it does not describe rather than
+	// answering with an empty list, and that refusal is passed on: an edge
+	// told it hosts nothing would onboard nothing and wait forever, which
+	// is what a deployment whose registry has not caught up with its second
+	// edge looks like.
+	ids, err := s.registry.Devices(ctx, edgeID)
+	if err != nil {
+		return nil, connectErr(errs.From(err).Code(ErrCodeForbidden).Attr("edge", edgeID).
+			Msg("list the devices this edge hosts"))
+	}
+	slices.Sort(ids)
+
+	listed := make([]*edgev1.ListedDevice, 0, len(ids))
+	for _, id := range ids {
+		device, ok := s.registry.Device(id)
+		if !ok {
+			continue
+		}
+		entry := edgev1.ListedDevice_builder{
+			DeviceId:     proto.String(id),
+			BindingId:    proto.String(device.GetBinding().GetBinding().GetId()),
+			Ip:           device.GetIp(),
+			AccessPolicy: device.GetConfig().GetAccessPolicy(),
+		}
+		if port := device.GetSnmpPort(); port != 0 {
+			entry.SnmpPort = proto.Uint32(port)
+		}
+		if port := device.GetSshPort(); port != 0 {
+			entry.SshPort = proto.Uint32(port)
+		}
+		if horizon := device.GetDelayedApplyHorizon(); horizon != nil {
+			entry.DelayedApplyHorizon = horizon
+		}
+		listed = append(listed, entry.Build())
+	}
+
+	return connect.NewResponse(edgev1.ListDevicesResponse_builder{Devices: listed}.Build()), nil
 }
 
 // AcquireReadCredential delivers a read credential for one binding, under the

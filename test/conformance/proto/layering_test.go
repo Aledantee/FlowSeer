@@ -37,8 +37,12 @@ var importOrder = map[string][]string{
 	// credential RPCs return, because device/policy imports nothing back.
 	// device/credential imports nothing either: api/edge carries the typed
 	// credential material on its credential responses, so it sits beside
-	// device/policy as a second leaf below api/edge.
-	"api/edge":          {"device/credential", "device/policy"},
+	// device/policy as a second leaf below api/edge. net/addr is the third,
+	// for the management address the device listing carries — a primitive
+	// that imports nothing FlowSeer-owned, so it cannot cycle back, and the
+	// alternative of a formatted string would make an address the edge
+	// parses out of prose.
+	"api/edge":          {"device/credential", "device/policy", "net/addr"},
 	"device/credential": nil,
 	"device/policy":     nil,
 

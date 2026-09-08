@@ -44,6 +44,8 @@ const (
 	EdgeServiceHeartbeatProcedure = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
 	// EdgeServiceAttachBusProcedure is the fully-qualified name of the EdgeService's AttachBus RPC.
 	EdgeServiceAttachBusProcedure = "/flowseer.api.edge.v1.EdgeService/AttachBus"
+	// EdgeServiceListDevicesProcedure is the fully-qualified name of the EdgeService's ListDevices RPC.
+	EdgeServiceListDevicesProcedure = "/flowseer.api.edge.v1.EdgeService/ListDevices"
 	// EdgeServiceAcquireReadCredentialProcedure is the fully-qualified name of the EdgeService's
 	// AcquireReadCredential RPC.
 	EdgeServiceAcquireReadCredentialProcedure = "/flowseer.api.edge.v1.EdgeService/AcquireReadCredential"
@@ -68,6 +70,12 @@ type EdgeServiceClient interface {
 	// Hands the calling edge its NATS account, user credential, subject map,
 	// and cluster URLs. Bus credentials never ride the bus itself.
 	AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error)
+	// Names the devices the calling edge serves, and for each one where it
+	// answers, the binding that reaches it, the access policy it pins, and
+	// its measured delayed-apply horizon. The edge lists after attaching and
+	// again whenever it reconnects its dispatch stream, and holds what it was
+	// last told in between.
+	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
 	// Delivers a device read credential for a binding, under the device's
 	// pinned access policy. Delivery is per operation; there is no standing
 	// lease.
@@ -114,6 +122,12 @@ func NewEdgeServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			connect.WithSchema(edgeServiceMethods.ByName("AttachBus")),
 			connect.WithClientOptions(opts...),
 		),
+		listDevices: connect.NewClient[v1.ListDevicesRequest, v1.ListDevicesResponse](
+			httpClient,
+			baseURL+EdgeServiceListDevicesProcedure,
+			connect.WithSchema(edgeServiceMethods.ByName("ListDevices")),
+			connect.WithClientOptions(opts...),
+		),
 		acquireReadCredential: connect.NewClient[v1.AcquireReadCredentialRequest, v1.AcquireReadCredentialResponse](
 			httpClient,
 			baseURL+EdgeServiceAcquireReadCredentialProcedure,
@@ -135,6 +149,7 @@ type edgeServiceClient struct {
 	rekey                 *connect.Client[v1.RekeyRequest, v1.RekeyResponse]
 	heartbeat             *connect.Client[v1.HeartbeatRequest, v1.HeartbeatResponse]
 	attachBus             *connect.Client[v1.AttachBusRequest, v1.AttachBusResponse]
+	listDevices           *connect.Client[v1.ListDevicesRequest, v1.ListDevicesResponse]
 	acquireReadCredential *connect.Client[v1.AcquireReadCredentialRequest, v1.AcquireReadCredentialResponse]
 	openDeviceSubmission  *connect.Client[v1.OpenDeviceSubmissionRequest, v1.OpenDeviceSubmissionResponse]
 }
@@ -157,6 +172,11 @@ func (c *edgeServiceClient) Heartbeat(ctx context.Context, req *connect.Request[
 // AttachBus calls flowseer.api.edge.v1.EdgeService.AttachBus.
 func (c *edgeServiceClient) AttachBus(ctx context.Context, req *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error) {
 	return c.attachBus.CallUnary(ctx, req)
+}
+
+// ListDevices calls flowseer.api.edge.v1.EdgeService.ListDevices.
+func (c *edgeServiceClient) ListDevices(ctx context.Context, req *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error) {
+	return c.listDevices.CallUnary(ctx, req)
 }
 
 // AcquireReadCredential calls flowseer.api.edge.v1.EdgeService.AcquireReadCredential.
@@ -185,6 +205,12 @@ type EdgeServiceHandler interface {
 	// Hands the calling edge its NATS account, user credential, subject map,
 	// and cluster URLs. Bus credentials never ride the bus itself.
 	AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error)
+	// Names the devices the calling edge serves, and for each one where it
+	// answers, the binding that reaches it, the access policy it pins, and
+	// its measured delayed-apply horizon. The edge lists after attaching and
+	// again whenever it reconnects its dispatch stream, and holds what it was
+	// last told in between.
+	ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error)
 	// Delivers a device read credential for a binding, under the device's
 	// pinned access policy. Delivery is per operation; there is no standing
 	// lease.
@@ -227,6 +253,12 @@ func NewEdgeServiceHandler(svc EdgeServiceHandler, opts ...connect.HandlerOption
 		connect.WithSchema(edgeServiceMethods.ByName("AttachBus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	edgeServiceListDevicesHandler := connect.NewUnaryHandler(
+		EdgeServiceListDevicesProcedure,
+		svc.ListDevices,
+		connect.WithSchema(edgeServiceMethods.ByName("ListDevices")),
+		connect.WithHandlerOptions(opts...),
+	)
 	edgeServiceAcquireReadCredentialHandler := connect.NewUnaryHandler(
 		EdgeServiceAcquireReadCredentialProcedure,
 		svc.AcquireReadCredential,
@@ -249,6 +281,8 @@ func NewEdgeServiceHandler(svc EdgeServiceHandler, opts ...connect.HandlerOption
 			edgeServiceHeartbeatHandler.ServeHTTP(w, r)
 		case EdgeServiceAttachBusProcedure:
 			edgeServiceAttachBusHandler.ServeHTTP(w, r)
+		case EdgeServiceListDevicesProcedure:
+			edgeServiceListDevicesHandler.ServeHTTP(w, r)
 		case EdgeServiceAcquireReadCredentialProcedure:
 			edgeServiceAcquireReadCredentialHandler.ServeHTTP(w, r)
 		case EdgeServiceOpenDeviceSubmissionProcedure:
@@ -276,6 +310,10 @@ func (UnimplementedEdgeServiceHandler) Heartbeat(context.Context, *connect.Reque
 
 func (UnimplementedEdgeServiceHandler) AttachBus(context.Context, *connect.Request[v1.AttachBusRequest]) (*connect.Response[v1.AttachBusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.api.edge.v1.EdgeService.AttachBus is not implemented"))
+}
+
+func (UnimplementedEdgeServiceHandler) ListDevices(context.Context, *connect.Request[v1.ListDevicesRequest]) (*connect.Response[v1.ListDevicesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("flowseer.api.edge.v1.EdgeService.ListDevices is not implemented"))
 }
 
 func (UnimplementedEdgeServiceHandler) AcquireReadCredential(context.Context, *connect.Request[v1.AcquireReadCredentialRequest]) (*connect.Response[v1.AcquireReadCredentialResponse], error) {

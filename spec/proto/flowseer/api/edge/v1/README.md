@@ -10,8 +10,8 @@ say where it sits.
 
 An edge is the process, not an integration. The local-network integration
 and any on-prem controller adapter a site needs run on the edge and point
-at it; the edge's own concerns are identity, liveness, provisioning, and
-the three lifecycles below. The execute and event contracts are their own
+at it; the edge's own concerns are identity, liveness, provisioning, which
+devices it serves, and the three lifecycles below. The execute and event contracts are their own
 packages, `integration/device/v1` and `event/device/v1`; nothing here
 carries an operation, a device ref, or a durable audit record.
 
@@ -206,7 +206,8 @@ Decision 9 of the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 keeps bus attachment, credential delivery, and revocation apart, and this
 package keeps them on separate RPCs so that revoking one never touches the
-others.
+others. The device listing below them is a fourth call and none of the three:
+it carries no secret and revokes nothing.
 
 ### Bus attachment
 
@@ -222,6 +223,42 @@ to the module that builds the leaf node, not to this package. An edge
 attaches once, as a whole, never per integration or per device; there is no
 request body beyond the assertion that authorizes the call. Re-attaching
 after a rotation is calling `AttachBus` again, not a separate RPC.
+
+### The device listing
+
+`ListDevices` answers the calling edge with the devices it hosts, and for
+each one what only central's registry knows: the management address and the
+SNMP and SSH ports, the binding the device is reached through, the access
+policy version it pins, and its measured delayed-apply horizon. Without it an
+edge can hold a credential for a device it cannot locate.
+
+It is a listing rather than fields on `AcquireReadCredentialResponse`,
+although the address and the host-key pin are needed at the same moment and
+look like a pair. They fail in opposite directions: a host key that changed
+fails closed, because the pin refuses and the caller gets an error, while an
+address that changed fails open and silently, against a different real device
+that answers normally. Riding the credential call would also put a stable
+fact on a revocable one — and a mutation acquires separately for its command
+and for the observation that verifies it, so an address that changed between
+the two would send the command to one device and read the verification from
+another, with the lane reporting the mutation verified about a box it never
+touched.
+
+The edge lists after it attaches and again whenever its dispatch stream
+reconnects, and holds what it was last told in between. That is stale by
+construction and deliberately so: stale-but-consistent beats
+fresh-but-inconsistent inside one operation, which is the same argument that
+keeps the address off the credential response.
+
+A device the registry lists without a measured horizon is listed all the
+same, with the field unset. The edge serves it and refuses a mutation on it,
+which is what central does with the same fact; dropping it from the listing
+would leave the edge unable to tell a device it must not mutate from one
+central has never heard of.
+
+Device and binding are plain UUID strings here for the same reason the
+credential calls take them that way: `api/edge` sits below `api/inventory` in
+the import graph and cannot name a `DeviceGlobalRef` without cycling it.
 
 ### Read credential delivery
 

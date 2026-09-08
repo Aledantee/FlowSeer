@@ -78,7 +78,10 @@ func snmpMaterial() *credentialv1.CredentialMaterial {
 	}.Build()
 }
 
-func testRegistry(t *testing.T, edgeID string) *registry.Registry {
+// testRegistry builds the one-device registry these tests run against. The
+// device hook is for a test that needs the registry to say something else
+// about that device; nil leaves it as it is.
+func testRegistry(t *testing.T, edgeID string, device func(*storev1.RegistryDevice)) *registry.Registry {
 	t.Helper()
 	accessHandle := policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build()
 	reg := storev1.DeviceRegistry_builder{
@@ -106,6 +109,10 @@ func testRegistry(t *testing.T, edgeID string) *registry.Registry {
 			ReadCredentialTtl:    durationpb.New(2 * time.Minute),
 		}.Build()},
 	}.Build()
+
+	if device != nil {
+		device(reg.GetDevices()[0])
+	}
 
 	data, err := prototext.Marshal(reg)
 	if err != nil {
@@ -139,6 +146,11 @@ type harness struct {
 // created edge actually hosts.
 func newHarness(t *testing.T) *harness {
 	t.Helper()
+	return newHarnessWith(t, nil)
+}
+
+func newHarnessWith(t *testing.T, device func(*storev1.RegistryDevice)) *harness {
+	t.Helper()
 	hub := newHub(t)
 	store := newStoreOver(t, hub)
 	h := &harness{
@@ -152,7 +164,7 @@ func newHarness(t *testing.T) *harness {
 
 	anchor := make([]byte, 32)
 	h.lanes = &fakeLanes{}
-	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID), h.lanes, h.creds, hub, edgeapi.ServiceConfig{
+	svc, err := edgeapi.NewService(store, testRegistry(t, h.edgeID, device), h.lanes, h.creds, hub, edgeapi.ServiceConfig{
 		Audience:      "flowseer-central",
 		TrustAnchors:  [][]byte{anchor},
 		ClusterURLs:   []string{"wss://central.example.test:4223"},
@@ -659,6 +671,8 @@ func TestEveryAuthenticatedCallRefusesAContextWithNoVerifiedEdge(t *testing.T) {
 	_, err = h.edge.Rekey(ctx, connect.NewRequest(&edgev1.RekeyRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 	_, err = h.edge.AcquireReadCredential(ctx, connect.NewRequest(&edgev1.AcquireReadCredentialRequest{}))
+	wantConnectCode(t, err, connect.CodeUnauthenticated)
+	_, err = h.edge.ListDevices(ctx, connect.NewRequest(&edgev1.ListDevicesRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 }
 
