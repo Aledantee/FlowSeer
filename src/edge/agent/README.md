@@ -50,6 +50,31 @@ read as usual; the lane refuses a mutation on it. The horizon bounds how
 long a mutation's effect may stay unknown, and a read has no effect to
 become visible.
 
+## Starting up, and the order that is forced
+
+`cmd/agent` reads one prototext file and hands it to `internal/host`, which
+brings the agent up in an order where every step is required by something the
+step after it needs. `host.Run`'s doc comment carries the whole chain with each
+reason; the short version is that the identity comes before the bus attachment
+because `AttachBus` is signed, the receiver comes before the telemetry exporter
+because its loopback port is fresh on every start, and the lane comes before
+the loops that drive it because a dispatch for a device with no lane has
+nowhere to go.
+
+Two failures end the process rather than being logged: enrollment and the bus
+attachment. Without an identity there is nothing to carry on with, since every
+call but `Enroll` is signed by the key enrollment registers — an agent that
+continued would make one failing call after another with no way to recover.
+
+Everything else is survivable, and the first device listing is the one worth
+knowing about. A listing that fails at startup is not fatal: the dispatch
+stream still opens, and the next reconnection lists again. But the agent then
+comes up serving no devices and refusing every dispatch it receives, which from
+central looks exactly like an edge that has no devices assigned to it. The
+`flowseer.edge.devices.listing_failed` event is the only thing that separates
+the two, so it is emitted for the startup listing as well as for every later
+one — an operator seeing an edge that manages nothing looks there first.
+
 ## Nothing standing
 
 Every credential is acquired for the operation that uses it and the session

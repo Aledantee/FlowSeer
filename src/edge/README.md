@@ -6,7 +6,7 @@ the customer network — as opposed to the control-plane services in
 
 | Directory | What it is                                                |
 | --------- | --------------------------------------------------------- |
-| `agent`   | The device access agent: enrolls with central, holds its dispatch stream, drives the local-network access lane |
+| `agent`   | The device access agent: enrolls with central, holds its dispatch stream, drives the local-network access lane. `cmd/agent` is its binary |
 | `netpen`  | L2/L3 security audit and attack tool, run by an operator   |
 
 "Edge" names what an application is *designed for*, not only where it ends up
