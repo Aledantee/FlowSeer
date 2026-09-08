@@ -1315,21 +1315,39 @@ the horizon, set it centrally, mutations keep failing
 
 The signal is not the fix, and the fix is not plumbing. An update must not
 disturb the device's queue, its drainer, its firmware fingerprint, or an
-open mutation's state — and the question it turns on is what happens to a
-mutation already in flight against the old address and the old horizon at
-the moment the update arrives. It finishes under the values it started
-with, it is refused, or it is re-targeted mid-operation, and only the
-first two are defensible: this is the same hazard that decided against
-riding the address on the credential response, where a mutation's
-`Execute` and its verifying `Observe` acquire separately and an address
-that changed between them reports a device verified that was never
-touched. Whichever answer this unit takes, the horizon a recovery poll is
-already running under must not change under it.
+open mutation's state, and what happens to a mutation already in flight
+against the old address and the old horizon is a correctness question
+rather than a detail.
+
+**It forks on `Machine.Submitted()`**, which the lane already uses to tell
+"provably nothing was sent" from "the effect is unknown". Same fact, same
+fork:
+
+- An update applies to operations admitted after it. A queued item has
+  captured nothing yet and picks up the new session when it is admitted.
+- An open mutation that has not submitted is refused, and central
+  re-dispatches under the new values. Nothing went to the device, so there
+  is no effect to strand.
+- An open mutation that has submitted finishes under the values it started
+  with. Not a concession: the address the command went to is the only
+  address whose read can verify or refute it, and verifying at the new one
+  would answer a question about a different box — the hazard that decided
+  `ListDevices`. The horizon likewise, since the command was sent under a
+  bound that re-bounding afterwards would silently reinterpret.
+- A recovery poll keeps the horizon it started under, one level down from
+  the same reasoning.
+
+A mutation that finishes under superseded values says so, on its result or
+its span. Otherwise the edge reports an operation against an address
+central no longer believes in and nothing outside can tell that is what it
+is reading, which is the failure shape this build keeps meeting: the
+behavior is right and the two cases are indistinguishable.
 
 Tests: an update that leaves a queued item and a running drainer alone; a
 device whose horizon is corrected mid-life accepting a mutation it
-previously refused; an update arriving while a mutation is in flight,
-asserting which values that mutation finished under.
+previously refused; an update arriving before submission refusing the open
+mutation, and one arriving after it not refusing, with the result saying
+its values were superseded.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/**' 'src/edge/agent/**')`
 
 ### U9. End-to-end and item 7 readiness

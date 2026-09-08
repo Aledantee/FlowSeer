@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -26,6 +27,9 @@ type centralStream struct {
 	opens    int
 	messages [][]*integrationv1.SubscribeResponse
 	failOpen bool
+	// onOpen, when set, runs as the stream is served, so a test can order
+	// the open against what the loop did before it.
+	onOpen func()
 }
 
 func (c *centralStream) Subscribe(
@@ -34,6 +38,9 @@ func (c *centralStream) Subscribe(
 ) error {
 	c.mu.Lock()
 	c.opens++
+	if c.onOpen != nil {
+		c.onOpen()
+	}
 	open := c.opens
 	failOpen := c.failOpen
 	var batch []*integrationv1.SubscribeResponse
@@ -223,5 +230,67 @@ func TestACentralThatServesAndClosesLooksHealthyExceptForMessages(t *testing.T) 
 	}
 	if got := contact.Messages(); got != 0 {
 		t.Errorf("Messages() = %d, want 0: this is the number that shows nothing is arriving", got)
+	}
+}
+
+// TestEveryAttemptRelistsBeforeTheStreamOpens covers the ordering the whole
+// re-list depends on. A dispatch for a device this edge has not onboarded
+// has nowhere to go — the lane refuses it and central has to send it again —
+// so the listing has to be in before the stream that carries the dispatch is
+// open, on every attempt and not only the first.
+func TestEveryAttemptRelistsBeforeTheStreamOpens(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		order []string
+	)
+	record := func(what string) {
+		mu.Lock()
+		defer mu.Unlock()
+		order = append(order, what)
+	}
+
+	central := &centralStream{onOpen: func() { record("open") }}
+	central.messages = [][]*integrationv1.SubscribeResponse{{dispatchTo("dev-1")}, {dispatchTo("dev-2")}}
+	contact := &dispatch.Contact{}
+
+	runFor(t, dispatch.Config{
+		Client: servedClient(t, central), Handler: &handlerFake{},
+		Resync:     func(context.Context) error { record("resync"); return nil },
+		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
+	}, contact, 2)
+
+	// The streams were served: without this, an order holding only re-lists
+	// would read as "every open was preceded by one".
+	if got := central.openCount(); got != 2 {
+		t.Fatalf("the stream was opened %d times, want 2", got)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	want := []string{"resync", "open", "resync", "open"}
+	if !slices.Equal(order, want) {
+		t.Errorf("order = %v, want %v", order, want)
+	}
+}
+
+// TestAFailedRelistStillOpensTheStream. Whatever kept the listing from
+// answering will most likely stop the stream too; if it does not, an edge
+// that can still serve the devices it already holds is worth more than one
+// that stops for the ones it does not.
+func TestAFailedRelistStillOpensTheStream(t *testing.T) {
+	central := &centralStream{}
+	contact := &dispatch.Contact{}
+
+	runFor(t, dispatch.Config{
+		Client: servedClient(t, central), Handler: &handlerFake{},
+		Resync:     func(context.Context) error { return errors.New("central did not answer the listing") },
+		MinBackoff: time.Millisecond, MaxBackoff: time.Millisecond,
+	}, contact, 2)
+
+	if got := central.openCount(); got != 2 {
+		t.Errorf("the stream was opened %d times, want 2: a failed listing must not stop the attempt", got)
+	}
+	if got := contact.Connections(); got != 2 {
+		t.Errorf("Connections() = %d, want 2", got)
 	}
 }

@@ -84,6 +84,19 @@ type Config struct {
 	// from the first. Zero means one second and thirty.
 	MinBackoff time.Duration
 	MaxBackoff time.Duration
+	// Resync runs before every attempt to open the stream, the first one
+	// included. It is where the edge re-lists the devices it serves.
+	//
+	// Before rather than after, because a dispatch for a device this edge
+	// has not onboarded has nowhere to go: the lane refuses it and central
+	// has to re-send. Listing first means the reconnection that follows a
+	// device being added centrally is the reconnection that can serve it.
+	//
+	// A failure does not stop the attempt. Whatever kept the listing from
+	// answering will most likely stop the stream too, and if it does not,
+	// an edge that can still serve the devices it already holds is worth
+	// more than one that stops for the ones it does not. Nil skips it.
+	Resync func(ctx context.Context) error
 	// Wait blocks for d or until ctx ends, reporting whether it elapsed.
 	// Nil means a timer; a test substitutes it.
 	Wait   func(ctx context.Context, d time.Duration) bool
@@ -103,6 +116,9 @@ type Config struct {
 // The backoff resets on a delivered message, not on a successful open. A
 // stream that opens and immediately drops is a failing central, and resetting
 // on the open alone would retry it a thousand times a second.
+//
+// Each attempt is preceded by cfg.Resync, so the devices this edge serves are
+// listed before anything can be dispatched for them.
 func Run(ctx context.Context, cfg Config, contact *Contact) error {
 	if cfg.Client == nil || cfg.Handler == nil {
 		return errs.New().Code(ErrCodeSubscribe).Msg("the dispatch loop needs a client and a handler")
@@ -125,6 +141,14 @@ func Run(ctx context.Context, cfg Config, contact *Contact) error {
 
 	backoff := minBackoff
 	for {
+		if cfg.Resync != nil {
+			if err := cfg.Resync(ctx); err != nil {
+				log.WarnContext(ctx, "device listing failed",
+					slog.String("otel.event.name", "flowseer.edge.devices.listing_failed"),
+					slog.Any("error", err))
+			}
+		}
+
 		delivered, err := attempt(ctx, cfg, contact, log)
 		if ctx.Err() != nil {
 			return nil

@@ -17,7 +17,38 @@ orderings between them.
 | `internal/busattach` | `AttachBus`, the embedded leaf node, and the loopback receiver the agent's own telemetry goes to |
 | `internal/dispatch` | The `Subscribe` loop with backoff, and the routing of each dispatch to its lane call |
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
-| `internal/lanehost` | Contact with central and the freeze it drives, and the per-operation device session factories |
+| `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
+
+## Which devices this edge serves
+
+The edge is not configured with its devices; it asks. `ListDevices` names
+them and, for each, where it answers, the binding that reaches it, the
+access policy it pins and its measured delayed-apply horizon — all of it
+read from a registry the edge cannot see. Configuring it locally instead
+would make the address a second source of truth, and an address that is
+wrong in one of two places fails open: the session opens, against a
+different real device that answers normally.
+
+The listing runs before every attempt to open the dispatch stream, first
+attempt included, because a dispatch for a device this edge has not
+onboarded has nowhere to go. Between listings the edge holds what it was
+last told, which is stale by construction and the point: one operation runs
+against one consistent set of facts rather than a set that can change under
+it.
+
+A device already onboarded is left alone rather than re-added — a second
+`AddDevice` replaces that device's whole lane state, orphaning its queue and
+any drainer working through it — so a device whose listing has changed keeps
+the values it started with until the agent restarts. That is a real gap and
+it is recorded rather than passed over: a re-listing that differs from what
+a device was onboarded with names each field and both values, because an
+operator who measures a horizon centrally and watches mutations go on being
+refused has otherwise nothing anywhere connecting the two facts.
+
+A device listed without a measured horizon is onboarded all the same and
+read as usual; the lane refuses a mutation on it. The horizon bounds how
+long a mutation's effect may stay unknown, and a read has no effect to
+become visible.
 
 ## Nothing standing
 
