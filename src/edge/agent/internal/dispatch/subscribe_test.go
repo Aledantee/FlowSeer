@@ -202,7 +202,7 @@ func TestAHandlerErrorDoesNotDropTheStream(t *testing.T) {
 // which reads as a working edge — and the backoff is meanwhile doubling to
 // its ceiling, because it resets on a delivered message and none arrive.
 //
-// The test exists to keep the doc honest rather than to change behaviour:
+// The test exists to keep the doc honest rather than to change behavior:
 // Messages is the number that separates this from a healthy loop, and it must
 // stay at zero here or the doc's advice is wrong.
 func TestACentralThatServesAndClosesLooksHealthyExceptForMessages(t *testing.T) {
