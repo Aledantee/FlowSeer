@@ -32,6 +32,14 @@ type DeviceRegistrar interface {
 	AddDevice(ctx context.Context, deviceKey string, session access.DeviceSession) error
 }
 
+// SNMPFactoryFor builds a device's SNMP session factory from where the
+// device answers. [OpenSNMP] is the one production uses.
+type SNMPFactoryFor func(Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error)
+
+// ShellFactoryFor is SNMPFactoryFor's counterpart for the shell. [OpenShell]
+// is the one production uses.
+type ShellFactoryFor func(Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error)
+
 // OnboardConfig declares the onboarder. Construct with keyed fields.
 type OnboardConfig struct {
 	Client Lister
@@ -40,8 +48,19 @@ type OnboardConfig struct {
 	// names as the edge that answered. The listing does not carry it: the
 	// call is authorized as this edge, so central would only be telling the
 	// edge who it already is.
-	Edge   *edgev1.EdgeGlobalRef
-	Logger *slog.Logger
+	Edge *edgev1.EdgeGlobalRef
+	// OpenSNMP and OpenShell build a device's session factories from where
+	// it answers. Nil means [OpenSNMP] and [OpenShell].
+	//
+	// They are injectable because nothing can read an endpoint back out of
+	// a DeviceSession — it is captured inside the closures — so a test that
+	// checked only what the endpoint was computed to be would pass for an
+	// agent that computed the right address and handed the dialers an empty
+	// one. Substituting these puts the assertion on the endpoint the thing
+	// that dials was actually built with.
+	OpenSNMP  SNMPFactoryFor
+	OpenShell ShellFactoryFor
+	Logger    *slog.Logger
 }
 
 // Onboarder holds the devices this edge has been told to serve, and adds the
@@ -72,6 +91,12 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 	}
 	if cfg.Edge.GetEdge().GetId() == "" {
 		return nil, errs.New().Code(ErrCodeOnboard).Msg("onboarding needs this edge's own ref for provenance")
+	}
+	if cfg.OpenSNMP == nil {
+		cfg.OpenSNMP = OpenSNMP
+	}
+	if cfg.OpenShell == nil {
+		cfg.OpenShell = OpenShell
 	}
 	log := cfg.Logger
 	if log == nil {
@@ -140,7 +165,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *edgev1.ListedDevice) {
 		return
 	}
 
-	session, err := deviceSession(listed, o.cfg.Edge)
+	session, err := o.deviceSession(listed)
 	if err != nil {
 		o.log.ErrorContext(ctx, "listed device cannot be onboarded",
 			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
@@ -176,7 +201,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *edgev1.ListedDevice) {
 }
 
 // deviceSession builds what the lane needs to reach one listed device.
-func deviceSession(listed *edgev1.ListedDevice, edge *edgev1.EdgeGlobalRef) (access.DeviceSession, error) {
+func (o *Onboarder) deviceSession(listed *edgev1.ListedDevice) (access.DeviceSession, error) {
 	endpoint, err := endpointFor(listed)
 	if err != nil {
 		return access.DeviceSession{}, err
@@ -186,11 +211,11 @@ func deviceSession(listed *edgev1.ListedDevice, edge *edgev1.EdgeGlobalRef) (acc
 	}.Build()
 
 	return access.DeviceSession{
-		OpenSNMP:      OpenSNMP(endpoint),
-		OpenShell:     OpenShell(endpoint),
+		OpenSNMP:      o.cfg.OpenSNMP(endpoint),
+		OpenShell:     o.cfg.OpenShell(endpoint),
 		AccessPolicy:  listed.GetAccessPolicy(),
 		BindingID:     listed.GetBindingId(),
-		Prov:          access.InterfaceProvenanceInputs{Binding: binding, Edge: edge},
+		Prov:          access.InterfaceProvenanceInputs{Binding: binding, Edge: o.cfg.Edge},
 		DelayedEffect: access.InterfaceDelayedEffect{Horizon: listed.GetDelayedApplyHorizon().AsDuration()},
 	}, nil
 }

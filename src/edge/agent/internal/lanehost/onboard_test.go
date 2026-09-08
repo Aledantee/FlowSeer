@@ -88,6 +88,40 @@ func (r *registrarFake) session(deviceKey string) (access.DeviceSession, bool) {
 	return session, ok
 }
 
+// endpointRecorder stands in for the real session factories and keeps the
+// endpoint each was built with, in the order they were built. It is what
+// makes the endpoint observable: once a factory is built, the endpoint it
+// captured cannot be read back out of a DeviceSession.
+type endpointRecorder struct {
+	mu    sync.Mutex
+	snmp  []lanehost.Endpoint
+	shell []lanehost.Endpoint
+}
+
+func (r *endpointRecorder) openSNMP(endpoint lanehost.Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+	r.mu.Lock()
+	r.snmp = append(r.snmp, endpoint)
+	r.mu.Unlock()
+	return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		return access.SNMPSession{}, nil
+	}
+}
+
+func (r *endpointRecorder) openShell(endpoint lanehost.Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+	r.mu.Lock()
+	r.shell = append(r.shell, endpoint)
+	r.mu.Unlock()
+	return func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+		return access.ShellSession{}, nil
+	}
+}
+
+func (r *endpointRecorder) built() ([]lanehost.Endpoint, []lanehost.Endpoint) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]lanehost.Endpoint(nil), r.snmp...), append([]lanehost.Endpoint(nil), r.shell...)
+}
+
 // recordingLogs keeps every record, so a test can assert on a signal the
 // agent emits and on nothing else about it.
 type recordingLogs struct {
@@ -147,13 +181,20 @@ func edgeRef() *edgev1.EdgeGlobalRef {
 
 func newOnboarder(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler) *lanehost.Onboarder {
 	t.Helper()
+	return newOnboarderOver(t, lister, registrar, logs, nil)
+}
+
+func newOnboarderOver(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler, endpoints *endpointRecorder) *lanehost.Onboarder {
+	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
 	if logs != nil {
 		logger = slog.New(logs)
 	}
-	onboarder, err := lanehost.NewOnboarder(lanehost.OnboardConfig{
-		Client: lister, Lane: registrar, Edge: edgeRef(), Logger: logger,
-	})
+	cfg := lanehost.OnboardConfig{Client: lister, Lane: registrar, Edge: edgeRef(), Logger: logger}
+	if endpoints != nil {
+		cfg.OpenSNMP, cfg.OpenShell = endpoints.openSNMP, endpoints.openShell
+	}
+	onboarder, err := lanehost.NewOnboarder(cfg)
 	if err != nil {
 		t.Fatalf("NewOnboarder: %v", err)
 	}
@@ -206,32 +247,37 @@ func TestTheAgentOnboardsWhatItIsToldToServe(t *testing.T) {
 	}
 }
 
-// TestAListedDeviceResolvesToWhereItAnswers checks the mapping the session
-// factories capture and nothing can read back out of them. An unset port
-// stays zero rather than becoming 161 or 22 here, so the default lives in
-// one place — the endpoint — instead of being applied twice.
-func TestAListedDeviceResolvesToWhereItAnswers(t *testing.T) {
-	listed := listedDevice(deviceOne, time.Minute)
+// TestTheSessionFactoriesAreBuiltForWhereTheDeviceAnswers is the address
+// gap's own test, and it asserts the endpoint the dialers were built with
+// rather than the one the mapping computed. Nothing can read an endpoint
+// back out of a DeviceSession, so a test of the mapping alone passes for an
+// agent that resolves the right address and hands the dialers an empty one —
+// an agent that dials nothing.
+//
+// An unset port stays zero here rather than becoming 161 or 22, so the
+// default lives in Endpoint alone instead of being applied in two places.
+func TestTheSessionFactoriesAreBuiltForWhereTheDeviceAnswers(t *testing.T) {
+	withPorts := listedDevice(deviceTwo, time.Minute)
+	withPorts.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
+	withPorts.SetSnmpPort(1161)
+	withPorts.SetSshPort(2222)
+	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{listedDevice(deviceOne, time.Minute), withPorts}}}
+	endpoints := &endpointRecorder{}
 
-	endpoint, err := lanehost.EndpointFor(listed)
-	if err != nil {
-		t.Fatalf("EndpointFor: %v", err)
-	}
-	if endpoint.Address != "172.16.0.6" {
-		t.Errorf("Address = %q, want 172.16.0.6", endpoint.Address)
-	}
-	if endpoint.SNMPPort != 0 || endpoint.SSHPort != 0 {
-		t.Errorf("ports = %d/%d, want both zero for a listing that names none", endpoint.SNMPPort, endpoint.SSHPort)
+	if err := newOnboarderOver(t, lister, newRegistrar(), nil, endpoints).Sync(context.Background()); err != nil {
+		t.Fatalf("Sync: %v", err)
 	}
 
-	listed.SetSnmpPort(1161)
-	listed.SetSshPort(2222)
-	endpoint, err = lanehost.EndpointFor(listed)
-	if err != nil {
-		t.Fatalf("EndpointFor: %v", err)
+	want := []lanehost.Endpoint{
+		{Address: "172.16.0.6"},
+		{Address: "172.16.0.7", SNMPPort: 1161, SSHPort: 2222},
 	}
-	if endpoint.SNMPPort != 1161 || endpoint.SSHPort != 2222 {
-		t.Errorf("ports = %d/%d, want the listing's 1161/2222", endpoint.SNMPPort, endpoint.SSHPort)
+	snmp, shell := endpoints.built()
+	if !slices.Equal(snmp, want) {
+		t.Errorf("SNMP factories built for %+v, want %+v", snmp, want)
+	}
+	if !slices.Equal(shell, want) {
+		t.Errorf("shell factories built for %+v, want %+v", shell, want)
 	}
 }
 
