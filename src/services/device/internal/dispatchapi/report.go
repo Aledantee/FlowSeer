@@ -15,24 +15,31 @@ import (
 // ErrCodeReport is a report central could not classify or apply.
 var ErrCodeReport = errs.NewCode("dispatchapi/report")
 
-// The wire codes a Refused carries. They are the edge access module's
-// contract (src/modules/localnet/access): access/no-pending-wait and
-// access/unknown-device are exported there and mutation/firmware-epoch lives
-// in that module's internal/mutation, so — central not otherwise depending on
-// that module, and the internal one being unimportable — they are named here
-// rather than imported across the module boundary. Kept together so the
-// classification below reads as one contract.
+// The wire codes a Refused carries. All three belong to the edge access
+// module (src/modules/localnet/access) and all three are exported there;
+// mutation/firmware-epoch is produced in that module's internal/mutation and
+// re-exported from the module root because a code that leaves the process is
+// public contract whatever package produces it.
+//
+// They are copied here rather than imported because central depends on
+// nothing else in that module, and one shared constant does not pay for a
+// dependency from the control plane onto an edge module. What keeps the two
+// sets equal is not care: a test in src/services/device/test/integration
+// links both sides and compares them, which is why these are exported.
+// Nothing else outside this package reads them.
+//
+// Kept together so the classification below reads as one contract.
 const (
-	// codeNoPendingWait answers a CheckpointRequest the edge holds no wait
+	// CodeNoPendingWait answers a CheckpointRequest the edge holds no wait
 	// for; once the edge has reported a phase at or past POSSIBLY_APPLIED it
 	// is a lost ack, not a lost checkpoint, so central confirms the checkpoint.
-	codeNoPendingWait = "access/no-pending-wait"
-	// codeFirmwareEpoch refuses an Execute because the firmware epoch changed;
+	CodeNoPendingWait = "access/no-pending-wait"
+	// CodeFirmwareEpoch refuses an Execute because the firmware epoch changed;
 	// terminal, disposes the mutation REJECTED.
-	codeFirmwareEpoch = "mutation/firmware-epoch"
-	// codeUnknownDevice refuses because the edge does not know the device;
+	CodeFirmwareEpoch = "mutation/firmware-epoch"
+	// CodeUnknownDevice refuses because the edge does not know the device;
 	// terminal only when the registry no longer lists it, else retryable.
-	codeUnknownDevice = "access/unknown-device"
+	CodeUnknownDevice = "access/unknown-device"
 )
 
 // Report applies one edge report to the device's record and answers once the
@@ -166,7 +173,7 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 	seq := refused.GetSequence()
 	switch refused.GetKind() {
 	case integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT:
-		if refused.GetCode() != codeNoPendingWait {
+		if refused.GetCode() != CodeNoPendingWait {
 			return nil // an unlisted checkpoint refusal leaves the row owed
 		}
 		rec, err := s.cfg.Journal.Record(ctx, deviceID)
@@ -258,9 +265,9 @@ func (s *Service) authorizeDevice(ctx context.Context, deviceID string) error {
 // leaves the row owed rather than disposing on a transient failure.
 func (s *Service) terminalRefusal(ctx context.Context, deviceID, code string) (bool, error) {
 	switch code {
-	case codeFirmwareEpoch:
+	case CodeFirmwareEpoch:
 		return true, nil
-	case codeUnknownDevice:
+	case CodeUnknownDevice:
 		listed, err := s.cfg.Resolver.Lists(ctx, deviceID)
 		if err != nil {
 			return false, err

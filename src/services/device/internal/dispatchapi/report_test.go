@@ -148,7 +148,7 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	}
 	// At ADMITTED the refusal leaves the checkpoint owed: the checkpoint was
 	// not received.
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, codeNoPendingWait))
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
 	rec, _ := j.Record(ctx, deviceID)
 	if rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal at ADMITTED wrongly confirmed the checkpoint")
@@ -158,7 +158,7 @@ func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportRecovering, Sequence: 1}); err != nil {
 		t.Fatalf("recovering: %v", err)
 	}
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, codeNoPendingWait))
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT, CodeNoPendingWait))
 	rec, _ = j.Record(ctx, deviceID)
 	if !rec.GetCheckpointConfirmed() {
 		t.Fatal("a no-pending-wait refusal past POSSIBLY_APPLIED did not confirm the checkpoint")
@@ -386,7 +386,7 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 		t.Fatalf("admitted: %v", err)
 	}
 
-	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, codeFirmwareEpoch))
+	report(t, svc, refusedReport(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, CodeFirmwareEpoch))
 
 	if audit.calls != 1 {
 		t.Fatalf("central recorded %d rejections, want 1", audit.calls)
@@ -394,7 +394,7 @@ func TestATerminalRefusalRecordsWhyCentralRejectedIt(t *testing.T) {
 	if got := audit.state.GetDisposition(); got != accessv1.Disposition_DISPOSITION_REJECTED {
 		t.Errorf("recorded disposition = %v, want rejected", got)
 	}
-	if audit.code != codeFirmwareEpoch {
+	if audit.code != CodeFirmwareEpoch {
 		t.Errorf("recorded code = %q, want the refusing code", audit.code)
 	}
 	if audit.from != accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
