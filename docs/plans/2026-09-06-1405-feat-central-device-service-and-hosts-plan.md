@@ -1129,6 +1129,47 @@ freeze gets its own observable — the `lane.frozen` record already exists per
 device — so a test asserts the freeze happened rather than that nothing else
 did.
 
+**The re-send queue's bound, decided before it exists.** An unbounded queue
+on a device with a lifetime is a leak with good manners, so the shape is
+settled here rather than discovered when a central is gone for a day.
+
+The queue supersedes rather than accumulates: it is a map keyed by device,
+sequence and report kind, holding each operation's *latest* report, which is
+what requirement 9 asks it to re-send. A mutation that reports admission,
+verification and release occupies one entry, not three.
+
+That makes the real bound structural rather than numeric — reports are caused
+by dispatches, and a central that cannot be reached also cannot dispatch, so
+the set of outstanding operations stops growing while it is away. The two
+exceptions are operations already in flight when contact was lost, and the
+`Onboarded` an edge sends at start. Both are bounded by devices times
+in-flight operations.
+
+A hard ceiling still exists, as a defence against a bug producing unbounded
+distinct keys rather than against an absent central. At it, the oldest entry
+is dropped and counted, because almost every report is one central will ask
+for again: the outbox re-derives what it holds no report for, the edge answers
+the re-dispatch from its registry, and the report is re-queued. `Onboarded` is
+the exception and is never dropped — it is edge-initiated, central does not
+know to ask for it, and losing it leaves central's record believing the edge
+still holds state it lost at restart.
+
+Stated as what each choice means for central rather than as a policy. Drop
+newest would discard the terminal report while keeping progress ones, which is
+the opposite of useful. Stopping the dispatch loop at the ceiling would make
+one device's stuck report cost every other device on the edge. Spilling to
+disk is a durability promise this queue does not make and the journal already
+does.
+
+**The host handle is an E3 deliverable, and this is its trigger.** It has been
+deferred from E1 and from E2 on the same argument — a coordination mechanism
+with fewer dependents than it coordinates is tested against a situation that
+does not exist. The argument was right both times and stops being right when
+the third dependent lands, which is E3's re-send queue: the leaf, the
+`Subscribe` loop and the queue all take their resources from one bus
+attachment and must all end when it does. That is a fact someone can check
+rather than a judgment to re-make, which is the point of writing it here.
+
 **A number for the lab run to settle.** The agent's heartbeat bounds each
 attempt by the heartbeat interval, so a central that is alive but answers
 slower than one interval is indistinguishable from one that is down, and two
