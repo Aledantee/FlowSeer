@@ -1129,6 +1129,16 @@ freeze gets its own observable — the `lane.frozen` record already exists per
 device — so a test asserts the freeze happened rather than that nothing else
 did.
 
+**A number for the lab run to settle.** The agent's heartbeat bounds each
+attempt by the heartbeat interval, so a central that is alive but answers
+slower than one interval is indistinguishable from one that is down, and two
+such answers freeze the lane. That is the right default and the wrong thing to
+tune from a desk. If the lab shows heartbeat latency anywhere near the
+interval, the deadline and the interval want separating rather than both being
+raised — a longer interval also delays detecting a central that really is
+gone. Obvious once measured, invisible until then, so the runbook records the
+observed latency whether or not it looks interesting.
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
