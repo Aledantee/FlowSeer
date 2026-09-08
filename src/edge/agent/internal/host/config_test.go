@@ -129,6 +129,36 @@ log_level: AGENT_LOG_LEVEL_DEBUG
 	}
 }
 
+// TestABackoffCeilingBelowItsFloorIsRefused. The dispatch loop would raise
+// the ceiling itself rather than fail — which is right there, since a loop
+// cannot ask an operator anything — so the pair has to be refused at the one
+// layer where the operator can still fix it. Accepted, the agent backs off by
+// an interval nobody wrote and nothing anywhere says so.
+func TestABackoffCeilingBelowItsFloorIsRefused(t *testing.T) {
+	_, err := host.LoadConfig(configFile(t, `intervals {
+  dispatch_backoff_min { seconds: 30 }
+  dispatch_backoff_max { seconds: 5 }
+}
+`))
+	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+		t.Fatalf("LoadConfig() code = %v (err %v), want %v", code, err, host.ErrCodeConfigInvalid)
+	}
+
+	// The same pair the right way round loads, so the rule refuses an
+	// inversion rather than the fields.
+	cfg, err := host.LoadConfig(configFile(t, `intervals {
+  dispatch_backoff_min { seconds: 5 }
+  dispatch_backoff_max { seconds: 30 }
+}
+`))
+	if err != nil {
+		t.Fatalf("LoadConfig with an ordered pair: %v", err)
+	}
+	if minimum, maximum := cfg.DispatchBackoff(); minimum != 5*time.Second || maximum != 30*time.Second {
+		t.Errorf("DispatchBackoff() = %v/%v, want the configured 5s/30s", minimum, maximum)
+	}
+}
+
 // TestAFileMissingARequiredFieldIsRefusedAtLoad, naming the field. A
 // configuration is validated before anything is opened, bound or written: an
 // agent that failed at its first call instead would already have started its

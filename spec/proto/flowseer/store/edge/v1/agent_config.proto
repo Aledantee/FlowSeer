@@ -74,6 +74,12 @@ message AgentConfig {
 // names its own default, because a deployment that cares about none of them
 // writes none of them.
 message AgentIntervals {
+  option (buf.validate.message).cel = {
+    id: "agent_intervals.backoff_ordered"
+    message: "dispatch_backoff_max is not shorter than dispatch_backoff_min"
+    expression: "!has(this.dispatch_backoff_min) || !has(this.dispatch_backoff_max) || this.dispatch_backoff_max >= this.dispatch_backoff_min"
+  };
+
   // How long between heartbeats, and the deadline on each one. Unset means
   // thirty seconds.
   //
@@ -84,7 +90,10 @@ message AgentIntervals {
   // than this interval freezes devices for a central that is merely slow.
   google.protobuf.Duration heartbeat = 1 [(buf.validate.field).duration.gte = {seconds: 1}];
   // The first and the longest wait between attempts to reopen the dispatch
-  // stream, doubling in between. Unset means one second and thirty.
+  // stream, doubling in between. Unset means one second and thirty, and a
+  // ceiling below the floor is refused rather than corrected: the loop that
+  // reads them would raise the ceiling itself, leaving the agent backing off
+  // by an interval nobody wrote and nothing reporting the difference.
   google.protobuf.Duration dispatch_backoff_min = 2 [(buf.validate.field).duration.gte = {seconds: 1}];
   google.protobuf.Duration dispatch_backoff_max = 3 [(buf.validate.field).duration.gte = {seconds: 1}];
 }

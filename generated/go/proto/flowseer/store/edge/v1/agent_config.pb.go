@@ -441,7 +441,10 @@ type AgentIntervals_builder struct {
 	// than this interval freezes devices for a central that is merely slow.
 	Heartbeat *durationpb.Duration
 	// The first and the longest wait between attempts to reopen the dispatch
-	// stream, doubling in between. Unset means one second and thirty.
+	// stream, doubling in between. Unset means one second and thirty, and a
+	// ceiling below the floor is refused rather than corrected: the loop that
+	// reads them would raise the ceiling itself, leaving the agent backing off
+	// by an interval nobody wrote and nothing reporting the difference.
 	DispatchBackoffMin *durationpb.Duration
 	DispatchBackoffMax *durationpb.Duration
 }
@@ -574,14 +577,15 @@ const file_flowseer_store_edge_v1_agent_config_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80 R\x10provisioningPath\x12D\n" +
 	"\tintervals\x18\x03 \x01(\v2&.flowseer.store.edge.v1.AgentIntervalsR\tintervals\x12;\n" +
 	"\x06buffer\x18\x04 \x01(\v2#.flowseer.store.edge.v1.AgentBufferR\x06buffer\x12B\n" +
-	"\tlog_level\x18\x05 \x01(\x0e2%.flowseer.store.edge.v1.AgentLogLevelR\blogLevel\"\x87\x02\n" +
+	"\tlog_level\x18\x05 \x01(\x0e2%.flowseer.store.edge.v1.AgentLogLevelR\blogLevel\"\xef\x03\n" +
 	"\x0eAgentIntervals\x12C\n" +
 	"\theartbeat\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\theartbeat\x12W\n" +
 	"\x14dispatch_backoff_min\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x12dispatchBackoffMin\x12W\n" +
 	"\x14dispatch_backoff_max\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x12dispatchBackoffMax\"s\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x12dispatchBackoffMax:\xe5\x01\xbaH\xe1\x01\x1a\xde\x01\n" +
+	"\x1fagent_intervals.backoff_ordered\x12=dispatch_backoff_max is not shorter than dispatch_backoff_min\x1a|!has(this.dispatch_backoff_min) || !has(this.dispatch_backoff_max) || this.dispatch_backoff_max >= this.dispatch_backoff_min\"s\n" +
 	"\vAgentBuffer\x12$\n" +
 	"\tmax_bytes\x18\x01 \x01(\x03B\a\xbaH\x04\"\x02(\x01R\bmaxBytes\x12>\n" +
 	"\amax_age\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\n" +
