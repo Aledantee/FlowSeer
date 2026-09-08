@@ -96,6 +96,31 @@ if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Expand a directory argument into the files it holds. The classification
+# below matches path suffixes, so a directory matches nothing: every gate
+# stays unselected and the run reports success having checked nothing, which
+# is indistinguishable from a run that checked everything and found it clean.
+# It also leaves the dirty marker naming files this run did not verify, since
+# the marker is cleared by exact path match.
+if ((${#paths[@]})); then
+  expanded=()
+  for path in "${paths[@]}"; do
+    if [[ -d $path ]]; then
+      while IFS= read -r -d '' file; do
+        expanded+=("${file#./}")
+      done < <(git ls-files -z --cached --others --exclude-standard -- "$path")
+    else
+      # Kept whether or not it exists: a deleted path still selects its
+      # module, and the classification below guards its own file reads.
+      expanded+=("$path")
+    fi
+  done
+  paths=()
+  for path in "${expanded[@]:-}"; do
+    add_path "$path"
+  done
+fi
+
 need_tool() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "required tool is not on PATH: $1" >&2
@@ -212,6 +237,17 @@ fi
 if [[ $print_selection == true ]]; then
   printf 'service_otel_integration=%s\n' "$service_otel_integration"
   exit 0
+fi
+
+# Whether anything at all will run. A run that selects no gate is not a
+# passing run: it is an invocation that could not place its arguments, and
+# reporting it as a pass is what makes this script unable to tell "checked
+# and clean" from "checked nothing".
+gates_selected=false
+if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
+  [[ $proto == true || $hook_tooling == true || $mib == true ||
+  $serena == true || $service_otel_integration == true ]]; then
+  gates_selected=true
 fi
 
 need_tool python3
@@ -459,5 +495,11 @@ fi
   printf '%q ' "${paths[@]:-}"
   printf '\n'
 } >"$receipt"
+
+if [[ $gates_selected == false ]]; then
+  echo "FlowSeer verification selected no build, test or lint gate for these paths." >&2
+  printf '  paths: %s\n' "${paths[*]:-<none>}" >&2
+  exit 2
+fi
 
 echo "FlowSeer verification passed."
