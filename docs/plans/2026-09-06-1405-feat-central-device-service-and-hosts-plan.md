@@ -1353,7 +1353,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files
 ### U8d. The agent's configuration
 Files: `spec/proto/flowseer/store/edge/v1/agent_config.proto`,
 `spec/proto/flowseer/store/edge/v1/README.md`, `generated/**`,
-`test/conformance/proto/layering_test.go`, `src/edge/agent/internal/host/config.go`
+`test/conformance/proto/layering_test.go`, `src/edge/agent/host/config.go`
 After: U8b
 Change: the prototext file an edge host is deployed with, and its loader.
 
@@ -1413,10 +1413,10 @@ a dependency the file does not have.
 Tests: a file missing a required field refused at load, naming the field; a
 file naming a provisioning path that does not exist refused at load rather
 than at first call; defaults applied for every unset duration.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'spec/proto/flowseer/store/edge/**' 'src/edge/agent/internal/host/**' 'test/conformance/proto/**')`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'spec/proto/flowseer/store/edge/**' 'src/edge/agent/host/**' 'test/conformance/proto/**')`
 
 ### U8e. The agent entrypoint
-Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/internal/host/`,
+Files: `src/edge/agent/cmd/agent/main.go`, `src/edge/agent/host/`,
 `src/edge/agent/README.md`, `src/edge/README.md`
 After: U8d
 Change: `cmd/agent/main.go` and the host that assembles the agent, closing
@@ -1488,10 +1488,22 @@ Also a code-equality test, cheap only here because the end-to-end binary
 already links both sides: central's refusal-code constants
 (`dispatchapi`) must equal the lane module's exported codes for the codes
 that cross the wire (`access/no-pending-wait`, `access/unknown-device`,
-`mutation/firmware-epoch`), which requires the lane module to export the
-ones it emits — a code that crosses a process boundary is public
-contract whatever package produces it. This is the real link the U4
+`mutation/firmware-epoch`) — a code that crosses a process boundary is
+public contract whatever package produces it. This is the real link the U4
 review's finding 9 left as documented constants.
+
+This unit adds the test and nothing else. The draft said it also required
+the lane module to export the codes it emits; that landed three units
+earlier, and `src/modules/localnet/access/lane.go` already re-exports
+`ErrCodeFirmwareEpoch` from `internal/mutation` making the same argument.
+What the test does need is central's three constants exported from
+`dispatchapi`, which were unexported strings read only by `report.go`.
+
+The end-to-end test also forces a package move, because Go's internal rule
+lets no package import both hosts: `src/edge/agent/internal/host` becomes
+`src/edge/agent/host`, chosen over exporting central's host because the
+agent's exported surface is `Config`, `LoadConfig` and `Run` and central's
+is fourteen accessors, certificates, intervals and two interceptors.
 Tests: requirement 10.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/test/integration/**' 'docs/runbooks/**' 'deploy/lab/**')`
 
@@ -1545,6 +1557,22 @@ packages; they pass unsandboxed. Run the wide gate with `-count=1`: a
 cached PASS from an earlier unsandboxed run makes a sandbox-hostile package
 report `ok` under the sandbox without executing anything, which is the third
 gate in this build to report success for a reason unrelated to the code.
+
+A changed-path run is not confined to the paths it is given: the verifier
+builds, vets and races the *dependent* packages of the changed ones too. So
+sandbox-hostility is a property of the dependency closure rather than of the
+files named on the command line, and any run whose closure reaches a TCP
+listener or a UDP socket needs the unsandboxed setting. The four packages
+above are examples, not the list — a run over
+`src/services/device/internal/dispatchapi` pulls in
+`src/services/device/internal/host`, whose `httptest` server panics with the
+same `bind: operation not permitted`, and naming a fifth package here would
+only leave the next session to find a sixth.
+
+`golangci-lint` runs `misspell` with a US dictionary, over prose in comments
+and test messages as well as identifiers. It rejects British spellings
+("unrecognised", "behaviour"), which is worth knowing before writing a
+runbook rather than one commit after.
 
 The message-sync hook must report nothing for the two new schema packages;
 their file comments name the absent triads.

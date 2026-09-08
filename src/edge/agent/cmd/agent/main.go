@@ -18,7 +18,7 @@ import (
 	"os"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/edge/agent/internal/host"
+	"go.aledante.io/FlowSeer/src/edge/agent/host"
 )
 
 // version is the build this agent reports on every heartbeat and as

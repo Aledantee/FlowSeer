@@ -5,6 +5,14 @@
 // Nothing here decides behavior. Every rule about what the agent does lives in
 // the packages this one wires together; what this package owns is the file
 // that says which deployment this is, and the order the pieces come up in.
+//
+// It sits outside internal/ for one reason: the end-to-end test assembles a
+// live central and a live agent in one process, and Go's internal rule lets
+// no package import both trees, so one of the two hosts has to be reachable
+// from the other's. That makes this package public without making it
+// reusable. It is this application's own entry surface, not a module to build
+// an agent out of. Config, LoadConfig and Run are the whole of it, which is
+// what a binary needs and what that test drives.
 package host
 
 import (

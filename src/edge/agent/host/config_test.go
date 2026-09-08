@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/edge/agent/internal/host"
+	"go.aledante.io/FlowSeer/src/edge/agent/host"
 )
 
 const (

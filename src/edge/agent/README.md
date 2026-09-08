@@ -52,9 +52,11 @@ become visible.
 
 ## Starting up, and the order that is forced
 
-`cmd/agent` reads one prototext file and hands it to `internal/host`, which
+`cmd/agent` reads one prototext file and hands it to `host`, which
 brings the agent up in an order where every step is required by something the
-step after it needs. `host.Run`'s doc comment carries the whole chain with each
+step after it needs. `host` is the one package here outside `internal/`, so
+that the end-to-end test can assemble a live agent next to a live central;
+its doc comment says why that makes it public without making it reusable. `host.Run`'s doc comment carries the whole chain with each
 reason; the short version is that the identity comes before the bus attachment
 because `AttachBus` is signed, the receiver comes before the telemetry exporter
 because its loopback port is fresh on every start, and the lane comes before

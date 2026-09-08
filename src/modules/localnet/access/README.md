@@ -28,7 +28,7 @@ exist is worth keeping: a host outside this module cannot name a type in
 `SubmissionCredentialSource` impossible to implement and `Config.Telemetry`
 impossible to fill. The module's own tests could not catch that, because they
 live under this directory and may name everything. The test that does is in
-`src/edge/agent/internal/host`, which may not. Every other type — `internal/evidence`,
+`src/edge/agent/host`, which may not. Every other type — `internal/evidence`,
 `internal/epoch`, `internal/lane`, `internal/credential`,
 `internal/telemetry`, `internal/freeze`, `internal/audit`,
 `internal/mutation`, `internal/recovery` — stays
