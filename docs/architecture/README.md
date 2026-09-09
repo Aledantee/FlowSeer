@@ -20,6 +20,7 @@ than an edit.
 | [Net Core Package Research](2026-08-26-net-core-package-research.md) | Supporting research | Checking the evidence behind the `net/phy`, `net/packet`, `net/switching`, and `net/ip` boundaries. |
 | [Error Wire Design](2026-09-04-error-wire-design-direction.md) | Accepted direction | Putting `src/common/errs` errors on a wire — Connect RPC, a broker, or any other cross-process hop. |
 | [Secret Material Carrying](2026-09-06-secret-material-carrying-direction.md) | Proposed direction | Adding a field, option, or config that carries a password, passphrase, or private key, or deciding how a value is kept out of logs and errors. |
+| [Mutation Shadow Projection](2026-09-09-mutation-shadow-projection-direction.md) | Proposed direction, deferred | Gating a Mutation Intent before apply once the Interface triad and a full-network view exist; shaping typed effects in the device-access schemas so a projection can apply them later. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or
