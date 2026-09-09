@@ -1781,6 +1781,72 @@ second test fails — a command that reached the device is reported as one that
 did not.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/internal/capability/**' 'src/modules/localnet/access/internal/mutation/*.go')`
 
+### U8k. The mechanics an operator performs, executed by a test
+Files: `docs/runbooks/lab-icx7150-first-write.md`,
+`src/services/device/test/integration/`
+After: U8j. Before the runbook's revision, which describes steps that use these.
+
+Change: the runbook documents the decisions an operator makes and not the
+mechanics of making them. No tool is named for any RPC and there is no
+operator client, so everything from the dry run onward is unperformable as
+written; the firmware fingerprint every intent must carry has no named source;
+and the deployment sequence is missing and circular — central will not start
+without an edge id, and the edge id only exists once central runs.
+
+Those are one unit because they are one gap: for two days these calls have
+been Go in a test fixture, which is exactly why nobody noticed they needed a
+tool.
+
+**No client is needed, and this was measured rather than assumed.** `buf curl`
+speaks Connect, takes the schema from `spec/proto` since central serves no
+reflection, and trusts the certificate central generates. Run against a live
+fixture central it answers first time:
+
+```
+buf curl --schema spec/proto --cacert <state_dir>/tls.crt \
+  --data '{"device":{"device":{"id":"…"}}}' \
+  https://127.0.0.1:8443/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus
+{"highWatermark":"0","firmwareFingerprint":"7a81590c…"}
+```
+
+So the unit adds no binary. A client would have to justify itself against
+that, and cannot.
+
+**The acceptance criterion, which is the whole point: the test executes what
+the runbook prints, character for character.** Not an equivalent Go call, not
+the same RPC assembled differently — the literal line. Anything else proves
+the RPC works and leaves the documented command unverified, which is the state
+that produced twelve findings.
+
+The way to guarantee it is for the two to have one source: **the test reads
+the runbook, extracts its executable blocks, and runs them.** Drift then
+cannot happen, because editing the document edits the test. Commands are
+written with shell variables the runbook tells the operator to export and the
+test exports itself, so the same line serves a person and a harness. Blocks
+the test must not run — commands typed at the switch — are fenced
+differently, and the runbook says which fence means what.
+
+**The bootstrap sequence belongs here, not in the runbook.** `assemble`
+resolves the circularity with a throwaway edge id and a restart, in a place no
+human would look. Whatever sequence an operator is given must be the sequence
+the test performs: write the credential files with their modes and sidecars,
+start central, create the edge, write the returned id into the registry,
+restart central, issue the provisioning, start the agent, wait for onboarding.
+If the fixture's shape and the operator's differ, the difference is a second
+thing nobody has run.
+
+**The fingerprint's source is a step, not a footnote.** Every intent must
+carry one, and it reaches central from the edge's onboarding report — so the
+step is to read it back from `GetDeviceAccessStatus` and use that value, with
+the runbook saying what an empty one means: the edge has not onboarded the
+device yet, and no mutation is possible until it has.
+
+Tests: every executable block in the runbook runs against a fixture
+deployment, in order, and the ones that produce output produce the output the
+document claims. Reversal: change a documented flag to one `buf curl` does not
+accept and the test fails on the line the document prints.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'docs/runbooks/**' 'src/services/device/test/integration/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
