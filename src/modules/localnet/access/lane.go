@@ -113,6 +113,10 @@ type Reporter interface {
 type Config struct {
 	QueueCapacity  int
 	EvidencePolicy EvidencePolicy
+	// RecoveryMinGap is the minimum time between observations that count as
+	// independent corroboration that a mutation did not land. Zero derives
+	// the gap from each device's DelayedEffect horizon. Set it only when the
+	// device has a stronger freshness guarantee than its measured horizon.
 	RecoveryMinGap time.Duration
 	// RecoveryPollInterval spaces one mutation's recovery polls. Zero means
 	// derive it from the device's own horizon, per
@@ -457,6 +461,10 @@ func (l *Lane) recoveryPollInterval(horizon time.Duration) time.Duration {
 	if l.cfg.RecoveryPollInterval > 0 {
 		return l.cfg.RecoveryPollInterval
 	}
+	return recoveryIntervalFromHorizon(horizon)
+}
+
+func recoveryIntervalFromHorizon(horizon time.Duration) time.Duration {
 	interval := horizon / minRecoveryAttempts
 	if interval < minRecoveryPollInterval {
 		return minRecoveryPollInterval
@@ -1604,13 +1612,17 @@ func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *inte
 func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
 	effect := ds.session.DelayedEffect
 	interval := l.recoveryPollInterval(effect.Horizon)
+	minGap := l.cfg.RecoveryMinGap
+	if minGap == 0 {
+		minGap = recoveryIntervalFromHorizon(effect.Horizon)
+	}
 	budget := effect.Horizon + interval
 	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
 	ds.stateMu.Lock()
 	open.stopPoll = cancel
 	ds.stateMu.Unlock()
 
-	runner := recovery.New(open.machine, l.cfg.Fenced, effect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
+	runner := recovery.New(open.machine, l.cfg.Fenced, effect, minGap, l.cfg.Clock, &ds.hold)
 
 	go func() {
 		defer cancel()

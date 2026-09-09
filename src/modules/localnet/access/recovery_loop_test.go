@@ -159,6 +159,22 @@ func (r *recoveringLane) submitMutation(t *testing.T) chan submitted {
 	return done
 }
 
+func TestZeroRecoveryMinGapDoesNotCountBackToBackObservations(t *testing.T) {
+	r := newRecoveringLane(t, time.Hour, time.Minute)
+	done := r.submitMutation(t)
+
+	r.wait.tick(t)
+	r.wait.tick(t)
+	if got := r.submits.Load(); got != 1 {
+		t.Errorf("device submissions after back-to-back recovery observations = %d, want 1", got)
+	}
+
+	if err := deliverAck(t, r.lane, terminalAck(recoverySequence, accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)); err != nil {
+		t.Fatalf("HandleTerminalAck() error: %v", err)
+	}
+	<-done
+}
+
 // TestAReadAdmittedWhileARecoveryPollHoldsTheLockIsStillServed is the
 // release rule's own test, and it only tests anything because the read is
 // admitted while a poll is genuinely parked inside Attempt holding
