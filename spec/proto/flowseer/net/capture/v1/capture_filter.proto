@@ -36,29 +36,29 @@ message CaptureFilterClause {
       "has(this.tcp_flags) || has(this.icmp) || has(this.dscp)"
   };
 
-  // The Ethernet frame's EtherType. Absent means unconstrained.
+  // The Ethernet frame's EtherType.
   flowseer.net.packet.v1.EtherType ether_type = 1 [(buf.validate.field).enum.(flowseer.net.packet.v1.ether_type) = true];
-  // The IEEE 802.1Q tag. Absent means unconstrained.
+  // The IEEE 802.1Q tag.
   VlanMatch vlan = 2;
-  // The source MAC address. Absent means unconstrained.
+  // The source MAC address.
   flowseer.net.addr.v1.EuiAddress src_mac = 3;
-  // The destination MAC address. Absent means unconstrained.
+  // The destination MAC address.
   flowseer.net.addr.v1.EuiAddress dst_mac = 4;
-  // The source network prefix. Absent means unconstrained.
+  // The source network prefix.
   flowseer.net.addr.v1.IpPrefix src_prefix = 5;
-  // The destination network prefix. Absent means unconstrained.
+  // The destination network prefix.
   flowseer.net.addr.v1.IpPrefix dst_prefix = 6;
-  // The IP payload protocol. Absent means unconstrained.
+  // The IP payload protocol.
   flowseer.net.packet.v1.IpProtocol ip_protocol = 7 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_protocol) = true];
-  // The transport source port. Absent means unconstrained.
+  // The transport source port.
   flowseer.net.packet.v1.TransportPortMatch src_port = 8;
-  // The transport destination port. Absent means unconstrained.
+  // The transport destination port.
   flowseer.net.packet.v1.TransportPortMatch dst_port = 9;
-  // TCP control flags. Absent means unconstrained.
+  // TCP control flags.
   flowseer.net.packet.v1.TcpFlagsMatch tcp_flags = 10;
-  // ICMP type and code. Absent means unconstrained.
+  // ICMP type and code.
   flowseer.net.packet.v1.IcmpMatch icmp = 11;
-  // The DSCP code point. Absent means unconstrained.
+  // The DSCP code point.
   flowseer.net.packet.v1.IpDscp dscp = 12 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_dscp) = true];
 }
 
@@ -74,8 +74,8 @@ message VlanMatch {
     expression: "has(this.vlan_id) || has(this.pcp)"
   };
 
-  // The 12-bit VID. Absent means unconstrained.
+  // The 12-bit VID.
   uint32 vlan_id = 1 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_tag_vid) = true];
-  // The three-bit priority code point. Absent means unconstrained.
+  // The three-bit priority code point.
   uint32 pcp = 2 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
 }

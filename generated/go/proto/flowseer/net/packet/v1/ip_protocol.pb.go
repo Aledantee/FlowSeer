@@ -7,6 +7,7 @@
 package packetv1
 
 import (
+	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -120,11 +121,28 @@ func (x IpProtocol) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+var file_flowseer_net_packet_v1_ip_protocol_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*validate.EnumRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50002,
+		Name:          "flowseer.net.packet.v1.ip_protocol",
+		Tag:           "varint,50002,opt,name=ip_protocol",
+		Filename:      "flowseer/net/packet/v1/ip_protocol.proto",
+	},
+}
+
+// Extension fields to validate.EnumRules.
+var (
+	// optional bool ip_protocol = 50002;
+	E_IpProtocol = &file_flowseer_net_packet_v1_ip_protocol_proto_extTypes[0]
+)
+
 var File_flowseer_net_packet_v1_ip_protocol_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_packet_v1_ip_protocol_proto_rawDesc = "" +
 	"\n" +
-	"(flowseer/net/packet/v1/ip_protocol.proto\x12\x16flowseer.net.packet.v1*\xda\x02\n" +
+	"(flowseer/net/packet/v1/ip_protocol.proto\x12\x16flowseer.net.packet.v1\x1a\x1bbuf/validate/validate.proto*\xda\x02\n" +
 	"\n" +
 	"IpProtocol\x12\x16\n" +
 	"\x12IP_PROTOCOL_HOPOPT\x10\x00\x12\x14\n" +
@@ -141,18 +159,24 @@ const file_flowseer_net_packet_v1_ip_protocol_proto_rawDesc = "" +
 	"\x10IP_PROTOCOL_OSPF\x10Y\x12\x13\n" +
 	"\x0fIP_PROTOCOL_PIM\x10g\x12\x14\n" +
 	"\x10IP_PROTOCOL_VRRP\x10p\x12\x15\n" +
-	"\x10IP_PROTOCOL_SCTP\x10\x84\x01B\xf4\x01\n" +
+	"\x10IP_PROTOCOL_SCTP\x10\x84\x01:\xb1\x01\n" +
+	"\vip_protocol\x12\x17.buf.validate.EnumRules\x18҆\x03 \x01(\bBu\xc2Hr\n" +
+	"p\n" +
+	"\x10enum.ip_protocol\x127value must fit the one-octet IANA protocol number field\x1a#!rule || (this >= 0 && this <= 255)R\n" +
+	"ipProtocolB\xf4\x01\n" +
 	"\x1acom.flowseer.net.packet.v1B\x0fIpProtocolProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_ip_protocol_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_ip_protocol_proto_goTypes = []any{
-	(IpProtocol)(0), // 0: flowseer.net.packet.v1.IpProtocol
+	(IpProtocol)(0),            // 0: flowseer.net.packet.v1.IpProtocol
+	(*validate.EnumRules)(nil), // 1: buf.validate.EnumRules
 }
 var file_flowseer_net_packet_v1_ip_protocol_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
+	1, // 0: flowseer.net.packet.v1.ip_protocol:extendee -> buf.validate.EnumRules
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	0, // [0:1] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -168,12 +192,13 @@ func file_flowseer_net_packet_v1_ip_protocol_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_packet_v1_ip_protocol_proto_rawDesc), len(file_flowseer_net_packet_v1_ip_protocol_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   0,
-			NumExtensions: 0,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_net_packet_v1_ip_protocol_proto_goTypes,
 		DependencyIndexes: file_flowseer_net_packet_v1_ip_protocol_proto_depIdxs,
 		EnumInfos:         file_flowseer_net_packet_v1_ip_protocol_proto_enumTypes,
+		ExtensionInfos:    file_flowseer_net_packet_v1_ip_protocol_proto_extTypes,
 	}.Build()
 	File_flowseer_net_packet_v1_ip_protocol_proto = out.File
 	file_flowseer_net_packet_v1_ip_protocol_proto_goTypes = nil
