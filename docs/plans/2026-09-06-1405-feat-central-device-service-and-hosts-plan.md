@@ -1847,6 +1847,65 @@ document claims. Reversal: change a documented flag to one `buf curl` does not
 accept and the test fails on the line the document prints.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'docs/runbooks/**' 'src/services/device/test/integration/*.go')`
 
+### U8l. The bootstrap, performed by the binaries
+Files: `src/services/device/cmd/device/main.go`,
+`src/edge/agent/cmd/agent/main.go`,
+`docs/runbooks/lab-icx7150-first-write.md`,
+`src/services/device/test/integration/`
+After: U8k. Before the runbook's revision.
+
+Change: the deployment sequence is missing from the runbook and it is missing
+because it cannot be written honestly yet — the suite runs `host.Run`
+in-process and an operator runs binaries, so a documented sequence would be
+prose nothing executes. This unit builds both commands and drives them as
+processes.
+
+**It is bigger than the missing paragraph and the reason is what it covers.**
+Nothing in this repository runs either binary. `grep -rl 'cmd/device' --include
+'*_test.go'` finds nothing, and the same for the agent. So flag parsing,
+loading a config from a path, the exit-2 contract for a bad config, signal
+handling and shutdown have never been exercised by anything — and those are
+exactly what an operator meets first and what an in-process fixture cannot
+reach.
+
+**A defect found while specifying this, which is the argument in one line.**
+Both commands document, in their package comments, that "an interrupt or a
+termination signal is a clean stop and exits 0: the runtime drains its
+modules, and a service that reported failure every time it was asked to stop
+would make a restart loop look like a crash loop". Neither imports
+`os/signal`. Both call `host.Run(context.Background(), …)`. So a SIGTERM kills
+the process with Go's default disposition: no drain, and exit 143 rather than
+0 — which is precisely the "restart loop that looks like a crash loop" the
+comment names as the thing to avoid. The behaviour the operator is promised
+does not exist, and no test could have noticed because no test starts a
+process. Fixing it belongs here, because this is the unit that can prove it.
+
+**The bootstrap sequence: a workaround, and to be labelled as one.**
+`RegistryIntegration.edge` is required, `CreateEdge` mints the id, and central
+reads its registry once at start — so the registry cannot name the edge until
+central has run, and cannot be re-read without a restart. The fixture resolves
+this with a throwaway id and a restart.
+
+That is convenient rather than right, and the operator's sequence should not
+copy it exactly. Central starts happily with an integration whose edge does
+not exist, and `devices` may be empty — every CEL rule on `DeviceRegistry` is
+vacuous over an empty list — so the honest first registry names the
+integration and no devices, rather than listing a real device to an edge that
+does not exist. **The fixture changes to match the document, not the reverse.**
+
+The circularity itself is filed rather than fixed: an idempotent `CreateEdge`
+taking a caller-supplied id, or an optional `integration.edge` for an
+integration serving no devices, would remove the restart entirely. Either is a
+schema change and neither belongs in a unit about running binaries. Written
+down so a tested procedure is not later read as an endorsed design.
+
+Tests: the runbook's bootstrap blocks are `sh` and are executed — both
+binaries built once, started as processes, driven through the whole sequence,
+and stopped by signal with the exit status the comment promises. And a
+malformed config exits 2 before anything binds, which is a contract nothing
+has ever checked.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/cmd/**' 'src/edge/agent/cmd/**' 'docs/runbooks/**' 'src/services/device/test/integration/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
