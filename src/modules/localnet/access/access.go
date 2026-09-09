@@ -45,9 +45,14 @@ const (
 	PriorityHigh        = lane.PriorityHigh
 )
 
-// ErrCodeOverload identifies an operation refused because its device lane is
-// at capacity.
-var ErrCodeOverload = lane.ErrCodeOverload
+var (
+	// ErrCodeOverload identifies an operation refused because its device
+	// lane is at capacity.
+	ErrCodeOverload = lane.ErrCodeOverload
+	// ErrCodeNotSubmitted identifies a failed mutation whose command was
+	// provably never sent to the device.
+	ErrCodeNotSubmitted = interfaces.ErrCodeNotSubmitted
+)
 
 // ReadCredentialSource is the seam the lane acquires a read credential
 // through, for every read and for the onboarding probe.

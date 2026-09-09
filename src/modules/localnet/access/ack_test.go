@@ -117,20 +117,24 @@ type auditDeliverer interface {
 	Emit(context.Context, *eventv1.DeviceOperationEvent) error
 }
 
-func laneWithReporter(t *testing.T, reporter access.Reporter, deliverer auditDeliverer) *access.Lane {
+func laneWithReporter(t *testing.T, reporter access.Reporter, deliverer auditDeliverer, sources ...access.SubmissionCredentialSource) *access.Lane {
 	t.Helper()
 	view, err := telemetry.NewView(telemetry.ViewConfig{})
 	if err != nil {
 		t.Fatalf("NewView() error: %v", err)
 	}
-	return access.NewLane(access.Config{
+	cfg := access.Config{
 		QueueCapacity:    4,
 		Audit:            deliverer,
 		Telemetry:        view,
 		Clock:            time.Now,
 		Reporter:         reporter,
 		OperationTimeout: 2 * time.Second,
-	})
+	}
+	if len(sources) > 0 {
+		cfg.SubmissionCredentials = sources[0]
+	}
+	return access.NewLane(cfg)
 }
 
 // addDeviceCountingSubmits registers "dev-1" and counts every command that

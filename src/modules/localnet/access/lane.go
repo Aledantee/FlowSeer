@@ -1486,6 +1486,10 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutatio
 	// that would carry an operator's decision is refused with
 	// no-pending-wait. One checkpoint timeout cost a device until a person
 	// sent HoldResolved.
+	if _, coded := errs.CodeOf(err); !coded {
+		err = errs.From(err).Code(ErrCodeNotSubmitted).
+			Msg("mutation ended before the command was submitted")
+	}
 	return stepOutcome{err: err, owed: true}
 }
 
