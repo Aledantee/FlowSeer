@@ -32,10 +32,15 @@ type Reporter interface {
 	Report(context.Context, *connect.Request[integrationv1.ReportRequest]) (*connect.Response[integrationv1.ReportResponse], error)
 }
 
-// Confirmer is told when central has a report, so whatever else is holding
-// the operation open can let it go. The dispatch demultiplexer's registry is
-// the one that matters: it and this queue share a drain condition, so they
-// cannot disagree about whether an operation is outstanding.
+// Confirmer is told when central has taken a report that ends its operation,
+// so whatever else is holding that operation open can let it go. The dispatch
+// demultiplexer's registry is the one that matters.
+//
+// Only the reports that end an operation, which is narrower than the reports
+// this queue drains: a progress report and the two acknowledgements are taken
+// by central while the operation is still running, and an implementation that
+// confirmed on those would release the registry mid-flight. closesOperation
+// draws the line.
 type Confirmer interface {
 	Confirmed(device string, sequence uint64)
 }
@@ -56,8 +61,9 @@ type entry struct {
 
 // Queue holds what central has not confirmed, and re-sends it until it does.
 //
-// It supersedes rather than accumulates. Requirement 9 asks for the *last*
-// report to be re-sent, so a mutation that reports admission, verification and
+// It supersedes rather than accumulates. What central needs is the *last*
+// report of an operation, not every report of it, so a mutation that reports
+// admission, verification and
 // release occupies one entry rather than three, and the queue's size tracks
 // outstanding operations rather than reports ever made.
 type Queue struct {
@@ -70,6 +76,10 @@ type Queue struct {
 	pending  map[key]entry
 	sequence uint64
 	woken    chan struct{}
+	// overCeiling records that the ceiling was reached with nothing droppable
+	// behind it, so the condition is logged on the way in rather than once per
+	// admission for as long as it lasts. Guarded by mu.
+	overCeiling bool
 
 	dropped atomic.Int64
 	sent    atomic.Int64
@@ -107,9 +117,14 @@ func New(cfg Config) (*Queue, error) {
 	}, nil
 }
 
-// Dropped is how many reports the ceiling discarded. Non-zero means a bug,
-// not a slow central: the ceiling is not reached by an edge waiting for
-// contact, because a central that cannot be reached dispatches nothing new.
+// Dropped is how many reports the ceiling discarded.
+//
+// An edge merely waiting for contact does not reach the ceiling: a central it
+// cannot reach dispatches nothing new, so nothing arrives to queue. Non-zero
+// means either a bug or the one asymmetric case — a central that serves the
+// dispatch stream while refusing Report. There the drift poll keeps opening
+// read sequences and each is a new entry, so the queue grows with time and
+// managed-interface count without anything here being wrong.
 func (q *Queue) Dropped() int64 { return q.dropped.Load() }
 
 // Sent is how many reports central has confirmed.
@@ -126,7 +141,7 @@ func (q *Queue) Pending() int {
 // the lane calls this while holding a device's drain lock, and a report that
 // could fail would make every operation's outcome depend on the network it is
 // being reported over.
-func (q *Queue) Report(_ context.Context, report *integrationv1.ReportRequest) {
+func (q *Queue) Report(ctx context.Context, report *integrationv1.ReportRequest) {
 	if report == nil {
 		return
 	}
@@ -145,7 +160,7 @@ func (q *Queue) Report(_ context.Context, report *integrationv1.ReportRequest) {
 		k.sequence = q.sequence
 	}
 	if _, superseding := q.pending[k]; !superseding && len(q.pending) >= q.ceiling {
-		q.evictOldestLocked()
+		q.evictOldestLocked(ctx)
 	}
 	q.pending[k] = entry{report: report, admitted: q.sequence}
 	q.mu.Unlock()
@@ -173,7 +188,7 @@ func (q *Queue) Report(_ context.Context, report *integrationv1.ReportRequest) {
 // ask for — the edge sends it at start, unprompted — and losing it leaves
 // central's record believing this edge still holds state it lost when it
 // restarted.
-func (q *Queue) evictOldestLocked() {
+func (q *Queue) evictOldestLocked(ctx context.Context) {
 	var oldest key
 	var oldestAt uint64
 	found := false
@@ -186,16 +201,23 @@ func (q *Queue) evictOldestLocked() {
 		}
 	}
 	if !found {
-		// Everything outstanding is an Onboarded. The ceiling is a defense
-		// against a bug and this is what that bug looks like; the new report
-		// is admitted over the ceiling rather than dropping one of these.
-		q.log.Error("report queue is full of onboarding reports",
-			slog.Int("flowseer.edge.reports.pending", len(q.pending)))
+		// Everything outstanding is an Onboarded, so there is nothing this
+		// may drop and the new report is admitted over the ceiling. The
+		// condition persists once reached — an edge with more onboarding
+		// reports than the ceiling does not lose them by carrying on — so it
+		// is recorded on the way in and not again, rather than once per
+		// report for as long as it lasts.
+		if !q.overCeiling {
+			q.overCeiling = true
+			q.log.WarnContext(ctx, "report queue holds nothing but onboarding reports; admitting over the ceiling",
+				slog.Int("flowseer.edge.reports.pending", len(q.pending)))
+		}
 		return
 	}
+	q.overCeiling = false
 	delete(q.pending, oldest)
 	q.dropped.Add(1)
-	q.log.Warn("report dropped at the queue ceiling",
+	q.log.WarnContext(ctx, "report dropped at the queue ceiling",
 		slog.String("flowseer.device.id", oldest.device),
 		slog.Uint64("flowseer.device.sequence", oldest.sequence),
 		slog.String("flowseer.edge.report.kind", oldest.kind),

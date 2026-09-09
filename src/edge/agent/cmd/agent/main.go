@@ -16,6 +16,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
@@ -49,8 +51,23 @@ func main() {
 		os.Exit(exitConfig)
 	}
 
-	if err := host.Run(context.Background(), cfg, version, host.Options{}); err != nil {
+	if err := run(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "agent: %v\n", err)
 		os.Exit(errs.ExitCode(err))
 	}
+}
+
+// run is separate from main so the signal registration is released on the way
+// out: os.Exit runs no deferred call, and main is where the exit happens.
+//
+// The signals are registered here rather than left to the runtime. The runtime
+// installs its own handler, but only once host.Run reaches it — and enrollment
+// and the bus attachment both run before that, each a network call that can
+// stall against a middlebox that accepts and never answers. A signal in that
+// window would otherwise take its default disposition and kill the process,
+// which is the crash this package's doc says a stop is not.
+func run(cfg *host.Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return host.Run(ctx, cfg, version, host.Options{})
 }

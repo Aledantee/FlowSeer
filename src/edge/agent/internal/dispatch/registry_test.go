@@ -7,11 +7,10 @@ import (
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 )
 
-func resultAt(sequence uint64, phase string) *integrationv1.ExecuteResult {
+func resultAt(sequence uint64) *integrationv1.ExecuteResult {
 	result := &integrationv1.ExecuteResult{}
 	result.SetSequence(sequence)
 	result.SetProgress(&integrationv1.Progress{})
-	_ = phase
 	return result
 }
 
@@ -35,11 +34,11 @@ func TestASecondDispatchForTheSameSequenceIsNotAdmitted(t *testing.T) {
 	}
 
 	// And the two do not read each other's reports, in either direction.
-	r.record("dev-1", resultAt(7, "admitted"))
+	r.record("dev-1", resultAt(7))
 	if result, _ := r.report("dev-2", 7); result != nil {
 		t.Fatal("dev-2's sequence 7 returned dev-1's report")
 	}
-	r.record("dev-2", resultAt(7, "released"))
+	r.record("dev-2", resultAt(7))
 	first, _ := r.report("dev-1", 7)
 	second, _ := r.report("dev-2", 7)
 	if first == nil || second == nil || first == second {
@@ -78,7 +77,7 @@ func TestAnInFlightOperationIsKnownWithNoReportYet(t *testing.T) {
 func TestTheStoredReportIsCloned(t *testing.T) {
 	r := newRegistry()
 	r.admit("dev-1", 7)
-	r.record("dev-1", resultAt(7, "admitted"))
+	r.record("dev-1", resultAt(7))
 
 	first, _ := r.report("dev-1", 7)
 	second, _ := r.report("dev-1", 7)
@@ -98,7 +97,7 @@ func TestTheStoredReportIsCloned(t *testing.T) {
 func TestForgettingAnOperationLetsItBeAdmittedAgain(t *testing.T) {
 	r := newRegistry()
 	r.admit("dev-1", 7)
-	r.record("dev-1", resultAt(7, "released"))
+	r.record("dev-1", resultAt(7))
 	r.forget("dev-1", 7)
 
 	if _, known := r.report("dev-1", 7); known {
@@ -109,9 +108,9 @@ func TestForgettingAnOperationLetsItBeAdmittedAgain(t *testing.T) {
 	}
 }
 
-// TestConcurrentDispatchAndReportPathsDoNotRace is the shape that produced
-// this build's one data race: per-device state written by one path and read by
-// another. Under -race, unguarded access here fails.
+// TestConcurrentDispatchAndReportPathsDoNotRace covers the shape that makes a
+// data race here: per-device state written by one path and read by another.
+// Under -race, unguarded access fails.
 func TestConcurrentDispatchAndReportPathsDoNotRace(t *testing.T) {
 	r := newRegistry()
 	const operations = 200
@@ -127,7 +126,7 @@ func TestConcurrentDispatchAndReportPathsDoNotRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for i := range operations {
-			r.record("dev-1", resultAt(uint64(i), "admitted"))
+			r.record("dev-1", resultAt(uint64(i)))
 		}
 	}()
 	go func() {

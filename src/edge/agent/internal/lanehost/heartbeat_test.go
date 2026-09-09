@@ -3,6 +3,7 @@ package lanehost_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	connect "connectrpc.com/connect"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
 
@@ -219,5 +221,56 @@ func TestTheLaneIsFrozenEvenWhenItsRecordsFail(t *testing.T) {
 
 	if freezes, _ := lane.counts(); freezes != 1 {
 		t.Errorf("froze %d times, want exactly 1: a failed record does not mean the gate is open", freezes)
+	}
+}
+
+// TestALaneIsRequiredBeforeTheLoopStarts covers the collaborator that is only
+// reached two missed heartbeats into a contact outage. Left to fail there, a
+// missing lane is a panic in this goroutine at the least recoverable moment
+// the agent has; refused at construction it is a startup error naming what is
+// absent.
+func TestALaneIsRequiredBeforeTheLoopStarts(t *testing.T) {
+	err := lanehost.RunHeartbeat(context.Background(), lanehost.HeartbeatConfig{
+		Client:       &beaterFake{},
+		AgentVersion: "test",
+		Interval:     time.Millisecond,
+	})
+	if err == nil {
+		t.Fatal("RunHeartbeat accepted a configuration with no lane; the first freeze would panic")
+	}
+}
+
+// testRefusalCode stands for a central that answers and refuses this agent,
+// as against one that cannot be reached. Registered once: errs codes are
+// process-global and a repeat registration panics.
+var testRefusalCode = errs.NewCode("lanehost-test/refused")
+
+// TestTheFreezeRecordNamesWhyContactWasLost keeps the two causes apart. A
+// central that refuses this agent and a central that cannot be reached both
+// freeze the lane here and have opposite remedies; a record carrying only the
+// miss count tells an operator neither.
+func TestTheFreezeRecordNamesWhyContactWasLost(t *testing.T) {
+	logs := &recordingLogs{}
+	lane := &laneSpy{}
+	client := &beaterFake{results: []error{
+		errs.New().Code(testRefusalCode).Msg("assertion outside the window"),
+		errs.New().Code(testRefusalCode).Msg("assertion outside the window"),
+		nil,
+	}}
+
+	runLoop(t, lanehost.HeartbeatConfig{
+		Client:       client,
+		Lane:         lane,
+		AgentVersion: "test",
+		Interval:     time.Millisecond,
+		Logger:       slog.New(logs),
+	}, 3)
+
+	attrs, ok := logs.event("flowseer.edge.contact.lost")
+	if !ok {
+		t.Fatal("no flowseer.edge.contact.lost record was emitted")
+	}
+	if got := attrs["error.type"]; got != string(testRefusalCode) {
+		t.Errorf("error.type = %q, want %q", got, string(testRefusalCode))
 	}
 }

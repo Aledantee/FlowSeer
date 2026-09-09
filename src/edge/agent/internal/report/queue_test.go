@@ -3,6 +3,7 @@ package report_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -24,6 +25,9 @@ type centralFake struct {
 	received []*integrationv1.ReportRequest
 	refuse   bool
 	accepted chan struct{}
+	// duringReport runs inside a call, so a test can admit a report while an
+	// earlier one for the same operation is still in flight.
+	duringReport func()
 }
 
 func (c *centralFake) Report(
@@ -36,8 +40,12 @@ func (c *centralFake) Report(
 		c.received = append(c.received, req.Msg)
 	}
 	notify := c.accepted
+	during := c.duringReport
 	c.mu.Unlock()
 
+	if during != nil {
+		during()
+	}
 	if refuse {
 		return nil, errors.New("central is unavailable")
 	}
@@ -346,4 +354,187 @@ func unknownReport(device string) *integrationv1.ReportRequest {
 	req := &integrationv1.ReportRequest{}
 	req.SetDeviceId(device)
 	return req
+}
+
+func progressReport(device string, sequence uint64) *integrationv1.ReportRequest {
+	result := &integrationv1.ExecuteResult{}
+	result.SetSequence(sequence)
+	result.SetPhaseReached(accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED)
+	result.SetProgress(&integrationv1.Progress{})
+
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(device)
+	req.SetResult(result)
+	return req
+}
+
+func checkpointAckReport(device string, sequence uint64) *integrationv1.ReportRequest {
+	ack := &integrationv1.CheckpointAck{}
+	ack.SetSequence(sequence)
+
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(device)
+	req.SetCheckpointAck(ack)
+	return req
+}
+
+func refusedReport(device string, sequence uint64) *integrationv1.ReportRequest {
+	refused := &integrationv1.Refused{}
+	refused.SetSequence(sequence)
+	refused.SetKind(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE)
+	refused.SetCode("access/unknown-device")
+
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(device)
+	req.SetRefused(refused)
+	return req
+}
+
+// TestOnlyAReportThatEndsAnOperationConfirmsIt is the seam between this queue
+// and the dispatch registry, and the reason it is drawn where it is.
+//
+// The registry answers a duplicate dispatch instead of running the operation
+// again, and it holds the operation until this queue says central has the
+// answer. A progress report and an acknowledgement are both taken by central
+// while the operation is still running: confirming on either releases the
+// registry mid-flight, and a re-dispatch of that sequence — which central
+// derives whenever an Onboarded report clears the record's confirmations — is
+// then admitted a second time and applied to the device twice.
+func TestOnlyAReportThatEndsAnOperationConfirmsIt(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		report  *integrationv1.ReportRequest
+		confirm bool
+	}{
+		{"a progress report leaves the operation running", progressReport("dev-1", 7), false},
+		{"a checkpoint acknowledgement leaves it running", checkpointAckReport("dev-1", 7), false},
+		{"an observation ends it", resultReport("dev-1", 7, "up"), true},
+		{"a refusal ends it", refusedReport("dev-1", 7), true},
+		{"an onboarding report is about no operation", onboardedReport("dev-1"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			central := &centralFake{}
+			confirm := &confirmSpy{}
+			q := newQueue(t, central, confirm, 0)
+
+			q.Report(context.Background(), tc.report)
+			drainOnce(t, q, central, 1)
+
+			if got := confirm.count(); (got > 0) != tc.confirm {
+				t.Errorf("Confirmed called %d times, want confirmed=%v", got, tc.confirm)
+			}
+			if got := q.Pending(); got != 0 {
+				t.Errorf("Pending() = %d, want 0: central accepted the report either way", got)
+			}
+		})
+	}
+}
+
+// TestADeviceWithAnOwedReportSendsNoLaterOne pins the ordering across passes.
+//
+// Within a pass the sort keeps the order; across passes only this does. The
+// case that needs it is Onboarded, which is not phase-ordered and clears
+// central's confirmations for the device when it lands — delivered after the
+// reports it precedes, it re-opens operations those reports had settled.
+func TestADeviceWithAnOwedReportSendsNoLaterOne(t *testing.T) {
+	central := &firstReportRefused{}
+	q, err := report.New(report.Config{Client: central})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	q.Report(context.Background(), onboardedReport("dev-1"))
+	q.Report(context.Background(), resultReport("dev-1", 1, "later"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_ = q.Run(ctx, 5*time.Millisecond)
+
+	// The refused attempt, then the accepted one, then the report that was
+	// waiting on it. Without the hold the result goes out in the pass that
+	// refused the Onboarded, and central sees it first.
+	onboardedSoFar := 0
+	for _, got := range central.seen() {
+		if got.HasOnboarded() {
+			onboardedSoFar++
+			continue
+		}
+		if got.HasResult() && onboardedSoFar < 2 {
+			t.Fatalf("the later report was sent after %d onboarding attempts, while the earlier one was still owed", onboardedSoFar)
+		}
+	}
+}
+
+// firstReportRefused refuses whatever it is offered first and nothing after,
+// so a test can watch what the queue sends while one report is still owed.
+type firstReportRefused struct {
+	mu       sync.Mutex
+	received []*integrationv1.ReportRequest
+	refused  bool
+}
+
+func (c *firstReportRefused) Report(
+	_ context.Context, req *connect.Request[integrationv1.ReportRequest],
+) (*connect.Response[integrationv1.ReportResponse], error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.received = append(c.received, req.Msg)
+	if !c.refused {
+		c.refused = true
+		return nil, errors.New("central is unavailable")
+	}
+	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
+}
+
+func (c *firstReportRefused) seen() []*integrationv1.ReportRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]*integrationv1.ReportRequest(nil), c.received...)
+}
+
+// TestReportsGoOutOldestFirst pins the delivery order the drain documents:
+// central applies reports in phase order, and a record that receives a
+// release before the admission it follows discards it as stale.
+func TestReportsGoOutOldestFirst(t *testing.T) {
+	central := &centralFake{}
+	q := newQueue(t, central, nil, 0)
+
+	for _, device := range []string{"dev-1", "dev-2", "dev-3"} {
+		q.Report(context.Background(), resultReport(device, 1, device))
+	}
+	drainOnce(t, q, central, 3)
+
+	var order []string
+	for _, got := range central.got() {
+		order = append(order, got.GetDeviceId())
+	}
+	want := []string{"dev-1", "dev-2", "dev-3"}
+	if !slices.Equal(order, want) {
+		t.Errorf("delivery order = %v, want %v", order, want)
+	}
+}
+
+// TestAReportArrivingMidSendIsNotConfirmedByTheSendItRaced covers the guard
+// that only deletes the entry that was actually sent.
+//
+// A send takes a copy and releases the lock; a newer report for the same
+// operation can be admitted while it is in flight. Deleting by key alone
+// would drop that newer report on the older one's success, and central would
+// never see it — the queue believing it had delivered something it had not.
+func TestAReportArrivingMidSendIsNotConfirmedByTheSendItRaced(t *testing.T) {
+	central := &centralFake{}
+	q := newQueue(t, central, nil, 0)
+
+	// Admitted while the first is being sent, from inside the send itself.
+	central.duringReport = func() {
+		q.Report(context.Background(), resultReport("dev-1", 1, "newer"))
+	}
+	q.Report(context.Background(), resultReport("dev-1", 1, "older"))
+
+	drainOnce(t, q, central, 1)
+	central.duringReport = nil
+
+	if got := q.Pending(); got != 1 {
+		t.Fatalf("Pending() = %d, want 1: the report admitted mid-send was dropped by the send it raced", got)
+	}
 }

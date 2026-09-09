@@ -29,9 +29,9 @@ import (
 // Per-device locks were the alternative and are worse: the map itself would
 // still need a lock to find the per-device one, so the contention it saves is
 // the contention it adds, and every field would then be guarded by a lock
-// found under another lock. The rule that matters is the one this build has
-// already broken once — a field written on one goroutine and read on another
-// is guarded, and the comment names which lock — so both fields below say it.
+// found under another lock. A field written on one goroutine and read on
+// another is guarded, and the comment names which lock, so the field below
+// says it.
 type registry struct {
 	mu sync.Mutex
 	// reports is keyed by device and sequence. A nil value means the
@@ -110,6 +110,11 @@ func (r *registry) report(device string, sequence uint64) (*integrationv1.Execut
 // forget drops an operation once it is terminal and central has been told.
 // Without it this map is a leak with the lifetime of the process: one entry
 // per operation the edge has ever run.
+//
+// Both halves are the caller's to establish, and the report queue is the only
+// caller: it confirms an operation on a report that ends it and on no other,
+// because dropping an entry for an operation still running would let a
+// re-dispatch of that sequence be admitted and applied to the device twice.
 func (r *registry) forget(device string, sequence uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

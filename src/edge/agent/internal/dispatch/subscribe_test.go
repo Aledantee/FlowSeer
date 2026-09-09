@@ -67,20 +67,15 @@ func (c *centralStream) openCount() int {
 }
 
 type handlerFake struct {
-	mu       sync.Mutex
-	seen     []string
-	err      error
-	released chan struct{}
+	mu   sync.Mutex
+	seen []string
+	err  error
 }
 
 func (h *handlerFake) Handle(_ context.Context, message *integrationv1.SubscribeResponse) error {
 	h.mu.Lock()
 	h.seen = append(h.seen, message.GetDeviceId())
-	count := len(h.seen)
 	h.mu.Unlock()
-	if h.released != nil && count == 1 {
-		close(h.released)
-	}
 	return h.err
 }
 

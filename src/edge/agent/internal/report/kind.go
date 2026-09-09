@@ -47,9 +47,30 @@ func keyOf(report *integrationv1.ReportRequest) key {
 	}
 }
 
-// sequenceOf is the operation a report is about, or zero for one that is
-// about the device.
-func sequenceOf(k key) uint64 { return k.sequence }
+// closesOperation reports whether central, having taken this report, still
+// needs the edge to remember the operation it is about.
+//
+// A terminal result and a refusal end it: central holds the answer and will
+// not dispatch the sequence again for want of one. A progress report does
+// not. The operation is still running, and releasing the memory of it here
+// would let a re-dispatch admit the same sequence a second time and run it
+// on the device twice — which is the whole of what that memory prevents.
+//
+// The two acknowledgements are the same case as progress: each answers a
+// message central sent about an operation that is still open, and a terminal
+// result or a refusal always follows. An Onboarded report is about the
+// device rather than an operation, and an arm this build does not know
+// carries no operation to release.
+func closesOperation(k key, report *integrationv1.ReportRequest) bool {
+	switch k.kind {
+	case kindResult:
+		return report.GetResult().WhichOutcome() != integrationv1.ExecuteResult_Progress_case
+	case kindRefused:
+		return true
+	default:
+		return false
+	}
+}
 
 // sortByAdmission orders keys oldest first, which is the order the edge made
 // the reports and the order central applies them in.

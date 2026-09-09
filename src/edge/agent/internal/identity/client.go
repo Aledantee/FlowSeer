@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
@@ -86,8 +87,13 @@ type signingTransport struct {
 }
 
 func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if encoding := req.Header.Get("Content-Encoding"); encoding != "" && encoding != "identity" {
-		return nil, errs.New().Code(ErrCodeState).Attr("content_encoding", encoding).
+	if header, encoding := compressedBy(req); header != "" {
+		// Closed first: a RoundTripper owns the body it is handed and must
+		// close it on every return, error paths included.
+		if req.Body != nil {
+			_ = req.Body.Close()
+		}
+		return nil, errs.New().Code(ErrCodeState).Attr("header", header).Attr("content_encoding", encoding).
 			Msg("this client must send uncompressed requests; central hashes the bytes it receives")
 	}
 
@@ -130,4 +136,24 @@ func drainBody(req *http.Request) ([]byte, error) {
 		return nil, errs.From(closeErr).Code(ErrCodeState).Msg("close the request body after signing it")
 	}
 	return body, nil
+}
+
+// compressedBy names the header carrying a non-identity encoding, and the
+// encoding, or two empty strings when the request is uncompressed.
+//
+// All three headers, because Connect and gRPC do not agree on one: connect-go
+// puts a unary request's encoding on Content-Encoding and a streaming
+// request's on Connect-Content-Encoding, and a gRPC client uses Grpc-Encoding.
+// Central refuses on any of the three, so a guard reading only the first lets
+// a compressed stream through to be refused there instead — with a bare
+// status, which is the answer this exists to prevent. Case-insensitive for
+// the same reason: central compares that way, and a guard stricter than the
+// server refuses calls the server would have taken.
+func compressedBy(req *http.Request) (string, string) {
+	for _, header := range []string{"Content-Encoding", "Connect-Content-Encoding", "Grpc-Encoding"} {
+		if v := req.Header.Get(header); v != "" && !strings.EqualFold(v, "identity") {
+			return header, v
+		}
+	}
+	return "", ""
 }

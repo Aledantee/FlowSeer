@@ -2,10 +2,12 @@ package lanehost
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
 	"sync"
+	"time"
 
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
@@ -60,7 +62,19 @@ type OnboardConfig struct {
 	// that dials was actually built with.
 	OpenSNMP  SNMPFactoryFor
 	OpenShell ShellFactoryFor
-	Logger    *slog.Logger
+	// PerDeviceTimeout bounds one device's onboarding. Zero means the
+	// default.
+	//
+	// Bounded because onboarding is serial and the dispatch loop runs it
+	// before every attempt to open the stream. Adding a device runs the
+	// identity probe against it, and a device that is powered off does not
+	// refuse — it says nothing, for the SNMP backend's whole retransmit
+	// horizon. Unbounded, a handful of dead devices delays every
+	// reconnection by minutes, with the heartbeat still succeeding and the
+	// listing not having failed: from central the edge looks enrolled,
+	// healthy, and permanently unsubscribed.
+	PerDeviceTimeout time.Duration
+	Logger           *slog.Logger
 }
 
 // Onboarder holds the devices this edge has been told to serve, and adds the
@@ -136,19 +150,43 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 	return nil
 }
 
-// Devices names the devices this edge holds.
-func (o *Onboarder) Devices() []string {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-	ids := make([]string, 0, len(o.held))
-	for id := range o.held {
-		ids = append(ids, id)
+// defaultPerDeviceTimeout bounds one device's onboarding when the
+// configuration names none. The identity probe is one SNMP exchange, and the
+// backend's own horizon for a device that never answers is timeout times
+// retries; this sits above a working probe on a slow WAN and well below the
+// time a handful of dead devices would otherwise add to every reconnection.
+const defaultPerDeviceTimeout = 30 * time.Second
+
+func (o *Onboarder) perDeviceTimeout() time.Duration {
+	if o.cfg.PerDeviceTimeout > 0 {
+		return o.cfg.PerDeviceTimeout
 	}
-	return ids
+	return defaultPerDeviceTimeout
+}
+
+// errorType classifies a failure for the error.type attribute: the error's
+// own code where it has one, and the two context causes by name where it does
+// not. Bounded, because it becomes a metric dimension downstream.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
+	}
 }
 
 // onboard adds one listed device, or reports how a re-listing of a device
 // already held differs from what it was onboarded with.
+//
+// Its own deadline, so one device cannot hold the rest. A device that runs
+// out of time is not held and is onboarded on a later Sync, which is what
+// happens to a device that fails outright.
 func (o *Onboarder) onboard(ctx context.Context, listed *edgev1.ListedDevice) {
 	deviceID := listed.GetDeviceId()
 
@@ -166,18 +204,20 @@ func (o *Onboarder) onboard(ctx context.Context, listed *edgev1.ListedDevice) {
 	}
 
 	session, err := o.deviceSession(listed)
-	if err != nil {
-		o.log.ErrorContext(ctx, "listed device cannot be onboarded",
-			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
-			slog.String("flowseer.device.id", deviceID),
-			slog.Any("error", err))
-		return
+	if err == nil {
+		attempt, cancel := context.WithTimeout(ctx, o.perDeviceTimeout())
+		err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
+		cancel()
 	}
-	if err := o.cfg.Lane.AddDevice(ctx, deviceID, session); err != nil {
-		o.log.ErrorContext(ctx, "listed device cannot be onboarded",
+	if err != nil {
+		// A warning, not an error: this device is not held and the next Sync
+		// tries it again, which is a retry rather than an abandoned
+		// operation. An edge with one device switched off would otherwise
+		// report an error per reconnection for as long as it stays off.
+		o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
 			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
 			slog.String("flowseer.device.id", deviceID),
-			slog.Any("error", err))
+			slog.String("error.type", errorType(err)))
 		return
 	}
 
@@ -270,15 +310,26 @@ func divergedFields(previous, current *edgev1.ListedDevice) []string {
 		}
 	}
 
-	previousAddress, _ := addressOf(previous.GetIp())
-	currentAddress, _ := addressOf(current.GetIp())
-	compare("address", previousAddress, currentAddress)
+	compare("address", renderAddress(previous.GetIp()), renderAddress(current.GetIp()))
 	compare("snmp_port", previous.GetSnmpPort(), current.GetSnmpPort())
 	compare("ssh_port", previous.GetSshPort(), current.GetSshPort())
 	compare("binding", previous.GetBindingId(), current.GetBindingId())
 	compare("access_policy", handleOf(previous.GetAccessPolicy()), handleOf(current.GetAccessPolicy()))
 	compare("delayed_apply_horizon", previous.GetDelayedApplyHorizon().AsDuration(), current.GetDelayedApplyHorizon().AsDuration())
 	return changed
+}
+
+// renderAddress is addressOf for a divergence record, which has to say
+// something about an address it cannot render. The empty string is what it
+// must not say: an operator reading "address: 172.16.0.6 → " would take the
+// device's address to have been removed rather than replaced with one this
+// edge cannot use.
+func renderAddress(ip *addrv1.IpAddress) string {
+	address, err := addressOf(ip)
+	if err != nil {
+		return fmt.Sprintf("<unusable: %s>", errorType(err))
+	}
+	return address
 }
 
 func handleOf(handle interface {

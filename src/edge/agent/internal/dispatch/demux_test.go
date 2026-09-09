@@ -2,6 +2,7 @@ package dispatch_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -277,9 +278,9 @@ func readIntent() *accessv1.TypedRead {
 	return read
 }
 
-// TestAnOperationIsForgottenOnlyOnceCentralConfirmsIt pins the lifetime, and
-// it is the lifetime the first version of this got wrong. Forgetting when the
-// operation finished meant the next re-dispatch ran it on the device again —
+// TestAnOperationIsForgottenOnlyOnceCentralConfirmsIt pins the lifetime.
+// Forgetting when the operation finished would mean the next re-dispatch ran
+// it on the device again —
 // and a completed operation is the case most likely to be re-dispatched,
 // because central re-dispatches exactly what it has no report for.
 func TestAnOperationIsForgottenOnlyOnceCentralConfirmsIt(t *testing.T) {
@@ -311,5 +312,42 @@ func TestAnOperationIsForgottenOnlyOnceCentralConfirmsIt(t *testing.T) {
 	demux.Wait()
 	if got := lane.submitted(); len(got) != 2 {
 		t.Errorf("the lane saw %v after confirmation, want the sequence admitted again", got)
+	}
+}
+
+// TestAnUncodedLaneErrorIsRefusedUnderThisAgentsOwnCode covers the branch that
+// has to invent a code, and why it must not borrow one of the lane's.
+//
+// Central classifies a refusal by its code and acts terminally on some of
+// them: access/unknown-device resolves against the registry and disposes the
+// mutation REJECTED when the device is no longer listed. The lane returns
+// uncoded errors — a mutation with no sequence, a resume with no admission
+// time, a canceled context at shutdown — and reporting one of those under a
+// code central acts on would dispose a mutation for a cause that never
+// happened. A code central does not name falls to its default and stays
+// retryable.
+func TestAnUncodedLaneErrorIsRefusedUnderThisAgentsOwnCode(t *testing.T) {
+	lane := &laneFake{submitErr: errors.New("the lane declined without a code")}
+	out := &outboundFake{}
+	demux := dispatch.NewDemux(lane, out, nil)
+
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 4)); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	demux.Wait()
+
+	reports := out.sent()
+	if len(reports) != 1 {
+		t.Fatalf("sent %d reports, want 1 refusal", len(reports))
+	}
+	refused := reports[0].GetRefused()
+	if refused == nil {
+		t.Fatal("the report is not a refusal")
+	}
+	if got := refused.GetCode(); got != string(dispatch.ErrCodeUncodedRefusal) {
+		t.Errorf("code = %q, want %q", got, string(dispatch.ErrCodeUncodedRefusal))
+	}
+	if got := refused.GetCode(); got == string(access.ErrCodeUnknownDevice) {
+		t.Error("an uncoded error was refused as unknown-device; central would dispose the mutation on it")
 	}
 }

@@ -83,7 +83,7 @@ func TestTheKeyIsPersistedBeforeEnrollIsCalled(t *testing.T) {
 		keyOnDiskAtCallTime = err == nil
 	}}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	if !keyOnDiskAtCallTime {
@@ -99,7 +99,7 @@ func TestACrashBeforeTheAnswerIsPersistedReEnrollsWithTheSameKey(t *testing.T) {
 	store, dir := newStore(t)
 	central := &centralFake{}
 
-	first, err := identity.Establish(context.Background(), store, central, testSetupKey)
+	first, err := identity.Establish(context.Background(), store, central, testSetupKey, nil)
 	if err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
@@ -109,14 +109,14 @@ func TestACrashBeforeTheAnswerIsPersistedReEnrollsWithTheSameKey(t *testing.T) {
 		t.Fatalf("simulate the crash: %v", err)
 	}
 
-	second, err := identity.Establish(context.Background(), store, central, testSetupKey)
+	second, err := identity.Establish(context.Background(), store, central, testSetupKey, nil)
 	if err != nil {
 		t.Fatalf("Establish after the crash: %v", err)
 	}
 	if central.calls != 2 {
 		t.Errorf("central saw %d enrollments, want 2: the restart must call again", central.calls)
 	}
-	if !first.Key.Equal(second.Key) {
+	if !identity.SameKeyForTest(first, second) {
 		t.Fatal("the restart generated a new key; central holds the old one and would refuse it")
 	}
 	if first.Enrollment.GetEdge().GetEdge().GetId() != second.Enrollment.GetEdge().GetEdge().GetId() {
@@ -132,11 +132,11 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 	store, _ := newStore(t)
 	central := &centralFake{}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	// No setup key this time, which is what a restarted agent has.
-	again, err := identity.Establish(context.Background(), store, central, "")
+	again, err := identity.Establish(context.Background(), store, central, "", nil)
 	if err != nil {
 		t.Fatalf("Establish on a restart: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 // error.
 func TestAnUnenrolledEdgeWithNoSetupKeyFails(t *testing.T) {
 	store, _ := newStore(t)
-	if _, err := identity.Establish(context.Background(), store, &centralFake{}, ""); err == nil {
+	if _, err := identity.Establish(context.Background(), store, &centralFake{}, "", nil); err == nil {
 		t.Fatal("Establish() error = nil, want an unenrolled edge with no setup key refused")
 	}
 }
@@ -167,7 +167,7 @@ func TestAnUnenrolledEdgeWithNoSetupKeyFails(t *testing.T) {
 // impersonable and one that loses it is unrecoverable.
 func TestTheKeyFileIsPrivate(t *testing.T) {
 	store, dir := newStore(t)
-	if _, err := identity.Establish(context.Background(), store, &centralFake{}, testSetupKey); err != nil {
+	if _, err := identity.Establish(context.Background(), store, &centralFake{}, testSetupKey, nil); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	info, err := os.Stat(filepath.Join(dir, "edge.key"))
@@ -187,9 +187,85 @@ func TestTheKeyFileIsPrivate(t *testing.T) {
 // enrollAnswer is what central returns: the identity, its clock, the audience
 // every assertion names, and the anchors that replace whatever the edge was
 // provisioned with.
+// centralClock is the time the fake central reports with its enrollment
+// answer, fixed so a test can tell an assertion signed on central's clock
+// from one signed on this machine's.
+var centralClock = time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+
 func enrollAnswer() *edgev1.EnrollResponse {
 	response := vectorEnrollment()
-	response.SetServerTime(timestamppb.New(time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)))
+	response.SetServerTime(timestamppb.New(centralClock))
 	response.SetTrustAnchors([][]byte{make([]byte, 32)})
 	return response
+}
+
+// TestTheEdgeSignsOnCentralsClockAfterEnrolling covers what server_time is
+// for. An edge whose real-time clock is dead signs with a date from the
+// factory; central refuses the assertion for skew, and the bus attachment
+// that refusal blocks is a fatal startup failure. Adopting the difference
+// central reported is what carries such an edge through.
+func TestTheEdgeSignsOnCentralsClockAfterEnrolling(t *testing.T) {
+	store, _ := newStore(t)
+	central := &centralFake{}
+
+	// One dead clock, read by the enrollment and by the signer alike: a
+	// battery that stopped leaves every read at the same factory date.
+	dead := func() time.Time { return time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC) }
+
+	edge, err := identity.Establish(context.Background(), store, central, testSetupKey, dead)
+	if err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
+	header, err := edge.Signer(dead).Header("/flowseer.api.edge.v1.EdgeService/Heartbeat", nil)
+	if err != nil {
+		t.Fatalf("Header: %v", err)
+	}
+
+	// Central's clock as the fake reported it, not this machine's: the
+	// enrollment answer is the only time source an edge that has just
+	// enrolled has, and the assertion has to be issued against it.
+	issued := identity.DecodeForTest(t, header).GetIssuedAt().AsTime()
+	if skew := issued.Sub(centralClock); skew > time.Minute || skew < -time.Minute {
+		t.Errorf("issued_at = %v, want central's %v; the local clock would have central refuse this for skew", issued, centralClock)
+	}
+}
+
+// TestAFailedEnrollLeavesTheKeyAndNoEnrollment pins the recovery the write
+// order exists for: the key stays, the answer was never written, and the next
+// start enrolls again with the same key against a setup key still unconsumed.
+func TestAFailedEnrollLeavesTheKeyAndNoEnrollment(t *testing.T) {
+	store, dir := newStore(t)
+	central := &centralFake{err: errors.New("central is unavailable")}
+
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err == nil {
+		t.Fatal("Establish returned no error for a central that refused the enrollment")
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, "edge.key")); err != nil {
+		t.Errorf("the key is not on disk after a failed enrollment: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "enrollment.textproto")); !os.IsNotExist(err) {
+		t.Errorf("an enrollment was written for a call that failed: %v", err)
+	}
+}
+
+// TestAnEmptyEnrollmentFileIsRefusedRatherThanBelieved covers the shape that
+// parses and means nothing. An edge that read it as "enrolled" would come up
+// with no edge id and no trust anchors, refuse every certificate central
+// presents, and never enroll again — the one state the store's own contract
+// says means "enroll again".
+func TestAnEmptyEnrollmentFileIsRefusedRatherThanBelieved(t *testing.T) {
+	store, dir := newStore(t)
+	central := &centralFake{}
+
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "enrollment.textproto"), nil, 0o600); err != nil {
+		t.Fatalf("truncate the enrollment: %v", err)
+	}
+
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err == nil {
+		t.Fatal("an empty enrollment file was accepted as an enrollment")
+	}
 }

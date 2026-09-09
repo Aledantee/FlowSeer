@@ -31,7 +31,8 @@ type AuditClient interface {
 // be recording "this happened" against a record that might never be written,
 // and the phase transition it guards would have no account of it anywhere.
 // The cost is that a device operation waits on central, which is the trade
-// decision 13 makes deliberately.
+// this makes deliberately: correctness of the account over latency of the
+// operation.
 type Deliverer struct {
 	client AuditClient
 	edge   string
@@ -50,7 +51,12 @@ func NewDeliverer(client AuditClient, edgeID string) *Deliverer {
 // error would be telling the lane a record was written when it was not.
 func (d *Deliverer) Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error {
 	if event == nil {
-		return nil
+		// Refused rather than passed over. A nil error here is the lane's
+		// signal that the record is durable, and returning one for a record
+		// that does not exist would release the phase transition it was
+		// meant to account for with nothing written anywhere.
+		return errs.New().Code(ErrCodeDeliver).Attr("edge", d.edge).
+			Msg("there is no audit record to deliver")
 	}
 	request := &eventv1.DeliverRequest{}
 	request.SetEvent(event)

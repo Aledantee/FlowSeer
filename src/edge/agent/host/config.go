@@ -11,8 +11,9 @@
 // no package import both trees, so one of the two hosts has to be reachable
 // from the other's. That makes this package public without making it
 // reusable. It is this application's own entry surface, not a module to build
-// an agent out of. Config, LoadConfig and Run are the whole of it, which is
-// what a binary needs and what that test drives.
+// an agent out of: Config and LoadConfig say which deployment this is, Run
+// brings it up, and Options carries the seams — the session factories and the
+// clock — that a test fills where a packaged deployment leaves them nil.
 package host
 
 import (
@@ -157,9 +158,9 @@ func (c *Config) LogLevel() slog.Level {
 		return slog.LevelWarn
 	case storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_ERROR:
 		return slog.LevelError
-	case storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_UNSPECIFIED, storeedgev1.AgentLogLevel_AGENT_LOG_LEVEL_INFO:
-		return slog.LevelInfo
 	default:
+		// Unspecified, info, and a level from a newer build than this one all
+		// answer info: a log level nobody chose must not silence a record.
 		return slog.LevelInfo
 	}
 }

@@ -78,6 +78,16 @@ func (s *Store) LoadEnrollment() (*edgev1.EnrollResponse, error) {
 		return nil, errs.From(err).Code(ErrCodeState).Attr("path", s.enrollmentPath()).
 			Msg("parse the persisted enrollment")
 	}
+	// Parsing is not enough to call this an enrollment. An empty file, and a
+	// file holding no field this build knows, both parse into a message with
+	// nothing in it — and a caller reading "not nil" as "enrolled" would then
+	// carry on with no edge id, no audience and no trust anchors, refusing
+	// every certificate central presents and naming none of this in the
+	// failure. Refused here, where the file is named.
+	if msg.GetEdge().GetEdge().GetId() == "" || msg.GetAudience() == "" || len(msg.GetTrustAnchors()) == 0 {
+		return nil, errs.New().Code(ErrCodeState).Attr("path", s.enrollmentPath()).
+			Msg("the persisted enrollment names no edge, audience or trust anchors")
+	}
 	return msg, nil
 }
 
@@ -122,6 +132,28 @@ func (s *Store) writeAtomically(path string, body []byte) error {
 	}
 	if err := os.Rename(name, path); err != nil {
 		return errs.From(err).Code(ErrCodeState).Attr("path", path).Msg("move the state file into place")
+	}
+	return syncDir(s.dir)
+}
+
+// syncDir makes a rename into dir durable.
+//
+// Syncing the file persists its contents; the directory entry that gives them
+// a name is a separate write, and until it is flushed a power cut leaves the
+// file with no name. For the key that is not a lost write to redo: Establish
+// writes the key, then enrolls, and central consumes the setup key when the
+// call lands. A key whose name never reached disk is an edge that generates a
+// new one on the next boot and cannot enroll it, which no operator action
+// short of retiring the edge recovers. The ordering Establish documents is
+// only as durable as this.
+func syncDir(dir string) error {
+	handle, err := os.Open(dir)
+	if err != nil {
+		return errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("open the state directory")
+	}
+	defer func() { _ = handle.Close() }()
+	if err := handle.Sync(); err != nil {
+		return errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("flush the state directory")
 	}
 	return nil
 }

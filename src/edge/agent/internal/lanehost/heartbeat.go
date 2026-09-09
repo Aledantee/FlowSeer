@@ -73,8 +73,11 @@ type HeartbeatConfig struct {
 // The lane is unfrozen on the next success, not on some later confirmation:
 // central answering is the whole of what the freeze was waiting for.
 func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
-	if cfg.Client == nil {
-		return errs.New().Code(ErrCodeHeartbeat).Msg("heartbeat needs an EdgeService client")
+	if cfg.Client == nil || cfg.Lane == nil {
+		// Both, because the lane is only reached two missed heartbeats into
+		// a contact outage. Left to fail there, a missing one is a panic in
+		// this goroutine at the least recoverable moment the agent has.
+		return errs.New().Code(ErrCodeHeartbeat).Msg("heartbeat needs an EdgeService client and a lane to freeze")
 	}
 	interval := cfg.Interval
 	if interval <= 0 {
@@ -96,6 +99,7 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 	consecutive := 0
 	frozen := false
 	for {
+		started := time.Now()
 		if err := beat(ctx, cfg, interval); err != nil {
 			if ctx.Err() != nil {
 				return nil
@@ -106,15 +110,21 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 				// failed audit delivery, and the gate is frozen either way;
 				// treating it as "not frozen" would retry the freeze every
 				// interval and re-emit records for a lane already stopped.
+				// The cause of the missed heartbeat is what an operator
+				// needs first: a central that refuses this agent and a
+				// central that cannot be reached both freeze the lane here
+				// and have opposite remedies. Without it the record says
+				// only that two attempts failed.
+				attrs := []any{
+					slog.String("otel.event.name", "flowseer.edge.contact.lost"),
+					slog.Int("flowseer.edge.missed_heartbeats", consecutive),
+					slog.String("error.type", errorType(err)),
+				}
 				if freezeErr := cfg.Lane.Freeze(ctx); freezeErr != nil {
 					log.WarnContext(ctx, "lane frozen with records undelivered",
-						slog.String("otel.event.name", "flowseer.edge.contact.lost"),
-						slog.Int("flowseer.edge.missed_heartbeats", consecutive),
-						slog.Any("error", freezeErr))
+						append(attrs, slog.String("flowseer.edge.freeze.error_type", errorType(freezeErr)))...)
 				} else {
-					log.WarnContext(ctx, "contact with central lost; lane frozen",
-						slog.String("otel.event.name", "flowseer.edge.contact.lost"),
-						slog.Int("flowseer.edge.missed_heartbeats", consecutive))
+					log.WarnContext(ctx, "contact with central lost; lane frozen", attrs...)
 				}
 				frozen = true
 			}
@@ -128,7 +138,12 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 			consecutive = 0
 		}
 
-		if !wait(ctx, interval) {
+		// Measured from the attempt's start, so the interval spaces attempts
+		// rather than spacing the end of one from the start of the next. An
+		// attempt runs under the interval as its deadline, so waiting a full
+		// interval after it returned would put a stalled central's attempts
+		// two intervals apart and the freeze at three rather than two.
+		if !wait(ctx, interval-time.Since(started)) {
 			return nil
 		}
 	}

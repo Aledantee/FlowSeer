@@ -2,11 +2,13 @@ package host
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
@@ -25,6 +27,12 @@ import (
 
 // ErrCodeStart is an agent that cannot be assembled from what it was given.
 var ErrCodeStart = errs.NewCode("agent/start")
+
+// loopbackIsInsecure is the value the telemetry connection pins Insecure to.
+// The exporter's target is a loopback address this process bound itself, so
+// there is no transport to secure; taken by address because the setting is a
+// *bool, where nil means "read the environment".
+var loopbackIsInsecure = true
 
 // serviceName and serviceNamespace identify this process to the runtime and
 // to every signal it exports.
@@ -55,10 +63,15 @@ const (
 //     ends the process rather than being logged and retried.
 //
 //  2. The signing client is built from the enrollment's trust anchors, not
-//     the provisioned ones. EnrollResponse replaces the set an edge shipped
-//     with, so a deployment can rotate its chain without re-provisioning
-//     every edge in the field; an agent that kept pinning the shipped anchors
-//     would refuse central after the first rotation.
+//     the provisioned ones. EnrollResponse is the authoritative set and
+//     replaces what the edge shipped with, so the two dialers here and the
+//     leaf below cannot pin different certificates.
+//
+//     It is the set this edge pins for the rest of its life. Nothing central
+//     sends afterwards carries a replacement — trust_anchors appears on the
+//     provisioning and on the enrollment answer and nowhere else — and an
+//     enrolled edge never calls Enroll again, so rotating central's chain
+//     means re-enrolling every edge in the field, not re-provisioning it.
 //
 //  3. The bus attachment comes next, and its failure is fatal too. AttachBus
 //     is a signed call, so it cannot precede the identity, and the receiver
@@ -87,27 +100,24 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	}
 	base := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: cfg.LogLevel()}))
 
-	// 1. Identity.
 	store, err := identity.NewStore(cfg.StateDir())
 	if err != nil {
 		return err
 	}
 	enrolment := edgev1connect.NewEdgeServiceClient(
 		identity.PinnedClient(cfg.ProvisionedAnchors()), cfg.CentralURL())
-	edge, err := identity.Establish(ctx, store, enrolment, cfg.SetupKey())
+	edge, err := identity.Establish(ctx, store, enrolment, cfg.SetupKey(), time.Now)
 	if err != nil {
 		return err
 	}
 	edgeID := edge.Enrollment.GetEdge().GetEdge().GetId()
 	base = base.With(slog.String("flowseer.edge.id", edgeID))
 
-	// 2. The clients every later call goes through.
 	signed := identity.SigningClient(edge.TrustAnchors(), edge.Signer(time.Now))
 	edgeClient := edgev1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
 	dispatchClient := integrationv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := eventv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
 
-	// 3. The bus, and with it the receiver this agent exports into.
 	bufferBytes, bufferAge := cfg.Buffer()
 	attachment, err := busattach.Attach(ctx, edgeClient, busattach.Config{
 		StateDir:       cfg.StateDir(),
@@ -131,21 +141,33 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		audit:    auditClient,
 	}
 
-	// 4 and 5. One module: the lane and the three loops that drive it share
-	// its lifetime, and a restart that rebuilt the lane without them — or
-	// them without it — would leave a dispatch loop submitting into a lane
-	// nobody drains.
+	// One module: the lane and the three loops that drive it share its
+	// lifetime, and a restart that rebuilt the lane without them — or them
+	// without it — would leave a dispatch loop submitting into a lane nobody
+	// drains.
 	return service.Run(ctx, service.Config{
 		Identity: service.Identity{Name: serviceName, Namespace: serviceNamespace, Version: version},
 		Logger:   base,
 		Telemetry: service.TelemetryConfig{
 			Endpoint: attachment.Endpoint,
-			// Pinned, not defaulted. The receiver stores and forwards each
-			// body unchanged, so it accepts only what it can pass on: an
-			// environment that chose grpc or gzip would fail every export
-			// with a 415 nothing here would explain.
+			// Pinned, not defaulted, and pinned whole. The receiver stores
+			// and forwards each body unchanged, so it accepts only what it
+			// can pass on: an environment that chose grpc or gzip would fail
+			// every export with a 415 nothing here would explain.
+			//
+			// The connection settings are pinned for a sharper reason. This
+			// endpoint is a loopback address this process bound itself, so
+			// there is no transport security to configure and no collector
+			// to authenticate to — but every one of these settings falls
+			// back to OTEL_EXPORTER_OTLP_* when the field is unset. A host
+			// carrying those for an unrelated collector would have the agent
+			// refuse its own configuration at startup, after enrolling and
+			// attaching, and restart into the same refusal for as long as
+			// the variable is set.
 			Protocol:    "http/protobuf",
 			Compression: "none",
+			Insecure:    &loopbackIsInsecure,
+			Headers:     map[string]string{},
 		},
 		Modules: []service.Module{{Name: "lane", Leaf: &service.Leaf{Setup: assembly.setup}}},
 	})
@@ -190,10 +212,9 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 
 	// The demultiplexer and the queue each need the other: the demultiplexer
 	// reports through the queue, and the queue tells the demultiplexer when
-	// central has confirmed a report so it can release what it remembers
-	// about that operation. They share a drain condition and must not
-	// disagree about whether an operation is outstanding, so the cycle is
-	// closed here rather than broken by giving one of them its own answer.
+	// central has taken a report that ends an operation, so it can release
+	// what it remembers about it. The cycle is closed here rather than broken
+	// by giving one of them its own answer.
 	confirmations := &confirmations{}
 	queue, err := report.New(report.Config{Client: a.dispatch, Confirm: confirmations, Logger: log})
 	if err != nil {
@@ -211,7 +232,12 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 		// as the real dialers.
 		OpenSNMP:  a.opts.OpenSNMP,
 		OpenShell: a.opts.OpenShell,
-		Logger:    log,
+		// PerDeviceTimeout left at the onboarder's default. It bounds one
+		// device's probe, which matters because this runs before every
+		// attempt to open the dispatch stream and a device that is powered
+		// off does not refuse the probe, it says nothing. Not configurable:
+		// no deployment has information about it an operator could act on.
+		Logger: log,
 	})
 	if err != nil {
 		return service.Attempt{}, err
@@ -219,9 +245,17 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 
 	backoffFloor, backoffCeiling := a.cfg.DispatchBackoff()
 	contact := &dispatch.Contact{}
+	if err := registerContactInstruments(ctx, contact, queue); err != nil {
+		return service.Attempt{}, err
+	}
 
 	return service.Attempt{Runner: func(ctx context.Context) error {
 		defer func() { _, _ = lane.Close(context.WithoutCancel(ctx)) }()
+		// Before the lane closes: an operation still in the lane reports
+		// through the queue, and the queue's own loop has returned by the
+		// time this runs. Without the wait those terminal reports are made
+		// into a queue nothing will drain and central never hears them.
+		defer demux.Wait()
 
 		return runAll(ctx,
 			func(ctx context.Context) error { return queue.Run(ctx, resendInterval) },
@@ -245,6 +279,44 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 				}, contact)
 			})
 	}}, nil
+}
+
+// registerContactInstruments exports what the dispatch loop and the report
+// queue count, so the numbers an operator is told to read together can be
+// reached from outside the process.
+//
+// The two loops here act when nothing is happening, and the failure that hides
+// is total: a dispatch loop that has never connected looks exactly like one
+// with nothing to do. The events each loop emits carry a connection or a
+// disconnection as it happens; what they cannot carry is the state — a client
+// at zero connections and climbing failures, which emits one record per
+// attempt and no total, or a first stream still open, which emits nothing at
+// all. These are the totals that tell those apart.
+func registerContactInstruments(ctx context.Context, contact *dispatch.Contact, queue *report.Queue) error {
+	meter := service.Meter(ctx)
+	observe := func(name, unit, description string, read func() int64) error {
+		_, err := meter.Int64ObservableCounter(name,
+			metric.WithUnit(unit),
+			metric.WithDescription(description),
+			metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+				o.Observe(read())
+				return nil
+			}))
+		return err
+	}
+
+	return errors.Join(
+		observe("flowseer.edge.dispatch.connections", "{stream}",
+			"dispatch streams central has served this agent", contact.Connections),
+		observe("flowseer.edge.dispatch.failures", "{attempt}",
+			"dispatch stream attempts that failed, opening or mid-stream", contact.Failures),
+		observe("flowseer.edge.dispatch.messages", "{message}",
+			"dispatches received on the stream", contact.Messages),
+		observe("flowseer.edge.reports.sent", "{report}",
+			"reports central has confirmed", queue.Sent),
+		observe("flowseer.edge.reports.dropped", "{report}",
+			"reports discarded at the queue ceiling", queue.Dropped),
+	)
 }
 
 // clock is the lane's source of time: what the deployment substituted, or the

@@ -295,6 +295,62 @@ func TestACompressedRequestIsRefusedHereRatherThanByCentral(t *testing.T) {
 	}
 }
 
+// TestEveryEncodingHeaderCentralRefusesIsRefusedHere keeps this guard level
+// with central's. Connect and gRPC disagree about which header carries the
+// encoding — a unary Connect request uses Content-Encoding, a streaming one
+// Connect-Content-Encoding, a gRPC client Grpc-Encoding — and central checks
+// all three case-insensitively. A guard reading fewer lets a compressed
+// stream reach central to be refused with a bare status, which is what this
+// exists to prevent; a guard stricter than central refuses what central would
+// have taken.
+func TestEveryEncodingHeaderCentralRefusesIsRefusedHere(t *testing.T) {
+	for _, tc := range []struct {
+		header   string
+		encoding string
+		refuse   bool
+	}{
+		{"Content-Encoding", "gzip", true},
+		{"Connect-Content-Encoding", "gzip", true},
+		{"Grpc-Encoding", "gzip", true},
+		{"Content-Encoding", "identity", false},
+		{"Connect-Content-Encoding", "IDENTITY", false},
+	} {
+		t.Run(tc.header+"="+tc.encoding, func(t *testing.T) {
+			signer := identity.NewSigner(
+				ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize)), vectorEnrollment(), time.Now)
+			sent := false
+			base := roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				sent = true
+				return &http.Response{StatusCode: http.StatusOK, Body: http.NoBody}, nil
+			})
+
+			request, err := http.NewRequest(http.MethodPost,
+				"https://central.example.test/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission", http.NoBody)
+			if err != nil {
+				t.Fatalf("NewRequest: %v", err)
+			}
+			request.Header.Set(tc.header, tc.encoding)
+
+			_, err = identity.SigningTransport(base, signer).RoundTrip(request)
+			if tc.refuse {
+				if err == nil {
+					t.Error("RoundTrip() error = nil, want the compressed request refused")
+				}
+				if sent {
+					t.Error("the compressed request was sent anyway")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("RoundTrip() error = %v, want an identity encoding accepted", err)
+			}
+			if !sent {
+				t.Error("an uncompressed request was refused")
+			}
+		})
+	}
+}
+
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

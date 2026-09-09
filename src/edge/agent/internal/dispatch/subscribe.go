@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,13 @@ import (
 
 // ErrCodeSubscribe identifies a dispatch loop that could not be started.
 var ErrCodeSubscribe = errs.NewCode("agent/subscribe")
+
+// ErrCodeUncodedRefusal is what a dispatch is refused with when the lane
+// declined it through an error carrying no code of its own. It crosses the
+// wire, so central classifies on it: deliberately not one of the codes
+// central names, so the refusal falls to central's default and stays
+// retryable rather than disposing a mutation on a cause nobody diagnosed.
+var ErrCodeUncodedRefusal = errs.NewCode("agent/uncoded-refusal")
 
 const (
 	defaultMinBackoff = time.Second
@@ -145,7 +153,7 @@ func Run(ctx context.Context, cfg Config, contact *Contact) error {
 			if err := cfg.Resync(ctx); err != nil {
 				log.WarnContext(ctx, "device listing failed",
 					slog.String("otel.event.name", "flowseer.edge.devices.listing_failed"),
-					slog.Any("error", err))
+					slog.String("error.type", errorType(err)))
 			}
 		}
 
@@ -158,7 +166,7 @@ func Run(ctx context.Context, cfg Config, contact *Contact) error {
 			log.WarnContext(ctx, "dispatch stream ended",
 				slog.String("otel.event.name", "flowseer.edge.dispatch.disconnected"),
 				slog.Int64("flowseer.edge.dispatch.messages", delivered),
-				slog.Any("error", err))
+				slog.String("error.type", errorType(err)))
 		}
 
 		if delivered > 0 {
@@ -203,15 +211,16 @@ func attempt(ctx context.Context, cfg Config, contact *Contact, log *slog.Logger
 		delivered++
 		served()
 		if err := cfg.Handler.Handle(ctx, message); err != nil {
-			// Not fatal to the stream. Central re-sends what it is still
-			// owed, and a message this edge cannot apply has already been
-			// answered with a refusal by the handler; dropping the stream
-			// would cost every other device's messages for one device's
-			// problem.
-			log.WarnContext(ctx, "dispatch could not be applied",
-				slog.String("otel.event.name", "flowseer.edge.dispatch.refused"),
+			// Dropped, not refused: the handler answers what it can refuse
+			// and returns nothing, so an error here is a message it could
+			// not act on at all and central was told nothing about. Not
+			// fatal to the stream — central re-sends what it is still owed,
+			// and dropping the stream would cost every other device's
+			// messages for one device's problem.
+			log.WarnContext(ctx, "dispatch dropped; this agent understands no arm of it",
+				slog.String("otel.event.name", "flowseer.edge.dispatch.dropped"),
 				slog.String("flowseer.device.id", message.GetDeviceId()),
-				slog.Any("error", err))
+				slog.String("error.type", errorType(err)))
 		}
 	}
 
@@ -224,6 +233,25 @@ func attempt(ctx context.Context, cfg Config, contact *Contact, log *slog.Logger
 		contact.connections.Add(1)
 	}
 	return delivered, err
+}
+
+// errorType classifies a failure for the error.type attribute: the error's
+// own code where it has one, and the two context causes by name where it does
+// not. A bounded value, because it becomes a metric dimension downstream —
+// the error's message must not, since it carries whatever the transport put
+// in it.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
+	}
 }
 
 func waitFor(ctx context.Context, d time.Duration) bool {

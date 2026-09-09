@@ -46,7 +46,16 @@ operator who measures a horizon centrally and watches mutations go on being
 refused has otherwise nothing anywhere connecting the two facts.
 
 A device listed without a measured horizon is onboarded all the same and
-read as usual; the lane refuses a mutation on it. The horizon bounds how
+read as usual; the lane refuses a mutation on it.
+
+Onboarding one device is bounded. It runs before every attempt to open the
+dispatch stream, and adding a device probes it — a device that is powered off
+does not refuse the probe, it says nothing, for as long as the transport will
+wait. Unbounded and serial, a handful of dead devices adds minutes to every
+reconnection while the heartbeat goes on succeeding and the listing has not
+failed, so from central the edge looks enrolled, healthy, and permanently
+unsubscribed. A device that runs out of time is left unheld and tried again
+on the next listing, which is what happens to one that fails outright. The horizon bounds how
 long a mutation's effect may stay unknown, and a read has no effect to
 become visible.
 
@@ -89,7 +98,19 @@ drop. The cost is one acquisition per read and per mutation, which is what
 The same reasoning runs through the identity: the private key is the whole of
 what this edge is, central holds only the public half, and an edge that loses
 it cannot be recovered by anything the edge itself can do. It is written
-before the first `Enroll` and never sent.
+before the first `Enroll` and never sent — and the directory entry naming it
+is flushed before the call goes out, since a key whose name never reached disk
+is lost just as completely as one never written, against a setup key central
+has by then consumed.
+
+An edge that enrolls also adopts central's clock for the run that enrolled it.
+`EnrollResponse` carries central's time, and an edge whose real-time clock is
+dead would otherwise sign every assertion from a factory date, be refused for
+skew, and fail the bus attachment — which ends the process. The difference is
+measured, not stored: an edge that loads an enrollment written on an earlier
+run signs on its own clock again. Carrying it across restarts means adopting
+the time the heartbeat already returns, and a decision about where that offset
+lives.
 
 ## The two things that are held open
 
@@ -98,7 +119,12 @@ nothing is happening — which is the shape that hides a total failure as
 silence.
 
 `dispatch.Contact` counts streams central served, failures, and messages, so a
-client dead since its first attempt is a number rather than a quiet fleet.
+client dead since its first attempt is a number rather than a quiet fleet. All
+three are exported as counters —
+`flowseer.edge.dispatch.connections`, `.failures` and `.messages` — because
+the state that matters here is what no single event carries: the loop emits a
+record when it connects and when it drops, and nothing at all while a first
+stream stays open.
 Read together: connections climbing with failures at zero is healthy;
 connections at zero with failures climbing is a client that has never reached
 anything; both at zero is a first stream still open. Connections climbing with
@@ -129,5 +155,15 @@ release the state the record describes before anything durable held it.
 A duplicate dispatch is answered from what this edge already reported rather
 than run again — central re-dispatches exactly what it holds no report for,
 so what it wants is the report. The memory of an operation is released when
-central confirms it, not when the operation finishes: a completed operation is
-the most likely thing to be re-dispatched.
+central confirms a report that *ends* it, not when the operation finishes: a
+completed operation is the most likely thing to be re-dispatched, and a
+progress report or an acknowledgement is one central takes while the operation
+is still running. Releasing on either would leave the sequence admittable
+again with the lane still holding it, and the next re-dispatch would apply the
+mutation to the device a second time.
+
+The re-send order matters for the same reason. A device whose report central
+refuses sends no later report until that one lands; other devices carry on.
+Without the hold an `Onboarded` — which is not phase-ordered, and which clears
+central's per-dispatch confirmations when it arrives — can overtake the
+reports it precedes and re-open operations they had settled.

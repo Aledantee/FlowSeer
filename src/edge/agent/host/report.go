@@ -52,9 +52,6 @@ func (r laneReporter) Onboarded(ctx context.Context, deviceKey, fingerprint stri
 }
 
 func (r laneReporter) send(ctx context.Context, deviceKey string, set func(*integrationv1.ReportRequest)) {
-	if r.out == nil {
-		return
-	}
 	report := &integrationv1.ReportRequest{}
 	report.SetDeviceId(deviceKey)
 	set(report)

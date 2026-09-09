@@ -102,3 +102,18 @@ func TestEmitBlocksUntilCentralAnswers(t *testing.T) {
 		t.Errorf("central saw %d records, want 1", audit.count())
 	}
 }
+
+// TestAnAbsentRecordIsNotSuccess covers the one way this deliverer could tell
+// the lane a record is durable without anything having been written. The lane
+// moves its phase on a nil error, so a nil record must not produce one.
+func TestAnAbsentRecordIsNotSuccess(t *testing.T) {
+	client := &auditFake{}
+	deliverer := report.NewDeliverer(client, "edge-1")
+
+	if err := deliverer.Emit(context.Background(), nil); err == nil {
+		t.Fatal("Emit(nil) returned no error; the lane would release a phase with no record behind it")
+	}
+	if got := client.count(); got != 0 {
+		t.Errorf("Deliver called %d times, want 0", got)
+	}
+}

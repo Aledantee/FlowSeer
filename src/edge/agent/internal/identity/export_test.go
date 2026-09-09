@@ -10,6 +10,11 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 )
 
+// SameKeyForTest reports whether two identities hold the same private key.
+// The field is unexported because it is a private key; a test that has to
+// prove enrollment reused the key on disk still needs to ask.
+func SameKeyForTest(a, b *Identity) bool { return a.key.Equal(b.key) }
+
 // SetNonceForTest fixes the nonce a signer draws, so a header can be compared
 // against a published vector. Production draws from crypto/rand.
 func SetNonceForTest(s *Signer, nonce []byte) {

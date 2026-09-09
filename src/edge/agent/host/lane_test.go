@@ -47,7 +47,7 @@ func TestALaneCanBeAssembledFromOutsideTheAccessModule(t *testing.T) {
 		ReadCredentials:       read,
 		SubmissionCredentials: submission,
 		Telemetry:             telemetry,
-		Reporter:              host.LaneReporterForTest(nil),
+		Reporter:              host.LaneReporterForTest(discardOutbound{}),
 		Audit:                 auditNoop{},
 		Clock:                 time.Now,
 		OperationTimeout:      time.Second,
@@ -162,3 +162,11 @@ func readRequest() *integrationv1.ExecuteRequest {
 	request.SetSequence(1)
 	return request
 }
+
+// discardOutbound stands in for the queue where a test drives the lane and
+// asserts nothing about what was reported. Not nil: a reporter that answered
+// a missing queue by dropping the report would make the wiring mistake it
+// exists to prevent invisible in production too.
+type discardOutbound struct{}
+
+func (discardOutbound) Report(context.Context, *integrationv1.ReportRequest) {}

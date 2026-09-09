@@ -34,8 +34,9 @@ type Demux struct {
 	registry *registry
 	log      *slog.Logger
 
-	// running tracks the mutations still in the lane, so Close can wait for
-	// them rather than returning while reports are still being made.
+	// running tracks the operations still in the lane, so Wait can hold a
+	// shutdown until they have made their reports rather than letting the
+	// queue that carries those reports stop first.
 	running sync.WaitGroup
 }
 
@@ -51,9 +52,16 @@ func NewDemux(lane Lane, out Outbound, log *slog.Logger) *Demux {
 func (d *Demux) Wait() { d.running.Wait() }
 
 // Confirmed releases what this edge remembers about an operation, once
-// central has acknowledged the report for it.
+// central has acknowledged a report that ends it.
 //
-// Not when the operation finishes. Central re-dispatches a sequence exactly
+// A report that ends it, not any report about it. Central takes a progress
+// report and an acknowledgement while the operation is still running, and
+// releasing here on one of those would leave the sequence admittable again
+// while the lane still holds it — a re-dispatch would then run it on the
+// device a second time. The report queue draws that line and is the only
+// caller.
+//
+// Not when the operation finishes, either. Central re-dispatches a sequence exactly
 // because it has no report recorded, so a completed operation is the case
 // most likely to be dispatched again — forgetting at completion means the
 // next re-dispatch runs it on the device a second time, which is what this
@@ -78,17 +86,20 @@ func (d *Demux) Handle(ctx context.Context, message *integrationv1.SubscribeResp
 	case message.HasExecute():
 		return d.execute(ctx, device, message.GetExecute())
 	case message.HasCheckpoint():
-		return d.deliver(ctx, device, message.GetCheckpoint().GetSequence(),
+		d.deliver(ctx, device, message.GetCheckpoint().GetSequence(),
 			integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT,
 			func() error { return d.lane.HandleCheckpoint(device, message.GetCheckpoint()) })
+		return nil
 	case message.HasTerminalAck():
-		return d.deliver(ctx, device, message.GetTerminalAck().GetSequence(),
+		d.deliver(ctx, device, message.GetTerminalAck().GetSequence(),
 			integrationv1.DispatchKind_DISPATCH_KIND_TERMINAL_ACK,
 			func() error { return d.lane.HandleTerminalAck(ctx, device, message.GetTerminalAck()) })
+		return nil
 	case message.HasHoldResolved():
-		return d.deliver(ctx, device, message.GetHoldResolved().GetSequence(),
+		d.deliver(ctx, device, message.GetHoldResolved().GetSequence(),
 			integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED,
 			func() error { return d.lane.ResolveHold(ctx, device, message.GetHoldResolved()) })
+		return nil
 	default:
 		// A dispatch arm this build does not know. Not refusable — Refused
 		// needs a sequence and a kind, and neither is readable here — so it
@@ -146,13 +157,12 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 }
 
 // deliver hands central's message to the lane and refuses it if the lane will
-// not take it.
-func (d *Demux) deliver(ctx context.Context, device string, sequence uint64, kind integrationv1.DispatchKind, call func() error) error {
+// not take it. A refusal is an answer central acts on, not a failure of this
+// edge to handle the dispatch, so nothing is returned to the stream loop.
+func (d *Demux) deliver(ctx context.Context, device string, sequence uint64, kind integrationv1.DispatchKind, call func() error) {
 	if err := call(); err != nil {
 		d.refuse(ctx, device, sequence, kind, err)
-		return nil
 	}
-	return nil
 }
 
 // refuse tells central this edge will not act on a dispatch, and why.
@@ -165,13 +175,23 @@ func (d *Demux) refuse(ctx context.Context, device string, sequence uint64, kind
 	code, ok := errs.CodeOf(cause)
 	if !ok {
 		// Refused's code is a required, pattern-constrained field, so an
-		// uncoded error cannot be sent as itself. It is reported under the
-		// lane's own generic refusal rather than dropped: central needs to
-		// know the dispatch was not taken.
-		code = access.ErrCodeUnknownDevice
+		// uncoded error cannot be sent as itself. It goes under this code
+		// rather than being dropped, because central needs to know the
+		// dispatch was not taken.
+		//
+		// Its own code, not one of the lane's. Central classifies a refusal
+		// by code, and every code it names carries a decision: unknown-device
+		// resolves against the registry and disposes the mutation REJECTED
+		// when the device is no longer listed. Sending one of those for an
+		// error that is not that condition would have central act terminally
+		// on a cause that never occurred. A code central does not name falls
+		// to its default, which leaves the row owed and re-dispatched — the
+		// right answer for a failure this edge could not classify.
+		code = ErrCodeUncodedRefusal
 		d.log.WarnContext(ctx, "refusing a dispatch for an uncoded error",
 			slog.String("flowseer.device.id", device),
-			slog.Any("error", cause))
+			slog.String("error.type", string(code)),
+			slog.String("flowseer.edge.refusal.cause", cause.Error()))
 	}
 
 	refused := &integrationv1.Refused{}

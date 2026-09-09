@@ -58,13 +58,28 @@ type registrarFake struct {
 	added    []string
 	sessions map[string]access.DeviceSession
 	failing  map[string]bool
+	stalling map[string]bool
 }
 
 func newRegistrar() *registrarFake {
-	return &registrarFake{sessions: map[string]access.DeviceSession{}, failing: map[string]bool{}}
+	return &registrarFake{
+		sessions: map[string]access.DeviceSession{},
+		failing:  map[string]bool{},
+		stalling: map[string]bool{},
+	}
 }
 
-func (r *registrarFake) AddDevice(_ context.Context, deviceKey string, session access.DeviceSession) error {
+func (r *registrarFake) AddDevice(ctx context.Context, deviceKey string, session access.DeviceSession) error {
+	r.mu.Lock()
+	stalling := r.stalling[deviceKey]
+	r.mu.Unlock()
+	if stalling {
+		// What a powered-off device does: it does not refuse, it says
+		// nothing, until whoever is asking gives up.
+		<-ctx.Done()
+		return ctx.Err()
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.failing[deviceKey] {
@@ -190,7 +205,10 @@ func newOnboarderOver(t *testing.T, lister *listerFake, registrar *registrarFake
 	if logs != nil {
 		logger = slog.New(logs)
 	}
-	cfg := lanehost.OnboardConfig{Client: lister, Lane: registrar, Edge: edgeRef(), Logger: logger}
+	cfg := lanehost.OnboardConfig{
+		Client: lister, Lane: registrar, Edge: edgeRef(), Logger: logger,
+		PerDeviceTimeout: 50 * time.Millisecond,
+	}
 	if endpoints != nil {
 		cfg.OpenSNMP, cfg.OpenShell = endpoints.openSNMP, endpoints.openShell
 	}
@@ -440,5 +458,35 @@ func TestDivergedFieldsNamesEachChangeAndItsValues(t *testing.T) {
 	}
 	if got := lanehost.DivergedFields(previous, previous); len(got) != 0 {
 		t.Errorf("DivergedFields() over an unchanged listing = %v, want none", got)
+	}
+}
+
+// TestADeviceThatNeverAnswersDoesNotHoldTheListingUp is why onboarding is
+// bounded per device.
+//
+// Sync runs before every attempt to open the dispatch stream, and adding a
+// device probes it over SNMP. A device that is powered off does not refuse;
+// it says nothing for the backend's whole retransmit horizon. Unbounded and
+// serial, a few of those delay every reconnection by minutes — with the
+// heartbeat still succeeding and the listing not having failed, so from
+// central the edge looks enrolled, healthy, and permanently unsubscribed.
+func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
+	registrar := newRegistrar()
+	registrar.stalling[deviceOne] = true
+	lister := &listerFake{listings: [][]*edgev1.ListedDevice{{
+		listedDevice(deviceOne, time.Minute), listedDevice(deviceTwo, time.Minute),
+	}}}
+	onboarder := newOnboarder(t, lister, registrar, nil)
+
+	start := time.Now()
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Errorf("Sync took %v; a silent device held the whole listing", elapsed)
+	}
+	if got := registrar.addedDevices(); !slices.Equal(got, []string{deviceTwo}) {
+		t.Errorf("added = %v, want only %q: the silent device is not held and is tried again", got, deviceTwo)
 	}
 }
