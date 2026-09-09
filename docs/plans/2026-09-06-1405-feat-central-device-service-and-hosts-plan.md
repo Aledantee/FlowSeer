@@ -1920,6 +1920,61 @@ malformed config exits 2 before anything binds, which is a contract nothing
 has ever checked.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/cmd/**' 'src/edge/agent/cmd/**' 'docs/runbooks/**' 'src/services/device/test/integration/*.go')`
 
+### U8m. One shell session per device, held and reused
+Files: `src/modules/localnet/access/lane.go`, its tests, the access README
+After: the runbook revision. **Not a blocker for the lab run** — see below.
+
+Change: the lane opens an SSH session per operation and closes it with the
+operation. The user's direction is one session per device, held for a period
+and reused, with concurrent operations serialized onto it.
+
+**The device is the reason, and it is measured rather than argued.** FastIron
+caps concurrent SSH sessions, and a session that does not exit cleanly makes
+the next login fail with `Permission denied` — which reads as a wrong password
+and is not one. A session per operation spends a scarce device-side resource,
+and drift polling across a fleet becomes a login storm.
+
+**It is a lifetime change and not a concurrency one, which was checked rather
+than assumed.** A device's shell is opened in exactly two places, both inside
+the closures `machineDeps` builds — the read's fallback route and the
+mutation's submission — and both are driven from `process` or from `pollOnce`,
+each of which holds `ds.draining` for the whole operation. The onboarding and
+epoch probes use SNMP, not the shell. So **nothing can overlap on a device's
+shell today**, the serialization the direction asks for already exists, and
+this unit must not add a second lock for it. If a later operation needs the
+shell outside the drain lock, that is where the concurrency question comes
+back.
+
+**What the per-operation shape was for, which the new shape has to satisfy
+rather than discard.** `DeviceSession` became a set of factories because a
+standing session outlives the credential it was opened with: a credential
+central revoked goes on working until something drops the connection, so
+revocation means nothing in the meantime. That reasoning is still correct.
+
+The shape that keeps it: **the per-operation credential acquisition stays
+exactly as it is** — it is the authority check, it is cheap, and it is what
+makes revocation land. What changes is only what the credential is used for.
+Today it opens a connection; instead it authorizes use of one already open.
+An acquisition that fails closes the held session, so a revoked credential
+drops the connection at the next operation rather than whenever something
+happens to. And the idle hold is bounded, because between operations nothing
+is checking anything at all — the number needs a reason written next to it,
+not a round figure.
+
+**The residual, to be stated and not implied away.** A session opened under
+credential A can serve an operation authorized by credential B; the device
+only knows the login it accepted. So revocation takes effect within an
+operation rather than within a connection, which is a weaker guarantee than
+today's. That belongs in the access README beside the factories' own
+rationale, because a reader who finds the factories will otherwise conclude
+the old guarantee still holds.
+
+Tests: a second operation on one device reuses the session the first opened;
+a failed credential acquisition closes it; the idle bound closes it; and the
+existing per-operation acquisition count does not change — that last is the
+one that catches a reuse that also stopped acquiring.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/*.md')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
