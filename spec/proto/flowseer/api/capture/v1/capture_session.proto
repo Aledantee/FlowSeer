@@ -40,9 +40,9 @@ message LocalInterfaceSource {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1
   ];
-  // Whether the interface captures frames not addressed to the host.
-  // Implicit presence: false is the interface's normal mode.
-  bool promiscuous = 2 [features.field_presence = IMPLICIT];
+  // Whether the interface captures frames not addressed to the host. Unset
+  // means the interface's normal mode.
+  bool promiscuous = 2;
 }
 
 // A capture read by receiving packets a network device mirrors here.
@@ -121,9 +121,9 @@ message CaptureAuthorization {
     (buf.validate.field).string.max_len = 2048
   ];
   // Whether the operator explicitly asked for full packet payload rather
-  // than headers only. Implicit presence: false and not requested are the
-  // same state.
-  bool full_payload_requested = 3 [features.field_presence = IMPLICIT];
+  // than headers only. Must be present: an authorization record states the
+  // choice rather than leaving it to a default.
+  bool full_payload_requested = 3 [(buf.validate.field).required = true];
 }
 
 // Where a capture session stands between creation and its terminal outcome.
@@ -226,7 +226,7 @@ message CaptureSessionState {
       not_in: [0]
     }
   ];
-  // Why the session stopped. Unset while the session has not completed.
+  // Why the session stopped. Unset while the session is still running.
   CaptureStopReason stop_reason = 3 [(buf.validate.field).enum = {defined_only: true}];
   // When the session began capturing. Unset means it has not started.
   google.protobuf.Timestamp started_at = 4;
