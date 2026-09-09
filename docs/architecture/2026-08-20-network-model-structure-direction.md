@@ -54,6 +54,7 @@ spec/proto/flowseer/
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
+    capture/v1/         LinkType, CaptureCounters, CaptureFilter, mirror encapsulation, PacketRecord
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
@@ -79,6 +80,7 @@ Import layering is acyclic. The foundational dependency graph is:
 ```
 net/addr ← {net/switching, net/ip}
 net/packet ← net/switching
+{net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← api/inventory
@@ -737,3 +739,19 @@ Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
   microamperes, microvolts, and millidegrees carry SFF-8472's native steps
   without loss and give zero light a plain zero; consumers derive dBm. Two
   vendored DDM MIBs report dBm, and the mapper converts them once.
+
+### 2026-09-09 — net/capture holds the ref-free capture values
+
+Remote packet capture splits on the primitive/entity line this record already
+draws. `flowseer.net.capture.v1` now holds the values a capture produces and
+selects on: a link type, capture counters, a capture filter, the mirror
+encapsulation metadata, and a packet record. None of them carry a ref, so the
+package sits under `net/` and the import order gains
+`{net/addr, net/packet, net/switching} ← net/capture`. The session that owns
+these values, with its own ref, lifecycle, and services, is a separate entity
+package that a later change adds, with its own amendment here.
+
+`net/capture` needs neither `net/phy` nor `net/ip`: it takes match atoms and
+address types from `net/addr` and `net/packet`, and the VLAN-identifier
+validation rules from `net/switching`, and nothing from the physical-layer or
+IP-facet values.
