@@ -76,3 +76,36 @@ Suggested change: skip `buf breaking` when every targeted path is absent from
 the against-ref, or drop `--path` for that one command and let `buf.yaml`'s
 ignore do the selecting. Separately, expand a directory argument to the
 `.proto` files under it, or fail loudly when a passed path selects no gate.
+
+## 2026-09-09 plan: a net package's unit missed the executable import order
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 3, and the unit that adds
+a package under `spec/proto/flowseer/net/`.
+What happened: a phase plan added `flowseer/net/capture/v1` and had one unit
+amend the package tree and import order in
+`docs/architecture/2026-08-20-network-model-structure-direction.md`. That
+record says its own order's "home for automated checking is
+`test/conformance/proto/`", but no unit named
+`test/conformance/proto/layering_test.go`, so `importOrder` never gained the
+package. Every targeted per-unit check passed; only the `--full` run failed,
+with `TestNetImportOrder` reporting `package net/capture declares no layer in
+importOrder` once per import and `TestNetImportOrderCoversEveryPackage`
+reporting the package outright. The plan was followed as written.
+Suggested change: when a plan adds a package under `spec/proto/flowseer/net/`,
+its unit files list `test/conformance/proto/layering_test.go` beside the
+architecture record, because the record's import-order block is prose and that
+table is the executable copy. The two are a mirrored pair and belong under the
+same message-sync habit as the triad and the ref pair.
+
+## 2026-09-09 delegate: a ledger note did not stop a repeated convention slip
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief", item 5.
+What happened: a worker set `features.field_presence = IMPLICIT` on the
+counter fields of a new message, which no file under `spec/proto/flowseer/`
+does; the coordinator reverted it and put the correction in the unit's ledger
+`note`. Two units later the brief carried that note verbatim and the same
+model set the same feature on two boolean fields of a different message. On an
+authorization record the cost was real: implicit presence collapses "the
+operator did not say" and "the operator declined full payload" into `false`.
+Suggested change: a correction that generalizes past its own unit is not a
+ledger note. Either the coordinator writes it into the convention doc that
+governs the file type before the next dispatch, or the brief states it as a
+prohibition in its own line rather than inside a list of prior-unit notes.
