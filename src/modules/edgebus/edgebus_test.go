@@ -8,12 +8,14 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +34,15 @@ const (
 	edgeID  = "0192e6a0-0000-7000-8000-0000000000ed"
 	otherID = "0192e6a0-0000-7000-8000-0000000000ee"
 )
+
+func TestEdgeCredentialsFormattingRedactsSeed(t *testing.T) {
+	const seed = "SUAFLOWSEEREDGESEED"
+	creds := edgebus.EdgeCredentials{Seed: secret.NewString(seed)}
+
+	if rendered := fmt.Sprintf("%+v", creds); strings.Contains(rendered, seed) {
+		t.Fatalf("formatted edge credentials exposed seed: %s", rendered)
+	}
+}
 
 func startHub(t *testing.T, dir string, port int) *edgebus.Hub {
 	t.Helper()

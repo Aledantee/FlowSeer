@@ -259,7 +259,8 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 	}
 	conn, err := nats.Connect("nats://hub",
 		nats.InProcessServer(srv),
-		nats.UserJWTAndSeed(user.UserJWT, user.Seed),
+		// NATS accepts the seed only as a raw string, so reveal it at this boundary.
+		nats.UserJWTAndSeed(user.UserJWT, user.Seed.RevealString()),
 		nats.Name("flowseer-"+name),
 	)
 	if err != nil {

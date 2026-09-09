@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nkeys"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // ErrCodeKeys identifies a failure loading, creating, or using the hub's
@@ -182,13 +183,13 @@ func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, diskBytes int64
 type EdgeCredentials struct {
 	AccountJWT string
 	UserJWT    string
-	Seed       string
+	Seed       secret.Value
 }
 
 // CredsFile renders the user JWT and seed in the .creds layout a leaf
 // remote reads.
 func (c EdgeCredentials) CredsFile() ([]byte, error) {
-	creds, err := jwt.FormatUserConfig(c.UserJWT, []byte(c.Seed))
+	creds, err := jwt.FormatUserConfig(c.UserJWT, c.Seed.Reveal())
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeKeys).Msg("format user credentials")
 	}
@@ -218,7 +219,7 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 	if err != nil {
 		return EdgeCredentials{}, errs.From(err).Code(ErrCodeKeys).Attr("user", name).Msg("encode user claims")
 	}
-	return EdgeCredentials{AccountJWT: accountJWT, UserJWT: encoded, Seed: string(seed)}, nil
+	return EdgeCredentials{AccountJWT: accountJWT, UserJWT: encoded, Seed: secret.New(seed)}, nil
 }
 
 // edgePermissions is the minimal set that lets the hub source an edge's
