@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -224,9 +225,28 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string) *
 // returns the status it saw.
 func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessStatusResponse {
 	t.Helper()
-	deadline := time.Now().Add(fixtureResolveDeadline)
+	started := time.Now()
+	deadline := started.Add(fixtureResolveDeadline)
 	var last *devicev1.GetDeviceAccessStatusResponse
+	// Sampled while waiting and logged only on the way out.
+	//
+	// A mutation that does not resolve is the hardest failure in this package
+	// to diagnose after the fact, because the two explanations — recovery
+	// looked and saw nothing, or recovery never looked — differ only in
+	// whether the device was asked, and nothing in the final status says
+	// which. The session count is what separated them both times it came up.
+	// A failure that carries it costs one line more than one that does not,
+	// and this failure has twice been seen on a machine that was not the one
+	// that could reproduce it.
+	var trail []string
+	nextSample := 15 * time.Second
 	for {
+		if elapsed := time.Since(started); elapsed > nextSample {
+			nextSample += 15 * time.Second
+			_, _, _, cmds, sessions := d.device.snapshot()
+			trail = append(trail, fmt.Sprintf("t+%.0fs sessions=%d writes=%d phase=%v",
+				elapsed.Seconds(), sessions, len(cmds), last.GetUnresolved().GetPhase()))
+		}
 		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
 			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
 		if err == nil {
@@ -236,6 +256,7 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 			}
 		}
 		if time.Now().After(deadline) {
+			t.Logf("the device over the wait, sampled every 15s: %v", trail)
 			t.Fatalf("the mutation never resolved; last status: %v (error %v)", last, err)
 		}
 		time.Sleep(50 * time.Millisecond)

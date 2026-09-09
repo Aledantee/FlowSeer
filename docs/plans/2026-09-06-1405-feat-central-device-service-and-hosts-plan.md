@@ -1601,6 +1601,49 @@ It is renamed rather than reordered, so that the unit letters keep running in
 the order the units do, as U8b through U8e already do.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/edge/agent/**')`
 
+### U8h. The hub a host started, and the audit stream's order
+Files: `src/services/device/internal/host/host.go`,
+`src/services/device/test/integration/`
+After: U8g. Closes requirement 10's last clause.
+Change: central's audit records go to the `FLOWSEER_DEVICE_AUDIT` stream
+inside the hub, `host.Run` owns the hub, and nothing reaches it from
+outside — so "the audit stream holds the expected kinds in order" cannot be
+written. The test cannot mint itself bus credentials either, since
+`MintEdgeUser` is the hub's, and it cannot borrow the edge's, since those
+live inside the agent.
+
+`Options` gains `Hub func(*edgebus.Hub)`, called once per hub-module attempt
+after the hub is up and its resources are built and before anything uses
+them. It is the same category as `Options.Bound`: a host telling its embedder
+what it constructed, defensible for an admin surface or a health check with
+no test in sight.
+
+**The staleness rule is the load-bearing part of its doc.** The modules below
+the hub are supervised `RestForOne` exactly because a rebuilt hub invalidates
+everything holding its resources, and `hubHandle` exists internally to stop a
+stale one being used. Handing an embedder a raw handle invites the same bug
+the internal machinery exists to prevent, so the doc says the handle is valid
+until the next call and a caller that caches it across a hub restart holds a
+dead server.
+
+**The test asserts order, not presence, and a subsequence rather than a
+transcript.** "The expected kinds are all there" passes for a stream that
+emitted them in any sequence. An exact transcript is the other failure: it
+asserts whatever the system happens to do, so it passes on the first run by
+construction and breaks on every unrelated change. What it asserts is the
+ordering the accountability rests on — for one applied description, that the
+device was identified before anything was done to it, that the record saying
+the change was applied precedes the record saying the lane was released, and
+that no release appears before its own mutation's evidence. Other records may
+appear between them.
+
+That property is what makes the lab write accountable: a stream where a
+release can precede the evidence for it is a stream that cannot answer what
+was done to the device, and nothing else in this plan checks it. The pieces
+cover that each record is emitted; the assembled run is the only place their
+order is observable.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/host/*.go' 'src/services/device/test/integration/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
