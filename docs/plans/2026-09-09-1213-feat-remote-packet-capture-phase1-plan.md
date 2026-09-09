@@ -4,13 +4,20 @@ type: feat
 date: 2026-09-09
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Remote Packet Capture Phase 1, Schema - Plan
+
+> Implemented. All six units landed. Two additions the plan did not
+> carry: `test/conformance/proto/layering_test.go` gained `net/capture`,
+> because the record's import order has an executable copy there and only
+> the full verifier catches a package missing from it; and the
+> `IpProtocol`/`IpDscp` use-site bounds landed as predefined `EnumRules`
+> extensions in `net/packet/v1`, this tree's first use sites for either.
 
 ## Goal
 
