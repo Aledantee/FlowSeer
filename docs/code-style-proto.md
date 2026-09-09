@@ -110,19 +110,24 @@ required on the wire:
 - **"Required" is a validation concern, not a schema-presence one.** Express it with
   protovalidate — `(buf.validate.field).required` — where it is enforced at the
   boundary and can be relaxed without a wire-format change.
-- **`IMPLICIT` is a deliberate, documented choice.** `features.field_presence =
-  IMPLICIT` restores proto3's no-presence behaviour: no `Has` accessor, no explicit
-  default allowed, and the zero value indistinguishable from unset. Use it only where
-  that collapse is genuinely correct (a counter, a flag whose false *is* its default),
-  and say so in the field comment.
+- **Never `IMPLICIT` either.** `features.field_presence = IMPLICIT` restores proto3's
+  no-presence behaviour: no `Has` accessor, no explicit default allowed, and the zero
+  value indistinguishable from unset. Presence stays at the edition default on every
+  field in this repository. The collapse always looks harmless on the field where it
+  is written and costs a reader elsewhere: a counter that reads zero cannot say
+  whether nothing happened or nothing counted, and a flag that reads false cannot say
+  whether it was set false or never set. Where zero or false genuinely is the only
+  sensible reading, say that in the field comment and leave presence alone — a comment
+  costs nothing and does not remove the accessor. No file under `spec/proto/flowseer/`
+  sets `field_presence`, and none should.
 
 ```protobuf
 // Poll interval for this device. Unset means the collector default applies.
 google.protobuf.Duration poll_interval = 4 [(buf.validate.field).duration.gte = {seconds: 1}];
 
-// Consecutive failed polls. Implicit presence: 0 and "never polled" are the
-// same state, and the collector treats them identically.
-int32 failure_streak = 5 [features.field_presence = IMPLICIT];
+// Consecutive failed polls. Unset means the device has not been polled; zero
+// means it has, and every poll succeeded.
+int32 failure_streak = 5;
 ```
 
 The absence of `required` on `poll_interval` above is the deliberate kind: the field is

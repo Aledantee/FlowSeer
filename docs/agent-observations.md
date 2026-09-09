@@ -96,42 +96,24 @@ architecture record, because the record's import-order block is prose and that
 table is the executable copy. The two are a mirrored pair and belong under the
 same message-sync habit as the triad and the ref pair.
 
-## 2026-09-09 code-style-proto: the style doc and a landed message disagree on counters
-Skill or agent: `docs/code-style-proto.md`, the presence section, against
-`spec/proto/flowseer/net/interface/v1/interface_counters.proto`.
-What happened: a worker set `features.field_presence = IMPLICIT` on the five
-fields of a new counters message and documented each in the field comment.
-That is the style doc followed exactly: `docs/code-style-proto.md:117` says to
-use IMPLICIT "only where that collapse is genuinely correct (a counter, a flag
-whose false *is* its default), and say so in the field comment", and its
-worked example is a counter with that comment shape. The coordinator reverted
-it anyway, citing `interface_counters.proto:6`, whose file comment says "an
-absent counter means the source does not report it — never a zero" and which
-uses explicit presence throughout. Both are in the tree and they disagree: no
-message under `spec/proto/flowseer/` sets `field_presence`, so the style doc
-names a case the schema has never taken. The distinction that would resolve it
-is not written down anywhere — a device-reported counter has a real "not
-reported" state, an engine-internal counter does not — so an agent reading
-either source alone reaches a different answer and each thinks it followed the
-rule. This is the "read and still produced the wrong result" case.
-Suggested change: `docs/code-style-proto.md` says which counters take IMPLICIT
-and which do not, and `interface_counters.proto`'s comment says why it is the
-second kind, or the doc drops "a counter" from its example and names a flag
-instead. Until then a reviewer cannot call either choice wrong.
-
-## 2026-09-09 delegate: a ledger note carried a correction the tree did not support
+## 2026-09-09 delegate: a coordinator's correction sat in a ledger note, not the convention doc
 Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief", item 5.
-What happened: the coordinator reverted a worker's `field_presence = IMPLICIT`
-and wrote the reversal into the unit's ledger `note` as though it were a
-convention. Two units later the brief carried that note verbatim and the same
-model set the same feature again. The coordinator read the recurrence as a
-worker ignoring an instruction; the entry above shows the instruction
-contradicted `docs/code-style-proto.md`, which the worker had been told to
-read. A ledger note travels with the authority of a convention while having
-none, and nothing in the brief tells a worker which of two conflicting sources
-wins.
+What happened: a worker set `features.field_presence = IMPLICIT` on a new
+counters message, following `docs/code-style-proto.md`, which then named a
+counter as the case for it. The coordinator reverted the change, which matched
+the tree — no file under `spec/proto/flowseer/` sets `field_presence` — but
+recorded the reversal only in the unit's ledger `note`. Two units later the
+brief carried that note verbatim and the same model set the same feature
+again, on a different message, having also been told to read the style doc
+that still permitted it. The coordinator read the recurrence as a worker
+ignoring an instruction and reported it that way; the worker had in fact
+followed the repository's own convention doc, and the note it was handed
+carried the authority of a convention while having none. The user later
+settled the rule and the doc now states it.
 Suggested change: a `note` records what the next unit needs to know about what
-landed, not a rule. A correction that generalizes past its own unit belongs in
-the convention doc that governs the file type, edited before the next
-dispatch; if the coordinator is not willing to edit that doc, the correction
-is a preference and the brief should not carry it as a prohibition.
+landed, not a rule. When a coordinator overrides a worker on something that
+will recur, the convention doc that governs the file type is edited before the
+next dispatch, or the override is a preference and the brief must not carry it
+as a prohibition. A brief that names a convention doc is telling the worker
+that doc is authoritative; contradicting it in a note puts the worker between
+two sources with no rule for which wins.
