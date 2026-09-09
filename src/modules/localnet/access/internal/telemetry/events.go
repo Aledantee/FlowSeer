@@ -24,6 +24,22 @@ func (v *View) event(ctx context.Context, name, message string, attrs ...slog.At
 	v.logger.LogAttrs(ctx, slog.LevelInfo, message, args...)
 }
 
+// eventAt is [View.event] for an event whose level is not INFO. Every event
+// in this package is a lifecycle fact and INFO is right for almost all of
+// them; one is a statement that the record of what happened is wrong, which
+// is not a lifecycle fact.
+func (v *View) eventAt(ctx context.Context, level slog.Level, name, message string, attrs ...slog.Attr) {
+	if v == nil {
+		return
+	}
+
+	args := make([]slog.Attr, 0, len(attrs)+1)
+	args = append(args, slog.String("otel.event.name", name))
+	args = append(args, attrs...)
+
+	v.logger.LogAttrs(ctx, level, message, args...)
+}
+
 // RouteSelected emits flowseer.device.route.selected for every route
 // resolution, and additionally emits flowseer.device.route.fallback when
 // fellThrough is true — the direction record's decision 1 case where a
@@ -74,6 +90,22 @@ func (v *View) LaneFrozen(ctx context.Context) {
 func (v *View) LaneBlocked(ctx context.Context, reason accessv1.BlockReason) {
 	v.event(ctx, "flowseer.device.lane.blocked", "lane blocked",
 		slog.String("flowseer.device.reason", reason.String()),
+	)
+}
+
+// AuditGap emits flowseer.device.audit.gap when a mutation ends still
+// holding audit records the stream never took.
+//
+// At ERROR, because it is the account of a device being wrong rather than a
+// device being slow: a reader of the stream cannot tell a gap from a device
+// nothing happened to, and the mutation this befalls is the one an operator
+// will later have to resolve. The event ids are named so the missing records
+// can be identified as missing rather than merely absent.
+func (v *View) AuditGap(ctx context.Context, deviceKey string, sequence uint64, eventIDs []string) {
+	v.eventAt(ctx, slog.LevelError, "flowseer.device.audit.gap", "audit records were never delivered",
+		slog.String("flowseer.device.id", deviceKey),
+		slog.Uint64("flowseer.device.sequence", sequence),
+		slog.Any("flowseer.device.audit.missing_event_ids", eventIDs),
 	)
 }
 

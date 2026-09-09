@@ -1481,10 +1481,19 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 	m := open.machine
 	ds.hold.Engage()
 
-	if err := m.EnterRecovering(ctx); err != nil {
-		// Recovery could not be entered, so no poll will run and nothing
-		// else will answer this caller. Fail it here rather than leaving
-		// it blocked on a loop that does not exist.
+	// A failure here is not one thing. The phase moves only once its own
+	// record is delivered, so a failure at that first step leaves nothing
+	// written and the mutation genuinely is not in recovery: no poll should
+	// run, and failing the caller is the only honest answer.
+	//
+	// Past that step the phase is RECOVERING and the block is written,
+	// whatever the audit stream has heard, and the records that did not land
+	// are retained for the poll to re-send. A mutation in that state needs a
+	// poll more than an intact account does — without one it rests
+	// INDETERMINATE forever on a device that may have been written to, and
+	// only an operator ends it. So the poll follows the state, and the
+	// records stay owed.
+	if err := m.EnterRecovering(ctx); err != nil && !m.InRecovery() {
 		return stepOutcome{err: errs.Wrap(err, "enter recovery"), owed: true}
 	}
 
@@ -1513,6 +1522,11 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 // goroutine forever.
 func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutation, result *integrationv1.ExecuteResult, err error) {
 	open.answered.Do(func() {
+		// Reported here rather than where the poll ends, because the poll is
+		// only one of the three things that can end a mutation and the
+		// records go with it whichever one does. An acknowledgement arriving
+		// while a record is still owed ends the mutation just as finally.
+		l.reportAuditGap(ctx, ds, open)
 		// A hold engaged because a mutation's effect was unknown is
 		// answered by learning what the effect was. Once this mutation
 		// verified — whether the ordinary path or a recovery poll
@@ -1590,6 +1604,14 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 				l.endRecoveryPoll(pollCtx, ds, open)
 				return
 			}
+			// Attempted before the poll's own work, every time. A record
+			// the stream would not take is the reason this mutation may be
+			// here at all, and the account is missing it until it lands.
+			// The error is deliberately not acted on: a record that still
+			// will not land is the ordinary case while central is away, and
+			// the poll's own work matters more than the account catching up.
+			// A record that never lands is reported when the poll ends.
+			_ = open.machine.DeliverOwed(pollCtx)
 			if done := l.pollOnce(pollCtx, ds, open, runner, since, baseline); done {
 				return
 			}
@@ -1716,6 +1738,25 @@ func (l *Lane) endRecoveryPoll(ctx context.Context, ds *deviceState, open *openM
 
 	l.endMutation(ctx, ds, open, nil, errs.New().Code(ErrCodeRecoveryAmbiguous).
 		Msg("recovery ended without establishing the mutation's effect; the device's lane is held"))
+}
+
+// reportAuditGap says, loudly, that this mutation ended still holding records
+// the audit stream never took.
+//
+// The hole is not avoidable here: the records live in memory, the poll is the
+// only thing retrying them, and when its budget ends there is nothing left to
+// hold the obligation. What is avoidable is the hole being silent. An account
+// with a gap and an account of a device nothing happened to read identically,
+// and the mutation this happens to is exactly the one an operator will later
+// have to resolve — so the gap is named, with the device, the sequence and
+// the ids of the records that are missing, rather than left to be inferred
+// from an absence.
+func (l *Lane) reportAuditGap(ctx context.Context, ds *deviceState, open *openMutation) {
+	ids := open.machine.OwedRecordIDs()
+	if len(ids) == 0 {
+		return
+	}
+	l.cfg.Telemetry.AuditGap(ctx, ds.key, open.machine.Sequence(), ids)
 }
 
 // classifyError reduces err to the bounded, low-cardinality error.type

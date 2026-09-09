@@ -2,6 +2,7 @@ package mutation
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -108,6 +110,10 @@ type Machine struct {
 	// where a phase-based test would start emitting a record per poll
 	// again.
 	inRecovery bool
+	// owed are the audit records this mutation could not deliver, kept as
+	// the values that were built so a retry carries the same event id and
+	// the stream reads it as a duplicate rather than a second fact.
+	owed []*eventv1.DeviceOperationEvent
 	// cancelWaits cancels the context [Machine.Execute] runs its waits
 	// under, and is nil whenever Execute is not parked in one.
 	cancelWaits context.CancelFunc
@@ -377,6 +383,7 @@ func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error 
 
 	event := audit.BuildLaneBlocked(m.deps.Clock, m.common(ctx), reason)
 	if err := m.deps.Audit.Emit(ctx, event); err != nil {
+		m.retainOwed(event)
 		return errs.Wrap(err, "deliver lane blocked event")
 	}
 
@@ -691,20 +698,115 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	); err != nil {
 		return err
 	}
+	// The phase moves only if its own record was delivered, which is
+	// decision 13's rule and is why a failure here leaves nothing written:
+	// the mutation is not in recovery and a caller must not treat it as if
+	// it were.
 	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
 		return err
 	}
-	if err := m.block(ctx, accessv1.BlockReason_BLOCK_REASON_INDETERMINATE); err != nil {
-		return err
-	}
 
+	// Past here the phase is RECOVERING, so the mutation is in recovery
+	// whatever the audit stream has heard. Set before the deliveries below
+	// rather than after them: inRecovery describes the machine, and a
+	// machine at RECOVERING whose flag says otherwise would have Observe
+	// trying to transition into OBSERVING from a phase it is already past.
 	m.mu.Lock()
 	m.inRecovery = true
 	m.mu.Unlock()
 
+	// Both remaining records are attempted, and a failure retains rather
+	// than abandons. block writes its state before delivering, so the block
+	// is real either way; returning here instead would leave a mutation that
+	// is blocked, in recovery, and has nobody scheduled to look at it — see
+	// the caller.
+	var owed error
+	if err := m.block(ctx, accessv1.BlockReason_BLOCK_REASON_INDETERMINATE); err != nil {
+		owed = err
+	}
+
 	m.deps.Telemetry.RecoveryStarted(ctx)
 	event := audit.BuildRecoveryStarted(m.deps.Clock, m.common(ctx))
-	return m.deps.Audit.Emit(ctx, event)
+	if err := m.deps.Audit.Emit(ctx, event); err != nil {
+		m.retainOwed(event)
+		owed = errors.Join(owed, errs.Wrap(err, "deliver recovery started event"))
+	}
+	return owed
+}
+
+// InRecovery reports whether this mutation reached RECOVERING, which is the
+// question a caller asks after EnterRecovering fails: the phase moves only
+// once its own record is delivered, so a failure before that leaves nothing
+// written, and a failure after it leaves a mutation that is in recovery and
+// needs a poll.
+func (m *Machine) InRecovery() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.inRecovery
+}
+
+// retainOwed keeps a record whose delivery failed, so it can be re-sent
+// rather than lost.
+//
+// The event value is kept, not its inputs. Every constructor mints a fresh
+// event_id, and the audit stream deduplicates on exactly that id — so a
+// rebuilt record is a second record rather than a retry, and an account with
+// duplicates is as wrong as one with holes while looking healthier.
+func (m *Machine) retainOwed(event *eventv1.DeviceOperationEvent) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.owed = append(m.owed, event)
+}
+
+// OwedRecords is how many audit records this mutation has failed to deliver
+// and still holds.
+func (m *Machine) OwedRecords() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.owed)
+}
+
+// OwedRecordIDs are the event ids this mutation is still holding, for a
+// report that has to name what the account is missing.
+func (m *Machine) OwedRecordIDs() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ids := make([]string, 0, len(m.owed))
+	for _, e := range m.owed {
+		ids = append(ids, e.GetEventId())
+	}
+	return ids
+}
+
+// DeliverOwed re-sends every retained record, keeping the ones that still do
+// not land. Safe to call repeatedly; the recovery poll does, once per attempt.
+//
+// Re-sending the retained value is what makes this a retry rather than a
+// second record: the stream deduplicates on the event id the value already
+// carries.
+func (m *Machine) DeliverOwed(ctx context.Context) error {
+	m.mu.Lock()
+	pending := m.owed
+	m.owed = nil
+	m.mu.Unlock()
+
+	var failed []*eventv1.DeviceOperationEvent
+	var err error
+	for _, event := range pending {
+		if emitErr := m.deps.Audit.Emit(ctx, event); emitErr != nil {
+			failed = append(failed, event)
+			err = errors.Join(err, emitErr)
+		}
+	}
+
+	if len(failed) > 0 {
+		m.mu.Lock()
+		// Prepended: the records that have waited longest are the ones an
+		// account reads first, and a later retry must not reorder them.
+		m.owed = append(failed, m.owed...)
+		m.mu.Unlock()
+	}
+	return err
 }
 
 // BlockFirmwareEpoch blocks the lane with FIRMWARE_EPOCH_CHANGED for a
