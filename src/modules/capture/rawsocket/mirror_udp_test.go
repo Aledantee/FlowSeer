@@ -17,8 +17,8 @@ import (
 )
 
 // vxlanPayload is a VXLAN header (RFC 7348, I flag set, VNI 0x01ccdd)
-// carrying a short inner frame, the same fixture shape U2's decode_test.go
-// uses.
+// carrying a short inner frame, the same fixture shape
+// src/modules/capture/mirror's own decode_test.go uses.
 func vxlanPayload(t *testing.T) []byte {
 	t.Helper()
 	b, err := hex.DecodeString("0800000001ccdd00001122334455aabbccddeeff08004954")

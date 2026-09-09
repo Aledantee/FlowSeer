@@ -91,10 +91,12 @@ func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 // (erspan_type_i/ii/iii, gre), and a UDP socket bound to udpPort for the
 // UDP-family arms (vxlan, tzsp), each bound to bindInterface when it is not
 // empty. prog is run against each decapsulated inner frame through
-// golang.org/x/net/bpf's own VM, not attached to the kernel: see the
-// two-execution-engines decision in the plan this package implements. On
-// Linux this opens real sockets; elsewhere it returns
-// ErrUnsupportedPlatform.
+// golang.org/x/net/bpf's own VM rather than attached to the kernel: the
+// filter's field offsets assume the frame it reads starts after
+// decapsulation, which is envelope-dependent and different for every mirror
+// encapsulation, so there is no single kernel-attachable program that reads
+// all of them the way OpenLocalInterface's does. On Linux this opens real
+// sockets; elsewhere it returns ErrUnsupportedPlatform.
 func OpenMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
 	return openMirrorReceiver(encapsulations, udpPort, bindInterface, prog)
 }

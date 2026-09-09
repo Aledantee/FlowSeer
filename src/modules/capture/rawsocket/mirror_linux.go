@@ -268,9 +268,9 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 // own read-resets-the-counter contract on the local-interface source, so a
 // caller polls both the same way. No comparable per-socket kernel drop
 // counter exists for a raw or UDP socket, so droppedByInterface is always
-// zero: the mirror-receiver path's dominant loss mode is delivery to this
-// engine's own consumer, per the plan's Decisions, not interface-level
-// drops.
+// zero: this receiver's dominant loss mode is delivery to whatever drains
+// it, not the interface itself losing packets before a socket read ever
+// happens.
 func (s *linuxMirrorSource) Stats() (received, droppedByInterface uint64, err error) {
 	total := s.received.Load()
 	prev := s.reportedReceived.Swap(total)

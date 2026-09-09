@@ -27,9 +27,10 @@ func mustHex(s string) []byte {
 	return b
 }
 
-// TestDecode_ErspanTypeII is the plan's own R3 acceptance example: GRE
-// protocol 0x88BE with the sequence-number bit set, ERSPAN Version 1,
-// session id 7, truncation bit set.
+// TestDecode_ErspanTypeII proves the decapsulating receiver unwraps a
+// mirrored frame and records the outer wrapper as metadata: GRE protocol
+// 0x88BE with the sequence-number bit set, ERSPAN Version 1, session id 7,
+// truncation bit set.
 func TestDecode_ErspanTypeII(t *testing.T) {
 	payload := mustHex("100088be000000011064740700003039001122334455aabbccddeeff0800494e4e45524652414d455041594c4f4144")
 	env, gotInner, err := mirror.Decode(payload, srcIP, dstIP)
@@ -52,9 +53,9 @@ func TestDecode_ErspanTypeII(t *testing.T) {
 }
 
 func TestDecode_ErspanTypeIII_Marker(t *testing.T) {
-	// ethernet_frame (the draft's P bit) is false: this fixture is shaped
-	// like the ERSPAN Type III marker packets a shipping ASIC emits, per
-	// the Decisions correction — it carries no inner frame.
+	// ethernet_frame (the draft's P bit) is false: a Type III header with no
+	// mirrored frame behind it, whatever real device or condition produced
+	// one, carries no inner frame.
 	payload := mustHex("100022eb0000000220000009deadbeef00000000")
 	env, gotInner, err := mirror.Decode(payload, srcIP, dstIP)
 	if err != nil {

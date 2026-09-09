@@ -62,10 +62,10 @@ func drainAll(p interface{ Data() <-chan Batch }) []Batch {
 	return batches
 }
 
-// TestEngine_BudgetStopsAtPacketCount is the plan's R4 acceptance example:
-// a run with max_packets: 100 against a source that never stops on its own
-// ends at exactly 100 records, the last batch Final, stop reason
-// PACKET_COUNT.
+// TestEngine_BudgetStopsAtPacketCount proves a capture stops at its first
+// satisfied budget and reports why: a run with max_packets: 100 against a
+// source that never stops on its own ends at exactly 100 records, the last
+// batch Final, stop reason PACKET_COUNT.
 func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 	src := newFakeSource(200)
 	for i := range 150 {
@@ -105,7 +105,7 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 	}
 }
 
-// TestEngine_AttributableLoss is the plan's R5 acceptance example: a
+// TestEngine_AttributableLoss proves loss is always attributable: a
 // producer faster than the pump's buffer forces TrySendDropOldest to
 // discard, and the drop is attributable — the sequence gap the consumer
 // sees matches what the run's final counters report.
@@ -146,8 +146,9 @@ func TestEngine_AttributableLoss(t *testing.T) {
 }
 
 // TestEngine_PcapngPipeline wires a fake source's output through
-// pcapng.Writer end to end, the R6 acceptance example's 100-record case run
-// through the actual Engine rather than the writer in isolation.
+// pcapng.Writer end to end: 100 records through the actual Engine rather
+// than the writer in isolation, proving the stored artifact is a pcapng
+// file Wireshark reads without complaint.
 func TestEngine_PcapngPipeline(t *testing.T) {
 	src := newFakeSource(200)
 	for i := range 100 {

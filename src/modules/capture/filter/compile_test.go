@@ -135,10 +135,11 @@ func mustCompile(t *testing.T, f *capturev1.CaptureFilter) []bpf.Instruction {
 	return insts
 }
 
-// TestCompile_R2Acceptance is the plan's own acceptance example: a filter
-// naming TCP:22 or ARP accepts a TCP segment to port 22 and an ARP frame,
-// and rejects a UDP datagram to port 22.
-func TestCompile_R2Acceptance(t *testing.T) {
+// TestCompile_AcceptsPort22OrARP proves a filter compiles to a cBPF program
+// the kernel accepts, and the program accepts exactly the packets the
+// filter describes: a filter naming TCP:22 or ARP accepts a TCP segment to
+// port 22 and an ARP frame, and rejects a UDP datagram to port 22.
+func TestCompile_AcceptsPort22OrARP(t *testing.T) {
 	f := &capturev1.CaptureFilter{}
 	f.SetAnyOf([]*capturev1.CaptureFilterClause{
 		clauseTCPPort22(),
@@ -259,8 +260,9 @@ func TestCompile_ManyClausesFallthrough(t *testing.T) {
 
 func TestCompile_InstructionCeiling(t *testing.T) {
 	// A dense filter — many clauses, each with several fields that expand
-	// under the tagged/untagged and address-family duplication described in
-	// the plan — pushes the compiled program over the classic BPF ceiling.
+	// under the tagged/untagged and address-family duplication Compile's
+	// own doc comment describes — pushes the compiled program over the
+	// classic BPF ceiling.
 	const n = 32
 	clauses := make([]*capturev1.CaptureFilterClause, n)
 	for i := range n {

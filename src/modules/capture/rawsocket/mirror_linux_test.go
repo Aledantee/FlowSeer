@@ -61,8 +61,8 @@ func mustHex(t *testing.T, s string) []byte {
 }
 
 // erspanTypeIPayload is a GRE/ERSPAN Type I packet (protocol 0x88BE, no
-// sequence number) carrying a short inner frame, the same shape U2's
-// decode_test.go fixtures use.
+// sequence number) carrying a short inner frame, the same shape
+// src/modules/capture/mirror's own decode_test.go fixtures use.
 func erspanTypeIPayload(t *testing.T) []byte {
 	t.Helper()
 	return mustHex(t, "000088be001122334455aabbccddeeff08004954")
