@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -292,6 +293,58 @@ func TestACompressedRequestIsRefusedHereRatherThanByCentral(t *testing.T) {
 	}
 	if sent {
 		t.Error("the compressed request was sent anyway")
+	}
+}
+
+func TestClockSkewResponseRetriesWithServerTime(t *testing.T) {
+	localNow := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	serverNow := time.Date(2026, 9, 9, 15, 0, 0, 0, time.UTC)
+	signer := identity.NewSigner(
+		ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize)),
+		vectorEnrollment(),
+		func() time.Time { return localNow },
+	)
+	identity.SetNonceForTest(signer, make([]byte, 16))
+
+	var headers []string
+	base := roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		headers = append(headers, req.Header.Get("Authorization"))
+		response := &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("")),
+		}
+		if len(headers) == 1 {
+			response.StatusCode = http.StatusUnauthorized
+			response.Status = "401 Unauthorized"
+			response.Header.Set("FlowSeer-Refusal-Code", "edge/clock-skew")
+			response.Header.Set("Date", serverNow.Format(http.TimeFormat))
+		}
+		return response, nil
+	})
+	request, err := http.NewRequest(http.MethodPost, "https://central.example.test/flowseer.api.edge.v1.EdgeService/Heartbeat", http.NoBody)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+
+	response, err := identity.SigningTransport(base, signer).RoundTrip(request)
+	if err != nil {
+		t.Fatalf("RoundTrip: %v", err)
+	}
+	defer func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close response: %v", err)
+		}
+	}()
+	if len(headers) != 2 {
+		t.Fatalf("central saw %d requests, want the clock-skew refusal retried once", len(headers))
+	}
+	if headers[0] == headers[1] {
+		t.Error("the retry reused the refused assertion")
+	}
+	if got := identity.DecodeForTest(t, headers[1]).GetIssuedAt().AsTime(); !got.Equal(serverNow) {
+		t.Errorf("retried issued_at = %v, want response Date %v", got, serverNow)
 	}
 }
 

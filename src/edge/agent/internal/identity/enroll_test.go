@@ -1,11 +1,14 @@
 package identity_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -148,6 +151,50 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 	}
 	if len(again.TrustAnchors()) == 0 {
 		t.Error("the restart loaded no trust anchors; it could not pin central")
+	}
+}
+
+func TestOnlyAFreshEnrollmentSeedsTheAssertionClock(t *testing.T) {
+	store, _ := newStore(t)
+	central := &centralFake{}
+	freshLocalNow := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	restartLocalNow := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+
+	fresh, err := identity.Establish(context.Background(), store, central, testSetupKey)
+	if err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
+	var logs bytes.Buffer
+	freshSigner := fresh.Signer(
+		context.Background(),
+		func() time.Time { return freshLocalNow },
+		slog.New(slog.NewJSONHandler(&logs, nil)),
+	)
+	identity.SetNonceForTest(freshSigner, make([]byte, 16))
+	freshHeader, err := freshSigner.Header(vectorProcedure, nil)
+	if err != nil {
+		t.Fatalf("fresh Header: %v", err)
+	}
+	if got := identity.DecodeForTest(t, freshHeader).GetIssuedAt().AsTime(); !got.Equal(serverNow) {
+		t.Errorf("fresh issued_at = %v, want enrollment server_time %v", got, serverNow)
+	}
+	if got := logs.String(); !strings.Contains(got, `"msg":"assertion clock corrected"`) || !strings.Contains(got, `"flowseer.edge.clock_offset_ms"`) {
+		t.Errorf("clock correction log = %q, want the correction and its offset", got)
+	}
+
+	loaded, err := identity.Establish(context.Background(), store, central, "")
+	if err != nil {
+		t.Fatalf("Establish on restart: %v", err)
+	}
+	loadedSigner := loaded.Signer(context.Background(), func() time.Time { return restartLocalNow }, nil)
+	identity.SetNonceForTest(loadedSigner, make([]byte, 16))
+	loadedHeader, err := loadedSigner.Header(vectorProcedure, nil)
+	if err != nil {
+		t.Fatalf("loaded Header: %v", err)
+	}
+	if got := identity.DecodeForTest(t, loadedHeader).GetIssuedAt().AsTime(); !got.Equal(restartLocalNow) {
+		t.Errorf("loaded issued_at = %v, want current local time %v; persisted server_time is stale", got, restartLocalNow)
 	}
 }
 

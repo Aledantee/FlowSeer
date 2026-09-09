@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"log/slog"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -25,10 +26,24 @@ type Enroller interface {
 type Identity struct {
 	Key        ed25519.PrivateKey
 	Enrollment *edgev1.EnrollResponse
+	// Set only when Enroll returned in this process. The time inside a loaded
+	// enrollment is historical and cannot define a current clock offset.
+	serverTime time.Time
 }
 
-// Signer builds this identity's assertion headers.
-func (i *Identity) Signer(now func() time.Time) *Signer { return NewSigner(i.Key, i.Enrollment, now) }
+// Signer builds this identity's assertion headers. A fresh enrollment seeds
+// its clock from central; a loaded enrollment starts from the local clock and
+// lets the signed transport recover a skewed clock from a fresh refusal.
+func (i *Identity) Signer(ctx context.Context, now func() time.Time, log *slog.Logger) *Signer {
+	signer := NewSigner(i.Key, i.Enrollment, now)
+	if log != nil {
+		signer.log = log
+	}
+	if !i.serverTime.IsZero() {
+		signer.AdoptServerTime(ctx, i.serverTime)
+	}
+	return signer
+}
 
 // TrustAnchors are the SPKI digests this edge pins central by, replacing
 // whatever it was provisioned with.
@@ -104,7 +119,11 @@ func Establish(ctx context.Context, store *Store, client Enroller, setupKey stri
 	if err := store.SaveEnrollment(response.Msg); err != nil {
 		return nil, err
 	}
-	return &Identity{Key: key, Enrollment: response.Msg}, nil
+	identity := &Identity{Key: key, Enrollment: response.Msg}
+	if serverTime := response.Msg.GetServerTime(); serverTime != nil {
+		identity.serverTime = serverTime.AsTime()
+	}
+	return identity, nil
 }
 
 // keyProof proves possession of the key being registered, bound to the setup

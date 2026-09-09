@@ -38,7 +38,10 @@ var ErrCodeNoEdge = errs.NewCode("edgeapi/no-edge")
 // defaultMaxBody bounds the request body the middleware buffers to hash. Every
 // edge request is small: an assertion header, and at most one enveloped
 // submission-open message.
-const defaultMaxBody = 1 << 20
+const (
+	defaultMaxBody    = 1 << 20
+	refusalCodeHeader = "FlowSeer-Refusal-Code"
+)
 
 type assertionKey struct{}
 
@@ -138,8 +141,9 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 	})
 }
 
-func (m *Middleware) refuse(w http.ResponseWriter, status int, message string) {
-	http.Error(w, message, status)
+func (m *Middleware) refuse(w http.ResponseWriter, status int, code string) {
+	w.Header().Set(refusalCodeHeader, code)
+	http.Error(w, code, status)
 }
 
 // compressed reports whether the request carries a non-identity content

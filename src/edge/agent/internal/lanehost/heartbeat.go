@@ -37,6 +37,9 @@ type Freezer interface {
 type HeartbeatConfig struct {
 	Client Beater
 	Lane   Freezer
+	// AdoptServerTime refreshes the clock used to sign later calls. Nil
+	// discards the time returned by central.
+	AdoptServerTime func(context.Context, time.Time)
 	// AgentVersion is what the binary reports; central records it.
 	AgentVersion string
 	// Interval spaces attempts and bounds each one. Zero means 30s.
@@ -141,8 +144,14 @@ func beat(ctx context.Context, cfg HeartbeatConfig, interval time.Duration) erro
 
 	request := &edgev1.HeartbeatRequest{}
 	request.SetAgentVersion(cfg.AgentVersion)
-	_, err := cfg.Client.Heartbeat(attempt, connect.NewRequest(request))
-	return err
+	response, err := cfg.Client.Heartbeat(attempt, connect.NewRequest(request))
+	if err != nil {
+		return err
+	}
+	if cfg.AdoptServerTime != nil && response.Msg.GetServerTime() != nil {
+		cfg.AdoptServerTime(ctx, response.Msg.GetServerTime().AsTime())
+	}
+	return nil
 }
 
 func waitFor(ctx context.Context, d time.Duration) bool {

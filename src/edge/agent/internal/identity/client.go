@@ -9,6 +9,11 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
 
+const (
+	refusalCodeHeader = "FlowSeer-Refusal-Code"
+	clockSkewCode     = "edge/clock-skew"
+)
+
 // PinnedTransport dials central over TLS pinned to anchors, the SPKI digests
 // this edge was provisioned with or last told to trust.
 //
@@ -73,6 +78,11 @@ func SigningClient(anchors [][]byte, signer *Signer) *http.Client {
 //
 // GetBody is set on the signed request for the same reason: it is what lets
 // net/http rewind and make that safe retry rather than failing the call.
+//
+// A clock-skew refusal is the other safe retry. Central rejects it before the
+// RPC handler runs and returns both its structured refusal code and standard
+// HTTP Date. The transport adopts that trusted time, signs a new assertion,
+// and retries once.
 func SigningTransport(base http.RoundTripper, signer *Signer) http.RoundTripper {
 	if base == nil {
 		base = http.DefaultTransport
@@ -95,7 +105,25 @@ func (t *signingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	if err != nil {
 		return nil, err
 	}
+	response, err := t.send(req, body)
+	if err != nil || response.StatusCode != http.StatusUnauthorized || response.Header.Get(refusalCodeHeader) != clockSkewCode {
+		return response, err
+	}
 
+	serverTime, err := http.ParseTime(response.Header.Get("Date"))
+	if err != nil {
+		return response, nil
+	}
+	if response.Body != nil {
+		if err := response.Body.Close(); err != nil {
+			return nil, errs.From(err).Code(ErrCodeState).Msg("close the clock-skew refusal before retrying")
+		}
+	}
+	t.signer.AdoptServerTime(req.Context(), serverTime)
+	return t.send(req, body)
+}
+
+func (t *signingTransport) send(req *http.Request, body []byte) (*http.Response, error) {
 	// The procedure is the URL path, which is how Connect names a method and
 	// what central checks the assertion's own procedure against.
 	header, err := t.signer.Header(req.URL.Path, body)
