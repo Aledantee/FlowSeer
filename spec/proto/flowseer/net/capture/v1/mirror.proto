@@ -1,0 +1,189 @@
+edition = "2024";
+
+package flowseer.net.capture.v1;
+
+import "flowseer/net/addr/v1/ip.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// The mirror wrapper protocols a receiver terminates. Bit widths for each
+// wrapper's own fields are stated where the field is defined. Sources:
+// draft-foschiano-erspan-03 for ERSPAN, an expired, Informational individual
+// submission (https://datatracker.ietf.org/doc/draft-foschiano-erspan/); RFC
+// 2784 (https://www.rfc-editor.org/rfc/rfc2784.html) and RFC 2890
+// (https://www.rfc-editor.org/rfc/rfc2890.html) for GRE; RFC 7348
+// (https://www.rfc-editor.org/rfc/rfc7348.html) for VXLAN; and the TZSP
+// description (https://www.wireshark.org/docs/dfref/t/tzsp.html) for TZSP.
+// ErspanTypeIiiFields drops the draft's optional platform subheader: its
+// layout varies by Platf ID and no receiver planned here interprets it.
+// Values are FlowSeer-normalized, not assignments from an external registry.
+enum MirrorEncapsulation {
+  // The encapsulation is absent or has not been classified.
+  MIRROR_ENCAPSULATION_UNSPECIFIED = 0;
+  // ERSPAN Type I: GRE with protocol type 0x88BE and no ERSPAN header.
+  MIRROR_ENCAPSULATION_ERSPAN_TYPE_I = 1;
+  // ERSPAN Type II.
+  MIRROR_ENCAPSULATION_ERSPAN_TYPE_II = 2;
+  // ERSPAN Type III.
+  MIRROR_ENCAPSULATION_ERSPAN_TYPE_III = 3;
+  // Generic Routing Encapsulation with no ERSPAN header.
+  MIRROR_ENCAPSULATION_GRE = 4;
+  // Virtual Extensible LAN.
+  MIRROR_ENCAPSULATION_VXLAN = 5;
+  // TaZmen Sniffer Protocol.
+  MIRROR_ENCAPSULATION_TZSP = 6;
+}
+
+// The En field of an ERSPAN Type II header: how the original frame carried
+// its VLAN tag. Integers map directly to the field's 2-bit wire values; zero
+// is real, so consumers must check presence.
+enum ErspanEncapsulationType {
+  // The original frame had no ISL or 802.1Q header.
+  ERSPAN_ENCAPSULATION_TYPE_UNTAGGED = 0;
+  // The original frame carried an ISL header.
+  ERSPAN_ENCAPSULATION_TYPE_ISL = 1;
+  // The original frame carried an IEEE 802.1Q tag.
+  ERSPAN_ENCAPSULATION_TYPE_DOT1Q = 2;
+  // The original frame had no ISL or 802.1Q header; its VLAN is carried in
+  // the index field instead.
+  ERSPAN_ENCAPSULATION_TYPE_PRESERVED = 3;
+}
+
+// The Gra field of an ERSPAN Type III header: the unit of the timestamp
+// field. Integers map directly to the field's 2-bit wire values; zero is
+// real, so consumers must check presence.
+enum ErspanTimestampGranularity {
+  // 100 microseconds.
+  ERSPAN_TIMESTAMP_GRANULARITY_MICROSECONDS100 = 0;
+  // 100 nanoseconds.
+  ERSPAN_TIMESTAMP_GRANULARITY_NANOSECONDS100 = 1;
+  // IEEE 1588.
+  ERSPAN_TIMESTAMP_GRANULARITY_IEEE1588 = 2;
+  // Defined by the mirroring device's platform.
+  ERSPAN_TIMESTAMP_GRANULARITY_PLATFORM_DEFINED = 3;
+}
+
+// The BSO field of an ERSPAN Type III header: the mirrored frame's condition
+// as the mirroring device observed it. Integers map directly to the field's
+// 2-bit wire values; zero is real, so consumers must check presence.
+enum ErspanBadFrame {
+  // Well-formed: at least 64 bytes with a valid CRC.
+  ERSPAN_BAD_FRAME_GOOD = 0;
+  // Shorter than 64 bytes but otherwise well-formed.
+  ERSPAN_BAD_FRAME_SHORT = 1;
+  // Larger than the maximum frame size but otherwise well-formed.
+  ERSPAN_BAD_FRAME_OVERSIZED = 2;
+  // An invalid CRC.
+  ERSPAN_BAD_FRAME_BAD_CRC = 3;
+}
+
+// ERSPAN Type I: the mirrored frame rides directly in the GRE payload, GRE
+// protocol type 0x88BE, with no ERSPAN header. There is nothing to carry.
+message ErspanTypeIFields {}
+
+// ERSPAN Type II. An absent field means the collector did not extract it
+// from the header.
+message ErspanTypeIiFields {
+  // The mirror session identifier. 10 bits.
+  uint32 session_id = 1 [(buf.validate.field).uint32.lte = 1023];
+  // The original frame's VLAN. 12 bits.
+  uint32 vlan = 2 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_tag_vid) = true];
+  // The original frame's 802.1Q priority. 3 bits.
+  uint32 cos = 3 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
+  // How the original frame carried its VLAN tag, the draft's En field.
+  ErspanEncapsulationType encapsulation_type = 4;
+  // Whether the mirroring device truncated the frame, the draft's T bit.
+  bool truncated = 5;
+  // Index the mirroring device assigns to disambiguate sessions or origin
+  // ports sharing this session. 20 bits.
+  uint32 index = 6 [(buf.validate.field).uint32.lte = 1048575];
+}
+
+// ERSPAN Type III. An absent field means the collector did not extract it
+// from the header.
+message ErspanTypeIiiFields {
+  // The mirror session identifier. 10 bits.
+  uint32 session_id = 1 [(buf.validate.field).uint32.lte = 1023];
+  // The original frame's VLAN. 12 bits.
+  uint32 vlan = 2 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_tag_vid) = true];
+  // The original frame's 802.1Q priority. 3 bits.
+  uint32 cos = 3 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
+  // Whether the mirroring device truncated the frame, the draft's T bit.
+  bool truncated = 4;
+  // The mirroring device's timestamp for the frame, in the unit
+  // timestamp_granularity gives. 32 bits.
+  uint32 timestamp = 5;
+  // The unit of timestamp, the draft's Gra field.
+  ErspanTimestampGranularity timestamp_granularity = 6;
+  // The original frame's Security Group Tag. 16 bits.
+  uint32 security_group_tag = 7 [(buf.validate.field).uint32.lte = 65535];
+  // False for traffic mirrored on ingress, true on egress, the draft's D bit.
+  bool direction = 8;
+  // Identifier of the mirroring device's originating hardware, the draft's
+  // Hw ID field. 6 bits.
+  uint32 hardware_id = 9 [(buf.validate.field).uint32.lte = 63];
+  // The mirrored frame's type, the draft's FT field. 5 bits.
+  uint32 frame_type = 10 [(buf.validate.field).uint32.lte = 31];
+  // Whether the mirrored frame carries its own Ethernet header, the draft's
+  // P bit.
+  bool ethernet_frame = 11;
+  // The mirrored frame's condition as the mirroring device observed it, the
+  // draft's BSO field.
+  ErspanBadFrame bad_frame = 12;
+}
+
+// The base GRE header (RFC 2784) plus the key and sequence number words RFC
+// 2890 adds. RFC 2784's checksum is verified on receipt and not carried here.
+message GreFields {
+  // The GRE payload's protocol type, RFC 2784's Protocol Type field. Must be
+  // present. 16 bits.
+  uint32 protocol_type = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // RFC 2890's key word. Present exactly when the outer header's K bit was
+  // set. 32 bits.
+  uint32 key = 2;
+  // RFC 2890's sequence number word. Present exactly when the outer header's
+  // S bit was set. 32 bits.
+  uint32 sequence_number = 3;
+}
+
+// A VXLAN header (RFC 7348).
+message VxlanFields {
+  // The VXLAN Network Identifier. Must be present. 24 bits.
+  uint32 vni = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 16777215
+  ];
+}
+
+// A TZSP header's protocol tag.
+message TzspFields {
+  // The header's encapsulated-protocol value. Must be present. 16 bits.
+  uint32 encapsulated_protocol = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+}
+
+// The outer delivery of a mirrored packet. Exactly one wrapper arm is set;
+// each carries only what its own header defines.
+message MirrorEnvelope {
+  // The mirroring device's address. Must be present.
+  flowseer.net.addr.v1.IpAddress source = 1 [(buf.validate.field).required = true];
+  // The receiver's address. Must be present.
+  flowseer.net.addr.v1.IpAddress destination = 2 [(buf.validate.field).required = true];
+
+  // The wrapper that carried the frame.
+  oneof wrapper {
+    option (buf.validate.oneof).required = true;
+
+    ErspanTypeIFields erspan_type_i = 10;
+    ErspanTypeIiFields erspan_type_ii = 11;
+    ErspanTypeIiiFields erspan_type_iii = 12;
+    GreFields gre = 13;
+    VxlanFields vxlan = 14;
+    TzspFields tzsp = 15;
+  }
+}
