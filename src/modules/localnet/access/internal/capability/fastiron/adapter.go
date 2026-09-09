@@ -14,7 +14,12 @@ import (
 // instead of applying: it returned to a prompt one level short of what a
 // successful command reaches, so the caller must never treat it as
 // applied.
-var ErrCodeAmbiguousSubmission = errs.NewCode("fastiron/ambiguous-submission")
+var (
+	ErrCodeAmbiguousSubmission = errs.NewCode("fastiron/ambiguous-submission")
+	// ErrCodeAuthentication identifies an enable password the device
+	// rejected before privileged mode was entered.
+	ErrCodeAuthentication = errs.NewCode("fastiron/authentication")
+)
 
 // Adapter is the typed FastIron 10.0.10g shell adapter over one
 // already-dialed [ssh.Session]. It satisfies the interface capability's
@@ -53,8 +58,12 @@ func (a *Adapter) Login(ctx context.Context) error {
 		return nil
 	}
 
-	if _, err := a.Session.Run(ctx, EnablePasswordCommand(a.EnablePassword)); err != nil {
+	res, err = a.Session.Run(ctx, EnablePasswordCommand(a.EnablePassword))
+	if err != nil {
 		return errs.Wrap(err, "enable password")
+	}
+	if res.MatchedPrompt == PromptEnablePassword {
+		return errs.New().Code(ErrCodeAuthentication).Msg("enable password was rejected")
 	}
 
 	return nil

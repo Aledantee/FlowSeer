@@ -98,7 +98,7 @@ func EnablePasswordCommand(password secret.Value) ssh.Command {
 	return ssh.Command{
 		Line:     password.RevealString(),
 		Redacted: "[REDACTED]",
-		Prompts:  []ssh.Prompt{PrivilegedPrompt},
+		Prompts:  []ssh.Prompt{EnablePasswordPrompt, PrivilegedPrompt},
 	}
 }
 

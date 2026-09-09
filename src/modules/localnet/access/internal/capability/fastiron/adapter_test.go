@@ -1,9 +1,11 @@
 package fastiron_test
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 
@@ -78,6 +80,27 @@ func TestLogin_EnableWithPassword(t *testing.T) {
 	a := &fastiron.Adapter{Session: dialSession(t, fs), EnablePassword: secret.NewString("enablesecret")}
 	if err := a.Login(t.Context()); err != nil {
 		t.Fatalf("Login: %v", err)
+	}
+}
+
+func TestLogin_WrongEnablePasswordIsAnAuthenticationFailure(t *testing.T) {
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readLine(ch)
+		_, _ = ch.Write([]byte("\r\nSSH@device>"))
+
+		readLine(ch)
+		_, _ = ch.Write([]byte("\r\nPassword:"))
+
+		readLine(ch)
+		_, _ = ch.Write([]byte("\r\nPassword:"))
+	})
+
+	a := &fastiron.Adapter{Session: dialSession(t, fs), EnablePassword: secret.NewString("wrong-secret")}
+	ctx, cancel := context.WithTimeout(t.Context(), 250*time.Millisecond)
+	defer cancel()
+	err := a.Login(ctx)
+	if code, _ := errs.CodeOf(err); code != fastiron.ErrCodeAuthentication {
+		t.Errorf("Login() code = %v, want %v; error was %v", code, fastiron.ErrCodeAuthentication, err)
 	}
 }
 
