@@ -1,0 +1,137 @@
+edition = "2024";
+
+// The service an operator calls to create, control, and retrieve a capture
+// session and what it collected. Authorized as the operator; an edge never
+// calls it.
+package flowseer.api.capture.v1;
+
+import "flowseer/api/capture/v1/capture_chunk.proto";
+import "flowseer/api/capture/v1/capture_session.proto";
+import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/net/capture/v1/capture_filter.proto";
+import option "buf/validate/validate.proto";
+
+service CaptureService {
+  // Creates a capture session on an edge.
+  rpc CreateCaptureSession(CreateCaptureSessionRequest) returns (CreateCaptureSessionResponse);
+  // Stops a running capture session before its budget bound is reached.
+  rpc StopCaptureSession(StopCaptureSessionRequest) returns (StopCaptureSessionResponse);
+  rpc GetCaptureSession(GetCaptureSessionRequest) returns (GetCaptureSessionResponse);
+  rpc ListCaptureSessions(ListCaptureSessionsRequest) returns (ListCaptureSessionsResponse);
+  // Deletes a capture session and its artifact.
+  rpc DeleteCaptureSession(DeleteCaptureSessionRequest) returns (DeleteCaptureSessionResponse);
+  // Streams packets as the session captures them.
+  rpc TailCaptureSession(TailCaptureSessionRequest) returns (stream TailCaptureSessionResponse);
+  // Streams the session's stored artifact.
+  rpc DownloadCaptureSession(DownloadCaptureSessionRequest) returns (stream DownloadCaptureSessionResponse);
+}
+
+// One capture session as the service returns it: intent and observation
+// together.
+message CaptureSessionRecord {
+  // Must be present.
+  CaptureSessionConfig config = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  CaptureSessionState state = 2 [(buf.validate.field).required = true];
+}
+
+message CreateCaptureSessionRequest {
+  // The edge to run this capture on. Must be present.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // Operator-assigned display name. Unset means none. When set, must not
+  // be empty.
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description. Unset means none. When set, must not be empty.
+  string description = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Where the capture reads packets from. Must be present.
+  CaptureSource source = 4 [(buf.validate.field).required = true];
+  // The packet filter. Unset and an empty filter both accept every packet.
+  flowseer.net.capture.v1.CaptureFilter filter = 5;
+  // Bounds the session runs within. Must be present.
+  CaptureBudget budget = 6 [(buf.validate.field).required = true];
+  // Who is requesting this capture and why. Must be present.
+  CaptureAuthorization authorization = 7 [(buf.validate.field).required = true];
+}
+
+message CreateCaptureSessionResponse {
+  // The created session. Must be present.
+  CaptureSessionRecord session = 1 [(buf.validate.field).required = true];
+}
+
+message StopCaptureSessionRequest {
+  // The session to stop. Must be present.
+  CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
+}
+
+message StopCaptureSessionResponse {
+  // The session after the stop request. Must be present.
+  CaptureSessionRecord session = 1 [(buf.validate.field).required = true];
+}
+
+message GetCaptureSessionRequest {
+  // Must be present.
+  CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
+}
+
+message GetCaptureSessionResponse {
+  // Must be present.
+  CaptureSessionRecord session = 1 [(buf.validate.field).required = true];
+}
+
+message ListCaptureSessionsRequest {
+  // Sessions per page. Unset means the service default; never more than
+  // 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListCaptureSessionsResponse {
+  // The page of sessions in the service's stable order. Empty means the
+  // listing is exhausted.
+  repeated CaptureSessionRecord sessions = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message DeleteCaptureSessionRequest {
+  // The session to delete. Must be present.
+  CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteCaptureSessionResponse {}
+
+message TailCaptureSessionRequest {
+  // The session to tail. Must be present.
+  CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
+}
+
+message TailCaptureSessionResponse {
+  // The next chunk of packets. Must be present.
+  CapturePacketChunk chunk = 1 [(buf.validate.field).required = true];
+}
+
+message DownloadCaptureSessionRequest {
+  // The session whose artifact to download. Must be present.
+  CaptureSessionGlobalRef session = 1 [(buf.validate.field).required = true];
+}
+
+message DownloadCaptureSessionResponse {
+  // The next chunk of the stored artifact. Must be present.
+  CaptureArtifactChunk chunk = 1 [(buf.validate.field).required = true];
+}
