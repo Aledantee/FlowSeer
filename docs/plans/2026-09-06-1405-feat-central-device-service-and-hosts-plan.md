@@ -2049,6 +2049,44 @@ it, an implementation that never opens the shell at all passes the first two
 and has silently deleted decision 1's fallback route.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/internal/capability/interfaces/*.go')`
 
+### U8o. The hold follows the state, not the call
+Files: `src/modules/localnet/access/lane.go`, its README, its tests
+Found by review, 2026-09-09. **The most urgent defect on this branch.**
+
+Change: the recovery hold is engaged in the one case it must not be and not
+engaged in a case it must, and the two are the same mistake seen from opposite
+sides — the hold was decided by what a call returned rather than by the
+mutation's own durable state.
+
+`afterStep` engaged a hold under the comment "Provably nothing was sent". Every
+error reaching that branch has `Submitted() == false`: a checkpoint wait that
+ended at the submitter's deadline, an `Execute` refused on authority. Nothing
+resolves it afterwards — `endMutation` resolves only for a mutation that
+verified, this one cannot, and once it has closed the terminal acknowledgement
+that would carry an operator's decision is refused `access/no-pending-wait`. So
+one transient timeout took a device out of service until a person sent
+`HoldResolved`. `epochBlocked`, twenty lines away, states the correct rule for
+the identical case: the command provably never left, so there is nothing to
+recover and nothing to hold.
+
+`HandleTerminalAck` was the mirror. It returned `Acknowledge`'s error before
+reaching the engage, and `Machine.Abandon` writes the phase, sets the
+disposition and closes `done` *before* delivering `LaneBlocked` — so a refused
+delivery fails the call over a mutation that is already durably abandoned. The
+device was left open, permanently: central re-sending the same acknowledgement
+gets `already-terminal` and returns at the same line. The next `Submit` then
+admits a mutation over a device whose previous mutation's effect is unknown.
+The rule `recovery.Runner.Attempt` already states for itself — a state change
+belongs to the machine's durable phase, not to the call announcing it — now
+governs both.
+
+Tests: a mutation whose checkpoint wait ends at the submitter's deadline leaves
+the device admitting the next one; an abandonment whose lane-blocked record is
+refused still holds it. Both watched fail: "the device's lane is held after a
+mutation that provably sent nothing" and "the device admitted another mutation
+after an abandonment whose record was refused".
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/modules/localnet/access`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`

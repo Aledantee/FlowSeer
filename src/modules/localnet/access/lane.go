@@ -1058,16 +1058,27 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 			Msgf("no mutation on device %s is open at sequence %d", deviceKey, ack.GetSequence())
 	}
 
-	if err := open.machine.Acknowledge(ctx, ack); err != nil {
-		return err
-	}
+	ackErr := open.machine.Acknowledge(ctx, ack)
 
 	// An abandonment leaves the device's lane held: the mutation's effect
 	// was never established, and only an explicit resolution admits another
-	// one. Engaged after Acknowledge returns, since Acknowledge is what
-	// decides whether the abandonment was accepted at all.
-	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+	// one.
+	//
+	// Engaged on the machine's own durable phase rather than on whether
+	// Acknowledge returned an error, which is the rule recovery.Runner
+	// states for itself: a state change belongs to the state, not to the
+	// call that announced it. Machine.Abandon writes the phase, sets the
+	// disposition and closes done *before* it delivers the lane-blocked
+	// record, so a failed delivery returns an error over a mutation that is
+	// already abandoned — and reading the error as "no abandonment" left the
+	// device open, permanently, since central re-sending the same
+	// acknowledgement is refused already-terminal and returns here too.
+	if open.machine.Disposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		ds.hold.Engage()
+	}
+
+	if ackErr != nil {
+		return ackErr
 	}
 
 	// A mutation in recovery has no process call left waiting on it: the
@@ -1467,9 +1478,19 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutatio
 		return l.enterRecovery(ctx, ds, open, l.cfg.Clock(), baseline, err)
 	}
 
-	// Provably nothing was sent. Central may dispose this REJECTED, which
-	// is what submitted false on the report tells it.
-	ds.hold.Engage()
+	// Provably nothing was sent, so there is nothing to recover and no hold
+	// to engage — the rule epochBlocked states for the same case, a few
+	// lines below. The hold exists for a mutation whose effect nobody can
+	// establish; this one establishes that there was none, which is what
+	// submitted false on the report tells central, and central disposes it
+	// REJECTED on exactly that flag.
+	//
+	// Engaging here took the device out of service for a transient failure
+	// and never gave it back: a hold is resolved by a mutation verifying,
+	// this one cannot verify, and once it has closed the acknowledgement
+	// that would carry an operator's decision is refused with
+	// no-pending-wait. One checkpoint timeout cost a device until a person
+	// sent HoldResolved.
 	return stepOutcome{err: err, owed: true}
 }
 

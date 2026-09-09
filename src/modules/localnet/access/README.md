@@ -316,6 +316,17 @@ that question. Leaving it engaged would mean every successful recovery still
 needed an operator to unblock the device. An abandonment is the case that
 keeps a hold, and engages one of its own.
 
+**The hold follows the mutation's durable state, never a call's return
+value.** Two consequences, and both were once wrong in opposite directions. A
+mutation that provably sent nothing engages no hold at all — there is no
+unknown effect to hold for — so a checkpoint that times out costs the
+operation and not the device. And an abandonment engages one whether or not
+the call announcing it succeeded: `Machine.Abandon` moves the phase, sets the
+disposition and closes `done` before it delivers the lane-blocked record, so a
+refused delivery returns an error over a mutation that is already abandoned,
+and reading that error as "no abandonment" would leave the next mutation to be
+admitted over a device whose last one may have applied.
+
 An abandonment is a *result*, not an error: the caller has to report it to
 central, and central disposes the mutation from what it says. Failing the
 call instead would leave a host with something to log and nothing to send.
