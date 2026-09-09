@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/modules/capture/pcapng"
@@ -14,16 +16,19 @@ import (
 
 // fakeSource is a Source a test drives directly: frames is pre-filled
 // before Run is called, so the engine's reads never block on real I/O and
-// the test needs no timing coordination with a producer goroutine.
+// the test needs no timing coordination with a producer goroutine. closed
+// is closed by Close, so a test can wait for the engine's run goroutine to
+// finish (Close is its last call before signaling the pump done) without a
+// wall-clock sleep.
 type fakeSource struct {
 	frames           chan rawsocket.Frame
 	statsReceived    uint64
 	statsDroppedByIf uint64
-	closed           bool
+	closed           chan struct{}
 }
 
 func newFakeSource(buffer int) *fakeSource {
-	return &fakeSource{frames: make(chan rawsocket.Frame, buffer)}
+	return &fakeSource{frames: make(chan rawsocket.Frame, buffer), closed: make(chan struct{})}
 }
 
 func (f *fakeSource) Receive(context.Context) <-chan rawsocket.Frame { return f.frames }
@@ -35,7 +40,7 @@ func (f *fakeSource) Stats() (uint64, uint64, error) {
 }
 
 func (f *fakeSource) Close() error {
-	f.closed = true
+	close(f.closed)
 	return nil
 }
 
@@ -72,7 +77,7 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 		src.frames <- testFrame(byte(i))
 	}
 
-	e := newEngine(src, testBudget(100))
+	e := newEngine(src, testBudget(100), true)
 	p, err := e.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -100,7 +105,9 @@ func TestEngine_BudgetStopsAtPacketCount(t *testing.T) {
 	if got := e.State().Lifecycle; got != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED {
 		t.Errorf("Lifecycle = %v, want COMPLETED", got)
 	}
-	if !src.closed {
+	select {
+	case <-src.closed:
+	default:
 		t.Errorf("engine did not close the source")
 	}
 }
@@ -120,15 +127,18 @@ func TestEngine_AttributableLoss(t *testing.T) {
 		src.frames <- testFrame(byte(i))
 	}
 
-	e := newEngine(src, testBudget(totalFrames))
+	e := newEngine(src, testBudget(totalFrames), true)
 	p, err := e.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 
-	// Give the engine's own goroutine a chance to race ahead of this
-	// (silent) consumer before draining, so evictions actually happen.
-	time.Sleep(50 * time.Millisecond)
+	// TrySendDropOldest never blocks the producer on this (silent) consumer,
+	// so the run goroutine processes every pre-buffered frame and reaches
+	// its budget bound on its own regardless of when draining starts; wait
+	// for it to finish (Close is its last call) rather than racing it with
+	// an arbitrary sleep, so evictions happen deterministically.
+	<-src.closed
 
 	batches := drainAll(p)
 	if len(batches) == 0 {
@@ -155,7 +165,7 @@ func TestEngine_PcapngPipeline(t *testing.T) {
 		src.frames <- testFrame(byte(i))
 	}
 
-	e := newEngine(src, testBudget(100))
+	e := newEngine(src, testBudget(100), true)
 	p, err := e.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -200,7 +210,7 @@ func TestEngine_MirrorEnvelope(t *testing.T) {
 	f.Envelope = env
 	src.frames <- f
 
-	e := newEngine(src, testBudget(1))
+	e := newEngine(src, testBudget(1), true)
 	p, err := e.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -231,7 +241,7 @@ func TestEngine_SnapLengthTruncation(t *testing.T) {
 
 	budget := testBudget(1)
 	budget.SetSnapLength(64)
-	e := newEngine(src, budget)
+	e := newEngine(src, budget, true)
 	p, err := e.Run(context.Background())
 	if err != nil {
 		t.Fatalf("Run: %v", err)
@@ -249,7 +259,7 @@ func TestEngine_SnapLengthTruncation(t *testing.T) {
 
 func TestEngine_RunTwiceFails(t *testing.T) {
 	src := newFakeSource(1)
-	e := newEngine(src, testBudget(1))
+	e := newEngine(src, testBudget(1), true)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -258,5 +268,244 @@ func TestEngine_RunTwiceFails(t *testing.T) {
 	}
 	if _, err := e.Run(ctx); err == nil {
 		t.Error("second Run: want an error, got nil")
+	}
+}
+
+// TestEngine_MirrorReceiverOmitsInterfaceDropsCounter proves a source that
+// cannot report a real interface-level drop count (a mirror receiver) never
+// sets dropped_by_interface, per capture_counters.proto's "an absent counter
+// means the stage does not report one — never a zero".
+func TestEngine_MirrorReceiverOmitsInterfaceDropsCounter(t *testing.T) {
+	src := newFakeSource(10)
+	src.frames <- testFrame(1)
+
+	e := newEngine(src, testBudget(1), false)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	_ = drainAll(p)
+
+	if e.State().Counters.HasDroppedByInterface() {
+		t.Errorf("Counters.dropped_by_interface is set, want absent for a source with no interface-level drop counter")
+	}
+}
+
+// TestEngine_LocalInterfaceReportsInterfaceDropsCounter is the converse of
+// TestEngine_MirrorReceiverOmitsInterfaceDropsCounter: a source that does
+// report a real counter always sets dropped_by_interface, even when the
+// value is zero.
+func TestEngine_LocalInterfaceReportsInterfaceDropsCounter(t *testing.T) {
+	src := newFakeSource(10)
+	src.frames <- testFrame(1)
+
+	e := newEngine(src, testBudget(1), true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	_ = drainAll(p)
+
+	if !e.State().Counters.HasDroppedByInterface() {
+		t.Errorf("Counters.dropped_by_interface is absent, want present (even if zero) for a local-interface source")
+	}
+}
+
+// TestEngine_DurationStopDrainsQueuedFrames proves a duration bound accounts
+// for whatever the source had already queued the same way a packet- or
+// byte-count bound does, rather than silently discarding it. totalFrames is
+// sized generously above what building PacketRecords can process within the
+// short duration bound on any real machine, so a nonzero remainder stays
+// queued when the timer fires; this mirrors TestEngine_AttributableLoss's
+// own margin-based determinism rather than pinning to a synchronization
+// point that would require a test hook into run()'s private timer.
+func TestEngine_DurationStopDrainsQueuedFrames(t *testing.T) {
+	const totalFrames = 300_000
+	src := newFakeSource(totalFrames + 1)
+	for i := range totalFrames {
+		src.frames <- testFrame(byte(i))
+	}
+
+	budget := &apicapturev1.CaptureBudget{}
+	budget.SetMaxDuration(durationpb.New(2 * time.Millisecond))
+
+	e := newEngine(src, budget, true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	<-src.closed
+	_ = drainAll(p)
+
+	final := e.State()
+	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION {
+		t.Fatalf("StopReason = %v, want DURATION", final.StopReason)
+	}
+	if final.Counters.GetDroppedByBudget() == 0 {
+		t.Errorf("dropped_by_budget = 0, want the frames still queued when the duration bound fired counted as a budget loss (increase totalFrames if this is flaky on a fast machine)")
+	}
+}
+
+// TestEngine_FramesChannelClosedWithoutCancelIsError proves the source
+// closing its own frame channel with the pump's context still live (not
+// abandoned by the consumer) is a genuine failure: stop reason ERROR,
+// lifecycle FAILED, and an error the pump's own Fail records.
+func TestEngine_FramesChannelClosedWithoutCancelIsError(t *testing.T) {
+	src := newFakeSource(1)
+	close(src.frames)
+
+	e := newEngine(src, testBudget(100), true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	<-src.closed
+	_ = drainAll(p)
+
+	final := e.State()
+	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR {
+		t.Errorf("StopReason = %v, want ERROR", final.StopReason)
+	}
+	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED {
+		t.Errorf("Lifecycle = %v, want FAILED", final.Lifecycle)
+	}
+	if p.Err() == nil {
+		t.Errorf("p.Err() = nil, want the pump to record the unexpected channel close as its terminal error")
+	}
+}
+
+// TestEngine_ContextCancelIsOperatorAndCancelled proves an operator-initiated
+// stop (the caller cancels Run's context) reports stop reason OPERATOR and
+// lifecycle CANCELED, not COMPLETED: a canceled run did not finish on its
+// own terms.
+func TestEngine_ContextCancelIsOperatorAndCancelled(t *testing.T) {
+	src := newFakeSource(1)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	e := newEngine(src, testBudget(100), true)
+	p, err := e.Run(ctx)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	cancel()
+	<-src.closed
+	_ = drainAll(p)
+
+	final := e.State()
+	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
+	}
+	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED {
+		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
+	}
+}
+
+// TestEngine_ConsumerStopWithoutContextCancelIsOperator proves a consumer
+// that releases the pump directly (Pump.SignalStop, without canceling Run's
+// own context) still stops the engine promptly and reports the same
+// operator-initiated outcome ctx cancellation would.
+func TestEngine_ConsumerStopWithoutContextCancelIsOperator(t *testing.T) {
+	src := newFakeSource(1)
+	budget := testBudget(1000) // never reached: nothing arrives.
+
+	e := newEngine(src, budget, true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	p.SignalStop()
+	<-src.closed
+
+	final := e.State()
+	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
+		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
+	}
+	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED {
+		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
+	}
+}
+
+// TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide proves the
+// batchMaxRecords-triggered flush no longer fires separately from a budget
+// stop that lands on the very same record: exactly one batch is delivered,
+// marked Final, carrying every accepted record — not a full non-final batch
+// immediately followed by a spurious empty Final one.
+func TestEngine_FinalBatchCarriesRecordsWhenSizeAndBudgetCoincide(t *testing.T) {
+	src := newFakeSource(batchMaxRecords + 1)
+	for i := range batchMaxRecords {
+		src.frames <- testFrame(byte(i))
+	}
+
+	e := newEngine(src, testBudget(batchMaxRecords), true)
+	p, err := e.Run(context.Background())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	batches := drainAll(p)
+	if len(batches) != 1 {
+		t.Fatalf("delivered %d batches, want exactly 1", len(batches))
+	}
+	if !batches[0].Final {
+		t.Errorf("the single delivered batch is not marked Final")
+	}
+	if len(batches[0].Records) != batchMaxRecords {
+		t.Errorf("Final batch has %d records, want %d", len(batches[0].Records), batchMaxRecords)
+	}
+}
+
+// TestNew_RejectsUnboundedBudget and TestNew_RejectsSnapLengthOverMax prove
+// New validates the budget itself rather than relying solely on a caller
+// having already run it through protovalidate: both checks run before New
+// ever opens a source, so a Config with an incomplete Source still surfaces
+// the budget error first.
+
+func TestNew_RejectsUnboundedBudget(t *testing.T) {
+	cfg := Config{
+		Source: &apicapturev1.CaptureSource{},
+		Budget: &apicapturev1.CaptureBudget{},
+	}
+	if _, err := New(cfg); err == nil {
+		t.Fatal("New: want an error for a budget with no packet, byte, or duration bound, got nil")
+	}
+}
+
+func TestNew_RejectsSnapLengthOverMax(t *testing.T) {
+	budget := testBudget(1)
+	budget.SetSnapLength(65536)
+	cfg := Config{
+		Source: &apicapturev1.CaptureSource{},
+		Budget: budget,
+	}
+	if _, err := New(cfg); err == nil {
+		t.Fatal("New: want an error for snap_length over 65535, got nil")
+	}
+}
+
+// TestApplyDropAccounting_TrimsFIFOToPumpCapacity proves fifo cannot grow
+// past the pump's own buffer capacity across a run of ordinary, non-evicting
+// sends: the pump's channel can never hold more than pumpBuffer entries at
+// once, so if fifo grew unbounded instead, a later eviction would blame
+// whichever batch was appended first — one long since delivered to a
+// keeping-pace consumer — instead of the batch actually still sitting in
+// the channel.
+func TestApplyDropAccounting_TrimsFIFOToPumpCapacity(t *testing.T) {
+	var fifo []int
+	var pending uint64
+
+	for i := 1; i <= 20; i++ {
+		applyDropAccounting(&fifo, &pending, true, 0, i)
+	}
+	if len(fifo) != pumpBuffer {
+		t.Fatalf("len(fifo) = %d, want %d after trimming", len(fifo), pumpBuffer)
+	}
+
+	// The oldest entry the pump could still really hold is the 13th send
+	// (sentCount 13): entries 1-12 were already delivered and consumed.
+	applyDropAccounting(&fifo, &pending, true, 1, 999)
+	if pending != 13 {
+		t.Errorf("pending drops = %d, want 13 (the oldest batch still actually buffered, not an already-delivered one)", pending)
 	}
 }

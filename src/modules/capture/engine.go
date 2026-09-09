@@ -43,9 +43,10 @@ const (
 // exported methods are safe for concurrent use; Run may be called only
 // once.
 type Engine struct {
-	source     Source
-	budget     *apicapturev1.CaptureBudget
-	snapLength uint32
+	source                Source
+	budget                *apicapturev1.CaptureBudget
+	snapLength            uint32
+	reportsInterfaceDrops bool
 
 	mu      sync.Mutex
 	started bool
@@ -61,6 +62,12 @@ func New(cfg Config) (*Engine, error) {
 	if cfg.Budget == nil {
 		return nil, fmt.Errorf("capture: Budget is required")
 	}
+	if !cfg.Budget.HasMaxPackets() && !cfg.Budget.HasMaxBytes() && !cfg.Budget.HasMaxDuration() {
+		return nil, fmt.Errorf("capture: Budget must bound packets, bytes, or duration")
+	}
+	if sl := cfg.Budget.GetSnapLength(); sl > 65535 {
+		return nil, fmt.Errorf("capture: Budget snap_length %d exceeds 65535", sl)
+	}
 
 	prog, err := filter.Compile(cfg.Filter)
 	if err != nil {
@@ -72,6 +79,7 @@ func New(cfg Config) (*Engine, error) {
 	}
 
 	var src Source
+	var reportsInterfaceDrops bool
 	switch {
 	case cfg.Source.HasLocalInterface():
 		li := cfg.Source.GetLocalInterface()
@@ -80,6 +88,7 @@ func New(cfg Config) (*Engine, error) {
 			return nil, fmt.Errorf("open local interface: %w", err)
 		}
 		src = s
+		reportsInterfaceDrops = true
 	case cfg.Source.HasMirrorReceiver():
 		mr := cfg.Source.GetMirrorReceiver()
 		s, err := rawsocket.OpenMirrorReceiver(mr.GetEncapsulations(), mr.GetUdpPort(), mr.GetBindInterface(), raw)
@@ -91,21 +100,27 @@ func New(cfg Config) (*Engine, error) {
 		return nil, fmt.Errorf("capture: Source names neither local_interface nor mirror_receiver")
 	}
 
-	return newEngine(src, cfg.Budget), nil
+	return newEngine(src, cfg.Budget, reportsInterfaceDrops), nil
 }
 
 // newEngine builds an Engine around an already-open source, so a test
 // supplies a fake Source without going through New's real socket-opening
-// path.
-func newEngine(src Source, budget *apicapturev1.CaptureBudget) *Engine {
+// path. reportsInterfaceDrops distinguishes a local-interface source, whose
+// Stats reports a real kernel drop count, from a mirror receiver, whose
+// Stats always returns zero for droppedByInterface because no such counter
+// exists at that layer: per capture_counters.proto, an absent counter means
+// the stage does not report one, so a mirror-sourced run never sets
+// dropped_by_interface rather than reporting a misleading zero.
+func newEngine(src Source, budget *apicapturev1.CaptureBudget, reportsInterfaceDrops bool) *Engine {
 	snapLength := budget.GetSnapLength()
 	if snapLength == 0 {
 		snapLength = defaultSnapLength
 	}
 	return &Engine{
-		source:     src,
-		budget:     budget,
-		snapLength: snapLength,
+		source:                src,
+		budget:                budget,
+		snapLength:            snapLength,
+		reportsInterfaceDrops: reportsInterfaceDrops,
 		state: State{
 			Lifecycle: apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING,
 			LinkType:  capturev1.LinkType_LINK_TYPE_ETHERNET,
@@ -187,7 +202,9 @@ func (e *Engine) run(p *pump.Pump[Batch]) {
 		c := &capturev1.CaptureCounters{}
 		c.SetReceived(received)
 		c.SetAccepted(acceptedPackets)
-		c.SetDroppedByInterface(droppedByInterface)
+		if e.reportsInterfaceDrops {
+			c.SetDroppedByInterface(droppedByInterface)
+		}
 		c.SetDroppedByBudget(droppedByBudget)
 		c.SetDroppedByTransport(totalDroppedByTransport)
 		return c
@@ -230,7 +247,18 @@ runLoop:
 		select {
 		case f, ok := <-frames:
 			if !ok {
-				stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
+				// The source closed its channel on its own. Receive's own
+				// contract closes it after ctx cancellation too (a terminal
+				// error frame is best effort and may be omitted when the
+				// channel is full), so a canceled pump context here means
+				// this is the same operator-initiated stop the
+				// p.Context().Done() case below reports, not a failure.
+				if p.Context().Err() != nil {
+					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+				} else {
+					runErr = fmt.Errorf("capture: source closed its frame channel unexpectedly")
+					stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_ERROR
+				}
 				break runLoop
 			}
 			if f.Err != nil {
@@ -254,27 +282,35 @@ runLoop:
 			acceptedBytes += uint64(len(rec.GetData()))
 			batch = append(batch, rec)
 
-			if len(batch) >= batchMaxRecords {
-				flush(false)
-			}
-
 			switch {
 			case e.budget.HasMaxPackets() && acceptedPackets >= e.budget.GetMaxPackets():
 				stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_PACKET_COUNT
 			case e.budget.HasMaxBytes() && acceptedBytes >= e.budget.GetMaxBytes():
 				stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_BYTE_COUNT
 			default:
+				if len(batch) >= batchMaxRecords {
+					flush(false)
+				}
 				continue
 			}
 
 			// The budget bound just triggered: count whatever the source
 			// had already queued rather than silently discarding it, then
-			// stop taking any more.
+			// stop taking any more. The batch this record landed in is
+			// left for the trailing flush(true) below to send as the Final
+			// batch, rather than flushed here on size alone: a batch that
+			// happened to also reach batchMaxRecords on this exact record
+			// would otherwise already be gone, leaving flush(true) to send
+			// a spurious empty Final batch behind it.
 			droppedByBudget += drainNonBlocking(frames)
 			break runLoop
 
 		case <-durationC:
 			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_DURATION
+			// Same reasoning as the budget-bound case above: whatever the
+			// source already queued is this bound's own loss, not silently
+			// discarded.
+			droppedByBudget += drainNonBlocking(frames)
 			break runLoop
 
 		case <-flushTicker.C:
@@ -282,6 +318,16 @@ runLoop:
 			flush(false)
 
 		case <-p.Context().Done():
+			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
+			break runLoop
+
+		case <-p.Stopped():
+			// The consumer released the pump directly (CloseData or
+			// SignalStop) without canceling ctx: a distinct signal from
+			// p.Context().Done() that TrySendDropOldest already silently
+			// obeys by this point, but the receive loop above would
+			// otherwise never notice and keep draining the source for
+			// nothing.
 			stopReason = apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR
 			break runLoop
 		}
@@ -300,9 +346,12 @@ runLoop:
 	pendingTransportDrops = 0
 
 	e.setState(func(s *State) {
-		if runErr != nil {
+		switch {
+		case runErr != nil:
 			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
-		} else {
+		case stopReason == apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR:
+			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED
+		default:
 			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED
 		}
 		s.StopReason = stopReason
@@ -313,9 +362,10 @@ runLoop:
 
 	if runErr != nil {
 		p.Fail(runErr)
-		return
+	} else {
+		p.Done()
 	}
-	p.Done()
+	p.Cancel()
 }
 
 // buildRecord truncates f's data to snapLength (CaptureBudget's own default
@@ -363,10 +413,25 @@ func drainNonBlocking(frames <-chan rawsocket.Frame) uint64 {
 // pendingDrops, per every case TrySendDropOldest's own doc comment
 // enumerates. The engine is the pump's only producer, so no other producer
 // can race the buffer between this call's two pump-internal attempts.
+//
+// A normal, non-evicting send (delivered && dropped == 0) cannot tell
+// whether the channel had room because the buffer was not yet full or
+// because a consumer had already read older batches off it: either way
+// nothing was lost, but fifo has no way to observe a consumer's own reads
+// directly and would otherwise grow without bound over a long, healthy run
+// (fed only by an ever-shrinking fraction of eventually-evicted entries,
+// never a shrinking whole). The pump's channel can never hold more than
+// pumpBuffer entries at once, so fifo's own size is capped there too:
+// trimming from the front after every append discards exactly the entries
+// a keeping-pace consumer must already have read, without ever touching an
+// entry an eviction could still blame.
 func applyDropAccounting(fifo *[]int, pendingDrops *uint64, delivered bool, dropped int, sentCount int) {
 	switch {
 	case delivered && dropped == 0:
 		*fifo = append(*fifo, sentCount)
+		if len(*fifo) > pumpBuffer {
+			*fifo = (*fifo)[len(*fifo)-pumpBuffer:]
+		}
 	case delivered && dropped == 1:
 		if len(*fifo) > 0 {
 			*pendingDrops += uint64((*fifo)[0])
