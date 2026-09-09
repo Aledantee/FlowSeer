@@ -67,9 +67,11 @@ type Source interface {
 	// terminal error frame is best effort and may be omitted if the channel
 	// is full.
 	Receive(ctx context.Context) <-chan Frame
-	// Stats reports this source's cumulative packet and interface-drop
-	// counts. A mirror receiver has no interface-level drop counter to
-	// report and always returns zero for it.
+	// Stats reports the packet and interface-drop counts since the last
+	// call to Stats (or since the source opened, on the first call): a
+	// caller that wants a running total accumulates what it returns. A
+	// mirror receiver has no interface-level drop counter to report and
+	// always returns zero for it.
 	Stats() (received, droppedByInterface uint64, err error)
 	// Close releases the source. It is idempotent.
 	Close() error

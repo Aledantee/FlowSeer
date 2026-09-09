@@ -14,6 +14,7 @@ inside an agent at the edge, written once here.
 | Module     | What it is                                                                 |
 | ---------- | -------------------------------------------------------------------------- |
 | `localnet` | SNMP side of the local-network integration kind: collector and mappers     |
+| `capture`  | Packet capture engine: local-interface and mirror-receiver sources, cBPF filter compilation, mirror decapsulation, and pcapng rendering |
 
 ## Admission
 

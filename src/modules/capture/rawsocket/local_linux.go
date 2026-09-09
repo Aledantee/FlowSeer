@@ -220,9 +220,9 @@ func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
 	return frames
 }
 
-// Stats reports cumulative counts. PACKET_STATISTICS resets the kernel's own
-// counters to zero on each read, so this method's return values are a delta
-// since the last call, not a running total; a caller that wants a running
+// Stats reports counts since the last call. PACKET_STATISTICS resets the
+// kernel's own counters to zero on each read, so this method's return
+// values are a delta, not a running total; a caller that wants a running
 // total accumulates the deltas itself.
 func (s *linuxLocalSource) Stats() (received, droppedByInterface uint64, err error) {
 	s.mu.Lock()

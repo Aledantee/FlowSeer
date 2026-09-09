@@ -224,7 +224,8 @@ type linuxMirrorSource struct {
 	candidates []capturev1.MirrorEncapsulation
 	vm         *bpf.VM
 
-	received atomic.Uint64
+	received         atomic.Uint64
+	reportedReceived atomic.Uint64
 
 	mu     sync.Mutex
 	closed bool
@@ -263,13 +264,17 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 
 // Stats reports the frames this receiver has counted (received, decoded to
 // a marker or non-Ethernet payload, or filtered out — every packet that
-// reached a socket read). No comparable per-socket kernel drop counter
-// exists for a raw or UDP socket the way PACKET_STATISTICS does for
-// AF_PACKET, so droppedByInterface is always zero: the mirror-receiver
-// path's dominant loss mode is delivery to this engine's own consumer, per
-// the plan's Decisions, not interface-level drops.
+// reached a socket read) since the last call, matching PACKET_STATISTICS'
+// own read-resets-the-counter contract on the local-interface source, so a
+// caller polls both the same way. No comparable per-socket kernel drop
+// counter exists for a raw or UDP socket, so droppedByInterface is always
+// zero: the mirror-receiver path's dominant loss mode is delivery to this
+// engine's own consumer, per the plan's Decisions, not interface-level
+// drops.
 func (s *linuxMirrorSource) Stats() (received, droppedByInterface uint64, err error) {
-	return s.received.Load(), 0, nil
+	total := s.received.Load()
+	prev := s.reportedReceived.Swap(total)
+	return total - prev, 0, nil
 }
 
 func (s *linuxMirrorSource) Close() error {
