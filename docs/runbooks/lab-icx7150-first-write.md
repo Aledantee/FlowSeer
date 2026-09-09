@@ -395,9 +395,19 @@ Export it, and everything below uses it:
 export FINGERPRINT=$(buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus" \
-  | sed -n 's/.*"firmwareFingerprint": *"\([^"]*\)".*/\1/p')
+  | sed -n 's/.*"firmwareFingerprint": *"\([^"]*\)".*/\1/p' | head -1)
 test -n "$FINGERPRINT"
+test ${#FINGERPRINT} -eq 64
 ```
+
+`head -1` is not tidiness. Once the device has been read, the answer carries
+the fingerprint twice — at the top level and again inside the observation's
+provenance — so without it `FINGERPRINT` becomes two digests with a newline
+between them, and the intent below is refused with
+`intent.expected_firmware_fingerprint: string.max_len`. That refusal is
+correct and it names the wrong culprit, so the length check is here to fail on
+the line that actually produced it. This bites the second write and never the
+first, which is how it survived one.
 
 ## Step 8: dry run with `validate_only`
 
