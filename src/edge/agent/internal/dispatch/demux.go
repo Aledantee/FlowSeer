@@ -10,6 +10,10 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
+// ErrCodeRefusalUnclassified identifies a lane refusal whose cause carried no
+// stable code of its own. Central leaves codes it does not classify retryable.
+var ErrCodeRefusalUnclassified = errs.NewCode("agent/refusal-unclassified")
+
 // Lane is the device access lane a dispatch drives. Satisfied by
 // *access.Lane; an interface so the routing can be tested without devices.
 type Lane interface {
@@ -167,9 +171,10 @@ func (d *Demux) refuse(ctx context.Context, device string, sequence uint64, kind
 	if !ok {
 		// Refused's code is a required, pattern-constrained field, so an
 		// uncoded error cannot be sent as itself. It is reported under the
-		// lane's own generic refusal rather than dropped: central needs to
-		// know the dispatch was not taken.
-		code = access.ErrCodeUnknownDevice
+		// agent's unclassified refusal rather than dropped: central needs to
+		// know the dispatch was not taken, but must not infer a device lookup
+		// result the lane did not report.
+		code = ErrCodeRefusalUnclassified
 		d.log.WarnContext(ctx, "refusing a dispatch for an uncoded error",
 			slog.String("flowseer.device.id", device),
 			slog.Any("error", cause))

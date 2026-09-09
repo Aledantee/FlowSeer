@@ -2,6 +2,7 @@ package dispatch_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -290,6 +291,34 @@ func TestALaneRefusalReachesCentralWithItsOwnCode(t *testing.T) {
 	}
 	if refused.GetSequence() != 9 {
 		t.Errorf("sequence = %d, want 9", refused.GetSequence())
+	}
+}
+
+func TestAnUncodedLaneRefusalDoesNotClaimTheDeviceIsUnknown(t *testing.T) {
+	lane := &laneFake{otherErr: errors.New("lane refused without a classification")}
+	out := &outboundFake{}
+	demux := dispatch.NewDemux(lane, out, nil)
+
+	checkpoint := &integrationv1.SubscribeResponse{}
+	checkpoint.SetDeviceId("dev-1")
+	req := &integrationv1.CheckpointRequest{}
+	req.SetSequence(9)
+	checkpoint.SetCheckpoint(req)
+
+	if err := demux.Handle(context.Background(), checkpoint); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+
+	reports := out.sent()
+	if len(reports) != 1 || reports[0].GetRefused() == nil {
+		t.Fatalf("sent %d reports, want one refusal", len(reports))
+	}
+	got := reports[0].GetRefused().GetCode()
+	if got == "" {
+		t.Fatal("uncoded lane refusal reached central without a valid refusal code")
+	}
+	if got == string(access.ErrCodeUnknownDevice) {
+		t.Fatalf("uncoded lane refusal reached central as %q, which central may dispose REJECTED", got)
 	}
 }
 

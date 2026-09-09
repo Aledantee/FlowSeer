@@ -1059,13 +1059,13 @@ const file_flowseer_integration_device_v1_dispatch_proto_rawDesc = "" +
 	"\arefused\x18\r \x01(\v2'.flowseer.integration.device.v1.RefusedH\x00R\arefused\x12I\n" +
 	"\tonboarded\x18\x0e \x01(\v2).flowseer.integration.device.v1.OnboardedH\x00R\tonboardedB\x0f\n" +
 	"\x06report\x12\x05\xbaH\x02\b\x01\"\x10\n" +
-	"\x0eReportResponse\"\xd5\x01\n" +
+	"\x0eReportResponse\"\xdb\x01\n" +
 	"\aRefused\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12O\n" +
 	"\x04kind\x18\x02 \x01(\x0e2,.flowseer.integration.device.v1.DispatchKindB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12Q\n" +
-	"\x04code\x18\x03 \x01(\tB=\xbaH:\xc8\x01\x01r523^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:-[a-z0-9]+)*$R\x04code\"M\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12W\n" +
+	"\x04code\x18\x03 \x01(\tBC\xbaH@\xc8\x01\x01r;29^[a-z0-9]+(?:[-_][a-z0-9]+)*/[a-z0-9]+(?:[-_][a-z0-9]+)*$R\x04code\"M\n" +
 	"\tOnboarded\x12@\n" +
 	"\x14firmware_fingerprint\x18\x01 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint*\xa7\x01\n" +
