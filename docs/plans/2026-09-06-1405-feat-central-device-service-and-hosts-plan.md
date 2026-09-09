@@ -1975,6 +1975,60 @@ existing per-operation acquisition count does not change — that last is the
 one that catches a reuse that also stopped acquiring.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/*.md')`
 
+### U8n. A read must not be lost to a shell it never needed
+Files: `src/modules/localnet/access/lane.go`,
+`src/modules/localnet/access/internal/capability/interfaces/adapter.go`,
+their tests
+After: U8m, with which it agrees — see below. **Blocks the lab write.**
+
+Change: `ReadInterface` cannot succeed against the lab ICX7150, and the write
+path fails the same way for the same reason. Found by running the system
+against the switch; no fixture produced it, and ours could not have.
+
+**Two defects composing, neither sufficient alone.**
+
+The lane's `Read` closure opens the shell whenever a factory exists, before
+`interfaces.Read` is called — and the comment directly above it says the
+opposite: *"The shell is opened only for the fallback route… interfaces.Read
+decides whether it needs it; opening it unconditionally would mean an SSH
+login on every SNMP read."* `interfaces.Read` takes the adapter and builds a
+fallback only `if shell != nil`, so nil was always supported and the decision
+the comment describes was never given to it.
+
+And that open is a hard return. A shell that cannot be opened fails the whole
+read — including a read the SNMP route has already answered COMPLETE, whose
+observation is then discarded.
+
+On this device the shell is opened with the *read* credential, which is SNMP
+material because the identity probe acquires under the same handle. So the
+open always fails, and no read can ever complete. Measured against the switch:
+`ReadSNMP` walks 33 interfaces and returns COMPLETE for `ethernet 1/1/1`,
+while the lane's read fails with `agent/device-session` before consulting it.
+
+**Both are fixed here.** The eager open is what makes the comment true: pass
+`interfaces.Read` something it can open *if* it takes the fallback, rather
+than an already-open adapter. The fatal failure is what makes it survivable: a
+shell that cannot be opened leaves no fallback, and a read the SNMP route
+answered still succeeds.
+
+**This agrees with U8m and neither should be written as if the other did not
+exist.** An SSH login on every SNMP read is exactly the login storm the
+held-session direction exists to prevent, against a switch that caps
+concurrent sessions. U8m makes the login cheap; this makes it rare. Whichever
+lands second should not undo the first.
+
+**The reversal that matters is the second one.** Assert that `OpenShell` is
+never called when the SNMP route completes — that pins the comment's intent as
+behaviour. "The read succeeds when the shell open fails" passes for an
+implementation that still opens eagerly and swallows the error, which is half
+a fix wearing the whole one's clothes.
+
+Tests: a device whose SNMP answers completely is read without its shell
+factory ever being called; a device whose shell cannot be opened is still read
+when SNMP answers; and a device whose SNMP is incomplete still falls through
+and reads over the shell.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/internal/capability/interfaces/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
@@ -2286,6 +2340,32 @@ terminal acknowledgement is still owed, so the only signal an operator has
 that resolving is safe is that the call stops being refused. They retry blind,
 and the end-to-end test retries exactly as they would. The runbook carries it
 as a step; the API wants a field.
+
+**A policy names one read credential, and the read route wants two.** The
+primary route is SNMP and the fallback is a shell login, so a device needs
+both kinds of material to have both routes — and `RegistryPolicy` has exactly
+one `read_credential`. The wire is not the obstacle:
+`AcquireReadCredentialResponse.credential` carries a `CredentialMaterial`,
+which is either arm, and its `ssh_host_key_sha256` is documented as "set
+exactly when the material is a shell login" — so a shell-material read
+credential was anticipated. What was not is a device wanting one of each.
+
+So a deployment chooses which route can work. This device's reads are SNMP, so
+its fallback can never open; a device whose read credential were a shell login
+would have the mirror problem. After U8n the fallback stops breaking reads and
+becomes a route that cannot succeed for the devices most likely to need it,
+which is worth a decision rather than a quiet dead branch: a second handle on
+the policy, or an explicit statement that a device has one read route and the
+fallback exists only for devices whose read credential is a shell login.
+
+**An operator is told the edge failed when the edge did not.** A read that
+fails anywhere in the lane's closure surfaces as `"the edge could not read
+this interface"` with an empty detail, while the wire code naming the actual
+cause — `agent/device-session` — reaches only central's DEBUG log. In the
+defect U8n fixes, the edge is behaving correctly and is the component the
+message accuses; anyone meeting it goes to the agent and finds nothing wrong.
+One message covering two causes is this build's recurring shape, and a message
+that points at the wrong component is worse than a vague one.
 
 **A read's shell fallback is handed the read credential.** When the SNMP
 route fails and the interface read falls through to the shell, the lane opens
