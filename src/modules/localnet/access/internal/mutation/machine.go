@@ -248,6 +248,14 @@ func (m *Machine) Verified() bool {
 	return m.verifiedLocked()
 }
 
+// Abandoning reports whether an accepted acknowledgement chose abandonment,
+// including while the terminal transition is still being delivered.
+func (m *Machine) Abandoning() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.abandoning
+}
+
 func (m *Machine) verifiedLocked() bool {
 	return m.phase == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED ||
 		m.disposition == accessv1.Disposition_DISPOSITION_VERIFIED

@@ -1064,16 +1064,11 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 	// was never established, and only an explicit resolution admits another
 	// one.
 	//
-	// Engaged on the machine's own durable phase rather than on whether
-	// Acknowledge returned an error, which is the rule recovery.Runner
-	// states for itself: a state change belongs to the state, not to the
-	// call that announced it. Machine.Abandon writes the phase, sets the
-	// disposition and closes done *before* it delivers the lane-blocked
-	// record, so a failed delivery returns an error over a mutation that is
-	// already abandoned — and reading the error as "no abandonment" left the
-	// device open, permanently, since central re-sending the same
-	// acknowledgement is refused already-terminal and returns here too.
-	if open.machine.Disposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+	// The acknowledgement's mark precedes its first terminal delivery, while
+	// the disposition is also set by recovery-driven abandonment. Consulting
+	// both keeps the hold across a failed delivery from either path.
+	if open.machine.Abandoning() ||
+		open.machine.Disposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
 		ds.hold.Engage()
 	}
 
@@ -1556,15 +1551,10 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 		// needs an operator to unblock the device. An abandonment is the
 		// case that keeps its hold, and it engages one of its own.
 		//
-		// Safe against a verified mutation that central then disposes
-		// INDETERMINATE_ABANDONED, which Acknowledge accepts at every open
-		// phase: by the time this runs, Acknowledge has already moved the
-		// phase to ABANDONED and set the disposition, so Verified reads
-		// false and the hold HandleTerminalAck just engaged survives. That
-		// depends on Acknowledge finishing its terminal walk before
-		// returning — if it ever marks and defers the phase change, this
-		// check starts clearing a hold central asked for.
-		if open.machine.Verified() {
+		// Acknowledgement-driven abandonment is marked before its terminal
+		// transition is delivered. Preserve the hold throughout that window,
+		// even while the earlier verified phase is still observable.
+		if open.machine.Verified() && !open.machine.Abandoning() {
 			ds.hold.Resolve()
 		}
 		if err != nil {

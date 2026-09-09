@@ -6,6 +6,7 @@ import (
 	"time"
 
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -74,36 +75,14 @@ func TestAMutationThatSentNothingDoesNotHoldTheDevice(t *testing.T) {
 // the device.
 //
 // Machine.Abandon writes the phase, sets the disposition and closes done
-// before it delivers the record, so by the time the delivery fails the
-// mutation is durably abandoned — its effect unknown, forever, since nothing
-// will look at it again. The lane engaged the hold on Acknowledge's return
-// value instead of on that durable state, so the one abandonment that fails
-// to deliver is the one that leaves the device open, and the next mutation is
-// admitted over a device whose last one may or may not have applied.
+// before it delivers the lane-blocked record. A refusal therefore leaves the
+// mutation durably abandoned and must not make the device safe for another
+// mutation.
 //
-// It is permanent rather than transient: central re-sending the same
-// acknowledgement gets already-terminal, which returns at the same line and
-// never reaches the engage.
-//
-// THIS TEST CURRENTLY FAILS, roughly one run in three here and five in six on
-// another machine, and the failure is a second defect rather than a flaky
-// assertion. Its diagnostic names it: the abandoned mutation ends with "enter
-// recovery: EnterRecovering is not valid from OPERATION_PHASE_VERIFIED", so it
-// had reached VERIFIED when the acknowledgement arrived. Machine.Abandon emits
-// its PhaseTransitioned record *before* taking the lock to write the phase and
-// the disposition, and in that window the door's `abandoning` mark is set while
-// Phase() still reads VERIFIED. A submitting goroutine that ends the mutation
-// inside it reaches endMutation, sees Verified() true, and calls
-// hold.Resolve() — clearing the hold the acknowledging goroutine engages.
-// endMutation's own comment argues this is safe "by the time this runs,
-// Acknowledge has already moved the phase to ABANDONED", which is exactly the
-// ordering that is not guaranteed.
-//
-// The fix is to consult the mark rather than the phase: `abandoning` is set
-// under the same lock that guards the phase and before any delivery, so
-// endMutation should resolve only when Verified() and not abandoning, and the
-// engage should fire on the mark as well as on the disposition. Left unapplied
-// deliberately — it is a fix nobody has watched work yet.
+// Machine.Abandon emits its PhaseTransitioned record before taking the lock to
+// write the phase and disposition. The acknowledgement's abandoning mark is
+// therefore the invariant that prevents a concurrently ending verified path
+// from clearing the hold during that delivery window.
 //
 // The rule this asserts is the one recovery.Runner.Attempt already states for
 // itself — a state change belongs to the machine's own durable phase, not to
@@ -141,6 +120,52 @@ func TestAnAbandonmentHoldsTheDeviceEvenWhenItsRecordIsRefused(t *testing.T) {
 			"  acknowledgement error: %v\n  the next mutation was answered with: %v\n"+
 			"  the abandoned mutation ended phase=%v err=%v",
 			err, submitErr, firstResult.GetPhaseReached(), firstErr)
+	}
+}
+
+func isAbandonTransition(e *eventv1.DeviceOperationEvent) bool {
+	transition := e.GetPhaseTransitioned()
+	return transition != nil && transition.GetTo() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
+}
+
+// An accepted abandonment holds the device even when its first terminal
+// transition is refused and no terminal disposition has been written yet.
+func TestAnAbandonmentHoldsTheDeviceWhenItsTransitionIsRefused(t *testing.T) {
+	deliverer := &refusingDeliverer{refuse: isAbandonTransition}
+	l := laneWithDeliverer(t, deliverer)
+	addDevice(t, l)
+
+	req := mutationRequest(1)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = l.Submit(ctx, access.SubmitOptions{
+			DeviceKey: "dev-1", Request: req, Priority: lane.PriorityNormal,
+		})
+	}()
+	deliverCheckpoint(t, l, req.GetSequence())
+
+	err := deliverAck(t, l, terminalAck(req.GetSequence(), accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED))
+	if err == nil {
+		t.Fatal("the acknowledgement succeeded; this test needs its abandonment transition refused")
+	}
+	// The refused transition leaves the original mutation open. Cancel it so
+	// the next submission measures the hold rather than merely queueing behind
+	// work that is still in flight.
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Submit() never returned after the refused abandonment transition")
+	}
+
+	if held, submitErr := heldAgainst(t, l, 2); !held {
+		t.Errorf("the device admitted another mutation after its abandonment transition was refused; "+
+			"the acknowledgement marked the effect unknown and nothing is holding the lane\n"+
+			"  acknowledgement error: %v\n  the next mutation was answered with: %v",
+			err, submitErr)
 	}
 }
 
