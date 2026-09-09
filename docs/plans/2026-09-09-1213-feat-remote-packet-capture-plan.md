@@ -131,7 +131,7 @@ After: U1
 Change: `src/modules/capture/` captures on a local interface, compiles a
 `CaptureFilter` to cBPF, terminates the mirror encapsulations, enforces budgets,
 accounts for every drop, and renders pcapng.
-Landed:
+Landed: 2026-09-09, `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase2-plan.md`.
 
 ### U3. Edge host wiring and lab validation
 
