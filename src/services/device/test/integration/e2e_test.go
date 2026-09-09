@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -301,6 +303,12 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 				kinds = append(kinds, fmt.Sprintf("%v(seq=%d)", r.WhichDetail(), r.GetSequence()))
 			}
 			t.Logf("the audit stream at that point: %v", kinds)
+			// And where the edge actually is. The trail says whether the
+			// device was asked; only the stacks say what is stopping it from
+			// being asked. The recovery poll takes the device's drain lock
+			// with a blocking Lock, so a poll that never runs is a poll
+			// behind something that holds it, and the holder is the answer.
+			t.Logf("goroutines in the access and agent packages:\n%s", accessGoroutines())
 			t.Fatalf("the mutation never resolved; last status: %v (error %v)", last, err)
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -802,4 +810,35 @@ func TestADryRunChecksTheIntentAndTouchesNothing(t *testing.T) {
 		t.Errorf("the device was asked to run %q, want %q — a dry run that reached the device is a dry run that was the write",
 			commands, want)
 	}
+}
+
+// accessGoroutines is every goroutine whose stack mentions the access module
+// or the agent, which is where a stuck edge is.
+//
+// Filtered rather than dumped whole: a run of this package has hundreds of
+// goroutines and the interesting ones are a handful, and a failure message
+// nobody reads to the end is a failure message that did not report anything.
+func accessGoroutines() string {
+	// Grown until it fits rather than sized by guess. runtime.Stack
+	// truncates silently at the buffer's length, and a truncated dump that
+	// happens to omit the goroutine you are looking for reads exactly like
+	// that goroutine not existing — which is the wrong answer to the only
+	// question this is asked.
+	buf := make([]byte, 1<<20)
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
+
+	var kept []string
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "localnet/access") || strings.Contains(g, "edge/agent") {
+			kept = append(kept, g)
+		}
+	}
+	return strings.Join(kept, "\n\n")
 }
