@@ -180,17 +180,8 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 
-	read, submission := access.NewConnectCredentials(a.edge)
 	reporter := &laneReporter{}
-	lane := access.NewLane(access.Config{
-		QueueCapacity:         4,
-		ReadCredentials:       read,
-		SubmissionCredentials: submission,
-		Reporter:              reporter,
-		Audit:                 report.NewDeliverer(a.audit, a.edgeID),
-		Telemetry:             telemetry,
-		Clock:                 a.clock(),
-	})
+	lane := access.NewLane(a.laneConfig(reporter, telemetry))
 
 	// The demultiplexer and the queue each need the other: the demultiplexer
 	// reports through the queue, and the queue tells the demultiplexer when
@@ -250,6 +241,19 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 				}, contact)
 			})
 	}}, nil
+}
+
+func (a *assembly) laneConfig(reporter *laneReporter, telemetry *access.Telemetry) access.Config {
+	read, submission := access.NewConnectCredentials(a.edge)
+	return access.Config{
+		QueueCapacity:         4,
+		ReadCredentials:       read,
+		SubmissionCredentials: submission,
+		Reporter:              reporter,
+		Audit:                 report.NewDeliverer(a.audit, a.edgeID),
+		Telemetry:             telemetry,
+		Clock:                 a.clock(),
+	}
 }
 
 // clock is the lane's source of time: what the deployment substituted, or the
