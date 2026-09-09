@@ -183,6 +183,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	read, submission := access.NewConnectCredentials(a.edge)
 	reporter := &laneReporter{}
 	lane := access.NewLane(access.Config{
+		QueueCapacity:         4,
 		ReadCredentials:       read,
 		SubmissionCredentials: submission,
 		Reporter:              reporter,
