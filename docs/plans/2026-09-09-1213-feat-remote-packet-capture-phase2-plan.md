@@ -4,12 +4,18 @@ type: feat
 date: 2026-09-09
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 ---
 
 # Remote Packet Capture Phase 2, Capture Engine - Plan
+
+> Implemented. All six units landed and verified; see Definition of done.
+> The Linux-only code (src/modules/capture/rawsocket and its tests) has been
+> cross-compiled, vetted, linted, and fully test-binary-compiled for Linux
+> but has not run on a real Linux host, since this development environment
+> is not Linux — named as residual risk throughout and repeated here.
 
 ## Goal
 
@@ -574,12 +580,12 @@ about a real ASIC's output. That gap is not closed here.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path, including the `GOOS=linux`
+- [x] Verifier green for every changed path, including the `GOOS=linux`
       cross-compile and lint pass over the platform-tagged files.
-- [ ] `src/modules/README.md` gains its `capture` row, added in the unit that
+- [x] `src/modules/README.md` gains its `capture` row, added in the unit that
       adds the module (U6).
-- [ ] No plan labels in code, comments, or commit messages.
-- [ ] This plan's `status` set to `implemented` with an outcome note under
+- [x] No plan labels in code, comments, or commit messages.
+- [x] This plan's `status` set to `implemented` with an outcome note under
       its title once the units land; the parent plan's U2 row gets its
       `Landed:` date and this file's path.
 
