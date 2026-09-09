@@ -105,11 +105,10 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 			}
 			consecutive++
 			if consecutive >= misses && !frozen {
-				// Frozen regardless of what Freeze returns. Its error is a
-				// failed audit delivery, and the gate is frozen either way;
-				// treating it as "not frozen" would retry the freeze every
-				// interval and re-emit records for a lane already stopped.
-				if freezeErr := cfg.Lane.Freeze(ctx); freezeErr != nil {
+				freezeCtx, cancel := context.WithTimeout(ctx, interval)
+				freezeErr := cfg.Lane.Freeze(freezeCtx)
+				cancel()
+				if freezeErr != nil {
 					log.WarnContext(ctx, "lane frozen with records undelivered",
 						slog.String("otel.event.name", "flowseer.edge.contact.lost"),
 						slog.Int("flowseer.edge.missed_heartbeats", consecutive),
@@ -118,8 +117,8 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 					log.WarnContext(ctx, "contact with central lost; lane frozen",
 						slog.String("otel.event.name", "flowseer.edge.contact.lost"),
 						slog.Int("flowseer.edge.missed_heartbeats", consecutive))
+					frozen = true
 				}
-				frozen = true
 			}
 		} else {
 			if frozen {
