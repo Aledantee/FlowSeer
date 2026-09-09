@@ -42,6 +42,15 @@ func (r laneReporter) HoldResolvedAcked(ctx context.Context, deviceKey string, a
 	r.send(ctx, deviceKey, func(report *integrationv1.ReportRequest) { report.SetHoldResolvedAck(ack) })
 }
 
+// Onboarded carries the device's firmware epoch, and the fact that this edge
+// has just onboarded it. Central sends nothing that asks for this: the edge
+// makes it at start, which is why the queue never drops one.
+func (r laneReporter) Onboarded(ctx context.Context, deviceKey, fingerprint string) {
+	onboarded := &integrationv1.Onboarded{}
+	onboarded.SetFirmwareFingerprint(fingerprint)
+	r.send(ctx, deviceKey, func(report *integrationv1.ReportRequest) { report.SetOnboarded(onboarded) })
+}
+
 func (r laneReporter) send(ctx context.Context, deviceKey string, set func(*integrationv1.ReportRequest)) {
 	if r.out == nil {
 		return

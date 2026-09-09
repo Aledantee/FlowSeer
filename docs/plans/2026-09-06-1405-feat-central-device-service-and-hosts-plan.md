@@ -522,6 +522,12 @@ Design decisions:
     an operator's read both work end to end — but neither of those is a
     clause this requirement names.
 
+    The end-to-end's `apply` helper carries no `validate_only` argument. It
+    was removed rather than left unused: nothing passed anything but the
+    default, and `unparam` is right that an argument with one caller-supplied
+    value is not a parameter. The dry run is the runbook's, and it comes back
+    with the test that needs it rather than as an argument waiting for one.
+
     Only the edge needs a substituted clock. Central's device service holds
     one `time.Now()` outside its tests, for certificate validity; the
     journal and the drift poller both already take an injected clock and the
@@ -1567,13 +1573,28 @@ called, so requirement 3's "`Onboarded` at `POSSIBLY_APPLIED` re-dispatches
 with `resume` and the original admission time" has no trigger: the
 edge-restart recovery path cannot run.
 
-Four things to settle in the spec rather than discover: whether the queue's
-drain honours the retention the comment asserts; what orders an `Onboarded`
-against a dispatch the edge has already answered, given `applyOnboarded`
-clears per-dispatch confirmations, or what it costs that nothing does;
-whether the report carries the fingerprint or central re-derives it; and the
-test that makes it worth doing, which is an edge restarting mid-mutation and
-central re-dispatching with `resume`.
+The four questions, settled before building:
+
+The retention the queue's comment asserts holds on both paths, and needed no
+change. `evictOldestLocked` skips `kindOnboarded` and logs an error rather
+than dropping one when the queue is full of them, and the only other removal
+is in `drain`, which deletes a report solely after central has accepted it.
+
+Nothing orders an `Onboarded` against a dispatch the edge has already
+answered, and the cost is one redundant re-dispatch rather than a wrong state.
+`MarkOnboarded` clears `dispatch_confirmed` and `checkpoint_confirmed` while
+leaving `dispatched` set, so central re-sends what is open; the edge answers a
+duplicate from its per-device map of the in-flight or last report instead of
+running the operation again, which requirement 9 already requires of it.
+
+The report carries the fingerprint. `Onboarded.firmware_fingerprint` is
+required, and it has to be the edge's: central has no way to derive an epoch
+it has not been told, which is exactly the gap this unit closes.
+
+The test is an edge restarting mid-mutation, and it asserts the count of
+writes to the device. A central that forgot the mutation, or re-dispatched it
+without `resume`, would write the interface twice; one write is the only
+outcome that separates a resumed mutation from a repeated one.
 
 This was called U8f in discussion before the mutation-path defect was found.
 It is renamed rather than reordered, so that the unit letters keep running in
@@ -1689,6 +1710,14 @@ dialing that one address across a central restart. Same shape as the bus and
 its `cluster_urls`: the constraint is not the listener's, it is that somebody
 wrote the address down first.
 
+Two `ErrCodeNoExpectation` branches in `resolve.go` return distinct internal
+messages behind one user message: "the sequence names no interface to restore"
+and "central holds no expected description for this interface". That is the
+right trade in both directions — an operator does not need the distinction and
+a diagnosis does — and it is what separated a test racing ahead of the edge
+from a defect losing the mutation. The obvious cleanup is to unify the
+internal messages to match the user one; do not.
+
 `golangci-lint` runs `misspell` with a US dictionary, over prose in comments
 and test messages as well as identifiers. It rejects British spellings
 ("unrecognised", "behaviour"), which is worth knowing before writing a
@@ -1762,6 +1791,16 @@ access story. Building one inside a unit about edge lifecycle would put it in
 the wrong place permanently, and a scope invented to close a review line
 outlives the review. The api/edge README now says plainly that the trail does
 not exist rather than claiming the action is audited.
+
+**An operator cannot see when a resolution will be accepted.** After
+`AbandonMutation`, central refuses `ResolveDesynchronization` until the edge
+has acknowledged how the mutation ended, which is right: resolving against a
+mutation whose fate the edge has not accepted decides without the fact the
+decision is about. But `GetDeviceAccessStatus` does not carry whether that
+terminal acknowledgement is still owed, so the only signal an operator has
+that resolving is safe is that the call stops being refused. They retry blind,
+and the end-to-end test retries exactly as they would. The runbook carries it
+as a step; the API wants a field.
 
 **A read's shell fallback is handed the read credential.** When the SNMP
 route fails and the interface read falls through to the shell, the lane opens

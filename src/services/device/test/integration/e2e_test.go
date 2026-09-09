@@ -24,6 +24,20 @@ type deployment struct {
 	device  *fakeDevice
 	clock   *testClock
 	edgeID  string
+
+	// dir and provisioning are what a second agent needs to be started over
+	// the first one's state, which is how an edge restart is staged.
+	dir          string
+	provisioning *edgev1.EdgeProvisioning
+}
+
+// restartAgent stops this deployment's agent and starts another over the same
+// state directory, which is what an edge restarting looks like: the same
+// identity, the same enrollment, no memory of what it was doing.
+func (d *deployment) restartAgent(t *testing.T) {
+	t.Helper()
+	d.agent.shutdown()
+	d.agent = startAgent(t, d.dir, d.provisioning, d.central.baseURL(), d.device, d.clock)
 }
 
 // assemble brings up the whole thing: central, an edge created through the
@@ -66,7 +80,10 @@ func assemble(t *testing.T) *deployment {
 	clock := newTestClock()
 	a := startAgent(t, dir, provisioning, c.baseURL(), device, clock)
 
-	return &deployment{central: c, agent: a, device: device, clock: clock, edgeID: edgeID}
+	return &deployment{
+		central: c, agent: a, device: device, clock: clock, edgeID: edgeID,
+		dir: dir, provisioning: provisioning,
+	}
 }
 
 // The agent enrolls against a real central, attaches its bus, and onboards
@@ -149,31 +166,22 @@ func TestAnOperatorsReadReachesTheDeviceAndComesBack(t *testing.T) {
 	}
 }
 
-// waitForFingerprint blocks until central has recorded the firmware
-// fingerprint, which every mutation intent must name.
+// waitForFingerprint blocks until central has recorded the device's firmware
+// epoch, which every mutation intent has to name.
 //
-// It gets there by issuing a read, which is a workaround for a defect and
-// says so rather than looking deliberate: the fingerprint should arrive from
-// onboarding, and central records it only from an observation's provenance
-// because nothing on the edge sends the report that would carry it. When that
-// is fixed this becomes a wait on the status alone.
+// It waits on the status alone. Central learns the epoch from the onboarding
+// report the edge sends unprompted at start, so an operator's first change to
+// a freshly onboarded device needs nothing to have happened first — which is
+// the point, and which this helper is the shortest statement of.
 func (d *deployment) waitForFingerprint(t *testing.T) string {
 	t.Helper()
 	deadline := time.Now().Add(60 * time.Second)
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		_, err := d.central.devices().ReadInterface(ctx,
-			connect.NewRequest(devicev1.ReadInterfaceRequest_builder{
-				Device: deviceRef(), InterfaceName: proto.String(fixtureInterface),
-			}.Build()))
-		cancel()
+		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
 		if err == nil {
-			status, statusErr := d.central.devices().GetDeviceAccessStatus(context.Background(),
-				connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
-			if statusErr == nil {
-				if fingerprint := status.Msg.GetFirmwareFingerprint(); fingerprint != "" {
-					return fingerprint
-				}
+			if fingerprint := status.Msg.GetFirmwareFingerprint(); fingerprint != "" {
+				return fingerprint
 			}
 		}
 		if time.Now().After(deadline) {
@@ -502,5 +510,64 @@ func TestAMutationSurvivesCentralRestartingUnderIt(t *testing.T) {
 	// twice — which is the failure this scenario is really about.
 	if got := slices.Contains(commands, fixtureInterface+"=uplink to core"); !got || len(commands) != 1 {
 		t.Errorf("the device was asked to run %q, want exactly one description write", commands)
+	}
+}
+
+// An edge that restarts under an open mutation re-onboards, and central
+// resumes the mutation rather than running it again.
+//
+// This is what the onboarding report is for. The edge sends it unprompted at
+// start; central clears the per-dispatch confirmations it had recorded for
+// this device and re-sends the mutation that is still open. Because the
+// record shows the command may already have reached the device, the dispatch
+// carries resume, and the edge admits it straight into recovery instead of
+// executing it a second time.
+//
+// The assertion is the count of writes. A central that forgot the mutation
+// would dispatch it fresh and the device would be written twice; a central
+// that re-dispatched without resume would do the same. One write is the only
+// outcome that distinguishes a resumed mutation from a repeated one, and
+// repeating it is the thing this whole design exists to avoid — a switch
+// configured twice by a system that lost track of whether it had done it
+// once.
+func TestAnEdgeRestartingUnderAMutationResumesItRatherThanRepeatingIt(t *testing.T) {
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+
+	// The change stays invisible, so the mutation cannot complete before the
+	// restart and the edge is genuinely holding it open when it goes down.
+	d.device.pinReads("as found")
+	d.apply(t, "0192e6a0-0000-7000-8000-0000000d0001", "uplink to core", fingerprint)
+
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		_, _, _, commands, _ := d.device.snapshot()
+		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+		if err == nil &&
+			status.Msg.GetUnresolved().GetPhase() == accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED &&
+			slices.Contains(commands, fixtureInterface+"=uplink to core") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the mutation never reached the device with central holding it open (commands %q, error %v)",
+				commands, err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	d.restartAgent(t)
+	d.device.unpinReads()
+
+	status := d.waitUntilResolved(t)
+	if rows := status.GetInterfaces(); len(rows) != 1 || rows[0].GetDescription() != "uplink to core" {
+		t.Errorf("central holds %v, want one row reading %q", rows, "uplink to core")
+	}
+
+	_, _, _, commands, _ := d.device.snapshot()
+	want := []string{fixtureInterface + "=uplink to core"}
+	if !slices.Equal(commands, want) {
+		t.Errorf("the device was asked to run %q, want %q — the mutation was repeated rather than resumed",
+			commands, want)
 	}
 }

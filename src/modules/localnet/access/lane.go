@@ -91,6 +91,17 @@ type Reporter interface {
 	// HoldResolvedAcked carries the acknowledgement of central's
 	// HoldResolved.
 	HoldResolvedAcked(ctx context.Context, deviceKey string, ack *integrationv1.HoldResolvedAck)
+	// Onboarded carries the firmware fingerprint the identity probe learned
+	// when this device was added, and with it the fact that the device was
+	// added at all.
+	//
+	// It is the one thing this lane reports that central did not ask for.
+	// Everything else answers a dispatch; this answers a start. Central has
+	// no other way to learn that an edge came back and re-onboarded a device
+	// — which is what tells it to re-send an open mutation — and no other
+	// way to learn the epoch before the first read, which every mutation
+	// intent has to name.
+	Onboarded(ctx context.Context, deviceKey, fingerprint string)
 }
 
 // Config carries every dependency [Lane] needs. Construct with keyed
@@ -507,6 +518,15 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 	}
 
 	l.cfg.Telemetry.DiscoveryCompleted(ctx, fingerprint)
+	// Reported before the device is registered, and deliberately not gated on
+	// the registration succeeding. The report says the probe reached this
+	// device and found this epoch, which is true whether or not the steps
+	// below complete; an AddDevice that fails after here is retried by its
+	// caller and reports again, and the queue supersedes per device so the
+	// second one replaces the first rather than accumulating.
+	if l.cfg.Reporter != nil {
+		l.cfg.Reporter.Onboarded(ctx, deviceKey, fingerprint)
+	}
 	if l.cfg.Audit != nil {
 		event := audit.BuildDiscoveryCompleted(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}}, fingerprint)
 		if err := l.cfg.Audit.Emit(ctx, event); err != nil {

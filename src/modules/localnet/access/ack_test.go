@@ -3,6 +3,7 @@ package access_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,6 +29,21 @@ type recordingReporter struct {
 	devices     []string
 	ackDevices  []string
 	holdDevices []string
+	// onboarded is one entry per onboarding report, "device=fingerprint".
+	onboarded []string
+}
+
+func (r *recordingReporter) Onboarded(_ context.Context, deviceKey, fingerprint string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.onboarded = append(r.onboarded, deviceKey+"="+fingerprint)
+}
+
+// onboardings is what this reporter was told about devices being added.
+func (r *recordingReporter) onboardings() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.onboarded...)
 }
 
 func (r *recordingReporter) Reported(_ context.Context, deviceKey string, result *integrationv1.ExecuteResult) {
@@ -751,5 +767,37 @@ func TestRejectedAcknowledgementWhoseAuditDeliveryFailsWaitsForTheResend(t *test
 	phases := reporter.phases()
 	if phases[len(phases)-1] != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
 		t.Errorf("reported phases = %v, want the last to be RELEASED", phases)
+	}
+}
+
+// Onboarding a device reports the epoch the identity probe found.
+//
+// This is the one report the lane makes that answers no dispatch, and it is
+// the only way central learns two things: that this edge has the device, and
+// what firmware it is running. Without it central holds no fingerprint until
+// something happens to read the device, and every mutation intent has to name
+// one — so an operator's first change to a freshly onboarded device would be
+// impossible for a reason nothing explains.
+//
+// The fingerprint is asserted as the probe's own value rather than as
+// "not empty", because a report carrying the wrong epoch is worse than none:
+// central would admit intents against a device it has misidentified.
+func TestOnboardingReportsTheEpochItProbed(t *testing.T) {
+	reporter := &recordingReporter{}
+	l := laneWithReporter(t, reporter, noopDeliverer{})
+
+	if err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return completeObservation("uplink to core"), nil
+		},
+	}); err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	want := []string{"dev-1=" + probedFingerprint()}
+	if got := reporter.onboardings(); !slices.Equal(got, want) {
+		t.Errorf("onboarding reported %q, want %q", got, want)
 	}
 }
