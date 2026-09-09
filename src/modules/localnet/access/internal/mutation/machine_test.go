@@ -3,6 +3,7 @@ package mutation_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -29,6 +30,13 @@ type fakeDeliverer struct {
 	failNext  bool
 	release   chan struct{}
 	awaitCall chan struct{}
+	// calls counts every Emit, and failFrom fails every delivery from that
+	// call onward. A terminal walk delivers three records, and which of them
+	// fails decides whether the phase has already moved when the caller
+	// re-sends — so a test that can only break the first is testing the one
+	// position that needs no re-entry.
+	calls    int
+	failFrom int
 }
 
 func newFakeDeliverer() *fakeDeliverer {
@@ -51,6 +59,10 @@ func (d *fakeDeliverer) Emit(ctx context.Context, event *eventv1.DeviceOperation
 		return ctx.Err()
 	}
 	d.events = append(d.events, event)
+	d.calls++
+	if d.failFrom > 0 && d.calls >= d.failFrom {
+		return errors.New("delivery failed")
+	}
 	if d.failNext {
 		d.failNext = false
 		return errors.New("delivery failed")
@@ -451,7 +463,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 		}
 
 		// A canceled context after submission still proceeds to observe,
-		// per decision 5: a lost connection after submission does not fail
+		// a lost connection after submission does not fail
 		// the mutation.
 		if _, err := m.Observe(context.Background()); err != nil {
 			t.Fatalf("Observe() error: %v", err)
@@ -967,5 +979,143 @@ func TestCorrelationIDsCarryIdempotencyKeyAndTraceID(t *testing.T) {
 	}
 	if ids["trace_id"] != traceID.String() {
 		t.Errorf("correlation_ids[trace_id] = %q, want %q", ids["trace_id"], traceID.String())
+	}
+}
+
+// TestAResentAcknowledgementFinishesTheWalkWhereverItStopped covers every
+// position at which a terminal walk can stop, not only the first.
+//
+// The walk delivers three records: the ACKNOWLEDGED transition, the RELEASED
+// transition, and LaneReleased. Only the first leaves the phase where the
+// door's ordinary checks expect it; after it lands the phase is ACKNOWLEDGED,
+// and a re-send that the door refuses leaves the mutation in a state nothing
+// can end — the caller never answered, the lane never freed, and every later
+// acknowledgement refused as out-of-order. Central re-sends until it is told
+// how the mutation ended, so the re-send has to finish the walk.
+func TestAResentAcknowledgementFinishesTheWalkWhereverItStopped(t *testing.T) {
+	for _, failFrom := range []int{1, 2, 3} {
+		t.Run(fmt.Sprintf("record %d fails", failFrom), func(t *testing.T) {
+			deliverer := newFakeDeliverer()
+			deps := baseDeps(deliverer, fakeSubmission())
+			deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+			deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
+				return completeObservation("x"), nil
+			}
+
+			req := mutationRequest(8, "x")
+			m, err := mutation.Admitted(req, deps)
+			if err != nil {
+				t.Fatalf("Admitted() error: %v", err)
+			}
+			ctx := context.Background()
+			checkpointReq := &integrationv1.CheckpointRequest{}
+			checkpointReq.SetSequence(8)
+			if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+				t.Fatalf("Checkpoint() error: %v", err)
+			}
+			if err := m.Execute(ctx); err != nil {
+				t.Fatalf("Execute() error: %v", err)
+			}
+			if _, err := m.Observe(ctx); err != nil {
+				t.Fatalf("Observe() error: %v", err)
+			}
+			if _, err := m.Compare(ctx, nil); err != nil {
+				t.Fatalf("Compare() error: %v", err)
+			}
+			if err := m.MarkVerified(ctx); err != nil {
+				t.Fatalf("MarkVerified() error: %v", err)
+			}
+
+			termAck := &integrationv1.TerminalResultAck{}
+			termAck.SetSequence(8)
+			termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
+
+			// Break the walk at the nominated record.
+			deliverer.failFrom = deliverer.calls + failFrom
+			if err := m.Acknowledge(ctx, termAck); err == nil {
+				t.Fatal("Acknowledge() error = nil, want the deliverer's failure")
+			}
+			if m.IsTerminal() {
+				t.Fatal("the mutation ended despite a failed audit delivery")
+			}
+
+			// Central re-sends the identical acknowledgement.
+			deliverer.failFrom = 0
+			if err := m.Acknowledge(ctx, termAck); err != nil {
+				t.Fatalf("the re-sent acknowledgement was refused: %v", err)
+			}
+			if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_RELEASED {
+				t.Errorf("Phase() = %v, want RELEASED: the walk did not finish", got)
+			}
+			if !m.IsTerminal() {
+				t.Error("the mutation is not terminal after its walk finished")
+			}
+		})
+	}
+}
+
+// TestAnAbandonmentDuringAPollIsNotOverwrittenByIt is the race the phase
+// writes are exposed to, and the one no other test in this package reaches.
+//
+// Every phase move reads the phase, releases the mutex to deliver its audit
+// record, and retakes it to write. Recovery polls on its own goroutine while
+// central's acknowledgements arrive on another, so an abandonment can land in
+// that window. Writing the poll's phase unconditionally afterwards puts an
+// open phase back over a terminal one — a pairing
+// MutationState.disposition_matches_phase forbids — and lets the poll go on
+// driving a mutation central has already ended.
+func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+
+	reading := make(chan struct{})
+	finishRead := make(chan struct{})
+	deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
+		close(reading)
+		<-finishRead
+		// What an unreachable device does: nothing to show.
+		return nil, errors.New("device did not answer")
+	}
+
+	req := mutationRequest(11, "x")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	ctx := context.Background()
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(11)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+	if err := m.Execute(ctx); err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	if err := m.EnterRecovering(ctx); err != nil {
+		t.Fatalf("EnterRecovering() error: %v", err)
+	}
+
+	observed := make(chan struct{})
+	go func() {
+		defer close(observed)
+		_, _ = m.Observe(ctx)
+	}()
+
+	<-reading
+	termAck := &integrationv1.TerminalResultAck{}
+	termAck.SetSequence(11)
+	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
+	if err := m.Acknowledge(ctx, termAck); err != nil {
+		t.Fatalf("Acknowledge() error: %v", err)
+	}
+	close(finishRead)
+	<-observed
+
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
+		t.Errorf("Phase() = %v, want ABANDONED: the poll overwrote central's abandonment", got)
+	}
+	if !m.IsTerminal() {
+		t.Error("IsTerminal() = false for an abandoned mutation")
 	}
 }

@@ -2,7 +2,7 @@
 // through the phases flowseer.device.access.v1.OperationPhase names: plan
 // (admission-time validation), checkpoint, execute, observe, compare, and
 // result. Machine is a typestate: each method is valid from exactly the
-// phases the direction record's decision 4 barrier allows it from, and an
+// phases the checkpoint barrier allows it from, and an
 // out-of-order call is rejected rather than silently accepted.
 //
 // Machine holds no protocol knowledge itself. Deps supplies already-bound
@@ -12,13 +12,13 @@
 // selection. Every phase transition and block/release is recorded as a
 // flowseer.event.device.v1.DeviceOperationEvent through the injected
 // audit.Deliverer, and the call that would flip Machine's own phase blocks
-// on that delivery succeeding first — decision 13's audit-before-release
-// rule — so a Deliverer failure leaves Phase() reporting the mutation's
+// on that delivery succeeding first — the audit record is written before
+// the state it describes is published — so a Deliverer failure leaves Phase() reporting the mutation's
 // last durable value. OpenTelemetry signals go through telemetry.View and
 // never gate a phase transition.
 //
-// See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decisions 2, 4, 5, 9, and 13, and
-// spec/proto/flowseer/integration/device/v1/README.md for the envelope this
-// package's Checkpoint/Execute/Observe/Result methods answer.
+// See docs/architecture/2026-09-05-verified-device-access-direction.md for
+// the boundaries this package keeps, and
+// spec/proto/flowseer/integration/device/v1/README.md for the envelope its
+// Checkpoint/Execute/Observe/Result methods answer.
 package mutation

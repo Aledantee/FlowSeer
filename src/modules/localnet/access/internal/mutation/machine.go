@@ -36,7 +36,7 @@ var (
 	ErrCodeAlreadyTerminal = errs.NewCode("access/already-terminal")
 )
 
-// Deps bundles this package's dependencies. Read, Submit, and Verify are
+// Deps bundles this package's dependencies. Read and Submit are
 // already bound to whatever route a caller resolved (an explicit pin or
 // interfaces.SelectRoute's own fallback) and whatever session that route
 // needs; Machine calls them and faithfully propagates their errors without
@@ -44,7 +44,8 @@ var (
 type Deps struct {
 	// CurrentFingerprint is the device's firmware fingerprint as last
 	// learned by an identity probe. [Admitted] blocks a mutation whose
-	// intent names a different one, per decision 7.
+	// intent names a different one: an intent written against one firmware
+	// is not an intent against another.
 	CurrentFingerprint string
 	// DeviceID names the device for audit events built from this Machine
 	// and is passed to Submission.Open as OpenDeviceSubmissionRequest's
@@ -62,7 +63,6 @@ type Deps struct {
 	// because it is acquired inside Execute, immediately before the command
 	// and after the authority check, and is one-use.
 	Submit func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
-	Verify func(ctx context.Context, intent *accessv1.InterfaceDescriptionChange, since, now time.Time) (*accessv1.InterfaceObservation, interfaces.VerificationDisposition, error)
 
 	Submission credential.SubmissionCredentialSource
 	Freeze     *freeze.Gate
@@ -98,11 +98,6 @@ type Machine struct {
 	// refused. Nothing clears either one.
 	submitted bool
 	canceled  bool
-	// verified and abandoning record which terminal walk an accepted
-	// acknowledgement chose, so a re-sent acknowledgement after a failed
-	// audit delivery resumes the same one.
-	verified   bool
-	abandoning bool
 	// inRecovery is set while this mutation is being polled by recovery,
 	// and is what makes an observation record-free. It is not the same as
 	// "phase is RECOVERING": a retry moves the phase to POSSIBLY_APPLIED
@@ -124,7 +119,7 @@ type Machine struct {
 // "The device's lane sequence this operation was admitted at"). For a
 // mutation whose intent's expected firmware fingerprint differs from
 // deps.CurrentFingerprint, it returns an error instead of a Machine — the
-// mutation never reaches ADMITTED under a stale epoch, per decision 7. A
+// mutation never reaches ADMITTED under a stale epoch. A
 // read never carries an expected fingerprint and is never blocked here.
 // This check alone never emits flowseer.device.firmware.epoch_changed. It
 // compares central's expectation against the edge's cached fingerprint, and
@@ -324,8 +319,39 @@ func (m *Machine) requireAnyPhase(method string, want ...accessv1.OperationPhase
 // transition delivers a PhaseTransitioned audit event for the move to to
 // and, only once that delivery succeeds, updates the durable phase. A
 // Deliverer failure leaves Phase() reporting the mutation's last durable
-// value — decision 13's audit-before-release rule applied to every
-// transition, not only release.
+// value. The record is delivered before the state it describes is
+// published, at every transition and not only at release, so a phase this
+// process reports is one the durable account already carries.
+// commitPhaseLocked writes the phase only if it is still the one the caller
+// read before it released mu. The caller must hold mu.
+//
+// Every phase move here is check-then-act across an unlocked audit delivery:
+// the phase is read, mu is released for the Emit, and mu is retaken to write.
+// A door call on central's goroutine — an acknowledgement, an abandonment —
+// can land in that window and move the phase to a terminal one. Writing
+// unconditionally then puts an open phase back over a terminal one, which
+// produces a state MutationState.disposition_matches_phase forbids and lets
+// a poll go on driving a mutation central has already ended.
+//
+// A false return means the move is stale and the caller must not proceed as
+// though it happened. The audit record has already been delivered by then;
+// that is correct, because it records an attempt that really was made.
+func (m *Machine) commitPhaseLocked(from, to accessv1.OperationPhase) bool {
+	if m.phase != from {
+		return false
+	}
+	m.phase = to
+	return true
+}
+
+// staleTransition reports a phase move that was overtaken while its record
+// was being delivered.
+func (m *Machine) staleTransition() error {
+	return errs.New().Code(ErrCodeAlreadyTerminal).
+		Attr("phase", m.Phase().String()).
+		Msg("mutation moved on while this transition was being recorded")
+}
+
 func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) error {
 	m.mu.Lock()
 	from := m.phase
@@ -337,8 +363,11 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	}
 
 	m.mu.Lock()
-	m.phase = to
+	committed := m.commitPhaseLocked(from, to)
 	m.mu.Unlock()
+	if !committed {
+		return m.staleTransition()
+	}
 
 	return nil
 }
@@ -361,9 +390,14 @@ func (m *Machine) transitionWithDisposition(ctx context.Context, to accessv1.Ope
 	}
 
 	m.mu.Lock()
-	m.phase = to
-	m.disposition = disposition
+	committed := m.commitPhaseLocked(from, to)
+	if committed {
+		m.disposition = disposition
+	}
 	m.mu.Unlock()
+	if !committed {
+		return m.staleTransition()
+	}
 
 	return nil
 }
@@ -392,9 +426,9 @@ func (m *Machine) block(ctx context.Context, reason accessv1.BlockReason) error 
 }
 
 // Checkpoint acknowledges central's CheckpointRequest for this mutation's
-// sequence and moves the phase to POSSIBLY_APPLIED: decision 4's rule that
-// central durably records the intent may reach the device before any
-// command is submitted. It is invalid for a read, which never checkpoints.
+// sequence and moves the phase to POSSIBLY_APPLIED: central durably
+// records that the intent may reach the device before any command is
+// submitted. It is invalid for a read, which never checkpoints.
 func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointRequest) (*integrationv1.CheckpointAck, error) {
 	if m.IsRead() {
 		return nil, errs.New().Code(ErrCodeOutOfOrder).Msg("checkpoint is not valid for a read operation")
@@ -538,7 +572,7 @@ func (m *Machine) Execute(ctx context.Context) error {
 	return nil
 }
 
-// Observe reads the affected state over a fresh session, per decision 2: a
+// Observe reads the affected state over a fresh session: a
 // mutation is verified only by an observation, never by its own command
 // succeeding. It is valid from POSSIBLY_APPLIED (the ordinary path), from
 // RECOVERING (a recovery re-observation), or from ADMITTED for a read
@@ -584,8 +618,16 @@ func (m *Machine) Observe(ctx context.Context) (*accessv1.InterfaceObservation, 
 		// from. Leaving it stuck at OBSERVING on a read error would wedge
 		// the mutation, since OBSERVING is not a valid source phase for
 		// either.
+		// Only from a phase this poll is still entitled to move. An
+		// acknowledgement that ended the mutation while the read was in
+		// flight has already written a terminal phase and a disposition;
+		// putting RECOVERING back over it would pair the two in a way the
+		// schema forbids and let this poll go on driving a mutation central
+		// has ended.
 		m.mu.Lock()
-		m.phase = accessv1.OperationPhase_OPERATION_PHASE_RECOVERING
+		if !m.terminated && !m.terminalLocked() {
+			m.phase = accessv1.OperationPhase_OPERATION_PHASE_RECOVERING
+		}
 		m.mu.Unlock()
 	}
 
@@ -703,9 +745,21 @@ func (m *Machine) MarkVerified(ctx context.Context) error {
 }
 
 // EnterRecovering transitions to RECOVERING and blocks the lane with
-// BLOCK_REASON_INDETERMINATE: decision 5's ambiguity-stays-indeterminate
-// rule for a mutation whose effect could not yet be established.
+// BLOCK_REASON_INDETERMINATE: an ambiguous outcome stays indeterminate
+// rather than being resolved by guess for a mutation whose effect could not yet be established.
 func (m *Machine) EnterRecovering(ctx context.Context) error {
+	// Already in recovery: nothing to record. A second call is a caller
+	// retrying, not a second entry, and emitting the transition, the block
+	// and the RecoveryStarted again would put three fresh event ids in the
+	// stream as new facts, and move blocked_since to a moment the block did
+	// not begin.
+	m.mu.Lock()
+	already := m.inRecovery
+	m.mu.Unlock()
+	if already {
+		return nil
+	}
+
 	// Valid from POSSIBLY_APPLIED (a submit or checkpoint step failed
 	// ambiguously before any observation), OBSERVING (the observation
 	// itself failed — the unreachable-device case recovery exists for),
@@ -718,7 +772,7 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 		return err
 	}
 	// The phase moves only if its own record was delivered, which is
-	// decision 13's rule and is why a failure here leaves nothing written:
+	// the audit-before-state rule, and is why a failure here leaves nothing written:
 	// the mutation is not in recovery and a caller must not treat it as if
 	// it were.
 	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
@@ -858,13 +912,17 @@ func (m *Machine) Resume(ctx context.Context) error {
 	if err := m.requirePhase(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, "Resume"); err != nil {
 		return err
 	}
-	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED); err != nil {
-		return err
-	}
+	// Latched before the transition, not after. The transition publishes
+	// POSSIBLY_APPLIED and releases mu; a REJECTED acknowledgement landing
+	// in the gap would find submitted false at a phase that accepts it and
+	// record "nothing happened" about a device that may hold the change
+	// from the run that died. A latch set too early only refuses a REJECTED
+	// acknowledgement slightly sooner, which is the safe direction for a
+	// resume.
 	m.mu.Lock()
 	m.submitted = true
 	m.mu.Unlock()
-	return nil
+	return m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED)
 }
 
 // Retry returns a mutation in recovery to POSSIBLY_APPLIED so its command
@@ -890,8 +948,8 @@ func (m *Machine) Retry(ctx context.Context) error {
 }
 
 // Abandon ends recovery in ABANDONED with disposition
-// INDETERMINATE_ABANDONED and BLOCK_REASON_RECOVERY_HOLD, per decision 5:
-// an authorized cancellation or a qualified timeout abandons a mutation
+// INDETERMINATE_ABANDONED and BLOCK_REASON_RECOVERY_HOLD: an authorized
+// cancellation or a qualified timeout abandons a mutation
 // whose effect recovery could not establish, and the hold that follows is
 // resolved only by an explicit call outside this package (an operator
 // decision or a reconciliation intent), never by a retry.
@@ -920,6 +978,12 @@ func (m *Machine) Abandon(ctx context.Context) error {
 	}
 
 	m.mu.Lock()
+	if m.terminalLocked() && m.disposition != accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		// Something else ended it while this record was in flight, and that
+		// decision stands: whoever ended it owns the disposition.
+		m.mu.Unlock()
+		return m.staleTransition()
+	}
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_ABANDONED
 	m.disposition = accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED
 	m.inRecovery = false
@@ -951,11 +1015,14 @@ func (m *Machine) Abandon(ctx context.Context) error {
 // a terminal phase, so accepting it would write a record the schema
 // forbids.
 //
-// A failed audit delivery part-way through leaves the mark set and returns
-// the error. Central re-sends, and the identical acknowledgement is
-// accepted again — the door's checks all still pass, because the marks do
-// not change the phase they are checked against — and resumes the same
-// terminal walk.
+// A failed audit delivery part-way through returns the error, and central
+// re-sends. The identical acknowledgement is then accepted again and
+// resumes the walk where it stopped, which is what the two re-entry arms
+// below are for: once the ACKNOWLEDGED record has landed the phase has
+// moved, so the door's ordinary checks — which read that phase — would
+// refuse the re-send and the mutation would never reach a terminal state at
+// all. Re-entry is keyed on the phase and disposition already written,
+// which is the durable record of which walk was chosen.
 func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalResultAck) error {
 	if ack.GetSequence() != m.req.GetSequence() {
 		return errs.New().Code(ErrCodeOutOfOrder).
@@ -970,6 +1037,16 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 	}
 
 	m.mu.Lock()
+	// Before the already-terminal refusal: Abandon writes ABANDONED and then
+	// delivers the hold record, so a failure of that last delivery leaves a
+	// terminal phase with no hold. Refusing the re-send here would leave the
+	// device's lane unheld with nothing able to engage it.
+	if m.phase == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED &&
+		disposition == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED &&
+		m.blockReason != accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD {
+		m.mu.Unlock()
+		return m.block(ctx, accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD)
+	}
 	if m.terminalLocked() {
 		m.mu.Unlock()
 		return errs.New().Code(ErrCodeAlreadyTerminal).
@@ -977,6 +1054,14 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 			Msg("mutation has already ended; its terminal report is on the way")
 	}
 
+	// The walk already started and stopped part-way. Its phase and
+	// disposition say which one it was, so an identical re-send resumes it
+	// rather than being refused for resting where the walk left it.
+	if m.phase == accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED &&
+		m.disposition == disposition {
+		m.mu.Unlock()
+		return m.release(ctx)
+	}
 	var cancel context.CancelFunc
 	switch disposition {
 	case accessv1.Disposition_DISPOSITION_VERIFIED:
@@ -984,11 +1069,9 @@ func (m *Machine) Acknowledge(ctx context.Context, ack *integrationv1.TerminalRe
 			m.mu.Unlock()
 			return m.outOfOrder(disposition)
 		}
-		m.verified = true
 	case accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED:
 		// Accepted at every open phase. An edge that never comes back is
 		// the case this exists for, and it can be resting anywhere.
-		m.abandoning = true
 	case accessv1.Disposition_DISPOSITION_REJECTED:
 		// Only while the command provably has not gone out: at ADMITTED,
 		// or at POSSIBLY_APPLIED with the submit latch still open. After
@@ -1054,6 +1137,10 @@ func (m *Machine) release(ctx context.Context) error {
 	}
 
 	m.mu.Lock()
+	if m.phase != from && m.phase != accessv1.OperationPhase_OPERATION_PHASE_ACKNOWLEDGED {
+		m.mu.Unlock()
+		return m.staleTransition()
+	}
 	m.phase = accessv1.OperationPhase_OPERATION_PHASE_RELEASED
 	m.blockReason = accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED
 	m.blockedSince = time.Time{}
