@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -41,6 +42,12 @@ func TestEdgeCredentialsFormattingRedactsSeed(t *testing.T) {
 
 	if rendered := fmt.Sprintf("%+v", creds); strings.Contains(rendered, seed) {
 		t.Fatalf("formatted edge credentials exposed seed: %s", rendered)
+	}
+}
+
+func TestLeafDoesNotRetainStartupConfig(t *testing.T) {
+	if _, retained := reflect.TypeFor[edgebus.Leaf]().FieldByName("cfg"); retained {
+		t.Fatal("Leaf retains LeafConfig, including credentials it no longer needs")
 	}
 }
 

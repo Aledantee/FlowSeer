@@ -71,7 +71,7 @@ type LeafConfig struct {
 // Leaf is the running leaf node and the edge's own connection to it.
 type Leaf struct {
 	log    *quietLogger
-	cfg    LeafConfig
+	edgeID string
 	tenant string
 	server *server.Server
 	conn   *nats.Conn
@@ -115,6 +115,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
 	// Revealed here because this is where the material enters the file the
 	// NATS client reads; the mode is the protection from that point on.
+	// Startup has no live reader, so narrow in place; identity replaces live durable state atomically.
 	if err := os.Chmod(credsPath, 0o600); err != nil && !os.IsNotExist(err) {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("secure existing hub credentials")
 	}
@@ -153,7 +154,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	leaf := &Leaf{cfg: cfg, tenant: tenant, server: srv, log: logger}
+	leaf := &Leaf{edgeID: cfg.EdgeID, tenant: tenant, server: srv, log: logger}
 	defer func() {
 		if err != nil {
 			leaf.Close()
@@ -219,12 +220,12 @@ func (l *Leaf) Publish(ctx context.Context, subject string, data []byte, msgID s
 
 // Subject returns the subject under this edge's subtree for a logical name.
 func (l *Leaf) Subject(name string) string {
-	return EdgeSubtree(l.tenant, l.cfg.EdgeID) + "." + name
+	return EdgeSubtree(l.tenant, l.edgeID) + "." + name
 }
 
 // OTelSubject returns where this edge publishes one signal.
 func (l *Leaf) OTelSubject(signal OTelSignal) string {
-	return OTelSubject(l.tenant, l.cfg.EdgeID, signal)
+	return OTelSubject(l.tenant, l.edgeID, signal)
 }
 
 // Connection is the edge's own connection to its leaf server.
