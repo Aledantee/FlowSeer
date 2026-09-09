@@ -102,8 +102,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	base = base.With(slog.String("flowseer.edge.id", edgeID))
 
 	// 2. The clients every later call goes through.
-	signer := edge.Signer(time.Now)
-	signed := identity.SigningClient(edge.TrustAnchors(), signer)
+	signed := identity.SigningClient(edge.TrustAnchors(), edge.Signer(time.Now))
 	edgeClient := edgev1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
 	dispatchClient := integrationv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := eventv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
@@ -127,7 +126,6 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		cfg:      cfg,
 		opts:     opts,
 		edgeID:   edgeID,
-		signer:   signer,
 		edge:     edgeClient,
 		dispatch: dispatchClient,
 		audit:    auditClient,
@@ -159,7 +157,6 @@ type assembly struct {
 	cfg      *Config
 	opts     Options
 	edgeID   string
-	signer   *identity.Signer
 	edge     edgev1connect.EdgeServiceClient
 	dispatch integrationv1connect.DispatchServiceClient
 	audit    eventv1connect.AuditServiceClient
@@ -230,12 +227,11 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 			func(ctx context.Context) error { return queue.Run(ctx, resendInterval) },
 			func(ctx context.Context) error {
 				return lanehost.RunHeartbeat(ctx, lanehost.HeartbeatConfig{
-					Client:          a.edge,
-					Lane:            lane,
-					AdoptServerTime: a.signer.AdoptServerTime,
-					AgentVersion:    service.Version(ctx),
-					Interval:        a.cfg.Heartbeat(),
-					Logger:          log,
+					Client:       a.edge,
+					Lane:         lane,
+					AgentVersion: service.Version(ctx),
+					Interval:     a.cfg.Heartbeat(),
+					Logger:       log,
 				})
 			},
 			func(ctx context.Context) error {

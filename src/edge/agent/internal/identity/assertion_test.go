@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/types/known/timestamppb"
-
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 )
@@ -67,28 +65,6 @@ func TestTheHeaderMatchesTheSpecifiedVector(t *testing.T) {
 	}
 	if got != vectorHeader {
 		t.Errorf("Header() =\n%s\nwant\n%s", got, vectorHeader)
-	}
-}
-
-func TestSignerUsesEnrollmentServerTime(t *testing.T) {
-	localNow := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
-	enrollment := vectorEnrollment()
-	enrollment.SetServerTime(timestamppb.New(serverNow))
-
-	signer := identity.NewSigner(
-		ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize)),
-		enrollment,
-		func() time.Time { return localNow },
-	)
-	identity.SetNonceForTest(signer, make([]byte, 16))
-
-	header, err := signer.Header(vectorProcedure, nil)
-	if err != nil {
-		t.Fatalf("Header() error: %v", err)
-	}
-	if got := identity.DecodeForTest(t, header).GetIssuedAt().AsTime(); !got.Equal(serverNow) {
-		t.Errorf("issued_at = %v, want enrollment server_time %v", got, serverNow)
 	}
 }
 

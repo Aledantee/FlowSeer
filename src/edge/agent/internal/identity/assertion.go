@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"sync/atomic"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -41,14 +40,12 @@ const assertionLifetime = 30 * time.Second
 // One assertion authorizes one call: it names the procedure and the SHA-256
 // of the request body, so a captured header cannot be replayed against a
 // different RPC or a mutated body even inside its own window. Safe for
-// concurrent use. Its server-time offset may be refreshed while calls are
-// being signed.
+// concurrent use — it holds no state between calls beyond the key.
 type Signer struct {
 	key      ed25519.PrivateKey
 	edge     *edgev1.EdgeGlobalRef
 	audience string
 	now      func() time.Time
-	offset   atomic.Int64
 	// nonce is the source of the 16 random bytes central refuses a repeat
 	// of. A test substitutes it; production leaves it nil for crypto/rand.
 	nonce func() ([]byte, error)
@@ -59,17 +56,7 @@ func NewSigner(key ed25519.PrivateKey, enrollment *edgev1.EnrollResponse, now fu
 	if now == nil {
 		now = time.Now
 	}
-	signer := &Signer{key: key, edge: enrollment.GetEdge(), audience: enrollment.GetAudience(), now: now}
-	if serverTime := enrollment.GetServerTime(); serverTime != nil {
-		signer.AdoptServerTime(serverTime.AsTime())
-	}
-	return signer
-}
-
-// AdoptServerTime adjusts future assertion timestamps to central's clock.
-// It is safe to call concurrently with [Signer.Header].
-func (s *Signer) AdoptServerTime(serverTime time.Time) {
-	s.offset.Store(int64(serverTime.Sub(s.now())))
+	return &Signer{key: key, edge: enrollment.GetEdge(), audience: enrollment.GetAudience(), now: now}
 }
 
 // Header returns the Authorization value for one call: the procedure as
@@ -86,7 +73,7 @@ func (s *Signer) Header(procedure string, body []byte) (string, error) {
 		return "", err
 	}
 
-	issued := s.now().Add(time.Duration(s.offset.Load())).UTC()
+	issued := s.now().UTC()
 	digest := sha256.Sum256(body)
 
 	assertion := &edgev1.EdgeAssertion{}
