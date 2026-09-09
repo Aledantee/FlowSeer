@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.capture.v1;
+
+// The link-layer framing of a captured packet. Integers map directly to the
+// pcap LINKTYPE registry (https://www.tcpdump.org/linktypes.html); an
+// unnamed assigned value stays meaningful. Zero is real, so consumers must
+// check presence. A FlowSeer capture reports only LINK_TYPE_ETHERNET and
+// LINK_TYPE_LINUX_SLL2; that is an engine limit, not a schema one.
+enum LinkType {
+  // BSD loopback encapsulation.
+  LINK_TYPE_NULL = 0;
+  // Ethernet.
+  LINK_TYPE_ETHERNET = 1;
+  // Raw IP, with the packet's own header giving the IP version.
+  LINK_TYPE_RAW = 101;
+  // Linux "cooked" capture, version 1.
+  LINK_TYPE_LINUX_SLL = 113;
+  // Raw IPv4; the packet begins with an IPv4 header.
+  LINK_TYPE_IPV4 = 228;
+  // Raw IPv6; the packet begins with an IPv6 header.
+  LINK_TYPE_IPV6 = 229;
+  // Linux "cooked" capture, version 2.
+  LINK_TYPE_LINUX_SLL2 = 276;
+}
