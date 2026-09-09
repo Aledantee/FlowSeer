@@ -8,6 +8,7 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
@@ -18,6 +19,7 @@ import (
 type beaterFake struct {
 	mu      sync.Mutex
 	results []error
+	times   []time.Time
 	calls   int
 	block   chan struct{}
 }
@@ -31,6 +33,7 @@ func (b *beaterFake) Heartbeat(
 	if b.calls < len(b.results) {
 		result = b.results[b.calls]
 	}
+	call := b.calls
 	b.calls++
 	b.mu.Unlock()
 
@@ -46,7 +49,11 @@ func (b *beaterFake) Heartbeat(
 	if result != nil {
 		return nil, result
 	}
-	return connect.NewResponse(&edgev1.HeartbeatResponse{}), nil
+	response := &edgev1.HeartbeatResponse{}
+	if call < len(b.times) {
+		response.SetServerTime(timestamppb.New(b.times[call]))
+	}
+	return connect.NewResponse(response), nil
 }
 
 func (b *beaterFake) count() int {
@@ -136,6 +143,21 @@ func TestTwoMissesFreezeAndTheNextSuccessUnfreezes(t *testing.T) {
 	}
 	if thaws != 1 {
 		t.Errorf("unfroze %d times, want exactly 1", thaws)
+	}
+}
+
+func TestAHeartbeatPublishesCentralServerTime(t *testing.T) {
+	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	var adopted time.Time
+
+	runLoop(t, lanehost.HeartbeatConfig{
+		Client:          &beaterFake{times: []time.Time{serverNow}},
+		Lane:            &laneSpy{},
+		AdoptServerTime: func(got time.Time) { adopted = got },
+		Interval:        time.Millisecond,
+	}, 1)
+	if !adopted.Equal(serverNow) {
+		t.Errorf("adopted server time = %v, want %v", adopted, serverNow)
 	}
 }
 
