@@ -75,7 +75,6 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 		Journal:  resources.journal,
 		Resolver: h.registry,
 		Watcher:  deviceapi.NewKVWatcher(resources.lanes),
-		Logger:   log,
 	})
 	if err != nil {
 		return nil, err

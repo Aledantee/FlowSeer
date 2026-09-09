@@ -13,6 +13,7 @@ package dispatchapi
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -188,5 +189,24 @@ func drain(ch <-chan jetstream.KeyValueEntry) {
 		default:
 			return
 		}
+	}
+}
+
+// errorType classifies a failure for the error.type attribute: the error's
+// own code where it has one, and the two context causes by name where it
+// does not. Bounded, because it becomes a metric dimension downstream, and
+// never the error's own message, which carries whatever the transport put
+// in it.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
 	}
 }

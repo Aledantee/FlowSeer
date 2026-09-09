@@ -87,6 +87,18 @@ func (s *Service) resolution(
 	if held != nil && held.GetSequence() != sequence {
 		held = nil
 	}
+	// A mutation the edge may still be executing is not resolvable. Without
+	// this the journal writes it REJECTED — which means the command never
+	// reached the device — for a change that may already have applied, drops
+	// the edge's own later report as stale, and dispatches the replacement
+	// into a lane the edge still occupies. AbandonMutation is the terminator
+	// for a mutation in that state, and the block reasons that forbid
+	// dispatch are exactly the ones that say the edge has let go.
+	if held != nil && !held.HasDisposition() && journal.PermitsDispatch(held.GetBlockReason()) {
+		return resolution, errs.New().Code(ErrCodeLaneHeld).Attr("device", deviceID).
+			Attr("sequence", sequence).
+			Msg("the edge may still be executing this mutation; abandon it before resolving")
+	}
 	iface := changedInterface(held)
 
 	switch {
@@ -128,6 +140,15 @@ func (s *Service) resolution(
 		resolution.Edge = edgeRef(s.cfg.Resolver.EdgeID())
 	case msg.HasReplace():
 		replace := msg.GetReplace()
+		// The request names a device and so does the intent inside it, and
+		// nothing in the schema ties them. Admitted into this device's lane,
+		// an intent naming another one puts that name on the audit record,
+		// the idempotency digest, and the ExecuteRequest the edge receives.
+		if got := replace.GetDevice().GetDevice().GetId(); got != deviceID {
+			return resolution, errs.New().Code(ErrCodeRequest).Attr("device", deviceID).
+				Attr("replacement_device", got).
+				Msg("a replacement intent must name the device the request names")
+		}
 		if err := pinnedPolicy(entry, replace.GetAccessPolicy(), deviceID); err != nil {
 			return resolution, err
 		}

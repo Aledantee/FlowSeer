@@ -28,10 +28,14 @@ func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[device
 	}
 	iface := req.Msg.GetInterfaceName()
 
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = s.clock().Add(s.defaultReadDeadline())
-	}
+	// The record entry's own deadline, never the caller's. The two answer
+	// different questions: the caller's says how long this call will wait,
+	// the record's says how long the read stays owed. Taking the caller's
+	// makes the read expire at exactly the moment the caller gives up —
+	// OwedRows stops offering it, the sweeper closes it with a deadline
+	// error, and it was never dispatched — while this handler tells the
+	// caller it is still running.
+	deadline := s.clock().Add(s.defaultReadDeadline())
 
 	read := &accessv1.TypedRead{}
 	read.SetAccessPolicy(entry.GetConfig().GetAccessPolicy())

@@ -142,7 +142,7 @@ func (j *Journal) mutate(ctx context.Context, deviceID string, fn func(*storev1.
 			}
 		}
 		if err != nil {
-			return errs.From(err).Code(ErrCodeConflict).Attr("device", deviceID).Msg("write lane record")
+			return errs.From(err).Code(ErrCodeStore).Attr("device", deviceID).Msg("write lane record")
 		}
 		return nil
 	}
@@ -409,6 +409,14 @@ func (j *Journal) ApplyReport(ctx context.Context, deviceID string, rep Report) 
 				m.SetBlockReason(accessv1.BlockReason_BLOCK_REASON_INDETERMINATE)
 				m.SetBlockedSince(timestamppb.New(j.clock()))
 				rec.SetLastReportedPhase(accessv1.OperationPhase_OPERATION_PHASE_RECOVERING)
+				// The phase moves with the report. OwedRows derives resume
+				// from it, so a command the edge has said it submitted must
+				// not be re-dispatched as fresh work: left at ADMITTED, the
+				// row goes back out with resume false and the edge admits it
+				// again rather than resuming it into recovery.
+				if m.GetPhase() == accessv1.OperationPhase_OPERATION_PHASE_ADMITTED {
+					m.SetPhase(accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED)
+				}
 				return nil
 			}
 			// The command never reached the device: dispose REJECTED so the
@@ -455,7 +463,15 @@ func reportApplies(kind ReportKind, m *accessv1.MutationState, rec *storev1.Devi
 // ConfirmCheckpoint records the edge's CheckpointAck.
 func (j *Journal) ConfirmCheckpoint(ctx context.Context, deviceID string, sequence uint64) error {
 	return j.mutateMutation(ctx, deviceID, sequence, func(rec *storev1.DeviceLaneRecord, _ *accessv1.MutationState) {
-		rec.SetCheckpointConfirmed(true)
+		// Only while the dispatch this checkpoint belongs to is confirmed.
+		// The flag is per dispatch and MarkOnboarded clears it, so an
+		// acknowledgement draining after a restart would otherwise mark the
+		// checkpoint of a dispatch that no longer exists — and OwedRows
+		// would then never send the CheckpointRequest the new dispatch
+		// needs, leaving the edge parked until its horizon.
+		if rec.GetDispatchConfirmed() {
+			rec.SetCheckpointConfirmed(true)
+		}
 	})
 }
 
@@ -625,6 +641,18 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 				return errs.New().Code(ErrCodeAckPending).Attr("device", deviceID).
 					Attr("sequence", res.Sequence).
 					Msg("the edge has not acknowledged how this mutation ended")
+			}
+			if !m.HasDisposition() && rec.GetDispatched() {
+				// The edge holds this sequence and has not said how it ended.
+				// Writing REJECTED here would record that the command never
+				// reached the device for one that may already have applied,
+				// drop the edge's own later report as stale, and dispatch the
+				// replacement into a lane the edge still occupies.
+				// AbandonMutation is the terminator for a mutation in this
+				// state.
+				return errs.New().Code(ErrCodeAckPending).Attr("device", deviceID).
+					Attr("sequence", res.Sequence).
+					Msg("the edge still holds this mutation; abandon it before resolving")
 			}
 			if !m.HasDisposition() {
 				// Held at ADMITTED and never dispatched: the disposition is

@@ -12,7 +12,6 @@ package deviceapi
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,8 +90,6 @@ type Config struct {
 	ReadPoll time.Duration
 	// Clock is the time source for read deadlines; nil uses the wall clock.
 	Clock func() time.Time
-	// Logger records what a handler decided not to fail on; nil discards.
-	Logger *slog.Logger
 }
 
 const defaultReadPoll = 500 * time.Millisecond
@@ -102,7 +99,6 @@ type Service struct {
 	cfg      Config
 	clock    func() time.Time
 	readPoll time.Duration
-	log      *slog.Logger
 }
 
 // New builds the handler. It returns an error rather than defaulting a missing
@@ -116,15 +112,12 @@ func New(cfg Config) (*Service, error) {
 	if cfg.Resolver == nil {
 		return nil, errs.New().Code(ErrCodeRequest).Msg("device service needs a device resolver")
 	}
-	s := &Service{cfg: cfg, clock: cfg.Clock, readPoll: cfg.ReadPoll, log: cfg.Logger}
+	s := &Service{cfg: cfg, clock: cfg.Clock, readPoll: cfg.ReadPoll}
 	if s.clock == nil {
 		s.clock = time.Now
 	}
 	if s.readPoll <= 0 {
 		s.readPoll = defaultReadPoll
-	}
-	if s.log == nil {
-		s.log = slog.New(slog.DiscardHandler)
 	}
 	return s, nil
 }

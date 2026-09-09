@@ -207,7 +207,16 @@ func TestRefusedTerminalAckOnAbandonmentConfirmsIt(t *testing.T) {
 	}
 }
 
-func TestRefusedHoldResolvedLeavesTheRowOwed(t *testing.T) {
+// TestARefusedHoldResolvedConfirmsTheRow holds this handler to the contract
+// the envelope's README states: a refusal answering a HoldResolved counts as
+// its confirmation, because the edge holds nothing for that sequence.
+//
+// Classifying the refusal instead leaves the member pending against a peer
+// that refuses it identically every time — an edge whose onboarding failed
+// answers access/unknown-device for a device central still lists, which
+// central reads as retryable. The members then accumulate until the pending
+// set is full and every further abandon on that device is refused.
+func TestARefusedHoldResolvedConfirmsTheRow(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()
 	// A hold gets into the record by abandoning a mutation the edge never
@@ -235,8 +244,8 @@ func TestRefusedHoldResolvedLeavesTheRowOwed(t *testing.T) {
 			pending = true
 		}
 	}
-	if !pending {
-		t.Fatal("a hold-resolved refusal dropped the pending hold")
+	if pending {
+		t.Fatal("a hold-resolved refusal left the row owed against an edge that holds nothing for it")
 	}
 }
 

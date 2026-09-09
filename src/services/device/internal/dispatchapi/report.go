@@ -2,6 +2,7 @@ package dispatchapi
 
 import (
 	"context"
+	"log/slog"
 
 	connect "connectrpc.com/connect"
 
@@ -56,7 +57,7 @@ func (s *Service) Report(ctx context.Context, req *connect.Request[integrationv1
 	case integrationv1.ReportRequest_Result_case:
 		err = s.applyResult(ctx, deviceID, req.Msg.GetResult())
 	case integrationv1.ReportRequest_CheckpointAck_case:
-		err = s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, req.Msg.GetCheckpointAck().GetSequence())
+		err = s.confirmCheckpoint(ctx, deviceID, req.Msg.GetCheckpointAck().GetSequence())
 	case integrationv1.ReportRequest_HoldResolvedAck_case:
 		err = s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, req.Msg.GetHoldResolvedAck().GetSequence())
 	case integrationv1.ReportRequest_Refused_case:
@@ -92,7 +93,7 @@ func (s *Service) applyResult(ctx context.Context, deviceID string, result *inte
 		rep, ok := mutationReport(result)
 		if !ok {
 			s.log.WarnContext(ctx, "ignoring a mutation result at an unhandled phase",
-				"device", deviceID, "sequence", seq, "phase", result.GetPhaseReached())
+				slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", seq), slog.String("flowseer.device.phase", result.GetPhaseReached().String()))
 			return nil
 		}
 		return s.cfg.Journal.ApplyReport(ctx, deviceID, rep)
@@ -204,7 +205,9 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 			// The registry could not say whether it still lists the device;
 			// leave the row owed rather than disposing on a transient failure.
 			s.log.WarnContext(ctx, "could not classify an execute refusal; leaving the row owed",
-				"device", deviceID, "code", refused.GetCode(), "error", err)
+				slog.String("flowseer.device.id", deviceID),
+				slog.String("flowseer.edge.refusal.code", refused.GetCode()),
+				slog.String("error.type", errorType(err)))
 			return nil
 		}
 		if terminal {
@@ -218,23 +221,38 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 		}
 		return nil // a retryable code leaves the row owed until the operator ends it
 	case integrationv1.DispatchKind_DISPATCH_KIND_HOLD_RESOLVED:
-		terminal, err := s.terminalRefusal(ctx, deviceID, refused.GetCode())
-		if err != nil {
-			s.log.WarnContext(ctx, "could not classify a hold-resolved refusal; leaving the row owed",
-				"device", deviceID, "code", refused.GetCode(), "error", err)
-			return nil
-		}
-		if terminal {
-			// The edge durably cannot act on the hold — it does not know the
-			// device, or the device is re-homed — so its lane hold does not
-			// exist and the obligation is moot, not pending. Remove the member
-			// rather than owe it forever against a peer that cannot discharge it.
-			return s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, seq)
-		}
-		return nil // a retryable hold-resolved refusal leaves the row owed for re-send
+		// A refusal is the confirmation, whatever the code. A hold exists to
+		// tell an edge to clear one it holds in memory, so an edge that
+		// refuses is stating it holds none — which is the whole of what the
+		// row was owed for. Classifying it instead leaves the member pending
+		// against a peer that will refuse it identically every time, and a
+		// device whose onboarding failed on its edge then accumulates
+		// members until the pending set is full and every further abandon on
+		// that device is walled off.
+		return s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, seq)
 	default:
 		return nil
 	}
+}
+
+// confirmCheckpoint records an acknowledgement only for a mutation that has
+// reported a phase past ADMITTED.
+//
+// The same gate the refusal path applies, for the same reason: a checkpoint
+// is owed only once the edge is waiting on one, so an acknowledgement
+// arriving earlier is not this checkpoint's. Recorded unconditionally it
+// sets the flag before the CheckpointRequest is owed, OwedRows then never
+// sends it, and the edge parks in its checkpoint wait until the delayed-apply
+// horizon and abandons a change that was never submitted.
+func (s *Service) confirmCheckpoint(ctx context.Context, deviceID string, seq uint64) error {
+	rec, err := s.cfg.Journal.Record(ctx, deviceID)
+	if err != nil {
+		return err
+	}
+	if !pastCheckpoint(rec.GetLastReportedPhase()) {
+		return nil
+	}
+	return s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, seq)
 }
 
 // authorizeDevice binds a report to the edge the assertion names: the calling
@@ -281,10 +299,18 @@ func (s *Service) terminalRefusal(ctx context.Context, deviceID, code string) (b
 // applyOnboarded clears the per-dispatch confirmations and records the
 // fingerprint the identity probe learned.
 func (s *Service) applyOnboarded(ctx context.Context, deviceID string, onboarded *integrationv1.Onboarded) error {
-	if err := s.cfg.Journal.MarkOnboarded(ctx, deviceID); err != nil {
+	// The fingerprint first. These are two writes and the edge re-sends the
+	// whole report when either fails, so the order decides what a partial
+	// application leaves behind. SetFingerprint is idempotent for an equal
+	// value, so a failing MarkOnboarded after it leaves nothing cleared and
+	// the retry re-runs both safely. The other order clears the per-dispatch
+	// confirmations, re-arms an execute row, and leaves the epoch stale —
+	// refusing an operator who supplies the device's real fingerprint and
+	// admitting one who supplies the superseded value.
+	if err := s.cfg.Journal.SetFingerprint(ctx, deviceID, deviceRef(deviceID), onboarded.GetFirmwareFingerprint()); err != nil {
 		return err
 	}
-	return s.cfg.Journal.SetFingerprint(ctx, deviceID, deviceRef(deviceID), onboarded.GetFirmwareFingerprint())
+	return s.cfg.Journal.MarkOnboarded(ctx, deviceID)
 }
 
 // pastCheckpoint reports whether a reported phase is at or past
@@ -325,7 +351,7 @@ func (s *Service) rejectDispatch(ctx context.Context, deviceID string, sequence 
 	}
 	if s.cfg.Audit == nil {
 		s.log.WarnContext(ctx, "central rejected a dispatch with no audit emitter wired; the reason is not recorded",
-			"device", deviceID, "sequence", sequence, "code", code)
+			slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", sequence), slog.String("flowseer.edge.refusal.code", code))
 		return nil
 	}
 	return s.cfg.Audit.DispatchRejected(ctx, device, state, from, code)

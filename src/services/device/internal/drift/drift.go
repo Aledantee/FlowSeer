@@ -17,6 +17,7 @@ package drift
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -158,12 +159,12 @@ func (p *Poller) Pass(ctx context.Context) {
 	edgeID := p.cfg.Resolver.EdgeID()
 	devices, err := p.cfg.Resolver.Devices(ctx, edgeID)
 	if err != nil {
-		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", "edge", edgeID, "error", err)
+		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", errorType(err)))
 		return
 	}
 	for _, deviceID := range devices {
 		if err := p.pollDevice(ctx, deviceID); err != nil {
-			p.log.ErrorContext(ctx, "drift poll skipped a device", "device", deviceID, "error", err)
+			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.device.id", deviceID), slog.String("error.type", errorType(err)))
 		}
 	}
 }
@@ -257,8 +258,8 @@ func (p *Poller) judge(ctx context.Context, deviceID string, entry *storev1.Regi
 		// the pass after that admits normally. An alarm nothing can clear
 		// would be noise; this one is cleared by the system's next action.
 		p.log.WarnContext(ctx, "drift detected but not acted on",
-			"device", deviceID, "interface", iface,
-			"reason", "central has not learned this device's firmware epoch, so it cannot admit an intent of its own")
+			slog.String("flowseer.device.id", deviceID), slog.String("flowseer.device.interface", iface),
+			slog.String("flowseer.device.drift.outcome", string(telemetry.DriftOutcomeNoEpoch)))
 		p.report(ctx, deviceID, entry, iface, expected, observed.GetDescription(), telemetry.DriftOutcomeNoEpoch)
 		return nil
 	}
@@ -390,4 +391,21 @@ func edgeRef(edgeID string) *edgev1.EdgeGlobalRef {
 	ref := &edgev1.EdgeGlobalRef{}
 	ref.SetEdge(local)
 	return ref
+}
+
+// errorType classifies a failure for the error.type attribute: the error's
+// own code where it has one, and the two context causes by name where it
+// does not. Bounded, because it becomes a metric dimension downstream.
+func errorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
+	}
 }
