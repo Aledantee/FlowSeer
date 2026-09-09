@@ -3,24 +3,20 @@ edition = "2024";
 package flowseer.net.capture.v1;
 
 // Packet counts along a capture's pipeline, from the interface to delivery.
-// The split by stage is what lets an operator tell a switch oversubscribing
-// the mirror port from an edge that cannot keep up from an uplink that
-// cannot.
+// Each counter is cumulative for the session, and an absent counter means
+// the stage does not report one — never a zero. The split by stage is what
+// lets an operator tell a switch oversubscribing the mirror port from an
+// edge that cannot keep up from an uplink that cannot.
 message CaptureCounters {
-  // Packets the interface delivered to the capture engine. Implicit
-  // presence: zero received and no count yet look the same.
-  uint64 received = 1 [features.field_presence = IMPLICIT];
-  // Packets the engine accepted after filtering and budget checks. Implicit
-  // presence: zero accepted and no count yet look the same.
-  uint64 accepted = 2 [features.field_presence = IMPLICIT];
-  // Packets the interface could not deliver to the engine, counted from the
-  // interface's own drop counters. Implicit presence: zero dropped and no
-  // count yet look the same.
-  uint64 dropped_by_interface = 3 [features.field_presence = IMPLICIT];
-  // Packets the engine discarded because they exceeded the capture's
-  // budget. Implicit presence: zero dropped and no count yet look the same.
-  uint64 dropped_by_budget = 4 [features.field_presence = IMPLICIT];
-  // Packets the delivery transport could not carry onward. Implicit
-  // presence: zero dropped and no count yet look the same.
-  uint64 dropped_by_transport = 5 [features.field_presence = IMPLICIT];
+  // Packets the interface delivered to the capture engine.
+  uint64 received = 1;
+  // Packets the engine kept after the filter and the budget.
+  uint64 accepted = 2;
+  // Packets the interface could not deliver to the engine, read from the
+  // interface's own drop counter.
+  uint64 dropped_by_interface = 3;
+  // Packets the engine discarded to stay inside the session's budget.
+  uint64 dropped_by_budget = 4;
+  // Packets the delivery transport could not carry onward.
+  uint64 dropped_by_transport = 5;
 }
