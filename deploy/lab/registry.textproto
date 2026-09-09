@@ -1,0 +1,61 @@
+# flowseer.store.device.v1.DeviceRegistry for the lab run: one integration,
+# one edge, one switch, one managed interface.
+#
+# The identifiers are placeholders and the address is the lab's. The two
+# fields an operator has to fill from measurement rather than from a document
+# are delayed_apply_horizon and ssh_host_key_sha256, and both have their own
+# runbook step.
+
+integration {
+  ref { integration { id: "0192e6a0-0000-7000-8000-0000000000c1" } }
+  # Replace with the edge identifier CreateEdge returned. Central draws it;
+  # it cannot be chosen, and the service reads this file once at start, so
+  # the edge has to exist before this line can be written.
+  edge { edge { id: "REPLACE-WITH-THE-EDGE-ID-CREATEEDGE-RETURNED" } }
+}
+
+devices {
+  config {
+    ref { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
+    name: "icx7150-lab"
+    management_mode: DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED
+    access_policy { key: "icx7150-lab" version: 1 }
+  }
+  binding { binding { id: "0192e6a0-0000-7000-8000-0000000000b1" } }
+  ip { v4 { octets: "\254\020\000\006" } }  # 172.16.0.6
+
+  # Measured on the switch, per the runbook's step 2 — and read that step
+  # before choosing it. This number is documented as the longest a mutation
+  # may take to become visible, and it also decides how long the edge keeps
+  # looking before an unconfirmed change becomes a person's problem, and how
+  # many times it looks. Thirty seconds is a floor for the lab run rather than
+  # a measurement: a horizon measured honestly as two seconds would give the
+  # first live write its entire recovery budget inside one distracted moment.
+  delayed_apply_horizon { seconds: 30 }
+
+  # The one interface this run touches. Spelled as the device spells it.
+  managed_interfaces: "ethernet 1/1/1"
+}
+
+policies {
+  handle { key: "icx7150-lab" version: 1 }
+
+  # Credential file names under the service's credential_root, one prototext
+  # flowseer.device.credential.v1.CredentialMaterial per key, mode 0600, each
+  # with a "<key>.meta.json" sidecar naming its version. Regular files, not
+  # symlinks: the provider opens each one O_NOFOLLOW, so a Kubernetes secret
+  # volume needs an adapter that resolves its links first.
+  #
+  # The read credential is the SNMPv3 user, and it must be authPriv — see the
+  # runbook's step 1 for why a device configured otherwise fails in a place
+  # that looks like central's fault.
+  read_credential { key: "icx7150-lab-snmp" version: 1 }
+  submission_credential { key: "icx7150-lab-ssh" version: 1 }
+  host_trust { key: "icx7150-lab-hostkey" version: 1 }
+
+  # The switch's SSH host key, as ssh-keygen and the Go ssh package spell it:
+  # "SHA256:" then 43 unpadded base64 characters. Take it from the device
+  # before the run; the digest below is of the empty input and is here to be
+  # replaced, not to be trusted.
+  ssh_host_key_sha256: "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
+}

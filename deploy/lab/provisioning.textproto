@@ -1,0 +1,26 @@
+# flowseer.api.edge.v1.EdgeProvisioning — WHAT CENTRAL HANDS YOU, NOT WHAT YOU
+# WRITE.
+#
+# This file is a shape to recognise, not a template to fill. The real one is
+# the CreateEdge or IssueSetupKey response, shown once, and it carries a live
+# credential: the setup key is single-use and consumed at enrollment, but
+# until then it is a secret at rest on the least-trusted machine in the
+# system. Write it with the permissions a secret gets and delete it once the
+# edge has enrolled.
+#
+# The values below are deliberately invalid. The setup key fails its schema
+# pattern and the trust anchor is the wrong length, so an agent given this
+# file unedited refuses it at load with a validation error naming the field —
+# rather than starting and failing later somewhere less obvious.
+
+central_url: "https://central.example.invalid:8443"
+
+# Refused by the schema: a real key is fse1_ then 26 and 52 lowercase base32
+# characters.
+setup_key: "fse1_REPLACE_WITH_THE_KEY_CENTRAL_SHOWED_YOU_ONCE"
+
+# Refused by the schema: a real anchor is the 32-byte SHA-256 digest of
+# central's subject public key info. The service logs it once when it
+# generates its certificate, and it can be recomputed from the certificate
+# file at any time.
+trust_anchors: "REPLACE-WITH-CENTRAL-SPKI-DIGEST"

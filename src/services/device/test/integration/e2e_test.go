@@ -269,6 +269,20 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 		}
 		if time.Now().After(deadline) {
 			t.Logf("the device over the wait, sampled every 15s: %v", trail)
+			// The audit stream is the only place a freeze is visible from
+			// out here, and whether the lane froze is the difference between
+			// two explanations of this failure that look identical in the
+			// trail: an edge that never got the dispatch because its lane was
+			// frozen, and one that got it and could not finish. Two missed
+			// heartbeats freeze, each bounded by the heartbeat interval, so a
+			// central restart long enough to miss two crosses a threshold —
+			// which is the shape a failure with two durations and nothing
+			// between them has.
+			var kinds []string
+			for _, r := range d.central.auditRecords(t) {
+				kinds = append(kinds, fmt.Sprintf("%v(seq=%d)", r.WhichDetail(), r.GetSequence()))
+			}
+			t.Logf("the audit stream at that point: %v", kinds)
 			t.Fatalf("the mutation never resolved; last status: %v (error %v)", last, err)
 		}
 		time.Sleep(50 * time.Millisecond)
