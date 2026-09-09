@@ -161,7 +161,7 @@ delivered to the edge on the envelope (`spec/proto/flowseer/integration/device/v
 This module's own `internal/lane.Item.Position` is a separate, edge-local
 counter assigned at admission into one device's `lane.Queue` — it orders
 FIFO dispatch and poll coalescing before dispatch, has no relation to
-`sequence`, and never appears on the wire. Priority (`lane.Priority`)
+`sequence`, and never appears on the wire. Priority (`access.Priority`)
 compares only among items still waiting when a slot opens; once an item is
 dequeued, its position is fixed and priority never reorders it again, per
 the direction record's decision 3.

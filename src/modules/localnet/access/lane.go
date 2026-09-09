@@ -112,7 +112,7 @@ type Reporter interface {
 // rejected.
 type Config struct {
 	QueueCapacity  int
-	EvidencePolicy evidence.Policy
+	EvidencePolicy EvidencePolicy
 	RecoveryMinGap time.Duration
 	// RecoveryPollInterval spaces one mutation's recovery polls. Zero means
 	// derive it from the device's own horizon, per
@@ -758,7 +758,7 @@ type SubmitOptions struct {
 	// caller supplies it here.
 	DeviceKey string
 	Request   *integrationv1.ExecuteRequest
-	Priority  lane.Priority
+	Priority  Priority
 }
 
 // Submit admits opts.Request into its device's lane and blocks until that
@@ -787,8 +787,8 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 	// facade a caller leaving SubmitOptions.Priority at its zero value in a
 	// keyed struct literal is the ordinary mistake, not a deliberate
 	// choice, so it is coerced to PriorityNormal rather than rejected here.
-	if opts.Priority == lane.PriorityUnspecified {
-		opts.Priority = lane.PriorityNormal
+	if opts.Priority == PriorityUnspecified {
+		opts.Priority = PriorityNormal
 	}
 
 	ds, err := l.device(opts.DeviceKey)

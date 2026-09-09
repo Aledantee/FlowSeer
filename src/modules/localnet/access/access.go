@@ -14,10 +14,40 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/evidence"
+	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/lane"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
+
+// EvidenceKind identifies the operation whose route evidence is cached.
+type EvidenceKind = evidence.Kind
+
+// EvidencePolicy sets how long route evidence remains usable per operation.
+type EvidencePolicy = evidence.Policy
+
+// Evidence kinds accepted by [Config.EvidencePolicy].
+const (
+	EvidenceKindUnspecified                = evidence.KindUnspecified
+	EvidenceKindInterfaceRead              = evidence.KindInterfaceRead
+	EvidenceKindInterfaceDescriptionChange = evidence.KindInterfaceDescriptionChange
+)
+
+// Priority orders operations that are waiting in one device lane.
+type Priority = lane.Priority
+
+// Priorities accepted by [SubmitOptions.Priority].
+const (
+	PriorityUnspecified = lane.PriorityUnspecified
+	PriorityLow         = lane.PriorityLow
+	PriorityNormal      = lane.PriorityNormal
+	PriorityHigh        = lane.PriorityHigh
+)
+
+// ErrCodeOverload identifies an operation refused because its device lane is
+// at capacity.
+var ErrCodeOverload = lane.ErrCodeOverload
 
 // ReadCredentialSource is the seam the lane acquires a read credential
 // through, for every read and for the onboarding probe.
