@@ -205,6 +205,55 @@ func TestWriter_StickyError(t *testing.T) {
 	}
 }
 
+// TestWriter_AbsentCountersOmitted proves a CaptureCounters field the
+// engine never set is left out of the Interface Statistics Block's options
+// rather than written as a reported zero.
+func TestWriter_AbsentCountersOmitted(t *testing.T) {
+	var buf bytes.Buffer
+	w, err := pcapng.NewWriter(&buf, capturev1.LinkType_LINK_TYPE_ETHERNET, 128)
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
+	counters := &capturev1.CaptureCounters{}
+	counters.SetAccepted(5) // received and dropped_by_interface stay unset.
+	if err := w.Close(counters); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	blocks := splitBlocks(t, buf.Bytes())
+	isb := blocks[len(blocks)-1]
+	opts := parseOptions(t, isb.body[12:])
+	if _, ok := opts[4]; ok {
+		t.Errorf("ISB carries isb_ifrecv though received was never set")
+	}
+	if _, ok := opts[5]; ok {
+		t.Errorf("ISB carries isb_ifdrop though dropped_by_interface was never set")
+	}
+	if got, ok := opts[6]; !ok || binary.LittleEndian.Uint64(got) != 5 {
+		t.Errorf("ISB isb_filteraccept = %v (ok=%v), want 5", got, ok)
+	}
+}
+
+// TestWriter_CloseThenWriteRecordFails proves a write after a successful
+// Close is rejected, rather than appending an Enhanced Packet Block after
+// the Interface Statistics Block that was meant to summarize the section.
+func TestWriter_CloseThenWriteRecordFails(t *testing.T) {
+	var buf bytes.Buffer
+	w, err := pcapng.NewWriter(&buf, capturev1.LinkType_LINK_TYPE_ETHERNET, 128)
+	if err != nil {
+		t.Fatalf("NewWriter: %v", err)
+	}
+	if err := w.Close(&capturev1.CaptureCounters{}); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if err := w.WriteRecord(newRecord(t, 0, []byte{1, 2, 3})); err == nil {
+		t.Error("WriteRecord after Close: want an error, got nil")
+	}
+	if err := w.Close(&capturev1.CaptureCounters{}); err == nil {
+		t.Error("second Close: want an error, got nil")
+	}
+}
+
 // failAfterWriter succeeds for its first failAfter calls, then fails every
 // call after that.
 type failAfterWriter struct {

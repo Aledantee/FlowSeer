@@ -349,3 +349,102 @@ func TestCompile_PortRange(t *testing.T) {
 		t.Errorf("port 8011 accepted by an 8000-8010 range filter, want reject")
 	}
 }
+
+// TestCompile_PortMatchRequiresPortBearingProtocol proves a port field
+// never reads a non-TCP/UDP/SCTP header's bytes as if they were a port: an
+// ICMP echo request whose type/code bytes happen to equal a matched port
+// value must still be rejected.
+func TestCompile_PortMatchRequiresPortBearingProtocol(t *testing.T) {
+	c := &capturev1.CaptureFilterClause{}
+	port := &packetv1.TransportPortMatch{}
+	port.SetExact(0x0800) // ICMP type 8 (echo request), code 0 -> big-endian 0x0800
+	c.SetDstPort(port)
+	f := &capturev1.CaptureFilter{}
+	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
+	insts := mustCompile(t, f)
+
+	echoReq := icmpv4Header(8, 0)
+	ip := ipv4Header(1 /* ICMP */, [4]byte{1, 1, 1, 1}, [4]byte{2, 2, 2, 2}, uint16(20+len(echoReq)))
+	icmpFrame := frame(ethHeader(0x0800, nil), ip, echoReq)
+	if n := run(t, insts, icmpFrame); n != 0 {
+		t.Errorf("an ICMP frame whose type/code bytes equal the matched port was accepted, want reject")
+	}
+}
+
+// TestCompile_PortMatchRejectsNonFirstFragment proves a port field does not
+// match a non-first IPv4 fragment's payload-continuation bytes as if they
+// were a port.
+func TestCompile_PortMatchRejectsNonFirstFragment(t *testing.T) {
+	c := &capturev1.CaptureFilterClause{}
+	port := &packetv1.TransportPortMatch{}
+	port.SetExact(22)
+	c.SetDstPort(port)
+	f := &capturev1.CaptureFilter{}
+	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
+	insts := mustCompile(t, f)
+
+	tcp := tcpHeader(51000, 22, 0x02)
+	ip := ipv4Header(6, [4]byte{10, 0, 0, 1}, [4]byte{10, 0, 0, 2}, uint16(20+len(tcp)))
+	ip[6], ip[7] = 0x00, 0x01 // fragment offset 1: not the first fragment
+	fragFrame := frame(ethHeader(0x0800, nil), ip, tcp)
+
+	if n := run(t, insts, fragFrame); n != 0 {
+		t.Errorf("a non-first IPv4 fragment was accepted by a port match, want reject")
+	}
+	if n := run(t, insts, tcpV4Frame(22)); n == 0 {
+		t.Errorf("an unfragmented TCP:22 frame was rejected, want accept")
+	}
+}
+
+func TestCompile_TcpFlagsMatchRequiresSetOrClear(t *testing.T) {
+	c := &capturev1.CaptureFilterClause{}
+	c.SetTcpFlags(&packetv1.TcpFlagsMatch{})
+	f := &capturev1.CaptureFilter{}
+	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
+	if _, err := filter.Compile(f); err == nil {
+		t.Fatal("Compile: want an error for a TcpFlagsMatch with no set or clear flags, got nil")
+	}
+}
+
+// TestCompile_TaggedFramePortMatch exercises withLayouts' tagged branch
+// (EtherType at offset 16, IP header at offset 18) through the full port
+// path: the IHL-based LoadMemShift, the protocol gate, and the fragment
+// check all read from the shifted offsets a VLAN tag introduces. Every
+// other filter test in this file uses an untagged frame.
+func TestCompile_TaggedFramePortMatch(t *testing.T) {
+	c := &capturev1.CaptureFilterClause{}
+	c.SetIpProtocol(packetv1.IpProtocol_IP_PROTOCOL_TCP)
+	port := &packetv1.TransportPortMatch{}
+	port.SetExact(22)
+	c.SetDstPort(port)
+	f := &capturev1.CaptureFilter{}
+	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
+	insts := mustCompile(t, f)
+
+	vid := uint16(42)
+	tcp := tcpHeader(51000, 22, 0x02)
+	ip := ipv4Header(6, [4]byte{10, 0, 0, 1}, [4]byte{10, 0, 0, 2}, uint16(20+len(tcp)))
+	match := frame(ethHeader(0x0800, &vid), ip, tcp)
+	if n := run(t, insts, match); n == 0 {
+		t.Errorf("tagged TCP:22 frame rejected, want accept")
+	}
+
+	tcpWrong := tcpHeader(51000, 23, 0x02)
+	ipWrong := ipv4Header(6, [4]byte{10, 0, 0, 1}, [4]byte{10, 0, 0, 2}, uint16(20+len(tcpWrong)))
+	noMatch := frame(ethHeader(0x0800, &vid), ipWrong, tcpWrong)
+	if n := run(t, insts, noMatch); n != 0 {
+		t.Errorf("tagged TCP:23 frame accepted by a port-22 filter, want reject")
+	}
+}
+
+func TestCompile_IcmpMatchRequiresTypeOrCode(t *testing.T) {
+	c := &capturev1.CaptureFilterClause{}
+	icmp := &packetv1.IcmpMatch{}
+	icmp.SetV4(&packetv1.Icmpv4Match{})
+	c.SetIcmp(icmp)
+	f := &capturev1.CaptureFilter{}
+	f.SetAnyOf([]*capturev1.CaptureFilterClause{c})
+	if _, err := filter.Compile(f); err == nil {
+		t.Fatal("Compile: want an error for an IcmpMatch with no type or code, got nil")
+	}
+}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/hex"
 	"net"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -82,8 +81,8 @@ func TestOpenMirrorUDP_RealPktinfo(t *testing.T) {
 	frames := make(chan Frame, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	var received atomic.Uint64
-	go runMirrorLoop(ctx, sock, decodeUDP, nil, frames, make(chan struct{}), &received)
+	src := &linuxMirrorSource{done: make(chan struct{})}
+	go src.runMirrorLoop(ctx, sock, decodeUDP, frames)
 
 	select {
 	case f := <-frames:

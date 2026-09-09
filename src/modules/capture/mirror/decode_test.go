@@ -157,6 +157,37 @@ func TestDecode_PlainGRE_NonEthernet(t *testing.T) {
 	}
 }
 
+// TestDecode_HeaderOnlyPayloadYieldsNilInner proves a GRE keepalive (a
+// header with nothing behind it) reports a nil inner frame, not a non-nil
+// zero-length one: Go's own slicing of an exhausted buffer produces
+// []byte{}, not nil, so this is not automatic.
+func TestDecode_HeaderOnlyPayloadYieldsNilInner(t *testing.T) {
+	payload := mustHex("00006558") // base GRE header, TEB protocol type, nothing after it
+	_, gotInner, err := mirror.Decode(payload, srcIP, dstIP)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+	if gotInner != nil {
+		t.Errorf("inner frame = %#v, want nil for a header-only payload", gotInner)
+	}
+}
+
+func TestDecodeUDP_Tzsp_RejectsWrongVersionOrType(t *testing.T) {
+	wrongVersion := mustHex("02000001000122334455") // version 2
+	if _, _, err := mirror.DecodeUDP(wrongVersion, srcIP, dstIP, []capturev1.MirrorEncapsulation{
+		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP,
+	}); err == nil {
+		t.Error("DecodeUDP with TZSP version 2: want an error, got nil")
+	}
+
+	keepalive := mustHex("01040001deadbeef") // version 1, type 4 (KEEPALIVE)
+	if _, _, err := mirror.DecodeUDP(keepalive, srcIP, dstIP, []capturev1.MirrorEncapsulation{
+		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP,
+	}); err == nil {
+		t.Error("DecodeUDP with TZSP type 4 (KEEPALIVE): want an error, got nil")
+	}
+}
+
 func TestDecode_SourceDestination(t *testing.T) {
 	payload := mustHex("00006558001122334455aabbccddeeff0800494e4e45524652414d455041594c4f4144")
 	env, _, err := mirror.Decode(payload, srcIP, dstIP)
@@ -207,24 +238,26 @@ func TestDecodeUDP_Tzsp(t *testing.T) {
 	}
 }
 
-// TestDecodeUDP_FixedOrder proves VXLAN is tried before TZSP regardless of
-// candidates' own order, using a payload deliberately shaped to validate
-// structurally under both decoders: byte 0 sets VXLAN's I flag, and TZSP's
-// unchecked version/type bytes plus an immediate TAG_END at byte 4 make it
-// an equally well-formed TZSP header.
+// TestDecodeUDP_FixedOrder proves DecodeUDP tries VXLAN before TZSP
+// regardless of candidates' own order. VXLAN's I flag (byte 0 bit 0x08) and
+// TZSP's exact version byte (must be 1) cannot both hold for the same
+// leading byte, so a payload cannot validate under both structurally; the
+// fixed order is instead proven by a TZSP-only-valid payload still decoding
+// as TZSP when candidates lists VXLAN first — VXLAN's own failed attempt
+// must fall through rather than short-circuit the whole call.
 func TestDecodeUDP_FixedOrder(t *testing.T) {
-	payload := mustHex("0800aabb01ccddee")
+	payload := mustHex("01000001000a02abcd01001122334455aabbccddeeff0800494e4e45524652414d455041594c4f4144")
 
-	both := []capturev1.MirrorEncapsulation{
-		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP,
+	vxlanFirst := []capturev1.MirrorEncapsulation{
 		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_VXLAN,
+		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP,
 	}
-	env, _, err := mirror.DecodeUDP(payload, srcIP, dstIP, both)
+	env, _, err := mirror.DecodeUDP(payload, srcIP, dstIP, vxlanFirst)
 	if err != nil {
 		t.Fatalf("DecodeUDP: %v", err)
 	}
-	if !env.HasVxlan() {
-		t.Errorf("with both candidates listed TZSP-first, decoded as %v, want vxlan (fixed order)", env.WhichWrapper())
+	if !env.HasTzsp() {
+		t.Errorf("with VXLAN tried first and failing, decoded as %v, want tzsp (fallthrough to the next candidate)", env.WhichWrapper())
 	}
 
 	tzspOnly := []capturev1.MirrorEncapsulation{capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_TZSP}

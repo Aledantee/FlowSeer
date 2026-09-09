@@ -22,8 +22,9 @@ const (
 )
 
 // greHeader is the base GRE header (RFC 2784) plus the optional words RFC
-// 2890 adds, parsed but not the checksum RFC 2784 already has the kernel
-// verify on receipt.
+// 2890 adds. The checksum word (present iff the C bit is set) is skipped,
+// not verified: a raw IPPROTO_GRE socket delivers the GRE payload without
+// checking it, and nothing on this path recomputes it.
 type greHeader struct {
 	keyPresent     bool
 	seqPresent     bool
@@ -92,7 +93,9 @@ func toIPAddress(ip net.IP) *addrv1.IpAddress {
 // AF_INET6 SOCK_RAW socket does not deliver one). It returns the decoded
 // envelope and the inner Ethernet frame, or a nil inner frame and no error
 // when the envelope carries none: an ERSPAN Type III marker, or a plain
-// GRE/ERSPAN Type I payload that is not Ethernet.
+// GRE/ERSPAN Type I payload that is not Ethernet. The returned inner frame
+// aliases payload; a caller that reuses its receive buffer must copy the
+// bytes out before doing so.
 func Decode(payload []byte, srcIP, dstIP net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
 	gre, err := parseGRE(payload)
 	if err != nil {
@@ -111,13 +114,13 @@ func Decode(payload []byte, srcIP, dstIP net.IP) (*capturev1.MirrorEnvelope, []b
 				return nil, nil, err
 			}
 			env.SetErspanTypeIi(fields)
-			return env, rest, nil
+			return env, nilIfEmpty(rest), nil
 		}
 		// No GRE sequence number: draft-foschiano-erspan-03 describes Type I
 		// as GRE with no ERSPAN header at all, so the GRE payload is the
 		// mirrored frame directly.
 		env.SetErspanTypeI(&capturev1.ErspanTypeIFields{})
-		return env, gre.rest, nil
+		return env, nilIfEmpty(gre.rest), nil
 
 	case greProtoERSPANTypeIII:
 		fields, rest, err := ParseErspanTypeIII(gre.rest)
@@ -130,7 +133,7 @@ func Decode(payload []byte, srcIP, dstIP net.IP) (*capturev1.MirrorEnvelope, []b
 			// no record.
 			return env, nil, nil
 		}
-		return env, rest, nil
+		return env, nilIfEmpty(rest), nil
 
 	default:
 		fields := &capturev1.GreFields{}
@@ -145,8 +148,19 @@ func Decode(payload []byte, srcIP, dstIP net.IP) (*capturev1.MirrorEnvelope, []b
 		if gre.protocolType != ethPTypeTEB {
 			return env, nil, nil
 		}
-		return env, gre.rest, nil
+		return env, nilIfEmpty(gre.rest), nil
 	}
+}
+
+// nilIfEmpty turns a zero-length, non-nil slice into nil: mirror.Decode's
+// contract is that a nil inner frame means "carries no frame", and a
+// header-length payload (a GRE keepalive, say) leaves rest at length zero
+// without Go's own slicing ever producing a nil for it.
+func nilIfEmpty(b []byte) []byte {
+	if len(b) == 0 {
+		return nil
+	}
+	return b
 }
 
 // ParseErspanTypeII parses an ERSPAN Type II header
@@ -225,12 +239,29 @@ func decodeVXLAN(b []byte) (*capturev1.VxlanFields, []byte, error) {
 	vni := uint32(b[4])<<16 | uint32(b[5])<<8 | uint32(b[6])
 	f := &capturev1.VxlanFields{}
 	f.SetVni(vni)
-	return f, b[8:], nil
+	return f, nilIfEmpty(b[8:]), nil
 }
+
+// tzspVersion1 and tzspTypeReceivedTagList are the only version and type
+// this receiver accepts: a TZSP sender describes several other message
+// kinds (packet-for-transmit, configuration, keepalive, port-opener) that
+// carry no mirrored frame at all, and reading past their own, differently
+// shaped bodies as if they held one would misinterpret device-control bytes
+// as packet data.
+const (
+	tzspVersion1            = 1
+	tzspTypeReceivedTagList = 0
+)
 
 func decodeTZSP(b []byte) (*capturev1.TzspFields, []byte, error) {
 	if len(b) < 4 {
 		return nil, nil, fmt.Errorf("TZSP header truncated: %d bytes", len(b))
+	}
+	if b[0] != tzspVersion1 {
+		return nil, nil, fmt.Errorf("TZSP version %d is not supported", b[0])
+	}
+	if b[1] != tzspTypeReceivedTagList {
+		return nil, nil, fmt.Errorf("TZSP type %d carries no received packet", b[1])
 	}
 	encapsulatedProtocol := binary.BigEndian.Uint16(b[2:4])
 
@@ -245,7 +276,7 @@ func decodeTZSP(b []byte) (*capturev1.TzspFields, []byte, error) {
 			rest = rest[1:]
 			f := &capturev1.TzspFields{}
 			f.SetEncapsulatedProtocol(uint32(encapsulatedProtocol))
-			return f, rest, nil
+			return f, nilIfEmpty(rest), nil
 		case 0: // TAG_PADDING: no length, no value.
 			rest = rest[1:]
 		default:
@@ -268,7 +299,9 @@ func decodeTZSP(b []byte) (*capturev1.TzspFields, []byte, error) {
 // regardless of candidates' own order: ordinary configuration names one
 // UDP-family encapsulation per receiver, and this rule exists only for the
 // case where it does not. It returns a nil inner frame and no error for a
-// decoded envelope that carries none.
+// decoded envelope that carries none. The returned inner frame aliases
+// payload; a caller that reuses its receive buffer must copy the bytes out
+// before doing so.
 func DecodeUDP(payload []byte, srcIP, dstIP net.IP, candidates []capturev1.MirrorEncapsulation) (*capturev1.MirrorEnvelope, []byte, error) {
 	has := func(want capturev1.MirrorEncapsulation) bool {
 		return slices.Contains(candidates, want)

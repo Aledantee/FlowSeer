@@ -72,7 +72,7 @@ func TestLinuxMirrorSource_DeliversDecodedFrame(t *testing.T) {
 	sock := &fakeMirrorSocket{queue: []queuedDatagram{
 		{payload: erspanTypeIPayload(t), from: &unix.SockaddrInet4{Addr: [4]byte{192, 0, 2, 1}}},
 	}}
-	src := &linuxMirrorSource{raw: []mirrorSocket{sock}, done: make(chan struct{})}
+	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -113,7 +113,7 @@ func TestLinuxMirrorSource_FilterRejects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewVM: %v", err)
 	}
-	src := &linuxMirrorSource{raw: []mirrorSocket{sock}, vm: vm, done: make(chan struct{})}
+	src := &linuxMirrorSource{rawV6: sock, vm: vm, done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
@@ -139,7 +139,7 @@ func TestLinuxMirrorSource_FilterRejects(t *testing.T) {
 func TestLinuxMirrorSource_ReadErrorIsTerminal(t *testing.T) {
 	wantErr := errors.New("device gone")
 	sock := &fakeMirrorSocket{afterErr: wantErr}
-	src := &linuxMirrorSource{raw: []mirrorSocket{sock}, done: make(chan struct{})}
+	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
 	defer func() { _ = src.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -158,7 +158,7 @@ func TestLinuxMirrorSource_ReadErrorIsTerminal(t *testing.T) {
 
 func TestLinuxMirrorSource_CloseIsIdempotent(t *testing.T) {
 	sock := &fakeMirrorSocket{}
-	src := &linuxMirrorSource{raw: []mirrorSocket{sock}, done: make(chan struct{})}
+	src := &linuxMirrorSource{rawV6: sock, done: make(chan struct{})}
 
 	if err := src.Close(); err != nil {
 		t.Fatalf("first Close: %v", err)

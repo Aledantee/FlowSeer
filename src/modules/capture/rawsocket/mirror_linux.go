@@ -4,6 +4,7 @@ package rawsocket
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -169,9 +170,18 @@ func splitEncapsulations(encapsulations []capturev1.MirrorEncapsulation) (greFam
 func openMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
 	var vm *bpf.VM
 	if len(prog) > 0 {
-		insts := make([]bpf.Instruction, len(prog))
-		for i, ri := range prog {
-			insts[i] = ri
+		// prog is the raw form filter.Assemble produces for SO_ATTACH_FILTER
+		// (a []bpf.RawInstruction), not the high-level []bpf.Instruction
+		// bpf.NewVM needs: RawInstruction satisfies the Instruction
+		// interface syntactically but is never RetA or RetConstant, so
+		// NewVM's own check that the program ends in one would reject every
+		// program, and the VM's instruction dispatch has no RawInstruction
+		// case at all. Disassemble back to the high-level form first.
+		insts, allDecoded := bpf.Disassemble(prog)
+		if !allDecoded {
+			return nil, errs.New().
+				Code(ErrCodeSourceOpen).
+				Msg("disassemble the mirror receiver's filter program")
 		}
 		v, err := bpf.NewVM(insts)
 		if err != nil {
@@ -183,6 +193,12 @@ func openMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort 
 	}
 
 	greFamily, udpFamily := splitEncapsulations(encapsulations)
+	if !greFamily && len(udpFamily) == 0 {
+		return nil, errs.New().
+			Code(ErrCodeSourceOpen).
+			UserMsg("the capture session names no supported mirror encapsulation").
+			Msg("mirror receiver: no GRE-family or UDP-family encapsulation configured")
+	}
 	src := &linuxMirrorSource{candidates: udpFamily, vm: vm, done: make(chan struct{})}
 
 	if greFamily {
@@ -190,21 +206,24 @@ func openMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort 
 		if err != nil {
 			return nil, err
 		}
-		src.raw = append(src.raw, v4)
+		src.rawV4 = v4
 
 		v6, err := openRawGRE(unix.AF_INET6, bindInterface)
 		if err != nil {
 			_ = v4.close()
 			return nil, err
 		}
-		src.raw = append(src.raw, v6)
+		src.rawV6 = v6
 	}
 
 	if len(udpFamily) > 0 {
 		udp, err := openMirrorUDP(udpPort, bindInterface)
 		if err != nil {
-			for _, s := range src.raw {
-				_ = s.close()
+			if src.rawV4 != nil {
+				_ = src.rawV4.close()
+			}
+			if src.rawV6 != nil {
+				_ = src.rawV6.close()
 			}
 			return nil, err
 		}
@@ -214,16 +233,27 @@ func openMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort 
 	return src, nil
 }
 
-// linuxMirrorSource fans multiple sockets — up to two raw GRE-family
-// sockets and one UDP socket — into one Frame channel.
+// linuxMirrorSource fans multiple sockets — the two raw GRE-family sockets
+// and the UDP socket — into one Frame channel. rawV4 and rawV6 are separate
+// fields, not a slice, because they need different decode wrappers: an
+// AF_INET SOCK_RAW socket includes the IPv4 header in what it delivers
+// (raw(7)), an AF_INET6 one does not, and mirror.Decode's own contract
+// never assumes an IP-header-prefixed buffer.
 //
-// mu guards closed; done wakes every loop goroutine on Close.
+// mu guards closed and serializes it against an in-flight recvmsg on any of
+// the three sockets, the same way linuxLocalSource does, so Close cannot
+// release a file descriptor a receive goroutine is still blocked in.
+// statsMu guards received/reportedReceived as a pair, since Stats' Load
+// then Swap is not atomic across two calls. done wakes every loop goroutine
+// on Close.
 type linuxMirrorSource struct {
-	raw        []mirrorSocket
+	rawV4      mirrorSocket
+	rawV6      mirrorSocket
 	udp        mirrorSocket
 	candidates []capturev1.MirrorEncapsulation
 	vm         *bpf.VM
 
+	statsMu          sync.Mutex
 	received         atomic.Uint64
 	reportedReceived atomic.Uint64
 
@@ -232,16 +262,38 @@ type linuxMirrorSource struct {
 	done   chan struct{}
 }
 
+// decodeV4 strips the IPv4 header raw(7) says an AF_INET SOCK_RAW socket
+// includes in every received datagram before delegating to mirror.Decode,
+// whose own contract never assumes an IP-header-prefixed buffer. AF_INET6
+// does not include one, so rawV6 uses mirror.Decode directly.
+func decodeV4(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
+	if len(payload) < 20 {
+		return nil, nil, fmt.Errorf("IPv4 header truncated: %d bytes", len(payload))
+	}
+	ihl := int(payload[0]&0x0F) * 4
+	if ihl < 20 || ihl > len(payload) {
+		return nil, nil, fmt.Errorf("IPv4 header length %d invalid for a %d-byte packet", ihl, len(payload))
+	}
+	return mirror.Decode(payload[ihl:], src, dst)
+}
+
 func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 	var wg sync.WaitGroup
 
-	for _, sock := range s.raw {
+	if s.rawV4 != nil {
 		wg.Add(1)
-		go func(sock mirrorSocket) {
+		go func() {
 			defer wg.Done()
-			runMirrorLoop(ctx, sock, mirror.Decode, s.vm, frames, s.done, &s.received)
-		}(sock)
+			s.runMirrorLoop(ctx, s.rawV4, decodeV4, frames)
+		}()
+	}
+	if s.rawV6 != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.runMirrorLoop(ctx, s.rawV6, mirror.Decode, frames)
+		}()
 	}
 	if s.udp != nil {
 		wg.Add(1)
@@ -250,7 +302,7 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 			decodeUDP := func(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
 				return mirror.DecodeUDP(payload, src, dst, s.candidates)
 			}
-			runMirrorLoop(ctx, s.udp, decodeUDP, s.vm, frames, s.done, &s.received)
+			s.runMirrorLoop(ctx, s.udp, decodeUDP, frames)
 		}()
 	}
 
@@ -272,6 +324,9 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 // it, not the interface itself losing packets before a socket read ever
 // happens.
 func (s *linuxMirrorSource) Stats() (received, droppedByInterface uint64, err error) {
+	s.statsMu.Lock()
+	defer s.statsMu.Unlock()
+
 	total := s.received.Load()
 	prev := s.reportedReceived.Swap(total)
 	return total - prev, 0, nil
@@ -288,8 +343,13 @@ func (s *linuxMirrorSource) Close() error {
 	close(s.done)
 
 	var firstErr error
-	for _, sock := range s.raw {
-		if err := sock.close(); err != nil && firstErr == nil {
+	if s.rawV4 != nil {
+		if err := s.rawV4.close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	if s.rawV6 != nil {
+		if err := s.rawV6.close(); err != nil && firstErr == nil {
 			firstErr = err
 		}
 	}
@@ -303,14 +363,20 @@ func (s *linuxMirrorSource) Close() error {
 
 // runMirrorLoop polls sock, decodes each datagram with decode, runs vm
 // (when non-nil) against the inner frame, and delivers what survives.
-func runMirrorLoop(
+//
+// s.mu is held around each recvmsg call, checking s.closed first, the same
+// way linuxLocalSource guards its own single socket: Close cannot release a
+// file descriptor this loop is still blocked reading from. All three of a
+// receiver's sockets share s.mu, so their reads serialize against each
+// other; a diagnostic capture's sockets are not a line-rate path, and
+// correctness (never closing a fd out from under a blocked recvmsg, which
+// risks another unrelated fd being assigned the same number) outweighs the
+// small added latency.
+func (s *linuxMirrorSource) runMirrorLoop(
 	ctx context.Context,
 	sock mirrorSocket,
 	decode func(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error),
-	vm *bpf.VM,
 	frames chan<- Frame,
-	done <-chan struct{},
-	received *atomic.Uint64,
 ) {
 	buf := make([]byte, maxFrameLen)
 	oob := make([]byte, unix.CmsgSpace(inet6PktinfoLen))
@@ -320,14 +386,21 @@ func runMirrorLoop(
 		case <-ctx.Done():
 			sendTerminal(frames, Frame{Err: ctx.Err()})
 			return
-		case <-done:
+		case <-s.done:
 			return
 		default:
 		}
 
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			return
+		}
 		n, oobn, from, err := sock.recvmsg(buf, oob)
+		s.mu.Unlock()
+
 		if err != nil {
-			if isTimeout(err) {
+			if isRetryable(err) {
 				select {
 				case <-ctx.Done():
 					sendTerminal(frames, Frame{Err: ctx.Err()})
@@ -342,7 +415,13 @@ func runMirrorLoop(
 			return
 		}
 
-		received.Add(1)
+		s.received.Add(1)
+
+		captured := n
+		if captured > len(buf) {
+			// MSG_TRUNC: the wire datagram was longer than the buffer.
+			captured = len(buf)
+		}
 
 		srcIP := sockaddrIP(from)
 		dstIP := pktinfoDestination(oob[:oobn])
@@ -353,26 +432,31 @@ func runMirrorLoop(
 			dstIP = srcIP
 		}
 
-		env, inner, err := decode(buf[:n], srcIP, dstIP)
+		env, inner, err := decode(buf[:captured], srcIP, dstIP)
 		if err != nil || inner == nil {
 			// A decode error (malformed or foreign packet) or a decoded
 			// envelope with no inner frame (a marker, or a non-Ethernet
 			// payload): counted above, no record.
 			continue
 		}
-		if vm != nil {
-			if accepted, err := vm.Run(inner); err != nil || accepted == 0 {
+		if s.vm != nil {
+			if accepted, err := s.vm.Run(inner); err != nil || accepted == 0 {
 				continue
 			}
 		}
 
-		f := Frame{Data: inner, OriginalLength: uint32(len(inner)), Envelope: env, CapturedAt: time.Now()}
+		// inner aliases buf, which the next iteration's recvmsg overwrites:
+		// copy before handing it to the consumer.
+		data := make([]byte, len(inner))
+		copy(data, inner)
+
+		f := Frame{Data: data, OriginalLength: uint32(len(inner)), Envelope: env, CapturedAt: time.Now()}
 		select {
 		case frames <- f:
 		case <-ctx.Done():
 			sendTerminal(frames, Frame{Err: ctx.Err()})
 			return
-		case <-done:
+		case <-s.done:
 			return
 		}
 	}

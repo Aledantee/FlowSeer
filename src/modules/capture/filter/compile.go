@@ -64,8 +64,9 @@ const (
 // matches falls through to whatever the caller appends next.
 type block func(prog *[]bpf.Instruction) []int
 
-// Compile turns f into an assembled linear cBPF program. An absent or empty
-// filter accepts every packet, matching the schema's stated semantics.
+// Compile turns f into a linear cBPF program. An absent or empty filter
+// accepts every packet, matching the schema's stated semantics. Pass the
+// result through Assemble for the raw form SO_ATTACH_FILTER accepts.
 func Compile(f *capturev1.CaptureFilter) ([]bpf.Instruction, error) {
 	clauses := f.GetAnyOf()
 	if len(clauses) == 0 {
@@ -409,6 +410,29 @@ func loadMemShiftAbs(off uint32) []bpf.Instruction {
 	return []bpf.Instruction{bpf.LoadMemShift{Off: off}}
 }
 
+// ipv4NoFragmentOffset requires the IPv4 fragment offset field (the low 13
+// bits of the flags-and-fragment-offset word at bytes 6-7) to be zero. A
+// non-first fragment carries no transport header at the offset a field
+// below assumes: those bytes are payload continuation, and reading a port,
+// a TCP flags byte, or an ICMP type and code from them would match on
+// arbitrary payload data rather than reject the packet.
+func ipv4NoFragmentOffset(l frameLayout) block {
+	return atom(loadAbs(l.ipOff+6, 2), bpf.JumpBitsNotSet, 0x1FFF)
+}
+
+// portBearingProtocol matches the IP protocols whose header places a
+// 16-bit port at the first two bytes past the IP header: TCP, UDP, and
+// SCTP. A field that reads the transport header without this gate would
+// match a differently-shaped header's bytes (an ICMP type and code, say) as
+// if they were a port.
+func portBearingProtocol(protocolOff uint32) block {
+	return or(
+		atomAbs(protocolOff, 1, uint32(packetv1.IpProtocol_IP_PROTOCOL_TCP)),
+		atomAbs(protocolOff, 1, uint32(packetv1.IpProtocol_IP_PROTOCOL_UDP)),
+		atomAbs(protocolOff, 1, uint32(packetv1.IpProtocol_IP_PROTOCOL_SCTP)),
+	)
+}
+
 func portSetupV4(l frameLayout, portOff uint32) []bpf.Instruction {
 	return append(loadMemShiftAbs(l.ipOff), bpf.LoadIndirect{Off: l.ipOff + portOff, Size: 2})
 }
@@ -435,17 +459,26 @@ func portCompare(setup []bpf.Instruction, m *packetv1.TransportPortMatch) (block
 }
 
 func portFamilyBlock(l frameLayout, portOff uint32, m *packetv1.TransportPortMatch) (block, error) {
-	v4, err := portCompare(portSetupV4(l, portOff), m)
+	v4Port, err := portCompare(portSetupV4(l, portOff), m)
 	if err != nil {
 		return nil, err
 	}
-	v6, err := portCompare(portSetupV6(l, portOff), m)
+	v6Port, err := portCompare(portSetupV6(l, portOff), m)
 	if err != nil {
 		return nil, err
 	}
 	return or(
-		and(atomAbs(l.etherTypeOff, 2, ipv4EtherType), v4),
-		and(atomAbs(l.etherTypeOff, 2, ipv6EtherType), v6),
+		and(
+			atomAbs(l.etherTypeOff, 2, ipv4EtherType),
+			ipv4NoFragmentOffset(l),
+			portBearingProtocol(l.ipOff+9),
+			v4Port,
+		),
+		and(
+			atomAbs(l.etherTypeOff, 2, ipv6EtherType),
+			portBearingProtocol(l.ipOff+6),
+			v6Port,
+		),
 	), nil
 }
 
@@ -476,11 +509,15 @@ func tcpFlagsCompare(setup []bpf.Instruction, setMask, clearMask uint32) block {
 func tcpFlagsBlock(m *packetv1.TcpFlagsMatch) (block, error) {
 	setMask := flagMask(m.GetRequiredSet())
 	clearMask := flagMask(m.GetRequiredClear())
+	if setMask == 0 && clearMask == 0 {
+		return nil, fmt.Errorf("a TCP flags match requires at least one set or clear flag")
+	}
 	return withLayouts(func(l frameLayout) (block, error) {
 		v4Setup := append(loadMemShiftAbs(l.ipOff), bpf.LoadIndirect{Off: l.ipOff + 13, Size: 1})
 		v6Setup := loadAbs(l.ipOff+40+13, 1)
 		v4 := and(
 			atomAbs(l.etherTypeOff, 2, ipv4EtherType),
+			ipv4NoFragmentOffset(l),
 			atomAbs(l.ipOff+9, 1, uint32(packetv1.IpProtocol_IP_PROTOCOL_TCP)),
 			tcpFlagsCompare(v4Setup, setMask, clearMask),
 		)
@@ -504,6 +541,7 @@ func icmpValuesOR(setup []bpf.Instruction, values []uint32) block {
 func icmpv4FamilyBlock(l frameLayout, m *packetv1.Icmpv4Match) block {
 	blocks := []block{
 		atomAbs(l.etherTypeOff, 2, ipv4EtherType),
+		ipv4NoFragmentOffset(l),
 		atomAbs(l.ipOff+9, 1, uint32(packetv1.IpProtocol_IP_PROTOCOL_ICMP)),
 	}
 	typeSetup := append(loadMemShiftAbs(l.ipOff), bpf.LoadIndirect{Off: l.ipOff, Size: 1})
@@ -537,9 +575,15 @@ func icmpBlock(m *packetv1.IcmpMatch) (block, error) {
 	switch {
 	case m.HasV4():
 		v4 := m.GetV4()
+		if len(v4.GetTypes()) == 0 && len(v4.GetCodes()) == 0 {
+			return nil, fmt.Errorf("an ICMPv4 match requires at least one type or code")
+		}
 		return withLayouts(func(l frameLayout) (block, error) { return icmpv4FamilyBlock(l, v4), nil })
 	case m.HasV6():
 		v6 := m.GetV6()
+		if len(v6.GetTypes()) == 0 && len(v6.GetCodes()) == 0 {
+			return nil, fmt.Errorf("an ICMPv6 match requires at least one type or code")
+		}
 		return withLayouts(func(l frameLayout) (block, error) { return icmpv6FamilyBlock(l, v6), nil })
 	default:
 		return nil, fmt.Errorf("an ICMP match names neither v4 nor v6")

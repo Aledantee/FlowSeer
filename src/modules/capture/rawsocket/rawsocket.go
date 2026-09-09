@@ -12,16 +12,23 @@ import (
 )
 
 // ErrCodeSourceOpen is the wire identity for a source open or receive
-// failure. It names the failure at the boundary (nonexistent interface,
-// permission, unsupported platform) without leaking the raw syscall text.
+// failure other than an unsupported platform (nonexistent interface,
+// permission, a receive that failed after the source opened) without
+// leaking the raw syscall text.
 var ErrCodeSourceOpen = errs.NewCode("capture/source-open")
+
+// ErrCodeUnsupportedPlatform is ErrUnsupportedPlatform's own code, distinct
+// from ErrCodeSourceOpen: errs.Error.Is matches on code alone, so sharing
+// one code between "this platform cannot do raw capture at all" and every
+// other open/receive failure would make IsUnsupported report true for a
+// permission error or a bad interface name on Linux itself.
+var ErrCodeUnsupportedPlatform = errs.NewCode("capture/unsupported-platform")
 
 // ErrUnsupportedPlatform is returned by OpenLocalInterface and
 // OpenMirrorReceiver on a platform with no AF_PACKET or raw-socket
-// implementation. It carries ErrCodeSourceOpen so callers match it through
-// errors.Is against any coded source-open failure.
+// implementation.
 var ErrUnsupportedPlatform = errs.New().
-	Code(ErrCodeSourceOpen).
+	Code(ErrCodeUnsupportedPlatform).
 	UserMsg("raw packet capture is not supported on this platform").
 	Hint("run on Linux, where the capture engine uses AF_PACKET and raw IP sockets").
 	Msg("capture source is linux-only")

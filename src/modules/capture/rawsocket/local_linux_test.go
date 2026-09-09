@@ -29,6 +29,7 @@ type fakeSocket struct {
 	mu       sync.Mutex
 	queue    []queuedFrame
 	afterErr error // returned once the queue is drained; nil means EAGAIN forever
+	eintr    int   // number of leading recvfrom calls that return EINTR before anything else
 
 	statsPackets, statsDrops uint64
 	statsErr                 error
@@ -41,6 +42,10 @@ func (f *fakeSocket) recvfrom(p []byte, _ int) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	if f.eintr > 0 {
+		f.eintr--
+		return 0, unix.EINTR
+	}
 	if len(f.queue) == 0 {
 		if f.afterErr != nil {
 			return 0, f.afterErr
@@ -91,6 +96,35 @@ func TestLinuxLocalSource_DeliversFrame(t *testing.T) {
 	}
 }
 
+// TestLinuxLocalSource_EINTRIsRetried proves a signal-interrupted recvfrom
+// (EINTR) is retried within the same poll cycle rather than reported as a
+// terminal error: SO_RCVTIMEO sockets never auto-restart on a signal, and
+// Go's own runtime routinely delivers one to a goroutine blocked this long.
+func TestLinuxLocalSource_EINTRIsRetried(t *testing.T) {
+	sock := &fakeSocket{
+		eintr: 3,
+		queue: []queuedFrame{{data: []byte{9, 9}, originalLen: 2}},
+	}
+	s := newLinuxLocalSource(sock)
+	defer func() { _ = s.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	frames := s.Receive(ctx)
+	select {
+	case f := <-frames:
+		if f.Err != nil {
+			t.Fatalf("received error after EINTR: %v", f.Err)
+		}
+		if string(f.Data) != "\x09\x09" {
+			t.Errorf("Data = %x, want 0909", f.Data)
+		}
+	case <-ctx.Done():
+		t.Fatal("did not receive a frame within the timeout")
+	}
+}
+
 func TestLinuxLocalSource_Truncation(t *testing.T) {
 	full := make([]byte, maxFrameLen)
 	for i := range full {
@@ -134,7 +168,14 @@ func TestLinuxLocalSource_CancellationUnblocksWithinOnePoll(t *testing.T) {
 
 	select {
 	case f, ok := <-frames:
-		if ok && !errors.Is(f.Err, context.Canceled) {
+		// The channel is buffered (capacity 1) and nothing else is
+		// competing for it here, so the terminal send cannot lose its
+		// race: requiring ok catches the test vacuously passing if it ever
+		// did.
+		if !ok {
+			t.Fatal("channel closed with no terminal frame")
+		}
+		if !errors.Is(f.Err, context.Canceled) {
 			t.Errorf("terminal frame error = %v, want context.Canceled", f.Err)
 		}
 	case <-time.After(pollTimeout + 2*time.Second):

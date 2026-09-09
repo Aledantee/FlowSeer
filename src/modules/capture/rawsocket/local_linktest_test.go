@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/unix"
+
+	"go.aledante.io/FlowSeer/src/modules/capture/filter"
 )
 
 // TestRealInterfaceRoundTrip opens the interface FLOWSEER_CAPTURE_IFACE
@@ -29,7 +31,20 @@ func TestRealInterfaceRoundTrip(t *testing.T) {
 		t.Skip("FLOWSEER_CAPTURE_IFACE not set; skipping real-interface round trip")
 	}
 
-	src, err := OpenLocalInterface(iface, true, nil)
+	// A real, non-empty compiled filter, not nil: this is the only test at
+	// any tier that exercises SO_ATTACH_FILTER, the RawInstruction ->
+	// SockFilter conversion, and the SockFprog layout against a real
+	// kernel.
+	insts, err := filter.Compile(nil) // absent filter still compiles to an accept-all program
+	if err != nil {
+		t.Fatalf("filter.Compile: %v", err)
+	}
+	prog, err := filter.Assemble(insts)
+	if err != nil {
+		t.Fatalf("filter.Assemble: %v", err)
+	}
+
+	src, err := OpenLocalInterface(iface, true, prog)
 	if err != nil {
 		t.Fatalf("OpenLocalInterface(%q): %v", iface, err)
 	}

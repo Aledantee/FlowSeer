@@ -4,6 +4,7 @@ package rawsocket
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"net"
 	"sync"
@@ -38,8 +39,9 @@ type packetSocket interface {
 // ethPAllNetworkOrder is ETH_P_ALL in network byte order, as an AF_PACKET
 // socket's socket(2) and bind(2) calls both require (see packet(7)).
 func ethPAllNetworkOrder() uint16 {
-	const v = uint16(unix.ETH_P_ALL)
-	return v<<8 | v>>8
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], uint16(unix.ETH_P_ALL))
+	return binary.NativeEndian.Uint16(b[:])
 }
 
 // fdSocket is packetSocket over a real AF_PACKET file descriptor.
@@ -57,7 +59,12 @@ func (s *fdSocket) stats() (uint64, uint64, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	return uint64(st.Packets), uint64(st.Drops), nil
+	// tp_packets includes tp_drops (net/packet/af_packet.c's
+	// packet_getsockopt folds drops into the packet count before copying it
+	// to userspace); subtract so received counts only what the engine
+	// actually got, matching capture_counters.proto's "Packets the
+	// interface delivered to the capture engine".
+	return uint64(st.Packets) - uint64(st.Drops), uint64(st.Drops), nil
 }
 
 func (s *fdSocket) close() error {
@@ -87,7 +94,7 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 			Msgf("resolve interface %q", iface)
 	}
 
-	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW, int(ethPAllNetworkOrder()))
+	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW|unix.SOCK_CLOEXEC, int(ethPAllNetworkOrder()))
 	if err != nil {
 		return nil, errs.From(err).
 			Code(ErrCodeSourceOpen).
@@ -95,6 +102,24 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 			UserMsg("could not open the network interface for raw capture").
 			Hint("check the interface name and that you have CAP_NET_RAW").
 			Msgf("af_packet socket %q", iface)
+	}
+
+	// Attach the filter before Bind: once bound, this AF_PACKET socket's
+	// queue can receive frames on this interface immediately, and a frame
+	// arriving before the filter attaches would bypass it.
+	if len(prog) > 0 {
+		filters := make([]unix.SockFilter, len(prog))
+		for i, ri := range prog {
+			filters[i] = unix.SockFilter{Code: ri.Op, Jt: ri.Jt, Jf: ri.Jf, K: ri.K}
+		}
+		fprog := &unix.SockFprog{Len: uint16(len(filters)), Filter: &filters[0]}
+		if err := unix.SetsockoptSockFprog(fd, unix.SOL_SOCKET, unix.SO_ATTACH_FILTER, fprog); err != nil {
+			_ = unix.Close(fd)
+			return nil, errs.From(err).
+				Code(ErrCodeSourceOpen).
+				Attr("iface", iface).
+				Msgf("attach filter on %q", iface)
+		}
 	}
 
 	sa := &unix.SockaddrLinklayer{
@@ -117,21 +142,6 @@ func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstructio
 				Code(ErrCodeSourceOpen).
 				Attr("iface", iface).
 				Msgf("set promiscuous mode on %q", iface)
-		}
-	}
-
-	if len(prog) > 0 {
-		filters := make([]unix.SockFilter, len(prog))
-		for i, ri := range prog {
-			filters[i] = unix.SockFilter{Code: ri.Op, Jt: ri.Jt, Jf: ri.Jf, K: ri.K}
-		}
-		fprog := &unix.SockFprog{Len: uint16(len(filters)), Filter: &filters[0]}
-		if err := unix.SetsockoptSockFprog(fd, unix.SOL_SOCKET, unix.SO_ATTACH_FILTER, fprog); err != nil {
-			_ = unix.Close(fd)
-			return nil, errs.From(err).
-				Code(ErrCodeSourceOpen).
-				Attr("iface", iface).
-				Msgf("attach filter on %q", iface)
 		}
 	}
 
@@ -173,16 +183,17 @@ func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
 			s.mu.Lock()
 			if s.closed {
 				s.mu.Unlock()
-				sendTerminal(frames, Frame{Err: errs.New().
-					Code(ErrCodeSourceOpen).
-					Msg("receive on closed source")})
+				// Close always closes done before releasing this lock, so
+				// reaching here means the <-s.done case above lost this
+				// iteration's select race, not that anything failed: a
+				// clean shutdown, no terminal error frame.
 				return
 			}
 			n, err := s.sock.recvfrom(buf, unix.MSG_TRUNC)
 			s.mu.Unlock()
 
 			if err != nil {
-				if isTimeout(err) {
+				if isRetryable(err) {
 					select {
 					case <-ctx.Done():
 						sendTerminal(frames, Frame{Err: ctx.Err()})
@@ -223,7 +234,9 @@ func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
 // Stats reports counts since the last call. PACKET_STATISTICS resets the
 // kernel's own counters to zero on each read, so this method's return
 // values are a delta, not a running total; a caller that wants a running
-// total accumulates the deltas itself.
+// total accumulates the deltas itself. Stats shares a lock with an
+// in-flight Receive poll, so a call can block for up to one poll interval
+// (100ms).
 func (s *linuxLocalSource) Stats() (received, droppedByInterface uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -242,8 +255,9 @@ func (s *linuxLocalSource) Stats() (received, droppedByInterface uint64, err err
 	return packets, drops, nil
 }
 
-// Close waits for an active poll before releasing the socket, then wakes any
-// receiver waiting for its consumer. Repeated calls do nothing.
+// Close waits for an active poll before releasing the socket (up to one
+// poll interval, 100ms), then wakes any receiver waiting for its consumer.
+// Repeated calls do nothing.
 func (s *linuxLocalSource) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -266,8 +280,15 @@ func sendTerminal(frames chan<- Frame, f Frame) {
 	}
 }
 
-func isTimeout(err error) bool {
-	return errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK)
+// isRetryable reports whether err means "no data this poll, try again"
+// rather than a real failure: SO_RCVTIMEO's own timeout (EAGAIN/EWOULDBLOCK)
+// or a signal interrupting the blocked receive (EINTR). signal(7) states
+// that a socket with SO_RCVTIMEO set always returns EINTR on a signal,
+// never restarting the call regardless of SA_RESTART, and the Go runtime's
+// own asynchronous goroutine preemption (SIGURG) and profiling signals make
+// that a routine event during a long poll, not an edge case.
+func isRetryable(err error) bool {
+	return errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EINTR)
 }
 
 var _ Source = (*linuxLocalSource)(nil)
