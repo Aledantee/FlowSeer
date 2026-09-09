@@ -446,12 +446,12 @@ func TestHoldBlocksUntilResolved(t *testing.T) {
 		t.Fatal("a fresh Hold should not be active")
 	}
 
-	hold.Engage()
+	hold.Engage(1)
 	if !hold.Active() {
 		t.Fatal("Engage() did not activate the hold")
 	}
 
-	hold.Resolve()
+	hold.Resolve(1)
 	if hold.Active() {
 		t.Fatal("Resolve() did not clear the hold")
 	}

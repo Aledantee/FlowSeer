@@ -98,3 +98,30 @@ func claimedNothingWasSent(reporter *recordingReporter) bool {
 	}
 	return false
 }
+
+// TestAProvenNonSubmissionLeavesTheLaneOpen is the observable that tells a
+// wedged lane from a healthy one, and the only one there is.
+//
+// A step that provably sent nothing is reported with submitted false, and
+// central disposes such a mutation REJECTED — a record that owes no
+// HoldResolved. A hold engaged here would therefore be one central never
+// learns of and never resolves, refusing every later mutation on the device
+// with a code central reads as retryable: a dispatch loop against a device
+// only an operator can free.
+func TestAProvenNonSubmissionLeavesTheLaneOpen(t *testing.T) {
+	reporter := &recordingReporter{}
+	l := laneWithReporter(t, reporter, noopDeliverer{})
+	submitFailing(t, l, errs.New().Code(interfaces.ErrCodeNotSubmitted).
+		Msg("the device rejected the interface name"))
+
+	_, _ = runMutation(t, l, mutationRequest(1))
+	if !claimedNothingWasSent(reporter) {
+		t.Fatal("the report did not claim the command was never sent")
+	}
+
+	// The device's lane must still admit work.
+	_, err := runMutation(t, l, mutationRequest(2))
+	if code, ok := errs.CodeOf(err); ok && code == access.ErrCodeDesynchronized {
+		t.Fatal("a mutation that provably sent nothing left the device's lane held")
+	}
+}

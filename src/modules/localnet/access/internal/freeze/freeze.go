@@ -4,13 +4,19 @@ import (
 	"context"
 	"sync"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 )
 
+// ErrCodeUnfrozen is a freeze whose drain completed after the gate was
+// already reopened. The fence it was establishing does not exist, so the
+// caller must not act as though side effects are stopped.
+var ErrCodeUnfrozen = errs.NewCode("access/gate-unfrozen")
+
 // Gate is the control-plane freeze state for every device one access.Lane
 // serves — a single Gate is shared across the whole Lane, not scoped to one
-// device, per decision 8's control-plane-wide freeze. The zero value is not
-// usable; construct with [New].
+// device: a freeze is control-plane wide, not scoped to one device. The
+// zero value is not usable; construct with [New].
 type Gate struct {
 	view *telemetry.View
 
@@ -156,13 +162,24 @@ func (g *Gate) Freeze(ctx context.Context) error {
 	select {
 	case <-acquired:
 		g.mu.Lock()
-		shouldAnnounce := !g.announced
-		g.announced = true
+		stillFrozen := g.frozen
+		shouldAnnounce := stillFrozen && !g.announced
+		if shouldAnnounce {
+			g.announced = true
+		}
 		g.mu.Unlock()
+		g.barrier.Unlock()
+		if !stillFrozen {
+			// Unfreeze ran while this call was draining. The drain finished,
+			// but the fence it was proving is gone: announcing here would
+			// write a LaneFrozen record for an open lane, and returning nil
+			// would tell the caller a fence is in effect that is not.
+			return errs.New().Code(ErrCodeUnfrozen).
+				Msg("the gate was reopened while this freeze was draining")
+		}
 		if shouldAnnounce {
 			g.view.LaneFrozen(ctx)
 		}
-		g.barrier.Unlock()
 		return nil
 	case <-ctx.Done():
 		// The background goroutine may still be waiting for the write

@@ -72,13 +72,24 @@ type Runner struct {
 // New constructs a Runner for machine, which must already be in phase
 // RECOVERING (a caller transitions it there with
 // [mutation.Machine.EnterRecovering] before constructing a Runner). fenced
-// may be nil. minGap is the minimum spacing decision 5's "repeated fresh
-// observations" requires between two observations that both count as
-// corroborating; clock lets a test control elapsed time. hold is the
+// may be nil. minGap is the minimum spacing between two observations that
+// both count as corroborating; zero derives it from the horizon, below.
+// clock lets a test control elapsed time. hold is the
 // device's own Hold, engaged when Attempt abandons — a caller must pass the
 // same Hold [Lane.Submit] checks before admitting the device's next
 // mutation, or an abandonment leaves no trace blocking further admission.
 func New(machine *mutation.Machine, fenced Fenced, horizon interfaces.DelayedEffect, minGap time.Duration, clock func() time.Time, hold *Hold) *Runner {
+	if minGap <= 0 {
+		// Derived from the horizon rather than left at zero, because zero
+		// makes the spacing check vacuous and a retry then needs only two
+		// consecutive polls. The corroboration a retry rests on is that the
+		// change is still absent across the window in which it could still
+		// appear, and the horizon is that window: two polls a few seconds
+		// apart on a device with a ten-minute horizon prove nothing except
+		// that it has not applied yet, and resending the command is the one
+		// thing that must not follow from it.
+		minGap = horizon.Horizon / minCorroboratingObservations
+	}
 	return &Runner{machine: machine, fenced: fenced, horizon: horizon, minGap: minGap, clock: clock, hold: hold}
 }
 
@@ -167,7 +178,7 @@ func (r *Runner) Attempt(ctx context.Context, since time.Time, preMutation *acce
 		// actually exists, rather than depending on a notification that
 		// may never arrive.
 		if r.hold != nil && r.machine.Phase() == accessv1.OperationPhase_OPERATION_PHASE_ABANDONED {
-			r.hold.Engage()
+			r.hold.Engage(r.machine.Sequence())
 		}
 		if abandonErr != nil {
 			return 0, obs, abandonErr

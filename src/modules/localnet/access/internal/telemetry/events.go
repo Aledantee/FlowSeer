@@ -114,3 +114,17 @@ func (v *View) AuditGap(ctx context.Context, deviceKey string, sequence uint64, 
 func (v *View) LaneReleased(ctx context.Context) {
 	v.event(ctx, "flowseer.device.lane.released", "lane released")
 }
+
+// HoldResolutionIgnored records a resolution that named a mutation this
+// device's lane is not held for.
+//
+// Worth a record rather than silence: central re-sends a resolution until
+// the edge acknowledges it, so one arriving late for a superseded sequence
+// is ordinary — but one arriving repeatedly for a sequence that never held
+// the lane means the two sides disagree about which abandonment is
+// outstanding, and the lane stays closed while central believes it opened it.
+func (v *View) HoldResolutionIgnored(ctx context.Context, sequence uint64) {
+	v.eventAt(ctx, slog.LevelWarn, "flowseer.device.hold.resolution_ignored",
+		"hold resolution named a sequence this lane is not held for",
+		slog.Uint64("flowseer.device.sequence", sequence))
+}

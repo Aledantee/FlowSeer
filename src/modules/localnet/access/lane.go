@@ -36,6 +36,9 @@ var (
 	ErrCodeRecoveryAmbiguous = errs.NewCode("access/recovery-ambiguous")
 	ErrCodeHorizonUnmeasured = errs.NewCode("access/horizon-unmeasured")
 	ErrCodeNoAccessPolicy    = errs.NewCode("access/no-access-policy")
+	ErrCodeDeviceExists      = errs.NewCode("access/device-exists")
+	ErrCodeMalformedRequest  = errs.NewCode("access/malformed-request")
+	ErrCodeNoShellRoute      = errs.NewCode("access/no-shell-route")
 )
 
 // Refusal codes produced inside internal/mutation and re-exported here.
@@ -622,6 +625,15 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	if _, exists := l.devices[deviceKey]; exists {
+		// Replacing the state strands the old queue: an item already in it
+		// has no drainer, so its Submit blocks to its own context and, for a
+		// read, the coalescing ticket it owns is never finished — every
+		// later read of that interface then joins a ticket nobody will close
+		// and blocks to its own deadline, with no error anywhere.
+		return errs.New().Code(ErrCodeDeviceExists).Attr("device", deviceKey).
+			Msg("this device is already registered on this lane")
+	}
 	l.devices[deviceKey] = &deviceState{
 		key:         deviceKey,
 		session:     session,
@@ -665,6 +677,17 @@ func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session Device
 		return nil, "", errs.Wrap(err, "acquire read credential")
 	}
 	return response.GetCredential(), response.GetSshHostKeySha256(), nil
+}
+
+// readFailure is the report for a read that failed before or outside a
+// mutation.Machine: a coalesced joiner has no machine of its own, and
+// central is owed an answer under the sequence it admitted.
+func readFailure(sequence uint64, err error) *integrationv1.ExecuteResult {
+	result := &integrationv1.ExecuteResult{}
+	result.SetSequence(sequence)
+	result.SetPhaseReached(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING)
+	result.SetError(errs.EncodeForClient(err))
+	return result
 }
 
 // reprobeEpoch runs the identity probe against a session opened for it and
@@ -769,7 +792,8 @@ type SubmitOptions struct {
 // goroutine is driving it).
 func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.ExecuteResult, error) {
 	if opts.Request.GetSequence() == 0 && opts.Request.GetMutation() != nil {
-		return nil, errs.New().Msg("mutation request must carry a sequence")
+		return nil, errs.New().Code(ErrCodeMalformedRequest).
+			Msg("mutation request must carry a sequence")
 	}
 
 	// A resumed mutation's horizon runs from when central first admitted
@@ -779,7 +803,8 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 	// on every run and the mutation never abandons. Refused rather than
 	// guessed, because guessing fails silently and only in the field.
 	if opts.Request.GetResume() && opts.Request.GetAdmittedAt() == nil {
-		return nil, errs.New().Msg("a resumed mutation must carry the admission time its horizon runs from")
+		return nil, errs.New().Code(ErrCodeMalformedRequest).
+			Msg("a resumed mutation must carry the admission time its horizon runs from")
 	}
 
 	// internal/lane.Queue rejects PriorityUnspecified outright (a missing
@@ -820,11 +845,35 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 	// distinguished by idempotency key even when they target the same
 	// field.
 	if read := opts.Request.GetRead(); read != nil {
-		key := lane.CoalesceKey{Device: opts.DeviceKey, OperationKind: "interface_read", Target: read.GetInterface().GetInterfaceName()}
-		ticket, isNew := l.coalescer.Start(key)
+		policy := read.GetAccessPolicy()
+		key := lane.CoalesceKey{
+			Device:        opts.DeviceKey,
+			OperationKind: "interface_read",
+			Target:        read.GetInterface().GetInterfaceName(),
+			PolicyKey:     policy.GetKey(),
+			PolicyVersion: policy.GetVersion(),
+		}
+		ticket, finish, isNew := l.coalescer.Start(key)
 		if !isNew {
+			// The joiner acquires too, before it waits. Its answer comes
+			// from the session the owner opened, so the acquisition is not
+			// what opens anything here — it is the authority check, and the
+			// module's rule is that authority is checked by the act of
+			// acquiring, every time. A joiner served without one is a read
+			// answered under a policy nothing verified.
+			if _, _, err := l.acquireRead(ctx, opts.DeviceKey, ds.session, policy); err != nil {
+				l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(), err))
+				return nil, err
+			}
 			shared, err := ticket.Wait(ctx)
 			if err != nil {
+				// The shared read failed, as against this joiner's own
+				// caller giving up: central admitted this sequence and is
+				// owed an answer for it either way, but only the first is
+				// this read's outcome to report.
+				if ctx.Err() == nil {
+					l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(), err))
+				}
 				return nil, err
 			}
 			execResult, _ := shared.(*integrationv1.ExecuteResult)
@@ -843,7 +892,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 			}
 			return execResult, nil
 		}
-		return l.submitAndCoalesce(ctx, ds, opts, key)
+		return l.submitAndCoalesce(ctx, ds, opts, finish)
 	}
 
 	sub := &submission{ctx: ctx, request: opts.Request, result: make(chan submissionOutcome, 1)}
@@ -864,7 +913,7 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 // submitAndCoalesce is Submit's path for the first caller of a coalescing
 // key: it admits the item as usual, then delivers the result to every
 // coalesced waiter through the Coalescer ticket once processing completes.
-func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts SubmitOptions, key lane.CoalesceKey) (*integrationv1.ExecuteResult, error) {
+func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts SubmitOptions, finish func(any, error)) (*integrationv1.ExecuteResult, error) {
 	// The actual work is detached from this caller's own cancellation: a
 	// joiner with a longer deadline is depending on this read completing,
 	// so the owner giving up early must not kill it, and the owner's
@@ -895,7 +944,7 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	sub := &submission{ctx: workCtx, request: opts.Request, result: make(chan submissionOutcome, 1)}
 	if _, err := ds.queue.Submit(opts.Priority, sub); err != nil {
 		cancel()
-		l.coalescer.Finish(key, nil, err)
+		finish(nil, err)
 		return nil, err
 	}
 
@@ -911,7 +960,7 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	go func() {
 		defer cancel()
 		outcome := <-sub.result
-		l.coalescer.Finish(key, outcome.result, outcome.err)
+		finish(outcome.result, outcome.err)
 		done <- outcome
 	}()
 
@@ -1067,7 +1116,7 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 	// one. Engaged after Acknowledge returns, since Acknowledge is what
 	// decides whether the abandonment was accepted at all.
 	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
-		ds.hold.Engage()
+		ds.hold.Engage(ack.GetSequence())
 	}
 
 	// A mutation in recovery has no process call left waiting on it: the
@@ -1111,17 +1160,30 @@ var errMutationEnded = errors.New("mutation ended before this step completed")
 // a REJECTED acknowledgement is accepted at ADMITTED — which is exactly
 // where this wait sits — and a mutation released here must never go on to
 // execute.
-func (ds *deviceState) awaitCheckpoint(ctx context.Context, m *mutation.Machine, seq uint64) (*integrationv1.CheckpointRequest, error) {
+func (ds *deviceState) armCheckpoint(seq uint64) *checkpointWait {
 	ch := make(chan *integrationv1.CheckpointRequest, 1)
 	ds.waitMu.Lock()
 	ds.waitingSeq = seq
 	ds.checkpointCh = ch
 	ds.waitMu.Unlock()
-	defer func() {
-		ds.waitMu.Lock()
-		ds.checkpointCh = nil
-		ds.waitMu.Unlock()
-	}()
+	return &checkpointWait{ds: ds, ch: ch}
+}
+
+// checkpointWait is an armed checkpoint wait: registered, so a request may
+// already be delivered into it, and not yet blocked on.
+type checkpointWait struct {
+	ds *deviceState
+	ch chan *integrationv1.CheckpointRequest
+}
+
+func (w *checkpointWait) release() {
+	w.ds.waitMu.Lock()
+	w.ds.checkpointCh = nil
+	w.ds.waitMu.Unlock()
+}
+
+func (w *checkpointWait) wait(ctx context.Context, m *mutation.Machine) (*integrationv1.CheckpointRequest, error) {
+	ch := w.ch
 
 	select {
 	case req := <-ch:
@@ -1332,9 +1394,15 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
 
+	// Armed before the report that causes the checkpoint, not after. Central
+	// owes the CheckpointRequest off this very report, so a request arriving
+	// between the two would be refused for a wait that does not exist yet.
+	awaitCheckpoint := ds.armCheckpoint(req.GetSequence())
+	defer awaitCheckpoint.release()
+
 	l.report(ctx, ds.key, m.Progress())
 
-	checkpointReq, err := ds.awaitCheckpoint(ctx, m, req.GetSequence())
+	checkpointReq, err := awaitCheckpoint.wait(ctx, m)
 	if err != nil {
 		return l.afterStep(ctx, ds, open, errs.Wrap(err, "await checkpoint"), baseline)
 	}
@@ -1467,9 +1535,12 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutatio
 		return l.enterRecovery(ctx, ds, open, l.cfg.Clock(), baseline, err)
 	}
 
-	// Provably nothing was sent. Central may dispose this REJECTED, which
-	// is what submitted false on the report tells it.
-	ds.hold.Engage()
+	// Provably nothing was sent, so there is nothing to recover and no hold
+	// to engage. Central may dispose this REJECTED, which is what submitted
+	// false on the report tells it, and a record with that disposition owes
+	// no HoldResolved — a hold engaged here would be one central never
+	// learns of and never resolves, refusing every later mutation on this
+	// device with a code central reads as retryable.
 	return stepOutcome{err: err, owed: true}
 }
 
@@ -1479,7 +1550,7 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutatio
 // central's acknowledgement decides, which is what the false return says.
 func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation, cause error) stepOutcome {
 	m := open.machine
-	ds.hold.Engage()
+	ds.hold.Engage(m.Sequence())
 
 	// A failure here is not one thing. The phase moves only once its own
 	// record is delivered, so a failure at that first step leaves nothing
@@ -1544,7 +1615,7 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 		// returning — if it ever marks and defers the phase change, this
 		// check starts clearing a hold central asked for.
 		if open.machine.Verified() {
-			ds.hold.Resolve()
+			ds.hold.Resolve(open.machine.Sequence())
 		}
 		if err != nil {
 			l.report(ctx, ds.key, open.machine.Result(err))
@@ -1900,7 +1971,8 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 				return sess.SubmitOverride(ctx, intent)
 			}
 			if sess.OpenShell == nil {
-				return errs.New().Msg("device has no shell session factory; a mutation cannot be submitted")
+				return errs.New().Code(ErrCodeNoShellRoute).
+					Msg("device has no shell session factory; a mutation cannot be submitted")
 			}
 			// The command is sent over a session opened from the grant's own
 			// material, pinned to the host key the grant names. The grant is
@@ -2009,11 +2081,16 @@ func (l *Lane) recordFrozen(ctx context.Context) error {
 // frozen, so the next Freeze records every device again rather than
 // treating an old fence's records as covering a new one.
 func (l *Lane) Unfreeze(ctx context.Context) {
+	// The gate first, then the bookkeeping. recordFrozen holds freezeMu
+	// across every audit delivery, and a Deliverer is a host's code that may
+	// block indefinitely — so taking freezeMu here would make lifting a
+	// fence wait on the same audit path whose failure is the usual reason
+	// the fence went up, with every device write parked behind it.
+	l.freeze.Unfreeze(ctx)
+
 	l.freezeMu.Lock()
 	clear(l.frozenDelivered)
 	l.freezeMu.Unlock()
-
-	l.freeze.Unfreeze(ctx)
 }
 
 // ResolveHold clears deviceKey's recovery hold, admitting mutations again,
@@ -2027,7 +2104,19 @@ func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *inte
 	if err != nil {
 		return err
 	}
-	ds.hold.Resolve()
+	// Only the hold this resolution names. Central owes the row until the
+	// acknowledgement lands, and that travels the report queue, so a
+	// re-sent resolution for an older sequence is ordinary. Cleared
+	// regardless, it would lift the hold a later abandonment engaged and
+	// admit a mutation over a device state nobody resolved.
+	//
+	// Acknowledged either way: central has to stop owing the row, and an
+	// edge that holds nothing for that sequence is telling the truth when
+	// it says so.
+	cleared := ds.hold.Resolve(resolved.GetSequence())
+	if !cleared {
+		l.cfg.Telemetry.HoldResolutionIgnored(ctx, resolved.GetSequence())
+	}
 
 	if l.cfg.Reporter != nil {
 		ack := &integrationv1.HoldResolvedAck{}
