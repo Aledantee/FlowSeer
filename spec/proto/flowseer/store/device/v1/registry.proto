@@ -81,6 +81,7 @@ message RegistryDevice {
       string: {
         min_len: 1
         max_len: 64
+        pattern: "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
       }
     }
   }];

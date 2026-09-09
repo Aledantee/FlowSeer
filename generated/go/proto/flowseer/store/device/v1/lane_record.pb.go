@@ -866,7 +866,7 @@ var File_flowseer_store_device_v1_lane_record_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf9\x10\n" +
+	"*flowseer/store/device/v1/lane_record.proto\x12\x18flowseer.store.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\x1a\x1cflowseer/errs/v1/error.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe7\x11\n" +
 	"\x10DeviceLaneRecord\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12,\n" +
 	"\x0ehigh_watermark\x18\x02 \x01(\x04B\x05\xaa\x01\x02\b\x02R\rhighWatermark\x12D\n" +
@@ -881,12 +881,12 @@ const file_flowseer_store_device_v1_lane_record_proto_rawDesc = "" +
 	"\x12dispatch_confirmed\x18\a \x01(\bB\x05\xaa\x01\x02\b\x02R\x11dispatchConfirmed\x128\n" +
 	"\x14checkpoint_confirmed\x18\b \x01(\bB\x05\xaa\x01\x02\b\x02R\x13checkpointConfirmed\x12H\n" +
 	"\x17hold_resolution_pending\x18\t \x03(\x04B\x10\xbaH\r\x92\x01\n" +
-	"\x10@\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12k\n" +
+	"\x10@\x18\x01\"\x042\x02(\x01R\x15holdResolutionPending\x12\x8c\x01\n" +
 	"\n" +
 	"open_reads\x18\n" +
-	" \x03(\v29.flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntryB\x11\xbaH\x0e\x9a\x01\v\x10\x80\x02\"\x06r\x04\x10\x01\x18@R\topenReads\x12\x92\x01\n" +
-	"\x15expected_descriptions\x18\v \x03(\v2D.flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntryB\x17\xbaH\x14\x9a\x01\x11\x10\x80\x02\"\x06r\x04\x10\x01\x18@*\x04r\x02\x18@R\x14expectedDescriptions\x12\x80\x01\n" +
-	"\x11last_observations\x18\f \x03(\v2@.flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntryB\x11\xbaH\x0e\x9a\x01\v\x10\x80\x02\"\x06r\x04\x10\x01\x18@R\x10lastObservations\x12=\n" +
+	" \x03(\v29.flowseer.store.device.v1.DeviceLaneRecord.OpenReadsEntryB2\xbaH/\x9a\x01,\x10\x80\x02\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\topenReads\x12\xbd\x01\n" +
+	"\x15expected_descriptions\x18\v \x03(\v2D.flowseer.store.device.v1.DeviceLaneRecord.ExpectedDescriptionsEntryBB\xbaH?\x9a\x01<\x10\x80\x02\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$*\x0er\f\x18@2\b^[ -~]*$R\x14expectedDescriptions\x12\xa1\x01\n" +
+	"\x11last_observations\x18\f \x03(\v2@.flowseer.store.device.v1.DeviceLaneRecord.LastObservationsEntryB2\xbaH/\x9a\x01,\x10\x80\x02\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x10lastObservations\x12=\n" +
 	"\x14firmware_fingerprint\x18\r \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x13firmwareFingerprint\x12V\n" +
 	"\vidempotency\x18\x0e \x03(\v2*.flowseer.store.device.v1.IdempotencyEntryB\b\xbaH\x05\x92\x01\x02\x10@R\vidempotency\x1a`\n" +

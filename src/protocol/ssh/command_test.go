@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -471,5 +473,47 @@ func TestSessionCloseDuringRunUnblocksTheWait(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("Run() did not return after a concurrent Close")
+	}
+}
+
+// TestRunRefusesALineCarryingATerminator covers the backstop against a caller
+// that interpolated a value it did not choose into a command.
+//
+// CR as well as LF: the shell runs under a PTY, where carriage return is the
+// enter key, so a caller that filtered only "\n" would still send everything
+// after a "\r" as a second command. Nothing reaches the device.
+func TestRunRefusesALineCarryingATerminator(t *testing.T) {
+	for _, line := range []string{
+		"interface ethernet 1/1/1\nport-name pwned",
+		"interface ethernet 1/1/1\rwrite memory",
+		"show interfaces ethernet 1/1/1\n",
+	} {
+		t.Run(strconv.Quote(line), func(t *testing.T) {
+			var seen atomic.Int64
+			fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+				buf := make([]byte, 256)
+				for {
+					n, err := ch.Read(buf)
+					if n > 0 {
+						seen.Add(int64(n))
+					}
+					if err != nil {
+						return
+					}
+				}
+			})
+			session := dialSession(t, fs, nil)
+
+			_, err := session.Run(context.Background(), ssh.Command{
+				Line:    line,
+				Prompts: []ssh.Prompt{privPrompt},
+			})
+			if err == nil {
+				t.Fatal("Run accepted a Line carrying a line terminator")
+			}
+			if got := seen.Load(); got != 0 {
+				t.Errorf("the device received %d bytes; nothing may be written", got)
+			}
+		})
 	}
 }

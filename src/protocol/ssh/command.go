@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -13,7 +14,16 @@ import (
 // Command is one line sent to the shell and the caller-supplied
 // patterns that mark where its output ends.
 type Command struct {
-	// Line is the text written to the shell, followed by "\n".
+	// Line is the text written to the shell, followed by "\n". It is one
+	// line: Run refuses a Line containing CR or LF.
+	//
+	// Assembling it is the caller's, and a caller that interpolates a value
+	// it did not choose — an interface name, a description, anything that
+	// reached it from outside — is the one deciding whether that value can
+	// end this command and begin another. The refusal below is the backstop,
+	// not the check: it fires after the value is already in the string, so a
+	// caller that wants a diagnosis naming the field validates before
+	// building the Line.
 	Line string
 	// Redacted, when non-empty, replaces Line in the returned
 	// Evidence. Set it whenever Line carries a credential; this
@@ -110,6 +120,15 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	}
 	if cmd.MorePattern != nil && len(cmd.MoreKeystroke) == 0 {
 		return Result{}, errs.New().Code(ErrCodeShell).Msg("command: MoreKeystroke is required when MorePattern is set")
+	}
+	// CR as well as LF: the shell runs under a PTY, where carriage return is
+	// the enter key, so a Line carrying either sends everything after it as
+	// a second command the caller never wrote. Refused here because this is
+	// where the invariant is knowable — one line in, one command out — and
+	// because a caller filtering only "\n" would still be wrong.
+	if strings.ContainsAny(cmd.Line, "\r\n") {
+		return Result{}, errs.New().Code(ErrCodeShell).
+			Msg("command: Line carries a line terminator, which would send a second command")
 	}
 
 	deadline := cmd.Deadline

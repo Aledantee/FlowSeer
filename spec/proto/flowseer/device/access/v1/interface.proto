@@ -24,12 +24,14 @@ enum Completeness {
 
 // The intent to set one interface's description.
 message InterfaceDescriptionChange {
-  // The device-local interface name, as the device spells it. Must be
+  // The device-local interface name, as the device spells it: letters,
+  // digits, and space . / : _ - , starting with a letter or digit. Must be
   // present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
   ];
   // The description to apply: printable ASCII, at most 64 characters, no
   // control characters. Must be present; an empty string clears the
@@ -58,12 +60,14 @@ message InterfaceObservation {
     expression: "this.completeness != 1 || (has(this.description) && has(this.admin_status) && has(this.oper_status) && has(this.provenance))"
   };
 
-  // The device-local interface name, as the device spells it. Must be
+  // The device-local interface name, as the device spells it: letters,
+  // digits, and space . / : _ - , starting with a letter or digit. Must be
   // present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
   ];
   // The description as read. Present exactly when completeness is
   // COMPLETE; an empty string is a device with no description on this
@@ -100,12 +104,14 @@ message InterfaceObservation {
 
 // The intent to read one interface's current state.
 message InterfaceReadIntent {
-  // The device-local interface name, as the device spells it. Must be
+  // The device-local interface name, as the device spells it: letters,
+  // digits, and space . / : _ - , starting with a letter or digit. Must be
   // present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
   ];
 }
 

@@ -41,12 +41,14 @@ service DeviceService {
 message ReadInterfaceRequest {
   // The device to read. Must be present.
   flowseer.api.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
-  // The device-local interface name, as the device spells it. Must be
+  // The device-local interface name, as the device spells it: letters,
+  // digits, and space . / : _ - , starting with a letter or digit. Must be
   // present.
   string interface_name = 2 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
   ];
 }
 

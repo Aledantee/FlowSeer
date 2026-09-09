@@ -115,7 +115,8 @@ type ReadInterfaceRequest_builder struct {
 
 	// The device to read. Must be present.
 	Device *v1.DeviceGlobalRef
-	// The device-local interface name, as the device spells it. Must be
+	// The device-local interface name, as the device spells it: letters,
+	// digits, and space . / : _ - , starting with a letter or digit. Must be
 	// present.
 	InterfaceName *string
 }
@@ -1511,10 +1512,10 @@ var File_flowseer_api_device_v1_device_service_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\n" +
-	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\"\x97\x01\n" +
+	"+flowseer/api/device/v1/device_service.proto\x12\x16flowseer.api.device.v1\x1a&flowseer/api/inventory/v1/device.proto\x1a)flowseer/device/access/v1/interface.proto\x1a)flowseer/device/access/v1/operation.proto\"\xb8\x01\n" +
 	"\x14ReadInterfaceRequest\x12J\n" +
-	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x123\n" +
-	"\x0einterface_name\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\"\x92\x02\n" +
+	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12T\n" +
+	"\x0einterface_name\x18\x02 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\"\x92\x02\n" +
 	"\x15ReadInterfaceResponse\x12U\n" +
 	"\tinterface\x18\x01 \x01(\v2/.flowseer.device.access.v1.InterfaceObservationB\x06\xbaH\x03\xc8\x01\x01R\tinterface:\xa1\x01\xbaH\x9d\x01\x1a\x9a\x01\n" +
 	"-read_interface_response.interface_is_complete\x12/a read never answers with a partial observation\x1a8!has(this.interface) || this.interface.completeness == 1\"\xcd\x02\n" +

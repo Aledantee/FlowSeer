@@ -690,7 +690,7 @@ const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"&device_registry.device_policies_listed\x12:every device's access policy names a listed policy version\x1a\x8e\x01this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))\"\xa1\x01\n" +
 	"\x13RegistryIntegration\x12I\n" +
 	"\x03ref\x18\x01 \x01(\v2/.flowseer.api.inventory.v1.IntegrationGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12?\n" +
-	"\x04edge\x18\x02 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\xd2\x03\n" +
+	"\x04edge\x18\x02 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\"\xf3\x03\n" +
 	"\x0eRegistryDevice\x12G\n" +
 	"\x06config\x18\x01 \x01(\v2'.flowseer.api.inventory.v1.DeviceConfigB\x06\xbaH\x03\xc8\x01\x01R\x06config\x12M\n" +
 	"\abinding\x18\x02 \x01(\v2+.flowseer.api.inventory.v1.BindingGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\abinding\x127\n" +
@@ -698,8 +698,8 @@ const file_flowseer_store_device_v1_registry_proto_rawDesc = "" +
 	"\tsnmp_port\x18\x04 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\bsnmpPort\x12&\n" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\x06 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizon\x12B\n" +
-	"\x12managed_interfaces\x18\a \x03(\tB\x13\xbaH\x10\x92\x01\r\x10\x80\x02\x18\x01\"\x06r\x04\x10\x01\x18@R\x11managedInterfaces\"\xa6\x04\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizon\x12c\n" +
+	"\x12managed_interfaces\x18\a \x03(\tB4\xbaH1\x92\x01.\x10\x80\x02\x18\x01\"'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x11managedInterfaces\"\xa6\x04\n" +
 	"\x0eRegistryPolicy\x12M\n" +
 	"\x06handle\x18\x01 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\x06handle\x12\\\n" +
 	"\x0fread_credential\x18\x02 \x01(\v2+.flowseer.device.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\x0ereadCredential\x12h\n" +

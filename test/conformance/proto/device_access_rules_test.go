@@ -136,6 +136,16 @@ func TestInterfaceDescriptionChangeRules(t *testing.T) {
 		{name: "non-ascii is rejected", message: descriptionChange("ethernet 1/1/1", "Verknüpfung")},
 		{name: "65 characters are rejected", message: descriptionChange("ethernet 1/1/1", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklm")},
 		{name: "empty interface name is rejected", message: descriptionChange("", "uplink")},
+		// The name reaches the same device command line the description
+		// does, so it carries the same refusal of anything that could end
+		// that line and begin another. The four below are what a hostile or
+		// mistaken producer actually sends.
+		{name: "newline in the interface name is rejected", message: descriptionChange("ethernet 1/1/1\nport-name pwned", "uplink")},
+		{name: "carriage return in the interface name is rejected", message: descriptionChange("ethernet 1/1/1\rwrite memory", "uplink")},
+		{name: "escape in the interface name is rejected", message: descriptionChange("ethernet\x1b[2J", "uplink")},
+		{name: "leading space in the interface name is rejected", message: descriptionChange(" ethernet 1/1/1", "uplink")},
+		{name: "a name the device spells is valid", message: descriptionChange("ethernet 1/1/1", "uplink"), wantValid: true},
+		{name: "a management name with a colon is valid", message: descriptionChange("mgmt:1", "uplink"), wantValid: true},
 		{
 			name: "absent description is rejected",
 			message: accessv1.InterfaceDescriptionChange_builder{

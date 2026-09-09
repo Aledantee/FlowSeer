@@ -92,7 +92,7 @@ func (x AgentLogLevel) Number() protoreflect.EnumNumber {
 // how much it may buffer, and how much it logs.
 //
 // A deployment writes one of these. Every duration may be left unset and each
-// says what the agent does then, so a working file is three lines.
+// says what the agent does then, so a working file is two lines.
 //
 // It names the provisioning file rather than restating it. Where central is,
 // how to trust it, and the key that joins are all in

@@ -80,6 +80,7 @@ message DeviceLaneRecord {
       string: {
         min_len: 1
         max_len: 64
+        pattern: "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
       }
     }
   }];
@@ -91,10 +92,14 @@ message DeviceLaneRecord {
       string: {
         min_len: 1
         max_len: 64
+        pattern: "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
       }
     }
     values: {
-      string: {max_len: 64}
+      string: {
+        max_len: 64
+        pattern: "^[ -~]*$"
+      }
     }
   }];
   // The last complete observation per managed interface, keyed by
@@ -105,6 +110,7 @@ message DeviceLaneRecord {
       string: {
         min_len: 1
         max_len: 64
+        pattern: "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
       }
     }
   }];
