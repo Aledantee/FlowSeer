@@ -239,7 +239,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- spec/proto/flo
 ### U4. Capture values README and the net/capture tree entry
 
 Files: `spec/proto/flowseer/net/capture/v1/README.md`,
-`docs/architecture/2026-08-20-network-model-structure-direction.md`
+`docs/architecture/2026-08-20-network-model-structure-direction.md`,
+`test/conformance/proto/layering_test.go`
 After: U1, U2, U3
 Change: the package README says what the package holds and, in the manner of
 `net/packet/v1`'s README, what it deliberately does not: no session identity, no
@@ -250,7 +251,11 @@ contract. It states the `captured_at` exception and the reason for it.
 The network model structure record gains `capture/v1` in its package tree with a
 one-line description and `{net/addr, net/packet, net/switching} ← net/capture` in
 its import order, plus a dated entry under `## Amendments` recording why the
-package appeared. Only the `net/capture` half lands here; the `api/capture` lines
+package appeared. The record's import order is prose; `importOrder` in
+`test/conformance/proto/layering_test.go` is where it executes, and a package
+missing from that table fails `TestNetImportOrderCoversEveryPackage`, so
+`net/capture` is declared there in the same unit. `api/capture` needs no entry:
+the table governs `flowseer/net` alone. Only the `net/capture` half lands here; the `api/capture` lines
 land in U6 with the package they describe, so the record never names a package
 the tree does not have.
 
