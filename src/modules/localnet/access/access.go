@@ -119,21 +119,34 @@ const (
 	InterfaceVerificationFailed      = interfaces.VerificationFailed
 )
 
+// InterfaceShellOpener opens the shell session the fallback read route
+// needs. [ReadInterface] calls it only if it takes that route, so a device
+// whose SNMP answers completely is never logged into over SSH.
+type InterfaceShellOpener = interfaces.ShellOpener
+
+// OpenedInterfaceShell is the opener for a shell that is already open, for a
+// caller that needed one for its own work. See [interfaces.OpenedShell] for
+// why that is the exception rather than the shape to reach for.
+func OpenedInterfaceShell(adapter InterfaceShellAdapter) InterfaceShellOpener {
+	return interfaces.OpenedShell(adapter)
+}
+
 // ReadInterface reads one interface's description, admin status, and oper
 // status: a cached, still-fresh observation is reused; otherwise SNMP is
 // read first and SSH (shell) only if that read is not complete, per the
-// direction record's decision 1. cached may be nil.
+// direction record's decision 1. cached may be nil, and so may openShell —
+// a device with no shell has no fallback route.
 func ReadInterface(
 	ctx context.Context,
 	sess snmp.Session,
-	shell InterfaceShellAdapter,
+	openShell InterfaceShellOpener,
 	name string,
 	prov InterfaceProvenanceInputs,
 	cached *accessv1.InterfaceObservation,
 	freshness InterfaceFreshness,
 	now time.Time,
 ) (*accessv1.InterfaceObservation, error) {
-	return interfaces.Read(ctx, sess, shell, name, prov, cached, freshness, now)
+	return interfaces.Read(ctx, sess, openShell, name, prov, cached, freshness, now)
 }
 
 // VerifyInterfaceDescriptionChange reads the affected interface's current

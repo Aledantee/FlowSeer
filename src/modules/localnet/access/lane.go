@@ -1870,18 +1870,22 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 			}
 			defer closeSession(opened.Close)
 
-			// The shell is opened only for the fallback route, and only when
-			// the device has one. interfaces.Read decides whether it needs
-			// it; opening it unconditionally would mean an SSH login on every
-			// SNMP read.
-			var shell InterfaceShellAdapter
+			// The shell is handed over as something to open, not as
+			// something open, so the login happens only on the fallback
+			// route and only when the device has one. Opening it here
+			// meant an SSH login on every SNMP read — against a switch
+			// that caps concurrent sessions — and meant a device whose
+			// shell could not be opened had no readable interfaces at
+			// all, however completely its SNMP answered.
+			var openShell interfaces.ShellOpener
 			if sess.OpenShell != nil {
-				openedShell, err := sess.OpenShell(ctx, cred, hostKey)
-				if err != nil {
-					return nil, errs.Wrap(err, "open shell session")
+				openShell = func(ctx context.Context) (interfaces.ShellAdapter, func(), error) {
+					opened, err := sess.OpenShell(ctx, cred, hostKey)
+					if err != nil {
+						return nil, nil, err
+					}
+					return opened.Adapter, func() { closeSession(opened.Close) }, nil
 				}
-				defer closeSession(openedShell.Close)
-				shell = openedShell.Adapter
 			}
 
 			// The fingerprint the lane probed wins over whatever a host put
@@ -1889,7 +1893,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 			// lane actually observed under, not one a caller supplied.
 			prov := sess.Prov
 			prov.FirmwareFingerprint = fingerprint
-			return interfaces.Read(ctx, opened.Session, shell, name, prov, nil, interfaces.Freshness{}, l.cfg.Clock())
+			return interfaces.Read(ctx, opened.Session, openShell, name, prov, nil, interfaces.Freshness{}, l.cfg.Clock())
 		},
 		Submit: func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
 			if sess.SubmitOverride != nil {

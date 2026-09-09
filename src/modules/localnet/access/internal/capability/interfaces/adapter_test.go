@@ -2,6 +2,7 @@ package interfaces_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -62,21 +63,29 @@ func (f *fakeShellAdapter) SetPortName(_ context.Context, _, text string) error 
 	return nil
 }
 
-func TestRead_SNMPCompleteNeverCallsShell(t *testing.T) {
+// A complete SNMP read is answered without the shell being opened at all.
+//
+// Opened, not called: the assertion is on the login, because that is the
+// cost. A read that opens an SSH session and then does not use it has still
+// logged in — on a switch that caps concurrent sessions, once per read —
+// and it has still failed the read if the login failed, which is how a
+// device whose SNMP answered every OID came to have no readable interfaces.
+// Asserting only that ReadInterface went uncalled passes for exactly that
+// implementation, which is what this assertion used to say.
+func TestRead_SNMPCompleteNeverOpensTheShell(t *testing.T) {
 	vbs := append(ifRow(1, "ethernet 1/1/1"), stringVar(ifXEntry, 18, 1, []byte("uplink to core")))
 
-	called := false
-	shell := &fakeShellAdapter{}
+	opened := false
 
 	obs, err := interfaces.Read(
-		context.Background(), &fakeSession{vbs: vbs}, shellSpy(shell, &called),
+		context.Background(), &fakeSession{vbs: vbs}, openerSpy(&fakeShellAdapter{}, &opened),
 		"ethernet 1/1/1", testProvenanceInputs(), nil, interfaces.Freshness{}, time.Now())
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
 
-	if called {
-		t.Error("shell adapter was called even though SNMP was complete")
+	if opened {
+		t.Error("a shell session was opened even though SNMP answered completely")
 	}
 
 	if got := obs.GetCompleteness(); got != accessv1.Completeness_COMPLETENESS_COMPLETE {
@@ -98,7 +107,7 @@ func TestRead_SNMPPartialFallsThroughToSSH(t *testing.T) {
 	}
 
 	obs, err := interfaces.Read(
-		context.Background(), &fakeSession{vbs: ifRow(1, "ethernet 1/1/1")}, shell,
+		context.Background(), &fakeSession{vbs: ifRow(1, "ethernet 1/1/1")}, interfaces.OpenedShell(shell),
 		"ethernet 1/1/1", testProvenanceInputs(), nil, interfaces.Freshness{}, time.Now())
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -130,7 +139,7 @@ func TestRead_CachedFreshObservationSkipsBothRoutes(t *testing.T) {
 	// vbs errors on every walk, so if Read touched either route this
 	// would fail rather than return the cached value.
 	got, err := interfaces.Read(
-		context.Background(), &fakeSession{}, &fakeShellAdapter{readErr: errBoom},
+		context.Background(), &fakeSession{}, interfaces.OpenedShell(&fakeShellAdapter{readErr: errBoom}),
 		"ethernet 1/1/1", testProvenanceInputs(), cached, freshness, now.Add(30*time.Second))
 	if err != nil {
 		t.Fatalf("Read: %v", err)
@@ -242,21 +251,65 @@ func TestVerifyDescriptionChange(t *testing.T) {
 	})
 }
 
-// shellSpyAdapter wraps a ShellAdapter and records whether ReadInterface
-// was invoked; SetPortName is unmonitored, since no test here needs it.
-type shellSpyAdapter struct {
-	interfaces.ShellAdapter
-	called *bool
+// A shell that cannot be opened does not cost a read the SNMP route already
+// answered.
+//
+// This is the same property as the test above seen from the failure side,
+// and it is kept separate because it is the one that was live: on the lab
+// ICX7150 every interface read failed with a device-session error while SNMP
+// was returning a complete observation for the interface asked about.
+func TestRead_SNMPCompleteSurvivesAShellThatCannotBeOpened(t *testing.T) {
+	vbs := append(ifRow(1, "ethernet 1/1/1"), stringVar(ifXEntry, 18, 1, []byte("uplink to core")))
+
+	obs, err := interfaces.Read(
+		context.Background(), &fakeSession{vbs: vbs}, failingOpener(),
+		"ethernet 1/1/1", testProvenanceInputs(), nil, interfaces.Freshness{}, time.Now())
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+
+	if got := obs.GetCompleteness(); got != accessv1.Completeness_COMPLETENESS_COMPLETE {
+		t.Errorf("completeness = %v, want COMPLETE", got)
+	}
 }
 
-func (s shellSpyAdapter) ReadInterface(ctx context.Context, name string) (string, interfacev1.AdminStatus, interfacev1.OperStatus, error) {
-	*s.called = true
+// A shell that cannot be opened does fail a read that needed it, and the
+// failure says which half went wrong.
+//
+// The point of the change above is not that a failed login stops mattering.
+// It is that it stops mattering to reads that were never going to use it —
+// so a read that had no other route must still fail, or the fix would have
+// turned a device with no working route into one that silently returns
+// partial observations.
+func TestRead_SNMPIncompleteFailsWhenTheShellCannotBeOpened(t *testing.T) {
+	_, err := interfaces.Read(
+		context.Background(), &fakeSession{vbs: ifRow(1, "ethernet 1/1/1")}, failingOpener(),
+		"ethernet 1/1/1", testProvenanceInputs(), nil, interfaces.Freshness{}, time.Now())
+	if err == nil {
+		t.Fatal("Read succeeded with an incomplete SNMP observation and no shell to fall back to")
+	}
 
-	return s.ShellAdapter.ReadInterface(ctx, name)
+	if !strings.Contains(err.Error(), "open shell session") {
+		t.Errorf("the failure does not name the shell open: %v", err)
+	}
 }
 
-func shellSpy(inner interfaces.ShellAdapter, called *bool) interfaces.ShellAdapter {
-	return shellSpyAdapter{ShellAdapter: inner, called: called}
+// openerSpy is an opener over inner that records having been called.
+func openerSpy(inner interfaces.ShellAdapter, opened *bool) interfaces.ShellOpener {
+	return func(context.Context) (interfaces.ShellAdapter, func(), error) {
+		*opened = true
+
+		return inner, func() {}, nil
+	}
+}
+
+// failingOpener is a device whose shell cannot be opened: the lab switch's
+// read credential is SNMP material, so the login it is offered to is refused
+// every time.
+func failingOpener() interfaces.ShellOpener {
+	return func(context.Context) (interfaces.ShellAdapter, func(), error) {
+		return nil, nil, errBoom
+	}
 }
 
 // errBoom is a sentinel error for tests that must not reach the shell

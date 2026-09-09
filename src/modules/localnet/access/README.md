@@ -168,9 +168,13 @@ the direction record's decision 3.
 
 ## Onboarding sequence
 
-1. A host calls `Lane.AddDevice`, supplying a `DeviceSession` (an SNMP
-   session, an optional shell adapter, provenance inputs, and the device's
-   measured delayed-apply horizon).
+1. A host calls `Lane.AddDevice`, supplying a `DeviceSession` (a factory
+   that opens an SNMP session, an optional one that opens a shell,
+   provenance inputs, and the device's measured delayed-apply horizon). The
+   shell factory is called only where a shell is actually used: a mutation's
+   own command, and a read whose SNMP answer is incomplete. A device whose
+   SNMP answers a read completely is never logged into over SSH, and a
+   device whose shell cannot be opened at all is still read.
 2. `AddDevice` runs `internal/epoch.Probe` — a route-independent SNMP
    `sysDescr`/`sysObjectID` read — to learn the device's starting firmware
    fingerprint, records `flowseer.device.discovery.completed`, and

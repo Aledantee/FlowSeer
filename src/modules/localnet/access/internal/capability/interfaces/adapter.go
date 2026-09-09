@@ -47,6 +47,39 @@ type ShellAdapter interface {
 	SetPortName(ctx context.Context, name, text string) error
 }
 
+// ShellOpener opens the shell session the fallback read route needs, and
+// returns the way to close it.
+//
+// [Read] takes an opener rather than an open adapter because the fallback is
+// the route it may not take. A device whose SNMP answers completely is read
+// without ever logging in over SSH, which against a switch that caps
+// concurrent sessions is the difference between a read and a refused login;
+// and a device whose shell cannot be opened at all is still read, because
+// nothing tried to open it. Read calls the opener at most once, and only on
+// the route that uses it.
+//
+// release is called when the read is done with the adapter, and is never nil
+// when err is nil, so a caller need not check it.
+type ShellOpener func(ctx context.Context) (adapter ShellAdapter, release func(), err error)
+
+// OpenedShell is the opener for a shell somebody else has already opened: it
+// hands out the adapter it was given and closes nothing, since whoever opened
+// it owns it. A nil adapter yields a nil opener, which is how a device with
+// no shell says it has no fallback route.
+//
+// This is for a caller that needs the adapter for its own work anyway — a
+// mutation sends its command over one — and not the shape to reach for
+// otherwise: it gives up exactly the laziness [ShellOpener] exists for.
+func OpenedShell(adapter ShellAdapter) ShellOpener {
+	if adapter == nil {
+		return nil
+	}
+
+	return func(context.Context) (ShellAdapter, func(), error) {
+		return adapter, func() {}, nil
+	}
+}
+
 // ProvenanceInputs are the fields neither ReadSNMP nor a ShellAdapter can
 // supply: which binding and edge answered, and the device's firmware
 // fingerprint. Edge and FirmwareFingerprint must both be set — an
@@ -94,10 +127,15 @@ func (p ProvenanceInputs) provenance(route Route, observedAt time.Time) *invento
 // SSH only when the SNMP read is not COMPLETENESS_COMPLETE. The winning
 // observation's Provenance is filled from prov and the route that
 // answered.
+//
+// openShell is called only if that fall-through happens, and may be nil for
+// a device with no shell — an incomplete SNMP read then fails rather than
+// being answered another way. Opening the shell is this function's decision
+// to make and not its caller's: see [ShellOpener].
 func Read(
 	ctx context.Context,
 	sess snmp.Session,
-	shell ShellAdapter,
+	openShell ShellOpener,
 	name string,
 	prov ProvenanceInputs,
 	cached *accessv1.InterfaceObservation,
@@ -118,8 +156,15 @@ func Read(
 	}
 
 	var fallback func() (*accessv1.InterfaceObservation, error)
-	if shell != nil {
+	if openShell != nil {
 		fallback = func() (*accessv1.InterfaceObservation, error) {
+			shell, closeShell, err := openShell(ctx)
+			if err != nil {
+				return nil, errs.Wrap(err, "open shell session")
+			}
+
+			defer closeShell()
+
 			description, admin, oper, err := shell.ReadInterface(ctx, name)
 			if err != nil {
 				return nil, errs.Wrap(err, "read over ssh")
@@ -202,7 +247,7 @@ func VerifyDescriptionChange(
 	since time.Time,
 	now time.Time,
 ) (*accessv1.InterfaceObservation, VerificationDisposition, error) {
-	obs, err := Read(ctx, sess, shell, intent.GetInterfaceName(), prov, nil, Freshness{}, now)
+	obs, err := Read(ctx, sess, OpenedShell(shell), intent.GetInterfaceName(), prov, nil, Freshness{}, now)
 	if err != nil {
 		return nil, VerificationUnspecified, err
 	}

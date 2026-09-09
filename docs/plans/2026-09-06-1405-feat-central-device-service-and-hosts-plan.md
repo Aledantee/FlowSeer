@@ -1978,8 +1978,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files
 ### U8n. A read must not be lost to a shell it never needed
 Files: `src/modules/localnet/access/lane.go`,
 `src/modules/localnet/access/internal/capability/interfaces/adapter.go`,
-their tests
-After: U8m, with which it agrees — see below. **Blocks the lab write.**
+`src/modules/localnet/access/access.go`, their tests
+Before U8m, with which it agrees — see below. **Blocks the lab write.**
 
 Change: `ReadInterface` cannot succeed against the lab ICX7150, and the write
 path fails the same way for the same reason. Found by running the system
@@ -2005,11 +2005,18 @@ open always fails, and no read can ever complete. Measured against the switch:
 `ReadSNMP` walks 33 interfaces and returns COMPLETE for `ethernet 1/1/1`,
 while the lane's read fails with `agent/device-session` before consulting it.
 
-**Both are fixed here.** The eager open is what makes the comment true: pass
-`interfaces.Read` something it can open *if* it takes the fallback, rather
-than an already-open adapter. The fatal failure is what makes it survivable: a
-shell that cannot be opened leaves no fallback, and a read the SNMP route
-answered still succeeds.
+**One change fixes both.** `interfaces.Read` takes a `ShellOpener` — something
+it can open *if* it takes the fallback — instead of an already-open adapter,
+which gives it the decision its own comment describes. The fatal failure then
+stops existing on the route that does not need the shell: nothing was opened,
+so nothing can have failed to open, and a read the SNMP route answered
+succeeds without a login.
+
+A read that genuinely needs the fallback still fails when the shell will not
+open, and that is deliberate. The point is not that a failed login stops
+mattering; it is that it stops mattering to reads that were never going to use
+it. Swallowing it everywhere would turn a device with no working route into
+one that quietly returns partial observations.
 
 **This agrees with U8m and neither should be written as if the other did not
 exist.** An SSH login on every SNMP read is exactly the login storm the
@@ -2023,10 +2030,13 @@ behaviour. "The read succeeds when the shell open fails" passes for an
 implementation that still opens eagerly and swallows the error, which is half
 a fix wearing the whole one's clothes.
 
-Tests: a device whose SNMP answers completely is read without its shell
-factory ever being called; a device whose shell cannot be opened is still read
+Tests, at the lane — where the defect lived and where the capability's own
+tests could not see it: a device whose SNMP answers completely is read without
+`OpenShell` ever being called; a device whose shell open fails is still read
 when SNMP answers; and a device whose SNMP is incomplete still falls through
-and reads over the shell.
+and its observation comes back over SSH. The last is the partner test: without
+it, an implementation that never opens the shell at all passes the first two
+and has silently deleted decision 1's fallback route.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/internal/capability/interfaces/*.go')`
 
 ### U9. End-to-end and item 7 readiness
