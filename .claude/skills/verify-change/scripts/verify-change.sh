@@ -116,9 +116,14 @@ if ((${#paths[@]})); then
     fi
   done
   paths=()
-  for path in "${expanded[@]:-}"; do
-    add_path "$path"
-  done
+  # No ":-" default: an empty expansion would yield one empty word, and
+  # an empty pathspec makes git fatal under set -e before the no-gate
+  # exit can report what actually happened.
+  if ((${#expanded[@]})); then
+    for path in "${expanded[@]}"; do
+      add_path "$path"
+    done
+  fi
 fi
 
 need_tool() {
@@ -458,6 +463,19 @@ fi
 
 if contains_path .golangci.yml && [[ ${#modules[@]} -eq 0 ]]; then
   echo "Note: .golangci.yml changed; use --full to lint every Go module."
+  # This path selects no module by design, and the note is the run's
+  # output, so the no-gate exit must not also fire for it.
+  gates_selected=true
+fi
+
+# Before the dirty marker is cleared and the receipt is written, because
+# those two are what every downstream consumer reads. A run that exits
+# non-zero here having already cleared them would tell its operator it
+# failed and tell the Stop hook and close that the tree was verified.
+if [[ $gates_selected == false ]]; then
+  echo "FlowSeer verification selected no build, test or lint gate for these paths." >&2
+  printf '  paths: %s\n' "${paths[*]:-<none>}" >&2
+  exit 2
 fi
 
 git_dir=$(git rev-parse --git-dir)
@@ -495,11 +513,5 @@ fi
   printf '%q ' "${paths[@]:-}"
   printf '\n'
 } >"$receipt"
-
-if [[ $gates_selected == false ]]; then
-  echo "FlowSeer verification selected no build, test or lint gate for these paths." >&2
-  printf '  paths: %s\n' "${paths[*]:-<none>}" >&2
-  exit 2
-fi
 
 echo "FlowSeer verification passed."
