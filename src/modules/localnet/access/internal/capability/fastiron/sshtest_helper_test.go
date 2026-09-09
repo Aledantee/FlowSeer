@@ -7,6 +7,8 @@ import (
 	"net"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
+
 	xssh "golang.org/x/crypto/ssh"
 
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
@@ -139,7 +141,7 @@ func dialSession(t *testing.T, fs *fakeServer) *ssh.Session {
 
 	s, err := ssh.Dial(t.Context(), fs.addr, ssh.Options{
 		Username:      fs.username,
-		Password:      fs.password,
+		Password:      secret.NewString(fs.password),
 		HostKeySHA256: fs.fp,
 	})
 	if err != nil {

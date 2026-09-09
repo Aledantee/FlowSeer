@@ -7,6 +7,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // Default timeouts and buffer sizes. Every constant here except
@@ -32,10 +33,10 @@ type Options struct {
 	// Username authenticates the SSH transport. Required.
 	Username string
 	// Password enables SSH password authentication when non-empty.
-	Password string
+	Password secret.Value
 	// PrivateKeyPEM enables SSH public-key authentication when
 	// non-empty. Both may be set; the transport offers both.
-	PrivateKeyPEM []byte
+	PrivateKeyPEM secret.Value
 
 	// HostKeySHA256 pins the peer's host key as the base64 SHA-256
 	// fingerprint (the ssh-keygen -lf form, with or without the
@@ -102,15 +103,15 @@ func sshConfig(opts Options) (*ssh.ClientConfig, error) {
 		return nil, errs.New().Code(ErrCodeTransport).Msg("options: username is required")
 	}
 	var auth []ssh.AuthMethod
-	if len(opts.PrivateKeyPEM) > 0 {
-		signer, err := ssh.ParsePrivateKey(opts.PrivateKeyPEM)
+	if !opts.PrivateKeyPEM.Empty() {
+		signer, err := ssh.ParsePrivateKey(opts.PrivateKeyPEM.Reveal())
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeTransport).Msg("options: parse private key")
 		}
 		auth = append(auth, ssh.PublicKeys(signer))
 	}
-	if opts.Password != "" {
-		auth = append(auth, ssh.Password(opts.Password))
+	if !opts.Password.Empty() {
+		auth = append(auth, ssh.Password(opts.Password.RevealString()))
 	}
 	if len(auth) == 0 {
 		return nil, errs.New().Code(ErrCodeTransport).Msg("options: a password or private key is required")

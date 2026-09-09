@@ -20,6 +20,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -58,7 +59,7 @@ func startLeafWith(t *testing.T, dir, url, id string, creds edgebus.EdgeCredenti
 		StateDir:        dir,
 		EdgeID:          id,
 		HubURLs:         []string{url},
-		CredentialsFile: credsFileFor(t, creds),
+		CredentialsFile: secret.New(credsFileFor(t, creds)),
 		FsyncPolicy:     service.BusFsyncPeriodic,
 	})
 	if err != nil {
