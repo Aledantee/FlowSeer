@@ -23,7 +23,10 @@ var (
 // Both are 0600 and the directory is 0700. The key file is the whole of this
 // edge's identity — central holds only the public half — so an edge that
 // loses it cannot be recovered by anything the edge itself can do.
-type Store struct{ dir string }
+type Store struct {
+	dir           string
+	syncDirectory func() error
+}
 
 // NewStore names the directory, creating it if it is not there. A packaged
 // deployment's first start is the ordinary case where it is not.
@@ -31,7 +34,19 @@ func NewStore(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("create the agent state directory")
 	}
-	return &Store{dir: dir}, nil
+	return &Store{dir: dir, syncDirectory: func() error { return syncDirectory(dir) }}, nil
+}
+
+func syncDirectory(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	if err := directory.Sync(); err != nil {
+		_ = directory.Close()
+		return err
+	}
+	return directory.Close()
 }
 
 func (s *Store) keyPath() string        { return filepath.Join(s.dir, "edge.key") }
@@ -122,6 +137,9 @@ func (s *Store) writeAtomically(path string, body []byte) error {
 	}
 	if err := os.Rename(name, path); err != nil {
 		return errs.From(err).Code(ErrCodeState).Attr("path", path).Msg("move the state file into place")
+	}
+	if err := s.syncDirectory(); err != nil {
+		return errs.From(err).Code(ErrCodeState).Attr("path", s.dir).Msg("flush the state directory")
 	}
 	return nil
 }
