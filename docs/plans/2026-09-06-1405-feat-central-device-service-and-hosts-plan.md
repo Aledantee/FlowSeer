@@ -1714,6 +1714,63 @@ What this unit does not fix, and must not be read as fixing: the deliverer's
 missing bound, below.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/internal/mutation/*.go')`
 
+### U8j. A refusal the device is certain about is not an ambiguity
+Files: `src/modules/localnet/access/internal/capability/interfaces/adapter.go`,
+`src/modules/localnet/access/internal/capability/fastiron/adapter.go`,
+`src/modules/localnet/access/internal/mutation/machine.go`, their tests
+After: U8i. **Before the runbook revision**, because it changes what the
+recovery section has to teach.
+
+Change: the likeliest failure of a first live write is recorded as the wrong
+kind of failure. `managed_interfaces` is asserted and never checked against
+the device, so a wrong or mistyped interface name is the most probable thing
+to go wrong — and when it does, the device records as `POSSIBLY_APPLIED` /
+`INDETERMINATE` rather than rejected.
+
+`Execute` sets `m.submitted = true` before calling `m.deps.Submit`
+(`machine.go:505`). The FastIron adapter refuses a bad interface name at
+`SelectInterfaceCommand`, **before `PortNameCommand` is constructed**
+(`fastiron/adapter.go:94`), so nothing was written and the adapter knows it.
+`afterStep` then sees `Submitted()` and enters recovery, and central records
+an effect nobody can establish for a device that provably was not changed.
+
+**One error code covers two different certainties, and that is the root of
+it.** `ErrCodeAmbiguousSubmission` is returned from two places. At
+`adapter.go:94` the select was refused and the `port-name` command never
+existed: nothing reached the device. At `adapter.go:105` the `port-name`
+command *was* sent and the device did not return to the config-if prompt:
+whether it took effect is genuinely unknown. Only the second is ambiguous.
+
+**The fix.** `capability/interfaces` — which already declares the
+`ShellAdapter` contract, and which `internal/mutation` already imports — gains
+an error code meaning *provably nothing was sent*. FastIron's select-refusal
+returns it; its `port-name` refusal keeps `ErrCodeAmbiguousSubmission`.
+`Execute` clears `submitted` when, and only when, the submit error carries
+that code, under the same lock that set it. Central needs no change: it
+already disposes an error report with `submitted` false as `REJECTED`.
+
+**The conservative default must stay the default, not become the exception.**
+Any submit error that carries nothing leaves `submitted` true and the effect
+unknown, which is what a transport that may have delivered deserves. An
+adapter that grows a new refusal path and forgets to mark it must land
+conservative and wrong in the safe direction — never silently rejected. That
+is what the second test below exists for, and it is the one to write first.
+
+**One race to state rather than fix.** The latch sets `submitted` before the
+call precisely so a concurrent `Acknowledge` cannot cancel a command that may
+already have gone out. Clearing it afterwards can lose a race with an
+`Acknowledge` that already read it as true and declined to cancel — which is
+harmless here, because the mutation ends rejected either way, and worth
+saying so nobody reads the clear as making the latch two-sided.
+
+Tests: an adapter refusing the interface name is disposed `REJECTED` with the
+lane closing on its own, not left indeterminate; **and an adapter error
+carrying no code leaves the mutation indeterminate**, which is the default
+holding. Reversal: mark the `port-name` refusal as not-submitted too, and the
+second test fails — a command that reached the device is reported as one that
+did not.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/internal/capability/**' 'src/modules/localnet/access/internal/mutation/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
