@@ -118,12 +118,15 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 			// Refuse on any verification error, could-not-tell included, so a
 			// lookup that could not answer blocks the call rather than letting
 			// it proceed unauthenticated.
-			m.log.InfoContext(r.Context(), "edge assertion rejected", "procedure", r.URL.Path, "error", err)
+			code, _ := errs.CodeOf(err)
+			m.log.InfoContext(r.Context(), "edge assertion rejected",
+				slog.String("otel.event.name", "flowseer.edge.assertion.rejected"),
+				slog.String("flowseer.rpc.procedure", r.URL.Path),
+				slog.String("error.type", string(code)))
 			status := http.StatusUnauthorized
 			if errs.Retryable(err) {
 				status = http.StatusServiceUnavailable
 			}
-			code, _ := errs.CodeOf(err)
 			m.refuse(w, status, code.String())
 			return
 		}

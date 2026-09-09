@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -65,19 +66,66 @@ type LeafConfig struct {
 }
 
 // Leaf is the running leaf node and the edge's own connection to it.
+// Leaf is the edge's embedded leaf node. Safe for concurrent use: Close may
+// run while another goroutine is reading the link's state, which is the
+// ordinary shape for an agent polling HubConnected for its heartbeat.
 type Leaf struct {
 	log    *quietLogger
 	cfg    LeafConfig
 	tenant string
+	js     jetstream.JetStream
+
+	mu     sync.Mutex
+	closed bool
 	server *server.Server
 	conn   *nats.Conn
-	js     jetstream.JetStream
 }
 
 const (
 	defaultBufferBytes = 256 << 20
 	defaultBufferAge   = 7 * 24 * time.Hour
 )
+
+// writeSecretFile writes body to path at mode 0600, atomically.
+//
+// os.WriteFile applies its mode only when it creates the file, so a
+// hub.creds left behind by an earlier run under a different umask keeps
+// whatever mode it had. The rename also makes a crash mid-write leave the
+// previous credential rather than a truncated one, and the directory sync
+// makes the rename itself durable.
+func writeSecretFile(path string, body []byte) error {
+	dir := filepath.Dir(path)
+	temp, err := os.CreateTemp(dir, ".creds-*")
+	if err != nil {
+		return err
+	}
+	name := temp.Name()
+	defer func() { _ = os.Remove(name) }()
+
+	if _, err := temp.Write(body); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(name, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		return err
+	}
+	handle, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = handle.Close() }()
+	return handle.Sync()
+}
 
 // StartLeaf starts the leaf node, dials the hub, and creates the local
 // buffer. It returns once the local server is ready; the hub link comes up
@@ -109,7 +157,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs the credentials AttachBus returned")
 	}
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
-	if err := os.WriteFile(credsPath, cfg.CredentialsFile.Reveal(), 0o600); err != nil {
+	if err := writeSecretFile(credsPath, cfg.CredentialsFile.Reveal()); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("store hub credentials")
 	}
 	urls, err := parseURLs(cfg.HubURLs)
@@ -218,14 +266,26 @@ func (l *Leaf) OTelSubject(signal OTelSignal) string {
 	return OTelSubject(l.tenant, l.cfg.EdgeID, signal)
 }
 
-// Connection is the edge's own connection to its leaf server.
-func (l *Leaf) Connection() *nats.Conn { return l.conn }
+// Connection is the edge's own connection to its leaf server, or nil once
+// the Leaf is closed.
+func (l *Leaf) Connection() *nats.Conn {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.conn
+}
 
 // JetStream is the edge's context on its own domain.
 func (l *Leaf) JetStream() jetstream.JetStream { return l.js }
 
 // HubConnected reports whether the leaf link to the hub is up right now.
-func (l *Leaf) HubConnected() bool { return l.server.NumLeafNodes() > 0 }
+func (l *Leaf) HubConnected() bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed || l.server == nil {
+		return false
+	}
+	return l.server.NumLeafNodes() > 0
+}
 
 // BufferState is what an agent surfaces as "buffering since ...": how much
 // the local buffer holds and how old its oldest unshipped record is. A
@@ -260,13 +320,21 @@ func (l *Leaf) BufferState(ctx context.Context) (BufferState, error) {
 // Close closes the connection and stops the server, waiting for its
 // shutdown.
 func (l *Leaf) Close() {
-	if l.conn != nil {
-		l.conn.Close()
-		l.conn = nil
+	l.mu.Lock()
+	if l.closed {
+		l.mu.Unlock()
+		return
 	}
-	if l.server != nil {
-		l.server.Shutdown()
-		l.server.WaitForShutdown()
-		l.server = nil
+	l.closed = true
+	conn, srv := l.conn, l.server
+	l.conn, l.server = nil, nil
+	l.mu.Unlock()
+
+	if conn != nil {
+		conn.Close()
+	}
+	if srv != nil {
+		srv.Shutdown()
+		srv.WaitForShutdown()
 	}
 }

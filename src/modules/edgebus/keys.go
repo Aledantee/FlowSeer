@@ -10,6 +10,7 @@ import (
 	"github.com/nats-io/nkeys"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // ErrCodeKeys identifies a failure loading, creating, or using the hub's
@@ -78,6 +79,28 @@ func (k *hubKeys) persistedEdgeIDs() ([]string, error) {
 // edgeAccountKey returns the account key for one edge, creating and
 // persisting it on first use so a restarted hub signs the same account and
 // every credential minted under it stays valid.
+// validEdgeID reports whether id is safe to use as a file name component
+// and as a JetStream stream and subject token.
+//
+// Checked before anything is written, because the two failures compound: a
+// name nats-server rejects leaves a seed file behind that every later
+// StartHub re-reads and fails on again, and a separator in it escapes the
+// keys directory entirely.
+func validEdgeID(id string) bool {
+	if id == "" || len(id) > 64 {
+		return false
+	}
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+		case r == '-', r == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func (k *hubKeys) edgeAccountKey(edgeID string) (nkeys.KeyPair, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -181,14 +204,18 @@ func (k *hubKeys) accountJWT(account nkeys.KeyPair, name string, diskBytes int64
 // server's nonce.
 type EdgeCredentials struct {
 	AccountJWT string
-	UserJWT    string
-	Seed       string
+	// UserJWT is the bearer credential the leaf authenticates with, and
+	// Seed the nkey private seed that signs the server's nonce. Both are
+	// secret material: an exported raw field holding either renders in full
+	// through fmt, slog and JSON.
+	UserJWT secret.Value
+	Seed    secret.Value
 }
 
 // CredsFile renders the user JWT and seed in the .creds layout a leaf
 // remote reads.
 func (c EdgeCredentials) CredsFile() ([]byte, error) {
-	creds, err := jwt.FormatUserConfig(c.UserJWT, []byte(c.Seed))
+	creds, err := jwt.FormatUserConfig(c.UserJWT.RevealString(), c.Seed.Reveal())
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeKeys).Msg("format user credentials")
 	}
@@ -218,7 +245,7 @@ func (k *hubKeys) mintUser(account nkeys.KeyPair, accountJWT, name string, permi
 	if err != nil {
 		return EdgeCredentials{}, errs.From(err).Code(ErrCodeKeys).Attr("user", name).Msg("encode user claims")
 	}
-	return EdgeCredentials{AccountJWT: accountJWT, UserJWT: encoded, Seed: string(seed)}, nil
+	return EdgeCredentials{AccountJWT: accountJWT, UserJWT: secret.NewString(encoded), Seed: secret.New(seed)}, nil
 }
 
 // edgePermissions is the minimal set that lets the hub source an edge's

@@ -92,6 +92,14 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")
 	}
+	if cfg.Client != nil && cfg.Client.Timeout == 0 {
+		// The per-request deadline and the AckWait base are both derived
+		// from this, so zero makes every context expire before the request
+		// starts: each record fails instantly, is redelivered to its limit,
+		// and is terminated. A caller passing http.DefaultClient would lose
+		// every edge's telemetry within a minute of it arriving.
+		cfg.Client.Timeout = 30 * time.Second
+	}
 	if cfg.Client == nil {
 		cfg.Client = &http.Client{Timeout: 30 * time.Second}
 	}
@@ -222,11 +230,19 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	switch {
 	case resp.StatusCode >= 200 && resp.StatusCode < 300:
 		_ = msg.Ack()
-	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests:
+	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests,
+		resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden,
+		resp.StatusCode == http.StatusNotFound:
+		// Retried, because these are the collector's configuration rather
+		// than this record's content: a stale token, a revoked one, an
+		// endpoint whose path moved. Terminating them discards every record
+		// an edge sends for as long as the misconfiguration lasts, and the
+		// delivery backstop still bounds the retries.
 		f.retry(msg, edgeID)
 	case resp.StatusCode >= 400 && resp.StatusCode < 500:
-		// A permanent rejection: a malformed or oversized payload, including
-		// one an injection produced. Dropping it, not retrying it forever.
+		// A permanent rejection of this body — malformed, oversized, or in a
+		// content type the collector will not take. Retrying cannot change
+		// the answer, so it is dropped rather than redelivered forever.
 		f.refuse(ctx, edgeID, msg, reasonCollectorReject, string(signal))
 	default:
 		f.retry(msg, edgeID)

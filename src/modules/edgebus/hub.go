@@ -244,7 +244,14 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	}
 	for _, edgeID := range edgeIDs {
 		if _, err := hub.ensureEdgeAccount(ctx, edgeID); err != nil {
-			return nil, err
+			// One edge's stored key must not stop the hub. A file that
+			// cannot be turned into an account is a fact about that edge,
+			// and refusing to start leaves every other edge unserved for it.
+			cfg.Logger.WarnContext(ctx, "skipping a persisted edge whose account could not be restored",
+				slog.String("otel.event.name", "flowseer.edge.bus.account_skipped"),
+				slog.String("flowseer.edge.id", edgeID),
+				slog.String("error.type", errorTypeOf(err)))
+			continue
 		}
 	}
 	return hub, nil
@@ -259,7 +266,7 @@ func (h *Hub) connectAccount(srv *server.Server, account nkeys.KeyPair, accountJ
 	}
 	conn, err := nats.Connect("nats://hub",
 		nats.InProcessServer(srv),
-		nats.UserJWTAndSeed(user.UserJWT, user.Seed),
+		nats.UserJWTAndSeed(user.UserJWT.RevealString(), user.Seed.RevealString()),
 		nats.Name("flowseer-"+name),
 	)
 	if err != nil {
@@ -363,6 +370,16 @@ func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 // reflection can address nothing but its own subjects. Serialized against
 // concurrent attaches and against Close.
 func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccount, error) {
+	// Before anything is written or named. An id with a separator escapes
+	// the keys directory; one with a dot, a wildcard or whitespace is
+	// rejected by nats-server when the stream is created, after the seed
+	// file already exists — and every later start then re-reads that file
+	// and fails on it again.
+	if !validEdgeID(edgeID) {
+		return nil, errs.New().Code(ErrCodeHub).Attr("edge", edgeID).
+			Msg("edge id is not usable as a key file name and a stream name")
+	}
+
 	h.attachMu.Lock()
 	defer h.attachMu.Unlock()
 
@@ -621,3 +638,13 @@ func (l *quietLogger) Fatalf(format string, args ...any) { l.record(slog.LevelEr
 func (l *quietLogger) Errorf(format string, args ...any) { l.record(slog.LevelError, format, args...) }
 func (*quietLogger) Debugf(string, ...any)               {}
 func (*quietLogger) Tracef(string, ...any)               {}
+
+// errorTypeOf classifies a failure for the error.type attribute: the error's
+// own code where it has one. Bounded, and never the message, which carries
+// whatever the server put in it.
+func errorTypeOf(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	return "unknown"
+}

@@ -68,9 +68,13 @@ type Provisioning struct {
 }
 
 // AdminService implements the EdgeAdminService handler: the operator's side of
-// an edge's life, from creation through provisioning to retirement. It never
-// authenticates an edge, so it is served behind the operator authorization,
-// not the assertion middleware. Safe for concurrent use.
+// an edge's life, from creation through provisioning to retirement.
+//
+// It authenticates nobody. There is no operator authorization in this
+// deployment yet, and this service is mounted without the assertion
+// middleware, so the only thing between a caller and IssueSetupKey — which
+// mints the credential that enrolls an edge — is the network the API
+// listener is bound to. Safe for concurrent use.
 type AdminService struct {
 	store        *edgestore.Store
 	holds        LaneHolds
@@ -122,7 +126,7 @@ func NewAdminService(store *edgestore.Store, holds LaneHolds, provisioning Provi
 func (s *AdminService) CreateEdge(ctx context.Context, req *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, errs.From(err).Code(ErrCodeRandom).Msg("draw edge identifier")
+		return nil, connectErr(errs.From(err).Code(ErrCodeRandom).Msg("draw edge identifier"))
 	}
 	edgeID := id.String()
 

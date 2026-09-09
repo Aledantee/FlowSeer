@@ -166,7 +166,7 @@ func TestAccountsCarryNoImportsOrExports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("mint: %v", err)
 	}
-	uc, err := jwt.DecodeUserClaims(creds.UserJWT)
+	uc, err := jwt.DecodeUserClaims(creds.UserJWT.RevealString())
 	if err != nil {
 		t.Fatalf("user decode: %v", err)
 	}

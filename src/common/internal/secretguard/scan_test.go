@@ -25,6 +25,20 @@ var secretNames = []string{
 	"secret",
 	"privatekey",
 	"credential",
+	"seed",
+	"token",
+	"community",
+}
+
+// secretTypes are type expressions that carry credential material whatever
+// the field is called. The name list cannot catch these: a private key
+// spelled Key, or an nkey seed spelled Seed, matched no fragment while its
+// type said plainly what it held.
+var secretTypes = []string{
+	"ed25519.PrivateKey",
+	"*ecdsa.PrivateKey",
+	"*rsa.PrivateKey",
+	"nkeys.KeyPair",
 }
 
 // rawTypes are the type expressions a secret-named field may not have.
@@ -125,11 +139,21 @@ func rawFieldsIn(f *ast.File, rel string) []rawField {
 				}
 
 				for _, field := range st.Fields.List {
-					if !isRawType(field.Type) {
+					// Two independent reasons to report a field: a secret
+					// name over a raw type, or a type that carries key
+					// material whatever the field is called. The second
+					// exists because the first missed both of the private
+					// keys this repository actually shipped.
+					byType := isSecretType(field.Type)
+					byName := isRawType(field.Type)
+					if !byType && !byName {
 						continue
 					}
 					for _, name := range field.Names {
-						if name.IsExported() && isSecretName(name.Name) {
+						if !name.IsExported() {
+							continue
+						}
+						if byType || isSecretName(name.Name) {
 							found = append(found, rawField{rel, typeSpec.Name.Name, name.Name})
 						}
 					}
@@ -155,6 +179,12 @@ func isSecretName(name string) bool {
 
 func isRawType(expr ast.Expr) bool {
 	return slices.Contains(rawTypes, types.ExprString(expr))
+}
+
+// isSecretType reports whether a field's type carries credential material
+// regardless of the field's name.
+func isSecretType(expr ast.Expr) bool {
+	return slices.Contains(secretTypes, types.ExprString(expr))
 }
 
 func TestScanRawSecretFields(t *testing.T) {

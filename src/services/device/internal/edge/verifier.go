@@ -54,16 +54,30 @@ var (
 // an unauthenticated caller.
 type KeyLookup func(ctx context.Context, edgeID string) (ed25519.PublicKey, edgev1.EdgeLifecycle, error)
 
+// nonceSweepInterval is how often the replay cache is purged of expired
+// entries. Bounded by the assertion lifetime rather than by the call rate:
+// an entry past its expiry is rejected by the expiry check whether or not it
+// has been swept, so sweeping is about the map's size and not its answers.
+const nonceSweepInterval = time.Minute
+
 // Verifier checks a SignedEdgeAssertion header against one Connect call.
 // A Verifier is safe for concurrent use.
+//
+// The replay cache is this Verifier's own. Refusing a repeated nonce is the
+// only step that stops a captured assertion being used twice inside its
+// window, so a deployment running more than one central replica must either
+// route an edge's calls to one of them or move this cache to shared storage;
+// two replicas each hold their own, and an assertion observed once is
+// accepted a second time by the other.
 type Verifier struct {
 	audience string
 	skew     time.Duration
 	lookup   KeyLookup
 	now      func() time.Time
 
-	mu   sync.Mutex
-	seen map[string]time.Time
+	mu        sync.Mutex
+	seen      map[string]time.Time
+	nextSweep time.Time
 }
 
 // NewVerifier returns a Verifier for a central deployment configured with
@@ -189,10 +203,19 @@ func (v *Verifier) recordNonce(edgeID string, nonce []byte, expiresAt time.Time)
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	for k, exp := range v.seen {
-		if !exp.After(now) {
-			delete(v.seen, k)
+	// Swept on a schedule, not on every call. This lock is the only one on
+	// the authentication path and the map holds one entry per authenticated
+	// call in the last window, fleet-wide, so walking it per call makes
+	// verification latency grow with fleet call rate. Correctness does not
+	// need it: the expiry check below rejects a stale hit whether or not it
+	// has been swept.
+	if now.After(v.nextSweep) {
+		for k, exp := range v.seen {
+			if !exp.After(now) {
+				delete(v.seen, k)
+			}
 		}
+		v.nextSweep = now.Add(nonceSweepInterval)
 	}
 
 	if exp, ok := v.seen[key]; ok && exp.After(now) {

@@ -24,6 +24,10 @@ import (
 // ErrCodeStart is a service that cannot be assembled from what it was given.
 var ErrCodeStart = errs.NewCode("host/start")
 
+// ErrCodePanic identifies a handler that panicked. It reaches a client as an
+// internal error naming nothing about the panic itself.
+var ErrCodePanic = errs.NewCode("host/handler-panic")
+
 // serviceName and serviceNamespace identify this process to the runtime and
 // to every signal it exports.
 const (
@@ -189,7 +193,7 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
 		StateDir:    h.cfg.StateDir(),
 		FsyncPolicy: service.BusFsyncPerMessage,
-		ListenHost:  hostOf(h.cfg.BusAddress()),
+		ListenHost:  listenHostOf(h.cfg.BusAddress()),
 		ListenPort:  portOf(h.cfg.BusAddress()),
 		TLS:         h.serverTLS(),
 		Logger:      log,
@@ -203,10 +207,15 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 		hub.Close()
 		return service.Attempt{}, err
 	}
-	h.hub.publish(resources)
+	// Before publish, not after. publish closes the readiness channel every
+	// dependent module is waiting on, and those run on their own goroutines,
+	// so calling the embedder afterwards hands it a hub the drift poller and
+	// the dispatch relay may already be writing through — while its own
+	// contract says it is called before anything uses them.
 	if h.opts.Hub != nil {
 		h.opts.Hub(hub)
 	}
+	h.hub.publish(resources)
 
 	// The runtime does not guarantee the Runner below ever runs: it
 	// re-checks the coordinator after Setup returns, and a module context

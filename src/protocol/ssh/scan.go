@@ -12,10 +12,11 @@ type Prompt struct {
 	// Name identifies which prompt matched, returned as
 	// Result.MatchedPrompt. Never interpreted by this package.
 	Name string
-	// Pattern matches the prompt text. Anchor it (e.g. with `$`)
-	// against the tail of the accumulated output; an unanchored
-	// pattern that matches ordinary output text produces a false
-	// command boundary.
+	// Pattern matches the prompt text. The scan takes the earliest match
+	// anywhere in the accumulated output, so anchor it (`(?m)` with `$`,
+	// and a shape no sibling prompt shares): an unanchored pattern, or one
+	// a line of ordinary device output satisfies, produces a false command
+	// boundary and a partial transcript that reads as a complete one.
 	Pattern *regexp.Regexp
 }
 

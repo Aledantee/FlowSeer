@@ -30,9 +30,14 @@ type Command struct {
 	// package never scans Line for secret shapes on its own.
 	Redacted string
 
-	// Prompts are the candidate lines that mark the command
-	// complete; the first to match the tail of the accumulated
-	// output wins. At least one is required.
+	// Prompts are the candidate lines that mark the command complete. The
+	// earliest match anywhere in the accumulated output wins, ties going to
+	// the order of this slice — not the tail, and not the first prompt
+	// listed. A pattern must therefore be anchored so it cannot match
+	// inside the device's own output: a configuration line ending in the
+	// prompt character would otherwise end the command early and return a
+	// partial transcript indistinguishable from a complete one. At least
+	// one is required.
 	Prompts []Prompt
 
 	// MorePattern, when non-nil, detects a pagination marker (e.g. a
@@ -126,6 +131,18 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	// a second command the caller never wrote. Refused here because this is
 	// where the invariant is knowable — one line in, one command out — and
 	// because a caller filtering only "\n" would still be wrong.
+	if cmd.MorePattern != nil && cmd.MorePattern.MatchString("") {
+		// A pattern matching the empty string consumes nothing, so the read
+		// loop matches it again immediately and writes MoreKeystroke at CPU
+		// speed for the whole command deadline.
+		return Result{}, errs.New().Code(ErrCodeShell).Msg("command: MorePattern must not match the empty string")
+	}
+	for _, p := range cmd.Prompts {
+		if p.Pattern != nil && p.Pattern.MatchString("") {
+			return Result{}, errs.New().Code(ErrCodeShell).Attr("prompt", p.Name).
+				Msg("command: a prompt pattern must not match the empty string")
+		}
+	}
 	if strings.ContainsAny(cmd.Line, "\r\n") {
 		return Result{}, errs.New().Code(ErrCodeShell).
 			Msg("command: Line carries a line terminator, which would send a second command")
@@ -170,6 +187,13 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 		}, err
 	}
 
+	if err := runCtx.Err(); err != nil {
+		// Checked before the write, not only after. A command written under
+		// an already-canceled context reaches the device and then returns a
+		// cancellation, which a caller reads as "nothing happened" — on the
+		// mutation path, for a config command that executed.
+		return finish(nil, err)
+	}
 	if _, err := s.stdin.Write([]byte(cmd.Line + "\n")); err != nil {
 		_ = s.Close()
 		return finish(nil, s.connectionLostErr(err))
