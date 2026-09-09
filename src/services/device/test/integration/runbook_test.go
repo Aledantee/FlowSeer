@@ -153,25 +153,12 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 	script.WriteString("export POLICY_KEY=" + shellQuote(fixturePolicyKey) + "\n")
 	script.WriteString("export POLICY_VERSION=1\n")
 
-	ran := 0
-	for _, b := range runbookBlocks(t) {
-		if b.kind != kindShell {
-			continue
-		}
-		// The setup block assigns the same variables to an operator's own
-		// values; running it would overwrite this deployment's. Its names are
-		// what the blocks below consume, and those are exercised by consuming
-		// them.
-		if strings.Contains(b.body, "export FLOWSEER_REPO=") {
-			continue
-		}
-		script.WriteString("\n# runbook line " + itoa(b.line) + "\n")
-		script.WriteString(b.body)
-		ran++
-	}
-	if ran == 0 {
-		t.Fatal("no runbook command was run; the extraction found nothing to execute")
-	}
+	// From the first step onward. The section before it brings a deployment
+	// up by starting the binaries, which is the bootstrap test's subject and
+	// needs a deployment that does not exist yet — this test talks to one
+	// that is already running. Between them the two cover every runnable
+	// block in the document.
+	script.WriteString(runbookSection(t, "## Step 0", ""))
 
 	ctxTimeout := 120 * time.Second
 	cmd := exec.Command("sh", "-c", script.String())
@@ -192,22 +179,10 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 	if runErr != nil {
 		t.Fatalf("a command the runbook prints failed: %v\n%s", runErr, out)
 	}
-	t.Logf("ran %d runbook commands\n%s", ran, out)
+	t.Logf("the runbook's steps ran:\n%s", out)
 }
 
 // shellQuote renders s as a single-quoted shell word.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var digits []byte
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	return string(digits)
 }

@@ -54,6 +54,13 @@ export IDEMPOTENCY_KEY=$(uuidgen | tr 'A-Z' 'a-z')
 # registry's entry exactly; an intent naming another version is refused.
 export POLICY_KEY=icx7150-lab
 export POLICY_VERSION=1
+
+# Where the deployment's files live, and a scratch directory for the run.
+export RUN=/var/tmp/flowseer-lab
+export CENTRAL_CONFIG=/etc/flowseer/device.textproto
+export AGENT_CONFIG=/etc/flowseer/agent.textproto
+export REGISTRY=/etc/flowseer/registry.textproto
+export PROVISIONING=/etc/flowseer/provisioning.textproto
 ```
 
 `CACERT` is the certificate central generated into its state directory on
@@ -69,6 +76,106 @@ buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
 ```
+
+## Bringing the deployment up
+
+Do this before step 0's switch is powered on; none of it touches the device.
+
+The order is forced and it is not the obvious one. Central will not start
+without a registry, the registry must name the edge that hosts the
+integration, and the edge's identifier is minted by central — so the registry
+cannot be complete until central has run once. Central also reads its registry
+exactly once, at start, so a registry that changes needs a restart.
+
+The way through is to start with a registry that names the integration and
+**no devices**, which is valid and honest: an integration with no devices
+serves none, and nothing is claimed about an edge that does not exist yet. The
+device is added once the edge does.
+
+That the sequence has this shape at all is a rough edge rather than a design.
+It would disappear if `CreateEdge` accepted an identifier the operator chose,
+or if an integration serving no devices did not have to name an edge.
+
+Build the two binaries:
+
+```sh
+mkdir -p "$RUN"
+go -C "$FLOWSEER_REPO" build -o "$RUN/device" ./src/services/device/cmd/device
+go -C "$FLOWSEER_REPO" build -o "$RUN/agent" ./src/edge/agent/cmd/agent
+```
+
+Start central on the first registry, and wait for it to say it is listening
+rather than guessing:
+
+```sh
+"$RUN/device" --config "$CENTRAL_CONFIG" > "$RUN/central.log" 2>&1 &
+echo $! > "$RUN/central.pid"
+until grep -q "device api listening" "$RUN/central.log"; do sleep 0.2; done
+```
+
+Create the edge. The answer carries its identifier and the provisioning to
+ship with it, and the setup key inside is shown exactly once:
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data '{"name":"lab"}' \
+  "$CENTRAL/flowseer.api.edge.v1.EdgeAdminService/CreateEdge" > "$RUN/created.json"
+export EDGE_ID=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' "$RUN/created.json" | head -1)
+test -n "$EDGE_ID"
+```
+
+Write the full registry — the same integration, now naming the edge that
+exists, and the device — then restart central so it reads it:
+
+```sh
+"$FLOWSEER_REPO"/deploy/lab/write-registry.sh "$EDGE_ID" > "$REGISTRY"
+kill -TERM "$(cat "$RUN/central.pid")"
+wait "$(cat "$RUN/central.pid")"
+"$RUN/device" --config "$CENTRAL_CONFIG" >> "$RUN/central.log" 2>&1 &
+echo $! > "$RUN/central.pid"
+until [ "$(grep -c "device api listening" "$RUN/central.log")" -ge 2 ]; do sleep 0.2; done
+```
+
+Appended rather than overwritten, so the first run's shutdown stays readable
+next to the second's start — a log truncated by the restart loses the only
+record that the stop was orderly.
+
+**That `wait` is an assertion, which is why it has no `|| true`.** A clean stop
+drains the modules and exits zero; a process killed outright exits with the
+signal's status instead. Under `set -e` a non-zero status stops you here
+rather than letting you carry on with a deployment that did not shut down the
+way it claims to.
+
+The status is all there is to go on: a clean shutdown writes nothing to the
+log. So a stopped service and a killed one look identical in `$RUN/central.log`
+and differ only in what `wait` returned.
+
+Write the provisioning the agent reads, from what `CreateEdge` returned, and
+start the agent:
+
+```sh
+"$FLOWSEER_REPO"/deploy/lab/write-provisioning.sh "$RUN/created.json" "$CENTRAL" > "$PROVISIONING"
+"$RUN/agent" --config "$AGENT_CONFIG" > "$RUN/agent.log" 2>&1 &
+echo $! > "$RUN/agent.pid"
+until grep -q '"flowseer.edge.id"' "$RUN/agent.log"; do sleep 0.2; done
+```
+
+That wait is for enrollment, which needs central and not the switch. An agent
+that cannot enroll exits rather than retrying — without an identity there is
+nothing for it to do — so if this does not return, read `$RUN/agent.log`
+rather than waiting.
+
+The agent enrolls, attaches its bus, and starts its lane. It will then try to
+onboard every device central lists for it, and that is the first thing here
+that needs the switch — an identity probe over SNMP against a device that is
+still powered off fails, is retried, and says so in `$RUN/agent.log`:
+
+```text
+"msg":"listed device cannot be onboarded" … "error":{"msg":"identity probe: … request timed out"}
+```
+
+That is the expected state until step 0's switch is on. Whether the device has
+been onboarded is step 7's subject, and it is the gate on everything after it.
 
 ## Step 0: ask for the switch to be powered on
 

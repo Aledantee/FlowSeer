@@ -1868,17 +1868,30 @@ handling and shutdown have never been exercised by anything — and those are
 exactly what an operator meets first and what an in-process fixture cannot
 reach.
 
-**A defect found while specifying this, which is the argument in one line.**
-Both commands document, in their package comments, that "an interrupt or a
-termination signal is a clean stop and exits 0: the runtime drains its
-modules, and a service that reported failure every time it was asked to stop
-would make a restart loop look like a crash loop". Neither imports
-`os/signal`. Both call `host.Run(context.Background(), …)`. So a SIGTERM kills
-the process with Go's default disposition: no drain, and exit 143 rather than
-0 — which is precisely the "restart loop that looks like a crash loop" the
-comment names as the thing to avoid. The behaviour the operator is promised
-does not exist, and no test could have noticed because no test starts a
-process. Fixing it belongs here, because this is the unit that can prove it.
+**A defect was reported here during specification and it was not real. The
+correction is kept because the mistake is instructive.** Neither `main.go`
+imports `os/signal` and both call `host.Run(context.Background(), …)`, and two
+readers concluded from that that the documented clean-stop-on-signal did not
+exist. It does: `service.Run` installs
+`signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)` itself, and says so
+in its own doc. The commands delegate, correctly, and their package comments
+are accurate.
+
+What went wrong is worth naming, because it is this build's own recurring
+shape from the other side: behaviour was inferred from the *absence* of a call
+at one layer without reading the layer it delegates to. The same caution that
+was applied to `Hub.ListenPort()` — an inherited property asserted by our own
+comment — applies to an inherited property asserted to be missing.
+
+**What caught it was the reversal.** Removing the "fix" should have made the
+test fail and did not, and chasing that found the runtime's handler. A
+reversal that refuses to fail is the third thing in this build to find
+something its test could not.
+
+So this unit adds no signal handling. What it does is check the contract:
+nothing had ever sent a signal to either binary, so "an interrupt is a clean
+stop and exits 0" was an unverified claim about code that happened to be
+right.
 
 **The bootstrap sequence: a workaround, and to be labelled as one.**
 `RegistryIntegration.edge` is required, `CreateEdge` mints the id, and central
@@ -1901,7 +1914,8 @@ down so a tested procedure is not later read as an endorsed design.
 
 Tests: the runbook's bootstrap blocks are `sh` and are executed — both
 binaries built once, started as processes, driven through the whole sequence,
-and stopped by signal with the exit status the comment promises. And a
+and stopped by signal with the exit status the package comments promise —
+which is now checked rather than assumed. And a
 malformed config exits 2 before anything binds, which is a contract nothing
 has ever checked.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/cmd/**' 'src/edge/agent/cmd/**' 'docs/runbooks/**' 'src/services/device/test/integration/*.go')`
