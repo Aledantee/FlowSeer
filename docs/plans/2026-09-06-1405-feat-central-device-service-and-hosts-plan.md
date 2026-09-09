@@ -1661,6 +1661,59 @@ cover that each record is emitted; the assembled run is the only place their
 order is observable.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/internal/host/*.go' 'src/services/device/test/integration/*.go')`
 
+### U8i. A mutation that enters recovery gets a poll, whatever the audit stream is doing
+Files: `src/modules/localnet/access/internal/mutation/machine.go`,
+`src/modules/localnet/access/lane.go`, their tests
+After: U8h. **Before the runbook revision and before the interface-name
+misclassification**, because both change what the recovery section can promise
+and neither can be honest until recovery is.
+
+Change: a transient audit outage strands a mutation permanently.
+`enterRecovery` returns early when `EnterRecovering` fails, so
+`startRecoveryPoll` is never reached and no poll goroutine is ever created.
+`EnterRecovering` fails when the `LaneBlocked` record it delivers is not
+taken, which a central that has gone away does. `block()` has meanwhile
+already written the block state, deliberately, so the block survives the
+failed delivery — and the mutation is left `POSSIBLY_APPLIED` and
+`INDETERMINATE` with nothing scheduled to look at the device again.
+
+Both halves are correct alone. Pinned by
+`TestAnAuditOutageWhileEnteringRecoveryLeavesNoPoll`.
+
+**The fix: start the poll on the state, not on the record.** `block()` writes
+the block before delivering precisely so the block is real whether or not the
+record lands; a mutation whose block is written is a mutation in recovery, and
+the poll should follow the state that exists rather than the delivery that
+may not have happened. The caller still fails — `Submit` cannot return an
+outcome it does not have, and that half of the existing comment is right.
+
+**The record stays owed, and it cannot go where the reports go.** The report
+queue holds `ReportRequest` values and *supersedes* per key, dropping at its
+ceiling; an audit record is a distinct durable fact that must be neither
+superseded nor dropped, so sharing that path is not a small change but a
+second queue with opposite retention. The trade is real and should not be
+made by accident.
+
+The cheaper way keeps the guarantee without a new component: **the recovery
+poll retries the undelivered record.** The poll already runs on an interval
+with a budget, and a retry is safe because the audit stream deduplicates on
+`event_id` — but only if the *same event value* is retried. `newEvent` mints
+a fresh UUID per construction, so a rebuilt record is a second record rather
+than a duplicate. The machine must retain the event it could not deliver and
+re-emit that value.
+
+Tests: a mutation whose `LaneBlocked` delivery fails still gets a poll, and
+the device is read again — the reproduction's assertion inverted. And the
+retained record is delivered once the stream takes it, with the same
+`event_id`, so the account has no hole where the outage was.
+**Reversal:** with the fix in, drop the retention and rebuild the event on
+retry; the stream then holds two `lane_blocked` records for one block, which
+is what a fresh id per construction produces.
+
+What this unit does not fix, and must not be read as fixing: the deliverer's
+missing bound, below.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/modules/localnet/access/*.go' 'src/modules/localnet/access/internal/mutation/*.go')`
+
 ### U9. End-to-end and item 7 readiness
 Files: `src/services/device/test/integration/e2e_test.go`,
 `docs/runbooks/lab-icx7150-first-write.md`, `deploy/lab/{central.textproto,registry.textproto,agent.textproto}`
@@ -1931,6 +1984,20 @@ access story. Building one inside a unit about edge lifecycle would put it in
 the wrong place permanently, and a scope invented to close a review line
 outlives the review. The api/edge README now says plainly that the trail does
 not exist rather than claiming the action is audited.
+
+**The audit deliverer has no bound.** `Deliverer.Emit` passes its context
+straight through, and the agent's HTTP clients are `&http.Client{Transport:
+…}` with no `Timeout`, so the only bound on an audit delivery is whatever
+context reaches it. A central that stops answering — rather than refusing —
+stalls the lane for as long as that context allows, and the lane holds its
+state transition until the delivery returns by design.
+
+This is **not** what produced the stranded mutations U8i fixes: those came
+from a delivery that returned an error, not one that hung, and the two look
+nothing alike in a goroutine dump. It is written separately so that U8i is not
+read as having addressed it. "The lane cannot move past a record that is not
+yet durable" is the right rule and still needs a ceiling, or a central that
+never answers stops the lane indefinitely.
 
 **A recovery attempt that could not look spends the budget as if it had.**
 Recovery polls until the horizon runs out, and an attempt that failed to
