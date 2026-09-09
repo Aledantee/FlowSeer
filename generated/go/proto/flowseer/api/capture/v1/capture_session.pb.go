@@ -45,7 +45,7 @@ const (
 	// Stopped by an error.
 	CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED CaptureLifecycle = 4
 	// Stopped by an operator before completion.
-	CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED CaptureLifecycle = 5
+	CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED CaptureLifecycle = 5
 )
 
 // Enum value maps for CaptureLifecycle.
@@ -56,7 +56,7 @@ var (
 		2: "CAPTURE_LIFECYCLE_RUNNING",
 		3: "CAPTURE_LIFECYCLE_COMPLETED",
 		4: "CAPTURE_LIFECYCLE_FAILED",
-		5: "CAPTURE_LIFECYCLE_CANCELLED",
+		5: "CAPTURE_LIFECYCLE_CANCELED",
 	}
 	CaptureLifecycle_value = map[string]int32{
 		"CAPTURE_LIFECYCLE_UNSPECIFIED": 0,
@@ -64,7 +64,7 @@ var (
 		"CAPTURE_LIFECYCLE_RUNNING":     2,
 		"CAPTURE_LIFECYCLE_COMPLETED":   3,
 		"CAPTURE_LIFECYCLE_FAILED":      4,
-		"CAPTURE_LIFECYCLE_CANCELLED":   5,
+		"CAPTURE_LIFECYCLE_CANCELED":    5,
 	}
 )
 
@@ -1998,14 +1998,14 @@ const file_flowseer_api_capture_v1_capture_session_proto_rawDesc = "" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\x04from\x12H\n" +
 	"\x02to\x18\x03 \x01(\x0e2).flowseer.api.capture.v1.CaptureLifecycleB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x02to:\x8c\x01\xbaH\x88\x01\x1a\x85\x01\n" +
-	"'capture_session_event.lifecycle_changes\x121a capture session event must change the lifecycle\x1a'!has(this.from) || this.from != this.to*\xd3\x01\n" +
+	"'capture_session_event.lifecycle_changes\x121a capture session event must change the lifecycle\x1a'!has(this.from) || this.from != this.to*\xd2\x01\n" +
 	"\x10CaptureLifecycle\x12!\n" +
 	"\x1dCAPTURE_LIFECYCLE_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19CAPTURE_LIFECYCLE_PENDING\x10\x01\x12\x1d\n" +
 	"\x19CAPTURE_LIFECYCLE_RUNNING\x10\x02\x12\x1f\n" +
 	"\x1bCAPTURE_LIFECYCLE_COMPLETED\x10\x03\x12\x1c\n" +
-	"\x18CAPTURE_LIFECYCLE_FAILED\x10\x04\x12\x1f\n" +
-	"\x1bCAPTURE_LIFECYCLE_CANCELLED\x10\x05*\xe5\x01\n" +
+	"\x18CAPTURE_LIFECYCLE_FAILED\x10\x04\x12\x1e\n" +
+	"\x1aCAPTURE_LIFECYCLE_CANCELED\x10\x05*\xe5\x01\n" +
 	"\x11CaptureStopReason\x12#\n" +
 	"\x1fCAPTURE_STOP_REASON_UNSPECIFIED\x10\x00\x12$\n" +
 	" CAPTURE_STOP_REASON_PACKET_COUNT\x10\x01\x12\"\n" +

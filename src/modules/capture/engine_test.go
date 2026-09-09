@@ -374,11 +374,11 @@ func TestEngine_FramesChannelClosedWithoutCancelIsError(t *testing.T) {
 	}
 }
 
-// TestEngine_ContextCancelIsOperatorAndCancelled proves an operator-initiated
+// TestEngine_ContextCancelIsOperatorAndCanceled proves an operator-initiated
 // stop (the caller cancels Run's context) reports stop reason OPERATOR and
 // lifecycle CANCELED, not COMPLETED: a canceled run did not finish on its
 // own terms.
-func TestEngine_ContextCancelIsOperatorAndCancelled(t *testing.T) {
+func TestEngine_ContextCancelIsOperatorAndCanceled(t *testing.T) {
 	src := newFakeSource(1)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -396,7 +396,7 @@ func TestEngine_ContextCancelIsOperatorAndCancelled(t *testing.T) {
 	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
 		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
 	}
-	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED {
+	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
 		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
 	}
 }
@@ -422,7 +422,7 @@ func TestEngine_ConsumerStopWithoutContextCancelIsOperator(t *testing.T) {
 	if final.StopReason != apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR {
 		t.Errorf("StopReason = %v, want OPERATOR", final.StopReason)
 	}
-	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED {
+	if final.Lifecycle != apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED {
 		t.Errorf("Lifecycle = %v, want CANCELED", final.Lifecycle)
 	}
 }

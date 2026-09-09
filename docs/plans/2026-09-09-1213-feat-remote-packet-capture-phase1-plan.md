@@ -292,7 +292,7 @@ headers-only capture and a payload capture are distinguishable in the record
 rather than only in the budget. The string is provisional; see Open questions.
 
 `CaptureLifecycle` (`CAPTURE_LIFECYCLE_UNSPECIFIED`, `_PENDING`, `_RUNNING`,
-`_COMPLETED`, `_FAILED`, `_CANCELLED`) and `CaptureStopReason`
+`_COMPLETED`, `_FAILED`, `_CANCELED`) and `CaptureStopReason`
 (`CAPTURE_STOP_REASON_UNSPECIFIED`, `_PACKET_COUNT`, `_BYTE_COUNT`, `_DURATION`,
 `_OPERATOR`, `_ERROR`) live beside the entity, both FlowSeer-normalized
 taxonomies with a real unspecified zero. `CaptureArtifact` describes the stored

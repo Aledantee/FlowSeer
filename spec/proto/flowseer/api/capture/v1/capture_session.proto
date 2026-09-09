@@ -139,7 +139,7 @@ enum CaptureLifecycle {
   // Stopped by an error.
   CAPTURE_LIFECYCLE_FAILED = 4;
   // Stopped by an operator before completion.
-  CAPTURE_LIFECYCLE_CANCELLED = 5;
+  CAPTURE_LIFECYCLE_CANCELED = 5;
 }
 
 // Why a capture session stopped, once it has.

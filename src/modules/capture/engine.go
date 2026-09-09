@@ -350,7 +350,7 @@ runLoop:
 		case runErr != nil:
 			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
 		case stopReason == apicapturev1.CaptureStopReason_CAPTURE_STOP_REASON_OPERATOR:
-			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELLED
+			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_CANCELED
 		default:
 			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_COMPLETED
 		}
