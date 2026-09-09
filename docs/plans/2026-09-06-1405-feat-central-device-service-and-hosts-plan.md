@@ -2378,6 +2378,27 @@ which is worth a decision rather than a quiet dead branch: a second handle on
 the policy, or an explicit statement that a device has one read route and the
 fallback exists only for devices whose read credential is a shell login.
 
+**The one operation with physical consequences is the least observable.** The
+first shell login this system ever made to a real device opened, sent a
+`port-name` command, and closed, and left no record: the session's open,
+command and close are all below INFO in the agent, and central logs per-RPC
+lines only on failure. The write was confirmed by the description having
+changed, which is the only evidence there is. An operator debugging a write
+that did not apply would have nothing to read. A mutation's shell session
+should say at INFO that it opened, what it sent, and that it closed —
+measured on the live run of 2026-09-09, where the whole trail was the status
+API plus two lane lines.
+
+**A second witness needs a clock, and ours did not have one.** The live write
+was watched independently over SNMP from another session, to cross-check when
+the change actually landed against when the lane said it did. That check could
+not be made: the watch loop polled every three seconds and printed elapsed
+time from its own start without ever stamping that start against the wall
+clock, so the change is known to have been detected within a three-second
+window that cannot be placed against the lane's observation timestamp. No
+discrepancy was found and none was ruled out, which are different results. Any
+future second witness against live hardware records absolute time, not elapsed.
+
 **An operator is told the edge failed when the edge did not.** A read that
 fails anywhere in the lane's closure surfaces as `"the edge could not read
 this interface"` with an empty detail, while the wire code naming the actual
