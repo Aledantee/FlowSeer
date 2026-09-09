@@ -10,6 +10,7 @@ import (
 
 	xssh "golang.org/x/crypto/ssh"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
 
@@ -21,7 +22,7 @@ func quietShell(_ *testing.T, _ xssh.Channel) {
 func optsFor(fs *fakeServer) ssh.Options {
 	return ssh.Options{
 		Username:      fs.username,
-		Password:      fs.password,
+		Password:      secret.NewString(fs.password),
 		HostKeySHA256: fs.fp,
 	}
 }
@@ -87,8 +88,8 @@ func TestDialOptionsRequireExplicitHostKeyVerification(t *testing.T) {
 		name string
 		opts ssh.Options
 	}{
-		{"neither set", ssh.Options{Username: fs.username, Password: fs.password}},
-		{"both set", ssh.Options{Username: fs.username, Password: fs.password, HostKeySHA256: fs.fp, InsecureIgnoreHostKey: true}},
+		{"neither set", ssh.Options{Username: fs.username, Password: secret.NewString(fs.password)}},
+		{"both set", ssh.Options{Username: fs.username, Password: secret.NewString(fs.password), HostKeySHA256: fs.fp, InsecureIgnoreHostKey: true}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -125,7 +126,7 @@ func TestDialTimeoutOnStalledHandshake(t *testing.T) {
 
 	opts := ssh.Options{
 		Username:      "tester",
-		Password:      "swordfish",
+		Password:      secret.NewString("swordfish"),
 		HostKeySHA256: "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		DialTimeout:   500 * time.Millisecond,
 	}

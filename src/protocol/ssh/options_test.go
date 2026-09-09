@@ -1,9 +1,13 @@
 package ssh
 
-import "testing"
+import (
+	"testing"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
+)
 
 func TestSSHConfigRequiresUsername(t *testing.T) {
-	_, err := sshConfig(Options{Password: "swordfish", HostKeySHA256: "SHA256:whatever"})
+	_, err := sshConfig(Options{Password: secret.NewString("swordfish"), HostKeySHA256: "SHA256:whatever"})
 	if err == nil {
 		t.Fatal("sshConfig() = nil error, want a refusal when Username is empty")
 	}
@@ -19,7 +23,7 @@ func TestSSHConfigRequiresACredential(t *testing.T) {
 func TestSSHConfigRejectsUnparseablePrivateKey(t *testing.T) {
 	_, err := sshConfig(Options{
 		Username:      "tester",
-		PrivateKeyPEM: []byte("not a real key"),
+		PrivateKeyPEM: secret.NewString("not a real key"),
 		HostKeySHA256: "SHA256:whatever",
 	})
 	if err == nil {

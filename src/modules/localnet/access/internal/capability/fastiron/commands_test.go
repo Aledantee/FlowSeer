@@ -7,6 +7,8 @@ import (
 
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 func TestShowInterfaceCommand(t *testing.T) {
@@ -69,7 +71,7 @@ func TestRunningConfigOnly(t *testing.T) {
 	lines := []string{
 		fastiron.ShowInterfaceCommand("ethernet 1/1/1").Line,
 		fastiron.EnableCommand().Line,
-		fastiron.EnablePasswordCommand("secret").Line,
+		fastiron.EnablePasswordCommand(secret.NewString("swordfish")).Line,
 		fastiron.ConfigureTerminalCommand().Line,
 		fastiron.SelectInterfaceCommand("ethernet 1/1/1").Line,
 		fastiron.PortNameCommand("uplink to core").Line,

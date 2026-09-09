@@ -5,6 +5,7 @@ import (
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
@@ -25,8 +26,8 @@ type Adapter struct {
 	Session *ssh.Session
 	// EnablePassword is written, redacted, if Login's enable command is
 	// answered with the enable-password prompt instead of the privileged
-	// one. Empty means no password is expected.
-	EnablePassword string
+	// one. Unset means no password is expected.
+	EnablePassword secret.Value
 }
 
 // Login moves the session to privileged mode. It sends an empty line to

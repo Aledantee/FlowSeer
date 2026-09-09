@@ -166,7 +166,7 @@ func OpenShell(endpoint Endpoint) func(context.Context, *edgev1.DeviceCredential
 
 		session, err := ssh.Dial(ctx, endpoint.sshTarget(), ssh.Options{
 			Username:      shell.GetUsername(),
-			Password:      shell.GetPassword(),
+			Password:      secret.NewString(shell.GetPassword()),
 			HostKeySHA256: hostKeySHA256,
 		})
 		if err != nil {
@@ -174,7 +174,7 @@ func OpenShell(endpoint Endpoint) func(context.Context, *edgev1.DeviceCredential
 				Attr("target", endpoint.sshTarget()).Msg("open shell session")
 		}
 
-		adapter, err := access.NewFastIronShell(ctx, session, shell.GetEnablePassword())
+		adapter, err := access.NewFastIronShell(ctx, session, secret.NewString(shell.GetEnablePassword()))
 		if err != nil {
 			_ = session.Close()
 			return access.ShellSession{}, errs.From(err).Code(ErrCodeSession).

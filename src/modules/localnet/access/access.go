@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
@@ -83,8 +84,8 @@ type InterfaceShellAdapter = interfaces.ShellAdapter
 // facade is for preventing.
 //
 // enablePassword is written, redacted, only if the device answers the enable
-// command with a password prompt; empty means none is expected.
-func NewFastIronShell(ctx context.Context, session *ssh.Session, enablePassword string) (InterfaceShellAdapter, error) {
+// command with a password prompt; an unset value means none is expected.
+func NewFastIronShell(ctx context.Context, session *ssh.Session, enablePassword secret.Value) (InterfaceShellAdapter, error) {
 	adapter := &fastiron.Adapter{Session: session, EnablePassword: enablePassword}
 	if err := adapter.Login(ctx); err != nil {
 		return nil, err

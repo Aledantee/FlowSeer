@@ -19,6 +19,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -94,10 +95,12 @@ func Attach(ctx context.Context, client Attacher, cfg Config) (_ *Attachment, er
 	}
 
 	leaf, err := edgebus.StartLeaf(ctx, edgebus.LeafConfig{
-		StateDir:        cfg.StateDir,
-		EdgeID:          cfg.EdgeID,
-		HubURLs:         response.Msg.GetClusterUrls(),
-		CredentialsFile: response.Msg.GetUserCredential(),
+		StateDir: cfg.StateDir,
+		EdgeID:   cfg.EdgeID,
+		HubURLs:  response.Msg.GetClusterUrls(),
+		// Copied rather than adopted: the bytes belong to the response
+		// message, and a secret.Value takes ownership of what it is given.
+		CredentialsFile: secret.New(append([]byte(nil), response.Msg.GetUserCredential()...)),
 		TLS:             edgebus.PinnedTLSConfig(cfg.TrustAnchors),
 		// Periodic rather than per-message: this buffer is the edge's own
 		// observability, and a record lost to a power cut is a gap in

@@ -13,6 +13,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
 )
 
@@ -43,7 +44,11 @@ type LeafConfig struct {
 	// could render it again, and a round trip through a format nobody needs
 	// to reverse is a place for the two renderings to differ. An in-process
 	// caller holding EdgeCredentials calls CredsFile itself.
-	CredentialsFile []byte
+	//
+	// The bytes are the material rather than a path to it: a rendered
+	// .creds file carries the user's NKey seed, so this is a credential in
+	// hand and is carried as one.
+	CredentialsFile secret.Value
 	// TLS is the client configuration for a wss hub, normally
 	// PinnedTLSConfig with the edge's anchors. Nil dials plain ws.
 	TLS *tls.Config
@@ -104,11 +109,13 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	if err := os.MkdirAll(cfg.StateDir, 0o700); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("create leaf state directory")
 	}
-	if len(cfg.CredentialsFile) == 0 {
+	if cfg.CredentialsFile.Empty() {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs the credentials AttachBus returned")
 	}
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
-	if err := os.WriteFile(credsPath, cfg.CredentialsFile, 0o600); err != nil {
+	// Revealed here because this is where the material enters the file the
+	// NATS client reads; the mode is the protection from that point on.
+	if err := os.WriteFile(credsPath, cfg.CredentialsFile.Reveal(), 0o600); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("store hub credentials")
 	}
 	urls, err := parseURLs(cfg.HubURLs)

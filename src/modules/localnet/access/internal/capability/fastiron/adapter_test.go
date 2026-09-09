@@ -13,6 +13,8 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
+
+	"go.aledante.io/FlowSeer/src/common/secret"
 )
 
 // var _ interfaces.ShellAdapter = (*fastiron.Adapter)(nil) proves Adapter
@@ -73,7 +75,7 @@ func TestLogin_EnableWithPassword(t *testing.T) {
 		_, _ = ch.Write([]byte("\r\nSSH@device#"))
 	})
 
-	a := &fastiron.Adapter{Session: dialSession(t, fs), EnablePassword: "enablesecret"}
+	a := &fastiron.Adapter{Session: dialSession(t, fs), EnablePassword: secret.NewString("enablesecret")}
 	if err := a.Login(t.Context()); err != nil {
 		t.Fatalf("Login: %v", err)
 	}
