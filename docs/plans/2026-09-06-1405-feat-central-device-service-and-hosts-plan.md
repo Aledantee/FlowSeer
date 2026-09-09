@@ -1763,6 +1763,22 @@ the wrong place permanently, and a scope invented to close a review line
 outlives the review. The api/edge README now says plainly that the trail does
 not exist rather than claiming the action is audited.
 
+**A read's shell fallback is handed the read credential.** When the SNMP
+route fails and the interface read falls through to the shell, the lane opens
+that session with the credential it acquired for the read. For a device whose
+read credential is SNMP material — which is the ordinary case, since the
+identity probe acquires under the same handle — that is material an SSH login
+cannot use, so the fallback route cannot succeed for exactly the devices most
+likely to need it.
+
+It fails safely rather than doing anything unsafe, and it is reachable only
+after the SNMP read has already failed, which is why it is here rather than in
+a unit. Found while fixing the mutation observation's policy handle and
+deliberately not followed: a third defect found while fixing a second is a
+thing to write down, not to chase. What it needs is a decision about whether a
+policy names one credential per route or whether the fallback is only for
+devices whose read credential is a shell one.
+
 Carried out of U2 (edgebus), to log rather than lose:
 
 - A raw-frame security probe that constructs an actual JetStream

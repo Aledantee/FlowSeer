@@ -44,6 +44,10 @@ const (
 	// the registry names against what the session reports, so the two have
 	// to agree or onboarding fails on a check that is doing its job.
 	fixtureHostKey = "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
+	// fixtureHorizon is the device's measured delayed-apply horizon. A
+	// mutation on a device without one is refused outright, so this is not
+	// decoration: it is what makes the fixture's device mutable at all.
+	fixtureHorizon = 30 * time.Second
 )
 
 // freePort asks the kernel for a port and gives it straight back.

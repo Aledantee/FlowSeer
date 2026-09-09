@@ -40,6 +40,35 @@ type fakeDevice struct {
 	credentials int
 	// commands is one entry per description written, in order.
 	commands []string
+	// pinned, when non-empty, is what every read returns regardless of what
+	// the device now holds.
+	//
+	// This is the delayed-apply case the whole design is built around: the
+	// command lands, and a read taken afterwards still shows the old value
+	// because the change has not become visible yet. It is the state in which
+	// nobody can say whether a mutation took effect, which is the only state
+	// an operator has a reason to abandon one in.
+	//
+	// Blocking the read instead would not do: the lane takes a baseline read
+	// before it writes, so a held read stops the mutation before the command
+	// goes out and leaves the device untouched — a scenario in which a
+	// restore restores nothing and every assertion passes without exercising
+	// anything.
+	pinned string
+}
+
+// pinReads makes every read return description until unpinReads is called,
+// whatever the device actually holds.
+func (d *fakeDevice) pinReads(description string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.pinned = description
+}
+
+func (d *fakeDevice) unpinReads() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.pinned = ""
 }
 
 func newFakeDevice(description string) *fakeDevice {
@@ -83,7 +112,11 @@ type shellAdapter struct{ device *fakeDevice }
 func (a shellAdapter) ReadInterface(_ context.Context, _ string) (string, interfacev1.AdminStatus, interfacev1.OperStatus, error) {
 	a.device.mu.Lock()
 	defer a.device.mu.Unlock()
-	return a.device.description,
+	description := a.device.description
+	if a.device.pinned != "" {
+		description = a.device.pinned
+	}
+	return description,
 		interfacev1.AdminStatus_ADMIN_STATUS_UP,
 		interfacev1.OperStatus_OPER_STATUS_UP,
 		nil

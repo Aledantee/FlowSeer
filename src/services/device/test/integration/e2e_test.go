@@ -33,7 +33,7 @@ type deployment struct {
 // The restart in the middle is not ceremony. Central draws the edge
 // identifier itself and reads its registry once at start, so the registry
 // that lists a device to an edge cannot be written until the edge exists.
-func assemble(t *testing.T, horizon time.Duration) *deployment {
+func assemble(t *testing.T) *deployment {
 	t.Helper()
 	dir := t.TempDir()
 	writeCredentials(t, filepath.Join(dir, "credentials"))
@@ -41,7 +41,7 @@ func assemble(t *testing.T, horizon time.Duration) *deployment {
 	// A registry naming an edge that does not exist yet. Central serves no
 	// device from it, which is all this first start is for.
 	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"),
-		"0192e6a0-0000-7000-8000-00000000dead", horizon)
+		"0192e6a0-0000-7000-8000-00000000dead", fixtureHorizon)
 
 	c := newCentral(t, dir, registryPath)
 	c.start()
@@ -59,7 +59,7 @@ func assemble(t *testing.T, horizon time.Duration) *deployment {
 	// Rewritten and reread. The state directory is untouched, so the
 	// certificate, the JetStream store and the edge record all survive.
 	c.shutdown()
-	writeRegistry(t, registryPath, edgeID, horizon)
+	writeRegistry(t, registryPath, edgeID, fixtureHorizon)
 	c.start()
 
 	device := newFakeDevice("as found")
@@ -79,7 +79,7 @@ func assemble(t *testing.T, horizon time.Duration) *deployment {
 // which means it listed the device, resolved its endpoint, and acquired a
 // credential for the identity probe.
 func TestAnAgentOnboardsTheDeviceCentralListsForIt(t *testing.T) {
-	d := assemble(t, 30*time.Second)
+	d := assemble(t)
 
 	deadline := time.Now().Add(60 * time.Second)
 	for {
@@ -114,7 +114,7 @@ func TestAnAgentOnboardsTheDeviceCentralListsForIt(t *testing.T) {
 // that returned the right description with no provenance would be a read
 // central could not tell you the epoch of.
 func TestAnOperatorsReadReachesTheDeviceAndComesBack(t *testing.T) {
-	d := assemble(t, 30*time.Second)
+	d := assemble(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -186,7 +186,7 @@ func (d *deployment) waitForFingerprint(t *testing.T) string {
 // apply records one interface-description intent and returns the mutation as
 // admitted. key must be a UUID: the schema constrains the idempotency key to
 // one, so a readable string is refused before the handler sees it.
-func (d *deployment) apply(t *testing.T, key, description, fingerprint string, validateOnly bool) *accessv1.MutationState {
+func (d *deployment) apply(t *testing.T, key, description, fingerprint string) *accessv1.MutationState {
 	t.Helper()
 	intent := accessv1.MutationIntent_builder{
 		Device:         deviceRef(),
@@ -204,10 +204,10 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string, v
 
 	response, err := d.central.devices().ApplyInterfaceDescription(context.Background(),
 		connect.NewRequest(devicev1.ApplyInterfaceDescriptionRequest_builder{
-			Intent: intent, ValidateOnly: proto.Bool(validateOnly),
+			Intent: intent,
 		}.Build()))
 	if err != nil {
-		t.Fatalf("ApplyInterfaceDescription(%q, validate_only=%v): %v", description, validateOnly, err)
+		t.Fatalf("ApplyInterfaceDescription(%q): %v", description, err)
 	}
 	return response.Msg.GetMutation()
 }
@@ -216,7 +216,13 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string, v
 // returns the status it saw.
 func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessStatusResponse {
 	t.Helper()
-	deadline := time.Now().Add(20 * time.Second)
+	// Generous, and deliberately so: a mutation whose observation did not
+	// verify rests in recovery, and the lane's recovery poll runs on a
+	// thirty-second interval it does not shorten for anybody. A budget under
+	// that would report "never resolved" for a mutation that had simply not
+	// been looked at yet, which is a failure this build has already produced
+	// once by measuring a thirty-second loop over twenty seconds.
+	deadline := time.Now().Add(150 * time.Second)
 	var last *devicev1.GetDeviceAccessStatusResponse
 	for {
 		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
@@ -244,10 +250,10 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 // and the device's own state, which is what an operator and a switch would
 // each see.
 func TestAnAppliedDescriptionReachesTheDeviceAndComesBack(t *testing.T) {
-	d := assemble(t, 30*time.Second)
+	d := assemble(t)
 	fingerprint := d.waitForFingerprint(t)
 
-	d.apply(t, "0192e6a0-0000-7000-8000-0000000a0001", "uplink to core", fingerprint, false)
+	d.apply(t, "0192e6a0-0000-7000-8000-0000000a0001", "uplink to core", fingerprint)
 	status := d.waitUntilResolved(t)
 
 	description, _, hostKeys, commands, _ := d.device.snapshot()
@@ -282,5 +288,219 @@ func TestAnAppliedDescriptionReachesTheDeviceAndComesBack(t *testing.T) {
 	}
 	if got := rows[0].GetDescription(); got != "uplink to core" {
 		t.Errorf("the row carries the description %q, want %q", got, "uplink to core")
+	}
+}
+
+// abandon writes the terminal state on an open mutation, as an operator does
+// for an edge that is not coming back.
+func (d *deployment) abandon(t *testing.T, sequence uint64) {
+	t.Helper()
+	_, err := d.central.devices().AbandonMutation(context.Background(),
+		connect.NewRequest(devicev1.AbandonMutationRequest_builder{
+			Device:   deviceRef(),
+			Sequence: proto.Uint64(sequence),
+			Actor: accessv1.Actor_builder{
+				Operator: accessv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			}.Build(),
+		}.Build()))
+	if err != nil {
+		t.Fatalf("AbandonMutation(%d): %v", sequence, err)
+	}
+}
+
+// An abandoned mutation is resolved by restoring what central expected, and
+// the device ends holding it.
+//
+// The sequence is the one an operator actually meets: a change is applied and
+// verified, a second change is started and does not come back, the operator
+// abandons it rather than waiting, and then decides between the device's state
+// and central's. Restoring is the decision that puts the device back.
+//
+// The device is made to hide the change rather than to fail or to hang, and
+// the difference is the whole scenario. A write that fails leaves the device
+// unchanged and central able to dispose the mutation itself; a write that
+// hangs never reaches the device at all, since the lane takes its baseline
+// read first. A write that lands and is not yet visible to a read is the
+// delayed-apply case this system exists for, and the only one where nobody
+// can say what the device carries and an operator has a decision to make.
+func TestAnAbandonedMutationIsResolvedByRestoringWhatCentralExpected(t *testing.T) {
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+
+	d.apply(t, "0192e6a0-0000-7000-8000-0000000b0001", "uplink to core", fingerprint)
+	d.waitUntilResolved(t)
+
+	d.device.pinReads("uplink to core")
+	second := d.apply(t, "0192e6a0-0000-7000-8000-0000000b0002", "mistake", fingerprint)
+	if second.GetSequence() == 0 {
+		t.Fatal("the second mutation was admitted at no sequence")
+	}
+
+	// Waited for on two conditions, and the second is the one that matters.
+	//
+	// Central admits a mutation at its own sequence before the edge has seen
+	// it, so "the record's unresolved mutation is mine" is true immediately
+	// and says nothing about the edge. Abandoning there takes a different
+	// path on purpose: a Dispose of a mutation the edge never reported
+	// admitted closes the lane and owes a hold resolution, because there is
+	// nothing on the device to be unsure about. That is correct behavior and
+	// it is not this scenario — it leaves nothing to resolve, and a test that
+	// raced into it would be testing the wrong branch while looking like it
+	// tested this one.
+	//
+	// So: wait until the edge has reported the dispatch admitted, which moves
+	// the phase to POSSIBLY_APPLIED, and until the command has actually
+	// reached the device. Only then is the mutation one whose effect nobody
+	// can establish.
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		_, _, _, commands, _ := d.device.snapshot()
+		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+		if err == nil &&
+			status.Msg.GetUnresolved().GetSequence() == second.GetSequence() &&
+			status.Msg.GetUnresolved().GetPhase() == accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED &&
+			slices.Contains(commands, fixtureInterface+"=mistake") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the second mutation never reached the device with central holding it open (commands %q, error %v)",
+				commands, err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	d.abandon(t, second.GetSequence())
+	// The change becomes visible. From here a read tells the truth again,
+	// which is what lets the restore verify its own work.
+	d.device.unpinReads()
+
+	// The edge has to say how the mutation ended before an operator may
+	// decide what to do about it: central owes it a terminal acknowledgement
+	// for the abandoned sequence and refuses a resolution until that is
+	// confirmed. That is right — resolving against a mutation whose fate the
+	// edge has not accepted would be deciding without the fact the decision
+	// is about.
+	//
+	// Retried rather than waited on, because there is nothing to wait on.
+	// GetDeviceAccessStatus does not carry whether the terminal ack is still
+	// owed, so the only signal an operator has that it is safe to resolve is
+	// that the resolution stops being refused. That is worth knowing and is
+	// noted in the plan; it is not this test's subject.
+	restore := connect.NewRequest(devicev1.ResolveDesynchronizationRequest_builder{
+		Device:   deviceRef(),
+		Sequence: proto.Uint64(second.GetSequence()),
+		Actor: accessv1.Actor_builder{
+			Operator: accessv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+		}.Build(),
+		Restore: &devicev1.RestoreExpectedDecision{},
+	}.Build())
+
+	deadline = time.Now().Add(120 * time.Second)
+	var err error
+	for {
+		if _, err = d.central.devices().ResolveDesynchronization(context.Background(), restore); err == nil {
+			break
+		}
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Fatalf("ResolveDesynchronization(restore): %v", err)
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the restore was refused for two minutes; last refusal: %v", err)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	deadline = time.Now().Add(120 * time.Second)
+	for {
+		description, _, _, _, _ := d.device.snapshot()
+		if description == "uplink to core" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the device holds %q, want the restored %q", description, "uplink to core")
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	// The mistake has to have reached the device, or there was nothing to
+	// restore and this test proves nothing. Without this the device would
+	// already hold "uplink to core" from the first mutation and every
+	// assertion above would pass on a run where the second one never landed.
+	_, _, _, commands, _ := d.device.snapshot()
+	want := []string{
+		fixtureInterface + "=uplink to core",
+		fixtureInterface + "=mistake",
+		fixtureInterface + "=uplink to core",
+	}
+	if !slices.Equal(commands, want) {
+		t.Errorf("the device was asked to run %q, want %q", commands, want)
+	}
+
+	status := d.waitUntilResolved(t)
+	if status.GetUnresolved() != nil {
+		t.Errorf("the lane is still held by %v after the restore resolved", status.GetUnresolved())
+	}
+}
+
+// Central killed after the checkpoint and before the result, restarted, and
+// the mutation reaches the same outcome.
+//
+// The point is that the record is the only thing carrying the operation
+// across the gap. Central holds the mutation at POSSIBLY_APPLIED in its
+// journal, dies, comes back with the same state directory, and has to pick
+// the exchange up from what it wrote rather than from anything it remembered:
+// the edge is still holding the operation open and still owes a result.
+//
+// The device hides the change until after the restart so that the result
+// cannot have arrived before central went down. Without that the test would
+// race, and the run where it lost would be a run where nothing was killed
+// between anything.
+func TestAMutationSurvivesCentralRestartingUnderIt(t *testing.T) {
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+
+	d.device.pinReads("as found")
+	d.apply(t, "0192e6a0-0000-7000-8000-0000000c0001", "uplink to core", fingerprint)
+
+	// The command has reached the device and central has recorded that it
+	// may have applied, which is exactly the state the restart has to be
+	// survivable from.
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		_, _, _, commands, _ := d.device.snapshot()
+		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+		if err == nil &&
+			status.Msg.GetUnresolved().GetPhase() == accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED &&
+			slices.Contains(commands, fixtureInterface+"=uplink to core") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the mutation never reached the device with central holding it at POSSIBLY_APPLIED (commands %q, error %v)",
+				commands, err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	d.central.shutdown()
+	d.central.start()
+	d.device.unpinReads()
+
+	status := d.waitUntilResolved(t)
+
+	rows := status.GetInterfaces()
+	if len(rows) != 1 || rows[0].GetDescription() != "uplink to core" {
+		t.Errorf("after the restart central holds %v, want one row reading %q", rows, "uplink to core")
+	}
+	description, _, _, commands, _ := d.device.snapshot()
+	if description != "uplink to core" {
+		t.Errorf("the device holds %q, want %q", description, "uplink to core")
+	}
+	// One write, not two. A central that came back having forgotten the
+	// mutation would dispatch it again, and the device would show the command
+	// twice — which is the failure this scenario is really about.
+	if got := slices.Contains(commands, fixtureInterface+"=uplink to core"); !got || len(commands) != 1 {
+		t.Errorf("the device was asked to run %q, want exactly one description write", commands)
 	}
 }
