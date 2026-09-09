@@ -56,3 +56,23 @@ another worktree's golangci-lint was running. The step was followed as
 written; nothing in it says which tool to edit with.
 Suggested change: in step 2, say that edits go through the editor tools
 and that a Bash write to a source file costs a `--full` run at Finish.
+
+## 2026-09-09 verify-change: a new proto file fails the breaking gate
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`,
+the `proto` block.
+What happened: a targeted run over two newly added files under
+`spec/proto/flowseer/net/capture/v1/` failed with `Failure: no .proto files
+were targeted.` from `buf breaking --against '.git#branch=master' --path
+<file> --path <file>`. Both files are new on the branch, so neither exists in
+the baseline, and `--path` then selects nothing in the against-ref. The check
+has nothing to say about them either way: `buf.yaml` ignores the whole
+`spec/proto/flowseer` module for breaking until the first stable release.
+Two smaller edges in the same block: a directory argument is dropped, since
+the collector matches `*.proto` and tests `-f`, so `-- spec/proto/<pkg>` runs
+no schema gate at all and still reports "verification passed"; and the phase
+plan's own Verification line (`-- spec/proto docs CONCEPTS.md generated`) is
+written that way.
+Suggested change: skip `buf breaking` when every targeted path is absent from
+the against-ref, or drop `--path` for that one command and let `buf.yaml`'s
+ignore do the selecting. Separately, expand a directory argument to the
+`.proto` files under it, or fail loudly when a passed path selects no gate.
