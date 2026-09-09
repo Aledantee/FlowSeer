@@ -1838,6 +1838,47 @@ their file comments name the absent triads.
 - This plan's `status` set with an outcome note under its title.
 - No requirement or unit labels in code, comments, or commit messages.
 
+## What the assembled run caught
+
+U9 was one unit for an end-to-end test and two documents. It took six more,
+and the reason is worth recording for the next person deciding whether an
+assembled test earns its cost.
+
+Four of those were defects, and each lived in the space between two halves
+that were individually correct and separately tested. No unit test on either
+side could see any of them, because in each case the failure is only visible
+to something that holds both ends at once.
+
+- **A mutation applied to the device and was never verified.** One `Read`
+  closure served every operation and took its access-policy handle from the
+  request's read arm, which a mutation request does not have. Central refused
+  the credential acquisition, nothing was ever observed, and the lane rested
+  `INDETERMINATE`. On the lab switch this would have been an interface changed
+  on real hardware with the system unable to say whether it had changed — and
+  `validate_only` would not have caught it, since nothing is dispatched on
+  that path. The module's own fixtures had been building requests with no
+  access policy at all, which is how it survived every test on both sides.
+- **Nothing ever sent an `Onboarded` report.** Central's handler was
+  complete, the edge's queue classified the kind and exempted it from
+  eviction, and no code built one. Central learned a device's epoch only from
+  a read's provenance, so an operator's first change to a freshly onboarded
+  device was impossible for a reason nothing surfaced; and requirement 3's
+  edge-restart recovery had no trigger at all.
+- **Recovery looked once.** The poll interval was a flat thirty seconds and
+  the budget is the horizon plus one interval, so a device whose measured
+  horizon was near thirty seconds got exactly one attempt — and a switch whose
+  true horizon is seconds would have got one or none. One unlucky moment then
+  costs the whole budget.
+- **The API listener could not report the port it bound**, while the schema
+  documented port 0 as supported.
+
+The other two were seams the assembled run needed and nothing else had asked
+for: the agent's device-transport and clock substitution, and the hub the host
+started. Both are defensible without reference to any test, and both were
+written that way.
+
+Two of the four defects would have reached the switch. That is the argument.
+
 ## Follow-ups
 
 **Authorization for the operator and admin surfaces (OpenFGA).** `DeviceService`

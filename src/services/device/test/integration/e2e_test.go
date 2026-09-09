@@ -197,7 +197,19 @@ func (d *deployment) waitForFingerprint(t *testing.T) string {
 // one, so a readable string is refused before the handler sees it.
 func (d *deployment) apply(t *testing.T, key, description, fingerprint string) *accessv1.MutationState {
 	t.Helper()
-	intent := accessv1.MutationIntent_builder{
+	response, err := d.central.devices().ApplyInterfaceDescription(context.Background(),
+		connect.NewRequest(devicev1.ApplyInterfaceDescriptionRequest_builder{
+			Intent: d.intent(key, description, fingerprint),
+		}.Build()))
+	if err != nil {
+		t.Fatalf("ApplyInterfaceDescription(%q): %v", description, err)
+	}
+	return response.Msg.GetMutation()
+}
+
+// intent is the one an operator sends, dry run or not.
+func (d *deployment) intent(key, description, fingerprint string) *accessv1.MutationIntent {
+	return accessv1.MutationIntent_builder{
 		Device:         deviceRef(),
 		IdempotencyKey: proto.String(key),
 		Actor: accessv1.Actor_builder{
@@ -210,15 +222,21 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string) *
 			Description:   proto.String(description),
 		}.Build(),
 	}.Build()
+}
 
+// validate sends the same intent apply does with validate_only set, and
+// returns the response. Central checks the intent and records nothing.
+func (d *deployment) validate(t *testing.T, key, description, fingerprint string) *devicev1.ApplyInterfaceDescriptionResponse {
+	t.Helper()
 	response, err := d.central.devices().ApplyInterfaceDescription(context.Background(),
 		connect.NewRequest(devicev1.ApplyInterfaceDescriptionRequest_builder{
-			Intent: intent,
+			Intent:       d.intent(key, description, fingerprint),
+			ValidateOnly: proto.Bool(true),
 		}.Build()))
 	if err != nil {
-		t.Fatalf("ApplyInterfaceDescription(%q): %v", description, err)
+		t.Fatalf("ApplyInterfaceDescription(%q, validate_only): %v", description, err)
 	}
-	return response.Msg.GetMutation()
+	return response.Msg
 }
 
 // waitUntilResolved blocks until the lane holds no unresolved mutation, and
@@ -725,5 +743,63 @@ func TestTheAuditStreamAccountsForTheChangeInOrder(t *testing.T) {
 			}
 			releasedAt[seq] = i
 		}
+	}
+}
+
+// The dry run checks the intent and touches nothing.
+//
+// This is the last thing an operator does before the irreversible step, and
+// until now no assembled test had walked it. Every unit test on both sides
+// passes whether or not a validate_only intent is dispatched, because neither
+// side can see the other: central's handler returning early and the edge
+// never being asked look identical from inside either one. If it did
+// dispatch, the dry run would be the write — an operator would take the step
+// they took specifically to avoid taking.
+//
+// What it asserts is the absence of an effect, which needs care, because
+// absence is also what you get from a test that did nothing. So the dry run
+// is followed by a real apply of the same description, and the device's
+// command log is asserted to hold exactly one write. One entry means the dry
+// run added none and the machinery was working; zero would mean the apply
+// never happened either and the whole test proved nothing.
+func TestADryRunChecksTheIntentAndTouchesNothing(t *testing.T) {
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+
+	before, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+		connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+	if err != nil {
+		t.Fatalf("GetDeviceAccessStatus before the dry run: %v", err)
+	}
+
+	dryResponse := d.validate(t, "0192e6a0-0000-7000-8000-0000000aa001", "uplink to core", fingerprint)
+
+	// The response says nothing was admitted, which is the schema's rule:
+	// the mutation is unset exactly when the request set validate_only.
+	if dryResponse.GetMutation() != nil {
+		t.Errorf("the dry run returned mutation %v, want none — it was not supposed to admit anything", dryResponse.GetMutation())
+	}
+
+	after, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+		connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+	if err != nil {
+		t.Fatalf("GetDeviceAccessStatus after the dry run: %v", err)
+	}
+	if got, want := after.Msg.GetHighWatermark(), before.Msg.GetHighWatermark(); got != want {
+		t.Errorf("the dry run moved the high watermark from %d to %d; it consumed a sequence for an intent it did not record", want, got)
+	}
+	if after.Msg.GetUnresolved() != nil {
+		t.Errorf("the dry run left %v holding the lane", after.Msg.GetUnresolved())
+	}
+
+	// Then the real one, and the device's whole command log.
+	d.apply(t, "0192e6a0-0000-7000-8000-0000000aa002", "uplink to core", fingerprint)
+	d.waitUntilResolved(t)
+
+	_, _, _, commands, _ := d.device.snapshot()
+	want := []string{fixtureInterface + "=uplink to core"}
+	if !slices.Equal(commands, want) {
+		t.Errorf("the device was asked to run %q, want %q — a dry run that reached the device is a dry run that was the write",
+			commands, want)
 	}
 }
