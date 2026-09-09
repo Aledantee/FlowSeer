@@ -201,14 +201,48 @@ fails earlier, at credential mapping, with a message that reads as central
 having failed to fill in a field. An operator meeting that will go looking at
 central and find nothing wrong with it.
 
-Confirm it while the switch is still off and the configuration is whatever it
-was left as. It is the one precondition that is cheaper to check than to
-diagnose.
+**On this switch, in September 2026, it failed.** There was no SNMPv3 user at
+all — the running configuration carried a read-only community and nothing
+else, and an authPriv read answered `Unknown user name`. FlowSeer has no
+community path, so the device could not be read by it in any way.
+
+Check it, at the switch:
+
+```cli
+show running-config | include snmp-server
+```
+
+**Fixing it is itself a live write, and it is not covered by the approval in
+step 9.** Creating an SNMPv3 user changes the switch's configuration; that
+approval is for one interface description. If the check fails, stop and get
+the second change approved on its own terms before making it. What it takes is
+a group and a user:
+
+```cli
+configure terminal
+snmp-server group flowseer-ro v3 priv read all
+snmp-server user <name> flowseer-ro v3 auth sha <passphrase> priv aes <passphrase>
+end
+```
+
+Running configuration only, so it reverts on reload — the same property the
+description change has. Confirm it by making an authPriv read that succeeds,
+not by the absence of an error.
 
 ## Step 2: measure the delayed-apply horizon, and know what the number buys
 
-Set one interface description by hand, then read it back repeatedly until it
-appears. The longest gap you see is the horizon.
+**Measure it on the path the system reads, which is SNMP.** Set a description
+by hand and then poll `ifAlias` for that interface over SNMPv3 — not `show
+interfaces`. The CLI shows a change immediately because the CLI is what made
+it; the edge reads `1.3.6.1.2.1.31.1.1.1.18.<ifIndex>`, and on this switch
+`ethernet 1/1/N` is ifIndex N. Measuring over the CLI measures the wrong
+thing and gives a number smaller than the truth.
+
+**Measure it on a different interface from the one you are going to change**,
+or you will overwrite the value step 3 records before you record it.
+
+On this switch the answer was **0.13 seconds**, and that is dominated by the
+SNMP round trip, so the true figure is smaller.
 
 **The number decides more than its name says.** `delayed_apply_horizon` is
 documented as the longest a mutation may take to become visible, and it also
@@ -223,21 +257,48 @@ looks inside two seconds means the first live write gets its whole recovery
 budget inside one distracted moment, and a brief blip while it runs ends with
 the interface changed and the lane held for a person.
 
-For this run, measure the true value, record it, and set the registry's
-horizon to the measured value **or thirty seconds, whichever is larger**.
-Write both numbers down: the measurement is what the lab is for, and the
-configured value is what the run needs. They should stop being one field, and
-the plan carries that as a follow-up.
+For this run, record the measurement and set the registry's horizon to it **or
+thirty seconds, whichever is larger**. On this switch that is not a hedge: an
+honest 0.13 floors the poll interval at two seconds and buys the first live
+write about one recovery attempt, where thirty buys six. Write both numbers
+down — the measurement is what the lab is for, the configured value is what
+the run needs, and they should stop being one field. The plan carries that as
+a follow-up.
+
+## Step 2a: confirm the firmware the adapter was written for
+
+The shell adapter is a set of authored patterns — prompts, and the marker the
+pager prints — rather than captures from a device. A firmware whose prompts
+differ does not fail cleanly: the adapter waits for a prompt that never comes
+and the command times out **inside configuration mode**, which presents as a
+mutation whose effect nobody can establish.
+
+```cli
+show version | include SW: Version
+```
+
+This switch runs **10.0.10g_cd10T213**, and the adapter documents 10.0.10g.
+All four of its prompt patterns and its pager marker were checked against this
+device and match byte for byte. A materially different version is a reason to
+stop and check the patterns, not to proceed and find out.
 
 ## Step 3: record the interface's current description
 
 Read the interface you are about to change and write down exactly what it
-says, character for character, including an empty description.
+says, character for character.
 
-This is the restore value. Do not skip it because the description "looks
-empty" — an empty description and a description of one space are different
-states, and the command that clears one is not the command that sets the
-other.
+This is the restore value. **On this switch it is empty** — `ethernet 1/1/1`
+has no description and `ifAlias.1` is blank — and empty is a value like any
+other, restored with `no port-name` rather than with `port-name ""`. An empty
+description and a description of one space are different states, and the
+command that clears one is not the command that sets the other, so read it
+rather than assuming which you have:
+
+```cli
+show running-config interface ethernet 1/1/1
+```
+
+No `port-name` line in the output means no description.
 
 ## Step 4: prove the restore path before making the change
 
@@ -252,13 +313,20 @@ At the switch:
 ```cli
 configure terminal
 interface ethernet 1/1/1
-port-name <the value you recorded>
+no port-name
 end
 ```
 
-`no port-name` clears it instead, because the syntax has no way to set an
-empty name — so an interface whose description was empty is restored with
-that rather than with `port-name ""`.
+That is the restore for an interface whose description was empty, which is
+this one. For any other recorded value the third line is
+`port-name <the value you recorded>`; the syntax has no way to set an empty
+name, which is why the empty case has its own command rather than a quoted
+nothing.
+
+**Leave the session cleanly, with `exit`.** FastIron caps concurrent SSH
+sessions, and one that was not closed makes the next login fail with
+`Permission denied` — which reads as a wrong password and is not one. That
+costs more time to diagnose than it does to avoid.
 
 ## Step 5: state the blast radius, out loud, in writing
 
@@ -268,6 +336,15 @@ Before anything is dispatched, write down:
 - **The state before:** the description recorded in step 3.
 - **The state after:** the description the intent carries.
 - **How to undo it:** the `cli` block in step 4, with the value from step 3.
+
+**The system may issue the write more than once, without being asked.** If
+the first attempt cannot be confirmed, recovery polls the device — and on two
+corroborating observations that still show the old value, or a positive fence,
+it re-sends `port-name`. So the blast radius is not "one command"; it is "this
+description, applied possibly more than once, within the horizon". Every
+attempt sets the same value, so the end state is the same, but an operator
+watching the switch will see it happen again and should not read that as
+something having gone wrong.
 
 **Running configuration only.** The capability enters configuration mode,
 selects the interface, sets the description and leaves; it never writes
@@ -406,20 +483,75 @@ number from a desk, and this is the only run that will have the measurement.
 
 ## If it does not resolve
 
-The mutation resting at `POSSIBLY_APPLIED` with `INDETERMINATE` means the
-edge could not establish the effect within the horizon. The change may have
-applied. Read the interface by hand before deciding anything.
+First, read what state it is in, because two of them look alike and want
+opposite things.
 
-Then `AbandonMutation` for the sequence, and `ResolveDesynchronization` with
-`restore` to put back the value from step 3, or `accept` if the hand read
-shows the change did apply and you want central to adopt it.
+**Disposed rejected, lane closed.** The edge could prove the command never
+reached the device — a wrong interface name is the usual cause, and the
+likeliest failure of a first write, since nothing checks `managed_interfaces`
+against the switch until the write is attempted. Nothing happened to the
+device. Fix the name and send the intent again with a new idempotency key.
 
-**Central refuses the resolution until the edge acknowledges the
-abandonment**, and nothing tells you when that has happened —
-`GetDeviceAccessStatus` does not carry whether the acknowledgement is still
-owed. The only signal is that the call stops being refused, so retry it. That
-gap is recorded as a follow-up; until it closes, retrying is the procedure
-rather than a workaround.
+**Resting at `POSSIBLY_APPLIED` with `INDETERMINATE`.** The command may have
+been applied and the edge could not establish whether it was, and its budget
+has run out. **Read the interface by hand before deciding anything** — the
+switch is the only thing that knows:
+
+```cli
+show running-config interface ethernet 1/1/1
+```
+
+Then end the mutation and say what should stand in its place. Abandoning is
+first, and it needs the sequence from the apply's answer:
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\",
+    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}}}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/AbandonMutation"
+```
+
+**Then resolve it with `replace`, and not with `restore` or `accept`.** This
+is the part that is easy to get wrong, because the other two arms sound like
+what you want and will refuse you:
+
+- `restore` puts back what central expected. On a first write central expects
+  nothing — an expectation is only recorded when a mutation verifies — so
+  there is nothing to restore to and it refuses.
+- `accept` adopts what the device carries. Central retains observations only
+  for interfaces it already has an expectation for, so there is nothing to
+  accept either. A read you did by hand at the switch is not an observation
+  central holds.
+- `replace` supersedes the interrupted mutation with a new intent, which is
+  the whole of what you need: put the value you want — the one from step 3 if
+  you are undoing, the intended one if you are going on.
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\",
+    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
+    \"replace\":{
+      \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
+      \"idempotencyKey\":\"$(uuidgen | tr 'A-Z' 'a-z')\",
+      \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
+      \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
+      \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
+      \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"\"}
+    }}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/ResolveDesynchronization"
+```
+
+**Central refuses a resolution until the edge has acknowledged the
+abandonment, and nothing tells you when that is.** The status call does not
+carry whether the acknowledgement is still owed, so the only signal is that
+this call stops being refused — retry it. That is a gap and it is recorded as
+one.
+
+Two refusals to tell apart while you retry, because one goes away and one does
+not. *"The edge has not yet acknowledged how this mutation ended"* is the one
+to retry. *"There is nothing recorded for this interface to resolve against"*
+is `restore` or `accept` telling you they cannot work here, and retrying it
+will never help.
 
 ## Afterwards
 

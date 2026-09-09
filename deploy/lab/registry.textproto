@@ -24,13 +24,14 @@ devices {
   binding { binding { id: "0192e6a0-0000-7000-8000-0000000000b1" } }
   ip { v4 { octets: "\254\020\000\006" } }  # 172.16.0.6
 
-  # Measured on the switch, per the runbook's step 2 — and read that step
-  # before choosing it. This number is documented as the longest a mutation
-  # may take to become visible, and it also decides how long the edge keeps
-  # looking before an unconfirmed change becomes a person's problem, and how
-  # many times it looks. Thirty seconds is a floor for the lab run rather than
-  # a measurement: a horizon measured honestly as two seconds would give the
-  # first live write its entire recovery budget inside one distracted moment.
+  # Measured at 0.13s on this switch, on the SNMP ifAlias path the system
+  # actually reads — and dominated by the round trip, so the true value is
+  # smaller still. Thirty seconds is configured anyway, and the gap is the
+  # point: this number is documented as the longest a mutation may take to
+  # become visible, and it also sizes recovery's budget and, through the
+  # derived poll interval, how many times recovery looks. The honest 0.13
+  # floors the interval at two seconds and buys about one attempt; thirty buys
+  # six. See the runbook's step 2.
   delayed_apply_horizon { seconds: 30 }
 
   # The one interface this run touches. Spelled as the device spells it.
@@ -53,9 +54,15 @@ policies {
   submission_credential { key: "icx7150-lab-ssh" version: 1 }
   host_trust { key: "icx7150-lab-hostkey" version: 1 }
 
-  # The switch's SSH host key, as ssh-keygen and the Go ssh package spell it:
-  # "SHA256:" then 43 unpadded base64 characters. Take it from the device
-  # before the run; the digest below is of the empty input and is here to be
-  # replaced, not to be trusted.
-  ssh_host_key_sha256: "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU"
+  # This switch's ECDSA host key, read from the device on 2026-09-09.
+  #
+  # Which key matters. The ICX7150 offers RSA and ECDSA and no ed25519, and Go
+  # prefers ed25519, then ECDSA, then RSA — so it negotiates ECDSA and this is
+  # the digest it will be shown. Pinning the RSA one instead is a pin that
+  # never matches, and it fails at the moment the mutation opens its shell,
+  # which is the irreversible step.
+  #
+  # Not a secret: a host key fingerprint is the public half, and publishing it
+  # is what pinning is for.
+  ssh_host_key_sha256: "SHA256:xZ3j9T0/Sc9yoSN+m1gT0aVgJoGWCnOfWulHhtr4b6A"
 }

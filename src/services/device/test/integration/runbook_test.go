@@ -1,12 +1,18 @@
 package integration_test
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	connect "connectrpc.com/connect"
+
+	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
+	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/access/v1"
 )
 
 // runbookPath is the document under test. It is read rather than duplicated:
@@ -153,12 +159,12 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 	script.WriteString("export POLICY_KEY=" + shellQuote(fixturePolicyKey) + "\n")
 	script.WriteString("export POLICY_VERSION=1\n")
 
-	// From the first step onward. The section before it brings a deployment
-	// up by starting the binaries, which is the bootstrap test's subject and
-	// needs a deployment that does not exist yet — this test talks to one
-	// that is already running. Between them the two cover every runnable
-	// block in the document.
-	script.WriteString(runbookSection(t, "## Step 0", ""))
+	// The steps, and only the steps. The section before them starts the
+	// binaries, which is the bootstrap test's subject; the section after them
+	// is what an operator does when a mutation does not resolve, which needs
+	// a mutation that has not resolved and has its own test below. Between
+	// the three, every runnable block in the document is executed.
+	script.WriteString(runbookSection(t, "## Step 0", "## If it does not resolve"))
 
 	ctxTimeout := 120 * time.Second
 	cmd := exec.Command("sh", "-c", script.String())
@@ -185,4 +191,117 @@ func TestTheRunbooksCommandsRun(t *testing.T) {
 // shellQuote renders s as a single-quoted shell word.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// The recovery steps run too, against a mutation that is actually stuck.
+//
+// They are the part of the document an operator reaches on their worst day,
+// and until now the least likely to have been tried: they only make sense
+// against a state that does not arise unless something has gone wrong. A cold
+// read found that two of the three arms this section could have named cannot
+// work on a first write at all — `restore` needs an expectation only a
+// verified mutation writes, `accept` needs an observation only a managed
+// interface retains — so the document names `replace`, and this is what
+// checks that the one it names is the one that works.
+//
+// The device is made to hide the change, which is what leaves a mutation
+// nobody can establish the effect of. The mutation is then abandoned and
+// replaced exactly as the document says.
+func TestTheRunbooksRecoveryStepsRun(t *testing.T) {
+	if _, err := exec.LookPath("buf"); err != nil {
+		t.Skipf("buf is not on PATH: %v", err)
+	}
+
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+
+	d.device.pinReads("as found")
+	mutation := d.apply(t, "0192e6a0-0000-7000-8000-0000000ac001", "uplink to core", fingerprint)
+
+	// Waited for, because abandoning a mutation the edge has not admitted
+	// takes a different path: central closes the lane itself and there is
+	// nothing left to resolve, which is correct behavior and not this
+	// section's subject.
+	deadline := time.Now().Add(60 * time.Second)
+	for {
+		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+		if err == nil && status.Msg.GetUnresolved().GetPhase() == accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the mutation never reached the state these steps are for (error %v)", err)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	d.device.unpinReads()
+
+	absRepo, err := filepath.Abs(repoRoot)
+	if err != nil {
+		t.Fatalf("resolve the repository root: %v", err)
+	}
+
+	var script strings.Builder
+	script.WriteString("set -eu\n")
+	script.WriteString("export FLOWSEER_REPO=" + shellQuote(absRepo) + "\n")
+	script.WriteString("export CENTRAL=" + shellQuote(d.central.baseURL()) + "\n")
+	script.WriteString("export CACERT=" + shellQuote(filepath.Join(d.dir, "central-state", "tls.crt")) + "\n")
+	script.WriteString("export DEVICE_ID=" + shellQuote(fixtureDeviceID) + "\n")
+	script.WriteString("export INTERFACE=" + shellQuote(fixtureInterface) + "\n")
+	script.WriteString("export OPERATOR=e2e-operator\n")
+	script.WriteString("export POLICY_KEY=" + shellQuote(fixturePolicyKey) + "\n")
+	script.WriteString("export POLICY_VERSION=1\n")
+	script.WriteString("export FINGERPRINT=" + shellQuote(fingerprint) + "\n")
+	script.WriteString("export SEQUENCE=" + shellQuote(uintToString(mutation.GetSequence())) + "\n")
+	// The document says to retry the resolution until it stops being refused,
+	// because nothing reports when the edge has acknowledged the abandonment.
+	// Running it once would be running something no operator would.
+	script.WriteString("retry() { for _ in $(seq 1 100); do if \"$@\"; then return 0; fi; sleep 0.5; done; return 1; }\n")
+	script.WriteString(retryWrap(t, runbookSection(t, "## If it does not resolve", "## Afterwards")))
+
+	out, err := runScript(t, script.String(), 180*time.Second)
+	if err != nil {
+		t.Fatalf("a recovery command the runbook prints failed: %v\n%s", err, out)
+	}
+	t.Logf("the runbook's recovery steps ran:\n%s", out)
+}
+
+// retryWrap puts every call in the recovery section behind the retry the
+// document tells an operator to do, because central refuses a resolution
+// until the edge has acknowledged the abandonment and nothing reports when
+// that has happened.
+//
+// It matches on the start of a command rather than on the text of one. An
+// exact-string wrapper is the kind that stops matching when the document is
+// reflowed and then silently wraps nothing — the test would keep passing and
+// would have quietly stopped doing the retry an operator is told to do, which
+// is a smaller version of the extraction problem this file already guards
+// against. So the wrapping is asserted by the caller instead.
+func retryWrap(t *testing.T, script string) string {
+	t.Helper()
+	var out strings.Builder
+	wrapped := 0
+	for _, line := range strings.Split(script, "\n") {
+		if strings.HasPrefix(line, "buf curl ") {
+			out.WriteString("retry ")
+			wrapped++
+		}
+		out.WriteString(line + "\n")
+	}
+	if wrapped == 0 {
+		t.Fatal("no command in the recovery section was wrapped in a retry; the section's calls have moved or its formatting has")
+	}
+	return out.String()
+}
+
+func uintToString(n uint64) string {
+	if n == 0 {
+		return "0"
+	}
+	var d []byte
+	for n > 0 {
+		d = append([]byte{byte('0' + n%10)}, d...)
+		n /= 10
+	}
+	return string(d)
 }
