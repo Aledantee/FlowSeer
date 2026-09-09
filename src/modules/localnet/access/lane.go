@@ -116,7 +116,7 @@ type Config struct {
 	RecoveryMinGap time.Duration
 	// RecoveryPollInterval spaces one mutation's recovery polls. Zero means
 	// derive it from the device's own horizon, per
-	// [recoveryAttempts] — which is what a deployment should normally
+	// [minRecoveryAttempts] — which is what a deployment should normally
 	// leave it at, since the horizon is the only thing that knows how long
 	// this device takes to show a change.
 	//
@@ -404,8 +404,15 @@ func (l *Lane) Close(_ context.Context) (ShutdownReport, error) {
 // Config.OperationTimeout is unset.
 const defaultOperationTimeout = 30 * time.Second
 
-// recoveryAttempts is how many times recovery looks at a device before its
-// budget runs out, and it is the quantity being chosen here.
+// minRecoveryAttempts is the fewest times recovery looks at a device before
+// its budget runs out, and it is the quantity being chosen here.
+//
+// A minimum rather than the count, and the name says so because the cap below
+// raises it: a horizon long enough for the fraction to exceed
+// [maxRecoveryPollInterval] gets more looks than this, not longer gaps. An
+// exact count for every horizon would mean the interval scaling without
+// bound, which is the thing the cap exists to prevent, so the floor is the
+// honest shape and the assertion on it is "at least this many".
 //
 // The interval used to be a flat 30s, which made the attempt count an
 // accident of two unrelated numbers: a mutation gets one attempt per interval
@@ -417,10 +424,10 @@ const defaultOperationTimeout = 30 * time.Second
 // Nothing about "the longest a mutation may take to become visible" implies
 // "look once".
 //
-// So the interval is derived and the count is fixed. Six is enough that one
-// bad attempt is not the whole budget and small enough that a device with a
-// long horizon is not polled needlessly.
-const recoveryAttempts = 6
+// So the interval is derived from the horizon and this is what gets chosen.
+// Six is enough that one bad attempt is not the whole budget, and the cap
+// keeps a long horizon from turning that into six long silences.
+const minRecoveryAttempts = 6
 
 // minRecoveryPollInterval floors the derived interval. A device with a
 // sub-second horizon would otherwise be polled as fast as the loop can run,
@@ -434,14 +441,14 @@ const minRecoveryPollInterval = 2 * time.Second
 // go unnoticed for nine more — the horizon says how long an answer may take
 // to appear, not how long to wait between looks. Capping it means a slow
 // device is resolved promptly once it does apply, and buys the same device
-// far more than [recoveryAttempts] looks, which is the right direction to err
+// far more than [minRecoveryAttempts] looks, which is the right direction to err
 // in: the cost of an extra poll is one read, and the cost of missing the
 // window is a lane held for a person.
 const maxRecoveryPollInterval = 30 * time.Second
 
 // recoveryPollInterval is how long to wait between looks at a device whose
 // mutation is in recovery: what the deployment set, or the horizon split
-// [recoveryAttempts] ways and floored.
+// [minRecoveryAttempts] ways, floored and capped.
 //
 // A horizon of zero cannot reach here — a mutation on a device with no
 // measured horizon is refused before it is admitted — but it is handled
@@ -450,7 +457,7 @@ func (l *Lane) recoveryPollInterval(horizon time.Duration) time.Duration {
 	if l.cfg.RecoveryPollInterval > 0 {
 		return l.cfg.RecoveryPollInterval
 	}
-	interval := horizon / recoveryAttempts
+	interval := horizon / minRecoveryAttempts
 	if interval < minRecoveryPollInterval {
 		return minRecoveryPollInterval
 	}

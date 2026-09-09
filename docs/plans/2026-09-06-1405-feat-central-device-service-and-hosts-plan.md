@@ -1637,6 +1637,30 @@ lets no package import both hosts: `src/edge/agent/internal/host` becomes
 `src/edge/agent/host`, chosen over exporting central's host because the
 agent's exported surface is `Config`, `LoadConfig` and `Run` and central's
 is fourteen accessors, certificates, intervals and two interceptors.
+**What the horizon buys, which the runbook has to say.** The number an
+operator measures for `delayed_apply_horizon` is documented as one thing —
+the longest a mutation may take to become visible — and now decides two
+others. It sizes recovery's budget, so it is how long the system keeps
+looking before the write becomes a person's problem; and through the derived
+poll interval it sets how many times it looks, at least six and more for a
+horizon past three minutes.
+
+An operator measuring the ICX7150 on a fixture will read the field's
+documentation, measure honestly, and not know they are also choosing how many
+chances the first live write has to be confirmed. If the switch's true
+horizon is a few seconds, a few seconds is the correct answer to the question
+the field asks and a poor answer to the question it also decides: the write
+gets its looks inside a window shorter than one distracted moment, and a
+central restart or a brief unreachability inside it ends with the interface
+changed and the lane held.
+
+So the runbook says what the number buys rather than only how to measure it,
+and the lab registry's horizon is chosen with the second question in view.
+The honest fix is for the two to stop being one field, which is out of scope
+here and belongs with the blind-attempt follow-up below — an attempt that
+could not look spends the same budget, and both are the horizon being asked to
+mean more than it says.
+
 Tests: requirement 10.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- $(git ls-files -co --exclude-standard 'src/services/device/test/integration/**' 'docs/runbooks/**' 'deploy/lab/**')`
 
