@@ -75,11 +75,21 @@ func (q *Queue) drain(ctx context.Context) {
 			// reach a central that is refusing this one, and a queue that
 			// gave up on the first error would hold everything hostage to the
 			// oldest problem.
-			q.log.DebugContext(ctx, "report not accepted; keeping it",
+			attrs := []slog.Attr{
 				slog.String("flowseer.device.id", k.device),
 				slog.Uint64("flowseer.device.sequence", k.sequence),
 				slog.String("flowseer.edge.report.kind", k.kind),
-				slog.Any("error", err))
+				slog.Any("error", err),
+			}
+			code := connect.CodeOf(err)
+			if code == connect.CodePermissionDenied || code == connect.CodeInvalidArgument {
+				// Do not drop or confirm a refusal: central still lacks the report,
+				// and releasing the registry could let a mutation run twice.
+				attrs = append(attrs, slog.String("error.type", code.String()))
+				q.log.LogAttrs(ctx, slog.LevelError, "report permanently refused; keeping it", attrs...)
+			} else {
+				q.log.LogAttrs(ctx, slog.LevelDebug, "report not accepted; keeping it", attrs...)
+			}
 			continue
 		}
 
