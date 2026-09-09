@@ -51,10 +51,10 @@ spec/proto/flowseer/
     phy/v1/             Ethernet settings, capabilities, active facts, MAU, counters, transport arms, pluggable module, PoE
     switching/v1/       VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
     ip/v1/              IpFacet, InterfaceAddress, NeighborEntry
+    capture/v1/         LinkType, CaptureCounters, CaptureFilter, mirror encapsulation, PacketRecord
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
-    capture/v1/         LinkType, CaptureCounters, CaptureFilter, mirror encapsulation, PacketRecord
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
