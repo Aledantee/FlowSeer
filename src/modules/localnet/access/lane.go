@@ -83,7 +83,11 @@ var (
 type Reporter interface {
 	// Reported carries one ExecuteResult: a progress report at admission
 	// and on entering recovery, an observation for a read or a verified
-	// mutation, an error, or a terminal phase.
+	// mutation, an error, or a terminal phase. An error after the device
+	// command was sent carries submitted true when the lane could not make
+	// its first recovery transition durable; the receiver must preserve the
+	// mutation as indeterminate rather than treating the error as proof that
+	// nothing happened.
 	Reported(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult)
 	// CheckpointAcked carries the acknowledgement of central's
 	// CheckpointRequest.

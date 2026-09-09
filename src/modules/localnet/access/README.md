@@ -199,7 +199,7 @@ recorded from production code today, around `Lane.process`;
 
 | Metric | Unit | Attributes | Allowed values | Worst-case series per device |
 | --- | --- | --- | --- | --- |
-| `flowseer.device.operation.duration` (histogram) | `s` | `flowseer.device.operation`, `error.type` | operation: `interface_description`, `interface_read` (closed set, grows with each new capability). `error.type`: present only on a failed operation, a bounded classified string (e.g. `mutation/out-of-order`, `mutation/revoked`, `mutation/firmware-epoch`, `mutation/conflicting-reads`, `context.deadline_exceeded`, `context.canceled`) — one series per operation class times one series per distinct failure class, plus one success series per operation class. | 2 operation classes × (1 success + ~6 known failure classes) = 14 |
+| `flowseer.device.operation.duration` (histogram) | `s` | `flowseer.device.operation`, `error.type` | operation: `interface_description`, `interface_read` (closed set, grows with each new capability). `error.type`: present only on a failed operation, a bounded classified string (e.g. `mutation/out-of-order`, `mutation/revoked`, `mutation/firmware-epoch`, `context.deadline_exceeded`, `context.canceled`) — one series per operation class times one series per distinct failure class, plus one success series per operation class. | 2 operation classes × (1 success + ~5 known failure classes) = 12 |
 | `flowseer.device.route.selections` (counter, not yet emitted) | `{selection}` | `flowseer.device.route`, `flowseer.device.outcome` | route: `snmp`, `ssh` (closed set, grows with each new protocol this module routes over). outcome: `success`, `failure` (closed, two values). | 2 routes × 2 outcomes = 4 |
 
 Both bounds are per device; a deployment's total series count is this
@@ -232,6 +232,8 @@ state machine's release step, per decision 13's audit-before-release rule.
   `AddDevice`.
 - `recovery.started`, `lane.blocked`, `lane.released` (telemetry event and
   audit record) at their respective state-machine call sites.
+- `firmware.epoch_changed` as a telemetry event and audit record when a
+  mid-operation identity probe establishes a new firmware fingerprint.
 - `lane.frozen` at `Freeze` as one telemetry event plus one audit record
   per registered device, and the freeze-path `lane.released` at `Unfreeze`
   as a telemetry event only. `internal/freeze.Gate` is shared across every
@@ -250,10 +252,7 @@ state machine's release step, per decision 13's audit-before-release rule.
 Not yet wired, defined but never called from production code: the
 `route.selected`/`route.fallback` events, the
 `flowseer.device.route.selections` metric, the
-`flowseer.device.route` span, and `firmware.epoch_changed` (telemetry
-event, audit record, and `BLOCK_REASON_FIRMWARE_EPOCH_CHANGED` alike —
-see "Open gap: no mid-operation firmware-epoch re-check" below for why).
-The route dimension itself is already
+`flowseer.device.route` span. The route dimension itself is already
 available: `interfaces.Read` sets the winning observation's
 `Provenance.protocol` to the route that actually answered, `SelectRoute`
 returns the SSH route only from its own fallback branch (so

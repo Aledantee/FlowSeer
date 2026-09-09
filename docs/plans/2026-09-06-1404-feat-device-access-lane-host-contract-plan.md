@@ -108,12 +108,14 @@ per stream, not per sequence, so it can.
   `current`. An `Execute` error before the submit latch (a revoked
   authority, a freeze wait that ended, a grant that failed to open)
   provably sent nothing: it is reported with `submitted` false and never
-  enters recovery. Every error after the latch, a `MarkVerified` whose
-  audit delivery failed included, enters recovery, and the `VERIFIED`
-  wait runs under the detached context so the submitter's deadline
-  cannot end it; the lane therefore never reports an error with
-  `submitted` true, and central's rule for one is defensive. A resumed
-  mutation (`resume` set) takes `since` from the carried submission
+  enters recovery. An error after the latch enters recovery once the first
+  recovery transition becomes durable, including when a later
+  `MarkVerified` audit delivery fails. If that first transition itself
+  cannot be delivered and the phase has not moved, no recovery poll can
+  honestly run; the lane reports the error with `submitted` true, and
+  central preserves the mutation as indeterminate. The `VERIFIED` wait runs
+  under the detached context so the submitter's deadline cannot end it. A
+  resumed mutation (`resume` set) takes `since` from the carried submission
   time, so an edge that crash-loops does not reset the horizon. Its
   retry path is fence-only, and nothing in this slice wires
   `Config.Fenced` (decision 8 defers fencing), so a resumed mutation
@@ -391,14 +393,15 @@ tested nothing.
 
 ## Follow-ups
 
-**A parked checkpoint wait holds the device's drain lock.** `process` runs
-inside the drain loop, which holds `ds.draining` for the whole call
-including `awaitCheckpoint`. So a mutation waiting for central's
-`CheckpointRequest` holds that device's drain lock for as long as central
-takes, and no read for that device is served in the meantime. This predates
-these plans and is not what the recovery-poll unit changes — but it is the
-same shape one call site over, which is why it is written down here rather
-than left to be found in production.
+**Three parked waits hold the device's drain lock.** `process` runs inside
+the drain loop, which holds `ds.draining` for the whole call. A mutation
+therefore retains the lock while `awaitCheckpoint` waits for central's
+`CheckpointRequest`, while the verified path waits for central's terminal
+acknowledgement, and while `epochBlocked` waits for central to dispose a
+pre-command firmware refusal. Each can stop reads for that device for as
+long as central takes. The checkpoint wait predates these plans; the other
+two have the same shape and belong to the same design decision rather than
+separate local patches.
 
 Stated as behaviour, not as a remedy, because the remedy is a design
 question this slice cannot answer: whether a read may be admitted alongside

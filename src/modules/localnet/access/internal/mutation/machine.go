@@ -98,9 +98,10 @@ type Machine struct {
 	// refused. Nothing clears either one.
 	submitted bool
 	canceled  bool
-	// verified and abandoning record which terminal walk an accepted
-	// acknowledgement chose, so a re-sent acknowledgement after a failed
-	// audit delivery resumes the same one.
+	// verified and abandoning record which terminal outcome central accepted.
+	// The lane reads them while completing the submission so a trailing audit
+	// failure cannot release a hold during an abandonment or retain one after
+	// verification.
 	verified   bool
 	abandoning bool
 	// inRecovery is set while this mutation is being polled by recovery,
@@ -139,10 +140,10 @@ func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 			// against central's own expectation, which can differ from
 			// the edge's cached fingerprint simply because central is
 			// stale, not because the device's firmware actually changed.
-			// A real epoch-change signal would need a fresh probe at
-			// observation time compared against the earlier probe's own
-			// output — this module has no such check (see the README's
-			// "Open gap" section) — so emitting here would durably record
+			// A real epoch-change signal needs a fresh probe at observation
+			// time compared against the earlier probe's own output. Lane owns
+			// that comparison because this state machine has no session
+			// factory, so emitting here would durably record
 			// one event per rejected intent, including a central
 			// retrying the same stale intent many times for a single (or
 			// no) real change.
@@ -640,11 +641,13 @@ func (m *Machine) Peek(ctx context.Context) (*accessv1.InterfaceObservation, err
 // mutation — OperationPhase's own doc allows VERIFIED from either).
 // cached, if non-nil, is an earlier complete observation of the same target
 // this mutation must not silently override: if it conflicts with the fresh
-// observation on any compared field, no observation carries authority
-// (decision-record requirement) and Compare blocks with
-// BLOCK_REASON_CONFLICTING_READS instead of reporting a disposition. A read
-// has no intent to compare against and always reports DISPOSITION_UNSPECIFIED
-// with a nil error: its own observation is the result.
+// observation on any compared field, no observation carries authority and
+// Compare blocks with BLOCK_REASON_CONFLICTING_READS instead of reporting a
+// disposition. Lane currently passes nil at every production call site: its
+// pre-mutation read is a recovery baseline, not a reading of the intended new
+// state that the post-mutation observation must agree with. A read has no
+// intent to compare against and always reports DISPOSITION_UNSPECIFIED with a
+// nil error: its own observation is the result.
 func (m *Machine) Compare(ctx context.Context, cached *accessv1.InterfaceObservation) (accessv1.Disposition, error) {
 	if err := m.requireAnyPhase("Compare",
 		accessv1.OperationPhase_OPERATION_PHASE_OBSERVING,
