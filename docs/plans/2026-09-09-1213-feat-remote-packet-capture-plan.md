@@ -151,13 +151,19 @@ go test -race ./...
 
 ERSPAN is proved without hardware, in three layers:
 
-- Golden pcaps for the parser. The Wireshark sample set carries
-  `cisco-nexus92-erspan-marker.pcap` and `cisco-nexus10-erspan-marker.pcap`,
-  ERSPAN Type III marker packets from NXOS 9.2 and NXOS 10 with an ASIC-relative
-  timestamp and the matching UTC absolute timestamp, so the Type III header is
-  read against bytes a shipping ASIC produced rather than against our own
-  encoder. A marker carries no mirrored frame, so it proves the header parse and
-  not the inner-frame extraction; that half rests on the senders below.
+- Hand-built fixtures for the parser, one per wrapper. There is no vendor
+  capture to check them against. The Wireshark sample set's
+  `cisco-nexus92-erspan-marker.pcap` and `cisco-nexus10-erspan-marker.pcap` look
+  like the thing to use and are not: they carry Cisco's ERSPAN3 *marker* packet,
+  a separate proprietary format with its own Wireshark dissector
+  (`epan/dissectors/packet-cisco-marker.c`, distinct from
+  `packet-cisco-erspan.c`) holding a version and type, an SSID, a granularity
+  and UTC offset, a 48-bit ASIC timestamp, UTC seconds and microseconds, a
+  sequence, and an `0xA5A5A5A5` tail. Cisco's Nexus 9000 documentation describes
+  it as a packet emitted once a second to carry the UTC reference for the ttag
+  timestamp. It shares no field with `ErspanTypeIiiFields` and wraps no mirrored
+  frame, so feeding it to the decapsulator decodes garbage rather than testing
+  anything. The set holds no other ERSPAN file.
 - A Linux sender in a container for the round trip. The kernel's `erspan` tunnel
   device emits Type I, II and III (`ip link add … type erspan … erspan_ver 0|1|2`,
   with `erspan_dir` and `erspan_hwid` valid on version 2 alone), and `tc … action
@@ -170,13 +176,15 @@ ERSPAN is proved without hardware, in three layers:
   producing an artifact `capinfos` reads. Both need the switches powered on,
   which needs advance notice.
 
-The Linux sender does not cover everything. Its Type III implementation omits the
-security group tag and the non-Ethernet frame type, so those fields of
-`ErspanTypeIiiFields` are exercised only by the golden pcaps, and the optional
-platform subheader by neither since the schema drops it. Nothing available
-without hardware produces ERSPAN-wrapped mirrored traffic from a shipping ASIC:
-the vendor bytes we have are markers and the framed traffic is ours. That gap is
-named in the handoff rather than closed.
+The Linux sender does not cover everything, and with no vendor capture behind it
+the gap is wider than it first looks. Its Type III implementation omits the
+security group tag and the non-Ethernet frame type, and the optional platform
+subheader is dropped from the schema, so for those fields the only check is a
+fixture we wrote against a decoder we wrote — which proves the pair agree and
+nothing else. No shipping-ASIC bytes exercise any mirror decapsulator at any
+point in this plan. Interoperability with a real mirroring device stays
+unproven until hardware is in the loop; say so in the handoff rather than
+letting the sender count for more than it is.
 
 ## Definition of done
 
