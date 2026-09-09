@@ -2030,6 +2030,16 @@ behaviour. "The read succeeds when the shell open fails" passes for an
 implementation that still opens eagerly and swallows the error, which is half
 a fix wearing the whole one's clothes.
 
+Two notes from the run that verified this, because both are the kind that
+gets dropped as noise and later explains a confusing log. The deployment's
+processes were invisible to `ps` inside the sandbox while they were in fact
+running, so a second central and agent were started on top of the first pair;
+the second central failed to bind its bus port and never listened. All four
+were stopped and one clean pair brought up. And the agent logs at INFO, so the
+absence of an SSH line in its log is not evidence that no login was attempted
+— what shows the shell was not opened is the unit test, plus the observation
+coming back with SNMP provenance.
+
 Tests, at the lane — where the defect lived and where the capability's own
 tests could not see it: a device whose SNMP answers completely is read without
 `OpenShell` ever being called; a device whose shell open fails is still read
