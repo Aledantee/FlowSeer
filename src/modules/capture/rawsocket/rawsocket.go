@@ -55,20 +55,21 @@ type Frame struct {
 	Err error
 }
 
-// LocalSource is one local-interface capture source, opened by
-// OpenLocalInterface. Both the Linux implementation and the non-Linux stub
-// satisfy it, so the capture engine's own Source interface (defined where it
-// is consumed) is structurally compatible with either. A LocalSource is safe
+// Source is one capture source, opened by OpenLocalInterface or
+// OpenMirrorReceiver. Every implementation this package returns satisfies
+// it, so the capture engine's own Source interface (defined where it is
+// consumed) is structurally compatible with any of them. A Source is safe
 // for one Receive loop and one Close call; concurrent Receive calls are not
 // supported.
-type LocalSource interface {
+type Source interface {
 	// Receive returns a channel that delivers frames until ctx is canceled
 	// or the source is closed, at which point the channel is closed. A
 	// terminal error frame is best effort and may be omitted if the channel
 	// is full.
 	Receive(ctx context.Context) <-chan Frame
 	// Stats reports this source's cumulative packet and interface-drop
-	// counts.
+	// counts. A mirror receiver has no interface-level drop counter to
+	// report and always returns zero for it.
 	Stats() (received, droppedByInterface uint64, err error)
 	// Close releases the source. It is idempotent.
 	Close() error
@@ -79,6 +80,19 @@ type LocalSource interface {
 // every packet, matching filter.Compile's own empty-filter contract. On
 // Linux this is an AF_PACKET socket; elsewhere it returns
 // ErrUnsupportedPlatform.
-func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (LocalSource, error) {
+func OpenLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	return openLocalInterface(iface, promiscuous, prog)
+}
+
+// OpenMirrorReceiver opens a mirror receiver for encapsulations: a raw
+// IPPROTO_GRE socket (IPv4 and IPv6) for the GRE-family arms
+// (erspan_type_i/ii/iii, gre), and a UDP socket bound to udpPort for the
+// UDP-family arms (vxlan, tzsp), each bound to bindInterface when it is not
+// empty. prog is run against each decapsulated inner frame through
+// golang.org/x/net/bpf's own VM, not attached to the kernel: see the
+// two-execution-engines decision in the plan this package implements. On
+// Linux this opens real sockets; elsewhere it returns
+// ErrUnsupportedPlatform.
+func OpenMirrorReceiver(encapsulations []capturev1.MirrorEncapsulation, udpPort uint32, bindInterface string, prog []bpf.RawInstruction) (Source, error) {
+	return openMirrorReceiver(encapsulations, udpPort, bindInterface, prog)
 }

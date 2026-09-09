@@ -9,6 +9,6 @@ package rawsocket
 
 import "golang.org/x/net/bpf"
 
-func openLocalInterface(_ string, _ bool, _ []bpf.RawInstruction) (LocalSource, error) {
+func openLocalInterface(_ string, _ bool, _ []bpf.RawInstruction) (Source, error) {
 	return nil, ErrUnsupportedPlatform
 }

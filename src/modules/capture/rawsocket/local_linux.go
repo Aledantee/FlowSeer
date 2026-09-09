@@ -77,7 +77,7 @@ type linuxLocalSource struct {
 	done   chan struct{}
 }
 
-func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (LocalSource, error) {
+func openLocalInterface(iface string, promiscuous bool, prog []bpf.RawInstruction) (Source, error) {
 	ifi, err := net.InterfaceByName(iface)
 	if err != nil {
 		return nil, errs.From(err).
@@ -270,4 +270,4 @@ func isTimeout(err error) bool {
 	return errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK)
 }
 
-var _ LocalSource = (*linuxLocalSource)(nil)
+var _ Source = (*linuxLocalSource)(nil)
