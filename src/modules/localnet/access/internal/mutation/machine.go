@@ -513,6 +513,25 @@ func (m *Machine) Execute(ctx context.Context) error {
 	m.mu.Unlock()
 
 	if err := m.deps.Submit(waitCtx, handle.Grant(), mutationIntent.GetInterfaceDescription()); err != nil {
+		// The latch is released only for a failure the adapter can prove
+		// changed nothing. Everything else keeps it, which is the
+		// conservative default and the one a transport that may have
+		// delivered deserves: an adapter that grows a refusal path and does
+		// not mark it lands on "the effect is unknown" rather than on a
+		// device reported untouched that may not be.
+		//
+		// This does not make the latch two-sided. Setting it before the call
+		// is what makes "released REJECTED" and "command sent" mutually
+		// exclusive, and clearing it here can lose a race with an Acknowledge
+		// that already read it as true and declined to cancel. That is
+		// harmless — the mutation ends rejected either way — but a reader of
+		// the latch's own comment should not expect a symmetry that is not
+		// there.
+		if code, ok := errs.CodeOf(err); ok && code == interfaces.ErrCodeNotSubmitted {
+			m.mu.Lock()
+			m.submitted = false
+			m.mu.Unlock()
+		}
 		return errs.Wrap(err, "submit mutation")
 	}
 

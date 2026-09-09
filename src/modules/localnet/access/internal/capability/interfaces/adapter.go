@@ -15,6 +15,23 @@ import (
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
+// ErrCodeNotSubmitted marks a failure an adapter can prove changed nothing on
+// the device: the command that would have changed it was never sent.
+//
+// It is part of the ShellAdapter contract rather than any one adapter's
+// business, because the caller acts on it. A mutation whose submit error
+// carries this is disposed rejected — provably nothing happened — while one
+// carrying anything else is treated as an effect nobody can establish, which
+// is what a command that may have been delivered deserves.
+//
+// The conservative reading is the default and must stay that way. An adapter
+// that grows a new refusal path and does not mark it lands on "unknown",
+// which is wrong in the safe direction; an adapter that marks a path it
+// cannot actually prove reports a device as untouched when it may not be,
+// which is wrong in the direction that reaches a switch. Mark only what the
+// code's own structure makes certain.
+var ErrCodeNotSubmitted = errs.NewCode("interfaces/not-submitted")
+
 // ShellAdapter is the seam a firmware-specific shell mapping implements.
 // fastiron.Adapter satisfies it structurally; this package never imports a
 // firmware package (the direction record's decision 11), so ShellAdapter,

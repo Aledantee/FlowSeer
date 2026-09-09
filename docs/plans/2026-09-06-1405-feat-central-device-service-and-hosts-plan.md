@@ -1734,6 +1734,16 @@ to go wrong — and when it does, the device records as `POSSIBLY_APPLIED` /
 `afterStep` then sees `Submitted()` and enters recovery, and central records
 an effect nobody can establish for a device that provably was not changed.
 
+**One name covering two certainties is the recurring trap in this codebase,
+and this is the fourth instance.** The two `ErrCodeNoExpectation` branches
+behind one user message; the `restore`-refusal advice written by someone who
+had only met the other refusal; the two `ErrCodeAmbiguousSubmission` sites
+here. Each time the two halves are individually reasonable and the harm is
+that a caller cannot tell them apart. A reader adding an error code in this
+module should treat it as a known hazard rather than a coincidence: before
+reusing a code, check whether the second site is the same fact or merely a
+similar-looking one.
+
 **One error code covers two different certainties, and that is the root of
 it.** `ErrCodeAmbiguousSubmission` is returned from two places. At
 `adapter.go:94` the select was refused and the `port-name` command never

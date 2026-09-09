@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
+
 	xssh "golang.org/x/crypto/ssh"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -272,5 +274,60 @@ func TestSetPortName_ClearsDescription(t *testing.T) {
 
 	if want := "no port-name\n"; portNameLine != want {
 		t.Errorf("port-name line = %q, want %q", portNameLine, want)
+	}
+}
+
+// The two refusals this adapter can return are different facts and must not
+// carry the same code.
+//
+// A refused interface select is a certainty: the port-name command is not
+// constructed until the select has succeeded, so nothing that changes a
+// description reached the device, whatever happened to the transport. A
+// refused port-name is an ambiguity: that command *was* sent and the device
+// did not come back to the prompt it should have, so whether it took effect
+// is unknown.
+//
+// Both were ErrCodeAmbiguousSubmission once, and the caller latches every
+// submission as possibly-delivered unless told otherwise — so a wrong
+// interface name, the likeliest failure of a first live write, was recorded
+// as an effect nobody could establish on a device that was provably never
+// changed. The operator was then sent to resolve an ambiguity that did not
+// exist.
+//
+// Asserted as a pair in one test, because the property is the difference
+// between them: either alone passes for an adapter that marks both the same
+// way.
+func TestSetPortName_DistinguishesARefusalFromAnAmbiguity(t *testing.T) {
+	selectRefused := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readLine(ch) // "configure terminal"
+		_, _ = ch.Write([]byte("\r\nSSH@device(config)#"))
+
+		readLine(ch) // "interface ethernet 9/9/9"
+		_, _ = ch.Write([]byte("\r\nInvalid input -> ethernet 9/9/9\r\nSSH@device(config)#"))
+	})
+
+	err := (&fastiron.Adapter{Session: dialSession(t, selectRefused)}).
+		SetPortName(t.Context(), "ethernet 9/9/9", "uplink to core")
+	if code, ok := errs.CodeOf(err); !ok || code != interfaces.ErrCodeNotSubmitted {
+		t.Errorf("a refused interface select returned code %v (err %v), want %v — nothing was sent and the caller has to be told",
+			code, err, interfaces.ErrCodeNotSubmitted)
+	}
+
+	portNameRefused := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		readLine(ch) // "configure terminal"
+		_, _ = ch.Write([]byte("\r\nSSH@device(config)#"))
+
+		readLine(ch) // "interface ethernet 1/1/1"
+		_, _ = ch.Write([]byte("\r\nSSH@device(config-if-e1000-1/1/1)#"))
+
+		readLine(ch) // "port-name uplink to core"
+		_, _ = ch.Write([]byte("\r\nInvalid input\r\nSSH@device(config)#"))
+	})
+
+	err = (&fastiron.Adapter{Session: dialSession(t, portNameRefused)}).
+		SetPortName(t.Context(), "ethernet 1/1/1", "uplink to core")
+	if code, ok := errs.CodeOf(err); !ok || code != fastiron.ErrCodeAmbiguousSubmission {
+		t.Errorf("a refused port-name returned code %v (err %v), want %v — that command reached the device",
+			code, err, fastiron.ErrCodeAmbiguousSubmission)
 	}
 }
