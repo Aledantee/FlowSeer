@@ -117,3 +117,45 @@ next dispatch, or the override is a preference and the brief must not carry it
 as a prohibition. A brief that names a convention doc is telling the worker
 that doc is authoritative; contradicting it in a note puts the worker between
 two sources with no rule for which wins.
+
+## 2026-09-09 implement: the ledger path is unwritable from inside an Orca worktree
+Skill or agent: `.claude/skills/implement/SKILL.md`, "Resume from the ledger".
+What happened: implementing a phase plan (docs/plans/2026-09-09-1213-feat-
+remote-packet-capture-phase2-plan.md) from inside an Orca-managed worktree,
+the step's own ledger path — `$(git rev-parse --git-dir)/flowseer-plan-
+status.json` — resolved to a path under the primary checkout's `.git/`
+(`.git/worktrees/<name>/flowseer-plan-status.json`), which is standard git
+behavior for any linked worktree, not specific to this task. The Orca
+worktree-isolation hook then denied the write, since that path sits outside
+the worktree's own directory tree. The step was followed as written; nothing
+in it anticipates the ledger path itself falling outside the isolation
+boundary the same skill's own "Isolation" note in AGENTS.md establishes. The
+six units landed directly in the main conversation instead of one Orca
+worker per unit, with no ledger tracking progress, and the deviation was
+reported at handoff rather than caught earlier.
+Suggested change: for a worktree the isolation hook governs, keep the ledger
+inside the worktree itself (e.g. under a path relative to `git rev-parse
+--show-toplevel`, or a dedicated untracked file within the worktree) rather
+than `--git-dir`, or have the step detect a denied ledger write up front and
+say plainly that unit-by-unit worker dispatch and resume tracking are both
+unavailable for this run, instead of discovering it mid-unit.
+
+## 2026-09-09 plan: a cited sample capture's bytes were never checked against the claim
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 2 ("Gather evidence").
+What happened: an earlier planning pass for the remote packet capture phase
+plans cited two Wireshark sample captures ("erspan-marker" pcaps) as the
+independent-encoder evidence for the ERSPAN Type III decoder, based on their
+name and the site's description. Implementing and testing against them found
+they decode to nonsense under a correct Type III parse (version field 0, not
+2; a garbage session id); a Wireshark dissector source cross-check confirmed
+the files are an unrelated Cisco proprietary marker format, not ERSPAN at
+all. Step 2 says "Fetch every URL before citing it and cite only what the
+page says" for prose documentation, but has no equivalent instruction for a
+binary fixture: a sample capture's filename and page description were
+treated as sufficient evidence of its contents without decoding a single
+byte of it first.
+Suggested change: extend step 2 (or add a line to it) so that citing a
+downloaded binary fixture — a pcap, a golden file, a captured payload — as
+evidence for a specific format or field requires decoding or hex-dumping the
+relevant bytes and checking them against the claim before the plan cites it,
+the same discipline already required for a fetched URL's prose.

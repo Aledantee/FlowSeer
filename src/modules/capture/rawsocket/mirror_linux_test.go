@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	"go.aledante.io/FlowSeer/src/modules/capture/filter"
 )
 
 // queuedDatagram is one recvmsg result a fakeMirrorSocket hands out in
@@ -168,6 +170,36 @@ func TestLinuxMirrorSource_CloseIsIdempotent(t *testing.T) {
 	}
 	if !sock.closed {
 		t.Error("underlying socket was never closed")
+	}
+}
+
+// TestOpenMirrorReceiver_BuildsVMFromRealFilterProgram proves
+// openMirrorReceiver can actually build its filter VM from the raw form
+// filter.Assemble produces (a []bpf.RawInstruction) rather than the
+// []bpf.Instruction bpf.NewVM needs directly: a RawInstruction satisfies the
+// Instruction interface syntactically, so this mismatch compiles, but
+// bpf.NewVM's own check that a program ends in RetA or RetConstant rejects
+// every such program, and its dispatch has no RawInstruction case at all.
+// encapsulations is deliberately empty so the call reaches the "no
+// supported mirror encapsulation" validation right after VM construction
+// and returns before ever opening a privileged socket, keeping this a
+// no-root unit test.
+func TestOpenMirrorReceiver_BuildsVMFromRealFilterProgram(t *testing.T) {
+	insts, err := filter.Compile(nil)
+	if err != nil {
+		t.Fatalf("filter.Compile: %v", err)
+	}
+	prog, err := filter.Assemble(insts)
+	if err != nil {
+		t.Fatalf("filter.Assemble: %v", err)
+	}
+
+	_, err = openMirrorReceiver(nil, 0, "", prog)
+	if err == nil {
+		t.Fatal("openMirrorReceiver: want an error for no configured encapsulation, got nil")
+	}
+	if !strings.Contains(err.Error(), "no GRE-family or UDP-family encapsulation configured") {
+		t.Fatalf("openMirrorReceiver failed before reaching the encapsulation check (likely the filter VM build itself): %v", err)
 	}
 }
 
