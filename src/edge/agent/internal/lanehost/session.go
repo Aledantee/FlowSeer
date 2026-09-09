@@ -8,6 +8,7 @@ import (
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
@@ -76,9 +77,9 @@ func usmFrom(credential *credentialv1.SnmpV3Credential) (snmp.USMConfig, error) 
 	usm := snmp.USMConfig{
 		Username:       credential.GetUser(),
 		AuthProtocol:   auth,
-		AuthPassphrase: credential.GetAuthPassphrase(),
+		AuthPassphrase: secret.NewString(credential.GetAuthPassphrase()),
 		PrivProtocol:   priv,
-		PrivPassphrase: credential.GetPrivPassphrase(),
+		PrivPassphrase: secret.NewString(credential.GetPrivPassphrase()),
 	}
 	if err := usm.Validate(); err != nil {
 		return snmp.USMConfig{}, errs.From(err).Code(ErrCodeSession).
