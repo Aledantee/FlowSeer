@@ -56,8 +56,12 @@ the user asked for it (see Units in workers). For each:
 
 1. Re-read the unit, set it `in_progress` in the ledger, then inspect the
    current source and tests for its files.
-2. Make the smallest change that satisfies it. Search for an existing helper
-   first; no abstraction with a single caller. Before calling a third-party
+2. Make the smallest change that satisfies it, through the editor tools:
+   a Bash command that writes a source file or runs a generator (`sed -i`,
+   a heredoc, `gofumpt -w`, `buf generate`, `go mod tidy`) marks the tree
+   `<Bash mutation; verify with --full>` and turns Finish into a full
+   module race run. Search for an existing helper first; no abstraction
+   with a single caller. Before calling a third-party
    API the tree does not already use, check its signature: `go doc` for Go,
    Context7 (`mcp__context7__query-docs` or the `ctx7` CLI) for the rest.
 3. Write or extend the tests the unit names. When the unit changes behavior,
@@ -113,7 +117,10 @@ concurrent workers, `resume` is written after the wave settles.
 
 Run the verifier across everything the task changed, sandbox disabled. Pass
 the task's paths explicitly when the worktree holds unrelated changes;
-otherwise use `--base master`, or `--base HEAD` for uncommitted work.
+otherwise use `--base master`, or `--base HEAD` for uncommitted work. When
+`$(git rev-parse --git-dir)/flowseer-verification-dirty` holds the
+`<Bash mutation; verify with --full>` line, run `--full` instead; nothing
+else clears it.
 
 Record the outcome in the plan, read from the ledger, in the same commit as
 the last unit; the ledger stays in place for `close` to gate on. Set

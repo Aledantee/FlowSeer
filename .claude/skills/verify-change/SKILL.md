@@ -9,7 +9,12 @@ argument-hint: "[--full | --base REF | -- paths]"
 Run the verifier from the worktree root. It selects checks from the changed
 paths and, within a Go module, vets, race-tests, and lints only the packages
 that can observe the change: those holding a changed file and every package
-that imports one of them. The whole module still compiles.
+that imports one of them. The whole module still compiles. Those packages
+are also vetted once per build tag their files carry, so a tagged
+integration or bench test that stopped compiling fails the gate; and a
+nested module that replaces the root module (`src/protocol/*/bench`,
+`src/edge/netpen`) is built and vetted after a root change, its race tests
+left to `--full`.
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh

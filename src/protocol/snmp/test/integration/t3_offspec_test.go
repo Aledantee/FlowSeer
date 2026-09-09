@@ -52,7 +52,7 @@ func TestT3_Replay_OffSpecWrongTypes_FusedFallback(t *testing.T) {
 		lastChange uint32
 		inOctets   uint32
 	}
-	wants := map[int32]want{
+	wants := map[ifmib.InterfaceIndex]want{
 		1: {index: 1, speed: 10000000, operStatus: ifmib.IfOperStatusValueUp, lastChange: 777, inOctets: 111111},
 		2: {index: 2, speed: 1000000000, operStatus: ifmib.IfOperStatusValueUp, lastChange: 888, inOctets: 222222},
 	}
