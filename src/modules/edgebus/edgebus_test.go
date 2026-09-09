@@ -12,6 +12,8 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -90,6 +92,32 @@ func TestUndeclaredFsyncPolicyRefusesStart(t *testing.T) {
 	_, err = edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{StateDir: t.TempDir(), EdgeID: edgeID, HubURLs: []string{"ws://127.0.0.1:1"}})
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeConfig {
 		t.Fatalf("leaf without a policy: err=%v code=%q", err, code)
+	}
+}
+
+func TestLeafNarrowsAnExistingCredentialsFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hub.creds")
+	if err := os.WriteFile(path, []byte("old credentials"), 0o600); err != nil {
+		t.Fatalf("write existing credentials: %v", err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatalf("make existing credentials permissive: %v", err)
+	}
+
+	_, _ = edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
+		StateDir:        dir,
+		EdgeID:          edgeID,
+		HubURLs:         []string{"://"},
+		CredentialsFile: secret.New([]byte("new credentials")),
+		FsyncPolicy:     service.BusFsyncPeriodic,
+	})
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat credentials: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("existing credentials mode = %o, want 600", got)
 	}
 }
 

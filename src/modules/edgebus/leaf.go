@@ -115,6 +115,9 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
 	// Revealed here because this is where the material enters the file the
 	// NATS client reads; the mode is the protection from that point on.
+	if err := os.Chmod(credsPath, 0o600); err != nil && !os.IsNotExist(err) {
+		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("secure existing hub credentials")
+	}
 	if err := os.WriteFile(credsPath, cfg.CredentialsFile.Reveal(), 0o600); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("store hub credentials")
 	}
