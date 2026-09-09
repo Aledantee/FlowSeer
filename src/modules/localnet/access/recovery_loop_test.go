@@ -703,3 +703,57 @@ func TestTheBaselineReadIsActuallyTaken(t *testing.T) {
 	}
 	<-done
 }
+
+// The recovery poll interval is derived from the device's horizon so that
+// every device gets the same number of looks, whatever its apply latency.
+//
+// The attempt count is what this asserts, because it is what the derivation
+// exists to fix. A flat interval made the count an accident of two unrelated
+// numbers, and a device whose horizon happened to sit near that interval got
+// one attempt — so one unlucky moment inside the window cost the whole
+// budget. Asserting the interval alone would not catch a change that kept the
+// arithmetic and moved the count.
+func TestRecoveryLooksTheSameNumberOfTimesWhateverTheHorizon(t *testing.T) {
+	t.Parallel()
+
+	l := access.NewLane(access.Config{Clock: time.Now})
+
+	for _, horizon := range []time.Duration{
+		30 * time.Second,
+		2 * time.Minute,
+		10 * time.Minute,
+	} {
+		interval := access.RecoveryPollIntervalForTest(l, horizon)
+		// The loop waits one interval before each attempt, inside a budget of
+		// the horizon plus one interval. The last wait expires with the
+		// budget rather than completing — Wait reports false and the loop
+		// ends — so the attempts that actually run are the intervals that fit
+		// inside the horizon itself. Observed directly before this change:
+		// a 30s horizon at a 30s interval polled exactly once.
+		attempts := int(horizon / interval)
+		if attempts < 6 {
+			t.Errorf("a horizon of %v gives %d recovery attempts at an interval of %v, want at least 6",
+				horizon, attempts, interval)
+		}
+	}
+
+	// A very short horizon is floored rather than polled as fast as the loop
+	// can run: the horizon says how quickly a change becomes visible, not how
+	// often the device wants to be asked.
+	if got := access.RecoveryPollIntervalForTest(l, time.Second); got != 2*time.Second {
+		t.Errorf("a one-second horizon polls every %v, want the two-second floor", got)
+	}
+
+	// And a very long one is capped, which buys it more looks rather than
+	// longer gaps. An hour-long horizon divided six ways would leave a change
+	// that appeared a minute in unnoticed for nine more.
+	if got := access.RecoveryPollIntervalForTest(l, time.Hour); got != 30*time.Second {
+		t.Errorf("an hour-long horizon polls every %v, want the thirty-second cap", got)
+	}
+
+	// An explicit interval is still the deployment's to set.
+	fixed := access.NewLane(access.Config{Clock: time.Now, RecoveryPollInterval: 45 * time.Second})
+	if got := access.RecoveryPollIntervalForTest(fixed, 10*time.Minute); got != 45*time.Second {
+		t.Errorf("a configured interval was overridden to %v, want the configured 45s", got)
+	}
+}

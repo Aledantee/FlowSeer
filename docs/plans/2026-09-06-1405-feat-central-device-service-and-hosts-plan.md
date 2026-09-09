@@ -1691,6 +1691,21 @@ cached PASS from an earlier unsandboxed run makes a sandbox-hostile package
 report `ok` under the sandbox without executing anything, which is the third
 gate in this build to report success for a reason unrelated to the code.
 
+Run the race suite as one invocation over the package trees rather than one
+tree at a time:
+
+```bash
+go test -race -count=1 ./src/services/device/... ./src/edge/agent/... ./src/modules/localnet/access/...
+```
+
+Concurrency is a condition, not a convenience. `TestAMutationSurvivesCentralRestartingUnderIt`
+passed three times in isolation and failed at 160s under that invocation, and
+the difference was the finding: a recovery budget that bought one attempt, so
+a central restart slow enough to outlast it left a mutation that had applied
+resting as an operator's problem. A green run of the packages one at a time is
+a statement about that invocation, not about the code, and the machine that
+runs the lab will not be idle.
+
 A changed-path run is not confined to the paths it is given: the verifier
 builds, vets and races the *dependent* packages of the changed ones too. So
 sandbox-hostility is a property of the dependency closure rather than of the
@@ -1791,6 +1806,23 @@ access story. Building one inside a unit about edge lifecycle would put it in
 the wrong place permanently, and a scope invented to close a review line
 outlives the review. The api/edge README now says plainly that the trail does
 not exist rather than claiming the action is audited.
+
+**A recovery attempt that could not look spends the budget as if it had.**
+Recovery polls until the horizon runs out, and an attempt that failed to
+observe — central unreachable so no read credential could be acquired, the
+device unreachable, the credential refused — consumes an interval exactly like
+an attempt that observed and found the change absent. Those are different
+facts. The horizon is a statement about how long a device may take to show a
+change, not about how long the observer may be unavailable, and spending it
+while blind records "we could not look" as "we looked and it had not applied".
+
+The consequence is a mutation that applied cleanly ending as a lane held for
+an operator because something unrelated to the device was down. This is plan
+1404's design rather than this plan's, and the fix is not obvious — an attempt
+that cannot observe might not count against the horizon, or might count
+against a separate allowance, and either changes what the horizon means. It is
+written down because the argument is the part that will not survive being
+rediscovered.
 
 **An operator cannot see when a resolution will be accepted.** After
 `AbandonMutation`, central refuses `ResolveDesynchronization` until the edge

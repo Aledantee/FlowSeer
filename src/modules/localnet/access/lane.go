@@ -114,8 +114,14 @@ type Config struct {
 	QueueCapacity  int
 	EvidencePolicy evidence.Policy
 	RecoveryMinGap time.Duration
-	// RecoveryPollInterval spaces one mutation's recovery polls. Zero is
-	// raised to a default of 30s.
+	// RecoveryPollInterval spaces one mutation's recovery polls. Zero means
+	// derive it from the device's own horizon, per
+	// [recoveryAttempts] — which is what a deployment should normally
+	// leave it at, since the horizon is the only thing that knows how long
+	// this device takes to show a change.
+	//
+	// Set it only to override that for a device whose polling cost is the
+	// constraint rather than its apply latency.
 	RecoveryPollInterval time.Duration
 	// Wait blocks for d or until ctx ends, reporting whether the full
 	// interval elapsed. It exists so a test can drive the recovery loop
@@ -398,9 +404,61 @@ func (l *Lane) Close(_ context.Context) (ShutdownReport, error) {
 // Config.OperationTimeout is unset.
 const defaultOperationTimeout = 30 * time.Second
 
-// defaultRecoveryPollInterval spaces recovery polls when
-// Config.RecoveryPollInterval is unset.
-const defaultRecoveryPollInterval = 30 * time.Second
+// recoveryAttempts is how many times recovery looks at a device before its
+// budget runs out, and it is the quantity being chosen here.
+//
+// The interval used to be a flat 30s, which made the attempt count an
+// accident of two unrelated numbers: a mutation gets one attempt per interval
+// within a budget of horizon-plus-interval, so a device whose measured
+// horizon was near 30s got exactly one look and a device whose horizon was
+// seconds got one or none. A single unlucky moment inside that window — a
+// central restart, a long pause, a device briefly unreachable — then turned a
+// mutation that had applied perfectly into a lane held for an operator.
+// Nothing about "the longest a mutation may take to become visible" implies
+// "look once".
+//
+// So the interval is derived and the count is fixed. Six is enough that one
+// bad attempt is not the whole budget and small enough that a device with a
+// long horizon is not polled needlessly.
+const recoveryAttempts = 6
+
+// minRecoveryPollInterval floors the derived interval. A device with a
+// sub-second horizon would otherwise be polled as fast as the loop can run,
+// and the horizon says how quickly a change becomes visible, not how quickly
+// the device wants to be asked.
+const minRecoveryPollInterval = 2 * time.Second
+
+// maxRecoveryPollInterval caps it, which is the same argument from the other
+// end. A device with an hour-long horizon would be looked at every ten
+// minutes by the fraction alone, so a change that appeared a minute in would
+// go unnoticed for nine more — the horizon says how long an answer may take
+// to appear, not how long to wait between looks. Capping it means a slow
+// device is resolved promptly once it does apply, and buys the same device
+// far more than [recoveryAttempts] looks, which is the right direction to err
+// in: the cost of an extra poll is one read, and the cost of missing the
+// window is a lane held for a person.
+const maxRecoveryPollInterval = 30 * time.Second
+
+// recoveryPollInterval is how long to wait between looks at a device whose
+// mutation is in recovery: what the deployment set, or the horizon split
+// [recoveryAttempts] ways and floored.
+//
+// A horizon of zero cannot reach here — a mutation on a device with no
+// measured horizon is refused before it is admitted — but it is handled
+// rather than assumed away, because the floor is the honest answer for it.
+func (l *Lane) recoveryPollInterval(horizon time.Duration) time.Duration {
+	if l.cfg.RecoveryPollInterval > 0 {
+		return l.cfg.RecoveryPollInterval
+	}
+	interval := horizon / recoveryAttempts
+	if interval < minRecoveryPollInterval {
+		return minRecoveryPollInterval
+	}
+	if interval > maxRecoveryPollInterval {
+		return maxRecoveryPollInterval
+	}
+	return interval
+}
 
 // waitFor is Config.Wait's default: a real timer.
 func waitFor(ctx context.Context, d time.Duration) bool {
@@ -449,9 +507,6 @@ func NewLane(cfg Config) *Lane {
 	}
 	if cfg.OperationTimeout <= 0 {
 		cfg.OperationTimeout = defaultOperationTimeout
-	}
-	if cfg.RecoveryPollInterval <= 0 {
-		cfg.RecoveryPollInterval = defaultRecoveryPollInterval
 	}
 	if cfg.Wait == nil {
 		cfg.Wait = waitFor
@@ -1512,7 +1567,8 @@ func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *inte
 // it had happened.
 func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
 	effect := ds.session.DelayedEffect
-	budget := effect.Horizon + l.cfg.RecoveryPollInterval
+	interval := l.recoveryPollInterval(effect.Horizon)
+	budget := effect.Horizon + interval
 	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
 	ds.stateMu.Lock()
 	open.stopPoll = cancel
@@ -1523,7 +1579,7 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 	go func() {
 		defer cancel()
 		for {
-			if !l.cfg.Wait(pollCtx, l.cfg.RecoveryPollInterval) {
+			if !l.cfg.Wait(pollCtx, interval) {
 				l.endRecoveryPoll(pollCtx, ds, open)
 				return
 			}

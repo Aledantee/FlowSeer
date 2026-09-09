@@ -224,13 +224,7 @@ func (d *deployment) apply(t *testing.T, key, description, fingerprint string) *
 // returns the status it saw.
 func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessStatusResponse {
 	t.Helper()
-	// Generous, and deliberately so: a mutation whose observation did not
-	// verify rests in recovery, and the lane's recovery poll runs on a
-	// thirty-second interval it does not shorten for anybody. A budget under
-	// that would report "never resolved" for a mutation that had simply not
-	// been looked at yet, which is a failure this build has already produced
-	// once by measuring a thirty-second loop over twenty seconds.
-	deadline := time.Now().Add(150 * time.Second)
+	deadline := time.Now().Add(fixtureResolveDeadline)
 	var last *devicev1.GetDeviceAccessStatusResponse
 	for {
 		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
@@ -491,9 +485,15 @@ func TestAMutationSurvivesCentralRestartingUnderIt(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 
+	// Unpinned before central comes back, not after. The recovery poll
+	// acquires its read credential from central, so it cannot observe while
+	// central is down — but making the change visible first means the first
+	// poll after central returns sees the truth, however long the restart
+	// took. Unpinning afterwards makes the test a race between the restart
+	// and the next poll, which is a race it loses on a loaded machine.
 	d.central.shutdown()
-	d.central.start()
 	d.device.unpinReads()
+	d.central.start()
 
 	status := d.waitUntilResolved(t)
 

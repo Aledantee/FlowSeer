@@ -47,7 +47,29 @@ const (
 	// fixtureHorizon is the device's measured delayed-apply horizon. A
 	// mutation on a device without one is refused outright, so this is not
 	// decoration: it is what makes the fixture's device mutable at all.
-	fixtureHorizon = 30 * time.Second
+	//
+	// It also decides how much recovery this fixture gets, and that is why it
+	// is ten minutes rather than the thirty seconds a lab switch might
+	// actually measure. Recovery's budget is the horizon plus one poll
+	// interval, and a mutation whose effect that budget does not establish
+	// rests held for an operator and never resolves on its own. The restart
+	// scenario needs the budget to outlast a central restart on a loaded
+	// machine; a thirty-second horizon did not, and the failure looked like
+	// the system hanging rather than like a fixture out of range.
+	//
+	// The interval does not grow with it. The lane caps it, so ten minutes
+	// buys many more looks rather than longer gaps between them, which is
+	// what makes this both patient and prompt.
+	fixtureHorizon = 10 * time.Minute
+	// fixtureResolveDeadline bounds a wait for a mutation to resolve.
+	//
+	// Derived from the poll cap rather than from the horizon. What a waiting
+	// test is actually waiting for is the next recovery look, which the lane
+	// caps at thirty seconds, plus whatever the exchange around it costs —
+	// a restart, a report's own retry cadence, a loaded machine. It is not
+	// waiting for the budget, which is ten minutes here and is spent only
+	// when something is wrong.
+	fixtureResolveDeadline = 4 * time.Minute
 )
 
 // freePort asks the kernel for a port and gives it straight back.
