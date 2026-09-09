@@ -11,6 +11,8 @@ package integration
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -33,18 +35,18 @@ func requireBinary(t *testing.T, name string) {
 // operation here (netns, veth, tc, erspan tunnels) needs CAP_NET_ADMIN.
 func requireRoot(t *testing.T) {
 	t.Helper()
-	out, err := exec.Command("id", "-u").Output()
-	if err != nil {
-		t.Skipf("could not determine uid: %v", err)
-	}
-	if strings.TrimSpace(string(out)) != "0" {
+	if os.Getuid() != 0 {
 		t.Skip("not running as root; skipping")
 	}
 }
 
-// run and runOK always invoke "ip": every command this suite runs, OVS's
-// own ovs-vsctl included, goes through "ip netns exec" (see nsExec) or is
-// itself an "ip" subcommand.
+// run and runOK always invoke "ip": most commands this suite runs go through
+// "ip netns exec" (see nsExec) or are themselves an "ip" subcommand. runOVS
+// and runOVSOK invoke ovs-vsctl directly instead: unlike every erspan-tunnel
+// device this suite creates, ovs-vswitchd's kernel datapath is a single
+// resource the daemon owns from whatever namespace it was started in
+// (normally root), so ovs-vsctl's own commands are never routed through
+// nsExec.
 func run(t *testing.T, args ...string) {
 	t.Helper()
 	cmd := exec.Command("ip", args...)
@@ -63,6 +65,24 @@ func runOK(args ...string) error {
 	return nil
 }
 
+func runOVS(t *testing.T, args ...string) {
+	t.Helper()
+	cmd := exec.Command("ovs-vsctl", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("ovs-vsctl %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+}
+
+func runOVSOK(args ...string) error {
+	cmd := exec.Command("ovs-vsctl", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("ovs-vsctl %s: %w\n%s", strings.Join(args, " "), err, out)
+	}
+	return nil
+}
+
 func nsExec(t *testing.T, ns string, args ...string) {
 	t.Helper()
 	run(t, append([]string{"netns", "exec", ns}, args...)...)
@@ -70,10 +90,12 @@ func nsExec(t *testing.T, ns string, args ...string) {
 
 // erspanTestEnv is a scratch namespace connected to the host by a veth
 // pair, torn down on test cleanup. The namespace side (nsAddr) is where the
-// erspan tunnel or OVS port lives and sends traffic; the host side (hostAddr)
-// is where the mirror receiver listens, since rawsocket.OpenMirrorReceiver
-// runs in this test's own (host) namespace.
+// kernel's own erspan tunnel device lives and sends traffic (an OVS erspan
+// port lives in the host namespace instead — see TestOVS_ErspanPort); the
+// host side (hostAddr) is where the mirror receiver listens, since
+// rawsocket.OpenMirrorReceiver runs in this test's own (host) namespace.
 type erspanTestEnv struct {
+	suffix   string
 	ns       string
 	vethHost string
 	vethNS   string
@@ -87,6 +109,7 @@ func newErspanTestEnv(t *testing.T, suffix string) *erspanTestEnv {
 	requireBinary(t, "ip")
 
 	e := &erspanTestEnv{
+		suffix:   suffix,
 		ns:       "flowseer-erspan-" + suffix,
 		vethHost: "fs-h-" + suffix,
 		vethNS:   "fs-n-" + suffix,
@@ -111,11 +134,21 @@ func newErspanTestEnv(t *testing.T, suffix string) *erspanTestEnv {
 }
 
 // mirrorViaErspan creates an erspan tunnel device inside e's namespace,
-// local to nsAddr and remote to hostAddr, and mirrors every packet egressing
-// the namespace's veth end onto it.
+// local to nsAddr and remote to hostAddr, and mirrors every packet ingressing
+// the namespace's veth end (the UDP probe generateTraffic sends) onto it.
+//
+// The device is named per-suffix rather than "erspan0": the ip_gre module
+// auto-creates its own fallback device named exactly "erspan0" the first
+// time an erspan-type link is created in a namespace (the same pattern as
+// gre0/gretap0), and a test-created device of that same name collides with
+// it. Mirroring ingress rather than egress traffic on vethNS avoids a
+// different problem: the tunnel's own encapsulated output is itself routed
+// back out through vethNS (the only route out of the namespace), so an
+// egress-side mirror would catch its own tunnel's re-encapsulated traffic
+// and mirror that too, recursively.
 func (e *erspanTestEnv) mirrorViaErspan(t *testing.T, ver int) {
 	t.Helper()
-	dev := "erspan0"
+	dev := "fserspan-" + e.suffix
 	args := []string{
 		"ip", "link", "add", "dev", dev, "type", "erspan",
 		"local", e.nsAddr, "remote", e.hostAddr,
@@ -131,7 +164,7 @@ func (e *erspanTestEnv) mirrorViaErspan(t *testing.T, ver int) {
 	nsExec(t, e.ns, "ip", "link", "set", dev, "up")
 
 	nsExec(t, e.ns, "tc", "qdisc", "add", "dev", e.vethNS, "clsact")
-	nsExec(t, e.ns, "tc", "filter", "add", "dev", e.vethNS, "egress",
+	nsExec(t, e.ns, "tc", "filter", "add", "dev", e.vethNS, "ingress",
 		"matchall", "action", "mirred", "egress", "mirror", "dev", dev)
 }
 
@@ -149,16 +182,18 @@ func probeErspanVer0(t *testing.T, e *erspanTestEnv) bool {
 }
 
 // generateTraffic sends one UDP datagram from the host to the namespace,
-// which crosses the veth pair; the reply the namespace's kernel sends back
-// egresses vethNS and is what the tc mirror above wraps and forwards.
+// which crosses the veth pair and ingresses vethNS: the traffic
+// mirrorViaErspan's tc filter mirrors. The datagram's own delivery outcome
+// does not matter (nothing inside the namespace need be listening); the
+// ingress crossing itself is what the mirror catches.
 func generateTraffic(t *testing.T, e *erspanTestEnv) {
 	t.Helper()
-	// A UDP datagram to a closed port draws an ICMP port-unreachable reply
-	// from the namespace, which is enough egress traffic on vethNS for the
-	// mirror to catch without needing a listener inside the namespace.
-	_ = exec.Command("bash", "-c", fmt.Sprintf(
-		"echo -n probe > /dev/udp/%s/9999", e.nsAddr,
-	)).Run()
+	conn, err := net.DialTimeout("udp4", net.JoinHostPort(e.nsAddr, "9999"), time.Second)
+	if err != nil {
+		return
+	}
+	defer func() { _ = conn.Close() }()
+	_, _ = conn.Write([]byte("probe"))
 }
 
 func TestErspanTunnel_TypeII(t *testing.T) {
@@ -188,19 +223,50 @@ func TestErspanTunnel_TypeI(t *testing.T) {
 	}, func(env *capturev1.MirrorEnvelope) bool { return env.HasErspanTypeI() })
 }
 
+// TestOVS_ErspanPort builds the bridge and erspan port in the root
+// namespace, not e.ns: ovs-vswitchd's kernel datapath is a single global
+// resource the daemon owns from wherever it was started (normally the root
+// namespace), so "ip netns exec e.ns ovs-vsctl ..." runs the ovs-vsctl
+// client inside e.ns but still talks to that same root-namespace daemon and
+// datapath — a bridge "created" that way is bookkept by ovsdb without ever
+// correctly attaching to e.vethNS, which really lives inside e.ns. Enslaving
+// e.vethHost (already in the root namespace) into the bridge gives it real
+// traffic to mirror instead.
+//
+// A bridge port alone forwards nothing to it; OVS needs an explicit Mirror
+// record naming the port to copy traffic onto, set on the bridge's own
+// mirrors column.
 func TestOVS_ErspanPort(t *testing.T) {
 	requireBinary(t, "ovs-vsctl")
 	e := newErspanTestEnv(t, "ovs")
 
-	bridge := "fsbr0"
-	nsExec(t, e.ns, "ovs-vsctl", "add-br", bridge)
-	t.Cleanup(func() { _ = runOK("netns", "exec", e.ns, "ovs-vsctl", "del-br", bridge) })
-	nsExec(t, e.ns, "ovs-vsctl", "add-port", bridge, e.vethNS)
-	nsExec(t, e.ns, "ovs-vsctl", "add-port", bridge, "erspan0",
-		"--", "set", "interface", "erspan0", "type=erspan",
+	bridge := "fsbr-" + e.suffix
+	erspanPort := "fserspan-" + e.suffix
+
+	runOVS(t, "add-br", bridge)
+	t.Cleanup(func() { _ = runOVSOK("del-br", bridge) })
+
+	// vethHost joins the bridge as an L2 port: its own IP address moves to
+	// the bridge device, the same as attaching any interface to a Linux
+	// bridge.
+	run(t, "addr", "del", e.hostAddr+"/24", "dev", e.vethHost)
+	runOVS(t, "add-port", bridge, e.vethHost)
+	run(t, "addr", "add", e.hostAddr+"/24", "dev", bridge)
+	run(t, "link", "set", bridge, "up")
+
+	// local_ip and remote_ip are both hostAddr: the bridge, the erspan port,
+	// and the mirror receiver (assertMirroredFrame's OpenMirrorReceiver) all
+	// run in this same root namespace, so the encapsulated GRE packet only
+	// needs to be delivered locally, not routed anywhere.
+	runOVS(t, "add-port", bridge, erspanPort,
+		"--", "set", "interface", erspanPort, "type=erspan",
 		"options:erspan_ver=1", "options:key=100",
-		"options:remote_ip="+e.hostAddr, "options:local_ip="+e.nsAddr)
-	nsExec(t, e.ns, "ip", "link", "set", bridge, "up")
+		"options:remote_ip="+e.hostAddr, "options:local_ip="+e.hostAddr)
+
+	runOVS(t,
+		"--", "--id=@p", "get", "port", erspanPort,
+		"--", "--id=@m", "create", "Mirror", "name=fs-mirror-"+e.suffix, "select-all=true", "output-port=@p",
+		"--", "set", "bridge", bridge, "mirrors=@m")
 
 	assertMirroredFrame(t, e, []capturev1.MirrorEncapsulation{
 		capturev1.MirrorEncapsulation_MIRROR_ENCAPSULATION_ERSPAN_TYPE_II,

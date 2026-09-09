@@ -3,9 +3,24 @@
 Proves `rawsocket.OpenMirrorReceiver` against two independent senders it does
 not control: the Linux kernel's own `erspan` tunnel device, and an Open
 vSwitch `type=erspan` port. Every test builds a scratch network namespace
-connected to the host by a veth pair, mirrors egress traffic on the
-namespace side onto an ERSPAN tunnel or OVS port addressed back at the host,
-and confirms the receiver decodes what arrives.
+connected to the host by a veth pair and confirms the receiver decodes what
+arrives.
+
+The kernel-tunnel tests (`TestErspanTunnel_Type*`) mirror traffic ingressing
+the namespace side of the veth pair onto an ERSPAN tunnel device addressed
+back at the host, inside the namespace. Mirroring ingress rather than egress
+traffic matters here: the tunnel's own encapsulated output is itself routed
+back out through the same veth interface, so an egress-side mirror would
+catch its own tunnel's re-encapsulated traffic and mirror that too,
+recursively.
+
+`TestOVS_ErspanPort` runs the bridge, the erspan port, and an OVS `Mirror`
+record in the root namespace instead, enslaving the host side of the veth
+pair as the bridge's mirrored port: `ovs-vswitchd`'s kernel datapath is a
+single resource the daemon owns from wherever it was started (normally the
+root namespace), so a bridge "created" inside the scratch namespace via `ip
+netns exec` would be bookkept by `ovsdb` without ever correctly attaching to
+an interface that actually lives there.
 
 ## Prerequisites
 
