@@ -16,6 +16,11 @@ parent: docs/plans/2026-09-09-1213-feat-remote-packet-capture-plan.md
 > cross-compiled, vetted, linted, and fully test-binary-compiled for Linux
 > but has not run on a real Linux host, since this development environment
 > is not Linux — named as residual risk throughout and repeated here.
+>
+> A per-unit-then-seam review of the branch found confirmed defects in every
+> unit, two of them severe enough on their own to warrant `review: rework`;
+> all were fixed in three follow-up commits rather than only reported. See
+> Review below.
 
 ## Goal
 
@@ -577,6 +582,39 @@ tag and non-Ethernet frame type, per the parent plan's own Verification
 section — the only check is a fixture this phase wrote against a decoder
 this phase wrote, which proves the pair agree with each other and nothing
 about a real ASIC's output. That gap is not closed here.
+
+## Review
+
+A per-unit-then-seam review (one `independent-reviewer` per unit, six in
+parallel, plus a seam pass over the connecting code) found confirmed defects
+in all six units. The most severe: the mirror receiver's userspace VM could
+never start with a real filter attached (`bpf.RawInstruction` never satisfies
+`bpf.NewVM`'s terminal-instruction check), all IPv4-delivered mirror traffic
+was silently dropped (the AF_INET raw socket's own included IP header was
+never stripped before decode), a received frame's buffer was aliased into
+the delivered `Frame.Data` and overwritten by the next receive, and the
+engine's own transport-drop accounting FIFO grew without bound across a
+healthy run and would misattribute a later eviction to a batch delivered and
+consumed long before, defeating R5's attributable-loss guarantee under
+sustained load. All confirmed findings were fixed rather than only reported,
+each with a regression test proving the specific defect, in three commits
+grouped by unit: filter/mirror/pcapng/rawsocket local+mirror-receiver
+sources, the engine's accounting and lifecycle mapping, and the mirror
+integration suite's traffic paths (an `erspan0` device name collision with
+the kernel's own fallback device, an egress-side `tc` mirror catching its
+own tunnel's re-encapsulated output, and `TestOVS_ErspanPort` building its
+bridge in the wrong network namespace with no `Mirror` record ever created,
+so nothing was actually mirrored).
+
+One residual gap was not closed: `golangci-lint`'s `misspell` linter (locale
+`US`) flags every reference to the generated `CaptureLifecycle` enum's own
+`CAPTURE_LIFECYCLE_CANCELLED` value, which this phase's engine is the first
+Go source outside `generated/` to use. Mapping an operator-initiated stop to
+that lifecycle value is itself one of the fixes above; there is no wording
+that both uses the correct enum member and avoids the finding, and adding a
+suppression to make this change's own artifacts pass is against this
+repository's rules. The fix, if wanted, is a `misspell` ignore-word or a
+schema-level rename, both a policy decision outside this phase's scope.
 
 ## Definition of done
 
