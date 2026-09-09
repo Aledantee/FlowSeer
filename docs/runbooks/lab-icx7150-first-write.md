@@ -409,6 +409,19 @@ correct and it names the wrong culprit, so the length check is here to fail on
 the line that actually produced it. This bites the second write and never the
 first, which is how it survived one.
 
+**And it picks the right one of the two, which is a choice rather than a
+de-duplication.** The first is the top-level `firmware_fingerprint`, the epoch
+central currently believes the device runs; the second belongs to an
+observation and names the epoch that observation was taken under. They differ
+whenever the firmware changed after the last read: recording a new fingerprint
+does not touch the stored interface rows, so the top level moves ahead and the
+provenance stays behind until the interface is read again. An intent must
+carry the current epoch — central compares it against exactly that field and
+refuses a mutation naming any other — so an intent built from the provenance
+digest would be refused on a device whose firmware had moved, which is
+precisely when you would most want the write to be refused for the right
+reason.
+
 ## Step 8: dry run with `validate_only`
 
 Send the intent with `validate_only` set. Central checks it and records
@@ -483,13 +496,28 @@ plus one poll interval, and past it the mutation stops moving on its own and
 becomes yours to resolve. With the horizon this run configures, that is a
 little over that horizon.
 
-**Record the observed heartbeat latency, whether or not it looks
-interesting.** Each heartbeat attempt is bounded by the heartbeat interval,
-and two consecutive misses freeze the lane — so a central answering more
-slowly than one interval is indistinguishable from a central that is down. If
-the lab shows latency anywhere near the interval, the deadline and the
-interval want separating rather than both being raised. Nobody can pick that
-number from a desk, and this is the only run that will have the measurement.
+**Heartbeat latency cannot be recorded here, and the reason is worth knowing
+before you look for it.** A successful heartbeat logs nothing at any level:
+`RunHeartbeat` writes a line when consecutive misses freeze the lane and when
+contact is restored, and the success path records no start, no duration and no
+completion. Raising the agent to DEBUG does not help — measured on
+2026-09-09, where an agent at DEBUG across several intervals produced no
+heartbeat line at all, and neither did central.
+
+That matters more than a missing figure. Each attempt is bounded by the
+heartbeat interval and two consecutive misses freeze the lane, so a central
+answering more slowly than one interval is indistinguishable from a central
+that is down — and the mechanism whose whole job is to notice that decides on
+a latency nobody can see. The first evidence an operator gets is a frozen
+lane. Until a duration is recorded around each attempt, the number that would
+tell you whether the deadline and the interval want separating does not exist.
+
+Do not substitute a loopback round trip for it. On a deployment where central
+and the edge share a host, any RPC you can time yourself answers in a fraction
+of a millisecond, and what this warning is about is network distance. A
+figure like that written into a document as "what the lab measured" is worse
+than the blank, because it reads as evidence about a quantity it never
+measured.
 
 ## If it does not resolve
 

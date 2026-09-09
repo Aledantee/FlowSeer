@@ -2378,6 +2378,22 @@ which is worth a decision rather than a quiet dead branch: a second handle on
 the policy, or an explicit statement that a device has one read route and the
 fallback exists only for devices whose read credential is a shell login.
 
+**A lane freezes on a latency nobody can measure.** Two consecutive missed
+heartbeats freeze a device's lane, and each attempt is bounded by the
+heartbeat interval — so a central answering slower than one interval is
+indistinguishable from a central that is down. Nothing records how long a
+heartbeat takes. `RunHeartbeat` logs only the freeze and the restoration; the
+success path records no duration at any level, so raising the agent to DEBUG
+produces nothing (measured 2026-09-09: an agent at DEBUG across several
+intervals, zero heartbeat lines, and none from central either). The mechanism
+whose whole job is to notice a central that has become too slow decides on a
+number no operator can see, and the first evidence is a frozen lane. The fix
+is a duration recorded around each attempt, not a log level. Until then the
+runbook says the measurement is unavailable rather than asking for it, and a
+loopback round trip is not a substitute: this is a network-distance property,
+and a fraction-of-a-millisecond figure from a single-host deployment would
+misinform the decision it sits beside.
+
 **The one operation with physical consequences is the least observable.** The
 first shell login this system ever made to a real device opened, sent a
 `port-name` command, and closed, and left no record: the session's open,
