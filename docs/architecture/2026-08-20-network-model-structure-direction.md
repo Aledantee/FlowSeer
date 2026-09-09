@@ -58,6 +58,7 @@ spec/proto/flowseer/
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
+    capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
   service/v1/           process-local runtime messages and durable mailbox contracts
 ```
 
@@ -85,6 +86,7 @@ net/packet ← net/switching
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← api/inventory
 api/edge ← api/inventory
+{net/capture, api/edge} ← api/capture
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -755,3 +757,17 @@ package that a later change adds, with its own amendment here.
 address types from `net/addr` and `net/packet`, and the VLAN-identifier
 validation rules from `net/switching`, and nothing from the physical-layer or
 IP-facet values.
+
+### 2026-09-09 — api/capture holds the session identity and its services
+
+`flowseer.api.capture.v1` is the entity package the entry above reserved:
+`CaptureSession`'s ref pair and lifecycle, `CaptureService` for the operator
+who creates and reads a capture back, and `CaptureEdgeService` for the edge
+that uploads one. The import order gains `{net/capture, api/edge} ←
+api/capture`.
+
+Of the two edges, `net/capture ← api/capture` is the one carrying the
+weight: a session's state holds the `net/capture` counters and link type it
+observed, and every packet or artifact chunk on the wire holds `net/capture`
+records rather than a copy of their fields. `api/edge` supplies only the
+owning ref and the assertion a session's upload stream re-verifies.
