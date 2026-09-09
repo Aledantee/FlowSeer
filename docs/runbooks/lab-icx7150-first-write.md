@@ -12,6 +12,64 @@ end-to-end came first: it found two defects that would have reached the switch
 as an interface changed on real hardware with the system unable to say whether
 it had changed.
 
+## Before any of it: the tools, and how commands here are written
+
+Everything an operator does to central is a Connect RPC, and `buf curl` makes
+those without a client. Central serves no reflection, so the schema comes from
+this repository; it serves a certificate it generated for itself, so that
+certificate is what you trust.
+
+There is no credential in any of these calls, and that is worth meeting here
+rather than later. `DeviceService` and `EdgeAdminService` are mounted without
+the assertion middleware — an operator holds no edge key, so a check that
+verified one would refuse every operator call. The convenience of a call that
+needs no authentication and the hazard of step 6 are the same fact: anyone who
+reaches this port can make these calls, which is why the port does not leave
+the host.
+
+**Every command block below is one of three kinds**, and the difference
+matters because two of them are run in different places:
+
+- `sh` — run on the host where central runs. These are executed by the
+  repository's test suite exactly as printed, so a command here has been run.
+- `cli` — typed at the switch's own command line, over SSH. These the suite
+  cannot run; they need the switch.
+- `text` — output and illustrations, not commands.
+
+Set these once, in the shell you will use throughout:
+
+```sh
+export FLOWSEER_REPO=/path/to/this/repository
+export CENTRAL=https://127.0.0.1:8443
+export CACERT=/var/lib/flowseer/device/tls.crt
+export DEVICE_ID=0192e6a0-0000-7000-8000-0000000000d1
+export INTERFACE="ethernet 1/1/1"
+
+# The change itself, and who is making it.
+export DESCRIPTION="uplink to core"
+export OPERATOR=your-identity-provider-subject
+export IDEMPOTENCY_KEY=$(uuidgen | tr 'A-Z' 'a-z')
+
+# The access policy the registry pins for this device. These must match the
+# registry's entry exactly; an intent naming another version is refused.
+export POLICY_KEY=icx7150-lab
+export POLICY_VERSION=1
+```
+
+`CACERT` is the certificate central generated into its state directory on
+first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
+targets, and must match the registry.
+
+A call looks like this, and this one is also the check that your shell is set
+up — it asks central what it knows about the device and needs nothing to have
+happened first:
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
+```
+
 ## Step 0: ask for the switch to be powered on
 
 **This is a scheduling step and it comes days before the rest.** The lab
@@ -82,9 +140,18 @@ same access the run will use. Confirm the read shows what you expect.
 Proving the way back before taking the step is the whole of this runbook's
 safety. A restore path proven afterwards is a hope.
 
-The device commands are `configure terminal`, `interface <name>`, and
-`port-name <text>` — or `no port-name` to clear it, because the syntax has no
-way to set an empty name.
+At the switch:
+
+```cli
+configure terminal
+interface ethernet 1/1/1
+port-name <the value you recorded>
+end
+```
+
+`no port-name` clears it instead, because the syntax has no way to set an
+empty name — so an interface whose description was empty is restored with
+that rather than with `port-name ""`.
 
 ## Step 5: state the blast radius, out loud, in writing
 
@@ -93,8 +160,7 @@ Before anything is dispatched, write down:
 - **What changes:** the description of one interface on one switch.
 - **The state before:** the description recorded in step 3.
 - **The state after:** the description the intent carries.
-- **How to undo it:** `configure terminal`, `interface <name>`,
-  `port-name <recorded value>` — or `no port-name` if it was empty.
+- **How to undo it:** the `cli` block in step 4, with the value from step 3.
 
 **Running configuration only.** The capability enters configuration mode,
 selects the interface, sets the description and leaves; it never writes
@@ -117,10 +183,58 @@ the edge, issue itself a setup key, enroll as that edge, and read the
 device's credential material. The boundary is protecting device credentials,
 not an operator convenience.
 
-## Step 7: dry run with `validate_only`
+## Step 7: read the fingerprint the intent must carry
+
+Every intent names the firmware epoch it expects, and a mismatch blocks it
+before anything is dispatched. The value comes from central, which learns it
+from the edge when the edge onboards the device:
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
+```
+
+If `firmwareFingerprint` is missing from the answer, **the edge has not
+onboarded this device yet** and no mutation is possible until it has. That is
+not a failure to wait out blindly: check the agent is running, that the
+registry lists this device to this edge, and that the edge enrolled. An answer
+with no fingerprint looks like this:
+
+```text
+{"highWatermark":"0"}
+```
+
+Export it, and everything below uses it:
+
+```sh
+export FINGERPRINT=$(buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus" \
+  | sed -n 's/.*"firmwareFingerprint": *"\([^"]*\)".*/\1/p')
+test -n "$FINGERPRINT"
+```
+
+## Step 8: dry run with `validate_only`
 
 Send the intent with `validate_only` set. Central checks it and records
 nothing; the response carries no mutation state.
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"validateOnly\":true,\"intent\":{
+    \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
+    \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
+    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
+    \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
+    \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
+    \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"$DESCRIPTION\"}
+  }}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/ApplyInterfaceDescription"
+```
+
+An accepted dry run answers `{}` — no mutation, because nothing was
+admitted.
 
 What this catches is everything decided before a dispatch: a firmware
 fingerprint that no longer matches, an access policy version the device does
@@ -130,7 +244,7 @@ not pin, an unset horizon, a device the registry does not list.
 dispatched on this path. A clean dry run says the request is well-formed and
 admissible. It says nothing about whether the switch will accept the command.
 
-## Step 8: the approval checkpoint
+## Step 9: the approval checkpoint
 
 **Stop here. Do not proceed without confirming the approval still stands.**
 
@@ -143,11 +257,37 @@ day, or the same change on a switch that has since been moved into service.
 It is not a general authorization to write to hardware and must not be read
 as one. If anything about the target has changed since 2026-09-06, ask again.
 
-## Step 9: make the write
+## Step 10: make the write
 
-Send the intent without `validate_only`. Then watch central's record until
-the mutation resolves: `GetDeviceAccessStatus` until `unresolved` is unset and
-the interface row carries the new description.
+Send the same intent without `validate_only`. This is the irreversible step.
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"intent\":{
+    \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
+    \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
+    \"actor\":{\"operator\":{\"subject\":\"$OPERATOR\"}},
+    \"accessPolicy\":{\"key\":\"$POLICY_KEY\",\"version\":\"$POLICY_VERSION\"},
+    \"expectedFirmwareFingerprint\":\"$FINGERPRINT\",
+    \"interfaceDescription\":{\"interfaceName\":\"$INTERFACE\",\"description\":\"$DESCRIPTION\"}
+  }}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/ApplyInterfaceDescription"
+```
+
+The answer carries the mutation as admitted, with the sequence central gave
+it. Then watch the record until it resolves — `unresolved` gone and the
+interface row carrying the new description:
+
+```sh
+buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
+  "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
+```
+
+How long to watch is not open-ended: recovery's budget is the device's horizon
+plus one poll interval, and past it the mutation stops moving on its own and
+becomes yours to resolve. With the horizon this run configures, that is a
+little over that horizon.
 
 **Record the observed heartbeat latency, whether or not it looks
 interesting.** Each heartbeat attempt is bounded by the heartbeat interval,
