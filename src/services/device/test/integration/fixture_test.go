@@ -23,8 +23,10 @@ import (
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/credential/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
@@ -215,6 +217,54 @@ type central struct {
 	mu      sync.Mutex
 	stop    func()
 	stopped chan error
+	hub     *edgebus.Hub
+}
+
+// auditRecords reads the whole audit stream in the order the stream holds it.
+//
+// That order is the stream's own sequence, which for the lane's records is
+// also the order they were emitted: the edge's audit deliverer blocks until
+// central answers, and central answers only once the stream has acked, so the
+// lane cannot move past a record that is not yet held. Across producers there
+// is a sequence but no such guarantee — central writes its own records at its
+// own moments — so an ordering claim is only sound within one producer's
+// records, which is what the assertions here confine themselves to.
+func (c *central) auditRecords(t *testing.T) []*eventv1.DeviceOperationEvent {
+	t.Helper()
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported no hub; the audit stream cannot be read")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stream, err := hub.JetStream().Stream(ctx, edgebus.AuditStream)
+	if err != nil {
+		t.Fatalf("open the audit stream: %v", err)
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		t.Fatalf("audit stream info: %v", err)
+	}
+
+	var records []*eventv1.DeviceOperationEvent
+	for seq := info.State.FirstSeq; seq <= info.State.LastSeq; seq++ {
+		msg, err := stream.GetMsg(ctx, seq)
+		if err != nil {
+			// A sequence the stream no longer holds is not a failure: the
+			// stream ages records out, and this walk is over what is there.
+			continue
+		}
+		event := &eventv1.DeviceOperationEvent{}
+		if err := proto.Unmarshal(msg.Data, event); err != nil {
+			t.Fatalf("audit record at sequence %d does not decode: %v", seq, err)
+		}
+		records = append(records, event)
+	}
+	return records
 }
 
 func newCentral(t *testing.T, dir, registryPath string) *central {
@@ -258,12 +308,23 @@ intervals {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{Bound: func(api string) {
-			select {
-			case bound <- api:
-			default:
-			}
-		}})
+		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
+			Bound: func(api string) {
+				select {
+				case bound <- api:
+				default:
+				}
+			},
+			// Replaced rather than kept, because the handle dies with the
+			// attempt that produced it: a hub rebuilt under RestForOne
+			// invalidates the last one, and reading the stream through a
+			// closed server is the failure its doc warns about.
+			Hub: func(hub *edgebus.Hub) {
+				c.mu.Lock()
+				c.hub = hub
+				c.mu.Unlock()
+			},
+		})
 	}()
 
 	select {

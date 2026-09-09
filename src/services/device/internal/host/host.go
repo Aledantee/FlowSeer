@@ -136,6 +136,23 @@ type Options struct {
 	// the new attempt bound, which for a configured port is the same address
 	// and for port 0 is a different one.
 	Bound func(api string)
+
+	// Hub is called with the message hub this service started, once per hub
+	// attempt, after its streams and buckets exist and before anything uses
+	// them. Nil means nobody is watching. It is the same thing Bound is: a
+	// host saying what it constructed, for a caller that assembled it rather
+	// than launched it.
+	//
+	// The handle is valid until the next call and no longer, and that is the
+	// whole of its contract. Every module below the hub is supervised
+	// RestForOne precisely because a rebuilt hub invalidates everything
+	// holding its resources, and this service keeps an internal handle whose
+	// only job is to stop a stale one being used — see hubHandle. A caller
+	// that keeps this across a restart is holding a closed server and will
+	// find out at its next call, which is exactly the failure that machinery
+	// exists to prevent. Take what you need from it and take it again when
+	// you are called again.
+	Hub func(hub *edgebus.Hub)
 }
 
 // assembly holds what every attempt of every module draws from: the things
@@ -187,6 +204,9 @@ func (h *assembly) setupHub(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 	h.hub.publish(resources)
+	if h.opts.Hub != nil {
+		h.opts.Hub(hub)
+	}
 
 	// The runtime does not guarantee the Runner below ever runs: it
 	// re-checks the coordinator after Setup returns, and a module context

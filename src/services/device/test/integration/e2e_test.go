@@ -238,17 +238,29 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 	// A failure that carries it costs one line more than one that does not,
 	// and this failure has twice been seen on a machine that was not the one
 	// that could reproduce it.
+	//
+	// What the trail cannot show is why a poll that ran came back with
+	// nothing: that reason is inside central and reaches only its own log,
+	// graded at DEBUG because an operator turns it up when they need it. The
+	// U8f diagnosis needed exactly that and nothing else would have served.
+	// So if a trail ever says the polls ran and nothing resolved, the next
+	// step is one line — set log_level to LOG_LEVEL_DEBUG in the fixture's
+	// central configuration and run it again. It is not on by default because
+	// the host logs to stderr rather than through the test, so every run
+	// would carry it whether or not anything failed.
 	var trail []string
+	var lastErr error
 	nextSample := 15 * time.Second
 	for {
 		if elapsed := time.Since(started); elapsed > nextSample {
 			nextSample += 15 * time.Second
 			_, _, _, cmds, sessions := d.device.snapshot()
-			trail = append(trail, fmt.Sprintf("t+%.0fs sessions=%d writes=%d phase=%v",
-				elapsed.Seconds(), sessions, len(cmds), last.GetUnresolved().GetPhase()))
+			trail = append(trail, fmt.Sprintf("t+%.0fs sessions=%d writes=%d phase=%v status_err=%v",
+				elapsed.Seconds(), sessions, len(cmds), last.GetUnresolved().GetPhase(), lastErr))
 		}
 		status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
 			connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+		lastErr = err
 		if err == nil {
 			last = status.Msg
 			if last.GetUnresolved() == nil && last.GetHighWatermark() > 0 {
@@ -590,5 +602,114 @@ func TestAnEdgeRestartingUnderAMutationResumesItRatherThanRepeatingIt(t *testing
 	if !slices.Equal(commands, want) {
 		t.Errorf("the device was asked to run %q, want %q — the mutation was repeated rather than resumed",
 			commands, want)
+	}
+}
+
+// The audit stream accounts for what was done to the device, in an order that
+// makes the account usable.
+//
+// Three things are asserted and each answers a different way the stream could
+// be useless. That the records are there at all, because a stream missing a
+// record cannot be caught by an ordering check — an ordering claim is
+// satisfied by a stream holding none of what it names. That the device was
+// identified before anything was done to it, because a change recorded
+// against a device whose epoch was never established is a change nobody can
+// attribute. And that nothing is released before its own evidence, which is
+// the property the whole account rests on: a stream where a release can
+// precede the record justifying it cannot answer what happened, only assert
+// that something did.
+//
+// The last one is asserted over every operation the stream holds rather than
+// over this test's own, because it is a property of the stream and iterating
+// what is there costs nothing.
+//
+// It is not a transcript. A transcript asserts whatever the system happened
+// to do on the day it was written, which makes it pass by construction and
+// then break on every unrelated change until its readers learn to update it
+// without reading it. What is asserted here is a subsequence, so records may
+// appear between the ones named.
+//
+// The ordering is sound because these are all the lane's own records and the
+// edge delivers them synchronously: the deliverer blocks until central
+// answers, and central answers only once the stream holds the record, so the
+// lane cannot move past a record that is not yet durable. Central writes
+// records of its own at its own moments, and no order is claimed between
+// those and these.
+func TestTheAuditStreamAccountsForTheChangeInOrder(t *testing.T) {
+	d := assemble(t)
+	fingerprint := d.waitForFingerprint(t)
+	mutation := d.apply(t, "0192e6a0-0000-7000-8000-0000000f0001", "uplink to core", fingerprint)
+	d.waitUntilResolved(t)
+
+	records := d.central.auditRecords(t)
+	if len(records) == 0 {
+		t.Fatal("the audit stream holds nothing after a device was onboarded and changed")
+	}
+
+	sequence := mutation.GetSequence()
+	discovered, verified, released := -1, -1, -1
+	for i, r := range records {
+		switch {
+		case r.HasDiscoveryCompleted() && discovered < 0:
+			discovered = i
+		case r.HasPhaseTransitioned() && r.GetSequence() == sequence &&
+			r.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED:
+			verified = i
+		case r.HasLaneReleased() && r.GetSequence() == sequence:
+			released = i
+		}
+	}
+
+	// Present, each named separately so a missing one says which.
+	if discovered < 0 {
+		t.Error("no discovery record: the device's epoch was never accounted for")
+	}
+	if verified < 0 {
+		t.Errorf("no record of mutation %d being verified: the change has no evidence in the account", sequence)
+	}
+	if released < 0 {
+		t.Errorf("no record of mutation %d releasing the lane: the account does not say the operation ended", sequence)
+	}
+	if discovered < 0 || verified < 0 || released < 0 {
+		return
+	}
+
+	// In order.
+	if discovered >= verified || verified >= released {
+		t.Errorf("the account reads discovery at %d, verification at %d, release at %d; want them in that order",
+			discovered, verified, released)
+	}
+
+	// And the invariant, over every operation the stream holds rather than
+	// this one.
+	//
+	// Two halves, because one of them alone is nearly vacuous. A release with
+	// no earlier record for its own sequence is the account claiming an
+	// operation ended without ever saying what it did — but on its own that
+	// is satisfied by any earlier record at all, and a first draft of this
+	// check passed while the release was moved ahead of the very transition
+	// that justifies it. The half that bites is the other one: a release
+	// closes the account for its operation, so nothing about that operation
+	// may follow it. A record after the release is the account still being
+	// written after it said the matter was settled, and it is what a reader
+	// asking "what happened to this device" would have to reconcile.
+	evidenced := map[uint64]bool{}
+	releasedAt := map[uint64]int{}
+	for i, r := range records {
+		seq := r.GetSequence()
+		if at, closed := releasedAt[seq]; closed {
+			t.Errorf("record %d is about operation %d, which the account already closed at record %d",
+				i, seq, at)
+		}
+		if r.HasPhaseTransitioned() {
+			evidenced[seq] = true
+		}
+		if r.HasLaneReleased() {
+			if !evidenced[seq] {
+				t.Errorf("record %d releases the lane for operation %d with nothing earlier in the stream about it",
+					i, seq)
+			}
+			releasedAt[seq] = i
+		}
 	}
 }

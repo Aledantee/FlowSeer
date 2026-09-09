@@ -512,8 +512,25 @@ Design decisions:
     factories) proves: apply until `unresolved` is unset and the interface
     row carries the observation; central killed between checkpoint and
     result then restarted, same outcome; abandonment with a fake clock;
-    `restore` after abandonment; the audit stream holds the expected kinds
-    in order.
+    `restore` after abandonment; the audit stream accounts for the change in
+    order.
+
+    That last clause is narrower than "holds the expected kinds in order",
+    which is how it read first, and the difference is deliberate. A
+    transcript of kinds asserts whatever the system happened to do on the day
+    it was written: it passes by construction, breaks on every unrelated
+    change, and teaches its readers to update it rather than read it. What is
+    asserted instead is that the named records are present, that the device
+    was identified before anything was done to it, and that a release closes
+    its operation's account — nothing about that operation appears after it.
+    Other records may appear between the named ones.
+
+    The ordering claim is confined to the lane's own records, and soundly:
+    the edge's audit deliverer blocks until central answers and central
+    answers only once the stream holds the record, so the lane cannot move
+    past a record that is not yet durable. Central writes records of its own
+    at its own moments, and the stream's sequence orders those against the
+    lane's without any causal guarantee, so no claim is made across the two.
 
     Three of those five are blocked on U8f: a mutation currently never
     verifies, so there is no resolved apply, no result to kill central
