@@ -154,12 +154,11 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 	}
 }
 
-func TestOnlyAFreshEnrollmentSeedsTheAssertionClock(t *testing.T) {
+func TestAFreshEnrollmentSeedsTheAssertionClock(t *testing.T) {
 	store, _ := newStore(t)
 	central := &centralFake{}
 	freshLocalNow := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
-	restartLocalNow := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 
 	fresh, err := identity.Establish(context.Background(), store, central, testSetupKey)
 	if err != nil {
@@ -182,11 +181,20 @@ func TestOnlyAFreshEnrollmentSeedsTheAssertionClock(t *testing.T) {
 	if got := logs.String(); !strings.Contains(got, `"msg":"assertion clock corrected"`) || !strings.Contains(got, `"flowseer.edge.clock_offset_ms"`) {
 		t.Errorf("clock correction log = %q, want the correction and its offset", got)
 	}
+}
+
+func TestAPersistedEnrollmentTimeDoesNotSeedTheAssertionClock(t *testing.T) {
+	store, _ := newStore(t)
+	central := &centralFake{}
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
 
 	loaded, err := identity.Establish(context.Background(), store, central, "")
 	if err != nil {
 		t.Fatalf("Establish on restart: %v", err)
 	}
+	restartLocalNow := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
 	loadedSigner := loaded.Signer(context.Background(), func() time.Time { return restartLocalNow }, nil)
 	identity.SetNonceForTest(loadedSigner, make([]byte, 16))
 	loadedHeader, err := loadedSigner.Header(vectorProcedure, nil)
