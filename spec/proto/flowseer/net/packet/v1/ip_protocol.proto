@@ -2,6 +2,19 @@ edition = "2024";
 
 package flowseer.net.packet.v1;
 
+import "buf/validate/validate.proto";
+
+// The IANA Protocol Numbers registry
+// (https://www.iana.org/assignments/protocol-numbers) assigns one octet,
+// admitting values 0 through 255.
+extend buf.validate.EnumRules {
+  bool ip_protocol = 50002 [(buf.validate.predefined).cel = {
+    id: "enum.ip_protocol"
+    message: "value must fit the one-octet IANA protocol number field"
+    expression: "!rule || (this >= 0 && this <= 255)"
+  }];
+}
+
 // The payload protocol of an IPv4 datagram or next-header value of an IPv6
 // packet. Integers map directly to the IANA Protocol Numbers registry
 // (https://www.iana.org/assignments/protocol-numbers); unnamed values from

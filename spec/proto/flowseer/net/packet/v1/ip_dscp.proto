@@ -2,6 +2,19 @@ edition = "2024";
 
 package flowseer.net.packet.v1;
 
+import "buf/validate/validate.proto";
+
+// The DSCP field defined by RFC 2474
+// (https://www.rfc-editor.org/rfc/rfc2474.html) is six bits, admitting
+// values 0 through 63.
+extend buf.validate.EnumRules {
+  bool ip_dscp = 50003 [(buf.validate.predefined).cel = {
+    id: "enum.ip_dscp"
+    message: "value must fit the six-bit DSCP field"
+    expression: "!rule || (this >= 0 && this <= 63)"
+  }];
+}
+
 // A Differentiated Services Code Point from the six-bit IPv4 DS field or
 // IPv6 Traffic Class field defined by RFC 2474
 // (https://www.rfc-editor.org/rfc/rfc2474.html). Integers map directly to

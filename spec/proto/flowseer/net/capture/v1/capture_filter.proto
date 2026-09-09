@@ -1,0 +1,81 @@
+edition = "2024";
+
+package flowseer.net.capture.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "flowseer/net/packet/v1/ether_type.proto";
+import "flowseer/net/packet/v1/icmp.proto";
+import "flowseer/net/packet/v1/ip_dscp.proto";
+import "flowseer/net/packet/v1/ip_protocol.proto";
+import "flowseer/net/packet/v1/tcp_flags.proto";
+import "flowseer/net/packet/v1/transport_port.proto";
+import option "buf/validate/validate.proto";
+import option "flowseer/net/switching/v1/vlan_id.proto";
+
+// A packet filter for a capture session. Every CaptureFilterClause compiles
+// to a linear cBPF instruction sequence: a clause's populated fields are
+// combined with AND, and the filter's clauses are evaluated as alternatives,
+// combined with OR. Nothing in this file may need an expression compiler to
+// evaluate.
+message CaptureFilter {
+  // Clauses evaluated as alternatives. An empty list accepts every packet.
+  repeated CaptureFilterClause any_of = 1 [(buf.validate.field).repeated = {max_items: 32}];
+}
+
+// One packet predicate. Populated fields are combined with AND; an absent
+// field places no constraint on the match.
+message CaptureFilterClause {
+  option (buf.validate.message).cel = {
+    id: "capture_filter_clause.non_empty"
+    message: "a capture filter clause must constrain at least one field"
+    expression:
+      "has(this.ether_type) || has(this.vlan) || has(this.src_mac) || "
+      "has(this.dst_mac) || has(this.src_prefix) || has(this.dst_prefix) || "
+      "has(this.ip_protocol) || has(this.src_port) || has(this.dst_port) || "
+      "has(this.tcp_flags) || has(this.icmp) || has(this.dscp)"
+  };
+
+  // The Ethernet frame's EtherType. Absent means unconstrained.
+  flowseer.net.packet.v1.EtherType ether_type = 1 [(buf.validate.field).enum.(flowseer.net.packet.v1.ether_type) = true];
+  // The IEEE 802.1Q tag. Absent means unconstrained.
+  VlanMatch vlan = 2;
+  // The source MAC address. Absent means unconstrained.
+  flowseer.net.addr.v1.EuiAddress src_mac = 3;
+  // The destination MAC address. Absent means unconstrained.
+  flowseer.net.addr.v1.EuiAddress dst_mac = 4;
+  // The source network prefix. Absent means unconstrained.
+  flowseer.net.addr.v1.IpPrefix src_prefix = 5;
+  // The destination network prefix. Absent means unconstrained.
+  flowseer.net.addr.v1.IpPrefix dst_prefix = 6;
+  // The IP payload protocol. Absent means unconstrained.
+  flowseer.net.packet.v1.IpProtocol ip_protocol = 7 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_protocol) = true];
+  // The transport source port. Absent means unconstrained.
+  flowseer.net.packet.v1.TransportPortMatch src_port = 8;
+  // The transport destination port. Absent means unconstrained.
+  flowseer.net.packet.v1.TransportPortMatch dst_port = 9;
+  // TCP control flags. Absent means unconstrained.
+  flowseer.net.packet.v1.TcpFlagsMatch tcp_flags = 10;
+  // ICMP type and code. Absent means unconstrained.
+  flowseer.net.packet.v1.IcmpMatch icmp = 11;
+  // The DSCP code point. Absent means unconstrained.
+  flowseer.net.packet.v1.IpDscp dscp = 12 [(buf.validate.field).enum.(flowseer.net.packet.v1.ip_dscp) = true];
+}
+
+// An IEEE 802.1Q tag predicate. Absence of the containing VlanMatch means the
+// packet's tag is unconstrained. VlanTag is not reused here: its tpid and dei
+// fields describe frame structure a predicate has no reason to constrain, and
+// every VlanTag field is required, which would force a predicate to name all
+// four just to constrain the VID or the PCP alone.
+message VlanMatch {
+  option (buf.validate.message).cel = {
+    id: "vlan_match.non_empty"
+    message: "a VLAN match must constrain the VID or the PCP"
+    expression: "has(this.vlan_id) || has(this.pcp)"
+  };
+
+  // The 12-bit VID. Absent means unconstrained.
+  uint32 vlan_id = 1 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_tag_vid) = true];
+  // The three-bit priority code point. Absent means unconstrained.
+  uint32 pcp = 2 [(buf.validate.field).uint32.(flowseer.net.switching.v1.vlan_pcp) = true];
+}
