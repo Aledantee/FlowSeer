@@ -125,7 +125,7 @@ equivalent:
 | --- | --- | --- |
 | `Endpoint` | `OTEL_EXPORTER_OTLP_ENDPOINT` | Managed export stays off. |
 | `Protocol` | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` |
-| `Compression` | `OTEL_EXPORTER_OTLP_COMPRESSION` | No compression; `gzip` is the supported value. |
+| `Compression` | `OTEL_EXPORTER_OTLP_COMPRESSION` | No compression. `gzip` enables it; `none` explicitly overrides compression from the environment. |
 | `Headers` | `OTEL_EXPORTER_OTLP_HEADERS` | No headers. An empty non-nil map clears the environment value. |
 | `Timeout` | `OTEL_EXPORTER_OTLP_TIMEOUT` | Five seconds per request. The environment value is milliseconds. |
 | `Insecure` | `OTEL_EXPORTER_OTLP_INSECURE` | Derived from the endpoint scheme. |

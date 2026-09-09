@@ -6,6 +6,10 @@ redacted audit record. It has no vendor or protocol vocabulary of its own —
 every prompt, pagination marker, and privilege transition is a pattern the
 caller supplies per command.
 
+Passwords and private keys enter the transport as `secret.Value`. A secret
+sent as command text is revealed only when assigning `Command.Line`, which
+accepts arbitrary shell input rather than credential material specifically.
+
 ```go
 opts := ssh.Options{
     Username:      "admin",
