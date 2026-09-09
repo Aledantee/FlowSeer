@@ -71,6 +71,17 @@ func (v *View) NoteBaselineUnavailable(ctx context.Context, reason string) {
 	trace.SpanFromContext(ctx).SetAttributes(attrKeyBaselineUnavailable.String(reason))
 }
 
+// NoteEpochReprobeUnavailable marks the current operation span when a
+// firmware epoch re-probe fails and the mutation continues under its admitted
+// fingerprint. The bounded reason makes that deliberate degradation visible
+// without putting device error text in telemetry.
+func (v *View) NoteEpochReprobeUnavailable(ctx context.Context, reason string) {
+	if v == nil {
+		return
+	}
+	trace.SpanFromContext(ctx).SetAttributes(attrKeyEpochReprobeUnavailable.String(reason))
+}
+
 // StartRoute starts the flowseer.device.route span for one route attempt: a
 // CLIENT span, since this is the actual outbound SNMP or SSH call to the
 // device. On the ordinary path it is a child of the current context's span

@@ -1342,7 +1342,9 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// Probed alongside the baseline, before anything is sent. An intent
 	// central built against one firmware must not be applied to another:
 	// the command's meaning is the firmware's, not central's.
-	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+	} else if probed != fingerprint {
 		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
 
@@ -1373,7 +1375,9 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// to label its provenance with — the device that answered is not the
 	// device the read was planned against — so it is discarded rather than
 	// recorded under either epoch.
-	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+	} else if probed != fingerprint {
 		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
 			return l.enterRecovery(ctx, ds, open, submittedAt, baseline, err)
 		}
