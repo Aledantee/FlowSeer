@@ -321,4 +321,15 @@ func TestICX7150Load(t *testing.T) {
 	if gotPorts := len(cfg.Ports.Ports()); gotPorts != 33 {
 		t.Errorf("ports count = %d, want 33", gotPorts)
 	}
+
+	// The capture reports no powered device on any port and 0 mW allocated.
+	alloc := cfg.Phy.Allocate()
+	if g := alloc.Groups["1"]; g.AllocatedMilliwatts != 0 || g.RemainderMilliwatts != 370_000 {
+		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370000 mW", g)
+	}
+	for name, pa := range alloc.Ports {
+		if pa.Milliwatts != 0 || pa.Denial != "" {
+			t.Errorf("port %s allocation = %+v, want no power and no denial", name, pa)
+		}
+	}
 }

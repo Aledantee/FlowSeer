@@ -47,14 +47,20 @@ type Group struct {
 // PsePort is one power-sourcing port. MaxClass is the highest powered-device
 // class the port can source; no net/phy message carries it, so the loader
 // supplies it. Limit optionally caps the power the port may draw. PDClass is
-// the class of the attached powered device.
+// the class of the attached powered device; nil means no device is attached,
+// since class 0 is a real class that draws 15.4 W.
 type PsePort struct {
 	Group    string
 	MaxClass uint8
 	Enabled  bool
 	Limit    *uint32
 	Priority Priority
-	PDClass  uint8
+	PDClass  *uint8
+}
+
+// Class returns a pointer to c, for a PsePort literal.
+func Class(c uint8) *uint8 {
+	return new(c)
 }
 
 // PoE is the power-sourcing configuration of a virtual switch: its groups
@@ -125,7 +131,8 @@ type GroupAllocation struct {
 // first with the port name as tie-break, charging each port its class power.
 // Priority order is what keeps the budget invariant under oversubscription:
 // a port whose class power exceeds the remainder is denied rather than
-// overdrawing the group. A port naming an unknown group is skipped;
+// overdrawing the group. A port with no attached device draws nothing and
+// records no denial. A port naming an unknown group is skipped;
 // [Config.Validate] rejects such a configuration. Allocate returns empty
 // maps when the PoE capability is absent.
 func (c Config) Allocate() Allocation {
@@ -157,13 +164,18 @@ func (c Config) Allocate() Allocation {
 
 		for _, name := range names {
 			p := c.PoE.Ports[name]
-			power, known := ClassPowerMW(p.PDClass)
 			pa := PortAllocation{}
+			if p.PDClass == nil {
+				result.Ports[name] = pa
+
+				continue
+			}
+			power, known := ClassPowerMW(*p.PDClass)
 
 			switch {
 			case !p.Enabled:
 				pa.Denial = ReasonDisabled
-			case !known || p.PDClass > p.MaxClass:
+			case !known || *p.PDClass > p.MaxClass:
 				pa.Denial = ReasonClassUnsupported
 			case p.Limit != nil && power > *p.Limit:
 				pa.Denial = ReasonLimit

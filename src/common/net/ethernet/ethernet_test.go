@@ -2,10 +2,12 @@ package ethernet_test
 
 import (
 	"bytes"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 func TestCodecRoundTripsTaggedFrame(t *testing.T) {
@@ -19,8 +21,8 @@ func TestCodecRoundTripsTaggedFrame(t *testing.T) {
 		0xa0, 0x64, // TCI: PCP 5 (0b101), DEI false (0), VID 100 (0x0064)
 		0x08, 0x00, // EtherType IPv4
 	}
-	payload := []byte("requirement 1 payload")
-	raw := append(slicesClone(prefix), payload...)
+	payload := []byte("tagged frame payload")
+	raw := slices.Concat(prefix, payload)
 
 	frame, err := ethernet.Decode(raw)
 	if err != nil {
@@ -256,9 +258,25 @@ func TestReservedRangeEdges(t *testing.T) {
 	}
 }
 
-func slicesClone(b []byte) []byte {
-	out := make([]byte, len(b))
-	copy(out, b)
+func TestEncodeRejectsATagItCannotDecode(t *testing.T) {
+	f := ethernet.Frame{
+		Tags:      []vlan.Tag{{TPID: 0x9100, VID: 10}, {TPID: 0x8100, VID: 20}},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	if _, err := f.Encode(); err == nil {
+		t.Fatal("Encode() error = nil, want an error for TPID 0x9100")
+	}
 
-	return out
+	f.Tags[0].TPID = 0
+	raw, err := f.Encode()
+	if err != nil {
+		t.Fatalf("Encode() with a zero TPID: %v", err)
+	}
+	back, err := ethernet.Decode(raw)
+	if err != nil {
+		t.Fatalf("Decode(): %v", err)
+	}
+	if len(back.Tags) != 2 || back.Tags[0].TPID != 0x8100 {
+		t.Errorf("a zero TPID encoded as %+v, want two tags with an outer C-Tag", back.Tags)
+	}
 }

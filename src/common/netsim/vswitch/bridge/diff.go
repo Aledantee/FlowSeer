@@ -140,7 +140,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		}
 
-		if !slices.Equal(aSw.Tagged, bSw.Tagged) {
+		if !slices.Equal(slices.Sorted(slices.Values(aSw.Tagged)), slices.Sorted(slices.Values(bSw.Tagged))) {
 			changes = append(changes, trace.Change{
 				Layer: port.LayerVlan,
 				Subject: trace.Subject{
@@ -153,7 +153,7 @@ func Diff(a, b Config) []trace.Change {
 			})
 		}
 
-		if !slices.Equal(aSw.Untagged, bSw.Untagged) {
+		if !slices.Equal(slices.Sorted(slices.Values(aSw.Untagged)), slices.Sorted(slices.Values(bSw.Untagged))) {
 			changes = append(changes, trace.Change{
 				Layer: port.LayerVlan,
 				Subject: trace.Subject{
@@ -214,7 +214,8 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
-	if a.AgingTime != b.AgingTime {
+	aAging, bAging := effectiveAgingTime(a.AgingTime), effectiveAgingTime(b.AgingTime)
+	if aAging != bAging {
 		changes = append(changes, trace.Change{
 			Layer: port.LayerRelay,
 			Subject: trace.Subject{
@@ -222,8 +223,8 @@ func Diff(a, b Config) []trace.Change {
 				Key:  "",
 			},
 			Field: "aging_time",
-			From:  a.AgingTime,
-			To:    b.AgingTime,
+			From:  aAging,
+			To:    bAging,
 		})
 	}
 

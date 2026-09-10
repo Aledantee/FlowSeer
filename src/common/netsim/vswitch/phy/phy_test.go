@@ -72,7 +72,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 
 func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 	class4 := func(priority phy.Priority, limit *uint32) phy.PsePort {
-		return phy.PsePort{Group: "1", MaxClass: 8, Enabled: true, Limit: limit, Priority: priority, PDClass: 4}
+		return phy.PsePort{Group: "1", MaxClass: 8, Enabled: true, Limit: limit, Priority: priority, PDClass: phy.Class(4)}
 	}
 	threePorts := func() map[string]phy.PsePort {
 		return map[string]phy.PsePort{
@@ -158,7 +158,7 @@ func TestClassAbovePortMaximum(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 90_000}},
 		Ports: map[string]phy.PsePort{
-			"1/1/1": {Group: "1", MaxClass: 4, Enabled: true, Priority: phy.PriorityCritical, PDClass: 6},
+			"1/1/1": {Group: "1", MaxClass: 4, Enabled: true, Priority: phy.PriorityCritical, PDClass: phy.Class(6)},
 		},
 	}}
 
@@ -257,7 +257,7 @@ func TestValidate(t *testing.T) {
 	)
 	validPoE := &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: 4}},
+		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
 	}
 
 	cases := []struct {
@@ -269,6 +269,18 @@ func TestValidate(t *testing.T) {
 		{
 			name:     "valid configuration",
 			cfg:      phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: gigabitCapable}}, PoE: validPoE},
+			wantAttr: "",
+		},
+		{
+			name: "an auto-negotiating setting carries no speed to check",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {SupportedSpeedsBPS: gigabitCapable, AutoNegotiationSupported: true, Setting: &phy.Setting{AutoNegotiation: true}},
+			}},
+			wantAttr: "",
+		},
+		{
+			name:     "a fixed setting without a speed is unresolved, not invalid",
+			cfg:      phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: gigabitCapable, Setting: &phy.Setting{}}}},
 			wantAttr: "",
 		},
 		{
@@ -308,7 +320,7 @@ func TestValidate(t *testing.T) {
 			name: "pd class above 8",
 			cfg: phy.Config{PoE: &phy.PoE{
 				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, PDClass: 9}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, PDClass: phy.Class(9)}},
 			}},
 			wantAttr: "class",
 			wantVal:  uint8(9),
@@ -348,11 +360,11 @@ func TestDiff(t *testing.T) {
 	t.Run("one group and one port change", func(t *testing.T) {
 		a := phy.Config{PoE: &phy.PoE{
 			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: 4}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: phy.Class(4)}},
 		}}
 		b := phy.Config{PoE: &phy.PoE{
 			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 90_000}},
-			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityLow, PDClass: 4}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityLow, PDClass: phy.Class(4)}},
 		}}
 
 		diffs := phy.Diff(a, b)
@@ -436,7 +448,7 @@ func TestDiff(t *testing.T) {
 			Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: gigabitCapable, Setting: &phy.Setting{SpeedBPS: 1_000_000_000}}},
 			PoE: &phy.PoE{
 				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: 4}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
 			},
 		}
 		if diffs := phy.Diff(cfg, cfg); len(diffs) != 0 {

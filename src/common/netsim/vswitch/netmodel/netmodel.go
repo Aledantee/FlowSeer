@@ -53,8 +53,7 @@ func Load(
 			Name: iface.GetName(),
 		}
 		if iface.HasIfIndex() {
-			idx := iface.GetIfIndex()
-			p.IfIndex = &idx
+			p.IfIndex = iface.GetIfIndex()
 		}
 		switch {
 		case iface.GetPhysical() != nil:
@@ -104,7 +103,7 @@ func Load(
 
 	ports, err := portBuilder.Build()
 	if err != nil {
-		return vswitch.Config{}, nil, Report{}, err
+		return vswitch.Config{}, nil, Report{}, errs.Wrap(err, "build port table")
 	}
 
 	var (
@@ -163,6 +162,14 @@ func Load(
 		copy(report.Capabilities, want)
 		for _, l := range want {
 			report.CapabilitySources[l] = "wanted"
+		}
+		if slices.Contains(want, port.LayerVlan) && !slices.Contains(want, port.LayerRelay) {
+			report.Capabilities = append(report.Capabilities, port.LayerRelay)
+			report.CapabilitySources[port.LayerRelay] = "implied:vlan"
+		}
+		if hasLag && !slices.Contains(want, port.LayerLag) {
+			report.Capabilities = append(report.Capabilities, port.LayerLag)
+			report.CapabilitySources[port.LayerLag] = "present:lag"
 		}
 	}
 
@@ -379,7 +386,15 @@ func Load(
 					})
 				}
 				if copper.GetPoe() != nil && copper.GetPoe().HasPowerClass() {
-					psePort.PDClass = uint8(copper.GetPoe().GetPowerClass())
+					if class := copper.GetPoe().GetPowerClass(); class > 8 {
+						report.Skipped = append(report.Skipped, Skipped{
+							Port: iface.GetName(),
+							What: "power_class",
+							Why:  "class above 8",
+						})
+					} else {
+						psePort.PDClass = phy.Class(uint8(class))
+					}
 				}
 				poe.Ports[iface.GetName()] = psePort
 			}
@@ -531,6 +546,14 @@ func Load(
 				Port: entry.GetInterfaceName(),
 				What: "fdb_entry",
 				Why:  "status is INVALID",
+			})
+			continue
+		}
+		if !vlan.ID(entry.GetVlanId()).Valid() || uint64(entry.GetVlanId()) > uint64(vlan.MaxID) {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: entry.GetInterfaceName(),
+				What: "fdb_entry",
+				Why:  "vlan_id outside 1 through 4094",
 			})
 			continue
 		}

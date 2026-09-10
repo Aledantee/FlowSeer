@@ -42,7 +42,9 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 			if !ok {
 				continue
 			}
-			if !slices.Contains(sw.Tagged, entry.FID) && !slices.Contains(sw.Untagged, entry.FID) {
+			admitted := slices.Contains(sw.Tagged, entry.FID) || slices.Contains(sw.Untagged, entry.FID) ||
+				(sw.PVID != nil && *sw.PVID == entry.FID)
+			if !admitted {
 				continue
 			}
 			seeds = append(seeds, bridge.Seed{

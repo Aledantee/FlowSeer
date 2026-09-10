@@ -140,8 +140,10 @@ omitted values with standard defaults and records each in the `Report`:
 | `frame_admission`   | `admitAll`       | Q-BRIDGE-MIB:1413 AcceptableFrame   |
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
-| `mtu`               | unlimited (0)    | Interface without explicit MTU      |
-| `power_milliwatts`  | 0 mW             | POWER-ETHERNET-MIB:420 PseBudget    |
+| `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
+| `max_class`         | 8                | No net/phy message carries one      |
+| `priority`          | none (last)      | PoeSettings without a priority      |
+| `power_milliwatts`  | 0 mW             | PseBudget without a budget          |
 
 ## Drop reasons
 
@@ -157,18 +159,19 @@ Drop reasons recorded in traces and egress records:
 | `no-pvid`          | Untagged frame arrived on port without a PVID           |
 | `same-port`        | Destination MAC learned on ingress port (no reflection) |
 | `mtu-exceeded`     | Frame payload length exceeds egress port MTU            |
+| `not-member`       | Known unicast's port is not a member of the VLAN        |
+| `no-egress`        | No forwarding member port other than the ingress port   |
 
 ## Denied PoE port status
 
-When total port demands exceed a PSE group budget, lower-priority ports are
-denied power. In exported telemetry, denied ports report status
-`POE_STATUS_SEARCHING`.
-
-Under IEEE 802.3 clause 33.2.4.4 and RFC 3621 (`pethPsePortDetectionStatus`),
-searching is the state where a PSE port is enabled and actively probing for a
-PD without delivering power. Because the port remains administratively enabled
-and will receive power if capacity becomes available, searching represents
-pending allocation rather than a hardware fault or administrative shutdown.
+The exported `PoeFacet.status` follows the allocation: a powered port is
+`DELIVERING_POWER`; a port with no attached device, or one denied for the
+group's budget or its own limit, is `SEARCHING`, the state RFC 3621's
+`pethPsePortDetectionStatus` gives a PSE port that is enabled and probing
+for a device, which fits a port that would be powered when capacity returns;
+a port whose delivery is disabled is `DISABLED`; a device of a class the
+port cannot source is `FAULT`. A port with no attached device exports no
+`power_class` and draws nothing from the budget.
 
 ## Concurrency contract
 

@@ -45,6 +45,108 @@ func buildTestPorts(t *testing.T, count int) port.Table {
 	return tbl
 }
 
+func TestDropsWithoutAnEgressCarryAReason(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
+	macA := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xaa}
+
+	t.Run("a hit on a port outside the classified VLAN", func(t *testing.T) {
+		// 1/1/2 is a trunk with PVID 1 and no untagged set, the ordinary shape:
+		// an untagged frame from it is learned under VLAN 1, where it is no member.
+		cfg := bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{1: "default", 20: "twenty"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(1), Untagged: []vlan.ID{1}},
+				"1/1/2": {PVID: mustVLAN(1), Tagged: []vlan.ID{20}},
+			},
+		}}
+		b := bridge.New(cfg, buildTestPorts(t, 2))
+		b.Forward(now, "1/1/2", ethernet.Frame{Dst: macA, Src: macB})
+		res := b.Forward(now, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNotMember {
+			t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonNotMember)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "1/1/2" || res.Egress[0].Dropped != bridge.ReasonNotMember {
+			t.Errorf("Egress = %+v, want 1/1/2 dropped with %s", res.Egress, bridge.ReasonNotMember)
+		}
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop {
+			t.Errorf("last step = %+v, want a drop", last)
+		}
+	})
+
+	t.Run("a flood with no other forwarding port", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Up})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		res := bridge.New(bridge.Config{}, tbl).Forward(now, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
+			t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonNoEgress)
+		}
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop {
+			t.Errorf("last step = %+v, want a drop", last)
+		}
+	})
+}
+
+func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Range("1/1/%d", 5, 6, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
+	br := bridge.New(bridge.Config{}, tbl)
+	br.Learn([]bridge.Seed{
+		{MAC: macB, Port: "1/1/6", LearnedAt: now},
+		{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now},
+	})
+	entries := br.Entries()
+	if len(entries) != 1 || entries[0].Port != "lag1" {
+		t.Fatalf("Entries() = %+v, want one entry on lag1 and the group seed ignored", entries)
+	}
+
+	res := br.Forward(now, "1/1/5", ethernet.Frame{Dst: macB, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa}})
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonSamePort {
+		t.Errorf("a frame to macB from the other member = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonSamePort)
+	}
+}
+
+func TestAdmissionIsCheckedBeforeThePVID(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	cfg := bridge.Config{VLAN: &bridge.VLAN{
+		Table:       map[vlan.ID]string{20: "twenty"},
+		Switchports: map[string]bridge.Switchport{"1/1/1": {Admission: bridge.TaggedOnly, Tagged: []vlan.ID{20}}},
+	}}
+	res := bridge.New(cfg, buildTestPorts(t, 2)).Forward(now, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
+	})
+	if res.Reason != bridge.ReasonAdmission {
+		t.Errorf("an untagged frame on a tagged-only trunk without a PVID dropped with %q, want %q", res.Reason, bridge.ReasonAdmission)
+	}
+}
+
+func TestDiffIgnoresSetOrderAndTheAgingDefault(t *testing.T) {
+	a := bridge.Config{VLAN: &bridge.VLAN{
+		Table:       map[vlan.ID]string{10: "", 20: ""},
+		Switchports: map[string]bridge.Switchport{"1/1/1": {Tagged: []vlan.ID{10, 20}}},
+	}}
+	b := bridge.Config{AgingTime: bridge.DefaultAgingTime, VLAN: &bridge.VLAN{
+		Table:       map[vlan.ID]string{10: "", 20: ""},
+		Switchports: map[string]bridge.Switchport{"1/1/1": {Tagged: []vlan.ID{20, 10}}},
+	}}
+	if changes := bridge.Diff(a, b); len(changes) != 0 {
+		t.Errorf("Diff = %+v, want no change between configurations that build the same bridge", changes)
+	}
+}
+
 func TestUntaggedIngressClassifiesToPVIDAndLearns(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	cfg := bridge.Config{

@@ -27,6 +27,44 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
+func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	pvid := vlan.ID(1)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	cfg := vswitch.Config{
+		Ports: mustTable(t, b),
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{1: "", 10: "", 20: ""},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Tagged: []vlan.ID{10, 20}},
+				"1/1/2": {PVID: &pvid, Tagged: []vlan.ID{10, 20}},
+			},
+		}},
+	}
+	cur := vswitch.New(cfg)
+	cur.Forward(now, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
+	})
+
+	next, err := vswitch.Derive(cur, cur.Config())
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if entries := next.Entries(); len(entries) != 1 || entries[0].FID != 1 {
+		t.Errorf("derived Entries() = %+v, want the entry learned under PVID 1", entries)
+	}
+}
+
+func TestDiffOfAHubAndAHubIsEmpty(t *testing.T) {
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical})
+	cfg := vswitch.Config{Ports: mustTable(t, b)}
+	if changes := vswitch.Diff(cfg, cfg); len(changes) != 0 {
+		t.Errorf("Diff = %+v, want none", changes)
+	}
+}
+
 func TestCapabilitiesFollowConfiguration(t *testing.T) {
 	portsOnly := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).

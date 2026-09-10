@@ -21,7 +21,8 @@ func (c Config) Validate(ports port.Table) error {
 		if p.Kind == port.Lag {
 			return errs.New().Attr("port", name).Msgf("ethernet entry names LAG %q", name)
 		}
-		if e.Setting != nil && !slices.Contains(e.SupportedSpeedsBPS, e.Setting.SpeedBPS) {
+		fixed := e.Setting != nil && !e.Setting.AutoNegotiation && e.Setting.SpeedBPS != 0
+		if fixed && !slices.Contains(e.SupportedSpeedsBPS, e.Setting.SpeedBPS) {
 			return errs.New().
 				Attr("port", name).
 				Attr("speed_bps", e.Setting.SpeedBPS).
@@ -47,11 +48,11 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("group", pp.Group).
 				Msgf("port %q names unknown pse group %q", name, pp.Group)
 		}
-		if pp.PDClass > maxClass {
+		if pp.PDClass != nil && *pp.PDClass > maxClass {
 			return errs.New().
 				Attr("port", name).
-				Attr("class", pp.PDClass).
-				Msgf("port %q pd class %d exceeds %d", name, pp.PDClass, maxClass)
+				Attr("class", *pp.PDClass).
+				Msgf("port %q pd class %d exceeds %d", name, *pp.PDClass, maxClass)
 		}
 		if pp.MaxClass > maxClass {
 			return errs.New().

@@ -59,9 +59,11 @@ const (
 )
 
 // Port represents a network port or interface with its state, limits, and LAG membership.
+// IfIndex is the interface's ifIndex, or 0 when the source reported none; ifIndex values
+// start at 1, so 0 is free to mean absent.
 type Port struct {
 	Name        string
-	IfIndex     *uint32
+	IfIndex     uint32
 	Kind        Kind
 	AdminStatus LinkState
 	OperStatus  LinkState
@@ -108,8 +110,12 @@ func (t Table) Len() int {
 }
 
 // Members returns the member ports of the named LAG in table insertion order.
-// If lagName is not found or has no member ports, Members returns nil.
+// If lagName does not name a LAG in the table, or the LAG has no member ports,
+// Members returns nil.
 func (t Table) Members(lagName string) []Port {
+	if lag, ok := t.byName[lagName]; !ok || lag.Kind != Lag {
+		return nil
+	}
 	var members []Port
 	for _, p := range t.ports {
 		if p.LagParent == lagName {
@@ -191,14 +197,9 @@ func (t Table) Clone() Table {
 		ports:  make([]Port, len(t.ports)),
 		byName: make(map[string]Port, len(t.ports)),
 	}
-	for i, p := range t.ports {
-		cp := p
-		if p.IfIndex != nil {
-			idx := *p.IfIndex
-			cp.IfIndex = &idx
-		}
-		cloned.ports[i] = cp
-		cloned.byName[cp.Name] = cp
+	copy(cloned.ports, t.ports)
+	for _, p := range cloned.ports {
+		cloned.byName[p.Name] = p
 	}
 
 	return cloned

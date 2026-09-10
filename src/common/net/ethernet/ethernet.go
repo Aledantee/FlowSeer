@@ -84,8 +84,17 @@ type Frame struct {
 }
 
 // Encode serializes f into its Ethernet II byte representation with its tag stack.
+// A tag with a zero TPID is written as a C-Tag (0x8100). A tag whose TPID is neither
+// 0x8100 nor 0x88A8 is rejected, because [Decode] would not peel it and the pair would
+// stop being inverses.
 func (f Frame) Encode() ([]byte, error) {
 	for i, tag := range f.Tags {
+		if tag.TPID != 0 && tag.TPID != uint16(EtherTypeDot1Q) && tag.TPID != uint16(EtherTypeProviderBridging) {
+			return nil, errs.New().
+				Attr("index", i).
+				Attr("tpid", tag.TPID).
+				Msg("tag protocol identifier is not a VLAN tag")
+		}
 		if tag.VID > 0x0FFF {
 			return nil, errs.New().
 				Attr("index", i).
@@ -134,6 +143,8 @@ func (f Frame) Encode() ([]byte, error) {
 // Decode decodes an Ethernet II frame from wire bytes, peeling 802.1Q tags while the
 // EtherType is 0x8100 (C-Tag) or 0x88A8 (S-Tag). It returns an error if the frame is
 // shorter than the minimum Ethernet header (14 bytes) or if a tag is truncated.
+// The returned Payload aliases b: a caller that reuses or rewrites b afterwards
+// changes the frame, and one that keeps the frame copies the payload first.
 func Decode(b []byte) (Frame, error) {
 	if len(b) < 14 {
 		return Frame{}, errs.New().

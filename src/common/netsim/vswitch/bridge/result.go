@@ -30,6 +30,12 @@ const (
 
 	// ReasonMTUExceeded indicates a frame dropped on an egress port because its payload length exceeds the port MTU.
 	ReasonMTUExceeded trace.Reason = "mtu-exceeded"
+
+	// ReasonNotMember indicates a known unicast whose destination port is not a member of the classified VLAN.
+	ReasonNotMember trace.Reason = "not-member"
+
+	// ReasonNoEgress indicates a flood with no forwarding member port other than the ingress port.
+	ReasonNoEgress trace.Reason = "no-egress"
 )
 
 // Egress records the transmission or per-port drop of a frame on a specific egress port.

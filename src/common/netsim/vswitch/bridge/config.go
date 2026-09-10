@@ -12,6 +12,17 @@ import (
 // DefaultAgingTime is the standard IEEE 802.1D recommended forwarding database aging time (300 seconds).
 const DefaultAgingTime = 300 * time.Second
 
+// effectiveAgingTime is the aging time a bridge runs with: the configured one, or
+// the default when the configuration left it unset. New and Diff share it so two
+// configurations that build the same bridge diff empty.
+func effectiveAgingTime(configured time.Duration) time.Duration {
+	if configured <= 0 {
+		return DefaultAgingTime
+	}
+
+	return configured
+}
+
 // Admission specifies which Ethernet frame-tag forms a switchport admits at ingress.
 type Admission string
 

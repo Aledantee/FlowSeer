@@ -26,10 +26,7 @@ type Bridge struct {
 
 // New constructs a [Bridge] with the provided configuration and port table.
 func New(cfg Config, ports port.Table) *Bridge {
-	aging := cfg.AgingTime
-	if aging <= 0 {
-		aging = DefaultAgingTime
-	}
+	aging := effectiveAgingTime(cfg.AgingTime)
 
 	clonedCfg := cfg.Clone()
 	if clonedCfg.VLAN != nil {
@@ -53,9 +50,18 @@ func (b *Bridge) Validate(ports port.Table) error {
 	return b.cfg.Validate(ports)
 }
 
-// Learn preloads the forwarding database with the provided seeds.
+// Learn preloads the forwarding database with the provided seeds. A seed naming a
+// LAG member is stored under the LAG, as the relay learns it, so a later lookup
+// treats the aggregation as one port. A seed with a group address is ignored,
+// since the relay never learns one and the export could not carry it.
 func (b *Bridge) Learn(seeds []Seed) {
 	for _, s := range seeds {
+		if s.MAC.IsGroup() {
+			continue
+		}
+		if p, ok := b.ports.Resolve(s.Port); ok {
+			s.Port = p.Name
+		}
 		key := fdbKey{fid: s.FID, mac: s.MAC}
 		b.fdb[key] = Entry(s)
 	}
@@ -190,27 +196,6 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			isUntagged = true
 		}
 
-		if isPriorityTagged || isUntagged {
-			if !swOk || sw.PVID == nil {
-				res.Reason = ReasonNoPVID
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerVlan,
-					Op:     trace.OpDrop,
-					Detail: "no PVID configured",
-				})
-
-				return res
-			}
-			classifiedFID = *sw.PVID
-		}
-
-		res.FID = classifiedFID
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerVlan,
-			Op:     trace.OpClassify,
-			Detail: fmt.Sprintf("vlan %d", classifiedFID),
-		})
-
 		admission := sw.Admission
 		if admission == "" {
 			admission = All
@@ -254,6 +239,27 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			}
 		case All:
 		}
+
+		if isPriorityTagged || isUntagged {
+			if !swOk || sw.PVID == nil {
+				res.Reason = ReasonNoPVID
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerVlan,
+					Op:     trace.OpDrop,
+					Detail: "no PVID configured",
+				})
+
+				return res
+			}
+			classifiedFID = *sw.PVID
+		}
+
+		res.FID = classifiedFID
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:  port.LayerVlan,
+			Op:     trace.OpClassify,
+			Detail: fmt.Sprintf("vlan %d", classifiedFID),
+		})
 
 		if sw.IngressFiltering {
 			isMember := slices.Contains(sw.Tagged, classifiedFID) || slices.Contains(sw.Untagged, classifiedFID)
@@ -305,24 +311,18 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 				Detail: fmt.Sprintf("%s -> %s", f.Src, res.Ingress),
 			})
 		} else if !existing.Static {
-			if existing.Port == res.Ingress {
-				existing.LearnedAt = now
-				b.fdb[srcKey] = existing
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpLearn,
-					Detail: fmt.Sprintf("%s -> %s", f.Src, res.Ingress),
-				})
-			} else {
-				existing.Port = res.Ingress
-				existing.LearnedAt = now
-				b.fdb[srcKey] = existing
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpLearn,
-					Detail: fmt.Sprintf("%s -> %s", f.Src, res.Ingress),
-				})
+			detail := fmt.Sprintf("%s -> %s", f.Src, res.Ingress)
+			if existing.Port != res.Ingress {
+				detail = fmt.Sprintf("%s moved %s -> %s", f.Src, existing.Port, res.Ingress)
 			}
+			existing.Port = res.Ingress
+			existing.LearnedAt = now
+			b.fdb[srcKey] = existing
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerRelay,
+				Op:     trace.OpLearn,
+				Detail: detail,
+			})
 		}
 	}
 
@@ -423,6 +423,17 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 
 		egressFrame, isMember := b.buildEgressFrame(destPort.Name, classifiedFID, f, ingressPCP, ingressDEI, remainingTags)
 		if b.cfg.VLAN != nil && !isMember {
+			res.Reason = ReasonNotMember
+			res.Egress = append(res.Egress, Egress{
+				Port:    destPort.Name,
+				Dropped: ReasonNotMember,
+			})
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerVlan,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s is not a member of vlan %d", destPort.Name, classifiedFID),
+			})
+
 			return res
 		}
 
@@ -505,6 +516,13 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 	}
 
 	if len(candidates) == 0 {
+		res.Reason = ReasonNoEgress
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:  port.LayerRelay,
+			Op:     trace.OpDrop,
+			Detail: "no other forwarding member port",
+		})
+
 		return res
 	}
 

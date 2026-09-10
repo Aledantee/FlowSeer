@@ -27,14 +27,16 @@ func Diff(a, b Config) []trace.Change {
 	}
 	changes = append(changes, phy.Diff(aPhy, bPhy)...)
 
-	var aBridge, bBridge bridge.Config
-	if a.Bridge != nil {
-		aBridge = *a.Bridge
+	if a.Bridge != nil || b.Bridge != nil {
+		var aBridge, bBridge bridge.Config
+		if a.Bridge != nil {
+			aBridge = *a.Bridge
+		}
+		if b.Bridge != nil {
+			bBridge = *b.Bridge
+		}
+		changes = append(changes, bridge.Diff(aBridge, bBridge)...)
 	}
-	if b.Bridge != nil {
-		bBridge = *b.Bridge
-	}
-	changes = append(changes, bridge.Diff(aBridge, bBridge)...)
 
 	return changes
 }

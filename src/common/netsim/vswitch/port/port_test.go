@@ -361,9 +361,8 @@ func TestPortForwards(t *testing.T) {
 }
 
 func TestTableClone(t *testing.T) {
-	var ifIndex uint32 = 10
 	t1, err := port.NewBuilder().
-		Add(port.Port{Name: "1/1/1", Kind: port.Physical, IfIndex: &ifIndex, MTU: 1500}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, IfIndex: 10, MTU: 1500}).
 		Build()
 	if err != nil {
 		t.Fatalf("Build: %v", err)
@@ -377,15 +376,28 @@ func TestTableClone(t *testing.T) {
 	p1, _ := t1.Port("1/1/1")
 	p2, _ := t2.Port("1/1/1")
 
-	if p1.Name != p2.Name || p1.MTU != p2.MTU {
+	if p1 != p2 {
 		t.Errorf("cloned port = %+v, want %+v", p2, p1)
 	}
+}
 
-	if p1.IfIndex == p2.IfIndex {
-		t.Errorf("cloned port IfIndex pointer aliased (%p == %p)", p1.IfIndex, p2.IfIndex)
+func TestMembersOfANameThatIsNotALag(t *testing.T) {
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
+		Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
 	}
-	if *p1.IfIndex != *p2.IfIndex {
-		t.Errorf("*p2.IfIndex = %d, want %d", *p2.IfIndex, *p1.IfIndex)
+
+	for _, name := range []string{"", "1/1/1", "absent"} {
+		if got := tbl.Members(name); got != nil {
+			t.Errorf("Members(%q) = %v, want nil", name, got)
+		}
+	}
+	if got := tbl.Members("lag1"); len(got) != 1 || got[0].Name != "1/1/2" {
+		t.Errorf("Members(lag1) = %v, want [1/1/2]", got)
 	}
 }
 

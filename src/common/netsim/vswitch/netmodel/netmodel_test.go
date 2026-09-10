@@ -319,7 +319,10 @@ func TestFdbAndPoeExport(t *testing.T) {
 	sw.Forward(testTime, "1/1/1", frame)
 
 	entries := sw.Entries()
-	fdbExport := netmodel.FdbEntries(entries)
+	fdbExport, err := netmodel.FdbEntries(entries)
+	if err != nil {
+		t.Fatalf("FdbEntries: %v", err)
+	}
 	if len(fdbExport) != 1 {
 		t.Fatalf("exported FDB entry count = %d, want 1", len(fdbExport))
 	}
@@ -352,15 +355,18 @@ func TestFdbAndPoeExport(t *testing.T) {
 				"1": {PowerMilliwatts: 60_000},
 			},
 			Ports: map[string]phy.PsePort{
-				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PDClass: 4},
-				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PDClass: 4},
-				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: 4},
+				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PDClass: phy.Class(4)},
+				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PDClass: phy.Class(4)},
+				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: phy.Class(4)},
 			},
 		},
 	}
 	alloc := phyCfg.Allocate()
 
-	budgets, facets := netmodel.Poe(phyCfg, alloc)
+	budgets, facets, err := netmodel.Poe(phyCfg, alloc)
+	if err != nil {
+		t.Fatalf("Poe: %v", err)
+	}
 	if len(budgets) != 1 {
 		t.Fatalf("exported budgets count = %d, want 1", len(budgets))
 	}
@@ -658,7 +664,8 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		t.Errorf("expected static seed, got: %+v", seeds)
 	}
 
-	// Export FDB entry with FID 0 (bridge without VLAN) leaves vlan_id unset
+	// An entry of a bridge without VLAN awareness has no FdbEntry shape, since
+	// the message requires a VLAN id.
 	entryFID0 := []bridge.Entry{
 		{
 			FID:       0,
@@ -668,11 +675,79 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 			LearnedAt: testTime,
 		},
 	}
-	exportedFID0 := netmodel.FdbEntries(entryFID0)
-	if len(exportedFID0) != 1 {
-		t.Fatalf("expected 1 exported entry, got %d", len(exportedFID0))
+	if _, err := netmodel.FdbEntries(entryFID0); err == nil {
+		t.Error("FdbEntries(FID 0) error = nil, want an error")
 	}
-	if exportedFID0[0].HasVlanId() {
-		t.Errorf("expected FID 0 exported without vlan_id, got %d", exportedFID0[0].GetVlanId())
+}
+
+func TestPoeExportRefusesANonNumericGroup(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 60_000}},
+		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "g1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
+	}}
+	if _, _, err := netmodel.Poe(cfg, cfg.Allocate()); err == nil {
+		t.Error("Poe(group g1) error = nil, want an error")
+	}
+}
+
+func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
+		Ports: map[string]phy.PsePort{
+			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PDClass: phy.Class(4)},
+			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PDClass: phy.Class(4)},
+			"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PDClass: phy.Class(4)},
+			"1/1/4": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: phy.Class(4)},
+			"1/1/5": {Group: "1", MaxClass: 8, Enabled: true},
+		},
+	}}
+	_, facets, err := netmodel.Poe(cfg, cfg.Allocate())
+	if err != nil {
+		t.Fatalf("Poe: %v", err)
+	}
+	want := map[string]phyv1.PoeStatus{
+		"1/1/1": phyv1.PoeStatus_POE_STATUS_DISABLED,
+		"1/1/2": phyv1.PoeStatus_POE_STATUS_FAULT,
+		"1/1/3": phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER,
+		"1/1/4": phyv1.PoeStatus_POE_STATUS_SEARCHING,
+		"1/1/5": phyv1.PoeStatus_POE_STATUS_SEARCHING,
+	}
+	for name, status := range want {
+		if got := facets[name].GetStatus(); got != status {
+			t.Errorf("facets[%q].Status = %v, want %v", name, got, status)
+		}
+		if err := protovalidate.Validate(facets[name]); err != nil {
+			t.Errorf("facets[%q] fails validation: %v", name, err)
+		}
+	}
+	if facets["1/1/5"].HasPowerClass() {
+		t.Error("a port with no attached device exported a power_class")
+	}
+}
+
+func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	lagParent := "lag1"
+	name := func(s string) *string { return &s }
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{Name: name("lag1"), AdminStatus: &adminUp, Lag: interfacev1.LagInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{TaggedVlanIds: []uint32{10}}.Build(),
+		}.Build()}.Build(),
+		interfacev1.Interface_builder{Name: name("1/1/1"), AdminStatus: &adminUp, Physical: interfacev1.PhysicalInterface_builder{
+			LagParent: &lagParent,
+		}.Build()}.Build(),
+	}
+	cfg, _, report, err := netmodel.Load(testTime, ifaces, nil, nil, nil, []port.Layer{port.LayerVlan})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
+		t.Fatal("a wanted vlan layer did not build the bridge")
+	}
+	if !slices.Equal(report.Capabilities, cfg.Capabilities()) {
+		t.Errorf("report.Capabilities = %v, cfg.Capabilities() = %v; want them equal", report.Capabilities, cfg.Capabilities())
+	}
+	if report.CapabilitySources[port.LayerRelay] != "implied:vlan" || report.CapabilitySources[port.LayerLag] != "present:lag" {
+		t.Errorf("CapabilitySources = %v", report.CapabilitySources)
 	}
 }
