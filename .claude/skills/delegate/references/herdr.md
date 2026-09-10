@@ -1,32 +1,8 @@
 # Herdr workers
 
-Load this when dispatching an `execute` lane through Herdr, or when a Herdr
-worker's state does not match what its tree says. `scripts/herdr-worker.sh`
-carries the mechanics; this file is what it relies on and what to do when a
-step fails. Measured on Herdr 0.9.0, 2026-09-10; the trial notes live in
-`docs/research/herdr-trial-2026-09-10.md`.
-
-## What Herdr is for here
-
-Herdr is a terminal runtime with a socket API. A worker is an interactive
-agent in a pane, in a worktree Herdr created, and its state is read from the
-agent's own hooks (`herdr integration install claude|codex|opencode`) or,
-for `agy`, from the screen. That gives the coordinator four things Orca's
-`worker-start` does not:
-
-- A worker on any installed CLI. `agent start --kind agy` and `--kind
-  opencode` start and are tracked; the `google` and `go` pools run as
-  supervised lanes, not as headless `bench.sh` runs.
-- A `blocked` state. An approval dialog is reported as `blocked`, and
-  `agent prompt --wait` returns it within seconds instead of waiting on a
-  silent worker.
-- No dispatch token. A worker reports through its pane and its branch; a
-  coordinator compaction loses nothing it cannot read back with `agent
-  read`.
-- A `done` that means the turn ended, from the agent's own stop hook.
-
-What it does not give: quota. `orca account list --json` stays the pre-wave
-gate, and the model pin is on the launch line the script builds.
+Load this when a Herdr worker's state does not match what its tree says,
+when `scripts/herdr-worker.sh` fails a step, or when setting up a machine.
+The measurements behind it are in `docs/research/herdr-trial-2026-09-10.md`.
 
 ## Setup, once per machine
 
@@ -36,58 +12,63 @@ herdr integration install codex
 herdr integration install opencode
 ```
 
-Each install edits that agent's global hook file (`~/.claude/settings.json`,
-`~/.codex/hooks.json`, `~/.config/opencode/plugins/`); the Codex one adds a
-SessionStart hook that Codex asks to review on first launch, which the
-script answers. Start the server from a plain terminal, never from inside a
-Claude Code session: panes inherit the server's environment, and a worker
-started under `CLAUDE_CODE_CHILD_SESSION` runs with transcript saving off.
+Each install adds a hook to that agent's global config
+(`~/.claude/settings.json`, `~/.codex/hooks.json`,
+`~/.config/opencode/plugins/`). The hook is what makes `done` and `idle`
+the agent's own report; `agy` has no integration and is read from the
+screen.
+
+Start the server from a plain terminal. Panes inherit the server's
+environment, and a Claude worker started under
+`CLAUDE_CODE_CHILD_SESSION` runs with transcript saving off.
 
 ```bash
-env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION herdr server &
-herdr status server
+env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION herdr server
 ```
 
-A server restart loses every running pane process; do not restart one with
-live workers.
+A server restart ends every pane process. Run `scripts/herdr-worker.sh
+status` first; it prints `no live agents` when a restart is safe.
 
-## Pitfalls the script works around
+## What the script does
 
-- `herdr worktree create` refuses to run from a linked worktree
-  (`linked_worktree_source`). The script resolves the base to a commit and
-  creates from the repository's main checkout with `--cwd`, so a child still
-  branches from the coordinator's `HEAD`.
-- The brief goes to `<root>/briefs/<lane>.md`, beside the worktrees, so the
-  worker's tree stays clean. OpenCode asks permission to read outside its
-  directory; `agent prompt --wait` returns `blocked` and the script's
-  caller answers `enter` (Allow once) after reading the dialog.
-- Codex on a repository with `.codex/hooks.json` opens a hooks-review
-  dialog that Herdr reports as `idle`/`done`, not `blocked`; a prompt sent
-  into it is swallowed. The script trusts and closes it before prompting.
-- `agy` drops the first submission now and then: `agent_prompt_stalled`
-  with the input line empty. The script retries once.
-- `agent prompt --wait --timeout N` returns `timeout` when the agent has not
-  settled by N ms; that is not a failure, the agent is `working`. Use
-  `wait` with a long timeout for the settled state.
-- Every `herdr` command needs the sandbox off, like `orca`.
+- Creates the worktree from the repository's main checkout with `--cwd`
+  and the base resolved to a commit, because `herdr worktree create`
+  refuses a linked worktree as its source (`linked_worktree_source`). The
+  checkout lives at `<repo parent>/worktrees/<repo>/<slug>`.
+- Starts the agent with the model on its launch line, then, for Codex,
+  answers two startup dialogs: the update offer (key `2`, then enter) and
+  the hooks review for a repository with `.codex/hooks.json` (`t`, then
+  `esc`). Herdr reports the second as `idle`, and a prompt sent into it is
+  lost, so the screen is read again afterwards and the start fails if a
+  dialog remains.
+- Submits the brief text as one prompt. `agy` drops a first submission
+  now and then (`agent_prompt_stalled`, input line empty); the script
+  sends it once more, then fails the start.
+- On any failure after the worktree exists, removes the workspace, the
+  checkout, and the branch, and says why.
+- `wait` passes `--timeout` through when given and waits indefinitely
+  otherwise; Herdr's `agent wait` has no default timeout of its own. With
+  a timeout it prints `timeout`, and the worker is still at work.
+- `stop` sends up to three interrupts, confirms the agent is gone, then
+  removes the workspace and checkout with `git worktree remove` under the
+  hood, so `git branch -d <slug>` follows directly.
 
-## Reading a settled worker
+## When a step fails
 
-`wait` prints `done`, `idle`, or `blocked`. `done` and `idle` both mean the
-turn ended; the report is in `read` and the commit is in the tree. Check
-the tree before the report, as `SKILL.md` says for any worker. `blocked`
-prints the visible pane: read the dialog, answer it with `keys` only when
-it is the kind of prompt the brief anticipated, otherwise report it.
-
-## Removing a lane
-
-After the branch has been merged here and verified:
-
-```bash
-scripts/herdr-worker.sh stop <lane>
-git branch -d <lane>
-```
-
-`stop` ends the agent, removes the Herdr workspace, and removes the
-worktree checkout; it refuses a dirty tree, which then needs a person's
-look.
+- `start` says a live agent with that name exists: a previous lane was
+  not stopped. `status` lists it; `stop` it or pick another slug.
+- `wait` prints `blocked`, followed by the pane: read the dialog. A
+  permission prompt the brief anticipated is answered with `keys <slug>
+  enter`; anything else is reported to the user with the pane text.
+- `wait` prints `unknown`: Herdr sees an agent it cannot classify. `read`
+  the pane; a prompt line with no activity means the turn ended and the
+  hook did not fire, so treat it as `idle` after the tree check.
+- `read` shows nothing after a finished turn: the agent drew on the
+  alternate screen and the response left no scrollback. Prompt it to
+  write its report to `REPORT.md` in its own worktree and reply with the
+  path, read that file, and delete it before the merge.
+- `stop` says the agent is still running: read its pane; a worker in the
+  middle of a turn is left to finish or interrupted by hand.
+- `stop` says the removal was refused, with Herdr's error: a dirty
+  checkout is the usual cause. Read what is there and report it; a worker
+  that left files uncommitted is left in place.

@@ -84,6 +84,28 @@ prompts, three dialog answers (Codex hooks, OpenCode directory access, one
 agy re-prompt), one wait each, one read each. No retries against a socket,
 no dispatch ids, no capability tokens.
 
+## Second wave, through the wrapper
+
+The same four pools, this time started by `herdr-worker.sh` with the brief
+submitted as the prompt itself (one bracketed-paste submission, no pointer
+file) and the brief corrected to "verify, change only what fails". Every
+lane read the brief intact, did the verification, reported "no change"
+with the commit that holds the implementation, and left a clean tree.
+
+| Lane | Settled | Notes |
+| --- | --- | --- |
+| Sonnet 5 | done, 2 min | nine test cases named in the report |
+| Gemini 3.8 Flash | done, 2 min | 191K input tokens, no compaction |
+| Kimi K3 | done, 4 min | $0.24; no directory-permission dialog, since nothing was outside the worktree |
+| GPT-5.6 Sol | done, 5 min | showed its own update offer at startup; Herdr reported `blocked` and `agent start` returned `agent_not_ready`; the wrapper now answers it |
+
+Two wrapper defects surfaced and were fixed in the same pass: `herdr
+status server` is not a reliable liveness probe right after another CLI
+call (two of four starts died on it while the server was up; an API call
+is the probe now), and a Codex startup dialog other than the hooks review
+ended the start. `stop` removed each workspace and checkout, and the
+branches deleted cleanly.
+
 ## What Herdr answered
 
 - Item 7, model pinning: closed. Every pool takes its pin on the launch
@@ -122,7 +144,6 @@ failures that travel with any manager keep their own fixes: the sandbox
 socket rule stays a per-machine setting, Codex's hooks dialog is answered
 by the wrapper, and reviewer subagents stay native.
 
-Open after this trial: whether Herdr's `blocked` fires for Claude's own
-permission prompts (the lanes ran with permissions off), how a lane
-behaves across a coordinator compaction in a real plan, and whether the
-calibration brief should say "verify, and add only if absent".
+Open after both waves: whether Herdr's `blocked` fires for Claude's own
+permission prompts (the lanes ran with permissions off), and how a lane
+behaves across a coordinator compaction in a real plan.

@@ -150,11 +150,10 @@ skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
 After the 2026-09-10 steering pass the workflow skills sit between 125 and
-190 lines, and `delegate` at about 300: its Orca loop, headless lanes, and
-child-worktree removal are each conditional, but they are conditional on
-the host rather than on the task, and a coordinator that loads the skill
-in Orca needs all of them in the same turn. Moving them out is the next
-trim if the file keeps growing.
+190 lines, and `delegate` at about 240: its runtime lanes and quota rules are each
+conditional on the host rather than on the task, and a coordinator that
+loads the skill needs all of them in the same turn; the Orca procedures
+moved to `references/orca.md` on 2026-09-10.
 
 Use one reviewer, split by file group, never a persona panel. This
 repository's transcripts showed the earlier persona-panel review dispatching
@@ -298,24 +297,26 @@ exhausted a budget before one of them finished, cured by naming a smaller
 model for them. `delegate` caps concurrent workers at three for the same
 reason.
 
-Send editing workers to Orca when its runtime is reachable. The
-asynchronous-agent study behind CAID found that isolated workspaces, a
-central integrator, and test-based verification at merge improved paper
-reproduction by 25.6 points and library development by 14.7. Orca's
-`worker-start` provides exactly that: a child worktree per worker, a named
-model and effort per launch, and a `worker_done` report the coordinator
-waits on. Its `--model` pins Claude, Codex, and Cursor ids only, and a
-dispatch into an `agy` or `opencode` terminal sits unsubmitted in the TUI
-(probed 2026-09-09), so the Google and Go pools run through the headless
-launcher the `tune` calibration uses, in a plain child worktree; the first
-six-unit wave after the registry landed ran wholly on Sonnet because the
-skill had no such path and treated a pool without window data as having no
-headroom. Read-only delegates stay native subagents, which load their
-definition and nothing else, where an Orca worker is a full Claude Code
-session. Outside Orca, `delegate` falls back to native subagents with
-worktree isolation. The Orca command surface is version-matched and served
-by the binary (`orca skills get orca-cli`, `orca skills get orchestration`),
-so the skills show the shape of the loop and defer to that guide for flags.
+Send editing workers to a Herdr worker when a Herdr server runs, and to
+Orca when only its runtime is reachable. The asynchronous-agent study
+behind CAID found that isolated workspaces, a central integrator, and
+test-based verification at merge improved paper reproduction by 25.6
+points and library development by 14.7. Both runtimes provide that: a
+child worktree per worker, a named model per launch, and a report the
+coordinator waits on. Herdr took the first place on 2026-09-10 for three
+measured reasons (`docs/research/herdr-trial-2026-09-10.md`): it starts and
+tracks `claude`, `codex`, `agy`, and `opencode` alike, where Orca's
+`worker-start` pins Claude, Codex, and Cursor ids only and a dispatch into
+an `agy` or `opencode` terminal sits unsubmitted; its `wait` returns the
+agent's own settled state once, where Orca's `check --wait` is re-armed by
+every heartbeat; and a worker is a pane and a branch, with no dispatch
+capability token for a context compaction to lose. Read-only delegates
+stay native subagents, which load their definition and nothing else, where
+a runtime worker is a full agent session. Outside both, `delegate` falls
+back to native subagents with worktree isolation. The Orca command surface
+is version-matched and served by the binary (`orca skills get orca-cli`,
+`orca skills get orchestration`), so the skills show the shape of the loop
+and defer to that guide for flags.
 Two facts found on 2026-09-05 shape the skill's wording: the CLI reaches the
 app over a local socket that Claude's Bash sandbox blocks, so a sandboxed
 `orca status` reports the app as not running from inside an Orca terminal;

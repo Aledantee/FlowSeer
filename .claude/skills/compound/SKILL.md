@@ -101,8 +101,8 @@ sentence a reader should remember.
 ## Refresh
 
 Audit each solution under `docs/solutions/`. Dispatch one worker per
-solution, up to three at once, as `delegate` describes (an Orca worker with
-`--worktree current`, else a `general-purpose` subagent on `sonnet`). Edit
+solution, up to three at once, as `delegate` describes (a Herdr or Orca
+worker, else a `general-purpose` subagent on `sonnet`). Edit
 `docs/solutions/README.md` from the coordinating session only.
 
 1. Open every cited path and confirm the quoted lines and symbols exist.

@@ -104,13 +104,17 @@ orca terminal list --worktree active --json   # only this terminal remains
 
 Release a settled worker with `worker-release`; a running worker stops the
 skill. A child worktree of this one whose branch has landed here is removed
-now, as `delegate` describes under Remove a finished child worktree; one
-whose branch did not land, or that holds uncommitted files, is named in
-the report and left alone:
+now, as `delegate/references/orca.md` describes under Remove a finished
+child worktree; one whose branch did not land, or that holds uncommitted
+files, is named in the report and left alone:
 
 ```bash
 orca worktree list --json   # entries whose parentWorktreeId is this worktree
 ```
+
+A Herdr lane has no Orca entry: `.claude/skills/delegate/scripts/herdr-worker.sh
+status` (unsandboxed) must list no worker of this task, and a merged lane
+still listed is stopped with `stop <slug>` and its branch deleted.
 
 When master has moved, the verifier run that satisfies the receipt
 signal uses the merge-base as its base, not `master`: `--base master`
