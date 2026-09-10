@@ -4,10 +4,14 @@ Load this only for `tune` step 4 or when comparing two routing setups.
 
 ## The task
 
-Add `Merge` to `src/common/pump`: a function that forwards the values of
-several pumps into one, with stop, cancellation, and the first error
+Ensure `src/common/pump` has `Merge`: a function that forwards the values
+of several pumps into one, with stop, cancellation, and the first error
 propagating in both directions and no goroutine left behind. The brief is
 `calibration/brief.md`; it states the contract and nothing about the tests.
+`Merge` landed in d4421211 on 2026-09-09, so a lane branched from a later
+commit measures verification, and one branched from d4421211's parent
+(`d4421211^`) measures implementation. A calibration names its base
+commit in the report; two calibrations compare only on the same base.
 It is small (one file, well under 150 lines) and hard for the reason the
 package doc gives: every close path has to be ordered against in-flight
 sends, and Go's `select` does not promise which ready case runs.

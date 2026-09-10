@@ -44,37 +44,16 @@ prepaid (`claude`, `codex`, `google`, `go`); an unspent window is waste.
 `zen` is per-token, and a wave that reaches it says so. The report names
 every fitting pool the wave left idle and why.
 
-Pinning by pool: `claude` and `codex` take `--model` and `--effort` on the
-Orca dispatch line or the Agent tool's `model`; `google` takes
-`--model gemini-3.8-flash-<effort>` on the `agy` launch; `go` and `zen` take
-the opencode agent named in the registry's `opencode_agents`, whose model is
-fixed in `~/.config/opencode/opencode.json`. A Herdr worker takes all four
-on its launch line, which is why it is the first choice for `execute`:
-`scripts/herdr-worker.sh start --cli <pool cli> --model <id> [--effort
-<level>] [--agent <opencode agent>]` builds it. Orca's `worker-start` pins
-Claude, Codex, and Cursor ids only, and a dispatch into an `agy` or
-`opencode` terminal is never submitted (checked 2026-09-09), so without a
-Herdr server a `google` or `go` lane runs headless instead: create the
-child worktree with `git worktree add -b <slug> <path> HEAD`, then
-
-```bash
-.claude/skills/tune/scripts/bench.sh --lane <slug> --cli agy --model gemini-3.8-flash-<effort> \
-  --brief <brief file> --dir <path> --out <json>          # google
-.claude/skills/tune/scripts/bench.sh --lane <slug> --cli opencode --model <opencode-go id> \
-  --agent <opencode agent> --brief <brief file> --dir <path> --out <json>   # go, zen
-# <opencode-go id> is opencode-go/<model> for go and opencode/<model> for zen:
-# host.local.yaml lists the <model> part; bench.sh splits on the first slash.
-```
-
-unsandboxed and in the background; the JSON carries wall time and usage,
-the worker commits on its branch, and the coordinator merges and verifies
-it like an Orca worker's. These CLIs run with permissions off and load none
-of the repository hooks, so before merging, check that the branch touched
-neither `generated/` nor `buf.lock`: `git diff --name-only master...<branch>
--- generated buf.lock` must print nothing. Name the model on every worker;
-never `inherit` or unset, and never the coordinating session's own model.
-One model per task from start to finish. At most three workers run at once;
-start the next wave after the first settles.
+Pinning by pool: `claude` and `codex` take `--model` and `--effort`;
+`google` takes `--model gemini-3.8-flash-<effort>` on the `agy` launch;
+`go` and `zen` take the opencode agent named in the registry's
+`opencode_agents`, whose model is fixed in `~/.config/opencode/opencode.json`.
+The Herdr wrapper puts each of these on the worker's launch line from
+`--cli`, `--model`, `--effort`, and `--agent`; the Agent tool takes `model`.
+Name the model on every worker; never `inherit` or unset, and never the
+coordinating session's own model. One model per task from start to finish.
+At most three workers run at once; start the next wave after the first
+settles.
 
 ## Discover what this host offers
 
@@ -85,11 +64,12 @@ Before the first dispatch of a session:
 ```
 
 The file records the agent CLIs present (`claude`, `codex`, `agy`,
-`opencode`), whether Orca is reachable and which providers its `--model`
-pins, each pool's sign-in state and rate-limit windows, and the opencode
-model ids split by pool. Run it unsandboxed: `orca` uses a local socket.
-Native subagents always run on Claude. An Orca worker runs on any installed
-agent whose pool is signed in.
+`opencode`), whether Orca is reachable, each pool's sign-in state and
+rate-limit windows, and the opencode model ids split by pool. Run it
+unsandboxed: `orca` uses a local socket. Then `herdr agent list
+>/dev/null && echo herdr up`, also unsandboxed: success means the Herdr
+lane is open. Native subagents always run on Claude; a Herdr worker runs
+on any installed agent whose pool is signed in.
 
 ## Dispatch by quota
 
@@ -115,12 +95,12 @@ for name, v in limits.items():
 ```
 
 - A pool is usable when it is signed in and every window it reports is under
-  85%. Claude's windows come from `account list`; `codex`, `google`, and `go`
-  report none through Orca yet, so read their usage pages before a wave
-  larger than three units and treat a 429 or a "limit reached" reply as the
-  pool going hot for the rest of the wave. `go` meters in dollars
-  ($12 per 5 hours, $30 per week, $60 per month): a lane's estimated spend
-  from the registry price counts against it.
+  85%. Claude and Codex windows come from `account list`; `google` and `go`
+  report none, so read their usage pages before a wave larger than three
+  units and treat a 429 or a "limit reached" reply as the pool going hot
+  for the rest of the wave. `go` meters in dollars ($12 per 5 hours, $30
+  per week, $60 per month): a lane's estimated spend from the registry
+  price counts against it.
 - The coordinating session and every native subagent draw on the Claude
   pool, a Fable session also on `fableWeekly`. Past 85% there, keep native
   delegation to `review-seam` and `judge` and send the rest to the other
@@ -130,126 +110,61 @@ for name, v in limits.items():
 
 ## Herdr, Orca, or native
 
-Herdr is available when `herdr status server` reports `status: running`.
-It is the lane for `execute` work on every pool, since it starts and tracks
-`claude`, `codex`, `agy`, and `opencode` alike and reports an approval
-dialog as `blocked`; `references/herdr.md` has the setup and the pitfalls.
-Run every `herdr` command with the sandbox disabled. One worker per lane:
+Read-only delegates (`lookup`, `research`, `review-*`, `judge`) stay
+native subagents on every host. Editing work goes to a Herdr worker when a
+server runs, to an Orca worker when only Orca is reachable, and to a
+`general-purpose` subagent with `isolation: worktree` otherwise. Both
+runtimes use a local socket the Bash sandbox blocks, so every `herdr` and
+`orca` command runs with the sandbox disabled; a sandboxed call reports the
+runtime as not running.
+
+### Herdr worker
+
+`scripts/herdr-worker.sh` is the whole procedure; `references/herdr.md`
+says what it works around and what to do when a step fails.
 
 ```bash
 s=.claude/skills/delegate/scripts/herdr-worker.sh
-$s start --lane <slug> --cli <claude|codex|agy|opencode> --model <id> [--effort <level>] [--agent <opencode agent>] --brief <file> --base HEAD
-$s wait <slug>                  # prints done, idle, or blocked; blocked also prints the dialog
-$s read <slug> --lines 80       # the worker's report
+$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --brief <file>
+$s start --lane <slug> --cli opencode --agent <opencode agent> --brief <file>
+$s wait <slug>            # blocks; prints done, idle, blocked, or timeout; the dialog follows blocked
+$s read <slug>            # the worker's report, from its pane
+$s status                 # one line per live worker
+$s stop <slug>            # after the merge: ends the agent, removes workspace and checkout
 ```
 
-`start` creates the child worktree under `<repo parent>/worktrees/<repo>/`
-from this worktree's `HEAD`, writes the brief beside it, starts the agent,
-and sends a one-line pointer to the brief. After `wait`, check the tree as
-the paragraph on worker reports below says, merge the branch here, verify,
-then `$s stop <slug>` and `git branch -d <slug>`. Read-only delegates stay
-native in Herdr as in Orca. Herdr keeps no quota: the Dispatch by quota step
-stands, and the Orca worktree comment and card are still updated at each
-checkpoint when the session runs under Orca.
+`start` exits 0 only when the worker exists on branch `<slug>`, branched
+from this worktree's `HEAD`, and has the brief; a failure removes what it
+created and says why. `wait` returns once with the agent's own settled
+state. `done` and `idle` both mean the turn ended: check the tree, then
+read the report. `blocked` means a dialog is on screen: read it, answer it
+with `$s keys <slug> <key>` when the brief anticipated it, otherwise
+report it. Then merge the branch here, run the verifier on the changed
+paths, `$s stop <slug>`, `git branch -d <slug>`.
 
-Orca is available when `ORCA_TERMINAL_HANDLE` is set and `orca status --json`
-reports `runtime.reachable: true`; it is the `execute` lane when no Herdr
-server runs, and the full-handoff lane either way. Run every `orca` command with the sandbox
-disabled: the CLI uses a local socket the sandbox blocks, and a sandboxed
-call reports the app as not running. When the runtime is unreachable
-unsandboxed too, say so with the CLI's error and use the native worker.
+### Orca worker and full handoff
 
-In Orca, read-only delegates stay native. Send editing work through the
-supervised loop of the `orchestration` skill, loading the version-matched
-guide first with `orca skills get orchestration`:
+Orca is the fallback `execute` lane when no Herdr server runs, and the
+lane for a full handoff either way; `references/orca.md` has both
+procedures. Available when `ORCA_TERMINAL_HANDLE` is set and `orca status
+--json` reports `runtime.reachable: true`.
 
-```bash
-orca orchestration run-create --objective "<plan title>" --json
-orca orchestration task-create --spec "<brief>" --json
-orca orchestration worker-start --task <task_id> --worktree new-child --base-branch "$(git branch --show-current)" --name <slug> --agent <agent> --model <id> --effort <level> --setup skip --json
-orca orchestration check --wait --types worker_done,escalation,question --timeout-ms 900000 --json
-orca orchestration worker-release --dispatch <dispatch_id> --json
-```
+### Reading a worker's report
 
-`--worktree new-child` for workers that edit code, since `go test` build
-state collides in a shared checkout; `--worktree current` for workers that
-edit disjoint documentation files. `--base-branch` names the coordinator's
-own branch: without it a child worktree starts from the repo default base
-(`master`), and merging the worker's branch then also merges whatever
-landed on `master` since, which is not the change under review.
-`--setup skip` because this repository configures no Orca setup script and
-an empty script is reported as a failed setup.
-
-A codex worker inherits the pool's approval policy unless told otherwise
-and then stops at a prompt nobody sees. The full-handoff form `orca
-worktree create --agent codex` accepts no flags, so a controlled codex
-handoff is a worktree without `--agent` followed by `orca terminal create
---command "codex -a never --sandbox danger-full-access --model <id>"`:
-`workspace-write` cannot reach Orca's socket outside the workspace, so a
-worker under it commits and cannot send `worker_done`. Whether
-`worker-start` passes an approval policy through is unverified; read `orca
-skills get orchestration` before a codex dispatch there.
-
-A worker runs the focused tests of its package and commits on its branch; it
-does not run the verifier. After every `worker_done`, check the tree before
-reading the report as fact: `git -C <child> log --oneline -1` shows the
-commit the report names, `git -C <child> status --porcelain` is empty, and
-the two or three changes most expensive to get wrong are what the report
-says. A report describes what a session believes it did, and the gap
-between that and the tree is where a silent tool failure lives. Then merge
-the worker's branch into this worktree and run the verifier once, sandbox
-disabled, on the union of changed paths.
-
-When `check --wait` returns nothing, no channel distinguishes a worker
-blocked on the coordinator from one at work. Rule out the causes in cost
-order: the provider's quota, as Dispatch by quota describes; the terminal
-tail (`orca terminal read`) for an approval prompt or an instruction that
-arrived mangled; then `git status` in the worker's worktree, where a written
-file with no commit means the worker is still testing. A clean tree, a final
-commit, and an agent that says Orca is not running means the worker sent its
-report from inside the sandbox: settle it as `references/orca-sandbox.md`
-describes.
-
-Update the worktree comment at each checkpoint:
-
-```bash
-orca worktree set --worktree active --comment "unit 2 landed; verifying unit 3" --json
-```
-
-A full handoff creates the worktree with the brief as its prompt and stops
-supervising. The brief carries the whole ledger when one exists, since
-the child worktree has its own git directory:
-
-```bash
-orca worktree create --name <slug> --parent-worktree active --agent <agent> --prompt "<brief>" --json
-```
-
-## Remove a finished child worktree
-
-A child worktree this session created is this session's to remove, in the
-same turn its branch lands here. `worker-release` closes only the agent
-terminal; the worktree, its shell terminal, and its branch stay until
-someone runs `orca worktree rm`, and a merged child left behind shows in
-Orca as live work. The rule that a person removes the worktree covers the
-session's own worktree, where `orca worktree rm` kills the terminal that
-issues it. A child's terminals hold nothing the coordinator has not already
-read through `worker-read`.
-
-After the merge, the green verifier run, and `worker-release`:
-
-```bash
-child=$(orca orchestration worker-show --dispatch <dispatch_id> --json | jq -r .result.worker.worktree_id)
-git -C "${child#*::}" status --porcelain     # empty, or stop and report what is there
-orca worktree rm --worktree "id:$child" --json
-git branch -d <child branch>                 # refuses when the merge did not land here
-```
-
-A handed-off child has no dispatch: take its id from `orca worktree list
---json`, where `parentWorktreeId` names this worktree. Never pass `--force`;
-uncommitted files in the child mean the worker left something behind, so
-say what and leave the worktree. A child whose branch did not land, because
-its worker failed or was abandoned, stays too and is named in the report
-with the reason, so the user can read it before it goes.
+A worker runs the focused tests of its package and commits on its branch;
+it does not run the verifier. Before reading the report as fact, check
+the tree: `git -C <child> log --oneline -1` shows the commit the report
+names, `git -C <child> status --porcelain` is empty, and the two or three
+changes most expensive to get wrong are what the report says. A report
+describes what a session believes it did, and the gap between that and
+the tree is where a silent tool failure lives. Then merge the worker's
+branch into this worktree and run the verifier once, sandbox disabled, on
+the union of changed paths. A worker on `agy` or `opencode` loads none of
+the repository hooks, so first check that `git diff --name-only
+<base>..<branch> -- generated buf.lock` prints nothing, with `<base>` the
+commit the lane was started from. A child whose branch did not land stays, and
+the report names it with the reason, so the user can read it before it
+goes. Never remove a child with a dirty tree; say what is there.
 
 ## Write the brief
 
@@ -272,31 +187,15 @@ A delegate has none of this conversation. The brief states, in order:
 6. The boundaries: no edits outside the named files, no changes to
    `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
    `generated/`, or `buf.lock`, no plan labels in code.
-7. For an Orca worker, how to reach Orca from inside its own sandbox. Copy
-   this paragraph into the brief verbatim:
-
-   > Every `orca` command (`orchestration send`, `check`, `ask`,
-   > `heartbeat`, `worker_done`) must run through the Bash tool with the
-   > parameter `dangerouslyDisableSandbox` set to `true`. The sandbox blocks
-   > Orca's local socket, and a sandboxed call reports "Orca is not running"
-   > even though it is. `buf generate` and the verifier script need the same
-   > setting. Send `worker_done` that way, once, with the injected task and
-   > dispatch ids.
-
-   A worker that does not get this finishes its work and cannot report it;
-   `references/orca-sandbox.md` says how to settle such a dispatch and the
-   per-machine setting that removes the need. A Herdr worker needs none of
-   this: it reports in its pane and the coordinator reads it there.
-8. For an Orca worker, that editing subagents stay out of its checkout. A
-   worker that spawns the Agent tool without worktree isolation gets its
-   subagents' files in its own tree and reads them as a duplicate dispatch.
-   Read-only subagents are fine; editing work runs in the worker's own turn.
-9. For a terminal-driven worker, the brief itself goes in a file under the
-   worker's worktree and the terminal gets a one-line pointer to it: a long
-   paragraph through `orca terminal send` arrives as stray characters at the
-   prompt, and the loss is silent at both ends. The brief never requires an
-   acknowledgement before the worker continues; a worker that waits on the
-   coordinator looks, from here, exactly like one that is working.
+7. For a worker on any runtime: do not ask questions, and when something
+   blocks, state the blocker and stop. A worker that waits on the
+   coordinator looks, from here, exactly like one that is working. Editing
+   subagents stay out of its checkout: a worker that spawns the Agent tool
+   without worktree isolation gets its subagents' files in its own tree
+   and reads them as a duplicate dispatch. Read-only subagents are fine.
+8. For an Orca worker only, the paragraph in `references/orca-sandbox.md`
+   on reaching Orca from inside the worker's sandbox, verbatim. A Herdr
+   worker reports in its pane and needs nothing of the kind.
 
 A claim about the codebase in a brief (an import direction, a call's
 behavior, a field's existence) is marked verified with `path:line`, or
