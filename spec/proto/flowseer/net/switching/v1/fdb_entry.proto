@@ -31,7 +31,10 @@ message FdbEntry {
   flowseer.net.addr.v1.Eui48Address mac = 2 [(buf.validate.field).required = true];
   // The device-reported egress interface name. Absent is valid for local,
   // remote, invalid, or unresolved entries; a present name must not be empty.
-  string interface_name = 3 [(buf.validate.field).string.min_len = 1];
+  string interface_name = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
   // How the entry was created or is owned. Absent means unreported.
   FdbEntryKind kind = 4;
   // Current forwarding usability. Absent means unreported.

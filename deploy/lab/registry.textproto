@@ -1,7 +1,7 @@
 # flowseer.store.device.v1.DeviceRegistry for the lab run: one integration,
 # one edge, one switch, one managed interface.
 #
-# The identifiers are placeholders and the address is the lab's. The two
+# The identifiers and the address are placeholders. The two
 # fields an operator has to fill from measurement rather than from a document
 # are delayed_apply_horizon and ssh_host_key_sha256, and both have their own
 # runbook step.
@@ -22,7 +22,7 @@ devices {
     access_policy { key: "icx7150-lab" version: 1 }
   }
   binding { binding { id: "0192e6a0-0000-7000-8000-0000000000b1" } }
-  ip { v4 { octets: "\254\020\000\006" } }  # 172.16.0.6
+  ip { v4 { octets: "\300\000\002\006" } }  # 192.0.2.6 REPLACE-WITH-THE-DEVICE-ADDRESS
 
   # Measured at 0.13s on this switch, on the SNMP ifAlias path the system
   # actually reads — and dominated by the round trip, so the true value is

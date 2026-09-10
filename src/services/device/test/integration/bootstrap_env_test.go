@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
@@ -74,7 +75,19 @@ provisioning_path: %q
 
 	writeFirstRegistry(t, registry)
 
+	// The bootstrap renders the shipped registry template over the first one.
+	// That template names a documentation-range address, which is
+	// unreachable by design and therefore slow to fail: the SNMP probe waits
+	// out its whole retransmit horizon and the runbook's last block waits for
+	// onboarding. A closed loopback port is refused immediately, so the
+	// sequence reaches the same place — the agent enrolled, attached and
+	// running its lane, with the device unonboarded — deterministically and
+	// without leaving this machine.
+	template := filepath.Join(dir, "registry-template.textproto")
+	writeLoopbackRegistryTemplate(t, template)
+
 	return fmt.Sprintf(`set -eu
+export FLOWSEER_REGISTRY_TEMPLATE=%q
 export FLOWSEER_REPO=%q
 export RUN=%q
 export CENTRAL_CONFIG=%q
@@ -85,12 +98,33 @@ export CENTRAL=%q
 export CACERT=%q
 export DEVICE_ID=%q
 export INTERFACE=%q
-`, repo, run,
+`, template, repo, run,
 		filepath.Join(dir, "device.textproto"),
 		filepath.Join(dir, "agent.textproto"),
 		registry, provisioning, central,
 		filepath.Join(state, "tls.crt"),
 		fixtureDeviceID, fixtureInterface)
+}
+
+// writeLoopbackRegistryTemplate renders the shipped registry template with
+// its device address replaced by a closed loopback port.
+//
+// Same shape, same placeholder, so the bootstrap exercises the real
+// rendering path; only the address differs. Refused immediately rather than
+// timing out, and it reaches nothing outside this machine.
+func writeLoopbackRegistryTemplate(t *testing.T, path string) {
+	t.Helper()
+	shipped, err := os.ReadFile(filepath.Join(repoRoot, "deploy", "lab", "registry.textproto"))
+	if err != nil {
+		t.Fatalf("read the shipped registry template: %v", err)
+	}
+	body := strings.Replace(string(shipped),
+		`ip { v4 { octets: "\300\000\002\006" } }`,
+		`ip { v4 { octets: "\177\000\000\001" } }`, 1)
+	if body == string(shipped) {
+		t.Fatal("the shipped registry template no longer carries the address this test replaces")
+	}
+	writeFile(t, path, []byte(body))
 }
 
 // writeFirstRegistry writes the registry central starts on before any edge

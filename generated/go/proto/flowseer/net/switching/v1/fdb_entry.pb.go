@@ -235,11 +235,11 @@ var File_flowseer_net_switching_v1_fdb_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_switching_v1_fdb_entry_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/switching/v1/fdb_entry.proto\x12\x19flowseer.net.switching.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a.flowseer/net/switching/v1/fdb_entry_kind.proto\x1a0flowseer/net/switching/v1/fdb_entry_status.proto\"\xcd\x03\n" +
+	")flowseer/net/switching/v1/fdb_entry.proto\x12\x19flowseer.net.switching.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a.flowseer/net/switching/v1/fdb_entry_kind.proto\x1a0flowseer/net/switching/v1/fdb_entry_status.proto\"\xcf\x03\n" +
 	"\bFdbEntry\x12%\n" +
 	"\avlan_id\x18\x01 \x01(\rB\f\xbaH\t\xc8\x01\x01*\x04\x80\xb5\x18\x01R\x06vlanId\x12<\n" +
-	"\x03mac\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\x03mac\x12.\n" +
-	"\x0einterface_name\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\rinterfaceName\x12;\n" +
+	"\x03mac\x18\x02 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressB\x06\xbaH\x03\xc8\x01\x01R\x03mac\x120\n" +
+	"\x0einterface_name\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\rinterfaceName\x12;\n" +
 	"\x04kind\x18\x04 \x01(\x0e2'.flowseer.net.switching.v1.FdbEntryKindR\x04kind\x12A\n" +
 	"\x06status\x18\x05 \x01(\x0e2).flowseer.net.switching.v1.FdbEntryStatusR\x06status:\xab\x01\xbaH\xa7\x01\x1a\xa4\x01\n" +
 	"\x18fdb_entry.mac_is_unicast\x12>the FDB address must be an individual (unicast) EUI-48 address\x1aH!has(this.mac) || '%x'.format([this.mac.octets]).matches('^.[02468ace]')B\x87\x02\n" +

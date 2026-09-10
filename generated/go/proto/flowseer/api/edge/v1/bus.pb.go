@@ -224,14 +224,14 @@ var File_flowseer_api_edge_v1_bus_proto protoreflect.FileDescriptor
 const file_flowseer_api_edge_v1_bus_proto_rawDesc = "" +
 	"\n" +
 	"\x1eflowseer/api/edge/v1/bus.proto\x12\x14flowseer.api.edge.v1\"\x12\n" +
-	"\x10AttachBusRequest\"\xb8\x02\n" +
+	"\x10AttachBusRequest\"\xf9\x02\n" +
 	"\x11AttachBusResponse\x12+\n" +
 	"\vaccount_jwt\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\n" +
 	"accountJwt\x123\n" +
 	"\x0fuser_credential\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\x0euserCredential\x12Q\n" +
-	"\bsubjects\x18\x03 \x03(\v25.flowseer.api.edge.v1.AttachBusResponse.SubjectsEntryR\bsubjects\x121\n" +
+	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\x0euserCredential\x12\x91\x01\n" +
+	"\bsubjects\x18\x03 \x03(\v25.flowseer.api.edge.v1.AttachBusResponse.SubjectsEntryB>\xbaH;\x9a\x018\x10 \"\x06r\x04\x10\x01\x18@*,r*\x10\x01\x18\xff\x012#^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$R\bsubjects\x121\n" +
 	"\fcluster_urls\x18\x04 \x03(\tB\x0e\xbaH\v\x92\x01\b\b\x01\"\x04r\x02\x10\x01R\vclusterUrls\x1a;\n" +
 	"\rSubjectsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +

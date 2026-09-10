@@ -43,11 +43,17 @@ func TestTheRunbooksBootstrapBringsUpADeployment(t *testing.T) {
 	// The blocks under this heading and no others: the rest of the runbook
 	// talks to a deployment that this section is what brings up.
 	script := runbookSection(t, "## Bringing the deployment up", "## Step 0")
+	// Registered before the call, not after. The script starts central and
+	// the agent in the background and writes their pid files; a t.Fatalf
+	// below would otherwise abort the test before this cleanup exists, and
+	// both processes would outlive the test binary still holding their
+	// ports.
+	t.Cleanup(func() { stopBootstrap(dir) })
+
 	out, err := runScript(t, env+script, 240*time.Second)
 	if err != nil {
 		t.Fatalf("the runbook's bootstrap failed: %v\n%s", err, out)
 	}
-	t.Cleanup(func() { stopBootstrap(dir) })
 
 	// That the script succeeded is the assertion that the restart was a drain,
 	// and it is weaker than it looks. The runbook's restart block ends in a

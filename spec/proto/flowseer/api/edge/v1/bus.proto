@@ -29,7 +29,22 @@ message AttachBusResponse {
   // the vocabulary of logical names belongs to the module that builds the
   // leaf node, not to this package. An empty map is valid for an edge
   // with nothing to publish yet.
-  map<string, string> subjects = 3;
+  map<string, string> subjects = 3 [(buf.validate.field).map = {
+    max_pairs: 32
+    keys: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+    values: {
+      string: {
+        min_len: 1
+        max_len: 255
+        pattern: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$"
+      }
+    }
+  }];
   // Cluster endpoints the leaf node dials, in preference order. At least
   // one is required.
   repeated string cluster_urls = 4 [

@@ -56,6 +56,7 @@ export POLICY_KEY=icx7150-lab
 export POLICY_VERSION=1
 
 # Where the deployment's files live, and a scratch directory for the run.
+umask 077   # created.json holds a live setup key
 export RUN=/var/tmp/flowseer-lab
 export CENTRAL_CONFIG=/etc/flowseer/device.textproto
 export AGENT_CONFIG=/etc/flowseer/agent.textproto

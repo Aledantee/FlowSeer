@@ -195,6 +195,11 @@ func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) str
 
 // insecureClient trusts whatever central generated. An edge pins the digest
 // its provisioning carries; this client is the operator, not the edge.
+// insecureClient builds one client. Callers hold it for the fixture's
+// lifetime: a fresh http.Transport per call keeps its own idle pool with no
+// IdleConnTimeout, and the status polls run at 50ms for minutes, so a single
+// wait would otherwise leak thousands of connections and their goroutines on
+// both sides of the same process.
 func insecureClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
@@ -213,6 +218,12 @@ type central struct {
 	registry  string
 	apiPort   int
 	busPort   int
+
+	// client is built once and reused. A fresh http.Transport per call keeps
+	// its own idle pool with no IdleConnTimeout, and the status polls run at
+	// 50ms for minutes, so a per-call transport leaks thousands of
+	// connections and their goroutines on both sides of this process.
+	client *http.Client
 
 	mu      sync.Mutex
 	stop    func()
@@ -269,7 +280,9 @@ func (c *central) auditRecords(t *testing.T) []*eventv1.DeviceOperationEvent {
 
 func newCentral(t *testing.T, dir, registryPath string) *central {
 	t.Helper()
-	return &central{t: t, dir: dir, configDir: dir, registry: registryPath, apiPort: freePort(t), busPort: freePort(t)}
+	c := &central{t: t, dir: dir, configDir: dir, registry: registryPath, apiPort: freePort(t), busPort: freePort(t), client: insecureClient()}
+	t.Cleanup(c.client.CloseIdleConnections)
+	return c
 }
 
 func (c *central) baseURL() string { return fmt.Sprintf("https://127.0.0.1:%d", c.apiPort) }
@@ -367,11 +380,11 @@ func (c *central) shutdown() {
 }
 
 func (c *central) admin() edgev1connect.EdgeAdminServiceClient {
-	return edgev1connect.NewEdgeAdminServiceClient(insecureClient(), c.baseURL())
+	return edgev1connect.NewEdgeAdminServiceClient(c.client, c.baseURL())
 }
 
 func (c *central) devices() devicev1connect.DeviceServiceClient {
-	return devicev1connect.NewDeviceServiceClient(insecureClient(), c.baseURL())
+	return devicev1connect.NewDeviceServiceClient(c.client, c.baseURL())
 }
 
 func deviceRef() *inventoryv1.DeviceGlobalRef {
