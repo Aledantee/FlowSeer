@@ -1,13 +1,16 @@
 package fabric
 
 import (
-	"sync"
+	"maps"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
 
-// Counters holds cumulative RFC 2863 traffic, error, and discard metrics for a device port.
+// Counters holds what a device port counted during a run, in the shape of the
+// interfaces group of RFC 2863: octets and frames by class in and out, errors,
+// and discards, with the discards also broken down by the reason the run gave.
+// OutErrors stays zero, since no egress fault exists in this phase.
 type Counters struct {
 	InOctets     uint64
 	OutOctets    uint64
@@ -18,25 +21,18 @@ type Counters struct {
 	InBroadcast  uint64
 	OutBroadcast uint64
 	InErrors     uint64
-	// OutErrors counts outbound packets not transmitted due to an error. It remains zero because
-	// no egress transmission faults exist in the simulation.
-	OutErrors   uint64
-	InDiscards  uint64
-	OutDiscards uint64
-	Discards    map[trace.Reason]uint64
+	OutErrors    uint64
+	InDiscards   uint64
+	OutDiscards  uint64
+	Discards     map[trace.Reason]uint64
 }
 
-// Clone returns an independent deep copy of c.
+// Clone returns an independent copy of c, so a snapshot stops changing when
+// the run continues.
 func (c Counters) Clone() Counters {
 	cp := c
-	if len(c.Discards) > 0 {
-		cp.Discards = make(map[trace.Reason]uint64, len(c.Discards))
-		for k, v := range c.Discards {
-			cp.Discards[k] = v
-		}
-	} else {
-		cp.Discards = make(map[trace.Reason]uint64)
-	}
+	cp.Discards = make(map[trace.Reason]uint64, len(c.Discards))
+	maps.Copy(cp.Discards, c.Discards)
 
 	return cp
 }
@@ -49,12 +45,7 @@ const (
 	classBroadcast
 )
 
-var (
-	broadcastMAC = netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
-
-	countersMu     sync.Mutex
-	fabricCounters = make(map[*Fabric]map[string]map[string]Counters)
-)
+var broadcastMAC = netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 
 func classifyMAC(m netaddr.MAC) frameClass {
 	if m == broadcastMAC {
@@ -67,30 +58,24 @@ func classifyMAC(m netaddr.MAC) frameClass {
 	return classUnicast
 }
 
-func (f *Fabric) ensureCountersLocked(device, portName string) Counters {
-	devs := fabricCounters[f]
-	if devs == nil {
-		devs = make(map[string]map[string]Counters)
-		fabricCounters[f] = devs
+// counter returns the live counters of one device port, creating them on the
+// first use so a port that never saw a frame costs nothing.
+func (f *Fabric) counter(device, portName string) *Counters {
+	if f.counters == nil {
+		f.counters = make(map[Endpoint]*Counters)
 	}
-	ports := devs[device]
-	if ports == nil {
-		ports = make(map[string]Counters)
-		devs[device] = ports
-	}
-	c, ok := ports[portName]
-	if !ok || c.Discards == nil {
-		c.Discards = make(map[trace.Reason]uint64)
+	ep := Endpoint{Node: device, Port: portName}
+	c, ok := f.counters[ep]
+	if !ok {
+		c = &Counters{Discards: make(map[trace.Reason]uint64)}
+		f.counters[ep] = c
 	}
 
 	return c
 }
 
 func (f *Fabric) countIngress(device, portName string, inOctets uint64, class frameClass) {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
-	c := f.ensureCountersLocked(device, portName)
+	c := f.counter(device, portName)
 	c.InOctets += inOctets
 	switch class {
 	case classBroadcast:
@@ -100,36 +85,24 @@ func (f *Fabric) countIngress(device, portName string, inOctets uint64, class fr
 	case classUnicast:
 		c.InUnicast++
 	}
-	fabricCounters[f][device][portName] = c
 }
 
 func (f *Fabric) countCorruptIngress(device, portName string, inOctets uint64) {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
-	c := f.ensureCountersLocked(device, portName)
+	c := f.counter(device, portName)
 	c.InOctets += inOctets
 	c.InErrors++
 	c.InDiscards++
 	c.Discards[ReasonBadFrame]++
-	fabricCounters[f][device][portName] = c
 }
 
 func (f *Fabric) countWholeFrameDrop(device, portName string, reason trace.Reason) {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
-	c := f.ensureCountersLocked(device, portName)
+	c := f.counter(device, portName)
 	c.InDiscards++
 	c.Discards[reason]++
-	fabricCounters[f][device][portName] = c
 }
 
 func (f *Fabric) countEgress(device, portName string, outOctets uint64, class frameClass) {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
-	c := f.ensureCountersLocked(device, portName)
+	c := f.counter(device, portName)
 	c.OutOctets += outOctets
 	switch class {
 	case classBroadcast:
@@ -139,51 +112,29 @@ func (f *Fabric) countEgress(device, portName string, outOctets uint64, class fr
 	case classUnicast:
 		c.OutUnicast++
 	}
-	fabricCounters[f][device][portName] = c
 }
 
 func (f *Fabric) countEgressDrop(device, portName string, reason trace.Reason) {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
-	c := f.ensureCountersLocked(device, portName)
+	c := f.counter(device, portName)
 	c.OutDiscards++
 	c.Discards[reason]++
-	fabricCounters[f][device][portName] = c
 }
 
+// snapshotCounters copies every port's counters for one device, with a zero
+// row for a port that counted nothing, so a reader sees the whole table.
 func (f *Fabric) snapshotCounters(device string) map[string]Counters {
-	countersMu.Lock()
-	defer countersMu.Unlock()
-
 	sw, ok := f.switches[device]
 	if !ok {
 		return nil
 	}
 
-	devs := fabricCounters[f]
-	var current map[string]Counters
-	if devs != nil {
-		current = devs[device]
-	}
-
 	ports := sw.Ports().Ports()
 	out := make(map[string]Counters, len(ports))
 	for _, p := range ports {
-		if current != nil {
-			if c, exists := current[p.Name]; exists {
-				out[p.Name] = c.Clone()
-				continue
-			}
-		}
-		out[p.Name] = Counters{
-			Discards: make(map[trace.Reason]uint64),
-		}
-	}
-
-	for name, c := range current {
-		if _, exists := out[name]; !exists {
-			out[name] = c.Clone()
+		if c, exists := f.counters[Endpoint{Node: device, Port: p.Name}]; exists {
+			out[p.Name] = c.Clone()
+		} else {
+			out[p.Name] = Counters{Discards: make(map[trace.Reason]uint64)}
 		}
 	}
 

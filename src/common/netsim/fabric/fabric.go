@@ -27,6 +27,7 @@ type Fabric struct {
 	journeys       map[FrameID]*Journey
 	entered        map[FrameID]map[Endpoint]bool
 	cableCrossings map[Endpoint]uint
+	counters       map[Endpoint]*Counters
 }
 
 type linkEndRef struct {
