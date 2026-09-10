@@ -4,13 +4,17 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-09-mutation-shadow-projection-direction.md
 parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 ---
 
 # Network Simulation Environment, Phase 1: Capability-Built Virtual Switch - Plan
+
+> Implemented. Every unit landed on 2026-09-10 through Herdr workers, one
+> unit per worker, with the value packages placed under `src/common/net`
+> at the user's direction after the first unit landed.
 
 ## Goal
 
@@ -97,7 +101,14 @@ common packages. This phase adds:
   rejected Open vSwitch and Batfish for modelling someone else's dataplane;
   a bridge computed from FlowSeer's typed `Config` is the projection it
   asks for. The virtual device record states the same reading; both revert
-  together if the user keeps the sentence as written. Unconfirmed.
+  together if the user keeps the sentence as written. Taken on 2026-09-10
+  as the recommendation, since the virtual device record already read it
+  that way; the user has not confirmed it.
+- The value packages live under `src/common/net` (`net/netaddr`,
+  `net/vlan`, `net/ethernet`), not at the common root. Why: they are one
+  family of wire value types, and a directory named for the subject keeps
+  the common root from filling with peers that only share a domain.
+  User-directed on 2026-09-10, after the first unit landed.
 
 ## Requirements
 
@@ -301,18 +312,19 @@ go test -race ./src/common/netsim/... ./src/common/internal/netpenguard/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Both `netsim` READMEs, the `src/common/README.md` row, and both
+- [x] Verifier green for every changed path.
+- [x] Both `netsim` READMEs, the `src/common/README.md` row, and both
       direction records match the landed API.
-- [ ] This plan's `status` set with an outcome note under its title, and
+- [x] This plan's `status` set with an outcome note under its title, and
       the parent's `Landed:` line for this phase filled.
-- [ ] No plan labels in code, comments, or commit messages.
+- [x] No plan labels in code, comments, or commit messages.
 
 ## Open questions
 
-- Narrowing the shadow record's "no emulator" to third-party emulators is
-  unconfirmed. If the sentence stays as written, U6 leaves the record
-  alone and the same claim leaves the virtual device record.
+- Narrowing the shadow record's "no emulator" to third-party emulators
+  was applied without the user's confirmation (see Decisions). If the
+  sentence should stay as written, revert that edit and the same claim in
+  the virtual device record together.
 - Whether an absent PVID should fall back to VLAN 1 per the MIB `DEFVAL`
   rather than to the single untagged VLAN. Keep the Decisions rule unless
   the lab captures show every mapper reports a PVID with an untagged set.

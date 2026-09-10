@@ -12,8 +12,8 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 # Network Simulation Environment - Plan
 
 This is a parent plan. Its units are phases, each with its own plan; the
-first is implementation-ready and the later two are re-planned when their
-turn comes. It replaces
+first is implemented and the later three are re-planned when their turn
+comes. It replaces
 `docs/plans/2026-09-10-1624-feat-virtual-device-l2-switching-plan.md`, whose
 single device is now phase 1.
 
@@ -146,10 +146,11 @@ rather than the standard's, since the model would then be a vendor emulator.
   simulator is what the network model record wants of an address type on
   the wire, brought to Go. Existing users move to them in their own
   changes. User-directed on 2026-09-10.
-- `src/common/netsim` is the home, `frame` at its root, `vswitch` and
-  `fabric` as siblings. The simulators import nothing from `generated/`.
+- `src/common/netsim` is the home, `trace` at its root, `vswitch` and
+  `fabric` as siblings. The simulators import nothing from `generated/`;
+  `vswitch/netmodel` is the one boundary package that does.
   User-directed; the reasons are in the direction record.
-- Three phases, written on purpose. Why: the request names a decided
+- Four phases, written on purpose. Why: the request names a decided
   sequence, one device, then the network, then layer 3, each bounded enough
   for one plan and each depending on the one before; the `phases` reference
   of the plan skill describes this shape.
@@ -300,7 +301,8 @@ own plans; here they are one line each.
 
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase1-plan.md`
 After: none
-Landed:
+Landed: 2026-09-10, on branch `unify-netsim-plan-phases`; the phase plan
+carries the outcome note.
 Change: `src/common/net/netaddr`, `src/common/net/vlan`, `src/common/net/ethernet`,
 `netsim/trace`, `netsim/vswitch` with `port`, `phy`, `bridge`,
 and `netmodel`, the READMEs, the `CONCEPTS.md` entry, and the direction

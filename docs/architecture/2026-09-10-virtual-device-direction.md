@@ -29,7 +29,7 @@ chooses, evaluates the standard's forwarding rules over it, and answers a
 frame query as a trace. Its second, `fabric`, composes switches and hosts
 over cables and runs frames through the network one step at a time, so a
 run can be halted, inspected, and reported. What every simulator shares,
-the frame codec first, sits at the `netsim` level.
+the trace package first, sits at the `netsim` level.
 
 - The device is sized by its caller. A port table with caller-chosen names
   is the one place a port exists; every layer keys its attributes by port

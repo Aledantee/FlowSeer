@@ -36,7 +36,7 @@ it, and one is written when both prerequisites have landed.
 
 The gate is a shadow projection computed from FlowSeer's own typed network
 model, checked against a fixed set of named invariants, and reported as a
-preview diff with a confidence tier. No emulator runs.
+preview diff with a confidence tier. No third-party emulator runs.
 
 - **Projected state** is the last committed expectation for a device plus
   every pending intent ahead of the new one in that device's sequence,
@@ -112,3 +112,6 @@ preview diff with a confidence tier. No emulator runs.
 - The invariant set grows by adding a rule with a test; no rule is implied
   by another. A rule that needs data the model lacks (spanning-tree state,
   routed reachability) waits for that data rather than guessing.
+- `src/common/netsim` provides the projection engine: a virtual device
+  evaluates the projected configuration, and a frame query joins the named
+  invariants in the preview.
