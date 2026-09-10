@@ -1,0 +1,201 @@
+// Package ethernet provides an Ethernet II frame codec, tag stack support, and EtherType constants.
+package ethernet
+
+import (
+	"encoding/binary"
+	"fmt"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/netaddr"
+	"go.aledante.io/FlowSeer/src/common/vlan"
+)
+
+// EtherType represents a 16-bit IEEE EtherType identifier in network byte order.
+// The zero value represents an unspecified EtherType.
+// Values are immutable value types safe for concurrent use.
+type EtherType uint16
+
+const (
+	// EtherTypeUnspecified indicates no EtherType was reported. Zero is not a valid EtherType on the wire.
+	EtherTypeUnspecified EtherType = 0
+
+	// EtherTypeIPv4 is Internet Protocol version 4 (0x0800).
+	EtherTypeIPv4 EtherType = 0x0800
+
+	// EtherTypeARP is Address Resolution Protocol (0x0806).
+	EtherTypeARP EtherType = 0x0806
+
+	// EtherTypeDot1Q is IEEE Std 802.1Q customer VLAN tag, the C-Tag (0x8100).
+	EtherTypeDot1Q EtherType = 0x8100
+
+	// EtherTypeIPv6 is Internet Protocol version 6 (0x86DD).
+	EtherTypeIPv6 EtherType = 0x86DD
+
+	// EtherTypeMPLSUnicast is MPLS with a downstream-assigned label (0x8847).
+	EtherTypeMPLSUnicast EtherType = 0x8847
+
+	// EtherTypeMPLSMulticast is MPLS with an upstream-assigned label (0x8848).
+	EtherTypeMPLSMulticast EtherType = 0x8848
+
+	// EtherTypeProviderBridging is IEEE Std 802.1Q service VLAN tag, the S-Tag (0x88A8).
+	EtherTypeProviderBridging EtherType = 0x88A8
+
+	// EtherTypeLLDP is Link Layer Discovery Protocol (0x88CC).
+	EtherTypeLLDP EtherType = 0x88CC
+
+	// EtherTypeMACsec is IEEE Std 802.1AE MAC Security (0x88E5).
+	EtherTypeMACsec EtherType = 0x88E5
+
+	// EtherTypeMACSec is an alias for [EtherTypeMACsec].
+	EtherTypeMACSec = EtherTypeMACsec
+)
+
+// String returns the hexadecimal representation of e or its known standard name.
+func (e EtherType) String() string {
+	switch e {
+	case EtherTypeIPv4:
+		return "IPv4 (0x0800)"
+	case EtherTypeARP:
+		return "ARP (0x0806)"
+	case EtherTypeDot1Q:
+		return "Dot1Q (0x8100)"
+	case EtherTypeIPv6:
+		return "IPv6 (0x86dd)"
+	case EtherTypeMPLSUnicast:
+		return "MPLS Unicast (0x8847)"
+	case EtherTypeMPLSMulticast:
+		return "MPLS Multicast (0x8848)"
+	case EtherTypeProviderBridging:
+		return "Provider Bridging (0x88a8)"
+	case EtherTypeLLDP:
+		return "LLDP (0x88cc)"
+	case EtherTypeMACsec:
+		return "MACsec (0x88e5)"
+	default:
+		return fmt.Sprintf("EtherType(0x%04x)", uint16(e))
+	}
+}
+
+// Frame represents an Ethernet II frame carrying an optional IEEE 802.1Q tag stack.
+// Tags are ordered outermost first. EtherType is the first non-tag EtherType identifying the payload.
+// The zero value is a usable empty frame.
+// Instances are not safe for concurrent modification.
+type Frame struct {
+	Dst       netaddr.MAC
+	Src       netaddr.MAC
+	Tags      []vlan.Tag
+	EtherType EtherType
+	Payload   []byte
+}
+
+// Encode serializes f into its Ethernet II byte representation with its tag stack.
+func (f Frame) Encode() ([]byte, error) {
+	for i, tag := range f.Tags {
+		if tag.VID > 0x0FFF {
+			return nil, errs.New().
+				Attr("index", i).
+				Attr("vid", tag.VID).
+				Msg("vlan identifier exceeds 12 bits")
+		}
+		if tag.PCP > 7 {
+			return nil, errs.New().
+				Attr("index", i).
+				Attr("pcp", tag.PCP).
+				Msg("priority code point exceeds 3 bits")
+		}
+	}
+
+	totalLen := 12 + len(f.Tags)*4 + 2 + len(f.Payload)
+	out := make([]byte, totalLen)
+
+	copy(out[0:6], f.Dst[:])
+	copy(out[6:12], f.Src[:])
+
+	offset := 12
+	for _, tag := range f.Tags {
+		tpid := tag.TPID
+		if tpid == 0 {
+			tpid = uint16(EtherTypeDot1Q)
+		}
+		binary.BigEndian.PutUint16(out[offset:offset+2], tpid)
+		offset += 2
+
+		tci := (uint16(tag.PCP&0x07) << 13) | (uint16(tag.VID) & 0x0FFF)
+		if tag.DEI {
+			tci |= 0x1000
+		}
+		binary.BigEndian.PutUint16(out[offset:offset+2], tci)
+		offset += 2
+	}
+
+	binary.BigEndian.PutUint16(out[offset:offset+2], uint16(f.EtherType))
+	offset += 2
+
+	copy(out[offset:], f.Payload)
+
+	return out, nil
+}
+
+// Encode serializes f into wire bytes. It is a package-level helper calling [Frame.Encode].
+func Encode(f Frame) ([]byte, error) {
+	return f.Encode()
+}
+
+// Decode decodes an Ethernet II frame from wire bytes, peeling 802.1Q tags while the
+// EtherType is 0x8100 (C-Tag) or 0x88A8 (S-Tag). It returns an error if the frame is
+// shorter than the minimum Ethernet header (14 bytes) or if a tag is truncated.
+func Decode(b []byte) (Frame, error) {
+	if len(b) < 14 {
+		return Frame{}, errs.New().
+			Attr("have", len(b)).
+			Attr("min", 14).
+			Msg("frame length too short")
+	}
+
+	var f Frame
+	copy(f.Dst[:], b[0:6])
+	copy(f.Src[:], b[6:12])
+
+	currentEtherType := binary.BigEndian.Uint16(b[12:14])
+	offset := 14
+
+	for currentEtherType == uint16(EtherTypeDot1Q) || currentEtherType == uint16(EtherTypeProviderBridging) {
+		if len(b)-offset < 4 {
+			return Frame{}, errs.New().
+				Attr("offset", offset).
+				Attr("remaining", len(b)-offset).
+				Msg("truncated 802.1Q tag")
+		}
+
+		tci := binary.BigEndian.Uint16(b[offset : offset+2])
+		offset += 2
+
+		tag := vlan.Tag{
+			TPID: currentEtherType,
+			PCP:  vlan.PCP((tci >> 13) & 0x07),
+			DEI:  (tci & 0x1000) != 0,
+			VID:  vlan.ID(tci & 0x0FFF),
+		}
+		f.Tags = append(f.Tags, tag)
+
+		currentEtherType = binary.BigEndian.Uint16(b[offset : offset+2])
+		offset += 2
+	}
+
+	f.EtherType = EtherType(currentEtherType)
+	f.Payload = b[offset:]
+
+	return f, nil
+}
+
+// IsReserved reports whether mac is in the IEEE standard reserved bridge address
+// range (01:80:c2:00:00:00 through 01:80:c2:00:00:0f inclusive).
+// Frames matching this range are neither forwarded nor learned by compliant bridges.
+func IsReserved(mac netaddr.MAC) bool {
+	return mac[0] == 0x01 &&
+		mac[1] == 0x80 &&
+		mac[2] == 0xc2 &&
+		mac[3] == 0x00 &&
+		mac[4] == 0x00 &&
+		mac[5] <= 0x0f
+}

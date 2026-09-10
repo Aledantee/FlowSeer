@@ -6,9 +6,13 @@ nothing of FlowSeer's own.
 | Package                | What it does                                                        |
 | ---------------------- | ------------------------------------------------------------------- |
 | `errs`                 | error types, codes, and boundary filtering                           |
+| `ethernet`             | Ethernet II frame codec, tag stack, and EtherType constants          |
+| `netaddr`              | MAC and EUI-64 hardware address types and parsing                    |
+| `netsim/trace`         | step, outcome, and change trace vocabulary for network simulation    |
 | `pump`                 | shared work-pump concurrency primitive                              |
 | `secret`               | redacting carrier for credential material                           |
 | `service`              | process-local module runtime, supervision, delivery, and telemetry  |
+| `vlan`                 | 802.1Q tag, VLAN identifier, and priority code point value types     |
 | `internal/netpenguard` | build guard limiting heavy dependencies to `src/edge/netpen`        |
 | `internal/secretguard` | build guard keeping credential material out of raw string fields    |
 
