@@ -14,5 +14,5 @@
 // it.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// the firmware-family split.
+// "Capabilities are typed all the way down".
 package fastiron

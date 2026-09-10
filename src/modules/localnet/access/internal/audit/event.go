@@ -56,8 +56,8 @@ func (d Device) ref() *inventoryv1.DeviceGlobalRef {
 // map constraint exactly, so a caller-supplied identifier that would fail
 // protovalidate at the sink is bounded here instead — a build-time value
 // that is merely long must never turn into an Emit failure that leaves a
-// mutation's phase transition stuck, per the audit-before-state rule's audit-before-release
-// rule making every Emit failure block progress.
+// mutation's phase transition stuck, since the audit-before-release rule
+// makes every Emit failure block the progress it records.
 const (
 	correlationIDsMaxPairs    = 8
 	correlationIDsMaxKeyLen   = 64
@@ -172,10 +172,11 @@ func BuildDiscoveryCompleted(clock Clock, common Common, firmwareFingerprint str
 	return event
 }
 
-// BuildFirmwareEpochChanged constructs the event for a device's firmware
-// mid-operation epoch check needs a fresh probe at observation time
-// compared against an earlier probe's own output. The lane runs that probe
-// and calls this; this module does not compare fingerprints itself.
+// BuildFirmwareEpochChanged constructs the event recording that a device's
+// firmware fingerprint moved from previous to next. The mid-operation epoch
+// check needs a fresh probe at observation time compared against an earlier
+// probe's own output. The lane runs that probe and calls this; this module
+// does not compare fingerprints itself.
 func BuildFirmwareEpochChanged(clock Clock, common Common, previous, next string) *eventv1.DeviceOperationEvent {
 	detail := &eventv1.FirmwareEpochChanged{}
 	detail.SetPreviousFingerprint(previous)

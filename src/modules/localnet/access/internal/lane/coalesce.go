@@ -34,8 +34,8 @@ type Ticket struct {
 	err    error
 }
 
-// Wait blocks until the Ticket's owner calls [Coalescer.Finish] for its key
-// or ctx is done, whichever comes first.
+// Wait blocks until the Ticket's owner calls the terminator [Coalescer.Start]
+// handed it, or ctx is done, whichever comes first.
 func (t *Ticket) Wait(ctx context.Context) (any, error) {
 	select {
 	case <-t.done:
@@ -46,10 +46,11 @@ func (t *Ticket) Wait(ctx context.Context) (any, error) {
 }
 
 // Coalescer deduplicates concurrent identical reads: the first caller for a
-// key does the work and calls Finish; every other caller for the same key
-// while that work is in flight receives the same result. The zero value is
-// ready to use. Safe for concurrent use: Start and Finish may both be
-// called from multiple goroutines.
+// key does the work and calls the terminator [Coalescer.Start] returned to
+// it; every other caller for the same key while that work is in flight
+// receives the same result. The zero value is ready to use. Safe for
+// concurrent use: Start may be called from multiple goroutines, and so may
+// any terminator it returned.
 type Coalescer struct {
 	mu       sync.Mutex
 	inflight map[CoalesceKey]*Ticket

@@ -21,7 +21,7 @@
 // flowseer.event.device.v1.DeviceOperationEvent record), mutation (the
 // phase-by-phase state machine), and recovery (the ambiguity
 // handling). See
-// docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decisions 1 through 9 and 13, and this package's README for the metric
+// docs/architecture/2026-09-05-verified-device-access-direction.md for the
+// rules this module implements, and this package's README for the metric
 // cardinality table and the onboarding sequence.
 package access

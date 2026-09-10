@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1073,5 +1074,47 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 
 	if err := <-submitDone; err != nil {
 		t.Fatalf("Submit() error: %v", err)
+	}
+}
+
+// TestASecondAddDeviceIsRefusedBeforeAnythingHappens is the test for what a
+// duplicate onboarding must NOT do. Refusing it at the end would be no use:
+// by then the probe has opened an SNMP session against the live device,
+// central has been told the device onboarded, and two audit records have
+// gone out — all for a registration that never happened.
+//
+// Counting those side effects is the assertion. A test that only checked
+// the error code would pass for a refusal that ran every one of them first.
+func TestASecondAddDeviceIsRefusedBeforeAnythingHappens(t *testing.T) {
+	reporter := &recordingReporter{}
+	deliverer := &failingDeliverer{}
+	l := laneWithReporter(t, reporter, deliverer)
+
+	var opened, closed atomic.Int64
+	session := access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      countingProbeFactory(&opened, &closed),
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return completeObservation("uplink to core"), nil
+		},
+	}
+	if err := l.AddDevice(context.Background(), "dev-1", session); err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	probes, onboardings, records := opened.Load(), len(reporter.onboardings()), deliverer.count()
+
+	err := l.AddDevice(context.Background(), "dev-1", session)
+	if code, _ := errs.CodeOf(err); code != access.ErrCodeDeviceExists {
+		t.Fatalf("second AddDevice() code = %v, want %v", code, access.ErrCodeDeviceExists)
+	}
+	if got := opened.Load(); got != probes {
+		t.Errorf("the refused AddDevice opened %d further sessions against the device, want 0", got-probes)
+	}
+	if got := len(reporter.onboardings()); got != onboardings {
+		t.Errorf("the refused AddDevice reported %d further onboardings to central, want 0", got-onboardings)
+	}
+	if got := deliverer.count(); got != records {
+		t.Errorf("the refused AddDevice emitted %d further audit records, want 0", got-records)
 	}
 }

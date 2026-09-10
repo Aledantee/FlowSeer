@@ -3,7 +3,9 @@ package access_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -799,5 +801,94 @@ func TestOnboardingReportsTheEpochItProbed(t *testing.T) {
 	want := []string{"dev-1=" + probedFingerprint()}
 	if got := reporter.onboardings(); !slices.Equal(got, want) {
 		t.Errorf("onboarding reported %q, want %q", got, want)
+	}
+}
+
+// laneWithReporterAndLog is laneWithReporter with the telemetry log
+// captured, for a test that asserts on an event the lane emits rather than
+// on state it happens to leave behind.
+func laneWithReporterAndLog(t *testing.T, reporter access.Reporter, log *safeBuilder) *access.Lane {
+	t.Helper()
+	view, err := telemetry.NewView(telemetry.ViewConfig{
+		Logger: slog.New(slog.NewTextHandler(log, &slog.HandlerOptions{Level: slog.LevelDebug})),
+	})
+	if err != nil {
+		t.Fatalf("NewView() error: %v", err)
+	}
+	return access.NewLane(access.Config{
+		QueueCapacity:    4,
+		Audit:            noopDeliverer{},
+		Telemetry:        view,
+		Clock:            time.Now,
+		Reporter:         reporter,
+		OperationTimeout: 2 * time.Second,
+	})
+}
+
+// TestAStaleHoldResolutionIsAcknowledgedWithoutLiftingTheHold covers the
+// resolution central re-sends for a sequence this lane was never held for,
+// which is ordinary: the acknowledgement travels an asynchronous queue, so
+// central goes on owing the row until one lands.
+//
+// The lane owes two things at once here, and each would be a bug without
+// the other. It acknowledges, because an edge that holds nothing for that
+// sequence is telling the truth when it says so. And it keeps the hold,
+// because the abandonment actually holding the lane has a resolution of its
+// own still to come — clearing on a stale sequence would admit a mutation
+// over a device state nobody resolved.
+func TestAStaleHoldResolutionIsAcknowledgedWithoutLiftingTheHold(t *testing.T) {
+	reporter := &recordingReporter{}
+	log := &safeBuilder{}
+	l := laneWithReporterAndLog(t, reporter, log)
+	var submits atomic.Int64
+	addDeviceCountingSubmits(t, l, &submits)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := l.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(1),
+		})
+		done <- err
+	}()
+	waitForPhase(t, reporter, accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
+	if err := deliverAck(t, l, terminalAck(1, accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)); err != nil {
+		t.Fatalf("HandleTerminalAck(INDETERMINATE_ABANDONED) error: %v", err)
+	}
+	if err := awaitSubmit(t, done); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+
+	resolved := &integrationv1.HoldResolved{}
+	resolved.SetSequence(7)
+	if err := l.ResolveHold(context.Background(), "dev-1", resolved); err != nil {
+		t.Fatalf("ResolveHold() error: %v", err)
+	}
+
+	acks := reporter.holdAcks()
+	if len(acks) != 1 || acks[0].GetSequence() != 7 {
+		t.Fatalf("HoldResolvedAcked acks = %v, want exactly one carrying sequence 7", acks)
+	}
+
+	// Named by device, not only by sequence: a View is shared by every
+	// device this lane serves, so a record carrying the sequence alone does
+	// not say whose lane is stuck.
+	logged := log.String()
+	if !strings.Contains(logged, "flowseer.device.hold.resolution_ignored") {
+		t.Errorf("no resolution_ignored event was emitted; log: %s", logged)
+	}
+	if !strings.Contains(logged, "flowseer.device.id=dev-1") {
+		t.Errorf("the resolution_ignored event does not name the device; log: %s", logged)
+	}
+
+	// The hold that is actually holding the lane still refuses the next
+	// mutation. Without this the test would pass for a lane that cleared on
+	// any sequence at all.
+	_, err := l.Submit(context.Background(), access.SubmitOptions{
+		DeviceKey: "dev-1",
+		Request:   mutationRequest(2),
+	})
+	if code, _ := errs.CodeOf(err); code != access.ErrCodeDesynchronized {
+		t.Fatalf("Submit() after a stale resolution: code = %v, want %v", code, access.ErrCodeDesynchronized)
 	}
 }

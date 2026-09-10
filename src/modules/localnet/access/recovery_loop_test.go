@@ -162,9 +162,10 @@ func (r *recoveringLane) submitMutation(t *testing.T) chan submitted {
 // TestAReadAdmittedWhileARecoveryPollHoldsTheLockIsStillServed is the
 // release rule's own test, and it only tests anything because the read is
 // admitted while a poll is genuinely parked inside Attempt holding
-// ds.draining. Submitting the read between
-// polls, when nothing held the lock, so the read's own drain goroutine won
-// its TryLock immediately — and it passed with the release rule removed.
+// ds.draining. Submitting the read between polls instead tests nothing:
+// nothing holds the lock then, so the read's own drain goroutine wins its
+// TryLock immediately — and that version passes with the release rule
+// removed.
 //
 // The rule matters because a submitter whose TryLock loses exits at once
 // and never comes back. With the poll parked on the lock, that read has no

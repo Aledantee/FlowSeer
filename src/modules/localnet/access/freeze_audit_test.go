@@ -182,12 +182,12 @@ func TestAddDeviceWhileFrozenFailsWithoutRegisteringTheDevice(t *testing.T) {
 // assertNoDeviceWriteWhileFrozen proves the gate is stopping device writes,
 // by counting the commands that actually reached the device.
 //
-// Asserting only that Submit failed would be satisfied
-// could not fail: Submit blocks on central's terminal acknowledgement,
-// which this helper never delivers, so a short context expires and Submit
-// returns an error whether or not the gate is frozen at all. The count is
-// the only thing here that distinguishes a fenced lane from a lane that
-// merely ran out of time.
+// Asserting only that Submit failed would be satisfied by a Submit that
+// could not have succeeded either way: it blocks on central's terminal
+// acknowledgement, which this helper never delivers, so a short context
+// expires and Submit returns an error whether or not the gate is frozen at
+// all. The count is the only thing here that distinguishes a fenced lane
+// from a lane that merely ran out of time.
 func assertNoDeviceWriteWhileFrozen(t *testing.T, l *access.Lane, submits *atomic.Int64) {
 	t.Helper()
 	before := submits.Load()
@@ -224,5 +224,169 @@ func assertNoDeviceWriteWhileFrozen(t *testing.T, l *access.Lane, submits *atomi
 
 	if got := submits.Load(); got != before {
 		t.Fatalf("the device received %d commands while the lane was frozen, want none: the gate is not stopping side effects", got-before)
+	}
+}
+
+// blockingFrozenSpy is a frozenSpy whose LaneFrozen delivery parks until a
+// test releases it, standing in for the host audit sink that is slow or
+// wedged — which is the state a fence is usually called in.
+type blockingFrozenSpy struct {
+	frozenSpy
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func newBlockingFrozenSpy() *blockingFrozenSpy {
+	return &blockingFrozenSpy{
+		frozenSpy: frozenSpy{failFor: map[string]bool{}},
+		entered:   make(chan struct{}),
+		release:   make(chan struct{}),
+	}
+}
+
+func (d *blockingFrozenSpy) Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error {
+	if event.GetLaneFrozen() != nil {
+		d.once.Do(func() { close(d.entered) })
+		<-d.release
+	}
+	return d.frozenSpy.Emit(ctx, event)
+}
+
+// TestUnfreezeDoesNotWaitOnTheAuditPath is why the fence bookkeeping and the
+// emission are two locks rather than one. A fence is called when something
+// is already wrong, quite often the audit sink itself; holding one lock
+// across every delivery would make lifting that fence — the thing that lets
+// the devices be written again — wait on exactly the path that failed.
+//
+// The single-goroutine tests above cannot see this: they never have an
+// Unfreeze running while an emission is in flight.
+func TestUnfreezeDoesNotWaitOnTheAuditPath(t *testing.T) {
+	spy := newBlockingFrozenSpy()
+	l := laneWithReporter(t, nil, spy)
+	if err := addNamedDevice(t, l, "dev-1"); err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	frozen := make(chan error, 1)
+	go func() { frozen <- l.Freeze(context.Background()) }()
+
+	<-spy.entered
+
+	unfrozen := make(chan struct{})
+	go func() {
+		defer close(unfrozen)
+		l.Unfreeze(context.Background())
+	}()
+	select {
+	case <-unfrozen:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Unfreeze() is parked behind the blocked audit delivery")
+	}
+
+	close(spy.release)
+	if err := <-frozen; err != nil {
+		t.Fatalf("Freeze() error: %v", err)
+	}
+
+	// The record that was in flight belonged to the fence that has since
+	// been lifted, so the next fence still owes this device one. Counting
+	// this is the difference between "Unfreeze returned" and "Unfreeze
+	// forgot the fence".
+	if err := l.Freeze(context.Background()); err != nil {
+		t.Fatalf("Freeze() after the unfreeze error: %v", err)
+	}
+	if got := spy.recorded(); len(got) != 2 {
+		t.Fatalf("recorded %v, want the fence after the unfreeze to record dev-1 again", got)
+	}
+}
+
+// TestAFreezeDrainedOnAReopenedGateRecordsNothing covers the freeze whose
+// drain finished only after an Unfreeze had already reopened the gate. The
+// fence it was establishing does not exist, so writing LaneFrozen for it
+// would put a fence in the audit stream for an open lane — and, worse, mark
+// those devices as recorded, so the next real fence would emit nothing.
+func TestAFreezeDrainedOnAReopenedGateRecordsNothing(t *testing.T) {
+	spy := newFrozenSpy()
+	reporter := &recordingReporter{}
+	l := laneWithReporter(t, reporter, spy)
+
+	inCommand := make(chan struct{})
+	releaseCommand := make(chan struct{})
+	var submits atomic.Int64
+	err := l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
+		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
+		OpenSNMP:      probeFactory(),
+		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
+			return completeObservation("uplink to core"), nil
+		},
+		SubmitOverride: func(context.Context, *accessv1.InterfaceDescriptionChange) error {
+			if submits.Add(1) == 1 {
+				close(inCommand)
+				<-releaseCommand
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("AddDevice() error: %v", err)
+	}
+
+	// A mutation parked inside the device command holds the gate's drain
+	// barrier, which is what makes the freeze below wait rather than
+	// complete instantly.
+	submitDone := make(chan error, 1)
+	go func() {
+		_, err := l.Submit(context.Background(), access.SubmitOptions{
+			DeviceKey: "dev-1",
+			Request:   mutationRequest(1),
+		})
+		submitDone <- err
+	}()
+	deliverCheckpoint(t, l, 1)
+	<-inCommand
+
+	frozen := make(chan error, 1)
+	go func() { frozen <- l.Freeze(context.Background()) }()
+	// Freeze sets the gate's frozen flag before it starts waiting on the
+	// drain, and there is nothing exported to observe that moment through —
+	// the gate is internal and a read is not gated by it. The wait is for
+	// the goroutine above to have reached Freeze at all; if it has not, this
+	// test unfreezes a gate nobody froze and the Freeze that follows
+	// succeeds, which fails the assertion below rather than passing it.
+	time.Sleep(200 * time.Millisecond)
+
+	// Reopen the gate under the waiting freeze, then let the command finish
+	// so the drain the freeze is waiting on completes.
+	l.Unfreeze(context.Background())
+	close(releaseCommand)
+
+	select {
+	case err := <-frozen:
+		if err == nil {
+			t.Fatal("Freeze() error = nil, want the reopened gate reported")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Freeze() never returned")
+	}
+	if got := spy.recorded(); len(got) != 0 {
+		t.Fatalf("recorded %v, want nothing: the lane is open, so there is no fence to record", got)
+	}
+
+	// The other direction: the next real fence records the device, which it
+	// would not have done had the drained-on-a-reopened-gate freeze marked
+	// it delivered.
+	waitForPhase(t, reporter, accessv1.OperationPhase_OPERATION_PHASE_VERIFIED)
+	if err := deliverAck(t, l, terminalAck(1, accessv1.Disposition_DISPOSITION_VERIFIED)); err != nil {
+		t.Fatalf("HandleTerminalAck() error: %v", err)
+	}
+	if err := awaitSubmit(t, submitDone); err != nil {
+		t.Fatalf("Submit() error: %v", err)
+	}
+	if err := l.Freeze(context.Background()); err != nil {
+		t.Fatalf("Freeze() error: %v", err)
+	}
+	if got := spy.recorded(); len(got) != 1 || got[0] != "dev-1" {
+		t.Fatalf("recorded %v, want the real fence to record dev-1", got)
 	}
 }

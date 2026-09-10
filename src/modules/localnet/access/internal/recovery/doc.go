@@ -8,5 +8,5 @@
 // explicit resolution call clears it, never a retry.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// the ambiguity rule.
+// "Ambiguity stays indeterminate".
 package recovery

@@ -452,8 +452,8 @@ func (m *Machine) Checkpoint(ctx context.Context, req *integrationv1.CheckpointR
 }
 
 // Execute submits the mutation's command, requiring a positive
-// SUBMISSION_AUTHORITY_AUTHORIZED immediately before doing so, per decision
-// 9 — not merely the absence of a seen revocation, which a
+// SUBMISSION_AUTHORITY_AUTHORIZED immediately before doing so — not merely
+// the absence of a seen revocation, which a
 // not-yet-delivered pulse could satisfy while a revocation is already in
 // flight. For a read it is a no-op: integration/device/v1's README states a
 // read's phase_reached is OBSERVING, so a read's device contact happens in
@@ -522,9 +522,10 @@ func (m *Machine) Execute(ctx context.Context) error {
 	}
 
 	// A cancellation delivered between CheckpointAck and here must be
-	// honored: the command is never sent. Once Submit is called, decision
-	// 5 takes over — a lost connection during or after submission does not
-	// fail the mutation; Observe/recovery handle that ambiguity instead.
+	// honored: the command is never sent. Once Submit is called, the
+	// ambiguity rule takes over — a lost connection during or after
+	// submission does not fail the mutation; Observe and recovery handle
+	// that ambiguity instead.
 	if err := waitCtx.Err(); err != nil {
 		return errs.Wrap(err, "context ended before submission")
 	}
@@ -674,8 +675,8 @@ func (m *Machine) Peek(ctx context.Context) (*accessv1.InterfaceObservation, err
 // mutation — OperationPhase's own doc allows VERIFIED from either).
 // cached, if non-nil, is an earlier complete observation of the same target
 // this mutation must not silently override: if it conflicts with the fresh
-// observation on any compared field, no observation carries authority
-// (decision-record requirement) and Compare blocks with
+// observation on any compared field, no observation carries authority and
+// Compare blocks with
 // BLOCK_REASON_CONFLICTING_READS instead of reporting a disposition. A read
 // has no intent to compare against and always reports DISPOSITION_UNSPECIFIED
 // with a nil error: its own observation is the result.

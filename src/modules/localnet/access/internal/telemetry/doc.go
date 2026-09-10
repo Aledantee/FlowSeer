@@ -8,8 +8,9 @@
 //
 // See docs/conventions/observability.md for the naming, attribute, and
 // cardinality rules this package follows, and
-// docs/architecture/2026-09-05-verified-device-access-direction.md decision
-// 13 for the audit/telemetry split telemetry.View's methods are the
+// docs/architecture/2026-09-05-verified-device-access-direction.md,
+// "Audit and telemetry are separate", for the split telemetry.View's methods
+// are the
 // "telemetry" half of: none of them return an error, and none may block or
 // fail the caller past a bounded local operation, even when the configured
 // TracerProvider or MeterProvider is backed by a failing exporter.

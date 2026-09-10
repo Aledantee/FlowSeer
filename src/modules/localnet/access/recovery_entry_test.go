@@ -213,8 +213,8 @@ func TestAPollThatEndsStillOwingRecordsReportsTheGap(t *testing.T) {
 	// nothing ends this mutation early and recovery runs to the end of its
 	// budget — a twelve-second horizon and a two-second interval. Using the
 	// shared helper would acknowledge it VERIFIED, which ends the mutation
-	// through a different door, which is how this test could
-	// managed to assert nothing.
+	// through a different door — a door that would let this test pass while
+	// asserting nothing about the recovery budget at all.
 	req := mutationRequest(1)
 	go func() {
 		deadline := time.Now().Add(30 * time.Second)

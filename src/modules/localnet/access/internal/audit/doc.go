@@ -1,10 +1,9 @@
 // Package audit builds and delivers the durable
 // flowseer.event.device.v1.DeviceOperationEvent audit record. Deliverer is
 // the seam this module's mutation state machine calls before releasing the
-// phase an event describes, per the audit-before-state rule's audit-before-release rule:
-// audit and telemetry are separate, and only a Deliverer failure may block
-// or fail the operation it records.
+// phase an event describes: audit and telemetry are separate, and only a
+// Deliverer failure may block or fail the operation it records.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// the audit-before-state rule.
+// "Audit and telemetry are separate".
 package audit

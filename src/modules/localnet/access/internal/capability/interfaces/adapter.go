@@ -231,8 +231,8 @@ func (d VerificationDisposition) String() string {
 // this function does not retry — and reports one of three dispositions: a
 // caller polling it across the delayed-effect horizon sees
 // VerificationNotYetVerified become either VerificationVerified or
-// VerificationFailed as later calls land, matching the direction record's
-// the ambiguity rule.
+// VerificationFailed as later calls land — which is how ambiguity stays
+// indeterminate until an observation resolves it.
 //
 // since is when the mutation was submitted (the read that established
 // effect's horizon should begin from); now is the time of this call, so a

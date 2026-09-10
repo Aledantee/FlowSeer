@@ -456,3 +456,71 @@ func TestHoldBlocksUntilResolved(t *testing.T) {
 		t.Fatal("Resolve() did not clear the hold")
 	}
 }
+
+// TestMinGapDerivesFromTheHorizonWhenTheCallerNamesNone pins the derivation
+// [New] applies to a zero minGap, because the spacing is what a retry rests
+// on. Two polls a few seconds apart on a device with a long horizon prove
+// only that the change has not applied yet, and resending the command is
+// the one thing that must not follow from that.
+//
+// A fake clock, because the derived gap for these horizons is longer than
+// any test would wait — and a real clock would leave the spacing check
+// passing on wall-clock accident rather than on the derivation.
+func TestMinGapDerivesFromTheHorizonWhenTheCallerNamesNone(t *testing.T) {
+	m := recoveringMachine(t, observation("old description"))
+	now := time.Now()
+	clock := func() time.Time { return now }
+
+	// Half of a one-minute horizon, so a ten-second gap is too short and a
+	// forty-second one is not.
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{Horizon: time.Minute}, 0, clock, nil)
+	since := now
+
+	for _, step := range []struct {
+		elapse time.Duration
+		want   recovery.Outcome
+	}{
+		{0, recovery.OutcomeContinueObserving},
+		{10 * time.Second, recovery.OutcomeContinueObserving},
+		{30 * time.Second, recovery.OutcomeRetry},
+	} {
+		now = now.Add(step.elapse)
+		outcome, _, err := runner.Attempt(context.Background(), since, observation("old description"))
+		if err != nil {
+			t.Fatalf("Attempt() at +%v error: %v", now.Sub(since), err)
+		}
+		if outcome != step.want {
+			t.Fatalf("Attempt() at +%v outcome = %v, want %v", now.Sub(since), outcome, step.want)
+		}
+	}
+}
+
+// TestAZeroHorizonDerivesAZeroMinGap is the edge of that derivation. A
+// device with no measured horizon divides to zero, which makes the spacing
+// check vacuous: two consecutive polls corroborate however close together
+// they are.
+//
+// Lane.Submit refuses a mutation on such a device before it is admitted, so
+// this combination does not arise in production — but the arithmetic is
+// here rather than guarded, and a reader deserves to know which way it
+// falls. The clock does not advance at all, which is the strongest form of
+// "no spacing was required".
+func TestAZeroHorizonDerivesAZeroMinGap(t *testing.T) {
+	m := recoveringMachine(t, observation("old description"))
+	now := time.Now()
+	runner := recovery.New(m, nil, interfaces.DelayedEffect{}, 0, func() time.Time { return now }, nil)
+
+	if outcome, _, err := runner.Attempt(context.Background(), now, observation("old description")); err != nil {
+		t.Fatalf("Attempt() error: %v", err)
+	} else if outcome != recovery.OutcomeContinueObserving {
+		t.Fatalf("first Attempt() outcome = %v, want %v", outcome, recovery.OutcomeContinueObserving)
+	}
+
+	outcome, _, err := runner.Attempt(context.Background(), now, observation("old description"))
+	if err != nil {
+		t.Fatalf("second Attempt() error: %v", err)
+	}
+	if outcome != recovery.OutcomeRetry {
+		t.Fatalf("second Attempt() outcome = %v, want %v: a zero gap requires no spacing at all", outcome, recovery.OutcomeRetry)
+	}
+}

@@ -114,10 +114,10 @@ func TestReadInterface_HappyPathWithPagination(t *testing.T) {
 	}
 }
 
-// TestReadInterface_DescriptionContainingPromptLookalikeSurvives proves
-// The rule that "a description line containing SSH@device# as literal
-// text does not end the command early" at the layer where that failure can
-// actually occur: Session.Run's own prompt scan
+// TestReadInterface_DescriptionContainingPromptLookalikeSurvives proves that
+// a description line containing SSH@device# as literal text does not end the
+// command early, at the layer where that failure can actually occur:
+// Session.Run's own prompt scan
 // (src/protocol/ssh/command.go), not ParseShowInterface, which only ever
 // sees output the scan has already terminated. The look-alike text sits on
 // an indented line, exactly as FastIron always indents "show interfaces"

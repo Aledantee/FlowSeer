@@ -38,9 +38,9 @@ func (r Route) String() string {
 
 // Freshness bounds how old an observation may be before it can no longer
 // stand in for a read a verification requires to be fresh. It is an
-// edge-local route-selection input, not a wire value: the direction
-// verification rule requires "a fresh session", and
-// Freshness is how a caller states what "fresh" means for its own read.
+// edge-local route-selection input, not a wire value: the verification rule
+// requires "a fresh session", and Freshness is how a caller states what
+// "fresh" means for its own read.
 type Freshness struct {
 	// ObservedAt is when the observation was read.
 	ObservedAt time.Time

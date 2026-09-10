@@ -16,5 +16,7 @@
 // firmware.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decisions 1, 2, and 11.
+// "Route to the integration, choose the protocol locally", "Every write has
+// an independent semantic verification", and "Capabilities are typed all the
+// way down".
 package interfaces

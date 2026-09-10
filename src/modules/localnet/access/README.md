@@ -163,8 +163,8 @@ counter assigned at admission into one device's `lane.Queue` — it orders
 FIFO dispatch and poll coalescing before dispatch, has no relation to
 `sequence`, and never appears on the wire. Priority (`lane.Priority`)
 compares only among items still waiting when a slot opens; once an item is
-dequeued, its position is fixed and priority never reorders it again, per
-the direction record's decision 3.
+dequeued, its position is fixed and priority never reorders it again: priority
+applies at admission and never reorders after a sequence is assigned.
 
 ## Onboarding sequence
 
@@ -183,8 +183,9 @@ the direction record's decision 3.
    first `Lane.Submit` for that device may now be admitted; a mutation
    whose intent names a different firmware fingerprint than the one
    `AddDevice` learned is blocked at `mutation.Admitted` before any device
-   contact, per decision 7, and a mutation on a device whose horizon is
-   unmeasured is refused before that.
+   contact — route and capability evidence is valid only in the epoch it was
+   learned — and a mutation on a device whose horizon is unmeasured is
+   refused before that.
 
 ## Metric cardinality
 
@@ -224,7 +225,7 @@ return an error or block past a bounded local call, so an exporter failure
 never blocks or fails the operation it instruments — only a
 `internal/audit.Deliverer` failure can, since the durable
 `DeviceOperationEvent` audit record is delivered and blocks the mutation
-state machine's release step, per decision 13's audit-before-release rule.
+state machine's release step, per the audit-before-release rule.
 
 `Lane` wires the following at production call sites today:
 

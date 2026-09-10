@@ -65,8 +65,9 @@ func (v *View) DiscoveryCompleted(ctx context.Context, firmwareFingerprint strin
 }
 
 // FirmwareEpochChanged emits flowseer.device.firmware.epoch_changed when a
-// device's firmware fingerprint differs from the one route evidence was
-// section.
+// fresh identity probe reports a fingerprint the lane was not working under,
+// which invalidates every piece of route evidence learned under the old
+// one.
 func (v *View) FirmwareEpochChanged(ctx context.Context) {
 	v.event(ctx, "flowseer.device.firmware.epoch_changed", "firmware epoch changed")
 }
@@ -113,16 +114,17 @@ func (v *View) LaneReleased(ctx context.Context) {
 	v.event(ctx, "flowseer.device.lane.released", "lane released")
 }
 
-// HoldResolutionIgnored records a resolution that named a mutation this
-// device's lane is not held for.
+// HoldResolutionIgnored records a resolution that named a mutation
+// deviceKey's lane is not held for.
 //
 // Worth a record rather than silence: central re-sends a resolution until
 // the edge acknowledges it, so one arriving late for a superseded sequence
 // is ordinary — but one arriving repeatedly for a sequence that never held
 // the lane means the two sides disagree about which abandonment is
 // outstanding, and the lane stays closed while central believes it opened it.
-func (v *View) HoldResolutionIgnored(ctx context.Context, sequence uint64) {
+func (v *View) HoldResolutionIgnored(ctx context.Context, deviceKey string, sequence uint64) {
 	v.eventAt(ctx, slog.LevelWarn, "flowseer.device.hold.resolution_ignored",
 		"hold resolution named a sequence this lane is not held for",
+		slog.String("flowseer.device.id", deviceKey),
 		slog.Uint64("flowseer.device.sequence", sequence))
 }

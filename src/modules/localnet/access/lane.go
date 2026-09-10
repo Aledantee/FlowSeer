@@ -318,19 +318,14 @@ func (o *openMutation) endPoll(ds *deviceState) {
 
 // Lane is the edge-resident runtime that admits every read, probe,
 // mutation, verification, and recovery step for every device this host
-// serves, one ordered lane per device, per the direction record's decision
-// 3. Construct with [NewLane]; the zero value is not usable. Safe for
-// concurrent use: Submit, AddDevice, HandleCheckpoint, HandleTerminalAck,
-// Freeze, Unfreeze, ResolveHold, and Close may all be called
-// from multiple goroutines. AddDevice is not safe to race against a Submit
-// for the same not-yet-added deviceKey — the caller must ensure a device is
-// added before any Submit names it, which every production call path does
-// (onboarding runs once, before the device's lane can receive work). A
-// second AddDevice for an already-registered deviceKey replaces its
-// *deviceState wholesale, orphaning that device's own queue and any
-// in-flight drainer goroutine still working through it: onboarding for one
-// device must run exactly once, never as a way to reset or reconfigure an
-// already-added one.
+// serves, through one ordered lane per device. Construct with [NewLane];
+// the zero value is not usable. Safe for concurrent use: Submit, AddDevice,
+// HandleCheckpoint, HandleTerminalAck, Freeze, Unfreeze, ResolveHold, and
+// Close may all be called from multiple goroutines. AddDevice is not safe
+// to race against a Submit for the same not-yet-added deviceKey — the
+// caller must ensure a device is added before any Submit names it, which
+// every production call path does (onboarding runs once, before the
+// device's lane can receive work).
 type Lane struct {
 	cfg       Config
 	evid      *evidence.Store
@@ -341,12 +336,23 @@ type Lane struct {
 	devices map[string]*deviceState
 	closed  bool
 
-	// freezeMu guards frozenDelivered and serializes the emission of
-	// LaneFrozen records, so two concurrent Freeze calls cannot both decide
-	// the same device still owes one. It is never held across Gate.Freeze's
-	// drain wait, which can block behind a device write.
-	freezeMu        sync.Mutex
+	// frozenMu guards frozenDelivered and nothing else. It is deliberately
+	// not the lock that serializes emission: held across an Audit.Emit it
+	// would make [Lane.Unfreeze] wait on the host's own audit path, whose
+	// failure is the usual reason a fence went up in the first place, with
+	// every device write parked behind the unfreeze.
+	frozenMu        sync.Mutex
 	frozenDelivered map[string]bool
+	// frozenFence counts fences, incremented by every Unfreeze. An emission
+	// runs outside frozenMu, so one that overlapped an unfreeze would
+	// otherwise mark a device as covered by a fence that no longer exists,
+	// and the next fence would emit nothing for it.
+	frozenFence uint64
+	// emitFrozenMu serializes the emission of LaneFrozen records, so two
+	// concurrent fences cannot both decide the same device still owes one
+	// and write it twice. It is never held across Gate.Freeze's drain wait,
+	// which can block behind a device write.
+	emitFrozenMu sync.Mutex
 }
 
 // ErrCodeClosed identifies a Submit call rejected because [Lane.Close] has
@@ -572,7 +578,26 @@ func (noopSubmissionHandle) Close() error { return nil }
 // route-independent identity probe once to learn the device's starting
 // firmware fingerprint, per the onboarding sequence this module's README
 // documents.
+//
+// A deviceKey this Lane already serves is refused with
+// [ErrCodeDeviceExists], before the probe contacts the device and before
+// anything is reported or recorded. Onboarding for one device runs exactly
+// once, and AddDevice is not a way to reset or reconfigure an already-added
+// one: replacing the device's state would strand its queue, leaving an item
+// already in it with no drainer at all.
 func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSession) error {
+	// Refused here rather than only at registration below, because
+	// everything between the two reaches the outside world: the probe opens
+	// an SNMP session against the live device, the Reporter tells central
+	// this device onboarded, and two audit records go out. A duplicate
+	// AddDevice must not produce any of that.
+	l.mu.Lock()
+	_, exists := l.devices[deviceKey]
+	l.mu.Unlock()
+	if exists {
+		return deviceExistsErr(deviceKey)
+	}
+
 	// The onboarding probe acquires its own credential, under the handle
 	// this device was registered with, and opens a session that lives only
 	// as long as the probe. There is no cached session to reuse afterwards:
@@ -606,13 +631,14 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 	// registered, so a failed delivery leaves no device behind claiming a
 	// record that was never written; the caller retries AddDevice.
 	if !l.freeze.AllowSideEffect() {
-		l.freezeMu.Lock()
+		l.emitFrozenMu.Lock()
+		fence := l.currentFence()
 		event := audit.BuildLaneFrozen(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: deviceKey}})
 		emitErr := l.cfg.Audit.Emit(ctx, event)
 		if emitErr == nil {
-			l.frozenDelivered[deviceKey] = true
+			l.markFrozenDelivered(deviceKey, fence)
 		}
-		l.freezeMu.Unlock()
+		l.emitFrozenMu.Unlock()
 		if emitErr != nil {
 			return errs.Wrap(emitErr, "deliver lane frozen event")
 		}
@@ -626,13 +652,10 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if _, exists := l.devices[deviceKey]; exists {
-		// Replacing the state strands the old queue: an item already in it
-		// has no drainer, so its Submit blocks to its own context and, for a
-		// read, the coalescing ticket it owns is never finished — every
-		// later read of that interface then joins a ticket nobody will close
-		// and blocks to its own deadline, with no error anywhere.
-		return errs.New().Code(ErrCodeDeviceExists).Attr("device", deviceKey).
-			Msg("this device is already registered on this lane")
+		// The race closer for the check at the top: two AddDevice calls for
+		// the same key can both pass that one, and only this check runs
+		// under the lock the registration itself takes.
+		return deviceExistsErr(deviceKey)
 	}
 	l.devices[deviceKey] = &deviceState{
 		key:         deviceKey,
@@ -641,6 +664,17 @@ func (l *Lane) AddDevice(ctx context.Context, deviceKey string, session DeviceSe
 		fingerprint: fingerprint,
 	}
 	return nil
+}
+
+// deviceExistsErr refuses a second AddDevice for a key this Lane already
+// serves. Replacing the state would strand the old queue: an item already in
+// it has no drainer, so its Submit blocks to its own context and, for a
+// read, the coalescing ticket it owns is never finished — every later read of
+// that interface then joins a ticket nobody will close and blocks to its own
+// deadline, with no error anywhere.
+func deviceExistsErr(deviceKey string) error {
+	return errs.New().Code(ErrCodeDeviceExists).Attr("device", deviceKey).
+		Msg("this device is already registered on this lane")
 }
 
 // probeIdentity acquires a read credential for deviceKey under the
@@ -682,10 +716,15 @@ func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session Device
 // readFailure is the report for a read that failed before or outside a
 // mutation.Machine: a coalesced joiner has no machine of its own, and
 // central is owed an answer under the sequence it admitted.
-func readFailure(sequence uint64, err error) *integrationv1.ExecuteResult {
+//
+// phase is the phase this read actually reached, the same thing
+// [mutation.Machine.Result] reports from the machine's own state. A joiner
+// refused at credential acquisition never opened a session, and reporting it
+// as OBSERVING would tell central the device was read.
+func readFailure(sequence uint64, phase accessv1.OperationPhase, err error) *integrationv1.ExecuteResult {
 	result := &integrationv1.ExecuteResult{}
 	result.SetSequence(sequence)
-	result.SetPhaseReached(accessv1.OperationPhase_OPERATION_PHASE_OBSERVING)
+	result.SetPhaseReached(phase)
 	result.SetError(errs.EncodeForClient(err))
 	return result
 }
@@ -862,7 +901,8 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 			// acquiring, every time. A joiner served without one is a read
 			// answered under a policy nothing verified.
 			if _, _, err := l.acquireRead(ctx, opts.DeviceKey, ds.session, policy); err != nil {
-				l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(), err))
+				l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(),
+					accessv1.OperationPhase_OPERATION_PHASE_ADMITTED, err))
 				return nil, err
 			}
 			shared, err := ticket.Wait(ctx)
@@ -872,7 +912,8 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 				// owed an answer for it either way, but only the first is
 				// this read's outcome to report.
 				if ctx.Err() == nil {
-					l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(), err))
+					l.report(ctx, opts.DeviceKey, readFailure(opts.Request.GetSequence(),
+						accessv1.OperationPhase_OPERATION_PHASE_OBSERVING, err))
 				}
 				return nil, err
 			}
@@ -1155,11 +1196,12 @@ func (ds *deviceState) clearCurrent(open *openMutation) {
 // and reports the terminal phase instead.
 var errMutationEnded = errors.New("mutation ended before this step completed")
 
-// awaitCheckpoint blocks until central's CheckpointRequest for seq arrives,
-// the mutation ends, or ctx does. It selects on the machine's Done because
-// a REJECTED acknowledgement is accepted at ADMITTED — which is exactly
-// where this wait sits — and a mutation released here must never go on to
-// execute.
+// armCheckpoint registers the wait for seq's CheckpointRequest and returns
+// it without blocking. Publishing the channel is a separate step from
+// waiting on it because central sends the request off the admission report,
+// so the caller arms first, reports second, and blocks third — a request
+// arriving between the report and the block is then delivered into the
+// buffered channel rather than refused for a wait that does not exist yet.
 func (ds *deviceState) armCheckpoint(seq uint64) *checkpointWait {
 	ch := make(chan *integrationv1.CheckpointRequest, 1)
 	ds.waitMu.Lock()
@@ -1182,6 +1224,10 @@ func (w *checkpointWait) release() {
 	w.ds.waitMu.Unlock()
 }
 
+// wait blocks until central's CheckpointRequest arrives, the mutation ends,
+// or ctx does. It selects on the machine's Done because a REJECTED
+// acknowledgement is accepted at ADMITTED — which is exactly where this wait
+// sits — and a mutation released here must never go on to execute.
 func (w *checkpointWait) wait(ctx context.Context, m *mutation.Machine) (*integrationv1.CheckpointRequest, error) {
 	ch := w.ch
 
@@ -2039,17 +2085,32 @@ func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrat
 // were recorded is remembered, so a deliverer that failed for one device
 // out of three does not produce three more records on the next attempt. The
 // set is cleared by [Lane.Unfreeze], so the next fence records afresh.
+//
+// A freeze whose drain finished only after an [Lane.Unfreeze] had already
+// reopened the gate records nothing at all: [freeze.ErrCodeUnfrozen] says
+// the fence this call was establishing does not exist, and the caller is
+// told so rather than handed records claiming an open lane is fenced.
 func (l *Lane) Freeze(ctx context.Context) error {
 	gateErr := l.freeze.Freeze(ctx)
+	if code, ok := errs.CodeOf(gateErr); ok && code == freeze.ErrCodeUnfrozen {
+		// Recording here would write a LaneFrozen record for a lane that is
+		// open and mark those devices delivered, so the next real fence
+		// would emit nothing. The ctx.Err() path is the opposite case — the
+		// gate stays frozen there whatever this call gave up on — so it
+		// still records.
+		return gateErr
+	}
 	return errors.Join(gateErr, l.recordFrozen(ctx))
 }
 
 // recordFrozen emits the LaneFrozen record for every registered device that
-// does not already have one, outside l.mu, since a Deliverer is a host's
-// code and may do anything.
+// does not already have one. emitFrozenMu serializes the emissions;
+// frozenMu is taken only around the map, never across an Emit, since a
+// Deliverer is a host's code and may do anything.
 func (l *Lane) recordFrozen(ctx context.Context) error {
-	l.freezeMu.Lock()
-	defer l.freezeMu.Unlock()
+	l.emitFrozenMu.Lock()
+	defer l.emitFrozenMu.Unlock()
+	fence := l.currentFence()
 
 	l.mu.Lock()
 	keys := make([]string, 0, len(l.devices))
@@ -2064,7 +2125,7 @@ func (l *Lane) recordFrozen(ctx context.Context) error {
 
 	var failures []error
 	for _, key := range keys {
-		if l.frozenDelivered[key] {
+		if l.frozenDeliveredFor(key) {
 			continue
 		}
 		event := audit.BuildLaneFrozen(l.cfg.Clock, audit.Common{Device: audit.Device{DeviceID: key}})
@@ -2072,33 +2133,77 @@ func (l *Lane) recordFrozen(ctx context.Context) error {
 			failures = append(failures, errs.Wrap(err, "deliver lane frozen event"))
 			continue
 		}
-		l.frozenDelivered[key] = true
+		l.markFrozenDelivered(key, fence)
 	}
 	return errors.Join(failures...)
 }
 
-// Unfreeze resumes side effects and forgets which devices were recorded
-// frozen, so the next Freeze records every device again rather than
-// treating an old fence's records as covering a new one.
-func (l *Lane) Unfreeze(ctx context.Context) {
-	// The gate first, then the bookkeeping. recordFrozen holds freezeMu
-	// across every audit delivery, and a Deliverer is a host's code that may
-	// block indefinitely — so taking freezeMu here would make lifting a
-	// fence wait on the same audit path whose failure is the usual reason
-	// the fence went up, with every device write parked behind it.
-	l.freeze.Unfreeze(ctx)
-
-	l.freezeMu.Lock()
-	clear(l.frozenDelivered)
-	l.freezeMu.Unlock()
+// frozenDeliveredFor reports whether deviceKey already has a LaneFrozen
+// record for the fence now in effect.
+func (l *Lane) frozenDeliveredFor(deviceKey string) bool {
+	l.frozenMu.Lock()
+	defer l.frozenMu.Unlock()
+	return l.frozenDelivered[deviceKey]
 }
 
-// ResolveHold clears deviceKey's recovery hold, admitting mutations again,
-// and reports the acknowledgement central's HoldResolved is waiting for.
-// The acknowledgement is reported only after the hold is actually cleared:
-// central takes it as proof that this edge will accept the next mutation,
-// and one sent ahead of the clear would be a promise about a lane still
-// refusing work.
+// currentFence identifies the fence a record emitted now would belong to.
+func (l *Lane) currentFence() uint64 {
+	l.frozenMu.Lock()
+	defer l.frozenMu.Unlock()
+	return l.frozenFence
+}
+
+// markFrozenDelivered records that deviceKey's LaneFrozen record went out,
+// unless an [Lane.Unfreeze] ended fence while the record was in flight — in
+// which case the record covers a fence nobody is under any more, and the
+// next one must record this device afresh.
+func (l *Lane) markFrozenDelivered(deviceKey string, fence uint64) {
+	l.frozenMu.Lock()
+	defer l.frozenMu.Unlock()
+	if l.frozenFence != fence {
+		return
+	}
+	l.frozenDelivered[deviceKey] = true
+}
+
+// Unfreeze resumes side effects and forgets which devices were recorded
+// frozen, so the next Freeze records every device again rather than
+// treating an old fence's records as covering a new one. That holds for a
+// record still in flight when Unfreeze runs too: it belongs to the fence
+// being lifted, and does not count toward the next one.
+func (l *Lane) Unfreeze(ctx context.Context) {
+	// The bookkeeping first, then the gate. A Freeze landing in the window
+	// between the two is a genuine fence, and one that found the old
+	// fence's marks still standing would emit no record and return nil,
+	// with nobody left to retry it. Clearing first cannot park an unfreeze
+	// behind the audit path either, because frozenMu is never held across
+	// an Emit — which is why it is a separate lock from emitFrozenMu.
+	l.frozenMu.Lock()
+	l.frozenFence++
+	clear(l.frozenDelivered)
+	l.frozenMu.Unlock()
+
+	l.freeze.Unfreeze(ctx)
+}
+
+// ResolveHold answers central's HoldResolved for deviceKey. It clears the
+// device's recovery hold — admitting mutations again — only when resolved
+// names the mutation that engaged it; a resolution naming any other
+// sequence leaves the hold standing and emits
+// flowseer.device.hold.resolution_ignored.
+//
+// The acknowledgement is reported either way, because central owes the row
+// until one lands and an edge that holds nothing for that sequence is
+// telling the truth when it says so. What central sees in the interval that
+// follows an ignored resolution is a lane it believes it opened: every
+// mutation it dispatches for this device is refused with
+// [ErrCodeDesynchronized] until the abandonment actually holding the lane
+// gets its own resolution.
+//
+// On the hold that is cleared, the acknowledgement follows the clear rather
+// than preceding it: central takes it as proof that this edge will accept
+// the next mutation, and one sent ahead of the clear would be a promise
+// about a lane still refusing work.
 func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *integrationv1.HoldResolved) error {
 	ds, err := l.device(deviceKey)
 	if err != nil {
@@ -2115,7 +2220,7 @@ func (l *Lane) ResolveHold(ctx context.Context, deviceKey string, resolved *inte
 	// it says so.
 	cleared := ds.hold.Resolve(resolved.GetSequence())
 	if !cleared {
-		l.cfg.Telemetry.HoldResolutionIgnored(ctx, resolved.GetSequence())
+		l.cfg.Telemetry.HoldResolutionIgnored(ctx, deviceKey, resolved.GetSequence())
 	}
 
 	if l.cfg.Reporter != nil {

@@ -95,16 +95,27 @@ func TestRecoveryPollsAreRecordFreeAndARetryIsNot(t *testing.T) {
 	deliverer.phaseTransitions = nil
 	deliverer.other = 0
 
+	// An explicit minGap and a clock the test advances, because the derived
+	// gap for an hour-long horizon is half an hour: two polls a microsecond
+	// apart on the wall clock would leave the corroboration count at one
+	// and never authorize the retry this test goes on to make.
 	horizon := interfaces.DelayedEffect{Horizon: time.Hour}
-	runner := recovery.New(m, nil, horizon, 0, time.Now, nil)
-	since := time.Now()
+	now := time.Now()
+	clock := func() time.Time { return now }
+	runner := recovery.New(m, nil, horizon, time.Second, clock, nil)
+	since := now
 
-	// Two polls, both observing the unchanged pre-mutation state, which
-	// corroborate and authorize one retry.
+	// Two polls a corroborating gap apart, both observing the unchanged
+	// pre-mutation state, which corroborate and authorize one retry.
 	for i := range 2 {
-		if _, _, err := runner.Attempt(context.Background(), since, observation("old description")); err != nil {
+		outcome, _, err := runner.Attempt(context.Background(), since, observation("old description"))
+		if err != nil {
 			t.Fatalf("Attempt() %d error: %v", i, err)
 		}
+		if want := []recovery.Outcome{recovery.OutcomeContinueObserving, recovery.OutcomeRetry}[i]; outcome != want {
+			t.Fatalf("Attempt() %d outcome = %v, want %v", i, outcome, want)
+		}
+		now = now.Add(2 * time.Second)
 	}
 	if len(deliverer.phaseTransitions) != 0 || deliverer.other != 0 {
 		t.Fatalf("two polls emitted %v and %d other records, want none", deliverer.phaseTransitions, deliverer.other)

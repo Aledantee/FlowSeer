@@ -105,11 +105,11 @@ func (g *Gate) Enter(ctx context.Context) (leave func(), err error) {
 // Freeze stops new side effects from proceeding immediately (before this
 // call returns, every goroutine's next AllowSideEffect/AwaitSideEffect
 // check sees it), and waits for every side effect already admitted through
-// [Gate.Enter] to finish before returning nil — decision 8's positive
-// fencing depends on Freeze itself proving no write is in flight, not
-// merely on the frozen flag other callers observe. That wait honors ctx: a
-// control plane fencing an edge precisely because it has gone unresponsive
-// must not be able to hang forever behind a write to that same
+// [Gate.Enter] to finish before returning nil — fencing a predecessor edge
+// before a successor may write depends on Freeze itself proving no write is
+// in flight, not merely on the frozen flag other callers observe. That wait
+// honors ctx: a control plane fencing an edge precisely because it has gone
+// unresponsive must not be able to hang forever behind a write to that same
 // unresponsive device, so a canceled or expired ctx returns ctx.Err()
 // instead of blocking indefinitely — frozen stays set regardless, so new
 // side effects remain stopped even though this call gave up waiting for
@@ -140,13 +140,13 @@ func (g *Gate) Freeze(ctx context.Context) error {
 	g.mu.Unlock()
 
 	// sync.RWMutex has no cancellable Lock, so the acquisition itself runs
-	// on its own goroutine and this call races that against ctx. Emitted
-	// while still holding the write lock, not after releasing it: that is
+	// on its own goroutine and this call races that against ctx. Whether to
+	// announce is decided the moment that acquisition completes, which is
 	// the one point that has actually confirmed every entered side effect
-	// has left, so it is the accurate moment to say the freeze is in
-	// effect, not merely requested. Telemetry.LaneFrozen never blocks past
-	// a bounded local call (View's own doc), so holding the lock here is
-	// safe.
+	// has left — so the record says the freeze is in effect, not merely
+	// requested. The barrier is released before the record goes out: frozen
+	// is still set, so nothing can enter behind the release, and there is no
+	// reason to hold a lock across a call into a host's telemetry.
 	acquired := make(chan struct{})
 	go func() {
 		g.barrier.Lock()

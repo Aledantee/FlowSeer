@@ -151,9 +151,8 @@ func ReadInterface(
 }
 
 // VerifyInterfaceDescriptionChange reads the affected interface's current
-// state and reports whether it matches intent, per the direction record's
-// a mutation is verified only by an observation, never by its
-// own command succeeding.
+// state and reports whether it matches intent: a mutation is verified only
+// by an observation, never by its own command succeeding.
 func VerifyInterfaceDescriptionChange(
 	ctx context.Context,
 	sess snmp.Session,
