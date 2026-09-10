@@ -312,7 +312,8 @@ record edits.
 
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase2-plan.md`
 After: U1
-Landed:
+Landed: 2026-09-10, on branch `unify-netsim-plan-phases`; the phase plan
+carries the outcome note.
 Change: `netsim/fabric` with cables, hosts, the run, journeys, snapshots,
 counters, negotiation, comparison, and diff.
 

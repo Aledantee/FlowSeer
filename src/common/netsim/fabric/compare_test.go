@@ -117,7 +117,10 @@ func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenario, 10)
+	cmp, err := fabric.Compare(fabA, fabB, scenario, 10)
+	if err != nil {
+		t.Fatalf("Compare: %v", err)
+	}
 	if !cmp.Same {
 		t.Errorf("Compare returned Same: false for equal fabrics, want true")
 	}
@@ -178,7 +181,10 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(curFab, expFab, scenario, 10)
+	cmp, err := fabric.Compare(curFab, expFab, scenario, 10)
+	if err != nil {
+		t.Fatalf("Compare: %v", err)
+	}
 	if cmp.Same {
 		t.Errorf("Compare returned Same: true, want false")
 	}

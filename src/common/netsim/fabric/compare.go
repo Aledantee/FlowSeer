@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
 
@@ -17,12 +18,18 @@ type Comparison struct {
 }
 
 // Compare executes the scenario injections on both fabrics up to the step budget,
-// comparing deliveries and drop reasons per frame. Compare consumes both fabrics:
-// their clocks advance, counters accumulate, and dynamic entries learn and age.
-func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
+// comparing deliveries and drop reasons per frame. An injection either fabric
+// refuses is returned as the error, because a scenario one side never ran
+// compares nothing. Compare consumes both fabrics: their clocks advance,
+// counters accumulate, and dynamic entries learn and age.
+func Compare(a, b *Fabric, scenario []Injection, budget int) (Comparison, error) {
 	for _, inj := range scenario {
-		_, _ = a.Inject(inj)
-		_, _ = b.Inject(inj)
+		if _, err := a.Inject(inj); err != nil {
+			return Comparison{}, errs.Wrap(err, "inject into the current fabric")
+		}
+		if _, err := b.Inject(inj); err != nil {
+			return Comparison{}, errs.Wrap(err, "inject into the expected fabric")
+		}
 	}
 
 	stepsA := a.Run(budget)
@@ -36,7 +43,7 @@ func Compare(a, b *Fabric, scenario []Injection, budget int) Comparison {
 		Expected: repB,
 		Same:     sameJourneys(repA, repB),
 		Steps:    [2]int{stepsA, stepsB},
-	}
+	}, nil
 }
 
 func sameJourneys(a, b []Journey) bool {

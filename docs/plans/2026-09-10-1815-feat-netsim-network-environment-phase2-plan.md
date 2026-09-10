@@ -4,12 +4,17 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 ---
 
 # Network Simulation Environment, Phase 2: Layer 2 Network Fabric - Plan
+
+> Implemented. Every unit landed on 2026-09-10 through Herdr workers on
+> Gemini 3.8 Flash, one unit per worker; the coordinator moved the run's
+> counters onto the fabric, made comparison surface an injection error,
+> and recorded the host shape and the injection signature below.
 
 ## Goal
 
@@ -37,10 +42,12 @@ leaves and a per-port drop reason. This phase adds:
 
 - `fabric.Config` holds switches by name (`vswitch.Config`), hosts by name,
   and cables. A cable joins two endpoints, each a node name and a port
-  name, and carries a length, a top speed, and a fault. A host has one port
-  and one address. Why: a host is an endpoint with an address and no relay,
-  and modelling it as a one-port switch would give it a forwarding database
-  it must never use.
+  name, and carries a length, a top speed, and a fault. A host has one
+  address and one form; the cable whose endpoint names the host with an
+  empty port says where it hangs, so `Host` carries no port of its own
+  and the two cannot disagree. Why: a host is an endpoint with an address
+  and no relay, and modelling it as a one-port switch would give it a
+  forwarding database it must never use.
 - A host's port emits and accepts frames in one form: untagged, or tagged
   with one VID. Why: a station with several VLAN subinterfaces is several
   hosts on one port, which a shared endpoint expresses without a new kind.
@@ -133,10 +140,12 @@ leaves and a per-port drop reason. This phase adds:
   processed, so the storm is visible in the counters and the budget is
   what halts it. Why: a marked re-entry with processing continued is what
   a real storm looks like, and stopping the copy would hide the storm.
-- `Compare(a, b *Fabric, scenario []Injection, budget int) Comparison`
-  runs the same injections on both with the same budget and reports per
-  frame both journeys and `Same` (equal deliveries in host, form, and
-  order, and equal drop reasons). It consumes both fabrics: they learn,
+- `Compare(a, b *Fabric, scenario []Injection, budget int) (Comparison,
+  error)` runs the same injections on both with the same budget and
+  reports per frame both journeys and `Same` (equal deliveries in host,
+  form, and order, and equal drop reasons); an injection either fabric
+  refuses is the error, since a scenario one side never ran compares
+  nothing. It consumes both fabrics: they learn,
   count, and advance their clocks, so a comparison is made on fabrics that
   have not run. `Diff(a, b Config)` emits `vswitch.Diff` per switch with
   each change's subject key prefixed by the switch name and a slash, and
@@ -255,11 +264,12 @@ Files: `src/common/netsim/fabric/config.go`, `link.go`, `fabric.go`,
 After: U1
 Change: `vswitch.Switch.Age(now)` ages the bridge's dynamic entries and
 is a no-op on a hub. `fabric.Config{Switches map[string]vswitch.Config;
-Hosts map[string]Host; Cables []Cable}`. `Host{Port Endpoint; Address
-netaddr.MAC; VLAN *vlan.ID}` where a nil VLAN emits and accepts untagged
-frames and a set one emits and accepts a C-TAG with that VID. `Endpoint{
-Node, Port string}` names a switch port or, for the far end of a host's
-cable, the host itself with an empty port. `Cable{A, B Endpoint;
+Hosts map[string]Host; Cables []Cable}`. `Host{Address netaddr.MAC;
+VLAN *vlan.ID}` where a nil VLAN emits and accepts untagged frames and a
+set one emits and accepts a C-TAG with that VID. `Endpoint{Node, Port
+string}` names a switch port or, for the far end of a host's cable, the
+host itself with an empty port. `Fabric.Unlinked(node)` lists a switch's
+ports with no cable, the ones `no-cable` describes. `Cable{A, B Endpoint;
 LengthMeters float64; TopSpeedBPS uint64; Fault Fault}`. `Fault` is a
 struct with `Kind` (None, Cut, DeadAToB, DeadBToA, LoseEveryNth,
 LoseSequence, CorruptEveryNth) and its parameter (`N uint` or `Sequence
@@ -289,7 +299,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 Files: `src/common/netsim/fabric/run.go`, `journey.go`, `queue.go`
 After: U2
 Change: `Injection{At time.Time; Origin Endpoint; Frame ethernet.Frame}`
-and `Inject(inj Injection) FrameID` queue an `Arrival{At, Seq, Device,
+and `Inject(inj Injection) (FrameID, error)`, which refuses an origin
+that names no host or device port, queue an `Arrival{At, Seq, Device,
 Port, FrameID, Frame, Corrupt bool}`, the exported shape the snapshot's
 queue lists; an origin that is a host applies the host's form (adds its
 C-TAG or leaves the frame untagged) and the arrival is at the switch port
@@ -306,7 +317,7 @@ far end is a host never enters the queue and is recorded at once as a
 `Delivery{Host, At, Frame}` dated at the crossing's arrival. `Run(n int)
 int` steps until the queue is empty or n steps ran and returns the count.
 `Journey{FrameID; Injection; Entries []Entry; Deliveries []Delivery}` and
-`Entry{At; Kind (Hop, Crossing, Loss, Delivery, Drop, Loop); Device,
+`Entry{At; Kind (Injection, Hop, Crossing, Loss, Delivery, Drop, Loop); Device,
 Port string; Cable *Cable; Latency time.Duration; Result *bridge.Result;
 Reason trace.Reason}`; `Report() []Journey` sorted by frame id.
 `Snapshot()` returns `{Clock time.Time; Queue []Arrival; Links []Link;
@@ -346,8 +357,8 @@ Files: `src/common/netsim/fabric/compare.go`, `diff.go`, `derive.go`,
 `docs/architecture/2026-09-10-virtual-device-direction.md`
 After: U4
 Change: `Compare(a, b *Fabric, scenario []Injection, budget int)
-Comparison` with `Comparison{Current, Expected []Journey; Same bool;
-Steps [2]int}`, `Diff(a, b Config) []trace.Change`, and `Derive(cur
+(Comparison, error)` with `Comparison{Current, Expected []Journey; Same
+bool; Steps [2]int}`, `Diff(a, b Config) []trace.Change`, and `Derive(cur
 *Fabric, cfg Config) (*Fabric, error)` are as the Decisions say; a
 switch in `cfg` with no namesake in `cur` is built fresh. The `fabric`
 README shows
@@ -372,12 +383,12 @@ go test -race ./src/common/netsim/... ./src/common/internal/netpenguard/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] The `fabric` and `netsim` READMEs and the direction record match the
+- [x] Verifier green for every changed path.
+- [x] The `fabric` and `netsim` READMEs and the direction record match the
       landed API.
-- [ ] This plan's `status` set with an outcome note under its title, and
+- [x] This plan's `status` set with an outcome note under its title, and
       the parent's `Landed:` line for this phase filled.
-- [ ] No plan labels in code, comments, commit messages, or test names.
+- [x] No plan labels in code, comments, commit messages, or test names.
 
 ## Open questions
 
