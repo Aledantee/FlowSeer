@@ -26,6 +26,12 @@ const (
 
 	// ReasonDeadDirection records that two-ended auto-negotiation cannot succeed because the cable is impaired in one direction.
 	ReasonDeadDirection trace.Reason = "dead-direction"
+
+	// ReasonCableLoss records that a transmitted frame was lost during cable propagation due to a configured fault.
+	ReasonCableLoss trace.Reason = "cable-loss"
+
+	// ReasonBadFrame records that an arriving frame was dropped because it was corrupted during transmission.
+	ReasonBadFrame trace.Reason = "bad-frame"
 )
 
 // FaultKind identifies the nature of a cable impairment, distinguishing physical defects
@@ -80,7 +86,7 @@ type Endpoint struct {
 	Port string
 }
 
-// Host is an endpoint with one address and no relay; modelling it as a one-port switch would give it a forwarding database it must never use.
+// Host is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
 //
 // A nil VLAN emits and accepts untagged frames, while a non-nil VLAN restricts the host to C-TAG frames
 // with that VID.

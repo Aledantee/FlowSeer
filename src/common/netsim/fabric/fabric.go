@@ -4,6 +4,7 @@ package fabric
 import (
 	"cmp"
 	"slices"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -15,10 +16,17 @@ import (
 //
 // A Fabric is not safe for concurrent use.
 type Fabric struct {
-	cfg      Config
-	links    []Link
-	switches map[string]*vswitch.Switch
-	byEnd    map[Endpoint]linkEndRef
+	cfg            Config
+	links          []Link
+	switches       map[string]*vswitch.Switch
+	byEnd          map[Endpoint]linkEndRef
+	clock          time.Time
+	queue          []Arrival
+	nextFrameID    FrameID
+	nextSeq        uint64
+	journeys       map[FrameID]*Journey
+	entered        map[FrameID]map[Endpoint]bool
+	cableCrossings map[Endpoint]uint
 }
 
 type linkEndRef struct {
@@ -119,11 +127,21 @@ func New(cfg Config) (*Fabric, error) {
 	}
 
 	return &Fabric{
-		cfg:      cloned,
-		links:    links,
-		switches: switches,
-		byEnd:    byEnd,
+		cfg:            cloned,
+		links:          links,
+		switches:       switches,
+		byEnd:          byEnd,
+		nextFrameID:    1,
+		nextSeq:        1,
+		journeys:       make(map[FrameID]*Journey),
+		entered:        make(map[FrameID]map[Endpoint]bool),
+		cableCrossings: make(map[Endpoint]uint),
 	}, nil
+}
+
+func (f *Fabric) linkEnd(node, port string) (linkEndRef, bool) {
+	ref, ok := f.byEnd[Endpoint{Node: node, Port: port}]
+	return ref, ok
 }
 
 // Links returns an independent deep copy of all resolved links in cable order.
