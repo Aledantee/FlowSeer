@@ -7,8 +7,6 @@ import (
 )
 
 // Link represents the resolved operational link state of a cable connecting two endpoints.
-//
-// Link is safe for concurrent read access.
 type Link struct {
 	Cable
 	A LinkEnd
@@ -17,8 +15,6 @@ type Link struct {
 
 // LinkEnd represents the resolved operational status, failure reason, and negotiated speed
 // of one endpoint attached to a cable.
-//
-// LinkEnd is safe for concurrent read access.
 type LinkEnd struct {
 	Endpoint
 	Oper   port.LinkState

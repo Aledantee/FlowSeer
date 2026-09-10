@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-// Fabric orchestrates switches, hosts, and interconnecting cables into an integrated Layer 2 network.
+// Fabric is a set of switches and hosts joined by cables, with every port state decided by its cable.
 //
 // A Fabric is not safe for concurrent use.
 type Fabric struct {

@@ -56,8 +56,6 @@ const (
 )
 
 // Fault specifies physical defects or frame-level loss and corruption policies applied to a cable.
-//
-// Fault is safe for concurrent read access.
 type Fault struct {
 	Kind     FaultKind
 	N        uint
@@ -77,17 +75,15 @@ func (f Fault) Clone() Fault {
 
 // Endpoint names a specific attachment point in the fabric, referencing a virtual switch port
 // or a single-port host when Port is empty.
-//
-// Endpoint is safe for concurrent read access.
 type Endpoint struct {
 	Node string
 	Port string
 }
 
-// Host models a terminal network device possessing a single Ethernet address and optional VLAN encapsulation.
+// Host is an endpoint with one address and no relay; modelling it as a one-port switch would give it a forwarding database it must never use.
 //
 // A nil VLAN emits and accepts untagged frames, while a non-nil VLAN restricts the host to C-TAG frames
-// with that VID. Host is safe for concurrent read access.
+// with that VID.
 type Host struct {
 	Address netaddr.MAC
 	VLAN    *vlan.ID
@@ -106,8 +102,6 @@ func (h Host) Clone() Host {
 
 // Cable models a physical link connecting two endpoints with propagation latency,
 // an optional top speed limit, and declared faults.
-//
-// Cable is safe for concurrent read access.
 type Cable struct {
 	A            Endpoint
 	B            Endpoint
@@ -125,8 +119,6 @@ func (c Cable) Clone() Cable {
 }
 
 // Config declares the full static topology of a simulated network fabric.
-//
-// Config is safe for concurrent read access.
 type Config struct {
 	Switches map[string]vswitch.Config
 	Hosts    map[string]Host
