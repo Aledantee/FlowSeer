@@ -463,14 +463,24 @@ if [[ $mib == true ]]; then
     # The parser's default corpus tier reads a deduplicated corpus so the
     # developer loop stays cheap. The whole corpus sits behind a build tag
     # and is only worth its cost here, where nothing else is in a hurry.
-    run go test -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/
+    run go test -count=1 -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/
     # The differential suite compares the parser against the dependency it
     # replaced. It is its own module, so it needs -C to resolve; and its
     # corpus pass is single-goroutine and skips under -race, which is the
     # only way this script runs Go tests elsewhere, so a plain invocation
     # is the only thing that runs it at all. It walks the same corpus, so
     # it belongs in the same tier as the run above.
-    run go test -C src/protocol/smi/differential ./...
+    #
+    # Both carry -count=1. Go's test cache answers for every invocation in
+    # this script, -race included — a --full run routinely reports most
+    # packages "(cached)" — and that is sound wherever a test's result
+    # depends only on inputs the cache tracks. These two do not qualify:
+    # they walk a corpus directory chosen by a build tag, and the repository
+    # has already been bitten by a cached pass surviving a change in
+    # something Go was not watching. The tier exists because it is too
+    # expensive for the developer loop, which makes it the worst place to
+    # accept a pass that ran nothing.
+    run go test -C src/protocol/smi/differential -count=1 ./...
   fi
 fi
 
