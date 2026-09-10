@@ -12,7 +12,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/phy`      | Physical Ethernet speeds and PoE budget allocation     |
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging   |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos |
+| `fabric`           | Switched topology, cables, stepped execution, journeys |
 
 A run is a function of the configuration, the frame, and the time the caller
-passes; nothing here reads a clock. A `fabric` package for cables and hosts
-over these switches is not here yet.
+passes; nothing here reads a clock.

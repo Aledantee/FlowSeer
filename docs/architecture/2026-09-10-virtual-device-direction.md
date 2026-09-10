@@ -143,8 +143,8 @@ the trace package first, sits at the `netsim` level.
   the value types and the codec; `src/common/netsim/trace` holds the step,
   trace, and change records; `src/common/netsim/vswitch`
   holds `port`, `phy`, `bridge`, `netmodel`, and the switch itself;
-  `src/common/netsim/fabric` holds cables, hosts, the run, and its
-  journeys and snapshots. A
+  `src/common/netsim/fabric` holds switches, hosts, cables, the run,
+  journeys, snapshots, comparison, diff, and derivation. A
   `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with
   `net/protocol/stp` as the first protocol layer, multicast filtering
