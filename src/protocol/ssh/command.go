@@ -68,8 +68,9 @@ type Result struct {
 	// prompt matched; Evidence.BytesReceived carries the true count
 	// either way.
 	Truncated bool
-	// Stderr is the stderr bytes observed since the previous Run
-	// call (or since Dial, for the first one).
+	// Stderr is the stderr bytes observed while this command ran.
+	// Anything the shell wrote before Run was called is discarded, so
+	// this covers this command's window and no earlier one.
 	Stderr []byte
 	// StderrTruncated reports whether the session's stderr buffer
 	// dropped bytes during this command's window.
@@ -126,11 +127,6 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 	if cmd.MorePattern != nil && len(cmd.MoreKeystroke) == 0 {
 		return Result{}, errs.New().Code(ErrCodeShell).Msg("command: MoreKeystroke is required when MorePattern is set")
 	}
-	// CR as well as LF: the shell runs under a PTY, where carriage return is
-	// the enter key, so a Line carrying either sends everything after it as
-	// a second command the caller never wrote. Refused here because this is
-	// where the invariant is knowable — one line in, one command out — and
-	// because a caller filtering only "\n" would still be wrong.
 	if cmd.MorePattern != nil && cmd.MorePattern.MatchString("") {
 		// A pattern matching the empty string consumes nothing, so the read
 		// loop matches it again immediately and writes MoreKeystroke at CPU
@@ -143,6 +139,11 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 				Msg("command: a prompt pattern must not match the empty string")
 		}
 	}
+	// CR as well as LF: the shell runs under a PTY, where carriage return is
+	// the enter key, so a Line carrying either sends everything after it as
+	// a second command the caller never wrote. Refused here because this is
+	// where the invariant is knowable — one line in, one command out — and
+	// because a caller filtering only "\n" would still be wrong.
 	if strings.ContainsAny(cmd.Line, "\r\n") {
 		return Result{}, errs.New().Code(ErrCodeShell).
 			Msg("command: Line carries a line terminator, which would send a second command")
@@ -191,7 +192,10 @@ func (s *Session) Run(ctx context.Context, cmd Command) (Result, error) {
 		// Checked before the write, not only after. A command written under
 		// an already-canceled context reaches the device and then returns a
 		// cancellation, which a caller reads as "nothing happened" — on the
-		// mutation path, for a config command that executed.
+		// mutation path, for a config command that executed. Nothing was
+		// written on this path, so Sent is cleared rather than left holding
+		// a line an audit record would claim the device received.
+		evidence.Sent = nil
 		return finish(nil, err)
 	}
 	if _, err := s.stdin.Write([]byte(cmd.Line + "\n")); err != nil {

@@ -2,8 +2,11 @@ package ssh_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"net"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -160,5 +163,83 @@ func TestSessionCloseIsIdempotent(t *testing.T) {
 	}
 	if err := s.Close(); err != nil {
 		t.Fatalf("second Close() = %v, want nil (idempotent)", err)
+	}
+}
+
+// noCloseConn hides Close from the server side of a test connection, so the
+// only end that can close the socket is the one under test.
+type noCloseConn struct{ net.Conn }
+
+func (noCloseConn) Close() error { return nil }
+
+// TestDialClosesTheSocketWhenTheHandshakeFails covers the leak a refused
+// host key would otherwise leave. NewClientConn does not close the
+// connection it was given, and a device that caps concurrent sessions
+// refuses the next login once a few have leaked — which reads as a wrong
+// password rather than as exhaustion.
+func TestDialClosesTheSocketWhenTheHandshakeFails(t *testing.T) {
+	t.Parallel()
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate host key: %v", err)
+	}
+	signer, err := xssh.NewSignerFromSigner(priv)
+	if err != nil {
+		t.Fatalf("signer from key: %v", err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		accepted <- conn
+		cfg := &xssh.ServerConfig{
+			PasswordCallback: func(xssh.ConnMetadata, []byte) (*xssh.Permissions, error) { return nil, nil },
+		}
+		cfg.AddHostKey(signer)
+		// The server's own handshake fails once the client walks away, and
+		// its end is held open through the wrapper so that an unclosed
+		// client end reads as a socket still attached rather than as EOF.
+		_, _, _, _ = xssh.NewServerConn(noCloseConn{conn}, cfg)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// A pin for another key entirely, so the refusal happens in the
+	// handshake rather than before it.
+	if _, err := ssh.Dial(ctx, listener.Addr().String(), ssh.Options{
+		Username:      "tester",
+		Password:      secret.NewString("swordfish"),
+		HostKeySHA256: "SHA256:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU",
+	}); err == nil {
+		t.Fatal("Dial() = nil error, want a refusal on host-key mismatch")
+	}
+
+	var conn net.Conn
+	select {
+	case conn = <-accepted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the listener never accepted the dial")
+	}
+	t.Cleanup(func() { _ = conn.Close() })
+
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatalf("set read deadline: %v", err)
+	}
+	buf := make([]byte, 256)
+	for {
+		if _, err := conn.Read(buf); err != nil {
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				t.Fatal("the refused handshake left the socket open")
+			}
+			return
+		}
 	}
 }

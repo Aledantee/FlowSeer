@@ -76,9 +76,6 @@ func (k *hubKeys) persistedEdgeIDs() ([]string, error) {
 	return ids, nil
 }
 
-// edgeAccountKey returns the account key for one edge, creating and
-// persisting it on first use so a restarted hub signs the same account and
-// every credential minted under it stays valid.
 // validEdgeID reports whether id is safe to use as a file name component
 // and as a JetStream stream and subject token.
 //
@@ -101,6 +98,9 @@ func validEdgeID(id string) bool {
 	return true
 }
 
+// edgeAccountKey returns the account key for one edge, creating and
+// persisting it on first use so a restarted hub signs the same account and
+// every credential minted under it stays valid.
 func (k *hubKeys) edgeAccountKey(edgeID string) (nkeys.KeyPair, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
@@ -133,13 +133,70 @@ func loadOrCreateKey(path string, create func() (nkeys.KeyPair, error)) (nkeys.K
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeKeys).Msg("read new key seed")
 		}
-		if err := os.WriteFile(path, seed, 0o600); err != nil {
+		if err := writeSecretFile(path, seed); err != nil {
 			return nil, errs.From(err).Code(ErrCodeKeys).Attr("path", path).Msg("store key seed")
 		}
 		return pair, nil
 	default:
 		return nil, errs.From(err).Code(ErrCodeKeys).Attr("path", path).Msg("read key seed")
 	}
+}
+
+// secretTempPrefix names the temporary file writeSecretFile renames from. It
+// is fixed rather than arbitrary so the next write can recognize and remove
+// one a crash left behind.
+const secretTempPrefix = ".secret-"
+
+// writeSecretFile writes body to path at mode 0600, atomically, and removes
+// any temporary file an interrupted earlier write left in the directory.
+//
+// os.WriteFile applies its mode only when it creates the file, so a seed or
+// a credential left by an earlier run under a different umask keeps whatever
+// mode it had. The rename makes a crash mid-write leave the previous content
+// instead of a short one — a truncated seed is permanent, since nothing
+// rewrites it — and the directory sync makes the rename durable. Writers to
+// one directory must be serialized: the sweep cannot tell a concurrent
+// writer's temporary file from a leftover.
+func writeSecretFile(path string, body []byte) error {
+	dir := filepath.Dir(path)
+	leftovers, _ := filepath.Glob(filepath.Join(dir, secretTempPrefix+"*"))
+	for _, leftover := range leftovers {
+		// Best effort: a leftover that cannot be removed is a file the
+		// caller has no way to act on, and refusing the write over it would
+		// keep the hub or the leaf from starting at all.
+		_ = os.Remove(leftover)
+	}
+
+	temp, err := os.CreateTemp(dir, secretTempPrefix+"*")
+	if err != nil {
+		return err
+	}
+	name := temp.Name()
+	defer func() { _ = os.Remove(name) }()
+
+	if _, err := temp.Write(body); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(name, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		return err
+	}
+	handle, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = handle.Close() }()
+	return handle.Sync()
 }
 
 func publicKey(pair nkeys.KeyPair) (string, error) {

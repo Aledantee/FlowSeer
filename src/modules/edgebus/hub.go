@@ -39,13 +39,16 @@ type HubConfig struct {
 	// TLS serves the listener with Connect's certificate. Nil serves plain
 	// WebSocket, allowed only on a loopback host for tests and a lab.
 	TLS *tls.Config
-	// MaxStoreBytes bounds the whole JetStream store. Zero means 1 GiB. The
-	// edge and central account budgets below default to half each so the
-	// two never exceed it.
+	// MaxStoreBytes is a server-wide ceiling on the whole JetStream store.
+	// Zero lets the server size it against the available disk, which is the
+	// normal setting; a deployment that pins it must leave room for central
+	// plus every edge budget at once, since each is a reservation taken
+	// against this number when the account is enabled.
 	MaxStoreBytes int64
 	// EdgeBudgetBytes and CentralBudgetBytes are the per-account disk
-	// ceilings. Zero means half of MaxStoreBytes each: telemetry volume in
-	// the edge account cannot starve the journal in the central account.
+	// ceilings. Zero means 128 MiB per edge account and 512 MiB for
+	// central: telemetry volume in an edge account cannot starve the
+	// journal in the central account.
 	EdgeBudgetBytes    int64
 	CentralBudgetBytes int64
 	// EdgeStreamMaxBytes and EdgeStreamMaxAge bound each per-edge source
@@ -211,7 +214,13 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeHub).Msg("construct hub server")
 	}
-	logger := newQuietLogger(cfg.Logger)
+	// cfg.Logger is optional, and the re-attach loop below logs through it,
+	// so resolve it here rather than at the point of use.
+	hostLog := cfg.Logger
+	if hostLog == nil {
+		hostLog = slog.New(slog.DiscardHandler)
+	}
+	logger := newQuietLogger(hostLog)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
 	hub := &Hub{cfg: cfg, keys: keys, opts: opts, server: srv, log: logger, resolver: resolver, edgeBudget: edgeBudget, edges: map[string]*edgeAccount{}}
@@ -247,7 +256,7 @@ func StartHub(ctx context.Context, cfg HubConfig) (_ *Hub, err error) {
 			// One edge's stored key must not stop the hub. A file that
 			// cannot be turned into an account is a fact about that edge,
 			// and refusing to start leaves every other edge unserved for it.
-			cfg.Logger.WarnContext(ctx, "skipping a persisted edge whose account could not be restored",
+			hostLog.WarnContext(ctx, "skipping a persisted edge whose account could not be restored",
 				slog.String("otel.event.name", "flowseer.edge.bus.account_skipped"),
 				slog.String("flowseer.edge.id", edgeID),
 				slog.String("error.type", errorTypeOf(err)))

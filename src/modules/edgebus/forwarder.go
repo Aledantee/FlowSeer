@@ -92,16 +92,22 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")
 	}
-	if cfg.Client != nil && cfg.Client.Timeout == 0 {
+	switch {
+	case cfg.Client == nil:
+		cfg.Client = &http.Client{Timeout: 30 * time.Second}
+	case cfg.Client.Timeout == 0:
 		// The per-request deadline and the AckWait base are both derived
 		// from this, so zero makes every context expire before the request
 		// starts: each record fails instantly, is redelivered to its limit,
 		// and is terminated. A caller passing http.DefaultClient would lose
 		// every edge's telemetry within a minute of it arriving.
-		cfg.Client.Timeout = 30 * time.Second
-	}
-	if cfg.Client == nil {
-		cfg.Client = &http.Client{Timeout: 30 * time.Second}
+		//
+		// Defaulted on a copy: the caller's client may be shared — the
+		// motivating case is exactly http.DefaultClient — and Timeout is
+		// read without synchronization by every request already in flight.
+		client := *cfg.Client
+		client.Timeout = 30 * time.Second
+		cfg.Client = &client
 	}
 	if cfg.RetryDelay == 0 {
 		cfg.RetryDelay = 5 * time.Second
@@ -222,7 +228,7 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	}
 	resp, err := f.cfg.Client.Do(req)
 	if err != nil {
-		f.retry(msg, edgeID)
+		f.retry(msg, edgeID, string(signal), reasonDeliveryExceeded)
 		return
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
@@ -233,28 +239,35 @@ func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
 	case resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests,
 		resp.StatusCode == http.StatusUnauthorized, resp.StatusCode == http.StatusForbidden,
 		resp.StatusCode == http.StatusNotFound:
-		// Retried, because these are the collector's configuration rather
-		// than this record's content: a stale token, a revoked one, an
-		// endpoint whose path moved. Terminating them discards every record
-		// an edge sends for as long as the misconfiguration lasts, and the
-		// delivery backstop still bounds the retries.
-		f.retry(msg, edgeID)
+		// Retried rather than refused on sight, because these are the
+		// collector's configuration rather than this record's content: a
+		// stale token, a revoked one, an endpoint whose path moved. The
+		// retries buy an operator the length of the delivery backstop —
+		// forwarderMaxDeliver attempts at RetryDelay apart, about forty
+		// seconds at the defaults — and a misconfiguration outlasting that
+		// does lose the records that meet it. They are counted as
+		// collector_rejected, the reason that names what happened, rather
+		// than as the backstop that timed the loss.
+		f.retry(msg, edgeID, string(signal), reasonCollectorReject)
 	case resp.StatusCode >= 400 && resp.StatusCode < 500:
 		// A permanent rejection of this body — malformed, oversized, or in a
 		// content type the collector will not take. Retrying cannot change
 		// the answer, so it is dropped rather than redelivered forever.
 		f.refuse(ctx, edgeID, msg, reasonCollectorReject, string(signal))
 	default:
-		f.retry(msg, edgeID)
+		f.retry(msg, edgeID, string(signal), reasonDeliveryExceeded)
 	}
 }
 
 // retry redelivers a body after the configured delay, or drops it once the
 // delivery count crosses the backstop so a persistently failing collector
-// cannot wedge the stream.
-func (f *Forwarder) retry(msg jetstream.Msg, edgeID string) {
+// cannot wedge the stream. exhausted is the reason the drop is counted
+// under, which is what the failure was rather than the backstop that ended
+// it: a collector refusing this deployment's authorization reads as
+// collector_rejected however many attempts it took to give up.
+func (f *Forwarder) retry(msg jetstream.Msg, edgeID, signal, exhausted string) {
 	if meta, err := msg.Metadata(); err == nil && meta.NumDelivered >= forwarderMaxDeliver {
-		f.record(edgeID, msg.Subject(), reasonDeliveryExceeded)
+		f.record(edgeID, msg.Subject(), signal, exhausted)
 		_ = msg.Term()
 		return
 	}
@@ -279,10 +292,10 @@ func (f *Forwarder) refuse(ctx context.Context, edgeID string, msg jetstream.Msg
 
 // record counts a refusal without a live context, for the redelivery
 // backstop.
-func (f *Forwarder) record(edgeID, subject, reason string) {
+func (f *Forwarder) record(edgeID, subject, signal, reason string) {
 	f.refused.Add(context.Background(), 1, metric.WithAttributes(
 		attribute.String("flowseer.edgebus.reason", reason),
-		attribute.String("flowseer.device.signal", ""),
+		attribute.String("flowseer.device.signal", signal),
 	))
 	f.logRefusal(edgeID, subject, reason)
 }

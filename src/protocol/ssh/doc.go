@@ -28,10 +28,12 @@
 //
 // # Commands
 //
-// [Session.Run] sends one [Command] and blocks until the tail of the
-// accumulated stdout matches one of the command's [Prompt] patterns,
-// or a pagination marker fires the configured continuation keystroke
-// and reading resumes. A per-command deadline
+// [Session.Run] sends one [Command] and blocks until one of the
+// command's [Prompt] patterns matches the accumulated stdout, or a
+// pagination marker fires the configured continuation keystroke and
+// reading resumes. The earliest match anywhere in that output wins,
+// ties going to the order of [Command.Prompts], so a pattern has to be
+// anchored against matching inside the device's own output. A per-command deadline
 // ([Command.Deadline], else the session default) and the caller's
 // context both bound the wait; either one firing, or the peer closing
 // the connection mid-wait, closes the session — the local read cursor

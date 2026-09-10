@@ -32,11 +32,12 @@ func TestEdgeOfHubStream(t *testing.T) {
 // fakeMsg is the slice of jetstream.Msg the forwarder touches.
 type fakeMsg struct {
 	jetstream.Msg
-	subject string
-	data    []byte
-	acked   bool
-	termed  bool
-	naked   bool
+	subject   string
+	data      []byte
+	delivered uint64
+	acked     bool
+	termed    bool
+	naked     bool
 }
 
 func (m *fakeMsg) Subject() string                  { return m.subject }
@@ -44,6 +45,10 @@ func (m *fakeMsg) Data() []byte                     { return m.data }
 func (m *fakeMsg) Ack() error                       { m.acked = true; return nil }
 func (m *fakeMsg) Term() error                      { m.termed = true; return nil }
 func (m *fakeMsg) NakWithDelay(time.Duration) error { m.naked = true; return nil }
+
+func (m *fakeMsg) Metadata() (*jetstream.MsgMetadata, error) {
+	return &jetstream.MsgMetadata{NumDelivered: max(m.delivered, 1)}, nil
+}
 
 func TestForwarderRefusesARecordOutsideItsStreamsEdge(t *testing.T) {
 	posted := 0

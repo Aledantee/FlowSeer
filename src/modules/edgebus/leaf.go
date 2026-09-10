@@ -65,10 +65,10 @@ type LeafConfig struct {
 	Logger *slog.Logger
 }
 
-// Leaf is the running leaf node and the edge's own connection to it.
-// Leaf is the edge's embedded leaf node. Safe for concurrent use: Close may
-// run while another goroutine is reading the link's state, which is the
-// ordinary shape for an agent polling HubConnected for its heartbeat.
+// Leaf is the edge's embedded leaf node and the edge's own connection to
+// it. Safe for concurrent use: Close may run while another goroutine is
+// reading the link's state, which is the ordinary shape for an agent polling
+// HubConnected for its heartbeat.
 type Leaf struct {
 	log    *quietLogger
 	cfg    LeafConfig
@@ -85,47 +85,6 @@ const (
 	defaultBufferBytes = 256 << 20
 	defaultBufferAge   = 7 * 24 * time.Hour
 )
-
-// writeSecretFile writes body to path at mode 0600, atomically.
-//
-// os.WriteFile applies its mode only when it creates the file, so a
-// hub.creds left behind by an earlier run under a different umask keeps
-// whatever mode it had. The rename also makes a crash mid-write leave the
-// previous credential rather than a truncated one, and the directory sync
-// makes the rename itself durable.
-func writeSecretFile(path string, body []byte) error {
-	dir := filepath.Dir(path)
-	temp, err := os.CreateTemp(dir, ".creds-*")
-	if err != nil {
-		return err
-	}
-	name := temp.Name()
-	defer func() { _ = os.Remove(name) }()
-
-	if _, err := temp.Write(body); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Sync(); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
-	if err := os.Chmod(name, 0o600); err != nil {
-		return err
-	}
-	if err := os.Rename(name, path); err != nil {
-		return err
-	}
-	handle, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = handle.Close() }()
-	return handle.Sync()
-}
 
 // StartLeaf starts the leaf node, dials the hub, and creates the local
 // buffer. It returns once the local server is ready; the hub link comes up

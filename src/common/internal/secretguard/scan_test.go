@@ -145,8 +145,8 @@ func rawFieldsIn(f *ast.File, rel string) []rawField {
 					// exists because the first missed both of the private
 					// keys this repository actually shipped.
 					byType := isSecretType(field.Type)
-					byName := isRawType(field.Type)
-					if !byType && !byName {
+					byRawType := isRawType(field.Type)
+					if !byType && !byRawType {
 						continue
 					}
 					for _, name := range field.Names {
@@ -217,6 +217,28 @@ func TestScanRawSecretFields(t *testing.T) {
 			name:   "several fields in one struct",
 			source: "package p\ntype O struct {\n\tAuthPassphrase, PrivPassphrase string\n}\n",
 			want:   []string{"a.go: O.AuthPassphrase", "a.go: O.PrivPassphrase"},
+		},
+		{
+			name:   "every secret-named fragment",
+			source: "package p\ntype O struct {\n\tAPISecret string\n\tUserCredential string\n\tAccountSeed []byte\n\tSetupToken string\n\tReadCommunity string\n}\n",
+			want: []string{
+				"a.go: O.APISecret", "a.go: O.UserCredential", "a.go: O.AccountSeed",
+				"a.go: O.SetupToken", "a.go: O.ReadCommunity",
+			},
+		},
+		{
+			// The name list missed both of the private keys this repository
+			// actually shipped: one spelled Key, one an nkeys seed whose
+			// type says plainly what it holds.
+			name:   "key material the name does not announce",
+			source: "package p\ntype O struct {\n\tKey ed25519.PrivateKey\n\tSigner *ecdsa.PrivateKey\n\tIssuer *rsa.PrivateKey\n\tAccount nkeys.KeyPair\n}\n",
+			want: []string{
+				"a.go: O.Key", "a.go: O.Signer", "a.go: O.Issuer", "a.go: O.Account",
+			},
+		},
+		{
+			name:   "unexported key material",
+			source: "package p\ntype O struct {\n\tkey ed25519.PrivateKey\n}\n",
 		},
 		{
 			name:   "carrier type",

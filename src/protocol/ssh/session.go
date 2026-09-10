@@ -69,12 +69,13 @@ func Dial(ctx context.Context, addr string, opts Options) (*Session, error) {
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
 	close(done)
 	if err != nil {
-		// NewClientConn does not close conn on failure, and the watcher
-		// above is no longer eligible once done is closed. Left open, an
-		// auth failure or a host-key mismatch leaks the socket until a
-		// finalizer runs — and a device that caps concurrent sessions then
-		// refuses the next login, which reads as a wrong password rather
-		// than as exhaustion.
+		// Closed here rather than left to the library: NewClientConn does
+		// close the connection it was given on a handshake failure, but
+		// promises nothing about it, and the watcher above is no longer
+		// eligible once done is closed. Left open, an auth failure or a
+		// host-key mismatch leaks the socket until a finalizer runs — and a
+		// device that caps concurrent sessions then refuses the next login,
+		// which reads as a wrong password rather than as exhaustion.
 		_ = conn.Close()
 		if dialCtx.Err() != nil {
 			return nil, dialCtx.Err()

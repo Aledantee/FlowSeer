@@ -517,3 +517,93 @@ func TestRunRefusesALineCarryingATerminator(t *testing.T) {
 		})
 	}
 }
+
+// TestRunRefusesAPatternThatMatchesNothing covers both empty-match refusals.
+// A pattern matching the empty string consumes no output, so the read loop
+// matches it again immediately: a MorePattern would write its keystroke at
+// CPU speed for the whole deadline, and a prompt would end the command
+// before the device answered. Nothing reaches the device either way.
+func TestRunRefusesAPatternThatMatchesNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cmd  ssh.Command
+	}{
+		{
+			name: "pagination marker",
+			cmd: ssh.Command{
+				Prompts:       []ssh.Prompt{privPrompt},
+				MorePattern:   regexp.MustCompile(`(--More--)?`),
+				MoreKeystroke: []byte(" "),
+			},
+		},
+		{
+			name: "prompt",
+			cmd: ssh.Command{
+				Prompts: []ssh.Prompt{{Name: "anything", Pattern: regexp.MustCompile(`x*`)}},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var seen atomic.Int64
+			fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+				buf := make([]byte, 256)
+				for {
+					n, err := ch.Read(buf)
+					if n > 0 {
+						seen.Add(int64(n))
+					}
+					if err != nil {
+						return
+					}
+				}
+			})
+			session := dialSession(t, fs, nil)
+
+			cmd := tc.cmd
+			cmd.Line = "show running-config"
+			if _, err := session.Run(context.Background(), cmd); err == nil {
+				t.Fatal("Run accepted a pattern matching the empty string")
+			}
+			if got := seen.Load(); got != 0 {
+				t.Errorf("the device received %d bytes; nothing may be written", got)
+			}
+		})
+	}
+}
+
+// TestRunUnderACanceledContextSendsNothingAndSaysSo covers the pre-write
+// context check and the evidence it returns. A caller reading Evidence.Sent
+// as "what the device received" must not be told a configuration line was
+// sent when the write never happened.
+func TestRunUnderACanceledContextSendsNothingAndSaysSo(t *testing.T) {
+	var seen atomic.Int64
+	fs := newFakeServer(t, func(_ *testing.T, ch xssh.Channel) {
+		buf := make([]byte, 256)
+		for {
+			n, err := ch.Read(buf)
+			if n > 0 {
+				seen.Add(int64(n))
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	session := dialSession(t, fs, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	res, err := session.Run(ctx, ssh.Command{
+		Line:    "interface ethernet 1/1/1",
+		Prompts: []ssh.Prompt{privPrompt},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Run() = %v, want the unwrapped context.Canceled", err)
+	}
+	if got := seen.Load(); got != 0 {
+		t.Errorf("the device received %d bytes under a canceled context", got)
+	}
+	if len(res.Evidence.Sent) != 0 {
+		t.Errorf("Evidence.Sent = %q, want empty: nothing was written", res.Evidence.Sent)
+	}
+}

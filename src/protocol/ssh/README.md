@@ -70,8 +70,11 @@ caller serializes its own commands.
 
 ## Commands are bounded by prompts, not by time alone
 
-`Session.Run` writes `Command.Line`, then blocks until the tail of the
-accumulated stdout matches one of `Command.Prompts`. `Result.MatchedPrompt`
+`Session.Run` writes `Command.Line`, then blocks until one of
+`Command.Prompts` matches the accumulated stdout — the earliest match
+anywhere in it, ties going to the order of the slice, which is why a prompt
+pattern has to be anchored against matching inside the device's own output.
+`Result.MatchedPrompt`
 carries the matched prompt's `Name` back to the caller, which is how an
 adapter tells a privilege-level transition happened without this package
 knowing what a privilege level is. A `Command.MorePattern` match instead

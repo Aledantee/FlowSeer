@@ -12,6 +12,8 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -478,4 +480,43 @@ func credsFileFor(t *testing.T, creds edgebus.EdgeCredentials) []byte {
 		t.Fatalf("render credentials: %v", err)
 	}
 	return body
+}
+
+// TestARestartSkipsAPersistedEdgeItCannotRestore covers the two ways a key
+// file in the state directory outlives the hub's ability to use it: an id
+// that is no longer usable as a stream name, and a seed a crash left short.
+// Neither may stop the hub, since refusing to start leaves every other edge
+// unserved for one of them — and the skip runs with no Logger configured,
+// which is what every caller but the device host passes.
+func TestARestartSkipsAPersistedEdgeItCannotRestore(t *testing.T) {
+	dir := t.TempDir()
+	first := startHub(t, dir, 0)
+	if err := first.AttachEdge(context.Background(), edgeID); err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+	first.Close()
+
+	keys := filepath.Join(dir, "keys")
+	for name, body := range map[string][]byte{
+		"edge-not.a.stream.name.nk": []byte("SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+		"edge-truncated.nk":         []byte("SA"),
+	} {
+		if err := os.WriteFile(filepath.Join(keys, name), body, 0o600); err != nil {
+			t.Fatalf("plant %s: %v", name, err)
+		}
+	}
+
+	second, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    dir,
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("restart: %v", err)
+	}
+	t.Cleanup(second.Close)
+
+	attached := second.AttachedEdges()
+	if len(attached) != 1 || attached[0] != edgeID {
+		t.Fatalf("attached = %v, want only the edge whose key is usable", attached)
+	}
 }

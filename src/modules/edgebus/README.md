@@ -188,9 +188,15 @@ publishes each body into the buffer and answers 200; a refused buffer answers
 503 so the runtime retries. Central's `Forwarder` follows every edge's hub
 stream with a durable consumer, discovering edges attached after it started on
 an interval, and posts each body to central's collector endpoint,
-acknowledging only on a 2xx; a 4xx other than 408 and 429 drops the body
-rather than retrying a malformed payload forever, with a delivery-count
-backstop behind it. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the
+acknowledging only on a 2xx. A 400-class answer that describes this body —
+malformed, oversized, the wrong content type — drops it on sight, since
+retrying cannot change the answer. A 401, 403, 404, 408 or 429 describes the
+collector's configuration instead, so the record is redelivered; the delivery
+backstop bounds that at eight attempts five seconds apart, and a
+misconfiguration outlasting that minute does lose the records that meet it.
+Those drops are counted as `collector_rejected`, not as the backstop, so the
+`flowseer.edgebus.records.refused` counter still says the collector is refusing
+this deployment's authorization. `TestReceiverToForwarderCarriesBodiesUnchanged` checks the
 bytes end to end, and `TestRecordsPublishedWhileTheHubIsDownArriveAfterReconnect`
 is the evidence that sourcing across a leaf link survives the link dropping
 and returning. After a hub restart the source takes about forty seconds to
