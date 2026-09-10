@@ -1,10 +1,24 @@
-.brand-glow {
+/* The sidebar's collapse tab is a clipped pseudo-element that pokes out of the
+   sidebar, so it cannot take the class and is named here instead. */
+.brand-glow,
+.sidebar-toggle::before {
   --glow-base: var(--chrome, #191b1e);
   --glow-teal: var(--cyan, #5ecad8);
   --glow-orange: var(--coral, #ff451d);
   --glow-strength: 20%;
-  --glow-height: 340px;
-  --glow-ribbon-angle: 112deg;
+  --glow-height: 720px;
+  /* Oversized restatement of the FlowSeer mark: solid bars, hard edges, two
+     teal to one coral, leaning at the mark's own skew. */
+  --glow-bar-angle: 103deg;
+  --glow-bar-pitch: 190px;
+  --glow-bar-width: 118px;
+  --glow-bar-strength: 9%;
+  /* Where the bars stop before the surface runs out. Each chrome surface
+     overrides this towards the edge it borders, so the plain elements along
+     those edges (the collapse tab, the corner wedge) have nothing to clash
+     with. */
+  --glow-bar-fade: linear-gradient(to bottom, #000 45%, transparent);
+  isolation: isolate;
   background-color: var(--glow-base);
   background-image:
     linear-gradient(
@@ -12,19 +26,6 @@
       rgb(from var(--glow-base) r g b / 45%),
       transparent 28%,
       var(--glow-base) 100%
-    ),
-    linear-gradient(
-      var(--glow-ribbon-angle),
-      transparent 4%,
-      rgb(from var(--glow-base) r g b / 16%) 13%,
-      rgb(from var(--glow-teal) r g b / 5%) 14.5%,
-      transparent 24% 33%,
-      rgb(from var(--glow-base) r g b / 8%) 39%,
-      rgb(from var(--glow-teal) r g b / 3%) 40.5%,
-      transparent 54% 62%,
-      rgb(from var(--glow-base) r g b / 14%) 69%,
-      rgb(from var(--glow-orange) r g b / 5%) 70.5%,
-      transparent 86%
     ),
     radial-gradient(
       ellipse 75% 160% at 0% 75%,
@@ -43,6 +44,37 @@
   background-repeat: no-repeat;
 }
 
+/* The bars ride on their own layer because only they are faded out at the
+   surface edges; the wash and the corner glows run all the way. */
+.brand-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    var(--glow-bar-angle),
+    rgb(from var(--glow-teal) r g b / var(--glow-bar-strength)) 0
+      var(--glow-bar-width),
+    transparent var(--glow-bar-width) var(--glow-bar-pitch),
+    rgb(from var(--glow-teal) r g b / var(--glow-bar-strength))
+      var(--glow-bar-pitch) calc(var(--glow-bar-pitch) + var(--glow-bar-width)),
+    transparent calc(var(--glow-bar-pitch) + var(--glow-bar-width))
+      calc(2 * var(--glow-bar-pitch)),
+    rgb(from var(--glow-orange) r g b / var(--glow-bar-strength))
+      calc(2 * var(--glow-bar-pitch))
+      calc(2 * var(--glow-bar-pitch) + var(--glow-bar-width)),
+    transparent calc(2 * var(--glow-bar-pitch) + var(--glow-bar-width))
+      calc(3 * var(--glow-bar-pitch))
+  );
+  background-attachment: fixed;
+  background-position: left top;
+  background-size: 100vw var(--glow-height);
+  background-repeat: no-repeat;
+  mask-image: var(--glow-bar-fade);
+}
+
 :root:not([data-theme='dark']) .brand-glow {
   --glow-strength: 6%;
+  --glow-bar-strength: 14%;
 }

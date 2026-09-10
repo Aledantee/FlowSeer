@@ -1,49 +1,33 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
-const props = defineProps<{ name: string; iconUrl?: string }>()
-const label = ref<HTMLSpanElement>()
-const text = ref<HTMLSpanElement>()
-const truncated = ref(false)
+import { computed, ref, watch } from 'vue'
+import AppIcon from './AppIcon.vue'
+const props = defineProps<{
+  name: string
+  iconUrl?: string
+  scoped?: boolean
+}>()
 const failed = ref(false)
-let observer: ResizeObserver | undefined
-function measure() {
-  truncated.value =
-    !!label.value &&
-    !!text.value &&
-    text.value.scrollWidth > label.value.clientWidth
-}
-onMounted(() => {
-  observer = new ResizeObserver(measure)
-  if (label.value) observer.observe(label.value)
-  if (text.value) observer.observe(text.value)
-  measure()
-})
-onUnmounted(() => observer?.disconnect())
+// A single tenant reduces to its first letter; "all tenants" has no letter that
+// stands for it, so it keeps the layers glyph instead.
+const initial = computed(() => props.name.trim().charAt(0).toUpperCase())
 watch(
-  () => [props.name, props.iconUrl],
-  async () => {
-    failed.value = false
-    await nextTick()
-    measure()
-  },
+  () => props.iconUrl,
+  () => (failed.value = false),
 )
 </script>
 
 <template>
-  <span ref="label" class="tenant-label" :title="name" :aria-label="name">
-    <span
-      ref="text"
-      class="tenant-label-text"
-      :class="{ 'tenant-label-measure': truncated && iconUrl && !failed }"
-      :aria-hidden="truncated && !!iconUrl && !failed"
-      >{{ name }}</span
-    >
-    <img
-      v-if="truncated && iconUrl && !failed"
-      :src="iconUrl"
-      alt=""
-      class="tenant-label-icon"
-      @error="failed = true"
-    />
+  <span class="tenant-label" :title="name" :aria-label="name">
+    <span class="tenant-label-mark" aria-hidden="true">
+      <img
+        v-if="iconUrl && !failed"
+        :src="iconUrl"
+        alt=""
+        @error="failed = true"
+      />
+      <AppIcon v-else-if="!scoped" name="tenants" />
+      <span v-else class="tenant-label-initial">{{ initial }}</span>
+    </span>
+    <span class="tenant-label-text">{{ name }}</span>
   </span>
 </template>

@@ -193,6 +193,7 @@ html:has(.shell) {
 .sidebar {
   z-index: 4;
   --sidebar-inset: 18px;
+  --glow-bar-fade: linear-gradient(to right, #000 45%, transparent);
   flex-shrink: 0;
   position: fixed;
   inset: 0 auto 0 0;
@@ -1198,7 +1199,6 @@ td small {
   content: '';
   position: absolute;
   inset: 0;
-  background: var(--chrome);
   clip-path: path('M0 0H16C16 12 30 12 30 24V40C30 52 16 52 16 64H0Z');
 }
 .sidebar-toggle svg {
@@ -1259,6 +1259,15 @@ td small {
     width: 100%;
     min-height: 44px;
     gap: 6px;
+  }
+  .sidebar-collapsed .tenant-switcher .scope-trigger {
+    justify-content: center;
+    gap: 0;
+    padding: 7px 0;
+  }
+  .sidebar-collapsed .tenant-label-text,
+  .sidebar-collapsed .tenant-switcher .scope-chevron {
+    display: none;
   }
 }
 @media (max-width: 800px) {
@@ -1593,29 +1602,41 @@ td small {
 }
 
 .tenant-label {
-  position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: 1;
   min-width: 0;
-  overflow: hidden;
   font-size: 12px;
 }
+/* The mark carries the tenant identity on its own, so the collapsed sidebar can
+   drop the name instead of ellipsing it down to nothing. */
+.tenant-label-mark {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--chrome-surface);
+  color: var(--chrome-muted);
+}
+.tenant-label-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tenant-label-initial {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--chrome-text);
+}
 .tenant-label-text {
-  display: block;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.tenant-label-text.tenant-label-measure {
-  position: absolute;
-  visibility: hidden;
-  width: max-content;
-}
-.tenant-label-icon {
-  display: block;
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
 }
 
 .account-footer {
@@ -1685,11 +1706,11 @@ td small {
   background: color-mix(in srgb, var(--chrome) 78%, transparent);
 }
 .topbar-glass {
+  --glow-bar-fade: linear-gradient(to bottom, #000 35%, transparent);
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  mask-image: linear-gradient(to bottom, #000 0% 58%, transparent 100%);
 }
 .topbar::after {
   background: var(--chrome);
@@ -1759,8 +1780,13 @@ td small {
 .topbar::after {
   content: none;
 }
-.main-shell::before {
-  content: '';
+/* Chrome-coloured wedge that reads as a rounded inner corner where the
+   sidebar and top bar meet. It carries the shared glow so it stays
+   continuous with both surfaces. */
+.main-notch {
+  /* The wedge sits where both fades have already run out, so it carries the
+     glow without any bars. */
+  --glow-bar-fade: linear-gradient(transparent, transparent);
   position: absolute;
   z-index: 3;
   top: var(--topbar-height);
@@ -1768,7 +1794,6 @@ td small {
   width: 18px;
   height: 18px;
   pointer-events: none;
-  background: var(--chrome);
   mask-image: radial-gradient(
     circle at bottom right,
     transparent 18px,

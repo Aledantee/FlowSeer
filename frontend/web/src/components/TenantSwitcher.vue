@@ -28,12 +28,14 @@ const emit = defineEmits<{ change: [tenantId: string] }>()
           'All tenants'
         "
         :icon-url="tenants.find((tenant) => tenant.id === selected)?.iconUrl"
+        :scoped="!!selected"
       />
     </ScopeSwitcher>
     <TenantLabel
       v-else
       :name="tenants[0]?.name || 'No tenants available'"
       :icon-url="tenants[0]?.iconUrl"
+      scoped
     />
   </div>
 </template>

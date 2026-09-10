@@ -302,6 +302,7 @@ onUnmounted(() => clearInterval(timer))
       </button>
     </aside>
     <div ref="mainShell" class="main-shell">
+      <span class="main-notch brand-glow" aria-hidden="true"></span>
       <header ref="topbar" class="topbar">
         <span class="topbar-glass brand-glow" aria-hidden="true"></span>
         <div class="topbar-start">
