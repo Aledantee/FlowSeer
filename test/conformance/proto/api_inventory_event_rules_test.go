@@ -18,9 +18,9 @@ const (
 	placementID   = "0192e6a0-0000-7000-8000-0000000000e1"
 )
 
-func bindingRef(id string) *inventoryv1.BindingGlobalRef {
+func bindingRef() *inventoryv1.BindingGlobalRef {
 	return inventoryv1.BindingGlobalRef_builder{
-		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(id)}.Build(),
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(bindingID)}.Build(),
 	}.Build()
 }
 
@@ -53,7 +53,7 @@ func placementRef() *inventoryv1.PlacementGlobalRef {
 
 func validBindingState() *inventoryv1.BindingState {
 	return inventoryv1.BindingState_builder{
-		Ref:         bindingRef(bindingID),
+		Ref:         bindingRef(),
 		Device:      deviceRef(deviceID),
 		Integration: integrationRef(integrationID),
 		Status:      inventoryv1.BindingStatus_BINDING_STATUS_VERIFIED.Enum(),
@@ -136,7 +136,7 @@ func TestBindingEventImmutableRelations(t *testing.T) {
 		{
 			name: "a transition keeping device and integration is valid",
 			message: inventoryv1.BindingEvent_builder{
-				Ref:    bindingRef(bindingID),
+				Ref:    bindingRef(),
 				Before: validBindingState(),
 				After: func() *inventoryv1.BindingState {
 					b := validBindingState()
@@ -149,7 +149,7 @@ func TestBindingEventImmutableRelations(t *testing.T) {
 		{
 			name: "a transition may not retarget the device",
 			message: inventoryv1.BindingEvent_builder{
-				Ref:    bindingRef(bindingID),
+				Ref:    bindingRef(),
 				Before: validBindingState(),
 				After: func() *inventoryv1.BindingState {
 					b := validBindingState()

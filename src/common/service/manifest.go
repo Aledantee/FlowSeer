@@ -117,6 +117,20 @@ func writeProvenance(path string, provenance *servicev1.StoreProvenance) error {
 	if err := os.Rename(temporary, path); err != nil {
 		return busUnhealthy(err, "commit local bus store provenance")
 	}
+	// The rename itself, not just the file's contents. Without this the
+	// marker's directory entry is not durable, and a power cut soon after
+	// bootstrap can leave a store holding broker files with no provenance —
+	// which reconcileStoreProvenance reads as a store needing migration, so
+	// the service refuses to start and demands one of an operator whose
+	// store is intact.
+	dir, err := os.Open(filepath.Dir(path))
+	if err != nil {
+		return busUnhealthy(err, "open local bus store directory")
+	}
+	defer func() { _ = dir.Close() }()
+	if err := dir.Sync(); err != nil {
+		return busUnhealthy(err, "sync local bus store directory")
+	}
 	written = true
 	return nil
 }

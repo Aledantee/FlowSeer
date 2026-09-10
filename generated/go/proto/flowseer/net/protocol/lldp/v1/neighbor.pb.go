@@ -318,10 +318,9 @@ var File_flowseer_net_protocol_lldp_v1_neighbor_proto protoreflect.FileDescripto
 
 const file_flowseer_net_protocol_lldp_v1_neighbor_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/net/protocol/lldp/v1/neighbor.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a.flowseer/net/protocol/lldp/v1/chassis_id.proto\x1a6flowseer/net/protocol/lldp/v1/management_address.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a5flowseer/net/protocol/lldp/v1/system_capability.proto\"\xa1\x05\n" +
-	"\bNeighbor\x12<\n" +
-	"\x14local_interface_name\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x12localInterfaceName\x12O\n" +
+	",flowseer/net/protocol/lldp/v1/neighbor.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a.flowseer/net/protocol/lldp/v1/chassis_id.proto\x1a6flowseer/net/protocol/lldp/v1/management_address.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a5flowseer/net/protocol/lldp/v1/system_capability.proto\"\xa3\x05\n" +
+	"\bNeighbor\x12>\n" +
+	"\x14local_interface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\x12localInterfaceName\x12O\n" +
 	"\n" +
 	"chassis_id\x18\x02 \x01(\v2(.flowseer.net.protocol.lldp.v1.ChassisIdB\x06\xbaH\x03\xc8\x01\x01R\tchassisId\x12F\n" +
 	"\aport_id\x18\x03 \x01(\v2%.flowseer.net.protocol.lldp.v1.PortIdB\x06\xbaH\x03\xc8\x01\x01R\x06portId\x12)\n" +

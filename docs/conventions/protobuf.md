@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-09-04
+last_updated: 2026-09-05
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -147,7 +147,12 @@ Three boundaries keep it from eroding the typed refs:
   The Edge in `api/edge/v1` is the opposite exception: a landed, UUID-keyed
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
-  nothing may name an edge through an `EntityRef`.
+  nothing may name an edge through an `EntityRef`. `AccessPolicyHandle`,
+  `CredentialHandle`, and `HostTrustHandle` in `device/policy/v1` are the
+  second deliberate class of non-entity: each an opaque key and version into
+  the device service's store, with no ref pair, no triad, and no place in
+  the enum, because nothing else points at one and the store that would
+  answer an existence check lands with that service.
 - **A ref with the tenant kind is data, not scoping.** Tenancy stays ambient:
   the ref is content on the pointing entity and never stands in for the
   request's tenant context.
@@ -179,7 +184,12 @@ can lie about it.
 "Observed at" and "which binding answered" describe a *live response or an
 event*, not a stored thing. One provenance message is defined beside `Binding`
 in `api/inventory/v1`, and is embedded by value in the integration,
-service-response, and event envelopes.
+service-response, and event envelopes. It also names the protocol that
+produced the payload, the edge that performed the observation, and the
+device's firmware fingerprint at that moment, because a route is chosen per
+operation and two observations from different firmware epochs must be
+tellable apart. There is one such message; a boundary package that needs
+more provenance extends it here rather than defining a sibling.
 
 It is never a field of an `<Entity>State` and never a field of a Primitive. This
 keeps `net/` packages independent of entity and binding packages, and a `Vlan`

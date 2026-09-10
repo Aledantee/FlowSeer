@@ -51,22 +51,30 @@ spec/proto/flowseer/
     phy/v1/             Ethernet settings, capabilities, active facts, MAU, counters, transport arms, pluggable module, PoE
     switching/v1/       VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
     ip/v1/              IpFacet, InterfaceAddress, NeighborEntry
+    capture/v1/         LinkType, CaptureCounters, CaptureFilter, mirror encapsulation, PacketRecord
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
+    capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
+    device/v1/          DeviceService, the operator-facing typed device API
+  device/
+    policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
+    access/v1/          the operation vocabulary every device-access boundary shares
+  integration/device/v1/  execution envelopes between central and an integration (reserved)
+  event/device/v1/      the durable DeviceOperationEvent audit record (reserved)
+  errs/v1/              the error wire payload (reserved)
   service/v1/           process-local runtime messages and durable mailbox contracts
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
-families beyond those present in the repository remain reserved locations.
-Separate central integration and event-envelope packages remain part of the
-system direction, but their protobuf paths are not settled; the first
-ConnectRPC service package is settled at `api/edge/v1`. In particular,
-`flowseer.service.v1` now names the process-local service runtime contract; it
-must not be treated as the future ConnectRPC API package by inference.
+families beyond those present in the repository remain reserved locations,
+as are the execution, audit, and error wire packages, whose paths the
+2026-09-05 amendment below settles. `flowseer.service.v1` names the
+process-local service runtime contract; it must not be treated as a
+ConnectRPC API package by inference.
 
 There is no base package. Ref pairs and lifecycle enums, when a family has
 them, live in the package that owns the entity. The rules and deliberate
@@ -79,10 +87,16 @@ Import layering is acyclic. The foundational dependency graph is:
 ```
 net/addr ← {net/switching, net/ip}
 net/packet ← net/switching
+{net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← api/inventory
-api/edge ← api/inventory
+{api/edge, device/policy} ← api/inventory
+{api/inventory, api/edge, device/policy, net/*} ← device/access
+{device/access, api/inventory, device/policy, net/*} ← api/device
+device/access ← {integration/device, event/device}
+errs ← {api/device, integration/device, event/device}
+{net/capture, api/edge} ← api/capture
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -94,11 +108,13 @@ consume the entity model without introducing a downward import. `api/edge`
 is the Edge's entity package and, as the first Connect service package, also
 holds the Edge's services; it imports no FlowSeer package, and
 `api/inventory` imports it because an integration names its hosting edge.
-The service API and event envelope remain sibling boundary
-consumers and must not import one another, so the event envelope never
-imports `api/edge`. The order's home for automated checking is
-`test/conformance/proto/`; `spec/proto/` holds only `.proto` and `README.md`
-files, so no test can sit beside the schemas.
+`device/policy` is the second leaf. The service API, the execution envelope,
+and the event envelope are sibling boundary consumers of `device/access` and
+never import one another; the event envelope reaches `api/edge` only through
+`device/access`, which names the edge responsible for a mutation. The
+order's home for automated checking is `test/conformance/proto/`;
+`spec/proto/` holds only `.proto` and `README.md` files, so no test can sit
+beside the schemas.
 
 ## Why this shape
 
@@ -737,3 +753,61 @@ Landed with `docs/plans/2026-09-05-0004-feat-phy-transport-optics-plan.md`.
   microamperes, microvolts, and millidegrees carry SFF-8472's native steps
   without loss and give zero light a plain zero; consumers derive dBm. Two
   vendored DDM MIBs report dBm, and the mapper converts them once.
+
+### 2026-09-05 — the device-access boundary packages
+
+Landed with `docs/plans/2026-09-05-1709-feat-verified-local-device-access-plan.md`
+under the [verified device access record](2026-09-05-verified-device-access-direction.md).
+
+- **The boundary names the 2026-09-04 amendment left open are settled.**
+  `api/device/v1` is the operator-facing Connect service; `device/policy/v1`
+  is a dependency leaf holding the opaque access-policy handle;
+  `device/access/v1` holds the operation vocabulary the operator API, the
+  execution envelope (`integration/device/v1`), and the audit event
+  (`event/device/v1`) share, so a phase means the same thing on every wire.
+  The error wire payload the error-wire record describes lands in `errs/v1`
+  with its first consumer. The package tree and the import graph above are
+  updated in place; the three reserved packages land with their own plans.
+- **The event envelope reaches `api/edge`.** The earlier sentence that it
+  never imports `api/edge` is replaced: a mutation state names the edge
+  responsible for it, so `device/access` imports `api/edge`, and every
+  boundary that imports `device/access` reaches `api/edge` through it and
+  never directly.
+- **Provenance grew, in place.** The one provenance message beside `Binding`
+  now carries the protocol that answered, the observing edge, and the
+  firmware fingerprint, because a route is chosen per operation. No sibling
+  provenance exists in `device/access`.
+- **An interface is a name, not a ref.** The device-access messages identify
+  an interface by the device ref plus the device-local name. The Interface
+  entity and its ref stay undecided, as the 2026-09-04 amendment says.
+- **`device/policy` holds one message.** The credential and host-trust
+  handles arrive with the plan that delivers credentials to an edge.
+### 2026-09-09 — net/capture holds the ref-free capture values
+
+Remote packet capture splits on the primitive/entity line this record already
+draws. `flowseer.net.capture.v1` now holds the values a capture produces and
+selects on: a link type, capture counters, a capture filter, the mirror
+encapsulation metadata, and a packet record. None of them carry a ref, so the
+package sits under `net/` and the import order gains
+`{net/addr, net/packet, net/switching} ← net/capture`. The session that owns
+these values, with its own ref, lifecycle, and services, is a separate entity
+package that a later change adds, with its own amendment here.
+
+`net/capture` needs neither `net/phy` nor `net/ip`: it takes match atoms and
+address types from `net/addr` and `net/packet`, and the VLAN-identifier
+validation rules from `net/switching`, and nothing from the physical-layer or
+IP-facet values.
+
+### 2026-09-09 — api/capture holds the session identity and its services
+
+`flowseer.api.capture.v1` is the entity package the entry above reserved:
+`CaptureSession`'s ref pair and lifecycle, `CaptureService` for the operator
+who creates and reads a capture back, and `CaptureEdgeService` for the edge
+that uploads one. The import order gains `{net/capture, api/edge} ←
+api/capture`.
+
+Of the two edges, `net/capture ← api/capture` is the one carrying the
+weight: a session's state holds the `net/capture` counters and link type it
+observed, and every packet or artifact chunk on the wire holds `net/capture`
+records rather than a copy of their fields. `api/edge` supplies only the
+owning ref and the assertion a session's upload stream re-verifies.

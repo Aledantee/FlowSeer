@@ -7,6 +7,7 @@
 package packetv1
 
 import (
+	validate "buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go/buf/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -163,11 +164,28 @@ func (x IpDscp) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+var file_flowseer_net_packet_v1_ip_dscp_proto_extTypes = []protoimpl.ExtensionInfo{
+	{
+		ExtendedType:  (*validate.EnumRules)(nil),
+		ExtensionType: (*bool)(nil),
+		Field:         50003,
+		Name:          "flowseer.net.packet.v1.ip_dscp",
+		Tag:           "varint,50003,opt,name=ip_dscp",
+		Filename:      "flowseer/net/packet/v1/ip_dscp.proto",
+	},
+}
+
+// Extension fields to validate.EnumRules.
+var (
+	// optional bool ip_dscp = 50003;
+	E_IpDscp = &file_flowseer_net_packet_v1_ip_dscp_proto_extTypes[0]
+)
+
 var File_flowseer_net_packet_v1_ip_dscp_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_packet_v1_ip_dscp_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/net/packet/v1/ip_dscp.proto\x12\x16flowseer.net.packet.v1*\xb2\x03\n" +
+	"$flowseer/net/packet/v1/ip_dscp.proto\x12\x16flowseer.net.packet.v1\x1a\x1bbuf/validate/validate.proto*\xb2\x03\n" +
 	"\x06IpDscp\x12\x0f\n" +
 	"\vIP_DSCP_CS0\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -195,18 +213,23 @@ const file_flowseer_net_packet_v1_ip_dscp_proto_rawDesc = "" +
 	"\n" +
 	"IP_DSCP_EF\x10.\x12\x0f\n" +
 	"\vIP_DSCP_CS6\x100\x12\x0f\n" +
-	"\vIP_DSCP_CS7\x108B\xf0\x01\n" +
+	"\vIP_DSCP_CS7\x108:\x92\x01\n" +
+	"\aip_dscp\x12\x17.buf.validate.EnumRules\x18ӆ\x03 \x01(\bB^\xc2H[\n" +
+	"Y\n" +
+	"\fenum.ip_dscp\x12%value must fit the six-bit DSCP field\x1a\"!rule || (this >= 0 && this <= 63)R\x06ipDscpB\xf0\x01\n" +
 	"\x1acom.flowseer.net.packet.v1B\vIpDscpProtoP\x01ZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1;packetv1\xa2\x02\x03FNP\xaa\x02\x16Flowseer.Net.Packet.V1\xca\x02\x16Flowseer\\Net\\Packet\\V1\xe2\x02\"Flowseer\\Net\\Packet\\V1\\GPBMetadata\xea\x02\x19Flowseer::Net::Packet::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_packet_v1_ip_dscp_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_net_packet_v1_ip_dscp_proto_goTypes = []any{
-	(IpDscp)(0), // 0: flowseer.net.packet.v1.IpDscp
+	(IpDscp)(0),                // 0: flowseer.net.packet.v1.IpDscp
+	(*validate.EnumRules)(nil), // 1: buf.validate.EnumRules
 }
 var file_flowseer_net_packet_v1_ip_dscp_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
+	1, // 0: flowseer.net.packet.v1.ip_dscp:extendee -> buf.validate.EnumRules
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	0, // [0:1] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -222,12 +245,13 @@ func file_flowseer_net_packet_v1_ip_dscp_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_net_packet_v1_ip_dscp_proto_rawDesc), len(file_flowseer_net_packet_v1_ip_dscp_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   0,
-			NumExtensions: 0,
+			NumExtensions: 1,
 			NumServices:   0,
 		},
 		GoTypes:           file_flowseer_net_packet_v1_ip_dscp_proto_goTypes,
 		DependencyIndexes: file_flowseer_net_packet_v1_ip_dscp_proto_depIdxs,
 		EnumInfos:         file_flowseer_net_packet_v1_ip_dscp_proto_enumTypes,
+		ExtensionInfos:    file_flowseer_net_packet_v1_ip_dscp_proto_extTypes,
 	}.Build()
 	File_flowseer_net_packet_v1_ip_dscp_proto = out.File
 	file_flowseer_net_packet_v1_ip_dscp_proto_goTypes = nil

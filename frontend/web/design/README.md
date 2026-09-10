@@ -110,7 +110,10 @@ Apply `brand-glow` to every connected chrome surface:
 
 ```html
 <aside class="sidebar brand-glow">...</aside>
-<header class="topbar brand-glow">...</header>
+<header class="topbar">
+  <span class="topbar-glass brand-glow" aria-hidden="true"></span>
+  ...
+</header>
 ```
 
 The layered gradients share viewport coordinates through `background-attachment:
@@ -120,61 +123,52 @@ edge, including when the sidebar collapses. The rounded content corner inherits
 the same background and uses a radial mask to cut out the inner curve. The glow stays
 within the navigation frame, with a longer vertical fade down the sidebar.
 
-Defaults are 20% color strength, a 340px fade height, and a 112-degree ribbon
+Defaults are 30% color strength, a 560px fade height, and a 112-degree ribbon
 angle controlled by `--glow-ribbon-angle`. Ribbon positions are intentionally
 asymmetric gradient stops; avoid a repeating pattern that makes the chrome
 look segmented.
 `--glow-base`, `--glow-teal`, and `--glow-orange` use the console's theme-specific navigation background, cyan,
-and coral tokens. Override parameters after the utility rule, consistently on
-all connected surfaces:
+and coral tokens. The root owns these parameters so the sidebar, top bar, rounded corner, and
+collapse tab inherit the same values. For example, adjust the light theme at
+the root:
 
 ```css
-.brand-glow {
+:root:not([data-theme='dark']) {
   --glow-strength: 18%;
   --glow-height: 160px;
 }
 ```
 
-Light mode uses neutral gray navigation and 6% glow strength; dark
-mode uses charcoal and 20%. Keep text legible across both treatments. The effect
-stays static and fades into the navigation background; no blur filter, bitmap, or animation is required. Changing
+Light mode uses neutral gray navigation and 13% glow strength; dark
+mode uses charcoal and 30%. Keep text legible across both treatments. The effect
+stays static and fades into the navigation background. The top bar applies backdrop blur to scrolling content. Changing
 its strength requires checking text and control contrast across the rendered
 bands, not only against the base background token.
 
 ## Light-mode comfort
 
-The light palette uses a neutral canvas `#E6E7EA`, card surfaces `#F4F4F5`, and
-navigation `#F0F1F2`. These come from steps 3, 1, and 2 of a fresh Radix gray
-scale. This separates content from navigation without pure-white surfaces or a
-green tint across the workspace. Cyan is reserved for selection; status fills
-have their own restrained hues. Primary text stays `#30343A`.
+The light palette uses a slate-gray canvas `#BEC3CA`, lifted card surfaces
+`#DCE0E4`, and navigation `#CBD1D6`. Panel headers use `#CDD3D9` to separate
+controls from data rows. These semantic colors reduce glare while keeping the
+surfaces distinct. Primary text is `#20262D`; secondary text is `#424B55`.
+Darkening backgrounds requires darkening text and focus colors alongside them:
+otherwise small accent labels lose contrast first.
 
-The [review capture](light-palette-review.json) records the generated OKLCH tones,
-sRGB conversions, inputs, and role mapping. Reproduce the scale using this
-[Radix configuration](https://www.radix-ui.com/colors/custom?accent-light=5ECAD8&gray-light=858990&bg-light=F7F8FA).
-The lower-background candidate `#ECEDEF` was also inspected; the selected scale
-provides clearer separation between cards and canvas. The generated ramp is a
-reference for semantic choices, not a replacement for the original eight-family
-primitive export. Dark-mode roles are unchanged.
+The [contrast audit](light-mode-contrast.md) records measured ratios, browser
+coverage, and gradient sampling. Run the semantic pair checks with:
 
-Checked with WebAIM on 6 September 2026:
+```sh
+cd frontend/web
+pnpm exec vitest run src/theme/palette.test.ts
+```
 
-| Pair                   | Ratio  | Use                                |
-| ---------------------- | ------ | ---------------------------------- |
-| `#585B60` on `#E6E7EA` | 5.51:1 | Secondary text on canvas           |
-| `#30343A` on `#F4F4F5` | 11.3:1 | Primary text on cards              |
-| `#75797F` on `#F0F1F2` | 3.87:1 | Control outlines on input surfaces |
+The [Radix review capture](light-palette-review.json) is a historical ramp
+reference, not the current semantic role mapping. The eight-family primitive
+export is also a reference palette; components use the contrast-tested semantic
+tokens in `src/style.css`.
 
-The repository contrast tests check every named semantic pair in both themes.
-These checks establish readability thresholds, not a guarantee of visual comfort.
-
-Summary cards and the inventory heading/toolbar share `--panel-surface`:
-`#EDF0F2` in light mode and `#20272B` in dark mode. This cooler neutral links
-those surfaces to the navigation palette while keeping data rows distinct.
-
-Content scrolls behind the top bar without backdrop blur. Its
-chrome layer fades from opaque over the upper 58% to 78% opacity at the bottom.
-The measured header height reserves initial content spacing, including on mobile.
-Dark table surfaces use cool slate (`#222A2E`, `#283136`, hover `#2C383E`).
-Warnings use a brighter yellow foreground (`#F5D66F`) on `#3B321B` in dark
-mode, and a pale yellow `#FAF0CF` surface in light mode.
+The connected frame keeps its shared ribbons and rounded inner corner. Content
+scrolls behind a translucent top-bar layer with 24px backdrop blur. Its measured
+height reserves content spacing on desktop and mobile. Required control outlines
+use `--control-border`; decorative panel separators use `--line` and do not carry
+interaction or state meaning. Status badges retain explicit text labels.

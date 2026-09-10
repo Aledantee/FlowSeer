@@ -10,10 +10,21 @@ execution: code
 
 # YANG Protocol Libraries - Plan
 
-> Code complete; live validation outstanding. The libraries described below
+> Code complete; live validation is no longer obtainable. The libraries below
 > landed and later moved from `src/common/{yang,netconf,restconf,gnmi}` to the
-> corresponding `src/protocol/` packages. The recorded NETCONF and gNMI
-> hardware-validation rows remain open, so this plan is not marked implemented.
+> corresponding `src/protocol/` packages. What stays open is R12 and R14 — write
+> validation per family on lab hardware, which KD8 and KD9 make a v1 acceptance
+> criterion rather than a nicety. The lab is closed as of 2026-09-10 (see
+> [the runbook](../runbooks/lab-icx7150-first-write.md)), so those rows cannot be
+> filled by anyone working from this tree, and this plan stays
+> `partially-implemented` for a reason that will not resolve on its own.
+>
+> This is a decision to record, not an omission to carry: v1 as scoped here
+> cannot close without devices. Whoever picks it up chooses between acquiring
+> hardware for the three families, or amending KD8 and KD9 to accept
+> containers and fixtures and saying plainly what that costs — the write path,
+> including transaction error and rollback behavior, would then ship unproven
+> against any real device.
 
 ## Goal Capsule
 

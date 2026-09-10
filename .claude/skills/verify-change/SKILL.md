@@ -9,7 +9,12 @@ argument-hint: "[--full | --base REF | -- paths]"
 Run the verifier from the worktree root. It selects checks from the changed
 paths and, within a Go module, vets, race-tests, and lints only the packages
 that can observe the change: those holding a changed file and every package
-that imports one of them. The whole module still compiles.
+that imports one of them. The whole module still compiles. Those packages
+are also vetted once per build tag their files carry, so a tagged
+integration or bench test that stopped compiling fails the gate; and a
+nested module that replaces the root module (`src/protocol/*/bench`,
+`src/edge/netpen`) is built and vetted after a root change, its race tests
+left to `--full`.
 
 ```bash
 .claude/skills/verify-change/scripts/verify-change.sh
@@ -27,6 +32,13 @@ and the telemetry tier starts Docker, and the sandbox denies both.
 Finish a cross-module or schema change with `--full`; a targeted run is
 enough for documentation, hook, or single-module work. Pass explicit paths
 when the worktree contains changes outside the current task.
+
+A directory is expanded to the files it holds, so `-- src/edge/agent` and the
+files under it select the same gates. A path list that selects no gate at all
+— a typo, a deleted file on its own, a file of a type nothing checks — exits
+non-zero saying so rather than reporting a pass, because a run that checked
+nothing and a run that checked everything and found it clean must not print
+the same line.
 
 Full runs and telemetry-sensitive paths (service Go sources, its Collector
 integration sources and fixture, the wrapper, root `go.mod` or `go.sum`) run

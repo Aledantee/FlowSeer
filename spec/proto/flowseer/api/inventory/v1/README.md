@@ -88,9 +88,23 @@ Addresses and platform ids move between boxes, so they are binding data
 and never device identity.
 
 The family is a full triad. `DeviceConfig` is what the operator intends
-(name and description), `DeviceState` is what the platform holds (the
-identity read plus the lifecycle), and `DeviceEvent` carries one lifecycle
-transition, with an unset `from` meaning the device entered the inventory.
+(name, description, management mode, and the pinned access policy),
+`DeviceState` is what the platform holds (the identity read plus the
+lifecycle), and `DeviceEvent` carries one lifecycle transition, with an
+unset `from` meaning the device entered the inventory.
+
+The management mode says who resolves drift. Suppose an operator changes an
+interface description at the switch console. The next authoritative read
+shows a managed field that no FlowSeer mutation explains. Under
+`OPERATOR_MANAGED` the device's lane blocks until someone accepts the
+observed state, restores the expected one, or replaces the interrupted
+intent; under `AUTHORITATIVE` FlowSeer queues an ordinary reconciliation
+intent that restores the expected description. Both modes keep central
+expected state, so the difference is who acts, never whether drift is
+noticed. The access policy is an opaque handle from
+[`device/policy/v1`](../../../device/policy/v1/README.md): the policy body
+stays in the device service's store, and a mutation pins the version it
+was admitted under.
 
 Lifecycle and reachability are two axes that never share a word.
 Reachability is per binding, machine-owned, and flaps and heals with nobody
@@ -163,9 +177,16 @@ distinguishes a timeout from a rejected credential from a host that
 answers ping but not management, because the last one must never count
 toward a device going `MISSING`.
 
-`Provenance` — which binding answered, and when it observed the payload —
-lives beside the binding family and is embedded by value in response and
-event envelopes, per the conventions doc.
+`Provenance` lives beside the binding family and is embedded by value in
+response and event envelopes, per the conventions doc. It says which
+binding answered, when it observed the payload, which protocol produced it,
+which edge performed the observation, and the device's firmware fingerprint
+at that moment. The protocol is on the provenance rather than fixed by the
+binding because the answering integration chooses a route per operation:
+an SNMP read that turns out incomplete falls through to SSH inside one
+call, and the caller sees which one produced the result. The fingerprint
+lets a consumer tell two observations from different firmware epochs apart
+without a second lookup.
 
 ## Scopes and placements
 

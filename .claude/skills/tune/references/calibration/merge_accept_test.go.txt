@@ -1,0 +1,244 @@
+package pump
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"testing/synctest"
+	"time"
+)
+
+// Acceptance tests for Merge. Copied into the package by the tune skill's
+// calibration step; the candidate implementation never sees them.
+
+func acceptProduce(p *Pump[int], from, to int) {
+	for i := from; i < to; i++ {
+		if !p.Send(i) {
+			return
+		}
+	}
+	p.Done()
+}
+
+func acceptDrain(p *Pump[int]) []int {
+	var got []int
+	for v := range p.Data() {
+		got = append(got, v)
+	}
+	return got
+}
+
+func TestMergeAcceptForwardsAllInSourceOrder(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx := context.Background()
+		a, b := New[int](ctx, 0), New[int](ctx, 3)
+		m := Merge(ctx, 2, a, b)
+		defer m.Cancel()
+		defer a.Cancel()
+		defer b.Cancel()
+		go acceptProduce(a, 0, 50)
+		go acceptProduce(b, 100, 150)
+
+		got := acceptDrain(m)
+		if len(got) != 100 {
+			t.Fatalf("forwarded %d values, want 100", len(got))
+		}
+		lastA, lastB := -1, 99
+		for _, v := range got {
+			switch {
+			case v < 100:
+				if v <= lastA {
+					t.Fatalf("source a order broken: %d after %d", v, lastA)
+				}
+				lastA = v
+			default:
+				if v <= lastB {
+					t.Fatalf("source b order broken: %d after %d", v, lastB)
+				}
+				lastB = v
+			}
+		}
+		if err := m.Err(); err != nil {
+			t.Fatalf("Err() = %v, want nil", err)
+		}
+	})
+}
+
+func TestMergeAcceptZeroSourcesCompletes(t *testing.T) {
+	t.Parallel()
+	m := Merge[int](context.Background(), 1)
+	defer m.Cancel()
+	select {
+	case _, ok := <-m.Data():
+		if ok {
+			t.Fatal("received a value from a merge of nothing")
+		}
+	case <-time.After(waitTimeout):
+		t.Fatal("data channel not closed for zero sources")
+	}
+	if err := m.Err(); err != nil {
+		t.Fatalf("Err() = %v, want nil", err)
+	}
+}
+
+func TestMergeAcceptBufferedValuesBeforeMerge(t *testing.T) {
+	t.Parallel()
+	a := New[int](context.Background(), 4)
+	for i := range 4 {
+		a.Send(i)
+	}
+	a.Done()
+	m := Merge(context.Background(), 0, a)
+	defer m.Cancel()
+	defer a.Cancel()
+	if got := acceptDrain(m); len(got) != 4 {
+		t.Fatalf("forwarded %d buffered values, want 4", len(got))
+	}
+}
+
+func TestMergeAcceptSourceErrorPropagates(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx := context.Background()
+		a, b := New[int](ctx, 0), New[int](ctx, 0)
+		m := Merge(ctx, 0, a, b)
+		defer m.Cancel()
+		defer a.Cancel()
+		defer b.Cancel()
+		boom := errors.New("boom")
+
+		// b produces until told to stop; a fails after one value.
+		go func() {
+			for i := 0; b.Send(i); i++ {
+			}
+		}()
+		go func() {
+			a.Send(1)
+			a.Fail(boom)
+		}()
+
+		acceptDrain(m)
+		if err := m.Err(); !errors.Is(err, boom) {
+			t.Fatalf("Err() = %v, want %v", err, boom)
+		}
+		select {
+		case <-b.Stopped():
+		default:
+			t.Fatal("healthy source was not told to stop after a sibling failed")
+		}
+	})
+}
+
+func TestMergeAcceptConsumerStopPropagates(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx := context.Background()
+		a, b := New[int](ctx, 0), New[int](ctx, 0)
+		m := Merge(ctx, 0, a, b)
+		defer m.Cancel()
+		defer a.Cancel()
+		defer b.Cancel()
+		var wg sync.WaitGroup
+		for _, p := range []*Pump[int]{a, b} {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for i := 0; p.Send(i); i++ {
+				}
+			}()
+		}
+		v, ok := m.Recv()
+		if !ok {
+			t.Fatalf("Recv() = %d,%v before stop, want a value", v, ok)
+		}
+		m.CloseData()
+		wg.Wait() // producers exit only if stop reached both sources
+		for _, ok := m.Recv(); ok; _, ok = m.Recv() {
+		}
+		for i, p := range []*Pump[int]{a, b} {
+			select {
+			case <-p.Stopped():
+			default:
+				t.Fatalf("source %d not stopped after consumer closed the merge", i)
+			}
+			if p.Context().Err() != nil {
+				t.Fatalf("source %d context canceled by Merge; only the owner may cancel", i)
+			}
+		}
+	})
+}
+
+func TestMergeAcceptContextCancelPropagates(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		a := New[int](context.Background(), 0)
+		m := Merge(ctx, 0, a)
+		defer m.Cancel()
+		defer a.Cancel()
+		go func() {
+			for i := 0; a.Send(i); i++ {
+			}
+		}()
+		if _, ok := m.Recv(); !ok {
+			t.Fatal("no value before cancel")
+		}
+		cancel()
+		acceptDrain(m)
+		if err := m.Err(); !errors.Is(err, context.Canceled) {
+			t.Fatalf("Err() = %v, want context.Canceled", err)
+		}
+		select {
+		case <-a.Stopped():
+		default:
+			t.Fatal("source not stopped after merge context cancel")
+		}
+	})
+}
+
+func TestMergeAcceptSendsDuringAndAfterCloseDoNotPanic(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	sources := make([]*Pump[int], 4)
+	for i := range sources {
+		sources[i] = New[int](ctx, 1)
+	}
+	m := Merge(ctx, 1, sources...)
+	defer m.Cancel()
+	var wg sync.WaitGroup
+	for _, p := range sources {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			for i := range 200 {
+				p.Send(i)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			for i := range 200 {
+				p.TrySendDropOldest(i)
+			}
+		}()
+	}
+	go func() {
+		for range 10 {
+			m.Recv()
+		}
+		m.Fail(errors.New("consumer gave up"))
+	}()
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(waitTimeout):
+		t.Fatal("producers blocked after the merge failed")
+	}
+	for _, ok := m.Recv(); ok; _, ok = m.Recv() {
+	}
+	for _, p := range sources {
+		p.Cancel()
+	}
+}

@@ -252,10 +252,9 @@ var File_flowseer_net_protocol_lldp_v1_port_settings_proto protoreflect.FileDesc
 
 const file_flowseer_net_protocol_lldp_v1_port_settings_proto_rawDesc = "" +
 	"\n" +
-	"1flowseer/net/protocol/lldp/v1/port_settings.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a5flowseer/net/protocol/lldp/v1/port_admin_status.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a,flowseer/net/protocol/lldp/v1/tlv_type.proto\"\x98\x03\n" +
-	"\fPortSettings\x121\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x12Q\n" +
+	"1flowseer/net/protocol/lldp/v1/port_settings.proto\x12\x1dflowseer.net.protocol.lldp.v1\x1a5flowseer/net/protocol/lldp/v1/port_admin_status.proto\x1a+flowseer/net/protocol/lldp/v1/port_id.proto\x1a,flowseer/net/protocol/lldp/v1/tlv_type.proto\"\x9a\x03\n" +
+	"\fPortSettings\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12Q\n" +
 	"\fadmin_status\x18\x02 \x01(\x0e2..flowseer.net.protocol.lldp.v1.PortAdminStatusR\vadminStatus\x123\n" +
 	"\x15notifications_enabled\x18\x03 \x01(\bR\x14notificationsEnabled\x12b\n" +
 	"\x10transmitted_tlvs\x18\x04 \x03(\x0e2&.flowseer.net.protocol.lldp.v1.TlvTypeB\x0f\xbaH\f\x92\x01\t\x18\x01\"\x05\x82\x01\x02 \x00R\x0ftransmittedTlvs\x12>\n" +

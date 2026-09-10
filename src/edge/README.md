@@ -6,6 +6,7 @@ the customer network — as opposed to the control-plane services in
 
 | Directory | What it is                                                |
 | --------- | --------------------------------------------------------- |
+| `agent`   | The device access agent: enrolls with central, holds its dispatch stream, drives the local-network access lane. `cmd/agent` is its binary |
 | `netpen`  | L2/L3 security audit and attack tool, run by an operator   |
 
 "Edge" names what an application is *designed for*, not only where it ends up
@@ -19,6 +20,10 @@ Shared behavior between an edge application and a service does not live in
 either tree — it belongs in `src/modules/`, which both assemble from.
 
 ## Dependencies
+
+`agent` is in the main module rather than its own, because everything it
+carries — the access lane, the bus, the protocol libraries — the control plane
+carries too. `netpen` is the one that is not.
 
 Edge applications may carry dependencies the control plane must not. `netpen`
 lives in its own Go module for exactly that reason: gopacket and the bubbletea

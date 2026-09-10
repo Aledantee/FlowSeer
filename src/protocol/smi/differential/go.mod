@@ -16,4 +16,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/alecthomas/participle v0.7.1 // indirect
+require (
+	github.com/alecthomas/participle v0.7.1 // indirect
+	google.golang.org/protobuf v1.36.12 // indirect
+)

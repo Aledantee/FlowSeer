@@ -1,0 +1,54 @@
+edition = "2024";
+
+// What AttachBus hands an enrolled edge: the NATS identity it uses to join
+// the integration fabric. Nothing here is a device credential or write
+// authority; those are their own lifecycle in credential.proto.
+package flowseer.api.edge.v1;
+
+import option "buf/validate/validate.proto";
+
+// Empty: the calling edge is the one the assertion names, and an edge
+// attaches its whole self to the bus, never one integration at a time.
+message AttachBusRequest {}
+
+message AttachBusResponse {
+  // The NATS account JWT scoping the edge to its tenant's subject
+  // namespace. Must be present.
+  bytes account_jwt = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 1
+  ];
+  // The NATS user credential (JWT and NKey seed) the edge's embedded leaf
+  // node authenticates with. Must be present.
+  bytes user_credential = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.min_len = 1
+  ];
+  // Logical subject name to the concrete broker subject the edge publishes
+  // on, for example "otel". The leaf carries only what the edge publishes;
+  // the vocabulary of logical names belongs to the module that builds the
+  // leaf node, not to this package. An empty map is valid for an edge
+  // with nothing to publish yet.
+  map<string, string> subjects = 3 [(buf.validate.field).map = {
+    max_pairs: 32
+    keys: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+    values: {
+      string: {
+        min_len: 1
+        max_len: 255
+        pattern: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$"
+      }
+    }
+  }];
+  // Cluster endpoints the leaf node dials, in preference order. At least
+  // one is required.
+  repeated string cluster_urls = 4 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.items.string.min_len = 1
+  ];
+}

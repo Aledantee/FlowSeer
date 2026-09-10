@@ -4,6 +4,7 @@ edition = "2024";
 // every integration that reaches it.
 package flowseer.api.inventory.v1;
 
+import "flowseer/device/policy/v1/handle.proto";
 import "flowseer/net/addr/v1/eui.proto";
 import option "buf/validate/validate.proto";
 
@@ -41,7 +42,24 @@ enum DeviceLifecycle {
   DEVICE_LIFECYCLE_RETIRED = 3;
 }
 
-// The intended definition of one device: what the operator calls it.
+// Who resolves a difference between the device and the configuration
+// FlowSeer holds for it.
+enum DeviceManagementMode {
+  // No mode named. Config rejects the zero value.
+  DEVICE_MANAGEMENT_MODE_UNSPECIFIED = 0;
+  // A person owns the device's configuration. A managed field that changed
+  // without a FlowSeer mutation blocks further mutations until an operator
+  // accepts the observed state, restores the expected one, or replaces the
+  // interrupted intent.
+  DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED = 1;
+  // FlowSeer owns the device's configuration. A managed field that changed
+  // without a FlowSeer mutation is restored by an ordinary sequenced
+  // reconciliation intent.
+  DEVICE_MANAGEMENT_MODE_AUTHORITATIVE = 2;
+}
+
+// The intended definition of one device: what the operator calls it and
+// how its configuration is governed.
 message DeviceConfig {
   // The ref to this device. Must be present.
   DeviceGlobalRef ref = 1 [(buf.validate.field).required = true];
@@ -57,6 +75,18 @@ message DeviceConfig {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 2048
   ];
+  // Who resolves drift between the device and FlowSeer's expected
+  // configuration. Must be present; the zero value is rejected.
+  DeviceManagementMode management_mode = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The access policy governing reads and writes to this device, pinned to
+  // a version. Must be present.
+  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 5 [(buf.validate.field).required = true];
 }
 
 // The observed side of one device: the identity read off the box and the

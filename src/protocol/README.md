@@ -7,6 +7,7 @@ languages those protocols are described in.
 | ---------- | ------------------------------------------------------- |
 | `snmp`     | SNMP v1/v2c/v3 client, table streams, trap reception     |
 | `netconf`  | NETCONF over SSH: datastores, edits, notifications       |
+| `ssh`      | SSH interactive shell: prompts, pagination, evidence     |
 | `restconf` | RESTCONF over HTTP: resources, subscriptions             |
 | `gnmi`     | gNMI: Get, Set, Subscribe                                |
 | `syslog`   | RFC 3164/5424 parsing, encoding, and receivers           |

@@ -35,6 +35,8 @@ type EdgeAssertion struct {
 	xxx_hidden_IssuedAt    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=issued_at,json=issuedAt"`
 	xxx_hidden_ExpiresAt   *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=expires_at,json=expiresAt"`
 	xxx_hidden_Nonce       []byte                 `protobuf:"bytes,5,opt,name=nonce"`
+	xxx_hidden_Procedure   *string                `protobuf:"bytes,6,opt,name=procedure"`
+	xxx_hidden_BodySha256  []byte                 `protobuf:"bytes,7,opt,name=body_sha256,json=bodySha256"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -104,13 +106,30 @@ func (x *EdgeAssertion) GetNonce() []byte {
 	return nil
 }
 
+func (x *EdgeAssertion) GetProcedure() string {
+	if x != nil {
+		if x.xxx_hidden_Procedure != nil {
+			return *x.xxx_hidden_Procedure
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *EdgeAssertion) GetBodySha256() []byte {
+	if x != nil {
+		return x.xxx_hidden_BodySha256
+	}
+	return nil
+}
+
 func (x *EdgeAssertion) SetEdge(v *EdgeGlobalRef) {
 	x.xxx_hidden_Edge = v
 }
 
 func (x *EdgeAssertion) SetAudience(v string) {
 	x.xxx_hidden_Audience = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
 }
 
 func (x *EdgeAssertion) SetIssuedAt(v *timestamppb.Timestamp) {
@@ -126,7 +145,20 @@ func (x *EdgeAssertion) SetNonce(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Nonce = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 7)
+}
+
+func (x *EdgeAssertion) SetProcedure(v string) {
+	x.xxx_hidden_Procedure = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
+func (x *EdgeAssertion) SetBodySha256(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_BodySha256 = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 7)
 }
 
 func (x *EdgeAssertion) HasEdge() bool {
@@ -164,6 +196,20 @@ func (x *EdgeAssertion) HasNonce() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *EdgeAssertion) HasProcedure() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *EdgeAssertion) HasBodySha256() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
 func (x *EdgeAssertion) ClearEdge() {
 	x.xxx_hidden_Edge = nil
 }
@@ -186,6 +232,16 @@ func (x *EdgeAssertion) ClearNonce() {
 	x.xxx_hidden_Nonce = nil
 }
 
+func (x *EdgeAssertion) ClearProcedure() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Procedure = nil
+}
+
+func (x *EdgeAssertion) ClearBodySha256() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_BodySha256 = nil
+}
+
 type EdgeAssertion_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -202,6 +258,14 @@ type EdgeAssertion_builder struct {
 	// 16 random bytes; the verifier refuses a repeat within the validity
 	// window. Must be present.
 	Nonce []byte
+	// The full Connect procedure name this assertion authorizes, for example
+	// "/flowseer.api.edge.v1.EdgeService/Heartbeat". Must be present.
+	Procedure *string
+	// SHA-256 of the uncompressed HTTP request body bytes exactly as
+	// received — for a server-stream open, the Connect-enveloped request
+	// message, since that is what a middleware hashing the body sees on the
+	// wire. Must be present.
+	BodySha256 []byte
 }
 
 func (b0 EdgeAssertion_builder) Build() *EdgeAssertion {
@@ -210,14 +274,22 @@ func (b0 EdgeAssertion_builder) Build() *EdgeAssertion {
 	_, _ = b, x
 	x.xxx_hidden_Edge = b.Edge
 	if b.Audience != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
 		x.xxx_hidden_Audience = b.Audience
 	}
 	x.xxx_hidden_IssuedAt = b.IssuedAt
 	x.xxx_hidden_ExpiresAt = b.ExpiresAt
 	if b.Nonce != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 7)
 		x.xxx_hidden_Nonce = b.Nonce
+	}
+	if b.Procedure != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_Procedure = b.Procedure
+	}
+	if b.BodySha256 != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 7)
+		x.xxx_hidden_BodySha256 = b.BodySha256
 	}
 	return m0
 }
@@ -342,7 +414,7 @@ var File_flowseer_api_edge_v1_assertion_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_assertion_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/api/edge/v1/assertion.proto\x12\x14flowseer.api.edge.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x96\x04\n" +
+	"$flowseer/api/edge/v1/assertion.proto\x12\x14flowseer.api.edge.v1\x1a\x1fflowseer/api/edge/v1/edge.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x80\x05\n" +
 	"\rEdgeAssertion\x12?\n" +
 	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12)\n" +
 	"\baudience\x18\x02 \x01(\tB\r\xbaH\n" +
@@ -351,7 +423,11 @@ const file_flowseer_api_edge_v1_assertion_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\x12 \n" +
 	"\x05nonce\x18\x05 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02h\x10R\x05nonce:\xf2\x01\xbaH\xee\x01\x1a\xeb\x01\n" +
+	"\xbaH\a\xc8\x01\x01z\x02h\x10R\x05nonce\x12;\n" +
+	"\tprocedure\x18\x06 \x01(\tB\x1d\xbaH\x1a\xc8\x01\x01r\x15\x10\x01\x18\x80\x022\x0e^/[^/]+/[^/]+$R\tprocedure\x12+\n" +
+	"\vbody_sha256\x18\a \x01(\fB\n" +
+	"\xbaH\a\xc8\x01\x01z\x02h R\n" +
+	"bodySha256:\xf2\x01\xbaH\xee\x01\x1a\xeb\x01\n" +
 	"\x1aedge_assertion.short_lived\x12@an assertion expires after issued_at and within 60 seconds of it\x1a\x8a\x01!has(this.issued_at) || !has(this.expires_at) || (this.expires_at > this.issued_at && this.expires_at - this.issued_at <= duration('60s'))\"h\n" +
 	"\x13SignedEdgeAssertion\x12'\n" +
 	"\apayload\x18\x01 \x01(\fB\r\xbaH\n" +

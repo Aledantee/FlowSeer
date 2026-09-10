@@ -1,0 +1,12 @@
+# flowseer.store.edge.v1.AgentConfig for the lab run.
+#
+# Three lines is a working file. Everything else has a default that says what
+# it does.
+#
+# Note what is not here: where central is, how to trust it, and the key that
+# joins. Those live in the provisioning file this one names, because copying
+# them would make two sources of truth for the same facts with nothing keeping
+# them equal.
+
+state_dir: "/var/lib/flowseer/agent"
+provisioning_path: "/etc/flowseer/provisioning.textproto"

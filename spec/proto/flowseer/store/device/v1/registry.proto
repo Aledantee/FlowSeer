@@ -1,0 +1,112 @@
+edition = "2024";
+
+// The device service's registry: the devices it serves, the edge and
+// integration that reach them, and the policies their handles resolve to.
+// Read from an operator-written prototext file until an inventory service
+// exists. Storage, not a boundary, and not an entity: no triad, no ref
+// pair.
+package flowseer.store.device.v1;
+
+import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/api/inventory/v1/binding.proto";
+import "flowseer/api/inventory/v1/device.proto";
+import "flowseer/api/inventory/v1/integration.proto";
+import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+message DeviceRegistry {
+  option (buf.validate.message).cel = {
+    id: "device_registry.device_refs_unique"
+    message: "each device appears once"
+    expression: "this.devices.map(d, d.config.ref.device.id).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "device_registry.policy_keys_unique"
+    message: "each policy key appears once"
+    expression: "this.policies.map(p, p.handle.key).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "device_registry.device_policies_listed"
+    message: "every device's access policy names a listed policy version"
+    expression: "this.devices.all(d, this.policies.exists(p, p.handle.key == d.config.access_policy.key && p.handle.version == d.config.access_policy.version))"
+  };
+
+  // Must be present.
+  RegistryIntegration integration = 1 [(buf.validate.field).required = true];
+  repeated RegistryDevice devices = 2 [(buf.validate.field).repeated.max_items = 4096];
+  repeated RegistryPolicy policies = 3 [(buf.validate.field).repeated.max_items = 4096];
+}
+
+// The one local-network integration this service serves and the edge that
+// hosts it.
+message RegistryIntegration {
+  // Must be present.
+  flowseer.api.inventory.v1.IntegrationGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Must be present.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 2 [(buf.validate.field).required = true];
+}
+
+// One device the service serves: its configuration, the binding that
+// reaches it, and what the edge needs to open a session.
+message RegistryDevice {
+  // Must be present.
+  flowseer.api.inventory.v1.DeviceConfig config = 1 [(buf.validate.field).required = true];
+  // The binding through the registry's integration. Must be present.
+  flowseer.api.inventory.v1.BindingGlobalRef binding = 2 [(buf.validate.field).required = true];
+  // The management address. Must be present.
+  flowseer.net.addr.v1.IpAddress ip = 3 [(buf.validate.field).required = true];
+  // Unset means 161.
+  uint32 snmp_port = 4 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // Unset means 22.
+  uint32 ssh_port = 5 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // The longest a mutation may take to become visible to a fresh read,
+  // measured on the fixture. Unset means unmeasured, and a mutation is
+  // refused until it is set — centrally, and again by the edge the device
+  // is listed to. Reads are unaffected.
+  google.protobuf.Duration delayed_apply_horizon = 6 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // The interfaces central holds an expected description for and polls
+  // for drift, by the name the device spells. Empty means none.
+  repeated string managed_interfaces = 7 [(buf.validate.field).repeated = {
+    max_items: 256
+    unique: true
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+        pattern: "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
+      }
+    }
+  }];
+}
+
+// What one access-policy handle resolves to: which credential versions to
+// deliver and which host key to require.
+message RegistryPolicy {
+  // Must be present.
+  flowseer.device.policy.v1.AccessPolicyHandle handle = 1 [(buf.validate.field).required = true];
+  // The credential delivered for reads and the onboarding probe. Must be
+  // present.
+  flowseer.device.policy.v1.CredentialHandle read_credential = 2 [(buf.validate.field).required = true];
+  // The credential delivered in a submission grant. Must be present.
+  flowseer.device.policy.v1.CredentialHandle submission_credential = 3 [(buf.validate.field).required = true];
+  // The host trust version the edge is told to require. Must be present.
+  flowseer.device.policy.v1.HostTrustHandle host_trust = 4 [(buf.validate.field).required = true];
+  // The device's SSH host key as "SHA256:" followed by the unpadded base64
+  // digest, the one spelling ssh-keygen and the Go ssh package produce;
+  // the material of host_trust, delivered verbatim. Must be present.
+  string ssh_host_key_sha256 = 5 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^SHA256:[A-Za-z0-9+/]{43}$"
+  ];
+  // How long a delivered read credential stays valid. Unset means five
+  // minutes.
+  google.protobuf.Duration read_credential_ttl = 6 [(buf.validate.field).duration.gte = {seconds: 1}];
+}

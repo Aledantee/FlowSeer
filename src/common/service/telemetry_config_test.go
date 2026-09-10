@@ -190,6 +190,38 @@ func TestPreflightExplicitTelemetryConfigOverridesEnvironment(t *testing.T) {
 	}
 }
 
+// TestCompressionNoneOverridesTheEnvironment covers the one way a service can
+// say "not compressed" rather than "unset". Empty defers to
+// OTEL_EXPORTER_OTLP_COMPRESSION, so a host whose collector cannot accept a
+// compressed body — one exporting into a receiver that forwards the bytes
+// verbatim — has no way to hold the line without this. It is also the word
+// the OTLP specification itself uses, so refusing it failed startup for a
+// deployment that spelled the default out.
+func TestCompressionNoneOverridesTheEnvironment(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		configured  string
+		environment string
+	}{
+		{name: "configured over gzip in the environment", configured: "none", environment: "gzip"},
+		{name: "from the environment", environment: "none"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := preflight(context.Background(), Config{
+				Identity:  testIdentity(),
+				Setup:     testSetup(),
+				Telemetry: TelemetryConfig{Endpoint: "http://127.0.0.1:4318", Compression: tc.configured},
+			}, mapLookup(map[string]string{"OTEL_EXPORTER_OTLP_COMPRESSION": tc.environment}))
+			if err != nil {
+				t.Fatalf("preflight() error: %v", err)
+			}
+			if compression := got.telemetry.connection.compression; compression != "" {
+				t.Errorf("compression = %q, want it disabled", compression)
+			}
+		})
+	}
+}
+
 func TestPreflightRejectsTransportReservedTelemetryHeaders(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -444,6 +476,7 @@ func TestPreflightTelemetryConfigErrorsAreBoundedAndNonleaking(t *testing.T) {
 		{name: "bad timeout", env: map[string]string{"OTEL_EXPORTER_OTLP_TIMEOUT": secret}, setting: "OTEL_EXPORTER_OTLP_TIMEOUT", category: "malformed"},
 		{name: "timeout too large", config: TelemetryConfig{Timeout: 31 * time.Second}, setting: "Telemetry.Timeout", category: "out_of_range"},
 		{name: "bad compression", config: TelemetryConfig{Compression: secret}, setting: "Telemetry.Compression", category: "unsupported"},
+		{name: "misspelled disabled compression", config: TelemetryConfig{Compression: "off"}, setting: "Telemetry.Compression", category: "unsupported"},
 		{name: "bad protocol", config: TelemetryConfig{Protocol: "http/json"}, setting: "Telemetry.Protocol", category: "unsupported"},
 		{name: "incomplete TLS", config: TelemetryConfig{ClientCertificateFile: secret}, setting: "Telemetry.ClientTLS", category: "incomplete"},
 		{name: "bad CA certificate", config: TelemetryConfig{CertificateFile: "/missing/" + secret}, setting: "Telemetry.CertificateFile", category: "unreadable"},

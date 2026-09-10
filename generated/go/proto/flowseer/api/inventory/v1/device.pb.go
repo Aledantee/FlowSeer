@@ -10,7 +10,8 @@
 package inventoryv1
 
 import (
-	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
+	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -80,6 +81,60 @@ func (DeviceLifecycle) Type() protoreflect.EnumType {
 }
 
 func (x DeviceLifecycle) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Who resolves a difference between the device and the configuration
+// FlowSeer holds for it.
+type DeviceManagementMode int32
+
+const (
+	// No mode named. Config rejects the zero value.
+	DeviceManagementMode_DEVICE_MANAGEMENT_MODE_UNSPECIFIED DeviceManagementMode = 0
+	// A person owns the device's configuration. A managed field that changed
+	// without a FlowSeer mutation blocks further mutations until an operator
+	// accepts the observed state, restores the expected one, or replaces the
+	// interrupted intent.
+	DeviceManagementMode_DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED DeviceManagementMode = 1
+	// FlowSeer owns the device's configuration. A managed field that changed
+	// without a FlowSeer mutation is restored by an ordinary sequenced
+	// reconciliation intent.
+	DeviceManagementMode_DEVICE_MANAGEMENT_MODE_AUTHORITATIVE DeviceManagementMode = 2
+)
+
+// Enum value maps for DeviceManagementMode.
+var (
+	DeviceManagementMode_name = map[int32]string{
+		0: "DEVICE_MANAGEMENT_MODE_UNSPECIFIED",
+		1: "DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED",
+		2: "DEVICE_MANAGEMENT_MODE_AUTHORITATIVE",
+	}
+	DeviceManagementMode_value = map[string]int32{
+		"DEVICE_MANAGEMENT_MODE_UNSPECIFIED":      0,
+		"DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED": 1,
+		"DEVICE_MANAGEMENT_MODE_AUTHORITATIVE":    2,
+	}
+)
+
+func (x DeviceManagementMode) Enum() *DeviceManagementMode {
+	p := new(DeviceManagementMode)
+	*p = x
+	return p
+}
+
+func (x DeviceManagementMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (DeviceManagementMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_api_inventory_v1_device_proto_enumTypes[1].Descriptor()
+}
+
+func (DeviceManagementMode) Type() protoreflect.EnumType {
+	return &file_flowseer_api_inventory_v1_device_proto_enumTypes[1]
+}
+
+func (x DeviceManagementMode) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
@@ -233,16 +288,19 @@ func (b0 DeviceGlobalRef_builder) Build() *DeviceGlobalRef {
 	return m0
 }
 
-// The intended definition of one device: what the operator calls it.
+// The intended definition of one device: what the operator calls it and
+// how its configuration is governed.
 type DeviceConfig struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Description *string                `protobuf:"bytes,3,opt,name=description"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                     protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref            *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Name           *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Description    *string                `protobuf:"bytes,3,opt,name=description"`
+	xxx_hidden_ManagementMode DeviceManagementMode   `protobuf:"varint,4,opt,name=management_mode,json=managementMode,enum=flowseer.api.inventory.v1.DeviceManagementMode"`
+	xxx_hidden_AccessPolicy   *v1.AccessPolicyHandle `protobuf:"bytes,5,opt,name=access_policy,json=accessPolicy"`
+	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
+	XXX_presence              [1]uint32
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *DeviceConfig) Reset() {
@@ -297,18 +355,43 @@ func (x *DeviceConfig) GetDescription() string {
 	return ""
 }
 
+func (x *DeviceConfig) GetManagementMode() DeviceManagementMode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
+			return x.xxx_hidden_ManagementMode
+		}
+	}
+	return DeviceManagementMode_DEVICE_MANAGEMENT_MODE_UNSPECIFIED
+}
+
+func (x *DeviceConfig) GetAccessPolicy() *v1.AccessPolicyHandle {
+	if x != nil {
+		return x.xxx_hidden_AccessPolicy
+	}
+	return nil
+}
+
 func (x *DeviceConfig) SetRef(v *DeviceGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
 func (x *DeviceConfig) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *DeviceConfig) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *DeviceConfig) SetManagementMode(v DeviceManagementMode) {
+	x.xxx_hidden_ManagementMode = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *DeviceConfig) SetAccessPolicy(v *v1.AccessPolicyHandle) {
+	x.xxx_hidden_AccessPolicy = v
 }
 
 func (x *DeviceConfig) HasRef() bool {
@@ -332,6 +415,20 @@ func (x *DeviceConfig) HasDescription() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *DeviceConfig) HasManagementMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *DeviceConfig) HasAccessPolicy() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_AccessPolicy != nil
+}
+
 func (x *DeviceConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -346,6 +443,15 @@ func (x *DeviceConfig) ClearDescription() {
 	x.xxx_hidden_Description = nil
 }
 
+func (x *DeviceConfig) ClearManagementMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ManagementMode = DeviceManagementMode_DEVICE_MANAGEMENT_MODE_UNSPECIFIED
+}
+
+func (x *DeviceConfig) ClearAccessPolicy() {
+	x.xxx_hidden_AccessPolicy = nil
+}
+
 type DeviceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -357,6 +463,12 @@ type DeviceConfig_builder struct {
 	// Free-text description of the device. Unset means none was provided.
 	// When set, must not be empty.
 	Description *string
+	// Who resolves drift between the device and FlowSeer's expected
+	// configuration. Must be present; the zero value is rejected.
+	ManagementMode *DeviceManagementMode
+	// The access policy governing reads and writes to this device, pinned to
+	// a version. Must be present.
+	AccessPolicy *v1.AccessPolicyHandle
 }
 
 func (b0 DeviceConfig_builder) Build() *DeviceConfig {
@@ -365,13 +477,18 @@ func (b0 DeviceConfig_builder) Build() *DeviceConfig {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_Description = b.Description
 	}
+	if b.ManagementMode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		x.xxx_hidden_ManagementMode = *b.ManagementMode
+	}
+	x.xxx_hidden_AccessPolicy = b.AccessPolicy
 	return m0
 }
 
@@ -383,7 +500,7 @@ type DeviceState struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
 	xxx_hidden_Serial      *string                `protobuf:"bytes,2,opt,name=serial"`
-	xxx_hidden_BaseMac     *v1.Eui48Address       `protobuf:"bytes,3,opt,name=base_mac,json=baseMac"`
+	xxx_hidden_BaseMac     *v11.Eui48Address      `protobuf:"bytes,3,opt,name=base_mac,json=baseMac"`
 	xxx_hidden_Lifecycle   DeviceLifecycle        `protobuf:"varint,4,opt,name=lifecycle,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -433,7 +550,7 @@ func (x *DeviceState) GetSerial() string {
 	return ""
 }
 
-func (x *DeviceState) GetBaseMac() *v1.Eui48Address {
+func (x *DeviceState) GetBaseMac() *v11.Eui48Address {
 	if x != nil {
 		return x.xxx_hidden_BaseMac
 	}
@@ -458,7 +575,7 @@ func (x *DeviceState) SetSerial(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *DeviceState) SetBaseMac(v *v1.Eui48Address) {
+func (x *DeviceState) SetBaseMac(v *v11.Eui48Address) {
 	x.xxx_hidden_BaseMac = v
 }
 
@@ -523,7 +640,7 @@ type DeviceState_builder struct {
 	Serial *string
 	// Chassis base MAC as the device reports it. Unset means the device does
 	// not expose one.
-	BaseMac *v1.Eui48Address
+	BaseMac *v11.Eui48Address
 	// The device's lifecycle. Must be present; the zero value is rejected.
 	Lifecycle *DeviceLifecycle
 }
@@ -689,17 +806,20 @@ var File_flowseer_api_inventory_v1_device_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\"-\n" +
+	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1eflowseer/net/addr/v1/eui.proto\"-\n" +
 	"\x0eDeviceLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\\\n" +
 	"\x0fDeviceGlobalRef\x12I\n" +
-	"\x06device\x18\x01 \x01(\v2).flowseer.api.inventory.v1.DeviceLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xa2\x01\n" +
+	"\x06device\x18\x01 \x01(\v2).flowseer.api.inventory.v1.DeviceLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xe7\x02\n" +
 	"\fDeviceConfig\x12D\n" +
 	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x04name\x12,\n" +
 	"\vdescription\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\"\x8e\x02\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12g\n" +
+	"\x0fmanagement_mode\x18\x04 \x01(\x0e2/.flowseer.api.inventory.v1.DeviceManagementModeB\r\xbaH\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x0emanagementMode\x12Z\n" +
+	"\raccess_policy\x18\x05 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\x8e\x02\n" +
 	"\vDeviceState\x12D\n" +
 	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12!\n" +
 	"\x06serial\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x06serial\x12=\n" +
@@ -717,34 +837,42 @@ const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\x1cDEVICE_LIFECYCLE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17DEVICE_LIFECYCLE_ACTIVE\x10\x01\x12\x1c\n" +
 	"\x18DEVICE_LIFECYCLE_MISSING\x10\x02\x12\x1c\n" +
-	"\x18DEVICE_LIFECYCLE_RETIRED\x10\x03B\x85\x02\n" +
+	"\x18DEVICE_LIFECYCLE_RETIRED\x10\x03*\x95\x01\n" +
+	"\x14DeviceManagementMode\x12&\n" +
+	"\"DEVICE_MANAGEMENT_MODE_UNSPECIFIED\x10\x00\x12+\n" +
+	"'DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED\x10\x01\x12(\n" +
+	"$DEVICE_MANAGEMENT_MODE_AUTHORITATIVE\x10\x02B\x85\x02\n" +
 	"\x1dcom.flowseer.api.inventory.v1B\vDeviceProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1;inventoryv1\xa2\x02\x03FAI\xaa\x02\x19Flowseer.Api.Inventory.V1\xca\x02\x19Flowseer\\Api\\Inventory\\V1\xe2\x02%Flowseer\\Api\\Inventory\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Api::Inventory::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_inventory_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_api_inventory_v1_device_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_flowseer_api_inventory_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_flowseer_api_inventory_v1_device_proto_goTypes = []any{
-	(DeviceLifecycle)(0),    // 0: flowseer.api.inventory.v1.DeviceLifecycle
-	(*DeviceLocalRef)(nil),  // 1: flowseer.api.inventory.v1.DeviceLocalRef
-	(*DeviceGlobalRef)(nil), // 2: flowseer.api.inventory.v1.DeviceGlobalRef
-	(*DeviceConfig)(nil),    // 3: flowseer.api.inventory.v1.DeviceConfig
-	(*DeviceState)(nil),     // 4: flowseer.api.inventory.v1.DeviceState
-	(*DeviceEvent)(nil),     // 5: flowseer.api.inventory.v1.DeviceEvent
-	(*v1.Eui48Address)(nil), // 6: flowseer.net.addr.v1.Eui48Address
+	(DeviceLifecycle)(0),          // 0: flowseer.api.inventory.v1.DeviceLifecycle
+	(DeviceManagementMode)(0),     // 1: flowseer.api.inventory.v1.DeviceManagementMode
+	(*DeviceLocalRef)(nil),        // 2: flowseer.api.inventory.v1.DeviceLocalRef
+	(*DeviceGlobalRef)(nil),       // 3: flowseer.api.inventory.v1.DeviceGlobalRef
+	(*DeviceConfig)(nil),          // 4: flowseer.api.inventory.v1.DeviceConfig
+	(*DeviceState)(nil),           // 5: flowseer.api.inventory.v1.DeviceState
+	(*DeviceEvent)(nil),           // 6: flowseer.api.inventory.v1.DeviceEvent
+	(*v1.AccessPolicyHandle)(nil), // 7: flowseer.device.policy.v1.AccessPolicyHandle
+	(*v11.Eui48Address)(nil),      // 8: flowseer.net.addr.v1.Eui48Address
 }
 var file_flowseer_api_inventory_v1_device_proto_depIdxs = []int32{
-	1, // 0: flowseer.api.inventory.v1.DeviceGlobalRef.device:type_name -> flowseer.api.inventory.v1.DeviceLocalRef
-	2, // 1: flowseer.api.inventory.v1.DeviceConfig.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
-	2, // 2: flowseer.api.inventory.v1.DeviceState.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
-	6, // 3: flowseer.api.inventory.v1.DeviceState.base_mac:type_name -> flowseer.net.addr.v1.Eui48Address
-	0, // 4: flowseer.api.inventory.v1.DeviceState.lifecycle:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	2, // 5: flowseer.api.inventory.v1.DeviceEvent.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
-	0, // 6: flowseer.api.inventory.v1.DeviceEvent.from:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	0, // 7: flowseer.api.inventory.v1.DeviceEvent.to:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	2,  // 0: flowseer.api.inventory.v1.DeviceGlobalRef.device:type_name -> flowseer.api.inventory.v1.DeviceLocalRef
+	3,  // 1: flowseer.api.inventory.v1.DeviceConfig.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	1,  // 2: flowseer.api.inventory.v1.DeviceConfig.management_mode:type_name -> flowseer.api.inventory.v1.DeviceManagementMode
+	7,  // 3: flowseer.api.inventory.v1.DeviceConfig.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
+	3,  // 4: flowseer.api.inventory.v1.DeviceState.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	8,  // 5: flowseer.api.inventory.v1.DeviceState.base_mac:type_name -> flowseer.net.addr.v1.Eui48Address
+	0,  // 6: flowseer.api.inventory.v1.DeviceState.lifecycle:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	3,  // 7: flowseer.api.inventory.v1.DeviceEvent.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	0,  // 8: flowseer.api.inventory.v1.DeviceEvent.from:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	0,  // 9: flowseer.api.inventory.v1.DeviceEvent.to:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_device_proto_init() }
@@ -757,7 +885,7 @@ func file_flowseer_api_inventory_v1_device_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_inventory_v1_device_proto_rawDesc), len(file_flowseer_api_inventory_v1_device_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,

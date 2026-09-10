@@ -8,7 +8,8 @@ under `src/modules/`; the admission rule is in [that README](../README.md).
 | Package   | What it does                                                          |
 | --------- | --------------------------------------------------------------------- |
 | `collect` | the mapper contract, detection, and the per-device collection cycle   |
-| `snmpmap` | the mappers: IF-MIB interfaces, LLDP-MIB neighbors and ports, and the physical-layer and transceiver MIBs; the physical mapper still walks on its own session and gets its `collect.Spec` with the first host |
+| `snmpmap` | the mappers: IF-MIB interfaces, LLDP-MIB neighbors and ports, and the physical-layer and transceiver MIBs; the physical mapper's EtherLike, MAU, and Power-Ethernet tables share a cycle through `collect.Spec` the way the interface mapper's do, and only its vendor transceiver-diagnostics walk still reads its own session directly |
+| `access`  | the device-access capabilities: typed SNMP and SSH reads and mutations for one device family per capability, reported as `flowseer.device.access.v1` observations |
 
 The module is a library today. Both hosts the direction record names will
 assemble it: the edge agent that polls devices inside a site's network, and the

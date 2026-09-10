@@ -150,6 +150,16 @@ message EdgeState {
   google.protobuf.Timestamp enrolled_at = 6;
   // When the last authenticated call arrived. Unset means never enrolled.
   google.protobuf.Timestamp last_seen_at = 7;
+  // The edge agent's build version, as its last heartbeat reported it. Unset
+  // means no heartbeat has arrived.
+  string agent_version = 8 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Since when the edge has been holding data it could not deliver, as its
+  // last heartbeat reported. Unset means the last heartbeat reported nothing
+  // buffered.
+  google.protobuf.Timestamp buffering_since = 9;
 }
 
 // One transition of an edge's lifecycle.

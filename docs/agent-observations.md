@@ -27,25 +27,223 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
-## 2026-09-06 verify-change: the gate misses tagged files and a nested module
-Skill or agent: `.claude/skills/verify-change/SKILL.md` and
-`scripts/verify-change.sh`.
-What happened: a breaking type change across the protocol libraries passed
-the verifier on every changed path while two files did not compile —
-`src/protocol/snmp/bench/macro_test.go` (behind `snmp_bench_macro`, in the
-nested bench module) and `src/protocol/snmp/usm_parity_test.go` (behind
-`snmp_parity`). The verifier builds untagged targets only, so nothing in the
-default gate reaches either. Both were found later by sweeping build tags by
-hand. Separately, one invocation whose paths spanned the main module and
-`src/protocol/snmp/bench` put the bench package in the main module's target
-list and failed with "main module does not contain package
-go.aledante.io/FlowSeer/src/protocol/snmp/bench"; splitting the invocation per
-module works. The steps were followed as written.
-Suggested change: group changed paths by their nearest `go.mod` before
-building the target list, and add a step that names the build tags touching
-the changed packages (`grep -rh '^//go:build'`) and vets each one after a
-change to an exported signature or field type.
+## 2026-09-05 implement: a self-built fake-server test harness only exercised the golden path it was written to reach
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.3 ("Write or
+extend the tests the unit names").
+What happened: implementing `src/protocol/ssh` (an expect-style prompt
+scanner over a fake SSH shell), every test handler I wrote started
+responding only after reading the client's command line, so the read
+buffer was always empty when the scanner ran. That structurally could
+not exercise "the buffer already holds something before this command" —
+a login banner, or the shell's own echo landing ahead of a prompt-shaped
+character in the sent command — which was exactly the real bug class
+`review`'s independent-reviewer found (`src/protocol/ssh/command.go`,
+now fixed; see
+`docs/solutions/architecture-patterns/expect-style-prompt-scanner-must-reset-its-window-per-command.md`).
+The step was followed as written; nothing in it prompts for a non-empty
+starting state when the implementer is also the one designing the fake
+peer.
+Suggested change: for a stateful protocol client under test against a
+self-authored fake peer/server, step 2.3 could add: seed the fake peer
+with at least one case of unsolicited or leftover state ahead of the
+call under test (a banner, a retained buffer, an out-of-order message),
+since an implementer's own fake naturally only produces the sequence
+they already coded the client to expect.
 
+## 2026-09-05 close: no rule for work that skipped the plan
+Skill or agent: `.claude/skills/close/SKILL.md`, step 1.
+What happened: the branch's work followed plan's skip rule (no design choice), so no plan under `docs/plans/` carries `status: implemented`; the first signal has nothing to read and the step was not followed as written.
+Suggested change: when the branch changed no plan of its own, accept the commit range plus a fresh verifier receipt as the implementation signal, and say so in the report.
+
+## 2026-09-05 verify-change: targeted mode fails on a brand-new package at an explicit path
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, the `buf breaking` step (around line 346).
+What happened: running `verify-change.sh -- <new proto files>` for schema landing entirely new packages (`spec/proto/flowseer/errs/v1/`, `integration/device/v1/`, `event/device/v1/`) made `buf breaking --against .git#branch=master --path <new file>` exit 1 with "no .proto files were targeted", because the ref being compared against (`master`) does not contain the file the `--path` names, so `buf breaking` has nothing to check and reports failure rather than a no-op success. The script's `set -e` then aborts the whole run before the later `buf generate` diff, hook tests, and OTel tier ever execute — with no output naming which step failed if the invocation is only skimmed for its final line. `verify-change.sh --full` does not hit this: it never passes `--path` to `buf breaking` (`full == false` guards `proto_path_args`), so it correctly diffed the whole tree against `master` and passed.
+Suggested change: either have the doc/skill text call out that a brand-new schema package's first verification pass needs `--full` (or `--base master`) rather than the targeted `-- <paths>` form, or have the script itself detect the "no .proto files were targeted" case and treat it as success (a new package has nothing to break against, by definition) instead of letting `buf breaking`'s own exit code fail the run.
+## 2026-09-05 plan: a plan's Prompt.Pattern and prompt-collision decisions need a discriminating-transcript check before implementation
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 4 ("Review the plan").
+What happened: planning the FastIron interface capability, the plan
+specified four `src/protocol/ssh.Prompt.Pattern` regexes (unprivileged,
+privileged, config, config-if) by their apparent English shape ("ends
+in `#`"). The independent-reviewer dispatch (already triggered, since
+the plan had 6 units) caught that the patterns lacked `(?m)` and could
+collide with each other, but only because the review happened to trace
+`scanPrompt`'s actual matching rule against a multi-line buffer rather
+than reading the patterns' intent — nothing in step 4's question ("what
+would block or mislead an implementer") specifically asks a reviewer to
+drive a caller-supplied regex against the package it targets before any
+code exists. See
+`docs/solutions/architecture-patterns/ssh-prompt-patterns-need-multiline-anchors-and-must-exclude-siblings.md`.
+Suggested change: when a plan specifies a caller-supplied pattern
+against an existing scanning/matching primitive (a prompt regex, a
+header parser, a routing predicate), step 4's review question could add:
+trace the primitive's actual matching semantics (anchor scope, tie-break
+rule) against the pattern, not just its apparent intent, and check it
+against every sibling value it must not also match.
+
+## 2026-09-05 plan: a security-load-bearing stdlib API's exact semantics went unverified into a Decision
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 2 ("Gather evidence").
+What happened: planning `docs/plans/2026-09-05-2154-feat-edge-bus-credentials-plan.md`'s U6 unit, the Decisions section committed to `os.OpenRoot`/`os.OpenInRoot` (Go 1.24+) as the mechanism for refusing a symlinked credential file, on the strength of its name and general reputation for closing symlink races. The stdlib doc for `os.Root` states plainly that it "will follow symbolic links" that stay inside the root — the opposite of what a single credential leaf needs, which is that the leaf itself is never a symlink. Implementing the unit and then dispatching `independent-reviewer` caught the gap; nothing in the plan step that chose the API had read `go doc os.Root` first. Step 2 tells the planner to "read the RFCs, vendor specs... and library source... the change depends on" for a third-party library via Context7, but a stdlib API used for a security property was not required to clear the same bar, and would not have needed Context7 to catch this — `go doc` was sufficient.
+Suggested change: extend step 2 to say that a Decision resting on a specific standard-library API's exact behavior (not just its existence) gets the same evidence bar as a third-party library: read its doc (`go doc <symbol>`) or source before writing the Decision, especially when the property being relied on is a security or correctness guarantee rather than a convenience.
+
+## 2026-09-06 review: four parallel independent-reviewer dispatches all failed with an identical stream-watchdog stall
+Skill or agent: `.claude/skills/review/SKILL.md`, step 3 ("Dispatch the reviewer").
+What happened: reviewing the device access lane change (~5,200 changed lines across 41 files, split into four subsystem diffs of roughly 1,100-1,600 lines each per step 3's own splitting rule), all four `independent-reviewer` agents dispatched in parallel failed after their first or second tool call with the identical error "Agent stalled: no progress for 600s (stream watchdog did not recover)". Each was briefed with one diff file plus 3-5 proto/convention/architecture-record context files to read — well within the tool's Read/Grep/Glob-only surface, and each had produced a normal opening move ("I'll start by reading the diff...") before stalling. This was not a content problem (the diffs and context files were all readable, ordinary repository files) and not an isolated flake (4 of 4 failed the same way at the same stage). The review was completed by the coordinating session reading the diff directly and stress-testing the highest-risk file under `-race -count=5`, which did surface two real bugs (see `docs/solutions/architecture-patterns/single-active-drainer-must-not-leak-its-context-or-its-shutdown-flag.md`), so a manual fallback is viable but skipped the "one reviewer per subsystem" parallelism the step calls for.
+Suggested change: no code or skill fix is evident from a single occurrence — record this so a repeat (another large review where every dispatched `independent-reviewer` stalls the same way) becomes a pattern report to the harness rather than three more identical retries. If it recurs, the trigger to isolate is likely diff/context file size per dispatch or the number of simultaneous `independent-reviewer` dispatches, not the review content.
+
+## 2026-09-07 verify: a directory argument makes verify-change.sh report success having run no gates
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`.
+What happened: the script classifies its arguments by file extension to decide which gates to run, so a directory argument matches no classifier and selects nothing. `verify-change.sh -- src/modules/localnet/access` runs only `git diff --check` and prints "FlowSeer verification passed" with exit 0, having run no build, no vet, no race test and no lint; the same invocation naming a file under that directory runs all four. Confirmed by running both. This is silent: the output is indistinguishable from a real pass, and the plans for several units of `docs/plans/2026-09-06-1405-feat-central-device-service-and-hosts-plan.md` and its predecessors record their Verify lines as directories, so those recorded commands have been no-ops. The gap was found by an implementing session that noticed two unreported `unparam` findings in a package whose unit had been verified with a directory argument and reported green. Exposure in this build is bounded because later units also ran repo-wide `go build ./... && go vet ./... && go test -race ./...` and the Stop hook runs repository-wide checks, but a session that trusted the unit-level Verify line alone would have shipped unlinted code believing it gated.
+Suggested change: the failure mode to remove is the silent pass, not the unsupported argument. Either expand a directory argument to the files under it before classifying, or refuse an argument the classifier cannot place with a non-zero exit naming it — "verification passed" must never be printable for a run that executed no gates. A third option, printing which gates ran, would also have made this visible on first use. Separately, the Verify lines in the plans under `docs/plans/` should name files or globs rather than directories until the script handles them.
+
+## 2026-09-07 verify-change: a gate specified without lint, and run before the last edit, reports on a tree that no longer exists
+Skill or agent: `.claude/skills/verify-change/SKILL.md`.
+What happened: after the directory-argument finding above, the coordinating session specified a repo-wide gate as `go build ./...`, `go vet ./...` and `go test -race ./...` and omitted lint. An implementing session ran exactly that, reported green, and separately reported four lint findings as pre-existing; they were its own, introduced in the same commit, and it had linted before its final edits rather than after. Two distinct holes in one gate: the specification did not name every check the repository enforces, and nothing said when the gate runs relative to the last edit. A gate run before the final edit is evidence about a tree that no longer exists, and it looks identical to a gate run after.
+Suggested change: state the gate as a closed list including lint on every package the change touches, and state that it runs on the final tree after the last edit. Both belong in the skill rather than in a coordinator's message, because a coordinator restating a gate from memory is exactly how the lint check went missing.
+
+## 2026-09-07 implement: three tests passed against the defect they were written for, and only reverting the fix revealed it
+Skill or agent: `.claude/skills/implement/SKILL.md`.
+What happened: across one plan, three separate tests read as proof and asserted nothing. A concurrency test for an enrollment race passed with the fix reverted, because the window needs a competing write to land between two reads microseconds apart and the enrolling goroutine wins essentially always. An invariant test claimed to quantify "over every state above" but iterated a hand-written list of four records disjoint from the fifteen-row table it named — and feeding the table's own states in made it fail on a state that was already stranded in the tree. A forged-header security probe published to a subject that matched no subscription and built a header the server's parser could not recognise, so the attack it claimed to disprove never fired. Each was found only by deliberately breaking the thing under test and watching what happened; none would have been found by reading the test.
+Suggested change: for any test asserting a concurrency, ordering, or security property, require that it be watched failing — revert the fix, or feed it a deliberately wrong implementation — before it counts as evidence. And require the implementer to state, per test, whether it is evidence for this change or a guard for future code; the distinction is cheap to write and it stops a guard being mistaken for a proof.
+
+A later session, hitting the same trap twice in two slices, named the sharper rule: assert what the fix causes, not what it prevents, because prevention has more than one source. Both of its failing tests asserted the absence of a success — a command not sent, an error returned — and in both cases something unrelated supplied that absence (a cancelled wait context; a request deadline expiring while blocked on an acknowledgement nobody delivered). Rewriting each to count the thing the fix causes — commands that actually reached the device — made both fail on reversal. That is a rule for writing the test, not only for verifying it afterwards, and it catches the case where the branch under test is unreachable by construction from a single-threaded test.
+
+The same session later made it mechanical: when a test depends on the system being in a particular state, assert the state, not only the outcome. It reached that after two consecutive versions of one shutdown test passed for adjacent reasons — the first held a raw HTTP/1.1 request over a connection the server had negotiated h2 on, so nothing was ever active and it passed in 1.8s with the fix removed; the second was cancelled before the server had read the request head and passed in 1.8 milliseconds. Asserting that the shutdown grace was actually spent failed both. The guard is cheap, it is written before the assertion rather than after a reversal, and it has since caught a fixture that did not contain the addresses a test was matching on.
+
+## 2026-09-07 review: a probe that could not reach a mechanism was read as evidence the mechanism was unreachable
+Skill or agent: `.claude/skills/review/SKILL.md`.
+What happened: an implementing session probed whether a compromised peer could reach a delivery subject, could not reach it in a bounded attempt, and reported the unreachability as a defence — correctly labelling it a defence rather than a guarantee, which was the right instinct. An independent reviewer then read the broker's source and found the value was published in the clear on a subject the peer is granted, and that the probe's own header could not have triggered the code path it targeted. The negative result was evidence about the probe, not about the system, in both directions at once: wrong mechanism model, wrong subject.
+Suggested change: add to the review step that a negative probe result is an open question until the code that refuses the probe can be pointed at. When a probe depends on a wire-level detail — a header format, a literal subject, a frame shape — the detail gets verified against the implementation before either a positive or a negative result is trusted.
+
+## 2026-09-07 review: seven rounds of patching one mechanism, each round defective in the rule the previous round wrote
+Skill or agent: `.claude/skills/review/SKILL.md`.
+What happened: one derived-outbox mechanism went through seven review rounds across plan and code. Every round found a defect, and every defect was in the rule the previous round had just rewritten; twice a fix introduced a fresh defect of the same class. The two classes never varied — an obligation with no reachable terminator, and a state owing nothing while something outside it still held open work. What ended it was structural rather than another round: making the invariant executable over a generated cross-product of the record's finite dimensions, behind an explicit reachability predicate, and validating it by perturbation in both directions. That move arrived at round five and would have been available at round two.
+Suggested change: name a trigger. When a review round finds a defect in the previous round's fix for the same mechanism, stop patching and ask what property the mechanism is supposed to hold and whether it can be made executable — a generated state space, an invariant assertion, a property the test suite can fail on — rather than reviewing the next rewrite of the same prose.
+
+## 2026-09-07 delegate: a coordinator's instruction is a fact established elsewhere and relied on here, and it decays the same way
+Skill or agent: `.claude/skills/delegate/SKILL.md`.
+What happened: coordinating one plan, two instructions to implementing sessions were factually wrong about the codebase. One named `errs.From` as the way to recover an error's message for logging, which the sanitizing wrapper truncates, so the interceptor would have logged nothing useful. The other asserted that `api/edge` imports `api/inventory` and directed a schema field that would have been an import cycle — the dependency runs the other way, `api/inventory` importing `api/edge` for the edge reference. Both were caught because the implementing sessions checked before writing and reported back. Neither would have been caught by a session that took the instruction as given, which is the reasonable default when the instruction comes from the coordinator.
+Suggested change: brief content that asserts something checkable about the codebase — an import direction, a call that behaves a certain way, a field that exists — is marked as verified or as unverified for the worker to confirm. And say in the skill that a worker checking a coordinator's factual claim before building on it is expected rather than insubordinate; two of this plan's schema errors were caught only that way.
+
+## 2026-09-07 delegate: work was reviewed on a worker's report of the tree rather than on the tree
+Skill or agent: `.claude/skills/delegate/SKILL.md`.
+What happened: for several units the coordinating session accepted "committed, gates green" and reviewed the described change rather than the actual one. One report named two commits that did not exist — an edit script had failed on a wrapped match and written nothing, and the session reported before checking the result. The worker caught and corrected it unprompted, which is what made it visible. `git log --oneline -1` plus `git status --short` is a five-second check and was adopted only after that incident, several units in.
+Suggested change: state in the skill that a coordinator verifies the tree — the commit exists, the tree is clean, and a spot check of the two or three changes that would be most expensive to get wrong — before reviewing or merging a delegate's work. Not distrust: a report describes what a session believes it did, and the gap between that and the tree is exactly where a silent tool failure lives.
+
+## 2026-09-07 verify: a per-package gate cannot see a repository-wide invariant, and reports success
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, and the per-unit Verify lines the `plan` and `implement` skills write.
+What happened: implementing the central device service's host, a new `telemetry` package declared the error code `telemetry/instrument`, which `src/modules/localnet/access`'s own telemetry package already owned. Error codes are unique repository-wide, enforced by a source scan that lives in `src/common/errs` and only runs when that package's tests run. Every per-slice verification passed — the changed packages built, vetted, raced and linted clean — because the invariant is not checked in either package that violates it. Only the repo-wide `go test -race ./...` on the final tree failed, and only because it happened to include `src/common/errs`. Two packages choosing the same package name is exactly the case that collides, so the collision is likelier the more the repository grows. This is the second failure of the same shape as the directory-argument entry above: the narrow gate reports success on something the wide gate refuses, and the two are indistinguishable from the output.
+Suggested change: the two are not the same bug and need different fixes. The directory case is an argument the classifier cannot place; this one is an invariant no changed-path run can see, because the test that enforces it lives somewhere the diff does not touch. Options: have `verify-change.sh` always run the packages that hold repository-wide invariant checks (`src/common/errs` at least) regardless of the changed paths; or state in the `implement` skill that a unit adding an exported name from a repository-wide namespace — error codes, telemetry scopes, metric and event names, NATS subjects, KV bucket names — runs the wide gate rather than the diff-aware one. The second is cheaper and generalises; the first cannot be forgotten. Note also that the plans' per-unit Verify lines are what most sessions actually run, so whichever fix lands should be reflected there rather than only in the skill. A later session found the same blindness from the opposite direction: not a name a unit adds, but one a unit fails to remove. `flowseer.device.drift.detected` had two live emitters on one branch — the access module's, with no attributes, and the device service's, with five — because the unit that added the second did not remove the first, and no per-package gate can see two packages using one event name. Whichever fix lands should cover both directions. The session that hit the first leaned toward the skill rule over always running the wide packages, on the grounds that the trigger is legible at the moment of the edit — a unit adds a name to a shared namespace — where always running them is a cost every unit pays for a case few hit.
+
+A third trap of the same family, hit later in the same build: `src/edge/` holds two Go modules, since `netpen` carries its own `go.mod`, so a path glob spanning it hands the verifier packages the main module does not contain and the run fails listing them. The plan's own Verify line correctly named `src/edge/agent/**`; the session widened it out of habit on the reasoning that a wider glob checks more. It does not — it checks nothing, and it fails in a way that reads as a defect in the change rather than in the invocation. Common to all three: the verifier's failure and its refusal-to-run are not distinguishable from its output, which is the property worth fixing once rather than documenting three times. Fixed on 2026-09-08, after a fourth session hit it — the coordinating one, which had written the first entry: a directory argument is now expanded to the files it holds, and a path list selecting no gate exits non-zero naming the paths instead of printing a pass. The two-module glob still fails as it did, which is correct; it is a real error rather than a silent success.
+
+## 2026-09-07 implement: a plan sentence outlived the design it described, and nothing said which one wins
+Skill or agent: `.claude/skills/implement/SKILL.md`, and the change lists the `plan` skill writes.
+What happened: a unit's change list said a struct would carry "the endpoint" alongside its session factories. By the time the unit was built the factories were closures the host constructs per device, so the address was already captured there and an endpoint field would have had no reader. The implementing session did the right thing — built the shape that works, left the field out, and reported the disagreement rather than adding a field to satisfy a sentence. But nothing in the skills says that is the right thing, and the alternative is cheaper for a worker under time pressure: add the field, satisfy the plan, and leave a struct member that documents a dependency the lane does not have. The other failure mode is worse and slower — the plan is left standing, and a later session reads it as the specification and edits working code back to match it.
+Suggested change: say in `implement` that where the plan and the working code disagree about a shape, the code wins and the plan is edited in the same commit that proves it wrong, with the reason. A plan left contradicting the code it produced is a defect with a delay on it: it is inert until someone believes it. And say in `plan` that a change list naming struct members or fields is a sketch of an interface, not a contract — the contract is the behaviour the unit's Verify line checks.
+
+## 2026-09-07 review: the reported defect was a symptom, and the real one was found by the session that went to fix it
+Skill or agent: `.claude/skills/review/SKILL.md`.
+What happened: a review finding said a verified mutation was answered as indeterminate when its acknowledgement never arrived, and noted in passing that the device's recovery hold stayed engaged under that wrong message. The implementing session, writing the test for it, checked whether the hold was cleared under the *right* message and found `Resolve()` had exactly one caller in the file — the public operator entry point. Every recovery that verified, was acknowledged, and released left the device permanently refusing mutations. The reported defect affected one exit; the unreported one affected every successful recovery, and no test in the package covered it because every test that verified a mutation also ended.
+Suggested change: say in the review step that a finding is a sample of a class until shown otherwise, and that the fixing session states what else is in the class before fixing — here, "what engages this hold and what clears it" enumerated in full. Cheap to ask, and it was the difference between fixing one exit and finding the mechanism had no exit at all. Note also which direction it ran: the coordinator found the symptom and the implementer found the cause, so this is not a case for sending it back to review.
+
+## 2026-09-07 implement: a graceful-degradation branch absorbed a programming error, and the dead feature had no symptom
+Skill or agent: `.claude/skills/implement/SKILL.md`, and `docs/conventions/observability.md`.
+What happened: a pre-mutation baseline read was written as a call the state machine refuses from the phase it is made in, so it failed on every mutation. The failure landed in a branch written for a legitimate case — a device that cannot be read may still accept the command — which set the baseline to nil and carried on. Corroboration-driven retry was therefore unreachable from the moment it was added, across several slices, and nothing could have shown it: a nil baseline is exactly what an unreadable device produces, and abandonment at the horizon looks the same either way. It surfaced sideways, when a later test needed to park a mutation inside that read to queue a second one behind it and the read was not happening.
+Suggested change: two rules, both cheap. Where a branch degrades gracefully on error, the degraded state must be distinguishable from the healthy one from outside — a span attribute, a counter, a log line — or the feature it guards can be dead indefinitely with every test passing; that belongs in the observability convention as well as here. And where a swallow is safe only because the call cannot fail for programming reasons, say so at the call site, since that is a property of the callee's body and the next edit to the callee silently removes it.
+
+## 2026-09-07 implement: a reversal's undo had a wider blast radius than the reversal
+Skill or agent: `.claude/skills/implement/SKILL.md`.
+What happened: running a reversal — deliberately breaking the code under test to watch a test fail — a session restored the file afterwards with `git checkout <path>` inside a compound command. The file also held that slice's uncommitted work, all of which went with it. The session noticed at once and reapplied from its own edits, so the cost was time, but the same session had explicitly avoided that command earlier in the build and then used it anyway because it was buried in a one-liner rather than standing on its own.
+Suggested change: say in the reversal step that the undo is a file copy taken before the edit (`cp <path> "$TMPDIR/..."`, restore from it), never a git-restoring command. A reversal is a two-line edit and its undo should have exactly that reach; `git checkout` reverts the file, which on an unfinished slice is everything since the last commit. Note the shape as well as the rule: the earlier caution held while the command stood alone and lapsed once it was one clause of several, which is where a habit is worth an instruction.
+
+## 2026-09-07 review: a reviewer's convention finding was true of the current spec and false of the pinned version
+Skill or agent: `.claude/skills/review/SKILL.md`, `.claude/skills/delegate/SKILL.md`.
+What happened: an independent reviewer reported that an RPC span set `rpc.method` to a fully-qualified procedure where the convention wants a bare method name alongside `rpc.service`. That is true of the current OpenTelemetry semantic conventions and false of the version this repository pins: in semconv v1.43.0 `rpc.method` is documented as "the fully-qualified logical name of the method", with `com.example.ExampleService/exampleMethod` as its own example, and `rpc.service` does not exist in that version at all. The implementing session had the split written and building before it read the pinned version. Applying the finding would have emitted an attribute the pinned convention does not define and dropped half of one it does. The real defect was one character — Connect's procedure carries a leading slash the vocabulary does not.
+Suggested change: a finding that cites an external convention, API, or spec is a claim about the version in `go.mod` or `buf.lock`, not about the latest published one, and it is checked against the pinned artifact before it is applied. Put the pinned versions of anything convention-bearing into a reviewer's brief so the reviewer can check rather than recall, and record the version dependence at the declaration in code so the next reader checks before "fixing" it back.
+
+## 2026-09-07 implement: a component's crash recovery rode on a remote branch written for a different reason
+Skill or agent: `.claude/skills/implement/SKILL.md`.
+What happened: deciding the edge's enrollment ordering, a session found that one crash window recovers only because the central `Enroll` is idempotent for the same setup key and public key. It verified that in central's source rather than in the plan, and recorded on the edge side that the recovery depends on a remote invariant — which was the right instinct and is not enough. The branch it depends on returns early when the key is already consumed and the public key matches, and its own comment explains that as a race between two replicas. Nothing there says an edge's crash recovery rides on it. Someone tightening that branch for the race it documents would break a field-only edge path, with no failing test anywhere, since no edge test reaches central's write path and no central test knows why the branch matters.
+Suggested change: when a component's correctness depends on an invariant another component holds, the note goes where the invariant can be broken, not only where it is relied on — a comment at that branch naming the dependent, and a test on the holding side whose name says whose recovery it protects. Documentation on the depending side is read by the person who already knows; the person who breaks it is editing the other component.
+
+Applying that produced a second lesson immediately. Both the coordinating and the implementing session named the wrong line: the branch they annotated fires only on the replica race its original comment described, and an earlier branch in the handler is what actually answers a crashed edge's retry. Tightening the annotated branch broke no test. The right line was found by reverting each candidate in turn and seeing which one a test noticed, which took two minutes and replaced a confident, precise, wrong note left exactly where someone would consult it. So: annotating a dependency needs the same proof as testing one — that the line named is the line that carries it — and the proof is the same reversal.
+
+## 2026-09-08 verify: a gate's output was read for the result expected rather than the result reported
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, and the handoff step in `.claude/skills/implement/SKILL.md`.
+What happened: a session ran the verifier, which reported one issue, and committed anyway — noticing in the same breath and fixing it in the next commit. Its own account of the cause is the useful part: it treated "0 issues" as the thing it expected to see rather than the thing it checked for. The gate did its job and the reading of it did not. Nothing about the failure was ambiguous; the output simply was not read, because by that point in the slice the run was a formality rather than a question.
+Suggested change: the rule is that a red gate blocks the commit, not that it is noted afterwards, and the moment it is most likely to be broken is late in a long slice where every previous run passed. Cheapest fix is mechanical rather than behavioural — have the verifier exit non-zero in a way the commit step cannot proceed past, or state in `implement` that the verifier's last line is quoted into the report rather than summarized, so the number has to be read to be written down.
+
+## 2026-09-08 plan: writing a deferral's trigger down cancelled the work instead of scheduling it
+Skill or agent: `.claude/skills/plan/SKILL.md`, `.claude/skills/implement/SKILL.md`.
+What happened: a unit deferred one mechanism twice on the same reasoning — a coordinator with too few dependents to coordinate. Rather than accept a third deferral, the coordinating session had the condition written into the plan as an obligation with a checkable trigger: three named dependents on the bus attachment. The implementing session checked the trigger before building and found it false. The plan's successor note named the leaf, the report queue and the dispatch loop as dependents; the plan's own earlier decision says every request and response is ConnectRPC and the bus carries observability only, so all three are Connect clients and none touches the attachment. Confirmed by construction once all three existed: nothing outside the attachment package references it. The mechanism was cancelled, not scheduled, and the plan was corrected in both places.
+Suggested change: this is the argument for writing a deferral's condition down rather than re-deciding it per slice, and the reason is not diligence — it is that a written trigger is falsifiable and a re-made judgment is not. A judgment agreed twice gets agreed a third time without being re-examined, and the mechanism gets built on a premise nobody has checked since it was first stated. Say in `plan` that a change list naming dependents is a claim about the design, checkable against it, and that two parts of one plan disagreeing is the normal case rather than a surprise — this one contradicted itself two hundred lines apart.
+
+## 2026-09-08 plan: a requirement described a view the edge has no wire to see
+Skill or agent: `.claude/skills/plan/SKILL.md`.
+What happened: a unit's last slice stopped because the edge is never told where a device is. `management_address`, `snmp_port` and `ssh_port` exist only in the central-side registry message; no field on any edge-facing or integration message carries an address, and the requirement's own wording — "onboards every device central's registry lists for it" — reads as though the edge can see a listing that is central-side Go with no RPC in front of it. The implementing session found it by grepping every field of both packages rather than by hitting a compile error, because the gap is an absent message rather than a broken one. Everything above it had been built, reviewed and verified against a plan whose premise nobody had checked.
+Suggested change: a requirement phrased in terms of what a component knows, sees, or is told is a claim about a wire, and it is checkable the moment the plan is written — name the message and field that carries it, or write that it does not exist yet and is part of the work. Absent data has no failing test and no compile error; it is the one kind of gap that survives every gate until something has to use it.
+
+## 2026-09-08 delegate: a coordinator's rejection is checkable only if it names the consequence
+Skill or agent: `.claude/skills/delegate/SKILL.md`.
+What happened: closing a long unit, an implementing session named what had made disagreeing with the coordinator cheap — every rejected proposal came back with the failure it caused rather than the preference it violated. Its proposal to put a device's address on the per-operation credential response was refused not as "a listing is better" but as "a changed address fails open against a device that answers normally, and a mutation's Execute and its verifying Observe acquire separate credentials, so the lane would report VERIFIED about a box it never touched." That is a claim the worker could check against the code, and did. The same session stopped twice rather than guess when a premise turned out false, and attributed both stops to the same thing: an instruction it could verify is one it can also contradict.
+Suggested change: say in the skill that a coordinator's decision against a delegate's proposal states the failure it avoids, in terms the delegate can check in the tree. A preference cannot be verified, so it can only be complied with — and a delegate that can only comply is one that will also comply with the coordinator's mistakes. Two of this build's wrong instructions were caught precisely because the worker could test the claim behind them.
+
+## 2026-09-08 implement: a module's host contract was tested only by tests that could see its internals
+Skill or agent: `.claude/skills/implement/SKILL.md`, `.claude/skills/plan/SKILL.md`.
+What happened: assembling the first host outside a module, three fields of its exported `Config` turned out to be unusable from outside. One interface's method returns a type declared in an `internal/` package, so no external type can implement it — the module holds the only implementation and its doc says "production wiring constructs one", which production wiring cannot reach. A lane-wide reporter is handed acknowledgements carrying a per-device sequence and no device, so the host cannot address them. A telemetry view is an internal pointer with no exported constructor, and every method tolerates nil, so a host that passes nil runs with the module's spans and metrics silently off. None of it failed a gate: the module's own tests live inside the module and can name every internal type, and the plan that shaped the contract is marked implemented with its tests passing.
+Suggested change: a module that exposes a host contract needs at least one test in a package that cannot see its internals — the property under test is "a host outside this module can construct and satisfy this", and it is the one property the module's own tests can never check. Say in `plan` that a unit adding or changing an exported `Config` names that test, and in `implement` that the check is mechanical: for every exported field, can a package outside the module name its type and construct or implement a value. This is the same shape as the requirement that assumed a wire that did not exist — nothing is broken until something outside has to use it, and the first thing outside is usually the entrypoint, which is usually last.
+
+## 2026-09-08 implement: a package's fixtures built a message the wire would have rejected, and every test below it was validating the impossible
+Skill or agent: `.claude/skills/implement/SKILL.md`, `docs/conventions/protobuf.md`.
+What happened: a lane read a mutation's own observation under a nil access-policy handle, because it sourced the handle from the request arm a read carries and a mutation has no such arm. Central refused every acquisition, so a mutation applied to the device and was then never verified — reachable only from an assembled run, since both halves are individually correct. The instructive part is why the module's own tests never saw it. When the fix added a loud local failure for a missing handle, twenty-odd tests in that package failed at once: the fixtures had been building `ExecuteRequest`s with no access policy on either arm, which the schema marks required on both, against a credential source that ignored the handle. Every test in the package had been exercising a request central could not have sent. Without the loud failure the session would have fixed the mutation arm, watched the suite pass, and never learned the fixture set was invalid.
+Suggested change: a test fixture that constructs a protocol message is asserting that the message is one the system could really receive, and nothing checks that claim today. This repository already has the checker — protovalidate runs on the wire. Add a helper that validates a constructed message against its schema and say in `implement` that fixtures for wire types go through it, so a fixture that could not exist fails where it is written rather than being discovered years of units later by an integration run. Cheap, mechanical, and it converts a whole class of "the unit tests all passed" into a local failure.
+
+## 2026-09-09 verify: the natural way to read a test run destroys the only instrument that fires on failure
+Skill or agent: `.claude/skills/verify-change/SKILL.md`, `.claude/skills/implement/SKILL.md`.
+What happened: an intermittent end-to-end failure was instrumented so that the failing path prints a sampled trail of the system's state — the one piece of evidence nobody had. It then reproduced twice, and both times the trail was thrown away, because both sessions ran the suite through `| grep -E "^(FAIL|--- FAIL)"` to keep the output manageable. The second session had read the first session's account of exactly this mistake, agreed with it in writing, and made it within the hour. The instrument worked; the reading of it did not, and the failure is rare enough that each loss costs days.
+Suggested change: say in `verify-change` and `implement` that a test run whose output may carry diagnostics is written to a file and grepped afterwards — `go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"` — never piped through a filter that discards what is not matched. The general form is worth stating too: a filter applied at the moment of reading is applied before you know what the run contained, and for a rare failure that is the one run where the discarded part was the point. This is the same shape as a gate whose refusal to run is indistinguishable from its passing, one step further out — the tool reported honestly and the pipeline ate the report.
+
+## 2026-09-09 review: a comment stating intent made two readers see that intent in code doing the opposite
+Skill or agent: `.claude/skills/review/SKILL.md`.
+What happened: a lane's read closure carries the comment "The shell is opened only for the fallback route, and only when the device has one. interfaces.Read decides whether it needs it; opening it unconditionally would mean an SSH login on every SNMP read." The code immediately below opens the shell whenever a factory exists — unconditionally, before `interfaces.Read` is called — and treats a failed open as a hard return. `interfaces.Read` accepts a nil shell and only builds a fallback when one is passed, so the eager open is both unnecessary and, on a device whose read credential cannot authenticate an SSH login, fatal to every read. The coordinating session read that comment and the eleven lines under it during an earlier review, quoted the surrounding code, and did not see the contradiction. It surfaced only when the system met real hardware.
+Suggested change: a comment that states intent primes a reader to find that intent in the code beneath it, and the more precisely the comment is written the stronger the priming — this one names the exact failure its code causes. Say in the review step that a comment is a claim to be checked against the code, not a description to be read alongside it, and that the order matters: read the code, decide what it does, then read the comment and compare. Reviewing a well-commented function in comment-then-code order is close to reviewing the comment.
+
+## 2026-09-09 verify: the wide gate over-subscribes the machine and fails packages that pass alone
+Skill or agent: the Verification sections that plans write, and `.claude/skills/verify-change/SKILL.md`.
+What happened: `go test -race -count=1 ./src/... ./test/...` in one invocation, on a twelve-core machine, failed four packages — `src/protocol/smi`, its `internal/parse`, `src/protocol/snmp/cmd/mibgen`, and `src/modules/edgebus` — with timeout-shaped failures. Every one of them passes with `-race` when run alone: `smi` took 325s in the wide run against 38s alone, `edgebus` 105s against 48s. Go runs package binaries in parallel up to GOMAXPROCS, and each race-instrumented package with its own listeners, embedded servers and MIB parsing wants more than a twelfth of the box, so the wide form does not measure what it appears to. The same shape sent this build chasing a real bimodal defect earlier the same day, so "it fails only under load" is not a safe dismissal either. And running the package alone, which is what this entry first recommended, proves less than it appears to: a pass in isolation shows the failure is timing-sensitive and says nothing about whether the change caused it. Attribution rests on one step: reproduction on a clean detached checkout of the base with the changes absent, which holds everything constant except the change. `go list -deps` on the failing package is worth running first because it is cheap and tells you where to look when it does show a path — but it answers a compile-time question only, and a change reaches a test without appearing in its imports through a shared port, a testdata directory, an embedded server two suites both start, or an environment variable one sets and another reads. Absence from the dependency graph is necessary and not sufficient.
+
+Each step in this entry sounded stronger than it was until someone used it: the isolated pass, then the dependency check. Advice about how to verify something is itself prone to overclaiming, and it is tested only when a session under pressure leans on it.
+Suggested change: say in the Verification guidance that a wide race run is a smoke test whose timeouts are not findings until reproduced package-alone, and give the reproduction as the next step rather than leaving each session to invent it. Better, have the wide form bound its own parallelism (`-p`) so it measures the code rather than the host; a gate that fails for reasons the diff cannot cause teaches its readers to discount it, which is worse than a slow gate.
+
+## 2026-09-09 delegate: a delegated session that is blocked looks exactly like one that is working
+Skill or agent: `.claude/skills/delegate/SKILL.md`.
+What happened: two separate stalls in one afternoon, both invisible from the coordinating side. A codex worker spawned through `orca worktree create --agent codex` inherited the pool's default approval policy and kept stopping to ask for confirmation before running commands. Separately, an Orca worker that had been told to report per unit and wait for verification sat idle for a long stretch after the coordinator's unblocking message was mangled in transit through `orca terminal send` — a long paragraph arrived as stray characters at the prompt rather than as submitted input. In both cases the coordinator saw the same thing it sees from a session that is mid-task: nothing. The work resumed only because a person said "I think it stopped, check".
+Suggested change: two fixes, one concrete and one general. Name the approval policy in the skill's dispatch commands — codex takes `-a never` (`--ask-for-approval never`) with an explicit `--sandbox`, and `orca worktree create --agent codex` accepts no flags, so a controlled spawn is a worktree without `--agent` followed by `orca terminal create --command "codex -a never --sandbox workspace-write --model <id>"`. And say that instructions to a terminal-driven agent go in a file with a one-line pointer sent to the terminal, never as a long paragraph, because the transport truncates and the failure is silent at both ends. The general rule is the one worth stating first: no channel distinguishes "blocked on you" from "busy", so a coordinator that gates a worker per unit has taken on the job of noticing when its own gate is what stopped the work. Either give the worker a standing instruction that never requires an ack to continue, or check the terminal rather than the inbox.
+
+## 2026-09-09 delegate: the quota check the skill documents was skipped for three dispatches, and a stall was misdiagnosed because of it
+Skill or agent: `.claude/skills/delegate/SKILL.md`.
+What happened: the skill's "Dispatch by quota" section says to read every provider's worst window with `orca account list --json` before each wave, and gives the one-liner. A coordinating session dispatched three codex workers over an afternoon without running it once. The codex pool ran out; the session did not notice, and when a worker went quiet it diagnosed the stall confidently as a mangled instruction in transit — a real problem it had also caused, which made the wrong explanation fit. The user supplied the missing fact. From the coordinating side an exhausted pool, an approval prompt, a lost instruction and ordinary work all present identically as silence.
+Suggested change: the section reads as pre-flight advice and needs to be a step in the dispatch procedure, not a paragraph before it. Add the check to the moment of dispatch, and add a second use the skill does not currently mention: when a delegated session goes quiet, read quota *first*, because it is the cheapest of the four causes to rule out and the only one visible without touching the worker. Worth saying in the entry that a window reading 0% is not evidence it was never exhausted — it may have just rolled over, and the reset time in the same row is what distinguishes them. The general shape is one this queue already carries twice: a diagnosis that fits the evidence is not the same as one that ruled the alternatives out, and a single-cause explanation offered confidently is where that goes wrong.
+
+## 2026-09-09 review: the coordinator's seam pass talked itself out of a real finding by half-tracing the neighbouring service
+Skill or agent: `.claude/skills/review/SKILL.md`, the "A subject with several units" seam pass.
+What happened: a subject review of the edge agent split into five units. The coordinator's own seam pass found the defect — the report queue confirms on any accepted report while the dispatch registry's `forget` doc requires the operation to be terminal — traced it into central's `OwedRows`, saw that `dispatch_confirmed` is set by the same report whose confirmation triggers the release, and concluded the window was closed. It wrote the finding down as "a fragile invariant, not a finding", and said so to the user. Two unit reviewers, briefed with the neighbouring service in scope, independently reported it as reachable: `applyOnboarded` is not atomic, so a failing second write makes the edge re-send the report and re-clear the confirmation at an arbitrary later moment, mid-mutation. The defect writes a configuration change to a real device twice. The step was followed as written — the skill says to confirm each finding and drop the ones that rest on a misreading — and following it produced the wrong result, which is the stronger of the two signals the skill asks to distinguish.
+Suggested change: the verify step's "drop findings that rest on a misreading" is sound for a unit finding, whose evidence is all in the reader's own files, and wrong for a seam finding, whose evidence is not. Say that a seam finding discharged by an invariant in another unit or another service is not discharged: it is downgraded to a question for the reviewer that holds those files, and it stays in the report either way, because the coordinator has by construction read less of the neighbour than the reviewer briefed on it. The asymmetry is what makes this worth a rule — a seam finding wrongly kept costs a paragraph, and one wrongly dropped is the one nobody looks at again. There is a general shape here the queue already carries: an argument that a bug cannot happen is only as strong as the least-read code it appeals to, and the coordinator is reliably the least-read reader of the neighbour it is appealing to.
+
+## 2026-09-09 verify: buf breaking reports a hard failure for a .proto added on the branch it is checking
+Skill or agent: `tools/hooks/` and `.claude/skills/verify-change/SKILL.md`, the protobuf gate.
+What happened: editing a comment in `spec/proto/flowseer/store/edge/v1/agent_config.proto` — a file added on the current branch and absent from `master` — made the verifier's last step exit with `Failure: no .proto files were targeted. This can occur if no .proto files are found in your input, --path points to files that do not exist, or --exclude-path excludes all files.` The gate is `buf breaking --against .git#branch=master --path <changed file>`, and a path that does not exist in the baseline targets nothing, which buf treats as an error rather than as a vacuous pass. Whole-module `buf breaking --against .git#branch=master` passes. So the step fails for every branch that adds a schema file and later touches it, which is the ordinary shape of any multi-slice schema plan, and the failure carries no signal about the change.
+Suggested change: intersect the changed paths with the ones that exist in the baseline before passing `--path`, and skip the step when the intersection is empty rather than reporting a failure; the whole-module form still covers a deletion. Worth naming the class in the skill as well, since this queue already carries two entries about it from the other direction: a gate that fails for a reason the diff cannot cause teaches its readers to discount it, and the reader here has to know one buf implementation detail to tell this apart from a real break. A green run and an inapplicable step should not look the same, but neither should an inapplicable step and a broken contract.
+
+## 2026-09-10 verify: a background wrapper reported the verifier's exit code as its own tail's
+Skill or agent: `.claude/skills/verify-change/SKILL.md`, and the guidance on running the gate in the background.
+What happened: a session ran the full gate as `verify-change.sh --full > log 2>&1; echo "exit=$?"; tail -30 log` so it could keep working while the race suite ran. The harness reported the job as "completed (exit code 0)", because the compound command's status is `tail`'s. The verifier had failed: one end-to-end test dead at 250s, `FAIL` twice in the log, and the dirty marker still set with a receipt reading `full=false`. The session announced a green verifier to the user and only caught it by reading the log for an unrelated reason. Nothing about the wrapper looked wrong while it was being written — appending `echo` and `tail` to see the result sooner is the obvious thing to do, and it is exactly what discards the result.
+Suggested change: say that a gate run in the background is the last command in its invocation, and that anything after it belongs in a separate call. Better, have the script write its own verdict line into the log as the final line, so the log is self-describing and a session that reads only the tail cannot mistake the outcome. This is the fourth entry in this build about a gate reporting success for a reason unrelated to the code — the earlier three were a cached PASS under the sandbox, a directory argument selecting no gates, and a no-gate exit clearing its own marker. The class is worth naming in the skill rather than collecting instance by instance: any path that produces "passed" without a gate having run is the bug, whatever produced it.
+
+## 2026-09-10 verify: the full gate's two corpus lines can report a pass they never ran, and one of them hung once
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, the `--full` corpus tier (lines 466 and 473).
+What happened: two things, found together. First, neither `go test -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/` nor `go test -C src/protocol/smi/differential ./...` passes `-count=1`, so both can answer from Go's test cache. Reproduced directly: a session re-running the pair got `ok go.aledante.io/FlowSeer/src/protocol/smi (cached)` having executed nothing. The session's first instinct — that the `-race` invocations elsewhere in the script are immune because the cache treats them separately — is wrong, and the same `--full` run disproves it: 87 of its packages reported `(cached)`, race suites among them. Caching is sound wherever a result depends only on what the cache tracks, and this repository has already recorded the case where it is not: a cached pass from an unsandboxed run let a sandbox-hostile package report `ok` under the sandbox. The corpus tier is the same shape, walking a directory selected by a build tag, and it is the tier that exists because it is too expensive for the developer loop — which is where a false green costs most. Second, the differential module timed out at Go's 10-minute default in one `--full` run, with the panic naming `TestGosmiCorpusCensus` holding the shared `sync.OnceValues` corpus pass. It did not reproduce: three uncached runs took 76 s, 76 s and 83 s on the same idle machine and tree. So the hang is real, unexplained, and not a duration problem — raising the timeout would only lengthen the wait before the same hang is reported.
+Suggested change: add `-count=1` to both lines, which is the whole of the first fix. For the hang, the useful change is not a timeout but a way to tell a hung pass from a slow one: the corpus pass is single-goroutine behind a `OnceValues`, so a session meeting a timeout there cannot tell whether it deadlocked, is starved, or is genuinely slow, and the panic's traceback names whichever test happened to be waiting on the once rather than the one that entered it. Recording which test entered the pass, and when, would make the next occurrence diagnosable instead of another entry like this one. Worth noting for whoever works this: three runs proving something does not reproduce is weak evidence, and this entry is the fourth in this build about a gate whose output does not mean what it appears to.
 ## 2026-09-06 implement: Bash edits force a full verifier run
 Skill or agent: `.claude/skills/implement/SKILL.md`, step 2 and Finish.
 What happened: several unit edits went through `sed` and a Python
@@ -56,3 +254,106 @@ another worktree's golangci-lint was running. The step was followed as
 written; nothing in it says which tool to edit with.
 Suggested change: in step 2, say that edits go through the editor tools
 and that a Bash write to a source file costs a `--full` run at Finish.
+
+## 2026-09-09 verify-change: a new proto file fails the breaking gate
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`,
+the `proto` block.
+What happened: a targeted run over two newly added files under
+`spec/proto/flowseer/net/capture/v1/` failed with `Failure: no .proto files
+were targeted.` from `buf breaking --against '.git#branch=master' --path
+<file> --path <file>`. Both files are new on the branch, so neither exists in
+the baseline, and `--path` then selects nothing in the against-ref. The check
+has nothing to say about them either way: `buf.yaml` ignores the whole
+`spec/proto/flowseer` module for breaking until the first stable release.
+Two smaller edges in the same block: a directory argument is dropped, since
+the collector matches `*.proto` and tests `-f`, so `-- spec/proto/<pkg>` runs
+no schema gate at all and still reports "verification passed"; and the phase
+plan's own Verification line (`-- spec/proto docs CONCEPTS.md generated`) is
+written that way.
+Suggested change: skip `buf breaking` when every targeted path is absent from
+the against-ref, or drop `--path` for that one command and let `buf.yaml`'s
+ignore do the selecting. Separately, expand a directory argument to the
+`.proto` files under it, or fail loudly when a passed path selects no gate.
+
+## 2026-09-09 plan: a net package's unit missed the executable import order
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 3, and the unit that adds
+a package under `spec/proto/flowseer/net/`.
+What happened: a phase plan added `flowseer/net/capture/v1` and had one unit
+amend the package tree and import order in
+`docs/architecture/2026-08-20-network-model-structure-direction.md`. That
+record says its own order's "home for automated checking is
+`test/conformance/proto/`", but no unit named
+`test/conformance/proto/layering_test.go`, so `importOrder` never gained the
+package. Every targeted per-unit check passed; only the `--full` run failed,
+with `TestNetImportOrder` reporting `package net/capture declares no layer in
+importOrder` once per import and `TestNetImportOrderCoversEveryPackage`
+reporting the package outright. The plan was followed as written.
+Suggested change: when a plan adds a package under `spec/proto/flowseer/net/`,
+its unit files list `test/conformance/proto/layering_test.go` beside the
+architecture record, because the record's import-order block is prose and that
+table is the executable copy. The two are a mirrored pair and belong under the
+same message-sync habit as the triad and the ref pair.
+
+## 2026-09-09 delegate: a coordinator's correction sat in a ledger note, not the convention doc
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief", item 5.
+What happened: a worker set `features.field_presence = IMPLICIT` on a new
+counters message, following `docs/code-style-proto.md`, which then named a
+counter as the case for it. The coordinator reverted the change, which matched
+the tree — no file under `spec/proto/flowseer/` sets `field_presence` — but
+recorded the reversal only in the unit's ledger `note`. Two units later the
+brief carried that note verbatim and the same model set the same feature
+again, on a different message, having also been told to read the style doc
+that still permitted it. The coordinator read the recurrence as a worker
+ignoring an instruction and reported it that way; the worker had in fact
+followed the repository's own convention doc, and the note it was handed
+carried the authority of a convention while having none. The user later
+settled the rule and the doc now states it.
+Suggested change: a `note` records what the next unit needs to know about what
+landed, not a rule. When a coordinator overrides a worker on something that
+will recur, the convention doc that governs the file type is edited before the
+next dispatch, or the override is a preference and the brief must not carry it
+as a prohibition. A brief that names a convention doc is telling the worker
+that doc is authoritative; contradicting it in a note puts the worker between
+two sources with no rule for which wins.
+
+## 2026-09-09 implement: the ledger path is unwritable from inside an Orca worktree
+Skill or agent: `.claude/skills/implement/SKILL.md`, "Resume from the ledger".
+What happened: implementing a phase plan (docs/plans/2026-09-09-1213-feat-
+remote-packet-capture-phase2-plan.md) from inside an Orca-managed worktree,
+the step's own ledger path — `$(git rev-parse --git-dir)/flowseer-plan-
+status.json` — resolved to a path under the primary checkout's `.git/`
+(`.git/worktrees/<name>/flowseer-plan-status.json`), which is standard git
+behavior for any linked worktree, not specific to this task. The Orca
+worktree-isolation hook then denied the write, since that path sits outside
+the worktree's own directory tree. The step was followed as written; nothing
+in it anticipates the ledger path itself falling outside the isolation
+boundary the same skill's own "Isolation" note in AGENTS.md establishes. The
+six units landed directly in the main conversation instead of one Orca
+worker per unit, with no ledger tracking progress, and the deviation was
+reported at handoff rather than caught earlier.
+Suggested change: for a worktree the isolation hook governs, keep the ledger
+inside the worktree itself (e.g. under a path relative to `git rev-parse
+--show-toplevel`, or a dedicated untracked file within the worktree) rather
+than `--git-dir`, or have the step detect a denied ledger write up front and
+say plainly that unit-by-unit worker dispatch and resume tracking are both
+unavailable for this run, instead of discovering it mid-unit.
+
+## 2026-09-09 plan: a cited sample capture's bytes were never checked against the claim
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 2 ("Gather evidence").
+What happened: an earlier planning pass for the remote packet capture phase
+plans cited two Wireshark sample captures ("erspan-marker" pcaps) as the
+independent-encoder evidence for the ERSPAN Type III decoder, based on their
+name and the site's description. Implementing and testing against them found
+they decode to nonsense under a correct Type III parse (version field 0, not
+2; a garbage session id); a Wireshark dissector source cross-check confirmed
+the files are an unrelated Cisco proprietary marker format, not ERSPAN at
+all. Step 2 says "Fetch every URL before citing it and cite only what the
+page says" for prose documentation, but has no equivalent instruction for a
+binary fixture: a sample capture's filename and page description were
+treated as sufficient evidence of its contents without decoding a single
+byte of it first.
+Suggested change: extend step 2 (or add a line to it) so that citing a
+downloaded binary fixture — a pcap, a golden file, a captured payload — as
+evidence for a specific format or field requires decoding or hex-dumping the
+relevant bytes and checking them against the claim before the plan cites it,
+the same discipline already required for a fetched URL's prose.

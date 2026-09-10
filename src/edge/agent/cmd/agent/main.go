@@ -1,0 +1,73 @@
+// Command agent runs the device access agent: the process that lives where
+// the devices are, enrolls with central once, holds its dispatch stream open,
+// and drives the local-network access lane from what arrives on it. It reads
+// one prototext file describing the deployment and runs until it is
+// interrupted.
+//
+// A configuration that cannot be read or does not satisfy its schema exits 2,
+// before anything is opened, bound or written. A runtime failure exits 1. An
+// interrupt or a termination signal is a clean stop and exits 0: the runtime
+// drains its modules, and an agent that reported failure every time it was
+// asked to stop would make a restart loop look like a crash loop.
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/edge/agent/host"
+)
+
+// version is the build this agent reports on every heartbeat and as
+// service.version on every signal it exports. The release build injects it
+// with -ldflags '-X main.version=…'.
+var version = "dev"
+
+// defaultConfigPath is where a packaged deployment puts the file. A flag
+// overrides it; there is no environment fallback, because a process reading
+// its whole identity from an unnamed source is one nobody can reproduce.
+const defaultConfigPath = "/etc/flowseer/agent.textproto"
+
+// exitConfig is the status a configuration failure exits with, so a
+// supervisor that restarts the agent can tell a file it will never accept
+// from a runtime failure a retry might survive. Every other failure takes the
+// status the error itself names, which [errs.ExitCode] defaults to 1.
+const exitConfig = 2
+
+func main() {
+	configPath := flag.String("config", defaultConfigPath, "path to the prototext agent configuration")
+	flag.Parse()
+
+	cfg, err := host.LoadConfig(*configPath)
+	if err != nil {
+		// Printed rather than logged: this happens before the agent has a
+		// logger, and an operator who mistyped a path is reading a terminal.
+		fmt.Fprintf(os.Stderr, "agent: %v\n", err)
+		os.Exit(exitConfig)
+	}
+
+	if err := run(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "agent: %v\n", err)
+		os.Exit(errs.ExitCode(err))
+	}
+}
+
+// run is separate from main so the signal registration is released on the way
+// out: os.Exit runs no deferred call, and main is where the exit happens.
+//
+// The signals are registered here rather than left to the runtime. The runtime
+// installs its own handler, but only once host.Run reaches it — and enrollment
+// and the bus attachment both run before that, each a network call that can
+// stall against a middlebox that accepts and never answers. A signal in that
+// window would otherwise take its default disposition and kill the process,
+// which is the crash this package's doc says a stop is not.
+func run(cfg *host.Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return host.Run(ctx, cfg, version, host.Options{})
+}

@@ -19,7 +19,11 @@ than an edit.
 | [Network Model Structure](2026-08-20-network-model-structure-direction.md) | Accepted direction | Adding or moving FlowSeer-owned protobuf packages, network primitives, entities, refs, or device-facing capability models. |
 | [Net Core Package Research](2026-08-26-net-core-package-research.md) | Supporting research | Checking the evidence behind the `net/phy`, `net/packet`, `net/switching`, and `net/ip` boundaries. |
 | [Error Wire Design](2026-09-04-error-wire-design-direction.md) | Accepted direction | Putting `src/common/errs` errors on a wire — Connect RPC, a broker, or any other cross-process hop. |
+| [Verified Device Access](2026-09-05-verified-device-access-direction.md) | Accepted direction | Planning or implementing device reads and writes through the local-network integration: routing, the device lane, the mutation journal and barrier, credential delivery, or the device-access boundary packages. |
 | [Secret Material Carrying](2026-09-06-secret-material-carrying-direction.md) | Proposed direction | Adding a field, option, or config that carries a password, passphrase, or private key, or deciding how a value is kept out of logs and errors. |
+| [Mutation Shadow Projection](2026-09-09-mutation-shadow-projection-direction.md) | Proposed direction, deferred | Gating a Mutation Intent before apply once the Interface triad and a full-network view exist; shaping typed effects in the device-access schemas so a projection can apply them later. |
+| [Streaming Frame Transport](2026-09-09-streaming-frame-transport-direction.md) | Proposed direction | Adding a streaming RPC, a chunked payload, or a producer that can outrun its consumer, or deciding how a long-lived edge stream stays authorized. |
+| [Remote Packet Capture](2026-09-09-remote-packet-capture-direction.md) | Proposed direction | Working on packet capture, mirrored traffic, ERSPAN or other mirror encapsulations, capture filters, or the handling of captured payload. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or

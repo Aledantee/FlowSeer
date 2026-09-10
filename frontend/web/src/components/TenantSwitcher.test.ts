@@ -28,4 +28,17 @@ describe('tenant switcher', () => {
     expect(html).toContain('Meridian Workspaces')
     expect(html).toContain('aria-label="Tenant scope"')
   })
+  it('labels an unavailable tenant without implying all tenants are selected', async () => {
+    const html = await renderToString(
+      createSSRApp(TenantSwitcher, {
+        tenants: [
+          { id: 'aurora', name: 'Aurora Hospitality' },
+          { id: 'meridian', name: 'Meridian Workspaces' },
+        ],
+        selected: 'removed-tenant',
+      }),
+    )
+    expect(html).toContain('aria-label="Tenant scope: Unavailable selection"')
+    expect(html).not.toContain('undefined')
+  })
 })

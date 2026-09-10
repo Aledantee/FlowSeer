@@ -574,7 +574,7 @@ func TestLLDP_TlvBitmapIgnoresReservedPositions(t *testing.T) {
 }
 
 // TestLLDP_PortSettingsUnreportedColumnsStayAbsent keeps the presence
-// distinction U7 landed: a column the agent never answered leaves its
+// distinction: a column the agent never answered leaves its
 // field absent rather than reading as a configured zero.
 func TestLLDP_PortSettingsUnreportedColumnsStayAbsent(t *testing.T) {
 	vbs := []vbFixture{intAt(colOID(lldpPortConfigEntry, 2, 9), 4)} // disabled

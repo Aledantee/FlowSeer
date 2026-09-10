@@ -13,6 +13,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/localnet/collect"
 	"go.aledante.io/FlowSeer/src/modules/localnet/snmpmap"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
@@ -460,5 +461,98 @@ func TestPhysical_UnsupportedAutoNegotiationCannotBeEnabled(t *testing.T) {
 	applied := facet.GetAppliedAutoNegotiation()
 	if applied.HasEnabled() || applied.GetStatus() != phyv1.AutoNegotiationStatus_AUTO_NEGOTIATION_STATUS_DISABLED {
 		t.Errorf("applied auto-negotiation = %v, want no enabled fact and a disabled status", applied)
+	}
+}
+
+func TestPhysicalMapper_Spec(t *testing.T) {
+	spec := snmpmap.PhysicalMapper.Spec()
+
+	if spec.Name == "" {
+		t.Error("Spec.Name is empty")
+	}
+
+	if len(spec.Required) != 0 {
+		t.Errorf("Required = %d tables, want 0: every physical-layer table is optional", len(spec.Required))
+	}
+
+	if got := len(spec.Optional); got != 6 {
+		t.Errorf("Optional = %d tables, want 6 (dot3Stats, dot3HCStats, ifMau, ifMauAutoNeg, pethPsePort, pethMainPse)", got)
+	}
+}
+
+func TestPhysicalMapper_Map(t *testing.T) {
+	// physicalMapper.Map must build the same core facts Physical does, from
+	// a Snapshot rather than a session.
+	sess := &fakeSession{vbs: etherLikePort(3)}
+	snap := collect.Read(context.Background(), sess, snmpmap.PhysicalMapper)
+
+	out, err := snmpmap.PhysicalMapper.Map(snap)
+	if err != nil {
+		t.Fatalf("Map: %v", err)
+	}
+
+	facts, ok := out.(snmpmap.PhysicalFacts)
+	if !ok {
+		t.Fatalf("Map returned %T, want snmpmap.PhysicalFacts", out)
+	}
+
+	facet := facts.Facets[3]
+	if facet == nil {
+		t.Fatal("no facet for ifIndex 3")
+	}
+
+	mustValid(t, facet)
+
+	if got := facet.GetCounters().GetFcsErrors(); got != 7 {
+		t.Errorf("fcs_errors = %d, want 7", got)
+	}
+}
+
+func TestPhysical_ComposesWithInterfaceMapperInOneCycle(t *testing.T) {
+	// Composing PhysicalMapper with InterfaceMapper in one Collector cycle
+	// must produce both mappers' outputs from the one Snapshot the cycle
+	// builds. The fixture carries an ifTable row so InterfaceMapper
+	// actually applies (it requires ifTable's presence probe to succeed);
+	// without one, this test would pass even if PhysicalMapper's tables
+	// were never walked at all. collect_test.go's
+	// TestCollect_SharedTableWalkedOnce already proves a table two mappers
+	// declare is walked exactly once; this test's job is only to prove
+	// PhysicalMapper's declared tables actually reach the shared cycle's
+	// results, not to re-measure the transport call count (a
+	// column-selected walk issues many GetBulk requests per table by
+	// design — see column_request.go — so a single call-count is not a
+	// meaningful unit at this layer).
+	vbs := append(ifRow(3, "eth0", 6), etherLikePort(3)...)
+	sess := &fakeSession{vbs: vbs}
+
+	cycle, err := collect.New(snmpmap.InterfaceMapper, snmpmap.PhysicalMapper).Collect(context.Background(), sess)
+	// The fixture answers no sysObjectID, so Collect's joined error names
+	// the identity read; the mapper results checked below still apply.
+	if err == nil {
+		t.Fatal("Collect: want a joined identity-read error from the fixture's missing sysObjectID")
+	}
+
+	if len(cycle.Results) != 2 {
+		t.Fatalf("got %d mapper results, want 2 (interfaces and physical)", len(cycle.Results))
+	}
+
+	for _, r := range cycle.Results {
+		if r.Err != nil {
+			t.Errorf("mapper %s: %v", r.Mapper, r.Err)
+		}
+
+		switch out := r.Output.(type) {
+		case []*interfacev1.Interface:
+			if len(out) != 1 || out[0].GetName() != "eth0" {
+				t.Errorf("interface mapper output = %v, want one interface named eth0", out)
+			}
+		case snmpmap.PhysicalFacts:
+			facet := out.Facets[3]
+			if facet == nil || facet.GetCounters().GetFcsErrors() != 7 {
+				t.Errorf("physical mapper output = %v, want ifIndex 3's dot3Stats counters", out)
+			}
+		default:
+			t.Errorf("mapper %s returned unexpected output type %T", r.Mapper, r.Output)
+		}
 	}
 }

@@ -46,6 +46,11 @@
 // Readers extract with [Attributes], [SafeAttributes], [CodeOf],
 // [UserMessage], [Hint], [ExitCode], and [Retryable].
 //
+// [Encode] and [EncodeForClient] render an error onto the wire, and [Decode]
+// reconstructs one — see [Encode]'s doc for what crosses each boundary and
+// the "Stacks" section below for what riding the wire means for a captured
+// stack.
+//
 // # Codes
 //
 // A [Code] is an error's identity across a process boundary. Two errors
@@ -144,7 +149,8 @@
 // per origin.
 //
 // Capture stores program counters only; symbolization happens when the
-// error is rendered into a log record, which is the sole surface stacks
-// reach today. Stacks are never part of the semantic payload and never
-// travel toward a client.
+// error is rendered into a log record, or when [Encode] renders it for
+// trusted internal transit — a peer's own log is the other surface a stack
+// reaches. Stacks are never part of the semantic payload and never travel
+// toward a client: [EncodeForClient] never sets one.
 package errs
