@@ -23,6 +23,15 @@ unedited refuses it at load rather than starting and failing later somewhere
 less obvious. A file that fails loudly when unfilled is worth more than one
 that looks filled.
 
+`registry.textproto` fails the same way for the two positions that describe a
+device rather than the deployment: the management address and
+`ssh_host_key_sha256`. Both ship as placeholders and `write-registry.sh`
+refuses to render the shipped file while either is still there. Neither
+failure is one a reader would diagnose from what it produces — an unfilled
+address makes the agent log a timed-out identity probe, which is what it also
+logs when the switch is off, and an unfilled digest is a pin that fails at the
+moment a mutation opens its shell.
+
 Read [the runbook](../../docs/runbooks/lab-icx7150-first-write.md) before
 using any of this. Two values here cannot be copied from a document because
 they are measurements — the delayed-apply horizon and the switch's SSH host

@@ -83,8 +83,10 @@ func TestTheRunbooksBootstrapBringsUpADeployment(t *testing.T) {
 	// substitution seam. The fake device every other test in this package
 	// uses is an argument to agenthost.Run, which is a Go API — a process
 	// reads a config file and dials whatever the registry says, so this agent
-	// is really trying to reach 172.16.0.6 over SNMP. Onboarding, and
-	// everything past it, needs the device.
+	// really opens a socket to the address it finds there. The fixture points
+	// that at a closed loopback port, which is refused at once instead of
+	// waiting out the SNMP retransmit horizon. Onboarding, and everything
+	// past it, needs the device.
 	//
 	// What is proven here is the whole of the bootstrap: both binaries built
 	// and started from files, central bound and drained cleanly across the

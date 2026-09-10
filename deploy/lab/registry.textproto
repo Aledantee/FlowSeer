@@ -1,10 +1,13 @@
 # flowseer.store.device.v1.DeviceRegistry for the lab run: one integration,
 # one edge, one switch, one managed interface.
 #
-# The identifiers and the address are placeholders. The two
-# fields an operator has to fill from measurement rather than from a document
-# are delayed_apply_horizon and ssh_host_key_sha256, and both have their own
-# runbook step.
+# The identifiers are this deployment's own. Three positions ship unfilled and
+# have to be filled before the file describes a real device: the edge, which
+# write-registry.sh substitutes from what CreateEdge returned, and the device
+# address and ssh_host_key_sha256, which come off the device in front of you.
+# write-registry.sh refuses to render the shipped template while either of the
+# last two still carries its placeholder. delayed_apply_horizon is measured
+# rather than looked up, and has its own runbook step.
 
 integration {
   ref { integration { id: "0192e6a0-0000-7000-8000-0000000000c1" } }
@@ -22,7 +25,11 @@ devices {
     access_policy { key: "icx7150-lab" version: 1 }
   }
   binding { binding { id: "0192e6a0-0000-7000-8000-0000000000b1" } }
-  ip { v4 { octets: "\300\000\002\006" } }  # 192.0.2.6 REPLACE-WITH-THE-DEVICE-ADDRESS
+  # The device's management address, and a placeholder: 192.0.2.6 is in the
+  # documentation range and reaches nothing. Escaped bytes rather than a
+  # dotted string, one octet at a time in octal — the runbook's "fill the
+  # device's two positions" step shows the conversion.
+  ip { v4 { octets: "\300\000\002\006" } }  # REPLACE-WITH-THE-DEVICE-ADDRESS
 
   # Measured at 0.13s on this switch, on the SNMP ifAlias path the system
   # actually reads — and dominated by the round trip, so the true value is
@@ -54,15 +61,17 @@ policies {
   submission_credential { key: "icx7150-lab-ssh" version: 1 }
   host_trust { key: "icx7150-lab-hostkey" version: 1 }
 
-  # This switch's ECDSA host key, read from the device on 2026-09-09.
+  # The device's host key digest, read from the device. A placeholder here,
+  # and the shape is forced: the field takes exactly 43 base64 characters, so
+  # the placeholder has to be 43 of them rather than a readable sentence.
   #
-  # Which key matters. The ICX7150 offers RSA and ECDSA and no ed25519, and Go
-  # prefers ed25519, then ECDSA, then RSA — so it negotiates ECDSA and this is
-  # the digest it will be shown. Pinning the RSA one instead is a pin that
-  # never matches, and it fails at the moment the mutation opens its shell,
-  # which is the irreversible step.
+  # Which key matters. An ICX7150 offers RSA and ECDSA and no ed25519, and Go
+  # prefers ed25519, then ECDSA, then RSA — so it negotiates ECDSA, and the
+  # ECDSA digest is what it will be shown. Pinning the RSA one instead is a
+  # pin that never matches, and it fails at the moment the mutation opens its
+  # shell, which is the irreversible step.
   #
   # Not a secret: a host key fingerprint is the public half, and publishing it
   # is what pinning is for.
-  ssh_host_key_sha256: "SHA256:xZ3j9T0/Sc9yoSN+m1gT0aVgJoGWCnOfWulHhtr4b6A"
+  ssh_host_key_sha256: "SHA256:REPLACEwithTHEsshHOSTkeyDIGESTofTHEdevice00"
 }

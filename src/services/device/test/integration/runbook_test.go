@@ -234,7 +234,15 @@ func TestTheRunbooksRecoveryStepsRun(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	d.device.unpinReads()
+
+	// The reads stay pinned across the recovery steps. Unpinning here lets
+	// recovery's next poll observe the change and verify the mutation, and
+	// AbandonMutation then refuses a terminal mutation exactly as it should
+	// — the document's first command fails against a mutation that rescued
+	// itself while the script was starting. Which side wins is a race
+	// between the poll interval and buf's startup, so this failed on an idle
+	// machine and passed under load, the opposite of the usual reading.
+	defer d.device.unpinReads()
 
 	absRepo, err := filepath.Abs(repoRoot)
 	if err != nil {
@@ -258,6 +266,20 @@ func TestTheRunbooksRecoveryStepsRun(t *testing.T) {
 	// Running it once would be running something no operator would.
 	script.WriteString("retry() { for _ in $(seq 1 100); do if \"$@\"; then return 0; fi; sleep 0.5; done; return 1; }\n")
 	script.WriteString(retryWrap(t, runbookSection(t, "## If it does not resolve", "## Afterwards")))
+
+	// Checked rather than assumed: every command below is about a mutation
+	// that is still open, and a terminal one refuses them all with the same
+	// journal/state code. Asserting it here names the cause in one line
+	// instead of leaving a hundred identical refusals to be read.
+	status, err := d.central.devices().GetDeviceAccessStatus(context.Background(),
+		connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{Device: deviceRef()}.Build()))
+	if err != nil {
+		t.Fatalf("read the status the recovery steps run against: %v", err)
+	}
+	if unresolved := status.Msg.GetUnresolved(); unresolved.HasDisposition() {
+		t.Fatalf("the mutation resolved itself before the recovery steps ran, disposition %v; these steps only apply to an open mutation",
+			unresolved.GetDisposition())
+	}
 
 	out, err := runScript(t, script.String(), 180*time.Second)
 	if err != nil {
