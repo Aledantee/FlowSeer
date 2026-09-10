@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-09
+last_updated: 2026-09-10
 ---
 
 # Agent steering
@@ -145,9 +145,16 @@ what the model does by default adds context without value. Measured evidence
 agrees: SWE-Skills-Bench found 39 of 49 public skills gave no pass-rate gain,
 and Vercel found skills never fired in 56% of eval cases while a compressed
 always-on index did. The planning skill this repository used before was
-111 KB and loaded a further 110 KB of references per run. The FlowSeer skills stay under about
-150 lines each and contain only the procedure, the file layout, and the
-repository rules an agent cannot infer from the tree.
+111 KB and loaded a further 110 KB of references per run. The FlowSeer
+skills aim at about 150 lines each and contain only the procedure, the
+file layout, and the repository rules an agent cannot infer from the tree;
+episodic material goes to `references/` files behind a triggered pointer.
+After the 2026-09-10 steering pass the workflow skills sit between 125 and
+190 lines, and `delegate` at about 300: its Orca loop, headless lanes, and
+child-worktree removal are each conditional, but they are conditional on
+the host rather than on the task, and a coordinator that loads the skill
+in Orca needs all of them in the same turn. Moving them out is the next
+trim if the file keeps growing.
 
 Use one reviewer, split by file group, never a persona panel. This
 repository's transcripts showed the earlier persona-panel review dispatching
@@ -204,6 +211,34 @@ fixpoint over `go list` dependency and test-import data) and keeps the
 module-wide scope for `--full`; workers run their package's focused tests
 and the coordinator runs the verifier once after merging.
 
+Make a gate's silence impossible to read as a pass. Between 2026-09-05 and
+2026-09-10 the observation queue collected five entries about the verifier
+reporting success for a reason unrelated to the code: a directory argument
+selecting no gate, a no-gate exit clearing its own marker, a cached corpus
+pass, a `--path` naming a file the baseline lacks, and a background wrapper
+whose `tail` replaced the script's exit code. Each was fixed in the script
+rather than in prose, since a rule that was read and broken wants
+enforcement: a directory expands to its files, a no-gate run exits non-zero
+before touching the receipt, the corpus tier carries `-count=1`,
+`buf breaking` targets only files master holds, and the last line of every
+run names the verdict. The two invariant packages (`src/common/errs`,
+`test/conformance/proto`) run on every targeted root-module run for the
+same reason: a per-package gate cannot see a repository-wide namespace,
+and a rule asking the implementer to remember that had already failed
+twice. `--full` bounds `go test -p` because a gate that fails for reasons
+the diff cannot cause teaches its readers to discount it.
+
+Watch a test fail against the defect. One plan produced three tests that
+read as proof and asserted nothing, each found only by reverting the fix;
+a later session hit the same trap twice more and named the sharper rules,
+that a test asserts what the fix causes rather than what it prevents, and
+asserts the state it depends on before the outcome. `implement` states
+them at the test step, with the undo as a file copy after a reversal's
+`git checkout` took an unfinished unit with it. The rules stay prose
+because a reversal is a judgment about which line carries the property;
+what can be enforced, the fixture validity of wire messages, names
+`protovalidate.Validate` instead.
+
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
 reports frontier models resolving far fewer multi-file tasks than on
@@ -251,8 +286,8 @@ and nothing else.
 Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
 `independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
 on Haiku and resolves editing workers from the registry's fit set by pool
-headroom, and no agent uses `inherit` any more: the coordinating session may run the most expensive model, and none
-of the delegated work needs it. Anthropic's subagent guide recommends Haiku
+headroom, and no agent uses `inherit` any more: the coordinating session
+may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku
 for read-only exploration; its research-system report measured an Opus lead
 with Sonnet workers beating a single Opus agent by 90.2% on its internal
 eval, while a multi-agent run costs about 15 times a chat turn; ProgRouter
@@ -294,9 +329,8 @@ idle.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
-Context7 tools, the `ctx7` CLI as a fallback, and WebFetch on the official
-docs when neither exists; Go dependencies stay with `go doc` and the module
-cache. The scope follows the evidence: retrieving API documentation improved
+Context7 tools and the `ctx7` CLI as a fallback; Go dependencies stay with
+`go doc` and the module cache. The scope follows the evidence: retrieving API documentation improved
 code generation on rarely seen libraries by 83 to 220 percent, with the code
 examples carrying almost all of the gain, while a noisy retriever hurt on
 well-known APIs. Context7 was chosen over Ref because its server is MIT and

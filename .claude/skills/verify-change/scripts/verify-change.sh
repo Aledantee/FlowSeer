@@ -2,6 +2,21 @@
 
 set -euo pipefail
 
+# The last line of every run names the verdict, so a log read only at its
+# tail cannot be mistaken: a session that wrapped the script in
+# `...; echo "exit=$?"; tail log` saw the wrapper's exit code, not the
+# gate's, and reported a failed run as green. Installed before any exit
+# path, the usage and bad-ref ones included.
+build_dir=""
+finish() {
+  local status=$?
+  [[ -n $build_dir ]] && rm -rf "$build_dir"
+  if ((status != 0)); then
+    echo "FlowSeer verification FAILED (exit $status)." >&2
+  fi
+}
+trap finish EXIT
+
 usage() {
   cat <<'USAGE'
 Usage: verify-change.sh [--full] [--print-selection] [--base REF] [-- PATH...]
@@ -153,6 +168,7 @@ go_files=()
 markdown_files=()
 modules=()
 proto_files=()
+proto_deleted=false
 proto=false
 hook_tooling=false
 mib=false
@@ -216,7 +232,15 @@ else
         ;;
       *.proto|buf.yaml|buf.work.yaml|buf.gen.yaml)
         proto=true
-        [[ $path == *.proto && -f $path ]] && proto_files+=("$path")
+        if [[ $path == *.proto ]]; then
+          if [[ -f $path ]]; then
+            proto_files+=("$path")
+          else
+            # A deleted schema file is the archetypal breaking change and
+            # cannot be named with --path; the whole module is compared.
+            proto_deleted=true
+          fi
+        fi
         ;;
       .claude/*|.codex/*|tools/hooks/*)
         hook_tooling=true
@@ -259,7 +283,6 @@ need_tool python3
 run python3 "$script_dir/check-plan-status.py"
 
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
-trap 'rm -rf "$build_dir"' EXIT
 
 if ((${#markdown_files[@]})); then
   need_tool python3
@@ -390,10 +413,28 @@ print("\n".join(sorted(affected)))
 PY
 )
         echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
+        # Two packages hold checks over repository-wide namespaces: error
+        # code uniqueness in src/common/errs, and the schema layering and
+        # message rules in test/conformance/proto. A change that violates
+        # one of those touches neither package, so the importer fixpoint
+        # never selects them and the targeted run passes what --full
+        # refuses. Together they take a few seconds; always run them.
+        if [[ $module == . ]]; then
+          targets+=(./src/common/errs ./test/conformance/proto)
+        fi
       fi
       run go vet "${targets[@]}"
       vet_tagged "${targets[@]}"
-      run go test -race "${targets[@]}"
+      race_args=()
+      if [[ $full == true ]]; then
+        # Module-wide, go runs one package binary per CPU. Race-instrumented
+        # packages that start their own listeners or walk a corpus time out
+        # at that load and pass alone, so a full run measures the host, not
+        # the code. Half the CPUs, at least two, keeps the timeouts honest.
+        cpus=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
+        race_args=(-p "$((cpus / 2 > 2 ? cpus / 2 : 2))")
+      fi
+      run go test -race ${race_args[@]+"${race_args[@]}"} "${targets[@]}"
       # Enumerate package directories and drop generated output so lint
       # stays bounded by hand-written code even though generated findings
       # are excluded by configuration.
@@ -439,7 +480,25 @@ if [[ $proto == true ]]; then
   run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
   run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
   if git show-ref --verify --quiet refs/heads/master; then
-    run buf breaking --against '.git#branch=master' ${proto_path_args[@]+"${proto_path_args[@]}"}
+    # --path names files in the against-ref. A file the branch added is
+    # absent there, so targeting it yields "no .proto files were targeted",
+    # which buf reports as a failure rather than a vacuous pass. Compare
+    # only the changed files master holds; a branch whose changed schema
+    # files are all new has nothing to break yet, and says so.
+    breaking_path_args=()
+    for proto_file in "${proto_files[@]:-}"; do
+      [[ -n $proto_file ]] || continue
+      if git cat-file -e "master:$proto_file" 2>/dev/null; then
+        breaking_path_args+=(--path "$proto_file")
+      fi
+    done
+    if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
+      run buf breaking --against '.git#branch=master'
+    elif ((${#breaking_path_args[@]})); then
+      run buf breaking --against '.git#branch=master' "${breaking_path_args[@]}"
+    else
+      echo "buf breaking skipped: every changed .proto file is new on this branch."
+    fi
   fi
   generated_dir=$build_dir/generated
   run buf generate -o "$generated_dir"
@@ -447,6 +506,11 @@ if [[ $proto == true ]]; then
   if [[ -d frontend/web/generated || -d $generated_dir/frontend/web/generated ]]; then
     run diff -qr frontend/web/generated "$generated_dir/frontend/web/generated"
   fi
+  # The schema's executable invariants (the net import-layering table, the
+  # per-package message rules) live in a Go package no schema path selects,
+  # so a proto-only change runs them here rather than only under --full.
+  need_tool go
+  run go test -count=1 ./test/conformance/proto/
 fi
 
 if [[ $mib == true ]]; then

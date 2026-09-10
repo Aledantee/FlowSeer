@@ -64,14 +64,52 @@ the user asked for it (see Units in workers). For each:
    with a single caller. Before calling a third-party
    API the tree does not already use, check its signature: `go doc` for Go,
    Context7 (`mcp__context7__query-docs` or the `ctx7` CLI) for the rest.
+   Where the plan and the working code disagree about a shape, the code
+   wins: leave the member out and edit the plan in the same commit, with
+   the reason, because a plan left contradicting its code is read as the
+   specification by the next session. A branch that degrades on error
+   makes the degraded state visible from outside (a span attribute, a
+   counter, a log line), or the feature behind it can be dead with every
+   test passing; a swallow that is safe only because the callee cannot
+   fail says so at the call site.
 3. Write or extend the tests the unit names. When the unit changes behavior,
-   write the failing test first and watch it fail. A unit without a test
-   needs a stated reason in the plan.
+   write the failing test first and watch it fail. A test for a
+   concurrency, ordering, or security property is evidence only once it
+   has been watched failing against the defect: revert the fix or feed a
+   wrong implementation, and undo from a copy taken first
+   (`cp <path> "$TMPDIR/<name>.orig"`), never with `git checkout` or
+   `git restore`, which on an unfinished unit discard everything since the
+   last commit. Assert what the fix causes, not what it prevents: an
+   absence has more than one source, and a cancelled context supplies it
+   as readily as the fix. When the test depends on the system being in a
+   state, assert the state before the outcome. Say per test whether it is
+   evidence for this change or a guard for later code. A self-authored
+   fake peer produces only the sequence the client was coded to expect:
+   seed it with leftover state ahead of the call under test (a banner, a
+   retained buffer, an out-of-order message). A fixture that builds a wire
+   message passes `protovalidate.Validate` in the test, so a message the
+   wire would refuse fails where it is written. The exported `Config` of a
+   module under `src/modules/` (say `src/modules/localnet/access`) gets one
+   test in a package outside that directory: only that
+   package shows a host can name every field's type and construct or
+   implement a value. When correctness rests on an invariant another
+   component holds, the comment and a test go on the holding side, at the
+   branch that carries it, proved by the same reversal: revert each
+   candidate and keep the one a test notices. A unit without a test needs
+   a stated reason in the plan.
 4. Update the package README, convention doc, solution citations, and any
    test or benchmark name the unit made false, in the same unit.
-5. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`), commit
-   the unit, then run the verifier for the unit's paths, sandbox disabled,
-   in the background while you read on:
+5. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`). A test
+   run whose output may carry diagnostics goes to a file, grepped after
+   (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
+   never through a filter that drops what it does not match. A unit that
+   adds or removes a name in a repository-wide namespace (an error code, a
+   telemetry scope, an event or metric name, a bus subject, a bucket)
+   greps the tree for that name, since no per-package gate sees two
+   owners. Commit the unit, then run the verifier for the unit's paths,
+   sandbox disabled, in the background while you read on, as the last
+   command of its invocation (a trailing `echo` or `tail` reports its own
+   exit code as the gate's):
 
    ```bash
    .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
@@ -80,7 +118,8 @@ the user asked for it (see Units in workers). For each:
    When a unit leaves the package red until the next unit lands, verify
    those units together and say so.
 
-6. Once that run reports green, write the unit `passed` in the ledger with
+6. Once that run's last line reads `FlowSeer verification passed.`, quoted
+   into the report verbatim, write the unit `passed` in the ledger with
    `git rev-parse HEAD` and that run's `verified_at` from the receipt,
    move `resume` to the next unit, and fill `note` only when the unit
    produced a decision or pitfall the next unit needs, in one line. A unit
@@ -100,30 +139,27 @@ cost more than a few file reads.
 
 ### Units in workers
 
-A phase plan (one with a `parent:` field) runs each unit in a worker, one
-at a time, unless the user asks for the main conversation: a fresh context
-per unit keeps the coordinator's own context to the ledger. Units marked
-`After: none`, or whose prerequisites have landed, may run at once when
-the user asked for it: up to three workers, one unit each. Both are
-dispatched as `delegate` describes. The brief carries the plan path, the
-unit's text, the conventions for its files, the focused test command, and
-the ledger notes of landed units. Workers do not run the verifier. After
-each report, merge the worker's branch here, run the verifier on the
-union of changed paths, write the ledger, then release the worker and
-remove its worktree as `delegate` describes, before the next wave. With
-concurrent workers, `resume` is written after the wave settles.
+A phase plan (one with a `parent:` field), or a request to run units in
+parallel, dispatches units to workers: load `references/workers.md` before
+the first such unit.
 
 ## 3. Finish
 
-Run the verifier across everything the task changed, sandbox disabled. Pass
-the task's paths explicitly when the worktree holds unrelated changes;
-otherwise use `--base master`, or `--base HEAD` for uncommitted work. When
+The order here matters: first record the outcome in the plan and amend it
+into the last unit's commit, rewrite that unit's `commit` in the ledger
+with the new hash, and only then run the verifier, as the last action of
+the task, sandbox disabled. A run before the last edit is evidence about a
+tree that no longer exists, and `close` refuses a receipt older than the
+last commit. Pass the task's paths explicitly when the worktree holds
+unrelated changes; otherwise use `--base master`, or `--base HEAD` for
+uncommitted work. When
 `$(git rev-parse --git-dir)/flowseer-verification-dirty` holds the
 `<Bash mutation; verify with --full>` line, run `--full` instead; nothing
-else clears it.
+else clears it. Quote the run's last line into the report; a line other
+than `FlowSeer verification passed.` blocks the report.
 
-Record the outcome in the plan, read from the ledger, in the same commit as
-the last unit; the ledger stays in place for `close` to gate on. Set
+Recording the outcome in the plan, read from the ledger, in the same commit
+as the last unit leaves the ledger in place for `close` to gate on. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
 `> Partially implemented: <units>.` with the reason. When the plan carries

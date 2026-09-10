@@ -37,17 +37,8 @@ record. Promote a decision when reverting it would touch more than one package
 or a wire contract, when it constrains work outside this plan's units, when it
 changes an accepted record, or when an earlier plan or record already decided
 the same question. Which library, test layout, or field name stays a plan
-decision.
-
-Write `docs/architecture/<date>-<slug>-direction.md` with the frontmatter of
-the existing records and `status: proposed-direction`, add a "Proposed
-direction" row to `docs/architecture/README.md`, and cite the record from the
-plan's Decisions. When it amends an accepted record, edit that record in the
-unit that changes the code and name it in `amends`. The body gives the
-context, the decision, the alternatives and why they lost, and the
-consequences. Write only what the evidence supports; nobody edits a record
-after acceptance. Only a person sets `accepted-direction`: ask for it in the
-handoff and treat a proposed record as non-binding until then.
+decision. When a decision passes this test, load
+`references/direction-record.md` and write the record it describes.
 
 ## 2. Gather evidence
 
@@ -60,7 +51,12 @@ Read the RFCs, vendor specs under `spec/`, and library source under
 outside the module cache, use Context7 (`mcp__context7__query-docs` when
 connected, else the `ctx7` CLI), one question per query; keep the code example
 it returns and record the library version the plan relied on. Fetch every URL
-before citing it and cite only what the page says.
+before citing it and cite only what the page says. A Decision that rests on a
+standard-library API's exact behavior reads `go doc <symbol>` first; a name
+and a reputation are not evidence for a security property. A binary fixture
+(a pcap, a golden file, a captured payload) is decoded or hex-dumped and its
+bytes checked against the claim before the plan cites it, as a page is read
+before it is quoted.
 
 ## 3. Write the plan
 
@@ -135,6 +131,17 @@ Rules:
   never both `none`.
 - Requirement and unit labels (R1, U2) stay in the plan and never enter code,
   comments, or commit messages.
+- A requirement phrased as what a component knows, sees, or is told is a
+  claim about a wire: name the message and field that carry it, or write
+  that it does not exist yet and is part of the work. Absent data fails no
+  gate until something has to use it.
+- A change list naming struct members is a sketch of an interface; the
+  contract is the behavior the unit's Tests prove. A change list naming
+  dependents, or a deferral's trigger, is a claim checkable against the
+  plan's own Decisions before it is written; two parts of one plan
+  disagreeing is the normal case, not a surprise.
+- A unit adding or changing the exported `Config` of a module under
+  `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines, cut what the implementer can decide alone,
   then load `references/phases.md` and split along its dependency
   clusters into a parent plan and phase plans.
@@ -142,11 +149,15 @@ Rules:
 ## 4. Review the plan
 
 Read the plan as the implementer: can each unit start without a question? Fix
-the plan where not. For more than three units or a schema change, dispatch one
-`independent-reviewer` as `delegate` describes, with the plan path and the
-question "what would block or mislead an implementer, and what does the plan
-contradict in `docs/architecture/` or the conventions?". Apply the findings
-that hold.
+the plan where not. Where a unit supplies a value to an existing matching
+primitive (a prompt regex, a header parser, a routing predicate), trace that
+primitive's matching rule (anchor scope, tie-break) against the value and
+against every sibling it must not also match; the value's apparent intent is
+not what the primitive sees. For more than three units or a schema change,
+dispatch one `independent-reviewer` as `delegate` describes, with the plan
+path and the question "what would block or mislead an implementer, and what
+does the plan contradict in `docs/architecture/` or the conventions?". Apply
+the findings that hold.
 
 ## 5. Hand off
 

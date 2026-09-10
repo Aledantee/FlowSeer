@@ -51,7 +51,10 @@ review the new version as prose.
 `independent-reviewer` has no shell. Write the diff to a file in the
 scratchpad directory and brief the agent as `delegate` describes: that path,
 the file list, the plan path, the intended behavior as a specification, the
-convention paths, and the matched solutions. Ask for findings that affect
+convention paths, the matched solutions, and the pinned version of every
+external convention or library a finding could cite (`go.mod`, `buf.lock`,
+the semantic-convention version `docs/conventions/observability.md` names),
+so the reviewer checks rather than recalls. Ask for findings that affect
 correctness, the stated requirements, or a repository rule, ordered by
 severity, each with path and line, the failure scenario, and the smallest safe
 fix. When the plan's `status` is still `planned` because work is mid-flight,
@@ -95,8 +98,13 @@ exceed one reader, briefed with the unit reports as input. Otherwise this is the
 coordinator's own reading, and the unit reviewers' unanswered questions are its
 agenda.
 
-While the reviewer runs, read the hunks that change behavior in full and skim
-the rest, asking:
+### The coordinator's own reading
+
+This pass runs for every scope, a plain diff included. While the reviewer
+runs, read the hunks that change behavior in full and skim
+the rest. Read each hunk's code before the comment above it, decide what the
+code does, then compare: a comment stating intent primes a reader to see that
+intent in code doing the opposite. Ask:
 
 - Does every behavior change have a test that would fail without it, and
   would that test still fail if the check moved to the wrong place?
@@ -124,6 +132,26 @@ what disqualifies a finding here.
 Prove a point with a throwaway test in the scratchpad directory when reading
 is not enough; never add files to the repository during a review. Never pad
 the list.
+
+Four findings need more than a re-read:
+
+- One that cites an external convention, API, or spec is a claim about the
+  version the repository pins, not the latest published one; check it
+  against the pinned artifact before keeping it.
+- A negative probe result (the attack did not land, the path was not taken)
+  stays open until the code that refuses it is pointed at; a probe's wire
+  detail (a header, a subject, a frame shape) is checked against the
+  implementation before either result is trusted.
+- A seam finding discharged by an invariant in another unit or service is
+  not dropped: it becomes a question for the reviewer that holds those files
+  and stays in the report, because the coordinator has read less of the
+  neighbour than the reviewer briefed on it.
+- A finding is a sample of a class until shown otherwise: name what else
+  engages and clears the same mechanism, so the fix covers the class. When
+  a round finds a defect in the previous round's fix for the same
+  mechanism, stop patching: state the property the mechanism must hold and
+  make it executable (a generated state space, an invariant assertion the
+  suite can fail on) instead of reviewing the next rewrite.
 
 ## 5. Report
 
