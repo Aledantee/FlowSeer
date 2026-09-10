@@ -144,6 +144,21 @@ failures that travel with any manager keep their own fixes: the sandbox
 socket rule stays a per-machine setting, Codex's hooks dialog is answered
 by the wrapper, and reviewer subagents stay native.
 
-Open after both waves: whether Herdr's `blocked` fires for Claude's own
-permission prompts (the lanes ran with permissions off), and how a lane
-behaves across a coordinator compaction in a real plan.
+Two questions left open by the waves were settled afterwards:
+
+- Claude's own permission prompt is reported as `blocked`. A Haiku lane
+  started without `--dangerously-skip-permissions` and asked to create a
+  file returned `blocked` from `agent prompt --wait` three seconds after
+  the prompt, with the "Do you want to create PROBE.txt?" dialog on
+  screen (`agent explain`: rule `legacy_no_prompt_blocker`). A lane that
+  must keep permissions on is therefore workable through `wait` and
+  `keys`; the wrapper still runs workers with permissions off.
+- A coordinator compaction loses nothing on the Herdr side. Every wrapper
+  call is a fresh process addressed by lane name, with no token or handle
+  held in the session; what a compaction can lose is the list of lane
+  names, and `status` returns it. Orca's `dispatch_capability_invalid`
+  after a compaction has no counterpart here.
+
+Still open: the behaviour of a wave inside a real multi-unit plan, where
+the coordinator merges lanes in sequence and the ledger carries notes
+between them; the two waves here ran one unit per lane with no ordering.
