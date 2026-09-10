@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// TestShutdownCutsAConnectionThatOutlastsTheGrace is finding 2's test.
+// TestShutdownCutsAConnectionThatOutlastsTheGrace pins the shutdown grace.
 //
 // http.Server.Shutdown never cuts an active connection. It closes the
 // listeners, closes idle connections, and returns its context's error once
@@ -78,7 +78,7 @@ func TestShutdownCutsAConnectionThatOutlastsTheGrace(t *testing.T) {
 
 	// The grace must actually have been spent: if Run came back before it,
 	// this connection was not active and the rest of the test proves
-	// nothing about cutting one. That was true of the first version of
+	// nothing about cutting one. That would be true of a version of
 	// this test, which wrote HTTP/1.1 onto an h2 connection and passed
 	// with the fix removed.
 	if elapsed := time.Since(stoppedAt); elapsed < 4*time.Second {

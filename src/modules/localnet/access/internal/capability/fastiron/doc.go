@@ -14,5 +14,5 @@
 // it.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decision 11.
+// the firmware-family split.
 package fastiron

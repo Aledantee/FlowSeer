@@ -92,7 +92,7 @@ func assemble(t *testing.T) *deployment {
 // The agent enrolls against a real central, attaches its bus, and onboards
 // the device central's registry lists for it.
 //
-// Everything past the attachment is what U8e's unit tests could not reach: it
+// Everything past the attachment is what a unit test could not reach: it
 // takes a live hub for the attachment to succeed, and a successful attachment
 // for the lane to exist. What proves onboarding happened is the device
 // itself — the agent opened a session against the address the registry named,
@@ -262,7 +262,8 @@ func (d *deployment) waitUntilResolved(t *testing.T) *devicev1.GetDeviceAccessSt
 	// What the trail cannot show is why a poll that ran came back with
 	// nothing: that reason is inside central and reaches only its own log,
 	// graded at DEBUG because an operator turns it up when they need it. The
-	// U8f diagnosis needed exactly that and nothing else would have served.
+	// Diagnosing the access-policy defect needed exactly that, and nothing
+	// else would have served.
 	// So if a trail ever says the polls ran and nothing resolved, the next
 	// step is one line — set log_level to LOG_LEVEL_DEBUG in the fixture's
 	// central configuration and run it again. It is not on by default because

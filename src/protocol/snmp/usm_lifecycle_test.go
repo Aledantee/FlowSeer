@@ -40,7 +40,7 @@ func TestInformTimeWindow(t *testing.T) {
 		t.Error("inform during quarantine accepted, want rejected")
 	}
 	// int32-boundary forged engineTime must NOT wrap into a spurious accept.
-	// (The pre-fix int32 subtraction overflowed and wrongly accepted these.)
+	// (An int32 subtraction here overflows and wrongly accepts these.)
 	for _, etime := range []int32{math.MinInt32, math.MaxInt32, math.MinInt32 + 100} {
 		if informTimeWindowOK(now, authoritativeBoots, etime) {
 			t.Errorf("forged boundary etime %d accepted — int32 overflow leaked", etime)

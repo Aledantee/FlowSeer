@@ -354,7 +354,7 @@ type Lane struct {
 var ErrCodeClosed = errs.NewCode("access/lane-closed")
 
 // ShutdownReport summarizes a [Lane.Close] call. It is currently empty:
-// Close does not implement the plan's requirement 18 in full. It does stop
+// Close does not stop everything a full shutdown would. It does stop
 // new admission and cancel every device's recovery poll, and each already-admitted Submit call independently
 // returns on its own passed-in context regardless of how long the
 // background drainer spends on other items (drain runs on its own
@@ -370,7 +370,7 @@ type ShutdownReport struct{}
 // recovery poll. Already-admitted items continue to their terminal result
 // on whichever goroutine is draining them; Close does not wait for them and
 // enforces no deadline on them — see [ShutdownReport]'s doc for exactly
-// what requirement 18 this does and does not satisfy.
+// what it does and does not stop.
 //
 // Canceling the polls is not optional tidying. A poll runs under a context
 // detached from any caller's, for up to the horizon, and holds a reference
@@ -417,8 +417,8 @@ const defaultOperationTimeout = 30 * time.Second
 // bound, which is the thing the cap exists to prevent, so the floor is the
 // honest shape and the assertion on it is "at least this many".
 //
-// The interval used to be a flat 30s, which made the attempt count an
-// accident of two unrelated numbers: a mutation gets one attempt per interval
+// A flat interval would make the attempt count an accident of two unrelated
+// numbers: a mutation gets one attempt per interval
 // within a budget of horizon-plus-interval, so a device whose measured
 // horizon was near 30s got exactly one look and a device whose horizon was
 // seconds got one or none. A single unlucky moment inside that window — a
@@ -918,8 +918,8 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// joiner with a longer deadline is depending on this read completing,
 	// so the owner giving up early must not kill it, and the owner's
 	// cancellation must never be handed to every joiner as if it were the
-	// read's own outcome (that is exactly the bug 542b303f fixed for the
-	// plain queue path but left open here). Detached is not unbounded,
+	// read's own outcome, which is the same failure the plain queue path
+	// guards against. Detached is not unbounded,
 	// though: every TypedRead routes through this path whether or not it
 	// ever gets a joiner, so with no bound of its own a device that
 	// accepts a connection but never answers would park this device's
@@ -1042,7 +1042,7 @@ func (l *Lane) drain(ds *deviceState) {
 // HandleCheckpoint delivers central's CheckpointRequest to the device's
 // currently in-flight mutation, if one is waiting for exactly this
 // sequence. A future host's message loop calls this from the execution
-// envelope's CheckpointRequest, per decision 4's barrier.
+// envelope's CheckpointRequest, per the checkpoint barrier.
 func (l *Lane) HandleCheckpoint(deviceKey string, req *integrationv1.CheckpointRequest) error {
 	ds, err := l.deviceRegardlessOfClosed(deviceKey)
 	if err != nil {
@@ -1993,7 +1993,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *integration
 }
 
 // recordEvidence records which route answered req's operation, when the
-// observation is complete enough to say so, per decision 1's live
+// observation is complete enough to say so, per the live
 // per-operation evidence.
 //
 // The error is discarded, and Record has exactly one failure: this
@@ -2020,7 +2020,7 @@ func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *integrat
 }
 
 // Freeze pauses side effects across every device this Lane serves, per
-// decision 8's control-plane freeze, and records one LaneFrozen audit
+// the control-plane freeze, and records one LaneFrozen audit
 // event per registered device. It does not return until every side effect
 // already in flight has finished — or ctx ends first, in which case it
 // carries ctx's error while leaving new side effects stopped regardless.

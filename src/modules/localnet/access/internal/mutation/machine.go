@@ -136,8 +136,8 @@ func Admitted(req *integrationv1.ExecuteRequest, deps Deps) (*Machine, error) {
 			// stale, not because the device's firmware actually changed.
 			// A real epoch-change signal would need a fresh probe at
 			// observation time compared against the earlier probe's own
-			// output — this module has no such check (see the README's
-			// "Open gap" section) — so emitting here would durably record
+			// output, which this module does not do — so emitting here
+			// would durably record
 			// one event per rejected intent, including a central
 			// retrying the same stale intent many times for a single (or
 			// no) real change.
@@ -829,14 +829,6 @@ func (m *Machine) retainOwed(event *eventv1.DeviceOperationEvent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.owed = append(m.owed, event)
-}
-
-// OwedRecords is how many audit records this mutation has failed to deliver
-// and still holds.
-func (m *Machine) OwedRecords() int {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return len(m.owed)
 }
 
 // OwedRecordIDs are the event ids this mutation is still holding, for a

@@ -10,7 +10,7 @@ import (
 )
 
 // Fenced reports whether a device-native fence now proves a retry safe —
-// decision 8's positive-fencing input. A nil Fenced is treated as always
+// the positive-fencing input. A nil Fenced is treated as always
 // false: recovery falls through to the repeated-observation path alone.
 type Fenced func(ctx context.Context) (bool, error)
 
@@ -55,7 +55,7 @@ const minCorroboratingObservations = 2
 // Runner drives one mutation's recovery: it must be constructed fresh per
 // mutation, since it tracks that mutation's corroboration state across
 // calls. Not safe for concurrent use; a caller drives one Attempt at a
-// time, per decision 3's rule that recovery for a device is part of its
+// time, per the rule that recovery for a device is part of its
 // single ordered lane.
 type Runner struct {
 	machine *mutation.Machine

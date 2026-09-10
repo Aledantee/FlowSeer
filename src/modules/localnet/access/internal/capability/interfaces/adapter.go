@@ -34,7 +34,7 @@ var ErrCodeNotSubmitted = errs.NewCode("interfaces/not-submitted")
 
 // ShellAdapter is the seam a firmware-specific shell mapping implements.
 // fastiron.Adapter satisfies it structurally; this package never imports a
-// firmware package (the direction record's decision 11), so ShellAdapter,
+// firmware package (the firmware-family split), so ShellAdapter,
 // not a concrete adapter type, is what Read and VerifyDescriptionChange
 // take.
 type ShellAdapter interface {
@@ -123,7 +123,7 @@ func (p ProvenanceInputs) provenance(route Route, observedAt time.Time) *invento
 
 // Read builds the interface's observation for now: a cached observation
 // still within freshness is returned as is; otherwise it reads over SNMP
-// and, per the direction record's decision 1, falls through to shell over
+// and, per the route-fallback rule, falls through to shell over
 // SSH only when the SNMP read is not COMPLETENESS_COMPLETE. The winning
 // observation's Provenance is filled from prov and the route that
 // answered.
@@ -225,14 +225,14 @@ func (d VerificationDisposition) String() string {
 	}
 }
 
-// VerifyDescriptionChange implements the direction record's decision 2: a
+// VerifyDescriptionChange implements the verification rule: a
 // mutation is verified only by an observation of the affected state, never
 // by the mutation's own command succeeding. It calls [Read] exactly once —
 // this function does not retry — and reports one of three dispositions: a
 // caller polling it across the delayed-effect horizon sees
 // VerificationNotYetVerified become either VerificationVerified or
 // VerificationFailed as later calls land, matching the direction record's
-// decision 5.
+// the ambiguity rule.
 //
 // since is when the mutation was submitted (the read that established
 // effect's horizon should begin from); now is the time of this call, so a
@@ -264,7 +264,7 @@ func VerifyDescriptionChange(
 }
 
 // SetDescriptionChange issues intent's description over shell and verifies
-// it once: the direction record's decision 2 requires a write capability
+// it once: the verification rule requires a write capability
 // to carry its own verification, so this is the only way this package
 // mutates a description. now is submitted (the mutation's own timestamp)
 // and is passed to VerifyDescriptionChange as both since and now, so the

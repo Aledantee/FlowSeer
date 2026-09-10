@@ -18,7 +18,7 @@ var ErrCodePriorityUnspecified = errs.NewCode("lane/priority-unspecified")
 // Priority orders admission only. A Queue never reorders an admitted Item
 // relative to another once both are admitted with the same Priority; two
 // different Priorities are ordered high before low regardless of admission
-// order, per the direction record's decision 3.
+// order, per the per-device ordering rule.
 type Priority int
 
 const (

@@ -189,7 +189,7 @@ func TestConnectAdapterOpenStopsRelayOnContextCancellation(t *testing.T) {
 // messages 10ms apart, so completing all of them naturally takes about
 // 2 seconds; Close is called right after the first pulse arrives, and
 // handle.Err() must become non-nil well before that natural completion —
-// on a pre-fix Close that closes nothing, the relay would instead keep
+// with a Close that closes nothing, the relay would instead keep
 // receiving paced pulses for the full ~2 seconds.
 func TestConnectAdapterCloseTornsDownTheStreamImmediatelyAfterOpen(t *testing.T) {
 	grant := newTestGrant()

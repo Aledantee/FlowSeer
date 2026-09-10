@@ -292,7 +292,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	// The second item is admitted (capacity 1, queue currently empty since
 	// the first was dequeued into processing) but a third must overload.
 	// Its own context has no deadline: it must complete once release
-	// closes, proving requirement 2's "every previously admitted item is
+	// closes, proving the queue's "every previously admitted item is
 	// still present and later executed" rather than merely not erroring.
 	secondDone := make(chan submitResult, 1)
 	go func() {
@@ -440,7 +440,7 @@ func TestLaneTwoIdenticalMutationsNeverCoalesce(t *testing.T) {
 // identity probe's result is not merely run, but is actually what the
 // first mutation's fingerprint gate checks against: a mutation whose
 // expected fingerprint matches what the probe returned is admitted, and
-// one that names a different fingerprint is blocked — the ordering requirement 16 asks for
+// one that names a different fingerprint is blocked — the ordering the epoch check asks for
 // stated as an observable effect rather than a bare "was it called" flag.
 func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 	l := newTestLane(t)
@@ -805,7 +805,7 @@ func TestLaneRapidConcurrentSubmissionsAllComplete(t *testing.T) {
 // in this test. A's own Submit call must still return promptly: drain runs
 // on its own goroutine, so Submit's own select waits only on its own result
 // channel, never on the drain loop finishing every item it was handed.
-// Before that fix, l.drain(ds) ran synchronously inside Submit's own call,
+// Were l.drain(ds) to run synchronously inside Submit's own call,
 // so A's Submit would not return until B's item did too.
 func TestLaneDrainerDoesNotBlockOnAnotherCallersExpiredWork(t *testing.T) {
 	l := newTestLane(t)
@@ -933,7 +933,7 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 // deadline must never become the detached work's deadline when a joiner
 // behind it has a longer one — that would hand the owner's expiry to the
 // joiner as its own outcome after only a fraction of the joiner's own
-// budget, the exact failure bug 542b303f fixed at the plain queue path.
+// budget, the same failure the plain queue path guards against.
 // The device answers after the owner's short deadline has already elapsed
 // but well within the joiner's own longer one and within OperationTimeout.
 func TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner(t *testing.T) {

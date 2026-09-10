@@ -115,7 +115,7 @@ func TestReadInterface_HappyPathWithPagination(t *testing.T) {
 }
 
 // TestReadInterface_DescriptionContainingPromptLookalikeSurvives proves
-// Requirement 8's "a description line containing SSH@device# as literal
+// The rule that "a description line containing SSH@device# as literal
 // text does not end the command early" at the layer where that failure can
 // actually occur: Session.Run's own prompt scan
 // (src/protocol/ssh/command.go), not ParseShowInterface, which only ever

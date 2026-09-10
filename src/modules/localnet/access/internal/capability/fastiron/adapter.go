@@ -19,7 +19,7 @@ var ErrCodeAmbiguousSubmission = errs.NewCode("fastiron/ambiguous-submission")
 // Adapter is the typed FastIron 10.0.10g shell adapter over one
 // already-dialed [ssh.Session]. It satisfies the interface capability's
 // ShellAdapter seam structurally; nothing in this package imports it, per
-// the direction record's decision 11.
+// the firmware-family split.
 type Adapter struct {
 	// Session is the shell this adapter drives. Must be set before any
 	// method is called.
@@ -139,9 +139,8 @@ func (a *Adapter) selectForWrite(ctx context.Context, name string) error {
 	}
 
 	if res.MatchedPrompt != PromptConfigIf {
-		// Not ErrCodeAmbiguousSubmission, which this used to be and which was
-		// the defect: a select the device refused is a certainty, not an
-		// ambiguity. The port-name refusal below keeps that name because it
+		// Not ErrCodeAmbiguousSubmission: a select the device refused is a
+		// certainty, not an ambiguity. The port-name refusal below keeps that name because it
 		// earns it — that command was sent.
 		return errs.New().Code(interfaces.ErrCodeNotSubmitted).
 			Attr("interface_name", name).

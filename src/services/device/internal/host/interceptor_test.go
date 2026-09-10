@@ -186,7 +186,7 @@ func (a *abandoned) ApplyInterfaceDescription(
 // A caller that hangs up has not been failed by the service, and an edge
 // reconnecting its stream would otherwise log an error each time.
 //
-// The handler has to run for this to test anything. An earlier version
+// The handler has to run for this to test anything. A version
 // canceled the client's context before the call, so http.Client.Do failed
 // locally, no request reached the server, and the assertion was made against
 // a log buffer that was empty because neither the handler nor the

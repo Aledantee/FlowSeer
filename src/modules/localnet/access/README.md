@@ -249,11 +249,8 @@ state machine's release step, per decision 13's audit-before-release rule.
 
 Not yet wired, defined but never called from production code: the
 `route.selected`/`route.fallback` events, the
-`flowseer.device.route.selections` metric, the
-`flowseer.device.route` span, and `firmware.epoch_changed` (telemetry
-event, audit record, and `BLOCK_REASON_FIRMWARE_EPOCH_CHANGED` alike —
-see "Open gap: no mid-operation firmware-epoch re-check" below for why).
-The route dimension itself is already
+`flowseer.device.route.selections` metric, and the
+`flowseer.device.route` span. The route dimension itself is already
 available: `interfaces.Read` sets the winning observation's
 `Provenance.protocol` to the route that actually answered, `SelectRoute`
 returns the SSH route only from its own fallback branch (so

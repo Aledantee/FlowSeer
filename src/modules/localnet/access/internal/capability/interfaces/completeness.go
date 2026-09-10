@@ -39,7 +39,7 @@ func (r Route) String() string {
 // Freshness bounds how old an observation may be before it can no longer
 // stand in for a read a verification requires to be fresh. It is an
 // edge-local route-selection input, not a wire value: the direction
-// record's decision 2 requires "a fresh session" for verification, and
+// verification rule requires "a fresh session", and
 // Freshness is how a caller states what "fresh" means for its own read.
 type Freshness struct {
 	// ObservedAt is when the observation was read.
@@ -56,8 +56,8 @@ func (f Freshness) Stale(now time.Time) bool {
 
 // DelayedEffect bounds how long a route's read may still show a device's
 // pre-mutation state after the command that changed it returns — the
-// direction record's decision 5 "declared delayed-apply horizon." It is
-// edge-local, not a wire value: nothing in decision 12's package list
+// declared delayed-apply horizon. It is
+// edge-local, not a wire value: nothing in the schema's package list
 // carries it, because the horizon is an input to routing and recovery, not
 // a fact the device or the read reports.
 type DelayedEffect struct {
@@ -74,7 +74,7 @@ func (d DelayedEffect) WithinHorizon(since, now time.Time) bool {
 	return now.Sub(since) <= d.Horizon
 }
 
-// SelectRoute implements the direction record's decision 1: SNMP is the
+// SelectRoute implements the route-fallback rule: SNMP is the
 // cold-start prior and the tie-breaker, and a complete SNMP observation
 // needs no second read. When primary is nil or not
 // [accessv1.Completeness_COMPLETENESS_COMPLETE], fallback is called
@@ -137,7 +137,7 @@ func ConflictingReads(a, b *accessv1.InterfaceObservation) (conflict bool, field
 
 // DescriptionApplied reports whether observation's description matches
 // intent's — the comparison [VerifyDescriptionChange] makes after a
-// mutation, per the direction record's decision 2.
+// mutation, per the verification rule.
 func DescriptionApplied(observation *accessv1.InterfaceObservation, intent *accessv1.InterfaceDescriptionChange) bool {
 	return observation.GetDescription() == intent.GetDescription()
 }

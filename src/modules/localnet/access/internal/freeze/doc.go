@@ -1,4 +1,4 @@
-// Package freeze implements the direction record's decision 8:
+// Package freeze implements the control-plane freeze:
 // control-plane freeze on a device's lane. Gate pauses a checkpointed
 // mutation's submission step while the hosting edge's own contact cannot be
 // confirmed, without manufacturing a terminal disposition for work it
@@ -7,5 +7,5 @@
 // while frozen.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decision 8.
+// the control-plane freeze.
 package freeze

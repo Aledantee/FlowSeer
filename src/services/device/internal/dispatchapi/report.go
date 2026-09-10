@@ -44,9 +44,9 @@ const (
 )
 
 // Report applies one edge report to the device's record and answers once the
-// write is durable. Requirement 5's state transitions are the journal's, which
-// U3 proves; this handler is the translation from the wire report to the
-// journal call, classifying a result as the open mutation's or an open read's.
+// write is durable. The state transitions are the journal's; this handler is
+// the translation from the wire report to the journal call, classifying a
+// result as the open mutation's or an open read's.
 func (s *Service) Report(ctx context.Context, req *connect.Request[integrationv1.ReportRequest]) (*connect.Response[integrationv1.ReportResponse], error) {
 	deviceID := req.Msg.GetDeviceId()
 	if err := s.authorizeDevice(ctx, deviceID); err != nil {

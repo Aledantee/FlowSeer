@@ -1,4 +1,4 @@
-// Package recovery implements the direction record's decision 5: ambiguity
+// Package recovery implements the ambiguity rule: ambiguity
 // stays indeterminate. Runner observes a mutation's affected state before
 // every retry attempt and authorizes a retry only after a device-native
 // fence succeeds or after repeated fresh observations across the
@@ -8,5 +8,5 @@
 // explicit resolution call clears it, never a retry.
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md,
-// decision 5.
+// the ambiguity rule.
 package recovery

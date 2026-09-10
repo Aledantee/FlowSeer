@@ -55,12 +55,6 @@ func (g *Gate) AllowSideEffect() bool {
 	return !g.frozen
 }
 
-// AllowAcknowledgement always reports true: the acknowledgement barrier
-// (decision 4's central journal) is never gated by a freeze, so an
-// already-verified mutation's terminal acknowledgement completes
-// regardless of freeze state.
-func (g *Gate) AllowAcknowledgement() bool { return true }
-
 // AwaitSideEffect blocks until a side effect is allowed, ctx ends, or the
 // gate is unfrozen — whichever comes first. It returns immediately, with a
 // nil error, when the gate is not frozen. Freezing never fails or disposes

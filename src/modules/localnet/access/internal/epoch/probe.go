@@ -24,7 +24,7 @@ var (
 )
 
 // Probe reads a device's firmware fingerprint over SNMP, independent of any
-// capability's own route evidence — the direction record's decision 7
+// capability's own route evidence — the epoch-independence rule
 // requires the probe to work even when every capability's evidence is
 // stale, so it does not go through [interfaces.SelectRoute] or any other
 // capability-scoped path. The fingerprint is opaque and stable only insofar

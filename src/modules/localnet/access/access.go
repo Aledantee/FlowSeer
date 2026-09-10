@@ -135,7 +135,7 @@ func OpenedInterfaceShell(adapter InterfaceShellAdapter) InterfaceShellOpener {
 // ReadInterface reads one interface's description, admin status, and oper
 // status: a cached, still-fresh observation is reused; otherwise SNMP is
 // read first and SSH (shell) only if that read is not complete, per the
-// direction record's decision 1. cached may be nil, and so may openShell —
+// route-fallback rule. cached may be nil, and so may openShell —
 // a device with no shell has no fallback route.
 func ReadInterface(
 	ctx context.Context,
@@ -152,7 +152,7 @@ func ReadInterface(
 
 // VerifyInterfaceDescriptionChange reads the affected interface's current
 // state and reports whether it matches intent, per the direction record's
-// decision 2: a mutation is verified only by an observation, never by its
+// a mutation is verified only by an observation, never by its
 // own command succeeding.
 func VerifyInterfaceDescriptionChange(
 	ctx context.Context,
@@ -168,7 +168,7 @@ func VerifyInterfaceDescriptionChange(
 }
 
 // SetInterfaceDescription issues intent over shell and verifies it once,
-// per the direction record's decision 2: a write capability is advertised
+// per the verification rule: a write capability is advertised
 // only together with its own verification. now is the mutation's own
 // timestamp, so a mismatch on this first check is always
 // InterfaceVerificationNotYet; a caller polls

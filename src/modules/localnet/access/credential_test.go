@@ -222,7 +222,7 @@ func TestSessionsAreOpenedAndClosedPerOperation(t *testing.T) {
 	}
 }
 
-// TestTheCommandGoesOverASessionOpenedFromTheGrant is requirement 6's
+// TestTheCommandGoesOverASessionOpenedFromTheGrant is the
 // example for the mutation half: the shell the command travels over is
 // opened from the grant's own material and pinned to the host key the grant
 // names, not from anything the device was registered with.

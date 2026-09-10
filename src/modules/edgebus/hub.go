@@ -72,7 +72,7 @@ type HubConfig struct {
 // Hub is the running hub. It holds one connection into each data account:
 // central's own for the journal buckets and the audit stream, and an
 // edge-account connection for the per-edge source streams the forwarder
-// reads. The two accounts are the security boundary of finding 1: an edge
+// reads. The two accounts are the security boundary: an edge
 // credential lives in the edge account and cannot address a central stream
 // even through a server-reflected publish.
 type Hub struct {
@@ -366,7 +366,7 @@ func (h *Hub) ListenPort() int { return h.opts.Websocket.Port }
 
 // ensureEdgeAccount creates the edge's own account, central's connection
 // into it, and its source stream, once. Every per-edge structure hangs off
-// it: the account is the isolation boundary of finding 3, so one edge's
+// it: the account is the isolation boundary, so one edge's
 // reflection can address nothing but its own subjects. Serialized against
 // concurrent attaches and against Close.
 func (h *Hub) ensureEdgeAccount(ctx context.Context, edgeID string) (*edgeAccount, error) {

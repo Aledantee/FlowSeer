@@ -146,19 +146,6 @@ func TestDoubleFreezeAndDoubleUnfreezeAreNoOps(t *testing.T) {
 	}
 }
 
-func TestAllowAcknowledgementIsAlwaysTrue(t *testing.T) {
-	g := freeze.New(nil)
-
-	if !g.AllowAcknowledgement() {
-		t.Fatal("AllowAcknowledgement() = false while unfrozen")
-	}
-
-	mustFreeze(t, g)
-	if !g.AllowAcknowledgement() {
-		t.Fatal("AllowAcknowledgement() = false while frozen; the acknowledgement barrier must never be gated")
-	}
-}
-
 func TestFreezeDoesNotReturnWhileASideEffectIsInFlight(t *testing.T) {
 	g := freeze.New(nil)
 	ctx := context.Background()

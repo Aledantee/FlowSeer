@@ -145,7 +145,7 @@ func (s *Store) Record(device, fingerprint string, kind Kind, route inventoryv1.
 
 // InvalidateFingerprint drops every entry recorded for device under any
 // fingerprint other than current. This is the firmware-epoch invalidation
-// the direction record's decision 7 requires: evidence learned under a
+// the epoch-independence rule requires: evidence learned under a
 // stale epoch must never answer Consult again, however long its lifetime
 // window has left.
 func (s *Store) InvalidateFingerprint(device, current string) {

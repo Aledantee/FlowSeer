@@ -110,7 +110,7 @@ func TestALaneReadSurvivesAShellItCannotOpen(t *testing.T) {
 //
 // The partner to both tests above: laziness that never opens the shell at
 // all would pass them and would have quietly deleted the SSH route that
-// decision 1 requires for a device whose SNMP is incomplete. Here ifAlias is
+// the route-fallback rule requires for a device whose SNMP is incomplete. Here ifAlias is
 // unobserved, so the SNMP read is PARTIAL, and the observation must come
 // back over the shell.
 func TestALaneReadFallsBackToTheShellWhenSNMPIsIncomplete(t *testing.T) {

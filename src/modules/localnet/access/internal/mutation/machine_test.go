@@ -724,10 +724,9 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 // admission-time check does NOT emit FirmwareEpochChanged: that comparison
 // is against central's own (possibly stale) expectation, not evidence that
 // the device's firmware actually changed, so recording it would durably log
-// once per rejected intent rather than once per real change. Nothing in
-// this module emits FirmwareEpochChanged today — see the access module
-// README's "Open gap: no mid-operation firmware-epoch re-check" section —
-// and TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint
+// once per rejected intent rather than once per real change. The lane emits
+// FirmwareEpochChanged from its own re-probe, not this module, and
+// TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint
 // guards against reintroducing a check that would.
 func TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent(t *testing.T) {
 	deliverer := newFakeDeliverer()

@@ -182,7 +182,7 @@ func TestAddDeviceWhileFrozenFailsWithoutRegisteringTheDevice(t *testing.T) {
 // assertNoDeviceWriteWhileFrozen proves the gate is stopping device writes,
 // by counting the commands that actually reached the device.
 //
-// An earlier version asserted only that Submit failed, and that assertion
+// Asserting only that Submit failed would be satisfied
 // could not fail: Submit blocks on central's terminal acknowledgement,
 // which this helper never delivers, so a short context expires and Submit
 // returns an error whether or not the gate is frozen at all. The count is

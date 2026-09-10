@@ -213,7 +213,7 @@ func TestAPollThatEndsStillOwingRecordsReportsTheGap(t *testing.T) {
 	// nothing ends this mutation early and recovery runs to the end of its
 	// budget — a twelve-second horizon and a two-second interval. Using the
 	// shared helper would acknowledge it VERIFIED, which ends the mutation
-	// through a different door and was how the first draft of this test
+	// through a different door, which is how this test could
 	// managed to assert nothing.
 	req := mutationRequest(1)
 	go func() {

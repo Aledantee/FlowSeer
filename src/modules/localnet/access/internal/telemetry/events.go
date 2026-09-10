@@ -42,7 +42,7 @@ func (v *View) eventAt(ctx context.Context, level slog.Level, name, message stri
 
 // RouteSelected emits flowseer.device.route.selected for every route
 // resolution, and additionally emits flowseer.device.route.fallback when
-// fellThrough is true — the direction record's decision 1 case where a
+// fellThrough is true — the case where a
 // valid-but-incomplete primary read fell through to a complete route.
 func (v *View) RouteSelected(ctx context.Context, protocol inventoryv1.ManagementProtocol, fellThrough bool) {
 	v.event(ctx, "flowseer.device.route.selected", "route selected",
@@ -66,8 +66,6 @@ func (v *View) DiscoveryCompleted(ctx context.Context, firmwareFingerprint strin
 
 // FirmwareEpochChanged emits flowseer.device.firmware.epoch_changed when a
 // device's firmware fingerprint differs from the one route evidence was
-// learned under. No production code calls this today — see the access
-// module README's "Open gap: no mid-operation firmware-epoch re-check"
 // section.
 func (v *View) FirmwareEpochChanged(ctx context.Context) {
 	v.event(ctx, "flowseer.device.firmware.epoch_changed", "firmware epoch changed")

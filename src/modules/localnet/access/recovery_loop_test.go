@@ -162,7 +162,7 @@ func (r *recoveringLane) submitMutation(t *testing.T) chan submitted {
 // TestAReadAdmittedWhileARecoveryPollHoldsTheLockIsStillServed is the
 // release rule's own test, and it only tests anything because the read is
 // admitted while a poll is genuinely parked inside Attempt holding
-// ds.draining. An earlier version of this test submitted the read between
+// ds.draining. Submitting the read between
 // polls, when nothing held the lock, so the read's own drain goroutine won
 // its TryLock immediately — and it passed with the release rule removed.
 //
@@ -647,7 +647,7 @@ func TestASecondMutationQueuedBehindAFailedOneIsRefusedAtDequeue(t *testing.T) {
 	}
 }
 
-// TestTheBaselineReadIsActuallyTaken exists because it was not. The
+// TestTheBaselineReadIsActuallyTaken pins that it is taken. The
 // baseline went through Machine.Observe, which refuses from ADMITTED for a
 // mutation, so it failed on every mutation and the failure was swallowed by
 // the "a device that cannot be read may still accept the command" branch.

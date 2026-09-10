@@ -6,5 +6,5 @@
 // truth. Every write is a compare-and-set on one device's record, which is
 // what lets one writer per device hold across central replicas without a
 // lease. See docs/architecture/2026-09-05-verified-device-access-direction.md
-// decision 4 and src/services/device/README.md for the owed-row policy.
+// the checkpoint barrier, and src/services/device/README.md for the owed-row policy.
 package journal

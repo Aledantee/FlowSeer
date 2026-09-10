@@ -411,7 +411,7 @@ func TestPublishOutsideTheBufferedBranchesFailsLoudly(t *testing.T) {
 	}
 }
 
-// TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI constructs finding 3.
+// TestOneEdgeCannotAddressAnotherEdgesJetStreamAPI constructs the isolation boundary.
 // Before per-edge accounts, every edge's leaf carried its own
 // $JS.edge-<id>.API interest in one shared account, so a reflection an edge
 // provoked could name another edge's STREAM.DELETE and destroy its buffer.
