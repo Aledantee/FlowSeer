@@ -1,0 +1,143 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# port
+LABSW04(port)# show ?
+  configuration         Show port configuration
+  detail-counter        Show detailed traffic statistics for specific switch
+                        port
+  sfp                   Show sfp information
+  simple-counter        Show general traffic statistics for all switch ports
+  status                Show port status
+LABSW04(port)# show 
+% Incomplete command
+LABSW04(port)# show
+% Incomplete command
+LABSW04(port)# exit
+LABSW04# vlan
+LABSW04(vlan)# show ?
+  forbidden             Show VLAN forbidden group
+  port-config           Show VLAN port configuration
+  port-status           Show VLAN port status
+  vlan                  Show VLAN group
+LABSW04(vlan)# show 
+% Incomplete command
+LABSW04(vlan)# show
+% Incomplete command
+LABSW04(vlan)# exit
+LABSW04# lldp
+LABSW04(lldp)# show ?
+  config                Show LLDP configuration
+  eee                   Show LLDP neighbours EEE information
+  info                  Show LLDP neighbour device information
+  statistics            Show LLDP statistics
+LABSW04(lldp)# show 
+% Incomplete command
+LABSW04(lldp)# show neighbor
+% Invalid argument "neighbor"
+LABSW04(lldp)# exit
+LABSW04# stp
+LABSW04(stp)# show ?
+  CName                 Show MSTP Configuration name
+  Statistics            Show STP port statistics
+  Status                Show STP Bridge status
+  instance              Show instance status
+  msti-vlan             Show MSTP MSTI VLAN mapping configuration
+  p-config              Show the STP port instance configuration
+  pconf                 Show STP Port configuration
+  priority              show the bridge instance priority
+LABSW04(stp)# show 
+% Incomplete command
+LABSW04(stp)# show
+% Incomplete command
+LABSW04(stp)# exit
+LABSW04# aggregation
+LABSW04(aggregation)# show ?
+  <cr>
+LABSW04(aggregation)# show 
+Aggregation Mode
+----------------
+Source MAC      : Enabled 
+Destination MAC : Disabled
+IP Address      : Enabled 
+TCP/UDP Port    : Enabled 
+
+Group ID  Name    Type    Configured Ports  Aggregated Ports
+--------  ------  ------  ----------------  ----------------
+1         LLAG1   LACP    -                 25,26
+LABSW04(aggregation)# show
+Aggregation Mode
+----------------
+Source MAC      : Enabled 
+Destination MAC : Disabled
+IP Address      : Enabled 
+TCP/UDP Port    : Enabled 
+
+Group ID  Name    Type    Configured Ports  Aggregated Ports
+--------  ------  ------  ----------------  ----------------
+1         LLAG1   LACP    -                 25,26
+LABSW04(aggregation)# exit
+LABSW04# fdb
+LABSW04(fdb)# show ?
+  configuration         Show MAC address table configuration
+  mac-table             Show MAC address table
+  static-mac            Show static MAC address
+LABSW04(fdb)# show 
+% Incomplete command
+LABSW04(fdb)# exit
+LABSW04# snmp
+LABSW04(snmp)# show ?
+  access                Show snmpv3 access entry
+  community             Show snmpv3 community entry
+  group                 Show snmpv3 groups entry
+  mode                  Show snmp configuration
+  snmp                  Show snmp community configuration
+  trap                  Show snmp trap entry
+  user                  Show snmpv3 users entry
+  view                  Show snmpv3 views entry
+LABSW04(snmp)# show 
+% Incomplete command
+LABSW04(snmp)# show
+% Incomplete command
+LABSW04(snmp)# exit
+LABSW04# time
+LABSW04(time)# show ?
+  daylight              Show time information
+  ntp                   Show NTP information
+LABSW04(time)# show 
+% Incomplete command
+LABSW04(time)# show
+% Incomplete command
+LABSW04(time)# exit
+LABSW04# syslog
+LABSW04(syslog)# show ?
+  config                Show syslog configuration
+  log                   Show syslog entry
+LABSW04(syslog)# show 
+% Incomplete command
+LABSW04(syslog)# exit
+LABSW04# ssh
+LABSW04(ssh)# show ?
+  <cr>
+LABSW04(ssh)# show 
+SSH Mode : Enabled 
+LABSW04(ssh)# show
+SSH Mode : Enabled 
+LABSW04(ssh)# exit
+LABSW04# https
+LABSW04(https)# show ?
+  <cr>
+LABSW04(https)# show 
+HTTPS Mode          : Enabled 
+HTTPS Redirect Mode : Disabled
+HTTPS Minimum Protocol Version : TLSv1.2
+HTTP  Mode          : Disabled
+LABSW04(https)# show
+HTTPS Mode          : Enabled 
+HTTPS Redirect Mode : Disabled
+HTTPS Minimum Protocol Version : TLSv1.2
+HTTP  Mode          : Disabled
+LABSW04(https)# exit
+LABSW04# eConnection to 172.16.0.4 closed by remote host.
+Connection to 172.16.0.4 closed.

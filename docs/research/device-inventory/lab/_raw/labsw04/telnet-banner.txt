@@ -1,0 +1,1 @@
+b'\xff\xfb\x01Username: \r\x1b[10C'

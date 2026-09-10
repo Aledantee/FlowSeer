@@ -1,0 +1,14 @@
+HTTP/1.1 302 Redirect
+Server: GoAhead-Webs
+Date: Thu May 02 15:08:10 2013
+Connection: close
+Pragma: no-cache
+Cache-Control: no-cache
+Content-Type: text/html
+Location: https://172.16.0.5/csd36f9d6/api
+
+<html><head></head><body>
+                        This document has moved to a new <a href="https://172.16.0.5/csd36f9d6/api">location</a>.
+                        Please update your documents to reflect the new location.
+                        </body></html>
+

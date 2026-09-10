@@ -1,0 +1,2059 @@
+
+Info: The max number of VTY users is 15, the number of current VTY users online is 1, and total number of terminal users online is 1.
+      The current login time is 2026-04-26 17:21:14.
+<LABSW03>
+$ screen-length 0 temporary
+screen-length 0 temporary
+Info: The configuration takes effect on the current user terminal interface only.
+<LABSW03>
+$ display version
+display version
+Huawei YunShan OS
+Version 1.25.0.1 (S200 V600R025C00SPC500)
+Copyright (C) 2021-2025 Huawei Technologies Co., Ltd.
+HUAWEI eKitEngine S220 uptime is 0 day, 0 hour, 12 minutes
+
+S220-24P4X(Master) 1 : uptime is  0 day, 0 hour, 11 minutes
+        StartupTime 2026/04/26   17:09:55
+Memory      Size    : 2048 M bytes
+Flash       Size    : 1024 M bytes
+S220-24P4X version information:
+1.PCB       Version : ES5D2V28S040 VER C
+2.MAB       Version : 0
+3.Board     Type    : S220-24P4X
+4.BIOS      Version : 1696
+5.CPLD      Version : 262
+<LABSW03>
+$ display device
+display device
+eKitEngine S220's Device status:
+-------------------------------------------------------------------------------------------------
+Slot  Card   Type                           Online   Power Register     Alarm     Primary        
+-------------------------------------------------------------------------------------------------
+1     -      S220-24P4X                     Present  On    Registered   Normal    Master         
+      FAN1   FAN                            Present  On    Registered   Normal    NA             
+      FAN2   FAN                            Present  On    Registered   Normal    NA             
+      PWR1   PWR                            Present  On    Registered   Normal    NA             
+-------------------------------------------------------------------------------------------------
+<LABSW03>
+$ display elabel
+display elabel
+                 ^
+Error: Unrecognized command found at '^' position.
+<LABSW03>
+$ display interface brief
+display interface brief
+PHY: Physical
+*down: administratively down
+^down: standby
+(l): loopback
+(s): spoofing
+(b): BFD down
+(e): ETHOAM down
+(d): Dampening Suppressed
+(p): port alarm down
+(dl): DLDP down
+(c): CFM down
+(sd): STP instance discarding
+(ms): MACsec down
+(ed): error down
+(lb): LBDT block
+InUti/OutUti: input utility rate/output utility rate
+Interface                  PHY      Protocol  InUti OutUti   inErrors  outErrors
+Eth-Trunk1                 up       up        0.01%  0.01%          0          0
+  10GE1/0/1                down     down         0%     0%          0          0
+  10GE1/0/2                down     down         0%     0%          0          0
+  10GE1/0/3                up       up        0.01%  0.01%          0          0
+  10GE1/0/4                up       up        0.01%  0.01%          0          0
+GE1/0/1                    down     down         0%     0%          0          0
+GE1/0/2                    down     down         0%     0%          0          0
+GE1/0/3                    down     down         0%     0%          0          0
+GE1/0/4                    down     down         0%     0%          0          0
+GE1/0/5                    down     down         0%     0%          0          0
+GE1/0/6                    down     down         0%     0%          0          0
+GE1/0/7                    down     down         0%     0%          0          0
+GE1/0/8                    down     down         0%     0%          0          0
+GE1/0/9                    down     down         0%     0%          0          0
+GE1/0/10                   down     down         0%     0%          0          0
+GE1/0/11                   down     down         0%     0%          0          0
+GE1/0/12                   down     down         0%     0%          0          0
+GE1/0/13                   down     down         0%     0%          0          0
+GE1/0/14                   down     down         0%     0%          0          0
+GE1/0/15                   down     down         0%     0%          0          0
+GE1/0/16                   down     down         0%     0%          0          0
+GE1/0/17                   down     down         0%     0%          0          0
+GE1/0/18                   down     down         0%     0%          0          0
+GE1/0/19                   down     down         0%     0%          0          0
+GE1/0/20                   down     down         0%     0%          0          0
+GE1/0/21                   down     down         0%     0%          0          0
+GE1/0/22                   down     down         0%     0%          0          0
+GE1/0/23                   down     down         0%     0%          0          0
+GE1/0/24                   down     down         0%     0%          0          0
+NULL0                      up       up(s)        0%     0%          0          0
+Virtual-MEth0              up       up           --     --          0          0
+Vlanif1                    down     down         --     --          0          0
+Vlanif1000                 up       up           --     --          0          0
+<LABSW03>
+$ display vlan
+display vlan
+The total number of vlans is : 4
+--------------------------------------------------------------------------------
+U: Up;         D: Down;         TG: Tagged;         UT: Untagged;
+MP: Vlan-mapping;               ST: Vlan-stacking;
+#: ProtocolTransparent-vlan;    *: Management-vlan;
+MAC-LRN: MAC-address learning;  STAT: Statistic;
+BC: Broadcast; MC: Multicast;   UC: Unknown-unicast;
+FWD: Forward;  DSD: Discard;
+--------------------------------------------------------------------------------
+
+VID          Ports                                                          
+--------------------------------------------------------------------------------
+   1         UT:GE1/0/1(D)      GE1/0/3(D)      GE1/0/4(D)      GE1/0/5(D)      
+                GE1/0/6(D)      GE1/0/7(D)      GE1/0/8(D)      GE1/0/9(D)      
+                GE1/0/10(D)     GE1/0/11(D)     GE1/0/12(D)     GE1/0/13(D)     
+                GE1/0/14(D)     GE1/0/15(D)     GE1/0/17(D)     GE1/0/19(D)     
+                GE1/0/21(D)     GE1/0/22(D)     GE1/0/23(D)     GE1/0/24(D)     
+ 666         TG:GE1/0/23(D)     GE1/0/24(D)                                     
+ 999         UT:GE1/0/16(D)                                                     
+1000         UT:GE1/0/2(D)                                                      
+             TG:Eth-Trunk1(U)   GE1/0/1(D)      GE1/0/3(D)      GE1/0/4(D)      
+                GE1/0/5(D)      GE1/0/6(D)      GE1/0/7(D)      GE1/0/8(D)      
+                GE1/0/9(D)      GE1/0/10(D)     GE1/0/11(D)     GE1/0/12(D)     
+                GE1/0/13(D)     GE1/0/14(D)     GE1/0/15(D)     GE1/0/17(D)     
+                GE1/0/18(D)     GE1/0/19(D)     GE1/0/20(D)     GE1/0/21(D)     
+                GE1/0/22(D)     GE1/0/23(D)     GE1/0/24(D)                     
+                                                                                
+VID  Type     Status  Property  MAC-LRN STAT    BC  MC  UC  Description
+--------------------------------------------------------------------------------
+   1 common   enable  default   enable  disable FWD FWD FWD VLAN 0001           
+ 666 common   enable  default   enable  disable FWD FWD FWD BREACH-TARGET       
+ 999 common   enable  default   enable  disable FWD FWD FWD dead-loopfree-cisco 
+1000 common   enable  default   enable  disable FWD FWD FWD VLAN 1000           
+<LABSW03>
+$ display lldp neighbor brief
+display lldp neighbor brief
+Local Interface         Exptime(s) Neighbor Interface            Neighbor Device     
+-------------------------------------------------------------------------------------
+10GE1/0/3                      90  bridge/bond-huawei/sfp-sfpplus8  Lab_SW01
+10GE1/0/4                      90  bridge/bond-huawei/sfp-sfpplus7  Lab_SW01
+<LABSW03>
+$ display lldp local
+display lldp local
+
+System information
+--------------------------------------------------------------------------
+Chassis type                       :MAC Address
+Chassis ID                         :e8ac-2367-cd86
+System name                        :LABSW03                       
+System description                 :Huawei Switch
+Huawei YunShan OS
+Version 1.25.0.1 (S200 V600R025C00SPC500)
+Copyright (C) 2021-2025 Huawei Technologies Co., Ltd.
+HUAWEI eKitEngine S220
+
+System capabilities supported      :bridge router
+System capabilities enabled        :bridge router
+LLDP Up time                       :2026-04-26 17:10:36
+
+System configuration
+--------------------------------------------------------------------------
+LLDP Status                        :enabled              (default is disabled)         
+LLDP Message Tx Interval           :30                   (default is 30s)              
+LLDP Message Tx Hold Multiplier    :4                    (default is 4)                
+LLDP Refresh Delay                 :2                    (default is 2s)               
+LLDP Tx Delay                      :2                    (default is 2s)               
+LLDP Notification Interval         :5                    (default is 5s)               
+LLDP Notification Enable           :enabled              (default is enabled)          
+Management Address                 :MAC: e8ac-2367-cd86                               
+LLDP Fast Message Count            :4                    (default is 4)                
+
+Remote Table Statistics:
+--------------------------------------------------------------------------
+Remote Table Last Change Time      :0 days, 0 hours, 3 minutes, 5 seconds
+Remote Neighbors Added             :2
+Remote Neighbors Deleted           :0
+Remote Neighbors Dropped           :0
+Remote Neighbors Aged              :0
+Total Neighbors                    :2
+
+Port information:
+--------------------------------------------------------------------------
+Interface 10GE1/0/1:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :10GE1/0/1
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PD
+PSE power supported                :No
+PSE power enabled                  :No
+PSE pairs control ability          :No
+Power pairs                        :Unknown
+Port power classification          :Unknown
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface 10GE1/0/2:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :10GE1/0/2
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PD
+PSE power supported                :No
+PSE power enabled                  :No
+PSE pairs control ability          :No
+Power pairs                        :Unknown
+Port power classification          :Unknown
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface 10GE1/0/3:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :1
+
+Port ID subtype                    :Interface Name
+Port ID                            :10GE1/0/3
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PD
+PSE power supported                :No
+PSE power enabled                  :No
+PSE pairs control ability          :No
+Power pairs                        :Unknown
+Port power classification          :Unknown
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface 10GE1/0/4:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :1
+
+Port ID subtype                    :Interface Name
+Port ID                            :10GE1/0/4
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :No
+Auto-negotiation enabled           :No
+OperMau                            :speed (10000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :Yes
+Aggregation port ID                :1
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PD
+PSE power supported                :No
+PSE power enabled                  :No
+PSE pairs control ability          :No
+Power pairs                        :Unknown
+Port power classification          :Unknown
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/1:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/1
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/2:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/2
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1000
+VLAN name of VLAN 1000             :VLAN1000
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/3:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/3
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/4:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/4
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/5:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/5
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/6:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/6
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/7:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/7
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/8:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/8
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/9:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/9
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/10:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/10
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/11:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/11
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/12:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/12
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/13:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/13
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/14:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/14
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/15:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/15
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/16:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/16
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :999
+VLAN name of VLAN 999              :VLAN999
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/17:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/17
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/18:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/18
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/19:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/19
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/20:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/20
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/21:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/21
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/22:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/22
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/23:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/23
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+Interface GE1/0/24:
+LLDP Enable Status                 :txAndRx              (default is disabled)         
+Total Neighbors                    :0
+
+Port ID subtype                    :Interface Name
+Port ID                            :GE1/0/24
+Port description                   :                              
+
+Port and Protocol VLAN ID(PPVID)   :unsupported         
+Port VLAN ID(PVID)                 :1
+VLAN name of VLAN 1                :VLAN1
+Protocol identity                  :STP RSTP/MSTP LACP
+Auto-negotiation supported         :Yes
+Auto-negotiation enabled           :Yes
+OperMau                            :speed (1000) /duplex (Full)
+Link aggregation supported         :Yes
+Link aggregation enabled           :No
+Aggregation port ID                :0
+Maximum frame Size                 :9216
+Port Identity                      :--
+
+Power port class                   :PSE
+PSE power supported                :Yes
+PSE power enabled                  :Yes
+PSE pairs control ability          :Yes
+Power pairs                        :Signal
+Port power classification          :Class4
+Power tx format                    :802.1ab
+
+EEE support                        :No
+Transmit Tw                        :65535
+Receive Tw                         :65535
+Fallback Receive Tw                :0
+Echo Transmit Tw                   :0
+Echo Receive Tw                    :0
+
+Med policy type                    :Voice
+Med unknown policy flag            :Defined
+Med vlan tagged                    :Yes
+Med vlan-id                        :--
+Med L2 priority                    :--
+Med Dscp                           :--
+
+Power Type                         :Unknown
+PoE PSE power source               :Unknown
+Port PSE Priority                  :Unknown
+Port Available power value         :0.2(W)
+<LABSW03>
+$ display stp brief
+display stp brief
+ MSTID  Port                        Role  STP State     Protection      Cost    Edged
+     0  Eth-Trunk1                  ROOT  forwarding    none            1000    disable   
+<LABSW03>
+$ display poe power
+display poe power
+Codes: REFPW(Reference power), USMPW(User set max power),
+       CURPW(Current power), PKPW(Peak power), AVGPW(Average power)
+------------------------------------------------------------------------------------
+PortName               Class  REFPW(mW)  USMPW(mW)  CURPW(mW)  PKPW(mW)   AVGPW(mW) 
+------------------------------------------------------------------------------------
+GE1/0/1                -      -          30000      0          0          0         
+GE1/0/2                -      -          30000      0          0          0         
+GE1/0/3                -      -          30000      0          0          0         
+GE1/0/4                -      -          30000      0          0          0         
+GE1/0/5                -      -          30000      0          0          0         
+GE1/0/6                -      -          30000      0          0          0         
+GE1/0/7                -      -          30000      0          0          0         
+GE1/0/8                -      -          30000      0          0          0         
+GE1/0/9                -      -          30000      0          0          0         
+GE1/0/10               -      -          30000      0          0          0         
+GE1/0/11               -      -          30000      0          0          0         
+GE1/0/12               -      -          30000      0          0          0         
+GE1/0/13               -      -          30000      0          0          0         
+GE1/0/14               -      -          30000      0          0          0         
+GE1/0/15               -      -          30000      0          0          0         
+GE1/0/16               -      -          30000      0          0          0         
+GE1/0/17               -      -          30000      0          0          0         
+GE1/0/18               -      -          30000      0          0          0         
+GE1/0/19               -      -          30000      0          0          0         
+GE1/0/20               -      -          30000      0          0          0         
+GE1/0/21               -      -          30000      0          0          0         
+GE1/0/22               -      -          30000      0          0          0         
+GE1/0/23               -      -          30000      0          0          0         
+GE1/0/24               -      -          30000      0          0          0         
+------------------------------------------------------------------------------------
+<LABSW03>
+$ display mac-address
+display mac-address
+Flags: * - Backup
+       # - forwarding logical interface, operations cannot be performed based 
+           on the interface.
+BD   : bridge-domain   Age : dynamic MAC learned time in seconds
+-------------------------------------------------------------------------------
+MAC Address    VLAN/VSI/BD   Learned-From        Type                Age
+-------------------------------------------------------------------------------
+18fd-742b-2829 1000/-/-      Eth-Trunk1          dynamic             446
+18fd-74e2-6e88 1000/-/-      Eth-Trunk1          dynamic             468
+7801-5ab0-0500 1000/-/-      Eth-Trunk1          dynamic             295
+7801-5ab0-0501 1000/-/-      Eth-Trunk1          dynamic             470
+b000-b446-132e 1000/-/-      Eth-Trunk1          dynamic             419
+-------------------------------------------------------------------------------
+Total items: 5
+<LABSW03>
+$ display ip interface brief
+display ip interface brief
+*down: administratively down
+!down: FIB overload down
+^down: standby
+(l): loopback
+(s): spoofing
+(d): Dampening Suppressed
+(ed): error down
+The number of interface that is UP in Physical is 3
+The number of interface that is DOWN in Physical is 1
+The number of interface that is UP in Protocol is 3
+The number of interface that is DOWN in Protocol is 1
+Interface                   IP Address/Mask    Physical Protocol VPN           
+NULL0                       unassigned         up       up(s)    --            
+Virtual-MEth0               10.231.10.10/24    up       up       --            
+Vlanif1                     unassigned         down     down     --            
+Vlanif1000                  172.16.0.3/24      up       up       --            
+<LABSW03>
+$ display eth-trunk
+display eth-trunk
+Eth-Trunk1's state information is:
+(h): high priority
+(r): reference port
+Local:
+LAG ID: 1                       Working Mode: Static
+Preempt Delay: Disabled         Hash Arithmetic: profile default
+System Priority: 32768          System ID: e8ac-2367-cd86
+Least Active-linknumber: 1      Max Active-linknumber: 8 
+Operating Status: up            Number Of Up Ports In Trunk: 2
+Timeout Period: Slow          
+PortKeyMode: Auto
+------------------------------------------------------------------------------------
+ActorPortName              Status   PortType PortPri PortNo PortKey PortState Weight
+10GE1/0/1                  Unselect 10GE     32768   1      321     10100010  1     
+10GE1/0/2                  Unselect 10GE     32768   2      321     10100010  1     
+10GE1/0/3(hr)              Selected 10GE     32768   3      321     10111100  1     
+10GE1/0/4(h)               Selected 10GE     32768   4      321     10111100  1     
+
+Partner:
+------------------------------------------------------------------------------------
+ActorPortName              SysPri   SystemID        PortPri PortNo PortKey PortState
+10GE1/0/1                  0        0000-0000-0000  0       0      0       10100011 
+10GE1/0/2                  0        0000-0000-0000  0       0      0       10100011 
+10GE1/0/3                  65535    18fd-74e2-6e7e  255     2      33      10111100 
+10GE1/0/4                  65535    18fd-74e2-6e7e  255     1      33      10111100 
+
+<LABSW03>
+$ display ntp status
+display ntp status
+ clock status: unsynchronized
+ clock stratum: 16
+ reference clock ID: none 
+ nominal frequency: 100.0000 Hz
+ actual frequency: 100.0000 Hz
+ clock precision: 2^16
+ clock offset: 0.0000 ms
+ root delay: 0.00 ms
+ root dispersion: 0.00 ms
+ peer dispersion: 0.00 ms
+ reference time: 00:00:00.000 UTC Jan 1 1900(00000000.00000000)
+<LABSW03>
+$ display snmp-agent sys-info
+display snmp-agent sys-info
+   The contact person for this managed node:
+           R&D Beijing, Huawei Technologies co.,Ltd.
+
+   The physical location of this node:
+           Beijing China
+
+   SNMP version running in the system:
+           SNMPv2c SNMPv3
+
+<LABSW03>
+$ display snmp-agent community
+display snmp-agent community
+   Community name: %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:!|A2#x'*+/<NQu:&4>+Kp0y<9!!!!!2jp5!!!!!!U!!!!o-PJVOB*XE'|K<:j#wS6;E8V:s)C0G=;t]+FD/)CXVePE99";XzT|1MK-VEV-aG=;!!!!!!!!!!!!!!!%@%#
+       Group name: %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:!|A2#x'*+/<NQu:&4>+Kp0y<9!!!!!2jp5!!!!!!U!!!!o-PJVOB*XE'|K<:j#wS6;E8V:s)C0G=;t]+FD/)CXVePE99";XzT|1MK-VEV-aG=;!!!!!!!!!!!!!!!%@%#
+       Alias name: __CommunityAliasName_01_60355
+       Storage-type: nonVolatile
+
+   Community name: %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:'F0:+YfOy8gV.pR<nq3Zq!5BW!!!!!2jp5!!!!!!U!!!!k]#nN5V.E1I$'*U'[Wf7\Hfd6cq~CX+nA>=m]5,NzbA1=]V\IEmX~GWrQRXLJp-^;!!!!!!!!!!!!!!!%@%#
+       Group name: %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:'F0:+YfOy8gV.pR<nq3Zq!5BW!!!!!2jp5!!!!!!U!!!!k]#nN5V.E1I$'*U'[Wf7\Hfd6cq~CX+nA>=m]5,NzbA1=]V\IEmX~GWrQRXLJp-^;!!!!!!!!!!!!!!!%@%#
+       Alias name: __CommunityAliasName_02_12889
+       Storage-type: nonVolatile
+
+<LABSW03>
+$ display snmp-agent usm-user
+display snmp-agent usm-user
+   User name: tegi
+       Engine ID: 800007DB03E8AC2367CD86 active
+       Authentication Protocol: sha2-256
+       Privacy Protocol: aes128
+       Group name: tegigrp
+       State: Active
+
+<LABSW03>
+$ display current-configuration
+display current-configuration
+!Software Version V600R025C00SPC500
+!Last configuration was updated at 2026-04-24 17:42:42+00:00 by admin
+!Last configuration was saved at 2026-04-24 17:42:56+00:00 by admin
+#
+sysname LABSW03
+#
+dhcp enable
+#
+undo ftp server source all-interface
+undo ftp ipv6 server source all-interface
+#
+ssl policy default
+ pki-domain default
+ ssl minimum version tls1.2
+ cipher-suite exclude key-exchange rsa
+ cipher-suite exclude cipher mode cbc
+ cipher-suite exclude hmac sha1
+ diffie-hellman modulus 3072
+ ecdh group nist curve brainpool
+ signature algorithm-list ed25519 ed448 rsa-pss-pss-sha256 rsa-pss-pss-sha384 rsa-pss-pss-sha512 rsa-pss-rsae-sha256 rsa-pss-rsae-sha384 rsa-pss-rsae-sha512
+#
+info-center logfile compression lzma
+#
+authentication-profile name default_authen_profile
+authentication-profile name dot1x_authen_profile
+authentication-profile name dot1xmac_authen_profile
+authentication-profile name mac_authen_profile
+#
+drop-profile default
+#
+ntp server source-interface all disable
+ntp ipv6 server source-interface all disable
+#
+vlan batch 666 999 to 1000
+#
+stp mode rstp
+stp instance 0 priority 16384
+#
+#
+error-down auto-recovery cause link-flap interval 60
+#
+telnet server enable
+undo telnet server-source all-interface
+undo telnet ipv6 server-source all-interface
+#
+qos schedule-profile default
+#
+diffserv domain default
+#
+ip vpn-instance _management_vpn_
+ ipv4-family
+#
+vlan 666
+ description BREACH-TARGET
+#
+vlan 999
+ description dead-loopfree-cisco
+#
+vlan 1000
+#
+aaa
+ authentication-scheme default
+  authentication-mode local
+ authentication-scheme radius
+  authentication-mode radius
+ authorization-scheme default
+  authorization-mode local
+ accounting-scheme default
+  accounting-mode none
+ local-aaa-user password policy administrator
+  password history record number 0
+  undo password alert original
+  password expire 0
+  password complexity two-of-kinds
+ domain default
+  authentication-scheme default
+  accounting-scheme default
+ domain default_admin
+  authentication-scheme default
+  accounting-scheme default
+ local-aaa-user user-name complexity-check disable
+ local-user admin password irreversible-cipher $1d$])Q%)Y[;DGYJ>Z!*$Mm"V"Ken6V(xSKR[n!]V4^\=Q1^AF&UBnn,]i(H2$
+ local-user admin privilege level 3
+ local-user admin service-type ssh
+#
+free-rule-template name default_free_rule
+#
+dot1x-access-profile name dot1x_access_profile
+#
+mac-access-profile name mac_access_profile
+#
+license
+#
+warranty
+#
+interface Vlanif1
+ description ztp
+ ipv6 enable
+ ipv6 address auto link-local
+ ipv6 address auto global default
+ dhcp client default-ip enable
+ ipv6 address auto dhcp
+ dhcpv6 client request option-list 17 59
+ ip address dhcp-alloc
+#
+interface Vlanif1000
+ ip address dhcp-alloc
+#
+interface Eth-Trunk1
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 1000
+ mode lacp-static
+ loopback-detect enable
+ dhcp snooping trusted
+#
+interface GE1/0/1
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+ dhcp snooping trusted
+#
+interface GE1/0/2
+ port link-type access
+ port default vlan 1000
+ stp root-protection
+ loopback-detect enable
+ dhcp snooping trusted
+#
+interface GE1/0/3
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/4
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/5
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/6
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/7
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/8
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/9
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/10
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/11
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/12
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/13
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/14
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/15
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/16
+ port link-type access
+ port default vlan 999
+ stp root-protection
+ stp edged-port disable
+ loopback-detect enable
+#
+interface GE1/0/17
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/18
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/19
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/20
+ port link-type trunk
+ undo port trunk allow-pass vlan 1
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/21
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/22
+ port link-type trunk
+ port trunk allow-pass vlan 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface GE1/0/23
+ port link-type trunk
+ port trunk allow-pass vlan 666 1000
+ stp root-protection
+ stp edged-port enable
+ loopback-detect enable
+#
+interface GE1/0/24
+ port link-type trunk
+ port trunk allow-pass vlan 666 1000
+ stp root-protection
+ loopback-detect enable
+#
+interface 10GE1/0/1
+ eth-trunk 1
+#
+interface 10GE1/0/2
+ eth-trunk 1
+#
+interface 10GE1/0/3
+ eth-trunk 1
+ device transceiver 10GBASE-FIBER
+#
+interface 10GE1/0/4
+ eth-trunk 1
+ device transceiver 10GBASE-FIBER
+#
+interface Virtual-MEth0
+ ip address 10.231.10.10 255.255.255.0
+#
+interface NULL0
+#
+snmp-agent
+snmp-agent local-engineid 800007DB03E8AC2367CD86
+snmp-agent community read cipher %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:!|A2#x'*+/<NQu:&4>+Kp0y<9!!!!!2jp5!!!!!!U!!!!o-PJVOB*XE'|K<:j#wS6;E8V:s)C0G=;t]+FD/)CXVePE99";XzT|1MK-VEV-aG=;!!!!!!!!!!!!!!!%@%# alias __CommunityAliasName_01_60355
+snmp-agent community read cipher %@%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:'F0:+YfOy8gV.pR<nq3Zq!5BW!!!!!2jp5!!!!!!U!!!!k]#nN5V.E1I$'*U'[Wf7\Hfd6cq~CX+nA>=m]5,NzbA1=]V\IEmX~GWrQRXLJp-^;!!!!!!!!!!!!!!!%@%# alias __CommunityAliasName_02_12889
+#
+snmp-agent sys-info version v2c v3
+snmp-agent community complexity-check disable
+snmp-agent group v3 tegigrp privacy read-view isoview write-view isoview notify-view isoview
+#
+snmp-agent mib-view included isoview iso
+snmp-agent usm-user v3 tegi
+snmp-agent usm-user v3 tegi group tegigrp
+snmp-agent usm-user v3 tegi authentication-mode sha2-256 cipher %+%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:G{X.~yOlzOA/.l8(MQ!99;BW$!!!!!2jp5!!!!!!@!!!!;RBbJ)8!*RdXiA=Ha4.C_X8&9Ngsm0m^41I*%Th&%+%#
+snmp-agent usm-user v3 tegi privacy-mode aes128 cipher %+%##!!!!!!!!!"!!!!"!!!!*!!!!7LTnVOK_g:">)v0zse[Frg+<O$&\P30rj9U!!!!!2jp5!!!!!!@!!!!M"]P6QbJBJDD1S1A:L8Yj-Bi(ZAtg/~7#Y,/mV_4%+%#
+#
+undo snmp-agent protocol source-status all-interface
+undo snmp-agent protocol source-status ipv6 all-interface
+#
+undo snmp-agent proxy protocol source-status all-interface
+undo snmp-agent proxy protocol source-status ipv6 all-interface
+#
+#
+stelnet server enable
+ssh server rsa-key min-length 3072
+ssh user admin
+ssh user admin authentication-type password
+ssh user admin service-type stelnet
+ssh server-source all-interface
+undo ssh ipv6 server-source all-interface
+ssh authorization-type default aaa
+#
+ssh server cipher aes256_gcm aes128_gcm aes256_ctr aes192_ctr aes128_ctr
+ssh server hmac sha2_512 sha2_256
+ssh server key-exchange dh_group_exchange_sha256 dh_group16_sha512 curve25519_sha256
+#
+ssh server publickey rsa_sha2_256 rsa_sha2_512
+#
+ssh server dh-exchange min-len 3072
+#
+ssh client publickey rsa_sha2_256 rsa_sha2_512
+#
+ssh client cipher aes256_gcm aes128_gcm aes256_ctr aes192_ctr aes128_ctr
+ssh client hmac sha2_512 sha2_256
+ssh client key-exchange dh_group_exchange_sha256 dh_group16_sha512 curve25519_sha256
+#
+user-interface maximum-vty 15
+#
+user-interface con 0
+ authentication-mode password
+ set authentication password cipher $1d$3-q{(MwEt;j+jc<e$B^adNCZ2\>:8'~VP[w#C#_KtOgCYt@@-yW*==gF;$
+#
+user-interface vty 0 4
+ authentication-mode aaa
+ protocol inbound ssh
+#
+ztp domain-type registration-center domain register.naas.huawei.com port 10020
+#
+http
+ service restconf
+  server-source Vlanif1
+#
+pki realm default
+#
+startup checkpoint auto-save disable
+#
+smart-upgrade
+ http url houp.huawei.com
+#
+easyweb
+ working-mode initial
+ ap-granted-mode manual
+ network
+  vlan 1 description Vlanif1
+#
+web-manager enable port 443
+web-manager http forward enable
+web-manager server-source -i Vlanif1
+#
+return
+<LABSW03>
+$ display configuration candidate
+display configuration candidate
+                               ^
+Error: Wrong parameter found at '^' position.
+<LABSW03>
+$ display ssh server status
+display ssh server status
+SSH Version                                : 2.0
+SSH authentication timeout (Seconds)       : 60
+SSH authentication retries (Times)         : 3
+SSH server key generating interval (Hours) : 0
+SSH version 1.x compatibility              : Disable
+SSH server keepalive                       : Enable
+SFTP IPv4 server                           : Disable
+SFTP IPv6 server                           : Disable
+STELNET IPv4 server                        : Enable
+STELNET IPv6 server                        : Enable
+SNETCONF IPv4 server                       : Disable
+SNETCONF IPv6 server                       : Disable
+SNETCONF IPv4 server port(830)             : Disable
+SNETCONF IPv6 server port(830)             : Disable
+SCP IPv4 server                            : Disable
+SCP IPv6 server                            : Disable
+SSH port forwarding                        : Disable
+SSH IPv4 server port                       : 22
+SSH IPv6 server port                       : 22
+ACL name                                   : --
+ACL number                                 : --
+ACL6 name                                  : --
+ACL6 number                                : --
+SSH server ip-block                        : Enable
+<LABSW03>
+$ display ssh user-information
+display ssh user-information
+
+User Name             : admin
+Authentication type   : password
+User public key name  : 
+User public key type  : -
+Sftp directory        : 
+Service type          : stelnet
+Total 1, 1 printed
+<LABSW03>

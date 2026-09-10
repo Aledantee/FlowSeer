@@ -1,0 +1,84 @@
+<html>
+<head>
+<script type="text/javascript" src="lib/config.js"></script>
+<script type="text/javascript" src="lib/ajax.js"></script>
+<script type="text/javascript" src="lib/dynforms.js"></script>
+<link href="lib/top.css" rel="stylesheet" type="text/css">
+<link href="lib/menu.css" rel="stylesheet" type="text/css">
+</head>
+<script language="JavaScript">
+document.title = configSwitchName;
+if (parent != self)
+parent.location.href = location.href
+if (!document.cookie.match(/cid=[^;]+/)) {
+document.cookie = "cid=" + Math.floor(Math.random() * 1000000000 + 1);
+}
+if (!document.cookie.match(/seid=[^;]+/)) {
+document.cookie = "seid=" + Math.floor(Math.random() * 1000000000 + 1);
+}
+if (!document.cookie.match(/sesslid=[^;]+/)) {
+var loc = new String(window.parent.document.location);
+if (loc.indexOf("https://")!= -1) { 
+document.cookie = "sesslid=" + Math.floor(Math.random() * 1000000000 + 1);
+}
+}
+var pageArgs = searchArgs(window.location.search);
+if(pageArgs['alertmsg']) {
+var alertmsg = parseInt(pageArgs['alertmsg']);
+if (alertmsg == 1) {
+alert("Invalid username or password");
+}
+}
+function addListRow(index, frag, values) {
+var tr = CreateStyledElement("tr", "display_even");
+addTextCell(tr, values[0], "cl");
+frag.appendChild(tr);
+}
+function processUpdate(req, ref) {   
+values = req.responseText.split("/");    
+UpdateId('tacacs', unescape(values[0]));
+UpdateId('lock', unescape(values[1]));
+document.getElementById("update").style.visibility = "hidden";
+}
+function requestUpdate() { 
+loadXMLDoc("/config/login", processUpdate, null);  
+}
+</script>
+<body style="background-color : rgb(71, 130, 205);"  class="content" onload="requestUpdate();">
+<form METHOD="post" action="config/login">
+<table align="center" width=75%  cellspacing="0" class="display">
+<tr class="display_even">
+<td class="cl" id="tacacs" align="left" height="180px" style="color:white"></td>
+</tr>
+</table>
+<table border="0" align="center">
+<tr><td colSpan="2"></td></tr>
+<tr>								
+<td colSpan="2" align="center" style="padding-bottom: 3px"><img src="images/model_name.gif"></td>	
+</tr>
+<tr>								
+<td colSpan="2" align="center" style="padding-bottom: 5px"><img src="images/small_switch.gif"></td>
+</tr>
+<tr>
+<td align="right"><font>Username</font></td>
+<td align="left">&nbsp; <input name="username" id="username" type="text" maxlength="32" size="20" style="font-family:Arial,Helvetica Sans Serif;"></td>
+</tr>
+<tr> 
+<td align="right"><font>Password</font></td>
+<td align="left">&nbsp; <input name="password" id="password" type="password" maxlength="32" size="20" style="font-family:Arial,Helvetica Sans Serif;"></td>
+</tr>
+<tr>
+<td></td>
+<td align="left">&nbsp; <input type="submit" value="Login"><input type="reset" value="Cancel"></td>
+</tr>
+<tr>
+<td></td>
+<td class="cl" align="left">&nbsp;&nbsp;<font id="lock" style="color:white"></font></td>
+</tr>
+</table>
+</form>
+<script language="JavaScript">
+document.getElementById("username").focus();
+</script>
+</body>
+</html>

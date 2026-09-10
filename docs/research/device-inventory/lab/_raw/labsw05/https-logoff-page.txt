@@ -1,0 +1,1351 @@
+HTTP/1.1 200 OK
+Server: GoAhead-Webs
+Content-Type: text/html
+Expires: Thu, 26 Oct 1995 00:00:00 GMT
+Pragma: no-cache
+Cache-control: no-cache
+X-XSS-Protection: 0
+Connection: close
+
+
+
+<html>
+<head>
+<title></title>
+<link href="../images/favicon.gif" type="text/css" rel="shortcut icon" >
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<script>
+var bannerEntryCounter = 0;
+var n,e,err;
+var isStackable;
+if (parent != self)
+parent.location.href = location.href;
+try {
+if (opener && opener.location.hostname == self.location.hostname)
+{
+opener.location.href = self.location.href;
+self.close();
+}
+} catch(err){}
+</script>
+<script src="../js/login.js" type="text/javascript"></script>
+<style type="text/css">
+.titleciscolog
+{
+font-family: Arial, sans-serif;
+font-size: 22px;
+color: #ffffff;
+}
+.titleciscouser
+{
+font-family: Arial, sans-serif;
+font-size: 12px;
+color: #ffffff;
+}
+.titlecisco3log
+{
+font-family: Arial, sans-serif;
+font-size: 12px;
+color: #ffffff;
+}
+#cellMessage span.inverse {
+background-color: #000000;
+color: #ffffff;
+}
+</style>
+<link type="text/css" href="../kubrick/styling.css" rel="stylesheet">
+<!--[if lte IE 6]>
+<link type="text/css" href="../kubrick/styling_ie6.css" rel="stylesheet">
+<![endif]-->
+<script language="javascript">
+try
+{
+top.standalone_Product = true;
+}
+catch(e)
+{}
+localization.MOCKUP_MODE = false;
+localization.DEBUG_ENABLED = (document.location.search=="?debug") ? true: false;
+localization.LOGIN_DICTIONARY = true;
+if (!localization.init()) showLclErr(localization.error);
+var pgTkn = new projTknObj ('login','Log-Off');
+function showLclErr(ErrObj)
+{
+if (ErrObj)
+MsgLog.addMsg("My Localization Error\nPage: "+ErrObj.page+".\nFunction: "+ErrObj.fun+"\nCode :"+ErrObj.code+"\n"+ErrObj.mess,"Warning");
+}
+visible = false;
+var username;
+var progressShown = false;
+var timeoutHolder;
+var strArrayReplacment = new Array();
+var ignoredTokenArray = new Array();
+var existingHTMLTagStringArray = new Array();
+function formSubmit()
+{
+username = document.forms[0].elements['userName$query'].value;
+SendLoginXML();
+}
+function Octet2StrReturn(Octet)
+{
+var temp;
+var i=0;
+var str="";
+Octet=Octet.toUpperCase();
+while(i<Octet.length)
+{
+temp=Octet.slice(i,i+2);
+temp=Hex2Ascii(temp);
+temp=String.fromCharCode(temp);
+str=str.concat(temp);
+i+=2;
+}
+return str ;
+}
+function Hex2Ascii(input)
+{
+origin=16;
+dest=10;
+base="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+c=0; Result="";
+for (t=1; t<=input.length; t++)
+{
+if ( (input.substring(t-1,t)>='a') && (input.substring(t-1,t)<='z') )
+b=base.indexOf(input.substring(t-1,t).toUpperCase());
+else b=base.indexOf(input.substring(t-1,t));
+n=b*(Math.pow (origin, input.length-t));
+c+=n;
+}
+a=100;
+while (a>0 && c < Math.pow (dest, a)) { a--; }
+while (a>-1)
+{
+e=Math.pow (dest, a);
+a--;
+d=((c-(c%e))/e)+1;
+c=c%e; Ciffer=base.substring(d-1, d); Result = Result + Ciffer;
+}
+return Result;
+}
+function convertDnsMib2Octet(pOctetStr)
+{
+var i = 0;
+var curr_size = 0;
+var curr_octet = "";;
+var mib_value = "";
+while(i < pOctetStr.length-2)
+{
+if (i != 0)
+{
+mib_value = mib_value.concat(".");
+}
+curr_size = pOctetStr.slice(i, i + 2);
+curr_size = parseInt(curr_size,16);
+i += 2;
+curr_octet = pOctetStr.slice(i, i + curr_size * 2);
+i += curr_size * 2;
+mib_value += (Octet2StrReturn(curr_octet));
+}
+return mib_value;
+}
+function createQueryUserName(userName)
+{
+var result = "";
+for (var i=0;i<userName.length;i++)
+{
+var ch = userName.charAt(i);
+switch (ch)
+{
+case '@':
+result+='\@';break;
+case "'":
+result+="\'";break;
+case '"':
+result+='\"';break;
+case '^':
+result+='\^';break;
+case '[':
+result+='\[';break;
+case ']':
+result+='\]';break;
+case '#':
+result+='%23';break;
+case '%':
+result+='%25';break;
+case '&':
+result+='%26';break;
+case '+':
+result+='%2B';break;
+default:
+result+=ch;break;
+}
+}
+return result;
+}
+function trimInnerSpaces(i_Cntrl)
+{
+var cntrl = i_Cntrl;
+if(typeof(i_Cntrl) == "string")
+cntrl = document.getElementById(i_Cntrl);
+cntrl.value= cntrl.value.trim(false,true);
+}
+function GetPublicKey()
+{
+var responseText = getServerResponse("GET","./device/wcd?{EncryptionSetting}");
+var passwEncryptEnable = get_tagValue(responseText,"passwEncryptEnable");
+if (passwEncryptEnable == '1') {
+var rsaPublicKey = get_tagValue(responseText,"rsaPublicKey");
+return (rsaPublicKey=='') ? 'none' : rsaPublicKey;
+}
+else
+return 'disabled';
+}
+var xmlhttp;
+function SendLoginXML()
+{
+var publicKey = GetPublicKey();
+if (publicKey!='none' && publicKey !='disabled')
+{
+var startStr="-----BEGIN RSA PUBLIC KEY-----";
+var endStr="-----END RSA PUBLIC KEY-----";
+publicKey=publicKey.substring(publicKey.indexOf(startStr)+startStr.length,publicKey.indexOf(endStr))
+}
+else if (publicKey=='none')
+{
+DisplayLoginError("12");
+return;
+}
+document.getElementById("lblProg").style.display = "";
+document.getElementById("dvLoginErr").style.display = "none";
+document.getElementById("tblLogoutMsg").style.display = "none";
+var UserCntrl = document.getElementById("userName$query");
+var passwCntrl = document.getElementById("password");
+trimInnerSpaces(UserCntrl);
+trimInnerSpaces(passwCntrl);
+var user= createQueryUserName(UserCntrl.value);
+var passw=createQueryUserName(passwCntrl.value);
+if (publicKey =='disabled') {
+var newPath = './System.xml?action=login&user='+user+'&password=' + passw+"&ssd=true&";
+}
+else {
+var rsa = new RSAKey();
+convertPublicKey(publicKey)
+rsa.setPublic(n,e);
+var str ='user='+user+'&password=' + passw+'&ssd=true&';
+var res = rsa.encrypt(str);
+var newPath = './System.xml?action=login&cred='+res;
+}
+homeShowProg(true, null, 10);
+xmlhttp=null;
+if (window.XMLHttpRequest) {
+xmlhttp=new XMLHttpRequest();
+}
+else if (window.ActiveXObject) {
+xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+}
+if (xmlhttp!=null) {
+loginProcFinish = 0;
+loginProcCounter = 20;
+checkLoginProc();
+xmlhttp.onreadystatechange=state_Change;
+xmlhttp.open("GET",newPath,true);
+xmlhttp.send(null);
+}
+else {
+DisplayLoginError("6")
+}
+}
+function convertPublicKey(publicKey)
+{
+init_oid(formele["Oid"].value);
+var result=convert(publicKey);
+var resultArr=result.split("INTEGER")
+n=resultArr[1].substring(0,resultArr[1].indexOf(":")).trim();
+e=resultArr[2].substring(0,resultArr[2].indexOf(":")).trim();
+}
+function get_tagValue(XMLstr,tagName)
+{
+var ret='';
+var pos=XMLstr.indexOf("<"+tagName+">");
+if (pos>0){
+var pos1=XMLstr.indexOf(">",pos);
+if (pos1>=0){
+var pos2=XMLstr.indexOf("<",pos1);
+ret = XMLstr.substr(pos1+1,pos2-pos1-1);
+}
+}
+return ret;
+}
+function setCookieValue(val)
+{
+var newVal = val.replace ('%','%25');
+return newVal;
+}
+function state_Change()
+{
+if (xmlhttp.readyState==4) {
+if (xmlhttp.status==200) {
+loginProcFinish = 1;
+var response = xmlhttp.responseText.trim();
+var sessionID = xmlhttp.getResponseHeader("sessionID");
+var xml_pos=response.indexOf("<?xml");
+response=response.substr(xml_pos);
+xmlhttp=null;
+var code = get_tagValue(response,"statusCode");
+var statusString;
+if (code=='0') {
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+set_cookie("userStatus","ok","","/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else if(code == '10')
+{
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+set_cookie("userStatus","simple","","/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else if(code == '12')
+{
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+set_cookie("userStatus","initial","","/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else if(code =='14')
+{
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+set_cookie("userStatus","initComp","","/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else if(code =='9')
+{
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+set_cookie("userStatus","expired","","/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else if(code =='13')
+{
+var expdate = new Date();
+expdate.setDate(expdate.getDate()+1);
+statusString = get_tagValue(response,"statusString").split(" ")[5];
+set_cookie("userStatus","dueExpire","","/");
+set_cookie("dueExpire",statusString,expdate,"/");
+if (sessionID)
+set_cookie("sessionID",sessionID,"","/");
+set_cookie("usernme",setCookieValue(formele["userName$query"].value),"","/");
+top.location.href = "../home.htm"+((localization.DEBUG_ENABLED)?"?debug":"");
+}
+else
+{
+document.getElementById("lblProg").style.display = "none";
+DisplayLoginError(code);
+}
+}
+}
+}
+var loginProcCounter = 0;
+var loginProcFinish = 0;
+function checkLoginProc() {
+if (loginProcFinish!=1){
+loginProcCounter = loginProcCounter -1;
+if (loginProcCounter > 0)
+setTimeout('checkLoginProc()',1000);
+else {
+document.getElementById("lblProg").style.display = "none";
+DisplayLoginError("7");
+saveXmlErr();
+}
+}
+}
+function saveXmlErr()
+{
+var expdate = new Date();
+expdate.setMinutes(expdate.getMinutes()+10);
+}
+function DisplayLoginError(errCode)
+{
+homeShowProg(false);
+var errMess;
+switch (errCode)
+{
+case "4":
+errMess="1";
+break;
+case "5":
+errMess="2";
+break;
+case "6":
+errMess="3";
+break;
+case "7":
+DisplayLogoutMess("Response");
+break;
+case "11":
+errMess="17";
+break;
+case "12":
+errMess="18";
+break;
+}
+if (errMess!=null)
+{
+pgTkn.setTokenWithError("lblLoginErrMsg",errMess);
+setErrorDivDisplay(true);
+}
+}
+function setErrorDivDisplay(forceDisp)
+{
+var errDiv = document.getElementById("dvLoginErr");
+var txtUser = document.getElementById("userName$query");
+var currTop = 0;
+var currLeft = 0;
+var currControl = txtUser;
+var dvHeight = errDiv.clientHeight;
+while(currControl != null)
+{
+currTop += parseInt(currControl.offsetTop,10);
+currLeft += parseInt(currControl.offsetLeft,10);
+currControl = currControl.offsetParent;
+}
+errDiv.style.top = (currTop - dvHeight + 2) + "px";
+errDiv.style.left = (currLeft) + "px";
+if(forceDisp && errDiv.style.display != "")
+{
+errDiv.style.display = "";
+dvHeight = errDiv.clientHeight;
+errDiv.style.top = (currTop - dvHeight + 2) + "px";
+}
+}
+function setVisibility()
+{
+if(((top.mainFrame)&&(top.mainFrame.location == document.location))||(opener))
+{
+document.body.style.visibility = "visible";
+document.body.style.display = "inline";
+visible = true;
+}
+}
+function CheckLogoutInstance()
+{
+var LogOff_Reason = get_cookie("LogOff_Reason");
+DisplayLogoutMess(LogOff_Reason);
+}
+function DisplayUnlocalizedPageMessage(msgText)
+{
+if(msgText != "")
+{
+document.getElementById("cellMessage").innerHTML = msgText;
+document.getElementById("tblLogoutMsg").style.display = '';
+}
+else
+{
+document.getElementById("cellMessage").innerHTML = msgText;
+document.getElementById("tblLogoutMsg").style.display = 'none';
+}
+}
+function DisplayLogoutMess(messCode)
+{
+var logoutMess;
+var moduleType;
+for(var i=1; formele["rlPhdModuleType$repeat?"+i]; i++)
+{
+if(formele["rlPhdModuleRole$repeat?"+i].value <= 2)
+moduleType=formele["rlPhdModuleType$repeat?"+i].value;
+}
+switch (messCode)
+{
+case "Manual":
+if ((parseInt(moduleType,10) < 52) || (parseInt(moduleType,10) > 57))
+logoutMess="4";
+else
+logoutMess="22";
+break;
+case "TimeOut":
+logoutMess="5";
+break;
+case "Response":
+logoutMess="6";
+break;
+}
+if (logoutMess!=null)
+{
+pgTkn.setTokenWithError("cellMessage",logoutMess);
+document.getElementById("tblLogoutMsg").style.display = "";
+}
+}
+function setDimensions()
+{
+var buffer1 = document.getElementById("tdBuffer1");
+var buffer1Div = document.getElementById("dvBuffer1");
+var buffer3 = document.getElementById("buffer3");
+if(buffer1.clientWidth > 425)
+buffer1Div.style.width = "425px";
+else if(buffer1.clientWidth < 40)
+buffer1Div.style.width = "40px";
+if(buffer3.clientHeight < 30)
+buffer3.style.height = "30px";
+else
+buffer3.style.height = "56%";
+}
+function setBuffer()
+{
+var buffer1 = document.getElementById("tdBuffer1");
+var buffer2 = document.getElementById("tdBuffer2");
+var buffer2Div = document.getElementById("dvBuffer2");
+while(buffer1.clientWidth > 250)
+{
+var diff = buffer1.clientWidth - 250;
+buffer2Div.style.width = (parseInt(buffer2Div.clientWidth,10) + diff) + "px";
+}
+}
+function move(e)
+{
+whKey = e.keyCode;
+if(whKey == '13')
+{
+formele["password$query"].focus();
+}
+}
+function onEnterSub(e)
+{
+whKey = e.keyCode;
+if(whKey == '13')
+{
+formSubmit();
+}
+}
+function setUserNameFocus()
+{
+document.forms[0].userName$query.focus();
+}
+var LangSelError=function(locErrorObj)
+{
+var text = "";
+if (locErrorObj.code == "")
+text = "";
+else if (locErrorObj.code=="inf000")
+text ="The language list was modified.<br/>Please select one of the available languages.";
+else if (locErrorObj.code == "lcl110")
+text = "The current localized language file version is older than the current version of the English dictionary and some pages may not be fully localized.";
+else
+text = "Selected language is not accessible.<br/>Please select one of the available languages."
+DisplayUnlocalizedPageMessage(text);
+}
+var LangSelector = {
+placeHolderId : 'selPlh',
+errorHandler : LangSelError,
+addOptHandlers : []
+};
+function ResourceHandler(src, id)
+{
+this.status = 0;
+var resourceNode = document.getElementById(id);
+var that = this;
+this.load = function()
+{
+this.status = 1;
+resourceNode.onload = function(){that.status = 2};
+resourceNode.onerror = function(){that.status = -1};
+resourceNode.onabort = function(){that.status = -1};
+resourceNode.src = src;
+setTimeout(timer, 3000);
+}
+function timer()
+{
+if (that.status == 1)
+resourceNode.src = "";
+}
+}
+function ResourceCollection(callback)
+{
+var intervalId = 0;
+var that = this;
+this.resourceHandlerArr = [];
+if (typeof callback != "function")
+callback = function(){};
+this.startLoad = function()
+{
+for (var i = 0; i < Math.min(this.queuesNumber, this.resourceHandlerArr.length); i ++)
+loader();
+if (this.queuesNumber && this.resourceHandlerArr.length)
+intervalId = setInterval(loader, 20);
+}
+function loader()
+{
+var status;
+var loadingCount = 0;
+var finishedCount = 0;
+var idxToLoad = -1;
+for (var i = 0; i < that.resourceHandlerArr.length; i ++)
+{
+status = that.resourceHandlerArr[i].status;
+if (status == 0)
+{
+idxToLoad = i;
+break;
+}
+else if (status == 1)
+loadingCount ++;
+else
+finishedCount ++;
+}
+if (finishedCount == that.resourceHandlerArr.length)
+{
+clearInterval(intervalId);
+callback();
+return;
+}
+if (loadingCount >= that.queuesNumber)
+return;
+if (idxToLoad == -1)
+return;
+else
+that.resourceHandlerArr[idxToLoad].load();
+}
+}
+ResourceCollection.prototype.queuesNumber = 2;
+ResourceCollection.prototype.addResourceHandler = function(src, id)
+{
+this.resourceHandlerArr.push(new ResourceHandler(src, id));
+}
+var PostLoadCallback = function()
+{
+DisplayTranslucentPNGInIE6_Login("imgInfo", "../kubrick/images/Status_information_icon.png");
+$("barPageTop").style.backgroundImage = "url(../images/ciscoImages/bar.gif)";
+$("barPageBottom").style.backgroundImage = "url(../images/ciscoImages/bar.gif)";
+$("barContextTop").style.backgroundImage = "url(../images/ciscoImages/bar.gif)";
+$("barContextBottom").style.backgroundImage = "url(../images/ciscoImages/bar.gif)";
+$("topLeftPage").style.backgroundImage = "url(../images/ciscoImages/topLeft.gif)";
+$("topLeftContext").style.backgroundImage = "url(../images/ciscoImages/topLeft.gif)";
+$("topRightPage").style.backgroundImage = "url(../images/ciscoImages/topRight.gif)";
+$("topRightContext").style.backgroundImage = "url(../images/ciscoImages/topRight.gif)";
+$("bottomLeftPage").style.backgroundImage = "url(../images/ciscoImages/bottomLeft.gif)";
+$("bottomLeftContext").style.backgroundImage = "url(../images/ciscoImages/bottomLeft.gif)";
+$("bottomRightPage").style.backgroundImage = "url(../images/ciscoImages/bottomRight.gif)";
+$("bottomRightContext").style.backgroundImage = "url(../images/ciscoImages/bottomRight.gif)";
+function $(id){return document.getElementById(id)}
+}
+function PostLoad()
+{
+rc = new ResourceCollection(PostLoadCallback);
+var resArr = [
+["../images/ciscoImages/logo_cis.gif", "imgLogo"],
+["../images/ciscoImages/pageBackground.jpg", "bgImg"],
+["../kubrick/images/Status_information_icon.png", "imgInfo"],
+["../images/ciscoImages/ContextMessageArrow_DownT.gif", "imgArrow"],
+["../images/ciscoImages/login_progress.gif", "imgProg"],
+["../images/ciscoImages/topLeft.gif", "imgContainerTopLeft"],
+["../images/ciscoImages/topRight.gif", "imgContainerTopRight"],
+["../images/ciscoImages/bottomLeft.gif", "imgContainerBottomLeft"],
+["../images/ciscoImages/bottomRight.gif", "imgContainerBottomRight"],
+["../images/ciscoImages/bar.gif", "imgContainerBar"]
+];
+for (var i = 0; i < resArr.length; i ++)
+rc.addResourceHandler(resArr[i][0], resArr[i][1]);
+rc.startLoad();
+}
+function homeShowProg(doShow, timeout, prcnt)
+{
+if(document.getElementById("imgProgVeil").style.backgroundImage != "url('../images/ProgressBar_determinate.gif')")
+document.getElementById("imgProgVeil").style.backgroundImage = "url('../images/ProgressBar_determinate.gif')";
+if(prcnt == null)prcnt = 100;
+if(doShow)
+{
+if(prcnt < 100)
+{
+if (!pgTkn.setToken("lblProgPrcnt","16",[[TKN_NUMBER,prcnt.toString()]]))
+showLclErr(pgTkn.error);
+document.getElementById("lblProgPrcnt").style.display = "";
+}
+else
+document.getElementById("lblProgPrcnt").style.display = "none";
+document.getElementById("dvProgVeil").style.display="";
+var clHeight = document.body.clientHeight;
+var clWidth = document.body.clientWidth;
+var posTop = (clHeight - 45) / 2;
+var posLeft = (clWidth - 290) / 2;
+document.getElementById("imgProgVeil").style.width = (270 / 100) * prcnt;
+document.getElementById("dvProgBar").style.top = posTop;
+document.getElementById("dvProgBar").style.left = posLeft;
+document.getElementById("dvProgBar").style.display="";
+progressShown = true;
+if(timeout)
+timeoutHolder = window.setTimeout("checkReleaseProgress()",timeout);
+else
+timeoutHolder = window.setTimeout("checkReleaseProgress()",10000);
+}
+else
+{
+document.getElementById("dvProgVeil").style.display="none";
+document.getElementById("dvProgBar").style.display="none";
+progressShown = false;
+if(timeoutHolder)
+window.clearTimeout(timeoutHolder);
+}
+}
+function checkReleaseProgress()
+{
+if(progressShown)
+homeShowProg(false);
+}
+function DisplayTranslucentPNGInIE6_Login(imgNode, src)
+{
+if (/MSIE 6\.0/.test(navigator.userAgent))
+{
+if (typeof imgNode == "string")
+imgNode = document.getElementById(imgNode);
+imgNode.src = "../kubrick/images/empty.gif";
+imgNode.style.filter = "progid:DXImageTransform.Microsoft.AlphaImageLoader(src='" + src + "', sizingMethod='scale')";
+}
+}
+function setstrArrayReplacmentData()
+{
+var myData =formele['sysName'].value;
+strArrayReplacment.push(new Array('$(hostname)',myData));
+myData =formele['sysContact'].value;
+strArrayReplacment.push(new Array('$(contact)',myData));
+myData =formele['sysLocation'].value;
+strArrayReplacment.push(new Array('$(location)',myData));
+formele['rlDnsClDomainNameName$query'].value != _top.QueryNA ? myData =formele['rlDnsClDomainNameName$query'].value:myData = '';
+strArrayReplacment.push(new Array('$(domain)',convertDnsMib2Octet(myData)));
+myData =formele['rndBasePhysicalAddress'].value;
+strArrayReplacment.push(new Array('$(mac-address)',myData));
+strArrayReplacment.push(new Array('$(bold)','<b>','</b>'));
+existingHTMLTagStringArray.push('<b>');
+existingHTMLTagStringArray.push('</b>');
+strArrayReplacment.push(new Array('$(inverse)','<span class="inverse">','</span>'));
+existingHTMLTagStringArray.push('<span class="inverse">');
+existingHTMLTagStringArray.push('</span>');
+}
+function sortArrayByIndexValue(a, b)
+{
+return parseInt(a[0],10) - parseInt(b[0],10);
+}
+function parseBannerMessage()
+{
+var bannerStr = "";
+var searchStr ;
+var secStr = false;
+var strLoc;
+for(var i = 1; i <= bannerEntryCounter; i++)
+{
+bannerStr = bannerStr + formele["rlBannerMessageText$repeat?"+i].value;
+}
+bannerStr = decodeURIComponent(addOctetSeparators(bannerStr));
+setstrArrayReplacmentData();
+for(var i = 0;i<strArrayReplacment.length;i++)
+{
+searchStr = strArrayReplacment[i][0];
+strLoc = bannerStr.indexOf(searchStr);
+while(strLoc != -1)
+{
+if(!secStr)
+bannerStr = bannerStr.substring(0,strLoc) + strArrayReplacment[i][1] + bannerStr.substr(strLoc+searchStr.length);
+else
+bannerStr = bannerStr.substring(0,strLoc) + strArrayReplacment[i][2] + bannerStr.substr(strLoc+searchStr.length);
+strLoc= bannerStr.indexOf(searchStr,strLoc);
+if(strArrayReplacment[i][2] != null && strLoc != -1 && secStr == false)
+secStr = true;
+else
+secStr = false;
+}
+}
+for(var i = 0;i<strArrayReplacment.length;i++)
+{
+searchStr = existingHTMLTagStringArray[i];
+strLoc = bannerStr.indexOf(searchStr);
+while(strLoc != -1)
+{
+ignoredTokenArray.push(new Array(strLoc,existingHTMLTagStringArray[i]));
+strLoc = bannerStr.indexOf(searchStr,strLoc+existingHTMLTagStringArray[i].length);
+}
+}
+ignoredTokenArray.sort(sortArrayByIndexValue);
+bannerStr = ConvertForDisplay(bannerStr);
+bannerStr = convertLineBreaksToHTML(bannerStr);
+bannerStr = convertNBSPtoSpace(bannerStr);
+if(bannerStr != "")
+{
+bannerMsgExist = true;
+document.getElementById("cellMessage").innerHTML = bannerStr;
+document.getElementById("tblLogoutMsg").style.display = "";
+}
+}
+function ConvertForDisplay(io_BannerStr)
+{
+var line_Counter = 0;
+var charCounter = 0;
+var i = 0;
+var returnString = '';
+var currentChar = '';
+var enterKeyFound = false;
+var nextChar = '';
+var ignorIndex = 0;
+while((i<io_BannerStr.length)&&line_Counter<25)
+{
+if(ignorIndex < ignoredTokenArray.length && i == ignoredTokenArray[ignorIndex][0])
+{
+i+=ignoredTokenArray[ignorIndex][1].length;
+returnString+=ignoredTokenArray[ignorIndex][1];
+ignorIndex++;
+continue;
+}
+currentChar = io_BannerStr.charAt(i);
+nextChar = io_BannerStr.charAt(i+1);
+if(!enterKeyFound)
+charCounter++;
+if(currentChar == 10 && nextChar == 13)
+{
+enterKeyFound = true;
+line_Counter++;
+charCounter = 0;
+i++;
+currentChar += io_BannerStr.charAt(i);
+}
+else
+enterKeyFound = false;
+if(charCounter>=100 && !enterKeyFound && io_BannerStr.charCodeAt(i) == 32)
+{
+currentChar += '<br>';
+line_Counter++;
+charCounter = 0;
+}
+returnString += currentChar;
+i++;
+}
+return returnString;
+}
+function convertLineBreaksToHTML(i_string)
+{
+var res;
+var enterString = String.fromCharCode(13) + String.fromCharCode(10);
+res = i_string.split(enterString).join("<br>");
+res = res.split(String.fromCharCode(13)).join("<br>");
+res = res.split(String.fromCharCode(10)).join("");
+return res;
+}
+function convertNBSPtoSpace(i_string)
+{
+return i_string.split(String.fromCharCode(160)).join(" ");
+}
+function addOctetSeparators(inputStr)
+{
+var res = "";
+for(var i = 0; i < inputStr.length; i++)
+{
+if(i % 2 == 0)
+res = res + "%";
+res = res + inputStr.charAt(i);
+}
+return res;
+}
+function displayBtnHTTPS()
+{
+var sessionPrefix = top.location.protocol.toUpperCase();
+var isDisabled, titleItemId;
+if(isHTTPSEnable())
+{
+isDisabled = false;
+titleItemId = "20"
+}
+else
+{
+isDisabled = true;
+titleItemId = "21";
+}
+AlterButtonDisabling("btnHTTPS", isDisabled, "");
+pgTkn.setTokenAttribute("btnHTTPS","title",titleItemId);
+if(sessionPrefix.indexOf("HTTPS") == -1)
+document.getElementById("tdHTTPS").style.display = "";
+}
+function isHTTPSEnable()
+{
+for (var i=1; formele["rlEmWebServiceName$repeat?" + i]; i++)
+{
+if (formele["rlEmWebServiceName$repeat?" + i].value.toUpperCase() == "HTTPS")
+{
+if (formele["rlEmWebServiceEnable$repeat?" + i].value == "3")
+return true;
+else
+return false;
+}
+}
+}
+function reloadInHTTPS()
+{
+if (location.replace)
+top.location.replace("https:"+top.location.href.substr(5));
+else
+top.location = "https:"+top.location.href.substr(5);
+}
+</script>
+</head>
+<body onload="pgTkn.init(LangSelector);parseBannerMessage();CheckLogoutInstance();setUserNameFocus();setBuffer();PostLoad();" onresize="setErrorDivDisplay(false);setBuffer();" onClick='rng_seed_time();' onKeyPress='rng_seed_time();' style="background-color:#407BB3; margin:0; width:100%;height:100%">
+<FORM METHOD='POST'  ACTION="/csd36f9d6/config/log_off_page.htm" name="mainPageForm" id="mainPageForm" bgcolor=#f2f2f2 onsubmit="return false;" onLoad="document.forms[0].userName$query.focus();"   >
+<INPUT  TYPE="HIDDEN" Name="restoreUrl" size=256   value="">
+<INPUT  TYPE="HIDDEN" NAME="errorCollector"   value="" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden name="sysName" disabled   value="LABSW05" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden name="sysContact" disabled   value="" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden name="sysLocation" disabled   value="" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden name="rndBasePhysicalAddress" disabled   value="b000b446132e" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=DomainNameTable   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlDnsClDomainNameTable$VT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlDnsClDomainNameName$VT SIZE=512   value="Type=2;Access=1;NumOfEnumerations=0;Range0=[0,160]">
+<INPUT  Type=HIDDEN Name=DomainNameTable$endVT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden Name=DomainNameTable$query   value=" " SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME=rlDnsClDomainNameName$query size=512   value=" ">
+<INPUT  type=hidden Name=DomainNameTable$endQuery   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlBannerMessageTableVT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlBannerMessageTable$VT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlBannerMessageType$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=3;Range0=[1,3]">
+<INPUT  Type=HIDDEN Name=rlBannerMessageIndex$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=0;Range0=[1,13]">
+<INPUT  Type=HIDDEN Name=rlBannerMessageText$VT SIZE=128   value="Type=2;Access=2;NumOfEnumerations=0;Range0=[0,160]">
+<INPUT  Type=HIDDEN Name=Filter:(rlBannerMessageType=2) disabled   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlBannerMessageTableVT$endVT   value="OK" SIZE="20" MAXLENGTH="20">
+
+<INPUT  TYPE=HIDDEN Name="WebServiceTable" disabled   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="rlEmWebServiceTable$VT" disabled   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="rlEmWebServiceId$VT" disabled   value="Type=0;Access=1;NumOfEnumerations=0;Range0=[-2147483648,2147483647]" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="rlEmWebServiceName$VT" disabled   value="Type=100;Access=1;NumOfEnumerations=0;Range0=[1,16]" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="rlEmWebServiceEnable$VT" disabled   value="Type=0;Access=2;NumOfEnumerations=3;Range0=[1,3];Default value=1" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="WebServiceTable$endVT" disabled   value="OK" SIZE="20" MAXLENGTH="20">
+
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceId$repeat?1"    value="0" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceName$repeat?1"    value="HTTP" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceEnable$repeat?1"    value="3" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="WebServiceTable$endRepeat?1"    value="OK" SIZE="20" MAXLENGTH="20">
+
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceId$repeat?2"    value="1" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceName$repeat?2"    value="HTTPS" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME="rlEmWebServiceEnable$repeat?2"    value="3" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN Name="WebServiceTable$endRepeat?2"    value="OK" SIZE="20" MAXLENGTH="20">
+
+<INPUT  Type=HIDDEN Name=poeModuleTableVT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  Type=HIDDEN Name=rlPhdModuleTable$VT   value="OK" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleStackUnit$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=0;Range0=[-2147483648,2147483647]">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleIndex$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=0;Range0=[-2147483648,2147483647]">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleType$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=0;Range0=[-2147483648,2147483647]">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleRole$VT SIZE=128   value="Type=0;Access=1;NumOfEnumerations=4;Range0=[1,4]">
+<INPUT  Type=HIDDEN Name=poeModuleTableVT$endVT   value="OK" SIZE="20" MAXLENGTH="20">
+
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleStackUnit$repeat?1    value="1" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleIndex$repeat?1    value="1" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleType$repeat?1    value="3" SIZE="20" MAXLENGTH="20">
+<INPUT  TYPE=HIDDEN NAME=rlPhdModuleRole$repeat?1    value="1" SIZE="20" MAXLENGTH="20">
+<INPUT  type=hidden Name=poeModuleTableVT$endRepeat?1    value="OK" SIZE="20" MAXLENGTH="20">
+
+<script>
+set_cookie("isStackableDevice",isStackable,"","/");
+formele = document.forms[0].elements;
+pgTkn.setTokenWithError("loginRelang",null,[[TKN_CALLBACK, function(){window.setTimeout("setErrorDivDisplay(false);setBuffer();",100)}]]);
+</script>
+<div style="position:absolute; left:0;top:0; width:100%;height:100%;"><img id="bgImg" alt="" style="width:100%;height:100%;"></div>
+<div style="position:absolute; left:0;top:0; width:100%;height:100%;">
+<img style="position:absolute; left:0; top:0; width:1px; height:1px; visibility:hidden;" id="imgContainerTopLeft">
+<img style="position:absolute; left:0; top:0; width:1px; height:1px; visibility:hidden;" id="imgContainerTopRight">
+<img style="position:absolute; left:0; top:0; width:1px; height:1px; visibility:hidden;" id="imgContainerBottomLeft">
+<img style="position:absolute; left:0; top:0; width:1px; height:1px; visibility:hidden;" id="imgContainerBottomRight">
+<img style="position:absolute; left:0; top:0; width:1px; height:1px; visibility:hidden;" id="imgContainerBar">
+<table width=100% height=100% ID="Table1">
+<tr style="height:192px;"><td colspan=4 valign="bottom" style="padding-bottom:12px;vertical-align:bottom;">
+<div id="dvLogoutMsg" align="center">
+<table ID="tblLogoutMsg" style="PADDING-RIGHT: 2px; PADDING-LEFT: 5px; PADDING-BOTTOM: 2px; PADDING-TOP: 5px; display:none;">
+<tr style="height:4px;">
+<td id="topLeftPage" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: bottom;filter:alpha(opacity=67);opacity:0.67; "></td-->
+<td colspan="3" id="barPageTop" style="BACKGROUND-REPEAT:repeat-x;BACKGROUND-POSITION-Y: bottom;height:4px;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td id="topRightPage" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: bottom;filter:alpha(opacity=67);opacity:0.67; "></td>
+</tr>
+<tr>
+<td style="width:4px; BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"/>
+<td style="PADDING-LEFT: 6px; PADDING-BOTTOM: 2px; PADDING-TOP: 6px; BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;">
+<img alt="" id="imgInfo" width="32" height="32" />
+</td>
+<td width="10px" style="BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td id="cellMessage" style="FONT-SIZE: 12px; FONT-FAMILY: Arial; PADDING-RIGHT: 10px;BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td style="width:4px; BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"/>
+</tr>
+<tr style="height:4px;max-height:4px;">
+<td id="bottomLeftPage" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: top;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+<td colspan="3" id="barPageBottom" style="BACKGROUND-REPEAT:repeat-x;BACKGROUND-POSITION-Y: top;height:4px;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td id="bottomRightPage" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: top;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+</tr>
+</table>
+</div>
+</td></tr>
+<tr >
+<td style="width:84px;"><div style="width:4px;">&nbsp;</div></td>
+<td id="cellTbl2Cont">
+<table style="margin-top:0px;margin-left:0px;margin-right:0px;height:100%;" ID="Table2">
+<tr>
+<td width="62px" style="margin-top:0px;margin-left:0;vertical-align:top;"><img width=96px id="imgLogo" height=51px style="vertical-align:top;"></td>
+<td style="padding-top:5px;vertical-align:top;"><span id="lblDevName" class="titleciscolog"></span></td>
+<td id="tdBuffer1" style="width:100%;vertical-align:top;"><div id="dvBuffer1" style="width:40px;">&nbsp;</div></td>
+</tr>
+<script>
+pgTkn.setTokenWithError("lblDevName","7");
+</script>
+</table>
+</td>
+<td>
+<table align="left" style="margin-top:0px;" ID="Table4">
+<tr style="height:23px;">
+<td></td>
+<td style="WIDTH: 280px;">
+<div id="dvLoginErr" style="display:none;position:absolute;">
+<table ID="Table5">
+<tr>
+<td>
+<table ID="tblLoginErr">
+<tr style="height:4px;">
+<td id="topLeftContext" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: bottom;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+<td id="barContextTop" style="BACKGROUND-REPEAT:repeat-x;BACKGROUND-POSITION-Y: bottom;height:4px;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td id="topRightContext" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: bottom;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+</tr>
+<tr>
+<td style="width:4px; BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"/>
+<td id="lblLoginErrMsg" style="COLOR: #e9102a; width:180px; FONT-FAMILY: Arial; font-weight:bold; FONT-SIZE: 11px; padding-left:1px; padding-right:1px;BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67; white-space:normal;"></td>
+<td style="width:4px; BACKGROUND-COLOR: #FFFFFF;filter:alpha(opacity=67);opacity:0.67;"/>
+</tr>
+<tr style="height:4px;max-height:4px;">
+<td id="bottomLeftContext" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: top;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+<td id="barContextBottom" style="BACKGROUND-REPEAT:repeat-x;BACKGROUND-POSITION-Y: top;height:4px;filter:alpha(opacity=67);opacity:0.67;"></td>
+<td id="bottomRightContext" style="WIDTH: 4px; HEIGHT: 4px; BACKGROUND-REPEAT: no-repeat; BACKGROUND-POSITION-Y: top;filter:alpha(opacity=67);opacity:0.67; ">
+</td>
+</tr>
+<tr>
+<td style="VERTICAL-ALIGN: super">&nbsp;</td>
+<td>
+<img alt="" id="imgArrow" style="POSITION: relative; TOP: -2px"/>
+</td>
+<td style="VERTICAL-ALIGN: super">&nbsp;</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</div>
+</td>
+</tr>
+<tr height=30px><td class="titleciscouser"><span id="lblUserName"></span><span id="lblSep1" style="margin-right:8px;"></span></td>
+<td width=50px><input onkeypress="move(event)" onblur="trimInnerSpaces(this);" style="font-size:13;width:160px;" type=text id="userName$query" !onkeypress="KeyPress(event.keyCode)" NAME="userName" maxlength="20"></td>
+</tr>
+<tr height=30px><td class="titleciscouser"><span id="lblPword"></span><span id="lblSep2" style="margin-right:8px;"></span></td>
+<td ><input onkeypress="onEnterSub(event)" style="width:160px;" onblur="trimInnerSpaces(this);" type=password id="password" #onkeypress="KeyPress(event.keyCode)" NAME="password$query" maxlength="64"></td></tr>
+<tr height=30px>
+<td class="titleciscouser">
+<span id="lblLang"></span><span id="lblSep3" style="margin-right:8px;"></span>
+</td>
+<td><p id="selPlh" align="left" /></td>
+</tr>
+<script>
+pgTkn.setTokenWithError("lblUserName","8");
+pgTkn.setTokenWithError("lblPword","9");
+pgTkn.setTokenWithError("lblLang","10");
+pgTkn.setTokenWithError("lblSep1","14");
+pgTkn.setTokenWithError("lblSep2","14");
+pgTkn.setTokenWithError("lblSep3","14");
+</script>
+<tr><td colspan=2 style="font-size:4px;">&nbsp;</td></tr>
+<tr> <td >&nbsp;</td>
+<td>
+<table ID="Table3"><tr>
+<td>
+<script>
+pgTkn.CreateLocalizedButtonShort("13","formSubmit();","btnLogin")
+</script>
+</td>
+<td id="tdHTTPS" style="padding-left:5px; display:none;">
+<script>
+pgTkn.CreateLocalizedButtonShort("19","reloadInHTTPS();","btnHTTPS");
+</script>
+</td>
+<td width="20px"></td>
+<td><span id="lblProg" style="display:none;"><img alt="" height="18px" id="imgProg"/></span></td>
+</tr></table>
+</td>
+</tr>
+</table>
+</td>
+<td id="tdBuffer2">
+<div id="dvBuffer2" style="width:3px;">&nbsp;</div>
+</td>
+</tr>
+<tr style="height:56%;" id="buffer3"><td colspan=4><div id="dvBuffer3" style="height:30px">&nbsp;</div></td></tr>
+<tr>
+<td #width=86px></td>
+<td colspan=3>
+<table ID="Table6">
+<tr><td><div style="width:16px;">&nbsp;</div></td><td class="titlecisco3log" style="width:780px;white-space:normal;"><span id="lblFooter1"></span></td></tr>
+<tr><td><div style="width:16px;">&nbsp;</div></td><td class="titlecisco3log" style="width:780px;white-space:normal;"><span id="lblFooter2"></span></td></tr>
+</table>
+<script>
+pgTkn.setTokenWithError("lblFooter1","11")
+pgTkn.setTokenWithError("lblFooter2","12")
+</script>
+</td>
+</tr>
+<tr height=20px><td colspan=4>&nbsp;</td></tr>
+</table>
+</div>
+<div id="dvProgVeil" style="position:absolute; z-index:999998; width:100%; height:100%; background-color:#D9E3E9; filter:alpha(opacity=70); opacity:0.70; top:0px; display:none; cursor:progress;">
+</div>
+<div id="dvProgBar" style="display:none;position:absolute;z-index:999999;filter:alpha(opacity=100); opacity:1.00; background-color:#A2B9C9; width:290px;">
+<table ID="Table7">
+<tr>
+<td id="lblHomeProg" style="text-align:center;padding-bottom:6px;padding-top:10px;font-weight: bold;font-family:Arial, sans-serif; font-size:12px;width:290px;"></td>
+</tr>
+<tr>
+<td id="lblProgPrcnt" style="padding-bottom:8px;text-align:center;font-weight: bold;font-family:Arial, sans-serif; font-size:12px;"></td>
+</tr>
+<tr>
+<td style="text-align:left;padding-left:9px;padding-right:9px;padding-bottom:10px;">
+<div id="progPlaceholder" style="background-color:white;width:270px;height:17px;text-align:left;">
+<div id="imgProgVeil" style="height:17px;background-repeat:no-repeat;overflow:none;" />
+</div>
+</td>
+</tr>
+<script>
+if (!pgTkn.setToken("lblHomeProg","15"))
+showLclErr(pgTkn.error);
+</script>
+</table>
+</div>
+<INPUT  Name="rlStackHybridTable EXISTS" Size="128"   value="OK">
+
+
+<script>
+isStackable = false;
+</script>
+
+<script>
+set_cookie("isStackableDevice",isStackable,"","/");
+displayBtnHTTPS();
+</script>
+<textarea name="Oid" style="height: 15em;display:none" ID="Textarea1">
+0.2.262.1.10.0,extension
+0.2.262.1.10.1.1,signature
+1.2.840.113549.1.1,pkcs-1
+1.2.840.113549.1.1.1,rsaEncryption
+1.2.840.113549.1.1.4,md5withRSAEncryption
+1.2.840.113549.1.1.5,sha1withRSAEncryption
+1.2.840.113549.1.1.6,rsaOAEPEncryptionSET
+1.2.840.113549.1.7,pkcs-7
+1.2.840.113549.1.7.1,data
+1.2.840.113549.1.7.2,signedData
+1.2.840.113549.1.7.3,envelopedData
+1.2.840.113549.1.7.4,signedAndEnvelopedData
+1.2.840.113549.1.7.5,digestedData
+1.2.840.113549.1.7.6,encryptedData
+1.2.840.113549.1.7.7,dataWithAttributes
+1.2.840.113549.1.7.8,encryptedPrivateKeyInfo
+1.2.840.113549.1.9.22.1,x509Certificate(for.PKCS.#12)
+1.2.840.113549.1.9.23.1,x509Crl(for.PKCS.#12)
+1.2.840.113549.1.9.3,contentType
+1.2.840.113549.1.9.4,messageDigest
+1.2.840.113549.1.9.5,signingTime
+2.16.840.1.113730.1,cert-extension
+2.16.840.1.113730.1.1,netscape-cert-type
+2.16.840.1.113730.1.12,netscape-ssl-server-name
+2.16.840.1.113730.1.13,netscape-comment
+2.16.840.1.113730.1.2,netscape-base-url
+2.16.840.1.113730.1.3,netscape-revocation-url
+2.16.840.1.113730.1.4,netscape-ca-revocation-url
+2.16.840.1.113730.1.7,netscape-cert-renewal-url
+2.16.840.1.113730.1.8,netscape-ca-policy-url
+2.23.42.0,contentType
+2.23.42.1,msgExt
+2.23.42.10,national
+2.23.42.2,field
+2.23.42.2.0,fullName
+2.23.42.2.1,givenName
+2.23.42.2.10,amount
+2.23.42.2.2,familyName
+2.23.42.2.3,birthFamilyName
+2.23.42.2.4,placeName
+2.23.42.2.5,identificationNumber
+2.23.42.2.6,month
+2.23.42.2.7,date
+2.23.42.2.7.11,accountNumber
+2.23.42.2.7.12,passPhrase
+2.23.42.2.8,address
+2.23.42.3,attribute
+2.23.42.3.0,cert
+2.23.42.3.0.0,rootKeyThumb
+2.23.42.3.0.1,additionalPolicy
+2.23.42.4,algorithm
+2.23.42.5,policy
+2.23.42.5.0,root
+2.23.42.6,module
+2.23.42.7,certExt
+2.23.42.7.0,hashedRootKey
+2.23.42.7.1,certificateType
+2.23.42.7.2,merchantData
+2.23.42.7.3,cardCertRequired
+2.23.42.7.5,setExtensions
+2.23.42.7.6,setQualifier
+2.23.42.8,brand
+2.23.42.9,vendor
+2.23.42.9.22,eLab
+2.23.42.9.31,espace-net
+2.23.42.9.37,e-COMM
+2.5.29.1,authorityKeyIdentifier
+2.5.29.10,basicConstraints
+2.5.29.11,nameConstraints
+2.5.29.12,policyConstraints
+2.5.29.13,basicConstraints
+2.5.29.14,subjectKeyIdentifier
+2.5.29.15,keyUsage
+2.5.29.16,privateKeyUsagePeriod
+2.5.29.17,subjectAltName
+2.5.29.18,issuerAltName
+2.5.29.19,basicConstraints
+2.5.29.2,keyAttributes
+2.5.29.20,cRLNumber
+2.5.29.21,cRLReason
+2.5.29.22,expirationDate
+2.5.29.23,instructionCode
+2.5.29.24,invalidityDate
+2.5.29.25,cRLDistributionPoints
+2.5.29.26,issuingDistributionPoint
+2.5.29.27,deltaCRLIndicator
+2.5.29.28,issuingDistributionPoint
+2.5.29.29,certificateIssuer
+2.5.29.3,certificatePolicies
+2.5.29.30,nameConstraints
+2.5.29.31,cRLDistributionPoints
+2.5.29.32,certificatePolicies
+2.5.29.33,policyMappings
+2.5.29.34,policyConstraints
+2.5.29.35,authorityKeyIdentifier
+2.5.29.36,policyConstraints
+2.5.29.37,extKeyUsage
+2.5.29.4,keyUsageRestriction
+2.5.29.5,policyMapping
+2.5.29.6,subtreesConstraint
+2.5.29.7,subjectAltName
+2.5.29.8,issuerAltName
+2.5.29.9,subjectDirectoryAttributes
+2.5.4.0,objectClass
+2.5.4.1,aliasedEntryName
+2.5.4.10,organizationName
+2.5.4.10.1,collectiveOrganizationName
+2.5.4.11,organizationalUnitName
+2.5.4.11.1,collectiveOrganizationalUnitName
+2.5.4.12,title
+2.5.4.13,description
+2.5.4.14,searchGuide
+2.5.4.15,businessCategory
+2.5.4.16,postalAddress
+2.5.4.16.1,collectivePostalAddress
+2.5.4.17,postalCode
+2.5.4.17.1,collectivePostalCode
+2.5.4.18,postOfficeBox
+2.5.4.18.1,collectivePostOfficeBox
+2.5.4.19,physicalDeliveryOfficeName
+2.5.4.19.1,collectivePhysicalDeliveryOfficeName
+2.5.4.2,knowledgeInformation
+2.5.4.20,telephoneNumber
+2.5.4.20.1,collectiveTelephoneNumber
+2.5.4.21,telexNumber
+2.5.4.21.1,collectiveTelexNumber
+2.5.4.22.1,collectiveTeletexTerminalIdentifier
+2.5.4.23,facsimileTelephoneNumber
+2.5.4.23.1,collectiveFacsimileTelephoneNumber
+2.5.4.25,internationalISDNNumber
+2.5.4.25.1,collectiveInternationalISDNNumber
+2.5.4.26,registeredAddress
+2.5.4.27,destinationIndicator
+2.5.4.28,preferredDeliveryMehtod
+2.5.4.29,presentationAddress
+2.5.4.3,commonName
+2.5.4.31,member
+2.5.4.32,owner
+2.5.4.33,roleOccupant
+2.5.4.34,seeAlso
+2.5.4.35,userPassword
+2.5.4.36,userCertificate
+2.5.4.37,caCertificate
+2.5.4.38,authorityRevocationList
+2.5.4.39,certificateRevocationList
+2.5.4.4,surname
+2.5.4.40,crossCertificatePair
+2.5.4.41,name
+2.5.4.42,givenName
+2.5.4.43,initials
+2.5.4.44,generationQualifier
+2.5.4.45,uniqueIdentifier
+2.5.4.46,dnQualifier
+2.5.4.47,enhancedSearchGuide
+2.5.4.48,protocolInformation
+2.5.4.49,distinguishedName
+2.5.4.5,serialNumber
+2.5.4.50,uniqueMember
+2.5.4.51,houseIdentifier
+2.5.4.52,supportedAlgorithms
+2.5.4.53,deltaRevocationList
+2.5.4.55,clearance
+2.5.4.58,crossCertificatePair
+2.5.4.6,countryName
+2.5.4.7,localityName
+2.5.4.7.1,collectiveLocalityName
+2.5.4.8,stateOrProvinceName
+2.5.4.8.1,collectiveStateOrProvinceName
+2.5.4.9,streetAddress
+2.5.4.9.1,collectiveStreetAddress
+2.5.6.0,top
+2.5.6.1,alias
+2.5.6.10,residentialPerson
+2.5.6.11,applicationProcess
+2.5.6.12,applicationEntity
+2.5.6.13,dSA
+2.5.6.14,device
+2.5.6.15,strongAuthenticationUser
+2.5.6.16,certificateAuthority
+2.5.6.17,groupOfUniqueNames
+2.5.6.2,country
+2.5.6.21,pkiUser
+2.5.6.22,pkiCA
+2.5.6.3,locality
+2.5.6.4,organization
+2.5.6.5,organizationalUnit
+2.5.6.6,person
+2.5.6.7,organizationalPerson
+2.5.6.8,organizationalRole
+2.5.6.9,groupOfNames
+2.5.8,X.500-Algorithms
+2.5.8.1,X.500-Alg-Encryption
+2.5.8.1.1,rsa
+2.54.1775.2,hashedRootKey
+2.54.1775.3,certificateType
+2.54.1775.4,merchantData
+2.54.1775.5,cardCertRequired
+2.54.1775.7,setQualifier
+2.54.1775.99,set-data
+</textarea>
+</form>
+</body>
+</html>

@@ -1,0 +1,27 @@
+== v1 public ==
+SNMPv2-MIB::sysDescr.0 = STRING: Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213 Compiled on Jul 30 2026 at 17:58:03 labeled as SPR10010g_cd10
+== v2c public ==
+SNMPv2-MIB::sysDescr.0 = STRING: Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213 Compiled on Jul 30 2026 at 17:58:03 labeled as SPR10010g_cd10
+== v2c tegi ==
+Timeout: No Response from 172.16.0.6.
+== v3 noAuthNoPriv tegi ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authNoPriv tegi SHA ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authNoPriv tegi MD5 ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authPriv tegi SHA/AES ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authPriv tegi SHA/DES ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authPriv tegi MD5/AES ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)
+== v3 authPriv tegi MD5/DES ==
+No log handling enabled - using stderr logging
+snmpget: Unknown user name (Sub-id not found: (top) -> sysDescr)

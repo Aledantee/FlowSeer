@@ -25,7 +25,7 @@ spec/openapi/
 |-----------|----------|-----------|-------|
 | `ubiquiti/` | https://developer.ui.com via https://github.com/opastorello/unifi-api-docs (daily CI mirror) | Official specs, community mirror | UniFi Network API (local controller, X-API-Key) + cloud Site Manager API. |
 | `mikrotik/` | https://tikoci.github.io/restraml/7.24/openapi.json | Community (MikroTik publishes no spec) | RouterOS v7 REST API (HTTPS JSON over the console API). |
-| `lancom/` | https://cloud.lancom.de/cloud-service-<service>/api-docs/index.json | Official, public | LMC REST API (OAuth2) for LMC-managed fleets; no on-device REST/NETCONF exists. |
+| `lancom/` | https://cloud.lancom.de/cloud-service-<service>/api-docs/index.json | Official, public | LMC REST API (API key or JWT bearer, no OAuth2) for LMC-managed fleets; no on-device REST/NETCONF exists. |
 | `ruckus/vsz/` | https://github.com/zgilburd/vsz-mcp (`docs/openapi-spec.json`) | Official spec content, community capture | SmartZone 7.1.1 `v13_1` Swagger 2.0 (688 paths, vSZ-E + vSZ-H) — verbatim dump of a live controller's `/wsg/apiDoc/openapi`; Ruckus publishes no static download. |
 | `hp/` | — (see its SOURCES.md) | — | **Pointer-only**: Comware NETCONF XSDs are login-walled (pull per-device via RFC 6022 `get-schema`); AOS-S REST schemas exist only in PDF guides / on-device. |
 

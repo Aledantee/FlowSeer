@@ -1,0 +1,1254 @@
+spawn ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@172.16.0.6
+Warning: Permanently added '172.16.0.6' (ECDSA) to the list of known hosts.
+admin@172.16.0.6's password: 
+
+SSH@LABSW06>enable
+No password has been assigned yet...
+SSH@LABSW06#skip-page-display
+Disable page display mode
+SSH@LABSW06#show version
+  Copyright (c) Ruckus Networks, Inc. All rights reserved.
+    UNIT 1: compiled on Jul 30 2026 at 17:58:03 labeled as SPR10010g_cd10
+      (33554432 bytes) from Primary SPR10010g_cd10.bin (UFI)
+        SW: Version 10.0.10g_cd10T213 
+      Compressed Primary Boot Code size = 786944, Version:10.2.12T225 (mnz10212)
+       Compiled on Wed Jul  9 10:01:21 2025
+
+  HW: Stackable ICX7150-24-POE
+==========================================================================
+UNIT 1: SL 1: ICX7150-24P-2X10G_2X1G POE 24-port Management Module
+      Serial  #:FEA3220S085
+      Software Package: ICX7150_BASE_L3_SOFT_PACKAGE   
+      Current License: 2X10G  
+      P-ASIC  0: type B160, rev 11  Chip BCM56160_B0
+==========================================================================
+UNIT 1: SL 2: ICX7150-2X1GC 2-port 2G Module
+==========================================================================
+UNIT 1: SL 3: ICX7150-4X10GF 4-port 40G Module
+==========================================================================
+ 1000 MHz ARMv7 Cortex-A9 processor 88 MHz bus
+    8 MB boot flash memory
+    2 GB code flash memory
+    1 GB DRAM
+STACKID 1  system uptime is 25 minute(s) 39 second(s) 
+The system started at 18:06:55 GMT+00 Thu Jul 30 2026
+show chassis
+
+The system : started=cold start   
+
+SSH@LABSW06#show chassis
+show flash
+The stack unit 1 chassis info: 
+
+Power supply 1 (AC - PoE) present, status ok
+
+Fan 1 ok, speed (auto): [[1]]<->2
+Fan 2 ok, speed (auto): [[1]]<->2
+
+Fan controlled temperature: 
+	Rule 1/2 (MGMT THERMAL PLANE): 43.7 deg-C
+	Rule 2/2 (AIR OUTLET NEAR PSU): 36.0 deg-C
+
+Fan speed switching temperature thresholds:
+	Rule 1/2 (MGMT THERMAL PLANE):
+		Speed 1: NM<-----> 72       deg-C
+		Speed 2:        62<----->105 deg-C (shutdown)
+	Rule 2/2 (AIR OUTLET NEAR PSU):
+		Speed 1: NM<-----> 58       deg-C
+		Speed 2:        49<----->105 deg-C (shutdown)
+
+Fan 1 Air Flow Direction:  Front to Back 
+Fan 2 Air Flow Direction:  Front to Back 
+Slot 1 Current Temperature: 43.7 deg-C (Sensor 1), 36.0 deg-C (Sensor 2), 34.5 deg-C (Sensor 3), 34.2 deg-C (Sensor 4)
+	Warning level.......: 100.0 deg-C
+	Shutdown level......: 105.0 deg-C
+Boot Prom MAC : 3845.3b0f.cbc0
+Management MAC: 3845.3b0f.cbc0
+Stack unit-1: The system was last powercycled on Thursday, 2026-07-30 at 18:06:49+0000 (UTC), powercycle count: 12
+SSH@LABSW06#show flash
+show media
+Stack unit 1:
+  NAND Type: Micron NAND 2GiB (x 1)
+  Compressed Pri Code size = 33554432, Version:10.0.10gT213 (SPR10010g_cd10.bin)
+  Compressed Sec Code size = 33554432, Version:10.0.10gT213 (SPR10010g_cd10.bin)
+  Compressed Pri Boot Code size = 786944, Version:10.2.12T225 (mnz10212)
+  Compressed Sec Boot Code size = 786944, Version:10.2.12T225 (mnz10212)
+  Code Flash Free Space = 1187213312
+SSH@LABSW06#show media
+show interfaces brief
+Port 1/1/1:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/2:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/3:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/4:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/5:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/6:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/7:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/8:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/9:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/10:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/11:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/12:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/13:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/14:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/15:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/16:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/17:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/18:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/19:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/20:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/21:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/22:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/23:  Type  : 1G M-C (Gig-Copper)
+Port 1/1/24:  Type  : 1G M-C (Gig-Copper)
+Port 1/2/1:  Type  : 1G M-C (Gig-Copper)
+Port 1/2/2:  Type  : 1G M-C (Gig-Copper)
+Port 1/3/1:  Type  : 1GE M-SX(SFP)
+Port 1/3/2:  Type  : 1GE M-SX(SFP)
+Port 1/3/3:  Type  : EMPTY
+Port 1/3/4:  Type  : EMPTY
+SSH@LABSW06#show interfaces brief
+show vlan
+Port       Link    State   Dupl Speed Trunk Tag Pvid Pri MAC             Name
+1/1/1      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/2      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/3      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/4      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/5      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/6      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/7      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/8      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/9      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/10     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/11     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/12     Up      Forward Full 1G    None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/13     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/14     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/15     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/16     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/17     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/18     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/19     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/20     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/21     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/22     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/23     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/1/24     Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/2/1      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0  UPLINK-CORE    
+1/2/2      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0  DOWNLINK-SW    
+1/3/1      Up      Forward Full 1G    None  Yes 4000 0   3845.3b0f.cbc0                 
+1/3/2      Up      Forward Full 1G    1     Yes 4000 0   3845.3b0f.cbc0                 
+1/3/3      Down    None    None None  None  Yes 4000 0   3845.3b0f.cbc0                 
+1/3/4      Down    None    None None  1     Yes 4000 0   3845.3b0f.cbc0                 
+lg1        Up      Forward Full 1G    1     Yes 4000 0   3845.3b0f.cbc0                 
+mgmt1      Down    None    None None  None  No  None 0   3845.3b0f.cbc0                 
+
+Port       Link    State   Dupl Speed Trunk Tag Pvid Pri MAC             Name
+ve1000     Up      N/A     N/A  N/A   None  N/A N/A  N/A 3845.3b0f.cbc0                 
+SSH@LABSW06#show vlan
+show lldp neighbors detail
+Total PORT-VLAN entries: 4
+Maximum PORT-VLAN entries: 1024
+
+Legend: [Stk=Stack-Id, S=Slot]
+
+PORT-VLAN 666, Name BREACH-TARGET, Priority level0, in single spanning tree domain
+ Untagged Ports: None
+   Tagged Ports: (U1/M2)   1   2 
+ Mac-Vlan Ports: None
+     Monitoring: Disabled
+PORT-VLAN 1000, Name VLAN1000, Priority level0, in single spanning tree domain
+ Untagged Ports: None
+   Tagged Ports: (U1/M1)   1   2   3   4   5   6   7   8   9  10  11  12 
+   Tagged Ports: (U1/M1)  13  14  15  16  17  18  19  20  21  22  23  24 
+
+   Tagged Ports: (U1/M2)   1   2 
+   Tagged Ports: (U1/M3)   1   2   3   4 
+   Tagged Ports: (LAG)     1 
+ Mac-Vlan Ports: None
+     Monitoring: Disabled
+PORT-VLAN 4000, Name DEFAULT-VLAN, Priority level0, in single spanning tree domain
+ Untagged Ports: (U1/M1)   1   2   3   4   5   6   7   8   9  10  11  12 
+ Untagged Ports: (U1/M1)  13  14  15  16  17  18  19  20  21  22  23  24 
+
+ Untagged Ports: (U1/M2)   1   2 
+ Untagged Ports: (U1/M3)   1   2   3   4 
+ Untagged Ports: (LAG)     1 
+   Tagged Ports: None
+ Mac-Vlan Ports: None
+     Monitoring: Disabled
+SINGLE-SPANNING-TREE-VLAN, Name Single-spanning-tree-vlan, Priority level0, 
+   Tagged Ports: (U1/M1)   1   2   3   4   5   6   7   8   9  10  11  12 
+   Tagged Ports: (U1/M1)  13  14  15  16  17  18  19  20  21  22  23  24 
+
+   Tagged Ports: (U1/M2)   1   2 
+   Tagged Ports: (U1/M3)   1   2   3   4 
+   Tagged Ports: (LAG)     1 
+ Mac-Vlan Ports: None
+     Monitoring: Disabled
+SSH@LABSW06#show lldp neighbors detail
+show lldp local-info
+Local port: 1/1/12
+  Neighbor: 7801.5ab0.0501, TTL 113 seconds
+  + Chassis ID (MAC address): 7801.5ab0.0500
+  + Port ID (MAC address): 7801.5ab0.0501
+  + Time to live: 120 seconds
+  + System name         : "labtest"
+  + System description    : "Kali GNU/Linux Rolling Linux 7.0.12+kali-amd64 #1 SMP PREEMPT_DYNAMIC Kali 7.0.12-2kali1 (2026-06-18) x86_64"
+  + System capabilities : bridge, WLAN access point, router, station only
+    Enabled capabilities: WLAN access point, router
+  + Management address (IPv4): 172.16.0.21
+  + Management address (IPv6): fd87:4c3d:b2dc:339c:3738:a250:67e8:1e76
+  + Port description    : "eth1"
+  + VLAN name (VLAN 1000): vlan1000
+  + Link aggregation: capable, but not aggregated
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxPause, fdxAPause, 1000BaseT-FD
+    Operational MAU type   : 1000BaseT-FD
+
+Local port: 1/3/2
+  Neighbor: 18fd.74e2.6e84, TTL 86 seconds
+  + Chassis ID (MAC address): 18fd.74e2.6e78
+  + Port ID (interface name): bridge/bond-icx/sfp-sfpplus13
+  + Time to live: 120 seconds
+  + System name         : "Lab_SW01"
+show span
+  + System description    : "MikroTik RouterOS 6.49.20 (long-term) CRS317-1G-16S+"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+
+SSH@LABSW06#show lldp local-info
+show 802-1w
+Local port: 1/1/1 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc0
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/1"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/2 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc1
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/2"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/3 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc2
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/3"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/4 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc3
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/4"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/5 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc4
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/5"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/6 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc5
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/6"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/7 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc6
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/7"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/8 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc7
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/8"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/9 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc8
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/9"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/10 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbc9
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/10"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/11 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbca
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/11"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/12
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbcb
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/12"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : 1000BaseT-FD
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/13 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbcc
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/13"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/14 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbcd
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/14"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/15 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbce
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/15"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/16 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbcf
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/16"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/17 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd0
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/17"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/18 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd1
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/18"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/19 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd2
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/19"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/20 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd3
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/20"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/21 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd4
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/21"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/22 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd5
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/22"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/23 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd6
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/23"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/1/24 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd7
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/1/24"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/2/1 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbd9
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/2/1"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/2/2 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbda
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "GigabitEthernet1/2/2"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: 10BaseT-HD, 10BaseT-FD, 100BaseTX-HD,
+                             100BaseTX-FD, fdxSPause, fdxBPause, 1000BaseT-HD,
+                             1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/3/1
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbdb
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "10GigabitEthernet1/3/1"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: other, 10BaseT-HD, 10BaseT-FD, 100BaseT4,
+                             100BaseTX-HD, 100BaseTX-FD, 100BaseT2-HD,
+                             100BaseT2-FD, fdxPause, fdxAPause, fdxSPause,
+                             fdxBPause, 1000BaseX-HD, 1000BaseX-FD,
+                             1000BaseT-HD, 1000BaseT-FD
+    Operational MAU type   : 1000BaseSX-FD
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/3/2
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbdc
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "10GigabitEthernet1/3/2"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation supported, but disabled
+    Operational MAU type   : 1000BaseSX-FD
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: aggregated (aggregated port ifIndex: 2049)
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/3/3 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbdd
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "10GigabitEthernet1/3/3"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation enabled
+    Advertised capabilities: other, 10BaseT-HD, 10BaseT-FD, 100BaseT4,
+                             100BaseTX-HD, 100BaseTX-FD, 100BaseT2-HD,
+                             100BaseT2-FD, fdxPause, fdxAPause, fdxSPause,
+                             fdxBPause, 1000BaseX-HD, 1000BaseX-FD,
+                             1000BaseT-HD, 1000BaseT-FD
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: not capable
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+Local port: 1/3/4 (not transmitting currently)
+  + Chassis ID (MAC address): 3845.3b0f.cbc0
+  + Port ID (MAC address): 3845.3b0f.cbde
+  + Time to live: 120 seconds
+  + System name         : "LABSW06"
+  + Port description    : "10GigabitEthernet1/3/4"
+  + System description    : "Ruckus Wireless, Inc. ICX7150-24-POE, IronWare Version 10.0.10g_cd10T213"
+  + System capabilities : bridge, router
+    Enabled capabilities: bridge, router
+  + 802.3 MAC/PHY          : auto-negotiation supported, but disabled
+    Operational MAU type   : Other
+  + 802.3 Power via MDI: PSE port, power enabled, class 0
+    Power Pair         : A (not controllable)
+  + Link aggregation: aggregated (aggregated port ifIndex: 2049)
+  + Maximum frame size: 1522 octets
+  + Port VLAN ID: 4000
+  + Management address (IPv4): 172.16.0.6
+
+SSH@LABSW06#show span
+show inline power
+
+Spanning-tree is not configured on port-vlan 4094
+
+L2 VLAN 666 1000 4000  are members of single spanning tree.
+SSH@LABSW06#show 802-1w
+show mac-address
+
+--- VLAN 4094 [ STP Instance owned by VLAN 4094 ] ---------------------------
+
+Bridge IEEE 802.1W Parameters:
+
+Bridge           Bridge Bridge Bridge Force    tx   
+Identifier       MaxAge Hello  FwdDly Version  Hold 
+hex              sec    sec    sec             cnt  
+f00038453b0fcbc0 20     2      15     Default  3    
+
+RootBridge       RootPath  DesignatedBri-   Root      Max Fwd Hel 
+Identifier       Cost      dge Identifier   Port      Age Dly lo  
+hex                        hex                        sec sec sec 
+10000cea1478f204 22010     200018fd74e26e88 lg1       20  15  2   
+
+Port IEEE 802.1W Parameters:
+
+          <--- Config Params --><-------------- Current state -----------------> 
+Port      Pri PortPath P2P Edge Role       State       Designa-  Designated       
+Num           Cost     Mac Port                        ted cost  bridge           
+1/1/1     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/2     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/3     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/4     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/5     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/6     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/7     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/8     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/9     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/10    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/11    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/12    128 20000    F   F    DESIGNATED FORWARDING  22010     f00038453b0fcbc0 
+1/1/13    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/14    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/15    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/16    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/17    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/18    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/19    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/20    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/21    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/22    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/23    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/1/24    128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/2/1     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/2/2     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/3/1     128 20000    F   F    DESIGNATED FORWARDING  22010     f00038453b0fcbc0 
+1/3/2     128 20000    F   F    ROOT       FORWARDING  2010      200018fd74e26e88 
+1/3/3     128 0        F   F    DISABLED   DISABLED    0         0000000000000000 
+1/3/4     128 20000    F   F    ROOT       FORWARDING  2010      200018fd74e26e88 
+lg1       128 20000    F   F    ROOT       FORWARDING  2010      200018fd74e26e88 
+
+L2 VLAN 666 1000 4000  are members of single spanning tree.
+SSH@LABSW06#show inline power
+show ip interface
+
+Power Capacity:    	Total is 370000 mWatts. Current Free is 370000 mWatts.
+
+Power Allocations: Requests Honored 24 times
+
+
+ Port	Admin 	Oper    ---Power(mWatts)---  PD Type  PD Class     Pri  Fault/
+     	State 	State   Consumed  Allocated                             Error
+-----------------------------------------------------------------------------
+  1/1/1	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/2	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/3	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/4	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/5	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/6	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/7	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/8	On 	Off            0         0   n/a      n/a            3  n/a
+  1/1/9	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/10	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/11	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/12	On 	Non-PD         0         0   n/a      n/a            3  non-standard PD
+ 1/1/13	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/14	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/15	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/16	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/17	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/18	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/19	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/20	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/21	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/22	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/23	On 	Off            0         0   n/a      n/a            3  n/a
+ 1/1/24	On 	Off            0         0   n/a      n/a            3  n/a
+-----------------------------------------------------------------------------
+ Total	      	               0          0
+
+
+SSH@LABSW06#show mac-address
+show lag
+Total active entries from all ports = 9
+MAC-Address     Port                 Type         VLAN 
+18fd.742b.2829  lg1                  Dynamic      1000 
+18fd.74e2.6e88  lg1                  Dynamic      1000 
+7801.5ab0.0500  lg1                  Dynamic      1000 
+7801.5ab0.0501  1/1/12               Dynamic      1000 
+b000.b446.132e  lg1                  Dynamic      1000 
+e8ac.2367.cd86  lg1                  Dynamic      1000 
+18fd.74e2.6e84  lg1                  Dynamic      4000 
+18fd.74e2.6e85  1/3/1                Dynamic      4000 
+7801.5ab0.0501  1/1/12               Dynamic      4000 
+SSH@LABSW06#show ip interface
+show ntp status
+Interface           IP-Address      OK?  Method    Status             Protocol   VRF           
+Ve 1000             172.16.0.6      YES  manual    up                 up         default-vrf   
+SSH@LABSW06#show lag
+show logging
+Total number of LAGs:          1
+Total number of deployed LAGs: 1
+Total number of trunks created:1 (127 available)
+LACP System Priority / ID:     1 / 3845.3b0f.cbc0
+LACP Long timeout:             90, default: 90
+LACP Short timeout:            3, default: 3
+
+=== LAG "UPLINKSFP" ID 1 (dynamic Deployed) ===
+LAG Configuration:
+   Ports:         e 1/3/2 e 1/3/4 
+   Port Count:    2
+   Lag Interface: lg1
+   Trunk Type:    hash-based
+   LACP Key:      20001
+Deployment: HW Trunk ID 1
+Port       Link    State   Dupl Speed Trunk Tag Pvid Pri MAC             Name
+1/3/2      Up      Forward Full 1G    1     Yes 4000 0   3845.3b0f.cbc0                 
+1/3/4      Down    None    None None  1     Yes 4000 0   3845.3b0f.cbc0                 
+Port       [Sys P] [Port P] [ Key ] [Act][Tio][Agg][Syn][Col][Dis][Def][Exp][Ope]
+1/3/2           1        1   20001   Yes   L   Agg  Syn  Col  Dis  No   No   Ope
+1/3/4           1        1   20001   Yes   L   Agg  Syn  No   No   Def  No   Dwn
+ Partner Info and PDU Statistics 
+Port          Partner         Partner     LACP      LACP     
+             System ID         Key     Rx Count  Tx Count  
+1/3/2    65535-18fd.74e2.6e84       17       52      1299
+1/3/4    1-0000.0000.0000      131        0         0
+SSH@LABSW06#show ntp status
+show web-management
+ Clock is unsynchronized, no reference clock
+ NTP server mode is disabled, NTP client mode is disabled
+ NTP master mode is disabled, NTP master stratum is 8
+ NTP is not in panic mode
+
+SSH@LABSW06#show logging
+show ip ssh config
+Syslog logging: enabled ( 0 messages dropped, 0 flushes, 0 overruns)
+    Buffer logging: level ACDMEINW, 48 messages logged
+    level code: A=alert C=critical D=debugging M=emergency E=error
+I=informational N=notification W=warning
+
+Static Log Buffer:
+Jul 30 18:07:37:I:System: Stack unit 1 POE  PS 1, Internal Power supply  with 370000 mwatts capacity is up   
+
+Dynamic Log Buffer (4000 lines):
+Jul 30 18:32:33:I:Security: ssh login by admin from src IP 10.20.0.207, src MAC 18fd.74e2.6e88, src PORT 49380 to dest IP 172.16.0.6, dest PORT 22 to PRIVILEGED EXEC mode  
+Jul 30 18:32:33:I:Security: ssh login by admin from src IP 10.20.0.207, src MAC 18fd.74e2.6e88, src PORT 49380 to dest IP 172.16.0.6, dest PORT 22 to USER EXEC mode  
+Jul 30 18:32:28:W:sshd: Failed publickey SSH access by user admin from 10.20.0.207 
+Jul 30 18:31:02:I:Security: ssh logout by admin from src IP 10.20.0.207, src MAC 18fd.74e2.6e88, src PORT 64570 to dest IP 172.16.0.6, dest PORT 22 from USER EXEC mode  
+Jul 30 18:28:28:I:Security: ssh login by admin from src IP 10.20.0.207, src MAC 18fd.74e2.6e88, src PORT 64570 to dest IP 172.16.0.6, dest PORT 22 to PRIVILEGED EXEC mode  
+Jul 30 18:28:27:I:Security: ssh login by admin from src IP 10.20.0.207, src MAC 18fd.74e2.6e88, src PORT 64570 to dest IP 172.16.0.6, dest PORT 22 to USER EXEC mode  
+Jul 30 18:28:23:W:sshd: Failed publickey SSH access by user admin from 10.20.0.207 
+Jul 30 18:20:42:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:42:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:42:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:42:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:42:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:41:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:41:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:38:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:20:35:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:15:19:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:13:01:I:SNMP: Auth. failure, intruder IP:  10.20.0.207, 1 event(s)  
+Jul 30 18:10:03:I:DHCPC: LABSW06 configured with ip-address 172.16.0.6; subnet mask 255.255.255.0 on port 1000  
+Jul 30 18:10:02:I:PORT: v1000, added ip address 172.16.0.6  
+Jul 30 18:09:57:N:DHCPC: starting dhcp client service on  port v1000  
+Jul 30 18:09:02:I:STP: VLAN 4094 Port 1/1/12 STP State -> FORWARDING (DOT1wTransition)  
+Jul 30 18:09:02:I:STP: VLAN 4094 Port 1/1/12 STP State -> LEARNING (DOT1wTransition)  
+Jul 30 18:08:59:I:STP: VLAN 4094 New RootBridge: 10000cea1478f204 RootPort: lg1 (BpduRcvd)  
+Jul 30 18:08:59:I:STP: VLAN 4094 Port lg1 Bridge TC Event (DOT1wTransition)  
+Jul 30 18:08:59:I:STP: VLAN 4094 Port lg1 STP State -> FORWARDING (DOT1wTransition)  
+Jul 30 18:08:59:I:STP: VLAN 4094 Port lg1 STP State -> LEARNING (DOT1wTransition)  
+Jul 30 18:08:59:I:STP: VLAN 4094 New RootPort: lg1 (RootSelection)  
+Jul 30 18:08:59:I:STP: VLAN 4094 Port 1/3/1 STP State -> FORWARDING (DOT1wTransition)  
+Jul 30 18:08:59:I:System: Interface ve 1000, state up  
+Jul 30 18:08:59:I:STP: VLAN 4094 Port 1/3/1 STP State -> LEARNING (DOT1wTransition)  
+Jul 30 18:08:58:I:System: Logical link on dynamic lag interface ethernet 1/3/2 is up.  
+Jul 30 18:08:58:I:System: Interface ethernet 1/3/2, line protocol up  
+Jul 30 18:08:58:I:STP: VLAN 4094 Port lg1 STP State -> BLOCKING (DOT1wTransition)  
+Jul 30 18:08:58:I:Trunk: Group (1/3/4, 1/3/2) created by 802.3ad link-aggregation module.  
+Jul 30 18:08:57:I:STP: VLAN 4094 Port 1/1/12 STP State -> BLOCKING (DOT1wTransition)  
+Jul 30 18:08:57:I:System: Interface ethernet 1/1/12, state up  
+Jul 30 18:08:56:D:rmonagentd: action start- not allowed  
+Jul 30 18:08:56:D:snmpagentd: action start- not allowed  
+Jul 30 18:08:55:I:System: Interface ethernet 1/3/2, state up  
+Jul 30 18:08:55:I:STP: VLAN 4094 Port 1/3/1 STP State -> BLOCKING (DOT1wTransition)  
+Jul 30 18:08:54:I:System: Interface ethernet 1/3/1, state up  
+Jul 30 18:08:54:I:System: Optic plugged into the port 1/3/2 
+Jul 30 18:08:54:I:System: Optic plugged into the port 1/3/1 
+Jul 30 18:08:53:I:PKI: Trustpoint DEVICE_TRUSTPNT: Successfully loaded Manufacturing certificate file.    
+Jul 30 18:08:51:I:Security: running-config was potentially changed by root from TELNET  
+Jul 30 18:07:37:I:System: Stack unit 1 POE  PS 1, Internal Power supply  with 370000 mwatts capacity is up   
+Jul 30 18:07:10:W:System:Stack unit 1 Fan speed changed automatically to 1  
+SSH@LABSW06#show web-management
+Invalid input ->web-management
+Type ? for a list
+show ssh
+Node doesn't exist
+SSH@LABSW06#show ip ssh config
+show who
+SSH server                 : Enabled
+SSH port                   : tcp\22
+Host Key                   : RSA 3072, ECDSA 384
+Encryption                 : aes256-cbc,aes192-cbc,aes128-cbc,aes256-ctr,aes192-ctr,aes128-ctr,3des-cbc
+Authentication methods     : Password, Public-key, Interactive
+Login timeout (seconds)    : 120
+SCP                        : Enabled
+SSH Client Keys            : 
+Client Rekey               : 500000K 30m (KB, Minute) 
+Server Rekey               : 500000K 30m (KB, Minute) 
+
+SSH@LABSW06#show ssh
+Invalid input ->ssh
+Type ? for a list
+Node doesn't exist
+SSH@LABSW06#show who
+show licenses
+show stack
+Console connections (by unit number):
+Telnet server status: Disabled
+Telnet connections:
+Telnet connections (inbound):
+Telnet connections (outbound):
+SSH server status: Enabled
+SSH connections:
+SSH connections (inbound):
+ 1	ESTABLISHED  client ip address 10.20.0.207, user is admin, privilege super-user, using vrf default-vrf
+SSH connections (outbound):
+SSH@LABSW06#show licenses
+Invalid input ->licenses
+Type ? for a list
+Node doesn't exist
+SSH@LABSW06#show stack
+show snmp server
+show snmp user
+
+***** Warning! stack is not enabled. *****
+
+T=25m53.7: alone: standalone, D: dynamic cfg, S: static
+ID   Type          Role    Mac Address    Pri State   Comment                   
+1  S ICX7150-24P   alone   3845.3b0f.cbc0   0 local   None:0
+
+                                                                               
+     +---+                                                                     
+  3/1| 1 |3/3                                                                  
+     +---+                                                                     
+Current stack management MAC is 3845.3b0f.cbc0
+Warning: stack ports 1/3/1 have 1G speed. Please check licenses or cables.
+SSH@LABSW06#show snmp server
+show snmp group
+
+       Status: Enabled
+
+      Contact: 
+     Location: 
+     Community(ro): [REDACTED]
+
+
+Max Ifindex per module: 64
+
+Traps
+                   Cold start: Enable
+                      Link up: Enable
+                    Link down: Enable
+               Authentication: Enable
+         Power supply failure: Enable
+                  Fan failure: Enable
+             Fan speed change: Enable
+              Module inserted: Enable
+               Module removed: Enable
+          Temperature warning: Enable
+                 STP new root: Enable
+          STP topology change: Enable
+             MAC notification: Enable
+        MAC-AUTH notification: Enable
+                         OSPF: Enable
+                          BGP: Enable
+                         VRRP: Enable
+                         VSRP: Enable
+                          MRP: Enable
+                         UDLD: Enable
+                     link-oam: Enable
+                          BFD: Enable
+                       syslog: Disable
+            entity-cfg-change: Enable
+
+ Total Trap-Receiver Entries: 0
+
+SSH@LABSW06#show snmp user
+show running-config
+SSH@LABSW06#show snmp group
+exit
+SSH@LABSW06#show running-config
+Current configuration:
+!
+ver 10.0.10g_cd10T213
+!
+stack unit 1
+  module 1 icx7150-24p-poe-port-management-module
+  module 2 icx7150-2-copper-port-2g-module
+  module 3 icx7150-4-sfp-plus-port-40g-module
+  stack-port ethernet 1/3/1
+  stack-port ethernet 1/3/3
+!
+!
+!
+global-stp
+!
+lag UPLINKSFP dynamic id 1
+ ports ethe 1/3/2 ethe 1/3/4 
+!
+spanning-tree single
+!
+!
+default-vlan-id 4000
+!
+vlan 666 name BREACH-TARGET by port
+ tagged ethe 1/2/1 to 1/2/2 
+ spanning-tree
+!
+vlan 1000 name VLAN1000 by port
+ tagged ethe 1/1/1 to 1/1/24 ethe 1/2/1 to 1/2/2 ethe 1/3/1 ethe 1/3/3 lag 1 
+ spanning-tree
+!
+vlan 4000 name DEFAULT-VLAN by port
+ spanning-tree
+!
+spanning-tree single 802-1w
+spanning-tree single 802-1w priority 61440
+!
+!
+!
+!
+!
+!
+ip route 0.0.0.0/0 172.16.0.1 distance 254 dynamic
+!
+!
+hostname LABSW06
+ip dns server-address 172.16.0.1(dynamic)
+!
+!
+!
+!
+!
+!
+!
+interface management 1
+!
+interface ethernet 1/2/1
+ port-name UPLINK-CORE
+!
+interface ethernet 1/2/2
+ port-name DOWNLINK-SW
+!
+interface lag 1
+ speed-duplex 1000-full
+!
+interface ve 1000
+ ip address 172.16.0.6 255.255.255.0 dynamic
+!
+!
+!
+!
+!
+!
+!
+!
+username admin password 8 [REDACTED-HASH]    
+!
+aaa authentication login default local
+!
+aaa authentication web-server default local
+!
+no ip dhcp-client auto-update enable
+ip dhcp-client ve 1000
+!
+!
+!
+!
+snmp-server community 2 [REDACTED] ro
+!
+!
+!
+end
+SSH@LABSW06#exit
+SSH@LABSW06>

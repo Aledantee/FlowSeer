@@ -1,0 +1,41 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# system
+LABSW04(system)# show ?
+  <cr>
+LABSW04(system)# show 
+Model Name                   : LANCOM GS-2326+
+System Description           : 26-Port Layer-2 Managed Gigabit Ethernet Switch with 2x TP/SFP COMBO
+Location                     : 
+Contact                      : 
+Device Name                  : LABSW04
+System Uptime                : 00:24:14
+Current Time                 : 2011-01-01 01:24:14
+BIOS Version                 : v1.00
+Firmware Version             : v3.34.0326SU9
+Hardware-Mechanical Version  : v1.01-v1.01
+Serial Number                : 4005284520000039
+IPv4 Address                 : 172.16.0.4
+IPv4 Subnet Mask             : 255.255.255.0
+IPv4 Gateway                 : 172.16.0.1
+IPv6 Link Local Address      : fe80::2a0:57ff:fe45:3485
+IPv6 Address                 : ::
+IPv6 Prefix                  : ::/64
+IPv6 Gateway                 : ::
+Host MAC Address             : 00-a0-57-45-34-85
+Console Baudrate             : 115200
+RAM Size                     : 128
+Flash Size                   : 32
+CPU Load (100ms, 1s, 10s)    : 2%, 58%, 19%
+ --More--, q to quit                    Bridge FDB Size              : 8192 MAC addresses
+Transmit Queue               : 8 queues per port
+Maximum Frame Size           : 9600
+LMC Pairing State            : Not-Authenticated-With-LMC,No-Cloud-Management
+LMC Control State            : Disabled
+Largest free Mem Block       : 97257KB
+Free Memory                  : 98980KB
+
+LABSW04(system)# exit
+LABSW04# 

@@ -17,8 +17,10 @@ monitoring, notification.
 NOT vendored — retrieve via an authenticated LMC session if ever needed.
 
 Usage documentation: LMC-API-Manual in the LANCOM knowledge base
-(https://knowledgebase.lancom-systems.de/, space "LMCAPEN"). API calls require
-an OAuth2 token from the `auth` service (API keys are created in the LMC UI).
+(https://knowledgebase.lancom-systems.de/, space "LMCAPEN"). Every vendored
+spec declares three security schemes and no OAuth2: an `Authorization` header
+carrying an API key created in the LMC UI, HTTP basic, and an HTTP bearer JWT
+obtained from the `auth` service's user login.
 
 ## Device-side protocols
 

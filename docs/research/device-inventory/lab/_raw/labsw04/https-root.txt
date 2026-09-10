@@ -1,0 +1,16 @@
+HTTP/1.1 301 Moved Permanently
+Location: /login.htm
+Cache-Control: no-cache
+Content-Length: 292
+Date: Sat, 01 Jan 2011 00:13:44 GMT
+Server: eCos Embedded Web Server
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+X-Frame-Options: sameorigin
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head><title>301 Moved Permanently</title></head>
+<body><h1>Moved Permanently</h1>
+<p>The document has moved <a href="/login.htm">here</a>.
+</p><hr><address>eCos Embedded Web Server at 172.16.0.4 Port 80</address>
+</body></html>

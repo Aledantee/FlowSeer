@@ -1,0 +1,78 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# ?
+  3rd-party-licenses    show software licenses
+  LMC                   LMC Configuration
+  aaa                   Authentication, Authorization, Accounting
+  access                Access management
+  account               User account management
+  acl                   Access control list
+  aggregation           Link Aggregation
+  arp-inspection        ARP inspection
+  auth                  Authentication method
+  auto-logout           Configure time of inactivity before automatic logout
+  cold-reboot           Cold Reboot the system
+  config-file           Export/Import configuration file from/to TFTP Server
+  debug                 Debug utilities
+  dhcp-relay            DHCP relay
+  dhcp-snooping         DHCP snooping
+  diagnostic            Diagnostic tools
+  dot1x-supplicant      802.1X Supplicant
+  easyport              Easy Port Configuration
+  eee                   Energy Efficient Ethernet
+  event                 Trap event severity level
+  exit                  Exit from current mode
+  fdb                   Filtering data base
+  firmware              Firmware upgrade
+ --More--, q to quit                      garp                  GARP configuration
+ --More--, q to quit                      gvrp                  GVRP configuration
+ --More--, q to quit                      help                  Show available commands
+ --More--, q to quit                      history               Show a list of previously run commands
+ --More--, q to quit                      https                 Hypertext Transfer Protocol over Secure Socket Layer
+ --More--, q to quit                      igmp                  Internet Group Management Protocol
+ --More--, q to quit                      ip                    System internet protocol
+ --More--, q to quit                      ip-source-guard       IP source guard
+ --More--, q to quit                      ipv6                  System IPv6 address
+ --More--, q to quit                      lacp                  LACP Protocol
+ --More--, q to quit                      lldp                  Link Layer Discovery Protocol
+ --More--, q to quit                      lldpmed               Link Layer Discovery Protocol Media
+ --More--, q to quit                      logout                Disconnect
+ --More--, q to quit                      loop-protect          Loop protection configuration
+ --More--, q to quit                      lsr                   Large Scale Rollout configuration
+ --More--, q to quit                      mirror                Port mirroring
+ --More--, q to quit                      mld                   Multicast Listener Discovery for IPv6
+  mvr                   Multicast VLAN Registration
+  nas                   Network Access Server configuration
+  port                  Port configuration
+  port-security         Port security
+  privilege             Privilege level
+  pvlan                 Private VLAN
+  qos                   Quality of Service
+  reboot                Reboot the system
+  restore               Restore running configuration
+  save                  Save running configuration
+  sflow                 SFlow information
+  sip                   Single IP configuration
+  smtp                  Email information
+  snmp                  Simple Network Management Protocol
+  ssh                   Secure Shell
+  startlmc              connect to LMC
+  stp                   Spanning Tree configuration
+  syslog                Syslog configuration
+  system                System information
+  time                  System time
+  trace                 Trace control
+  upnp                  Universal Plug and Play
+ --More--, q to quit                      vcl                   VLAN control list
+ --More--, q to quit                      vlan                  VLAN configuration
+ --More--, q to quit                      voice-vlan            Voice VLAN configuration
+ --More--, q to quit                    LABSW04# th 0
+% Unrecognized command
+LABSW04# show version
+% Unrecognized command
+LABSW04# show sysinfo
+% Unrecognized command
+LABSW04# eConnection to 172.16.0.4 closed by remote host.
+Connection to 172.16.0.4 closed.

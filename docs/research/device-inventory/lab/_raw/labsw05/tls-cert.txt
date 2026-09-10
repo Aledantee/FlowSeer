@@ -1,0 +1,2 @@
+Could not find certificate from <stdin>
+80E167F701000000:error:1608010C:STORE routines:ossl_store_handle_load_result:unsupported:crypto/store/store_result.c:160:provider=default

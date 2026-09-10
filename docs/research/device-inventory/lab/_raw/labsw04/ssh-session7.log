@@ -1,0 +1,171 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# lldp
+LABSW04(lldp)# show info ?
+  <port-list>           available value is from 1 to 26 format: 1,3-5
+LABSW04(lldp)# show info 
+% Incomplete command
+LABSW04(lldp)# show info all
+% Invalid argument "all"
+LABSW04(lldp)# exit
+LABSW04# config-file ?
+  <cr>
+LABSW04# config-file 
+LABSW04(config-file)# config-file export ?
+% Unrecognized command
+LABSW04(config-file)# config-file export 
+% Unrecognized command
+LABSW04(config-file)# account ?
+% Unrecognized command
+LABSW04(config-file)# account 
+% Unrecognized command
+LABSW04(config-file)# account
+% Unrecognized command
+LABSW04(config-file)# show ?
+% Unrecognized command
+LABSW04(config-file)# show 
+% Unrecognized command
+LABSW04(config-file)# show
+% Unrecognized command
+LABSW04(config-file)# exit
+LABSW04# privilege ?
+  <cr>
+LABSW04# privilege 
+LABSW04(privilege)# privilege
+% Unrecognized command
+LABSW04(privilege)# show ?
+  <cr>
+LABSW04(privilege)# show 
+Privilege Current Level: 15
+
+Group Name                        Privilege Level
+--------------------------------  ----------------
+Account                           15
+Aggregation                       15
+Diagnostics                       15
+EEE                               15
+Easyport                          15
+GARP                              15
+GVRP                              15
+IP                                15
+IPMC_Snooping                     15
+LACP                              15
+LLDP                              15
+LLDP_MED                          15
+Loop_Protect                      15
+MAC_Table                         15
+MVR                               15
+Maintenance                       15
+Mirroring                         15
+Ports                             15
+Private_VLANs                     15
+ --More--, q to quit                    QoS                               15
+SFlow                             15
+SMTP                              15
+SNMP                              15
+Security                          15
+Single_IP                         15
+Spanning_Tree                     15
+System                            15
+Trap_Event                        15
+UPnP                              15
+VCL                               15
+VLANs                             15
+Voice_VLAN                        15
+LABSW04(privilege)# show
+Privilege Current Level: 15
+
+Group Name                        Privilege Level
+--------------------------------  ----------------
+Account                           15
+Aggregation                       15
+Diagnostics                       15
+EEE                               15
+Easyport                          15
+GARP                              15
+GVRP                              15
+IP                                15
+IPMC_Snooping                     15
+LACP                              15
+LLDP                              15
+LLDP_MED                          15
+Loop_Protect                      15
+MAC_Table                         15
+MVR                               15
+Maintenance                       15
+Mirroring                         15
+Ports                             15
+Private_VLANs                     15
+ --More--, q to quit                    QoS                               15
+SFlow                             15
+SMTP                              15
+SNMP                              15
+Security                          15
+Single_IP                         15
+Spanning_Tree                     15
+System                            15
+Trap_Event                        15
+UPnP                              15
+VCL                               15
+VLANs                             15
+Voice_VLAN                        15
+LABSW04(privilege)# exit
+LABSW04# access ?
+  <cr>
+LABSW04# access 
+LABSW04(access)# access
+% Unrecognized command
+LABSW04(access)# show ?
+  config                Show access management configuration
+  statistics            Show access management statistics
+LABSW04(access)# show 
+% Incomplete command
+LABSW04(access)# show
+% Incomplete command
+LABSW04(access)# exit
+LABSW04# aaa ?
+  <cr>
+LABSW04# aaa 
+LABSW04(aaa)# aaa
+% Unrecognized command
+LABSW04(aaa)# show ?
+  config                Show AAA configuration
+  statistics            Show RADIUS statistics
+LABSW04(aaa)# show 
+% Incomplete command
+LABSW04(aaa)# show
+% Incomplete command
+LABSW04(aaa)# exit
+LABSW04# history
+
+Command history:
+  0. lldp
+  1. show info 
+  2. show info all
+  3. exit
+  4. config-file 
+  5. config-file export 
+  6. account 
+  7. account
+  8. show 
+  9. show
+ 10. exit
+ 11. privilege 
+ 12. privilege
+ 13. show 
+ 14. show
+ 15. exit
+ 16. access 
+ 17. access
+ 18. show 
+ 19. show
+ 20. exit
+ --More--, q to quit                     21. aaa 
+ 22. aaa
+ 23. show 
+ 24. show
+ 25. exit
+LABSW04# eConnection to 172.16.0.4 closed by remote host.
+Connection to 172.16.0.4 closed.

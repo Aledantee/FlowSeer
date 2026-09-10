@@ -1,0 +1,64 @@
+Connecting to 172.16.0.5
+depth=0 C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+verify error:num=18:self-signed certificate
+verify return:1
+depth=0 C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+verify error:num=10:certificate has expired
+notAfter=May  2 14:54:38 2014 GMT
+verify return:1
+depth=0 C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+notAfter=May  2 14:54:38 2014 GMT
+verify return:1
+CONNECTED(00000003)
+---
+Certificate chain
+ 0 s:C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+   i:C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+   a:PKEY: RSA, 1024 (bit); sigalg: md5WithRSAEncryption
+   v:NotBefore: May  2 14:54:38 2013 GMT; NotAfter: May  2 14:54:38 2014 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIICHDCCAYUCEHDdvusYpJ8A/SgoTxSabJ8wDQYJKoZIhvcNAQEEBQAwTzELMAkG
+A1UEBhMCICAxCjAIBgNVBAgTASAxCjAIBgNVBAcTASAxEDAOBgNVBAMTBzAuMC4w
+LjAxCjAIBgNVBAoTASAxCjAIBgNVBAsTASAwHhcNMTMwNTAyMTQ1NDM4WhcNMTQw
+NTAyMTQ1NDM4WjBPMQswCQYDVQQGEwIgIDEKMAgGA1UECBMBIDEKMAgGA1UEBxMB
+IDEQMA4GA1UEAxMHMC4wLjAuMDEKMAgGA1UEChMBIDEKMAgGA1UECxMBIDCBnzAN
+BgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAuAoGOKRRor0WvwSiPkJDsIYnwUX9DsJW
+i8QmwyOME7+kQtzcGrX88TdLN/fl5vzkOryc+STmfy098o0uJ1DRAUWmD1GxENxq
+fgQYvGd/9CUamxYQJ4ZbUs5G+xWvjUEnXGjJ0kFoO80gKiPuTO0Nh7JgkEWDJDzY
+ayGKtgp1GWMCAwEAATANBgkqhkiG9w0BAQQFAAOBgQBx0fZTJIjZl9BPhdBSOGaq
+g3PjZ+TJB/2731Jq69mKF3/J1qNGf9tkReLE4NPSVZ5a5kPQKFxm4b0S10o/tyrb
+xo+ahx/22l+hQ4a8kNiub3xrL9PdBMYPwhTmjeTn4k+sgVEZdQjhg2eaSz6rKAnz
+I6DMzvZgnJFyOLBdxNrEdw==
+-----END CERTIFICATE-----
+subject=C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+issuer=C=  , ST= , L= , CN=0.0.0.0, O= , OU= 
+---
+No client certificate CA names sent
+---
+SSL handshake has read 706 bytes and written 347 bytes
+Verification error: certificate has expired
+---
+New, SSLv3, Cipher is AES256-SHA
+Protocol: TLSv1
+Server public key is 1024 bit
+Secure Renegotiation IS NOT supported
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+SSL-Session:
+    Protocol  : TLSv1
+    Cipher    : AES256-SHA
+    Session-ID: EE3C8FA2155A0BA995F86502DC9ED0ED69DCA687772B135B8CC9C8D187E0A63E
+    Session-ID-ctx: 
+    Master-Key: 782AC9D7A1D612E6531DDDA68E45E881ECBB5C3379CA0D557C248B123A46DECCA316730F311C1CDF9F33DC6421D61807
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    Start Time: 1789040690
+    Timeout   : 7200 (sec)
+    Verify return code: 10 (certificate has expired)
+    Extended master secret: no
+---
+DONE
