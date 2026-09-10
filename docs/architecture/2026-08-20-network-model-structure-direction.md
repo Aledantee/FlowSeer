@@ -51,12 +51,14 @@ spec/proto/flowseer/
     phy/v1/             Ethernet settings, capabilities, active facts, MAU, counters, transport arms, pluggable module, PoE
     switching/v1/       VLANs, tag stacks, SwitchportFacet, AggregationFacet, FdbEntry
     ip/v1/              IpFacet, InterfaceAddress, NeighborEntry
+    capture/v1/         LinkType, CaptureCounters, CaptureFilter, mirror encapsulation, PacketRecord
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
   api/
     inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
+    capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
     device/v1/          DeviceService, the operator-facing typed device API
   device/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
@@ -85,6 +87,7 @@ Import layering is acyclic. The foundational dependency graph is:
 ```
 net/addr ← {net/switching, net/ip}
 net/packet ← net/switching
+{net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
 net/interface ← {net/protocol/*, net/wlan}
 {net/interface, net/protocol/*, net/wlan} ← api/inventory
@@ -93,6 +96,7 @@ net/interface ← {net/protocol/*, net/wlan}
 {device/access, api/inventory, device/policy, net/*} ← api/device
 device/access ← {integration/device, event/device}
 errs ← {api/device, integration/device, event/device}
+{net/capture, api/edge} ← api/capture
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -778,3 +782,32 @@ under the [verified device access record](2026-09-05-verified-device-access-dire
   entity and its ref stay undecided, as the 2026-09-04 amendment says.
 - **`device/policy` holds one message.** The credential and host-trust
   handles arrive with the plan that delivers credentials to an edge.
+### 2026-09-09 — net/capture holds the ref-free capture values
+
+Remote packet capture splits on the primitive/entity line this record already
+draws. `flowseer.net.capture.v1` now holds the values a capture produces and
+selects on: a link type, capture counters, a capture filter, the mirror
+encapsulation metadata, and a packet record. None of them carry a ref, so the
+package sits under `net/` and the import order gains
+`{net/addr, net/packet, net/switching} ← net/capture`. The session that owns
+these values, with its own ref, lifecycle, and services, is a separate entity
+package that a later change adds, with its own amendment here.
+
+`net/capture` needs neither `net/phy` nor `net/ip`: it takes match atoms and
+address types from `net/addr` and `net/packet`, and the VLAN-identifier
+validation rules from `net/switching`, and nothing from the physical-layer or
+IP-facet values.
+
+### 2026-09-09 — api/capture holds the session identity and its services
+
+`flowseer.api.capture.v1` is the entity package the entry above reserved:
+`CaptureSession`'s ref pair and lifecycle, `CaptureService` for the operator
+who creates and reads a capture back, and `CaptureEdgeService` for the edge
+that uploads one. The import order gains `{net/capture, api/edge} ←
+api/capture`.
+
+Of the two edges, `net/capture ← api/capture` is the one carrying the
+weight: a session's state holds the `net/capture` counters and link type it
+observed, and every packet or artifact chunk on the wire holds `net/capture`
+records rather than a copy of their fields. `api/edge` supplies only the
+owning ref and the assertion a session's upload stream re-verifies.

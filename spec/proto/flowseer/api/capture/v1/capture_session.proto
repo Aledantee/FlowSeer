@@ -1,0 +1,271 @@
+edition = "2024";
+
+// The capture session family — a bounded packet capture that one edge runs,
+// from a local interface or a mirror receiver through to its retained
+// artifact. The values a capture produces and matches against live in
+// flowseer.net.capture.v1; this package holds the ref, the lifecycle, and
+// what was asked for.
+package flowseer.api.capture.v1;
+
+import "flowseer/api/edge/v1/edge.proto";
+import "flowseer/net/capture/v1/capture_counters.proto";
+import "flowseer/net/capture/v1/capture_filter.proto";
+import "flowseer/net/capture/v1/link_type.proto";
+import "flowseer/net/capture/v1/mirror.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a capture session.
+message CaptureSessionLocalRef {
+  // FlowSeer-assigned capture session identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a capture session.
+message CaptureSessionGlobalRef {
+  // The owning edge's key. Must be present.
+  flowseer.api.edge.v1.EdgeGlobalRef edge = 1 [(buf.validate.field).required = true];
+  // The session's own key. Must be present.
+  CaptureSessionLocalRef capture_session = 2 [(buf.validate.field).required = true];
+}
+
+// A capture read directly from a host interface.
+message LocalInterfaceSource {
+  // Interface name as the host spells it. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1
+  ];
+  // Whether the interface captures frames not addressed to the host. Unset
+  // means the interface's normal mode.
+  bool promiscuous = 2;
+}
+
+// A capture read by receiving packets a network device mirrors here.
+message MirrorReceiverSource {
+  // Encapsulations this receiver accepts. Must name at least one.
+  repeated flowseer.net.capture.v1.MirrorEncapsulation encapsulations = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    items: {
+      enum: {
+        defined_only: true
+        not_in: [0]
+      }
+    }
+  }];
+  // The UDP port to listen on. Unset when every accepted encapsulation
+  // rides directly over IP rather than UDP.
+  uint32 udp_port = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // Host interface to bind the receiver to. Unset means every interface.
+  // When set, must not be empty.
+  string bind_interface = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+// Where a capture session reads packets from. The arm is the origin: a
+// local interface tap or a mirror receiver.
+message CaptureSource {
+  oneof kind {
+    option (buf.validate.oneof).required = true;
+
+    LocalInterfaceSource local_interface = 1;
+    MirrorReceiverSource mirror_receiver = 2;
+  }
+}
+
+// Bounds a capture session runs within.
+message CaptureBudget {
+  option (buf.validate.message).cel = {
+    id: "capture_budget.bounded"
+    message: "a capture budget must bound packets, bytes, or duration"
+    expression: "has(this.max_packets) || has(this.max_bytes) || has(this.max_duration)"
+  };
+
+  // Stop once this many packets have been accepted. Unset means no
+  // packet-count bound.
+  uint64 max_packets = 1 [(buf.validate.field).uint64.gt = 0];
+  // Stop once this many bytes have been accepted. Unset means no
+  // byte-count bound.
+  uint64 max_bytes = 2 [(buf.validate.field).uint64.gt = 0];
+  // Stop once the session has run this long. Unset means no duration bound.
+  google.protobuf.Duration max_duration = 3 [(buf.validate.field).duration.gt = {}];
+  // Bytes kept per packet from the start of the frame. Unset means a
+  // default of 128 octets applies: two VLAN tags, an IPv6 header, and a TCP
+  // header with options fit within it, and the payload does not.
+  uint32 snap_length = 4 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+}
+
+// Who asked for a capture, why, and how much of each packet they asked for.
+message CaptureAuthorization {
+  // The operator who requested this capture, as they identify themselves.
+  // Must be present.
+  string operator = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // Free-text explanation of why this capture was requested. Must be
+  // present.
+  string reason = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Whether the operator explicitly asked for full packet payload rather
+  // than headers only. Must be present: an authorization record states the
+  // choice rather than leaving it to a default.
+  bool full_payload_requested = 3 [(buf.validate.field).required = true];
+}
+
+// Where a capture session stands between creation and its terminal outcome.
+enum CaptureLifecycle {
+  // No lifecycle named. State and events reject the zero value.
+  CAPTURE_LIFECYCLE_UNSPECIFIED = 0;
+  // Created and not yet started.
+  CAPTURE_LIFECYCLE_PENDING = 1;
+  // Capturing packets.
+  CAPTURE_LIFECYCLE_RUNNING = 2;
+  // Stopped on its own terms, without error.
+  CAPTURE_LIFECYCLE_COMPLETED = 3;
+  // Stopped by an error.
+  CAPTURE_LIFECYCLE_FAILED = 4;
+  // Stopped by an operator before completion.
+  CAPTURE_LIFECYCLE_CANCELED = 5;
+}
+
+// Why a capture session stopped, once it has.
+enum CaptureStopReason {
+  // No reason named. A completed session's state rejects the zero value.
+  CAPTURE_STOP_REASON_UNSPECIFIED = 0;
+  // The budget's packet-count bound was reached.
+  CAPTURE_STOP_REASON_PACKET_COUNT = 1;
+  // The budget's byte-count bound was reached.
+  CAPTURE_STOP_REASON_BYTE_COUNT = 2;
+  // The budget's duration bound was reached.
+  CAPTURE_STOP_REASON_DURATION = 3;
+  // An operator stopped the session before a budget bound was reached.
+  CAPTURE_STOP_REASON_OPERATOR = 4;
+  // The session stopped because of an error.
+  CAPTURE_STOP_REASON_ERROR = 5;
+}
+
+// The stored capture a session produced.
+message CaptureArtifact {
+  // Size of the stored pcapng file, in bytes. Must be present.
+  uint64 byte_size = 1 [(buf.validate.field).required = true];
+  // Packets written to the stored pcapng file. Must be present.
+  uint64 packet_count = 2 [(buf.validate.field).required = true];
+  // SHA-256 digest of the stored pcapng file. Must be present.
+  bytes digest = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.len = 32
+  ];
+  // Link-layer framing recorded in the stored pcapng file. Zero is a real
+  // value (LINK_TYPE_NULL). Must be present.
+  flowseer.net.capture.v1.LinkType link_type = 4 [(buf.validate.field).required = true];
+  // When the stored pcapng file is no longer retained. Must be present.
+  google.protobuf.Timestamp expires_at = 5 [(buf.validate.field).required = true];
+}
+
+// The intended definition of one capture session: what was asked for.
+message CaptureSessionConfig {
+  // The ref to this capture session. Must be present.
+  CaptureSessionGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Operator-assigned display name. Unset means none was assigned. When
+  // set, must not be empty.
+  string name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description of the capture. Unset means none was provided.
+  // When set, must not be empty.
+  string description = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Where the capture reads packets from. Must be present.
+  CaptureSource source = 4 [(buf.validate.field).required = true];
+  // The packet filter. Unset and an empty filter both accept every packet.
+  flowseer.net.capture.v1.CaptureFilter filter = 5;
+  // Bounds the session runs within. Must be present.
+  CaptureBudget budget = 6 [(buf.validate.field).required = true];
+  // Who asked for this capture and why. Must be present.
+  CaptureAuthorization authorization = 7 [(buf.validate.field).required = true];
+}
+
+// The observed side of one capture session: where it stands and what it has
+// produced.
+message CaptureSessionState {
+  option (buf.validate.message).cel = {
+    id: "capture_session_state.artifact_terminal"
+    message: "a non-terminal capture session carries no artifact"
+    expression: "this.lifecycle in [3, 4, 5] || !has(this.artifact)"
+  };
+  option (buf.validate.message).cel = {
+    id: "capture_session_state.completed_has_reason"
+    message: "a completed capture session names its stop reason"
+    expression: "this.lifecycle != 3 || this.stop_reason != 0"
+  };
+
+  // The ref to this capture session. Must be present.
+  CaptureSessionGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The session's lifecycle. Must be present; the zero value is rejected.
+  CaptureLifecycle lifecycle = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Why the session stopped. Unset while the session is still running.
+  CaptureStopReason stop_reason = 3 [(buf.validate.field).enum = {defined_only: true}];
+  // When the session began capturing. Unset means it has not started.
+  google.protobuf.Timestamp started_at = 4;
+  // When the session stopped. Unset means it has not stopped.
+  google.protobuf.Timestamp ended_at = 5;
+  // Packet counts along the session's pipeline. Unset means none have been
+  // observed yet.
+  flowseer.net.capture.v1.CaptureCounters counters = 6;
+  // Link-layer framing the engine has determined for this session. Zero is
+  // a real value (LINK_TYPE_NULL). Unset means not yet determined.
+  flowseer.net.capture.v1.LinkType link_type = 7;
+  // The stored capture, once one exists. Unset means no artifact has been
+  // produced yet.
+  CaptureArtifact artifact = 8;
+}
+
+// One transition of a capture session's lifecycle.
+message CaptureSessionEvent {
+  option (buf.validate.message).cel = {
+    id: "capture_session_event.lifecycle_changes"
+    message: "a capture session event must change the lifecycle"
+    expression: "!has(this.from) || this.from != this.to"
+  };
+
+  // The ref to the capture session that changed. Must be present.
+  CaptureSessionGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The lifecycle before the transition. Unset means the session was
+  // created. The zero value is rejected.
+  CaptureLifecycle from = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // The lifecycle after the transition. Must be present; the zero value is
+  // rejected.
+  CaptureLifecycle to = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+}

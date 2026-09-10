@@ -24,6 +24,7 @@ var importOrder = map[string][]string{
 
 	"net/switching": {"net/addr", "net/packet"},
 	"net/ip":        {"net/addr"},
+	"net/capture":   {"net/addr", "net/packet", "net/switching"},
 
 	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip"},
 

@@ -1,0 +1,36 @@
+edition = "2024";
+
+package flowseer.net.capture.v1;
+
+import "flowseer/net/capture/v1/mirror.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// A frame captured during a session, with the original delivery encapsulation
+// preserved when the source was a mirror.
+message PacketRecord {
+  option (buf.validate.message).cel = {
+    id: "packet_record.length_consistent"
+    message: "original_length must be at least the captured byte count"
+    expression: "!has(this.original_length) || !has(this.data) || this.original_length >= size(this.data)"
+  };
+
+  // Position within the session, dense from zero. Must be present.
+  uint64 sequence = 1 [(buf.validate.field).required = true];
+  // The time this packet arrived at the capturing interface. Must be
+  // present. Part of what was captured rather than a fact about the
+  // capturing, the one exception to the rule that a Primitive holds no
+  // observation time.
+  google.protobuf.Timestamp captured_at = 2 [(buf.validate.field).required = true];
+  // The frame's length on the wire before any truncation. Must be present.
+  uint32 original_length = 3 [(buf.validate.field).required = true];
+  // The captured bytes, from the start of the frame, up to the session's
+  // snap length. Must be present.
+  bytes data = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).bytes.max_len = 65535
+  ];
+  // The mirror wrapper the packet arrived in. Present exactly when the
+  // packet was delivered through a mirror rather than captured directly.
+  MirrorEnvelope mirror = 5;
+}
