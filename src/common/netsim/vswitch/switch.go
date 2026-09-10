@@ -120,6 +120,14 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) bridge.Re
 	return s.forwardHub(ingress, f)
 }
 
+// Age removes dynamic forwarding database entries older than the configured
+// aging time relative to now. It is a no-op when the switch has no bridge subsystem.
+func (s *Switch) Age(now time.Time) {
+	if s.bridge != nil {
+		s.bridge.Age(now)
+	}
+}
+
 func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped

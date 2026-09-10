@@ -839,3 +839,65 @@ func TestSwitchReadableState(t *testing.T) {
 		t.Errorf("cloned config missing phy")
 	}
 }
+
+func TestSwitchAge(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	t.Run("ages dynamic entries", func(t *testing.T) {
+		cfg := vswitch.Config{
+			Ports: tbl,
+			Bridge: &bridge.Config{
+				AgingTime: 300 * time.Second,
+			},
+		}
+		sw := vswitch.New(cfg)
+
+		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+		macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		macB := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}
+
+		sw.Forward(t0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+
+		t200 := t0.Add(200 * time.Second)
+		sw.Forward(t200, "1/1/2", ethernet.Frame{Dst: macA, Src: macB})
+
+		if len(sw.Entries()) != 2 {
+			t.Fatalf("got %d entries, want 2", len(sw.Entries()))
+		}
+
+		t250 := t0.Add(250 * time.Second)
+		sw.Age(t250)
+		if len(sw.Entries()) != 2 {
+			t.Fatalf("at t0+250s got %d entries, want 2", len(sw.Entries()))
+		}
+
+		t301 := t0.Add(301 * time.Second)
+		sw.Age(t301)
+		entries := sw.Entries()
+		if len(entries) != 1 {
+			t.Fatalf("at t0+301s got %d entries, want 1", len(entries))
+		}
+		if entries[0].MAC != macB {
+			t.Errorf("remaining entry MAC = %v, want %v", entries[0].MAC, macB)
+		}
+
+		t501 := t0.Add(501 * time.Second)
+		sw.Age(t501)
+		if len(sw.Entries()) != 0 {
+			t.Fatalf("at t0+501s got %d entries, want 0", len(sw.Entries()))
+		}
+	})
+
+	t.Run("no-op on hub", func(t *testing.T) {
+		cfg := vswitch.Config{Ports: tbl}
+		sw := vswitch.New(cfg)
+
+		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+		sw.Age(t0)
+		if entries := sw.Entries(); entries != nil {
+			t.Errorf("hub entries = %v, want nil", entries)
+		}
+	})
+}
