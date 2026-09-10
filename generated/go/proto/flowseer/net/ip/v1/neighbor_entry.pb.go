@@ -266,10 +266,9 @@ var File_flowseer_net_ip_v1_neighbor_entry_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_ip_v1_neighbor_entry_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/net/ip/v1/neighbor_entry.proto\x12\x12flowseer.net.ip.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a(flowseer/net/ip/v1/neighbor_origin.proto\x1a.flowseer/net/ip/v1/neighbor_reachability.proto\"\x81\x04\n" +
-	"\rNeighborEntry\x121\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x127\n" +
+	"'flowseer/net/ip/v1/neighbor_entry.proto\x12\x12flowseer.net.ip.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a(flowseer/net/ip/v1/neighbor_origin.proto\x1a.flowseer/net/ip/v1/neighbor_reachability.proto\"\x83\x04\n" +
+	"\rNeighborEntry\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x127\n" +
 	"\x02ip\x18\x02 \x01(\v2\x1f.flowseer.net.addr.v1.IpAddressB\x06\xbaH\x03\xc8\x01\x01R\x02ip\x122\n" +
 	"\x03mac\x18\x03 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x03mac\x12:\n" +
 	"\x06origin\x18\x04 \x01(\x0e2\".flowseer.net.ip.v1.NeighborOriginR\x06origin\x12\x1b\n" +

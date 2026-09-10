@@ -3,6 +3,7 @@ package conformance
 import (
 	"bytes"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -24,7 +25,15 @@ const (
 	setupKey           = "fse1_" + setupKeyID + "_" + "abcdefghijklmnopqrstuvwxyz234567abcdefghijklmnopqrst"
 	edgeAudience       = "flowseer-central"
 	edgeHeaderTag      = "FlowSeer-Edge "
+	// The worked vector's fixed procedure and an empty request body; the
+	// vector is illustrative, not a real Heartbeat call.
+	edgeProcedure = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
 )
+
+var edgeBodySHA256 = func() []byte {
+	sum := sha256.Sum256(nil)
+	return sum[:]
+}()
 
 var edgeIssuedAt = time.Date(2026, time.September, 5, 12, 0, 0, 0, time.UTC)
 
@@ -166,17 +175,25 @@ func edgeAssertion(validity time.Duration) *edgev1.EdgeAssertion {
 		nonce[i] = byte(i)
 	}
 	return edgev1.EdgeAssertion_builder{
-		Edge:      edgeRef(),
-		Audience:  proto.String(edgeAudience),
-		IssuedAt:  timestamppb.New(edgeIssuedAt),
-		ExpiresAt: timestamppb.New(edgeIssuedAt.Add(validity)),
-		Nonce:     nonce,
+		Edge:       edgeRef(),
+		Audience:   proto.String(edgeAudience),
+		IssuedAt:   timestamppb.New(edgeIssuedAt),
+		ExpiresAt:  timestamppb.New(edgeIssuedAt.Add(validity)),
+		Nonce:      nonce,
+		Procedure:  proto.String(edgeProcedure),
+		BodySha256: edgeBodySHA256,
 	}.Build()
 }
 
 func TestEdgeAssertionRules(t *testing.T) {
 	shortNonce := edgeAssertion(30 * time.Second)
 	shortNonce.SetNonce(shortNonce.GetNonce()[:15])
+	emptyProcedure := edgeAssertion(30 * time.Second)
+	emptyProcedure.SetProcedure("")
+	malformedProcedure := edgeAssertion(30 * time.Second)
+	malformedProcedure.SetProcedure("Heartbeat")
+	shortBodyHash := edgeAssertion(30 * time.Second)
+	shortBodyHash.SetBodySha256(shortBodyHash.GetBodySha256()[:31])
 	runValidationCases(t, []validationCase{
 		{
 			name:      "thirty second validity is valid",
@@ -201,6 +218,21 @@ func TestEdgeAssertionRules(t *testing.T) {
 		{
 			name:      "nonce of the wrong length is rejected",
 			message:   shortNonce,
+			wantValid: false,
+		},
+		{
+			name:      "empty procedure is rejected",
+			message:   emptyProcedure,
+			wantValid: false,
+		},
+		{
+			name:      "procedure without a leading slash is rejected",
+			message:   malformedProcedure,
+			wantValid: false,
+		},
+		{
+			name:      "body hash of the wrong length is rejected",
+			message:   shortBodyHash,
 			wantValid: false,
 		},
 		{
@@ -338,6 +370,59 @@ func TestEdgeAssertionHeaderVector(t *testing.T) {
 	}
 	if !strings.Contains(string(readme), header) {
 		t.Errorf("README does not carry the header vector:\n%s", header)
+	}
+}
+
+// TestEdgeAssertionStreamOpenVector pins a second worked header, for a
+// server-stream open with a non-empty body: the body hashed is the
+// enveloped request message exactly as sent, so a middleware that hashes
+// the HTTP body bytes reproduces it.
+func TestEdgeAssertionStreamOpenVector(t *testing.T) {
+	seed := make([]byte, ed25519.SeedSize)
+	private := ed25519.NewKeyFromSeed(seed)
+
+	request := edgev1.OpenDeviceSubmissionRequest_builder{
+		DeviceId:  proto.String(deviceID),
+		BindingId: proto.String(bindingID),
+		Sequence:  proto.Uint64(42),
+	}.Build()
+	message, err := proto.MarshalOptions{Deterministic: true}.Marshal(request)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	body := make([]byte, 5, 5+len(message))
+	body[1] = byte(len(message) >> 24)
+	body[2] = byte(len(message) >> 16)
+	body[3] = byte(len(message) >> 8)
+	body[4] = byte(len(message))
+	body = append(body, message...)
+	bodySum := sha256.Sum256(body)
+
+	assertion := edgeAssertion(30 * time.Second)
+	assertion.SetProcedure("/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission")
+	assertion.SetBodySha256(bodySum[:])
+
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
+	if err != nil {
+		t.Fatalf("marshal assertion: %v", err)
+	}
+	signed := edgev1.SignedEdgeAssertion_builder{
+		Payload:   payload,
+		Signature: ed25519.Sign(private, payload),
+	}.Build()
+	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
+	if err != nil {
+		t.Fatalf("marshal signed assertion: %v", err)
+	}
+	header := edgeHeaderTag + base64.RawStdEncoding.EncodeToString(wire)
+	t.Logf("stream open header vector: %s", header)
+
+	readme, err := os.ReadFile(filepath.Join("..", "..", "..", "spec", "proto", "flowseer", "api", "edge", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read README: %v", err)
+	}
+	if !strings.Contains(string(readme), header) {
+		t.Errorf("README does not carry the stream open header vector:\n%s", header)
 	}
 }
 

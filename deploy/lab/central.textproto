@@ -1,0 +1,32 @@
+# flowseer.store.device.v1.DeviceServiceConfig for the lab run.
+#
+# Placeholders only. Every value below is either a real local path or an
+# obvious stand-in; nothing here is a secret and nothing here is an address
+# that resolves.
+
+state_dir: "/var/lib/flowseer/device"
+registry_path: "/etc/flowseer/registry.textproto"
+credential_root: "/etc/flowseer/credentials"
+
+listeners {
+  # Loopback for the lab run, and that is a step in the runbook rather than a
+  # default worth copying: this service serves an operator API with no
+  # authorization check, and that port is the one that yields device
+  # credentials.
+  api: "127.0.0.1:8443"
+  bus: "127.0.0.1:8444"
+}
+
+edges {
+  central_url: "https://127.0.0.1:8443"
+  assertion_audience: "flowseer-lab"
+  cluster_urls: "wss://127.0.0.1:8444"
+}
+
+intervals {
+  # Left at their defaults for the lab run except this one. The drift poll
+  # would otherwise read the managed interface every five minutes and put a
+  # second reader in the middle of a run whose whole point is watching one
+  # write.
+  drift { seconds: 3600 }
+}

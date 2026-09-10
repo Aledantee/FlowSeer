@@ -12,11 +12,11 @@ import (
 	"testing"
 )
 
-// importOrder declares, for every schema-bearing package under
-// spec/proto/flowseer/net, the packages it may import. A package imports itself
-// freely; anything else it imports must be listed here. Adding a package to the
-// tree is one line in this table — leaving it out fails
-// TestNetImportOrderCoversEveryPackage rather than silently escaping the order.
+// importOrder declares, for every schema-bearing package under the roots in
+// orderedRoots, the packages it may import. A package imports itself freely;
+// anything else it imports must be listed here. Adding a package to the tree
+// is one line in this table — leaving it out fails
+// TestImportOrderCoversEveryPackage rather than silently escaping the order.
 var importOrder = map[string][]string{
 	"net/addr":   nil,
 	"net/packet": nil,
@@ -29,13 +29,72 @@ var importOrder = map[string][]string{
 
 	// A protocol may import any layer below it, and never another protocol.
 	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
+
+	// Boundary packages consume the primitives and never feed them.
+	// device/policy imports nothing FlowSeer-owned, the one leaf that lets
+	// inventory name a policy without a cycle. api/edge may import
+	// device/policy for the credential and host-trust handles its
+	// credential RPCs return, because device/policy imports nothing back.
+	// device/credential imports nothing either: api/edge carries the typed
+	// credential material on its credential responses, so it sits beside
+	// device/policy as a second leaf below api/edge. net/addr is the third,
+	// for the management address the device listing carries — a primitive
+	// that imports nothing FlowSeer-owned, so it cannot cycle back, and the
+	// alternative of a formatted string would make an address the edge
+	// parses out of prose.
+	"api/edge":          {"device/credential", "device/policy", "net/addr"},
+	"device/credential": nil,
+	"device/policy":     nil,
+
+	// The error wire payload. A leaf like device/policy: every boundary may
+	// carry an error, so nothing may depend on it.
+	"errs": nil,
+
+	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The operation values every device-access boundary shares. They reach
+	// api/edge for the responsible edge, so a boundary that imports them
+	// reaches api/edge only through here.
+	"device/access": {"api/edge", "api/inventory", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The operator API, the execution envelope, and the audit event are
+	// sibling boundary consumers of device/access and errs, and none of the
+	// three imports another. api/inventory and device/policy predate the
+	// errs amendment and stay direct api/device dependencies; the envelope
+	// carries no device or edge ref at all (the transport already names
+	// both), while the audit event needs api/inventory directly because it
+	// is read outside any live transport context.
+	"api/device": {"api/inventory", "device/access", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	"integration/device": {"device/access", "errs"},
+
+	"event/device": {"api/inventory", "device/access", "errs"},
+
+	// The device service's own files: the records it writes to its stores and
+	// the operator-written prototext it reads at start. One process owns both,
+	// so this root sits above every boundary it embeds and is imported by
+	// none.
+	"store/device": {"api/edge", "api/inventory", "device/access", "device/credential", "device/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
+
+	// The agent's own deployment file. It imports nothing FlowSeer-owned and
+	// is imported by nothing: what an edge is told about central lives in
+	// api/edge's EdgeProvisioning, which this package names by path rather
+	// than by type, so the dependency an entry here would suggest does not
+	// exist.
+	"store/edge": nil,
 }
 
-// netRoot is the tree the import order governs, relative to spec/proto.
-const netRoot = "flowseer/net"
+// orderedRoots are the trees the import order governs, relative to spec/proto.
+// flowseer/service stays out: it is the process-local bus contract and no
+// boundary package may import it.
+var orderedRoots = []string{
+	"flowseer/net", "flowseer/api", "flowseer/device",
+	"flowseer/errs", "flowseer/integration", "flowseer/event",
+	"flowseer/store",
+}
 
-func TestNetImportOrder(t *testing.T) {
-	for _, file := range netProtoFiles(t) {
+func TestImportOrder(t *testing.T) {
+	for _, file := range orderedProtoFiles(t) {
 		pkg := protoPackage(file.rel)
 		for _, imported := range file.imports {
 			if !strings.HasPrefix(imported, "flowseer/") {
@@ -49,14 +108,44 @@ func TestNetImportOrder(t *testing.T) {
 	}
 }
 
-func TestNetImportOrderCoversEveryPackage(t *testing.T) {
+func TestImportOrderCoversEveryPackage(t *testing.T) {
 	seen := map[string]struct{}{}
-	for _, file := range netProtoFiles(t) {
+	for _, file := range orderedProtoFiles(t) {
 		seen[protoPackage(file.rel)] = struct{}{}
 	}
 
 	for _, pkg := range undeclaredPackages(slices.Sorted(maps.Keys(seen))) {
 		t.Errorf("%s carries schemas but declares no layer in importOrder", pkg)
+	}
+}
+
+// TestOrderedRootsCoverEveryTopLevelTree fails when a new top-level tree lands
+// under spec/proto/flowseer without being added to orderedRoots, so a whole
+// new root cannot escape the coverage and layering checks above the way a
+// package inside an existing root cannot. flowseer/service is the one
+// declared exception: it is the process-local bus contract, and no boundary
+// package may import it.
+func TestOrderedRootsCoverEveryTopLevelTree(t *testing.T) {
+	flowseerRoot := filepath.Join(repoRoot(t), "spec", "proto", "flowseer")
+
+	entries, err := os.ReadDir(flowseerRoot)
+	if err != nil {
+		t.Fatalf("reading %s: %v", flowseerRoot, err)
+	}
+
+	declared := map[string]bool{}
+	for _, root := range orderedRoots {
+		declared[strings.TrimPrefix(root, "flowseer/")] = true
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name() == "service" || declared[entry.Name()] {
+			continue
+		}
+		if len(protoFilesUnder(t, filepath.Join(repoRoot(t), "spec", "proto"), "flowseer/"+entry.Name())) == 0 {
+			continue
+		}
+		t.Errorf("flowseer/%s carries schemas but is missing from orderedRoots", entry.Name())
 	}
 }
 
@@ -79,7 +168,31 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "protocol imports a layer", importer: "net/protocol/lldp", imported: "net/interface", want: true},
 		{name: "protocol imports another protocol", importer: "net/protocol/lldp", imported: "net/protocol/stp"},
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
-		{name: "import outside the net tree", importer: "net/interface", imported: "api/inventory"},
+		{name: "primitive imports a boundary", importer: "net/interface", imported: "api/inventory"},
+		{name: "inventory imports a leaf boundary", importer: "api/inventory", imported: "device/policy", want: true},
+		{name: "edge imports its credential handles", importer: "api/edge", imported: "device/policy", want: true},
+		{name: "leaf boundary imports edge", importer: "device/policy", imported: "api/edge"},
+		{name: "access values import inventory", importer: "device/access", imported: "api/inventory", want: true},
+		{name: "access values import the operator api", importer: "device/access", imported: "api/device"},
+		{name: "operator api imports access values", importer: "api/device", imported: "device/access", want: true},
+		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
+		{name: "leaf boundary imports inventory", importer: "device/policy", imported: "api/inventory"},
+		{name: "execution envelope imports access values", importer: "integration/device", imported: "device/access", want: true},
+		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
+		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
+		{name: "audit event imports access values", importer: "event/device", imported: "device/access", want: true},
+		{name: "audit event imports inventory", importer: "event/device", imported: "api/inventory", want: true},
+		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
+		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
+		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
+		{name: "edge imports credential material", importer: "api/edge", imported: "device/credential", want: true},
+		{name: "credential material imports edge", importer: "device/credential", imported: "api/edge"},
+		{name: "credential material imports policy handles", importer: "device/credential", imported: "device/policy"},
+		{name: "storage imports access values", importer: "store/device", imported: "device/access", want: true},
+		{name: "storage imports credential material", importer: "store/device", imported: "device/credential", want: true},
+		{name: "access values import storage", importer: "device/access", imported: "store/device"},
+		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
+		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
 	}
 
 	for _, tt := range tests {
@@ -182,16 +295,30 @@ type protoFile struct {
 	imports []string
 }
 
-// netProtoFiles collects every .proto file under spec/proto/flowseer/net with the
+// orderedProtoFiles collects every .proto file under the ordered roots with the
 // import paths it declares. Directories holding no .proto file never appear, so
 // placeholders such as net/wlan/v1 stay out of the completeness check.
-func netProtoFiles(t *testing.T) []protoFile {
+func orderedProtoFiles(t *testing.T) []protoFile {
 	t.Helper()
 
 	protoRoot := filepath.Join(repoRoot(t), "spec", "proto")
 
 	var files []protoFile
-	err := filepath.WalkDir(filepath.Join(protoRoot, netRoot), func(path string, d fs.DirEntry, err error) error {
+	for _, root := range orderedRoots {
+		files = append(files, protoFilesUnder(t, protoRoot, root)...)
+	}
+	if len(files) == 0 {
+		t.Fatalf("no schemas found under %s", strings.Join(orderedRoots, ", "))
+	}
+
+	return files
+}
+
+func protoFilesUnder(t *testing.T, protoRoot, root string) []protoFile {
+	t.Helper()
+
+	var files []protoFile
+	err := filepath.WalkDir(filepath.Join(protoRoot, root), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -214,10 +341,7 @@ func netProtoFiles(t *testing.T) []protoFile {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("collecting schemas under %s: %v", netRoot, err)
-	}
-	if len(files) == 0 {
-		t.Fatalf("no schemas found under %s", netRoot)
+		t.Fatalf("collecting schemas under %s: %v", root, err)
 	}
 
 	return files

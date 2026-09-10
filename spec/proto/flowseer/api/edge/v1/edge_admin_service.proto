@@ -90,6 +90,30 @@ message RetireEdgeRequest {
 message RetireEdgeResponse {
   // The edge after retirement. Must be present.
   EdgeRecord edge = 1 [(buf.validate.field).required = true];
+  // The lanes the retirement orphaned, in device-id order. Retirement ends no
+  // mutation, so each of these is work only an operator can end, through
+  // DeviceService.AbandonMutation with the device and the sequence named
+  // here. DeviceService.ListEdgeOpenMutations answers the same question with
+  // the phase each mutation stopped at and its whole recorded state. Empty
+  // means the edge held none.
+  repeated OrphanedLane orphaned = 2 [(buf.validate.field).repeated.max_items = 1000];
+}
+
+// One mutation left open on a device the retired edge hosted.
+message OrphanedLane {
+  // The device, as DeviceLocalRef.id spells it. This API does not depend on
+  // the device API — the dependency runs the other way, since a device
+  // reference names the edge responsible for it — so the device is named here
+  // by identifier rather than by reference. Must be present.
+  string device_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The sequence AbandonMutation takes. Must be present and at least 1.
+  uint64 sequence = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).uint64.gte = 1
+  ];
 }
 
 message GetEdgeRequest {

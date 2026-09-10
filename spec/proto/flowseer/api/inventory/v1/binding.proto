@@ -84,8 +84,10 @@ message ManagementEndpoint {
     (buf.validate.field).uint32.gte = 1,
     (buf.validate.field).uint32.lte = 65535
   ];
-  // The management protocol spoken at the endpoint. Must be present; the
-  // zero value is rejected.
+  // The protocol the address answers on. This describes the endpoint and
+  // does not select a route: the answering integration chooses the
+  // protocol per operation from what it has learned about the device.
+  // Must be present; the zero value is rejected.
   ManagementProtocol protocol = 3 [
     (buf.validate.field).required = true,
     (buf.validate.field).enum = {

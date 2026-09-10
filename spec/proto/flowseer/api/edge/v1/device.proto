@@ -1,0 +1,64 @@
+edition = "2024";
+
+// What ListDevices tells an edge about the devices it serves: where each one
+// answers, which binding reaches it, the access policy version it pins, and
+// how long a mutation on it may take to become visible. Nothing here is a
+// credential; those are their own lifecycle in credential.proto.
+package flowseer.api.edge.v1;
+
+import "flowseer/device/policy/v1/handle.proto";
+import "flowseer/net/addr/v1/ip.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+// Empty: the devices listed are the ones the calling edge hosts, and the
+// caller is the edge its assertion names.
+message ListDevicesRequest {}
+
+message ListDevicesResponse {
+  // Every device the calling edge hosts. Empty is a valid answer for an
+  // edge that has been enrolled but has no device bound to it yet.
+  repeated ListedDevice devices = 1 [(buf.validate.field).repeated.max_items = 4096];
+}
+
+// One device an edge serves. The edge holds what it was last told between
+// listings; a device it already onboarded is not re-onboarded from a later
+// listing, so an operation runs against one consistent set of facts rather
+// than a set that can change under it.
+message ListedDevice {
+  // The device this describes, as a plain UUID string: this package sits
+  // below api/inventory in the import graph and cannot name a
+  // DeviceGlobalRef. The same id the credential calls take. Must be
+  // present.
+  string device_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The integration binding that reaches the device, as a plain UUID
+  // string for the same reason. It is what the credential calls are
+  // scoped to and what every observation the edge makes names as its
+  // source. Must be present.
+  string binding_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  // The management address the edge opens sessions to. Must be present.
+  flowseer.net.addr.v1.IpAddress ip = 3 [(buf.validate.field).required = true];
+  // Unset means 161.
+  uint32 snmp_port = 4 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // Unset means 22.
+  uint32 ssh_port = 5 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 65535
+  ];
+  // The access policy version the device pins, which the edge names when it
+  // acquires a credential for the onboarding probe. Must be present.
+  flowseer.device.policy.v1.AccessPolicyHandle access_policy = 6 [(buf.validate.field).required = true];
+  // The longest a mutation on this device may take to become visible to a
+  // fresh read, measured on the device. Unset means unmeasured: the edge
+  // serves the device and refuses a mutation on it until it is set.
+  google.protobuf.Duration delayed_apply_horizon = 7 [(buf.validate.field).duration.gte = {seconds: 1}];
+}

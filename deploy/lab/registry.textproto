@@ -1,0 +1,77 @@
+# flowseer.store.device.v1.DeviceRegistry for the lab run: one integration,
+# one edge, one switch, one managed interface.
+#
+# The identifiers are this deployment's own. Three positions ship unfilled and
+# have to be filled before the file describes a real device: the edge, which
+# write-registry.sh substitutes from what CreateEdge returned, and the device
+# address and ssh_host_key_sha256, which come off the device in front of you.
+# write-registry.sh refuses to render the shipped template while either of the
+# last two still carries its placeholder. delayed_apply_horizon is measured
+# rather than looked up, and has its own runbook step.
+
+integration {
+  ref { integration { id: "0192e6a0-0000-7000-8000-0000000000c1" } }
+  # Replace with the edge identifier CreateEdge returned. Central draws it;
+  # it cannot be chosen, and the service reads this file once at start, so
+  # the edge has to exist before this line can be written.
+  edge { edge { id: "REPLACE-WITH-THE-EDGE-ID-CREATEEDGE-RETURNED" } }
+}
+
+devices {
+  config {
+    ref { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
+    name: "icx7150-lab"
+    management_mode: DEVICE_MANAGEMENT_MODE_OPERATOR_MANAGED
+    access_policy { key: "icx7150-lab" version: 1 }
+  }
+  binding { binding { id: "0192e6a0-0000-7000-8000-0000000000b1" } }
+  # The device's management address, and a placeholder: 192.0.2.6 is in the
+  # documentation range and reaches nothing. Escaped bytes rather than a
+  # dotted string, one octet at a time in octal — the runbook's "fill the
+  # device's two positions" step shows the conversion.
+  ip { v4 { octets: "\300\000\002\006" } }  # REPLACE-WITH-THE-DEVICE-ADDRESS
+
+  # Measured at 0.13s on this switch, on the SNMP ifAlias path the system
+  # actually reads — and dominated by the round trip, so the true value is
+  # smaller still. Thirty seconds is configured anyway, and the gap is the
+  # point: this number is documented as the longest a mutation may take to
+  # become visible, and it also sizes recovery's budget and, through the
+  # derived poll interval, how many times recovery looks. The honest 0.13
+  # floors the interval at two seconds and buys about one attempt; thirty buys
+  # six. See the runbook's step 2.
+  delayed_apply_horizon { seconds: 30 }
+
+  # The one interface this run touches. Spelled as the device spells it.
+  managed_interfaces: "ethernet 1/1/1"
+}
+
+policies {
+  handle { key: "icx7150-lab" version: 1 }
+
+  # Credential file names under the service's credential_root, one prototext
+  # flowseer.device.credential.v1.CredentialMaterial per key, mode 0600, each
+  # with a "<key>.meta.json" sidecar naming its version. Regular files, not
+  # symlinks: the provider opens each one O_NOFOLLOW, so a Kubernetes secret
+  # volume needs an adapter that resolves its links first.
+  #
+  # The read credential is the SNMPv3 user, and it must be authPriv — see the
+  # runbook's step 1 for why a device configured otherwise fails in a place
+  # that looks like central's fault.
+  read_credential { key: "icx7150-lab-snmp" version: 1 }
+  submission_credential { key: "icx7150-lab-ssh" version: 1 }
+  host_trust { key: "icx7150-lab-hostkey" version: 1 }
+
+  # The device's host key digest, read from the device. A placeholder here,
+  # and the shape is forced: the field takes exactly 43 base64 characters, so
+  # the placeholder has to be 43 of them rather than a readable sentence.
+  #
+  # Which key matters. An ICX7150 offers RSA and ECDSA and no ed25519, and Go
+  # prefers ed25519, then ECDSA, then RSA — so it negotiates ECDSA, and the
+  # ECDSA digest is what it will be shown. Pinning the RSA one instead is a
+  # pin that never matches, and it fails at the moment the mutation opens its
+  # shell, which is the irreversible step.
+  #
+  # Not a secret: a host key fingerprint is the public half, and publishing it
+  # is what pinning is for.
+  ssh_host_key_sha256: "SHA256:REPLACEwithTHEsshHOSTkeyDIGESTofTHEdevice00"
+}

@@ -11,6 +11,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/modules/localnet/collect"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -118,6 +119,26 @@ var pethMainPseColumns = []snmp.AnyColumn{
 	powerethernetmib.PethMainPseUsageThreshold,
 }
 
+// dot3StatsTableRead, dot3HCStatsTableRead, ifMauTableRead,
+// ifMauAutoNegTableRead, pethPsePortTableRead, and pethMainPseTableRead
+// declare the EtherLike, MAU, and Power-Ethernet tables through their
+// generated walkers, so [physicalMapper] can share them with any other
+// mapper in one [collect.Collector] cycle instead of walking directly.
+var (
+	dot3StatsTableRead = collect.NewTable[etherlikemib.Dot3StatsTableRow](
+		etherlikemib.Dot3StatsTable.Descriptor(), etherlikemib.Dot3StatsTable.Walk, dot3StatsColumns...)
+	dot3HCStatsTableRead = collect.NewTable[etherlikemib.Dot3HCStatsTableRow](
+		etherlikemib.Dot3HCStatsTable.Descriptor(), etherlikemib.Dot3HCStatsTable.Walk, dot3HCStatsColumns...)
+	ifMauTableRead = collect.NewTable[maumib.IfMauTableRow](
+		maumib.IfMauTable.Descriptor(), maumib.IfMauTable.Walk, ifMauColumns...)
+	ifMauAutoNegTableRead = collect.NewTable[maumib.IfMauAutoNegTableRow](
+		maumib.IfMauAutoNegTable.Descriptor(), maumib.IfMauAutoNegTable.Walk, ifMauAutoNegColumns...)
+	pethPsePortTableRead = collect.NewTable[powerethernetmib.PethPsePortTableRow](
+		powerethernetmib.PethPsePortTable.Descriptor(), powerethernetmib.PethPsePortTable.Walk, pethPsePortColumns...)
+	pethMainPseTableRead = collect.NewTable[powerethernetmib.PethMainPseTableRow](
+		powerethernetmib.PethMainPseTable.Descriptor(), powerethernetmib.PethMainPseTable.Walk, pethMainPseColumns...)
+)
+
 // dot3MauType is the arc under which the IANA-MAU-MIB registers standard
 // MAU types as dot3MauType.N (https://www.iana.org/assignments/ianamau-mib).
 // The generated registry package names no OBJECT-IDENTITY node, so the
@@ -137,19 +158,62 @@ var dot3MauType = snmp.MustOID(1, 3, 6, 1, 2, 1, 26, 4)
 // rows are keyed the Power Ethernet MIB's way because it carries no
 // ifIndex at all. [AttachPhysical] joins both onto interfaces.
 func Physical(ctx context.Context, sess snmp.Session) (PhysicalFacts, error) {
+	snap := collect.Read(ctx, sess, PhysicalMapper)
+
+	out, err := physicalMapper{}.Map(snap)
+	facts, _ := out.(PhysicalFacts)
+
+	moduleErr := walkModules(ctx, sess, facts.Facets)
+
+	return facts, errors.Join(err, moduleErr)
+}
+
+// physicalMapper implements [collect.Mapper] over the EtherLike-MIB,
+// MAU-MIB, and POWER-ETHERNET-MIB tables, so a caller collecting several
+// capabilities in one cycle walks those tables once. It deliberately
+// leaves out the vendored D-Link, HP ProCurve, and H3C transceiver
+// (DDM) tables that [walkModules] reads directly: those branch across
+// three vendor-specific MIBs with no shared table shape, so [Physical]
+// still calls walkModules itself after this mapper runs.
+type physicalMapper struct{}
+
+// PhysicalMapper is the [collect.Mapper] view of [physicalMapper], for a
+// caller composing this capability with others in one [collect.Collector].
+var PhysicalMapper collect.Mapper = physicalMapper{}
+
+// Spec declares the EtherLike, MAU, and Power-Ethernet tables as optional:
+// a device that implements none of them yields empty facts, matching
+// [Physical]'s own tolerance for a device with no physical-layer MIBs.
+func (physicalMapper) Spec() collect.Spec {
+	return collect.Spec{
+		Name: "snmpmap.Physical",
+		Optional: []collect.TableRead{
+			dot3StatsTableRead,
+			dot3HCStatsTableRead,
+			ifMauTableRead,
+			ifMauAutoNegTableRead,
+			pethPsePortTableRead,
+			pethMainPseTableRead,
+		},
+	}
+}
+
+// Map builds the Ethernet facets, PSE port rows, and PSE budgets the
+// snapshot's tables carry. It never sees the DDM tables; see
+// [physicalMapper]'s doc comment.
+func (physicalMapper) Map(snap *collect.Snapshot) (any, error) {
 	facts := PhysicalFacts{Facets: make(map[uint32]*phyv1.EthernetFacet)}
 
 	var walkErrs []error
 
-	walkErrs = append(walkErrs, walkEtherLike(ctx, sess, facts.Facets))
-	walkErrs = append(walkErrs, walkMau(ctx, sess, facts.Facets))
-	walkErrs = append(walkErrs, walkModules(ctx, sess, facts.Facets))
+	walkErrs = append(walkErrs, walkEtherLike(snap, facts.Facets))
+	walkErrs = append(walkErrs, walkMau(snap, facts.Facets))
 
-	ports, portErr := walkPsePorts(ctx, sess)
+	ports, portErr := walkPsePorts(snap)
 	facts.PoePorts = ports
 	walkErrs = append(walkErrs, portErr)
 
-	budgets, budgetErr := walkPseBudgets(ctx, sess)
+	budgets, budgetErr := walkPseBudgets(snap)
 	facts.Budgets = budgets
 	walkErrs = append(walkErrs, budgetErr)
 
@@ -250,13 +314,12 @@ func facetAt(facets map[uint32]*phyv1.EthernetFacet, idx uint32) *phyv1.Ethernet
 // walkEtherLike maps dot3StatsTable and dot3HCStatsTable, both keyed by
 // dot3StatsIndex, which RFC 3635 defines as the ifIndex of the interface.
 // A failed 32-bit walk still lets the 64-bit walk run, and the reverse.
-func walkEtherLike(ctx context.Context, sess snmp.Session, facets map[uint32]*phyv1.EthernetFacet) error {
+func walkEtherLike(snap *collect.Snapshot, facets map[uint32]*phyv1.EthernetFacet) error {
 	stats := make(map[uint32]etherlikemib.Dot3StatsTableRow)
 
 	var order []uint32
 
-	statsWalk := etherlikemib.Dot3StatsTable.Walk(ctx, sess, dot3StatsColumns...)
-	for _, row := range statsWalk.Iter() {
+	for _, row := range dot3StatsTableRead.Rows(snap) {
 		ifIndex := uint32(row.Key.Dot3StatsIndex)
 
 		if _, seen := stats[ifIndex]; !seen {
@@ -267,14 +330,13 @@ func walkEtherLike(ctx context.Context, sess snmp.Session, facets map[uint32]*ph
 	}
 
 	var walkErrs []error
-	if err := statsWalk.Err(); err != nil {
+	if err := dot3StatsTableRead.Err(snap); err != nil {
 		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk dot3StatsTable"))
 	}
 
 	hc := make(map[uint32]etherlikemib.Dot3HCStatsTableRow)
 
-	hcWalk := etherlikemib.Dot3HCStatsTable.Walk(ctx, sess, dot3HCStatsColumns...)
-	for _, row := range hcWalk.Iter() {
+	for _, row := range dot3HCStatsTableRead.Rows(snap) {
 		ifIndex := uint32(row.Key.Dot3StatsIndex)
 
 		_, inStats := stats[ifIndex]
@@ -287,7 +349,7 @@ func walkEtherLike(ctx context.Context, sess snmp.Session, facets map[uint32]*ph
 		hc[ifIndex] = row
 	}
 
-	if err := hcWalk.Err(); err != nil {
+	if err := dot3HCStatsTableRead.Err(snap); err != nil {
 		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk dot3HCStatsTable"))
 	}
 
@@ -397,7 +459,7 @@ type mauKey struct {
 // several MAUs; the one with the lowest mauIndex speaks for the port,
 // because the MIB numbers the primary MAU first and the rest are rarely
 // anything but repeats.
-func walkMau(ctx context.Context, sess snmp.Session, facets map[uint32]*phyv1.EthernetFacet) error {
+func walkMau(snap *collect.Snapshot, facets map[uint32]*phyv1.EthernetFacet) error {
 	type mauRows struct {
 		key     mauKey
 		mau     maumib.IfMauTableRow
@@ -423,8 +485,7 @@ func walkMau(ctx context.Context, sess snmp.Session, facets map[uint32]*phyv1.Et
 
 	var walkErrs []error
 
-	mauWalk := maumib.IfMauTable.Walk(ctx, sess, ifMauColumns...)
-	for _, row := range mauWalk.Iter() {
+	for _, row := range ifMauTableRead.Rows(snap) {
 		key := mauKey{ifIndex: uint32(row.Key.IfMauIfIndex), mauIndex: uint32(row.Key.IfMauIndex)}
 
 		rows := at(key)
@@ -435,12 +496,11 @@ func walkMau(ctx context.Context, sess snmp.Session, facets map[uint32]*phyv1.Et
 		rows.key, rows.mau, rows.hasMau = key, row, true
 	}
 
-	if err := mauWalk.Err(); err != nil {
+	if err := ifMauTableRead.Err(snap); err != nil {
 		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk ifMauTable"))
 	}
 
-	autoWalk := maumib.IfMauAutoNegTable.Walk(ctx, sess, ifMauAutoNegColumns...)
-	for _, row := range autoWalk.Iter() {
+	for _, row := range ifMauAutoNegTableRead.Rows(snap) {
 		key := mauKey{ifIndex: uint32(row.Key.IfMauIfIndex), mauIndex: uint32(row.Key.IfMauIndex)}
 
 		rows := at(key)
@@ -451,7 +511,7 @@ func walkMau(ctx context.Context, sess snmp.Session, facets map[uint32]*phyv1.Et
 		rows.autoNeg, rows.hasAuto = row, true
 	}
 
-	if err := autoWalk.Err(); err != nil {
+	if err := ifMauAutoNegTableRead.Err(snap); err != nil {
 		walkErrs = append(walkErrs, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk ifMauAutoNegTable"))
 	}
 
@@ -651,11 +711,10 @@ func setTransport(facet *phyv1.EthernetFacet, mau *phyv1.MauType) {
 }
 
 // walkPsePorts maps pethPsePortTable to PoE rows keyed by group and port.
-func walkPsePorts(ctx context.Context, sess snmp.Session) ([]PoePortRow, error) {
+func walkPsePorts(snap *collect.Snapshot) ([]PoePortRow, error) {
 	var rows []PoePortRow
 
-	walk := powerethernetmib.PethPsePortTable.Walk(ctx, sess, pethPsePortColumns...)
-	for _, row := range walk.Iter() {
+	for _, row := range pethPsePortTableRead.Rows(snap) {
 		group, port := row.Key.PethPsePortGroupIndex, row.Key.PethPsePortIndex
 		if group <= 0 || port <= 0 {
 			continue
@@ -664,7 +723,7 @@ func walkPsePorts(ctx context.Context, sess snmp.Session) ([]PoePortRow, error) 
 		rows = append(rows, mapPsePort(PoePortKey{Group: uint32(group), Port: uint32(port)}, row))
 	}
 
-	if err := walk.Err(); err != nil {
+	if err := pethPsePortTableRead.Err(snap); err != nil {
 		return rows, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk pethPsePortTable")
 	}
 
@@ -777,11 +836,10 @@ func poeStatus(v powerethernetmib.PethPsePortDetectionStatusValue) phyv1.PoeStat
 }
 
 // walkPseBudgets maps pethMainPseTable to one budget per PSE group.
-func walkPseBudgets(ctx context.Context, sess snmp.Session) ([]*phyv1.PseBudget, error) {
+func walkPseBudgets(snap *collect.Snapshot) ([]*phyv1.PseBudget, error) {
 	var budgets []*phyv1.PseBudget
 
-	walk := powerethernetmib.PethMainPseTable.Walk(ctx, sess, pethMainPseColumns...)
-	for _, row := range walk.Iter() {
+	for _, row := range pethMainPseTableRead.Rows(snap) {
 		group := row.Key.PethMainPseGroupIndex
 		if group <= 0 {
 			continue
@@ -790,7 +848,7 @@ func walkPseBudgets(ctx context.Context, sess snmp.Session) ([]*phyv1.PseBudget,
 		budgets = append(budgets, mapPseBudget(uint32(group), row))
 	}
 
-	if err := walk.Err(); err != nil {
+	if err := pethMainPseTableRead.Err(snap); err != nil {
 		return budgets, errs.From(err).Code(ErrCodePhysicalWalk).Msg("walk pethMainPseTable")
 	}
 

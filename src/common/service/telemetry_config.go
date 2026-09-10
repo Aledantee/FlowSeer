@@ -68,8 +68,10 @@ type TelemetryConfig struct {
 	// Protocol is http/protobuf or grpc. Empty uses OTEL_EXPORTER_OTLP_PROTOCOL,
 	// then defaults to http/protobuf.
 	Protocol string
-	// Compression is gzip. Empty uses OTEL_EXPORTER_OTLP_COMPRESSION and otherwise
-	// leaves compression disabled.
+	// Compression is gzip or none. Empty uses OTEL_EXPORTER_OTLP_COMPRESSION
+	// and otherwise leaves compression disabled; "none" is the specification's
+	// own word for disabled and is how a service pins it off regardless of the
+	// environment.
 	Compression string
 	// Headers supplies common exporter headers. A non-nil map overrides
 	// OTEL_EXPORTER_OTLP_HEADERS, including with an empty map.
@@ -251,6 +253,16 @@ func normalizeOTLPConnection(config TelemetryConfig, lookup envLookup) (normaliz
 	}
 	normalized.protocol = protocol.value
 
+	// "none" is the OTLP specification's own word for no compression, and
+	// unset means the same thing here, so it normalizes to unset rather than
+	// being carried as a third state. Refusing it would fail startup for a
+	// deployment that spelled the default out — and would leave a host that
+	// must not be compressed, such as one exporting into a receiver that
+	// forwards bodies verbatim, with no way to say so: an empty value defers
+	// to the environment, which is exactly what such a host cannot allow.
+	if compression.value == "none" {
+		compression.value = ""
+	}
 	if compression.value != "" && compression.value != "gzip" {
 		return normalizedOTLPConnection{}, false, telemetryConfigError(compression.setting, "unsupported")
 	}

@@ -10,11 +10,22 @@ execution: code
 
 # netpen - Plan
 
-> Implementation landed; live validation outstanding. Netpen now lives under
-> `src/edge/netpen`, and dependency checks live under
-> `test/conformance/dependencies`. The T1/T2 acceptance evidence remains open in
-> `src/edge/netpen/test/integration/VALIDATION_MATRIX.md`, so this plan is not
-> marked implemented.
+> Implementation landed; live validation is no longer obtainable. Netpen lives
+> under `src/edge/netpen`, and dependency checks under
+> `test/conformance/dependencies`. What stays open is the T1 and T2 acceptance
+> evidence catalogued in
+> `src/edge/netpen/test/integration/VALIDATION_MATRIX.md`, where no row yet
+> carries wire or vendor truth: T2 needs an operator-supplied Cisco NOS and
+> currently logs intended runs without asserting anything. With the lab closed
+> as of 2026-09-10 (see [the runbook](../runbooks/lab-icx7150-first-write.md))
+> there is no device to run them against, so this plan stays
+> `partially-implemented` and the matrix stays honest about what it does not
+> prove.
+>
+> The fixture rows are real evidence of wire shape and nothing more. Anyone
+> reading a green integration suite here should read the matrix first: it says
+> which behaviors have been compared against a harvested fixture and which have
+> been compared against nothing.
 
 ## Goal Capsule
 

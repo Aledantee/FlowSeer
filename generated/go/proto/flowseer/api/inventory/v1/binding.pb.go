@@ -469,8 +469,10 @@ type ManagementEndpoint_builder struct {
 	Ip *v1.IpAddress
 	// The transport port. Must be present.
 	Port *uint32
-	// The management protocol spoken at the endpoint. Must be present; the
-	// zero value is rejected.
+	// The protocol the address answers on. This describes the endpoint and
+	// does not select a route: the answering integration chooses the
+	// protocol per operation from what it has learned about the device.
+	// Must be present; the zero value is rejected.
 	Protocol *ManagementProtocol
 }
 

@@ -4,7 +4,10 @@ Backend services — the long-running processes that make up the FlowSeer contro
 plane. The device service, inventory, discovery, and the ingestion planes
 described in `docs/architecture/` land here.
 
-**This directory is empty on purpose.** No backend service has been written yet.
+The device service is the first one built. `src/services/device/` holds its
+journal, its edge and operator APIs, and the host that assembles them into a
+process; its [README](device/README.md) describes what it owes an edge and
+what a deployment has to put in front of it.
 
 ## Shape
 

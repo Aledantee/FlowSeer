@@ -96,6 +96,36 @@ if [[ $full == false && ${#paths[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Expand a directory argument into the files it holds. The classification
+# below matches path suffixes, so a directory matches nothing: every gate
+# stays unselected and the run reports success having checked nothing, which
+# is indistinguishable from a run that checked everything and found it clean.
+# It also leaves the dirty marker naming files this run did not verify, since
+# the marker is cleared by exact path match.
+if ((${#paths[@]})); then
+  expanded=()
+  for path in "${paths[@]}"; do
+    if [[ -d $path ]]; then
+      while IFS= read -r -d '' file; do
+        expanded+=("${file#./}")
+      done < <(git ls-files -z --cached --others --exclude-standard -- "$path")
+    else
+      # Kept whether or not it exists: a deleted path still selects its
+      # module, and the classification below guards its own file reads.
+      expanded+=("$path")
+    fi
+  done
+  paths=()
+  # No ":-" default: an empty expansion would yield one empty word, and
+  # an empty pathspec makes git fatal under set -e before the no-gate
+  # exit can report what actually happened.
+  if ((${#expanded[@]})); then
+    for path in "${expanded[@]}"; do
+      add_path "$path"
+    done
+  fi
+fi
+
 need_tool() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "required tool is not on PATH: $1" >&2
@@ -212,6 +242,17 @@ fi
 if [[ $print_selection == true ]]; then
   printf 'service_otel_integration=%s\n' "$service_otel_integration"
   exit 0
+fi
+
+# Whether anything at all will run. A run that selects no gate is not a
+# passing run: it is an invocation that could not place its arguments, and
+# reporting it as a pass is what makes this script unable to tell "checked
+# and clean" from "checked nothing".
+gates_selected=false
+if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
+  [[ $proto == true || $hook_tooling == true || $mib == true ||
+  $serena == true || $service_otel_integration == true ]]; then
+  gates_selected=true
 fi
 
 need_tool python3
@@ -422,14 +463,24 @@ if [[ $mib == true ]]; then
     # The parser's default corpus tier reads a deduplicated corpus so the
     # developer loop stays cheap. The whole corpus sits behind a build tag
     # and is only worth its cost here, where nothing else is in a hurry.
-    run go test -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/
+    run go test -count=1 -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/
     # The differential suite compares the parser against the dependency it
     # replaced. It is its own module, so it needs -C to resolve; and its
     # corpus pass is single-goroutine and skips under -race, which is the
     # only way this script runs Go tests elsewhere, so a plain invocation
     # is the only thing that runs it at all. It walks the same corpus, so
     # it belongs in the same tier as the run above.
-    run go test -C src/protocol/smi/differential ./...
+    #
+    # Both carry -count=1. Go's test cache answers for every invocation in
+    # this script, -race included — a --full run routinely reports most
+    # packages "(cached)" — and that is sound wherever a test's result
+    # depends only on inputs the cache tracks. These two do not qualify:
+    # they walk a corpus directory chosen by a build tag, and the repository
+    # has already been bitten by a cached pass surviving a change in
+    # something Go was not watching. The tier exists because it is too
+    # expensive for the developer loop, which makes it the worst place to
+    # accept a pass that ran nothing.
+    run go test -C src/protocol/smi/differential -count=1 ./...
   fi
 fi
 
@@ -473,6 +524,19 @@ fi
 
 if contains_path .golangci.yml && [[ ${#modules[@]} -eq 0 ]]; then
   echo "Note: .golangci.yml changed; use --full to lint every Go module."
+  # This path selects no module by design, and the note is the run's
+  # output, so the no-gate exit must not also fire for it.
+  gates_selected=true
+fi
+
+# Before the dirty marker is cleared and the receipt is written, because
+# those two are what every downstream consumer reads. A run that exits
+# non-zero here having already cleared them would tell its operator it
+# failed and tell the Stop hook and close that the tree was verified.
+if [[ $gates_selected == false ]]; then
+  echo "FlowSeer verification selected no build, test or lint gate for these paths." >&2
+  printf '  paths: %s\n' "${paths[*]:-<none>}" >&2
+  exit 2
 fi
 
 git_dir=$(git rev-parse --git-dir)

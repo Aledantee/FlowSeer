@@ -5,6 +5,9 @@ edition = "2024";
 // and is authorized as the edge that assertion names.
 package flowseer.api.edge.v1;
 
+import "flowseer/api/edge/v1/bus.proto";
+import "flowseer/api/edge/v1/credential.proto";
+import "flowseer/api/edge/v1/device.proto";
 import "flowseer/api/edge/v1/edge.proto";
 import "flowseer/api/edge/v1/key_proof.proto";
 import "google/protobuf/timestamp.proto";
@@ -22,6 +25,24 @@ service EdgeService {
   rpc Rekey(RekeyRequest) returns (RekeyResponse);
   // Reports that the edge is alive and returns central's clock.
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  // Hands the calling edge its NATS account, user credential, subject map,
+  // and cluster URLs. Bus credentials never ride the bus itself.
+  rpc AttachBus(AttachBusRequest) returns (AttachBusResponse);
+  // Names the devices the calling edge serves, and for each one where it
+  // answers, the binding that reaches it, the access policy it pins, and
+  // its measured delayed-apply horizon. The edge lists after attaching and
+  // again whenever it reconnects its dispatch stream, and holds what it was
+  // last told in between.
+  rpc ListDevices(ListDevicesRequest) returns (ListDevicesResponse);
+  // Delivers a device read credential for a binding, under the device's
+  // pinned access policy. Delivery is per operation; there is no standing
+  // lease.
+  rpc AcquireReadCredential(AcquireReadCredentialRequest) returns (AcquireReadCredentialResponse);
+  // Opens once central has checkpointed POSSIBLY_APPLIED for the named
+  // sequence, delivers the one-use submission credential as the first
+  // message, and then streams the authority pulses the edge checks before
+  // each command.
+  rpc OpenDeviceSubmission(OpenDeviceSubmissionRequest) returns (stream OpenDeviceSubmissionResponse);
 }
 
 message EnrollRequest {
