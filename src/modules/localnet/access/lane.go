@@ -86,7 +86,11 @@ var (
 type Reporter interface {
 	// Reported carries one ExecuteResult: a progress report at admission
 	// and on entering recovery, an observation for a read or a verified
-	// mutation, an error, or a terminal phase.
+	// mutation, an error, or a terminal phase. An error after the device
+	// command was sent carries submitted true when the lane could not make
+	// its first recovery transition durable; the receiver must preserve the
+	// mutation as indeterminate rather than treating the error as proof that
+	// nothing happened.
 	Reported(ctx context.Context, deviceKey string, result *integrationv1.ExecuteResult)
 	// CheckpointAcked carries the acknowledgement of central's
 	// CheckpointRequest.
@@ -115,7 +119,11 @@ type Reporter interface {
 // rejected.
 type Config struct {
 	QueueCapacity  int
-	EvidencePolicy evidence.Policy
+	EvidencePolicy EvidencePolicy
+	// RecoveryMinGap is the minimum time between observations that count as
+	// independent corroboration that a mutation did not land. Zero derives
+	// the gap from each device's DelayedEffect horizon. Set it only when the
+	// device has a stronger freshness guarantee than its measured horizon.
 	RecoveryMinGap time.Duration
 	// RecoveryPollInterval spaces one mutation's recovery polls. Zero means
 	// derive it from the device's own horizon, per
@@ -466,6 +474,10 @@ func (l *Lane) recoveryPollInterval(horizon time.Duration) time.Duration {
 	if l.cfg.RecoveryPollInterval > 0 {
 		return l.cfg.RecoveryPollInterval
 	}
+	return recoveryIntervalFromHorizon(horizon)
+}
+
+func recoveryIntervalFromHorizon(horizon time.Duration) time.Duration {
 	interval := horizon / minRecoveryAttempts
 	if interval < minRecoveryPollInterval {
 		return minRecoveryPollInterval
@@ -820,7 +832,7 @@ type SubmitOptions struct {
 	// caller supplies it here.
 	DeviceKey string
 	Request   *integrationv1.ExecuteRequest
-	Priority  lane.Priority
+	Priority  Priority
 }
 
 // Submit admits opts.Request into its device's lane and blocks until that
@@ -851,8 +863,8 @@ func (l *Lane) Submit(ctx context.Context, opts SubmitOptions) (*integrationv1.E
 	// facade a caller leaving SubmitOptions.Priority at its zero value in a
 	// keyed struct literal is the ordinary mistake, not a deliberate
 	// choice, so it is coerced to PriorityNormal rather than rejected here.
-	if opts.Priority == lane.PriorityUnspecified {
-		opts.Priority = lane.PriorityNormal
+	if opts.Priority == PriorityUnspecified {
+		opts.Priority = PriorityNormal
 	}
 
 	ds, err := l.device(opts.DeviceKey)
@@ -1148,16 +1160,25 @@ func (l *Lane) HandleTerminalAck(ctx context.Context, deviceKey string, ack *int
 			Msgf("no mutation on device %s is open at sequence %d", deviceKey, ack.GetSequence())
 	}
 
-	if err := open.machine.Acknowledge(ctx, ack); err != nil {
-		return err
-	}
+	ackErr := open.machine.Acknowledge(ctx, ack)
 
 	// An abandonment leaves the device's lane held: the mutation's effect
 	// was never established, and only an explicit resolution admits another
 	// one. Engaged after Acknowledge returns, since Acknowledge is what
 	// decides whether the abandonment was accepted at all.
-	if ack.GetDisposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
-		ds.hold.Engage(ack.GetSequence())
+	//
+	// The acknowledgement's mark precedes its first terminal delivery, while
+	// the disposition is also set by recovery-driven abandonment. Consulting
+	// both keeps the hold across a failed delivery from either path. The
+	// sequence is the machine's own, so a later mutation cannot lift a hold
+	// this one engaged.
+	if open.machine.Abandoning() ||
+		open.machine.Disposition() == accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED {
+		ds.hold.Engage(open.machine.Sequence())
+	}
+
+	if ackErr != nil {
+		return ackErr
 	}
 
 	// A mutation in recovery has no process call left waiting on it: the
@@ -1436,7 +1457,9 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// Probed alongside the baseline, before anything is sent. An intent
 	// central built against one firmware must not be applied to another:
 	// the command's meaning is the firmware's, not central's.
-	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+	} else if probed != fingerprint {
 		return l.epochBlocked(ctx, ds, open, fingerprint, probed)
 	}
 
@@ -1473,7 +1496,9 @@ func (l *Lane) processMutation(ctx context.Context, ds *deviceState, open *openM
 	// to label its provenance with — the device that answered is not the
 	// device the read was planned against — so it is discarded rather than
 	// recorded under either epoch.
-	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr == nil && probed != fingerprint {
+	if probed, probeErr := l.reprobeEpoch(ctx, ds, ds.session); probeErr != nil {
+		l.cfg.Telemetry.NoteEpochReprobeUnavailable(ctx, classifyError(probeErr))
+	} else if probed != fingerprint {
 		if err := l.epochChanged(ctx, ds, fingerprint, probed); err != nil {
 			return l.enterRecovery(ctx, ds, open, submittedAt, baseline, err)
 		}
@@ -1582,11 +1607,22 @@ func (l *Lane) afterStep(ctx context.Context, ds *deviceState, open *openMutatio
 	}
 
 	// Provably nothing was sent, so there is nothing to recover and no hold
-	// to engage. Central may dispose this REJECTED, which is what submitted
-	// false on the report tells it, and a record with that disposition owes
-	// no HoldResolved — a hold engaged here would be one central never
-	// learns of and never resolves, refusing every later mutation on this
-	// device with a code central reads as retryable.
+	// to engage — the rule epochBlocked states for the same case, a few
+	// lines below. The hold exists for a mutation whose effect nobody can
+	// establish; this one establishes that there was none, which is what
+	// submitted false on the report tells central, and central disposes it
+	// REJECTED on exactly that flag.
+	//
+	// Engaging here took the device out of service for a transient failure
+	// and never gave it back: a hold is resolved by a mutation verifying,
+	// this one cannot verify, and once it has closed the acknowledgement
+	// that would carry an operator's decision is refused with
+	// no-pending-wait. One checkpoint timeout cost a device until a person
+	// sent HoldResolved.
+	if _, coded := errs.CodeOf(err); !coded {
+		err = errs.From(err).Code(ErrCodeNotSubmitted).
+			Msg("mutation ended before the command was submitted")
+	}
 	return stepOutcome{err: err, owed: true}
 }
 
@@ -1652,15 +1688,14 @@ func (l *Lane) endMutation(ctx context.Context, ds *deviceState, open *openMutat
 		// needs an operator to unblock the device. An abandonment is the
 		// case that keeps its hold, and it engages one of its own.
 		//
-		// Safe against a verified mutation that central then disposes
-		// INDETERMINATE_ABANDONED, which Acknowledge accepts at every open
-		// phase: by the time this runs, Acknowledge has already moved the
-		// phase to ABANDONED and set the disposition, so Verified reads
-		// false and the hold HandleTerminalAck just engaged survives. That
-		// depends on Acknowledge finishing its terminal walk before
-		// returning — if it ever marks and defers the phase change, this
-		// check starts clearing a hold central asked for.
-		if open.machine.Verified() {
+		// Acknowledgement-driven abandonment is marked before its terminal
+		// transition is delivered, and the earlier verified phase stays
+		// observable throughout that window, so the mark is what decides.
+		// Reading the phase alone was safe only while Acknowledge finished
+		// its terminal walk before returning; consulting Abandoning does not
+		// rest on that ordering. Resolved by sequence, so this clears only
+		// the hold this mutation engaged.
+		if open.machine.Verified() && !open.machine.Abandoning() {
 			ds.hold.Resolve(open.machine.Sequence())
 		}
 		if err != nil {
@@ -1706,13 +1741,17 @@ func (l *Lane) reportCheckpoint(ctx context.Context, deviceKey string, ack *inte
 func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *openMutation, since time.Time, baseline *accessv1.InterfaceObservation) {
 	effect := ds.session.DelayedEffect
 	interval := l.recoveryPollInterval(effect.Horizon)
+	minGap := l.cfg.RecoveryMinGap
+	if minGap == 0 {
+		minGap = recoveryIntervalFromHorizon(effect.Horizon)
+	}
 	budget := effect.Horizon + interval
 	pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), budget)
 	ds.stateMu.Lock()
 	open.stopPoll = cancel
 	ds.stateMu.Unlock()
 
-	runner := recovery.New(open.machine, l.cfg.Fenced, effect, l.cfg.RecoveryMinGap, l.cfg.Clock, &ds.hold)
+	runner := recovery.New(open.machine, l.cfg.Fenced, effect, minGap, l.cfg.Clock, &ds.hold)
 
 	go func() {
 		defer cancel()

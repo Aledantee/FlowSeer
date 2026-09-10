@@ -161,7 +161,7 @@ delivered to the edge on the envelope (`spec/proto/flowseer/integration/device/v
 This module's own `internal/lane.Item.Position` is a separate, edge-local
 counter assigned at admission into one device's `lane.Queue` — it orders
 FIFO dispatch and poll coalescing before dispatch, has no relation to
-`sequence`, and never appears on the wire. Priority (`lane.Priority`)
+`sequence`, and never appears on the wire. Priority (`access.Priority`)
 compares only among items still waiting when a slot opens; once an item is
 dequeued, its position is fixed and priority never reorders it again: priority
 applies at admission and never reorders after a sequence is assigned.
@@ -200,7 +200,7 @@ recorded from production code today, around `Lane.process`;
 
 | Metric | Unit | Attributes | Allowed values | Worst-case series per device |
 | --- | --- | --- | --- | --- |
-| `flowseer.device.operation.duration` (histogram) | `s` | `flowseer.device.operation`, `error.type` | operation: `interface_description`, `interface_read` (closed set, grows with each new capability). `error.type`: present only on a failed operation, a bounded classified string (e.g. `mutation/out-of-order`, `mutation/revoked`, `mutation/firmware-epoch`, `mutation/conflicting-reads`, `context.deadline_exceeded`, `context.canceled`) — one series per operation class times one series per distinct failure class, plus one success series per operation class. | 2 operation classes × (1 success + ~6 known failure classes) = 14 |
+| `flowseer.device.operation.duration` (histogram) | `s` | `flowseer.device.operation`, `error.type` | operation: `interface_description`, `interface_read` (closed set, grows with each new capability). `error.type`: present only on a failed operation, a bounded classified string (e.g. `mutation/out-of-order`, `mutation/revoked`, `mutation/firmware-epoch`, `context.deadline_exceeded`, `context.canceled`) — one series per operation class times one series per distinct failure class, plus one success series per operation class. | 2 operation classes × (1 success + ~5 known failure classes) = 12 |
 | `flowseer.device.route.selections` (counter, not yet emitted) | `{selection}` | `flowseer.device.route`, `flowseer.device.outcome` | route: `snmp`, `ssh` (closed set, grows with each new protocol this module routes over). outcome: `success`, `failure` (closed, two values). | 2 routes × 2 outcomes = 4 |
 
 Both bounds are per device; a deployment's total series count is this
@@ -233,6 +233,8 @@ state machine's release step, per the audit-before-release rule.
   `AddDevice`.
 - `recovery.started`, `lane.blocked`, `lane.released` (telemetry event and
   audit record) at their respective state-machine call sites.
+- `firmware.epoch_changed` as a telemetry event and audit record when a
+  mid-operation identity probe establishes a new firmware fingerprint.
 - `lane.frozen` at `Freeze` as one telemetry event plus one audit record
   per registered device, and the freeze-path `lane.released` at `Unfreeze`
   as a telemetry event only. `internal/freeze.Gate` is shared across every
@@ -313,6 +315,17 @@ mutation's effect was unknown; establishing that it applied is the answer to
 that question. Leaving it engaged would mean every successful recovery still
 needed an operator to unblock the device. An abandonment is the case that
 keeps a hold, and engages one of its own.
+
+**The hold follows the mutation's durable state, never a call's return
+value.** Two consequences, and both were once wrong in opposite directions. A
+mutation that provably sent nothing engages no hold at all — there is no
+unknown effect to hold for — so a checkpoint that times out costs the
+operation and not the device. And an abandonment engages one whether or not
+the call announcing it succeeded: `Machine.Abandon` moves the phase, sets the
+disposition and closes `done` before it delivers the lane-blocked record, so a
+refused delivery returns an error over a mutation that is already abandoned,
+and reading that error as "no abandonment" would leave the next mutation to be
+admitted over a device whose last one may have applied.
 
 An abandonment is a *result*, not an error: the caller has to report it to
 central, and central disposes the mutation from what it says. Failing the

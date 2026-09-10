@@ -77,6 +77,28 @@ func TestASubmitFailureThatProvesNothingWasSentSaysSo(t *testing.T) {
 	}
 }
 
+type refusingSubmissionCredentials struct {
+	err error
+}
+
+func (s refusingSubmissionCredentials) Open(context.Context, string, string, uint64) (access.SubmissionHandle, error) {
+	return nil, s.err
+}
+
+func TestAPreSubmissionFailureCrossesTheProcessBoundaryWithACode(t *testing.T) {
+	refusal := errors.New("submission credential service unavailable")
+	l := laneWithReporter(t, &recordingReporter{}, noopDeliverer{}, refusingSubmissionCredentials{err: refusal})
+	submitFailing(t, l, nil)
+
+	_, err := runMutation(t, l, mutationRequest(1))
+	if !errors.Is(err, refusal) {
+		t.Errorf("Submit() error = %v, want it to wrap %v", err, refusal)
+	}
+	if code, _ := errs.CodeOf(err); code != access.ErrCodeNotSubmitted {
+		t.Errorf("Submit() code = %v, want %v: the process boundary cannot carry an uncoded refusal", code, access.ErrCodeNotSubmitted)
+	}
+}
+
 // claimedNothingWasSent reports whether the lane ever told central, on an
 // error result, that the command was not submitted.
 //

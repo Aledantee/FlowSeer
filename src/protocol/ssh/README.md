@@ -9,7 +9,7 @@ caller supplies per command.
 ```go
 opts := ssh.Options{
     Username:      "admin",
-    Password:      password,
+    Password:      secret.NewString(password),
     HostKeySHA256: pinnedFingerprint,
 }
 session, err := ssh.Dial(ctx, "device.example:22", opts)
@@ -33,7 +33,10 @@ if err != nil {
 }
 if res.MatchedPrompt == "enable-password" {
     res, err = session.Run(ctx, ssh.Command{
-        Line:     enablePassword,
+        // Command.Line is the text sent to the device, so material is
+        // revealed at this call and nowhere earlier; Redacted is what the
+        // evidence record carries instead.
+        Line:     enablePassword.RevealString(),
         Redacted: "[REDACTED]",
         Prompts:  []ssh.Prompt{privPrompt},
     })
