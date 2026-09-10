@@ -231,6 +231,31 @@ func TestADuplicateWhileRunningSaysNothing(t *testing.T) {
 	}
 }
 
+func TestAConfirmedProgressReportDoesNotReadmitARunningOperation(t *testing.T) {
+	lane := &laneFake{release: make(chan struct{}), entered: make(chan struct{}, 2)}
+	demux := dispatch.NewDemux(lane, &outboundFake{}, nil)
+
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	select {
+	case <-lane.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the operation never reached the lane")
+	}
+
+	demux.Confirmed("dev-1", 3)
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle after confirming a progress report: %v", err)
+	}
+
+	close(lane.release)
+	demux.Wait()
+	if got := lane.submitted(); len(got) != 1 {
+		t.Errorf("the lane saw %v, want the running operation submitted exactly once", got)
+	}
+}
+
 // TestALaneRefusalReachesCentralWithItsOwnCode: which codes are retryable is
 // central's policy, so the lane's code goes on the wire unchanged. An edge
 // that translated them would be deciding on central's behalf with less to go
@@ -266,6 +291,52 @@ func TestALaneRefusalReachesCentralWithItsOwnCode(t *testing.T) {
 	}
 	if refused.GetSequence() != 9 {
 		t.Errorf("sequence = %d, want 9", refused.GetSequence())
+	}
+}
+
+func TestAnUncodedLaneRefusalDoesNotClaimTheDeviceIsUnknown(t *testing.T) {
+	lane := &laneFake{otherErr: errors.New("lane refused without a classification")}
+	out := &outboundFake{}
+	demux := dispatch.NewDemux(lane, out, nil)
+
+	checkpoint := &integrationv1.SubscribeResponse{}
+	checkpoint.SetDeviceId("dev-1")
+	req := &integrationv1.CheckpointRequest{}
+	req.SetSequence(9)
+	checkpoint.SetCheckpoint(req)
+
+	if err := demux.Handle(context.Background(), checkpoint); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+
+	reports := out.sent()
+	if len(reports) != 1 || reports[0].GetRefused() == nil {
+		t.Fatalf("sent %d reports, want one refusal", len(reports))
+	}
+	got := reports[0].GetRefused().GetCode()
+	if got == "" {
+		t.Fatal("uncoded lane refusal reached central without a valid refusal code")
+	}
+	if got == string(access.ErrCodeUnknownDevice) {
+		t.Fatalf("uncoded lane refusal reached central as %q, which central may dispose REJECTED", got)
+	}
+}
+
+func TestALaneRefusalDoesNotLeaveTheOperationInFlight(t *testing.T) {
+	lane := &laneFake{submitErr: errs.New().Code(access.ErrCodeNoPendingWait).Msg("lane refused")}
+	demux := dispatch.NewDemux(lane, &outboundFake{}, nil)
+
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	demux.Wait()
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle after refusal: %v", err)
+	}
+	demux.Wait()
+
+	if got := lane.submitted(); len(got) != 2 {
+		t.Errorf("the lane saw %v, want the refused operation admitted again", got)
 	}
 }
 

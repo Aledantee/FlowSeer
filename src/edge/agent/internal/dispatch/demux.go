@@ -147,6 +147,7 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 		// operation must not stop every other device's messages.
 		result, err := d.lane.Submit(ctx, access.SubmitOptions{DeviceKey: device, Request: request})
 		if err != nil {
+			d.registry.discard(device, sequence)
 			d.refuse(ctx, device, sequence, integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, err)
 			return
 		}

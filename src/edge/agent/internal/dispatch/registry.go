@@ -107,15 +107,26 @@ func (r *registry) report(device string, sequence uint64) (*integrationv1.Execut
 	return cloned, true
 }
 
-// forget drops an operation once it is terminal and central has been told.
-// Without it this map is a leak with the lifetime of the process: one entry
-// per operation the edge has ever run.
+// forget drops a recorded operation once central confirms its report. Without
+// it this map is a leak with the lifetime of the process: one entry per
+// operation the edge has ever run.
 //
-// Both halves are the caller's to establish, and the report queue is the only
-// caller: it confirms an operation on a report that ends it and on no other,
-// because dropping an entry for an operation still running would let a
-// re-dispatch of that sequence be admitted and applied to the device twice.
+// An in-flight marker — a known operation with no report yet — stays, because
+// central also confirms progress reports made before Submit returns. Dropping
+// an entry for an operation still running would let a re-dispatch of that
+// sequence be admitted and applied to the device twice, so the nil check here
+// and the caller's own discipline are guarding the same hazard from two
+// sides.
 func (r *registry) forget(device string, sequence uint64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	key := operationKey{device: device, sequence: sequence}
+	if r.reports[key] != nil {
+		delete(r.reports, key)
+	}
+}
+
+func (r *registry) discard(device string, sequence uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.reports, operationKey{device: device, sequence: sequence})

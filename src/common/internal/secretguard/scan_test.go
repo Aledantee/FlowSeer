@@ -23,6 +23,7 @@ var secretNames = []string{
 	"password",
 	"passphrase",
 	"secret",
+	"seed",
 	"privatekey",
 	"credential",
 	"seed",
@@ -202,6 +203,11 @@ func TestScanRawSecretFields(t *testing.T) {
 			name:   "raw byte slice field",
 			source: "package p\ntype O struct {\n\tPrivateKeyPEM []byte\n}\n",
 			want:   []string{"a.go: O.PrivateKeyPEM"},
+		},
+		{
+			name:   "raw seed field",
+			source: "package p\ntype O struct {\n\tSeed string\n}\n",
+			want:   []string{"a.go: O.Seed"},
 		},
 		{
 			name:   "pointer to a raw type",
