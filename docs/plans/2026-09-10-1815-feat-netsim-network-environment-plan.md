@@ -158,8 +158,8 @@ rather than the standard's, since the model would then be a vendor emulator.
 ## Requirements
 
 Phase 1 claims 1 through 21, phase 2 claims 22 through 32, phase 3 claims
-33 through 37, phase 4 claims 38 through 41. The later phases carry their acceptance examples in their
-own plans; here they are one line each.
+33 through 40, phase 4 claims 41 through 44. The later phases carry their
+acceptance examples in their own plans; here they are one line each.
 
 1. The codec round-trips a tagged frame. Acceptance: decoding
    `01 00 5e 00 00 fb  00 11 22 33 44 55  81 00  a0 64  08 00` plus payload
@@ -273,10 +273,13 @@ own plans; here they are one line each.
 35. A cut cable re-converges onto the alternate port and flushes the affected entries.
 36. A hub inside the ring is transparent to the protocol.
 37. Bridge and port protocol state export through the new `net/protocol/stp/v1` schema.
-38. A frame to the device's own address on a routed VLAN is routed to another VLAN.
-39. A missing neighbor is an outcome, not a flood.
-40. TTL exhaustion drops.
-41. A host with an IP stack sends through its gateway.
+38. Two bridges on one cable converge in two exchanges.
+39. A BPDU on a device without the layer is visible in its journey.
+40. The codec round-trips an RST BPDU.
+41. A frame to the device's own address on a routed VLAN is routed to another VLAN.
+42. A missing neighbor is an outcome, not a flood.
+43. TTL exhaustion drops.
+44. A host with an IP stack sends through its gateway.
 
 ## Out of scope
 

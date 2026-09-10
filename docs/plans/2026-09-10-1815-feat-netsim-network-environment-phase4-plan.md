@@ -62,23 +62,24 @@ from:
 
 ## Requirements
 
-This phase claims requirements 38 through 41 of the parent, with these acceptance examples:
+This phase claims requirements 41 through 44 of the parent, with these
+acceptance examples:
 
-38. A frame to the device's own address on a routed VLAN is routed to
+41. A frame to the device's own address on a routed VLAN is routed to
     another VLAN. Acceptance: VLAN 10 with 10.0.10.1/24 and VLAN 20 with
     10.0.20.1/24 on `sw1`; a frame from a host in VLAN 10 to the
     interface's MAC carrying an IPv4 packet for 10.0.20.7 traces `classify`,
     `lookup` in the routing layer, `rewrite` of both addresses and TTL, and
     egress in VLAN 20 to the port the neighbor table names for 10.0.20.7.
-39. A missing neighbor is an outcome, not a flood. Acceptance: the frame of
-    33 with no neighbor entry for 10.0.20.7 ends with `neighbor-miss`
+42. A missing neighbor is an outcome, not a flood. Acceptance: the frame of
+    41 with no neighbor entry for 10.0.20.7 ends with `neighbor-miss`
     naming the VLAN and address.
-40. TTL exhaustion drops. Acceptance: the frame of 38 with TTL 1 drops with
+43. TTL exhaustion drops. Acceptance: the frame of 41 with TTL 1 drops with
     `ttl-expired`.
-41. A host with an IP stack sends through its gateway. Acceptance: host `h1`
+44. A host with an IP stack sends through its gateway. Acceptance: host `h1`
     with 10.0.10.7/24 and gateway 10.0.10.1 asked to send to 10.0.20.7
     emits a frame to the gateway's MAC, resolved from a static neighbor
-    entry, and the result of 38 follows.
+    entry, and the result of 41 follows.
 
 ## Out of scope
 
