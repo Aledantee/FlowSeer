@@ -304,6 +304,10 @@ spec/          # protobuf, MIB, and YANG sources of truth
   `testing.Short()`.
 - Repository-wide protobuf conformance checks live in `test/conformance/proto/`;
   executable tests and fixtures never live in `spec/` or `generated/`.
+- A fixture that constructs a protobuf message passes `protovalidate.Validate`
+  in the test that builds it. A fixture is a claim that the system could
+  receive that message; a package once had twenty tests exercising a request
+  the wire would have refused, found only when a fix added a loud failure.
 - [Test layout](conventions/testing.md) defines ownership, shared helper placement,
   and commands for running the suites.
 

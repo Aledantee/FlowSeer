@@ -91,8 +91,11 @@ if [ "$in_linked_worktree" = 1 ]; then
   esac
   abs=$(physical_path "$abs")
   parent=$(cd "$common_dir/.." 2>/dev/null && pwd -P) || exit 0
+  # The worktree's own git dir sits under <parent>/.git/worktrees/<name>,
+  # inside the parent by path and private to this worktree by ownership:
+  # implement keeps its plan ledger there and the verifier its receipt.
   case "$abs" in
-    "$toplevel"/*) exit 0 ;;
+    "$toplevel"/*|"$git_dir"/*) exit 0 ;;
     "$parent"/*)
       deny "This session is isolated in the worktree $toplevel, but the edit target is $abs — inside the parent checkout $parent. Write to the corresponding path under $toplevel instead; changes reach the parent through a commit and merge, never through a direct edit." ;;
   esac

@@ -449,7 +449,10 @@ type pass struct {
 	elapsed     time.Duration
 }
 
-var corpusOnce = sync.OnceValues(runPass)
+var (
+	corpusOnce    = sync.OnceValues(runPass)
+	corpusEntered sync.Once
+)
 
 func corpusPass(t *testing.T) *pass {
 	t.Helper()
@@ -458,6 +461,12 @@ func corpusPass(t *testing.T) *pass {
 		t.Skip("the corpus pass is single-goroutine, so the race detector finds nothing here and only pushes the walk past the default test timeout; run without -race")
 	}
 
+	// A test-timeout traceback names whichever test is waiting on the once,
+	// not the one that entered it, so a hung pass could not be attributed.
+	// Written to stderr directly because t.Log output is lost on a panic.
+	corpusEntered.Do(func() {
+		fmt.Fprintf(os.Stderr, "corpus pass entered by %s at %s\n", t.Name(), time.Now().Format(time.RFC3339))
+	})
 	p, err := corpusOnce()
 	if err != nil {
 		t.Fatalf("%v", err)

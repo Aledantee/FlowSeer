@@ -415,6 +415,13 @@ assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_linked"
 guard_escape=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/README.md" \
   '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
 assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_escape"
+linked_git_dir=$(git -C "$linked_worktree" rev-parse --absolute-git-dir)
+guard_ledger=$(jq -n --arg cwd "$linked_worktree" --arg path "$linked_git_dir/flowseer-plan-status.json" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
+assert_allow "$repo_root/tools/hooks/worktree-guard.sh" "$guard_ledger"
+guard_parent_git=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/.git/config" \
+  '{cwd:$cwd,hook_event_name:"PreToolUse",tool_name:"Write",tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/worktree-guard.sh" "$guard_parent_git"
 guard_start=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"SessionStart"}')
 jq -e '.hookSpecificOutput.additionalContext | contains("EnterWorktree")' \
   <<<"$("$repo_root/tools/hooks/worktree-guard.sh" <<<"$guard_start")" >/dev/null

@@ -386,6 +386,16 @@ Keep queues and retries bounded, flush on shutdown within a deadline, and expose
 accepted, dropped, and export-failure diagnostics through a path that cannot
 recursively depend on the failing exporter.
 
+A branch that degrades gracefully on an error makes the degraded state
+distinguishable from the healthy one from outside the process: a span
+attribute, a counter, or a log line that fires only on the degraded path.
+Without it the feature the branch guards can be dead indefinitely with every
+test passing, because the degraded output is by design the same output a
+legitimate failure produces. A device-access lane lost its corroboration
+retry this way: a baseline read that a state machine refused on every call
+landed in the "device unreadable" branch, set the baseline to nil, and looked
+exactly like an unreadable device for several slices.
+
 Never record credentials, authentication headers, private keys, access or
 session tokens, raw telemetry carriers, or unrestricted request and message
 bodies. Treat device addresses, usernames, topology names, file paths, error

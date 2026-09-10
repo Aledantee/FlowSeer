@@ -33,12 +33,50 @@ Finish a cross-module or schema change with `--full`; a targeted run is
 enough for documentation, hook, or single-module work. Pass explicit paths
 when the worktree contains changes outside the current task.
 
+The gate is this closed list, and a coordinator restating it from memory
+is how lint went missing once: format, build, vet, race test, and lint on
+every package that can observe the change, plus `src/common/errs` and
+`test/conformance/proto` on every targeted run of the root module, because
+their tests hold repository-wide invariants (error-code uniqueness, schema
+layering) that no changed package's own tests can see. It runs on the final
+tree, after the last edit; a run before it is evidence about a tree that no
+longer exists, and `close` compares the receipt's `verified_at` with the
+last commit.
+
+The last line is the verdict: `FlowSeer verification passed.` or
+`FlowSeer verification FAILED (exit N).` Quote it rather than summarize it.
+When the script runs in the background, it is the last command of its
+invocation: a trailing `tail` or `echo` reports its own exit code as the
+gate's, and a session has announced a green verifier that way over a log
+holding two `FAIL` lines. Any output you may need later goes to a file and
+is grepped afterwards, never piped through a filter, since the filter is
+applied before you know what the run contained.
+
 A directory is expanded to the files it holds, so `-- src/edge/agent` and the
 files under it select the same gates. A path list that selects no gate at all
 — a typo, a deleted file on its own, a file of a type nothing checks — exits
 non-zero saying so rather than reporting a pass, because a run that checked
 nothing and a run that checked everything and found it clean must not print
-the same line.
+the same line. The same rule covers every path to "passed": a cached test
+answer, a wrapper's exit code, a step that had nothing to check. Whatever
+produces a pass without a gate having run is the bug.
+
+`--full` bounds `go test -p` to half the CPUs: a module-wide race run at
+one package binary per CPU times out packages that start listeners or walk
+a corpus, and they pass alone. A timeout under the wide run is still not a
+finding until it reproduces package-alone, and an isolated pass does not
+clear the change either. Attribution is one step: the same failure on a
+detached checkout of the base with the change absent. `go list -deps` on
+the failing package says where to look first, but it answers a
+compile-time question only; a change reaches a test without appearing in
+its imports through a shared port, a testdata directory, or an environment
+variable.
+
+`buf breaking` compares only the changed `.proto` files master already
+holds, and prints that it skipped when every changed schema file is new on
+the branch: `--path` naming a file absent from the baseline targets nothing,
+which buf reports as a failure carrying no signal about the change. The
+whole-module form under `--full` still covers a deletion.
 
 Full runs and telemetry-sensitive paths (service Go sources, its Collector
 integration sources and fixture, the wrapper, root `go.mod` or `go.sum`) run

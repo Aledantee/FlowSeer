@@ -92,7 +92,12 @@ agent whose pool is signed in.
 
 `account list` reports `rateLimits` per provider: a `status` and windows
 (`session`, `weekly`, `fableWeekly`, `monthly`) with `usedPercent` and
-`resetsAt`. Read the worst window of every provider before each wave:
+`resetsAt`. Reading it is a step of every dispatch, not advice before one:
+run it immediately before each wave, and again first whenever a delegated
+session goes quiet, because an exhausted pool is the cheapest of the four
+causes of silence to rule out and the only one visible without touching the
+worker. A window at 0% may have just rolled over; the `resetsAt` in the
+same row says whether it did. The worst window of every provider:
 
 ```bash
 orca account list --json | python3 -c '
@@ -149,16 +154,35 @@ landed on `master` since, which is not the change under review.
 `--setup skip` because this repository configures no Orca setup script and
 an empty script is reported as a failed setup.
 
+A codex worker inherits the pool's approval policy unless told otherwise
+and then stops at a prompt nobody sees. The full-handoff form `orca
+worktree create --agent codex` accepts no flags, so a controlled codex
+handoff is a worktree without `--agent` followed by `orca terminal create
+--command "codex -a never --sandbox danger-full-access --model <id>"`:
+`workspace-write` cannot reach Orca's socket outside the workspace, so a
+worker under it commits and cannot send `worker_done`. Whether
+`worker-start` passes an approval policy through is unverified; read `orca
+skills get orchestration` before a codex dispatch there.
+
 A worker runs the focused tests of its package and commits on its branch; it
-does not run the verifier. After every `worker_done`, merge the worker's
-branch into this worktree and run the verifier once, sandbox disabled, on the
-union of changed paths. When `check --wait` returns nothing, look at
-`git status` in the worker's worktree before calling it stalled: a written
-file with no commit means the worker is still testing. A clean tree, a
-final commit, and an agent that says Orca is not running means the worker
-sent its report from inside the sandbox: read its terminal tail for the
-summary, merge the branch, `worker-stop` then `worker-abandon` the
-dispatch, and mark the task completed by hand.
+does not run the verifier. After every `worker_done`, check the tree before
+reading the report as fact: `git -C <child> log --oneline -1` shows the
+commit the report names, `git -C <child> status --porcelain` is empty, and
+the two or three changes most expensive to get wrong are what the report
+says. A report describes what a session believes it did, and the gap
+between that and the tree is where a silent tool failure lives. Then merge
+the worker's branch into this worktree and run the verifier once, sandbox
+disabled, on the union of changed paths.
+
+When `check --wait` returns nothing, no channel distinguishes a worker
+blocked on the coordinator from one at work. Rule out the causes in cost
+order: the provider's quota, as Dispatch by quota describes; the terminal
+tail (`orca terminal read`) for an approval prompt or an instruction that
+arrived mangled; then `git status` in the worker's worktree, where a written
+file with no commit means the worker is still testing. A clean tree, a final
+commit, and an agent that says Orca is not running means the worker sent its
+report from inside the sandbox: settle it as `references/orca-sandbox.md`
+describes.
 
 Update the worktree comment at each checkpoint:
 
@@ -209,7 +233,9 @@ A delegate has none of this conversation. The brief states, in order:
 2. The files or diff to work from, as repository-relative paths; a reviewer
    gets the path of a diff file in the scratchpad directory.
 3. The conventions that apply, as paths, and the matched `docs/solutions/`
-   entries.
+   entries; for a reviewer, also the pinned version of every external
+   convention or library those files rely on, so a finding is checked
+   against the version in `go.mod` or `buf.lock` rather than the latest.
 4. What to return: evidence with `path:line`, findings by severity with a
    failure scenario each, or the changed paths, the focused test command and
    its result, and the commit hash. Outcome first, no preamble, no closing
@@ -232,20 +258,33 @@ A delegate has none of this conversation. The brief states, in order:
    > dispatch ids.
 
    A worker that does not get this finishes its work and cannot report it;
-   the coordinator then finds a committed branch with no `worker_done`,
-   settles the dispatch by hand, and loses the worker's summary.
-
-   The durable fix is per machine, not per call: Orca's control socket
-   lives under `~/Library/Application Support/orca/` with a name that
-   changes on every app restart, so no path allowlist holds. Setting
-   `{"sandbox":{"network":{"allowAllUnixSockets":true}}}` in the user's
-   `~/.claude/settings.json` lets every session and worker reach Orca
-   sandboxed, with no restart. It is a user setting because the path is
-   machine-specific; nothing in the repository can carry it.
+   `references/orca-sandbox.md` says how to settle such a dispatch and the
+   per-machine setting that removes the need.
 8. For an Orca worker, that editing subagents stay out of its checkout. A
    worker that spawns the Agent tool without worktree isolation gets its
    subagents' files in its own tree and reads them as a duplicate dispatch.
    Read-only subagents are fine; editing work runs in the worker's own turn.
+9. For a terminal-driven worker, the brief itself goes in a file under the
+   worker's worktree and the terminal gets a one-line pointer to it: a long
+   paragraph through `orca terminal send` arrives as stray characters at the
+   prompt, and the loss is silent at both ends. The brief never requires an
+   acknowledgement before the worker continues; a worker that waits on the
+   coordinator looks, from here, exactly like one that is working.
+
+A claim about the codebase in a brief (an import direction, a call's
+behavior, a field's existence) is marked verified with `path:line`, or
+unverified for the worker to confirm; a coordinator's instruction is a fact
+established elsewhere and decays like one, and a worker checking it before
+building on it is expected. A decision against a delegate's proposal states
+the failure it avoids in terms the delegate can check in the tree; a
+preference can only be complied with, and a delegate that can only comply
+also complies with the coordinator's mistakes. A ledger `note` records what
+the next unit needs to know about what landed, not a rule: when an override
+of a worker will recur, make the edit to the convention doc that governs the
+file type its own reviewed change before the next dispatch, or leave the
+override out of the brief, because a brief that
+names a convention doc as authoritative and contradicts it in a note puts
+the worker between two sources with no rule for which wins.
 
 A brief for `Explore` or `repo-researcher` names the directories to search and
 leaves out `docs/plans/` unless the question is about a plan; the tree, the
