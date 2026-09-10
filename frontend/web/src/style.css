@@ -193,6 +193,7 @@ html:has(.shell) {
 .sidebar {
   z-index: 4;
   --sidebar-inset: 18px;
+  --glow-bar-fade: linear-gradient(to right, #000 45%, transparent);
   flex-shrink: 0;
   position: fixed;
   inset: 0 auto 0 0;
@@ -1630,6 +1631,7 @@ td small {
   background: transparent;
 }
 .topbar-glass {
+  --glow-bar-fade: linear-gradient(to bottom, #000 35%, transparent);
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -1666,8 +1668,13 @@ td small {
 .topbar::after {
   content: none;
 }
-.main-shell::before {
-  content: '';
+/* Chrome-coloured wedge that reads as a rounded inner corner where the
+   sidebar and top bar meet. It carries the shared glow so it stays
+   continuous with both surfaces. */
+.main-notch {
+  /* The wedge sits where both fades have already run out, so it carries the
+     glow without any bars. */
+  --glow-bar-fade: linear-gradient(transparent, transparent);
   position: absolute;
   z-index: 3;
   top: var(--topbar-height);

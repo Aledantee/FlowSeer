@@ -16,6 +16,7 @@ const paths: Record<string, string> = {
   arrow: 'M5 12h14 M14 7l5 5-5 5',
   close: 'M6 6l12 12 M18 6 6 18',
   pulse: 'M2 12h5l3-8 4 16 3-8h5',
+  tenants: 'M12 3 3 7.5 12 12l9-4.5L12 3 M3 12l9 4.5L21 12 M3 16.5 12 21l9-4.5',
 }
 </script>
 <template>
