@@ -4,7 +4,7 @@
 # window is metered in dollars. `refusal_cyber` is the tune skill's measured
 # or reported likelihood that a safety classifier declines security tooling
 # work. Sources and dates live in `.claude/models/evidence.md`.
-as_of: 2026-09-09  # calibration 2026-09-09: Merge task, see evidence.md
+as_of: 2026-09-09  # calibration 2026-09-09: Merge task, see evidence.md; catalogue re-pulled 2026-09-09 14:24Z
 
 pools:
   claude: {cli: claude, pin: orca-model, meter: requests}
@@ -22,11 +22,14 @@ models:
   gpt-5.6-sol: {pool: codex, vendor: openai, price: [4, 20], context: 1050000, effort: [low, medium, high, xhigh, max], refusal_cyber: low, terminal_bench: null, local: {execute: {pass: 7/7, wall_s: '>6600 (global codex plugin self-review)', cost_usd: null}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 530, cost_usd: 3.5}}}
   gpt-5.6-luna: {pool: codex, vendor: openai, price: [0.2, 1.2], context: 1050000, effort: [low, medium, high], refusal_cyber: low}
   gemini-3.8-flash: {pool: google, vendor: google, price: [0.75, 3.75], context: 1048576, effort: [low, medium, high], refusal_cyber: medium, id_format: "gemini-3.8-flash-<effort>", local: {execute: {pass: 7/7, wall_s: 201, cost_usd: 0.56}, review-unit: {found_known_bug: true, extra_valid: 4, wall_s: 275, cost_usd: 0.48}}}
-  glm-5.3: {pool: go, vendor: zai, price: [1.4, 4.4], context: 1310720, effort: [], refusal_cyber: low, terminal_bench: 88.2, open_weights: true, local: {execute: {pass: 0/7, wall_s: 902, cost_usd: 0.17, note: 32K reasoning then finish=length, no tool call}}}
-  glm-5.3-flash: {pool: go, vendor: zai, price: [0.07, 0.25], context: 1310720, effort: [], refusal_cyber: low, open_weights: true}
+  glm-5.3: {pool: go, vendor: zai, price: [1.4, 4.4], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 88.2, open_weights: true, local: {execute: {pass: 0/7, wall_s: 902, cost_usd: 0.17, note: 32K reasoning then finish=length, no tool call}}}
+  glm-5.3-flash: {pool: go, vendor: zai, price: [0.07, 0.25], context: 1000000, effort: [], refusal_cyber: low, open_weights: true}
   kimi-k3: {pool: go, vendor: moonshotai, price: [3, 15], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 88.3, open_weights: true, local: {execute: {pass: 7/7, wall_s: 1235, cost_usd: 0.82}}}
   qwen3.8-max: {pool: go, vendor: alibaba, price: [2, 6], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 86.6, local: {review-unit: {found_known_bug: false, extra_valid: 1, wall_s: 1669, cost_usd: 0.63}}}
   deepseek-v4-flash: {pool: go, vendor: deepseek, price: [0.14, 0.28], context: 1048576, effort: [], refusal_cyber: low, open_weights: true}
+  deepseek-v4-pro: {pool: go, vendor: deepseek, price: [0.435, 0.87], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: 87.9, open_weights: true}  # 0813 checkpoint; no calibration yet, in no fit set
+  qwen3.8-flash: {pool: go, vendor: alibaba, price: [0.15, 0.47], context: 1000000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
+  grok-4.6: {pool: go, vendor: xai, price: [2, 6], context: 500000, effort: [], refusal_cyber: low, terminal_bench: null}  # no calibration yet, in no fit set
   minimax-m3: {pool: go, vendor: minimax, price: [0.3, 1.2], context: 1048576, effort: [], refusal_cyber: low, terminal_bench: 66.0, vision: true, open_weights: true}
 
 # A role names what a piece of delegated work needs. `fit` lists the models

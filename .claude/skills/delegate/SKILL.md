@@ -30,19 +30,45 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | A whole plan handed to someone else | the user's choice | Orca full handoff |
 
 Resolve a role to a lane in this order: drop models whose pool
-`host.local.yaml` shows signed out or over 85% on any window; drop models
+`host.local.yaml` shows `signed_in` false or null, or over 85% on any
+window; drop `zen` unless every fitting prepaid pool is hot; drop models
 the role `exclude`s; for `review-unit`, drop the executor's vendor; then take
 the model whose pool has the most headroom, and within ten points the one
-with the lower registry price. Four pools are prepaid (`claude`, `codex`,
-`google`, `go`); an unspent window is waste, so a wave spreads across all of
-them rather than draining one. `zen` is per-token and is used only when
-every fitting prepaid pool is hot, and the report says so.
+with the lower registry price. A signed-in pool that reports no window
+(`windows: null`) counts as full headroom, so it is taken before a Claude
+window with a number on it. Assignment is per lane, not per wave: a pool
+that already holds a running lane in this wave drops to the back until that
+lane settles, so a six-unit `execute` wave with four pools signed in runs on
+four pools, not six times on Sonnet or six times on Gemini. Four pools are
+prepaid (`claude`, `codex`, `google`, `go`); an unspent window is waste.
+`zen` is per-token, and a wave that reaches it says so. The report names
+every fitting pool the wave left idle and why.
 
 Pinning by pool: `claude` and `codex` take `--model` and `--effort` on the
 Orca dispatch line or the Agent tool's `model`; `google` takes
 `--model gemini-3.8-flash-<effort>` on the `agy` launch; `go` and `zen` take
 the opencode agent named in the registry's `opencode_agents`, whose model is
-fixed in `~/.config/opencode/opencode.json`. Name the model on every worker;
+fixed in `~/.config/opencode/opencode.json`. Orca's `worker-start` pins
+Claude, Codex, and Cursor ids only, and a dispatch into an `agy` or
+`opencode` terminal is never submitted (checked 2026-09-09), so a `google` or
+`go` lane runs headless instead: create the child worktree with `git
+worktree add -b <slug> <path> HEAD`, then
+
+```bash
+.claude/skills/tune/scripts/bench.sh --lane <slug> --cli agy --model gemini-3.8-flash-<effort> \
+  --brief <brief file> --dir <path> --out <json>          # google
+.claude/skills/tune/scripts/bench.sh --lane <slug> --cli opencode --model <opencode-go id> \
+  --agent <opencode agent> --brief <brief file> --dir <path> --out <json>   # go, zen
+# <opencode-go id> is opencode-go/<model> for go and opencode/<model> for zen:
+# host.local.yaml lists the <model> part; bench.sh splits on the first slash.
+```
+
+unsandboxed and in the background; the JSON carries wall time and usage,
+the worker commits on its branch, and the coordinator merges and verifies
+it like an Orca worker's. These CLIs run with permissions off and load none
+of the repository hooks, so before merging, check that the branch touched
+neither `generated/` nor `buf.lock`: `git diff --name-only master...<branch>
+-- generated buf.lock` must print nothing. Name the model on every worker;
 never `inherit` or unset, and never the coordinating session's own model.
 One model per task from start to finish. At most three workers run at once;
 start the next wave after the first settles.
@@ -192,9 +218,9 @@ A delegate has none of this conversation. The brief states, in order:
    documents it), the `note` line of every landed unit, verbatim, and
    nothing else from the ledger.
 6. The boundaries: no edits outside the named files, no changes to
-   `AGENTS.md`, `buf.yaml`, `tools/hooks/`, or `.claude/settings.json`, no
-   plan labels in code.
-6. For an Orca worker, how to reach Orca from inside its own sandbox. Copy
+   `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
+   `generated/`, or `buf.lock`, no plan labels in code.
+7. For an Orca worker, how to reach Orca from inside its own sandbox. Copy
    this paragraph into the brief verbatim:
 
    > Every `orca` command (`orchestration send`, `check`, `ask`,
@@ -216,7 +242,7 @@ A delegate has none of this conversation. The brief states, in order:
    `~/.claude/settings.json` lets every session and worker reach Orca
    sandboxed, with no restart. It is a user setting because the path is
    machine-specific; nothing in the repository can carry it.
-7. For an Orca worker, that editing subagents stay out of its checkout. A
+8. For an Orca worker, that editing subagents stay out of its checkout. A
    worker that spawns the Agent tool without worktree isolation gets its
    subagents' files in its own tree and reads them as a duplicate dispatch.
    Read-only subagents are fine; editing work runs in the worker's own turn.

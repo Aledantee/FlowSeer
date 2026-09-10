@@ -290,6 +290,43 @@ if ((${#go_files[@]})); then
   }
 fi
 
+# Files behind a build tag are invisible to the untagged build, so a
+# signature change can leave them broken while the gate is green. Vet the
+# targets once per tag found in their directories; vet compiles the tagged
+# test files without running them. GOOS and GOARCH names, ignore, and race
+# are not sweepable tags. Run from inside the module.
+vet_tagged() {
+  local tags=() tag
+  while IFS= read -r tag; do
+    tags+=("$tag")
+  done < <(go list -f '{{.Dir}}' "$@" \
+    | while IFS= read -r dir; do grep -h '^//go:build' "$dir"/*.go 2>/dev/null || true; done \
+    | tr -c 'A-Za-z0-9_\n' ' ' | tr ' ' '\n' \
+    | grep -vxE 'go|build|ignore|race|linux|darwin|windows|freebsd|netbsd|openbsd|solaris|aix|plan9|js|wasip1|amd64|arm64|arm|386|riscv64|ppc64le|ppc64|s390x|mips64|mips|wasm|cgo|unix|purego' \
+    | grep -v '^$' | sort -u)
+  for tag in "${tags[@]:-}"; do
+    [[ -n $tag ]] || continue
+    run go vet -tags "$tag" "$@"
+  done
+}
+
+# A nested module that replaces the root module with the tree (the bench
+# and netpen modules) breaks on a root signature change but is never
+# selected by a root-only path list. Compile and vet it, tags included;
+# its race tests stay with --full.
+dependent_modules=()
+if [[ $full == false ]]; then
+  for module in "${modules[@]:-}"; do
+    [[ $module == . ]] || continue
+    while IFS= read -r modfile; do
+      grep -q '^replace go.aledante.io/FlowSeer ' "$modfile" || continue
+      dep=$(dirname "${modfile#./}")
+      [[ $dep == . ]] && continue
+      dependent_modules+=("$dep")
+    done < <(find . -name go.mod -not -path './.git/*' -not -path './.claude/worktrees/*' -not -path './.codex/worktrees/*' -print | sort)
+  done
+fi
+
 if ((${#modules[@]})); then
   need_tool go
   need_tool golangci-lint
@@ -313,12 +350,14 @@ if ((${#modules[@]})); then
       targets=(./...)
       changed_pkgs=()
       for go_file in "${go_files[@]}"; do
+        # Route each file to its nearest go.mod: a prefix match alone
+        # would hand a nested module's file to the root module, which
+        # then fails with "main module does not contain package".
+        [[ $(cd "$root" && module_for_file "$go_file") == "$module" ]] || continue
         if [[ $module == . ]]; then
           rel=$go_file
-        elif [[ $go_file == "$module"/* ]]; then
-          rel=${go_file#"$module"/}
         else
-          continue
+          rel=${go_file#"$module"/}
         fi
         pkg_dir=$(dirname "$rel")
         [[ -d $pkg_dir ]] || continue
@@ -353,6 +392,7 @@ PY
         echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
       fi
       run go vet "${targets[@]}"
+      vet_tagged "${targets[@]}"
       run go test -race "${targets[@]}"
       # Enumerate package directories and drop generated output so lint
       # stays bounded by hand-written code even though generated findings
@@ -376,6 +416,17 @@ PY
     )
   done
 fi
+
+for dep in "${dependent_modules[@]:-}"; do
+  [[ -n $dep ]] || continue
+  echo "== Dependent module: $dep (build and vet only) =="
+  (
+    cd "$dep"
+    run go build ./...
+    run go vet ./...
+    vet_tagged ./...
+  )
+done
 
 if [[ $proto == true ]]; then
   need_tool buf

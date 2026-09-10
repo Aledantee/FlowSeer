@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-06
+last_updated: 2026-09-09
 ---
 
 # Agent steering
@@ -250,8 +250,8 @@ and nothing else.
 
 Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
 `independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
-on Haiku and editing workers to Sonnet, and no agent uses `inherit` any
-more: the coordinating session may run the most expensive model, and none
+on Haiku and resolves editing workers from the registry's fit set by pool
+headroom, and no agent uses `inherit` any more: the coordinating session may run the most expensive model, and none
 of the delegated work needs it. Anthropic's subagent guide recommends Haiku
 for read-only exploration; its research-system report measured an Opus lead
 with Sonnet workers beating a single Opus agent by 90.2% on its internal
@@ -269,7 +269,13 @@ central integrator, and test-based verification at merge improved paper
 reproduction by 25.6 points and library development by 14.7. Orca's
 `worker-start` provides exactly that: a child worktree per worker, a named
 model and effort per launch, and a `worker_done` report the coordinator
-waits on. Read-only delegates stay native subagents, which load their
+waits on. Its `--model` pins Claude, Codex, and Cursor ids only, and a
+dispatch into an `agy` or `opencode` terminal sits unsubmitted in the TUI
+(probed 2026-09-09), so the Google and Go pools run through the headless
+launcher the `tune` calibration uses, in a plain child worktree; the first
+six-unit wave after the registry landed ran wholly on Sonnet because the
+skill had no such path and treated a pool without window data as having no
+headroom. Read-only delegates stay native subagents, which load their
 definition and nothing else, where an Orca worker is a full Claude Code
 session. Outside Orca, `delegate` falls back to native subagents with
 worktree isolation. The Orca command surface is version-matched and served
