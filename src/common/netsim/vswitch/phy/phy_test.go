@@ -24,7 +24,7 @@ func mustTable(t *testing.T, ports ...port.Port) port.Table {
 	return tbl
 }
 
-func TestRequirement4(t *testing.T) {
+func TestSpeedsResolvePerPort(t *testing.T) {
 	t.Run("auto-negotiation on resolves to 1000 full", func(t *testing.T) {
 		e := phy.Ethernet{
 			SupportedSpeedsBPS:       gigabitCapable,
@@ -70,7 +70,7 @@ func TestRequirement4(t *testing.T) {
 	})
 }
 
-func TestRequirement5(t *testing.T) {
+func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 	class4 := func(priority phy.Priority, limit *uint32) phy.PsePort {
 		return phy.PsePort{Group: "1", MaxClass: 8, Enabled: true, Limit: limit, Priority: priority, PDClass: 4}
 	}

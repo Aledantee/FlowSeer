@@ -8,9 +8,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 
-func TestCodecRequirement1(t *testing.T) {
-	// Requirement 1: decoding 01 00 5e 00 00 fb  00 11 22 33 44 55  81 00  a0 64  08 00
-	// plus payload yields one tag with PCP 5, DEI false, VID 100, EtherType 0x0800,
+func TestCodecRoundTripsTaggedFrame(t *testing.T) {
+	// Decoding 01 00 5e 00 00 fb  00 11 22 33 44 55  81 00  a0 64  08 00 plus
+	// payload yields one tag with PCP 5, DEI false, VID 100, EtherType 0x0800,
 	// and encoding reproduces the bytes.
 	prefix := []byte{
 		0x01, 0x00, 0x5e, 0x00, 0x00, 0xfb, // Dst MAC

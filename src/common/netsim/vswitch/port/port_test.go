@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-func TestRequirement2(t *testing.T) {
+func TestTableBuiltUnderCallerNaming(t *testing.T) {
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical})
 	b.Range("1/3/%d", 1, 4, port.Port{Kind: port.Physical})

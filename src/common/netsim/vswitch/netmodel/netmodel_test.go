@@ -23,12 +23,11 @@ import (
 
 var testTime = time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
-// Requirement 13: A LAG forwards as one port.
-// Acceptance: lag1 with members 1/1/5 and 1/1/6, VLAN 10 tagged; a frame ingressing 1/1/6
-// traces ingress port lag1, and a flood in VLAN 10 from 1/1/1 lists one egress lag1 on
-// member 1/1/5; a PhysicalInterface with lag_parent: "lag1" and its own switchport facet
-// loads as a member whose facet the report lists as skipped.
-func TestRequirement13_LagForwardingAndSkippedFacet(t *testing.T) {
+// A LAG forwards as one port: lag1 with members 1/1/5 and 1/1/6, VLAN 10
+// tagged; a frame ingressing 1/1/6 traces ingress port lag1, a flood in VLAN
+// 10 from 1/1/1 lists one egress lag1 on member 1/1/5, and a member's own
+// switchport facet loads as skipped.
+func TestLagForwardingAndSkippedFacet(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 	vid10 := uint32(10)
@@ -148,12 +147,13 @@ func TestRequirement13_LagForwardingAndSkippedFacet(t *testing.T) {
 	}
 }
 
-// Requirement 16: Loading from the network model infers capabilities and reports every assumption.
-// Acceptance: interfaces with switchport facets and no Ethernet facet load with {relay, vlan}
-// and the report says so; a SwitchportFacet with untagged_vlan_ids: [30], no pvid, and no
-// frame_admission loads as PVID 30, admission ALL, both listed as defaults by port name;
-// loading with a wanted set of {relay} drops every switchport facet and lists each as skipped.
-func TestRequirement16_InferCapabilitiesAndReportDefaults(t *testing.T) {
+// Loading infers capabilities and reports every assumption: interfaces with
+// switchport facets and no Ethernet facet load with {relay, vlan} and the
+// report says so; a SwitchportFacet with untagged_vlan_ids [30], no pvid, and
+// no frame_admission loads as PVID 30, admission ALL, both listed as defaults
+// by port name; a wanted set of {relay} drops every switchport facet and lists
+// each as skipped.
+func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 
@@ -255,13 +255,12 @@ func TestRequirement16_InferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 }
 
-// Requirement 17: The FDB and PoE state export as net/switching and net/phy rows.
-// Acceptance: after 6 the export holds one FdbEntry (vlan_id: 10, that MAC, interface_name: "1/1/1",
-// DYNAMIC, ACTIVE); after 5 a PseBudget for group 1 and a PoeFacet per port with
-// allocated_power_milliwatts; every message passes protovalidate.
-func TestRequirement17_FdbAndPoeExport(t *testing.T) {
-	// Part 1: FDB Export after Requirement 6
-	// Requirement 6: Untagged ingress classifies to PVID 10 and learns source MAC.
+// The FDB and PoE state export as net/switching and net/phy rows: one learned
+// entry becomes one FdbEntry (vlan_id 10, that MAC, interface_name 1/1/1,
+// DYNAMIC, ACTIVE); an allocation becomes a PseBudget per group and a PoeFacet
+// per port with allocated_power_milliwatts; every message passes protovalidate.
+func TestFdbAndPoeExport(t *testing.T) {
+	// An untagged frame on a port with PVID 10 learns its source under VLAN 10.
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 	pvid10 := uint32(10)
@@ -345,8 +344,7 @@ func TestRequirement17_FdbAndPoeExport(t *testing.T) {
 		t.Errorf("FdbEntry MAC = %x, want %x", fe.GetMac().GetOctets(), srcMAC)
 	}
 
-	// Part 2: PoE Export after Requirement 5
-	// Requirement 5: group 1 with 60 W and three class-4 ports at critical, high, low
+	// Group 1 with 60 W and three class-4 ports at critical, high, low
 	// allocates two and denies one with budget.
 	phyCfg := phy.Config{
 		PoE: &phy.PoE{
