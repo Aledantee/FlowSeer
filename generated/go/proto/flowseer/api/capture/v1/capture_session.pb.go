@@ -1933,10 +1933,9 @@ const file_flowseer_api_capture_v1_capture_session_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\xbc\x01\n" +
 	"\x17CaptureSessionGlobalRef\x12?\n" +
 	"\x04edge\x18\x01 \x01(\v2#.flowseer.api.edge.v1.EdgeGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04edge\x12`\n" +
-	"\x0fcapture_session\x18\x02 \x01(\v2/.flowseer.api.capture.v1.CaptureSessionLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0ecaptureSession\"k\n" +
-	"\x14LocalInterfaceSource\x121\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB\n" +
-	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\rinterfaceName\x12 \n" +
+	"\x0fcapture_session\x18\x02 \x01(\v2/.flowseer.api.capture.v1.CaptureSessionLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x0ecaptureSession\"\x8e\x01\n" +
+	"\x14LocalInterfaceSource\x12T\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x12 \n" +
 	"\vpromiscuous\x18\x02 \x01(\bR\vpromiscuous\"\xd7\x01\n" +
 	"\x14MirrorReceiverSource\x12g\n" +
 	"\x0eencapsulations\x18\x01 \x03(\x0e2,.flowseer.net.capture.v1.MirrorEncapsulationB\x11\xbaH\x0e\x92\x01\v\b\x01\"\a\x82\x01\x04\x10\x01 \x00R\x0eencapsulations\x12&\n" +

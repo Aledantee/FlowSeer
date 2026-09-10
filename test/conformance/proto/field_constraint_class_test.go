@@ -20,6 +20,8 @@ import (
 	// in this directory builds one of its messages; this one has no such test
 	// yet, and TestEveryDeclaredProtoPackageIsLinked fails without the
 	// import rather than letting the package go unwalked in silence.
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 )
 
