@@ -4,12 +4,23 @@ type: feat
 date: 2026-09-06
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md, docs/architecture/2026-09-05-verified-device-access-direction.md
 ---
 
 # Central Device Service, Journal, and Hosts - Plan
+
+> Implemented, including the live write to the lab ICX7150 that item 7 was
+> for. Nine units became fifteen: the assembled end-to-end run found four
+> defects that lived between two individually correct halves, and each one
+> took a unit of its own (U8f, U8g, U8i, U8n among them). Two of the four
+> would have reached the switch. What the run measured, and the fact that the
+> lab switch is no longer available, are in
+> [the runbook](../runbooks/lab-icx7150-first-write.md); the gaps this plan
+> decided to leave open — authorization on the operator surfaces above all —
+> are under Follow-ups, each with the argument that will not survive being
+> rediscovered.
 
 Slice 1 item 6 of
 [the contracts plan](2026-09-05-1709-feat-verified-local-device-access-plan.md):

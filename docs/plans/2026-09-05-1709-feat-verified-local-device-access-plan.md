@@ -198,7 +198,11 @@ The remaining Slice 1 work, in order; each plan starts from these contracts.
 6. Central device service with the JetStream safety KV, audit stream, and
    outbox, then the central and edge hosts.
 7. Fixture calibration and the end-to-end proof on the lab ICX7150, with a
-   blast-radius statement and approval before the first live write.
+   blast-radius statement and approval before the first live write. Done on
+   2026-09-09 under
+   [the runbook](../runbooks/lab-icx7150-first-write.md), which records what
+   the switch turned out to be and that it is no longer available; a later
+   claim that needs live hardware needs hardware first.
 
 Also outside: Telnet, multi-member failover and fencing, multi-field
 intents, other vendors, an Interface entity, and `flowseer.service.v1`.

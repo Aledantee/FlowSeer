@@ -125,6 +125,40 @@ export EDGE_ID=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' "$RUN/created.json" | he
 test -n "$EDGE_ID"
 ```
 
+### Fill the device's two positions in the registry template
+
+`deploy/lab/registry.textproto` ships with the device's management address and
+its SSH host key digest unfilled, because neither can be written before there
+is a device. Fill both now. `write-registry.sh` refuses to render the shipped
+template while either still carries its placeholder, and that refusal is the
+cheap version of this mistake: a registry rendered with the placeholder
+address points at the documentation range, and the agent then logs a timed-out
+identity probe — which is character for character what it logs when the switch
+is simply not powered on yet. You would wait for a device that is already up.
+
+The address is `DeviceConfig.ip`, and it is bytes rather than a dotted string:
+four octets, written in octal escapes.
+
+```text
+ip { v4 { octets: "\300\000\002\006" } }   # 192.0.2.6, the shipped placeholder
+ip { v4 { octets: "\306\063\144\007" } }   # 198.51.100.7
+
+printf '\\%03o' 198 51 100 7   # prints the escape for an address you have
+```
+
+The digest is the device's **ECDSA** host key, because that is the key Go's
+client negotiates with a switch that offers RSA and ECDSA and no ed25519. Read
+it from the device rather than from any document — the point of a pin is that
+it is what this machine saw:
+
+```text
+ssh-keyscan -t ecdsa <address> | ssh-keygen -lf -
+```
+
+That prints `256 SHA256:<43 characters> …`. Copy the `SHA256:` field into
+`ssh_host_key_sha256`. A pin naming the RSA key parses, passes every check
+here, and fails when the mutation opens its shell — the irreversible step.
+
 Write the full registry — the same integration, now naming the edge that
 exists, and the device — then restart central so it reads it:
 
@@ -598,3 +632,49 @@ Restore the description unless there is a reason to leave it, confirm the read,
 and write down what the run measured: the horizon, the heartbeat latency, and
 anything the switch did that no fixture predicted. The last of those is what
 this run is really for.
+
+## What the run measured, and the lab after it
+
+The run happened on 2026-09-09 against LABSW06. `ethernet 1/1/1` went from no
+description to `uplink to core`, the mutation resolved `VERIFIED` in about
+sixteen seconds, and the change was witnessed independently over SNMP as well
+as through the system. The write touched the running configuration only, so a
+reload reverts it; the description was restored with `no port-name`.
+
+The switch had to be changed once before any of this, and it is the step this
+runbook did not anticipate: it carried no SNMPv3 user at all, and FlowSeer is
+authPriv-only, so the read route could not open until one was created. A device
+that has never been managed needs that before step 1, not at it.
+
+What the run measured, for anyone sizing the same fields for another device:
+
+- Firmware `IronWare 10.0.10g_cd10T213` on an ICX7150-24-POE, which is the
+  release the FastIron adapter was written against.
+- The delayed-apply horizon is **sub-second**. A `port-name` set by hand was
+  visible in SNMP `ifAlias` after 0.13 s, most of which is the round trip.
+  Configured literally that number buys about one recovery attempt, which is
+  the trap step 2 describes, so the lab registry carries 30 s instead.
+- No enable password; `enable` goes straight to `#`. All four prompt shapes and
+  the pager marker matched the adapter's authored patterns byte for byte.
+- The host key to pin is the **ECDSA** one. The switch offers RSA and ECDSA and
+  no ed25519, so Go's client negotiates ECDSA; a pin naming the RSA key fails
+  at connect time and reads like a wrong key rather than a wrong choice.
+- `ethernet 1/1/N` is ifIndex N.
+- FastIron limits concurrent SSH sessions, and a session that does not exit
+  cleanly makes the next login fail with `Permission denied`. That reads as a
+  wrong password and is not one.
+
+Two things the run was supposed to establish and did not. The heartbeat latency
+is **not measured**, because nothing records how long a heartbeat takes at any
+log level; the plan's follow-up carries the argument for why a duration rather
+than a log level is the fix. And the independent SNMP witness could not be
+placed against the lane's own timestamps, because the watch loop printed elapsed
+time from its own start without ever stamping that start against the wall clock.
+No discrepancy was found and none was ruled out, which are different results. A
+future second witness records absolute time.
+
+**The lab switch is no longer available for this work.** This runbook is
+therefore a record of what happened and a procedure for the next device, not a
+step anybody is still waiting on. Nothing in the tree should be planned around
+re-running it: the facts above are what the hardware gave us, and a claim that
+needs the switch again needs a switch first.
