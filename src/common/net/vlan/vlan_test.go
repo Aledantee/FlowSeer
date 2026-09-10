@@ -3,7 +3,7 @@ package vlan_test
 import (
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/vlan"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 func TestIDValid(t *testing.T) {

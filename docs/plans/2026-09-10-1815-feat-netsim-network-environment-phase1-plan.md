@@ -112,7 +112,7 @@ which are phase 2.
 
 ### U1. Network value packages and the trace
 
-Files: `src/common/netaddr/`, `src/common/vlan/`, `src/common/ethernet/`,
+Files: `src/common/net/netaddr/`, `src/common/net/vlan/`, `src/common/net/ethernet/`,
 `src/common/netsim/trace/`, `src/common/README.md`
 After: none
 Change: `netaddr.MAC` is `[6]byte` with `String` (colon-separated lower
@@ -134,7 +134,7 @@ The common README gains one row per package.
 Tests: `netaddr_test.go`, parsing and both conversions; `vlan_test.go`,
 the range edges; `ethernet_test.go`, requirement 1, a two-tag stack,
 untagged, a truncated tag, the reserved range's edges.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netaddr src/common/vlan src/common/ethernet src/common/netsim/trace src/common/README.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net src/common/netsim/trace src/common/README.md`
 
 ### U2. Port table
 

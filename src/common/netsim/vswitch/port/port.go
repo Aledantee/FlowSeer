@@ -91,11 +91,6 @@ func (t Table) Port(name string) (Port, bool) {
 	return p, ok
 }
 
-// Lookup returns the port with the given name and reports whether it was found.
-func (t Table) Lookup(name string) (Port, bool) {
-	return t.Port(name)
-}
-
 // Ports returns a slice of all ports in insertion order.
 func (t Table) Ports() []Port {
 	if len(t.ports) == 0 {

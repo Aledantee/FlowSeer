@@ -132,7 +132,7 @@ rather than the standard's, since the model would then be a vendor emulator.
   address on a routed VLAN. Addresses are `net/netip` values. Phase 4 is
   re-planned when its turn comes; its Decisions here are the shape, not
   the API.
-- The network value types are packages of `src/common` in their own
+- The network value types are packages under `src/common/net` in their own
   right, for every tree to use: `netaddr` for EUI-48 and EUI-64 addresses
   as comparable arrays with parsing, formatting, and conversion to and
   from `net.HardwareAddr` and the proto octets; `vlan` for the VLAN id,
@@ -301,7 +301,7 @@ own plans; here they are one line each.
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase1-plan.md`
 After: none
 Landed:
-Change: `src/common/netaddr`, `src/common/vlan`, `src/common/ethernet`,
+Change: `src/common/net/netaddr`, `src/common/net/vlan`, `src/common/net/ethernet`,
 `netsim/trace`, `netsim/vswitch` with `port`, `phy`, `bridge`,
 and `netmodel`, the READMEs, the `CONCEPTS.md` entry, and the direction
 record edits.

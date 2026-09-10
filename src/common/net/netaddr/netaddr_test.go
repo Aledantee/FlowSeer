@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 
 func TestParseMAC(t *testing.T) {

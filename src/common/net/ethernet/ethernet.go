@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/netaddr"
-	"go.aledante.io/FlowSeer/src/common/vlan"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 // EtherType represents a 16-bit IEEE EtherType identifier in network byte order.

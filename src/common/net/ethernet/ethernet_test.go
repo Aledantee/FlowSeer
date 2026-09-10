@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"go.aledante.io/FlowSeer/src/common/ethernet"
-	"go.aledante.io/FlowSeer/src/common/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 
 func TestCodecRequirement1(t *testing.T) {

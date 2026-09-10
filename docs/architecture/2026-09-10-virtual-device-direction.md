@@ -139,7 +139,7 @@ the frame codec first, sits at the `netsim` level.
 
 ## Consequences
 
-- `src/common/netaddr`, `src/common/vlan`, and `src/common/ethernet` hold
+- `src/common/net/netaddr`, `src/common/net/vlan`, and `src/common/net/ethernet` hold
   the value types and the codec; `src/common/netsim/trace` holds the step,
   trace, and change records; `src/common/netsim/vswitch`
   holds `port`, `phy`, `bridge`, `netmodel`, and the switch itself;
