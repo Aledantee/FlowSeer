@@ -80,7 +80,7 @@ type Endpoint struct {
 	Port string
 }
 
-// Host is an endpoint with one address and no relay; modelling it as a one-port switch would give it a forwarding database it must never use.
+// Host is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
 //
 // A nil VLAN emits and accepts untagged frames, while a non-nil VLAN restricts the host to C-TAG frames
 // with that VID.
