@@ -1,6 +1,6 @@
 ---
 name: delegate
-description: Choose where a FlowSeer skill sends delegated work (Explore, a project subagent, or an Orca worker on whichever agent and model tier fits), and what the brief must contain. Load before dispatching any agent from plan, implement, review, compound, or steer.
+description: Choose where a FlowSeer skill sends delegated work (Explore, a project subagent, a Herdr worker on any installed agent CLI, or an Orca worker) on whichever model tier fits, and what the brief must contain. Load before dispatching any agent from plan, implement, review, compound, or steer.
 user-invocable: false
 ---
 
@@ -22,7 +22,7 @@ its `as_of` is more than 30 days old, say so in the report and continue.
 | --- | --- | --- |
 | Lookup with no judgment: which files reference a symbol, which fixtures exist, where a string appears | `lookup` | `Explore` subagent, or the pool's CLI |
 | Bounded question that needs conventions read and evidence weighed | `research` | `repo-researcher` subagent, or the pool's CLI |
-| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Orca worker when available, else a `general-purpose` subagent with `isolation: worktree` |
+| Editing work that runs for minutes: an implementation unit, a solution refresh | `execute`; `execute-sensitive` when a changed path matches `sensitive_paths` | Herdr worker when a server runs, else Orca worker, else a `general-purpose` subagent with `isolation: worktree` |
 | Independent review of one unit's files | `review-unit` | `independent-reviewer` subagent, or the pool's CLI |
 | Review of the seams between units, and the verdict | `review-seam` | `independent-reviewer` subagent |
 | Tie-break between reviewers, verdict on a hard plan | `judge` | native subagent; never on a `sensitive` unit |
@@ -48,11 +48,14 @@ Pinning by pool: `claude` and `codex` take `--model` and `--effort` on the
 Orca dispatch line or the Agent tool's `model`; `google` takes
 `--model gemini-3.8-flash-<effort>` on the `agy` launch; `go` and `zen` take
 the opencode agent named in the registry's `opencode_agents`, whose model is
-fixed in `~/.config/opencode/opencode.json`. Orca's `worker-start` pins
+fixed in `~/.config/opencode/opencode.json`. A Herdr worker takes all four
+on its launch line, which is why it is the first choice for `execute`:
+`scripts/herdr-worker.sh start --cli <pool cli> --model <id> [--effort
+<level>] [--agent <opencode agent>]` builds it. Orca's `worker-start` pins
 Claude, Codex, and Cursor ids only, and a dispatch into an `agy` or
-`opencode` terminal is never submitted (checked 2026-09-09), so a `google` or
-`go` lane runs headless instead: create the child worktree with `git
-worktree add -b <slug> <path> HEAD`, then
+`opencode` terminal is never submitted (checked 2026-09-09), so without a
+Herdr server a `google` or `go` lane runs headless instead: create the
+child worktree with `git worktree add -b <slug> <path> HEAD`, then
 
 ```bash
 .claude/skills/tune/scripts/bench.sh --lane <slug> --cli agy --model gemini-3.8-flash-<effort> \
@@ -125,10 +128,33 @@ for name, v in limits.items():
 - When no fitting pool is usable, do not dispatch: work sequentially or wait
   for the earliest `resetsAt`, and tell the user which window is exhausted.
 
-## Orca or native
+## Herdr, Orca, or native
+
+Herdr is available when `herdr status server` reports `status: running`.
+It is the lane for `execute` work on every pool, since it starts and tracks
+`claude`, `codex`, `agy`, and `opencode` alike and reports an approval
+dialog as `blocked`; `references/herdr.md` has the setup and the pitfalls.
+Run every `herdr` command with the sandbox disabled. One worker per lane:
+
+```bash
+s=.claude/skills/delegate/scripts/herdr-worker.sh
+$s start --lane <slug> --cli <claude|codex|agy|opencode> --model <id> [--effort <level>] [--agent <opencode agent>] --brief <file> --base HEAD
+$s wait <slug>                  # prints done, idle, or blocked; blocked also prints the dialog
+$s read <slug> --lines 80       # the worker's report
+```
+
+`start` creates the child worktree under `<repo parent>/worktrees/<repo>/`
+from this worktree's `HEAD`, writes the brief beside it, starts the agent,
+and sends a one-line pointer to the brief. After `wait`, check the tree as
+the paragraph on worker reports below says, merge the branch here, verify,
+then `$s stop <slug>` and `git branch -d <slug>`. Read-only delegates stay
+native in Herdr as in Orca. Herdr keeps no quota: the Dispatch by quota step
+stands, and the Orca worktree comment and card are still updated at each
+checkpoint when the session runs under Orca.
 
 Orca is available when `ORCA_TERMINAL_HANDLE` is set and `orca status --json`
-reports `runtime.reachable: true`. Run every `orca` command with the sandbox
+reports `runtime.reachable: true`; it is the `execute` lane when no Herdr
+server runs, and the full-handoff lane either way. Run every `orca` command with the sandbox
 disabled: the CLI uses a local socket the sandbox blocks, and a sandboxed
 call reports the app as not running. When the runtime is unreachable
 unsandboxed too, say so with the CLI's error and use the native worker.
@@ -259,7 +285,8 @@ A delegate has none of this conversation. The brief states, in order:
 
    A worker that does not get this finishes its work and cannot report it;
    `references/orca-sandbox.md` says how to settle such a dispatch and the
-   per-machine setting that removes the need.
+   per-machine setting that removes the need. A Herdr worker needs none of
+   this: it reports in its pane and the coordinator reads it there.
 8. For an Orca worker, that editing subagents stay out of its checkout. A
    worker that spawns the Agent tool without worktree isolation gets its
    subagents' files in its own tree and reads them as a duplicate dispatch.

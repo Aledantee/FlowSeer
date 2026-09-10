@@ -9,7 +9,8 @@ for the main conversation: a fresh context per unit keeps the coordinator's
 own context to the ledger. Units marked `After: none`, or whose
 prerequisites have landed, may run at once when the user asked for it: up
 to three workers, one unit each. Both are dispatched as `delegate`
-describes. The brief carries the plan path, the unit's text, the
+describes: through Herdr when a server runs, which puts each unit on the
+pool with the most headroom whatever its CLI, else through Orca. The brief carries the plan path, the unit's text, the
 conventions for its files, the focused test command, and the ledger notes
 of landed units. Workers do not run the verifier.
 
