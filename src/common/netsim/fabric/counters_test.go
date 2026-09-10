@@ -543,8 +543,8 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if got, want := cSw2Port2.InErrors, uint64(1); got != want {
 		t.Errorf("sw2:1/1/2 InErrors = %d, want %d", got, want)
 	}
-	if got, want := cSw2Port2.InDiscards, uint64(1); got != want {
-		t.Errorf("sw2:1/1/2 InDiscards = %d, want %d", got, want)
+	if got, want := cSw2Port2.InDiscards, uint64(0); got != want {
+		t.Errorf("sw2:1/1/2 InDiscards = %d, want %d: a corrupt arrival is an error, not a discard", got, want)
 	}
 	if got, want := cSw2Port2.Discards[fabric.ReasonBadFrame], uint64(1); got != want {
 		t.Errorf("sw2:1/1/2 Discards[ReasonBadFrame] = %d, want %d", got, want)

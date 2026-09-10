@@ -163,8 +163,10 @@ and leaves the transmission in flight:
 Switch port operational states derive from connected cables during `New`,
 replacing values provided in the input configurations:
 
-- A port without a cable is `Down` with reason `no-cable`.
-- A port whose peer is administratively disabled is `Down` with `peer-down`.
+- A port without a cable is `Down`; it has no link, so `Unlinked` lists it
+  with reason `no-cable`.
+- When either end is administratively disabled both are `Down`: the disabled
+  end reads `admin-down`, the other `peer-down`.
 - A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
 - Unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both ends
   `Down` with `dead-direction` unless both ends disable auto-negotiation.
@@ -191,11 +193,11 @@ Cables support deterministic defect configurations:
 Simulation arrivals follow a deterministic total order in the queue:
 
 1. Arrival time (`At`) in ascending chronological order.
-2. Injection sequence number (`Seq`).
+2. Injection sequence number (`Seq`), which every copy of a frame keeps.
 3. Destination device name.
 4. Destination port name.
 
-This ordering ensures deterministic execution across runs.
+A run therefore replays in the same order every time.
 
 ## Reasons
 
@@ -205,6 +207,7 @@ The package declares reasons for link failures and frame discards:
 | ---------------- | ------------------------------------------------- |
 | `cut`            | Cable is physically severed                       |
 | `peer-down`      | Peer interface is administratively disabled       |
+| `admin-down`     | This interface is administratively disabled       |
 | `no-cable`       | Switch port has no connected cable                |
 | `dead-direction` | Defect in one direction prevents auto-negotiation |
 | `cable-loss`     | Configured cable fault dropped frame in transit   |

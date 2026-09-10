@@ -97,6 +97,124 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 	return fab, macH1, macH2
 }
 
+// A corrupting cable whose far end is a host drops the copy with bad-frame
+// instead of delivering it, so a corrupted last hop is as visible as any other.
+func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 0x01}
+	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 0x02}
+	fab, err := fabric.New(fabric.Config{
+		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
+		Hosts:    map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: macH2, Src: macH1}}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(10)
+	j := fab.Report()[0]
+	if len(j.Deliveries) != 0 {
+		t.Errorf("Deliveries = %+v, want none from a corrupting cable", j.Deliveries)
+	}
+	last := j.Entries[len(j.Entries)-1]
+	if last.Kind != fabric.EntryDrop || last.Reason != fabric.ReasonBadFrame || last.Device != "h2" {
+		t.Errorf("last entry = %+v, want a bad-frame drop at h2", last)
+	}
+}
+
+// A host with a VLAN emits exactly its own tag: a frame the caller tagged
+// otherwise arrives with the host's tag alone, never a second one.
+func TestVlanHostReplacesTheCallersTag(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vid10 := vlan.ID(10)
+	fab, err := fabric.New(fabric.Config{
+		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
+		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	frame := ethernet.Frame{Dst: netaddr.MAC{0, 0, 0, 0, 0, 2}, Src: netaddr.MAC{0, 0, 0, 0, 0, 1}, Tags: []vlan.Tag{{TPID: 0x8100, VID: 20}}}
+	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	queued := fab.Snapshot().Queue
+	if len(queued) != 1 || len(queued[0].Frame.Tags) != 1 || queued[0].Frame.Tags[0].VID != 10 {
+		t.Errorf("queued frame tags = %+v, want one C-TAG with VID 10", queued)
+	}
+}
+
+// Copies of one frame keep its sequence, so two copies due at the same instant
+// on two devices step in device name order, as the queue rule says.
+func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	table := func() port.Table {
+		b := port.NewBuilder()
+		b.Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return tbl
+	}
+	fab, err := fabric.New(fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: table()}, "sw2": {Ports: table()}, "sw3": {Ports: table()},
+		},
+		Hosts: map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}, LengthMeters: 10},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 10},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: netaddr.MAC{0, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0, 0, 0, 0, 0, 1}}}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Step()
+	second, _ := fab.Step()
+	third, _ := fab.Step()
+	if second.Device != "sw2" || third.Device != "sw3" {
+		t.Errorf("hops after the first = %s then %s, want sw2 then sw3", second.Device, third.Device)
+	}
+}
+
+// A frame the codec cannot encode is refused at injection, where the caller
+// can act on it, rather than counted as zero octets in a run.
+func TestInjectRefusesAFrameTheCodecRejects(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	bad := ethernet.Frame{Dst: macH2, Src: macH1, Tags: []vlan.Tag{{TPID: 0x9100, VID: 10}}}
+	if _, err := fab.Inject(fabric.Injection{Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: bad}); err == nil {
+		t.Error("Inject(frame with TPID 0x9100) error = nil, want an error")
+	}
+}
+
 func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
 

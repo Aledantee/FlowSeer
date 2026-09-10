@@ -1,6 +1,9 @@
 package fabric
 
-import "go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+import (
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+)
 
 // Derive constructs a new [Fabric] from the target configuration, seeding each switch
 // with dynamic forwarding database entries from its namesake in cur that the new configuration
@@ -22,7 +25,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 
 		derived, err := vswitch.Derive(curSw, sw.Config())
 		if err != nil {
-			return nil, err
+			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
 	}

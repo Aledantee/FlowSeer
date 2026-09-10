@@ -401,9 +401,11 @@ func TestReplaySTaggedFrameCarriedThroughBothEgressForms(t *testing.T) {
 		Payload:   []byte("payload"),
 	}
 
+	// A host emits one form, so a provider-tagged frame is a capture replay
+	// at the device port.
 	_, err := fab.Inject(fabric.Injection{
 		At:     now,
-		Origin: fabric.Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 		Frame:  sTaggedFrame,
 	})
 	if err != nil {

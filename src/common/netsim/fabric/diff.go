@@ -39,7 +39,7 @@ func Diff(a, b Config) []trace.Change {
 					Key:  name,
 				},
 				Field: "",
-				From:  swA,
+				From:  swA.Clone(),
 				To:    nil,
 			})
 		case !inA && inB:
@@ -51,7 +51,7 @@ func Diff(a, b Config) []trace.Change {
 				},
 				Field: "",
 				From:  nil,
-				To:    swB,
+				To:    swB.Clone(),
 			})
 		case inA && inB:
 			swChanges := vswitch.Diff(swA, swB)
@@ -82,7 +82,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
-				From:    cA,
+				From:    cA.Clone(),
 				To:      nil,
 			})
 			continue
@@ -111,8 +111,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "fault",
-				From:    cA.Fault,
-				To:      cB.Fault,
+				From:    normalizedFault(cA.Fault),
+				To:      normalizedFault(cB.Fault),
 			})
 		}
 	}
@@ -125,7 +125,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
 				From:    nil,
-				To:      cB,
+				To:      cB.Clone(),
 			})
 		}
 	}
@@ -152,7 +152,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
-				From:    hA,
+				From:    hA.Clone(),
 				To:      nil,
 			})
 		case !inA && inB:
@@ -161,7 +161,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
 				From:    nil,
-				To:      hB,
+				To:      hB.Clone(),
 			})
 		case inA && inB:
 			epA, okA := hostEndpoint(name, a.Cables)
@@ -227,20 +227,35 @@ func sortedCables(cables []Cable) []Cable {
 	return cp
 }
 
+// cableKey names a cable by its two ends with the smaller end first, so the
+// same cable written in either orientation is one subject. A fault change on
+// such a cable carries the fault as declared, whose dead direction is read
+// against the declared A and B.
 func cableKey(c Cable) string {
-	return c.A.Node + ":" + c.A.Port + "-" + c.B.Node + ":" + c.B.Port
+	a := c.A.Node + ":" + c.A.Port
+	b := c.B.Node + ":" + c.B.Port
+	if b < a {
+		a, b = b, a
+	}
+
+	return a + "-" + b
+}
+
+// normalizedFault reads an unset kind as FaultNone, so a change reports the
+// kind a reader compares against.
+func normalizedFault(f Fault) Fault {
+	f = f.Clone()
+	if f.Kind == "" {
+		f.Kind = FaultNone
+	}
+
+	return f
 }
 
 func sameFault(a, b Fault) bool {
-	kindA := a.Kind
-	if kindA == "" {
-		kindA = FaultNone
-	}
-	kindB := b.Kind
-	if kindB == "" {
-		kindB = FaultNone
-	}
-	return kindA == kindB && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
+	a, b = normalizedFault(a), normalizedFault(b)
+
+	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
 func sameVLAN(a, b *vlan.ID) bool {

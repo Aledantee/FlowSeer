@@ -21,7 +21,12 @@ const (
 	// ReasonPeerDown records that a link cannot operate because the peer switch port is administratively disabled.
 	ReasonPeerDown trace.Reason = "peer-down"
 
-	// ReasonNoCable records that an interface is operationally inactive because no cable is connected.
+	// ReasonAdminDown records that a link cannot operate because this end's own port is administratively
+	// disabled; the other end reads peer-down, so a reader is pointed at the disabled device.
+	ReasonAdminDown trace.Reason = "admin-down"
+
+	// ReasonNoCable records that a port is Down because no cable reaches it; Fabric.Unlinked carries it, since a
+	// port without a cable has no Link.
 	ReasonNoCable trace.Reason = "no-cable"
 
 	// ReasonDeadDirection records that two-ended auto-negotiation cannot succeed because the cable is impaired in one direction.

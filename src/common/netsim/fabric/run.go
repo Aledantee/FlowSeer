@@ -67,14 +67,12 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 				Msgf("host %q has no connected cable", inj.Origin.Node)
 		}
 
+		// A host emits one form only, so its tag replaces whatever the caller
+		// put on the frame; a second tag would be a form no host port emits.
 		if host.VLAN != nil {
-			tag := vlan.Tag{
-				TPID: uint16(ethernet.EtherTypeDot1Q),
-				VID:  *host.VLAN,
-			}
-			if len(frame.Tags) == 0 || frame.Tags[0].VID != *host.VLAN {
-				frame.Tags = append([]vlan.Tag{tag}, frame.Tags...)
-			}
+			frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: *host.VLAN}}
+		} else {
+			frame.Tags = nil
 		}
 
 		targetDevice = ref.peer.Node
@@ -93,6 +91,12 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		return 0, errs.New().
 			Attr("node", inj.Origin.Node).
 			Msgf("origin node %q not found in fabric", inj.Origin.Node)
+	}
+
+	// The run counts octets from the encoded frame, so a frame the codec
+	// refuses is refused here rather than counted as zero bytes later.
+	if _, err := frame.Encode(); err != nil {
+		return 0, errs.Wrap(err, "encode the injected frame")
 	}
 
 	fid := f.nextFrameID
@@ -169,6 +173,8 @@ func (f *Fabric) Step() (Entry, bool) {
 		inPorts = append(inPorts, p.LagParent)
 	}
 
+	// Inject refused any frame the codec cannot encode, and a bridge only
+	// rewrites the tag stack with valid tags, so Encode cannot fail here.
 	rawIn, _ := arr.Frame.Encode()
 	inOctets := uint64(len(rawIn))
 
@@ -232,6 +238,13 @@ func (f *Fabric) Step() (Entry, bool) {
 			for _, p := range outPorts {
 				f.countEgressDrop(arr.Device, p, eg.Dropped)
 			}
+			journey.Entries = append(journey.Entries, Entry{
+				At:     arr.At,
+				Kind:   EntryDrop,
+				Device: arr.Device,
+				Port:   eg.Port,
+				Reason: eg.Dropped,
+			})
 
 			continue
 		}
@@ -304,6 +317,17 @@ func (f *Fabric) Step() (Entry, bool) {
 		deliveryAt := arr.At.Add(latency)
 
 		if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
+			if corrupt {
+				journey.Entries = append(journey.Entries, Entry{
+					At:     deliveryAt,
+					Kind:   EntryDrop,
+					Device: farEnd.Node,
+					Cable:  &cableCopy,
+					Reason: ReasonBadFrame,
+				})
+
+				continue
+			}
 			del := Delivery{
 				Host:  farEnd.Node,
 				At:    deliveryAt,
@@ -331,17 +355,18 @@ func (f *Fabric) Step() (Entry, bool) {
 		}
 		journey.Entries = append(journey.Entries, crossingEntry)
 
-		nextArr := Arrival{
+		// A copy keeps its injection's sequence, so two copies of one frame
+		// that arrive at the same instant fall through to the device and
+		// port order rather than to the order the bridge listed them in.
+		f.enqueue(Arrival{
 			At:      deliveryAt,
-			Seq:     f.nextSeq,
+			Seq:     arr.Seq,
 			Device:  farEnd.Node,
 			Port:    farEnd.Port,
 			FrameID: arr.FrameID,
 			Frame:   cloneFrame(eg.Frame),
 			Corrupt: corrupt,
-		}
-		f.nextSeq++
-		f.enqueue(nextArr)
+		})
 	}
 
 	return hopEntry, true

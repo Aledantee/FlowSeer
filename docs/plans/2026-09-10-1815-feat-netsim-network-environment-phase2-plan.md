@@ -145,7 +145,9 @@ leaves and a per-port drop reason. This phase adds:
   reports per frame both journeys and `Same` (equal deliveries in host,
   form, and order, and equal drop reasons); an injection either fabric
   refuses is the error, since a scenario one side never ran compares
-  nothing. It consumes both fabrics: they learn,
+  nothing, and so is a fabric that already injected, since journeys pair
+  by a frame id each fabric assigns from its own count. It consumes both
+  fabrics: they learn,
   count, and advance their clocks, so a comparison is made on fabrics that
   have not run. `Diff(a, b Config)` emits `vswitch.Diff` per switch with
   each change's subject key prefixed by the switch name and a slash, and
@@ -228,8 +230,9 @@ acceptance examples:
 31. Two fabrics compare and diff. Acceptance: expected moves `sw2:1/1/1`
     to VLAN 20; the scenario of 22 run on both gives a delivery on current
     and none on expected, `Same: false` with both journeys; the diff lists
-    the one switchport change under `sw2` and a cable's fault changed from
-    `none` to `cut`.
+    the switchport's `pvid` and `untagged_vlan_ids` changes and the added
+    VLAN under `sw2`, and a cable's fault changed from `None` to `Cut`,
+    with the cable named by its two ends in either order.
 32. Every phase 1 requirement holds inside a run. Acceptance: a one-switch
     fabric with a host cabled to every port of the table, so no port is
     Down for want of a cable; the frames of the phase 1 tests injected at
@@ -282,8 +285,10 @@ and picks a forwarding member on egress). `Config.Clone()` deep-copies.
 `Link{Cable; A, B LinkEnd}` with `LinkEnd{Endpoint; Oper port.LinkState;
 Reason trace.Reason; Speed phy.Link}` is the resolved form; `New`
 computes every link by the Decisions rule with reasons `cut`,
-`peer-down`, `no-cable`, `dead-direction`, and `speed-mismatch` from
-`phy`, then rebuilds each switch's port table through `port.NewBuilder`
+`peer-down` on the end whose peer is disabled, `admin-down` on the
+disabled end itself, `dead-direction`, and `speed-mismatch` from `phy`;
+`no-cable` is carried by `Unlinked`, which returns one `LinkEnd` per
+uncabled port, since such a port has no link; `New` then rebuilds each switch's port table through `port.NewBuilder`
 with the oper states the links give (a LAG Up when any member is Up),
 and builds the switches with `vswitch.New`. `New` sorts the cables by
 their endpoint names so every later listing is stable. `Fabric.Links()`

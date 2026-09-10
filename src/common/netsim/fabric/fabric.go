@@ -123,6 +123,7 @@ func New(cfg Config) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "rebuild ports for switch %q", name)
 		}
 		swCfg.Ports = newTable
+		cloned.Switches[name] = swCfg
 
 		switches[name] = vswitch.New(swCfg)
 	}
@@ -140,8 +141,9 @@ func New(cfg Config) (*Fabric, error) {
 	}, nil
 }
 
-func (f *Fabric) linkEnd(node, port string) (linkEndRef, bool) {
-	ref, ok := f.byEnd[Endpoint{Node: node, Port: port}]
+func (f *Fabric) linkEnd(node, portName string) (linkEndRef, bool) {
+	ref, ok := f.byEnd[Endpoint{Node: node, Port: portName}]
+
 	return ref, ok
 }
 
@@ -162,28 +164,26 @@ func (f *Fabric) Links() []Link {
 	return cp
 }
 
-// Unlinked returns the names of all non-LAG ports on the specified switch
-// that have no cable attached, sorted alphabetically. If the node is not a switch
-// or all its ports are cabled, Unlinked returns nil.
-func (f *Fabric) Unlinked(node string) []string {
+// Unlinked returns one link end per non-LAG port of the named switch that has
+// no cable, Down with reason no-cable, in port name order. A port without a
+// cable has no Link, so this is where that reason is carried. It returns nil
+// for a node that is not a switch or a switch whose ports are all cabled.
+func (f *Fabric) Unlinked(node string) []LinkEnd {
 	swCfg, ok := f.cfg.Switches[node]
 	if !ok {
 		return nil
 	}
-	var unlinked []string
+	var unlinked []LinkEnd
 	for _, p := range swCfg.Ports.Ports() {
 		if p.Kind == port.Lag {
 			continue
 		}
 		ep := Endpoint{Node: node, Port: p.Name}
 		if _, ok := f.byEnd[ep]; !ok {
-			unlinked = append(unlinked, p.Name)
+			unlinked = append(unlinked, LinkEnd{Endpoint: ep, Oper: port.Down, Reason: ReasonNoCable})
 		}
 	}
-	if len(unlinked) == 0 {
-		return nil
-	}
-	slices.Sort(unlinked)
+	slices.SortFunc(unlinked, func(a, b LinkEnd) int { return cmp.Compare(a.Port, b.Port) })
 
 	return unlinked
 }
@@ -230,9 +230,14 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 
 	if adminA == port.Down || adminB == port.Down {
 		endA.Oper = port.Down
-		endA.Reason = ReasonPeerDown
 		endB.Oper = port.Down
-		endB.Reason = ReasonPeerDown
+		endA.Reason, endB.Reason = ReasonPeerDown, ReasonPeerDown
+		if adminA == port.Down {
+			endA.Reason = ReasonAdminDown
+		}
+		if adminB == port.Down {
+			endB.Reason = ReasonAdminDown
+		}
 
 		return endA, endB
 	}

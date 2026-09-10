@@ -62,9 +62,11 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 
 	if aAuto && bAuto {
 		if len(a.SupportedSpeedsBPS) == 0 && len(b.SupportedSpeedsBPS) == 0 {
+			// Two ends with no stated capability run at the lab host's speed;
+			// a cable can only lower that, never raise it.
 			speed := uint64(1_000_000_000)
 			if top != 0 {
-				speed = top
+				speed = min(top, speed)
 			}
 
 			return Link{SpeedBPS: speed, Duplex: Full}
@@ -103,12 +105,15 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 		if top != 0 && a.Setting.SpeedBPS > top {
 			return Link{Reason: ReasonSpeedMismatch}
 		}
-		if a.Setting.Duplex != "" && b.Setting.Duplex != "" && a.Setting.Duplex != b.Setting.Duplex {
+		// Unknown is a reported absence, so it agrees with anything like the
+		// zero value does.
+		stated := func(d Duplex) bool { return d != "" && d != Unknown }
+		if stated(a.Setting.Duplex) && stated(b.Setting.Duplex) && a.Setting.Duplex != b.Setting.Duplex {
 			return Link{Reason: ReasonSpeedMismatch}
 		}
 
 		duplex := a.Setting.Duplex
-		if duplex == "" {
+		if !stated(duplex) {
 			duplex = b.Setting.Duplex
 		}
 

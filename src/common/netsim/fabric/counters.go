@@ -10,6 +10,8 @@ import (
 // Counters holds what a device port counted during a run, in the shape of the
 // interfaces group of RFC 2863: octets and frames by class in and out, errors,
 // and discards, with the discards also broken down by the reason the run gave.
+// A corrupt arrival is an error, not a discard, as RFC 2863 keeps the two
+// apart; Discards still names bad-frame so the breakdown accounts for it.
 // OutErrors stays zero, since no egress fault exists in this phase.
 type Counters struct {
 	InOctets     uint64
@@ -91,7 +93,6 @@ func (f *Fabric) countCorruptIngress(device, portName string, inOctets uint64) {
 	c := f.counter(device, portName)
 	c.InOctets += inOctets
 	c.InErrors++
-	c.InDiscards++
 	c.Discards[ReasonBadFrame]++
 }
 

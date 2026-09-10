@@ -15,6 +15,23 @@ func TestNegotiate(t *testing.T) {
 		want phy.Link
 	}{
 		{
+			name: "two hosts over a faster cable keep the host speed",
+			top:  10_000_000_000,
+			want: phy.Link{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+		},
+		{
+			name: "an unknown duplex on a forced end agrees with the peer",
+			a:    phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Unknown}},
+			b:    phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}},
+			want: phy.Link{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+		},
+		{
+			name: "two forced ends that disagree on duplex fail",
+			a:    phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Half}},
+			b:    phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}},
+			want: phy.Link{Reason: phy.ReasonSpeedMismatch},
+		},
+		{
 			name: "two auto ends resolve to highest shared speed at full duplex",
 			a: phy.Ethernet{
 				SupportedSpeedsBPS:       gigabitCapable,

@@ -1,7 +1,6 @@
 package fabric_test
 
 import (
-	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -55,8 +54,8 @@ func TestPortWithNoCableIsOperDownAndAbsentFromFloodSets(t *testing.T) {
 	}
 
 	unlinked := fab.Unlinked("sw1")
-	if !slices.Equal(unlinked, []string{"1/1/3"}) {
-		t.Errorf("Unlinked(sw1) = %v, want [1/1/3]", unlinked)
+	if len(unlinked) != 1 || unlinked[0].Port != "1/1/3" || unlinked[0].Oper != port.Down || unlinked[0].Reason != fabric.ReasonNoCable {
+		t.Errorf("Unlinked(sw1) = %+v, want 1/1/3 Down with reason no-cable", unlinked)
 	}
 
 	unknownDst := netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55}
@@ -117,11 +116,15 @@ func TestPortWhosePeerIsAdminDownIsOperDown(t *testing.T) {
 		t.Fatalf("got %d links, want 1", len(links))
 	}
 	l := links[0]
-	if l.A.Oper != port.Down || l.A.Reason != fabric.ReasonPeerDown {
-		t.Errorf("link end A = %+v, want Down with reason peer-down", l.A)
+	down, up := l.A, l.B
+	if down.Node != "sw2" {
+		down, up = l.B, l.A
 	}
-	if l.B.Oper != port.Down || l.B.Reason != fabric.ReasonPeerDown {
-		t.Errorf("link end B = %+v, want Down with reason peer-down", l.B)
+	if down.Oper != port.Down || down.Reason != fabric.ReasonAdminDown {
+		t.Errorf("the disabled end = %+v, want Down with reason admin-down", down)
+	}
+	if up.Oper != port.Down || up.Reason != fabric.ReasonPeerDown {
+		t.Errorf("the other end = %+v, want Down with reason peer-down", up)
 	}
 }
 

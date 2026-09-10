@@ -18,11 +18,20 @@ type Comparison struct {
 }
 
 // Compare executes the scenario injections on both fabrics up to the step budget,
-// comparing deliveries and drop reasons per frame. An injection either fabric
-// refuses is returned as the error, because a scenario one side never ran
-// compares nothing. Compare consumes both fabrics: their clocks advance,
-// counters accumulate, and dynamic entries learn and age.
+// comparing deliveries and drop reasons per frame. Both fabrics must be unused:
+// journeys pair by frame id, which each fabric assigns from its own count, so a
+// fabric that already injected is refused rather than compared on ids that no
+// longer line up. An injection either fabric refuses is returned as the error,
+// because a scenario one side never ran compares nothing. Compare consumes both
+// fabrics: their clocks advance, counters accumulate, and dynamic entries learn
+// and age.
 func Compare(a, b *Fabric, scenario []Injection, budget int) (Comparison, error) {
+	if len(a.journeys) > 0 || len(b.journeys) > 0 {
+		return Comparison{}, errs.New().
+			Attr("current_frames", len(a.journeys)).
+			Attr("expected_frames", len(b.journeys)).
+			Msg("compare needs two fabrics that have not injected")
+	}
 	for _, inj := range scenario {
 		if _, err := a.Inject(inj); err != nil {
 			return Comparison{}, errs.Wrap(err, "inject into the current fabric")
