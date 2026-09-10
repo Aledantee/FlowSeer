@@ -72,14 +72,6 @@ func TestParseMAC(t *testing.T) {
 			if got != tc.want {
 				t.Errorf("Parse(%q) = %v, want %v", tc.input, got, tc.want)
 			}
-
-			gotAlias, err := netaddr.ParseMAC(tc.input)
-			if err != nil {
-				t.Fatalf("ParseMAC(%q) failed: %v", tc.input, err)
-			}
-			if gotAlias != tc.want {
-				t.Errorf("ParseMAC(%q) = %v, want %v", tc.input, gotAlias, tc.want)
-			}
 		})
 	}
 }

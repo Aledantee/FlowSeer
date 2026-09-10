@@ -12,7 +12,6 @@ import (
 
 // EtherType represents a 16-bit IEEE EtherType identifier in network byte order.
 // The zero value represents an unspecified EtherType.
-// Values are immutable value types safe for concurrent use.
 type EtherType uint16
 
 const (
@@ -45,9 +44,6 @@ const (
 
 	// EtherTypeMACsec is IEEE Std 802.1AE MAC Security (0x88E5).
 	EtherTypeMACsec EtherType = 0x88E5
-
-	// EtherTypeMACSec is an alias for [EtherTypeMACsec].
-	EtherTypeMACSec = EtherTypeMACsec
 )
 
 // String returns the hexadecimal representation of e or its known standard name.
@@ -79,7 +75,6 @@ func (e EtherType) String() string {
 // Frame represents an Ethernet II frame carrying an optional IEEE 802.1Q tag stack.
 // Tags are ordered outermost first. EtherType is the first non-tag EtherType identifying the payload.
 // The zero value is a usable empty frame.
-// Instances are not safe for concurrent modification.
 type Frame struct {
 	Dst       netaddr.MAC
 	Src       netaddr.MAC
@@ -134,11 +129,6 @@ func (f Frame) Encode() ([]byte, error) {
 	copy(out[offset:], f.Payload)
 
 	return out, nil
-}
-
-// Encode serializes f into wire bytes. It is a package-level helper calling [Frame.Encode].
-func Encode(f Frame) ([]byte, error) {
-	return f.Encode()
 }
 
 // Decode decodes an Ethernet II frame from wire bytes, peeling 802.1Q tags while the

@@ -71,15 +71,6 @@ func TestCodecRequirement1(t *testing.T) {
 	if !bytes.Equal(encoded, raw) {
 		t.Fatalf("encoded bytes mismatch:\ngot:  %x\nwant: %x", encoded, raw)
 	}
-
-	// Also verify package-level Encode helper.
-	pkgEncoded, err := ethernet.Encode(frame)
-	if err != nil {
-		t.Fatalf("ethernet.Encode(frame) failed: %v", err)
-	}
-	if !bytes.Equal(pkgEncoded, raw) {
-		t.Fatalf("package Encode mismatch:\ngot:  %x\nwant: %x", pkgEncoded, raw)
-	}
 }
 
 func TestTwoTagStack(t *testing.T) {

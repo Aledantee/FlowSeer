@@ -10,12 +10,10 @@ import (
 
 // MAC represents a 48-bit IEEE 802 Media Access Control address in network byte order.
 // The zero value is usable and represents the all-zero MAC address (00:00:00:00:00:00).
-// Instances are immutable value types safe for concurrent use.
 type MAC [6]byte
 
 // EUI64 represents a 64-bit IEEE Extended Unique Identifier in network byte order.
 // The zero value is usable and represents the all-zero identifier (00:00:00:00:00:00:00:00).
-// Instances are immutable value types safe for concurrent use.
 type EUI64 [8]byte
 
 // String returns the colon-separated lower-case hexadecimal representation of m.
@@ -59,11 +57,6 @@ func Parse(s string) (MAC, error) {
 	copy(m[:], hw)
 
 	return m, nil
-}
-
-// ParseMAC is an alias for [Parse].
-func ParseMAC(s string) (MAC, error) {
-	return Parse(s)
 }
 
 // FromHardwareAddr converts hw into a [MAC]. It rejects any slice whose length is not exactly six.
