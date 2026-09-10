@@ -2,6 +2,7 @@ package deviceapi_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -792,4 +793,98 @@ func TestListEdgeOpenMutationsReportsNothingWhenNoLaneIsHeld(t *testing.T) {
 	if len(resp.Msg.GetOpen()) != 0 {
 		t.Errorf("rows = %d, want none", len(resp.Msg.GetOpen()))
 	}
+}
+
+// A mutation the edge was dispatched and has not ended is refused, and the
+// code says which call ends it. Every other resolve test above abandons the
+// mutation first, so HasDisposition() short-circuits this guard and it would
+// pass the suite if it were deleted.
+func TestResolveRefusesAMutationTheEdgeStillHolds(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	seq := applied.Msg.GetMutation().GetSequence()
+	if err := h.journal.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted report: %v", err)
+	}
+
+	msg := resolveRequest(seq)
+	msg.SetAccept(&devicev1.AcceptObservedDecision{})
+	_, err = h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
+	wantCode(t, err, connect.CodeFailedPrecondition)
+	// FailedPrecondition is also what a second intent over a held lane
+	// answers; what tells the two apart for the operator is the remedy.
+	if !strings.Contains(err.Error(), "AbandonMutation") {
+		t.Errorf("message = %q, want the call that ends the mutation named", err)
+	}
+
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if record.GetMutation().HasDisposition() {
+		t.Fatal("the refused resolution disposed the mutation anyway")
+	}
+}
+
+// A mutation the edge never received is central's alone, so resolving it is
+// not the operator claiming anything about the device: the journal disposes it
+// REJECTED, which is the true statement that the command never left. Refusing
+// here would leave only AbandonMutation, which records the opposite.
+func TestResolveDisposesAMutationTheEdgeNeverReceived(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	applied, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor(heldDescription), false))
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	seq := applied.Msg.GetMutation().GetSequence()
+	// The interface is managed, so the read central closes is kept as the last
+	// observation and the accept arm has something to adopt.
+	if err := h.journal.SetExpected(ctx, deviceID, deviceRef(), iface, heldDescription); err != nil {
+		t.Fatalf("set expected: %v", err)
+	}
+	closeARead(t, h, observation("whatever the device says"))
+
+	msg := resolveRequest(seq)
+	msg.SetAccept(&devicev1.AcceptObservedDecision{})
+	if _, err := h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg)); err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+
+	record, err := h.journal.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if record.HasMutation() {
+		t.Fatalf("the resolution left the mutation open: %+v", record.GetMutation())
+	}
+	if got := record.GetExpectedDescriptions()[iface]; got != "whatever the device says" {
+		t.Errorf("expected description = %q, want what the read observed", got)
+	}
+}
+
+// Nothing in the schema ties the device the request names to the one the
+// replacement intent names. Admitted into this device's lane, an intent naming
+// another one would put that name on the audit record, the idempotency digest,
+// and the ExecuteRequest the edge receives.
+func TestResolveReplaceRefusesAnIntentNamingAnotherDevice(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	seq := held(t, h)
+
+	other := intentFor("uplink to core b")
+	local := &inventoryv1.DeviceLocalRef{}
+	local.SetId("0192e6a0-0000-7000-8000-0000000000ff")
+	ref := &inventoryv1.DeviceGlobalRef{}
+	ref.SetDevice(local)
+	other.SetDevice(ref)
+
+	msg := resolveRequest(seq)
+	msg.SetReplace(other)
+	_, err := h.svc.ResolveDesynchronization(ctx, connect.NewRequest(msg))
+	wantCode(t, err, connect.CodeInvalidArgument)
 }

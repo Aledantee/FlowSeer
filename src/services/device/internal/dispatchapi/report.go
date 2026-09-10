@@ -11,6 +11,7 @@ import (
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
 // ErrCodeReport is a report central could not classify or apply.
@@ -57,7 +58,7 @@ func (s *Service) Report(ctx context.Context, req *connect.Request[integrationv1
 	case integrationv1.ReportRequest_Result_case:
 		err = s.applyResult(ctx, deviceID, req.Msg.GetResult())
 	case integrationv1.ReportRequest_CheckpointAck_case:
-		err = s.confirmCheckpoint(ctx, deviceID, req.Msg.GetCheckpointAck().GetSequence())
+		err = s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, req.Msg.GetCheckpointAck().GetSequence())
 	case integrationv1.ReportRequest_HoldResolvedAck_case:
 		err = s.cfg.Journal.ConfirmHoldResolved(ctx, deviceID, req.Msg.GetHoldResolvedAck().GetSequence())
 	case integrationv1.ReportRequest_Refused_case:
@@ -207,7 +208,7 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 			s.log.WarnContext(ctx, "could not classify an execute refusal; leaving the row owed",
 				slog.String("flowseer.device.id", deviceID),
 				slog.String("flowseer.edge.refusal.code", refused.GetCode()),
-				slog.String("error.type", errorType(err)))
+				slog.String("error.type", telemetry.ErrorType(err)))
 			return nil
 		}
 		if terminal {
@@ -233,26 +234,6 @@ func (s *Service) applyRefused(ctx context.Context, deviceID string, refused *in
 	default:
 		return nil
 	}
-}
-
-// confirmCheckpoint records an acknowledgement only for a mutation that has
-// reported a phase past ADMITTED.
-//
-// The same gate the refusal path applies, for the same reason: a checkpoint
-// is owed only once the edge is waiting on one, so an acknowledgement
-// arriving earlier is not this checkpoint's. Recorded unconditionally it
-// sets the flag before the CheckpointRequest is owed, OwedRows then never
-// sends it, and the edge parks in its checkpoint wait until the delayed-apply
-// horizon and abandons a change that was never submitted.
-func (s *Service) confirmCheckpoint(ctx context.Context, deviceID string, seq uint64) error {
-	rec, err := s.cfg.Journal.Record(ctx, deviceID)
-	if err != nil {
-		return err
-	}
-	if !pastCheckpoint(rec.GetLastReportedPhase()) {
-		return nil
-	}
-	return s.cfg.Journal.ConfirmCheckpoint(ctx, deviceID, seq)
 }
 
 // authorizeDevice binds a report to the edge the assertion names: the calling

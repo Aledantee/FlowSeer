@@ -215,8 +215,6 @@ func addSubjectNames(template *x509.Certificate, cfg *Config) {
 	}
 }
 
-// hostOf is the host part of a host:port or of a URL, empty for a wildcard
-// bind, which names nothing a peer can dial.
 // listenHostOf is the host a listener binds, which is not the host a
 // certificate names. An empty result means "every interface" to a listener
 // and "no dialable name" to a SAN, so the two cannot share a mapping:
@@ -224,13 +222,15 @@ func addSubjectNames(template *x509.Certificate, cfg *Config) {
 // 0.0.0.0 would silently bind the bus to 127.0.0.1 while the API answered
 // everywhere and AttachBus handed edges a routable address.
 func listenHostOf(address string) string {
-	host, _, err := net.SplitHostPort(address)
-	if err != nil {
-		return address
-	}
+	// The configuration schema admits only host:port here, so the split
+	// cannot fail; an empty host is the wildcard bind, which a listener
+	// reads as every interface.
+	host, _, _ := net.SplitHostPort(address)
 	return host
 }
 
+// hostOf is the host part of a host:port or of a URL, empty for a wildcard
+// bind, which names nothing a peer can dial.
 func hostOf(address string) string {
 	if parsed, err := url.Parse(address); err == nil && parsed.Host != "" {
 		address = parsed.Hostname()

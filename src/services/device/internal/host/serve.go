@@ -27,6 +27,17 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
+// panicRecovery turns a panic in any handler — unary and streaming alike —
+// into an internal error on the ordinary error path, so the telemetry
+// interceptor records a duration for it and the caller gets an answer rather
+// than a transport reset. The panic value itself is not put on the wire.
+func panicRecovery() connect.HandlerOption {
+	return connect.WithRecover(func(_ context.Context, _ connect.Spec, _ http.Header, p any) error {
+		return connect.NewError(connect.CodeInternal, errs.New().Code(ErrCodePanic).
+			Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
+	})
+}
+
 // mux builds the served surface: the edge-facing services behind the
 // assertion middleware, and the operator-facing ones in front of it.
 //
@@ -39,14 +50,7 @@ import (
 // OpenFGA is out of this plan's scope, and the deployment that runs this puts
 // the operator surface behind its own boundary until it lands.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
-	recoverPanic := connect.WithRecover(func(_ context.Context, _ connect.Spec, _ http.Header, p any) error {
-		// Recovered so the failure travels the ordinary error path: the
-		// telemetry interceptor records a duration for it, and the client
-		// gets an internal error rather than a transport reset. The panic
-		// value itself is not put on the wire.
-		return connect.NewError(connect.CodeInternal, errs.New().Code(ErrCodePanic).
-			Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
-	})
+	recoverPanic := panicRecovery()
 	interceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
 		ValidatingInterceptor(),
@@ -109,7 +113,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// caller can reach, and the one the bound exists for.
 	mux.Handle(edgev1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
-	dispatchPath, dispatchHandler := integrationv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors)
+	dispatchPath, dispatchHandler := integrationv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
 	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
 
 	auditPath, auditHandler := eventv1connect.NewAuditServiceHandler(auditService, interceptors, recoverPanic)

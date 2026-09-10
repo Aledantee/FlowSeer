@@ -193,9 +193,11 @@ func (v *Verifier) Verify(ctx context.Context, header, procedure string, body []
 }
 
 // recordNonce reports whether nonce is fresh for edgeID and records it
-// until expiresAt. It also purges every entry this Verifier is already
-// past the expiry of, so the cache never grows past the edges and
-// assertions currently within their validity window.
+// until expiresAt. Expired entries are purged on a schedule rather than on
+// every call, so the cache holds what is within its validity window plus
+// whatever expired since the last sweep. Freshness does not depend on the
+// sweep: an entry past its expiry is treated as absent whether or not it
+// has been removed.
 func (v *Verifier) recordNonce(edgeID string, nonce []byte, expiresAt time.Time) bool {
 	key := edgeID + "\x00" + string(nonce)
 	now := v.now()

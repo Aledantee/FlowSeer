@@ -209,11 +209,10 @@ func TestNamedTerminatorIsInvocableForEveryOwedRow(t *testing.T) {
 	}
 }
 
-// TestAbandonedHoldResolvableUnderAnOlderHold is Finding 1's symmetric case: an
-// abandoned mutation whose ack the edge confirmed owes nothing and names
-// ResolveDesynchronization as its terminator; that terminator must act even
-// when an older, unrelated hold is still pending — which the single-valued
-// field made impossible.
+// An abandoned mutation whose ack the edge confirmed owes nothing and names
+// ResolveDesynchronization as its terminator. That terminator must act even
+// when an older, unrelated hold is still pending, which the single-valued
+// hold field made impossible.
 func TestAbandonedHoldResolvableUnderAnOlderHold(t *testing.T) {
 	ctx := context.Background()
 	j := newJournal(t)

@@ -42,7 +42,7 @@ matters after an `Onboarded` report clears both confirmations on a record at
 
 | Row | Owed while | Stops on |
 | --- | --- | --- |
-| `HoldResolved` | the sequence is in `hold_resolution_pending` | `HoldResolvedAck` for that sequence |
+| `HoldResolved` | the sequence is in `hold_resolution_pending` | `HoldResolvedAck` for that sequence, or a `Refused` answering it, whatever the code: an edge that refuses holds nothing for that sequence |
 | `ExecuteRequest` | an open mutation has no disposition, its block reason permits dispatch, and `dispatch_confirmed` is unset | the edge's `ADMITTED` report, which sets `dispatch_confirmed` and moves the phase to `POSSIBLY_APPLIED` in the same write |
 | `CheckpointRequest` | `dispatch_confirmed` is set, the mutation's phase is `POSSIBLY_APPLIED`, and `checkpoint_confirmed` is unset | `CheckpointAck`, or a `Refused` carrying `access/no-pending-wait` while the last reported phase is at or past `POSSIBLY_APPLIED` |
 | `TerminalResultAck` | the mutation has a disposition and `dispatched` is set | the edge reporting `RELEASED` or `ABANDONED`, or refusing because it holds no machine or the machine is already terminal |

@@ -10,6 +10,7 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -194,4 +195,23 @@ func (v *View) DriftDetected(
 // in go.mod before changing this.
 func RPCMethod(procedure string) string {
 	return strings.TrimPrefix(procedure, "/")
+}
+
+// ErrorType classifies a failure for semconv's error.type: the error's own
+// code where it has one, and the two context causes by name where it does
+// not. Bounded on purpose, because it becomes a metric dimension downstream,
+// and never the error's own message, which carries whatever the transport put
+// in it.
+func ErrorType(err error) string {
+	if code, ok := errs.CodeOf(err); ok {
+		return string(code)
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "context.deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "context.canceled"
+	default:
+		return "unknown"
+	}
 }

@@ -195,11 +195,6 @@ func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) str
 
 // insecureClient trusts whatever central generated. An edge pins the digest
 // its provisioning carries; this client is the operator, not the edge.
-// insecureClient builds one client. Callers hold it for the fixture's
-// lifetime: a fresh http.Transport per call keeps its own idle pool with no
-// IdleConnTimeout, and the status polls run at 50ms for minutes, so a single
-// wait would otherwise leak thousands of connections and their goroutines on
-// both sides of the same process.
 func insecureClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
@@ -369,6 +364,10 @@ func (c *central) shutdown() {
 		return
 	}
 	stop()
+	// The client outlives this run and the next start reuses the same port, so
+	// a pooled keep-alive connection to the process being stopped could be
+	// handed to the first request after the restart.
+	c.client.CloseIdleConnections()
 	select {
 	case err := <-stopped:
 		if err != nil {

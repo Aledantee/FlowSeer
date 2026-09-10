@@ -12,9 +12,10 @@
 // device it names.
 //
 // The package also holds [AdminService], the operator's side of an edge's life.
-// It authenticates no edge and is served behind the operator authorization
-// instead of the middleware, but it writes the same records: the setup key an
-// edge enrolls with is minted, stored as a digest, and withdrawn here.
+// It authenticates nobody and is served without the middleware — there is no
+// operator authorization in this deployment yet — but it writes the same
+// records: the setup key an edge enrolls with is minted, stored as a digest,
+// and withdrawn here.
 package edgeapi
 
 import (

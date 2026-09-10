@@ -35,7 +35,7 @@ func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[device
 	// OwedRows stops offering it, the sweeper closes it with a deadline
 	// error, and it was never dispatched — while this handler tells the
 	// caller it is still running.
-	deadline := s.clock().Add(s.defaultReadDeadline())
+	deadline := s.clock().Add(s.readDeadline())
 
 	read := &accessv1.TypedRead{}
 	read.SetAccessPolicy(entry.GetConfig().GetAccessPolicy())
@@ -58,9 +58,23 @@ func (s *Service) ReadInterface(ctx context.Context, req *connect.Request[device
 	return connect.NewResponse(resp), nil
 }
 
-// defaultReadDeadline bounds a read whose caller set no deadline, so an open
-// read is never owed forever by a caller that has gone away.
-func (s *Service) defaultReadDeadline() time.Duration { return 30 * time.Second }
+// readDeadline is how long an open read stays owed. It is fixed rather than
+// taken from the caller, and it applies even to a caller who allowed longer:
+// that caller's call returns once the sweep closes the entry, while a caller
+// who allowed less gets a read that outlives them and lands its answer in the
+// record.
+//
+// Fixed because the two deadlines answer different questions. The caller's
+// says how long this call waits; this one says how long the edge is still
+// asked to answer, and letting the caller set it makes the read expire at
+// exactly the moment the caller gives up — never dispatched, swept with a
+// deadline error, while the handler reports it as still running.
+//
+// 30s because that is the edge's own bound on a device call
+// (access.defaultOperationTimeout): past it the edge's lane has already given
+// up, so a read still open here is stuck rather than slow, and keeping it owed
+// only re-dispatches it to a lane that will not answer.
+func (s *Service) readDeadline() time.Duration { return 30 * time.Second }
 
 // awaitRead blocks until the record says the read closed, the caller's context
 // ends, or the read's own entry is replaced by a later one.

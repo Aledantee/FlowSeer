@@ -137,6 +137,43 @@ func TestReportRefusedFirmwareEpochDisposesRejected(t *testing.T) {
 	}
 }
 
+// A CheckpointAck is the checkpoint's confirmation, with no phase condition on
+// it. The phase condition belongs to the refusal path below, and applying it
+// here refused every legitimate ack: the ADMITTED report leaves the last
+// reported phase at ADMITTED and nothing advances it before the ack arrives,
+// so the checkpoint row re-derived on every relay pass, the edge answered each
+// resend with access/no-pending-wait, and the mutation never got past its
+// barrier.
+func TestReportCheckpointAckConfirmsTheCheckpoint(t *testing.T) {
+	svc, j, _ := newFixture(t)
+	ctx := context.Background()
+	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000b0c"), edgeRef()); err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: 1}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+	rec, _ := j.Record(ctx, deviceID)
+	if rows := journal.OwedRows(rec, time.Now()); len(rows) != 1 || rows[0].Kind != journal.OwedCheckpoint {
+		t.Fatalf("owed = %+v, want the checkpoint row", rows)
+	}
+
+	ack := &integrationv1.CheckpointAck{}
+	ack.SetSequence(1)
+	req := &integrationv1.ReportRequest{}
+	req.SetDeviceId(deviceID)
+	req.SetCheckpointAck(ack)
+	report(t, svc, req)
+
+	rec, _ = j.Record(ctx, deviceID)
+	if !rec.GetCheckpointConfirmed() {
+		t.Fatal("a CheckpointAck did not confirm the checkpoint")
+	}
+	if rows := journal.OwedRows(rec, time.Now()); len(rows) != 0 {
+		t.Fatalf("owed = %+v, want nothing once the checkpoint is confirmed", rows)
+	}
+}
+
 func TestReportRefusedCheckpointConfirmsOnlyPastCheckpoint(t *testing.T) {
 	svc, j, _ := newFixture(t)
 	ctx := context.Background()

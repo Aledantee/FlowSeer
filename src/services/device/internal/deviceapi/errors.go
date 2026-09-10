@@ -33,6 +33,7 @@ var ClientErrors = connecterr.Table{
 	journal.ErrCodeIdempotencyMismatch: {Code: connect.CodeAlreadyExists, UserMsg: "this idempotency key was already used for a different request"},
 	journal.ErrCodeState:               {Code: connect.CodeFailedPrecondition, UserMsg: "the device's record does not allow this operation"},
 	journal.ErrCodeAckPending:          {Code: connect.CodeFailedPrecondition, UserMsg: "the edge has not yet acknowledged how this mutation ended; resolve it once it has"},
+	journal.ErrCodeEdgeHolds:           {Code: connect.CodeFailedPrecondition, UserMsg: "the edge still holds this mutation; end it with AbandonMutation, then resolve it"},
 
 	journal.ErrCodeHoldsFull: {Code: connect.CodeResourceExhausted, UserMsg: "the device holds as many unresolved mutations as it can; some must be acknowledged before more are recorded"},
 

@@ -42,6 +42,11 @@ var (
 	// because the operator's next action is different: nothing about the
 	// request is wrong and nothing else has to change, it is simply too early.
 	ErrCodeAckPending = errs.NewCode("journal/ack-pending")
+	// ErrCodeEdgeHolds is a resolution of a mutation the edge was dispatched
+	// and has not said how it ended. Waiting does not clear it, which is why
+	// it is not ErrCodeAckPending: nothing is owed to the operator until
+	// AbandonMutation ends the mutation, and only then is it resolvable.
+	ErrCodeEdgeHolds = errs.NewCode("journal/edge-holds")
 	// ErrCodeDecode is a stored record that will not unmarshal.
 	ErrCodeDecode = errs.NewCode("journal/decode")
 	// ErrCodeIdempotencyMismatch is a resubmission carrying a key the record
@@ -460,7 +465,10 @@ func reportApplies(kind ReportKind, m *accessv1.MutationState, rec *storev1.Devi
 	}
 }
 
-// ConfirmCheckpoint records the edge's CheckpointAck.
+// ConfirmCheckpoint records the edge's CheckpointAck, and only while the
+// dispatch it belongs to is still confirmed. An acknowledgement for any other
+// sequence, or one arriving after MarkOnboarded cleared the confirmations,
+// writes nothing.
 func (j *Journal) ConfirmCheckpoint(ctx context.Context, deviceID string, sequence uint64) error {
 	return j.mutateMutation(ctx, deviceID, sequence, func(rec *storev1.DeviceLaneRecord, _ *accessv1.MutationState) {
 		// Only while the dispatch this checkpoint belongs to is confirmed.
@@ -598,7 +606,9 @@ type Resolution struct {
 // An abandonment the edge has not acknowledged yet is refused with
 // [ErrCodeAckPending], which is [TerminatorNamed]'s rule enforced: while the
 // terminal acknowledgement is owed, closing the record would withdraw it and
-// leave the edge waiting on an answer nothing would send.
+// leave the edge waiting on an answer nothing would send. A mutation the edge
+// was dispatched and has not ended is refused with [ErrCodeEdgeHolds]:
+// AbandonMutation ends it, and no amount of waiting will.
 //
 // A resubmission carrying an idempotency key the record already holds returns
 // the recorded state and writes nothing, so a lost response is retried rather
@@ -650,7 +660,7 @@ func (j *Journal) ResolveDesynchronization(ctx context.Context, deviceID string,
 				// replacement into a lane the edge still occupies.
 				// AbandonMutation is the terminator for a mutation in this
 				// state.
-				return errs.New().Code(ErrCodeAckPending).Attr("device", deviceID).
+				return errs.New().Code(ErrCodeEdgeHolds).Attr("device", deviceID).
 					Attr("sequence", res.Sequence).
 					Msg("the edge still holds this mutation; abandon it before resolving")
 			}

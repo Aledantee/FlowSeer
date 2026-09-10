@@ -87,17 +87,22 @@ func (s *Service) resolution(
 	if held != nil && held.GetSequence() != sequence {
 		held = nil
 	}
-	// A mutation the edge may still be executing is not resolvable. Without
-	// this the journal writes it REJECTED — which means the command never
-	// reached the device — for a change that may already have applied, drops
-	// the edge's own later report as stale, and dispatches the replacement
-	// into a lane the edge still occupies. AbandonMutation is the terminator
-	// for a mutation in that state, and the block reasons that forbid
-	// dispatch are exactly the ones that say the edge has let go.
-	if held != nil && !held.HasDisposition() && journal.PermitsDispatch(held.GetBlockReason()) {
-		return resolution, errs.New().Code(ErrCodeLaneHeld).Attr("device", deviceID).
+	// A mutation the edge holds is not resolvable. Without this the journal
+	// writes it REJECTED — which means the command never reached the device —
+	// for a change that may already have applied, drops the edge's own later
+	// report as stale, and dispatches the replacement into a lane the edge
+	// still occupies. AbandonMutation is the terminator for a mutation in
+	// that state. The record fact is dispatched: an admitted mutation the
+	// edge never received is central's alone, and refusing it here would
+	// leave the operator abandoning a command that provably never left.
+	//
+	// The journal refuses the same state, and this exists so the operator
+	// hears it before the replacement intent is validated against a lane that
+	// will not take it.
+	if held != nil && !held.HasDisposition() && record.GetDispatched() {
+		return resolution, errs.New().Code(journal.ErrCodeEdgeHolds).Attr("device", deviceID).
 			Attr("sequence", sequence).
-			Msg("the edge may still be executing this mutation; abandon it before resolving")
+			Msg("the edge still holds this mutation; abandon it before resolving")
 	}
 	iface := changedInterface(held)
 

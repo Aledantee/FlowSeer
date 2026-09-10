@@ -582,3 +582,34 @@ func completeObservation(iface, description string) *accessv1.InterfaceObservati
 	obs.SetCompleteness(accessv1.Completeness_COMPLETENESS_COMPLETE)
 	return obs
 }
+
+// Resolving a mutation the edge holds and has not ended is refused with
+// [journal.ErrCodeEdgeHolds], not ack-pending: no acknowledgement is on its
+// way, so waiting never clears it. Writing REJECTED here would record that the
+// command never reached the device for one that may already have applied, drop
+// the edge's own later report as stale, and dispatch the replacement into a
+// lane the edge still occupies.
+func TestResolveDesynchronizationRefusesAMutationTheEdgeStillHolds(t *testing.T) {
+	ctx := context.Background()
+	j := newJournal(t)
+	state, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000a1a"), edgeRef())
+	if err != nil {
+		t.Fatalf("admit: %v", err)
+	}
+	seq := state.GetSequence()
+	if err := j.ApplyReport(ctx, deviceID, journal.Report{Kind: journal.ReportAdmitted, Sequence: seq}); err != nil {
+		t.Fatalf("admitted: %v", err)
+	}
+
+	_, _, err = j.ResolveDesynchronization(ctx, deviceID, journal.Resolution{Sequence: seq})
+	if code, _ := errs.CodeOf(err); code != journal.ErrCodeEdgeHolds {
+		t.Fatalf("resolve error = %v, want code %v", err, journal.ErrCodeEdgeHolds)
+	}
+	rec, err := j.Record(ctx, deviceID)
+	if err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if rec.GetMutation().HasDisposition() {
+		t.Fatal("the refused resolution disposed the mutation anyway")
+	}
+}

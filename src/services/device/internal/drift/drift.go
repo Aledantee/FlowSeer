@@ -17,7 +17,6 @@ package drift
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
@@ -159,12 +158,12 @@ func (p *Poller) Pass(ctx context.Context) {
 	edgeID := p.cfg.Resolver.EdgeID()
 	devices, err := p.cfg.Resolver.Devices(ctx, edgeID)
 	if err != nil {
-		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", errorType(err)))
+		p.log.ErrorContext(ctx, "drift poll could not name the devices to poll", slog.String("flowseer.edge.id", edgeID), slog.String("error.type", telemetry.ErrorType(err)))
 		return
 	}
 	for _, deviceID := range devices {
 		if err := p.pollDevice(ctx, deviceID); err != nil {
-			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.device.id", deviceID), slog.String("error.type", errorType(err)))
+			p.log.ErrorContext(ctx, "drift poll skipped a device", slog.String("flowseer.device.id", deviceID), slog.String("error.type", telemetry.ErrorType(err)))
 		}
 	}
 }
@@ -391,21 +390,4 @@ func edgeRef(edgeID string) *edgev1.EdgeGlobalRef {
 	ref := &edgev1.EdgeGlobalRef{}
 	ref.SetEdge(local)
 	return ref
-}
-
-// errorType classifies a failure for the error.type attribute: the error's
-// own code where it has one, and the two context causes by name where it
-// does not. Bounded, because it becomes a metric dimension downstream.
-func errorType(err error) string {
-	if code, ok := errs.CodeOf(err); ok {
-		return string(code)
-	}
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return "context.deadline_exceeded"
-	case errors.Is(err, context.Canceled):
-		return "context.canceled"
-	default:
-		return "unknown"
-	}
 }

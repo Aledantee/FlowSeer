@@ -38,18 +38,14 @@ type Owed struct {
 }
 
 // permitsDispatch reports whether a block reason still lets central dispatch
-// the mutation. The set is a permit-list on purpose: a reason added later
-// blocks dispatch until someone lists it here, which is the safe default. A
-// mutation with no block reason (the zero value) permits dispatch.
+// the mutation. It says nothing about whether the edge already holds the
+// sequence — record.dispatched is that fact, and a mutation can permit
+// dispatch while the edge has never seen it.
+//
+// The set is a permit-list on purpose: a reason added later blocks dispatch
+// until someone lists it here, which is the safe default. A mutation with no
+// block reason (the zero value) permits dispatch.
 func permitsDispatch(reason accessv1.BlockReason) bool {
-	return PermitsDispatch(reason)
-}
-
-// PermitsDispatch reports whether a mutation blocked for reason may still be
-// dispatched to its edge — which is also the test for whether the edge may
-// still be holding it. An operator-facing handler refusing a resolution
-// against a live mutation asks this rather than writing the list again.
-func PermitsDispatch(reason accessv1.BlockReason) bool {
 	switch reason {
 	case accessv1.BlockReason_BLOCK_REASON_UNSPECIFIED,
 		accessv1.BlockReason_BLOCK_REASON_UNACKNOWLEDGED,

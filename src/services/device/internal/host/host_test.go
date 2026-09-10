@@ -1,9 +1,11 @@
 package host_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +23,7 @@ import (
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -329,5 +332,66 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 
 	if _, err := callWhenServing(t, client, msg); connect.CodeOf(err) != connect.CodeNotFound {
 		t.Errorf("a call to the reported address answered %v, want the handler's not-found", err)
+	}
+}
+
+// Enroll is the one edge procedure an unauthenticated caller can reach: it
+// runs in front of the assertion middleware, because an edge has no identity
+// to sign with yet, so the middleware's body limit does not cover it. The
+// bound is the handler's own, and it is the only thing standing between the
+// listener and a body sized to exhaust the process.
+func TestEnrollRefusesABodyPastTheBound(t *testing.T) {
+	base := runningService(t)
+	client := insecureClient()
+	waitUntilServing(t, client, base)
+
+	oversize := postEnroll(t, client, base, make([]byte, 2<<20))
+	if oversize == http.StatusOK {
+		t.Fatalf("a 2 MiB Enroll body was accepted (status %d)", oversize)
+	}
+
+	// A short body reaches the handler and is refused on its content, which
+	// is what makes the answer above the bound rather than Enroll refusing
+	// everything.
+	short := postEnroll(t, client, base, []byte{0x00})
+	if short == oversize {
+		t.Errorf("a one-byte body and a 2 MiB body are answered alike (status %d)", short)
+	}
+}
+
+// postEnroll sends body to Enroll over the Connect protocol and reports the
+// HTTP status. The body is deliberately not a valid request: what is under
+// test is how far it gets, not what it says.
+func postEnroll(t *testing.T, client *http.Client, base string, body []byte) int {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodPost, base+edgev1connect.EdgeServiceEnrollProcedure, bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("build the request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/proto")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("post to Enroll: %v", err)
+	}
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	return resp.StatusCode
+}
+
+// waitUntilServing blocks until the API listener answers, so a test that
+// speaks raw HTTP does not race the service's startup.
+func waitUntilServing(t *testing.T, client *http.Client, base string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		resp, err := client.Get(base + "/")
+		if err == nil {
+			_ = resp.Body.Close()
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the api never came up: %v", err)
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
