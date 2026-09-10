@@ -74,11 +74,6 @@ leaves and a per-port drop reason. This phase adds:
   rule over two Ethernet values in `phy`; the fabric owns the cable and
   calls it. A fixed host speed would fail against a 10 Mb/s port for no
   reason a scenario intended. The host rule is unconfirmed.
-- `phy.Config.Validate` stops checking `Setting.SpeedBPS` against the
-  supported set when `Setting.AutoNegotiation` is true. Why: an auto end
-  is written with speed 0 by `netmodel.Load` and by every phase 1 test,
-  and 0 is never a supported speed, so today every auto port fails a
-  validation the fabric would run first.
 - The negotiated speed lives on the fabric's link record.
   `vswitch.Switch.Speeds()` keeps reporting the one-ended resolution of
   phase 1, and `Snapshot.Links` reports the two-ended one. Why: writing the
@@ -246,13 +241,11 @@ Change: `phy.Link{SpeedBPS uint64; Duplex Duplex; Reason trace.Reason}`
 is the outcome of `Negotiate(a, b Ethernet, top uint64) Link`; a zero
 speed with `ReasonSpeedMismatch` (`speed-mismatch`) is a failed link.
 The classification of an end and the rule over two ends are the
-Decisions text; `top` of 0 is unlimited. `Config.Validate` skips the
-supported-set check for an auto setting. Test names describe the
+Decisions text; `top` of 0 is unlimited. Test names describe the
 behavior, never a requirement number.
 Tests: `negotiate_test.go`, requirement 26's seven cases, two forced ends
-that agree, a forced end with speed 0, an auto setting on an end that
-does not support auto-negotiation, and an auto setting with speed 0
-passing `Validate`.
+that agree, a forced end with speed 0, and an auto setting on an end that
+does not support auto-negotiation.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/vswitch/phy`
 
 ### U2. Fabric configuration, links, and hosts
@@ -392,10 +385,9 @@ go test -race ./src/common/netsim/... ./src/common/internal/netpenguard/...
   settle at 1000 Mb/s (see Decisions); unconfirmed. If a fixed host speed
   is wanted, `Host` gains a `Speed` and the negotiation takes it as a
   forced end.
-- Two phase 1 changes ride in this plan (`phy.Config.Validate` for auto
-  settings, `vswitch.Switch.Age`) because the fabric is their first
-  caller; the phase 1 plan is not amended, since its contract for a
-  single switch is unchanged.
+- One phase 1 change rides in this plan (`vswitch.Switch.Age`) because
+  the fabric is its first caller; the phase 1 plan is not amended, since
+  its contract for a single switch is unchanged.
 - Whether the queue should break a same-instant tie between two devices
   by device name (the Decision) or by injection order alone; the name
   rule is deterministic either way and matters only to the order of
