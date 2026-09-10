@@ -244,3 +244,116 @@ Suggested change: say that a gate run in the background is the last command in i
 Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, the `--full` corpus tier (lines 466 and 473).
 What happened: two things, found together. First, neither `go test -tags=smi_corpus_full -run TestCorpus ./src/protocol/smi/` nor `go test -C src/protocol/smi/differential ./...` passes `-count=1`, so both can answer from Go's test cache. Reproduced directly: a session re-running the pair got `ok go.aledante.io/FlowSeer/src/protocol/smi (cached)` having executed nothing. The session's first instinct — that the `-race` invocations elsewhere in the script are immune because the cache treats them separately — is wrong, and the same `--full` run disproves it: 87 of its packages reported `(cached)`, race suites among them. Caching is sound wherever a result depends only on what the cache tracks, and this repository has already recorded the case where it is not: a cached pass from an unsandboxed run let a sandbox-hostile package report `ok` under the sandbox. The corpus tier is the same shape, walking a directory selected by a build tag, and it is the tier that exists because it is too expensive for the developer loop — which is where a false green costs most. Second, the differential module timed out at Go's 10-minute default in one `--full` run, with the panic naming `TestGosmiCorpusCensus` holding the shared `sync.OnceValues` corpus pass. It did not reproduce: three uncached runs took 76 s, 76 s and 83 s on the same idle machine and tree. So the hang is real, unexplained, and not a duration problem — raising the timeout would only lengthen the wait before the same hang is reported.
 Suggested change: add `-count=1` to both lines, which is the whole of the first fix. For the hang, the useful change is not a timeout but a way to tell a hung pass from a slow one: the corpus pass is single-goroutine behind a `OnceValues`, so a session meeting a timeout there cannot tell whether it deadlocked, is starved, or is genuinely slow, and the panic's traceback names whichever test happened to be waiting on the once rather than the one that entered it. Recording which test entered the pass, and when, would make the next occurrence diagnosable instead of another entry like this one. Worth noting for whoever works this: three runs proving something does not reproduce is weak evidence, and this entry is the fourth in this build about a gate whose output does not mean what it appears to.
+## 2026-09-06 implement: Bash edits force a full verifier run
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2 and Finish.
+What happened: several unit edits went through `sed` and a Python
+heredoc in Bash. The Bash hook recorded a `<Bash mutation; verify with
+--full>` marker, so a documentation-only change ended in a full module
+race run of about twenty minutes, and the first attempt aborted because
+another worktree's golangci-lint was running. The step was followed as
+written; nothing in it says which tool to edit with.
+Suggested change: in step 2, say that edits go through the editor tools
+and that a Bash write to a source file costs a `--full` run at Finish.
+
+## 2026-09-09 verify-change: a new proto file fails the breaking gate
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`,
+the `proto` block.
+What happened: a targeted run over two newly added files under
+`spec/proto/flowseer/net/capture/v1/` failed with `Failure: no .proto files
+were targeted.` from `buf breaking --against '.git#branch=master' --path
+<file> --path <file>`. Both files are new on the branch, so neither exists in
+the baseline, and `--path` then selects nothing in the against-ref. The check
+has nothing to say about them either way: `buf.yaml` ignores the whole
+`spec/proto/flowseer` module for breaking until the first stable release.
+Two smaller edges in the same block: a directory argument is dropped, since
+the collector matches `*.proto` and tests `-f`, so `-- spec/proto/<pkg>` runs
+no schema gate at all and still reports "verification passed"; and the phase
+plan's own Verification line (`-- spec/proto docs CONCEPTS.md generated`) is
+written that way.
+Suggested change: skip `buf breaking` when every targeted path is absent from
+the against-ref, or drop `--path` for that one command and let `buf.yaml`'s
+ignore do the selecting. Separately, expand a directory argument to the
+`.proto` files under it, or fail loudly when a passed path selects no gate.
+
+## 2026-09-09 plan: a net package's unit missed the executable import order
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 3, and the unit that adds
+a package under `spec/proto/flowseer/net/`.
+What happened: a phase plan added `flowseer/net/capture/v1` and had one unit
+amend the package tree and import order in
+`docs/architecture/2026-08-20-network-model-structure-direction.md`. That
+record says its own order's "home for automated checking is
+`test/conformance/proto/`", but no unit named
+`test/conformance/proto/layering_test.go`, so `importOrder` never gained the
+package. Every targeted per-unit check passed; only the `--full` run failed,
+with `TestNetImportOrder` reporting `package net/capture declares no layer in
+importOrder` once per import and `TestNetImportOrderCoversEveryPackage`
+reporting the package outright. The plan was followed as written.
+Suggested change: when a plan adds a package under `spec/proto/flowseer/net/`,
+its unit files list `test/conformance/proto/layering_test.go` beside the
+architecture record, because the record's import-order block is prose and that
+table is the executable copy. The two are a mirrored pair and belong under the
+same message-sync habit as the triad and the ref pair.
+
+## 2026-09-09 delegate: a coordinator's correction sat in a ledger note, not the convention doc
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief", item 5.
+What happened: a worker set `features.field_presence = IMPLICIT` on a new
+counters message, following `docs/code-style-proto.md`, which then named a
+counter as the case for it. The coordinator reverted the change, which matched
+the tree — no file under `spec/proto/flowseer/` sets `field_presence` — but
+recorded the reversal only in the unit's ledger `note`. Two units later the
+brief carried that note verbatim and the same model set the same feature
+again, on a different message, having also been told to read the style doc
+that still permitted it. The coordinator read the recurrence as a worker
+ignoring an instruction and reported it that way; the worker had in fact
+followed the repository's own convention doc, and the note it was handed
+carried the authority of a convention while having none. The user later
+settled the rule and the doc now states it.
+Suggested change: a `note` records what the next unit needs to know about what
+landed, not a rule. When a coordinator overrides a worker on something that
+will recur, the convention doc that governs the file type is edited before the
+next dispatch, or the override is a preference and the brief must not carry it
+as a prohibition. A brief that names a convention doc is telling the worker
+that doc is authoritative; contradicting it in a note puts the worker between
+two sources with no rule for which wins.
+
+## 2026-09-09 implement: the ledger path is unwritable from inside an Orca worktree
+Skill or agent: `.claude/skills/implement/SKILL.md`, "Resume from the ledger".
+What happened: implementing a phase plan (docs/plans/2026-09-09-1213-feat-
+remote-packet-capture-phase2-plan.md) from inside an Orca-managed worktree,
+the step's own ledger path — `$(git rev-parse --git-dir)/flowseer-plan-
+status.json` — resolved to a path under the primary checkout's `.git/`
+(`.git/worktrees/<name>/flowseer-plan-status.json`), which is standard git
+behavior for any linked worktree, not specific to this task. The Orca
+worktree-isolation hook then denied the write, since that path sits outside
+the worktree's own directory tree. The step was followed as written; nothing
+in it anticipates the ledger path itself falling outside the isolation
+boundary the same skill's own "Isolation" note in AGENTS.md establishes. The
+six units landed directly in the main conversation instead of one Orca
+worker per unit, with no ledger tracking progress, and the deviation was
+reported at handoff rather than caught earlier.
+Suggested change: for a worktree the isolation hook governs, keep the ledger
+inside the worktree itself (e.g. under a path relative to `git rev-parse
+--show-toplevel`, or a dedicated untracked file within the worktree) rather
+than `--git-dir`, or have the step detect a denied ledger write up front and
+say plainly that unit-by-unit worker dispatch and resume tracking are both
+unavailable for this run, instead of discovering it mid-unit.
+
+## 2026-09-09 plan: a cited sample capture's bytes were never checked against the claim
+Skill or agent: `.claude/skills/plan/SKILL.md`, step 2 ("Gather evidence").
+What happened: an earlier planning pass for the remote packet capture phase
+plans cited two Wireshark sample captures ("erspan-marker" pcaps) as the
+independent-encoder evidence for the ERSPAN Type III decoder, based on their
+name and the site's description. Implementing and testing against them found
+they decode to nonsense under a correct Type III parse (version field 0, not
+2; a garbage session id); a Wireshark dissector source cross-check confirmed
+the files are an unrelated Cisco proprietary marker format, not ERSPAN at
+all. Step 2 says "Fetch every URL before citing it and cite only what the
+page says" for prose documentation, but has no equivalent instruction for a
+binary fixture: a sample capture's filename and page description were
+treated as sufficient evidence of its contents without decoding a single
+byte of it first.
+Suggested change: extend step 2 (or add a line to it) so that citing a
+downloaded binary fixture — a pcap, a golden file, a captured payload — as
+evidence for a specific format or field requires decoding or hex-dumping the
+relevant bytes and checking them against the claim before the plan cites it,
+the same discipline already required for a fetched URL's prose.

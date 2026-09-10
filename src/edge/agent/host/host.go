@@ -106,14 +106,16 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	}
 	enrolment := edgev1connect.NewEdgeServiceClient(
 		identity.PinnedClient(cfg.ProvisionedAnchors()), cfg.CentralURL())
-	edge, err := identity.Establish(ctx, store, enrolment, cfg.SetupKey(), time.Now)
+	edge, err := identity.Establish(ctx, store, enrolment, cfg.SetupKey())
 	if err != nil {
 		return err
 	}
 	edgeID := edge.Enrollment.GetEdge().GetEdge().GetId()
 	base = base.With(slog.String("flowseer.edge.id", edgeID))
 
-	signed := identity.SigningClient(edge.TrustAnchors(), edge.Signer(time.Now))
+	// 2. The clients every later call goes through.
+	signer := edge.Signer(ctx, time.Now, base)
+	signed := identity.SigningClient(edge.TrustAnchors(), signer)
 	edgeClient := edgev1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
 	dispatchClient := integrationv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := eventv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
@@ -136,6 +138,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		cfg:      cfg,
 		opts:     opts,
 		edgeID:   edgeID,
+		signer:   signer,
 		edge:     edgeClient,
 		dispatch: dispatchClient,
 		audit:    auditClient,
@@ -179,6 +182,7 @@ type assembly struct {
 	cfg      *Config
 	opts     Options
 	edgeID   string
+	signer   *identity.Signer
 	edge     edgev1connect.EdgeServiceClient
 	dispatch integrationv1connect.DispatchServiceClient
 	audit    eventv1connect.AuditServiceClient
@@ -199,16 +203,8 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 
-	read, submission := access.NewConnectCredentials(a.edge)
 	reporter := &laneReporter{}
-	lane := access.NewLane(access.Config{
-		ReadCredentials:       read,
-		SubmissionCredentials: submission,
-		Reporter:              reporter,
-		Audit:                 report.NewDeliverer(a.audit, a.edgeID),
-		Telemetry:             telemetry,
-		Clock:                 a.clock(),
-	})
+	lane := access.NewLane(a.laneConfig(reporter, telemetry))
 
 	// The demultiplexer and the queue each need the other: the demultiplexer
 	// reports through the queue, and the queue tells the demultiplexer when
@@ -261,11 +257,12 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 			func(ctx context.Context) error { return queue.Run(ctx, resendInterval) },
 			func(ctx context.Context) error {
 				return lanehost.RunHeartbeat(ctx, lanehost.HeartbeatConfig{
-					Client:       a.edge,
-					Lane:         lane,
-					AgentVersion: service.Version(ctx),
-					Interval:     a.cfg.Heartbeat(),
-					Logger:       log,
+					Client:          a.edge,
+					Lane:            lane,
+					AdoptServerTime: a.signer.AdoptServerTime,
+					AgentVersion:    service.Version(ctx),
+					Interval:        a.cfg.Heartbeat(),
+					Logger:          log,
 				})
 			},
 			func(ctx context.Context) error {
@@ -317,6 +314,19 @@ func registerContactInstruments(ctx context.Context, contact *dispatch.Contact, 
 		observe("flowseer.edge.reports.dropped", "{report}",
 			"reports discarded at the queue ceiling", queue.Dropped),
 	)
+}
+
+func (a *assembly) laneConfig(reporter *laneReporter, telemetry *access.Telemetry) access.Config {
+	read, submission := access.NewConnectCredentials(a.edge)
+	return access.Config{
+		QueueCapacity:         4,
+		ReadCredentials:       read,
+		SubmissionCredentials: submission,
+		Reporter:              reporter,
+		Audit:                 report.NewDeliverer(a.audit, a.edgeID),
+		Telemetry:             telemetry,
+		Clock:                 a.clock(),
+	}
 }
 
 // clock is the lane's source of time: what the deployment substituted, or the

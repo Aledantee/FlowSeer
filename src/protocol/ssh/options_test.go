@@ -23,7 +23,7 @@ func TestSSHConfigRequiresACredential(t *testing.T) {
 func TestSSHConfigRejectsUnparseablePrivateKey(t *testing.T) {
 	_, err := sshConfig(Options{
 		Username:      "tester",
-		PrivateKeyPEM: secret.New([]byte("not a real key")),
+		PrivateKeyPEM: secret.NewString("not a real key"),
 		HostKeySHA256: "SHA256:whatever",
 	})
 	if err == nil {

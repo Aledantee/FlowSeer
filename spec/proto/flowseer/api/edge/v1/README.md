@@ -126,6 +126,13 @@ or more SPKI SHA-256 digests, `EnrollResponse` replaces the set, and an edge
 refuses a chain that matches none. Corporate TLS interception on a customer
 network would otherwise read every assertion.
 
+The assertion middleware writes its stable error code in the
+`FlowSeer-Refusal-Code` response header. This matters for `edge/clock-skew`:
+the middleware answers before Connect, so the generated client otherwise sees
+only a generic HTTP 401. The edge's pinned transport pairs that code with the
+standard HTTP `Date` header, corrects its assertion clock, and retries the
+rejected request once. Other refusal codes are not retried there.
+
 ## Lifecycle and contact
 
 Lifecycle is what an operator or an enrollment did. Contact is how recently

@@ -40,12 +40,16 @@ func keypair(t *testing.T) (ed25519.PrivateKey, ed25519.PublicKey) {
 // passes against the verifier's wall clock.
 func signedHeader(t *testing.T, private ed25519.PrivateKey, body []byte) string {
 	t.Helper()
+	return signedHeaderAt(t, private, body, time.Now())
+}
+
+func signedHeaderAt(t *testing.T, private ed25519.PrivateKey, body []byte, now time.Time) string {
+	t.Helper()
 	nonce := make([]byte, 16)
 	for i := range nonce {
 		nonce[i] = byte(i)
 	}
 	sum := sha256.Sum256(body)
-	now := time.Now()
 	a := edgev1.EdgeAssertion_builder{
 		Edge:       edgev1.EdgeGlobalRef_builder{Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build()}.Build(),
 		Audience:   proto.String(testAudience),
@@ -89,11 +93,17 @@ func (s *spyHandler) ServeHTTP(_ http.ResponseWriter, r *http.Request) {
 
 func serve(t *testing.T, l edge.KeyLookup, req *http.Request) (*spyHandler, int) {
 	t.Helper()
+	spy, rec := serveResponse(t, l, req)
+	return spy, rec.Code
+}
+
+func serveResponse(t *testing.T, l edge.KeyLookup, req *http.Request) (*spyHandler, *httptest.ResponseRecorder) {
+	t.Helper()
 	v := edge.NewVerifier(testAudience, time.Minute, l)
 	spy := &spyHandler{}
 	rec := httptest.NewRecorder()
 	edgeapi.NewMiddleware(v, 0, nil).Wrap(spy).ServeHTTP(rec, req)
-	return spy, rec.Code
+	return spy, rec
 }
 
 func TestMiddlewarePassesAValidAssertionAndCarriesTheEdgeID(t *testing.T) {
@@ -126,6 +136,23 @@ func TestMiddlewareRefusesABadAssertionWithoutRunningTheHandler(t *testing.T) {
 	}
 	if spy.ran {
 		t.Fatal("the handler ran on a rejected assertion")
+	}
+}
+
+func TestMiddlewareNamesClockSkewInAResponseHeader(t *testing.T) {
+	private, public := keypair(t)
+	req := httptest.NewRequest(http.MethodPost, testPath, strings.NewReader("body"))
+	req.Header.Set("Authorization", signedHeaderAt(t, private, []byte("body"), time.Now().Add(-2*time.Minute)))
+
+	spy, response := serveResponse(t, lookup(public, nil), req)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", response.Code)
+	}
+	if got := response.Header().Get("FlowSeer-Refusal-Code"); got != "edge/clock-skew" {
+		t.Errorf("FlowSeer-Refusal-Code = %q, want edge/clock-skew", got)
+	}
+	if spy.ran {
+		t.Fatal("the handler ran on a clock-skewed assertion")
 	}
 }
 

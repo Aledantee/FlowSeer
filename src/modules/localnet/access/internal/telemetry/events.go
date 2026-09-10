@@ -65,9 +65,9 @@ func (v *View) DiscoveryCompleted(ctx context.Context, firmwareFingerprint strin
 }
 
 // FirmwareEpochChanged emits flowseer.device.firmware.epoch_changed when a
-// fresh identity probe reports a fingerprint the lane was not working under,
-// which invalidates every piece of route evidence learned under the old
-// one.
+// device's firmware fingerprint differs from the one route evidence was
+// learned under, which invalidates every piece of that evidence. Lane emits
+// it after either of its mid-operation identity probes establishes a change.
 func (v *View) FirmwareEpochChanged(ctx context.Context) {
 	v.event(ctx, "flowseer.device.firmware.epoch_changed", "firmware epoch changed")
 }

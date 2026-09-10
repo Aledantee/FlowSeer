@@ -170,6 +170,7 @@ func TestRefusedAndOnboardedRules(t *testing.T) {
 
 	runValidationCases(t, []validationCase{
 		{name: "refusal with a lane code is valid", message: refused("access/no-pending-wait").Build(), wantValid: true},
+		{name: "refusal code accepts the errs alphabet", message: refused("agent/unclassified_refusal").Build(), wantValid: true},
 		{name: "refusal code must be package slash name", message: refused("NoPendingWait").Build()},
 		{name: "refusal without a kind is rejected", message: noKind.Build()},
 		{name: "refusal with the zero kind is rejected", message: unspecifiedKind.Build()},

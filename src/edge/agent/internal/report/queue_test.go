@@ -1,9 +1,12 @@
 package report_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,10 +24,11 @@ type centralFake struct {
 	// attempts counts every call, refused ones included. A test that waits
 	// only for accepted reports cannot tell "refused" from "never tried",
 	// and the refusal cases are exactly the ones that need the difference.
-	attempts int
-	received []*integrationv1.ReportRequest
-	refuse   bool
-	accepted chan struct{}
+	attempts  int
+	received  []*integrationv1.ReportRequest
+	refuse    bool
+	reportErr error
+	accepted  chan struct{}
 	// duringReport runs inside a call, so a test can admit a report while an
 	// earlier one for the same operation is still in flight.
 	duringReport func()
@@ -36,6 +40,7 @@ func (c *centralFake) Report(
 	c.mu.Lock()
 	c.attempts++
 	refuse := c.refuse
+	reportErr := c.reportErr
 	if !refuse {
 		c.received = append(c.received, req.Msg)
 	}
@@ -48,6 +53,9 @@ func (c *centralFake) Report(
 	}
 	if refuse {
 		return nil, errors.New("central is unavailable")
+	}
+	if reportErr != nil {
+		return nil, reportErr
 	}
 	if notify != nil {
 		select {
@@ -228,6 +236,37 @@ func TestAReportIsKeptUntilCentralAnswers(t *testing.T) {
 	}
 	if confirm.count() != 1 {
 		t.Errorf("confirmed %d operations, want still 1: nothing new was accepted", confirm.count())
+	}
+}
+
+func TestPermanentReportRefusalsAreVisibleAndRetained(t *testing.T) {
+	for _, code := range []connect.Code{connect.CodePermissionDenied, connect.CodeInvalidArgument} {
+		t.Run(code.String(), func(t *testing.T) {
+			var logs bytes.Buffer
+			central := &centralFake{reportErr: connect.NewError(code, errors.New("report rejected"))}
+			confirm := &confirmSpy{}
+			q, err := report.New(report.Config{
+				Client:  central,
+				Confirm: confirm,
+				Logger:  slog.New(slog.NewJSONHandler(&logs, nil)),
+			})
+			if err != nil {
+				t.Fatalf("New: %v", err)
+			}
+
+			q.Report(context.Background(), resultReport("dev-1", 3, "value"))
+			drainOnce(t, q, central, 0)
+
+			if got := q.Pending(); got != 1 {
+				t.Errorf("Pending() = %d, want 1: a refusal is not confirmation", got)
+			}
+			if confirm.count() != 0 {
+				t.Errorf("confirmed %d operations, want 0: central refused the report", confirm.count())
+			}
+			if got := logs.String(); !strings.Contains(got, `"level":"ERROR"`) {
+				t.Fatalf("permanent refusal was not operator-visible at ERROR: %s", got)
+			}
+		})
 	}
 }
 

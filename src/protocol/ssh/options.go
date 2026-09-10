@@ -32,10 +32,10 @@ const (
 type Options struct {
 	// Username authenticates the SSH transport. Required.
 	Username string
-	// Password enables SSH password authentication when non-empty.
+	// Password enables SSH password authentication when set.
 	Password secret.Value
-	// PrivateKeyPEM enables SSH public-key authentication when
-	// non-empty. Both may be set; the transport offers both.
+	// PrivateKeyPEM enables SSH public-key authentication when set.
+	// Both may be set; the transport offers both.
 	PrivateKeyPEM secret.Value
 
 	// HostKeySHA256 pins the peer's host key as the base64 SHA-256

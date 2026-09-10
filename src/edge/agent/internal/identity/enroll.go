@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"log/slog"
 	"time"
 
 	connect "connectrpc.com/connect"
@@ -30,33 +31,30 @@ type Enroller interface {
 type Identity struct {
 	key        ed25519.PrivateKey
 	Enrollment *edgev1.EnrollResponse
-	// skew is central's clock minus this edge's, measured when the enrollment
-	// answer arrived. Zero for an edge that loaded a stored enrollment; see
-	// Signer.
-	skew time.Duration
+	// Set only when Enroll returned in this process. The time inside a loaded
+	// enrollment is historical and cannot define a current clock offset.
+	serverTime time.Time
 }
 
-// Signer builds this identity's assertion headers, on central's clock where
-// this process learned it.
+// Signer builds this identity's assertion headers. A fresh enrollment seeds
+// its clock from central; a loaded enrollment starts from the local clock and
+// lets the signed transport recover a skewed clock from a fresh refusal.
 //
-// The schema has central return its own time with the enrollment answer for
-// one reason: an edge whose real-time clock is dead signs with a date from
-// the factory, central refuses the assertion for skew, and bus attachment —
-// a fatal startup failure — never succeeds. Applying the measured difference
-// is what makes that edge work.
-//
-// The difference is measured, not stored. An edge that loads an enrollment
-// written on an earlier run signs on its own clock, so a dead-clock edge is
-// only carried through the run that enrolled it. Central returns its time on
-// the heartbeat too; adopting that would carry the rest, and needs a decision
-// about where a clock offset lives that is shared with the loops holding this
-// signer.
-func (i *Identity) Signer(now func() time.Time) *Signer {
-	if now == nil {
-		now = time.Now
+// The schema has central return its own time for one reason: an edge whose
+// real-time clock is dead signs with a date from the factory, central refuses
+// the assertion for skew, and bus attachment — a fatal startup failure —
+// never succeeds. Adopting central's clock is what makes that edge work, and
+// doing it from the transport rather than only at enrollment is what carries
+// it past the run that enrolled.
+func (i *Identity) Signer(ctx context.Context, now func() time.Time, log *slog.Logger) *Signer {
+	signer := NewSigner(i.key, i.Enrollment, now)
+	if log != nil {
+		signer.log = log
 	}
-	skew := i.skew
-	return NewSigner(i.key, i.Enrollment, func() time.Time { return now().Add(skew) })
+	if !i.serverTime.IsZero() {
+		signer.AdoptServerTime(ctx, i.serverTime)
+	}
+	return signer
 }
 
 // TrustAnchors are the SPKI digests this edge pins central by, replacing
@@ -91,10 +89,7 @@ func (i *Identity) TrustAnchors() [][]byte { return i.Enrollment.GetTrustAnchors
 // now must be the same clock the returned identity's Signer is given, since
 // what is kept is the difference between the two. Nil means time.Now, which
 // is what the agent passes on both sides.
-func Establish(ctx context.Context, store *Store, client Enroller, setupKey string, now func() time.Time) (*Identity, error) {
-	if now == nil {
-		now = time.Now
-	}
+func Establish(ctx context.Context, store *Store, client Enroller, setupKey string) (*Identity, error) {
 	key, err := store.LoadKey()
 	if err != nil {
 		return nil, err
@@ -137,14 +132,17 @@ func Establish(ctx context.Context, store *Store, client Enroller, setupKey stri
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeEnroll).Msg("enroll with central")
 	}
-	// Measured against the answer, before anything else can pass. The round
-	// trip is inside this difference, which is why the schema caps an
-	// assertion's life well above it rather than trying to subtract it.
-	skew := response.Msg.GetServerTime().AsTime().Sub(now())
 	if err := store.SaveEnrollment(response.Msg); err != nil {
 		return nil, err
 	}
-	return &Identity{key: key, Enrollment: response.Msg, skew: skew}, nil
+	// Central's own time, kept as the answer gave it. The round trip is
+	// inside any difference it implies, which is why the schema caps an
+	// assertion's life well above the trip rather than subtracting it.
+	identity := &Identity{key: key, Enrollment: response.Msg}
+	if serverTime := response.Msg.GetServerTime(); serverTime != nil {
+		identity.serverTime = serverTime.AsTime()
+	}
+	return identity, nil
 }
 
 // keyProof proves possession of the key being registered, bound to the setup

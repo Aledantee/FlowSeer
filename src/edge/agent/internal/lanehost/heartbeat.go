@@ -37,6 +37,9 @@ type Freezer interface {
 type HeartbeatConfig struct {
 	Client Beater
 	Lane   Freezer
+	// AdoptServerTime refreshes the clock used to sign later calls. Nil
+	// discards the time returned by central.
+	AdoptServerTime func(context.Context, time.Time)
 	// AgentVersion is what the binary reports; central records it.
 	AgentVersion string
 	// Interval spaces attempts and bounds each one. Zero means 30s.
@@ -106,10 +109,14 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 			}
 			consecutive++
 			if consecutive >= misses && !frozen {
-				// Frozen regardless of what Freeze returns. Its error is a
-				// failed audit delivery, and the gate is frozen either way;
-				// treating it as "not frozen" would retry the freeze every
-				// interval and re-emit records for a lane already stopped.
+				// Retried while Freeze reports an error, because that error
+				// is an undelivered audit record and the fence is not
+				// established until its records land. Retrying costs no
+				// duplicates: recordFrozen skips a device whose record
+				// already went out and marks one only after its delivery
+				// succeeded, so a second attempt re-emits for exactly the
+				// devices that failed.
+				//
 				// The cause of the missed heartbeat is what an operator
 				// needs first: a central that refuses this agent and a
 				// central that cannot be reached both freeze the lane here
@@ -120,13 +127,20 @@ func RunHeartbeat(ctx context.Context, cfg HeartbeatConfig) error {
 					slog.Int("flowseer.edge.missed_heartbeats", consecutive),
 					slog.String("error.type", errorType(err)),
 				}
-				if freezeErr := cfg.Lane.Freeze(ctx); freezeErr != nil {
+				// Bounded by the interval: Freeze holds until its audit
+				// record is durable, and a central that stops answering
+				// rather than refusing would otherwise stall this loop for
+				// as long as the parent context allows.
+				freezeCtx, cancel := context.WithTimeout(ctx, interval)
+				freezeErr := cfg.Lane.Freeze(freezeCtx)
+				cancel()
+				if freezeErr != nil {
 					log.WarnContext(ctx, "lane frozen with records undelivered",
 						append(attrs, slog.String("flowseer.edge.freeze.error_type", errorType(freezeErr)))...)
 				} else {
 					log.WarnContext(ctx, "contact with central lost; lane frozen", attrs...)
+					frozen = true
 				}
-				frozen = true
 			}
 		} else {
 			if frozen {
@@ -156,8 +170,14 @@ func beat(ctx context.Context, cfg HeartbeatConfig, interval time.Duration) erro
 
 	request := &edgev1.HeartbeatRequest{}
 	request.SetAgentVersion(cfg.AgentVersion)
-	_, err := cfg.Client.Heartbeat(attempt, connect.NewRequest(request))
-	return err
+	response, err := cfg.Client.Heartbeat(attempt, connect.NewRequest(request))
+	if err != nil {
+		return err
+	}
+	if cfg.AdoptServerTime != nil && response.Msg.GetServerTime() != nil {
+		cfg.AdoptServerTime(ctx, response.Msg.GetServerTime().AsTime())
+	}
+	return nil
 }
 
 func waitFor(ctx context.Context, d time.Duration) bool {

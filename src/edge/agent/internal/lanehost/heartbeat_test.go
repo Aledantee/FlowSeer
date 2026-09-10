@@ -9,6 +9,7 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -20,6 +21,7 @@ import (
 type beaterFake struct {
 	mu      sync.Mutex
 	results []error
+	times   []time.Time
 	calls   int
 	block   chan struct{}
 }
@@ -33,6 +35,7 @@ func (b *beaterFake) Heartbeat(
 	if b.calls < len(b.results) {
 		result = b.results[b.calls]
 	}
+	call := b.calls
 	b.calls++
 	b.mu.Unlock()
 
@@ -48,7 +51,11 @@ func (b *beaterFake) Heartbeat(
 	if result != nil {
 		return nil, result
 	}
-	return connect.NewResponse(&edgev1.HeartbeatResponse{}), nil
+	response := &edgev1.HeartbeatResponse{}
+	if call < len(b.times) {
+		response.SetServerTime(timestamppb.New(b.times[call]))
+	}
+	return connect.NewResponse(response), nil
 }
 
 func (b *beaterFake) count() int {
@@ -65,14 +72,18 @@ type laneSpy struct {
 	mu      sync.Mutex
 	freezes int
 	thaws   int
-	err     error
+	results []error
 }
 
 func (l *laneSpy) Freeze(context.Context) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	var result error
+	if l.freezes < len(l.results) {
+		result = l.results[l.freezes]
+	}
 	l.freezes++
-	return l.err
+	return result
 }
 
 func (l *laneSpy) Unfreeze(context.Context) {
@@ -86,6 +97,20 @@ func (l *laneSpy) counts() (freezes, thaws int) {
 	defer l.mu.Unlock()
 	return l.freezes, l.thaws
 }
+
+type freezeDeadlineSpy struct {
+	observed time.Time
+	deadline time.Time
+	ok       bool
+}
+
+func (l *freezeDeadlineSpy) Freeze(ctx context.Context) error {
+	l.observed = time.Now()
+	l.deadline, l.ok = ctx.Deadline()
+	return nil
+}
+
+func (*freezeDeadlineSpy) Unfreeze(context.Context) {}
 
 // runLoop drives the loop for exactly n intervals and returns once it has
 // stopped, so a test asserts against a finished run rather than polling.
@@ -138,6 +163,23 @@ func TestTwoMissesFreezeAndTheNextSuccessUnfreezes(t *testing.T) {
 	}
 	if thaws != 1 {
 		t.Errorf("unfroze %d times, want exactly 1", thaws)
+	}
+}
+
+func TestAHeartbeatPublishesCentralServerTime(t *testing.T) {
+	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+	var adopted time.Time
+
+	runLoop(t, lanehost.HeartbeatConfig{
+		Client: &beaterFake{times: []time.Time{serverNow}},
+		Lane:   &laneSpy{},
+		AdoptServerTime: func(_ context.Context, got time.Time) {
+			adopted = got
+		},
+		Interval: time.Millisecond,
+	}, 1)
+	if !adopted.Equal(serverNow) {
+		t.Errorf("adopted server time = %v, want %v", adopted, serverNow)
 	}
 }
 
@@ -204,23 +246,37 @@ func TestAHungCallCountsAsAMiss(t *testing.T) {
 	}
 }
 
-// TestTheLaneIsFrozenEvenWhenItsRecordsFail: Freeze returns the joined
-// delivery errors with the gate already frozen, so a failed audit delivery
-// must not be read as "not frozen". Reading it that way would retry the
-// freeze every interval and re-emit records for a lane already stopped.
-func TestTheLaneIsFrozenEvenWhenItsRecordsFail(t *testing.T) {
-	lane := &laneSpy{err: errors.New("audit delivery unavailable")}
+func TestAFailedFreezeIsRetriedUntilItsRecordsLand(t *testing.T) {
+	lane := &laneSpy{results: []error{errors.New("audit delivery unavailable"), nil}}
 	client := &beaterFake{results: []error{
 		errors.New("unreachable"), errors.New("unreachable"),
-		errors.New("unreachable"), errors.New("unreachable"),
+		errors.New("unreachable"),
 	}}
 
 	runLoop(t, lanehost.HeartbeatConfig{
 		Client: client, Lane: lane, AgentVersion: "test", Interval: time.Millisecond,
-	}, 4)
+	}, 3)
 
-	if freezes, _ := lane.counts(); freezes != 1 {
-		t.Errorf("froze %d times, want exactly 1: a failed record does not mean the gate is open", freezes)
+	if freezes, _ := lane.counts(); freezes != 2 {
+		t.Errorf("froze %d times, want 2: the failed record must be retried before the loop marks the lane frozen", freezes)
+	}
+}
+
+func TestFreezeIsBoundedByTheHeartbeatInterval(t *testing.T) {
+	lane := &freezeDeadlineSpy{}
+	interval := 20 * time.Millisecond
+	runLoop(t, lanehost.HeartbeatConfig{
+		Client:             &beaterFake{results: []error{errors.New("unreachable")}},
+		Lane:               lane,
+		Interval:           interval,
+		MissesBeforeFreeze: 1,
+	}, 1)
+
+	if !lane.ok {
+		t.Fatal("Freeze context had no deadline")
+	}
+	if remaining := lane.deadline.Sub(lane.observed); remaining <= 0 || remaining > interval {
+		t.Errorf("Freeze deadline is %v away, want a positive duration no longer than %v", remaining, interval)
 	}
 }
 

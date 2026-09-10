@@ -6,10 +6,14 @@ redacted audit record. It has no vendor or protocol vocabulary of its own —
 every prompt, pagination marker, and privilege transition is a pattern the
 caller supplies per command.
 
+Passwords and private keys enter the transport as `secret.Value`. A secret
+sent as command text is revealed only when assigning `Command.Line`, which
+accepts arbitrary shell input rather than credential material specifically.
+
 ```go
 opts := ssh.Options{
     Username:      "admin",
-    Password:      password,
+    Password:      secret.NewString(password),
     HostKeySHA256: pinnedFingerprint,
 }
 session, err := ssh.Dial(ctx, "device.example:22", opts)
@@ -33,7 +37,10 @@ if err != nil {
 }
 if res.MatchedPrompt == "enable-password" {
     res, err = session.Run(ctx, ssh.Command{
-        Line:     enablePassword,
+        // Command.Line is the text sent to the device, so material is
+        // revealed at this call and nowhere earlier; Redacted is what the
+        // evidence record carries instead.
+        Line:     enablePassword.RevealString(),
         Redacted: "[REDACTED]",
         Prompts:  []ssh.Prompt{privPrompt},
     })

@@ -3,6 +3,7 @@ package fastiron
 import (
 	"regexp"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
 
@@ -90,13 +91,14 @@ func EnableCommand() ssh.Command {
 	}
 }
 
-// EnablePasswordCommand answers the enable-password prompt. password is
-// redacted in the returned Evidence.
-func EnablePasswordCommand(password string) ssh.Command {
+// EnablePasswordCommand answers the enable-password prompt. The password
+// is revealed here because this is where it enters the transport, and it
+// is redacted in the returned Evidence.
+func EnablePasswordCommand(password secret.Value) ssh.Command {
 	return ssh.Command{
-		Line:     password,
+		Line:     password.RevealString(),
 		Redacted: "[REDACTED]",
-		Prompts:  []ssh.Prompt{PrivilegedPrompt},
+		Prompts:  []ssh.Prompt{EnablePasswordPrompt, PrivilegedPrompt},
 	}
 }
 

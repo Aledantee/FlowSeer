@@ -11,10 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/secret"
-
 	xssh "golang.org/x/crypto/ssh"
 
+	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/protocol/ssh"
 )
 

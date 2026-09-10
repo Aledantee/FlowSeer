@@ -96,7 +96,7 @@ message Refused {
   // The lane's error code, "<package>/<name>". Must be present.
   string code = 3 [
     (buf.validate.field).required = true,
-    (buf.validate.field).string.pattern = "^[a-z0-9]+(?:-[a-z0-9]+)*/[a-z0-9]+(?:-[a-z0-9]+)*$"
+    (buf.validate.field).string.pattern = "^[a-z0-9]+(?:[-_][a-z0-9]+)*/[a-z0-9]+(?:[-_][a-z0-9]+)*$"
   ];
 }
 

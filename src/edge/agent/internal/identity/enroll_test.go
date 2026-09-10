@@ -1,11 +1,14 @@
 package identity_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,7 +86,7 @@ func TestTheKeyIsPersistedBeforeEnrollIsCalled(t *testing.T) {
 		keyOnDiskAtCallTime = err == nil
 	}}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	if !keyOnDiskAtCallTime {
@@ -99,7 +102,7 @@ func TestACrashBeforeTheAnswerIsPersistedReEnrollsWithTheSameKey(t *testing.T) {
 	store, dir := newStore(t)
 	central := &centralFake{}
 
-	first, err := identity.Establish(context.Background(), store, central, testSetupKey, nil)
+	first, err := identity.Establish(context.Background(), store, central, testSetupKey)
 	if err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
@@ -109,7 +112,7 @@ func TestACrashBeforeTheAnswerIsPersistedReEnrollsWithTheSameKey(t *testing.T) {
 		t.Fatalf("simulate the crash: %v", err)
 	}
 
-	second, err := identity.Establish(context.Background(), store, central, testSetupKey, nil)
+	second, err := identity.Establish(context.Background(), store, central, testSetupKey)
 	if err != nil {
 		t.Fatalf("Establish after the crash: %v", err)
 	}
@@ -132,11 +135,11 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 	store, _ := newStore(t)
 	central := &centralFake{}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	// No setup key this time, which is what a restarted agent has.
-	again, err := identity.Establish(context.Background(), store, central, "", nil)
+	again, err := identity.Establish(context.Background(), store, central, "")
 	if err != nil {
 		t.Fatalf("Establish on a restart: %v", err)
 	}
@@ -151,13 +154,65 @@ func TestAnEnrolledEdgeNeverEnrollsAgain(t *testing.T) {
 	}
 }
 
+func TestAFreshEnrollmentSeedsTheAssertionClock(t *testing.T) {
+	store, _ := newStore(t)
+	central := &centralFake{}
+	freshLocalNow := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	serverNow := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+
+	fresh, err := identity.Establish(context.Background(), store, central, testSetupKey)
+	if err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
+	var logs bytes.Buffer
+	freshSigner := fresh.Signer(
+		context.Background(),
+		func() time.Time { return freshLocalNow },
+		slog.New(slog.NewJSONHandler(&logs, nil)),
+	)
+	identity.SetNonceForTest(freshSigner, make([]byte, 16))
+	freshHeader, err := freshSigner.Header(vectorProcedure, nil)
+	if err != nil {
+		t.Fatalf("fresh Header: %v", err)
+	}
+	if got := identity.DecodeForTest(t, freshHeader).GetIssuedAt().AsTime(); !got.Equal(serverNow) {
+		t.Errorf("fresh issued_at = %v, want enrollment server_time %v", got, serverNow)
+	}
+	if got := logs.String(); !strings.Contains(got, `"msg":"assertion clock corrected"`) || !strings.Contains(got, `"flowseer.edge.clock_offset_ms"`) {
+		t.Errorf("clock correction log = %q, want the correction and its offset", got)
+	}
+}
+
+func TestAPersistedEnrollmentTimeDoesNotSeedTheAssertionClock(t *testing.T) {
+	store, _ := newStore(t)
+	central := &centralFake{}
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
+		t.Fatalf("Establish: %v", err)
+	}
+
+	loaded, err := identity.Establish(context.Background(), store, central, "")
+	if err != nil {
+		t.Fatalf("Establish on restart: %v", err)
+	}
+	restartLocalNow := time.Date(2026, 9, 9, 12, 0, 0, 0, time.UTC)
+	loadedSigner := loaded.Signer(context.Background(), func() time.Time { return restartLocalNow }, nil)
+	identity.SetNonceForTest(loadedSigner, make([]byte, 16))
+	loadedHeader, err := loadedSigner.Header(vectorProcedure, nil)
+	if err != nil {
+		t.Fatalf("loaded Header: %v", err)
+	}
+	if got := identity.DecodeForTest(t, loadedHeader).GetIssuedAt().AsTime(); !got.Equal(restartLocalNow) {
+		t.Errorf("loaded issued_at = %v, want current local time %v; persisted server_time is stale", got, restartLocalNow)
+	}
+}
+
 // TestAnUnenrolledEdgeWithNoSetupKeyFails is the case an operator meets when
 // they start an agent that was never provisioned. It fails at start with a
 // sentence naming the reason rather than at the first call with a signature
 // error.
 func TestAnUnenrolledEdgeWithNoSetupKeyFails(t *testing.T) {
 	store, _ := newStore(t)
-	if _, err := identity.Establish(context.Background(), store, &centralFake{}, "", nil); err == nil {
+	if _, err := identity.Establish(context.Background(), store, &centralFake{}, ""); err == nil {
 		t.Fatal("Establish() error = nil, want an unenrolled edge with no setup key refused")
 	}
 }
@@ -167,7 +222,7 @@ func TestAnUnenrolledEdgeWithNoSetupKeyFails(t *testing.T) {
 // impersonable and one that loses it is unrecoverable.
 func TestTheKeyFileIsPrivate(t *testing.T) {
 	store, dir := newStore(t)
-	if _, err := identity.Establish(context.Background(), store, &centralFake{}, testSetupKey, nil); err != nil {
+	if _, err := identity.Establish(context.Background(), store, &centralFake{}, testSetupKey); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	info, err := os.Stat(filepath.Join(dir, "edge.key"))
@@ -212,11 +267,11 @@ func TestTheEdgeSignsOnCentralsClockAfterEnrolling(t *testing.T) {
 	// battery that stopped leaves every read at the same factory date.
 	dead := func() time.Time { return time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC) }
 
-	edge, err := identity.Establish(context.Background(), store, central, testSetupKey, dead)
+	edge, err := identity.Establish(context.Background(), store, central, testSetupKey)
 	if err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
-	header, err := edge.Signer(dead).Header("/flowseer.api.edge.v1.EdgeService/Heartbeat", nil)
+	header, err := edge.Signer(context.Background(), dead, nil).Header("/flowseer.api.edge.v1.EdgeService/Heartbeat", nil)
 	if err != nil {
 		t.Fatalf("Header: %v", err)
 	}
@@ -237,7 +292,7 @@ func TestAFailedEnrollLeavesTheKeyAndNoEnrollment(t *testing.T) {
 	store, dir := newStore(t)
 	central := &centralFake{err: errors.New("central is unavailable")}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err == nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err == nil {
 		t.Fatal("Establish returned no error for a central that refused the enrollment")
 	}
 
@@ -258,14 +313,14 @@ func TestAnEmptyEnrollmentFileIsRefusedRatherThanBelieved(t *testing.T) {
 	store, dir := newStore(t)
 	central := &centralFake{}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err != nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err != nil {
 		t.Fatalf("Establish: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "enrollment.textproto"), nil, 0o600); err != nil {
 		t.Fatalf("truncate the enrollment: %v", err)
 	}
 
-	if _, err := identity.Establish(context.Background(), store, central, testSetupKey, nil); err == nil {
+	if _, err := identity.Establish(context.Background(), store, central, testSetupKey); err == nil {
 		t.Fatal("an empty enrollment file was accepted as an enrollment")
 	}
 }

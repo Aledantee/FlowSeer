@@ -24,6 +24,7 @@ var importOrder = map[string][]string{
 
 	"net/switching": {"net/addr", "net/packet"},
 	"net/ip":        {"net/addr"},
+	"net/capture":   {"net/addr", "net/packet", "net/switching"},
 
 	"net/interface": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip"},
 
@@ -49,6 +50,12 @@ var importOrder = map[string][]string{
 	// The error wire payload. A leaf like device/policy: every boundary may
 	// carry an error, so nothing may depend on it.
 	"errs": nil,
+
+	// A capture session's identity, lifecycle and services. It holds
+	// net/capture's counters, link type and packet records rather than
+	// copies of their fields, and takes only the owning ref and the
+	// assertion its upload stream re-verifies from api/edge.
+	"api/capture": {"api/edge", "net/capture"},
 
 	"api/inventory": {"api/edge", "device/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 

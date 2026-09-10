@@ -118,6 +118,12 @@ A bundle of per-layer attributes for one interface — switchport membership, IP
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
+## Capture
+
+### Capture Session
+
+A bounded packet capture run by one Edge, sourced from a local interface or a mirror receiver, and stopped by its own budget, an operator, or an error. Its ref is scoped under the owning Edge, the session's one parent. Lifecycle (pending, running, completed, failed, canceled) tracks it from creation to artifact; only a terminal state carries the stored capture's artifact, and a completed session always names why it stopped. Authorization on the session records who asked, why, and whether full payload was deliberately requested, so a headers-only capture and a payload capture are distinguishable in the record and not only in the budget.
+
 ## Collection
 
 ### Declining

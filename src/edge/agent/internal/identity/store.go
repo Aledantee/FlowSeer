@@ -23,7 +23,10 @@ var (
 // Both are 0600 and the directory is 0700. The key file is the whole of this
 // edge's identity — central holds only the public half — so an edge that
 // loses it cannot be recovered by anything the edge itself can do.
-type Store struct{ dir string }
+type Store struct {
+	dir           string
+	syncDirectory func() error
+}
 
 // NewStore names the directory, creating it if it is not there. A packaged
 // deployment's first start is the ordinary case where it is not.
@@ -31,7 +34,29 @@ func NewStore(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("create the agent state directory")
 	}
-	return &Store{dir: dir}, nil
+	return &Store{dir: dir, syncDirectory: func() error { return syncDirectory(dir) }}, nil
+}
+
+// syncDirectory makes a rename into path durable.
+//
+// Syncing the file persists its contents; the directory entry that gives them
+// a name is a separate write, and until it is flushed a power cut leaves the
+// file with no name. For the key that is not a lost write to redo: Establish
+// writes the key, then enrolls, and central consumes the setup key when the
+// call lands. A key whose name never reached disk is an edge that generates a
+// new one on the next boot and cannot enroll it, which no operator action
+// short of retiring the edge recovers. The ordering Establish documents is
+// only as durable as this.
+func syncDirectory(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	if err := directory.Sync(); err != nil {
+		_ = directory.Close()
+		return err
+	}
+	return directory.Close()
 }
 
 func (s *Store) keyPath() string        { return filepath.Join(s.dir, "edge.key") }
@@ -133,27 +158,8 @@ func (s *Store) writeAtomically(path string, body []byte) error {
 	if err := os.Rename(name, path); err != nil {
 		return errs.From(err).Code(ErrCodeState).Attr("path", path).Msg("move the state file into place")
 	}
-	return syncDir(s.dir)
-}
-
-// syncDir makes a rename into dir durable.
-//
-// Syncing the file persists its contents; the directory entry that gives them
-// a name is a separate write, and until it is flushed a power cut leaves the
-// file with no name. For the key that is not a lost write to redo: Establish
-// writes the key, then enrolls, and central consumes the setup key when the
-// call lands. A key whose name never reached disk is an edge that generates a
-// new one on the next boot and cannot enroll it, which no operator action
-// short of retiring the edge recovers. The ordering Establish documents is
-// only as durable as this.
-func syncDir(dir string) error {
-	handle, err := os.Open(dir)
-	if err != nil {
-		return errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("open the state directory")
-	}
-	defer func() { _ = handle.Close() }()
-	if err := handle.Sync(); err != nil {
-		return errs.From(err).Code(ErrCodeState).Attr("path", dir).Msg("flush the state directory")
+	if err := s.syncDirectory(); err != nil {
+		return errs.From(err).Code(ErrCodeState).Attr("path", s.dir).Msg("flush the state directory")
 	}
 	return nil
 }

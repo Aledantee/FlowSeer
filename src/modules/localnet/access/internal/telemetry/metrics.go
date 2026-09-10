@@ -25,6 +25,11 @@ const (
 // raw error text.
 var attrKeyBaselineUnavailable = attribute.Key("flowseer.device.baseline_unavailable")
 
+// attrKeyEpochReprobeUnavailable carries why a mutation continued without
+// confirming that the device firmware still matches its admitted epoch.
+// Bounded: it takes an error classification, never raw error text.
+var attrKeyEpochReprobeUnavailable = attribute.Key("flowseer.device.firmware_epoch_probe_unavailable")
+
 func attrOperationClass(operationClass string) attribute.KeyValue {
 	return attrKeyOperation.String(operationClass)
 }

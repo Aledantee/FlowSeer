@@ -45,6 +45,10 @@ type LeafConfig struct {
 	// could render it again, and a round trip through a format nobody needs
 	// to reverse is a place for the two renderings to differ. An in-process
 	// caller holding EdgeCredentials calls CredsFile itself.
+	//
+	// The bytes are the material rather than a path to it: a rendered
+	// .creds file carries the user's NKey seed, so this is a credential in
+	// hand and is carried as one.
 	CredentialsFile secret.Value
 	// TLS is the client configuration for a wss hub, normally
 	// PinnedTLSConfig with the edge's anchors. Nil dials plain ws.
@@ -71,7 +75,7 @@ type LeafConfig struct {
 // HubConnected for its heartbeat.
 type Leaf struct {
 	log    *quietLogger
-	cfg    LeafConfig
+	edgeID string
 	tenant string
 	js     jetstream.JetStream
 
@@ -116,6 +120,8 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("leaf needs the credentials AttachBus returned")
 	}
 	credsPath := filepath.Join(cfg.StateDir, "hub.creds")
+	// Revealed here because this is where the material enters the file the
+	// NATS client reads; the mode is the protection from that point on.
 	if err := writeSecretFile(credsPath, cfg.CredentialsFile.Reveal()); err != nil {
 		return nil, errs.From(err).Code(ErrCodeLeaf).Msg("store hub credentials")
 	}
@@ -151,7 +157,7 @@ func StartLeaf(ctx context.Context, cfg LeafConfig) (_ *Leaf, err error) {
 	logger := newQuietLogger(cfg.Logger)
 	srv.SetLoggerV2(logger, false, false, false)
 	srv.Start()
-	leaf := &Leaf{cfg: cfg, tenant: tenant, server: srv, log: logger}
+	leaf := &Leaf{edgeID: cfg.EdgeID, tenant: tenant, server: srv, log: logger}
 	defer func() {
 		if err != nil {
 			leaf.Close()
@@ -217,12 +223,12 @@ func (l *Leaf) Publish(ctx context.Context, subject string, data []byte, msgID s
 
 // Subject returns the subject under this edge's subtree for a logical name.
 func (l *Leaf) Subject(name string) string {
-	return EdgeSubtree(l.tenant, l.cfg.EdgeID) + "." + name
+	return EdgeSubtree(l.tenant, l.edgeID) + "." + name
 }
 
 // OTelSubject returns where this edge publishes one signal.
 func (l *Leaf) OTelSubject(signal OTelSignal) string {
-	return OTelSubject(l.tenant, l.cfg.EdgeID, signal)
+	return OTelSubject(l.tenant, l.edgeID, signal)
 }
 
 // Connection is the edge's own connection to its leaf server, or nil once
