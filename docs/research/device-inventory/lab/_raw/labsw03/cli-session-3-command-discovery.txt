@@ -1,0 +1,22 @@
+
+Info: The max number of VTY users is 15, the number of current VTY users online is 1, and total number of terminal users online is 1.
+      The current login time is 2026-04-26 17:25:05.
+      The last login time is 2026-04-26 17:24:48 from 10.20.0.207 through SSH.
+<LABSW03>screen-length 0 temporary
+Info: The configuration takes effect on the current user terminal interface only.
+<LABSW03>
+$ display de?
+display de?
+  debugging                               default-parameter
+  device
+<LABSW03>display de[10D          [10D
+$ display ela?
+display ela?
+                 ^
+Error: Unrecognized command found at '^' position.
+<LABSW03>display ela[11D           [11D
+$ display el?
+display el?
+                 ^
+Error: Unrecognized command found at '^' position.
+<LABSW03>display el[10D          [10D

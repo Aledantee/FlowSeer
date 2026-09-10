@@ -1,0 +1,23 @@
+== v1 tegi ==
+Timeout: No Response from 172.16.0.3.
+== v1 public ==
+Timeout: No Response from 172.16.0.3.
+== v2c tegi ==
+Timeout: No Response from 172.16.0.3.
+== v2c public ==
+Timeout: No Response from 172.16.0.3.
+== v3 authPriv SHA/AES (tegi, correct SHA-256 unsupported by net-snmp, trying SHA1 to see error) ==
+No log handling enabled - using stderr logging
+snmpget: Timeout (Sub-id not found: (top) -> sysDescr)
+== v3 noAuthNoPriv tegi ==
+No log handling enabled - using stderr logging
+snmpget: Timeout (Sub-id not found: (top) -> sysDescr)
+== v3 unknown user ==
+No log handling enabled - using stderr logging
+snmpget: Timeout (Sub-id not found: (top) -> sysDescr)
+
+== NETCONF subsystem probe (paramiko invoke_subsystem('netconf')) ==
+Channel opened, subsystem request sent; server closed the channel immediately
+(SSHException: Channel closed.), no SSH_CHANNEL_DATA received. Consistent with
+`display ssh server status` reporting SNETCONF IPv4/IPv6 server: Disable, and
+with TCP 830 being closed in the port sweep.

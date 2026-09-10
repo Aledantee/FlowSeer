@@ -1,0 +1,83 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# system
+LABSW04(system)# ?
+  3rd-party-licenses    show software licenses
+  auto-logout           Configure time of inactivity before automatic logout
+  contact               Configure system contact
+  exit                  Exit from current mode
+  help                  Show available commands
+  history               Show a list of previously run commands
+  location              Configure system location
+  logout                Disconnect
+  name                  Configure device name
+  restore               Restore running configuration
+  save                  Save running configuration
+  show                  Show system information
+  startlmc              connect to LMC
+  trace                 Trace control
+LABSW04(system)# 
+LABSW04(system)# information
+% Unrecognized command
+LABSW04(system)# exit
+LABSW04# port ?
+  <cr>
+LABSW04# port 
+LABSW04(port)# vlan ?
+% Unrecognized command
+LABSW04(port)# vlan 
+% Unrecognized command
+LABSW04(port)# lldp ?
+% Unrecognized command
+LABSW04(port)# lldp 
+% Unrecognized command
+LABSW04(port)# spanning-tree ?
+% Unrecognized command
+LABSW04(port)# spanning-tree 
+% Unrecognized command
+LABSW04(port)# stp ?
+% Unrecognized command
+LABSW04(port)# stp 
+% Unrecognized command
+LABSW04(port)# snmp ?
+% Unrecognized command
+LABSW04(port)# snmp 
+% Unrecognized command
+LABSW04(port)# aggregation ?
+% Unrecognized command
+LABSW04(port)# aggregation 
+% Unrecognized command
+LABSW04(port)# account ?
+% Unrecognized command
+LABSW04(port)# account 
+% Unrecognized command
+LABSW04(port)# help
+
+Commands available:
+  clear                 Clear port counter
+  description           Interface specific description
+  downshift             Auto-negotiation error downshift
+  excessive-collision   Configure excessive collision operation
+  flow-control          Configure flow operation
+  legacy-recovery       Legacy port recovery
+  max-frame             Configure maximum receive frame size
+  power-saving          Configure power saving operation
+  show                  Show port information
+  speed-duplex          Configure speed duplex operation
+
+Global commands:
+  3rd-party-licenses    show software licenses
+  auto-logout           Configure time of inactivity before automatic logout
+  exit                  Exit from current mode
+  help                  Show available commands
+  history               Show a list of previously run commands
+  logout                Disconnect
+  restore               Restore running configuration
+  save                  Save running configuration
+  startlmc              connect to LMC
+ --More--, q to quit                      trace                 Trace control
+ --More--, q to quit                    LABSW04(port)# it
+% Unrecognized command
+LABSW04(port)# 

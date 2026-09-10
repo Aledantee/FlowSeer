@@ -1,0 +1,34 @@
+== /api/ ==
+status=200 type=text/html; charset=utf-8 size=46
+== /api/dashboard ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/getrunconfig ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/global ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/lldp ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/vlan ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/ports ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/access ==
+status=500 type=text/html; charset=utf-8 size=290
+== /rest/ ==
+status=200 type=text/html size=519
+== /rest ==
+status=200 type=text/html size=519
+== /cgi-bin/ ==
+status=200 type=text/html size=519
+== /backup.swb ==
+status=200 type=text/html size=519
+== /sys.b ==
+status=200 type=text/html size=519
+== /link.b ==
+status=200 type=text/html size=519
+== /login ==
+status=200 type=text/html size=519
+== /api/login ==
+status=500 type=text/html; charset=utf-8 size=290
+== /api/auth ==
+status=500 type=text/html; charset=utf-8 size=290

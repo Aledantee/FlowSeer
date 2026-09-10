@@ -1,0 +1,402 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# port
+LABSW04(port)# show status
+Port/Media  State    Link           Auto Nego  Speed Duplex  Rx Pause  Tx Pause
+----------  -------- -------------- ---------  ------------  --------  --------
+1/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+2/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+3/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+4/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+5/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+6/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+7/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+8/UTP       Enabled  Up             Enabled    1G Full       Disabled  Disabled
+9/UTP       Enabled  Down           Enabled    Down          Disabled  Disabled
+10/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+11/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+12/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+13/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+14/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+15/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+16/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+17/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+18/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+19/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+20/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+21/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+ --More--, q to quit                    22/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+23/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+24/UTP      Enabled  Down           Enabled    Down          Disabled  Disabled
+25/SFP      Enabled  Up             Enabled    1G Full       Disabled  Disabled
+26/SFP      Enabled  Up             Enabled    1G Full       Disabled  Disabled
+
+LABSW04(port)# show configuration
+Port  State    Speed Duplex  Flow Control  Max. Frame  Excessive  Power
+Description
+--------------------------------------------------------------------------------
+1     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+2     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+3     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+4     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+5     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+6     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+7     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+8     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+9     Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+10    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+ --More--, q to quit                    11    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+12    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+13    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+14    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+15    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+16    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+17    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+18    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+19    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+20    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+21    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+22    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+ --More--, q to quit                    --------------------------------------------------------------------------------
+23    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+24    Enabled  Auto          Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+25    Enabled  SFP_Auto_AMS  Disabled      9600        Discard    Disabled  
+
+--------------------------------------------------------------------------------
+26    Enabled  SFP_Auto_AMS  Disabled      9600        Discard    Disabled  
+
+
+LABSW04(port)# exit
+LABSW04# vlan
+LABSW04(vlan)# show vlan
+VID   VLAN Name                         User        Ports
+----  --------------------------------  ----------  -----------------
+1     default                           Static      1-26
+1000  mgmt                              Static      1-26
+LABSW04(vlan)# show port-config
+TPID for Custom S-port : 0x88a8
+
+Port  PVID  Frame Type  Ingress Filter  Egress Rule  Port Type    
+----  ----  ----------  --------------  -----------  -------------
+1     1     All         Enabled         Trunk        C-Port       
+2     1000  All         Enabled         Access       C-Port       
+3     1000  All         Enabled         Access       C-Port       
+4     1000  All         Enabled         Access       C-Port       
+5     1000  All         Enabled         Access       C-Port       
+6     1000  All         Enabled         Access       C-Port       
+7     1000  All         Enabled         Access       C-Port       
+8     1000  All         Enabled         Access       C-Port       
+9     1000  All         Enabled         Access       C-Port       
+10    1000  All         Enabled         Access       C-Port       
+11    1000  All         Enabled         Access       C-Port       
+12    1000  All         Enabled         Access       C-Port       
+13    1000  All         Enabled         Access       C-Port       
+14    1000  All         Enabled         Access       C-Port       
+15    1000  All         Enabled         Access       C-Port       
+16    1000  All         Enabled         Access       C-Port       
+17    1000  All         Enabled         Access       C-Port       
+18    1000  All         Enabled         Access       C-Port       
+19    1000  All         Enabled         Access       C-Port       
+ --More--, q to quit                    20    1000  All         Enabled         Access       C-Port       
+21    1000  All         Enabled         Access       C-Port       
+22    1000  All         Enabled         Access       C-Port       
+23    1000  All         Enabled         Access       C-Port       
+24    1000  All         Enabled         Access       C-Port       
+25    1     All         Enabled         Trunk        C-Port       
+26    1     All         Enabled         Trunk        C-Port       
+LABSW04(vlan)# exit
+LABSW04# lldp
+LABSW04(lldp)# show info
+% Incomplete command
+LABSW04(lldp)# show config
+Interval    : 30
+Hold        : 4
+Tx Delay    : 2
+Reinit Delay: 2
+              Port        System   System      System      Management CDP
+Port Mode     Description Name     Description Capability  Address    awareness
+---- -------- ----------- -------- ----------- ----------- ---------- ---------
+1    Enabled  Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+2    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+3    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+4    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+5    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+6    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+7    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+8    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+9    Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+10   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+11   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+12   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+13   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+14   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+15   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+16   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+ --More--, q to quit                    17   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+18   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+19   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+20   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+21   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+22   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+23   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+24   Rx       Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+25   Enabled  Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+26   Enabled  Enabled     Enabled  Enabled     Enabled     Enabled    Enabled 
+LABSW04(lldp)# exit
+LABSW04# stp
+LABSW04(stp)# show Status
+CIST Bridge STP Status
+Bridge ID    : F0:00-00:A0:57:45:34:85
+Root ID      : 10:00-0C:EA:14:78:F2:04
+Root Port    : LLAG1
+Root PathCost: 12010
+Regional Root: F0:00-00:A0:57:45:34:85
+Int. PathCost: 0
+Max Hops     : 20
+TC Flag      : Steady
+TC Count     : 9
+TC Last      :   0d 00:23:59
+Port       Port Role       State       Pri  PathCost  Edge  P2P  Uptime         
+---------  --------------  ----------  ---  --------  ----  ---  -------------  
+        8  DesignatedPort  Forwarding  128     20000  Yes   Yes    0d 00:24:26
+       25  Aggr(LLAG1)     Forwarding
+       26  Aggr(LLAG1)     Forwarding
+    LLAG1  RootPort        Forwarding  128     10000  No    Yes    0d 00:24:04
+LABSW04(stp)# exit
+LABSW04# fdb
+LABSW04(fdb)# show mac-table
+No    Type     MAC Address        VID   Ports
+----  -------  -----------------  ----  ---------------
+1     Static   01-00-0c-cc-cc-cc  1     None,CPU
+2     Dynamic  18-fd-74-e2-6e-80  1     25,26
+3     Dynamic  18-fd-74-e2-6e-81  1     25,26
+4     Static   00-a0-57-45-34-85  1000  None,CPU
+5     Static   01-00-0c-cc-cc-cc  1000  None,CPU
+6     Dynamic  18-fd-74-2b-28-29  1000  25,26
+7     Dynamic  18-fd-74-e2-6e-88  1000  25,26
+8     Static   33-33-00-00-00-01  1000  1-26,CPU
+9     Static   33-33-00-00-00-02  1000  1-26,CPU
+10    Static   33-33-ff-45-34-85  1000  1-26,CPU
+11    Dynamic  78-01-5a-b0-05-00  1000  8
+12    Dynamic  78-01-5a-b0-05-01  1000  25,26
+13    Dynamic  b0-00-b4-46-13-2e  1000  25,26
+LABSW04(fdb)# exit
+LABSW04# snmp
+LABSW04(snmp)# show mode
+
+SNMPv3 State Show   
+SNMP State           : Enabled 
+SNMPv3 Engine ID     : 800014550300a057453485
+
+LABSW04(snmp)# show snmp
+
+SNMP Configuration
+--------------------------------
+Get Community Mode : Enable
+Get Community      : public
+Set Community Mode : Enable
+Set Community      : private
+
+
+Idx Get Community        
+--- ---------------- 
+1                  
+2                  
+3                  
+4                  
+5                  
+
+LABSW04(snmp)# show user
+
+SNMPv3 Users Table:
+Index User Name                        Security Level Auth Priv
+----- -------------------------------- -------------- ---- ----
+1     tegi                             AuthPriv       SHA  AES 
+
+Number of entries: 1
+
+LABSW04(snmp)# show group
+
+SNMPv3 Groups Table:
+Idx Model Security Name                    Group Name                      
+--- ----- -------------------------------- --------------------------------
+1   usm   tegi                             tegigrp                         
+
+Number of entries: 1
+
+LABSW04(snmp)# show access
+
+SNMPv3 Access Table:
+Idx    Group Name    Model SecurityLevel   Read View Name  Write View Name
+--- ---------------- ----- -------------- ---------------- ----------------
+1   tegigrp          usm   Auth, Priv     allview          None             
+
+Number of entries: 1
+
+LABSW04(snmp)# show view
+
+SNMPv3 Views Table:
+Idx View Name                        View Type OID Subtree
+--- -------------------------------- --------- --------------------------------
+1   allview                          included  .1                               
+
+Number of entries: 1
+
+LABSW04(snmp)# exit
+LABSW04# time
+LABSW04(time)# show ntp
+Index   Server IP host address or a host name string
+-----   ------------------------------------------------------
+1                                      
+2                                      
+3                                      
+4                                      
+5                                      
+
+Request Interval : 86400 seconds
+Number of tries  : 4
+
+LABSW04(time)# exit
+LABSW04# syslog
+LABSW04(syslog)# show config
+Server Mode      : Disabled
+Server Address 1 : 
+Server Address 2 : 
+Syslog Level     : Info
+Include Hostname : Disabled
+
+LABSW04(syslog)# show log
+<0> Emergency: 0
+<1> Alert    : 0
+<2> Critical : 0
+<3> Error    : 0
+<4> Warning  : 8
+<5> Notice   : 2
+<6> Info     : 13
+<7> Debug    : 0
+    All      : 23
+
+ID   Level     Time                Message
+---- --------- ------------------- ------------------------------------------------------
+1    Info      2011-01-01 01:24:49 Login passed for user 'admin'
+                                   through SSH from 10.20.0.207:65365 and authenticated b
+                                   y local method
+2    Info      2011-01-01 01:24:32 User 'admin' logout
+                                   through SSH from 10.20.0.207:65319
+3    Info      2011-01-01 01:24:26 Login passed for user 'admin'
+                                   through SSH from 10.20.0.207:65319 and authenticated b
+                                   y local method
+4    Info      2011-01-01 01:24:14 User 'admin' logout
+                                   through SSH from 10.20.0.207:65283
+5    Info      2011-01-01 01:24:14 Login passed for user 'admin'
+ --More--, q to quit                                                       through SSH from 10.20.0.207:65283 and authenticated b
+                                   y local method
+6    Info      2011-01-01 01:23:53 User 'admin' logout
+                                   through SSH from 10.20.0.207:65031
+7    Info      2011-01-01 01:23:27 Login passed for user 'admin'
+                                   through SSH from 10.20.0.207:65031 and authenticated b
+                                   y local method
+8    Info      2011-01-01 01:23:09 User 'admin' logout
+                                   through SSH from 10.20.0.207:64228
+9    Info      2011-01-01 01:22:41 Login passed for user 'admin'
+                                   through SSH from 10.20.0.207:64228 and authenticated b
+                                   y local method
+10   Warning   2011-01-01 01:22:09 Bad password attempt for user 'admin'
+                                   through SSH from 10.20.0.207:62720 and authenticated b
+                                   y local method
+11   Warning   2011-01-01 01:21:44 Bad password attempt for user 'admin'
+                                   through SSH from 10.20.0.207:62720 and authenticated b
+                                   y local method
+12   Warning   2011-01-01 01:21:19 Bad password attempt for user 'admin'
+                                   through SSH from 10.20.0.207:62720 and authenticated b
+                                   y local method
+13   Info      2011-01-01 01:20:49 User 'admin' logout
+                                   through SSH from 10.20.0.207:61804
+ --More--, q to quit                    14   Info      2011-01-01 01:20:09 Login passed for user 'admin'
+                                   through SSH from 10.20.0.207:61804 and authenticated b
+                                   y local method
+15   Info      2011-01-01 01:00:47 LACP aggregate port 26
+                                   with actorkey 3 and partnerkey 17
+16   Info      2011-01-01 01:00:47 LACP aggregate port 25
+                                   with actorkey 3 and partnerkey 17
+17   Warning   2011-01-01 01:00:45 Link up on port 26
+18   Warning   2011-01-01 01:00:45 Link up on port 25
+19   Warning   2011-01-01 01:00:25 Link up on port 8
+20   Notice    2011-01-01 01:00:24 SFP module inserted on port 26
+                                   Connector Type: SFP or SFP Plus - LC
+                                   Fiber Type    : Reserved
+                                   Tx Wavelength : 850
+                                   Baud Rate     : 1000 Mbps
+                                   Vendor OUI    : 64-9d-99
+                                   Vendor Name   : FS              
+                                   Vendor PN     : SFP1G-SX-85     
+                                   Vendor Rev    :     
+                                   Vendor SN     : G2610097761
+                                   Date Code     : 220218
+21   Notice    2011-01-01 01:00:24 SFP module inserted on port 25
+                                   Connector Type: SFP or SFP Plus - LC
+ --More--, q to quit                                                       Fiber Type    : Reserved
+                                   Tx Wavelength : 850
+                                   Baud Rate     : 1000 Mbps
+                                   Vendor OUI    : 64-9d-99
+                                   Vendor Name   : FS              
+                                   Vendor PN     : SFP1G-SX-85     
+                                   Vendor Rev    :     
+                                   Vendor SN     : G2610097752
+                                   Date Code     : 220218
+22   Warning   2011-01-01 01:00:04 Insecure SNMPv2 set-community configuration detected: 
+                                   Please avoid the well known communities "private" and 
+                                   "public"
+23   Warning   2011-01-01 01:00:02 Switch just made a cold boot
+LABSW04(syslog)# exit
+LABSW04# eConnection to 172.16.0.4 closed by remote host.
+Connection to 172.16.0.4 closed.

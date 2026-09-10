@@ -1,0 +1,5 @@
+No extensions in certificate
+subject=O=LANCOM Systems, OU=Engineering, CN=GS-2326+
+issuer=O=LANCOM Systems, OU=Engineering, CN=GS-2326+
+notBefore=Jan  1 00:00:33 2011 GMT
+notAfter=Dec 31 00:00:33 2030 GMT

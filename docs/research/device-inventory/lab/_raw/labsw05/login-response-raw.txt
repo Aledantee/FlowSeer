@@ -1,0 +1,23 @@
+HTTP/1.1 200 OK
+Content-Type: text/xml
+Expires: Thu May 02 15:07:27 2013
+Date: Thu May 02 15:07:27 2013
+X-XSS-Protection: 0
+Cache-control: no-cache
+Pragma: no-cache
+Accept-Ranges: bytes
+Connection: close
+sessionID: UserId=10.20.0.207&832660&;path=/
+
+
+<?xml version='1.0' encoding='UTF-8'?>
+  <ResponseData>
+  <ActionStatus>
+ <version>1.0</version>
+  <requestURL>/csd36f9d6/System.xml</requestURL>
+ <statusCode>0</statusCode>
+ <deviceStatusCode>0</deviceStatusCode>
+ <statusString>OK</statusString>
+  </ActionStatus>
+   </ResponseData>
+  

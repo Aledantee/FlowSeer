@@ -1,0 +1,1 @@
+.1.2.840.10006.300.43 = No Such Object available on this agent at this OID

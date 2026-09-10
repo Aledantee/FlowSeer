@@ -1,0 +1,8 @@
+HTTP/1.0 401 Unauthorized
+WWW-Authenticate: Digest realm="CSS326-24G-2S+", qop="auth", nonce="42abad11", stale=FALSE
+Content-Type: text/html
+
+HTTP/1.0 200 OK
+Content-Type: application/x-javascript
+Expires: 0
+

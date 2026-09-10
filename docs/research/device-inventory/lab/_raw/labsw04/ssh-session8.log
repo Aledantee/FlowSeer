@@ -1,0 +1,110 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# lldp
+LABSW04(lldp)# show info 1-26
+Local port          : Port 8
+Chassis ID          : 78-01-5A-B0-05-00
+Port ID             : 78-01-5A-B0-05-00
+Port Description    : eth0
+System Name         : labtest
+System Description  : Kali GNU/Linux Rolling Linux 7.0.12+kali-amd64 #1 SMP PREEMPT_DYNAMIC Kali 7.0.12-2kali1 (2026-06-18) x86_64
+System Capabilities : Bridge(-), WLAN Access Point(+), Router(+), Station Only(-)
+Management Address  : 172.16.0.21 (IPv4)
+Management Address  : fd87:4c3d:b2dc:339c:3738:a250:67e8:1e76 (IPv6)
+
+Local port          : LLAG1
+Chassis ID          : 18-FD-74-E2-6E-78
+Port ID             : bridge/bond-lancom/sfp-sfpplus9
+Port Description    : 
+System Name         : Lab_SW01
+System Description  : MikroTik RouterOS 6.49.20 (long-term) CRS317-1G-16S+
+System Capabilities : Bridge(+), Router(+)
+
+Local port          : LLAG1
+Chassis ID          : Lab_SW01
+Port ID             : bridge/bond-lancom/sfp-sfpplus9
+Port Description    :  
+System Name         :  
+ --More--, q to quit                    System Description  : 6.49.20 (long-term) MikroTik
+System Capabilities : Router(+)
+
+Local port          : LLAG1
+Chassis ID          : Lab_SW01
+Port ID             : vlan1000
+Port Description    :  
+System Name         :  
+System Description  : 6.49.20 (long-term) MikroTik
+System Capabilities : Router(+)
+Management Address  : 172.16.0.1 (IPv4)
+
+Local port          : LLAG1
+Chassis ID          : 18-FD-74-E2-6E-78
+Port ID             : bridge/bond-lancom/sfp-sfpplus10
+Port Description    : 
+System Name         : Lab_SW01
+System Description  : MikroTik RouterOS 6.49.20 (long-term) CRS317-1G-16S+
+System Capabilities : Bridge(+), Router(+)
+
+Local port          : LLAG1
+Chassis ID          : Lab_SW01
+Port ID             : bridge/bond-lancom/sfp-sfpplus10
+ --More--, q to quit                    Port Description    :  
+System Name         :  
+System Description  : 6.49.20 (long-term) MikroTik
+System Capabilities : Router(+)
+
+LABSW04(lldp)# exit
+LABSW04# snmp
+LABSW04(snmp)# show trap
+SNMPv3 Trap Host Configuration:
+
+                            Community               Severity  Auth.     Priv.
+No Ver Server IP       Port Security Name           Level     Protocol  Protocol
+-- --- --------------- ---- ----------------------- --------- --------- --------
+1  
+2  
+3  
+4  
+5  
+6  
+
+LABSW04(snmp)# exit
+LABSW04# ip ?
+  <cr>
+LABSW04# ip 
+LABSW04(ip)# ip
+% Unrecognized command
+LABSW04(ip)# show ?
+  <cr>
+LABSW04(ip)# show 
+                       Configured      Current
+                       --------------- ---------------
+DHCP Client          : Enabled        
+IP Address           : 172.16.0.4      172.16.0.4     
+IP Mask              : 255.255.255.0   255.255.255.0  
+IP Gateway           : 172.16.0.1      172.16.0.1     
+VLAN ID              : 1000            1000           
+DNS Server           : 172.16.0.1      172.16.0.1     
+DNS Proxy            : Disabled
+
+LABSW04(ip)# show
+                       Configured      Current
+                       --------------- ---------------
+DHCP Client          : Enabled        
+IP Address           : 172.16.0.4      172.16.0.4     
+IP Mask              : 255.255.255.0   255.255.255.0  
+IP Gateway           : 172.16.0.1      172.16.0.1     
+VLAN ID              : 1000            1000           
+DNS Server           : 172.16.0.1      172.16.0.1     
+DNS Proxy            : Disabled
+
+LABSW04(ip)# exit
+LABSW04# vlan
+LABSW04(vlan)# show forbidden
+VID   VLAN Name                         Ports
+----  --------------------------------  -----------------
+LABSW04(vlan)# exit
+LABSW04# eConnection to 172.16.0.4 closed by remote host.
+Connection to 172.16.0.4 closed.

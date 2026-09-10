@@ -1,0 +1,68 @@
+spawn ssh -o StrictHostKeyChecking=no -o PubkeyAuthentication=no admin@172.16.0.4
+admin@172.16.0.4's password: 
+
+Type 'help' or '?' to get help.
+LABSW04# system ?
+  <cr>
+LABSW04# system 
+LABSW04(system)# system information ?
+% Unrecognized command
+LABSW04(system)# system information 
+% Unrecognized command
+LABSW04(system)# system information
+% Unrecognized command
+LABSW04(system)# port ?
+% Unrecognized command
+LABSW04(system)# port 
+% Unrecognized command
+LABSW04(system)# port state all
+% Unrecognized command
+LABSW04(system)# vlan ?
+% Unrecognized command
+LABSW04(system)# vlan 
+% Unrecognized command
+LABSW04(system)# vlan info all
+% Unrecognized command
+LABSW04(system)# lldp ?
+% Unrecognized command
+LABSW04(system)# lldp 
+% Unrecognized command
+LABSW04(system)# lldp remote-device
+% Unrecognized command
+LABSW04(system)# stp ?
+% Unrecognized command
+LABSW04(system)# stp 
+% Unrecognized command
+LABSW04(system)# stp
+% Unrecognized command
+LABSW04(system)# snmp ?
+% Unrecognized command
+LABSW04(system)# snmp 
+% Unrecognized command
+LABSW04(system)# aggregation ?
+% Unrecognized command
+LABSW04(system)# aggregation 
+% Unrecognized command
+LABSW04(system)# account ?
+% Unrecognized command
+LABSW04(system)# account 
+% Unrecognized command
+LABSW04(system)# history
+
+Command history:
+  0. system 
+  1. system information 
+  2. system information
+  3. port 
+  4. port state all
+  5. vlan 
+  6. vlan info all
+  7. lldp 
+  8. lldp remote-device
+  9. stp 
+ 10. stp
+ 11. snmp 
+ 12. aggregation 
+ 13. account 
+LABSW04(system)# exit
+LABSW04# 
