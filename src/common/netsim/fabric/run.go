@@ -23,9 +23,10 @@ type Injection struct {
 
 // Device represents the instantaneous subsystem state of a virtual switch in the fabric.
 type Device struct {
-	Entries []bridge.Entry
-	Ports   []port.Port
-	Power   phy.Allocation
+	Entries  []bridge.Entry
+	Ports    []port.Port
+	Power    phy.Allocation
+	Counters map[string]Counters
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, and device states.
@@ -161,7 +162,21 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	f.entered[arr.FrameID][ep] = true
 
+	sw := f.switches[arr.Device]
+	var inPorts []string
+	inPorts = append(inPorts, arr.Port)
+	if p, ok := sw.Ports().Port(arr.Port); ok && p.LagParent != "" {
+		inPorts = append(inPorts, p.LagParent)
+	}
+
+	rawIn, _ := arr.Frame.Encode()
+	inOctets := uint64(len(rawIn))
+
 	if arr.Corrupt {
+		for _, p := range inPorts {
+			f.countCorruptIngress(arr.Device, p, inOctets)
+		}
+
 		dropEntry := Entry{
 			At:     arr.At,
 			Kind:   EntryDrop,
@@ -174,7 +189,11 @@ func (f *Fabric) Step() (Entry, bool) {
 		return dropEntry, true
 	}
 
-	sw := f.switches[arr.Device]
+	inClass := classifyMAC(arr.Frame.Dst)
+	for _, p := range inPorts {
+		f.countIngress(arr.Device, p, inOctets, inClass)
+	}
+
 	sw.Age(arr.At)
 	res := sw.Forward(arr.At, arr.Port, arr.Frame)
 
@@ -188,6 +207,10 @@ func (f *Fabric) Step() (Entry, bool) {
 	journey.Entries = append(journey.Entries, hopEntry)
 
 	if res.Outcome == trace.Dropped {
+		for _, p := range inPorts {
+			f.countWholeFrameDrop(arr.Device, p, res.Reason)
+		}
+
 		dropEntry := Entry{
 			At:     arr.At,
 			Kind:   EntryDrop,
@@ -199,8 +222,25 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 
 	for _, eg := range res.Egress {
+		var outPorts []string
+		outPorts = append(outPorts, eg.Port)
+		if eg.Member != "" {
+			outPorts = append(outPorts, eg.Member)
+		}
+
 		if eg.Dropped != "" {
+			for _, p := range outPorts {
+				f.countEgressDrop(arr.Device, p, eg.Dropped)
+			}
+
 			continue
+		}
+
+		rawOut, _ := eg.Frame.Encode()
+		outOctets := uint64(len(rawOut))
+		outClass := classifyMAC(eg.Frame.Dst)
+		for _, p := range outPorts {
+			f.countEgress(arr.Device, p, outOctets, outClass)
 		}
 
 		outPort := eg.Port
@@ -235,6 +275,14 @@ func (f *Fabric) Step() (Entry, bool) {
 		case FaultCorruptEveryNth:
 			if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
 				corrupt = true
+			}
+		case FaultDeadAToB:
+			if ref.end.Endpoint == cable.A {
+				lost = true
+			}
+		case FaultDeadBToA:
+			if ref.end.Endpoint == cable.B {
+				lost = true
 			}
 		}
 
@@ -329,9 +377,10 @@ func (f *Fabric) Snapshot() Snapshot {
 	devices := make(map[string]Device, len(f.switches))
 	for name, sw := range f.switches {
 		devices[name] = Device{
-			Entries: sw.Entries(),
-			Ports:   sw.Ports().Ports(),
-			Power:   sw.Power(),
+			Entries:  sw.Entries(),
+			Ports:    sw.Ports().Ports(),
+			Power:    sw.Power(),
+			Counters: f.snapshotCounters(name),
 		}
 	}
 
