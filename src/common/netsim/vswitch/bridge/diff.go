@@ -12,8 +12,8 @@ import (
 
 // Diff computes the difference between two bridge configurations, reporting changes to
 // the VLAN table (additions, removals, and renames), per-port switchport settings (PVID,
-// tagged and untagged sets, ingress filtering, and frame admission), aging time, and
-// maximum table entries.
+// tagged and untagged sets, ingress filtering, and frame admission), aging time,
+// maximum table entries, flood VLANs, protected ports, and BPDU forwarding.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -239,6 +239,53 @@ func Diff(a, b Config) []trace.Change {
 			Field: "max_entries",
 			From:  a.MaxEntries,
 			To:    b.MaxEntries,
+		})
+	}
+
+	aFlood := slices.Clone(a.FloodVLANs)
+	slices.Sort(aFlood)
+	bFlood := slices.Clone(b.FloodVLANs)
+	slices.Sort(bFlood)
+	if !slices.Equal(aFlood, bFlood) {
+		changes = append(changes, trace.Change{
+			Layer: port.LayerRelay,
+			Subject: trace.Subject{
+				Kind: "bridge",
+				Key:  "",
+			},
+			Field: "flood_vlans",
+			From:  aFlood,
+			To:    bFlood,
+		})
+	}
+
+	aProt := slices.Clone(a.ProtectedPorts)
+	slices.Sort(aProt)
+	bProt := slices.Clone(b.ProtectedPorts)
+	slices.Sort(bProt)
+	if !slices.Equal(aProt, bProt) {
+		changes = append(changes, trace.Change{
+			Layer: port.LayerRelay,
+			Subject: trace.Subject{
+				Kind: "bridge",
+				Key:  "",
+			},
+			Field: "protected_ports",
+			From:  aProt,
+			To:    bProt,
+		})
+	}
+
+	if a.ForwardBPDU != b.ForwardBPDU {
+		changes = append(changes, trace.Change{
+			Layer: port.LayerRelay,
+			Subject: trace.Subject{
+				Kind: "bridge",
+				Key:  "",
+			},
+			Field: "forward_bpdu",
+			From:  a.ForwardBPDU,
+			To:    b.ForwardBPDU,
 		})
 	}
 

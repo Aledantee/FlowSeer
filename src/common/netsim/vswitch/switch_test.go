@@ -3140,3 +3140,65 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 		}
 	})
 }
+
+func TestForwardBPDUWithSpanningTree(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			ForwardBPDU: true,
+		},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {AdminEdge: true},
+				"1/1/2": {AdminEdge: true},
+				"1/1/3": {AdminEdge: true},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	bpdu.SetProposal(true)
+
+	bpduFrame := stp.Encode(bpdu, macRoot)
+	resBPDU := sw.Forward(now, "1/1/1", bpduFrame)
+	if resBPDU.Outcome != trace.Consumed {
+		t.Errorf("BPDU outcome = %s, want Consumed", resBPDU.Outcome)
+	}
+
+	otherReserved := netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e}
+	otherFrame := ethernet.Frame{
+		Dst: otherReserved,
+		Src: macRoot,
+	}
+	resOther := sw.Forward(now, "1/1/1", otherFrame)
+	if resOther.Outcome != trace.Flooded {
+		t.Errorf("reserved frame outcome = %s, want Flooded", resOther.Outcome)
+	}
+	if len(resOther.Egress) != 2 || resOther.Egress[0].Port != "1/1/2" || resOther.Egress[1].Port != "1/1/3" {
+		t.Errorf("reserved frame egress = %+v, want flooded to 1/1/2 and 1/1/3", resOther.Egress)
+	}
+}

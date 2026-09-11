@@ -33,6 +33,9 @@ const (
 
 	// ReasonPortBlocked indicates a frame dropped because a port is blocked from learning or forwarding.
 	ReasonPortBlocked trace.Reason = "port-blocked"
+
+	// ReasonProtected indicates a frame dropped because transmission between protected ports is prohibited.
+	ReasonProtected trace.Reason = "protected"
 )
 
 // Egress records the transmission or per-port drop of a frame on a specific egress port.

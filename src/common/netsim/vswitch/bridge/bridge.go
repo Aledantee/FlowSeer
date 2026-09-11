@@ -279,7 +279,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	}
 	res.Ingress = inPort.Name
 
-	if ethernet.IsReserved(f.Dst) {
+	if !b.cfg.ForwardBPDU && ethernet.IsReserved(f.Dst) {
 		res.Reason = ReasonReservedAddress
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerRelay,
@@ -447,7 +447,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 		}
 	}
 
-	if learn && ingressLearns && !f.Src.IsGroup() {
+	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) {
 		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
 		existing, exists := b.fdb[srcKey]
 		if !exists {
@@ -538,21 +538,29 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 		hitPort string
 	)
 	if !f.Dst.IsGroup() {
-		dstKey := fdbKey{fid: in.FID, mac: f.Dst}
-		if entry, exists := b.fdb[dstKey]; exists {
-			isHit = true
-			hitPort = entry.Port
+		if b.isFloodVLAN(in.FID) {
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpLookup,
-				Detail: fmt.Sprintf("hit %s", hitPort),
+				Detail: "flood vlan",
 			})
 		} else {
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:  port.LayerRelay,
-				Op:     trace.OpLookup,
-				Detail: "unicast miss",
-			})
+			dstKey := fdbKey{fid: in.FID, mac: f.Dst}
+			if entry, exists := b.fdb[dstKey]; exists {
+				isHit = true
+				hitPort = entry.Port
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerRelay,
+					Op:     trace.OpLookup,
+					Detail: fmt.Sprintf("hit %s", hitPort),
+				})
+			} else {
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerRelay,
+					Op:     trace.OpLookup,
+					Detail: "unicast miss",
+				})
+			}
 		}
 	} else {
 		res.Steps = append(res.Steps, trace.Step{
@@ -630,6 +638,23 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 				Layer:  port.LayerRelay,
 				Op:     trace.OpDrop,
 				Detail: fmt.Sprintf("port %s: port-blocked", destPort.Name),
+			})
+
+			return res
+		}
+
+		if b.isProtected(in.Port) && b.isProtected(destPort.Name) {
+			res.Reason = ReasonProtected
+			res.Egress = append(res.Egress, Egress{
+				Port:    destPort.Name,
+				Member:  member,
+				Frame:   egressFrame,
+				Dropped: ReasonProtected,
+			})
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerRelay,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s: protected", destPort.Name),
 			})
 
 			return res
@@ -740,6 +765,22 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			continue
 		}
 
+		if b.isProtected(in.Port) && b.isProtected(cand.Name) {
+			res.Egress = append(res.Egress, Egress{
+				Port:    cand.Name,
+				Member:  mem,
+				Frame:   egressFrame,
+				Dropped: ReasonProtected,
+			})
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerRelay,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s: protected", cand.Name),
+			})
+
+			continue
+		}
+
 		if txReason == port.ReasonMTUExceeded {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
@@ -834,4 +875,12 @@ func (b *Bridge) buildEgressFrame(
 	}
 
 	return out, false
+}
+
+func (b *Bridge) isFloodVLAN(fid vlan.ID) bool {
+	return slices.Contains(b.cfg.FloodVLANs, fid)
+}
+
+func (b *Bridge) isProtected(port string) bool {
+	return slices.Contains(b.cfg.ProtectedPorts, port)
 }

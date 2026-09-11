@@ -1605,3 +1605,321 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
+
+func TestFloodVLANFloodsWithoutLearning(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	cfg := bridge.Config{
+		FloodVLANs: []vlan.ID{10},
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				10: "ten",
+				20: "twenty",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/3": {Tagged: []vlan.ID{10, 20}},
+				"1/1/4": {},
+			},
+		},
+	}
+	br := bridge.New(cfg, ports)
+
+	frameA := ethernet.Frame{Dst: macB, Src: macA}
+	resA := br.Forward(testTime0, "1/1/1", frameA)
+
+	if entries := br.Entries(); len(entries) != 0 {
+		t.Fatalf("Entries() = %+v, want empty", entries)
+	}
+	if learned := br.Counters().Learned; learned != 0 {
+		t.Errorf("Counters().Learned = %d, want 0", learned)
+	}
+	if resA.Outcome != trace.Flooded {
+		t.Errorf("frame A outcome = %s, want Flooded", resA.Outcome)
+	}
+	if len(resA.Egress) != 2 || resA.Egress[0].Port != "1/1/2" || resA.Egress[1].Port != "1/1/3" {
+		t.Errorf("frame A egress = %+v, want flooded to 1/1/2 and 1/1/3", resA.Egress)
+	}
+
+	frameB := ethernet.Frame{Dst: macA, Src: macB}
+	resB := br.Forward(testTime0.Add(time.Second), "1/1/2", frameB)
+
+	if resB.Outcome != trace.Flooded {
+		t.Errorf("frame B outcome = %s, want Flooded", resB.Outcome)
+	}
+	if len(resB.Egress) != 2 || resB.Egress[0].Port != "1/1/1" || resB.Egress[1].Port != "1/1/3" {
+		t.Errorf("frame B egress = %+v, want flooded to 1/1/1 and 1/1/3", resB.Egress)
+	}
+
+	foundLookupStep := false
+	for _, step := range resB.Steps {
+		if step.Layer == port.LayerRelay && step.Op == trace.OpLookup && step.Detail == "flood vlan" {
+			foundLookupStep = true
+			break
+		}
+	}
+	if !foundLookupStep {
+		t.Errorf("frame B steps = %+v, want lookup step with detail %q", resB.Steps, "flood vlan")
+	}
+}
+
+func TestProtectedPortsDropTrafficBetweenProtectedPorts(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	cfg := bridge.Config{
+		ProtectedPorts: []string{"1/1/1", "1/1/2"},
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				10: "ten",
+				20: "twenty",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/3": {Tagged: []vlan.ID{10, 20}},
+				"1/1/4": {},
+			},
+		},
+	}
+	br := bridge.New(cfg, ports)
+
+	br.Learn([]bridge.Seed{
+		{FID: 10, MAC: macB, Port: "1/1/2", LearnedAt: testTime0},
+		{FID: 10, MAC: macC, Port: "1/1/3", LearnedAt: testTime0},
+	})
+
+	resUnicastProtected := br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+	if resUnicastProtected.Outcome != trace.Dropped || resUnicastProtected.Reason != bridge.ReasonProtected {
+		t.Errorf("unicast between protected ports = %s/%s, want Dropped/%s",
+			resUnicastProtected.Outcome, resUnicastProtected.Reason, bridge.ReasonProtected)
+	}
+	if len(resUnicastProtected.Egress) != 1 || resUnicastProtected.Egress[0].Port != "1/1/2" || resUnicastProtected.Egress[0].Dropped != bridge.ReasonProtected {
+		t.Errorf("unicast between protected ports egress = %+v, want 1/1/2 dropped with %s",
+			resUnicastProtected.Egress, bridge.ReasonProtected)
+	}
+
+	resFlood := br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macD, Src: macA})
+	if resFlood.Outcome != trace.Flooded {
+		t.Errorf("flood outcome = %s, want Flooded", resFlood.Outcome)
+	}
+	var foundProtectedCandidate, reachedUnprotected bool
+	for _, eg := range resFlood.Egress {
+		if eg.Port == "1/1/2" && eg.Dropped == bridge.ReasonProtected {
+			foundProtectedCandidate = true
+		}
+		if eg.Port == "1/1/3" && eg.Dropped == "" {
+			reachedUnprotected = true
+		}
+	}
+	if !foundProtectedCandidate || !reachedUnprotected {
+		t.Errorf("flood egress = %+v, want 1/1/2 dropped protected and 1/1/3 forwarded", resFlood.Egress)
+	}
+
+	resToUnprotected := br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macC, Src: macA})
+	if resToUnprotected.Outcome != trace.Forwarded {
+		t.Errorf("unicast from protected to unprotected outcome = %s, want Forwarded", resToUnprotected.Outcome)
+	}
+	if len(resToUnprotected.Egress) != 1 || resToUnprotected.Egress[0].Port != "1/1/3" || resToUnprotected.Egress[0].Dropped != "" {
+		t.Errorf("unicast to 1/1/3 egress = %+v, want forwarded to 1/1/3", resToUnprotected.Egress)
+	}
+
+	resFromUnprotected := br.Forward(testTime0, "1/1/3", ethernet.Frame{
+		Dst:  macB,
+		Src:  macC,
+		Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+	})
+	if resFromUnprotected.Outcome != trace.Forwarded {
+		t.Errorf("unicast from unprotected to protected outcome = %s, want Forwarded", resFromUnprotected.Outcome)
+	}
+	if len(resFromUnprotected.Egress) != 1 || resFromUnprotected.Egress[0].Port != "1/1/2" || resFromUnprotected.Egress[0].Dropped != "" {
+		t.Errorf("unicast from 1/1/3 to 1/1/2 egress = %+v, want forwarded to 1/1/2", resFromUnprotected.Egress)
+	}
+}
+
+func TestForwardBPDUFloodsReservedBridgeAddresses(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	bpduMAC := netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
+	frame := ethernet.Frame{Dst: bpduMAC, Src: macA}
+
+	t.Run("forward bpdu false drops reserved address", func(t *testing.T) {
+		cfg := bridge.Config{
+			ForwardBPDU: false,
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{
+					10: "ten",
+					20: "twenty",
+				},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/3": {Tagged: []vlan.ID{10, 20}},
+					"1/1/4": {},
+				},
+			},
+		}
+		br := bridge.New(cfg, ports)
+		res := br.Forward(testTime0, "1/1/1", frame)
+		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonReservedAddress {
+			t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonReservedAddress)
+		}
+		if len(br.Entries()) != 0 {
+			t.Errorf("len(Entries()) = %d, want 0", len(br.Entries()))
+		}
+	})
+
+	t.Run("forward bpdu true floods and learns source", func(t *testing.T) {
+		cfg := bridge.Config{
+			ForwardBPDU: true,
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{
+					10: "ten",
+					20: "twenty",
+				},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/3": {Tagged: []vlan.ID{10, 20}},
+					"1/1/4": {},
+				},
+			},
+		}
+		br := bridge.New(cfg, ports)
+		res := br.Forward(testTime0, "1/1/1", frame)
+		if res.Outcome != trace.Flooded {
+			t.Errorf("Forward = %s, want Flooded", res.Outcome)
+		}
+		if len(res.Egress) != 2 || res.Egress[0].Port != "1/1/2" || res.Egress[1].Port != "1/1/3" {
+			t.Errorf("Egress = %+v, want flooded to 1/1/2 and 1/1/3", res.Egress)
+		}
+		entries := br.Entries()
+		if len(entries) != 1 || entries[0].MAC != macA || entries[0].Port != "1/1/1" {
+			t.Errorf("Entries() = %+v, want macA learned on 1/1/1", entries)
+		}
+	})
+}
+
+func TestValidateFloodVLANsAndProtectedPorts(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+
+	tableVLAN := &bridge.VLAN{
+		Table: map[vlan.ID]string{
+			10: "ten",
+			20: "twenty",
+		},
+		Switchports: map[string]bridge.Switchport{
+			"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/3": {Tagged: []vlan.ID{10, 20}},
+			"1/1/4": {},
+		},
+	}
+
+	cases := []struct {
+		name string
+		vlan *bridge.VLAN
+	}{
+		{name: "with nil VLAN", vlan: nil},
+		{name: "with VLAN table", vlan: tableVLAN},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfgFlood := bridge.Config{
+				FloodVLANs: []vlan.ID{0},
+				VLAN:       tc.vlan,
+			}
+			if err := cfgFlood.Validate(ports); err == nil {
+				t.Error("Validate with FloodVLANs {0} succeeded, want error")
+			}
+
+			cfgProt := bridge.Config{
+				ProtectedPorts: []string{"1/1/9"},
+				VLAN:           tc.vlan,
+			}
+			if err := cfgProt.Validate(ports); err == nil {
+				t.Error("Validate with ProtectedPorts {1/1/9} succeeded, want error")
+			}
+		})
+	}
+
+	t.Run("protected port naming a LAG member is refused", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg := bridge.Config{ProtectedPorts: []string{"1/1/2"}}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Error("Validate with protected port naming LAG member succeeded, want error")
+		}
+	})
+}
+
+func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
+	t.Run("flood_vlans order change reports nothing", func(t *testing.T) {
+		a := bridge.Config{FloodVLANs: []vlan.ID{10, 20}}
+		b := bridge.Config{FloodVLANs: []vlan.ID{20, 10}}
+		if changes := bridge.Diff(a, b); len(changes) != 0 {
+			t.Errorf("Diff = %+v, want no changes when only flood_vlans order changes", changes)
+		}
+	})
+
+	t.Run("flood_vlans change is reported sorted", func(t *testing.T) {
+		a := bridge.Config{FloodVLANs: []vlan.ID{20, 10}}
+		b := bridge.Config{FloodVLANs: []vlan.ID{30, 10}}
+		changes := bridge.Diff(a, b)
+		if len(changes) != 1 {
+			t.Fatalf("len(changes) = %d, want 1", len(changes))
+		}
+		ch := changes[0]
+		if ch.Field != "flood_vlans" || ch.Layer != port.LayerRelay {
+			t.Errorf("change = %+v, want flood_vlans at LayerRelay", ch)
+		}
+		wantFrom := []vlan.ID{10, 20}
+		wantTo := []vlan.ID{10, 30}
+		if !slices.Equal(ch.From.([]vlan.ID), wantFrom) || !slices.Equal(ch.To.([]vlan.ID), wantTo) {
+			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
+		}
+	})
+
+	t.Run("protected_ports order change reports nothing", func(t *testing.T) {
+		a := bridge.Config{ProtectedPorts: []string{"1/1/2", "1/1/1"}}
+		b := bridge.Config{ProtectedPorts: []string{"1/1/1", "1/1/2"}}
+		if changes := bridge.Diff(a, b); len(changes) != 0 {
+			t.Errorf("Diff = %+v, want no changes when only protected_ports order changes", changes)
+		}
+	})
+
+	t.Run("protected_ports change is reported sorted", func(t *testing.T) {
+		a := bridge.Config{ProtectedPorts: []string{"1/1/2", "1/1/1"}}
+		b := bridge.Config{ProtectedPorts: []string{"1/1/3", "1/1/1"}}
+		changes := bridge.Diff(a, b)
+		if len(changes) != 1 {
+			t.Fatalf("len(changes) = %d, want 1", len(changes))
+		}
+		ch := changes[0]
+		if ch.Field != "protected_ports" || ch.Layer != port.LayerRelay {
+			t.Errorf("change = %+v, want protected_ports at LayerRelay", ch)
+		}
+		wantFrom := []string{"1/1/1", "1/1/2"}
+		wantTo := []string{"1/1/1", "1/1/3"}
+		if !slices.Equal(ch.From.([]string), wantFrom) || !slices.Equal(ch.To.([]string), wantTo) {
+			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
+		}
+	})
+
+	t.Run("forward_bpdu change is reported", func(t *testing.T) {
+		a := bridge.Config{ForwardBPDU: false}
+		b := bridge.Config{ForwardBPDU: true}
+		changes := bridge.Diff(a, b)
+		if len(changes) != 1 {
+			t.Fatalf("len(changes) = %d, want 1", len(changes))
+		}
+		ch := changes[0]
+		if ch.Field != "forward_bpdu" || ch.From != false || ch.To != true || ch.Layer != port.LayerRelay {
+			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
+		}
+	})
+}
