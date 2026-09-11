@@ -1043,7 +1043,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 	snap := fab.Snapshot()
 	var wakeTime time.Time
 	for _, arr := range snap.Queue {
-		if arr.Wake && arr.Device == "sw1" {
+		if arr.Kind == fabric.ArrivalWake && arr.Device == "sw1" {
 			wakeTime = arr.At
 			break
 		}
@@ -1113,7 +1113,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 	countWakes := func() int {
 		n := 0
 		for _, arr := range fab.Snapshot().Queue {
-			if arr.Wake && arr.Device == "sw1" {
+			if arr.Kind == fabric.ArrivalWake && arr.Device == "sw1" {
 				n++
 			}
 		}
@@ -1184,7 +1184,7 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
 
 	for _, arr := range fab.Snapshot().Queue {
-		if arr.Wake {
+		if arr.Kind == fabric.ArrivalWake {
 			t.Fatalf("unexpected wake in queue on fabric without STP: %+v", arr)
 		}
 	}
@@ -1200,7 +1200,7 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 	}
 
 	for _, arr := range fab.Snapshot().Queue {
-		if arr.Wake {
+		if arr.Kind == fabric.ArrivalWake {
 			t.Fatalf("unexpected wake after injection: %+v", arr)
 		}
 	}
@@ -1566,9 +1566,13 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 
 	trunkEP := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
 	snap := fab.Snapshot()
-	wantBusy := t0.Add(672*time.Nanosecond + 1408*time.Nanosecond)
-	if gotBusy := snap.Busy[trunkEP]; !gotBusy.Equal(wantBusy) {
-		t.Errorf("snap.Busy[%v] = %v, want %v", trunkEP, gotBusy, wantBusy)
+	// Same-time frame arrivals precede dequeue events, so neither frame has
+	// charged the trunk busy clock at this observation point.
+	if got := snap.Queued[trunkEP]; got != 2 {
+		t.Errorf("snap.Queued[%v] = %d, want 2", trunkEP, got)
+	}
+	if gotBusy, ok := snap.Busy[trunkEP]; ok {
+		t.Errorf("snap.Busy[%v] = %v, want absent before dequeue", trunkEP, gotBusy)
 	}
 	for _, host := range []string{"h1", "h3"} {
 		if until, ok := snap.Busy[fabric.Endpoint{Node: host}]; ok {
@@ -1576,20 +1580,18 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 		}
 	}
 
-	step3, ok := fab.Step()
-	if !ok {
-		t.Fatal("step 3 returned ok=false")
+	var sw2Hops []fabric.Entry
+	for len(sw2Hops) < 2 {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("queue exhausted before both sw2 hops")
+		}
+		if entry.Kind == fabric.EntryHop && entry.Device == "sw2" {
+			sw2Hops = append(sw2Hops, entry)
+		}
 	}
-	step4, ok := fab.Step()
-	if !ok {
-		t.Fatal("step 4 returned ok=false")
-	}
-
-	if step3.Device != "sw2" || step4.Device != "sw2" {
-		t.Fatalf("step3/4 devices = %q, %q, want sw2, sw2", step3.Device, step4.Device)
-	}
-	if diff := step4.At.Sub(step3.At); diff != 704*time.Nanosecond {
-		t.Errorf("sw2 hops difference = %v, want 704ns (step3=%v, step4=%v)", diff, step3.At, step4.At)
+	if diff := sw2Hops[1].At.Sub(sw2Hops[0].At); diff != 704*time.Nanosecond {
+		t.Errorf("sw2 hops difference = %v, want 704ns (first=%v, second=%v)", diff, sw2Hops[0].At, sw2Hops[1].At)
 	}
 
 	journeys := fab.Report()
@@ -1953,9 +1955,17 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 	if !ok {
 		t.Fatal("step 1 ok=false")
 	}
-	step2, ok := fab.Step()
+	dequeue, ok := fab.Step()
 	if !ok {
 		t.Fatal("step 2 ok=false")
+	}
+	// The host dequeue is now an observable step between the two frame arrivals.
+	if dequeue.Kind != fabric.EntryDequeue || dequeue.Device != "h1" {
+		t.Fatalf("step 2 = %+v, want h1 dequeue", dequeue)
+	}
+	step2, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 3 ok=false")
 	}
 
 	if !step1.At.Equal(t0.Add(672 * time.Nanosecond)) {

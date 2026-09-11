@@ -164,19 +164,46 @@ nothing else.
 A delivery to a destination host is recorded at the arrival time, and a host's
 cable end is charged on the busy clock like any port.
 
-## Busy clock
+Mirror copies have journeys of their own. `Journey.Mirror` names the mirror
+configuration that made the copy, and `Journey.Parent` identifies the original
+frame's journey. The copy's injection origin is the switch and mirror output
+port, followed by its own crossings, delivery, or drop.
 
-A transmission on an endpoint starts at the later of now and the endpoint's
-busy clock, ends one serialization later, and arrives at the far end at the end
-plus propagation. The endpoint's busy clock advances to the transmission end.
-`Entry.Wait` is the start minus now. `Snapshot.Busy` lists the endpoints whose
-clock is after `Clock`.
+## Egress queues
 
-For example, when two frames flood to the trunk in one step, the first frame
-starts immediately (`Wait` 0) and serializes for 704 ns, setting the trunk
-endpoint's clock to `t0 + 1376ns`. The second frame waits for that clock,
-starting at `t0 + 1376ns` (`Wait` 704 ns) and serializing for 704 ns. The two
-frames arrive at the far switch 704 ns apart.
+Every transmitting endpoint has eight FIFO queues, one for each PCP. Normal
+egress keeps the PCP from ingress classification even when the egress frame is
+untagged. Protocol emissions, mirror copies, and host injections use the outer
+C-tag's PCP, or PCP 0 when the frame has no outer C-tag.
+
+An idle endpoint serves a lone frame immediately. When another frame arrival is
+already scheduled for the same instant, the endpoint schedules a dequeue after
+those arrivals instead. A dequeue chooses the highest eligible PCP and keeps
+FIFO order within that PCP. It schedules another dequeue for the transmission
+end while frames remain. `Snapshot.Queued` gives the pending count for each
+non-empty endpoint queue, and `Snapshot.Busy` lists endpoints still serializing
+after `Clock`.
+
+A configured queue maximum rate controls start-to-start spacing. After a frame
+starts, that PCP is next eligible at `start + ceil(wire bits / max rate)`. The
+link still serializes the frame at its negotiated speed. If every pending PCP is
+rate-limited, the endpoint schedules its dequeue at the earliest rate clock.
+`Entry.Wait` is the transmission start minus its enqueue time, and `Entry.PCP`
+records the selected priority.
+
+For example, two tagged frames arriving together at `sw1:1/1/2`, PCP 0 first
+and PCP 7 second, are both pending before the trunk dequeue. PCP 7 starts at
+`t0`, takes 704 ns to serialize, and reaches `sw2` after the trunk's 1494 ns
+propagation at `t0 + 2198ns`. PCP 0 starts at `t0 + 704ns` and reaches `sw2` at
+`t0 + 2902ns`.
+
+With PCP 0 on `sw1:1/1/24` limited to 100 Mbit/s, an 88-wire-octet tagged frame
+opens the next PCP 0 turn 7040 ns after its start. Two untagged host frames
+injected at `t0` and `t0 + 1ns` reach `sw1` at `t0 + 672ns` and
+`t0 + 1344ns`. Their trunk copies reach `sw2` at `t0 + 2870ns` and
+`t0 + 9910ns`; each still serializes in 704 ns at the 1 Gbit/s link rate. An
+unlimited PCP 7 frame queued between those copies takes the free trunk before
+the second PCP 0 frame.
 
 ## Media and reach
 
@@ -327,9 +354,10 @@ the link change. Both endpoints must identify an existing cable.
 Simulation arrivals follow a deterministic total order in the queue:
 
 1. Arrival time (`At`) in ascending chronological order.
-2. Injection sequence number (`Seq`), which every copy of a frame keeps.
-3. Destination device name.
-4. Destination port name.
+2. Arrival kind: switch wakes, frame arrivals, then egress dequeues.
+3. Injection sequence number (`Seq`), which every forwarding copy of a frame keeps.
+4. Destination device name.
+5. Destination port name.
 
 A run therefore replays in the same order every time.
 
@@ -347,6 +375,7 @@ The package declares reasons for link failures and frame discards:
 | `reach-exceeded` | Cable length exceeds medium reach for speed        |
 | `cable-loss`     | Configured cable fault dropped frame in transit   |
 | `bad-frame`      | Frame was corrupted during cable transit          |
+| `policed`        | Ingress frame exceeded the port's token bucket     |
 
 ## Concurrency contract
 

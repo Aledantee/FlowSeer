@@ -282,7 +282,7 @@ and the loader's aggregation facet.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase5-plan.md`
 After: U1, U2
-Landed:
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits a88b3f4c through the fabric commit and the review-fix commit that follows it.
 Change: `netsim/vswitch/traffic` with mirrors, ingress policing, and
 egress queues over the serialization clock.
 

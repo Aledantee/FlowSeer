@@ -753,7 +753,7 @@ func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 	after := next.Snapshot()
 
 	for _, arr := range after.Queue {
-		if !arr.Wake {
+		if arr.Kind != fabric.ArrivalWake {
 			t.Errorf("derived fabric queued a frame arrival %+v, want wakes only", arr)
 		}
 	}

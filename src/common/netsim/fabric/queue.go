@@ -8,20 +8,35 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 )
 
-// Arrival represents a frame or timer wake scheduled for processing at a specific device and time.
+// ArrivalKind identifies work scheduled on the simulation queue.
+type ArrivalKind uint8
+
+const (
+	// ArrivalWake advances a virtual switch timer.
+	ArrivalWake ArrivalKind = iota
+	// ArrivalFrame delivers a frame to a virtual switch port.
+	ArrivalFrame
+	// ArrivalDequeue serves an endpoint's pending egress frames.
+	ArrivalDequeue
+)
+
+// Arrival represents a frame, timer wake, or egress dequeue scheduled for processing at a specific device and time.
 type Arrival struct {
 	At      time.Time
+	Kind    ArrivalKind
 	Seq     uint64
 	Device  string
 	Port    string
 	FrameID FrameID
 	Frame   ethernet.Frame
 	Corrupt bool
-	Wake    bool
 }
 
 func compareArrival(a, b Arrival) int {
 	if r := a.At.Compare(b.At); r != 0 {
+		return r
+	}
+	if r := cmp.Compare(a.Kind, b.Kind); r != 0 {
 		return r
 	}
 	if r := cmp.Compare(a.Seq, b.Seq); r != 0 {

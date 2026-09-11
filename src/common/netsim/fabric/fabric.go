@@ -33,6 +33,7 @@ type Fabric struct {
 	entered        map[FrameID]map[Endpoint]bool
 	cableCrossings map[Endpoint]uint
 	busyUntil      map[Endpoint]time.Time
+	egress         map[Endpoint]*egressQueue
 	counters       map[Endpoint]*Counters
 }
 

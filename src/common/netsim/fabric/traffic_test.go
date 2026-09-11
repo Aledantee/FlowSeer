@@ -1,0 +1,475 @@
+package fabric_test
+
+import (
+	"slices"
+	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
+)
+
+func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabric, map[string]netaddr.MAC) {
+	t.Helper()
+
+	ports := func(names ...string) port.Table {
+		t.Helper()
+		b := port.NewBuilder()
+		for _, name := range names {
+			b.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		}
+		table, err := b.Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+
+		return table
+	}
+
+	vid10 := vlan.ID(10)
+	macs := map[string]netaddr.MAC{
+		"h1": {0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+		"h2": {0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+		"h3": {0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+		"h4": {0x00, 0x11, 0x22, 0x33, 0x44, 0x04},
+	}
+	fab, err := fabric.New(fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports: ports("1/1/1", "1/1/2", "1/1/4", "1/1/24"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "VLAN10", 99: "MIRROR"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+						"1/1/2":  {Tagged: []vlan.ID{10}},
+						"1/1/4":  {PVID: &vid10, Untagged: []vlan.ID{10, 99}},
+						"1/1/24": {Tagged: []vlan.ID{10, 99}},
+					},
+				}},
+				Traffic: trafficCfg,
+			},
+			"sw2": {
+				Ports: ports("1/1/1", "1/1/24"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "VLAN10"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+						"1/1/24": {Tagged: []vlan.ID{10}},
+					},
+				}},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macs["h1"]},
+			"h2": {Address: macs["h2"]},
+			"h3": {Address: macs["h3"]},
+			"h4": {Address: macs["h4"], VLAN: &vid10},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
+			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h3"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h4"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	return fab, macs
+}
+
+func TestEgressQueueServesStrictPriority(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fab, macs := newTrafficTopology(t, nil)
+	frame := func(pcp vlan.PCP, source byte) ethernet.Frame {
+		return ethernet.Frame{
+			Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, source},
+			Src:     macs["h1"],
+			Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: pcp, VID: 10}},
+			Payload: make([]byte, 46),
+		}
+	}
+
+	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: frame(0, 1)}); err != nil {
+		t.Fatalf("Inject PCP 0: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: frame(7, 2)}); err != nil {
+		t.Fatalf("Inject PCP 7: %v", err)
+	}
+
+	if entry, ok := fab.Step(); !ok || entry.Kind != fabric.EntryHop {
+		t.Fatalf("first Step() = (%+v, %t), want a hop", entry, ok)
+	}
+	if entry, ok := fab.Step(); !ok || entry.Kind != fabric.EntryHop {
+		t.Fatalf("second Step() = (%+v, %t), want a hop", entry, ok)
+	}
+	trunk := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
+	if got := fab.Snapshot().Queued[trunk]; got != 2 {
+		t.Errorf("queued trunk frames = %d, want 2", got)
+	}
+
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("Step() exhausted the queue before the trunk dequeue")
+		}
+		if entry.Kind == fabric.EntryDequeue && entry.Device == "sw1" && entry.Port == "1/1/24" {
+			break
+		}
+	}
+	fab.Run(20)
+
+	var crossings []fabric.Entry
+	for _, journey := range fab.Report() {
+		for _, candidate := range journey.Entries {
+			if candidate.Kind == fabric.EntryCrossing && candidate.Device == "sw2" && candidate.Port == "1/1/24" {
+				crossings = append(crossings, candidate)
+			}
+		}
+	}
+	if len(crossings) != 2 {
+		t.Fatalf("trunk crossings = %+v, want two", crossings)
+	}
+	slices.SortFunc(crossings, func(a, b fabric.Entry) int {
+		return a.At.Compare(b.At)
+	})
+	if crossings[0].PCP != 7 || !crossings[0].At.Equal(t0) || crossings[0].Wait != 0 {
+		t.Errorf("first trunk crossing = %+v, want PCP 7 at t0 with no wait", crossings[0])
+	}
+	if crossings[1].PCP != 0 || !crossings[1].At.Equal(t0.Add(704*time.Nanosecond)) {
+		t.Errorf("second trunk crossing = %+v, want PCP 0 at t0+704ns", crossings[1])
+	}
+	if got := crossings[0].At.Add(crossings[0].Serialization + crossings[0].Latency); !got.Equal(t0.Add(2198 * time.Nanosecond)) {
+		t.Errorf("PCP 7 hop time = %v, want %v", got, t0.Add(2198*time.Nanosecond))
+	}
+	if got := crossings[1].At.Add(crossings[1].Serialization + crossings[1].Latency); !got.Equal(t0.Add(2902 * time.Nanosecond)) {
+		t.Errorf("PCP 0 hop time = %v, want %v", got, t0.Add(2902*time.Nanosecond))
+	}
+}
+
+func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fab, macs := newTrafficTopology(t, &traffic.Config{Mirrors: []traffic.Mirror{{
+		Name:           "m1",
+		SelectSrcPorts: []string{"1/1/1"},
+		OutputPort:     "1/1/4",
+		SnapLen:        64,
+	}}})
+	payload := make([]byte, 200)
+	for i := range payload {
+		payload[i] = byte(i)
+	}
+	originalID, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:     macs["h2"],
+			Src:     macs["h1"],
+			Payload: payload,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject h1: %v", err)
+	}
+	fab.Run(100)
+
+	var copyJourney *fabric.Journey
+	for _, journey := range fab.Report() {
+		if journey.Mirror == "m1" {
+			journey := journey
+			copyJourney = &journey
+		}
+	}
+	if copyJourney == nil {
+		t.Fatal("Report() has no m1 copy journey")
+	}
+	if copyJourney.Parent != originalID {
+		t.Errorf("copy Parent = %d, want %d", copyJourney.Parent, originalID)
+	}
+	if copyJourney.Injection.Origin != (fabric.Endpoint{Node: "sw1", Port: "1/1/4"}) {
+		t.Errorf("copy origin = %+v, want sw1:1/1/4", copyJourney.Injection.Origin)
+	}
+	if len(copyJourney.Deliveries) != 1 || copyJourney.Deliveries[0].Host != "h3" {
+		t.Fatalf("copy deliveries = %+v, want h3", copyJourney.Deliveries)
+	}
+	raw, err := copyJourney.Deliveries[0].Frame.Encode()
+	if err != nil {
+		t.Fatalf("encode mirror delivery: %v", err)
+	}
+	if len(raw) != 64 {
+		t.Errorf("mirror delivery length = %d, want 64", len(raw))
+	}
+	if !slices.Equal(copyJourney.Deliveries[0].Frame.Payload, payload[:50]) {
+		t.Errorf("mirror payload = %v, want first 50 payload octets", copyJourney.Deliveries[0].Frame.Payload)
+	}
+
+	h3ID, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h3"},
+		Frame:  ethernet.Frame{Dst: macs["h2"], Src: macs["h3"]},
+	})
+	if err != nil {
+		t.Fatalf("Inject h3: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(2 * time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame:  ethernet.Frame{Dst: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}, Src: macs["h2"]},
+	}); err != nil {
+		t.Fatalf("Inject h2 flood: %v", err)
+	}
+	fab.Run(200)
+
+	var h3Dropped bool
+	h3Deliveries := 0
+	for _, journey := range fab.Report() {
+		if journey.FrameID == h3ID {
+			for _, entry := range journey.Entries {
+				if entry.Kind == fabric.EntryDrop && entry.Device == "sw1" && entry.Reason == traffic.ReasonMirrorOutput {
+					h3Dropped = true
+				}
+			}
+		}
+		for _, delivery := range journey.Deliveries {
+			if delivery.Host == "h3" {
+				h3Deliveries++
+			}
+		}
+	}
+	if !h3Dropped {
+		t.Error("frame from h3 has no mirror-output drop at sw1")
+	}
+	if h3Deliveries != 1 {
+		t.Errorf("deliveries to h3 = %d, want only the m1 copy", h3Deliveries)
+	}
+}
+
+func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	vid99 := vlan.ID(99)
+	fab, macs := newTrafficTopology(t, &traffic.Config{Mirrors: []traffic.Mirror{{
+		Name:           "m2",
+		SelectSrcPorts: []string{"1/1/1"},
+		OutputVLAN:     &vid99,
+	}}})
+	if _, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Dst: macs["h2"], Src: macs["h1"]},
+	}); err != nil {
+		t.Fatalf("Inject h1: %v", err)
+	}
+	fab.Run(100)
+
+	var trunkCopy, hostCopy *fabric.Journey
+	for _, journey := range fab.Report() {
+		if journey.Mirror != "m2" {
+			continue
+		}
+		journey := journey
+		switch journey.Injection.Origin.Port {
+		case "1/1/24":
+			trunkCopy = &journey
+		case "1/1/4":
+			hostCopy = &journey
+		case "1/1/1":
+			t.Error("mirror produced a copy on its ingress port")
+		}
+	}
+	if trunkCopy == nil || hostCopy == nil {
+		t.Fatalf("m2 journeys = trunk %v, host %v; want both", trunkCopy != nil, hostCopy != nil)
+	}
+	if len(trunkCopy.Injection.Frame.Tags) != 1 || trunkCopy.Injection.Frame.Tags[0].VID != 99 || trunkCopy.Injection.Frame.Tags[0].TPID != uint16(ethernet.EtherTypeDot1Q) {
+		t.Errorf("trunk copy tags = %+v, want one C-tag with VID 99", trunkCopy.Injection.Frame.Tags)
+	}
+	var crossedTrunk bool
+	for _, entry := range trunkCopy.Entries {
+		if entry.Kind == fabric.EntryCrossing && entry.Device == "sw2" && entry.Port == "1/1/24" {
+			crossedTrunk = true
+		}
+	}
+	if !crossedTrunk {
+		t.Errorf("trunk copy entries = %+v, want crossing to sw2:1/1/24", trunkCopy.Entries)
+	}
+	if len(hostCopy.Injection.Frame.Tags) != 0 {
+		t.Errorf("host copy tags = %+v, want untagged", hostCopy.Injection.Frame.Tags)
+	}
+	if len(hostCopy.Deliveries) != 1 || hostCopy.Deliveries[0].Host != "h3" {
+		t.Errorf("host copy deliveries = %+v, want h3", hostCopy.Deliveries)
+	}
+
+	before := len(fab.Report())
+	if _, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst: netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e},
+			Src: macs["h1"],
+		},
+	}); err != nil {
+		t.Fatalf("Inject reserved destination: %v", err)
+	}
+	fab.Run(100)
+	for _, journey := range fab.Report()[before:] {
+		if journey.Mirror == "m2" {
+			t.Errorf("reserved destination produced mirror journey %+v", journey)
+		}
+	}
+}
+
+func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fab, macs := newTrafficTopology(t, &traffic.Config{Policers: map[string]traffic.Policer{
+		"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
+	}})
+	var ids []fabric.FrameID
+	for i := 0; i < 10; i++ {
+		fid, err := fab.Inject(fabric.Injection{
+			At:     t0,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:     macs["h2"],
+				Src:     macs["h1"],
+				Payload: make([]byte, 1000),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Inject frame %d: %v", i+1, err)
+		}
+		ids = append(ids, fid)
+	}
+	fab.Run(1000)
+
+	hops := 0
+	var tenth fabric.Journey
+	for _, journey := range fab.Report() {
+		if journey.FrameID == ids[9] {
+			tenth = journey
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryHop && entry.Device == "sw1" && entry.Port == "1/1/1" {
+				hops++
+			}
+		}
+	}
+	if hops != 9 {
+		t.Errorf("sw1 ingress hops = %d, want 9", hops)
+	}
+	if len(tenth.Entries) == 0 || tenth.Entries[len(tenth.Entries)-1].Reason != traffic.ReasonPoliced {
+		t.Errorf("tenth journey = %+v, want final policed drop", tenth.Entries)
+	}
+	counters := fab.Snapshot().Devices["sw1"].Counters["1/1/1"]
+	if counters.InDiscards != 1 || counters.Discards[traffic.ReasonPoliced] != 1 {
+		t.Errorf("sw1:1/1/1 counters = %+v, want one policed ingress discard", counters)
+	}
+
+	lastID, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(10 * time.Millisecond),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Dst:     macs["h2"],
+			Src:     macs["h1"],
+			Payload: make([]byte, 1000),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject after refill: %v", err)
+	}
+	fab.Run(100)
+	for _, journey := range fab.Report() {
+		if journey.FrameID != lastID {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryHop && entry.Device == "sw1" && entry.Port == "1/1/1" {
+				return
+			}
+		}
+	}
+	t.Error("frame after 10 ms refill did not reach sw1 forwarding")
+}
+
+func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	newFabric := func() (*fabric.Fabric, map[string]netaddr.MAC) {
+		return newTrafficTopology(t, &traffic.Config{Queues: map[string]traffic.PortQueues{
+			"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+		}})
+	}
+	injectLow := func(fab *fabric.Fabric, macs map[string]netaddr.MAC, at time.Time, dst byte) fabric.FrameID {
+		t.Helper()
+		fid, err := fab.Inject(fabric.Injection{
+			At:     at,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, dst},
+				Src:     macs["h1"],
+				Payload: make([]byte, 46),
+			},
+		})
+		if err != nil {
+			t.Fatalf("Inject PCP 0: %v", err)
+		}
+
+		return fid
+	}
+	hopAt := func(fab *fabric.Fabric, fid fabric.FrameID) time.Time {
+		t.Helper()
+		for _, journey := range fab.Report() {
+			if journey.FrameID != fid {
+				continue
+			}
+			for _, entry := range journey.Entries {
+				if entry.Kind == fabric.EntryHop && entry.Device == "sw2" && entry.Port == "1/1/24" {
+					return entry.At
+				}
+			}
+		}
+		t.Fatalf("journey %d has no hop on sw2:1/1/24", fid)
+
+		return time.Time{}
+	}
+
+	fab, macs := newFabric()
+	firstID := injectLow(fab, macs, t0, 1)
+	secondID := injectLow(fab, macs, t0.Add(time.Nanosecond), 2)
+	fab.Run(100)
+	if got := hopAt(fab, firstID); !got.Equal(t0.Add(2870 * time.Nanosecond)) {
+		t.Errorf("first PCP 0 hop = %v, want %v", got, t0.Add(2870*time.Nanosecond))
+	}
+	if got := hopAt(fab, secondID); !got.Equal(t0.Add(9910 * time.Nanosecond)) {
+		t.Errorf("second PCP 0 hop = %v, want %v", got, t0.Add(9910*time.Nanosecond))
+	}
+
+	fab, macs = newFabric()
+	firstID = injectLow(fab, macs, t0, 1)
+	secondID = injectLow(fab, macs, t0.Add(time.Nanosecond), 2)
+	highID, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(700 * time.Nanosecond),
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		Frame: ethernet.Frame{
+			Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 3},
+			Src:     macs["h4"],
+			Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 7, VID: 10}},
+			Payload: make([]byte, 46),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject PCP 7: %v", err)
+	}
+	fab.Run(100)
+	if highAt, lowAt := hopAt(fab, highID), hopAt(fab, secondID); !highAt.Before(lowAt) {
+		t.Errorf("PCP 7 hop = %v, second PCP 0 hop = %v; want PCP 7 first", highAt, lowAt)
+	}
+	if got := hopAt(fab, firstID); !got.Equal(t0.Add(2870 * time.Nanosecond)) {
+		t.Errorf("first PCP 0 hop with priority traffic = %v, want %v", got, t0.Add(2870*time.Nanosecond))
+	}
+}

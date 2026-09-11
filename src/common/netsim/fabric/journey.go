@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 )
@@ -47,6 +48,9 @@ const (
 
 	// EntryWake records a scheduled timer wake-up advancing a virtual switch.
 	EntryWake EntryKind = "Wake"
+
+	// EntryDequeue records an endpoint selecting its next egress frame.
+	EntryDequeue EntryKind = "Dequeue"
 )
 
 // Entry records a single discrete event or hop in a frame's traversal of the network fabric.
@@ -59,6 +63,7 @@ type Entry struct {
 	Latency       time.Duration
 	Serialization time.Duration
 	Wait          time.Duration
+	PCP           vlan.PCP
 	Result        *bridge.Result
 	Reason        trace.Reason
 }
@@ -67,6 +72,8 @@ type Entry struct {
 type Journey struct {
 	FrameID    FrameID
 	Protocol   bool
+	Mirror     string
+	Parent     FrameID
 	Injection  Injection
 	Entries    []Entry
 	Deliveries []Delivery

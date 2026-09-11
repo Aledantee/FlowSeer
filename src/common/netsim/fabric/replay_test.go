@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 func buildReplayPorts(t *testing.T) port.Table {
@@ -32,7 +33,7 @@ func buildReplayPorts(t *testing.T) port.Table {
 	return tbl
 }
 
-func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config) *fabric.Fabric {
+func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, trafficCfg ...*traffic.Config) *fabric.Fabric {
 	t.Helper()
 
 	hosts := make(map[string]fabric.Host)
@@ -53,11 +54,16 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config) *fa
 		})
 	}
 
+	var tc *traffic.Config
+	if len(trafficCfg) > 0 {
+		tc = trafficCfg[0]
+	}
 	cfg := fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
-				Ports:  pTable,
-				Bridge: brCfg,
+				Ports:   pTable,
+				Bridge:  brCfg,
+				Traffic: tc,
 			},
 		},
 		Hosts:  hosts,
@@ -765,7 +771,9 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 				},
 			},
 		}
-		fab := makeReplayFabric(t, ports, cfg)
+		fab := makeReplayFabric(t, ports, cfg, &traffic.Config{Queues: map[string]traffic.PortQueues{
+			"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+		}})
 		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 
 		injections := []fabric.Injection{

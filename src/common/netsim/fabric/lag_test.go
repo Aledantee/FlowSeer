@@ -532,6 +532,12 @@ func TestDelays(t *testing.T) {
 	}
 }
 
+// targetSettled lets transmissions triggered at the target drain without
+// following the next periodic wake already present in the arrival queue.
+func targetSettled(snapshot fabric.Snapshot, target time.Time) bool {
+	return !snapshot.Clock.Before(target) && len(snapshot.Queued) == 0
+}
+
 func TestLACPConvergence(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
 	lagCfg := func() *lag.Config {
@@ -554,10 +560,7 @@ func TestLACPConvergence(t *testing.T) {
 	target := t0.Add(3 * time.Second)
 	for {
 		snap := fab.Snapshot()
-		if !snap.Clock.Before(target) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(target) {
+		if targetSettled(snap, target) {
 			break
 		}
 		if _, ok := fab.Step(); !ok {
@@ -634,10 +637,7 @@ func TestLACPConvergence(t *testing.T) {
 	fabMismatch, _, _ := newLagTopology(t, t0, lagCfg(), lagBKey2)
 	for {
 		snap := fabMismatch.Snapshot()
-		if !snap.Clock.Before(target) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(target) {
+		if targetSettled(snap, target) {
 			break
 		}
 		if _, ok := fabMismatch.Step(); !ok {
@@ -682,10 +682,7 @@ func TestFallback(t *testing.T) {
 	targetWith := t0.Add(6 * time.Second)
 	for {
 		snap := fabWithFallback.Snapshot()
-		if !snap.Clock.Before(targetWith) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(targetWith) {
+		if targetSettled(snap, targetWith) {
 			break
 		}
 		if _, ok := fabWithFallback.Step(); !ok {
@@ -742,10 +739,7 @@ func TestFallback(t *testing.T) {
 	targetWithout := t0.Add(7 * time.Second)
 	for {
 		snap := fabNoFallback.Snapshot()
-		if !snap.Clock.Before(targetWithout) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(targetWithout) {
+		if targetSettled(snap, targetWithout) {
 			break
 		}
 		if _, ok := fabNoFallback.Step(); !ok {
@@ -850,10 +844,7 @@ func TestPassive(t *testing.T) {
 	target := t0.Add(5 * time.Second)
 	for {
 		snap := fabBothPassive.Snapshot()
-		if !snap.Clock.Before(target) && len(snap.Queue) == 0 {
-			break
-		}
-		if snap.Clock.After(target) {
+		if targetSettled(snap, target) {
 			break
 		}
 		if _, ok := fabBothPassive.Step(); !ok {

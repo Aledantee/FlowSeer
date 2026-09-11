@@ -60,12 +60,13 @@ the trace package first, sits at the `netsim` level.
   sit in a queue of pending arrivals ordered by time and then by a fixed
   tie-break; a step takes one arrival, forwards it on its device, and
   enqueues one copy per egress cable; a copy is a transmission on the
-  egress port that starts when the port is free, takes the frame's
-  serialization at the negotiated rate, and arrives after the cable's
-  propagation. The run halts after a caller's step budget, and a snapshot
-  exposes the clock, the frames in flight, and every device's forwarding
-  database, port states, and counters as values. Every frame's processing
-  is a journey: hops, cable crossings, deliveries, and drops with reasons.
+  egress port that starts when the port is free and its queue's turn comes,
+  in strict priority by PCP, takes the frame's serialization at the negotiated
+  rate, and arrives after the cable's propagation. The run halts after a
+  caller's step budget, and a snapshot exposes the clock, the frames in flight,
+  and every device's forwarding database, port states, and counters as values.
+  Every frame's processing is a journey: hops, cable crossings, deliveries,
+  and drops with reasons.
   This is the event model of ns-3 without goroutines. The queue also
   holds the wake-ups a layer schedules and the frames a device emits on
   its own, spanning tree first, under the same total order, so the single
