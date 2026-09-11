@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -39,11 +40,13 @@ type Injection struct {
 
 // Device represents the instantaneous subsystem state of a virtual switch in the fabric.
 type Device struct {
-	Entries  []bridge.Entry
-	Ports    []port.Port
-	Power    phy.Allocation
-	Counters map[string]Counters
-	Roles    map[string]stp.PortInfo
+	Entries     []bridge.Entry
+	Groups      map[vlan.ID][]mcast.Entry
+	RouterPorts map[vlan.ID][]mcast.RouterPort
+	Ports       []port.Port
+	Power       phy.Allocation
+	Counters    map[string]Counters
+	Roles       map[string]stp.PortInfo
 	// RelayCounters is what the relay's learning table counted, beside the
 	// per-port Counters.
 	RelayCounters bridge.Counters
@@ -927,8 +930,21 @@ func (f *Fabric) Snapshot() Snapshot {
 
 	devices := make(map[string]Device, len(f.switches))
 	for name, sw := range f.switches {
+		var groups map[vlan.ID][]mcast.Entry
+		var routerPorts map[vlan.ID][]mcast.RouterPort
+		cfg := sw.Config()
+		if cfg.Mcast != nil {
+			groups = make(map[vlan.ID][]mcast.Entry, len(cfg.Mcast.VLANs))
+			routerPorts = make(map[vlan.ID][]mcast.RouterPort, len(cfg.Mcast.VLANs))
+			for vid := range cfg.Mcast.VLANs {
+				groups[vid] = sw.Groups(vid)
+				routerPorts[vid] = sw.RouterPorts(vid)
+			}
+		}
 		devices[name] = Device{
 			Entries:       sw.Entries(),
+			Groups:        groups,
+			RouterPorts:   routerPorts,
 			Ports:         sw.Ports().Ports(),
 			Power:         sw.Power(),
 			Counters:      f.snapshotCounters(name),

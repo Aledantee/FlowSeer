@@ -2517,6 +2517,95 @@ func TestSwitchportCloneWithTunnel(t *testing.T) {
 	}
 }
 
+type testGroupResolver struct {
+	ports   []string
+	decided bool
+}
+
+func (r testGroupResolver) Resolve(vlan.ID, ethernet.Frame) ([]string, bool) {
+	return r.ports, r.decided
+}
+
+func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	br := bridge.New(bridge.Config{VLAN: &bridge.VLAN{
+		Table: map[vlan.ID]string{10: "ten"},
+		Switchports: map[string]bridge.Switchport{
+			"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/3": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+		},
+	}}, ports)
+	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true})
+
+	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
+		Dst:       netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("group"),
+	})
+
+	var got []string
+	for _, egress := range res.Egress {
+		if egress.Dropped == "" {
+			got = append(got, egress.Port)
+		}
+	}
+	if !slices.Equal(got, []string{"1/1/2", "1/1/4"}) {
+		t.Errorf("forwarded ports = %v, want [1/1/2 1/1/4]", got)
+	}
+	if !slices.ContainsFunc(res.Steps, func(step trace.Step) bool {
+		return step.Op == trace.OpReplicate && step.Detail == "group members"
+	}) {
+		t.Errorf("steps = %+v, want group members replication", res.Steps)
+	}
+}
+
+func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
+	br := bridge.New(bridge.Config{}, buildTestPorts(t, 2))
+	br.SetGroupResolver(testGroupResolver{decided: true})
+
+	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02},
+		Src: macA,
+	})
+	if res.Outcome != trace.Dropped || res.Reason != trace.Reason("unregistered") {
+		t.Errorf("Forward = %s/%s, want Dropped/unregistered", res.Outcome, res.Reason)
+	}
+}
+
+func TestEgressToUsesFloodReplicationRules(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	br := bridge.New(bridge.Config{VLAN: &bridge.VLAN{
+		Table: map[vlan.ID]string{10: "ten"},
+		Switchports: map[string]bridge.Switchport{
+			"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+			"1/1/2": {Tagged: []vlan.ID{10}},
+			"1/1/3": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+		},
+	}}, ports)
+	br.SetGate(testGate{forwards: map[string]bool{
+		"1/1/1": true,
+		"1/1/2": false,
+		"1/1/3": true,
+	}})
+
+	res := br.EgressTo(bridge.Ingress{Port: "1/1/1", FID: 10, PCP: 5}, ethernet.Frame{
+		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
+		Src: macA,
+	}, []string{"1/1/2", "1/1/3"}, bridge.ReasonNoEgress)
+	if len(res.Egress) != 2 {
+		t.Fatalf("EgressTo egress = %+v, want two candidates", res.Egress)
+	}
+	if got := res.Egress[0]; got.Port != "1/1/2" || got.Dropped != bridge.ReasonPortBlocked || len(got.Frame.Tags) != 1 || got.Frame.Tags[0].VID != 10 {
+		t.Errorf("tagged blocked egress = %+v, want tagged VLAN 10 and port-blocked", got)
+	}
+	if got := res.Egress[1]; got.Port != "1/1/3" || got.Dropped != "" || len(got.Frame.Tags) != 0 {
+		t.Errorf("untagged forwarded egress = %+v, want untagged forwarding", got)
+	}
+}
+
 func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	br := bridge.New(bridge.Config{MaxEntries: 2}, ports)

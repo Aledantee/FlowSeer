@@ -286,6 +286,9 @@ and leaves the transmission in flight:
 - `Queue`: Holds one pending arrival at `sw2:1/1/24` scheduled at `t0 + 2870ns`.
 - `Busy`: Holds `sw1:1/1/24` until `t0 + 1376ns`.
 - `Devices["sw1"]`: FDB holds dynamic entry `(10, macH1) -> 1/1/1`.
+- `Groups` for each device: Holds multicast membership entries by snooped VLAN.
+- `RouterPorts` for each device: Holds static and learned multicast router ports
+  by snooped VLAN.
 - `RelayCounters` for `Devices["sw1"]`: Reads `Learned` 1 (the example learns h1's MAC on the first step).
 - `Devices["sw2"]`: FDB contains no entries.
 

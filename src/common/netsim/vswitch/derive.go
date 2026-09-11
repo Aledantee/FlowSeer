@@ -1,11 +1,16 @@
 package vswitch
 
 import (
+	"net/netip"
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/net/igmp"
+	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -14,8 +19,9 @@ import (
 // dynamic forwarding database entry from the current switch that the new configuration
 // still admits. Reseeded dynamic entries count as learned and are bounded by the new
 // configuration's MaxEntries, evicting from the oldest; static entries are not reseeded.
-// A derived standalone switch keeps the roles of the current one when the spanning tree
-// configuration is unchanged. It returns an error if the new configuration fails validation.
+// A derived standalone switch keeps spanning tree roles and eligible multicast
+// memberships and learned router ports when their layer configuration is unchanged.
+// It returns an error if the new configuration fails validation.
 func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	if cur != nil && cfg.MAC == (netaddr.MAC{}) {
 		cfg.MAC = cur.cfg.MAC
@@ -69,6 +75,27 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 				next.bridge.SetSelector(next.lag)
 			}
 		}
+	}
+
+	if cur != nil && cur.mcast != nil && next.mcast != nil {
+		retained := cur.mcast.Clone()
+		retained.Retain(next.ports, func(vid vlan.ID, name string) bool {
+			if _, ok := next.cfg.Mcast.VLANs[vid]; !ok {
+				return false
+			}
+			p, ok := next.ports.Port(name)
+			if !ok || p.LagParent != "" || !p.Forwards() {
+				return false
+			}
+			switchport, ok := next.cfg.Bridge.VLAN.Switchports[name]
+			if !ok || !slices.Contains(switchport.Tagged, vid) && !slices.Contains(switchport.Untagged, vid) &&
+				(switchport.Tunnel == nil || switchport.Tunnel.VID != vid) {
+				return false
+			}
+
+			return next.stp == nil || next.stp.Forwards(name)
+		})
+		restoreMulticastState(next, retained)
 	}
 
 	if cur == nil || cur.bridge == nil || next.bridge == nil {
@@ -126,4 +153,41 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	return next, nil
+}
+
+// restoreMulticastState replays retained dynamic records into the new layer so
+// new options and static router ports take effect without resetting expiries.
+func restoreMulticastState(next *Switch, retained *mcast.Layer) {
+	for vid, cfg := range next.cfg.Mcast.VLANs {
+		membershipInterval := cfg.MembershipInterval
+		if membershipInterval == 0 {
+			membershipInterval = mcast.DefaultMembershipInterval
+		}
+		for _, entry := range retained.Groups(vid) {
+			learnedAt := entry.Expires.Add(-membershipInterval)
+			if entry.Group.Is4() {
+				next.mcast.Learn(learnedAt, vid, entry.Port, netip.Addr{}, igmp.Message{
+					Type:  igmp.ReportV2,
+					Group: entry.Group,
+				})
+			} else {
+				next.mcast.LearnMLD(learnedAt, vid, entry.Port, netip.Addr{}, mld.Message{
+					Type:  mld.ReportV1,
+					Group: entry.Group,
+				})
+			}
+		}
+
+		routerInterval := cfg.RouterPortInterval
+		if routerInterval == 0 {
+			routerInterval = mcast.DefaultMembershipInterval
+		}
+		for _, router := range retained.RouterPorts(vid) {
+			if router.Static || slices.Contains(cfg.RouterPorts, router.Port) {
+				continue
+			}
+			next.mcast.Learn(router.Expires.Add(-routerInterval), vid, router.Port,
+				netip.AddrFrom4([4]byte{192, 0, 2, 1}), igmp.Message{Type: igmp.Query})
+		}
+	}
 }

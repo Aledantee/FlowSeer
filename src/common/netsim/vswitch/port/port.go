@@ -32,6 +32,9 @@ const (
 	// LayerStp identifies the Rapid Spanning Tree Protocol layer.
 	LayerStp trace.Layer = "stp"
 
+	// LayerMcast identifies multicast snooping decisions.
+	LayerMcast trace.Layer = "mcast"
+
 	// LayerRouting identifies the layer 3 routing capability.
 	LayerRouting trace.Layer = "routing"
 

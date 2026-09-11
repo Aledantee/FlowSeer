@@ -122,6 +122,12 @@ The virtual switch uses a ladder of architectural layers:
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
   block traffic on Discarding ports while learning on Learning ports.
+- **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
+  `mcast.Config`. IGMP and MLD reports register group members, while queries
+  identify router ports. Registered IP multicast reaches members and router
+  ports; each VLAN chooses whether an unregistered group floods or reaches
+  router ports only. Link-local control groups remain on the ordinary flood
+  path.
 - **Routing**: Configured with `routing.Config` containing VRFs and routed
   interfaces. An interface has one of two shapes: a VLAN interface (routed
   presence of a classified VLAN) or a routed port (physical or LAG port that
@@ -239,6 +245,9 @@ Drop reasons recorded in traces and egress records:
 | `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
 | `policed`          | Ingress frame exceeded the port's token bucket           |
 | `mirror-output`    | Ordinary frame used a port reserved for mirror copies    |
+| `unregistered`    | Unregistered group had flooding disabled and no router port |
+| `no-router-port`  | Membership report or leave had no router port destination |
+| `bad-control`     | IGMP or MLD failed its outer-header or message validation |
 
 ## Protocol schedule
 

@@ -26,6 +26,12 @@ type Selector interface {
 	Select(lag string, f ethernet.Frame, vid vlan.ID) (string, bool)
 }
 
+// GroupResolver selects the logical egress ports for a group frame.
+// A false decision leaves the frame on the bridge's ordinary flood path.
+type GroupResolver interface {
+	Resolve(vid vlan.ID, f ethernet.Frame) (ports []string, decided bool)
+}
+
 // Bridge simulates an Ethernet transparent bridge with optional IEEE 802.1Q VLAN awareness.
 //
 // A Bridge is not safe for concurrent use.
@@ -36,6 +42,7 @@ type Bridge struct {
 	fdb       map[fdbKey]Entry
 	gate      Gate
 	selector  Selector
+	resolver  GroupResolver
 	counters  Counters
 	// dynamic counts the entries that are not static, so the bound is checked
 	// without a scan of the table.
@@ -82,6 +89,12 @@ func (b *Bridge) SetGate(g Gate) {
 // SetSelector installs sel as the member port selector for LAG egress.
 func (b *Bridge) SetSelector(sel Selector) {
 	b.selector = sel
+}
+
+// SetGroupResolver installs resolver as the bridge's group destination lookup.
+// A nil resolver leaves every group frame on the ordinary flood path.
+func (b *Bridge) SetGroupResolver(resolver GroupResolver) {
+	b.resolver = resolver
 }
 
 // FlushPorts removes dynamic forwarding database entries learned on the named ports.
@@ -635,6 +648,15 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			Op:     trace.OpLookup,
 			Detail: "group destination",
 		})
+		if b.resolver != nil {
+			if ports, decided := b.resolver.Resolve(in.FID, f); decided {
+				emptyReason := ReasonNoEgress
+				if len(ports) == 0 {
+					emptyReason = trace.Reason("unregistered")
+				}
+				return b.replicate(res, in, f, ports, emptyReason, port.LayerMcast, "group members")
+			}
+		}
 	}
 
 	if isHit {
@@ -776,56 +798,96 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 		return res
 	}
 
-	var (
-		candidates []port.Port
-		txReasons  []trace.Reason
-	)
-	for _, cand := range b.ports.Ports() {
-		if cand.LagParent != "" || cand.Name == in.Port {
+	ports := make([]string, 0, b.ports.Len())
+	for _, candidate := range b.ports.Ports() {
+		ports = append(ports, candidate.Name)
+	}
+
+	return b.replicate(res, in, f, ports, ReasonNoEgress, port.LayerRelay, "")
+}
+
+// EgressTo replicates f to the requested logical ports after applying the same
+// eligibility, isolation, LAG, MTU, and tag rules as ordinary bridge flooding.
+func (b *Bridge) EgressTo(in Ingress, f ethernet.Frame, ports []string, emptyReason trace.Reason) Result {
+	res := Result{
+		Trace:   trace.Trace{Outcome: trace.Dropped},
+		Ingress: in.Port,
+		FID:     in.FID,
+	}
+	if len(in.Steps) > 0 {
+		res.Steps = slices.Clone(in.Steps)
+	}
+
+	return b.replicate(res, in, f, ports, emptyReason, port.LayerRelay, "")
+}
+
+func (b *Bridge) replicate(
+	res Result,
+	in Ingress,
+	f ethernet.Frame,
+	ports []string,
+	emptyReason trace.Reason,
+	replicationLayer trace.Layer,
+	detail string,
+) Result {
+	noCandidateReason := ReasonNoEgress
+	if len(ports) == 0 {
+		noCandidateReason = emptyReason
+	}
+	candidates := make([]port.Port, 0, len(ports))
+	txReasons := make([]trace.Reason, 0, len(ports))
+	egressFrames := make([]ethernet.Frame, 0, len(ports))
+	seen := make(map[string]struct{}, len(ports))
+	for _, name := range ports {
+		if _, ok := seen[name]; ok {
 			continue
 		}
-		_, txReason := b.ports.Transmit(cand.Name, len(f.Payload))
+		seen[name] = struct{}{}
+
+		candidate, ok := b.ports.Port(name)
+		if !ok || candidate.LagParent != "" || candidate.Name == in.Port {
+			continue
+		}
+		_, txReason := b.ports.Transmit(candidate.Name, len(f.Payload))
 		if txReason == port.ReasonPortDown {
 			continue
 		}
-		if b.cfg.VLAN != nil {
-			sw, exists := b.cfg.VLAN.Switchports[cand.Name]
-			if !exists {
-				continue
-			}
-			isMember := slices.Contains(sw.Tagged, in.FID) || slices.Contains(sw.Untagged, in.FID) || (sw.Tunnel != nil && sw.Tunnel.VID == in.FID)
-			if !isMember {
-				continue
-			}
+		egressFrame, isMember := b.buildEgressFrame(candidate.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
+		if !isMember {
+			continue
 		}
-		candidates = append(candidates, cand)
+		candidates = append(candidates, candidate)
 		txReasons = append(txReasons, txReason)
+		egressFrames = append(egressFrames, egressFrame)
 	}
 
 	if len(candidates) == 0 {
-		res.Reason = ReasonNoEgress
+		res.Reason = noCandidateReason
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerRelay,
 			Op:     trace.OpDrop,
-			Detail: "no other forwarding member port",
+			Detail: string(noCandidateReason),
 		})
 
 		return res
 	}
 
+	if detail == "" {
+		detail = fmt.Sprintf("%d candidate ports", len(candidates))
+	}
 	res.Steps = append(res.Steps, trace.Step{
-		Layer:  port.LayerRelay,
+		Layer:  replicationLayer,
 		Op:     trace.OpReplicate,
-		Detail: fmt.Sprintf("%d candidate ports", len(candidates)),
+		Detail: detail,
 	})
 
 	var transmitted int
-	for i, cand := range candidates {
+	for i, candidate := range candidates {
 		txReason := txReasons[i]
-		egressFrame, _ := b.buildEgressFrame(cand.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
-		if b.gate != nil && !b.gate.Forwards(cand.Name) {
+		egressFrame := egressFrames[i]
+		if b.gate != nil && !b.gate.Forwards(candidate.Name) {
 			res.Egress = append(res.Egress, Egress{
-				Port:    cand.Name,
+				Port:    candidate.Name,
 				Frame:   egressFrame,
 				PCP:     in.PCP,
 				Dropped: ReasonPortBlocked,
@@ -833,15 +895,15 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s: port-blocked", cand.Name),
+				Detail: fmt.Sprintf("port %s: port-blocked", candidate.Name),
 			})
 
 			continue
 		}
 
-		if b.isProtected(in.Port) && b.isProtected(cand.Name) {
+		if b.isProtected(in.Port) && b.isProtected(candidate.Name) {
 			res.Egress = append(res.Egress, Egress{
-				Port:    cand.Name,
+				Port:    candidate.Name,
 				Frame:   egressFrame,
 				PCP:     in.PCP,
 				Dropped: ReasonProtected,
@@ -849,7 +911,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s: protected", cand.Name),
+				Detail: fmt.Sprintf("port %s: protected", candidate.Name),
 			})
 
 			continue
@@ -857,7 +919,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 
 		if txReason == port.ReasonMTUExceeded {
 			res.Egress = append(res.Egress, Egress{
-				Port:    cand.Name,
+				Port:    candidate.Name,
 				Frame:   egressFrame,
 				PCP:     in.PCP,
 				Dropped: port.ReasonMTUExceeded,
@@ -865,13 +927,13 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s: mtu-exceeded", cand.Name),
+				Detail: fmt.Sprintf("port %s: mtu-exceeded", candidate.Name),
 			})
 
 			continue
 		}
 
-		member, ok := b.selectMember(&res, cand, egressFrame, in.FID, in.PCP)
+		member, ok := b.selectMember(&res, candidate, egressFrame, in.FID, in.PCP)
 		if !ok {
 			continue
 		}
@@ -880,16 +942,16 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerVlan,
 				Op:     trace.OpRewrite,
-				Detail: fmt.Sprintf("port %s egress tag form", cand.Name),
+				Detail: fmt.Sprintf("port %s egress tag form", candidate.Name),
 			})
 		}
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerRelay,
 			Op:     trace.OpTransmit,
-			Detail: fmt.Sprintf("port %s", cand.Name),
+			Detail: fmt.Sprintf("port %s", candidate.Name),
 		})
 		res.Egress = append(res.Egress, Egress{
-			Port:   cand.Name,
+			Port:   candidate.Name,
 			Member: member,
 			Frame:  egressFrame,
 			PCP:    in.PCP,
@@ -899,13 +961,13 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 
 	if transmitted > 0 {
 		res.Outcome = trace.Flooded
+		return res
+	}
+
+	if len(res.Egress) > 0 {
+		res.Reason = res.Egress[0].Dropped
 	} else {
-		res.Outcome = trace.Dropped
-		if len(res.Egress) > 0 {
-			res.Reason = res.Egress[0].Dropped
-		} else {
-			res.Reason = port.ReasonMTUExceeded
-		}
+		res.Reason = port.ReasonMTUExceeded
 	}
 
 	return res

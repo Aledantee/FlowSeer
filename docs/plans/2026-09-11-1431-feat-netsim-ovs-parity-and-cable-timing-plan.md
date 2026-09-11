@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-11
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
 
 # Network Simulation, Open vSwitch Parity and Cable Timing - Plan
+
+> Implemented: six phases landed on 2026-09-11, each reviewed and verified; the review fixes of the last phase follow its units.
 
 This is a parent plan. Its units are phases, each with its own plan; the
 first is implementation-ready and the later five are re-planned when their
@@ -290,7 +292,7 @@ egress queues over the serialization clock.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase6-plan.md`
 After: U2
-Landed:
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits bea02cc7 through the relay, switch, and fabric commit and the review-fix commit that follows it.
 Change: IGMP and MLD codecs under `src/common/net`, `netsim/vswitch/mcast`
 with a group table per VLAN, and the relay's group forwarding rule.
 

@@ -49,10 +49,11 @@ the trace package first, sits at the `netsim` level.
   one code path per capability rather than one per device model.
 - One package per capability over the port table: `phy` for speeds and
   PoE, `bridge` for the relay and VLANs, `routing` for routed interfaces
-  and per-VRF tables. A layer imports
-  the port table and the shared trace package only; `vswitch` composes them,
-  and `netmodel` owns the protobuf boundary. A new layer is a new package
-  and a new field.
+  and per-VRF tables. A layer imports the port table, the shared trace package,
+  and shared network value or codec packages under `src/common/net`. Sibling
+  capability layers do not import one another; `vswitch` composes them, and
+  `netmodel` owns the protobuf boundary. A new layer is a new package and a new
+  field.
 - A simulator holds one state. Comparison, diff, and deriving an expected
   state from a current one are functions over two values, on a switch and
   on a fabric alike, so a pair of fabrics composes pairs of switches.

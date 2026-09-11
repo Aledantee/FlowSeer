@@ -1,17 +1,24 @@
 package vswitch
 
 import (
+	"errors"
 	"fmt"
+	"net/netip"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/igmp"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
+	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -19,7 +26,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
-var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
+const (
+	protocolHopByHop  = 0
+	protocolIGMP      = 2
+	protocolICMPv6    = 58
+	optionRouterAlert = 5
+)
+
+var (
+	stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
+	allNodesAddress = netip.MustParseAddr("ff02::1")
+)
 
 // Emission describes an Ethernet frame to transmit out a port or member port.
 type Emission struct {
@@ -28,7 +45,8 @@ type Emission struct {
 }
 
 // Switch simulates a network device composed of a port table and optional
-// physical-layer, bridge, link aggregation, spanning tree, layer 3 routing, and traffic subsystems.
+// physical-layer, bridge, link aggregation, spanning tree, multicast snooping,
+// layer 3 routing, and traffic subsystems.
 // [Switch.Copies] returns and clears the mirror copies produced by the most recent
 // [Switch.Forward]; [Switch.Peek] does not produce or change pending copies.
 //
@@ -41,6 +59,7 @@ type Switch struct {
 	power     phy.Allocation
 	stp       *stp.Layer
 	lag       *lag.Layer
+	mcast     *mcast.Layer
 	routing   *routing.Layer
 	traffic   *traffic.Config
 	buckets   map[string]*traffic.Bucket
@@ -107,6 +126,12 @@ func New(cfg Config) *Switch {
 
 	if cloned.Bridge != nil {
 		sw.bridge = bridge.New(*cloned.Bridge, cloned.Ports)
+	}
+	if cloned.Mcast != nil {
+		sw.mcast = mcast.New(*cloned.Mcast, cloned.Ports)
+		if sw.bridge != nil {
+			sw.bridge.SetGroupResolver(sw)
+		}
 	}
 
 	var hasLag bool
@@ -203,6 +228,24 @@ func (s *Switch) Entries() []bridge.Entry {
 	}
 
 	return s.bridge.Entries()
+}
+
+// Groups returns the multicast membership entries for vid.
+func (s *Switch) Groups(vid vlan.ID) []mcast.Entry {
+	if s.mcast == nil {
+		return nil
+	}
+
+	return s.mcast.Groups(vid)
+}
+
+// RouterPorts returns the multicast router ports for vid.
+func (s *Switch) RouterPorts(vid vlan.ID) []mcast.RouterPort {
+	if s.mcast == nil {
+		return nil
+	}
+
+	return s.mcast.RouterPorts(vid)
 }
 
 // Learn preloads the switch's bridge forwarding database with the provided seeds.
@@ -361,23 +404,263 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	}
 
 	if s.bridge != nil {
-		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate)
+		hdr, payload, controlCandidate := multicastControlCandidate(f)
+		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate)
 		if !ok {
 			return s.finishForward(ingress, f, res, mutate)
 		}
 
 		if s.routing != nil {
 			if iface, ok := s.routing.ByVLAN(in.FID); ok && s.routing.Owns(iface, f) {
+				if controlCandidate {
+					in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+				}
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
 
+		if controlCandidate && s.mcast != nil && s.mcast.Snooped(in.FID) {
+			res := s.forwardMulticastControl(now, ingress, f, hdr, payload, in, mutate)
+			return s.finishForward(ingress, f, res, mutate)
+		}
+		if controlCandidate {
+			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+		}
+
 		return s.finishForward(ingress, f, s.bridge.Egress(in, f), mutate)
 	}
 
 	return s.finishForward(ingress, f, s.forwardHub(ingress, f), mutate)
+}
+
+func multicastControlCandidate(f ethernet.Frame) (ip.Header, []byte, bool) {
+	if f.EtherType != ethernet.EtherTypeIPv4 && f.EtherType != ethernet.EtherTypeIPv6 {
+		return ip.Header{}, nil, false
+	}
+
+	hdr, payload, err := ip.Decode(f.Payload)
+	if err != nil {
+		return ip.Header{}, nil, false
+	}
+	if f.EtherType == ethernet.EtherTypeIPv4 {
+		return hdr, payload, hdr.V4 != nil && hdr.Protocol == protocolIGMP
+	}
+	if hdr.V6 == nil {
+		return ip.Header{}, nil, false
+	}
+
+	typ, ok := icmpv6Type(hdr.Protocol, payload)
+	if !ok {
+		return ip.Header{}, nil, false
+	}
+
+	return hdr, payload, typ == byte(mld.Query) || typ == byte(mld.ReportV1) || typ == byte(mld.Done) || typ == byte(mld.ReportV2)
+}
+
+func icmpv6Type(protocol uint8, payload []byte) (byte, bool) {
+	if protocol == protocolICMPv6 {
+		if len(payload) == 0 {
+			return 0, false
+		}
+		return payload[0], true
+	}
+	if protocol != protocolHopByHop || len(payload) < 2 {
+		return 0, false
+	}
+
+	headerLength := (int(payload[1]) + 1) * 8
+	if payload[0] != protocolICMPv6 || len(payload) <= headerLength {
+		return 0, false
+	}
+
+	return payload[headerLength], true
+}
+
+func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {
+	if !mutate {
+		return in
+	}
+
+	learned, _, ok := s.bridge.Ingress(now, ingress, f, true)
+	if !ok || len(learned.Steps) <= len(in.Steps) {
+		return in
+	}
+	in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
+
+	return in
+}
+
+func (s *Switch) forwardMulticastControl(
+	now time.Time,
+	ingress string,
+	f ethernet.Frame,
+	hdr ip.Header,
+	payload []byte,
+	in bridge.Ingress,
+	mutate bool,
+) bridge.Result {
+	if hdr.V4 != nil {
+		if hdr.HopLimit != 1 || !hdr.Dst.IsMulticast() {
+			return badMulticastControl(in)
+		}
+		message, err := igmp.Decode(payload)
+		if err != nil {
+			if errors.Is(err, igmp.ErrUnsupported) {
+				in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+				in.Steps = append(in.Steps, multicastControlStep("unsupported IGMP control"))
+				return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
+			}
+
+			return badMulticastControl(in)
+		}
+
+		in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+		in.Steps = append(in.Steps, multicastControlStep("IGMP control"))
+		if mutate {
+			s.mcast.Learn(now, in.FID, in.Port, hdr.Src, message)
+		}
+		if message.Type == igmp.Query {
+			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
+		}
+
+		return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
+	}
+
+	if hdr.HopLimit != 1 || !hdr.Src.IsLinkLocalUnicast() || !hasRouterAlert(payload) {
+		return badMulticastControl(in)
+	}
+	message, err := mld.Decode(hdr, payload)
+	if err != nil {
+		if errors.Is(err, mld.ErrUnsupported) {
+			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+			in.Steps = append(in.Steps, multicastControlStep("unsupported MLD control"))
+			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
+		}
+
+		return badMulticastControl(in)
+	}
+
+	in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+	in.Steps = append(in.Steps, multicastControlStep("MLD control"))
+	if mutate {
+		s.mcast.LearnMLD(now, in.FID, in.Port, hdr.Src, message)
+	}
+	if message.Type == mld.Query {
+		return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
+	}
+
+	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
+}
+
+func multicastControlStep(detail string) trace.Step {
+	return trace.Step{Layer: port.LayerMcast, Op: trace.OpClassify, Detail: detail}
+}
+
+func badMulticastControl(in bridge.Ingress) bridge.Result {
+	steps := slices.Clone(in.Steps)
+	steps = append(steps, trace.Step{Layer: port.LayerMcast, Op: trace.OpDrop, Detail: string(mcast.ReasonBadControl)})
+
+	return bridge.Result{
+		Trace:   trace.Trace{Outcome: trace.Dropped, Reason: mcast.ReasonBadControl, Steps: steps},
+		Ingress: in.Port,
+		FID:     in.FID,
+	}
+}
+
+func hasRouterAlert(payload []byte) bool {
+	if len(payload) < 2 || payload[0] != protocolICMPv6 {
+		return false
+	}
+	headerLength := (int(payload[1]) + 1) * 8
+	if len(payload) < headerLength {
+		return false
+	}
+
+	for i := 2; i < headerLength; {
+		if payload[i] == 0 {
+			i++
+			continue
+		}
+		if i+1 >= headerLength {
+			return false
+		}
+		optionLength := int(payload[i+1])
+		if i+2+optionLength > headerLength {
+			return false
+		}
+		if payload[i] == optionRouterAlert && optionLength == 2 {
+			return true
+		}
+		i += 2 + optionLength
+	}
+
+	return false
+}
+
+func (s *Switch) logicalPorts() []string {
+	ports := make([]string, 0, s.ports.Len())
+	for _, p := range s.ports.Ports() {
+		if p.LagParent == "" {
+			ports = append(ports, p.Name)
+		}
+	}
+
+	return ports
+}
+
+func routerPortNames(routers []mcast.RouterPort) []string {
+	ports := make([]string, len(routers))
+	for i, router := range routers {
+		ports[i] = router.Port
+	}
+
+	return ports
+}
+
+// Resolve selects multicast members and router ports for an eligible IP group frame.
+func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
+	if s.mcast == nil || s.cfg.Mcast == nil {
+		return nil, false
+	}
+	if _, ok := s.cfg.Mcast.VLANs[vid]; !ok {
+		return nil, false
+	}
+	if f.EtherType != ethernet.EtherTypeIPv4 && f.EtherType != ethernet.EtherTypeIPv6 {
+		return nil, false
+	}
+
+	hdr, _, err := ip.Decode(f.Payload)
+	if err != nil || !hdr.Dst.IsMulticast() {
+		return nil, false
+	}
+	if f.EtherType == ethernet.EtherTypeIPv4 && hdr.V4 == nil ||
+		f.EtherType == ethernet.EtherTypeIPv6 && hdr.V6 == nil {
+		return nil, false
+	}
+	if hdr.Dst.Is4() {
+		addr := hdr.Dst.As4()
+		if addr[0] == 224 && addr[1] == 0 && addr[2] == 0 {
+			return nil, false
+		}
+	} else {
+		addr := hdr.Dst.As16()
+		scope := addr[1] & 0x0f
+		if hdr.Dst == allNodesAddress || scope == 0 || scope == 1 {
+			return nil, false
+		}
+	}
+
+	ports, registered := s.mcast.Resolve(vid, hdr.Dst)
+	if registered {
+		return ports, true
+	}
+	if s.cfg.Mcast.Floods(vid) {
+		return nil, false
+	}
+
+	return ports, true
 }
 
 func (s *Switch) finishForward(ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
@@ -591,6 +874,9 @@ func (s *Switch) assembleRouteResult(
 func (s *Switch) Age(now time.Time) {
 	if s.bridge != nil {
 		s.bridge.Age(now)
+	}
+	if s.mcast != nil {
+		s.mcast.Age(now)
 	}
 }
 
