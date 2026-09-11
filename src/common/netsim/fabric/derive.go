@@ -7,8 +7,13 @@ import (
 
 // Derive constructs a new [Fabric] from the target configuration, seeding each switch
 // with dynamic forwarding database entries from its namesake in cur that the new configuration
-// still admits. Switches in cfg without a namesake in cur are built fresh.
+// still admits. A caller deriving mid-run passes cur.Snapshot().Clock as Start in cfg so
+// cloned timers continue from the simulation clock. Switches in cfg without a namesake
+// in cur are built fresh.
 func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
+	if cur != nil && cfg.Start.IsZero() {
+		cfg.Start = cur.clock
+	}
 	next, err := New(cfg)
 	if err != nil {
 		return nil, err
@@ -28,6 +33,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
+		next.scheduleWake(name)
 	}
 
 	return next, nil

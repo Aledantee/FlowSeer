@@ -44,6 +44,9 @@ const (
 
 	// EntryLoop records frame re-entry at a device port already visited by the same frame.
 	EntryLoop EntryKind = "Loop"
+
+	// EntryWake records a scheduled timer wake-up advancing a virtual switch.
+	EntryWake EntryKind = "Wake"
 )
 
 // Entry records a single discrete event or hop in a frame's traversal of the network fabric.
@@ -61,6 +64,7 @@ type Entry struct {
 // Journey records the complete traversal history and deliveries of an injected frame across the fabric.
 type Journey struct {
 	FrameID    FrameID
+	Protocol   bool
 	Injection  Injection
 	Entries    []Entry
 	Deliveries []Delivery

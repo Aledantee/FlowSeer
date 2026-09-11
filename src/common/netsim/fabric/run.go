@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"cmp"
 	"math"
 	"slices"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Injection specifies a frame to introduce into the fabric at a particular origin endpoint and timestamp.
@@ -27,6 +29,7 @@ type Device struct {
 	Ports    []port.Port
 	Power    phy.Allocation
 	Counters map[string]Counters
+	Roles    map[string]stp.PortInfo
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, and device states.
@@ -149,6 +152,24 @@ func (f *Fabric) Step() (Entry, bool) {
 	f.queue = f.queue[1:]
 	f.clock = arr.At
 
+	if arr.Wake {
+		delete(f.wakes, arr.Device)
+		sw := f.switches[arr.Device]
+		if sw != nil {
+			sw.Wake(arr.At)
+			for _, em := range sw.Drain() {
+				f.injectEmission(arr.At, arr.Device, em)
+			}
+			f.scheduleWake(arr.Device)
+		}
+
+		return Entry{
+			At:     arr.At,
+			Kind:   EntryWake,
+			Device: arr.Device,
+		}, true
+	}
+
 	journey := f.journeys[arr.FrameID]
 
 	ep := Endpoint{Node: arr.Device, Port: arr.Port}
@@ -203,6 +224,11 @@ func (f *Fabric) Step() (Entry, bool) {
 	sw.Age(arr.At)
 	res := sw.Forward(arr.At, arr.Port, arr.Frame)
 
+	for _, em := range sw.Drain() {
+		f.injectEmission(arr.At, arr.Device, em)
+	}
+	f.scheduleWake(arr.Device)
+
 	hopEntry := Entry{
 		At:     arr.At,
 		Kind:   EntryHop,
@@ -249,127 +275,215 @@ func (f *Fabric) Step() (Entry, bool) {
 			continue
 		}
 
-		rawOut, _ := eg.Frame.Encode()
-		outOctets := uint64(len(rawOut))
-		outClass := classifyMAC(eg.Frame.Dst)
-		for _, p := range outPorts {
-			f.countEgress(arr.Device, p, outOctets, outClass)
-		}
-
-		outPort := eg.Port
-		if eg.Member != "" {
-			outPort = eg.Member
-		}
-
-		ref, ok := f.linkEnd(arr.Device, outPort)
-		if !ok {
-			continue
-		}
-
-		cable := ref.link.Cable
-		latency := cableLatency(cable.LengthMeters)
-
-		f.cableCrossings[cable.A]++
-		count := f.cableCrossings[cable.A]
-
-		var (
-			lost    bool
-			corrupt bool
-		)
-		switch cable.Fault.Kind {
-		case FaultLoseEveryNth:
-			if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
-				lost = true
-			}
-		case FaultLoseSequence:
-			if slices.Contains(cable.Fault.Sequence, count) {
-				lost = true
-			}
-		case FaultCorruptEveryNth:
-			if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
-				corrupt = true
-			}
-		case FaultDeadAToB:
-			if ref.end.Endpoint == cable.A {
-				lost = true
-			}
-		case FaultDeadBToA:
-			if ref.end.Endpoint == cable.B {
-				lost = true
-			}
-		}
-
-		cableCopy := cable.Clone()
-
-		if lost {
-			lossEntry := Entry{
-				At:     arr.At,
-				Kind:   EntryLoss,
-				Cable:  &cableCopy,
-				Reason: ReasonCableLoss,
-			}
-			journey.Entries = append(journey.Entries, lossEntry)
-
-			continue
-		}
-
-		farEnd := ref.peer.Endpoint
-		deliveryAt := arr.At.Add(latency)
-
-		if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
-			if corrupt {
-				journey.Entries = append(journey.Entries, Entry{
-					At:     deliveryAt,
-					Kind:   EntryDrop,
-					Device: farEnd.Node,
-					Cable:  &cableCopy,
-					Reason: ReasonBadFrame,
-				})
-
-				continue
-			}
-			del := Delivery{
-				Host:  farEnd.Node,
-				At:    deliveryAt,
-				Frame: cloneFrame(eg.Frame),
-			}
-			journey.Deliveries = append(journey.Deliveries, del)
-
-			delEntry := Entry{
-				At:     deliveryAt,
-				Kind:   EntryDelivery,
-				Device: farEnd.Node,
-			}
-			journey.Entries = append(journey.Entries, delEntry)
-
-			continue
-		}
-
-		crossingEntry := Entry{
-			At:      arr.At,
-			Kind:    EntryCrossing,
-			Device:  farEnd.Node,
-			Port:    farEnd.Port,
-			Cable:   &cableCopy,
-			Latency: latency,
-		}
-		journey.Entries = append(journey.Entries, crossingEntry)
-
-		// A copy keeps its injection's sequence, so two copies of one frame
-		// that arrive at the same instant fall through to the device and
-		// port order rather than to the order the bridge listed them in.
-		f.enqueue(Arrival{
-			At:      deliveryAt,
-			Seq:     arr.Seq,
-			Device:  farEnd.Node,
-			Port:    farEnd.Port,
-			FrameID: arr.FrameID,
-			Frame:   cloneFrame(eg.Frame),
-			Corrupt: corrupt,
-		})
+		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey)
 	}
 
 	return hopEntry, true
+}
+
+func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey) {
+	outPort := portName
+	if memberName != "" {
+		outPort = memberName
+	} else if sw, ok := f.switches[device]; ok {
+		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.Lag {
+			mems := sw.Ports().Members(portName)
+			var fwdMembers []port.Port
+			for _, m := range mems {
+				if m.Forwards() {
+					fwdMembers = append(fwdMembers, m)
+				}
+			}
+			if len(fwdMembers) == 0 {
+				return
+			}
+			slices.SortFunc(fwdMembers, func(i, j port.Port) int {
+				return cmp.Compare(i.Name, j.Name)
+			})
+			memberName = fwdMembers[0].Name
+			outPort = memberName
+		}
+	}
+
+	rawOut, _ := frame.Encode()
+	outOctets := uint64(len(rawOut))
+	outClass := classifyMAC(frame.Dst)
+
+	outPorts := []string{portName}
+	if memberName != "" {
+		outPorts = append(outPorts, memberName)
+	}
+	for _, p := range outPorts {
+		f.countEgress(device, p, outOctets, outClass)
+	}
+
+	ref, ok := f.linkEnd(device, outPort)
+	if !ok {
+		return
+	}
+
+	cable := ref.link.Cable
+	latency := cableLatency(cable.LengthMeters)
+
+	f.cableCrossings[cable.A]++
+	count := f.cableCrossings[cable.A]
+
+	var (
+		lost    bool
+		corrupt bool
+	)
+	switch cable.Fault.Kind {
+	case FaultLoseEveryNth:
+		if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
+			lost = true
+		}
+	case FaultLoseSequence:
+		if slices.Contains(cable.Fault.Sequence, count) {
+			lost = true
+		}
+	case FaultCorruptEveryNth:
+		if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
+			corrupt = true
+		}
+	case FaultDeadAToB:
+		if ref.end.Endpoint == cable.A {
+			lost = true
+		}
+	case FaultDeadBToA:
+		if ref.end.Endpoint == cable.B {
+			lost = true
+		}
+	}
+
+	cableCopy := cable.Clone()
+
+	if lost {
+		lossEntry := Entry{
+			At:     now,
+			Kind:   EntryLoss,
+			Cable:  &cableCopy,
+			Reason: ReasonCableLoss,
+		}
+		journey.Entries = append(journey.Entries, lossEntry)
+
+		return
+	}
+
+	farEnd := ref.peer.Endpoint
+	deliveryAt := now.Add(latency)
+
+	if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
+		if corrupt {
+			journey.Entries = append(journey.Entries, Entry{
+				At:     deliveryAt,
+				Kind:   EntryDrop,
+				Device: farEnd.Node,
+				Cable:  &cableCopy,
+				Reason: ReasonBadFrame,
+			})
+
+			return
+		}
+		del := Delivery{
+			Host:  farEnd.Node,
+			At:    deliveryAt,
+			Frame: cloneFrame(frame),
+		}
+		journey.Deliveries = append(journey.Deliveries, del)
+
+		delEntry := Entry{
+			At:     deliveryAt,
+			Kind:   EntryDelivery,
+			Device: farEnd.Node,
+		}
+		journey.Entries = append(journey.Entries, delEntry)
+
+		return
+	}
+
+	crossingEntry := Entry{
+		At:      now,
+		Kind:    EntryCrossing,
+		Device:  farEnd.Node,
+		Port:    farEnd.Port,
+		Cable:   &cableCopy,
+		Latency: latency,
+	}
+	journey.Entries = append(journey.Entries, crossingEntry)
+
+	f.enqueue(Arrival{
+		At:      deliveryAt,
+		Seq:     seq,
+		Device:  farEnd.Node,
+		Port:    farEnd.Port,
+		FrameID: fid,
+		Frame:   cloneFrame(frame),
+		Corrupt: corrupt,
+	})
+}
+
+func (f *Fabric) injectEmission(now time.Time, device string, em stp.Emission) {
+	f.initRunState()
+
+	inj := Injection{
+		At:     now,
+		Origin: Endpoint{Node: device, Port: em.Port},
+		Frame:  cloneFrame(em.Frame),
+	}
+
+	fid := f.nextFrameID
+	f.nextFrameID++
+
+	seq := f.nextSeq
+	f.nextSeq++
+
+	journey := &Journey{
+		FrameID:   fid,
+		Protocol:  true,
+		Injection: inj,
+		Entries: []Entry{
+			{
+				At:     now,
+				Kind:   EntryInjection,
+				Device: device,
+				Port:   em.Port,
+			},
+		},
+	}
+	f.journeys[fid] = journey
+
+	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey)
+}
+
+func (f *Fabric) scheduleWake(device string) {
+	sw, ok := f.switches[device]
+	if !ok {
+		return
+	}
+	next, ok := sw.NextWake()
+	if !ok {
+		f.removeWake(device)
+		return
+	}
+	queued, exists := f.wakes[device]
+	if exists && queued.Equal(next) {
+		return
+	}
+	f.removeWake(device)
+	f.wakes[device] = next
+	f.enqueue(Arrival{
+		At:     next,
+		Seq:    0,
+		Device: device,
+		Wake:   true,
+	})
+}
+
+func (f *Fabric) removeWake(device string) {
+	delete(f.wakes, device)
+	f.queue = slices.DeleteFunc(f.queue, func(arr Arrival) bool {
+		return arr.Wake && arr.Device == device
+	})
 }
 
 // Run repeatedly invokes [Fabric.Step] until the arrival queue is empty or n steps have executed,
@@ -406,6 +520,7 @@ func (f *Fabric) Snapshot() Snapshot {
 			Ports:    sw.Ports().Ports(),
 			Power:    sw.Power(),
 			Counters: f.snapshotCounters(name),
+			Roles:    sw.Roles(),
 		}
 	}
 
@@ -438,6 +553,9 @@ func (f *Fabric) initRunState() {
 	}
 	if f.cableCrossings == nil {
 		f.cableCrossings = make(map[Endpoint]uint)
+	}
+	if f.wakes == nil {
+		f.wakes = make(map[string]time.Time)
 	}
 	if f.nextFrameID == 0 {
 		f.nextFrameID = 1

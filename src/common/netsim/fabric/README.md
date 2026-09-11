@@ -81,6 +81,7 @@ func main() {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
 	cfg := fabric.Config{
+		Start: time.Unix(1700000000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports1, Bridge: makeBridge()},
 			"sw2": {Ports: ports2, Bridge: makeBridge()},
@@ -158,6 +159,21 @@ and leaves the transmission in flight:
 - `Devices["sw1"]`: FDB holds dynamic entry `(10, macH1) -> 1/1/1`.
 - `Devices["sw2"]`: FDB contains no entries.
 
+## Protocol traffic and wake-ups
+
+Spanning tree and other internal protocols schedule state transitions and
+frame emissions through the run's arrival queue. Each device holds at most one
+wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
+0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
+before frames scheduled for the same instant. `Step` returns `EntryWake` for
+these timer events without appending to any frame journey.
+
+Frames emitted by switch layers during wake-ups or forwarding cross cables and
+hubs as journeys marked `Protocol`. Periodic hellos ensure the queue never
+drains; callers supply a step budget to `Run(n)` and evaluate topology
+convergence by checking whether consecutive snapshots report identical roles
+and forwarding states across all ports.
+
 ## Link operational state rule
 
 Switch port operational states derive from connected cables during `New`,
@@ -187,6 +203,11 @@ Cables support deterministic defect configurations:
 | `LoseEveryNth`    | Drops every Nth frame crossing the cable         |
 | `LoseSequence`    | Drops frames matching 1-based crossing positions |
 | `CorruptEveryNth` | Marks every Nth crossing damaged; recipient drop |
+
+`SetFault(a, b Endpoint, fault Fault) error` alters a cable defect mid-run at
+the current clock. The fabric re-resolves the link, updates each endpoint's
+operational status on its switch, and notifies active spanning tree layers of
+the link change. Both endpoints must identify an existing cable.
 
 ## Queue ordering
 

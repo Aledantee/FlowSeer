@@ -8,7 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 )
 
-// Arrival represents a frame scheduled for processing at a specific device port and time.
+// Arrival represents a frame or timer wake scheduled for processing at a specific device and time.
 type Arrival struct {
 	At      time.Time
 	Seq     uint64
@@ -17,6 +17,7 @@ type Arrival struct {
 	FrameID FrameID
 	Frame   ethernet.Frame
 	Corrupt bool
+	Wake    bool
 }
 
 func compareArrival(a, b Arrival) int {

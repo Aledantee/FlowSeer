@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"slices"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -131,6 +132,7 @@ func (c Cable) Clone() Cable {
 
 // Config declares the full static topology of a simulated network fabric.
 type Config struct {
+	Start    time.Time
 	Switches map[string]vswitch.Config
 	Hosts    map[string]Host
 	Cables   []Cable
@@ -138,7 +140,9 @@ type Config struct {
 
 // Clone returns an independent deep copy of the fabric configuration.
 func (c Config) Clone() Config {
-	cp := Config{}
+	cp := Config{
+		Start: c.Start,
+	}
 	if c.Switches != nil {
 		cp.Switches = make(map[string]vswitch.Config, len(c.Switches))
 		for k, v := range c.Switches {

@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Fabric is a set of switches and hosts joined by cables, with every port state decided by its cable.
@@ -22,6 +23,7 @@ type Fabric struct {
 	byEnd          map[Endpoint]linkEndRef
 	clock          time.Time
 	queue          []Arrival
+	wakes          map[string]time.Time
 	nextFrameID    FrameID
 	nextSeq        uint64
 	journeys       map[FrameID]*Journey
@@ -128,17 +130,67 @@ func New(cfg Config) (*Fabric, error) {
 		switches[name] = vswitch.New(swCfg)
 	}
 
-	return &Fabric{
+	fab := &Fabric{
 		cfg:            cloned,
 		links:          links,
 		switches:       switches,
 		byEnd:          byEnd,
+		clock:          cloned.Start,
+		wakes:          make(map[string]time.Time),
 		nextFrameID:    1,
 		nextSeq:        1,
 		journeys:       make(map[FrameID]*Journey),
 		entered:        make(map[FrameID]map[Endpoint]bool),
 		cableCrossings: make(map[Endpoint]uint),
-	}, nil
+	}
+
+	swNames := make([]string, 0, len(cloned.Switches))
+	for name := range cloned.Switches {
+		swNames = append(swNames, name)
+	}
+	slices.Sort(swNames)
+
+	for _, name := range swNames {
+		swCfg := cloned.Switches[name]
+		if swCfg.STP == nil {
+			continue
+		}
+
+		sw := switches[name]
+		ports := sw.Ports().Ports()
+		slices.SortFunc(ports, func(a, b port.Port) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+
+		for _, p := range ports {
+			if p.LagParent != "" {
+				continue
+			}
+			if p.Kind == port.Lag {
+				lagUp, lagP2P, lagSpeed := fab.lagLinkState(name, p.Name)
+				sw.LinkChange(cloned.Start, p.Name, lagUp, lagP2P, lagSpeed)
+				continue
+			}
+
+			ep := Endpoint{Node: name, Port: p.Name}
+			if ref, ok := fab.byEnd[ep]; ok {
+				up := ref.end.Oper == port.Up
+				p2p := fab.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
+				speed := ref.end.Speed.SpeedBPS
+				sw.LinkChange(cloned.Start, p.Name, up, p2p, speed)
+			} else {
+				p2p := fab.uncabledPointToPoint(name, p.Name)
+				sw.LinkChange(cloned.Start, p.Name, false, p2p, 0)
+			}
+		}
+
+		for _, em := range sw.Drain() {
+			fab.injectEmission(cloned.Start, name, em)
+		}
+		fab.scheduleWake(name)
+	}
+
+	return fab, nil
 }
 
 func (f *Fabric) linkEnd(node, portName string) (linkEndRef, bool) {
@@ -282,4 +334,164 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState)
 	}
 
 	return eth, admin
+}
+
+// SetFault modifies the declared fault on the cable connecting endpoints a and b at the
+// current fabric clock, re-evaluating operational link states and notifying attached switches.
+// It returns an error if no cable connects the specified endpoints or if the fault configuration is invalid.
+func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
+	if err := validateFault(fault); err != nil {
+		return err
+	}
+
+	idx := slices.IndexFunc(f.links, func(l Link) bool {
+		c := l.Cable
+		return (c.A == a && c.B == b) || (c.A == b && c.B == a)
+	})
+	if idx < 0 {
+		return errs.New().
+			Attr("endpointA", a).
+			Attr("endpointB", b).
+			Msgf("no cable found connecting endpoints %v and %v", a, b)
+	}
+
+	f.links[idx].Fault = fault.Clone()
+
+	cfgIdx := slices.IndexFunc(f.cfg.Cables, func(c Cable) bool {
+		return (c.A == a && c.B == b) || (c.A == b && c.B == a)
+	})
+	if cfgIdx >= 0 {
+		f.cfg.Cables[cfgIdx].Fault = fault.Clone()
+	}
+
+	linkA, linkB := resolveLink(f.links[idx].Cable, f.cfg)
+	f.links[idx].A = linkA
+	f.links[idx].B = linkB
+
+	type endInfo struct {
+		end  LinkEnd
+		peer LinkEnd
+	}
+	ends := []endInfo{
+		{end: linkA, peer: linkB},
+		{end: linkB, peer: linkA},
+	}
+
+	for _, info := range ends {
+		sw := f.switches[info.end.Node]
+		if sw == nil {
+			continue
+		}
+
+		sw.SetOperStatus(f.clock, info.end.Port, info.end.Oper)
+
+		swCfg := f.cfg.Switches[info.end.Node]
+		if swCfg.STP != nil {
+			p, ok := sw.Ports().Port(info.end.Port)
+			if ok && p.LagParent != "" {
+				lagUp, lagP2P, lagSpeed := f.lagLinkState(info.end.Node, p.LagParent)
+				sw.LinkChange(f.clock, p.LagParent, lagUp, lagP2P, lagSpeed)
+			} else {
+				up := info.end.Oper == port.Up
+				p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
+				speed := info.end.Speed.SpeedBPS
+				sw.LinkChange(f.clock, info.end.Port, up, p2p, speed)
+			}
+		}
+
+		for _, em := range sw.Drain() {
+			f.injectEmission(f.clock, info.end.Node, em)
+		}
+		f.scheduleWake(info.end.Node)
+	}
+
+	return nil
+}
+
+func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) bool {
+	swCfg := f.cfg.Switches[node]
+	if swCfg.STP != nil {
+		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
+			if pCfg.PointToPoint == stp.PointToPointForceTrue {
+				return true
+			}
+			if pCfg.PointToPoint == stp.PointToPointForceFalse {
+				return false
+			}
+		}
+	}
+
+	if end.Speed.Duplex != phy.Full {
+		return false
+	}
+	if _, isHost := f.cfg.Hosts[peer.Node]; isHost {
+		return true
+	}
+	if peerSw, isSw := f.cfg.Switches[peer.Node]; isSw {
+		return peerSw.Bridge != nil
+	}
+
+	return false
+}
+
+func (f *Fabric) uncabledPointToPoint(node, portName string) bool {
+	swCfg := f.cfg.Switches[node]
+	if swCfg.STP != nil {
+		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
+			if pCfg.PointToPoint == stp.PointToPointForceTrue {
+				return true
+			}
+			if pCfg.PointToPoint == stp.PointToPointForceFalse {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
+func (f *Fabric) lagLinkState(node, lagName string) (bool, bool, uint64) {
+	swCfg := f.cfg.Switches[node]
+	mems := swCfg.Ports.Members(lagName)
+	if len(mems) == 0 {
+		return false, false, 0
+	}
+
+	var (
+		lagUp    bool
+		allP2P   = true
+		maxSpeed uint64
+	)
+
+	for _, m := range mems {
+		ep := Endpoint{Node: node, Port: m.Name}
+		ref, ok := f.byEnd[ep]
+		if !ok {
+			allP2P = false
+			continue
+		}
+		if ref.end.Oper == port.Up {
+			lagUp = true
+		}
+		mP2P := f.portPointToPoint(node, m.Name, *ref.end, ref.peer.Endpoint)
+		if !mP2P {
+			allP2P = false
+		}
+		if ref.end.Speed.SpeedBPS > maxSpeed {
+			maxSpeed = ref.end.Speed.SpeedBPS
+		}
+	}
+
+	if swCfg.STP != nil {
+		if pCfg, ok := swCfg.STP.Ports[lagName]; ok {
+			switch pCfg.PointToPoint {
+			case stp.PointToPointForceTrue:
+				allP2P = true
+			case stp.PointToPointForceFalse:
+				allP2P = false
+			}
+		}
+	}
+
+	return lagUp, allP2P, maxSpeed
 }

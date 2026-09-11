@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
@@ -993,4 +994,213 @@ func TestInjectInvalidOrigins(t *testing.T) {
 			t.Errorf("expected error for unknown switch port")
 		}
 	})
+}
+
+func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  mac,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	snap := fab.Snapshot()
+	var wakeTime time.Time
+	for _, arr := range snap.Queue {
+		if arr.Wake && arr.Device == "sw1" {
+			wakeTime = arr.At
+			break
+		}
+	}
+	if wakeTime.IsZero() {
+		t.Fatal("expected a wake in the queue")
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     wakeTime,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame: ethernet.Frame{
+			Dst: netaddr.MAC{0, 0, 0, 0, 0, 2},
+			Src: mac,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("queue drained before reaching wakeTime")
+		}
+		if entry.At.Equal(wakeTime) {
+			if entry.Kind != fabric.EntryWake {
+				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Kind, fabric.EntryWake)
+			}
+			break
+		}
+	}
+}
+
+func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  mac,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+						"1/1/2": {},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	countWakes := func() int {
+		n := 0
+		for _, arr := range fab.Snapshot().Queue {
+			if arr.Wake && arr.Device == "sw1" {
+				n++
+			}
+		}
+		return n
+	}
+
+	if n := countWakes(); n != 1 {
+		t.Fatalf("initial queue has %d wakes for sw1, want 1", n)
+	}
+
+	fab.Step()
+
+	if n := countWakes(); n != 1 {
+		t.Fatalf("after step, queue has %d wakes for sw1, want 1", n)
+	}
+}
+
+func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
+	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+
+	snapBefore := fab.Snapshot()
+	found := false
+	for _, l := range snapBefore.Links {
+		if l.A.Node == "sw1" && l.B.Node == "sw2" {
+			if l.A.Oper != port.Up || l.B.Oper != port.Up {
+				t.Fatalf("initial link not Up: A=%v, B=%v", l.A.Oper, l.B.Oper)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("cable sw1-sw2 not found")
+	}
+
+	err := fab.SetFault(
+		fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+		fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
+		fabric.Fault{Kind: fabric.FaultCut},
+	)
+	if err != nil {
+		t.Fatalf("SetFault: %v", err)
+	}
+
+	snapAfter := fab.Snapshot()
+	for _, l := range snapAfter.Links {
+		if (l.Cable.A.Node == "sw1" && l.Cable.B.Node == "sw2") || (l.Cable.A.Node == "sw2" && l.Cable.B.Node == "sw1") {
+			if l.A.Oper != port.Down || l.B.Oper != port.Down {
+				t.Errorf("after SetFault cut, link ends are A=%v, B=%v, want Down", l.A.Oper, l.B.Oper)
+			}
+			if l.A.Reason != fabric.ReasonCut || l.B.Reason != fabric.ReasonCut {
+				t.Errorf("after SetFault cut, reasons are A=%v, B=%v, want cut", l.A.Reason, l.B.Reason)
+			}
+		}
+	}
+
+	errUnknown := fab.SetFault(
+		fabric.Endpoint{Node: "sw1", Port: "1/1/99"},
+		fabric.Endpoint{Node: "sw2", Port: "1/1/99"},
+		fabric.Fault{Kind: fabric.FaultCut},
+	)
+	if errUnknown == nil {
+		t.Error("SetFault expected error for unknown endpoints, got nil")
+	}
+}
+
+func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+
+	for _, arr := range fab.Snapshot().Queue {
+		if arr.Wake {
+			t.Fatalf("unexpected wake in queue on fabric without STP: %+v", arr)
+		}
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	_, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Src: macH1, Dst: macH2, Payload: []byte("ping")},
+	})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	for _, arr := range fab.Snapshot().Queue {
+		if arr.Wake {
+			t.Fatalf("unexpected wake after injection: %+v", arr)
+		}
+	}
+
+	steps := fab.Run(10)
+	if steps == 0 {
+		t.Fatal("expected Run to take steps")
+	}
+
+	for _, j := range fab.Report() {
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryWake {
+				t.Errorf("found EntryWake in journey of non-STP fabric: %+v", e)
+			}
+		}
+	}
 }
