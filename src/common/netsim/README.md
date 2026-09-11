@@ -14,7 +14,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/routing`  | Routed interfaces, per-VRF forwarding and neighbor tables |
 | `vswitch/stp`      | Rapid Spanning Tree Protocol state machine and BPDUs      |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos    |
-| `fabric`           | Switched topology, cables, stepped execution, journeys    |
+| `fabric`           | Switched topology, cables with timing, stepped execution, journeys |
 
 A run is a function of the configuration, the frame, and the time the caller
 passes; nothing here reads a clock.

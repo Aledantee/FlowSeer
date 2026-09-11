@@ -750,7 +750,7 @@ func TestReplayAdmissionAndIngressFiltering(t *testing.T) {
 }
 
 func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
-	run := func() ([]time.Time, []fabric.Snapshot) {
+	run := func() []time.Time {
 		ports := buildReplayPorts(t)
 		cfg := &bridge.Config{
 			VLAN: &bridge.VLAN{
@@ -805,11 +805,11 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 			}
 			times = append(times, entry.At)
 		}
-		return times, nil
+		return times
 	}
 
-	times1, _ := run()
-	times2, _ := run()
+	times1 := run()
+	times2 := run()
 
 	if len(times1) == 0 {
 		t.Fatal("expected step entries from run, got none")

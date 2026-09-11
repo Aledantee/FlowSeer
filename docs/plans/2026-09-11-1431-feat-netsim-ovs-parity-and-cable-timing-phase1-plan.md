@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-11
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-plan.md
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
 
 # Network Simulation, Phase 1: Cable Timing and Media - Plan
+
+> Implemented.
 
 ## Goal
 

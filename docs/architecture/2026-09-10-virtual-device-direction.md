@@ -59,8 +59,10 @@ the trace package first, sits at the `netsim` level.
 - A simulation is a run: injected frames, each with a time and an origin,
   sit in a queue of pending arrivals ordered by time and then by a fixed
   tie-break; a step takes one arrival, forwards it on its device, and
-  enqueues one copy per egress cable at the arrival time plus the cable's
-  latency. The run halts after a caller's step budget, and a snapshot
+  enqueues one copy per egress cable; a copy is a transmission on the
+  egress port that starts when the port is free, takes the frame's
+  serialization at the negotiated rate, and arrives after the cable's
+  propagation. The run halts after a caller's step budget, and a snapshot
   exposes the clock, the frames in flight, and every device's forwarding
   database, port states, and counters as values. Every frame's processing
   is a journey: hops, cable crossings, deliveries, and drops with reasons.
@@ -70,10 +72,12 @@ the trace package first, sits at the `netsim` level.
   device stays a function of time, port, and frame and the run stays
   deterministic. A loop is a queue that does not drain; the run marks the
   re-entry and the budget halts it.
-- A cable is a model of its own: a length that gives a latency, a top
-  speed, and a declared fault (cut, one direction dead, a deterministic
-  loss or corruption rule). Nothing in a run is random, so a run
-  reproduces, and the journey names the cable where a frame was lost.
+- A cable is a model of its own: a length and a medium that give a
+  propagation time and bound the negotiated speed, an optional delay that
+  replaces the propagation term, a top speed, and a declared fault (cut,
+  one direction dead, a deterministic loss or corruption rule). Nothing in
+  a run is random, so a run reproduces, and the journey names the cable
+  where a frame was lost.
 - The shapes come from prior art, recorded in
   [the prior art research](2026-09-10-network-simulation-prior-art-research.md):
   a trace is a list of per-layer operations as Packet Tracer shows them,
