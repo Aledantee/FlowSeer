@@ -2217,3 +2217,59 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		t.Errorf("RelayCounters.Evicted = %d, want 1", sw1.RelayCounters.Evicted)
 	}
 }
+
+func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
+
+	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject first frame: %v", err)
+	}
+	queuedID, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
+	if err != nil {
+		t.Fatalf("Inject queued frame: %v", err)
+	}
+	hostEnd := fabric.Endpoint{Node: "h1"}
+	switchEnd := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	if err := fab.SetFault(hostEnd, switchEnd, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+		t.Fatalf("SetFault: %v", err)
+	}
+	fab.Run(50)
+
+	for _, journey := range fab.Report() {
+		if journey.FrameID != queuedID {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryLoss && entry.Reason == fabric.ReasonCableLoss {
+				if got := fab.Snapshot().Queued[hostEnd]; got != 0 {
+					t.Errorf("queued host frames = %d, want 0", got)
+				}
+				return
+			}
+		}
+	}
+	t.Error("queued frame has no cable-loss entry")
+}
+
+func TestInjectRefusesTimeBeforeRunningClock(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
+	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject initial frame: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("Step returned no entry")
+	}
+	before := fab.Snapshot()
+
+	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err == nil {
+		t.Fatal("Inject before running clock succeeded, want error")
+	}
+	after := fab.Snapshot()
+	if len(after.Queue) != len(before.Queue) || len(after.Queued) != len(before.Queued) {
+		t.Errorf("rejected injection changed pending work: before=%+v after=%+v", before, after)
+	}
+}

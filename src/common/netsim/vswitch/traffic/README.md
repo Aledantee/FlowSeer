@@ -24,9 +24,11 @@ the frame's ingress is `1/1/1`. A received C-tag with VID 10 and PCP 5 becomes a
 VID 99, PCP 5 C-tag on the `1/1/24` copy. The `1/1/4` copy has no outer tag, and
 there is no copy on `1/1/1`.
 
-`SnapLen` limits each copy after its output tag form is built. Truncation only
-cuts payload. A value shorter than the Ethernet header leaves an empty
-payload because the header itself cannot be shortened.
+`SnapLen` limits each copy after its output tag form is built. Zero leaves the
+copy untruncated; other values must be at least 18 octets, the size of a tagged
+Ethernet header. Truncation cuts payload only. When stacked tags make the
+header longer than `SnapLen`, the copy keeps the complete header and has an
+empty payload, so its encoded length exceeds `SnapLen`.
 
 ## Policing and queue rates
 

@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC) {
@@ -138,6 +139,41 @@ func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
 	}
 	if cmp.Current[0].Deliveries[0].Host != "h2" || cmp.Expected[0].Deliveries[0].Host != "h2" {
 		t.Errorf("Delivery host mismatch: cur=%s, exp=%s", cmp.Current[0].Deliveries[0].Host, cmp.Expected[0].Deliveries[0].Host)
+	}
+}
+
+func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
+	base, macs := newTrafficTopology(t, nil)
+	currentCfg := base.Config()
+	expectedCfg := base.Config()
+	sw1 := expectedCfg.Switches["sw1"]
+	sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{
+		Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4",
+	}}}
+	expectedCfg.Switches["sw1"] = sw1
+	current, err := fabric.New(currentCfg)
+	if err != nil {
+		t.Fatalf("New current: %v", err)
+	}
+	expected, err := fabric.New(expectedCfg)
+	if err != nil {
+		t.Fatalf("New expected: %v", err)
+	}
+	scenario := []fabric.Injection{{
+		At:     time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Src: macs["h1"], Dst: macs["h2"], Payload: make([]byte, 46)},
+	}}
+
+	comparison, err := fabric.Compare(current, expected, scenario, 100)
+	if err != nil {
+		t.Fatalf("Compare: %v", err)
+	}
+	if comparison.Same {
+		t.Error("Compare returned Same for a mirror-copy delivery difference")
+	}
+	if len(comparison.Current) != 1 || len(comparison.Expected) != 2 {
+		t.Errorf("journey counts = %d/%d, want 1/2", len(comparison.Current), len(comparison.Expected))
 	}
 }
 

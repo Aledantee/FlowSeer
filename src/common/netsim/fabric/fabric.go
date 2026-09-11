@@ -25,6 +25,7 @@ type Fabric struct {
 	hostStacks     map[string]*routing.Layer
 	byEnd          map[Endpoint]linkEndRef
 	clock          time.Time
+	stepped        bool
 	queue          []Arrival
 	wakes          map[string]time.Time
 	nextFrameID    FrameID

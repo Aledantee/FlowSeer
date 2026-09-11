@@ -302,12 +302,12 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
-			return s.interceptLACP(now, ingress, f, mutate)
+			return s.finishForward(ingress, f, s.interceptLACP(now, ingress, f, mutate), mutate)
 		}
 	}
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.interceptBPDU(now, ingress, f, mutate)
+		return s.finishForward(ingress, f, s.interceptBPDU(now, ingress, f, mutate), mutate)
 	}
 
 	if s.routing != nil {
@@ -418,7 +418,11 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 		if s.cfg.Bridge != nil {
 			vlans = s.cfg.Bridge.VLAN
 		}
-		s.copies = traffic.Copies(*s.traffic, vlans, ingress, res.FID, received, res.Egress)
+		resolvedIngress := res.Ingress
+		if resolvedIngress == "" {
+			resolvedIngress = ingress
+		}
+		s.copies = traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
 	}
 
 	return res

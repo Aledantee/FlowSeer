@@ -52,6 +52,42 @@ func TestCopiesToPortSelectsIngressAndTruncates(t *testing.T) {
 	}
 }
 
+func TestCopiesTruncatePayloadWithoutShorteningHeaders(t *testing.T) {
+	t.Parallel()
+
+	received := ethernet.Frame{
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte{1, 2, 3, 4},
+	}
+	cfg := traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", SelectAll: true, OutputPort: "1/1/4", SnapLen: 20}}}
+
+	copied := traffic.Copies(cfg, nil, "1/1/1", 10, received, nil)[0]
+	encoded, err := copied.Frame.Encode()
+	if err != nil {
+		t.Fatalf("encode tagged copy: %v", err)
+	}
+	if len(encoded) != 20 || !bytes.Equal(copied.Frame.Payload, []byte{1, 2}) {
+		t.Errorf("tagged copy length/payload = %d/%v, want 20/[1 2]", len(encoded), copied.Frame.Payload)
+	}
+
+	received.Tags = []vlan.Tag{
+		{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 10},
+		{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20},
+	}
+	cfg.Mirrors[0].SnapLen = 18
+	copied = traffic.Copies(cfg, nil, "1/1/1", 10, received, nil)[0]
+	encoded, err = copied.Frame.Encode()
+	if err != nil {
+		t.Fatalf("encode stacked-tag copy: %v", err)
+	}
+	if len(encoded) != 22 || len(copied.Frame.Payload) != 0 {
+		t.Errorf("stacked-tag copy length/payload = %d/%v, want 22/empty", len(encoded), copied.Frame.Payload)
+	}
+}
+
 func TestCopiesSelectsSuccessfulEgressAndVLAN(t *testing.T) {
 	t.Parallel()
 

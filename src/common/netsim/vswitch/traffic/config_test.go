@@ -14,8 +14,10 @@ func trafficPortTable(t *testing.T) port.Table {
 	t.Helper()
 	table, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/4", Kind: port.Physical}).
 		Add(port.Port{Name: "1/1/24", Kind: port.Physical}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag}).
 		Build()
 	if err != nil {
 		t.Fatalf("build port table: %v", err)
@@ -77,6 +79,14 @@ func TestConfigValidate(t *testing.T) {
 			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "missing"}}},
 		},
 		{
+			name: "LAG output port",
+			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "lag1"}}},
+		},
+		{
+			name: "LAG member output port",
+			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/2"}}},
+		},
+		{
 			name: "output port selected by another mirror",
 			cfg: traffic.Config{Mirrors: []traffic.Mirror{
 				{Name: "m1", OutputPort: "1/1/4"},
@@ -98,6 +108,10 @@ func TestConfigValidate(t *testing.T) {
 			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: -1}}},
 		},
 		{
+			name: "snap length below tagged header",
+			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: 17}}},
+		},
+		{
 			name: "unknown policer port",
 			cfg:  traffic.Config{Policers: map[string]traffic.Policer{"missing": {}}},
 		},
@@ -113,6 +127,12 @@ func TestConfigValidate(t *testing.T) {
 			name: "zero queue max rate",
 			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
 				"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 0}},
+			}},
+		},
+		{
+			name: "invalid queue PCP",
+			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
+				"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{8: 1}},
 			}},
 		},
 	}

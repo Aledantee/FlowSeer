@@ -8,7 +8,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // Derive builds a new [Switch] from the target configuration, seeding it with every
@@ -27,11 +26,11 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	next := New(cfg)
-	if cur != nil && cur.traffic != nil && next.traffic != nil &&
-		len(traffic.Diff(*cur.cfg.Traffic, *next.cfg.Traffic)) == 0 {
-		next.buckets = make(map[string]*traffic.Bucket, len(cur.buckets))
-		for name, bucket := range cur.buckets {
-			next.buckets[name] = bucket.Clone()
+	if cur != nil && cur.traffic != nil && next.traffic != nil {
+		for name, policer := range next.traffic.Policers {
+			if current, ok := cur.traffic.Policers[name]; ok && current == policer {
+				next.buckets[name] = cur.buckets[name].Clone()
+			}
 		}
 	}
 

@@ -9,7 +9,7 @@ import (
 )
 
 // Copy is one mirrored frame and its output port. Mirror identifies the
-// configuration entry that produced it.
+// configuration entry that produced it. Copy is not safe for concurrent use.
 type Copy struct {
 	Mirror string
 	Port   string

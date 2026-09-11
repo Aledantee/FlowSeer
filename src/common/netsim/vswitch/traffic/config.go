@@ -25,6 +25,7 @@ const (
 
 // Mirror defines the frames selected for copying and their output destination.
 // Exactly one output must be set. SnapLen zero leaves copies untruncated.
+// Mirror is not safe for concurrent use.
 type Mirror struct {
 	Name           string
 	SelectAll      bool
@@ -37,14 +38,16 @@ type Mirror struct {
 }
 
 // Policer defines an ingress token bucket. RateBPS is in bits per second and
-// BurstOctets is the bucket capacity; a zero rate disables policing.
+// BurstOctets is the bucket capacity; a zero rate disables policing. Policer is
+// not safe for concurrent use.
 type Policer struct {
 	RateBPS     uint64
 	BurstOctets int
 }
 
 // PortQueues defines maximum rates in bits per second by priority code point
-// for one port. An absent priority has no configured maximum.
+// for one port. An absent priority has no configured maximum. PortQueues is not
+// safe for concurrent use.
 type PortQueues struct {
 	MaxRateBPS map[vlan.PCP]uint64
 }
@@ -107,11 +110,18 @@ func (c Config) Validate(ports port.Table) error {
 				Msgf("mirror %q must have exactly one output", mirror.Name)
 		}
 		if mirror.OutputPort != "" {
-			if _, ok := ports.Port(mirror.OutputPort); !ok {
+			output, ok := ports.Port(mirror.OutputPort)
+			if !ok {
 				return errs.New().
 					Attr("mirror", mirror.Name).
 					Attr("port", mirror.OutputPort).
 					Msgf("mirror output port %q absent from port table", mirror.OutputPort)
+			}
+			if output.Kind == port.Lag || output.LagParent != "" {
+				return errs.New().
+					Attr("mirror", mirror.Name).
+					Attr("port", mirror.OutputPort).
+					Msgf("mirror output port %q cannot be a LAG or LAG member", mirror.OutputPort)
 			}
 			outputPorts[mirror.OutputPort] = struct{}{}
 		}
@@ -121,11 +131,11 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("vlan", *mirror.OutputVLAN).
 				Msgf("mirror output VLAN %d is outside 1 through 4094", *mirror.OutputVLAN)
 		}
-		if mirror.SnapLen < 0 {
+		if mirror.SnapLen < 0 || mirror.SnapLen > 0 && mirror.SnapLen < 18 {
 			return errs.New().
 				Attr("mirror", mirror.Name).
 				Attr("snap_len", mirror.SnapLen).
-				Msg("mirror snap length cannot be negative")
+				Msg("mirror snap length must be zero or at least 18 octets")
 		}
 
 		for _, name := range append(slices.Clone(mirror.SelectSrcPorts), mirror.SelectDstPorts...) {
@@ -181,6 +191,12 @@ func (c Config) Validate(ports port.Table) error {
 				Msgf("queue port %q absent from port table", name)
 		}
 		for pcp, rate := range queues.MaxRateBPS {
+			if !pcp.Valid() {
+				return errs.New().
+					Attr("port", name).
+					Attr("pcp", pcp).
+					Msgf("queue PCP %d on port %q is invalid", pcp, name)
+			}
 			if rate == 0 {
 				return errs.New().
 					Attr("port", name).

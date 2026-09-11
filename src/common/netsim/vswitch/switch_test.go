@@ -435,18 +435,130 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 		t.Errorf("QueueMaxRate(1/1/2, 0) = (%d, %t), want (0, false)", rate, ok)
 	}
 
-	cur := vswitch.New(cfg)
-	for i := range 9 {
-		if !cur.Police(fixedTime, "1/1/1", 1038) {
-			t.Fatalf("derive setup Police call %d refused, want admitted", i+1)
+	tests := []struct {
+		name            string
+		change          func(*vswitch.Config)
+		wantMainAdmit   bool
+		wantSecondAdmit bool
+	}{
+		{
+			name: "mirror changes preserve the bucket",
+			change: func(next *vswitch.Config) {
+				next.Traffic.Mirrors = []traffic.Mirror{{Name: "m1", SelectAll: true, OutputPort: "1/1/2"}}
+			},
+		},
+		{
+			name: "queue changes preserve the bucket",
+			change: func(next *vswitch.Config) {
+				next.Traffic.Queues["1/1/2"] = traffic.PortQueues{MaxRateBPS: map[vlan.PCP]uint64{5: 200_000_000}}
+			},
+		},
+		{
+			name: "another port policer preserves the bucket",
+			change: func(next *vswitch.Config) {
+				next.Traffic.Policers["1/1/2"] = traffic.Policer{RateBPS: 1_000_000, BurstOctets: 2_000}
+			},
+			wantSecondAdmit: true,
+		},
+		{
+			name: "changed policer starts full",
+			change: func(next *vswitch.Config) {
+				next.Traffic.Policers["1/1/1"] = traffic.Policer{RateBPS: 2_000_000, BurstOctets: 10_000}
+			},
+			wantMainAdmit: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cur := vswitch.New(cfg)
+			for i := range 9 {
+				if !cur.Police(fixedTime, "1/1/1", 1038) {
+					t.Fatalf("derive setup Police call %d refused, want admitted", i+1)
+				}
+			}
+
+			next := cfg.Clone()
+			tt.change(&next)
+			derived, err := vswitch.Derive(cur, next)
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			if got := derived.Police(fixedTime, "1/1/1", 1038); got != tt.wantMainAdmit {
+				t.Errorf("main policer admit = %t, want %t", got, tt.wantMainAdmit)
+			}
+			if tt.wantSecondAdmit && !derived.Police(fixedTime, "1/1/2", 1_000) {
+				t.Error("new policer did not start full")
+			}
+		})
+	}
+}
+
+func TestPeekLeavesPolicerBucketsUntouched(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+	sw := vswitch.New(vswitch.Config{
+		Ports: ports,
+		Traffic: &traffic.Config{Policers: map[string]traffic.Policer{
+			"1/1/1": {RateBPS: 8, BurstOctets: 2},
+		}},
+	})
+	frame := ethernet.Frame{Dst: netaddr.MAC{2}, Src: netaddr.MAC{4}}
+
+	if !sw.Police(fixedTime, "1/1/1", 1) {
+		t.Fatal("initial token was refused")
+	}
+	sw.Peek(fixedTime, "1/1/1", frame)
+	if !sw.Police(fixedTime, "1/1/1", 1) {
+		t.Error("Peek spent the remaining policer token")
+	}
+}
+
+func TestMirrorSelectionUsesLogicalLAGIngress(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	vid10 := vlan.ID(10)
+	vid99 := vlan.ID(99)
+	cfg := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "users", 99: "mirror"},
+			Switchports: map[string]bridge.Switchport{
+				"lag1":  {PVID: &vid10, Untagged: []vlan.ID{10, 99}},
+				"1/1/3": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/4": {Untagged: []vlan.ID{99}},
+			},
+		}},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"1/1/1": {}, "1/1/2": {}}},
+		}},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{
+			{Name: "span", SelectSrcPorts: []string{"lag1"}, OutputPort: "1/1/4"},
+			{Name: "rspan", SelectSrcPorts: []string{"lag1"}, OutputVLAN: &vid99},
+		}},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	sw := vswitch.New(cfg)
+	frame := ethernet.Frame{Dst: netaddr.MAC{2}, Src: netaddr.MAC{4}}
+
+	sw.Forward(fixedTime, "1/1/1", frame)
+	copies := sw.Copies()
+	if len(copies) != 2 {
+		t.Fatalf("Copies() = %+v, want SPAN and RSPAN copies", copies)
+	}
+	for _, copy := range copies {
+		if copy.Port == "lag1" {
+			t.Errorf("RSPAN copied back onto logical ingress: %+v", copy)
 		}
-	}
-	derived, err := vswitch.Derive(cur, cfg)
-	if err != nil {
-		t.Fatalf("Derive: %v", err)
-	}
-	if derived.Police(fixedTime, "1/1/1", 1038) {
-		t.Error("derived switch admitted from a fresh bucket, want carried token state")
+		if copy.Port != "1/1/4" {
+			t.Errorf("copy port = %q, want 1/1/4", copy.Port)
+		}
 	}
 }
 
@@ -1082,7 +1194,8 @@ func TestSwitchReadableState(t *testing.T) {
 func TestSwitchAge(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	t.Run("ages dynamic entries", func(t *testing.T) {
 		cfg := vswitch.Config{
@@ -1190,7 +1303,8 @@ func TestValidateRefusesSTPWithoutBridge(t *testing.T) {
 func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 
 	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
 	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
@@ -1206,6 +1320,7 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 				"1/1/2": {},
 			},
 		},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "control", SelectAll: true, OutputPort: "1/1/3"}}},
 	}
 
 	sw := vswitch.New(cfg)
@@ -1233,6 +1348,9 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	}
 	if len(res.Steps) != 1 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
 		t.Errorf("res.Steps = %+v, want one classify step naming stp", res.Steps)
+	}
+	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
+		t.Errorf("Copies() = %+v, want received BPDU mirrored to 1/1/3", copies)
 	}
 
 	emissions := sw.Drain()
@@ -3604,6 +3722,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 				},
 			},
 		},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "control", SelectAll: true, OutputPort: "1/1/4"}}},
 	}
 
 	sw := vswitch.New(cfg)
@@ -3648,6 +3767,9 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 1 {
 		t.Errorf("after Forward, LACPDUsRx = %d, want 1", info.LACPDUsRx)
+	}
+	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/4" {
+		t.Errorf("Copies() = %+v, want received LACPDU mirrored to 1/1/4", copies)
 	}
 
 	// Bad TLV length LACPDU: dropped unsupported-lacpdu and counts BadLACPDUs 1
