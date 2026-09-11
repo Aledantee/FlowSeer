@@ -30,6 +30,9 @@ const (
 	// EtherTypeIPv6 is Internet Protocol version 6 (0x86DD).
 	EtherTypeIPv6 EtherType = 0x86DD
 
+	// EtherTypeSlowProtocols is Slow Protocols (0x8809), IEEE 802.3 clause 57, carrying LACP.
+	EtherTypeSlowProtocols EtherType = 0x8809
+
 	// EtherTypeMPLSUnicast is MPLS with a downstream-assigned label (0x8847).
 	EtherTypeMPLSUnicast EtherType = 0x8847
 
@@ -57,6 +60,8 @@ func (e EtherType) String() string {
 		return "Dot1Q (0x8100)"
 	case EtherTypeIPv6:
 		return "IPv6 (0x86dd)"
+	case EtherTypeSlowProtocols:
+		return "SlowProtocols (0x8809)"
 	case EtherTypeMPLSUnicast:
 		return "MPLS Unicast (0x8847)"
 	case EtherTypeMPLSMulticast:
