@@ -517,8 +517,8 @@ func TestDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	if resIngressDown.Outcome != trace.Dropped {
 		t.Fatalf("resIngressDown.Outcome = %q, want %q", resIngressDown.Outcome, trace.Dropped)
 	}
-	if resIngressDown.Reason != bridge.ReasonPortDown {
-		t.Errorf("resIngressDown.Reason = %q, want %q", resIngressDown.Reason, bridge.ReasonPortDown)
+	if resIngressDown.Reason != port.ReasonPortDown {
+		t.Errorf("resIngressDown.Reason = %q, want %q", resIngressDown.Reason, port.ReasonPortDown)
 	}
 
 	resFlood := br.Forward(testTime0, "1/1/1", frame)
@@ -917,8 +917,8 @@ func TestOversizedFrameDropsAtEgress(t *testing.T) {
 	if egress2 == nil {
 		t.Fatal("missing egress on 1/1/2")
 	}
-	if egress2.Dropped != bridge.ReasonMTUExceeded {
-		t.Errorf("1/1/2 Dropped = %q, want %q", egress2.Dropped, bridge.ReasonMTUExceeded)
+	if egress2.Dropped != port.ReasonMTUExceeded {
+		t.Errorf("1/1/2 Dropped = %q, want %q", egress2.Dropped, port.ReasonMTUExceeded)
 	}
 
 	if egress3 == nil {
@@ -1035,10 +1035,10 @@ func TestFDBHitWithDownPortDropsPortDown(t *testing.T) {
 	if res.Outcome != trace.Dropped {
 		t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
 	}
-	if res.Reason != bridge.ReasonPortDown {
-		t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortDown)
+	if res.Reason != port.ReasonPortDown {
+		t.Errorf("res.Reason = %q, want %q", res.Reason, port.ReasonPortDown)
 	}
-	if len(res.Egress) != 1 || res.Egress[0].Dropped != bridge.ReasonPortDown {
+	if len(res.Egress) != 1 || res.Egress[0].Dropped != port.ReasonPortDown {
 		t.Errorf("res.Egress = %+v, want 1 entry with ReasonPortDown", res.Egress)
 	}
 }
@@ -1281,4 +1281,129 @@ func TestSetOperStatusRemovesPortFromFloodSet(t *testing.T) {
 	if len(resAfter.Egress) != 1 || resAfter.Egress[0].Port != "1/1/3" {
 		t.Fatalf("egress after SetOperStatus = %+v, want only 1/1/3", resAfter.Egress)
 	}
+}
+
+func TestEgressEmptyPort(t *testing.T) {
+	t.Run("vlan known unicast forwards rather than same-port", func(t *testing.T) {
+		ports := buildTestPorts(t, 2)
+		cfg := bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				},
+			},
+		}
+		br := bridge.New(cfg, ports)
+		br.Learn([]bridge.Seed{
+			{MAC: macB, Port: "1/1/1", FID: 10},
+		})
+
+		frame := ethernet.Frame{
+			Dst:       macB,
+			Src:       macA,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("routed"),
+		}
+		in := bridge.Ingress{
+			Port: "",
+			FID:  10,
+		}
+
+		res := br.Egress(in, frame)
+		if res.Outcome != trace.Forwarded {
+			t.Fatalf("res.Outcome = %v, want %v (reason: %s)", res.Outcome, trace.Forwarded, res.Reason)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "1/1/1" {
+			t.Fatalf("res.Egress = %+v, want 1 entry on 1/1/1", res.Egress)
+		}
+		if res.Egress[0].Dropped != "" {
+			t.Errorf("res.Egress[0].Dropped = %q, want empty", res.Egress[0].Dropped)
+		}
+	})
+
+	t.Run("vlan flood reaches all members including port with pcp preserved", func(t *testing.T) {
+		ports := buildTestPorts(t, 2)
+		cfg := bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {Tagged: []vlan.ID{10}},
+					"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				},
+			},
+		}
+		br := bridge.New(cfg, ports)
+
+		frame := ethernet.Frame{
+			Dst:       macB,
+			Src:       macA,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("routed"),
+		}
+		in := bridge.Ingress{
+			Port: "",
+			FID:  10,
+			PCP:  vlan.PCP(5),
+		}
+
+		res := br.Egress(in, frame)
+		if res.Outcome != trace.Flooded {
+			t.Fatalf("res.Outcome = %v, want %v (reason: %s)", res.Outcome, trace.Flooded, res.Reason)
+		}
+		if len(res.Egress) != 2 {
+			t.Fatalf("len(res.Egress) = %d, want 2", len(res.Egress))
+		}
+
+		var taggedEgress *bridge.Egress
+		for i := range res.Egress {
+			if res.Egress[i].Port == "1/1/1" {
+				taggedEgress = &res.Egress[i]
+			}
+		}
+		if taggedEgress == nil {
+			t.Fatal("missing egress on 1/1/1")
+		}
+		if len(taggedEgress.Frame.Tags) != 1 {
+			t.Fatalf("taggedEgress.Frame.Tags = %+v, want 1 tag", taggedEgress.Frame.Tags)
+		}
+		if got, want := taggedEgress.Frame.Tags[0].VID, vlan.ID(10); got != want {
+			t.Errorf("tag VID = %d, want %d", got, want)
+		}
+		if got, want := taggedEgress.Frame.Tags[0].PCP, vlan.PCP(5); got != want {
+			t.Errorf("tag PCP = %d, want %d", got, want)
+		}
+	})
+
+	t.Run("non-vlan flood reaches all ports with tags untouched", func(t *testing.T) {
+		ports := buildTestPorts(t, 2)
+		br := bridge.New(bridge.Config{}, ports)
+
+		origTags := []vlan.Tag{{TPID: 0x8100, VID: 100, PCP: 3, DEI: true}}
+		frame := ethernet.Frame{
+			Dst:       macB,
+			Src:       macA,
+			EtherType: ethernet.EtherTypeIPv4,
+			Tags:      origTags,
+			Payload:   []byte("routed"),
+		}
+		in := bridge.Ingress{
+			Port: "",
+			FID:  0,
+		}
+
+		res := br.Egress(in, frame)
+		if res.Outcome != trace.Flooded {
+			t.Fatalf("res.Outcome = %v, want %v (reason: %s)", res.Outcome, trace.Flooded, res.Reason)
+		}
+		if len(res.Egress) != 2 {
+			t.Fatalf("len(res.Egress) = %d, want 2", len(res.Egress))
+		}
+		for _, eg := range res.Egress {
+			if !slices.Equal(eg.Frame.Tags, origTags) {
+				t.Errorf("port %s tags = %+v, want %+v", eg.Port, eg.Frame.Tags, origTags)
+			}
+		}
+	})
 }

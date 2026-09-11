@@ -157,7 +157,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 	p, ok := s.ports.Port(ingress)
 	if !ok {
-		res.Reason = bridge.ReasonPortDown
+		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerPort,
 			Op:     trace.OpDrop,
@@ -169,7 +169,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
-		res.Reason = bridge.ReasonPortDown
+		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerPort,
 			Op:     trace.OpDrop,
@@ -181,7 +181,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	res.Ingress = resolved.Name
 
 	if !p.Forwards() || !resolved.Forwards() {
-		res.Reason = bridge.ReasonPortDown
+		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerPort,
 			Op:     trace.OpDrop,
@@ -232,7 +232,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 				Port:    cand.Name,
 				Member:  mem,
 				Frame:   f,
-				Dropped: bridge.ReasonMTUExceeded,
+				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerPort,
@@ -260,7 +260,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		res.Outcome = trace.Flooded
 	} else {
 		res.Outcome = trace.Dropped
-		res.Reason = bridge.ReasonMTUExceeded
+		res.Reason = port.ReasonMTUExceeded
 	}
 
 	return res
@@ -276,7 +276,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
-				Reason:  bridge.ReasonPortDown,
+				Reason:  port.ReasonPortDown,
 				Steps:   []trace.Step{{Layer: port.LayerStp, Op: trace.OpDrop, Detail: "ingress port down"}},
 			},
 			Ingress: resolved.Name,

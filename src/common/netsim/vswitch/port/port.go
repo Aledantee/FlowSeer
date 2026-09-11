@@ -3,6 +3,9 @@
 package port
 
 import (
+	"cmp"
+	"slices"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
@@ -31,6 +34,14 @@ const (
 
 	// LayerStp identifies the Rapid Spanning Tree Protocol layer.
 	LayerStp trace.Layer = "stp"
+)
+
+const (
+	// ReasonPortDown indicates a frame dropped because an ingress or egress port is down.
+	ReasonPortDown trace.Reason = "port-down"
+
+	// ReasonMTUExceeded indicates a frame dropped on an egress port because its payload length exceeds the port MTU.
+	ReasonMTUExceeded trace.Reason = "mtu-exceeded"
 )
 
 // Kind categorizes an interface by its underlying hardware or logical implementation.
@@ -147,6 +158,70 @@ func (t Table) Resolve(name string) (Port, bool) {
 	}
 
 	return parent, true
+}
+
+// Receive evaluates whether a frame can arrive on the named port. If the port is
+// a member of a LAG, Receive resolves it to its parent LAG port. It returns
+// [ReasonPortDown] when the port is unknown, its LAG parent does not exist, or
+// either the port or its resolved parent does not forward. An empty reason
+// indicates the port can receive traffic.
+func (t Table) Receive(name string) (Port, trace.Reason) {
+	p, ok := t.Port(name)
+	if !ok {
+		return Port{}, ReasonPortDown
+	}
+	if p.LagParent == "" {
+		if !p.Forwards() {
+			return p, ReasonPortDown
+		}
+
+		return p, ""
+	}
+	parent, ok := t.Port(p.LagParent)
+	if !ok {
+		return Port{}, ReasonPortDown
+	}
+	if !p.Forwards() || !parent.Forwards() {
+		return parent, ReasonPortDown
+	}
+
+	return parent, ""
+}
+
+// Transmit evaluates whether a frame of payloadLen can egress through the named port.
+// It returns [ReasonPortDown] if the port is unknown, does not forward, or is a LAG
+// with no forwarding members. For a forwarding LAG, Transmit selects the lowest-named
+// forwarding member. It returns [ReasonMTUExceeded] if the port has an MTU configured
+// (> 0) and payloadLen exceeds it. A plain port returns an empty member.
+func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
+	p, ok := t.Port(name)
+	if !ok || !p.Forwards() {
+		return "", ReasonPortDown
+	}
+
+	var member string
+	if p.Kind == Lag {
+		mems := t.Members(p.Name)
+		var fwdMembers []Port
+		for _, m := range mems {
+			if m.Forwards() {
+				fwdMembers = append(fwdMembers, m)
+			}
+		}
+		if len(fwdMembers) == 0 {
+			return "", ReasonPortDown
+		}
+		slices.SortFunc(fwdMembers, func(i, j Port) int {
+			return cmp.Compare(i.Name, j.Name)
+		})
+		member = fwdMembers[0].Name
+	}
+
+	if p.MTU > 0 && payloadLen > p.MTU {
+		return member, ReasonMTUExceeded
+	}
+
+	return member, ""
 }
 
 // Validate verifies the invariants of the table: all port names must be non-empty

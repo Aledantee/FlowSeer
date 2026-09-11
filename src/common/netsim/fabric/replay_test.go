@@ -289,8 +289,8 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	if entryDown.Result.Outcome != trace.Dropped {
 		t.Fatalf("entryDown.Result.Outcome = %q, want %q", entryDown.Result.Outcome, trace.Dropped)
 	}
-	if entryDown.Result.Reason != bridge.ReasonPortDown {
-		t.Errorf("entryDown.Result.Reason = %q, want %q", entryDown.Result.Reason, bridge.ReasonPortDown)
+	if entryDown.Result.Reason != port.ReasonPortDown {
+		t.Errorf("entryDown.Result.Reason = %q, want %q", entryDown.Result.Reason, port.ReasonPortDown)
 	}
 
 	// 2. Flooded frame from 1/1/1 excludes down port 1/1/3.
@@ -522,8 +522,8 @@ func TestReplayOversizedFrameDropsAtEgress(t *testing.T) {
 	if egress2 == nil {
 		t.Fatal("missing egress on 1/1/2")
 	}
-	if egress2.Dropped != bridge.ReasonMTUExceeded {
-		t.Errorf("1/1/2 Dropped = %q, want %q", egress2.Dropped, bridge.ReasonMTUExceeded)
+	if egress2.Dropped != port.ReasonMTUExceeded {
+		t.Errorf("1/1/2 Dropped = %q, want %q", egress2.Dropped, port.ReasonMTUExceeded)
 	}
 
 	if egress3 == nil {

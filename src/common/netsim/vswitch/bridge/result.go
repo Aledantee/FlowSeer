@@ -7,9 +7,6 @@ import (
 )
 
 const (
-	// ReasonPortDown indicates a frame dropped because an ingress or egress port is down.
-	ReasonPortDown trace.Reason = "port-down"
-
 	// ReasonReservedAddress indicates a frame dropped because its destination is in the IEEE reserved bridge group address range.
 	ReasonReservedAddress trace.Reason = "reserved-address"
 
@@ -27,9 +24,6 @@ const (
 
 	// ReasonSamePort indicates a frame dropped because its destination port resolves back to the ingress port.
 	ReasonSamePort trace.Reason = "same-port"
-
-	// ReasonMTUExceeded indicates a frame dropped on an egress port because its payload length exceeds the port MTU.
-	ReasonMTUExceeded trace.Reason = "mtu-exceeded"
 
 	// ReasonNotMember indicates a known unicast whose destination port is not a member of the classified VLAN.
 	ReasonNotMember trace.Reason = "not-member"

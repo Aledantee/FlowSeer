@@ -260,7 +260,7 @@ func TestHubWithDownPort(t *testing.T) {
 		if res.Egress[0].Port != "1/1/2" || res.Egress[0].Dropped != "" {
 			t.Errorf("egress 0: got %v, want 1/1/2 forwarded", res.Egress[0])
 		}
-		if res.Egress[1].Port != "1/1/4" || res.Egress[1].Dropped != bridge.ReasonMTUExceeded {
+		if res.Egress[1].Port != "1/1/4" || res.Egress[1].Dropped != port.ReasonMTUExceeded {
 			t.Errorf("egress 1: got %v, want 1/1/4 dropped for MTU exceeded", res.Egress[1])
 		}
 	})
@@ -270,8 +270,8 @@ func TestHubWithDownPort(t *testing.T) {
 		if res.Outcome != trace.Dropped {
 			t.Errorf("got outcome %v, want %v", res.Outcome, trace.Dropped)
 		}
-		if res.Reason != bridge.ReasonPortDown {
-			t.Errorf("got reason %v, want %v", res.Reason, bridge.ReasonPortDown)
+		if res.Reason != port.ReasonPortDown {
+			t.Errorf("got reason %v, want %v", res.Reason, port.ReasonPortDown)
 		}
 		if len(res.Egress) != 0 {
 			t.Errorf("expected 0 egress entries, got %d", len(res.Egress))
@@ -1264,8 +1264,8 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	bpdu.SetRole(stp.RoleDesignated)
 
 	res := sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
-	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortDown {
-		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonPortDown)
+	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
+		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
 	if root, _, _ := sw.Root(); root.Address == macRoot {
 		t.Error("layer adopted a root from a BPDU on a down port")

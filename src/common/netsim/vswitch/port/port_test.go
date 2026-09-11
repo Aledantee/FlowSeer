@@ -429,3 +429,143 @@ func TestTableValidate(t *testing.T) {
 		}
 	})
 }
+
+func TestTableReceive(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "lag-down", Kind: port.Lag, AdminStatus: port.Down, OperStatus: port.Down})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/4", Kind: port.Physical, LagParent: "lag-down", AdminStatus: port.Up, OperStatus: port.Up})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	t.Run("up port", func(t *testing.T) {
+		p, reason := tbl.Receive("1/1/1")
+		if reason != "" {
+			t.Errorf("Receive(\"1/1/1\") reason = %q, want empty", reason)
+		}
+		if p.Name != "1/1/1" {
+			t.Errorf("Receive(\"1/1/1\") port = %q, want \"1/1/1\"", p.Name)
+		}
+	})
+
+	t.Run("unknown name", func(t *testing.T) {
+		p, reason := tbl.Receive("unknown")
+		if reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"unknown\") reason = %q, want %q", reason, port.ReasonPortDown)
+		}
+		if p != (port.Port{}) {
+			t.Errorf("Receive(\"unknown\") port = %+v, want zero", p)
+		}
+	})
+
+	t.Run("down port", func(t *testing.T) {
+		p, reason := tbl.Receive("1/1/2")
+		if reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"1/1/2\") reason = %q, want %q", reason, port.ReasonPortDown)
+		}
+		if p.Name != "1/1/2" {
+			t.Errorf("Receive(\"1/1/2\") port = %q, want \"1/1/2\"", p.Name)
+		}
+	})
+
+	t.Run("member of down lag", func(t *testing.T) {
+		p, reason := tbl.Receive("1/1/4")
+		if reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"1/1/4\") reason = %q, want %q", reason, port.ReasonPortDown)
+		}
+		if p.Name != "lag-down" {
+			t.Errorf("Receive(\"1/1/4\") port = %q, want \"lag-down\"", p.Name)
+		}
+	})
+
+	t.Run("member resolving to parent", func(t *testing.T) {
+		p, reason := tbl.Receive("1/1/3")
+		if reason != "" {
+			t.Errorf("Receive(\"1/1/3\") reason = %q, want empty", reason)
+		}
+		if p.Name != "lag1" {
+			t.Errorf("Receive(\"1/1/3\") port = %q, want \"lag1\"", p.Name)
+		}
+	})
+}
+
+func TestTableTransmit(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
+	b.Add(port.Port{Name: "lag-down-mems", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Down})
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 0})
+	b.Add(port.Port{Name: "1/1/5", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/4", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/6", Kind: port.Physical, LagParent: "lag-down-mems", AdminStatus: port.Down, OperStatus: port.Down})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+
+	t.Run("up port", func(t *testing.T) {
+		member, reason := tbl.Transmit("1/1/1", 1000)
+		if reason != "" {
+			t.Errorf("Transmit(\"1/1/1\", 1000) reason = %q, want empty", reason)
+		}
+		if member != "" {
+			t.Errorf("Transmit(\"1/1/1\", 1000) member = %q, want empty", member)
+		}
+	})
+
+	t.Run("down port", func(t *testing.T) {
+		member, reason := tbl.Transmit("1/1/2", 1000)
+		if reason != port.ReasonPortDown {
+			t.Errorf("Transmit(\"1/1/2\", 1000) reason = %q, want %q", reason, port.ReasonPortDown)
+		}
+		if member != "" {
+			t.Errorf("Transmit(\"1/1/2\", 1000) member = %q, want empty", member)
+		}
+	})
+
+	t.Run("lag choosing lowest forwarding member", func(t *testing.T) {
+		member, reason := tbl.Transmit("lag1", 1000)
+		if reason != "" {
+			t.Errorf("Transmit(\"lag1\", 1000) reason = %q, want empty", reason)
+		}
+		if member != "1/1/4" {
+			t.Errorf("Transmit(\"lag1\", 1000) member = %q, want \"1/1/4\"", member)
+		}
+	})
+
+	t.Run("lag with none forwarding", func(t *testing.T) {
+		member, reason := tbl.Transmit("lag-down-mems", 1000)
+		if reason != port.ReasonPortDown {
+			t.Errorf("Transmit(\"lag-down-mems\", 1000) reason = %q, want %q", reason, port.ReasonPortDown)
+		}
+		if member != "" {
+			t.Errorf("Transmit(\"lag-down-mems\", 1000) member = %q, want empty", member)
+		}
+	})
+
+	t.Run("mtu of 0 admitting any size", func(t *testing.T) {
+		member, reason := tbl.Transmit("1/1/3", 9000)
+		if reason != "" {
+			t.Errorf("Transmit(\"1/1/3\", 9000) reason = %q, want empty", reason)
+		}
+		if member != "" {
+			t.Errorf("Transmit(\"1/1/3\", 9000) member = %q, want empty", member)
+		}
+	})
+
+	t.Run("mtu one byte short", func(t *testing.T) {
+		member, reason := tbl.Transmit("1/1/1", 1501)
+		if reason != port.ReasonMTUExceeded {
+			t.Errorf("Transmit(\"1/1/1\", 1501) reason = %q, want %q", reason, port.ReasonMTUExceeded)
+		}
+		if member != "" {
+			t.Errorf("Transmit(\"1/1/1\", 1501) member = %q, want empty", member)
+		}
+	})
+}

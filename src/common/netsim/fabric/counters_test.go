@@ -137,7 +137,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 	if got, want := cEgressDrop.OutDiscards, uint64(1); got != want {
 		t.Errorf("sw1:1/1/24 OutDiscards = %d, want %d", got, want)
 	}
-	if got, want := cEgressDrop.Discards[bridge.ReasonMTUExceeded], uint64(1); got != want {
+	if got, want := cEgressDrop.Discards[port.ReasonMTUExceeded], uint64(1); got != want {
 		t.Errorf("sw1:1/1/24 Discards[ReasonMTUExceeded] = %d, want %d", got, want)
 	}
 

@@ -152,44 +152,45 @@ func (b *Bridge) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
 }
 
 func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {
+	in, res, ok := b.Ingress(now, ingress, f, learn)
+	if !ok {
+		return res
+	}
+
+	return b.Egress(in, f)
+}
+
+// Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
+type Ingress struct {
+	Port          string
+	FID           vlan.ID
+	PCP           vlan.PCP
+	DEI           bool
+	RemainingTags []vlan.Tag
+	Steps         []trace.Step
+}
+
+// Ingress processes an incoming frame through port validation, IEEE reserved address checks,
+// forwarding gate, VLAN classification, admission control, ingress filtering, and MAC learning.
+// It returns false and a populated Result on any drop; on success it returns true and an Ingress
+// descriptor for subsequent egress forwarding.
+func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn bool) (Ingress, Result, bool) {
 	var res Result
 	res.Outcome = trace.Dropped
 
-	p, ok := b.ports.Port(ingress)
-	if !ok {
-		res.Reason = ReasonPortDown
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRelay,
-			Op:     trace.OpDrop,
-			Detail: "ingress port not found",
-		})
-
-		return res
-	}
-
-	resolved, ok := b.ports.Resolve(ingress)
-	if !ok {
-		res.Reason = ReasonPortDown
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRelay,
-			Op:     trace.OpDrop,
-			Detail: "ingress LAG parent not found",
-		})
-
-		return res
-	}
-	res.Ingress = resolved.Name
-
-	if !p.Forwards() || !resolved.Forwards() {
-		res.Reason = ReasonPortDown
+	inPort, reason := b.ports.Receive(ingress)
+	if reason != "" {
+		res.Reason = reason
+		res.Ingress = inPort.Name
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerRelay,
 			Op:     trace.OpDrop,
 			Detail: "ingress port down",
 		})
 
-		return res
+		return Ingress{}, res, false
 	}
+	res.Ingress = inPort.Name
 
 	if ethernet.IsReserved(f.Dst) {
 		res.Reason = ReasonReservedAddress
@@ -199,7 +200,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			Detail: "reserved bridge address",
 		})
 
-		return res
+		return Ingress{}, res, false
 	}
 
 	ingressLearns := true
@@ -217,7 +218,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			Detail: "port-blocked",
 		})
 
-		return res
+		return Ingress{}, res, false
 	}
 
 	var (
@@ -282,7 +283,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 					},
 				)
 
-				return res
+				return Ingress{}, res, false
 			}
 		case UntaggedAndPriorityTaggedOnly:
 			if isTagged {
@@ -300,7 +301,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 					},
 				)
 
-				return res
+				return Ingress{}, res, false
 			}
 		case All:
 		}
@@ -314,7 +315,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 					Detail: "no PVID configured",
 				})
 
-				return res
+				return Ingress{}, res, false
 			}
 			classifiedFID = *sw.PVID
 		}
@@ -343,7 +344,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 					},
 				)
 
-				return res
+				return Ingress{}, res, false
 			}
 		}
 
@@ -355,7 +356,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 				Detail: fmt.Sprintf("vlan %d undefined", classifiedFID),
 			})
 
-			return res
+			return Ingress{}, res, false
 		}
 	}
 
@@ -399,7 +400,34 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			Detail: "port-blocked",
 		})
 
-		return res
+		return Ingress{}, res, false
+	}
+
+	in := Ingress{
+		Port:          res.Ingress,
+		FID:           classifiedFID,
+		PCP:           ingressPCP,
+		DEI:           ingressDEI,
+		RemainingTags: remainingTags,
+		Steps:         res.Steps,
+	}
+
+	return in, Result{}, true
+}
+
+// Egress forwards or floods a classified ingress frame to its destination ports.
+//
+// An Ingress with an empty Port is a frame the device itself emits; the same-port
+// rule and the flood's ingress exclusion then match no port; a port name is never
+// empty since [port.Table] refuses one.
+func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
+	var res Result
+	res.Outcome = trace.Dropped
+	res.Ingress = in.Port
+	res.FID = in.FID
+	if len(in.Steps) > 0 {
+		res.Steps = make([]trace.Step, len(in.Steps))
+		copy(res.Steps, in.Steps)
 	}
 
 	var (
@@ -407,7 +435,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		hitPort string
 	)
 	if !f.Dst.IsGroup() {
-		dstKey := fdbKey{fid: classifiedFID, mac: f.Dst}
+		dstKey := fdbKey{fid: in.FID, mac: f.Dst}
 		if entry, exists := b.fdb[dstKey]; exists {
 			isHit = true
 			hitPort = entry.Port
@@ -432,7 +460,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 	}
 
 	if isHit {
-		if hitPort == res.Ingress {
+		if hitPort == in.Port {
 			res.Reason = ReasonSamePort
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
@@ -445,7 +473,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 
 		destPort, exists := b.ports.Port(hitPort)
 		if !exists {
-			res.Reason = ReasonPortDown
+			res.Reason = port.ReasonPortDown
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpDrop,
@@ -455,38 +483,12 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			return res
 		}
 
-		var memberName string
-		if destPort.Kind == port.Lag {
-			mems := b.ports.Members(destPort.Name)
-			var fwdMembers []port.Port
-			for _, m := range mems {
-				if m.Forwards() {
-					fwdMembers = append(fwdMembers, m)
-				}
-			}
-			if len(fwdMembers) == 0 || !destPort.Forwards() {
-				res.Reason = ReasonPortDown
-				res.Egress = append(res.Egress, Egress{
-					Port:    destPort.Name,
-					Dropped: ReasonPortDown,
-				})
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpDrop,
-					Detail: "port-down",
-				})
-
-				return res
-			}
-			sort.Slice(fwdMembers, func(i, j int) bool {
-				return fwdMembers[i].Name < fwdMembers[j].Name
-			})
-			memberName = fwdMembers[0].Name
-		} else if !destPort.Forwards() {
-			res.Reason = ReasonPortDown
+		member, txReason := b.ports.Transmit(destPort.Name, len(f.Payload))
+		if txReason == port.ReasonPortDown {
+			res.Reason = port.ReasonPortDown
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
-				Dropped: ReasonPortDown,
+				Dropped: port.ReasonPortDown,
 			})
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
@@ -497,7 +499,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			return res
 		}
 
-		egressFrame, isMember := b.buildEgressFrame(destPort.Name, classifiedFID, f, ingressPCP, ingressDEI, remainingTags)
+		egressFrame, isMember := b.buildEgressFrame(destPort.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags)
 		if b.cfg.VLAN != nil && !isMember {
 			res.Reason = ReasonNotMember
 			res.Egress = append(res.Egress, Egress{
@@ -507,7 +509,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerVlan,
 				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s is not a member of vlan %d", destPort.Name, classifiedFID),
+				Detail: fmt.Sprintf("port %s is not a member of vlan %d", destPort.Name, in.FID),
 			})
 
 			return res
@@ -517,7 +519,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			res.Reason = ReasonPortBlocked
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
-				Member:  memberName,
+				Member:  member,
 				Frame:   egressFrame,
 				Dropped: ReasonPortBlocked,
 			})
@@ -530,13 +532,13 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			return res
 		}
 
-		if destPort.MTU > 0 && len(f.Payload) > destPort.MTU {
-			res.Reason = ReasonMTUExceeded
+		if txReason == port.ReasonMTUExceeded {
+			res.Reason = port.ReasonMTUExceeded
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
-				Member:  memberName,
+				Member:  member,
 				Frame:   egressFrame,
-				Dropped: ReasonMTUExceeded,
+				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
@@ -561,7 +563,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		})
 		res.Egress = append(res.Egress, Egress{
 			Port:   destPort.Name,
-			Member: memberName,
+			Member: member,
 			Frame:  egressFrame,
 		})
 		res.Outcome = trace.Forwarded
@@ -572,40 +574,29 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 	var (
 		candidates  []port.Port
 		memberNames []string
+		txReasons   []trace.Reason
 	)
 	for _, cand := range b.ports.Ports() {
-		if cand.LagParent != "" || cand.Name == res.Ingress || !cand.Forwards() {
+		if cand.LagParent != "" || cand.Name == in.Port {
 			continue
 		}
-		var member string
-		if cand.Kind == port.Lag {
-			mems := b.ports.Members(cand.Name)
-			var fwdMembers []port.Port
-			for _, m := range mems {
-				if m.Forwards() {
-					fwdMembers = append(fwdMembers, m)
-				}
-			}
-			if len(fwdMembers) == 0 {
-				continue
-			}
-			sort.Slice(fwdMembers, func(i, j int) bool {
-				return fwdMembers[i].Name < fwdMembers[j].Name
-			})
-			member = fwdMembers[0].Name
+		member, txReason := b.ports.Transmit(cand.Name, len(f.Payload))
+		if txReason == port.ReasonPortDown {
+			continue
 		}
 		if b.cfg.VLAN != nil {
 			sw, exists := b.cfg.VLAN.Switchports[cand.Name]
 			if !exists {
 				continue
 			}
-			isMember := slices.Contains(sw.Tagged, classifiedFID) || slices.Contains(sw.Untagged, classifiedFID)
+			isMember := slices.Contains(sw.Tagged, in.FID) || slices.Contains(sw.Untagged, in.FID)
 			if !isMember {
 				continue
 			}
 		}
 		candidates = append(candidates, cand)
 		memberNames = append(memberNames, member)
+		txReasons = append(txReasons, txReason)
 	}
 
 	if len(candidates) == 0 {
@@ -628,7 +619,8 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 	var transmitted int
 	for i, cand := range candidates {
 		mem := memberNames[i]
-		egressFrame, _ := b.buildEgressFrame(cand.Name, classifiedFID, f, ingressPCP, ingressDEI, remainingTags)
+		txReason := txReasons[i]
+		egressFrame, _ := b.buildEgressFrame(cand.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags)
 		if b.gate != nil && !b.gate.Forwards(cand.Name) {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
@@ -645,12 +637,12 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			continue
 		}
 
-		if cand.MTU > 0 && len(f.Payload) > cand.MTU {
+		if txReason == port.ReasonMTUExceeded {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
 				Member:  mem,
 				Frame:   egressFrame,
-				Dropped: ReasonMTUExceeded,
+				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
@@ -688,7 +680,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		if len(res.Egress) > 0 {
 			res.Reason = res.Egress[0].Dropped
 		} else {
-			res.Reason = ReasonMTUExceeded
+			res.Reason = port.ReasonMTUExceeded
 		}
 	}
 
