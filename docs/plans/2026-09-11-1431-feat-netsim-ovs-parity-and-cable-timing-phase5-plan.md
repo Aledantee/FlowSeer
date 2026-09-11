@@ -84,8 +84,11 @@ against. This phase settles the shapes its stub left open:
   drops a frame received on a mirror output port with
   `traffic.ReasonMirrorOutput` ("mirror-output"), removes normal egress on
   such a port from `Result.Egress` as a drop with the same reason, and
-  fills `bridge.Result.Copies []Copy` from `traffic.Copies` over the
-  frame as received and the egress that survived; a host-emitted or routed
+  computes the copies with `traffic.Copies` over the frame as received
+  and the egress that survived, exposing them through `Switch.Copies()
+  []traffic.Copy`, which returns and clears the copies of the last
+  `Forward` the way `Drain` does for emissions, since `bridge` cannot
+  import `traffic` (which imports `bridge`) to carry them on the result; a host-emitted or routed
   frame is mirrored the same way by its egress ports. Why: OVS reserves
   the output port ("No frames other than those selected for mirroring
   will be forwarded to the port, and any frames received on the port
@@ -252,7 +255,7 @@ After: U1
 Change: `Config.Traffic`, `Capabilities` adding `port.LayerTraffic` (a
 new trace layer "traffic" in `port`) when set; `bridge.Egress.PCP` filled
 from the ingress classification in the relay, the hub, and the routed
-result; `bridge.Result.Copies`;
+result; `Switch.Copies()`;
 the switch dropping frames received on a mirror output port, removing
 normal egress on one, and filling copies for bridged, hub, and routed
 results; `Police(now, port, octets) bool`; `QueueMaxRate(port, pcp)`;

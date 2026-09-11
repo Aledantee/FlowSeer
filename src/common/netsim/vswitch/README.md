@@ -135,6 +135,13 @@ The virtual switch uses a ladder of architectural layers:
   re-encapsulated with the egress interface source MAC and next-hop neighbor
   destination MAC with no tags, handing off to the relay (for VLAN egress) or
   the port layer (for a routed port).
+- **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
+  output ports from ordinary ingress and egress, then creates selected mirror
+  copies after bridge, hub, or routed forwarding. `Copies` returns and clears
+  those copies so the fabric can enqueue them as separate transmissions.
+  `Police` applies the switch-owned token bucket when the fabric checks a frame
+  at arrival, while `QueueMaxRate` gives the fabric scheduler the maximum rate
+  for an egress port and PCP.
 
 Optional physical subsystems (`phy.Config`) provide physical Ethernet speed
 resolution, auto-negotiation, and Power over Ethernet budget allocation.
@@ -230,6 +237,8 @@ Drop reasons recorded in traces and egress records:
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
 | `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
+| `policed`          | Ingress frame exceeded the port's token bucket           |
+| `mirror-output`    | Ordinary frame used a port reserved for mirror copies    |
 
 ## Protocol schedule
 

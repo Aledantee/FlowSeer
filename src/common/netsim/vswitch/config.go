@@ -12,12 +12,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // Config specifies the configuration of a virtual switch, combining its port table,
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
 // optional link aggregation configuration, optional spanning tree configuration,
-// and optional layer 3 routing configuration.
+// optional layer 3 routing configuration, and optional traffic configuration.
 // MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
@@ -29,6 +30,7 @@ type Config struct {
 	LAG     *lag.Config
 	STP     *stp.Config
 	Routing *routing.Config
+	Traffic *traffic.Config
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
@@ -46,6 +48,9 @@ func (c Config) Capabilities() []port.Layer {
 	}
 	if c.Routing != nil {
 		caps = append(caps, port.LayerRouting)
+	}
+	if c.Traffic != nil {
+		caps = append(caps, port.LayerTraffic)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
@@ -81,6 +86,11 @@ func (c Config) Validate() error {
 	}
 	if c.Phy != nil {
 		if err := c.Phy.Validate(c.Ports); err != nil {
+			return err
+		}
+	}
+	if c.Traffic != nil {
+		if err := c.Traffic.Validate(c.Ports); err != nil {
 			return err
 		}
 	}
@@ -227,6 +237,10 @@ func (c Config) Clone() Config {
 	if c.Routing != nil {
 		r := c.Routing.Clone()
 		cp.Routing = &r
+	}
+	if c.Traffic != nil {
+		trafficCfg := c.Traffic.Clone()
+		cp.Traffic = &trafficCfg
 	}
 
 	return cp

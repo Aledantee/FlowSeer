@@ -666,6 +666,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Reason = port.ReasonPortDown
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
+				PCP:     in.PCP,
 				Dropped: port.ReasonPortDown,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -682,6 +683,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Reason = ReasonNotMember
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
+				PCP:     in.PCP,
 				Dropped: ReasonNotMember,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -698,6 +700,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: ReasonPortBlocked,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -714,6 +717,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: ReasonProtected,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -730,6 +734,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -741,7 +746,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		member, ok := b.selectMember(&res, destPort, egressFrame, in.FID)
+		member, ok := b.selectMember(&res, destPort, egressFrame, in.FID, in.PCP)
 		if !ok {
 			res.Reason = ReasonNoMember
 
@@ -764,6 +769,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			Port:   destPort.Name,
 			Member: member,
 			Frame:  egressFrame,
+			PCP:    in.PCP,
 		})
 		res.Outcome = trace.Forwarded
 
@@ -821,6 +827,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: ReasonPortBlocked,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -836,6 +843,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: ReasonProtected,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -851,6 +859,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
 				Frame:   egressFrame,
+				PCP:     in.PCP,
 				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -862,7 +871,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			continue
 		}
 
-		member, ok := b.selectMember(&res, cand, egressFrame, in.FID)
+		member, ok := b.selectMember(&res, cand, egressFrame, in.FID, in.PCP)
 		if !ok {
 			continue
 		}
@@ -883,6 +892,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			Port:   cand.Name,
 			Member: member,
 			Frame:  egressFrame,
+			PCP:    in.PCP,
 		})
 		transmitted++
 	}
@@ -904,7 +914,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 // selectMember asks the selector which member carries a frame out of a LAG
 // port, recording an egress drop with no-member when there is no selector or
 // it names none; a port that is not a LAG has no member and always passes.
-func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vlan.ID) (string, bool) {
+func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vlan.ID, pcp vlan.PCP) (string, bool) {
 	if p.Kind != port.Lag {
 		return "", true
 	}
@@ -916,6 +926,7 @@ func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vl
 	res.Egress = append(res.Egress, Egress{
 		Port:    p.Name,
 		Frame:   f,
+		PCP:     pcp,
 		Dropped: ReasonNoMember,
 	})
 	res.Steps = append(res.Steps, trace.Step{

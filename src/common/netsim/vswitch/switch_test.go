@@ -21,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 var fixedTime = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
@@ -141,7 +142,8 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 			Add(port.Port{Name: "lag1", Kind: port.Lag}))
 
 		cfg := vswitch.Config{
-			Ports: tbl,
+			Ports:   tbl,
+			Traffic: &traffic.Config{},
 			Bridge: &bridge.Config{
 				VLAN: &bridge.VLAN{
 					Table: map[vlan.ID]string{10: "vlan10"},
@@ -170,6 +172,7 @@ func TestCapabilitiesFollowConfiguration(t *testing.T) {
 			port.LayerLag,
 			port.LayerPoe,
 			port.LayerRelay,
+			port.LayerTraffic,
 			port.LayerVlan,
 		}
 		if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
@@ -268,6 +271,182 @@ func TestHubForwardingUntouched(t *testing.T) {
 		if step.Op == trace.OpLearn {
 			t.Errorf("frame 2: unexpected learn step in hub trace: %v", step)
 		}
+	}
+}
+
+func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/4", Kind: port.Physical}))
+	vid10 := vlan.ID(10)
+	cfg := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/3": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/4": {PVID: &vid10, Untagged: []vlan.ID{10}},
+			},
+		}},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+			Name:           "m1",
+			SelectSrcPorts: []string{"1/1/1"},
+			OutputPort:     "1/1/4",
+		}}},
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	sw := vswitch.New(cfg)
+	frame := ethernet.Frame{
+		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("mirrored flood"),
+	}
+
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Errorf("Outcome = %v, want %v", res.Outcome, trace.Flooded)
+	}
+	if len(res.Egress) != 3 {
+		t.Fatalf("len(Egress) = %d, want 3", len(res.Egress))
+	}
+	for i, name := range []string{"1/1/2", "1/1/3"} {
+		if got := res.Egress[i]; got.Port != name || got.Dropped != "" {
+			t.Errorf("Egress[%d] = %+v, want normal egress on %s", i, got, name)
+		}
+	}
+	if got := res.Egress[2]; got.Port != "1/1/4" || got.Dropped != traffic.ReasonMirrorOutput {
+		t.Errorf("Egress[2] = %+v, want mirror-output drop on 1/1/4", got)
+	}
+
+	copies := sw.Copies()
+	if len(copies) != 1 || copies[0].Mirror != "m1" || copies[0].Port != "1/1/4" {
+		t.Fatalf("Copies() = %+v, want m1 copy on 1/1/4", copies)
+	}
+	if !slices.Equal(copies[0].Frame.Payload, frame.Payload) {
+		t.Errorf("copy payload = %q, want %q", copies[0].Frame.Payload, frame.Payload)
+	}
+	if copies := sw.Copies(); len(copies) != 0 {
+		t.Errorf("second Copies() = %+v, want empty", copies)
+	}
+	sw.Learn([]bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Static: true}})
+	reservedOnly := sw.Forward(fixedTime, "1/1/1", frame)
+	if reservedOnly.Outcome != trace.Dropped || reservedOnly.Reason != traffic.ReasonMirrorOutput {
+		t.Errorf("reserved-only trace = %+v, want mirror-output drop", reservedOnly.Trace)
+	}
+	if len(reservedOnly.Egress) != 1 || reservedOnly.Egress[0].Dropped != traffic.ReasonMirrorOutput {
+		t.Errorf("reserved-only egress = %+v, want one mirror-output drop", reservedOnly.Egress)
+	}
+
+	dropped := sw.Forward(fixedTime, "1/1/4", frame)
+	if dropped.Outcome != trace.Dropped || dropped.Reason != traffic.ReasonMirrorOutput {
+		t.Errorf("mirror output ingress trace = %+v, want mirror-output drop", dropped.Trace)
+	}
+	wantStep := trace.Step{Layer: port.LayerTraffic, Op: trace.OpDrop, Detail: "mirror-output"}
+	if len(dropped.Steps) != 1 || dropped.Steps[0] != wantStep {
+		t.Errorf("mirror output ingress steps = %+v, want %+v", dropped.Steps, wantStep)
+	}
+
+	peekSwitch := vswitch.New(cfg)
+	peekSwitch.Peek(fixedTime, "1/1/1", frame)
+	if copies := peekSwitch.Copies(); len(copies) != 0 {
+		t.Errorf("Copies() after Peek = %+v, want empty", copies)
+	}
+}
+
+func TestSwitchEgressKeepsClassifiedPCP(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+	vid10 := vlan.ID(10)
+	sw := vswitch.New(vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {Tagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+			},
+		}},
+	})
+	frame := ethernet.Frame{
+		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags: []vlan.Tag{{
+			TPID: uint16(ethernet.EtherTypeDot1Q),
+			VID:  10,
+			PCP:  5,
+		}},
+	}
+
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if len(res.Egress) != 1 {
+		t.Fatalf("len(Egress) = %d, want 1", len(res.Egress))
+	}
+	if got := res.Egress[0].PCP; got != 5 {
+		t.Errorf("Egress PCP = %d, want 5", got)
+	}
+	if len(res.Egress[0].Frame.Tags) != 0 {
+		t.Errorf("egress frame tags = %+v, want untagged", res.Egress[0].Frame.Tags)
+	}
+}
+
+func TestSwitchPolicerAndQueueLookup(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+	cfg := vswitch.Config{
+		Ports: ports,
+		Traffic: &traffic.Config{
+			Policers: map[string]traffic.Policer{
+				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
+			},
+			Queues: map[string]traffic.PortQueues{
+				"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{5: 100_000_000}},
+			},
+		},
+	}
+	sw := vswitch.New(cfg)
+	for i := range 9 {
+		if !sw.Police(fixedTime, "1/1/1", 1038) {
+			t.Fatalf("Police call %d refused, want admitted", i+1)
+		}
+	}
+	if sw.Police(fixedTime, "1/1/1", 1038) {
+		t.Error("tenth Police call admitted, want refused")
+	}
+	if !sw.Police(fixedTime.Add(10*time.Millisecond), "1/1/1", 1038) {
+		t.Error("Police after 10 ms refused, want admitted")
+	}
+	if !sw.Police(fixedTime, "1/1/2", 1_000_000) {
+		t.Error("unconfigured port was policed")
+	}
+	if rate, ok := sw.QueueMaxRate("1/1/2", 5); !ok || rate != 100_000_000 {
+		t.Errorf("QueueMaxRate(1/1/2, 5) = (%d, %t), want (100000000, true)", rate, ok)
+	}
+	if rate, ok := sw.QueueMaxRate("1/1/2", 0); ok || rate != 0 {
+		t.Errorf("QueueMaxRate(1/1/2, 0) = (%d, %t), want (0, false)", rate, ok)
+	}
+
+	cur := vswitch.New(cfg)
+	for i := range 9 {
+		if !cur.Police(fixedTime, "1/1/1", 1038) {
+			t.Fatalf("derive setup Police call %d refused, want admitted", i+1)
+		}
+	}
+	derived, err := vswitch.Derive(cur, cfg)
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if derived.Police(fixedTime, "1/1/1", 1038) {
+		t.Error("derived switch admitted from a fresh bucket, want carried token state")
 	}
 }
 
@@ -536,6 +715,27 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 		}
 		if !foundCap {
 			t.Errorf("expected capability change for vlan, got changes: %+v", changes)
+		}
+	})
+
+	t.Run("traffic mirror changes", func(t *testing.T) {
+		cfgA := vswitch.Config{Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+			Name:       "m1",
+			SelectAll:  true,
+			OutputPort: "1/1/4",
+			SnapLen:    64,
+		}}}}
+		cfgB := cfgA.Clone()
+		cfgB.Traffic.Mirrors[0].SnapLen = 128
+
+		changes := vswitch.Diff(cfgA, cfgB)
+		if len(changes) != 1 {
+			t.Fatalf("got %d changes, want 1: %+v", len(changes), changes)
+		}
+		ch := changes[0]
+		if ch.Layer != port.LayerTraffic || ch.Subject.Kind != "mirror" || ch.Subject.Key != "m1" ||
+			ch.Field != "snap_len" || ch.From != 64 || ch.To != 128 {
+			t.Errorf("unexpected mirror change: %+v", ch)
 		}
 	})
 }

@@ -44,11 +44,14 @@ const (
 	ReasonNoMember trace.Reason = "no-member"
 )
 
-// Egress records the transmission or per-port drop of a frame on a specific egress port.
+// Egress records the transmission or per-port drop of a frame on a specific
+// egress port. PCP is the classified ingress priority, including when Frame no
+// longer carries a VLAN tag on an untagged egress.
 type Egress struct {
 	Port    string
 	Member  string
 	Frame   ethernet.Frame
+	PCP     vlan.PCP
 	Dropped trace.Reason
 }
 

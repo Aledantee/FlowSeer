@@ -34,6 +34,9 @@ const (
 
 	// LayerRouting identifies the layer 3 routing capability.
 	LayerRouting trace.Layer = "routing"
+
+	// LayerTraffic identifies mirroring, policing, and egress queue configuration.
+	LayerTraffic trace.Layer = "traffic"
 )
 
 const (

@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
@@ -27,7 +28,9 @@ type Emission struct {
 }
 
 // Switch simulates a network device composed of a port table and optional
-// physical-layer, bridge, link aggregation, spanning tree, and layer 3 routing subsystems.
+// physical-layer, bridge, link aggregation, spanning tree, layer 3 routing, and traffic subsystems.
+// [Switch.Copies] returns and clears the mirror copies produced by the most recent
+// [Switch.Forward]; [Switch.Peek] does not produce or change pending copies.
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
@@ -39,6 +42,9 @@ type Switch struct {
 	stp       *stp.Layer
 	lag       *lag.Layer
 	routing   *routing.Layer
+	traffic   *traffic.Config
+	buckets   map[string]*traffic.Bucket
+	copies    []traffic.Copy
 	emissions []Emission
 	portP2P   map[string]bool
 	portSpeed map[string]uint64
@@ -139,6 +145,13 @@ func New(cfg Config) *Switch {
 	if cloned.Routing != nil {
 		sw.routing = routing.New(*cloned.Routing)
 	}
+	if cloned.Traffic != nil {
+		sw.traffic = cloned.Traffic
+		sw.buckets = make(map[string]*traffic.Bucket, len(cloned.Traffic.Policers))
+		for name, policer := range cloned.Traffic.Policers {
+			sw.buckets[name] = traffic.NewBucket(policer)
+		}
+	}
 
 	return sw
 }
@@ -146,6 +159,35 @@ func New(cfg Config) *Switch {
 // Config returns an independent deep copy of the switch configuration.
 func (s *Switch) Config() Config {
 	return s.cfg.Clone()
+}
+
+// Copies returns and clears mirror copies produced by the most recent call to
+// [Switch.Forward]. Calls to [Switch.Peek] leave pending copies unchanged.
+func (s *Switch) Copies() []traffic.Copy {
+	copies := s.copies
+	s.copies = nil
+
+	return copies
+}
+
+// Police admits octets through the configured ingress policer for port. A port
+// without a policer always admits the traffic.
+func (s *Switch) Police(now time.Time, name string, octets int) bool {
+	bucket, ok := s.buckets[name]
+	if !ok {
+		return true
+	}
+
+	return bucket.Admit(now, octets)
+}
+
+// QueueMaxRate returns the configured maximum bit rate for a port and priority.
+func (s *Switch) QueueMaxRate(name string, pcp vlan.PCP) (uint64, bool) {
+	if s.traffic == nil {
+		return 0, false
+	}
+
+	return s.traffic.MaxRate(name, pcp)
 }
 
 // Ports returns a copy of the switch port table.
@@ -238,16 +280,34 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) bridge.Re
 	return s.forward(now, ingress, f, false)
 }
 
-func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) bridge.Result {
+func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	if mutate {
+		s.copies = nil
+	}
+	if s.isMirrorOutputPort(ingress) {
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  traffic.ReasonMirrorOutput,
+				Steps: []trace.Step{{
+					Layer:  port.LayerTraffic,
+					Op:     trace.OpDrop,
+					Detail: "mirror-output",
+				}},
+			},
+			Ingress: ingress,
+		}
+	}
+
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
-			return s.interceptLACP(now, ingress, f, learn)
+			return s.interceptLACP(now, ingress, f, mutate)
 		}
 	}
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.interceptBPDU(now, ingress, f, learn)
+		return s.interceptBPDU(now, ingress, f, mutate)
 	}
 
 	if s.routing != nil {
@@ -255,7 +315,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		if resolved.Name != "" {
 			if iface, ok := s.routing.ByPort(resolved.Name); ok {
 				if reason != "" {
-					return bridge.Result{
+					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
 							Reason:  port.ReasonPortDown,
@@ -270,10 +330,11 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					return s.finishForward(ingress, f, res, mutate)
 				}
 
 				if !s.routing.Owns(iface, f) {
-					return bridge.Result{
+					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
 							Reason:  routing.ReasonNotBridged,
@@ -288,31 +349,104 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					return s.finishForward(ingress, f, res, mutate)
 				}
 
+				pcp, dei := framePriority(f)
 				routeRes := s.routing.Route(iface, f)
-				return s.assembleRouteResult(resolved.Name, 0, 0, false, nil, routeRes)
+				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
+				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
 	}
 
 	if s.bridge != nil {
-		in, res, ok := s.bridge.Ingress(now, ingress, f, learn)
+		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate)
 		if !ok {
-			return res
+			return s.finishForward(ingress, f, res, mutate)
 		}
 
 		if s.routing != nil {
 			if iface, ok := s.routing.ByVLAN(in.FID); ok && s.routing.Owns(iface, f) {
 				routeRes := s.routing.Route(iface, f)
-				return s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
 
-		return s.bridge.Egress(in, f)
+		return s.finishForward(ingress, f, s.bridge.Egress(in, f), mutate)
 	}
 
-	return s.forwardHub(ingress, f)
+	return s.finishForward(ingress, f, s.forwardHub(ingress, f), mutate)
+}
+
+func (s *Switch) finishForward(ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
+	if s.traffic == nil {
+		return res
+	}
+
+	reserved := false
+	transmitted := false
+	for i, egress := range res.Egress {
+		if !s.isMirrorOutputPort(egress.Port) {
+			if egress.Dropped == "" {
+				transmitted = true
+			}
+			continue
+		}
+
+		reserved = true
+		res.Egress[i] = bridge.Egress{
+			Port:    egress.Port,
+			Frame:   egress.Frame,
+			PCP:     egress.PCP,
+			Dropped: traffic.ReasonMirrorOutput,
+		}
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:  port.LayerTraffic,
+			Op:     trace.OpDrop,
+			Detail: fmt.Sprintf("port %s: mirror-output", egress.Port),
+		})
+	}
+	if reserved && !transmitted {
+		res.Outcome = trace.Dropped
+		res.Reason = traffic.ReasonMirrorOutput
+	}
+
+	if mutate {
+		var vlans *bridge.VLAN
+		if s.cfg.Bridge != nil {
+			vlans = s.cfg.Bridge.VLAN
+		}
+		s.copies = traffic.Copies(*s.traffic, vlans, ingress, res.FID, received, res.Egress)
+	}
+
+	return res
+}
+
+func (s *Switch) isMirrorOutputPort(name string) bool {
+	if s.traffic == nil {
+		return false
+	}
+	for _, mirror := range s.traffic.Mirrors {
+		if mirror.OutputPort == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
+	if len(f.Tags) == 0 {
+		return 0, false
+	}
+	outer := f.Tags[0]
+	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
+		return 0, false
+	}
+
+	return outer.PCP, outer.DEI
 }
 
 func (s *Switch) assembleRouteResult(
@@ -388,6 +522,7 @@ func (s *Switch) assembleRouteResult(
 					Port:    egressIface.Port,
 					Member:  member,
 					Frame:   routeRes.Frame,
+					PCP:     ingressPCP,
 					Dropped: txReason,
 				},
 			},
@@ -415,6 +550,7 @@ func (s *Switch) assembleRouteResult(
 					{
 						Port:    egressIface.Port,
 						Frame:   routeRes.Frame,
+						PCP:     ingressPCP,
 						Dropped: bridge.ReasonNoMember,
 					},
 				},
@@ -440,6 +576,7 @@ func (s *Switch) assembleRouteResult(
 				Port:   egressIface.Port,
 				Member: member,
 				Frame:  routeRes.Frame,
+				PCP:    ingressPCP,
 			},
 		},
 	}
@@ -457,6 +594,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
+	pcp, _ := framePriority(f)
 
 	p, ok := s.ports.Port(ingress)
 	if !ok {
@@ -512,6 +650,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			res.Egress = append(res.Egress, bridge.Egress{
 				Port:    cand.Name,
 				Frame:   f,
+				PCP:     pcp,
 				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
@@ -530,6 +669,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 				res.Egress = append(res.Egress, bridge.Egress{
 					Port:    cand.Name,
 					Frame:   f,
+					PCP:     pcp,
 					Dropped: bridge.ReasonNoMember,
 				})
 				res.Steps = append(res.Steps, trace.Step{
@@ -552,6 +692,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			Port:   cand.Name,
 			Member: member,
 			Frame:  f,
+			PCP:    pcp,
 		})
 		transmitted++
 	}
