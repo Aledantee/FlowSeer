@@ -2,7 +2,6 @@ package fabric
 
 import (
 	"cmp"
-	"math"
 	"net/netip"
 	"slices"
 	"time"
@@ -50,6 +49,28 @@ type Snapshot struct {
 	Queue   []Arrival
 	Links   []Link
 	Devices map[string]Device
+	Busy    map[Endpoint]time.Time
+}
+
+func wireOctets(frame ethernet.Frame) int {
+	raw, _ := frame.Encode()
+	n := len(raw)
+	minOctets := 60 + 4*len(frame.Tags)
+	if n < minOctets {
+		n = minOctets
+	}
+
+	return n + 24
+}
+
+func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
+	if rateBPS == 0 {
+		return 0
+	}
+	bits := uint64(wireOctets(frame)) * 8
+	nanos := (bits*1_000_000_000 + rateBPS - 1) / rateBPS
+
+	return time.Duration(nanos) * time.Nanosecond
 }
 
 // Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
@@ -67,6 +88,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		targetDevice string
 		targetPort   string
 		frame        ethernet.Frame
+		hostRef      *linkEndRef
 	)
 
 	if host, isHost := f.cfg.Hosts[inj.Origin.Node]; isHost {
@@ -118,8 +140,14 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 			frame.Tags = nil
 		}
 
-		targetDevice = ref.peer.Node
-		targetPort = ref.peer.Port
+		if ref.end.Speed.SpeedBPS == 0 {
+			return 0, errs.New().
+				Attr("host", inj.Origin.Node).
+				Attr("reason", ref.end.Reason).
+				Msgf("host %q link is down: %s", inj.Origin.Node, ref.end.Reason)
+		}
+
+		hostRef = &ref
 	} else if swCfg, isSwitch := f.cfg.Switches[inj.Origin.Node]; isSwitch {
 		if inj.Packet != nil {
 			return 0, errs.New().
@@ -154,17 +182,6 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	seq := f.nextSeq
 	f.nextSeq++
 
-	arr := Arrival{
-		At:      inj.At,
-		Seq:     seq,
-		Device:  targetDevice,
-		Port:    targetPort,
-		FrameID: fid,
-		Frame:   frame,
-		Corrupt: false,
-	}
-	f.enqueue(arr)
-
 	journey := &Journey{
 		FrameID:   fid,
 		Injection: inj,
@@ -178,6 +195,21 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		},
 	}
 	f.journeys[fid] = journey
+
+	if hostRef != nil {
+		f.transmitCable(inj.At, hostRef.end.Endpoint, *hostRef, frame, seq, fid, journey)
+	} else {
+		arr := Arrival{
+			At:      inj.At,
+			Seq:     seq,
+			Device:  targetDevice,
+			Port:    targetPort,
+			FrameID: fid,
+			Frame:   frame,
+			Corrupt: false,
+		}
+		f.enqueue(arr)
+	}
 
 	return fid, nil
 }
@@ -368,8 +400,27 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 		return
 	}
 
+	f.transmitCable(now, ref.end.Endpoint, ref, frame, seq, fid, journey)
+}
+
+func (f *Fabric) transmitCable(now time.Time, txEnd Endpoint, ref linkEndRef, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey) {
 	cable := ref.link.Cable
-	latency := cableLatency(cable.LengthMeters)
+	rate := ref.end.Speed.SpeedBPS
+	ser := serialization(frame, rate)
+
+	start := now
+	if busy, ok := f.busyUntil[txEnd]; ok && busy.After(start) {
+		start = busy
+	}
+	wait := start.Sub(now)
+	end := start.Add(ser)
+	f.busyUntil[txEnd] = end
+
+	prop := Propagation(cable.LengthMeters, cable.Medium)
+	if cable.Delay != nil {
+		prop = *cable.Delay
+	}
+	deliveryAt := end.Add(prop)
 
 	f.cableCrossings[cable.A]++
 	count := f.cableCrossings[cable.A]
@@ -416,8 +467,6 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	}
 
 	farEnd := ref.peer.Endpoint
-	deliveryAt := now.Add(latency)
-
 	if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
 		if corrupt {
 			journey.Entries = append(journey.Entries, Entry{
@@ -448,12 +497,14 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	}
 
 	crossingEntry := Entry{
-		At:      now,
-		Kind:    EntryCrossing,
-		Device:  farEnd.Node,
-		Port:    farEnd.Port,
-		Cable:   &cableCopy,
-		Latency: latency,
+		At:            now,
+		Kind:          EntryCrossing,
+		Device:        farEnd.Node,
+		Port:          farEnd.Port,
+		Cable:         &cableCopy,
+		Latency:       prop,
+		Serialization: ser,
+		Wait:          wait,
 	}
 	journey.Entries = append(journey.Entries, crossingEntry)
 
@@ -573,24 +624,23 @@ func (f *Fabric) Snapshot() Snapshot {
 		}
 	}
 
+	var busy map[Endpoint]time.Time
+	for ep, until := range f.busyUntil {
+		if until.After(f.clock) {
+			if busy == nil {
+				busy = make(map[Endpoint]time.Time)
+			}
+			busy[ep] = until
+		}
+	}
+
 	return Snapshot{
 		Clock:   f.clock,
 		Queue:   q,
 		Links:   links,
 		Devices: devices,
+		Busy:    busy,
 	}
-}
-
-func cableLatency(lengthMeters float64) time.Duration {
-	if lengthMeters <= 0 {
-		return 0
-	}
-
-	const lightSpeedMPS = 299792458.0
-	seconds := lengthMeters / ((2.0 / 3.0) * lightSpeedMPS)
-	nanoseconds := math.Round(seconds * 1e9)
-
-	return time.Duration(nanoseconds) * time.Nanosecond
 }
 
 func (f *Fabric) initRunState() {
@@ -602,6 +652,9 @@ func (f *Fabric) initRunState() {
 	}
 	if f.cableCrossings == nil {
 		f.cableCrossings = make(map[Endpoint]uint)
+	}
+	if f.busyUntil == nil {
+		f.busyUntil = make(map[Endpoint]time.Time)
 	}
 	if f.wakes == nil {
 		f.wakes = make(map[string]time.Time)

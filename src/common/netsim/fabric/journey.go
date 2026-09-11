@@ -51,14 +51,16 @@ const (
 
 // Entry records a single discrete event or hop in a frame's traversal of the network fabric.
 type Entry struct {
-	At      time.Time
-	Kind    EntryKind
-	Device  string
-	Port    string
-	Cable   *Cable
-	Latency time.Duration
-	Result  *bridge.Result
-	Reason  trace.Reason
+	At            time.Time
+	Kind          EntryKind
+	Device        string
+	Port          string
+	Cable         *Cable
+	Latency       time.Duration
+	Serialization time.Duration
+	Wait          time.Duration
+	Result        *bridge.Result
+	Reason        trace.Reason
 }
 
 // Journey records the complete traversal history and deliveries of an injected frame across the fabric.

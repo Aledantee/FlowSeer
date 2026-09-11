@@ -32,6 +32,7 @@ type Fabric struct {
 	journeys       map[FrameID]*Journey
 	entered        map[FrameID]map[Endpoint]bool
 	cableCrossings map[Endpoint]uint
+	busyUntil      map[Endpoint]time.Time
 	counters       map[Endpoint]*Counters
 }
 

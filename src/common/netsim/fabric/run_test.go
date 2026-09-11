@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -259,6 +261,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 
 	expectedKinds := []fabric.EntryKind{
 		fabric.EntryInjection,
+		fabric.EntryCrossing,
 		fabric.EntryHop,
 		fabric.EntryCrossing,
 		fabric.EntryHop,
@@ -277,26 +280,29 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Errorf("injection entry origin = (%q, %q), want (h1, '')", j1.Entries[0].Device, j1.Entries[0].Port)
 	}
 	if j1.Entries[1].Device != "sw1" || j1.Entries[1].Port != "1/1/1" {
-		t.Errorf("sw1 hop = (%q, %q), want (sw1, 1/1/1)", j1.Entries[1].Device, j1.Entries[1].Port)
+		t.Errorf("host crossing = (%q, %q), want (sw1, 1/1/1)", j1.Entries[1].Device, j1.Entries[1].Port)
 	}
-	if j1.Entries[1].Result.Outcome != trace.Flooded {
-		t.Errorf("sw1 outcome = %v, want Flooded", j1.Entries[1].Result.Outcome)
+	if j1.Entries[2].Device != "sw1" || j1.Entries[2].Port != "1/1/1" {
+		t.Errorf("sw1 hop = (%q, %q), want (sw1, 1/1/1)", j1.Entries[2].Device, j1.Entries[2].Port)
 	}
-	if j1.Entries[2].Device != "sw2" || j1.Entries[2].Port != "1/1/24" {
-		t.Errorf("crossing far end = (%q, %q), want (sw2, 1/1/24)", j1.Entries[2].Device, j1.Entries[2].Port)
-	}
-	wantLatency := 1501 * time.Nanosecond
-	if j1.Entries[2].Latency != wantLatency {
-		t.Errorf("crossing latency = %v, want %v", j1.Entries[2].Latency, wantLatency)
+	if j1.Entries[2].Result.Outcome != trace.Flooded {
+		t.Errorf("sw1 outcome = %v, want Flooded", j1.Entries[2].Result.Outcome)
 	}
 	if j1.Entries[3].Device != "sw2" || j1.Entries[3].Port != "1/1/24" {
-		t.Errorf("sw2 hop = (%q, %q), want (sw2, 1/1/24)", j1.Entries[3].Device, j1.Entries[3].Port)
+		t.Errorf("crossing far end = (%q, %q), want (sw2, 1/1/24)", j1.Entries[3].Device, j1.Entries[3].Port)
 	}
-	if j1.Entries[3].Result.Outcome != trace.Flooded {
-		t.Errorf("sw2 outcome = %v, want Flooded", j1.Entries[3].Result.Outcome)
+	wantLatency := 1494 * time.Nanosecond
+	if j1.Entries[3].Latency != wantLatency {
+		t.Errorf("crossing latency = %v, want %v", j1.Entries[3].Latency, wantLatency)
 	}
-	if j1.Entries[4].Device != "h2" {
-		t.Errorf("delivery device = %q, want h2", j1.Entries[4].Device)
+	if j1.Entries[4].Device != "sw2" || j1.Entries[4].Port != "1/1/24" {
+		t.Errorf("sw2 hop = (%q, %q), want (sw2, 1/1/24)", j1.Entries[4].Device, j1.Entries[4].Port)
+	}
+	if j1.Entries[4].Result.Outcome != trace.Flooded {
+		t.Errorf("sw2 outcome = %v, want Flooded", j1.Entries[4].Result.Outcome)
+	}
+	if j1.Entries[5].Device != "h2" {
+		t.Errorf("delivery device = %q, want h2", j1.Entries[5].Device)
 	}
 
 	if len(j1.Deliveries) != 1 {
@@ -340,11 +346,11 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	if j2.FrameID != fid2 {
 		t.Errorf("j2.FrameID = %d, want %d", j2.FrameID, fid2)
 	}
-	if j2.Entries[1].Result.Outcome != trace.Forwarded {
-		t.Errorf("sw2 reverse hop outcome = %v, want Forwarded", j2.Entries[1].Result.Outcome)
+	if j2.Entries[2].Result.Outcome != trace.Forwarded {
+		t.Errorf("sw2 reverse hop outcome = %v, want Forwarded", j2.Entries[2].Result.Outcome)
 	}
-	if j2.Entries[3].Result.Outcome != trace.Forwarded {
-		t.Errorf("sw1 reverse hop outcome = %v, want Forwarded", j2.Entries[3].Result.Outcome)
+	if j2.Entries[4].Result.Outcome != trace.Forwarded {
+		t.Errorf("sw1 reverse hop outcome = %v, want Forwarded", j2.Entries[4].Result.Outcome)
 	}
 	if len(j2.Deliveries) != 1 || j2.Deliveries[0].Host != "h1" {
 		t.Errorf("j2 deliveries = %+v, want 1 delivery to h1", j2.Deliveries)
@@ -382,12 +388,12 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 	if q0.Device != "sw2" || q0.Port != "1/1/24" {
 		t.Errorf("queued arrival = (%q, %q), want (sw2, 1/1/24)", q0.Device, q0.Port)
 	}
-	wantAt := t0.Add(1501 * time.Nanosecond)
+	wantAt := t0.Add(2870 * time.Nanosecond)
 	if !q0.At.Equal(wantAt) {
 		t.Errorf("queued arrival At = %v, want %v", q0.At, wantAt)
 	}
-	if !snap1.Clock.Equal(t0) {
-		t.Errorf("snap1.Clock = %v, want %v", snap1.Clock, t0)
+	if !snap1.Clock.Equal(t0.Add(672 * time.Nanosecond)) {
+		t.Errorf("snap1.Clock = %v, want %v", snap1.Clock, t0.Add(672*time.Nanosecond))
 	}
 
 	sw1Entries := snap1.Devices["sw1"].Entries
@@ -457,10 +463,10 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	expectedSteps := []stepExpectation{
-		{device: "sw1", port: "1/1/1", at: t0},
-		{device: "sw2", port: "1/1/1", at: t0.Add(time.Microsecond)},
-		{device: "sw2", port: "1/1/24", at: t0.Add(1501 * time.Nanosecond)},
-		{device: "sw1", port: "1/1/24", at: t0.Add(2501 * time.Nanosecond)},
+		{device: "sw1", port: "1/1/1", at: t0.Add(672 * time.Nanosecond)},
+		{device: "sw2", port: "1/1/1", at: t0.Add(1672 * time.Nanosecond)},
+		{device: "sw2", port: "1/1/24", at: t0.Add(2870 * time.Nanosecond)},
+		{device: "sw1", port: "1/1/24", at: t0.Add(3870 * time.Nanosecond)},
 	}
 
 	for i, want := range expectedSteps {
@@ -851,14 +857,18 @@ func TestHostTagFormHandling(t *testing.T) {
 			t.Errorf("deliveries = %d, want 0", len(j.Deliveries))
 		}
 
-		if len(j.Entries) != 3 {
-			t.Fatalf("len(j.Entries) = %d, want 3 (Injection, Hop, Drop)", len(j.Entries))
+		if len(j.Entries) != 4 {
+			t.Fatalf("len(j.Entries) = %d, want 4 (Injection, Crossing, Hop, Drop)", len(j.Entries))
 		}
-		hop := j.Entries[1]
+		crossing := j.Entries[1]
+		if crossing.Kind != fabric.EntryCrossing {
+			t.Errorf("crossing = %+v, want EntryCrossing", crossing)
+		}
+		hop := j.Entries[2]
 		if hop.Kind != fabric.EntryHop || hop.Result.Outcome != trace.Dropped || hop.Result.Reason != bridge.ReasonAdmission {
 			t.Errorf("hop = %+v, want Dropped with ReasonAdmission", hop)
 		}
-		drop := j.Entries[2]
+		drop := j.Entries[3]
 		if drop.Kind != fabric.EntryDrop || drop.Reason != bridge.ReasonAdmission {
 			t.Errorf("drop = %+v, want Drop with ReasonAdmission", drop)
 		}
@@ -1441,3 +1451,665 @@ func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 		t.Errorf("default route 0.0.0.0/0 -> %v not found in routes: %+v", gateway, vrf.Routes)
 	}
 }
+
+func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
+	b1 := port.NewBuilder()
+	b1.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable1, err := b1.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b2 := port.NewBuilder()
+	b2.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable2, err := b2.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vid10 := vlan.ID(10)
+	cfg := fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports: pTable1,
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table: map[vlan.ID]string{10: "VLAN10"},
+						Switchports: map[string]bridge.Switchport{
+							"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/2":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/24": {Tagged: []vlan.ID{10}},
+						},
+					},
+				},
+			},
+			"sw2": {
+				Ports: pTable2,
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table: map[vlan.ID]string{10: "VLAN10"},
+						Switchports: map[string]bridge.Switchport{
+							"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/24": {Tagged: []vlan.ID{10}},
+						},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
+			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
+			"h3": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{
+				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
+				LengthMeters: 300,
+				Medium:       fabric.MultimodeFiber,
+			},
+			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	payload46 := make([]byte, 46)
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+			Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Payload: payload46,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject h1: %v", err)
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h3"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+			Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02},
+			Payload: payload46,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject h3: %v", err)
+	}
+
+	step1, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 1 returned ok=false")
+	}
+	step2, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 2 returned ok=false")
+	}
+
+	if step1.At != t0.Add(672*time.Nanosecond) {
+		t.Errorf("step 1 at sw1 At = %v, want %v", step1.At, t0.Add(672*time.Nanosecond))
+	}
+	if step2.At != t0.Add(672*time.Nanosecond) {
+		t.Errorf("step 2 at sw1 At = %v, want %v", step2.At, t0.Add(672*time.Nanosecond))
+	}
+
+	trunkEP := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
+	snap := fab.Snapshot()
+	wantBusy := t0.Add(672*time.Nanosecond + 1408*time.Nanosecond)
+	if gotBusy := snap.Busy[trunkEP]; !gotBusy.Equal(wantBusy) {
+		t.Errorf("snap.Busy[%v] = %v, want %v", trunkEP, gotBusy, wantBusy)
+	}
+
+	step3, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 3 returned ok=false")
+	}
+	step4, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 4 returned ok=false")
+	}
+
+	if step3.Device != "sw2" || step4.Device != "sw2" {
+		t.Fatalf("step3/4 devices = %q, %q, want sw2, sw2", step3.Device, step4.Device)
+	}
+	if diff := step4.At.Sub(step3.At); diff != 704*time.Nanosecond {
+		t.Errorf("sw2 hops difference = %v, want 704ns (step3=%v, step4=%v)", diff, step3.At, step4.At)
+	}
+
+	journeys := fab.Report()
+	if len(journeys) != 2 {
+		t.Fatalf("len(journeys) = %d, want 2", len(journeys))
+	}
+
+	findTrunkCrossing := func(j fabric.Journey) fabric.Entry {
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryCrossing && e.Device == "sw2" && e.Port == "1/1/24" {
+				return e
+			}
+		}
+		t.Fatalf("trunk crossing not found in journey %d", j.FrameID)
+		return fabric.Entry{}
+	}
+
+	c1 := findTrunkCrossing(journeys[0])
+	c2 := findTrunkCrossing(journeys[1])
+
+	if c1.Wait != 0 {
+		t.Errorf("first trunk crossing Wait = %v, want 0", c1.Wait)
+	}
+	if c2.Wait != 704*time.Nanosecond {
+		t.Errorf("second trunk crossing Wait = %v, want 704ns", c2.Wait)
+	}
+}
+
+func TestSerializationAndPropagationTiming(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	payload46 := make([]byte, 46)
+
+	inj := fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     macH1,
+			Dst:     macH2,
+			Payload: payload46,
+		},
+	}
+
+	if _, err := fab.Inject(inj); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	fab.Run(10)
+
+	journeys := fab.Report()
+	if len(journeys) != 1 {
+		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
+	}
+
+	j := journeys[0]
+	if len(j.Entries) != 6 {
+		t.Fatalf("len(j.Entries) = %d, want 6", len(j.Entries))
+	}
+
+	e1 := j.Entries[1]
+	if e1.Kind != fabric.EntryCrossing || e1.Device != "sw1" || e1.Port != "1/1/1" {
+		t.Errorf("e1 = %+v, want crossing to sw1:1/1/1", e1)
+	}
+	if e1.Serialization != 672*time.Nanosecond {
+		t.Errorf("e1.Serialization = %v, want 672ns", e1.Serialization)
+	}
+	if e1.Wait != 0 {
+		t.Errorf("e1.Wait = %v, want 0", e1.Wait)
+	}
+	if e1.Latency != 0 {
+		t.Errorf("e1.Latency = %v, want 0", e1.Latency)
+	}
+
+	e2 := j.Entries[2]
+	if e2.Kind != fabric.EntryHop || e2.Device != "sw1" || !e2.At.Equal(t0.Add(672*time.Nanosecond)) {
+		t.Errorf("e2 = %+v, want hop on sw1 at t0+672ns", e2)
+	}
+
+	e3 := j.Entries[3]
+	if e3.Kind != fabric.EntryCrossing || e3.Device != "sw2" || e3.Port != "1/1/24" {
+		t.Errorf("e3 = %+v, want crossing to sw2:1/1/24", e3)
+	}
+	if e3.Serialization != 704*time.Nanosecond {
+		t.Errorf("e3.Serialization = %v, want 704ns", e3.Serialization)
+	}
+	if e3.Latency != 1494*time.Nanosecond {
+		t.Errorf("e3.Latency = %v, want 1494ns", e3.Latency)
+	}
+
+	e4 := j.Entries[4]
+	if e4.Kind != fabric.EntryHop || e4.Device != "sw2" || !e4.At.Equal(t0.Add(2870*time.Nanosecond)) {
+		t.Errorf("e4 = %+v, want hop on sw2 at t0+2870ns", e4)
+	}
+
+	e5 := j.Entries[5]
+	if e5.Kind != fabric.EntryDelivery || e5.Device != "h2" || !e5.At.Equal(t0.Add(3542*time.Nanosecond)) {
+		t.Errorf("e5 = %+v, want delivery to h2 at t0+3542ns", e5)
+	}
+
+	if len(j.Deliveries) != 1 {
+		t.Fatalf("len(j.Deliveries) = %d, want 1", len(j.Deliveries))
+	}
+	if !j.Deliveries[0].At.Equal(t0.Add(3542 * time.Nanosecond)) {
+		t.Errorf("delivery At = %v, want t0+3542ns", j.Deliveries[0].At)
+	}
+}
+
+func TestDelayOverrideOnTrunk(t *testing.T) {
+	testDelay := func(t *testing.T, delayOverride time.Duration, wantHopSw2 time.Duration) {
+		b1 := port.NewBuilder()
+		b1.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		pTable1, _ := b1.Build()
+
+		b2 := port.NewBuilder()
+		b2.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		pTable2, _ := b2.Build()
+
+		vid10 := vlan.ID(10)
+		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+		macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+		cfg := fabric.Config{
+			Switches: map[string]vswitch.Config{
+				"sw1": {
+					Ports: pTable1,
+					Bridge: &bridge.Config{
+						VLAN: &bridge.VLAN{
+							Table: map[vlan.ID]string{10: "VLAN10"},
+							Switchports: map[string]bridge.Switchport{
+								"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+								"1/1/24": {Tagged: []vlan.ID{10}},
+							},
+						},
+					},
+				},
+				"sw2": {
+					Ports: pTable2,
+					Bridge: &bridge.Config{
+						VLAN: &bridge.VLAN{
+							Table: map[vlan.ID]string{10: "VLAN10"},
+							Switchports: map[string]bridge.Switchport{
+								"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+								"1/1/24": {Tagged: []vlan.ID{10}},
+							},
+						},
+					},
+				},
+			},
+			Hosts: map[string]fabric.Host{
+				"h1": {Address: macH1},
+				"h2": {Address: macH2},
+			},
+			Cables: []fabric.Cable{
+				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+				{
+					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+					B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
+					LengthMeters: 300,
+					Medium:       fabric.MultimodeFiber,
+					Delay:        &delayOverride,
+				},
+				{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
+			},
+		}
+
+		fab, err := fabric.New(cfg)
+		if err != nil {
+			t.Fatalf("New fabric: %v", err)
+		}
+
+		t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+		payload46 := make([]byte, 46)
+
+		if _, err := fab.Inject(fabric.Injection{
+			At:     t0,
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame: ethernet.Frame{
+				Src:     macH1,
+				Dst:     macH2,
+				Payload: payload46,
+			},
+		}); err != nil {
+			t.Fatalf("Inject: %v", err)
+		}
+
+		fab.Run(10)
+
+		journeys := fab.Report()
+		if len(journeys) != 1 {
+			t.Fatalf("len(journeys) = %d, want 1", len(journeys))
+		}
+
+		hopSw2 := journeys[0].Entries[4]
+		if hopSw2.Device != "sw2" || hopSw2.Kind != fabric.EntryHop {
+			t.Fatalf("Entries[4] = %+v, want hop on sw2", hopSw2)
+		}
+		wantAt := t0.Add(wantHopSw2)
+		if !hopSw2.At.Equal(wantAt) {
+			t.Errorf("hop on sw2 At = %v, want %v", hopSw2.At, wantAt)
+		}
+	}
+
+	t.Run("Delay 10 microseconds", func(t *testing.T) {
+		testDelay(t, 10*time.Microsecond, 11376*time.Nanosecond)
+	})
+	t.Run("Delay 0", func(t *testing.T) {
+		testDelay(t, 0, 1376*time.Nanosecond)
+	})
+}
+
+func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
+	eth1G10G := phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000, 10_000_000_000}}
+
+	b1 := port.NewBuilder()
+	b1.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable1, _ := b1.Build()
+
+	b2 := port.NewBuilder()
+	b2.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable2, _ := b2.Build()
+
+	vid10 := vlan.ID(10)
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+	cfg := fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports: pTable1,
+				Phy:   &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/24": eth1G10G}},
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table: map[vlan.ID]string{10: "VLAN10"},
+						Switchports: map[string]bridge.Switchport{
+							"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/24": {Tagged: []vlan.ID{10}},
+						},
+					},
+				},
+			},
+			"sw2": {
+				Ports: pTable2,
+				Phy:   &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/24": eth1G10G}},
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table: map[vlan.ID]string{10: "VLAN10"},
+						Switchports: map[string]bridge.Switchport{
+							"1/1/1":  {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/24": {Tagged: []vlan.ID{10}},
+						},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{
+				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
+				LengthMeters: 10000,
+				Medium:       fabric.SinglemodeFiber,
+			},
+			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	links := fab.Links()
+	var trunkLink *fabric.Link
+	for i := range links {
+		l := &links[i]
+		if (l.A.Endpoint == fabric.Endpoint{Node: "sw1", Port: "1/1/24"} && l.B.Endpoint == fabric.Endpoint{Node: "sw2", Port: "1/1/24"}) ||
+			(l.B.Endpoint == fabric.Endpoint{Node: "sw1", Port: "1/1/24"} && l.A.Endpoint == fabric.Endpoint{Node: "sw2", Port: "1/1/24"}) {
+			trunkLink = l
+			break
+		}
+	}
+	if trunkLink == nil {
+		t.Fatal("trunk link not found")
+	}
+	if trunkLink.A.Speed.SpeedBPS != 10_000_000_000 {
+		t.Fatalf("trunk negotiated speed = %d, want 10G", trunkLink.A.Speed.SpeedBPS)
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	payload46 := make([]byte, 46)
+
+	if _, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     macH1,
+			Dst:     macH2,
+			Payload: payload46,
+		},
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	fab.Run(10)
+
+	journeys := fab.Report()
+	if len(journeys) != 1 {
+		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
+	}
+
+	trunkCrossing := journeys[0].Entries[3]
+	if trunkCrossing.Kind != fabric.EntryCrossing || trunkCrossing.Device != "sw2" || trunkCrossing.Port != "1/1/24" {
+		t.Fatalf("Entries[3] = %+v, want trunk crossing to sw2:1/1/24", trunkCrossing)
+	}
+	if trunkCrossing.Serialization != 71*time.Nanosecond {
+		t.Errorf("trunk crossing Serialization = %v, want 71ns", trunkCrossing.Serialization)
+	}
+	if trunkCrossing.Latency != 49786*time.Nanosecond {
+		t.Errorf("trunk crossing Latency = %v, want 49786ns", trunkCrossing.Latency)
+	}
+}
+
+func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
+	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	payload46 := make([]byte, 46)
+
+	_, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     macH1,
+			Dst:     macH2,
+			Payload: payload46,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject 1: %v", err)
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     macH1,
+			Dst:     macH2,
+			Payload: payload46,
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject 2: %v", err)
+	}
+
+	step1, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 1 ok=false")
+	}
+	step2, ok := fab.Step()
+	if !ok {
+		t.Fatal("step 2 ok=false")
+	}
+
+	if !step1.At.Equal(t0.Add(672 * time.Nanosecond)) {
+		t.Errorf("step 1 At = %v, want t0+672ns", step1.At)
+	}
+	if !step2.At.Equal(t0.Add(1344 * time.Nanosecond)) {
+		t.Errorf("step 2 At = %v, want t0+1344ns", step2.At)
+	}
+
+	journeys := fab.Report()
+	if len(journeys) != 2 {
+		t.Fatalf("len(journeys) = %d, want 2", len(journeys))
+	}
+
+	j2HostCrossing := journeys[1].Entries[1]
+	if j2HostCrossing.Kind != fabric.EntryCrossing {
+		t.Fatalf("j2.Entries[1] = %+v, want EntryCrossing", j2HostCrossing)
+	}
+	if j2HostCrossing.Wait != 672*time.Nanosecond {
+		t.Errorf("second journey host crossing Wait = %v, want 672ns", j2HostCrossing.Wait)
+	}
+}
+
+func TestInjectFromHostWithReachExceededCableReturnsError(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable, _ := b.Build()
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	cfg := fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: pTable},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+		},
+		Cables: []fabric.Cable{
+			{
+				A:            fabric.Endpoint{Node: "h1"},
+				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				LengthMeters: 300,
+				Medium:       fabric.TwistedPair,
+			},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	_, err = fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src:     macH1,
+			Dst:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+			Payload: make([]byte, 46),
+		},
+	})
+	if err == nil {
+		t.Fatal("Inject from reach-exceeded host: got err == nil, want error")
+	}
+	if !strings.Contains(err.Error(), "reach-exceeded") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "reach-exceeded")
+	}
+	if len(fab.Snapshot().Queue) != 0 {
+		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
+	}
+}
+
+func TestBPDUCrossingCarriesSerialization(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b1 := port.NewBuilder()
+	b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports1, err := b1.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b2 := port.NewBuilder()
+	b2.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports2, err := b2.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports1,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  mac1,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+					},
+				},
+			},
+			"sw2": {
+				Ports:  ports2,
+				Bridge: &bridge.Config{},
+			},
+		},
+		Cables: []fabric.Cable{
+			{
+				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+				LengthMeters: 100,
+				Medium:       fabric.TwistedPair,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	for {
+		entry, ok := fab.Step()
+		if !ok || entry.Device == "sw2" {
+			break
+		}
+	}
+
+	journeys := fab.Report()
+	if len(journeys) == 0 {
+		t.Fatal("expected at least one journey")
+	}
+
+	var bpduJourney *fabric.Journey
+	for i := range journeys {
+		if journeys[i].Protocol {
+			bpduJourney = &journeys[i]
+			break
+		}
+	}
+	if bpduJourney == nil {
+		t.Fatal("expected a protocol journey")
+	}
+
+	var crossing *fabric.Entry
+	for i := range bpduJourney.Entries {
+		if bpduJourney.Entries[i].Kind == fabric.EntryCrossing {
+			crossing = &bpduJourney.Entries[i]
+			break
+		}
+	}
+	if crossing == nil {
+		t.Fatal("expected crossing entry in BPDU journey")
+	}
+	if crossing.Serialization != 672*time.Nanosecond {
+		t.Errorf("crossing.Serialization = %v, want 672ns", crossing.Serialization)
+	}
+	if crossing.Latency != 521*time.Nanosecond {
+		t.Errorf("crossing.Latency = %v, want 521ns", crossing.Latency)
+	}
+}
+

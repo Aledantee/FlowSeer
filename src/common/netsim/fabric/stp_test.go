@@ -318,6 +318,9 @@ func TestObservableStepConvergence(t *testing.T) {
 			for _, e := range j.Entries {
 				if e.Kind == fabric.EntryCrossing {
 					sawProtocolCrossing = true
+					if e.Serialization <= 0 {
+						t.Errorf("expected BPDU crossing serialization > 0, got %v", e.Serialization)
+					}
 					break
 				}
 			}
