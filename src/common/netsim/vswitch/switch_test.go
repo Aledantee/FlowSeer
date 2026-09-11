@@ -1211,6 +1211,139 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 	}
 }
 
+func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	badFrame := ethernet.Frame{
+		Dst:     netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+		Src:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02},
+		Payload: []byte{0x01, 0x02, 0x03},
+	}
+
+	res := sw.Forward(now, "1/1/1", badFrame)
+	if res.Outcome != trace.Dropped {
+		t.Fatalf("Forward outcome = %q, want %q", res.Outcome, trace.Dropped)
+	}
+	if res.Reason != stp.ReasonUnsupportedBPDU {
+		t.Errorf("Forward reason = %q, want %q", res.Reason, stp.ReasonUnsupportedBPDU)
+	}
+	if got := sw.Roles()["1/1/1"].BadBPDUs; got != 1 {
+		t.Fatalf("Roles()[\"1/1/1\"].BadBPDUs = %d, want 1", got)
+	}
+
+	resPeek := sw.Peek(now, "1/1/1", badFrame)
+	if resPeek.Outcome != trace.Dropped {
+		t.Fatalf("Peek outcome = %q, want %q", resPeek.Outcome, trace.Dropped)
+	}
+	if resPeek.Reason != stp.ReasonUnsupportedBPDU {
+		t.Errorf("Peek reason = %q, want %q", resPeek.Reason, stp.ReasonUnsupportedBPDU)
+	}
+	if got := sw.Roles()["1/1/1"].BadBPDUs; got != 1 {
+		t.Errorf("Roles()[\"1/1/1\"].BadBPDUs after Peek = %d, want 1", got)
+	}
+}
+
+func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02}
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.Drain()
+
+	sw.Wake(t0.Add(2 * time.Second))
+	sw.Drain()
+
+	sw.Wake(t0.Add(4 * time.Second))
+	sw.Drain()
+
+	inferiorBridgeID := stp.BridgeID{
+		Priority: 61440,
+		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
+	}
+	inferiorBPDU := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       inferiorBridgeID,
+		BridgeID:     inferiorBridgeID,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	frame := stp.Encode(inferiorBPDU, inferiorBridgeID.Address)
+
+	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
+
+	emissions := sw.Drain()
+	if len(emissions) == 0 {
+		t.Fatal("Drain() returned 0 emissions, want reply emission")
+	}
+
+	var replyEmission *stp.Emission
+	for i := range emissions {
+		if emissions[i].Port == "1/1/1" {
+			replyEmission = &emissions[i]
+			break
+		}
+	}
+	if replyEmission == nil {
+		t.Fatalf("no emission found on port 1/1/1: %+v", emissions)
+	}
+
+	replyBPDU, err := stp.Decode(replyEmission.Frame)
+	if err != nil {
+		t.Fatalf("stp.Decode(replyEmission.Frame) failed: %v", err)
+	}
+	if replyBPDU.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("replyBPDU.Type = %v, want %v (Configuration)", replyBPDU.Type, stp.BPDUTypeConfiguration)
+	}
+	if sw.Roles()["1/1/1"].SendRSTP {
+		t.Errorf("Roles()[\"1/1/1\"].SendRSTP = true, want false")
+	}
+
+	sw.Mcheck(t0.Add(10*time.Second), "1/1/1")
+	if !sw.Roles()["1/1/1"].SendRSTP {
+		t.Errorf("Roles()[\"1/1/1\"].SendRSTP after Mcheck = false, want true")
+	}
+}
+
 func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).

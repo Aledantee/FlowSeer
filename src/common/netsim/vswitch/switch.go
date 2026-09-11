@@ -519,6 +519,10 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 
 	bpdu, err := stp.Decode(f)
 	if err != nil {
+		if mutate {
+			s.stp.BadBPDU(resolvedPort)
+		}
+
 		reason := stp.ReasonUnsupportedBPDU
 		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
 			reason = r
@@ -698,6 +702,21 @@ func (s *Switch) NextWake() (time.Time, bool) {
 	}
 
 	return s.stp.NextWake()
+}
+
+// Mcheck triggers protocol migration checking on the named port, forcing it to
+// transmit RSTP BPDUs and restarting the migration delay.
+// On a switch without spanning tree configuration, Mcheck is a no-op.
+func (s *Switch) Mcheck(now time.Time, port string) {
+	if s.stp == nil {
+		return
+	}
+	resolvedPort := port
+	if p, ok := s.ports.Resolve(port); ok {
+		resolvedPort = p.Name
+	}
+	fx := s.stp.Mcheck(now, resolvedPort)
+	s.applyEffects(fx)
 }
 
 // LinkChange notifies the spanning tree layer of a link transition on the named port,

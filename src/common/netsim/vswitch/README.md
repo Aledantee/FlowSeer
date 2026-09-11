@@ -168,6 +168,13 @@ Forwarding and allocation behavior follows standard specifications:
   allocate power by priority using IEEE 802.3 standard class limits (classes
   0 and 3 allocate 15.4 W; 1 allocates 4.0 W; 2 allocates 7.0 W; 4 allocates
   30.0 W; 5 through 8 allocate 45 W, 60 W, 75 W, and 90 W).
+- **Spanning tree timing and migration**: Protocol migration and bridge detection
+  follow IEEE 802.1D-2004 clauses 17.24 and 17.25 and Table 17-1. Transmit rate
+  limiting defaults to 6 frames per second per `spec/mib/ietf/RSTP-MIB:73`
+  (`dot1dStpTxHoldCount`), management protocol migration check follows
+  `spec/mib/ietf/RSTP-MIB:130` (`dot1dStpPortProtocolMigration`), and CIST
+  auto-edge follows `spec/mib/ieee/IEEE8021-MSTP-MIB-201806210000Z.mib:1426`
+  (`ieee8021MstpCistPortAutoEdgePort`).
 
 ## Loader defaults
 
@@ -224,6 +231,7 @@ The host drives it through explicit calls:
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
   relay's tables and tells the layer nothing, since only the caller knows
   whether a member's change moves its LAG; it follows with `LinkChange`.
+- `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `Wake(now)` fires due hello, forward delay, and topology change timers.
 - `NextWake()` reports the earliest deadline when the switch needs a wake.
 - `Drain()` returns and clears pending frame emissions produced by the layer.
@@ -234,6 +242,15 @@ On a switch configured with `stp.Config`, a frame addressed to
 outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
 switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
+
+A port that hears a version 0 BPDU after its 3 s migration delay sends
+Configuration BPDUs until `Mcheck` or an RST BPDU after another delay returns it
+to RSTP. Under `AutoEdge`, a proposing point-to-point port becomes an edge port
+after 3 s without receiving a BPDU; any received BPDU revokes that edge status.
+The transmit hold count (`TxHoldCount`, default 6 per second per port) caps
+transmission rates; held BPDUs leave at the next tick. `PortInfo` reports
+cumulative per-port counters for transmitted, received, and undecodable
+(`BadBPDUs`) frames alongside `SendRSTP`.
 
 ## Denied PoE port status
 
