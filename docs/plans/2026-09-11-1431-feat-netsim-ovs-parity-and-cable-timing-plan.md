@@ -265,7 +265,7 @@ protected ports, BPDU pass-through, and the loader's tunnel mode.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase3-plan.md`
 After: U2
-Landed:
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits 8e19ffcd through the schema, loader, and export commit and the review-fix commit that follows it.
 Change: auto-edge, protocol migration with legacy STP compatibility, the
 transmit hold count, per-port BPDU counters, and their export.
 

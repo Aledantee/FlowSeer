@@ -60,4 +60,10 @@ message BridgeState {
   // no topology change has been detected. Mirrors
   // dot1dStpTimeSinceTopologyChange (BRIDGE-MIB:352).
   google.protobuf.Duration time_since_topology_change = 13;
+  // Transmit hold count limiting BPDU transmissions per second. Absent means
+  // the source did not report it. Mirrors dot1dStpTxHoldCount (RSTP-MIB:73).
+  uint32 tx_hold_count = 14 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 10
+  ];
 }

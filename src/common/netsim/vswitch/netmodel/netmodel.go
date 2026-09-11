@@ -750,6 +750,14 @@ func Load(
 			if bridgeState.GetBridgeForwardDelay() != nil {
 				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
 			}
+			if bridgeState.HasTxHoldCount() {
+				stpCfg.TxHoldCount = uint8(bridgeState.GetTxHoldCount())
+			} else {
+				report.Defaults = append(report.Defaults, Default{
+					Field: "tx_hold_count",
+					Value: "6",
+				})
+			}
 
 			for _, ps := range stpPorts {
 				portName := ps.GetInterfaceName()
@@ -804,6 +812,7 @@ func Load(
 					Priority:     uint8(ps.GetPriority()),
 					PathCost:     adminPathCost,
 					AdminEdge:    ps.GetAdminEdge(),
+					AutoEdge:     ps.GetAutoEdge(),
 					PointToPoint: p2p,
 				}
 			}

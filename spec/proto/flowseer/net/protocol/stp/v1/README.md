@@ -31,3 +31,7 @@ The package's field and enum contracts cite:
 - [RFC 4318 (RSTP-MIB)](https://datatracker.ietf.org/doc/html/rfc4318) for the
   RSTP extension objects: administrative path costs, point-to-point modes, and
   edge port controls.
+- [IEEE8021-MSTP-MIB](https://www.ieee802.org/1/files/public/MIBs/IEEE8021-MSTP-MIB-201806210000Z.txt)
+  for the CIST auto-edge object; MSTP instances stay out.
+- [Open vSwitch lib/rstp-common.h (branch-3.3)](https://raw.githubusercontent.com/openvswitch/ovs/branch-3.3/lib/rstp-common.h)
+  for the per-port counters.

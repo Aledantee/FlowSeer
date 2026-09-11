@@ -24,26 +24,31 @@ const (
 // port. The port's administrative settings travel in the same message, so
 // this package deliberately has no PortConfig and no PortEvent.
 type PortState struct {
-	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InterfaceName      *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
-	xxx_hidden_Priority           uint32                 `protobuf:"varint,2,opt,name=priority"`
-	xxx_hidden_AdminPathCost      uint32                 `protobuf:"varint,3,opt,name=admin_path_cost,json=adminPathCost"`
-	xxx_hidden_PathCost           uint32                 `protobuf:"varint,4,opt,name=path_cost,json=pathCost"`
-	xxx_hidden_Role               PortRole               `protobuf:"varint,5,opt,name=role,enum=flowseer.net.protocol.stp.v1.PortRole"`
-	xxx_hidden_State              ForwardingState        `protobuf:"varint,6,opt,name=state,enum=flowseer.net.protocol.stp.v1.ForwardingState"`
-	xxx_hidden_DesignatedRoot     *BridgeId              `protobuf:"bytes,7,opt,name=designated_root,json=designatedRoot"`
-	xxx_hidden_DesignatedCost     uint32                 `protobuf:"varint,8,opt,name=designated_cost,json=designatedCost"`
-	xxx_hidden_DesignatedBridge   *BridgeId              `protobuf:"bytes,9,opt,name=designated_bridge,json=designatedBridge"`
-	xxx_hidden_DesignatedPort     uint32                 `protobuf:"varint,10,opt,name=designated_port,json=designatedPort"`
-	xxx_hidden_AdminEdge          bool                   `protobuf:"varint,11,opt,name=admin_edge,json=adminEdge"`
-	xxx_hidden_OperEdge           bool                   `protobuf:"varint,12,opt,name=oper_edge,json=operEdge"`
-	xxx_hidden_PointToPoint       PointToPointMode       `protobuf:"varint,13,opt,name=point_to_point,json=pointToPoint,enum=flowseer.net.protocol.stp.v1.PointToPointMode"`
-	xxx_hidden_OperPointToPoint   bool                   `protobuf:"varint,14,opt,name=oper_point_to_point,json=operPointToPoint"`
-	xxx_hidden_ForwardTransitions uint64                 `protobuf:"varint,15,opt,name=forward_transitions,json=forwardTransitions"`
-	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
-	XXX_presence                  [1]uint32
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	state                          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_InterfaceName       *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
+	xxx_hidden_Priority            uint32                 `protobuf:"varint,2,opt,name=priority"`
+	xxx_hidden_AdminPathCost       uint32                 `protobuf:"varint,3,opt,name=admin_path_cost,json=adminPathCost"`
+	xxx_hidden_PathCost            uint32                 `protobuf:"varint,4,opt,name=path_cost,json=pathCost"`
+	xxx_hidden_Role                PortRole               `protobuf:"varint,5,opt,name=role,enum=flowseer.net.protocol.stp.v1.PortRole"`
+	xxx_hidden_State               ForwardingState        `protobuf:"varint,6,opt,name=state,enum=flowseer.net.protocol.stp.v1.ForwardingState"`
+	xxx_hidden_DesignatedRoot      *BridgeId              `protobuf:"bytes,7,opt,name=designated_root,json=designatedRoot"`
+	xxx_hidden_DesignatedCost      uint32                 `protobuf:"varint,8,opt,name=designated_cost,json=designatedCost"`
+	xxx_hidden_DesignatedBridge    *BridgeId              `protobuf:"bytes,9,opt,name=designated_bridge,json=designatedBridge"`
+	xxx_hidden_DesignatedPort      uint32                 `protobuf:"varint,10,opt,name=designated_port,json=designatedPort"`
+	xxx_hidden_AdminEdge           bool                   `protobuf:"varint,11,opt,name=admin_edge,json=adminEdge"`
+	xxx_hidden_OperEdge            bool                   `protobuf:"varint,12,opt,name=oper_edge,json=operEdge"`
+	xxx_hidden_PointToPoint        PointToPointMode       `protobuf:"varint,13,opt,name=point_to_point,json=pointToPoint,enum=flowseer.net.protocol.stp.v1.PointToPointMode"`
+	xxx_hidden_OperPointToPoint    bool                   `protobuf:"varint,14,opt,name=oper_point_to_point,json=operPointToPoint"`
+	xxx_hidden_ForwardTransitions  uint64                 `protobuf:"varint,15,opt,name=forward_transitions,json=forwardTransitions"`
+	xxx_hidden_AutoEdge            bool                   `protobuf:"varint,16,opt,name=auto_edge,json=autoEdge"`
+	xxx_hidden_OperProtocolVersion ProtocolVersion        `protobuf:"varint,17,opt,name=oper_protocol_version,json=operProtocolVersion,enum=flowseer.net.protocol.stp.v1.ProtocolVersion"`
+	xxx_hidden_TxBpdus             uint64                 `protobuf:"varint,18,opt,name=tx_bpdus,json=txBpdus"`
+	xxx_hidden_RxBpdus             uint64                 `protobuf:"varint,19,opt,name=rx_bpdus,json=rxBpdus"`
+	xxx_hidden_BadBpdus            uint64                 `protobuf:"varint,20,opt,name=bad_bpdus,json=badBpdus"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
 }
 
 func (x *PortState) Reset() {
@@ -185,34 +190,71 @@ func (x *PortState) GetForwardTransitions() uint64 {
 	return 0
 }
 
+func (x *PortState) GetAutoEdge() bool {
+	if x != nil {
+		return x.xxx_hidden_AutoEdge
+	}
+	return false
+}
+
+func (x *PortState) GetOperProtocolVersion() ProtocolVersion {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 16) {
+			return x.xxx_hidden_OperProtocolVersion
+		}
+	}
+	return ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED
+}
+
+func (x *PortState) GetTxBpdus() uint64 {
+	if x != nil {
+		return x.xxx_hidden_TxBpdus
+	}
+	return 0
+}
+
+func (x *PortState) GetRxBpdus() uint64 {
+	if x != nil {
+		return x.xxx_hidden_RxBpdus
+	}
+	return 0
+}
+
+func (x *PortState) GetBadBpdus() uint64 {
+	if x != nil {
+		return x.xxx_hidden_BadBpdus
+	}
+	return 0
+}
+
 func (x *PortState) SetInterfaceName(v string) {
 	x.xxx_hidden_InterfaceName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 20)
 }
 
 func (x *PortState) SetPriority(v uint32) {
 	x.xxx_hidden_Priority = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 20)
 }
 
 func (x *PortState) SetAdminPathCost(v uint32) {
 	x.xxx_hidden_AdminPathCost = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 20)
 }
 
 func (x *PortState) SetPathCost(v uint32) {
 	x.xxx_hidden_PathCost = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 20)
 }
 
 func (x *PortState) SetRole(v PortRole) {
 	x.xxx_hidden_Role = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 20)
 }
 
 func (x *PortState) SetState(v ForwardingState) {
 	x.xxx_hidden_State = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 20)
 }
 
 func (x *PortState) SetDesignatedRoot(v *BridgeId) {
@@ -221,7 +263,7 @@ func (x *PortState) SetDesignatedRoot(v *BridgeId) {
 
 func (x *PortState) SetDesignatedCost(v uint32) {
 	x.xxx_hidden_DesignatedCost = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 20)
 }
 
 func (x *PortState) SetDesignatedBridge(v *BridgeId) {
@@ -230,32 +272,57 @@ func (x *PortState) SetDesignatedBridge(v *BridgeId) {
 
 func (x *PortState) SetDesignatedPort(v uint32) {
 	x.xxx_hidden_DesignatedPort = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 20)
 }
 
 func (x *PortState) SetAdminEdge(v bool) {
 	x.xxx_hidden_AdminEdge = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 10, 20)
 }
 
 func (x *PortState) SetOperEdge(v bool) {
 	x.xxx_hidden_OperEdge = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 20)
 }
 
 func (x *PortState) SetPointToPoint(v PointToPointMode) {
 	x.xxx_hidden_PointToPoint = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 20)
 }
 
 func (x *PortState) SetOperPointToPoint(v bool) {
 	x.xxx_hidden_OperPointToPoint = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 13, 20)
 }
 
 func (x *PortState) SetForwardTransitions(v uint64) {
 	x.xxx_hidden_ForwardTransitions = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 14, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 14, 20)
+}
+
+func (x *PortState) SetAutoEdge(v bool) {
+	x.xxx_hidden_AutoEdge = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 15, 20)
+}
+
+func (x *PortState) SetOperProtocolVersion(v ProtocolVersion) {
+	x.xxx_hidden_OperProtocolVersion = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 16, 20)
+}
+
+func (x *PortState) SetTxBpdus(v uint64) {
+	x.xxx_hidden_TxBpdus = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 17, 20)
+}
+
+func (x *PortState) SetRxBpdus(v uint64) {
+	x.xxx_hidden_RxBpdus = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 18, 20)
+}
+
+func (x *PortState) SetBadBpdus(v uint64) {
+	x.xxx_hidden_BadBpdus = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 19, 20)
 }
 
 func (x *PortState) HasInterfaceName() bool {
@@ -363,6 +430,41 @@ func (x *PortState) HasForwardTransitions() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 14)
 }
 
+func (x *PortState) HasAutoEdge() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 15)
+}
+
+func (x *PortState) HasOperProtocolVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 16)
+}
+
+func (x *PortState) HasTxBpdus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 17)
+}
+
+func (x *PortState) HasRxBpdus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 18)
+}
+
+func (x *PortState) HasBadBpdus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 19)
+}
+
 func (x *PortState) ClearInterfaceName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_InterfaceName = nil
@@ -436,6 +538,31 @@ func (x *PortState) ClearForwardTransitions() {
 	x.xxx_hidden_ForwardTransitions = 0
 }
 
+func (x *PortState) ClearAutoEdge() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 15)
+	x.xxx_hidden_AutoEdge = false
+}
+
+func (x *PortState) ClearOperProtocolVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 16)
+	x.xxx_hidden_OperProtocolVersion = ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED
+}
+
+func (x *PortState) ClearTxBpdus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 17)
+	x.xxx_hidden_TxBpdus = 0
+}
+
+func (x *PortState) ClearRxBpdus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 18)
+	x.xxx_hidden_RxBpdus = 0
+}
+
+func (x *PortState) ClearBadBpdus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 19)
+	x.xxx_hidden_BadBpdus = 0
+}
+
 type PortState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -482,6 +609,24 @@ type PortState_builder struct {
 	// Number of transitions from Learning to Forwarding. Mirrors
 	// dot1dStpPortForwardTransitions (BRIDGE-MIB:716).
 	ForwardTransitions *uint64
+	// Administrative auto-edge port status. Absent means the source did not report
+	// it. Mirrors ieee8021MstpCistPortAutoEdgePort (IEEE8021-MSTP-MIB:1426).
+	AutoEdge *bool
+	// Spanning tree protocol version the port transmits: STP when the port migrated
+	// to a legacy peer, RSTP otherwise. Absent means unreported.
+	OperProtocolVersion *ProtocolVersion
+	// Number of BPDUs transmitted by this port. Absent means the source did not
+	// report the counter; zero means none. Mirrors tx_count of Open vSwitch
+	// lib/rstp-common.h.
+	TxBpdus *uint64
+	// Number of valid BPDUs received on this port. Absent means the source did
+	// not report the counter; zero means none. Mirrors rx_rstp_bpdu_cnt of Open
+	// vSwitch lib/rstp-common.h.
+	RxBpdus *uint64
+	// Number of undecodable BPDU frames received on this port. Absent means the
+	// source did not report the counter; zero means none. Mirrors error_count of
+	// Open vSwitch lib/rstp-common.h.
+	BadBpdus *uint64
 }
 
 func (b0 PortState_builder) Build() *PortState {
@@ -489,58 +634,78 @@ func (b0 PortState_builder) Build() *PortState {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.InterfaceName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 20)
 		x.xxx_hidden_InterfaceName = b.InterfaceName
 	}
 	if b.Priority != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 20)
 		x.xxx_hidden_Priority = *b.Priority
 	}
 	if b.AdminPathCost != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 20)
 		x.xxx_hidden_AdminPathCost = *b.AdminPathCost
 	}
 	if b.PathCost != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 20)
 		x.xxx_hidden_PathCost = *b.PathCost
 	}
 	if b.Role != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 20)
 		x.xxx_hidden_Role = *b.Role
 	}
 	if b.State != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 20)
 		x.xxx_hidden_State = *b.State
 	}
 	x.xxx_hidden_DesignatedRoot = b.DesignatedRoot
 	if b.DesignatedCost != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 20)
 		x.xxx_hidden_DesignatedCost = *b.DesignatedCost
 	}
 	x.xxx_hidden_DesignatedBridge = b.DesignatedBridge
 	if b.DesignatedPort != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 20)
 		x.xxx_hidden_DesignatedPort = *b.DesignatedPort
 	}
 	if b.AdminEdge != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 10, 20)
 		x.xxx_hidden_AdminEdge = *b.AdminEdge
 	}
 	if b.OperEdge != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 20)
 		x.xxx_hidden_OperEdge = *b.OperEdge
 	}
 	if b.PointToPoint != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 20)
 		x.xxx_hidden_PointToPoint = *b.PointToPoint
 	}
 	if b.OperPointToPoint != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 13, 20)
 		x.xxx_hidden_OperPointToPoint = *b.OperPointToPoint
 	}
 	if b.ForwardTransitions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 14, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 14, 20)
 		x.xxx_hidden_ForwardTransitions = *b.ForwardTransitions
+	}
+	if b.AutoEdge != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 15, 20)
+		x.xxx_hidden_AutoEdge = *b.AutoEdge
+	}
+	if b.OperProtocolVersion != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 16, 20)
+		x.xxx_hidden_OperProtocolVersion = *b.OperProtocolVersion
+	}
+	if b.TxBpdus != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 17, 20)
+		x.xxx_hidden_TxBpdus = *b.TxBpdus
+	}
+	if b.RxBpdus != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 18, 20)
+		x.xxx_hidden_RxBpdus = *b.RxBpdus
+	}
+	if b.BadBpdus != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 19, 20)
+		x.xxx_hidden_BadBpdus = *b.BadBpdus
 	}
 	return m0
 }
@@ -549,7 +714,7 @@ var File_flowseer_net_protocol_stp_v1_port_state_proto protoreflect.FileDescript
 
 const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\"\xbb\x06\n" +
+	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\"\x8e\b\n" +
 	"\tPortState\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12$\n" +
 	"\bpriority\x18\x02 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\bpriority\x122\n" +
@@ -568,7 +733,12 @@ const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\toper_edge\x18\f \x01(\bR\boperEdge\x12T\n" +
 	"\x0epoint_to_point\x18\r \x01(\x0e2..flowseer.net.protocol.stp.v1.PointToPointModeR\fpointToPoint\x12-\n" +
 	"\x13oper_point_to_point\x18\x0e \x01(\bR\x10operPointToPoint\x12/\n" +
-	"\x13forward_transitions\x18\x0f \x01(\x04R\x12forwardTransitionsB\x96\x02\n" +
+	"\x13forward_transitions\x18\x0f \x01(\x04R\x12forwardTransitions\x12\x1b\n" +
+	"\tauto_edge\x18\x10 \x01(\bR\bautoEdge\x12a\n" +
+	"\x15oper_protocol_version\x18\x11 \x01(\x0e2-.flowseer.net.protocol.stp.v1.ProtocolVersionR\x13operProtocolVersion\x12\x19\n" +
+	"\btx_bpdus\x18\x12 \x01(\x04R\atxBpdus\x12\x19\n" +
+	"\brx_bpdus\x18\x13 \x01(\x04R\arxBpdus\x12\x1b\n" +
+	"\tbad_bpdus\x18\x14 \x01(\x04R\bbadBpdusB\x96\x02\n" +
 	" com.flowseer.net.protocol.stp.v1B\x0ePortStateProtoP\x01ZMgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1;stpv1\xa2\x02\x04FNPS\xaa\x02\x1cFlowseer.Net.Protocol.Stp.V1\xca\x02\x1cFlowseer\\Net\\Protocol\\Stp\\V1\xe2\x02(Flowseer\\Net\\Protocol\\Stp\\V1\\GPBMetadata\xea\x02 Flowseer::Net::Protocol::Stp::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_protocol_stp_v1_port_state_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
@@ -578,6 +748,7 @@ var file_flowseer_net_protocol_stp_v1_port_state_proto_goTypes = []any{
 	(ForwardingState)(0),  // 2: flowseer.net.protocol.stp.v1.ForwardingState
 	(*BridgeId)(nil),      // 3: flowseer.net.protocol.stp.v1.BridgeId
 	(PointToPointMode)(0), // 4: flowseer.net.protocol.stp.v1.PointToPointMode
+	(ProtocolVersion)(0),  // 5: flowseer.net.protocol.stp.v1.ProtocolVersion
 }
 var file_flowseer_net_protocol_stp_v1_port_state_proto_depIdxs = []int32{
 	1, // 0: flowseer.net.protocol.stp.v1.PortState.role:type_name -> flowseer.net.protocol.stp.v1.PortRole
@@ -585,11 +756,12 @@ var file_flowseer_net_protocol_stp_v1_port_state_proto_depIdxs = []int32{
 	3, // 2: flowseer.net.protocol.stp.v1.PortState.designated_root:type_name -> flowseer.net.protocol.stp.v1.BridgeId
 	3, // 3: flowseer.net.protocol.stp.v1.PortState.designated_bridge:type_name -> flowseer.net.protocol.stp.v1.BridgeId
 	4, // 4: flowseer.net.protocol.stp.v1.PortState.point_to_point:type_name -> flowseer.net.protocol.stp.v1.PointToPointMode
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	5, // 5: flowseer.net.protocol.stp.v1.PortState.oper_protocol_version:type_name -> flowseer.net.protocol.stp.v1.ProtocolVersion
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_protocol_stp_v1_port_state_proto_init() }
@@ -601,6 +773,7 @@ func file_flowseer_net_protocol_stp_v1_port_state_proto_init() {
 	file_flowseer_net_protocol_stp_v1_forwarding_state_proto_init()
 	file_flowseer_net_protocol_stp_v1_point_to_point_mode_proto_init()
 	file_flowseer_net_protocol_stp_v1_port_role_proto_init()
+	file_flowseer_net_protocol_stp_v1_protocol_version_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

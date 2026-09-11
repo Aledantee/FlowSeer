@@ -49,8 +49,9 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority: 4096,
-					Address:  macs["sw1"],
+					Priority:    4096,
+					Address:     macs["sw1"],
+					TxHoldCount: 6,
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},
@@ -61,8 +62,9 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority: 12288,
-					Address:  macs["sw2"],
+					Priority:    12288,
+					Address:     macs["sw2"],
+					TxHoldCount: 6,
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},
@@ -73,8 +75,9 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority: 8192,
-					Address:  macs["sw3"],
+					Priority:    8192,
+					Address:     macs["sw3"],
+					TxHoldCount: 6,
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},
@@ -172,6 +175,9 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 		if !bytes.Equal(desigRoot.GetAddress().GetOctets(), sw1MAC[:]) {
 			t.Errorf("switch %s designated root MAC = %x, want %x", name, desigRoot.GetAddress().GetOctets(), sw1MAC[:])
 		}
+		if bridgeState.GetTxHoldCount() != 6 {
+			t.Errorf("switch %s BridgeState tx_hold_count = %d, want 6", name, bridgeState.GetTxHoldCount())
+		}
 
 		roles := sw.Roles()
 		if len(portStates) != len(roles) {
@@ -194,6 +200,12 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 			}
 			if !stateMatches(ps.GetState(), info.State) {
 				t.Errorf("switch %s port %s state = %v, want %v", name, ps.GetInterfaceName(), ps.GetState(), info.State)
+			}
+			if ps.GetOperProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP {
+				t.Errorf("switch %s port %s oper_protocol_version = %v, want RSTP", name, ps.GetInterfaceName(), ps.GetOperProtocolVersion())
+			}
+			if ps.GetRole() == stpv1.PortRole_PORT_ROLE_DESIGNATED && ps.GetTxBpdus() == 0 {
+				t.Errorf("switch %s designated port %s tx_bpdus = 0, want > 0", name, ps.GetInterfaceName())
 			}
 		}
 
@@ -219,6 +231,81 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 		diff := stp.Diff(*sw.Config().STP, *loadedCfg.STP)
 		if len(diff) != 0 {
 			t.Errorf("switch %s round-trip STP diff not empty: %+v", name, diff)
+		}
+	}
+}
+
+// A port migrated by receiving an inferior Configuration BPDU after its migration
+// delay exports oper_protocol_version STP, while unmigrated ports export RSTP,
+// and every exported message passes validation.
+func TestStpExport_MigratedPort(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	sw := vswitch.New(vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority:    32768,
+			Address:     netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02},
+			TxHoldCount: 6,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	})
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.Drain()
+
+	sw.Wake(t0.Add(4 * time.Second))
+	sw.Drain()
+
+	inferiorBridgeID := stp.BridgeID{
+		Priority: 61440,
+		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
+	}
+	inferiorBPDU := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       inferiorBridgeID,
+		BridgeID:     inferiorBridgeID,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	frame := stp.Encode(inferiorBPDU, inferiorBridgeID.Address)
+	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
+	sw.Drain()
+
+	bridgeState, portStates := netmodel.Stp(t0.Add(4*time.Second), sw)
+	if bridgeState == nil {
+		t.Fatal("exported BridgeState is nil")
+	}
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("BridgeState validation failed: %v", err)
+	}
+
+	for _, ps := range portStates {
+		if err := protovalidate.Validate(ps); err != nil {
+			t.Fatalf("PortState %s validation failed: %v", ps.GetInterfaceName(), err)
+		}
+		switch ps.GetInterfaceName() {
+		case "1/1/1":
+			if got := ps.GetOperProtocolVersion(); got != stpv1.ProtocolVersion_PROTOCOL_VERSION_STP {
+				t.Errorf("port 1/1/1 oper_protocol_version = %v, want STP", got)
+			}
+		case "1/1/2":
+			if got := ps.GetOperProtocolVersion(); got != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP {
+				t.Errorf("port 1/1/2 oper_protocol_version = %v, want RSTP", got)
+			}
 		}
 	}
 }
@@ -486,6 +573,9 @@ func TestStpExportCarriesEffectiveValues(t *testing.T) {
 	if got := bridgeState.GetBridgeId().GetPriority(); got != uint32(stp.DefaultBridgePriority) {
 		t.Errorf("bridge priority = %d, want %d", got, stp.DefaultBridgePriority)
 	}
+	if got := bridgeState.GetTxHoldCount(); got != uint32(stp.DefaultTxHoldCount) {
+		t.Errorf("bridge tx_hold_count = %d, want %d", got, stp.DefaultTxHoldCount)
+	}
 	if len(portStates) != 1 {
 		t.Fatalf("port states = %d, want 1", len(portStates))
 	}
@@ -547,5 +637,118 @@ func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("report.Skipped = %+v, want an stp_bridge entry", report.Skipped)
+	}
+}
+
+// A bridge state with tx_hold_count 4 and a port state with auto_edge true load
+// into spanning tree configuration with TxHoldCount 4 and Port.AutoEdge true.
+func TestStpLoad_TxHoldCountAndAutoEdge(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	txHold4 := uint32(4)
+	bridgeState := stpv1.BridgeState_builder{
+		BridgeId:    bridgeID,
+		TxHoldCount: &txHold4,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	portPrio := uint32(128)
+	adminCost0 := uint32(0)
+	cost := uint32(20000)
+	roleDesig := stpv1.PortRole_PORT_ROLE_DESIGNATED
+	fwd := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+	autoEdgeTrue := true
+
+	ps := stpv1.PortState_builder{
+		InterfaceName: &p1Name,
+		Priority:      &portPrio,
+		AdminPathCost: &adminCost0,
+		PathCost:      &cost,
+		Role:          &roleDesig,
+		State:         &fwd,
+		AutoEdge:      &autoEdgeTrue,
+	}.Build()
+	if err := protovalidate.Validate(ps); err != nil {
+		t.Fatalf("port state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	cfg, _, _, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{ps}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.STP == nil {
+		t.Fatal("Load returned nil STP config")
+	}
+	if cfg.STP.TxHoldCount != 4 {
+		t.Errorf("TxHoldCount = %d, want 4", cfg.STP.TxHoldCount)
+	}
+	if !cfg.STP.Ports["1/1/1"].AutoEdge {
+		t.Errorf("port 1/1/1 AutoEdge = false, want true")
+	}
+}
+
+// An absent tx_hold_count on a bridge state loads with default 6 recorded in
+// the loader report defaults.
+func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	p1Name := "1/1/1"
+
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &p1Name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+
+	prio := uint32(32768)
+	addr := addrv1.Eui48Address_builder{Octets: []byte{0, 0, 0, 0, 1, 1}}.Build()
+	bridgeID := stpv1.BridgeId_builder{Priority: &prio, Address: addr}.Build()
+	bridgeState := stpv1.BridgeState_builder{
+		BridgeId: bridgeID,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	if cfg.STP == nil {
+		t.Fatal("Load returned nil STP config")
+	}
+
+	foundDefault := false
+	for _, d := range report.Defaults {
+		if d.Field == "tx_hold_count" && d.Value == "6" {
+			foundDefault = true
+			break
+		}
+	}
+	if !foundDefault {
+		t.Errorf("expected default for tx_hold_count reported: %+v", report.Defaults)
 	}
 }

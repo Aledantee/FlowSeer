@@ -191,6 +191,10 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 	if bridgeFwdDelay == 0 {
 		bridgeFwdDelay = stp.DefaultForwardDelay
 	}
+	txHoldCount := uint32(cfg.STP.TxHoldCount)
+	if txHoldCount == 0 {
+		txHoldCount = uint32(stp.DefaultTxHoldCount)
+	}
 
 	bb := stpv1.BridgeState_builder{
 		ProtocolVersion:    &protoVer,
@@ -204,6 +208,7 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 		BridgeHelloTime:    durationpb.New(bridgeHello),
 		BridgeForwardDelay: durationpb.New(bridgeFwdDelay),
 		TopologyChanges:    &tcCount,
+		TxHoldCount:        &txHoldCount,
 	}
 	if rootPort != "" {
 		bb.RootPortInterfaceName = &rootPort
@@ -264,19 +269,32 @@ func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortSt
 		operEdge := info.Edge
 		operP2P := info.PointToPoint
 		fwdTransitions := info.ForwardTransitions
+		autoEdge := pCfg.AutoEdge
+		operProtoVer := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+		if !info.SendRSTP {
+			operProtoVer = stpv1.ProtocolVersion_PROTOCOL_VERSION_STP
+		}
+		txBpdus := info.TxBPDUs
+		rxBpdus := info.RxBPDUs
+		badBpdus := info.BadBPDUs
 
 		pb := stpv1.PortState_builder{
-			InterfaceName:      &name,
-			Priority:           &prio,
-			AdminPathCost:      &adminPathCost,
-			PathCost:           &pathCost,
-			Role:               &role,
-			State:              &fwdState,
-			AdminEdge:          &adminEdge,
-			OperEdge:           &operEdge,
-			PointToPoint:       &p2pMode,
-			OperPointToPoint:   &operP2P,
-			ForwardTransitions: &fwdTransitions,
+			InterfaceName:       &name,
+			Priority:            &prio,
+			AdminPathCost:       &adminPathCost,
+			PathCost:            &pathCost,
+			Role:                &role,
+			State:               &fwdState,
+			AdminEdge:           &adminEdge,
+			OperEdge:            &operEdge,
+			PointToPoint:        &p2pMode,
+			OperPointToPoint:    &operP2P,
+			ForwardTransitions:  &fwdTransitions,
+			AutoEdge:            &autoEdge,
+			OperProtocolVersion: &operProtoVer,
+			TxBpdus:             &txBpdus,
+			RxBpdus:             &rxBpdus,
+			BadBpdus:            &badBpdus,
 		}
 
 		if info.DesignatedRoot != (stp.BridgeID{}) {
