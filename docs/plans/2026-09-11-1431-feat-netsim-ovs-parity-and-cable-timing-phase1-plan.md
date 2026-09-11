@@ -60,9 +60,12 @@ shapes:
   is `reach-exceeded` the same way, before `Negotiate` could say
   `speed-mismatch`. Otherwise the cap is the highest candidate that
   reaches, and `Negotiate` gets `top` as the lower of `TopSpeedBPS` and the
-  cap, or `TopSpeedBPS` unchanged when it is 0 and the cap is at least
-  1 Gbit/s, so two undeclared ends keep today's 1 Gbit/s. A length of 0
-  reaches every speed. Why: `Negotiate`'s `top` of 0 means unlimited, so
+  cap, or 0 when `TopSpeedBPS` is 0 and the cap equals the highest
+  candidate, since a cap that excludes nothing must not become a limit;
+  two undeclared ends keep today's 1 Gbit/s. A length of 0 reaches every
+  speed. The original wording passed 0 whenever the cap was at least
+  1 Gbit/s, which would let two 1 and 10 Gbit/s ends negotiate 10 Gbit/s on
+  400 m of multimode fiber; the implementation corrected it. Why: `Negotiate`'s `top` of 0 means unlimited, so
   the cap cannot be passed through a `min`, and a forced end past reach
   is a cable problem, not a speed mismatch.
 - Serialization is `wireOctets(frame) * 8 / rate` rounded up to the

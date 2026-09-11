@@ -84,6 +84,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
 				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 				LengthMeters: 300,
+				Medium:       fabric.MultimodeFiber,
 				Fault:        cableFault,
 			},
 			{

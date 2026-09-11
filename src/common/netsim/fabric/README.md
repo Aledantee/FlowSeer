@@ -99,6 +99,7 @@ func main() {
 				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
 				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 				LengthMeters: 300,
+				Medium:       fabric.MultimodeFiber,
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -224,6 +225,8 @@ replacing values provided in the input configurations:
 - A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
 - Unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both ends
   `Down` with `dead-direction` unless both ends disable auto-negotiation.
+- Cable length exceeding the medium's reach for all candidate speeds, or past
+  a forced speed, leaves both ends `Down` with `reach-exceeded`.
 - Operational cables run two-ended negotiation (`phy.Negotiate`). If speeds
   disagree, ports transition to `Down` with `speed-mismatch`.
 - A Link Aggregation Group (LAG) is `Up` when any member port is `Up`.
@@ -269,6 +272,7 @@ The package declares reasons for link failures and frame discards:
 | `admin-down`     | This interface is administratively disabled       |
 | `no-cable`       | Switch port has no connected cable                |
 | `dead-direction` | Defect in one direction prevents auto-negotiation |
+| `reach-exceeded` | Cable length exceeds medium reach for speed        |
 | `cable-loss`     | Configured cable fault dropped frame in transit   |
 | `bad-frame`      | Frame was corrupted during cable transit          |
 

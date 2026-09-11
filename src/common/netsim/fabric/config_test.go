@@ -315,6 +315,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			mutate: func(c *fabric.Config) {
 				c.Cables[1].TopSpeedBPS = 100_000_000
 				c.Cables[1].LengthMeters = 300.5
+				c.Cables[1].Medium = fabric.MultimodeFiber
 			},
 			wantError: false,
 		},

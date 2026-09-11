@@ -208,6 +208,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 				LengthMeters: 200,
+				Medium:       fabric.MultimodeFiber,
 			},
 		},
 	}

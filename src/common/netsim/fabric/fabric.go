@@ -427,7 +427,70 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 		return endA, endB
 	}
 
-	negotiated := phy.Negotiate(ethA, ethB, cable.TopSpeedBPS)
+	if forcedA && ethA.Setting.SpeedBPS > 0 && !reaches(cable.LengthMeters, cable.Medium, ethA.Setting.SpeedBPS) {
+		endA.Oper = port.Down
+		endA.Reason = ReasonReachExceeded
+		endB.Oper = port.Down
+		endB.Reason = ReasonReachExceeded
+
+		return endA, endB
+	}
+	if forcedB && ethB.Setting.SpeedBPS > 0 && !reaches(cable.LengthMeters, cable.Medium, ethB.Setting.SpeedBPS) {
+		endA.Oper = port.Down
+		endA.Reason = ReasonReachExceeded
+		endB.Oper = port.Down
+		endB.Reason = ReasonReachExceeded
+
+		return endA, endB
+	}
+
+	var candidates []uint64
+	candidates = append(candidates, ethA.SupportedSpeedsBPS...)
+	if forcedA && ethA.Setting.SpeedBPS > 0 {
+		candidates = append(candidates, ethA.Setting.SpeedBPS)
+	}
+	candidates = append(candidates, ethB.SupportedSpeedsBPS...)
+	if forcedB && ethB.Setting.SpeedBPS > 0 {
+		candidates = append(candidates, ethB.Setting.SpeedBPS)
+	}
+	if cable.TopSpeedBPS > 0 {
+		candidates = append(candidates, cable.TopSpeedBPS)
+	}
+	hasDeclared := len(ethA.SupportedSpeedsBPS) > 0 || (forcedA && ethA.Setting.SpeedBPS > 0) ||
+		len(ethB.SupportedSpeedsBPS) > 0 || (forcedB && ethB.Setting.SpeedBPS > 0)
+	if !hasDeclared {
+		candidates = append(candidates, 1_000_000_000)
+	}
+
+	var maxCandidate uint64
+	var reaching []uint64
+	for _, s := range candidates {
+		if s > maxCandidate {
+			maxCandidate = s
+		}
+		if reaches(cable.LengthMeters, cable.Medium, s) {
+			reaching = append(reaching, s)
+		}
+	}
+
+	if len(reaching) == 0 {
+		endA.Oper = port.Down
+		endA.Reason = ReasonReachExceeded
+		endB.Oper = port.Down
+		endB.Reason = ReasonReachExceeded
+
+		return endA, endB
+	}
+
+	capSpeed := slices.Max(reaching)
+	top := capSpeed
+	if cable.TopSpeedBPS != 0 {
+		top = min(cable.TopSpeedBPS, capSpeed)
+	} else if capSpeed >= maxCandidate {
+		top = 0
+	}
+
+	negotiated := phy.Negotiate(ethA, ethB, top)
 	if negotiated.SpeedBPS == 0 {
 		endA.Oper = port.Down
 		endA.Reason = phy.ReasonSpeedMismatch
@@ -449,6 +512,12 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 
 func isForced(e phy.Ethernet) bool {
 	return e.Setting != nil && !e.Setting.AutoNegotiation
+}
+
+func reaches(lengthMeters float64, m Medium, speed uint64) bool {
+	// A length of 0 reaches every speed because Reach returns 0 for a speed
+	// with no specification row, so 0 <= 0 holds.
+	return lengthMeters <= m.Reach(speed)
 }
 
 func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState) {
