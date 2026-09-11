@@ -158,7 +158,7 @@ rather than the standard's, since the model would then be a vendor emulator.
 ## Requirements
 
 Phase 1 claims 1 through 21, phase 2 claims 22 through 32, phase 3 claims
-33 through 40, phase 4 claims 41 through 44. The later phases carry their
+33 through 40, phase 4 claims 41 through 48. The later phases carry their
 acceptance examples in their own plans; here they are one line each.
 
 1. The codec round-trips a tagged frame. Acceptance: decoding
@@ -280,6 +280,10 @@ acceptance examples in their own plans; here they are one line each.
 42. A missing neighbor is an outcome, not a flood.
 43. TTL exhaustion drops.
 44. A host with an IP stack sends through its gateway.
+45. IPv6 routes the same way.
+46. VRFs route independently.
+47. Missing MACs are assigned and unique within the simulation.
+48. A routed port routes without the relay.
 
 ## Out of scope
 
@@ -335,9 +339,12 @@ and the loader's and export's protocol state.
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase4-plan.md`
 After: U3
 Landed:
-Change: `netsim/vswitch/routing`, the IPv4, IPv6, and ARP decoders in
-a common packet package beside `ethernet`, host IP stacks in `fabric`,
-and the loader's routed interfaces.
+Change: `netsim/vswitch/routing` with per-VRF tables over VLAN
+interfaces and routed ports, the relay split
+into an ingress and an egress half, the IPv4 and IPv6 header codec as one
+package `src/common/net/ip`, host IP stacks and packet injection in
+`fabric`, and the loader's routed interfaces. ARP waits for the phase
+that adds the exchange, since every neighbor here is static.
 
 ## Verification
 
