@@ -147,6 +147,42 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "tx hold count above ten rejected",
+			cfg: stp.Config{
+				Priority:    32768,
+				Address:     validMAC,
+				TxHoldCount: 11,
+				Ports: map[string]stp.Port{
+					"1/1/1": {Priority: 128},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "tx hold count ten accepted",
+			cfg: stp.Config{
+				Priority:    32768,
+				Address:     validMAC,
+				TxHoldCount: 10,
+				Ports: map[string]stp.Port{
+					"1/1/1": {Priority: 128},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "tx hold count zero accepted",
+			cfg: stp.Config{
+				Priority:    32768,
+				Address:     validMAC,
+				TxHoldCount: 0,
+				Ports: map[string]stp.Port{
+					"1/1/1": {Priority: 128},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -211,8 +247,9 @@ func TestDiff(t *testing.T) {
 		HelloTime:    1 * time.Second,
 		MaxAge:       10 * time.Second,
 		ForwardDelay: 7 * time.Second,
+		TxHoldCount:  4,
 		Ports: map[string]stp.Port{
-			"1/1/1": {Priority: 64, PathCost: 2000, AdminEdge: true, PointToPoint: stp.PointToPointForceTrue},
+			"1/1/1": {Priority: 64, PathCost: 2000, AdminEdge: true, AutoEdge: true, PointToPoint: stp.PointToPointForceTrue},
 			"1/1/3": {Priority: 128, PathCost: 20000},
 		},
 	}
@@ -240,6 +277,9 @@ func TestDiff(t *testing.T) {
 	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || from != 15*time.Second || to != 7*time.Second {
 		t.Errorf("forward_delay change: got (%v, %v, %v)", from, to, ok)
 	}
+	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || from != uint8(6) || to != uint8(4) {
+		t.Errorf("tx_hold_count change: got (%v, %v, %v), want (6, 4, true): the default is what an unset count means", from, to, ok)
+	}
 
 	otherMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 	moved := b
@@ -259,6 +299,9 @@ func TestDiff(t *testing.T) {
 	}
 	if from, to, ok := findChange("port", "1/1/1", "admin_point_to_point"); !ok || from != stp.PointToPointAuto || to != stp.PointToPointForceTrue {
 		t.Errorf("port admin_point_to_point change: got (%v, %v, %v)", from, to, ok)
+	}
+	if from, to, ok := findChange("port", "1/1/1", "auto_edge"); !ok || from != false || to != true {
+		t.Errorf("port auto_edge change: got (%v, %v, %v)", from, to, ok)
 	}
 
 	// 1/1/2 removed

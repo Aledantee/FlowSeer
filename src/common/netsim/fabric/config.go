@@ -40,6 +40,9 @@ const (
 
 	// ReasonBadFrame records that an arriving frame was dropped because it was corrupted during transmission.
 	ReasonBadFrame trace.Reason = "bad-frame"
+
+	// ReasonReachExceeded records that a link cannot operate because the cable length exceeds the medium reach for every candidate speed.
+	ReasonReachExceeded trace.Reason = "reach-exceeded"
 )
 
 // FaultKind identifies the nature of a cable impairment, distinguishing physical defects
@@ -205,20 +208,27 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 	}, tbl
 }
 
-// Cable models a physical link connecting two endpoints with propagation latency,
-// an optional top speed limit, and declared faults.
+// Cable models a physical link connecting two endpoints: a length and a medium that give the propagation time and
+// bound the negotiated speed, an optional Delay that replaces the propagation term, an optional top speed limit,
+// and declared faults.
 type Cable struct {
 	A            Endpoint
 	B            Endpoint
 	LengthMeters float64
 	TopSpeedBPS  uint64
 	Fault        Fault
+	Medium       Medium
+	Delay        *time.Duration
 }
 
 // Clone returns an independent deep copy of the cable configuration.
 func (c Cable) Clone() Cable {
 	cp := c
 	cp.Fault = c.Fault.Clone()
+	if c.Delay != nil {
+		d := *c.Delay
+		cp.Delay = &d
+	}
 
 	return cp
 }
@@ -368,6 +378,22 @@ func (c Config) Validate() error {
 				Attr("cable", i).
 				Attr("length", cable.LengthMeters).
 				Msg("cable length cannot be negative")
+		}
+
+		if cable.Delay != nil && *cable.Delay < 0 {
+			return errs.New().
+				Attr("cable", i).
+				Attr("delay", *cable.Delay).
+				Msg("cable delay cannot be negative")
+		}
+
+		switch cable.Medium {
+		case "", TwistedPair, MultimodeFiber, SinglemodeFiber, Twinax:
+		default:
+			return errs.New().
+				Attr("cable", i).
+				Attr("medium", cable.Medium).
+				Msg("unknown cable medium")
 		}
 
 		if err := validateFault(cable.Fault); err != nil {

@@ -6,16 +6,22 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // Config specifies the configuration of a virtual switch, combining its port table,
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
-// optional spanning tree configuration, and optional layer 3 routing configuration.
+// optional link aggregation configuration, optional spanning tree configuration,
+// optional multicast snooping, optional layer 3 routing configuration, and optional
+// traffic configuration.
 // MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
@@ -24,8 +30,11 @@ type Config struct {
 	Ports   port.Table
 	Phy     *phy.Config
 	Bridge  *bridge.Config
+	LAG     *lag.Config
 	STP     *stp.Config
+	Mcast   *mcast.Config
 	Routing *routing.Config
+	Traffic *traffic.Config
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
@@ -41,8 +50,14 @@ func (c Config) Capabilities() []port.Layer {
 	if c.STP != nil {
 		caps = append(caps, port.LayerStp)
 	}
+	if c.Mcast != nil {
+		caps = append(caps, port.LayerMcast)
+	}
 	if c.Routing != nil {
 		caps = append(caps, port.LayerRouting)
+	}
+	if c.Traffic != nil {
+		caps = append(caps, port.LayerTraffic)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
@@ -52,11 +67,17 @@ func (c Config) Capabilities() []port.Layer {
 			caps = append(caps, port.LayerPoe)
 		}
 	}
-	for _, p := range c.Ports.Ports() {
-		if p.Kind == port.Lag {
-			caps = append(caps, port.LayerLag)
-			break
+	hasLag := c.LAG != nil
+	if !hasLag {
+		for _, p := range c.Ports.Ports() {
+			if p.Kind == port.Lag {
+				hasLag = true
+				break
+			}
 		}
+	}
+	if hasLag {
+		caps = append(caps, port.LayerLag)
 	}
 
 	slices.Sort(caps)
@@ -75,8 +96,18 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	if c.Traffic != nil {
+		if err := c.Traffic.Validate(c.Ports); err != nil {
+			return err
+		}
+	}
 	if c.Bridge != nil {
 		if err := c.Bridge.Validate(c.Ports); err != nil {
+			return err
+		}
+	}
+	if c.LAG != nil {
+		if err := c.LAG.Validate(c.Ports); err != nil {
 			return err
 		}
 	}
@@ -86,6 +117,39 @@ func (c Config) Validate() error {
 		}
 		if err := c.STP.Validate(c.Ports); err != nil {
 			return err
+		}
+	}
+	if c.Mcast != nil {
+		if err := c.Mcast.Validate(c.Ports); err != nil {
+			return err
+		}
+		if c.Bridge == nil || c.Bridge.VLAN == nil {
+			return errs.New().Msg("multicast snooping requires bridge VLAN configuration")
+		}
+
+		vids := make([]vlan.ID, 0, len(c.Mcast.VLANs))
+		for vid := range c.Mcast.VLANs {
+			vids = append(vids, vid)
+		}
+		slices.Sort(vids)
+		for _, vid := range vids {
+			if _, ok := c.Bridge.VLAN.Table[vid]; !ok {
+				return errs.New().
+					Attr("vlan", vid).
+					Msgf("multicast snooping references VLAN %d absent from bridge VLAN table", vid)
+			}
+			for _, name := range c.Mcast.VLANs[vid].RouterPorts {
+				p, _ := c.Ports.Port(name)
+				switchport, ok := c.Bridge.VLAN.Switchports[name]
+				member := ok && (slices.Contains(switchport.Tagged, vid) || slices.Contains(switchport.Untagged, vid) ||
+					(switchport.Tunnel != nil && switchport.Tunnel.VID == vid))
+				if p.LagParent != "" || !p.Forwards() || !member {
+					return errs.New().
+						Attr("vlan", vid).
+						Attr("port", name).
+						Msgf("multicast router port %q is not a logical forwarding member of VLAN %d", name, vid)
+				}
+			}
 		}
 	}
 	if c.Routing != nil {
@@ -196,6 +260,10 @@ func (c Config) Clone() Config {
 		b := c.Bridge.Clone()
 		cp.Bridge = &b
 	}
+	if c.LAG != nil {
+		lagCfg := c.LAG.Clone()
+		cp.LAG = &lagCfg
+	}
 	if c.STP != nil {
 		stpCfg := *c.STP
 		if c.STP.Ports != nil {
@@ -206,9 +274,17 @@ func (c Config) Clone() Config {
 		}
 		cp.STP = &stpCfg
 	}
+	if c.Mcast != nil {
+		mcastCfg := c.Mcast.Clone()
+		cp.Mcast = &mcastCfg
+	}
 	if c.Routing != nil {
 		r := c.Routing.Clone()
 		cp.Routing = &r
+	}
+	if c.Traffic != nil {
+		trafficCfg := c.Traffic.Clone()
+		cp.Traffic = &trafficCfg
 	}
 
 	return cp

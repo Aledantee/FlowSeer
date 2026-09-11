@@ -5,16 +5,20 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // Diff computes the difference between two switch configurations, concatenating
 // device-level MAC differences, port table differences, capability presence changes,
-// physical layer differences, bridge relay differences, spanning tree differences,
-// and routing differences.
+// physical layer differences, bridge relay differences, link aggregation differences,
+// spanning tree differences, multicast snooping differences, routing differences,
+// and traffic differences.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -51,6 +55,17 @@ func Diff(a, b Config) []trace.Change {
 		changes = append(changes, bridge.Diff(aBridge, bBridge)...)
 	}
 
+	if a.LAG != nil || b.LAG != nil {
+		var aLAG, bLAG lag.Config
+		if a.LAG != nil {
+			aLAG = *a.LAG
+		}
+		if b.LAG != nil {
+			bLAG = *b.LAG
+		}
+		changes = append(changes, lag.Diff(aLAG, bLAG)...)
+	}
+
 	if a.STP != nil || b.STP != nil {
 		var aSTP, bSTP stp.Config
 		if a.STP != nil {
@@ -62,6 +77,17 @@ func Diff(a, b Config) []trace.Change {
 		changes = append(changes, stp.Diff(aSTP, bSTP)...)
 	}
 
+	if a.Mcast != nil || b.Mcast != nil {
+		var aMcast, bMcast mcast.Config
+		if a.Mcast != nil {
+			aMcast = *a.Mcast
+		}
+		if b.Mcast != nil {
+			bMcast = *b.Mcast
+		}
+		changes = append(changes, mcast.Diff(aMcast, bMcast)...)
+	}
+
 	if a.Routing != nil || b.Routing != nil {
 		var aRouting, bRouting routing.Config
 		if a.Routing != nil {
@@ -71,6 +97,17 @@ func Diff(a, b Config) []trace.Change {
 			bRouting = *b.Routing
 		}
 		changes = append(changes, routing.Diff(aRouting, bRouting)...)
+	}
+
+	if a.Traffic != nil || b.Traffic != nil {
+		var aTraffic, bTraffic traffic.Config
+		if a.Traffic != nil {
+			aTraffic = *a.Traffic
+		}
+		if b.Traffic != nil {
+			bTraffic = *b.Traffic
+		}
+		changes = append(changes, traffic.Diff(aTraffic, bTraffic)...)
 	}
 
 	return changes

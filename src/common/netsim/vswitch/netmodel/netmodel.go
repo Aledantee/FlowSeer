@@ -11,6 +11,7 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -18,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -25,8 +27,9 @@ import (
 )
 
 // Load translates typed network model interfaces, VLANs, FDB entries, PoE budgets,
-// spanning tree states, interface addresses, and neighbor entries into a virtual switch
-// [vswitch.Config] and preloaded forwarding [bridge.Seed] entries.
+// spanning tree states, link aggregation and LACP states, interface addresses, and
+// neighbor entries into a virtual switch [vswitch.Config] and preloaded forwarding
+// [bridge.Seed] entries.
 //
 // If want is empty, the capability set is inferred from the facets and row kinds present:
 // relay is always included, vlan if any interface carries a switchport facet, ethernet if
@@ -52,6 +55,8 @@ func Load(
 	budgets []*phyv1.PseBudget,
 	bridgeState *stpv1.BridgeState,
 	stpPorts []*stpv1.PortState,
+	lacpAggregators []*lacpv1.AggregatorState,
+	lacpPorts []*lacpv1.PortState,
 	addrs []*ipv1.InterfaceAddress,
 	neighbors []*ipv1.NeighborEntry,
 	want []port.Layer,
@@ -575,6 +580,67 @@ func Load(
 					continue
 				}
 
+				if swFacet.GetMode() == switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL {
+					if !swFacet.HasPvid() {
+						report.Skipped = append(report.Skipped, Skipped{
+							Port: iface.GetName(),
+							What: "switchport",
+							Why:  "tunnel without pvid",
+						})
+						continue
+					}
+
+					pvid := vlan.ID(swFacet.GetPvid())
+					var customerVIDs []vlan.ID
+					if len(swFacet.GetTaggedVlanIds()) > 0 {
+						customerVIDs = make([]vlan.ID, len(swFacet.GetTaggedVlanIds()))
+						for i, id := range swFacet.GetTaggedVlanIds() {
+							customerVIDs[i] = vlan.ID(id)
+						}
+						slices.Sort(customerVIDs)
+					}
+
+					sw := bridge.Switchport{
+						Tunnel: &bridge.Tunnel{
+							VID:          pvid,
+							CustomerVIDs: customerVIDs,
+						},
+					}
+
+					if swFacet.HasIngressFiltering() {
+						sw.IngressFiltering = swFacet.GetIngressFiltering()
+					} else {
+						sw.IngressFiltering = false
+						report.Defaults = append(report.Defaults, Default{
+							Port:  iface.GetName(),
+							Field: "ingress_filtering",
+							Value: "false",
+						})
+					}
+
+					report.Defaults = append(report.Defaults, Default{
+						Port:  iface.GetName(),
+						Field: "qinq_ethtype",
+						Value: "0x88A8",
+					})
+
+					if len(swFacet.GetUntaggedVlanIds()) > 0 {
+						report.Skipped = append(report.Skipped, Skipped{
+							Port: iface.GetName(),
+							What: "untagged_vlan_ids",
+							Why:  "tunnel port",
+						})
+					}
+
+					vlanCfg.Switchports[iface.GetName()] = sw
+
+					if _, exists := vlanCfg.Table[pvid]; !exists {
+						vlanCfg.Table[pvid] = ""
+					}
+
+					continue
+				}
+
 				sw := bridge.Switchport{}
 				if swFacet.HasPvid() {
 					vid := vlan.ID(swFacet.GetPvid())
@@ -689,6 +755,18 @@ func Load(
 			if bridgeState.GetBridgeForwardDelay() != nil {
 				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
 			}
+			if bridgeState.HasTxHoldCount() {
+				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
+					report.Skipped = append(report.Skipped, Skipped{What: "stp_tx_hold_count", Why: "outside 1 through 10"})
+				} else {
+					stpCfg.TxHoldCount = uint8(v)
+				}
+			} else {
+				report.Defaults = append(report.Defaults, Default{
+					Field: "tx_hold_count",
+					Value: "6",
+				})
+			}
 
 			for _, ps := range stpPorts {
 				portName := ps.GetInterfaceName()
@@ -743,12 +821,186 @@ func Load(
 					Priority:     uint8(ps.GetPriority()),
 					PathCost:     adminPathCost,
 					AdminEdge:    ps.GetAdminEdge(),
+					AutoEdge:     ps.GetAutoEdge(),
 					PointToPoint: p2p,
 				}
 			}
 
 			cfg.STP = &stpCfg
 		}
+	}
+
+	aggByPort := make(map[string]*lacpv1.AggregatorState)
+	for _, agg := range lacpAggregators {
+		if agg == nil {
+			continue
+		}
+		name := agg.GetInterfaceName()
+		p, ok := ports.Port(name)
+		if !ok {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: name,
+				What: "lacp_port",
+				Why:  "absent from port table",
+			})
+			continue
+		}
+		if p.Kind != port.Lag {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: name,
+				What: "lacp_port",
+				Why:  "port is not a LAG",
+			})
+			continue
+		}
+		aggByPort[name] = agg
+	}
+
+	portStateByMember := make(map[string]*lacpv1.PortState)
+	for _, ps := range lacpPorts {
+		if ps == nil {
+			continue
+		}
+		name := ps.GetInterfaceName()
+		p, ok := ports.Port(name)
+		if !ok {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: name,
+				What: "lacp_port",
+				Why:  "absent from port table",
+			})
+			continue
+		}
+		if p.LagParent == "" {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: name,
+				What: "lacp_port",
+				Why:  "port is not a LAG member",
+			})
+			continue
+		}
+		portStateByMember[name] = ps
+	}
+
+	if hasLag {
+		lagCfg := &lag.Config{
+			LAGs: make(map[string]lag.LAG),
+		}
+
+		for _, iface := range ifaces {
+			if iface.GetLag() == nil {
+				continue
+			}
+			lagName := iface.GetName()
+			facet := iface.GetLag().GetAggregation()
+			lagItem := lag.LAG{}
+
+			if facet != nil && facet.HasBondMode() && facet.GetBondMode() != switchingv1.BondMode_BOND_MODE_UNSPECIFIED {
+				switch facet.GetBondMode() {
+				case switchingv1.BondMode_BOND_MODE_ACTIVE_BACKUP:
+					lagItem.Mode = lag.ActiveBackup
+				case switchingv1.BondMode_BOND_MODE_BALANCE_SLB:
+					lagItem.Mode = lag.BalanceSLB
+				case switchingv1.BondMode_BOND_MODE_BALANCE_TCP:
+					lagItem.Mode = lag.BalanceTCP
+				default:
+					lagItem.Mode = lag.ActiveBackup
+					report.Defaults = append(report.Defaults, Default{
+						Port:  lagName,
+						Field: "bond_mode",
+						Value: "active-backup",
+					})
+				}
+			} else {
+				lagItem.Mode = lag.ActiveBackup
+				report.Defaults = append(report.Defaults, Default{
+					Port:  lagName,
+					Field: "bond_mode",
+					Value: "active-backup",
+				})
+			}
+
+			if facet != nil && facet.HasUpDelay() {
+				lagItem.UpDelay = facet.GetUpDelay().AsDuration()
+			} else {
+				lagItem.UpDelay = 0
+				report.Defaults = append(report.Defaults, Default{
+					Port:  lagName,
+					Field: "up_delay",
+					Value: "0",
+				})
+			}
+
+			if facet != nil && facet.HasDownDelay() {
+				lagItem.DownDelay = facet.GetDownDelay().AsDuration()
+			} else {
+				lagItem.DownDelay = 0
+				report.Defaults = append(report.Defaults, Default{
+					Port:  lagName,
+					Field: "down_delay",
+					Value: "0",
+				})
+			}
+
+			if facet != nil && facet.HasHashBasis() {
+				lagItem.HashBasis = facet.GetHashBasis()
+			}
+
+			if facet != nil && facet.HasPrimaryInterfaceName() {
+				lagItem.Primary = facet.GetPrimaryInterfaceName()
+			}
+
+			if facet != nil && facet.HasMinimumActiveLinks() {
+				lagItem.MinLinks = int(facet.GetMinimumActiveLinks())
+			}
+
+			if agg, ok := aggByPort[lagName]; ok {
+				lacpCfg := lag.LACPConfig{
+					Fast:           agg.GetFast(),
+					SystemPriority: uint16(agg.GetSystemPriority()),
+					Key:            uint16(agg.GetKey()),
+					Fallback:       agg.GetFallbackActiveBackup(),
+				}
+				switch agg.GetMode() {
+				case lacpv1.LacpMode_LACP_MODE_ACTIVE:
+					lacpCfg.Mode = lag.Active
+				case lacpv1.LacpMode_LACP_MODE_PASSIVE:
+					lacpCfg.Mode = lag.Passive
+				case lacpv1.LacpMode_LACP_MODE_OFF, lacpv1.LacpMode_LACP_MODE_UNSPECIFIED:
+					lacpCfg.Mode = lag.Off
+				default:
+					lacpCfg.Mode = lag.Off
+				}
+				if agg.GetSystemId() != nil {
+					copy(lacpCfg.SystemID[:], agg.GetSystemId().GetOctets())
+				}
+				lagItem.LACP = lacpCfg
+			} else {
+				lagItem.LACP.Mode = lag.Off
+				report.Defaults = append(report.Defaults, Default{
+					Port:  lagName,
+					Field: "lacp",
+					Value: "off",
+				})
+			}
+
+			members := ports.Members(lagName)
+			if len(members) > 0 {
+				lagItem.Members = make(map[string]lag.Member, len(members))
+				for _, mem := range members {
+					m := lag.Member{}
+					if ps, ok := portStateByMember[mem.Name]; ok {
+						m.Priority = uint16(ps.GetPortPriority())
+						m.Key = uint16(ps.GetKey())
+					}
+					lagItem.Members[mem.Name] = m
+				}
+			}
+
+			lagCfg.LAGs[lagName] = lagItem
+		}
+
+		cfg.LAG = lagCfg
 	}
 
 	if isWanted(port.LayerRouting) {

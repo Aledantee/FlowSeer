@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.switching.v1;
+
+// Bond mode governing member selection for a link aggregation.
+enum BondMode {
+  // Bond mode was not reported.
+  BOND_MODE_UNSPECIFIED = 0;
+  // Active-backup bond mode; traffic uses one active member and fails over.
+  BOND_MODE_ACTIVE_BACKUP = 1;
+  // Balance-SLB bond mode; traffic is balanced by source MAC and VLAN.
+  BOND_MODE_BALANCE_SLB = 2;
+  // Balance-TCP bond mode; traffic is balanced by L2 through L4 flow hashes.
+  BOND_MODE_BALANCE_TCP = 3;
+}

@@ -98,14 +98,36 @@ The virtual switch uses a ladder of architectural layers:
 - **Bridge**: Configured with a `port.Table` and `bridge.Config` without a VLAN
   subsystem. Learns source addresses into a single filtering database (FID 0),
   filters frames destined to known ports, and drops IEEE bridge management
-  group addresses. All tags are treated as payload.
+  group addresses unless `ForwardBPDU` is set to forward them like any group address.
+  A table bound (`MaxEntries`) evicts the oldest dynamic entry when full, and
+  `Counters` tracks learned, expired, evicted, and moved entries. A bridge can
+  designate `ProtectedPorts` that never forward traffic to one another. All tags
+  are treated as payload.
 - **Switch**: Configured with a `port.Table` and `bridge.Config` containing a
   `bridge.VLAN`. Performs 802.1Q ingress classification, admission checks,
   ingress VLAN filtering, per-VLAN learning, and egress tag rewrites.
+  Configuring `FloodVLANs` disables learning and floods every frame in those
+  VLANs. An untagged egress port can emit priority tags under a `PriorityTags`
+  policy (`Never`, `IfNonzero`, `Always`). A port configured with a `Tunnel`
+  pushes an outer service tag on ingress and pops it on egress; for example, a
+  customer-tagged frame arriving on a tunnel port egresses a trunk port carrying
+  an outer S-tag with TPID 0x88A8 plus the customer C-tag.
+- **Link aggregation**: Configured with a `port.Table` containing LAG ports and
+  optional `lag.Config`. Manages bond modes (ActiveBackup, BalanceSLB,
+  BalanceTCP), member link transitions with up/down delays, and the LACP
+  exchange. Chooses enabled member ports for frames egressing a LAG, intercepts
+  LACPDUs on member ports, and derives the LAG row's operational state from its
+  members' links.
 - **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
   block traffic on Discarding ports while learning on Learning ports.
+- **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
+  `mcast.Config`. IGMP and MLD reports register group members, while queries
+  identify router ports. Registered IP multicast reaches members and router
+  ports; each VLAN chooses whether an unregistered group floods or reaches
+  router ports only. Link-local control groups remain on the ordinary flood
+  path.
 - **Routing**: Configured with `routing.Config` containing VRFs and routed
   interfaces. An interface has one of two shapes: a VLAN interface (routed
   presence of a classified VLAN) or a routed port (physical or LAG port that
@@ -119,6 +141,13 @@ The virtual switch uses a ladder of architectural layers:
   re-encapsulated with the egress interface source MAC and next-hop neighbor
   destination MAC with no tags, handing off to the relay (for VLAN egress) or
   the port layer (for a routed port).
+- **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
+  output ports from ordinary ingress and egress, then creates selected mirror
+  copies after bridge, hub, or routed forwarding. `Copies` returns and clears
+  those copies so the fabric can enqueue them as separate transmissions.
+  `Police` applies the switch-owned token bucket when the fabric checks a frame
+  at arrival, while `QueueMaxRate` gives the fabric scheduler the maximum rate
+  for an egress port and PCP.
 
 Optional physical subsystems (`phy.Config`) provide physical Ethernet speed
 resolution, auto-negotiation, and Power over Ethernet budget allocation.
@@ -137,9 +166,13 @@ Forwarding and allocation behavior follows standard specifications:
   classify to the port PVID per `spec/mib/ietf/Q-BRIDGE-MIB:1379`.
 - **Reserved group addresses**: Destination MAC addresses in the range
   `01-80-C2-00-00-00` through `01-80-C2-00-00-0F` are reserved for bridge
-  management protocols. The bridge drops them without learning their sources
+  management protocols. The bridge drops them without learning their sources,
+  unless `ForwardBPDU` is set, when the bridge forwards them like any group address
   (see the IEEE Registration Authority at
   https://standards.ieee.org/products-programs/regauth/grpmac/public/).
+- **Service tag TPID**: A tunnel port pushes an S-tag with TPID 0x88A8
+  (IEEE 802.1ad; the loader's `qinq_ethtype` default follows Open vSwitch's
+  `qinq-ethtype` option).
 - **Base MAC assignment**: A switch has one base MAC (`Config.MAC`). When omitted,
   `New` assigns the first unused locally administered unicast address
   (`02:00:00:xx:xx:xx` per IEEE Std 802-2014 clause 8.2.2) not used by any
@@ -154,6 +187,13 @@ Forwarding and allocation behavior follows standard specifications:
   allocate power by priority using IEEE 802.3 standard class limits (classes
   0 and 3 allocate 15.4 W; 1 allocates 4.0 W; 2 allocates 7.0 W; 4 allocates
   30.0 W; 5 through 8 allocate 45 W, 60 W, 75 W, and 90 W).
+- **Spanning tree timing and migration**: Protocol migration and bridge detection
+  follow IEEE 802.1D-2004 clauses 17.24 and 17.25 and Table 17-1. Transmit rate
+  limiting defaults to 6 frames per second per `spec/mib/ietf/RSTP-MIB:73`
+  (`dot1dStpTxHoldCount`), management protocol migration check follows
+  `spec/mib/ietf/RSTP-MIB:130` (`dot1dStpPortProtocolMigration`), and CIST
+  auto-edge follows `spec/mib/ieee/IEEE8021-MSTP-MIB-201806210000Z.mib:1426`
+  (`ieee8021MstpCistPortAutoEdgePort`).
 
 ## Loader defaults
 
@@ -166,10 +206,14 @@ omitted values with standard defaults and records each in the `Report`:
 | `frame_admission`   | `admitAll`       | Q-BRIDGE-MIB:1413 AcceptableFrame   |
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
+| `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
 | `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
+| `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
 | `power_milliwatts`  | 0 mW             | PseBudget without a budget          |
+| `bond_mode`         | `active-backup`  | Open vSwitch bond_mode default      |
+| `lacp`              | `off`            | Open vSwitch lacp default           |
 
 ## Drop reasons
 
@@ -182,40 +226,73 @@ Drop reasons recorded in traces and egress records:
 | `admission`        | Tag format rejected by port admission filter            |
 | `ingress-filter`   | Ingress port is not a member of the classified VLAN     |
 | `undefined-vlan`   | Classified VLAN ID is missing from the VLAN table       |
+| `customer-vlan`    | Customer VLAN not in the tunnel port's list             |
 | `no-pvid`          | Untagged frame arrived on port without a PVID           |
 | `same-port`        | Destination MAC learned on ingress port (no reflection) |
+| `protected`        | Frame between two protected ports                       |
 | `mtu-exceeded`     | Frame payload length exceeds egress port MTU            |
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
+| `no-member`        | LAG has no enabled member port to transmit egress frame |
 | `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
-| `unsupported-bpdu` | Frame could not be decoded as an RST BPDU               |
+| `unsupported-bpdu` | Frame could not be decoded as a BPDU                    |
+| `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
 | `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
 | `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
+| `policed`          | Ingress frame exceeded the port's token bucket           |
+| `mirror-output`    | Ordinary frame used a port reserved for mirror copies    |
+| `unregistered`    | Unregistered group had flooding disabled and no router port |
+| `no-router-port`  | Membership report or leave had no router port destination |
+| `bad-control`     | IGMP or MLD failed its outer-header or message validation |
 
 ## Protocol schedule
 
-The spanning tree layer operates deterministically without background timers.
-The host drives it through explicit calls:
+The spanning tree and link aggregation layers operate deterministically without
+background timers. The host drives them through explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
-- `LinkChange(now, port, up, pointToPoint, speed)` tells the layer one link
-  moved; a report of the state the port already has is ignored.
+- `LinkChange(now, port, up, pointToPoint, speed)` tells the protocol layers
+  one link moved; for a LAG member, it notifies the aggregation layer, updates
+  the LAG port's operational state, and informs spanning tree of the LAG's
+  link and speed from the enabled members.
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
-  relay's tables and tells the layer nothing, since only the caller knows
-  whether a member's change moves its LAG; it follows with `LinkChange`.
-- `Wake(now)` fires due hello, forward delay, and topology change timers.
-- `NextWake()` reports the earliest deadline when the switch needs a wake.
-- `Drain()` returns and clears pending frame emissions produced by the layer.
+  relay's tables and tells the protocol layers nothing, since only the caller
+  knows whether a member's change moves its LAG; it follows with `LinkChange`.
+- `Mcheck(now, port)` forces protocol migration checking on the named port.
+- `Wake(now)` fires due timers across spanning tree and link aggregation,
+  flushing bridge entries and triggering periodic transmissions.
+- `NextWake()` reports the earliest deadline when the switch needs a wake
+  across both layers.
+- `Drain()` returns and clears pending frame emissions produced by both layers.
 - `Roles()` exposes current port roles and forwarding states.
+- `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
+- `MemberInfo(member)` returns the runtime aggregation status of the member port.
+- `SelectMember(lag, frame, vid)` chooses an enabled member port for a frame.
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
 outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
-switch without the layer drops it as a reserved address.
+switch without the layer drops it as a reserved address, unless the bridge's
+`ForwardBPDU` is set.
+
+On a switch with link aggregation, a frame with EtherType 0x8809 whose first
+payload octet is 1 arriving on an up member port is intercepted before relay
+processing. It decodes as an LACPDU and enters the aggregation layer with
+outcome `Consumed`, or drops with `unsupported-lacpdu` if decoding fails. On a
+port that is not a LAG member, it drops as a reserved address.
+
+A port that hears a version 0 BPDU after its 3 s migration delay sends
+Configuration BPDUs until `Mcheck` or an RST BPDU after another delay returns it
+to RSTP. Under `AutoEdge`, a proposing point-to-point port becomes an edge port
+after 3 s without receiving a BPDU; any received BPDU revokes that edge status.
+The transmit hold count (`TxHoldCount`, default 6 per second per port) caps
+transmission rates; held BPDUs leave at the next tick. `PortInfo` reports
+cumulative per-port counters for transmitted, received, and undecodable
+(`BadBPDUs`) frames alongside `SendRSTP`.
 
 ## Denied PoE port status
 

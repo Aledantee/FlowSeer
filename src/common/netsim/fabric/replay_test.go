@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 func buildReplayPorts(t *testing.T) port.Table {
@@ -32,7 +33,7 @@ func buildReplayPorts(t *testing.T) port.Table {
 	return tbl
 }
 
-func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config) *fabric.Fabric {
+func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, trafficCfg ...*traffic.Config) *fabric.Fabric {
 	t.Helper()
 
 	hosts := make(map[string]fabric.Host)
@@ -53,11 +54,16 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config) *fa
 		})
 	}
 
+	var tc *traffic.Config
+	if len(trafficCfg) > 0 {
+		tc = trafficCfg[0]
+	}
 	cfg := fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
-				Ports:  pTable,
-				Bridge: brCfg,
+				Ports:   pTable,
+				Bridge:  brCfg,
+				Traffic: tc,
 			},
 		},
 		Hosts:  hosts,
@@ -267,10 +273,23 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 	macB := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 
-	// 1. Ingress on down port 1/1/3 drops with ReasonPortDown.
-	_, err = fab.Inject(fabric.Injection{
+	// 1. Host on down link cannot inject; frame replayed at switch port 1/1/3 drops with ReasonPortDown.
+	if _, err := fab.Inject(fabric.Injection{
 		At:     now,
 		Origin: fabric.Endpoint{Node: "h3"},
+		Frame: ethernet.Frame{
+			Dst:       macB,
+			Src:       macA,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("test"),
+		},
+	}); err == nil {
+		t.Fatal("Inject on host with down link: got err == nil, want error")
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     now,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 		Frame: ethernet.Frame{
 			Dst:       macB,
 			Src:       macA,
@@ -734,4 +753,76 @@ func TestReplayAdmissionAndIngressFiltering(t *testing.T) {
 			t.Errorf("Result = %s/FID %d, want Flooded/FID 20", entry.Result.Outcome, entry.Result.FID)
 		}
 	})
+}
+
+func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
+	run := func() []time.Time {
+		ports := buildReplayPorts(t)
+		cfg := &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{
+					10: "engineering",
+				},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/3": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+					"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				},
+			},
+		}
+		fab := makeReplayFabric(t, ports, cfg, &traffic.Config{Queues: map[string]traffic.PortQueues{
+			"1/1/2": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+		}})
+		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+
+		injections := []fabric.Injection{
+			{
+				At:     t0,
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame: ethernet.Frame{
+					Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+					Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+					EtherType: ethernet.EtherTypeIPv4,
+					Payload:   []byte("packet-1"),
+				},
+			},
+			{
+				At:     t0,
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame: ethernet.Frame{
+					Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+					Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+					EtherType: ethernet.EtherTypeIPv4,
+					Payload:   []byte("packet-2"),
+				},
+			},
+		}
+
+		for _, inj := range injections {
+			if _, err := fab.Inject(inj); err != nil {
+				t.Fatalf("Inject: %v", err)
+			}
+		}
+
+		var times []time.Time
+		for {
+			entry, ok := fab.Step()
+			if !ok {
+				break
+			}
+			times = append(times, entry.At)
+		}
+		return times
+	}
+
+	times1 := run()
+	times2 := run()
+
+	if len(times1) == 0 {
+		t.Fatal("expected step entries from run, got none")
+	}
+	if !slices.Equal(times1, times2) {
+		t.Errorf("replayed run arrival times differ:\nrun 1: %v\nrun 2: %v", times1, times2)
+	}
 }

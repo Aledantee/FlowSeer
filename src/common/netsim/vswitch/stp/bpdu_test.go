@@ -1,6 +1,7 @@
 package stp_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"strings"
 	"testing"
@@ -420,4 +421,299 @@ func TestDecodeRefusesZeroHelloTime(t *testing.T) {
 	if _, err := stp.Decode(frame); err == nil {
 		t.Fatal("Decode accepted a BPDU with hello time 0")
 	}
+}
+
+func TestDecodeConfigurationBPDU(t *testing.T) {
+	t.Parallel()
+
+	payload := make([]byte, 46)
+	payload[0] = 0x42
+	payload[1] = 0x42
+	payload[2] = 0x03
+	payload[5] = 0
+	payload[6] = 0
+	payload[7] = 0x01
+	binary.BigEndian.PutUint16(payload[8:10], 61440)
+	copy(payload[10:16], []byte{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c})
+	binary.BigEndian.PutUint32(payload[16:20], 0)
+	binary.BigEndian.PutUint16(payload[20:22], 61440)
+	copy(payload[22:28], []byte{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c})
+	binary.BigEndian.PutUint16(payload[28:30], 0x8001)
+	binary.BigEndian.PutUint16(payload[30:32], 0)
+	binary.BigEndian.PutUint16(payload[32:34], uint16((20*time.Second*256)/time.Second))
+	binary.BigEndian.PutUint16(payload[34:36], uint16((2*time.Second*256)/time.Second))
+	binary.BigEndian.PutUint16(payload[36:38], uint16((15*time.Second*256)/time.Second))
+
+	frame := ethernet.Frame{
+		Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+		Src:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
+		EtherType: ethernet.EtherType(38),
+		Payload:   payload,
+	}
+
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+
+	if decoded.Version != 0 {
+		t.Errorf("Version = %d, want 0", decoded.Version)
+	}
+	if decoded.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeConfiguration)
+	}
+	if !decoded.TopologyChange() {
+		t.Error("TopologyChange() = false, want true")
+	}
+	if decoded.Role() != stp.RoleDesignated {
+		t.Errorf("Role() = %v, want %v", decoded.Role(), stp.RoleDesignated)
+	}
+	if decoded.Proposal() {
+		t.Error("Proposal() = true, want false")
+	}
+}
+
+func TestDecodeTCNBPDU(t *testing.T) {
+	t.Parallel()
+
+	// 4-octet TCN body after 3-octet LLC header.
+	payload := []byte{0x42, 0x42, 0x03, 0x00, 0x00, 0x00, 0x80}
+	frame := ethernet.Frame{
+		Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+		Src:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
+		EtherType: ethernet.EtherType(7),
+		Payload:   payload,
+	}
+
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+
+	if decoded.Type != stp.BPDUTypeTopologyChangeNotification {
+		t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeTopologyChangeNotification)
+	}
+	if decoded.Version != 0 {
+		t.Errorf("Version = %d, want 0", decoded.Version)
+	}
+}
+
+func TestEncodeConfigurationBPDURoundTrip(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c}
+	bridgeID := stp.BridgeID{Priority: 61440, Address: mac}
+
+	b := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       bridgeID,
+		RootPathCost: 100,
+		BridgeID:     bridgeID,
+		PortID:       0x8001,
+		MessageAge:   1 * time.Second,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetProposal(true)
+	b.SetRole(stp.RoleRoot)
+
+	frame := stp.Encode(b, mac)
+	if frame.EtherType != ethernet.EtherType(38) {
+		t.Errorf("EtherType = %d, want 38", frame.EtherType)
+	}
+	if len(frame.Payload) != 46 {
+		t.Fatalf("payload len = %d, want 46", len(frame.Payload))
+	}
+	if frame.Payload[7] != 0x00 {
+		t.Errorf("flags octet = 0x%02x, want 0x00", frame.Payload[7])
+	}
+
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+
+	if decoded.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeConfiguration)
+	}
+	if decoded.RootID != b.RootID {
+		t.Errorf("RootID = %v, want %v", decoded.RootID, b.RootID)
+	}
+	if decoded.BridgeID != b.BridgeID {
+		t.Errorf("BridgeID = %v, want %v", decoded.BridgeID, b.BridgeID)
+	}
+	if decoded.PortID != b.PortID {
+		t.Errorf("PortID = 0x%04x, want 0x%04x", decoded.PortID, b.PortID)
+	}
+	if decoded.RootPathCost != b.RootPathCost {
+		t.Errorf("RootPathCost = %d, want %d", decoded.RootPathCost, b.RootPathCost)
+	}
+	if decoded.MessageAge != b.MessageAge {
+		t.Errorf("MessageAge = %v, want %v", decoded.MessageAge, b.MessageAge)
+	}
+	if decoded.MaxAge != b.MaxAge {
+		t.Errorf("MaxAge = %v, want %v", decoded.MaxAge, b.MaxAge)
+	}
+	if decoded.HelloTime != b.HelloTime {
+		t.Errorf("HelloTime = %v, want %v", decoded.HelloTime, b.HelloTime)
+	}
+	if decoded.ForwardDelay != b.ForwardDelay {
+		t.Errorf("ForwardDelay = %v, want %v", decoded.ForwardDelay, b.ForwardDelay)
+	}
+	if decoded.Role() != stp.RoleDesignated {
+		t.Errorf("Role() = %v, want %v", decoded.Role(), stp.RoleDesignated)
+	}
+	if decoded.Proposal() {
+		t.Error("Proposal() = true, want false")
+	}
+}
+
+func TestEncodeEmptyBPDURapid(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	frame := stp.Encode(stp.BPDU{}, mac)
+
+	if frame.EtherType != ethernet.EtherType(39) {
+		t.Errorf("EtherType = %d, want 39", frame.EtherType)
+	}
+	if len(frame.Payload) != 46 {
+		t.Fatalf("payload len = %d, want 46", len(frame.Payload))
+	}
+	if frame.Payload[0] != 0x42 || frame.Payload[1] != 0x42 || frame.Payload[2] != 0x03 {
+		t.Errorf("LLC header = %x %x %x, want 42 42 03", frame.Payload[0], frame.Payload[1], frame.Payload[2])
+	}
+	if frame.Payload[5] != 2 {
+		t.Errorf("version = %d, want 2", frame.Payload[5])
+	}
+	if frame.Payload[6] != 2 {
+		t.Errorf("type = %d, want 2", frame.Payload[6])
+	}
+
+	expectedPayload := make([]byte, 46)
+	expectedPayload[0] = 0x42
+	expectedPayload[1] = 0x42
+	expectedPayload[2] = 0x03
+	expectedPayload[5] = 2
+	expectedPayload[6] = 2
+	if !bytes.Equal(frame.Payload, expectedPayload) {
+		t.Errorf("payload = %x, want %x", frame.Payload, expectedPayload)
+	}
+
+	frameWithHello := stp.Encode(stp.BPDU{HelloTime: 2 * time.Second}, mac)
+	dec, err := stp.Decode(frameWithHello)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+	if dec.Version != 2 {
+		t.Errorf("Version = %d, want 2", dec.Version)
+	}
+	if dec.Type != stp.BPDUTypeRapid {
+		t.Errorf("Type = %v, want %v", dec.Type, stp.BPDUTypeRapid)
+	}
+}
+
+func TestBPDUVersionAndTypeCombinations(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	valid := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+
+	t.Run("version 2 type 0 refused", func(t *testing.T) {
+		t.Parallel()
+		f := stp.Encode(valid, mac)
+		f.Payload[5] = 2
+		f.Payload[6] = 0
+		_, err := stp.Decode(f)
+		if err == nil {
+			t.Fatal("Decode unexpectedly succeeded for version 2 type 0")
+		}
+		attrs := errs.Attributes(err)
+		if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+			t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+		}
+	})
+
+	t.Run("version 0 type 2 refused", func(t *testing.T) {
+		t.Parallel()
+		f := stp.Encode(valid, mac)
+		f.Payload[5] = 0
+		f.Payload[6] = 2
+		_, err := stp.Decode(f)
+		if err == nil {
+			t.Fatal("Decode unexpectedly succeeded for version 0 type 2")
+		}
+		attrs := errs.Attributes(err)
+		if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+			t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+		}
+	})
+
+	t.Run("version 3 RST body decodes with Version 3", func(t *testing.T) {
+		t.Parallel()
+		f := stp.Encode(valid, mac)
+		f.Payload[5] = 3
+		f.Payload[6] = 2
+		dec, err := stp.Decode(f)
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
+		}
+		if dec.Version != 3 {
+			t.Errorf("Version = %d, want 3", dec.Version)
+		}
+		if dec.Type != stp.BPDUTypeRapid {
+			t.Errorf("Type = %v, want %v", dec.Type, stp.BPDUTypeRapid)
+		}
+	})
+}
+
+func TestHelloTimeValidationPerType(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	t.Run("configuration body with zero hello time refused", func(t *testing.T) {
+		t.Parallel()
+		b := stp.BPDU{
+			Type:         stp.BPDUTypeConfiguration,
+			RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+			BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+			PortID:       0x8001,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+			HelloTime:    0,
+		}
+		f := stp.Encode(b, mac)
+		_, err := stp.Decode(f)
+		if err == nil {
+			t.Fatal("Decode unexpectedly succeeded for Configuration BPDU with zero hello time")
+		}
+		attrs := errs.Attributes(err)
+		if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+			t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+		}
+	})
+
+	t.Run("TCN body is not checked for hello time", func(t *testing.T) {
+		t.Parallel()
+		b := stp.BPDU{
+			Type: stp.BPDUTypeTopologyChangeNotification,
+		}
+		f := stp.Encode(b, mac)
+		dec, err := stp.Decode(f)
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
+		}
+		if dec.Type != stp.BPDUTypeTopologyChangeNotification {
+			t.Errorf("Type = %v, want %v", dec.Type, stp.BPDUTypeTopologyChangeNotification)
+		}
+	})
 }

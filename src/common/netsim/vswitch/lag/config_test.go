@@ -1,0 +1,269 @@
+package lag_test
+
+import (
+	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+)
+
+func mustMAC(t *testing.T, s string) netaddr.MAC {
+	t.Helper()
+	m, err := netaddr.Parse(s)
+	if err != nil {
+		t.Fatalf("parse MAC %q: %v", s, err)
+	}
+
+	return m
+}
+
+func lagPortTable(t *testing.T) port.Table {
+	t.Helper()
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("build port table: %v", err)
+	}
+
+	return tbl
+}
+
+func TestValidate(t *testing.T) {
+	t.Parallel()
+
+	tbl := lagPortTable(t)
+
+	t.Run("valid configuration passes", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					Mode:    lag.ActiveBackup,
+					Primary: "1/1/1",
+					Members: map[string]lag.Member{
+						"1/1/1": {Priority: 32768},
+						"1/1/2": {Priority: 32768},
+					},
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err != nil {
+			t.Fatalf("Validate failed for valid config: %v", err)
+		}
+	})
+
+	t.Run("absent LAG port accepted", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{}
+		if err := cfg.Validate(tbl); err != nil {
+			t.Fatalf("Validate failed for empty config: %v", err)
+		}
+	})
+
+	t.Run("refuses non-LAG port as LAG", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"1/1/3": {},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded for physical port as LAG, want error")
+		}
+	})
+
+	t.Run("refuses primary naming non-member", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					Primary: "1/1/3",
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with Primary naming non-member, want error")
+		}
+	})
+
+	t.Run("refuses member key on port that is not a member", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					Members: map[string]lag.Member{
+						"1/1/3": {Key: 1},
+					},
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with member key on non-member, want error")
+		}
+	})
+
+	t.Run("refuses min-links exceeding member count", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					MinLinks: 3,
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with MinLinks 3 on 2 members, want error")
+		}
+	})
+
+	t.Run("refuses negative delays", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					UpDelay: -1 * time.Second,
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with negative UpDelay, want error")
+		}
+
+		cfg2 := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					DownDelay: -1 * time.Second,
+				},
+			},
+		}
+		if err := cfg2.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with negative DownDelay, want error")
+		}
+	})
+
+	t.Run("refuses unknown modes", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					Mode: "UnknownMode",
+				},
+			},
+		}
+		if err := cfg.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with unknown mode, want error")
+		}
+
+		cfg2 := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					LACP: lag.LACPConfig{Mode: "UnknownLACPMode"},
+				},
+			},
+		}
+		if err := cfg2.Validate(tbl); err == nil {
+			t.Fatal("Validate succeeded with unknown LACP mode, want error")
+		}
+	})
+}
+
+func TestDefaults(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "lag2", Kind: port.Lag}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1"}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1"}).
+		Build()
+	if err != nil {
+		t.Fatalf("build port table: %v", err)
+	}
+
+	sysMAC := mustMAC(t, "02:00:00:00:00:aa")
+	cfg := lag.Config{}.Defaults(tbl, sysMAC)
+
+	l1, ok := cfg.LAGs["lag1"]
+	if !ok {
+		t.Fatal("lag1 not found in defaulted config")
+	}
+	if l1.LACP.Key != 1 {
+		t.Errorf("lag1 key = %d, want 1", l1.LACP.Key)
+	}
+	if l1.Primary != "1/1/1" {
+		t.Errorf("lag1 primary = %q, want %q", l1.Primary, "1/1/1")
+	}
+	if l1.LACP.SystemPriority != lag.DefaultSystemPriority {
+		t.Errorf("lag1 system priority = %d, want %d", l1.LACP.SystemPriority, lag.DefaultSystemPriority)
+	}
+	if l1.LACP.SystemID != sysMAC {
+		t.Errorf("lag1 system ID = %v, want %v", l1.LACP.SystemID, sysMAC)
+	}
+	m1 := l1.Members["1/1/1"]
+	if m1.Priority != lag.DefaultPortPriority {
+		t.Errorf("member 1/1/1 priority = %d, want %d", m1.Priority, lag.DefaultPortPriority)
+	}
+	if m1.Key != 1 {
+		t.Errorf("member 1/1/1 key = %d, want 1", m1.Key)
+	}
+
+	l2, ok := cfg.LAGs["lag2"]
+	if !ok {
+		t.Fatal("lag2 not found in defaulted config")
+	}
+	if l2.LACP.Key != 2 {
+		t.Errorf("lag2 key = %d, want 2", l2.LACP.Key)
+	}
+}
+
+func TestDiff(t *testing.T) {
+	t.Parallel()
+
+	a := lag.Config{
+		LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode: lag.ActiveBackup,
+				Members: map[string]lag.Member{
+					"1/1/1": {Priority: lag.DefaultPortPriority},
+				},
+			},
+		},
+	}
+
+	b := lag.Config{
+		LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode: lag.BalanceTCP,
+				Members: map[string]lag.Member{
+					"1/1/1": {Priority: 100},
+				},
+			},
+		},
+	}
+
+	changes := lag.Diff(a, b)
+
+	findChange := func(kind, key, field string) (any, any, bool) {
+		for _, c := range changes {
+			if c.Subject.Kind == kind && c.Subject.Key == key && c.Field == field {
+				return c.From, c.To, true
+			}
+		}
+
+		return nil, nil, false
+	}
+
+	if from, to, ok := findChange("lag", "lag1", "mode"); !ok || from != lag.ActiveBackup || to != lag.BalanceTCP {
+		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
+	}
+
+	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != lag.DefaultPortPriority || to != uint16(100) {
+		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
+	}
+}

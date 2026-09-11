@@ -1,8 +1,8 @@
 package fabric
 
 import (
-	"cmp"
 	"math"
+	"math/bits"
 	"net/netip"
 	"slices"
 	"time"
@@ -12,11 +12,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 // Packet specifies an IP datagram destination address, protocol, and payload to originate
@@ -37,29 +40,113 @@ type Injection struct {
 
 // Device represents the instantaneous subsystem state of a virtual switch in the fabric.
 type Device struct {
-	Entries  []bridge.Entry
-	Ports    []port.Port
-	Power    phy.Allocation
-	Counters map[string]Counters
-	Roles    map[string]stp.PortInfo
+	Entries     []bridge.Entry
+	Groups      map[vlan.ID][]mcast.Entry
+	RouterPorts map[vlan.ID][]mcast.RouterPort
+	Ports       []port.Port
+	Power       phy.Allocation
+	Counters    map[string]Counters
+	Roles       map[string]stp.PortInfo
+	// RelayCounters is what the relay's learning table counted, beside the
+	// per-port Counters.
+	RelayCounters bridge.Counters
 }
 
-// Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, and device states.
+// Snapshot captures an instantaneous view of simulation time, in-flight arrivals, pending egress frames,
+// physical links, device states, and the endpoints still transmitting past the clock.
 type Snapshot struct {
 	Clock   time.Time
 	Queue   []Arrival
+	Queued  map[Endpoint]int
 	Links   []Link
 	Devices map[string]Device
+	Busy    map[Endpoint]time.Time
+}
+
+type queued struct {
+	frame      ethernet.Frame
+	seq        uint64
+	fid        FrameID
+	journey    *Journey
+	pcp        vlan.PCP
+	egressPort string
+	enqueued   time.Time
+	mirror     string
+}
+
+type egressQueue struct {
+	pending        [8][]queued
+	dequeueAt      time.Time
+	dequeuePending bool
+	rateClock      [8]time.Time
+}
+
+func wireOctets(frame ethernet.Frame) int {
+	raw, _ := frame.Encode()
+	n := len(raw)
+	minOctets := 60 + 4*len(frame.Tags)
+	if n < minOctets {
+		n = minOctets
+	}
+
+	return n + 24
+}
+
+// serialization is the time the frame occupies the wire at rateBPS. Every
+// caller transmits on a link that negotiated, so the rate is never 0.
+func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
+	return rateInterval(uint64(wireOctets(frame))*8, rateBPS)
+}
+
+func rateInterval(wireBits, rateBPS uint64) time.Duration {
+	seconds := wireBits / rateBPS
+	remainder := wireBits % rateBPS
+	maxNanos := uint64(math.MaxInt64)
+	if seconds > maxNanos/uint64(time.Second) {
+		return time.Duration(math.MaxInt64)
+	}
+	nanos := seconds * uint64(time.Second)
+
+	hi, lo := bits.Mul64(remainder, uint64(time.Second))
+	fraction, rem := bits.Div64(hi, lo, rateBPS)
+	if rem != 0 {
+		fraction++
+	}
+	if fraction > maxNanos-nanos {
+		return time.Duration(math.MaxInt64)
+	}
+
+	return time.Duration(nanos + fraction)
+}
+
+func framePCP(frame ethernet.Frame) vlan.PCP {
+	if len(frame.Tags) == 0 {
+		return 0
+	}
+	outer := frame.Tags[0]
+	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
+		return 0
+	}
+
+	return outer.PCP
+}
+
+func (f *Fabric) runStarted() bool {
+	return f.stepped && !f.clock.IsZero()
 }
 
 // Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
 //
 // For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged)
-// and the arrival is scheduled on the switch port connected to the host. When Packet is set, the frame is originated
-// by the host's IP stack and Frame must have no field set. For a device port origin, the frame is queued directly as given.
+// and the frame is transmitted on the host's cable end: the journey records a crossing, the host end's busy clock
+// is charged, and the arrival at the connected switch port is the transmission end plus the cable's propagation.
+// When Packet is set, the frame is originated by the host's IP stack and Frame must have no field set. For a device
+// port origin, the frame is queued directly as given at At.
 // Inject returns an error if the origin names an unknown host, an unknown switch port, a host without a connected cable,
-// a switch origin with Packet set, a host without an IP stack when Packet is set, a Packet injection specifying Frame fields,
-// a non-empty origin port for host packet injection, or if packet origination fails.
+// a host whose link has no negotiated speed (naming the link's reason), a switch origin with Packet set, a host without
+// an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port for host packet
+// injection, if packet origination fails, or if At precedes the fabric clock
+// after a nonzero-time step has run.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
@@ -67,6 +154,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		targetDevice string
 		targetPort   string
 		frame        ethernet.Frame
+		hostRef      *linkEndRef
 	)
 
 	if host, isHost := f.cfg.Hosts[inj.Origin.Node]; isHost {
@@ -118,8 +206,14 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 			frame.Tags = nil
 		}
 
-		targetDevice = ref.peer.Node
-		targetPort = ref.peer.Port
+		if ref.end.Speed.SpeedBPS == 0 {
+			return 0, errs.New().
+				Attr("host", inj.Origin.Node).
+				Attr("reason", ref.end.Reason).
+				Msgf("host %q link is down: %s", inj.Origin.Node, ref.end.Reason)
+		}
+
+		hostRef = &ref
 	} else if swCfg, isSwitch := f.cfg.Switches[inj.Origin.Node]; isSwitch {
 		if inj.Packet != nil {
 			return 0, errs.New().
@@ -147,23 +241,18 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	if _, err := frame.Encode(); err != nil {
 		return 0, errs.Wrap(err, "encode the injected frame")
 	}
+	if f.runStarted() && inj.At.Before(f.clock) {
+		return 0, errs.New().
+			Attr("at", inj.At).
+			Attr("clock", f.clock).
+			Msg("injection time precedes fabric clock")
+	}
 
 	fid := f.nextFrameID
 	f.nextFrameID++
 
 	seq := f.nextSeq
 	f.nextSeq++
-
-	arr := Arrival{
-		At:      inj.At,
-		Seq:     seq,
-		Device:  targetDevice,
-		Port:    targetPort,
-		FrameID: fid,
-		Frame:   frame,
-		Corrupt: false,
-	}
-	f.enqueue(arr)
 
 	journey := &Journey{
 		FrameID:   fid,
@@ -179,14 +268,30 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	}
 	f.journeys[fid] = journey
 
+	if hostRef != nil {
+		f.enqueueEgress(inj.At, hostRef.end.Endpoint, hostRef.end.Port, frame, seq, fid, journey, framePCP(frame), "")
+	} else {
+		arr := Arrival{
+			At:      inj.At,
+			Kind:    ArrivalFrame,
+			Seq:     seq,
+			Device:  targetDevice,
+			Port:    targetPort,
+			FrameID: fid,
+			Frame:   frame,
+			Corrupt: false,
+		}
+		f.enqueue(arr)
+	}
+
 	return fid, nil
 }
 
 // Step advances simulation time to the earliest queued arrival and processes it through the destination device.
 //
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
-// Corrupted arrivals are discarded with [ReasonBadFrame]. Normal arrivals trigger dynamic MAC aging and bridge
-// forwarding, enqueuing un-dropped egress frames onto connected cables or delivering them immediately to target hosts.
+// Corrupted arrivals are discarded with [ReasonBadFrame]. Normal arrivals are policed before dynamic MAC aging and
+// forwarding, then un-dropped egress frames are enqueued onto connected cables or delivered to target hosts.
 // Step returns false when the arrival queue is empty.
 func (f *Fabric) Step() (Entry, bool) {
 	if len(f.queue) == 0 {
@@ -197,8 +302,9 @@ func (f *Fabric) Step() (Entry, bool) {
 	arr := f.queue[0]
 	f.queue = f.queue[1:]
 	f.clock = arr.At
+	f.stepped = true
 
-	if arr.Wake {
+	if arr.Kind == ArrivalWake {
 		delete(f.wakes, arr.Device)
 		sw := f.switches[arr.Device]
 		if sw != nil {
@@ -213,6 +319,21 @@ func (f *Fabric) Step() (Entry, bool) {
 			At:     arr.At,
 			Kind:   EntryWake,
 			Device: arr.Device,
+		}, true
+	}
+	if arr.Kind == ArrivalDequeue {
+		ep := Endpoint{Node: arr.Device, Port: arr.Port}
+		if q := f.egress[ep]; q != nil {
+			q.dequeueAt = time.Time{}
+			q.dequeuePending = false
+			f.serve(arr.At, ep)
+		}
+
+		return Entry{
+			At:     arr.At,
+			Kind:   EntryDequeue,
+			Device: arr.Device,
+			Port:   arr.Port,
 		}, true
 	}
 
@@ -265,6 +386,24 @@ func (f *Fabric) Step() (Entry, bool) {
 	inClass := classifyMAC(arr.Frame.Dst)
 	for _, p := range inPorts {
 		f.countIngress(arr.Device, p, inOctets, inClass)
+	}
+	// A mirror journey has already passed the original ingress policy, so a
+	// downstream switch must not charge the copy's bytes again.
+	if journey.Mirror == "" && !sw.Police(arr.At, arr.Port, wireOctets(arr.Frame)) {
+		for _, p := range inPorts {
+			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
+		}
+
+		dropEntry := Entry{
+			At:     arr.At,
+			Kind:   EntryDrop,
+			Device: arr.Device,
+			Port:   arr.Port,
+			Reason: traffic.ReasonPoliced,
+		}
+		journey.Entries = append(journey.Entries, dropEntry)
+
+		return dropEntry, true
 	}
 
 	sw.Age(arr.At)
@@ -321,32 +460,75 @@ func (f *Fabric) Step() (Entry, bool) {
 			continue
 		}
 
-		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey)
+		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey, eg.PCP, "")
+	}
+
+	copies := sw.Copies()
+	if journey.Mirror != "" {
+		// Draining and discarding downstream copies makes mirror provenance a
+		// single generation instead of a recursively mirrored frame.
+		copies = nil
+	}
+	for _, copy := range copies {
+		fid := f.nextFrameID
+		f.nextFrameID++
+		seq := f.nextSeq
+		f.nextSeq++
+		inj := Injection{
+			At:     arr.At,
+			Origin: Endpoint{Node: arr.Device, Port: copy.Port},
+			Frame:  cloneFrame(copy.Frame),
+		}
+		copyJourney := &Journey{
+			FrameID:   fid,
+			Mirror:    copy.Mirror,
+			Parent:    arr.FrameID,
+			Injection: inj,
+			Entries: []Entry{{
+				At:     arr.At,
+				Kind:   EntryInjection,
+				Device: arr.Device,
+				Port:   copy.Port,
+			}},
+		}
+		f.journeys[fid] = copyJourney
+		f.transmit(arr.At, arr.Device, copy.Port, "", copy.Frame, seq, fid, copyJourney, framePCP(copy.Frame), copy.Mirror)
 	}
 
 	return hopEntry, true
 }
 
-func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey) {
+func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) {
 	outPort := portName
 	if memberName != "" {
 		outPort = memberName
 	} else if sw, ok := f.switches[device]; ok {
 		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.Lag {
-			mems := sw.Ports().Members(portName)
-			var fwdMembers []port.Port
-			for _, m := range mems {
-				if m.Forwards() {
-					fwdMembers = append(fwdMembers, m)
+			var vid vlan.ID
+			for _, tag := range frame.Tags {
+				if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
+					vid = tag.VID
+					break
 				}
 			}
-			if len(fwdMembers) == 0 {
+			selected, ok := sw.SelectMember(portName, frame, vid)
+			if !ok {
+				// The switch takes the LAG's spanning tree link down with its
+				// last enabled member, so a protocol frame reaches here only
+				// if that invariant breaks; the drop names it rather than
+				// losing the frame in silence.
+				journey.Entries = append(journey.Entries, Entry{
+					At:     now,
+					Kind:   EntryDrop,
+					Device: device,
+					Port:   portName,
+					Reason: bridge.ReasonNoMember,
+				})
+				f.countEgressDrop(device, portName, bridge.ReasonNoMember)
+
 				return
 			}
-			slices.SortFunc(fwdMembers, func(i, j port.Port) int {
-				return cmp.Compare(i.Name, j.Name)
-			})
-			memberName = fwdMembers[0].Name
+			memberName = selected
 			outPort = memberName
 		}
 	}
@@ -368,8 +550,190 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 		return
 	}
 
+	if ref.end.Speed.SpeedBPS == 0 {
+		cableCopy := ref.link.Clone()
+		lossEntry := Entry{
+			At:     now,
+			Kind:   EntryLoss,
+			Cable:  &cableCopy,
+			Reason: ReasonCableLoss,
+		}
+		journey.Entries = append(journey.Entries, lossEntry)
+
+		return
+	}
+
+	f.enqueueEgress(now, ref.end.Endpoint, portName, frame, seq, fid, journey, pcp, mirror)
+}
+
+func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) {
+	q := f.egress[txEnd]
+	if q == nil {
+		q = &egressQueue{}
+		f.egress[txEnd] = q
+	}
+	q.pending[pcp] = append(q.pending[pcp], queued{
+		frame:      cloneFrame(frame),
+		seq:        seq,
+		fid:        fid,
+		journey:    journey,
+		pcp:        pcp,
+		egressPort: egressPort,
+		enqueued:   now,
+		mirror:     mirror,
+	})
+	f.serve(now, txEnd)
+}
+
+func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
+	q := f.egress[txEnd]
+	if q == nil {
+		return
+	}
+	if busy := f.busyUntil[txEnd]; busy.After(now) {
+		if q.dequeuePending && !busy.Before(q.dequeueAt) {
+			return
+		}
+		if q.dequeuePending {
+			f.removeDequeue(txEnd)
+		}
+		f.scheduleDequeue(txEnd, busy)
+
+		return
+	}
+	if len(f.queue) > 0 && f.queue[0].At.Equal(now) && f.queue[0].Kind < ArrivalDequeue {
+		if q.dequeuePending && !q.dequeueAt.After(now) {
+			return
+		}
+		if q.dequeuePending {
+			f.removeDequeue(txEnd)
+		}
+		f.scheduleDequeue(txEnd, now)
+
+		return
+	}
+
+	for {
+		selected := -1
+		var earliest time.Time
+		for pcp := len(q.pending) - 1; pcp >= 0; pcp-- {
+			if len(q.pending[pcp]) == 0 {
+				continue
+			}
+			if !q.rateClock[pcp].After(now) {
+				selected = pcp
+
+				break
+			}
+			if earliest.IsZero() || q.rateClock[pcp].Before(earliest) {
+				earliest = q.rateClock[pcp]
+			}
+		}
+		if selected < 0 {
+			if !earliest.IsZero() && (!q.dequeuePending || earliest.Before(q.dequeueAt)) {
+				if q.dequeuePending {
+					f.removeDequeue(txEnd)
+				}
+				f.scheduleDequeue(txEnd, earliest)
+			}
+
+			return
+		}
+
+		if q.dequeuePending {
+			if !q.dequeueAt.After(now) {
+				return
+			}
+			f.removeDequeue(txEnd)
+		}
+
+		pending := q.pending[selected]
+		item := pending[0]
+		pending[0] = queued{}
+		if len(pending) == 1 {
+			q.pending[selected] = nil
+		} else {
+			q.pending[selected] = pending[1:]
+		}
+
+		ref, ok := f.linkEnd(txEnd.Node, txEnd.Port)
+		if !ok {
+			continue
+		}
+		if ref.end.Speed.SpeedBPS == 0 {
+			cableCopy := ref.link.Clone()
+			item.journey.Entries = append(item.journey.Entries, Entry{
+				At:     now,
+				Kind:   EntryLoss,
+				Cable:  &cableCopy,
+				Reason: ReasonCableLoss,
+			})
+
+			continue
+		}
+
+		end := f.transmitCable(now, txEnd, ref, item)
+		if sw := f.switches[txEnd.Node]; sw != nil {
+			if rate, limited := sw.QueueMaxRate(item.egressPort, item.pcp); limited {
+				q.rateClock[selected] = now.Add(serialization(item.frame, rate))
+			}
+		}
+		if q.pendingCount() > 0 {
+			f.scheduleDequeue(txEnd, end)
+		}
+
+		return
+	}
+}
+
+func (f *Fabric) scheduleDequeue(txEnd Endpoint, at time.Time) {
+	if f.runStarted() && at.Before(f.clock) {
+		panic("fabric: scheduled dequeue precedes clock")
+	}
+	q := f.egress[txEnd]
+	if q.dequeuePending {
+		panic("fabric: endpoint already has a pending dequeue")
+	}
+	q.dequeueAt = at
+	q.dequeuePending = true
+	f.enqueue(Arrival{
+		At:     at,
+		Kind:   ArrivalDequeue,
+		Device: txEnd.Node,
+		Port:   txEnd.Port,
+	})
+}
+
+func (f *Fabric) removeDequeue(txEnd Endpoint) {
+	q := f.egress[txEnd]
+	q.dequeueAt = time.Time{}
+	q.dequeuePending = false
+	f.queue = slices.DeleteFunc(f.queue, func(arr Arrival) bool {
+		return arr.Kind == ArrivalDequeue && arr.Device == txEnd.Node && arr.Port == txEnd.Port
+	})
+}
+
+func (q *egressQueue) pendingCount() int {
+	total := 0
+	for _, pending := range q.pending {
+		total += len(pending)
+	}
+
+	return total
+}
+
+func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, item queued) time.Time {
 	cable := ref.link.Cable
-	latency := cableLatency(cable.LengthMeters)
+	rate := ref.end.Speed.SpeedBPS
+	ser := serialization(item.frame, rate)
+	end := start.Add(ser)
+	f.busyUntil[txEnd] = end
+
+	prop := Propagation(cable.LengthMeters, cable.Medium)
+	if cable.Delay != nil {
+		prop = *cable.Delay
+	}
+	deliveryAt := end.Add(prop)
 
 	f.cableCrossings[cable.A]++
 	count := f.cableCrossings[cable.A]
@@ -405,22 +769,20 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 
 	if lost {
 		lossEntry := Entry{
-			At:     now,
+			At:     start,
 			Kind:   EntryLoss,
 			Cable:  &cableCopy,
 			Reason: ReasonCableLoss,
 		}
-		journey.Entries = append(journey.Entries, lossEntry)
+		item.journey.Entries = append(item.journey.Entries, lossEntry)
 
-		return
+		return end
 	}
 
 	farEnd := ref.peer.Endpoint
-	deliveryAt := now.Add(latency)
-
 	if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
 		if corrupt {
-			journey.Entries = append(journey.Entries, Entry{
+			item.journey.Entries = append(item.journey.Entries, Entry{
 				At:     deliveryAt,
 				Kind:   EntryDrop,
 				Device: farEnd.Node,
@@ -428,50 +790,53 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 				Reason: ReasonBadFrame,
 			})
 
-			return
+			return end
 		}
 		del := Delivery{
 			Host:  farEnd.Node,
 			At:    deliveryAt,
-			Frame: cloneFrame(frame),
+			Frame: cloneFrame(item.frame),
 		}
-		journey.Deliveries = append(journey.Deliveries, del)
+		item.journey.Deliveries = append(item.journey.Deliveries, del)
 
 		delEntry := Entry{
 			At:     deliveryAt,
 			Kind:   EntryDelivery,
 			Device: farEnd.Node,
 		}
-		journey.Entries = append(journey.Entries, delEntry)
+		item.journey.Entries = append(item.journey.Entries, delEntry)
 
-		return
+		return end
 	}
 
 	crossingEntry := Entry{
-		At:      now,
-		Kind:    EntryCrossing,
-		Device:  farEnd.Node,
-		Port:    farEnd.Port,
-		Cable:   &cableCopy,
-		Latency: latency,
+		At:            start,
+		Kind:          EntryCrossing,
+		Device:        farEnd.Node,
+		Port:          farEnd.Port,
+		Cable:         &cableCopy,
+		Latency:       prop,
+		Serialization: ser,
+		Wait:          start.Sub(item.enqueued),
+		PCP:           item.pcp,
 	}
-	journey.Entries = append(journey.Entries, crossingEntry)
+	item.journey.Entries = append(item.journey.Entries, crossingEntry)
 
-	// A copy keeps its injection's sequence, so two copies of one frame that
-	// arrive at the same instant fall through to the device and port order
-	// rather than to the order the bridge listed them in.
 	f.enqueue(Arrival{
 		At:      deliveryAt,
-		Seq:     seq,
+		Kind:    ArrivalFrame,
+		Seq:     item.seq,
 		Device:  farEnd.Node,
 		Port:    farEnd.Port,
-		FrameID: fid,
-		Frame:   cloneFrame(frame),
+		FrameID: item.fid,
+		Frame:   cloneFrame(item.frame),
 		Corrupt: corrupt,
 	})
+
+	return end
 }
 
-func (f *Fabric) injectEmission(now time.Time, device string, em stp.Emission) {
+func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emission) {
 	f.initRunState()
 
 	inj := Injection{
@@ -501,7 +866,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em stp.Emission) {
 	}
 	f.journeys[fid] = journey
 
-	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey)
+	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, framePCP(em.Frame), "")
 }
 
 func (f *Fabric) scheduleWake(device string) {
@@ -522,16 +887,16 @@ func (f *Fabric) scheduleWake(device string) {
 	f.wakes[device] = next
 	f.enqueue(Arrival{
 		At:     next,
+		Kind:   ArrivalWake,
 		Seq:    0,
 		Device: device,
-		Wake:   true,
 	})
 }
 
 func (f *Fabric) removeWake(device string) {
 	delete(f.wakes, device)
 	f.queue = slices.DeleteFunc(f.queue, func(arr Arrival) bool {
-		return arr.Wake && arr.Device == device
+		return arr.Kind == ArrivalWake && arr.Device == device
 	})
 }
 
@@ -552,7 +917,8 @@ func (f *Fabric) Run(n int) int {
 	return n
 }
 
-// Snapshot captures the current simulation clock, queued arrivals, link states, and switch subsystem states.
+// Snapshot captures the current simulation clock, queued arrivals and egress frames, link states, switch subsystem
+// states, and Busy, the endpoints whose transmission ends after the clock.
 func (f *Fabric) Snapshot() Snapshot {
 	var q []Arrival
 	if len(f.queue) > 0 {
@@ -564,33 +930,56 @@ func (f *Fabric) Snapshot() Snapshot {
 
 	devices := make(map[string]Device, len(f.switches))
 	for name, sw := range f.switches {
+		var groups map[vlan.ID][]mcast.Entry
+		var routerPorts map[vlan.ID][]mcast.RouterPort
+		cfg := sw.Config()
+		if cfg.Mcast != nil {
+			groups = make(map[vlan.ID][]mcast.Entry, len(cfg.Mcast.VLANs))
+			routerPorts = make(map[vlan.ID][]mcast.RouterPort, len(cfg.Mcast.VLANs))
+			for vid := range cfg.Mcast.VLANs {
+				groups[vid] = sw.Groups(vid)
+				routerPorts[vid] = sw.RouterPorts(vid)
+			}
+		}
 		devices[name] = Device{
-			Entries:  sw.Entries(),
-			Ports:    sw.Ports().Ports(),
-			Power:    sw.Power(),
-			Counters: f.snapshotCounters(name),
-			Roles:    sw.Roles(),
+			Entries:       sw.Entries(),
+			Groups:        groups,
+			RouterPorts:   routerPorts,
+			Ports:         sw.Ports().Ports(),
+			Power:         sw.Power(),
+			Counters:      f.snapshotCounters(name),
+			Roles:         sw.Roles(),
+			RelayCounters: sw.RelayCounters(),
+		}
+	}
+
+	var busy map[Endpoint]time.Time
+	for ep, until := range f.busyUntil {
+		if until.After(f.clock) {
+			if busy == nil {
+				busy = make(map[Endpoint]time.Time)
+			}
+			busy[ep] = until
+		}
+	}
+	var queued map[Endpoint]int
+	for ep, q := range f.egress {
+		if count := q.pendingCount(); count > 0 {
+			if queued == nil {
+				queued = make(map[Endpoint]int)
+			}
+			queued[ep] = count
 		}
 	}
 
 	return Snapshot{
 		Clock:   f.clock,
 		Queue:   q,
+		Queued:  queued,
 		Links:   links,
 		Devices: devices,
+		Busy:    busy,
 	}
-}
-
-func cableLatency(lengthMeters float64) time.Duration {
-	if lengthMeters <= 0 {
-		return 0
-	}
-
-	const lightSpeedMPS = 299792458.0
-	seconds := lengthMeters / ((2.0 / 3.0) * lightSpeedMPS)
-	nanoseconds := math.Round(seconds * 1e9)
-
-	return time.Duration(nanoseconds) * time.Nanosecond
 }
 
 func (f *Fabric) initRunState() {
@@ -602,6 +991,12 @@ func (f *Fabric) initRunState() {
 	}
 	if f.cableCrossings == nil {
 		f.cableCrossings = make(map[Endpoint]uint)
+	}
+	if f.busyUntil == nil {
+		f.busyUntil = make(map[Endpoint]time.Time)
+	}
+	if f.egress == nil {
+		f.egress = make(map[Endpoint]*egressQueue)
 	}
 	if f.wakes == nil {
 		f.wakes = make(map[string]time.Time)

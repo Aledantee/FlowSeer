@@ -318,6 +318,9 @@ func TestObservableStepConvergence(t *testing.T) {
 			for _, e := range j.Entries {
 				if e.Kind == fabric.EntryCrossing {
 					sawProtocolCrossing = true
+					if e.Serialization <= 0 {
+						t.Errorf("expected BPDU crossing serialization > 0, got %v", e.Serialization)
+					}
 					break
 				}
 			}
@@ -750,7 +753,7 @@ func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 	after := next.Snapshot()
 
 	for _, arr := range after.Queue {
-		if !arr.Wake {
+		if arr.Kind != fabric.ArrivalWake {
 			t.Errorf("derived fabric queued a frame arrival %+v, want wakes only", arr)
 		}
 	}
@@ -820,5 +823,395 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	}
 	if oper, info := lagState(); oper != port.Down || info.Role != stp.RoleDisabled {
 		t.Fatalf("after both members cut: lag1 %v %v, want Down Disabled", oper, info.Role)
+	}
+}
+
+func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	b1 := port.NewBuilder()
+	b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports1 := mustTable(t, b1)
+
+	b2 := port.NewBuilder()
+	b2.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b2.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports2 := mustTable(t, b2)
+
+	macSW1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
+	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
+	macH1 := netaddr.MAC{0, 0, 0, 0, 2, 1}
+
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports1,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  macSW1,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+					},
+				},
+			},
+			"sw2": {
+				Ports:  ports2,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 32768,
+					Address:  macSW2,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+						"1/1/2": {},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+		},
+		Cables: []fabric.Cable{
+			{
+				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+				LengthMeters: 0,
+			},
+			{
+				A:            fabric.Endpoint{Node: "h1"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
+				LengthMeters: 0,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	inferiorBridgeID := stp.BridgeID{
+		Priority: 61440,
+		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
+	}
+	legacyBPDU := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       inferiorBridgeID,
+		BridgeID:     inferiorBridgeID,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	frame := stp.Encode(legacyBPDU, inferiorBridgeID.Address)
+
+	injID, err := fab.Inject(fabric.Injection{
+		At:     t0.Add(4 * time.Second),
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  frame,
+	})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			break
+		}
+		if entry.Device == "sw2" && entry.Port == "1/1/2" && entry.Kind == fabric.EntryHop {
+			break
+		}
+	}
+
+	var injectedJourney *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.FrameID == injID {
+			cp := j
+			injectedJourney = &cp
+			break
+		}
+	}
+	if injectedJourney == nil {
+		t.Fatalf("injected journey %d not found", injID)
+	}
+
+	var replyJourney *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
+			if j.Injection.At.After(t0.Add(4 * time.Second)) {
+				cp := j
+				replyJourney = &cp
+				break
+			}
+		}
+	}
+	if replyJourney == nil {
+		t.Fatal("expected reply journey from sw2 on 1/1/2")
+	}
+
+	var replyFrame ethernet.Frame
+	if len(replyJourney.Deliveries) > 0 {
+		replyFrame = replyJourney.Deliveries[0].Frame
+	} else {
+		replyFrame = replyJourney.Injection.Frame
+	}
+
+	decoded, err := stp.Decode(replyFrame)
+	if err != nil {
+		t.Fatalf("Decode reply frame: %v", err)
+	}
+	if decoded.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("decoded reply BPDU Type = %v, want Configuration", decoded.Type)
+	}
+
+	snap := fab.Snapshot()
+	if snap.Devices["sw2"].Roles["1/1/2"].SendRSTP {
+		t.Errorf("sw2 1/1/2 SendRSTP = true, want false")
+	}
+}
+
+func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	b1 := port.NewBuilder()
+	b1.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports1 := mustTable(t, b1)
+
+	b2 := port.NewBuilder()
+	b2.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b2.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports2 := mustTable(t, b2)
+
+	macSW1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
+	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
+	macH1 := netaddr.MAC{0, 0, 0, 2, 1, 1}
+
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports1,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  macSW1,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+					},
+				},
+			},
+			"sw2": {
+				Ports:  ports2,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority:    32768,
+					Address:     macSW2,
+					TxHoldCount: 2,
+					Ports: map[string]stp.Port{
+						"1/1/1": {},
+						"1/1/2": {},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+		},
+		Cables: []fabric.Cable{
+			{
+				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+				LengthMeters: 0,
+			},
+			{
+				A:            fabric.Endpoint{Node: "h1"},
+				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
+				LengthMeters: 0,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	inferiorBridgeID := stp.BridgeID{
+		Priority: 61440,
+		Address:  netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c},
+	}
+	legacyBPDU := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       inferiorBridgeID,
+		BridgeID:     inferiorBridgeID,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	frame := stp.Encode(legacyBPDU, inferiorBridgeID.Address)
+
+	injectTimes := []time.Duration{
+		4100 * time.Millisecond,
+		4200 * time.Millisecond,
+		4400 * time.Millisecond,
+	}
+	for _, dt := range injectTimes {
+		if _, err := fab.Inject(fabric.Injection{
+			At:     t0.Add(dt),
+			Origin: fabric.Endpoint{Node: "h1"},
+			Frame:  frame,
+		}); err != nil {
+			t.Fatalf("Inject at %v: %v", dt, err)
+		}
+	}
+
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			break
+		}
+		if entry.Kind == fabric.EntryWake && entry.Device == "sw2" && entry.At.Equal(t0.Add(5*time.Second)) {
+			break
+		}
+	}
+
+	snapAt5s := fab.Snapshot()
+	epSW2P2 := fabric.Endpoint{Node: "sw2", Port: "1/1/2"}
+	busyUntil, ok := snapAt5s.Busy[epSW2P2]
+	if !ok {
+		t.Fatalf("expected sw2:1/1/2 to take busy clock at t0+5s")
+	}
+	wantBusy := t0.Add(5*time.Second + 672*time.Nanosecond)
+	if !busyUntil.Equal(wantBusy) {
+		t.Errorf("sw2:1/1/2 busy until %v, want %v", busyUntil, wantBusy)
+	}
+
+	var replies []fabric.Journey
+	for _, j := range fab.Report() {
+		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
+			if j.Injection.At.After(t0.Add(4 * time.Second)) {
+				replies = append(replies, j)
+			}
+		}
+	}
+
+	if len(replies) != 2 {
+		t.Fatalf("got %d replies from sw2 on 1/1/2 after t0+4s, want 2 (one before 5s, one at 5s, no third)", len(replies))
+	}
+
+	wantFirstReplyAt := t0.Add(4100*time.Millisecond + 672*time.Nanosecond)
+	if !replies[0].Injection.At.Equal(wantFirstReplyAt) {
+		t.Errorf("first reply At = %v, want %v", replies[0].Injection.At, wantFirstReplyAt)
+	}
+	if !replies[0].Injection.At.Before(t0.Add(5 * time.Second)) {
+		t.Errorf("first reply At %v is not before t0+5s", replies[0].Injection.At)
+	}
+
+	if !replies[1].Injection.At.Equal(t0.Add(5 * time.Second)) {
+		t.Errorf("second reply At = %v, want t0+5s (%v)", replies[1].Injection.At, t0.Add(5*time.Second))
+	}
+
+	for _, e := range replies[1].Entries {
+		if e.Kind == fabric.EntryCrossing {
+			if e.Wait != 0 {
+				t.Errorf("crossing Wait = %v, want 0", e.Wait)
+			}
+			if !e.At.Equal(t0.Add(5 * time.Second)) {
+				t.Errorf("crossing At = %v, want %v", e.At, t0.Add(5*time.Second))
+			}
+		}
+	}
+
+	for {
+		snap := fab.Snapshot()
+		if snap.Clock.After(t0.Add(5500 * time.Millisecond)) {
+			break
+		}
+		if _, ok := fab.Step(); !ok {
+			break
+		}
+	}
+
+	repliesAfter := 0
+	for _, j := range fab.Report() {
+		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
+			if j.Injection.At.After(t0.Add(4*time.Second)) && j.Injection.At.Before(t0.Add(6*time.Second)) {
+				repliesAfter++
+			}
+		}
+	}
+	if repliesAfter != 2 {
+		t.Errorf("replies between t0+4s and t0+6s = %d, want 2 (no third reply)", repliesAfter)
+	}
+}
+
+// TestFabricMcheckQueuesTheRSTReply is evidence that a management check
+// through the fabric emits at the fabric clock and reschedules the wake,
+// rather than leaving the reply buffered until an unrelated step.
+func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, _ := b.Build()
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 32768,
+					Address:  netaddr.MAC{0x02, 0, 0, 0, 0, 0x02},
+					Ports:    map[string]stp.Port{"1/1/1": {}},
+				},
+			},
+		},
+		Hosts:  map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
+		Cables: []fabric.Cable{{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}}},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+	inferior := stp.BridgeID{Priority: 61440, Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}}
+	legacy := stp.BPDU{
+		Type: stp.BPDUTypeConfiguration, RootID: inferior, BridgeID: inferior, PortID: 0x8001,
+		HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
+	}
+	legacy.SetRole(stp.RoleDesignated)
+	if _, err := fab.Inject(fabric.Injection{
+		At: t0.Add(4 * time.Second), Origin: fabric.Endpoint{Node: "h1"},
+		Frame: stp.Encode(legacy, netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}),
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	for {
+		entry, ok := fab.Step()
+		if !ok || entry.At.After(t0.Add(5*time.Second)) {
+			break
+		}
+	}
+	if fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
+		t.Fatal("the port did not migrate")
+	}
+	clock := fab.Snapshot().Clock
+	if err := fab.Mcheck("sw1", "1/1/1"); err != nil {
+		t.Fatalf("Mcheck: %v", err)
+	}
+	if !fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
+		t.Fatal("Mcheck left the port in compatibility mode")
+	}
+	var found bool
+	for _, j := range fab.Report() {
+		if j.Protocol && j.Injection.Origin.Node == "sw1" && j.Injection.At.Equal(clock) {
+			bpdu, err := stp.Decode(j.Injection.Frame)
+			if err == nil && bpdu.Type == stp.BPDUTypeRapid {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no RST BPDU journey dated the fabric clock %v after Mcheck", clock)
+	}
+	if err := fab.Mcheck("h1", ""); err == nil {
+		t.Error("Mcheck on a host returned no error")
 	}
 }

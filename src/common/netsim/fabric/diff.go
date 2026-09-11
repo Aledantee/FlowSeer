@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
@@ -99,6 +98,31 @@ func Diff(a, b Config) []trace.Change {
 				To:      cB.LengthMeters,
 			})
 		}
+		if mA, mB := normalizedMedium(cA.Medium), normalizedMedium(cB.Medium); mA != mB {
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "medium",
+				From:    mA,
+				To:      mB,
+			})
+		}
+		if !samePtr(cA.Delay, cB.Delay) {
+			var fromDelay, toDelay any
+			if cA.Delay != nil {
+				fromDelay = *cA.Delay
+			}
+			if cB.Delay != nil {
+				toDelay = *cB.Delay
+			}
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "delay",
+				From:    fromDelay,
+				To:      toDelay,
+			})
+		}
 		if cA.TopSpeedBPS != cB.TopSpeedBPS {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
@@ -186,7 +210,7 @@ func Diff(a, b Config) []trace.Change {
 					To:      hB.Address,
 				})
 			}
-			if !sameVLAN(hA.VLAN, hB.VLAN) {
+			if !samePtr(hA.VLAN, hB.VLAN) {
 				var fromVal, toVal any
 				if hA.VLAN != nil {
 					fromVal = *hA.VLAN
@@ -396,14 +420,22 @@ func sameFault(a, b Fault) bool {
 	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
-func sameVLAN(a, b *vlan.ID) bool {
+// normalizedMedium reads an unset medium as TwistedPair, so a change reports
+// the medium a reader compares against.
+func normalizedMedium(m Medium) Medium {
+	if m == "" {
+		return TwistedPair
+	}
+
+	return m
+}
+
+func samePtr[T comparable](a, b *T) bool {
 	if (a == nil) != (b == nil) {
 		return false
 	}
-	if a != nil && b != nil && *a != *b {
-		return false
-	}
-	return true
+
+	return a == nil || *a == *b
 }
 
 func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {

@@ -152,6 +152,28 @@ func TestConfigValidateRules(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name: "cable with negative delay",
+			mutate: func(c *fabric.Config) {
+				d := -1 * time.Nanosecond
+				c.Cables[0].Delay = &d
+			},
+			wantError: true,
+		},
+		{
+			name: "cable with unknown medium coax",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Medium = "coax"
+			},
+			wantError: true,
+		},
+		{
+			name: "cable with empty medium accepted",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Medium = ""
+			},
+			wantError: false,
+		},
+		{
 			name: "cable fault LoseEveryNth with N zero",
 			mutate: func(c *fabric.Config) {
 				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 0}
@@ -293,6 +315,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			mutate: func(c *fabric.Config) {
 				c.Cables[1].TopSpeedBPS = 100_000_000
 				c.Cables[1].LengthMeters = 300.5
+				c.Cables[1].Medium = fabric.MultimodeFiber
 			},
 			wantError: false,
 		},
@@ -497,6 +520,8 @@ func TestConfigClone(t *testing.T) {
 		Kind:     fabric.FaultLoseSequence,
 		Sequence: []uint{1, 2, 3},
 	}
+	d := 10 * time.Microsecond
+	cfg.Cables[0].Delay = &d
 
 	cloned := cfg.Clone()
 
@@ -505,6 +530,7 @@ func TestConfigClone(t *testing.T) {
 	delete(cfg.Hosts, "h1")
 	cfg.Cables[0].LengthMeters = 999
 	cfg.Cables[0].Fault.Sequence[0] = 999
+	*cfg.Cables[0].Delay = 999 * time.Microsecond
 
 	if len(cloned.Switches) != 2 {
 		t.Errorf("cloned switches modified: len = %d, want 2", len(cloned.Switches))
@@ -517,6 +543,9 @@ func TestConfigClone(t *testing.T) {
 	}
 	if cloned.Cables[0].Fault.Sequence[0] != 1 {
 		t.Errorf("cloned fault sequence modified: got %d, want 1", cloned.Cables[0].Fault.Sequence[0])
+	}
+	if cloned.Cables[0].Delay == nil || *cloned.Cables[0].Delay != 10*time.Microsecond {
+		t.Errorf("cloned delay modified or nil: got %v, want 10µs", cloned.Cables[0].Delay)
 	}
 	if cloned.Hosts["h1"].IP == nil || len(cloned.Hosts["h1"].IP.Addresses) != 1 {
 		t.Errorf("cloned host IP not cloned properly: %+v", cloned.Hosts["h1"].IP)

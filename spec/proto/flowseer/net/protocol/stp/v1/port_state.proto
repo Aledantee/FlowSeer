@@ -6,6 +6,7 @@ import "flowseer/net/protocol/stp/v1/bridge_id.proto";
 import "flowseer/net/protocol/stp/v1/forwarding_state.proto";
 import "flowseer/net/protocol/stp/v1/point_to_point_mode.proto";
 import "flowseer/net/protocol/stp/v1/port_role.proto";
+import "flowseer/net/protocol/stp/v1/protocol_version.proto";
 import option "buf/validate/validate.proto";
 
 // Observed spanning tree protocol state and administrative settings of one
@@ -62,4 +63,22 @@ message PortState {
   // Number of transitions from Learning to Forwarding. Mirrors
   // dot1dStpPortForwardTransitions (BRIDGE-MIB:716).
   uint64 forward_transitions = 15;
+  // Administrative auto-edge port status. Absent means the source did not report
+  // it. Mirrors ieee8021MstpCistPortAutoEdgePort (IEEE8021-MSTP-MIB:1426).
+  bool auto_edge = 16;
+  // Spanning tree protocol version the port transmits: STP when the port migrated
+  // to a legacy peer, RSTP otherwise. Absent means unreported.
+  ProtocolVersion oper_protocol_version = 17;
+  // Number of BPDUs transmitted by this port. Absent means the source did not
+  // report the counter; zero means none. Mirrors tx_count of Open vSwitch
+  // lib/rstp-common.h.
+  uint64 tx_bpdus = 18;
+  // Number of valid BPDUs received on this port. Absent means the source did
+  // not report the counter; zero means none. Mirrors rx_rstp_bpdu_cnt of Open
+  // vSwitch lib/rstp-common.h.
+  uint64 rx_bpdus = 19;
+  // Number of undecodable BPDU frames received on this port. Absent means the
+  // source did not report the counter; zero means none. Mirrors error_count of
+  // Open vSwitch lib/rstp-common.h.
+  uint64 bad_bpdus = 20;
 }

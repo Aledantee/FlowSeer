@@ -2,6 +2,8 @@ edition = "2024";
 
 package flowseer.net.switching.v1;
 
+import "flowseer/net/switching/v1/bond_mode.proto";
+import "google/protobuf/duration.proto";
 import option "buf/validate/validate.proto";
 
 // Protocol-independent attributes of a link aggregation. The attributes are
@@ -14,4 +16,23 @@ message AggregationFacet {
   // The active aggregate capacity in bits per second. Absent means the source
   // did not report it; zero is invalid when present.
   uint64 effective_speed_bps = 2 [(buf.validate.field).uint64.gt = 0];
+  // Bond mode governing member selection for the aggregation. Absent means
+  // unreported. Mirrors bond_mode of Open vSwitch.
+  BondMode bond_mode = 3;
+  // Delay before enabling a member link after it comes up. Absent means
+  // unreported. Mirrors bond-updelay of Open vSwitch.
+  google.protobuf.Duration up_delay = 4 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // Delay before disabling a member link after it goes down. Absent means
+  // unreported. Mirrors bond-downdelay of Open vSwitch.
+  google.protobuf.Duration down_delay = 5 [(buf.validate.field).duration.gte = {seconds: 0}];
+  // Hash basis for balance-slb and balance-tcp bond modes. Absent means
+  // unreported. Mirrors bond-hash-basis of Open vSwitch.
+  uint32 hash_basis = 6;
+  // Primary member interface name for active-backup mode. Absent means the
+  // lowest member.
+  string primary_interface_name = 7 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
+  ];
 }

@@ -583,3 +583,197 @@ func TestStableCableOrderingInFabricLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestCableReachBoundsLinkNegotiation(t *testing.T) {
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+	eth1G := phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}}
+	eth1G10G := phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000, 10_000_000_000}}
+	forced1G := phy.Ethernet{
+		SupportedSpeedsBPS: []uint64{1_000_000_000},
+		Setting:            &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full, AutoNegotiation: false},
+	}
+	forced10G := phy.Ethernet{
+		SupportedSpeedsBPS: []uint64{10_000_000_000},
+		Setting:            &phy.Setting{SpeedBPS: 10_000_000_000, Duplex: phy.Full, AutoNegotiation: false},
+	}
+
+	tests := []struct {
+		name         string
+		ethA         *phy.Ethernet
+		ethB         *phy.Ethernet
+		nodeA        fabric.Endpoint
+		nodeB        fabric.Endpoint
+		hosts        map[string]fabric.Host
+		medium       fabric.Medium
+		lengthMeters float64
+		wantOper     port.LinkState
+		wantReason   trace.Reason
+		wantSpeedBPS uint64
+	}{
+		{
+			name:         "120m twisted pair between 1G ends is reach exceeded",
+			ethA:         &eth1G,
+			ethB:         &eth1G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.TwistedPair,
+			lengthMeters: 120,
+			wantOper:     port.Down,
+			wantReason:   fabric.ReasonReachExceeded,
+		},
+		{
+			name:         "90m multimode between 1G and 10G ends negotiates 10G",
+			ethA:         &eth1G10G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.MultimodeFiber,
+			lengthMeters: 90,
+			wantOper:     port.Up,
+			wantSpeedBPS: 10_000_000_000,
+		},
+		{
+			name:         "400m multimode between 1G and 10G ends negotiates 1G",
+			ethA:         &eth1G10G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.MultimodeFiber,
+			lengthMeters: 400,
+			wantOper:     port.Up,
+			wantSpeedBPS: 1_000_000_000,
+		},
+		{
+			name:         "600m multimode between 1G and 10G ends is reach exceeded",
+			ethA:         &eth1G10G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.MultimodeFiber,
+			lengthMeters: 600,
+			wantOper:     port.Down,
+			wantReason:   fabric.ReasonReachExceeded,
+		},
+		{
+			name:         "0m twisted pair between 1G and 10G ends negotiates 10G",
+			ethA:         &eth1G10G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.TwistedPair,
+			lengthMeters: 0,
+			wantOper:     port.Up,
+			wantSpeedBPS: 10_000_000_000,
+		},
+		{
+			name:         "300m twisted pair between two hosts is reach exceeded",
+			nodeA:        fabric.Endpoint{Node: "h1"},
+			nodeB:        fabric.Endpoint{Node: "h2"},
+			hosts:        map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
+			medium:       fabric.TwistedPair,
+			lengthMeters: 300,
+			wantOper:     port.Down,
+			wantReason:   fabric.ReasonReachExceeded,
+		},
+		{
+			name:         "300m twisted pair between host and undeclared port is reach exceeded",
+			nodeA:        fabric.Endpoint{Node: "h1"},
+			nodeB:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			hosts:        map[string]fabric.Host{"h1": {Address: macH1}},
+			medium:       fabric.TwistedPair,
+			lengthMeters: 300,
+			wantOper:     port.Down,
+			wantReason:   fabric.ReasonReachExceeded,
+		},
+		{
+			name:         "forced 1G against auto 1G and 10G on 400m multimode resolves Up at 1G",
+			ethA:         &forced1G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.MultimodeFiber,
+			lengthMeters: 400,
+			wantOper:     port.Up,
+			wantSpeedBPS: 1_000_000_000,
+		},
+		{
+			name:         "forced 10G against auto 1G and 10G on 400m multimode is reach exceeded",
+			ethA:         &forced10G,
+			ethB:         &eth1G10G,
+			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			medium:       fabric.MultimodeFiber,
+			lengthMeters: 400,
+			wantOper:     port.Down,
+			wantReason:   fabric.ReasonReachExceeded,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := fabric.Config{
+				Switches: make(map[string]vswitch.Config),
+				Hosts:    tc.hosts,
+				Cables: []fabric.Cable{
+					{
+						A:            tc.nodeA,
+						B:            tc.nodeB,
+						LengthMeters: tc.lengthMeters,
+						Medium:       tc.medium,
+					},
+				},
+			}
+
+			if tc.nodeA.Port != "" {
+				b := port.NewBuilder().Add(port.Port{Name: tc.nodeA.Port, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+				sw := vswitch.Config{Ports: mustTable(t, b)}
+				if tc.ethA != nil {
+					sw.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{tc.nodeA.Port: *tc.ethA}}
+				}
+				cfg.Switches[tc.nodeA.Node] = sw
+			}
+			if tc.nodeB.Port != "" {
+				b := port.NewBuilder().Add(port.Port{Name: tc.nodeB.Port, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+				sw := vswitch.Config{Ports: mustTable(t, b)}
+				if tc.ethB != nil {
+					sw.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{tc.nodeB.Port: *tc.ethB}}
+				}
+				cfg.Switches[tc.nodeB.Node] = sw
+			}
+
+			fab, err := fabric.New(cfg)
+			if err != nil {
+				t.Fatalf("New fabric: %v", err)
+			}
+
+			links := fab.Links()
+			if len(links) != 1 {
+				t.Fatalf("got %d links, want 1", len(links))
+			}
+			l := links[0]
+
+			if l.A.Oper != tc.wantOper || l.B.Oper != tc.wantOper {
+				t.Fatalf("link oper status A=%v B=%v, want %v", l.A.Oper, l.B.Oper, tc.wantOper)
+			}
+			if tc.wantOper == port.Down {
+				if l.A.Reason != tc.wantReason || l.B.Reason != tc.wantReason {
+					t.Errorf("link reasons A=%q B=%q, want %q", l.A.Reason, l.B.Reason, tc.wantReason)
+				}
+				if tc.wantReason == fabric.ReasonReachExceeded {
+					if l.A.Reason == phy.ReasonSpeedMismatch || l.B.Reason == phy.ReasonSpeedMismatch {
+						t.Errorf("link reported speed-mismatch instead of reach-exceeded")
+					}
+				}
+			} else {
+				if l.A.Speed.SpeedBPS != tc.wantSpeedBPS || l.B.Speed.SpeedBPS != tc.wantSpeedBPS {
+					t.Errorf("link speeds A=%d B=%d, want %d", l.A.Speed.SpeedBPS, l.B.Speed.SpeedBPS, tc.wantSpeedBPS)
+				}
+				if l.A.Speed.Duplex != phy.Full || l.B.Speed.Duplex != phy.Full {
+					t.Errorf("link duplex A=%v B=%v, want Full", l.A.Speed.Duplex, l.B.Speed.Duplex)
+				}
+			}
+		})
+	}
+}

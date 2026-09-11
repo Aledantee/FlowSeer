@@ -1,0 +1,60 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+import "flowseer/net/protocol/lacp/v1/lacp_info.proto";
+import "flowseer/net/protocol/lacp/v1/lacp_status.proto";
+import option "buf/validate/validate.proto";
+
+// Observed Link Aggregation Control Protocol (LACP) state and administrative
+// settings of an aggregation member port. The port's administrative settings
+// travel in the same message, so this package deliberately has no PortConfig
+// and no PortEvent.
+message PortState {
+  // Device-local name of the member interface. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Device-local name of the aggregator interface this member belongs to.
+  // Absent means unaggregated. Mirrors dot3adAggPortAttachedAggID
+  // (IEEE8023-LAG-MIB:1386).
+  string aggregator_interface_name = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Administratively assigned priority of this port. Absent means unreported.
+  // Mirrors dot3adAggPortActorPortPriority (IEEE8023-LAG-MIB:1413).
+  uint32 port_priority = 3 [(buf.validate.field).uint32.lte = 65535];
+  // Administratively assigned aggregation key of this port. Absent means
+  // unreported. Mirrors dot3adAggPortActorAdminKey (IEEE8023-LAG-MIB:1244).
+  uint32 key = 4 [(buf.validate.field).uint32.lte = 65535];
+  // Actor operational LACP parameters transmitted by this port. Absent means
+  // unreported. Mirrors dot3adAggPortActorOperState (IEEE8023-LAG-MIB:1516).
+  LacpInfo actor = 5;
+  // Partner operational LACP parameters received on this port. Absent means no
+  // partner PDU received. Mirrors dot3adAggPortPartnerOperKey
+  // (IEEE8023-LAG-MIB:1355) and dot3adAggPortPartnerOperState
+  // (IEEE8023-LAG-MIB:1545).
+  LacpInfo partner = 6;
+  // Partner information state machine status of this port. Absent means
+  // unreported.
+  LacpStatus status = 7;
+  // Whether this member is attached to the aggregator. Absent means false.
+  // Mirrors dot3adAggPortAttachedAggID (IEEE8023-LAG-MIB:1386).
+  bool attached = 8;
+  // Whether this member is enabled for frame collection and distribution.
+  // Absent means false. Mirrors dot3adAggPortActorOperState collecting and
+  // distributing bits (IEEE8023-LAG-MIB:1516).
+  bool enabled = 9;
+  // Number of valid LACPDUs transmitted on this port. Absent means unreported.
+  // Mirrors dot3adAggPortStatsLACPDUsTx (IEEE8023-LAG-MIB:1694).
+  uint64 lacpdus_tx = 10;
+  // Number of valid LACPDUs received on this port. Absent means unreported.
+  // Mirrors dot3adAggPortStatsLACPDUsRx (IEEE8023-LAG-MIB:1624).
+  uint64 lacpdus_rx = 11;
+  // Number of invalid or undecodable LACPDUs received on this port. Absent means
+  // unreported. Mirrors per-port LACP error counter of Open vSwitch.
+  uint64 bad_lacpdus = 12;
+}

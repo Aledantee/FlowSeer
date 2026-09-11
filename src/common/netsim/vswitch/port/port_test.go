@@ -529,13 +529,13 @@ func TestTableTransmit(t *testing.T) {
 		}
 	})
 
-	t.Run("lag choosing lowest forwarding member", func(t *testing.T) {
+	t.Run("lag forwarding returns empty member", func(t *testing.T) {
 		member, reason := tbl.Transmit("lag1", 1000)
 		if reason != "" {
 			t.Errorf("Transmit(\"lag1\", 1000) reason = %q, want empty", reason)
 		}
-		if member != "1/1/4" {
-			t.Errorf("Transmit(\"lag1\", 1000) member = %q, want \"1/1/4\"", member)
+		if member != "" {
+			t.Errorf("Transmit(\"lag1\", 1000) member = %q, want empty", member)
 		}
 	})
 

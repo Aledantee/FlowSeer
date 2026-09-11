@@ -33,13 +33,25 @@ const (
 
 	// ReasonPortBlocked indicates a frame dropped because a port is blocked from learning or forwarding.
 	ReasonPortBlocked trace.Reason = "port-blocked"
+
+	// ReasonProtected indicates a frame dropped because transmission between protected ports is prohibited.
+	ReasonProtected trace.Reason = "protected"
+
+	// ReasonCustomerVLAN indicates a frame dropped on a tunnel port because its customer VLAN was not permitted.
+	ReasonCustomerVLAN trace.Reason = "customer-vlan"
+
+	// ReasonNoMember indicates a frame dropped because no member port was selected for LAG egress.
+	ReasonNoMember trace.Reason = "no-member"
 )
 
-// Egress records the transmission or per-port drop of a frame on a specific egress port.
+// Egress records the transmission or per-port drop of a frame on a specific
+// egress port. PCP is the classified ingress priority, including when Frame no
+// longer carries a VLAN tag on an untagged egress.
 type Egress struct {
 	Port    string
 	Member  string
 	Frame   ethernet.Frame
+	PCP     vlan.PCP
 	Dropped trace.Reason
 }
 

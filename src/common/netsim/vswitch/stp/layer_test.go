@@ -641,3 +641,543 @@ func TestTimesInForceFollowTheRoot(t *testing.T) {
 		t.Errorf("PortInfo = %+v, want designated root %+v and default priority", info, root)
 	}
 }
+
+// TestCompatibilityOnLegacyBPDU is evidence that a port hearing an inferior
+// legacy Configuration BPDU outside the migration delay migrates to 802.1D
+// compatibility mode, emits Configuration BPDUs without proposal flags,
+// climbs the forward-delay ladder, and counts received and bad BPDUs.
+func TestCompatibilityOnLegacyBPDU(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	inferiorConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorConfig.SetRole(stp.RoleDesignated)
+
+	rx := l.Receive(t0.Add(4*time.Second), "1/1/1", inferiorConfig)
+	if len(rx.Emissions) != 1 {
+		t.Fatalf("reply emissions count = %d, want 1", len(rx.Emissions))
+	}
+	reply, err := stp.Decode(rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode reply: %v", err)
+	}
+	if reply.Version != 0 || reply.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("reply BPDU version = %d type = %v, want 0 and Configuration", reply.Version, reply.Type)
+	}
+	if reply.Proposal() {
+		t.Error("reply BPDU unexpectedly has proposal set")
+	}
+
+	w6 := l.Wake(t0.Add(6 * time.Second))
+	for _, em := range w6.Emissions {
+		b, err := stp.Decode(em.Frame)
+		if err != nil {
+			t.Fatalf("decode wake emission on %s: %v", em.Port, err)
+		}
+		if em.Port == "1/1/1" && b.Proposal() {
+			t.Errorf("emission on %s has proposal set after migration", em.Port)
+		}
+		switch em.Port {
+		case "1/1/1":
+			if b.Version != 0 || b.Type != stp.BPDUTypeConfiguration {
+				t.Errorf("1/1/1 hello version = %d type = %v, want 0 and Configuration", b.Version, b.Type)
+			}
+		case "1/1/2":
+			if b.Version != 2 || b.Type != stp.BPDUTypeRapid {
+				t.Errorf("1/1/2 hello version = %d type = %v, want 2 and Rapid", b.Version, b.Type)
+			}
+		}
+	}
+
+	if info := l.PortInfo("1/1/1"); info.SendRSTP {
+		t.Errorf("PortInfo(1/1/1).SendRSTP = true, want false")
+	}
+
+	l.Wake(t0.Add(15 * time.Second))
+
+	w29 := l.Wake(t0.Add(29 * time.Second))
+	for _, em := range w29.Emissions {
+		if b, err := stp.Decode(em.Frame); err == nil && em.Port == "1/1/1" && b.Proposal() {
+			t.Errorf("wake 29s emission on %s has proposal set", em.Port)
+		}
+	}
+	if state := l.PortInfo("1/1/1").State; state == stp.StateForwarding {
+		t.Errorf("1/1/1 state at 29s = %v, want not Forwarding", state)
+	}
+
+	w30 := l.Wake(t0.Add(30 * time.Second))
+	for _, em := range w30.Emissions {
+		if b, err := stp.Decode(em.Frame); err == nil && em.Port == "1/1/1" && b.Proposal() {
+			t.Errorf("wake 30s emission on %s has proposal set", em.Port)
+		}
+	}
+	if state := l.PortInfo("1/1/1").State; state != stp.StateForwarding {
+		t.Errorf("1/1/1 state at 30s = %v, want Forwarding", state)
+	}
+
+	if rxCount := l.PortInfo("1/1/1").RxBPDUs; rxCount != 1 {
+		t.Errorf("PortInfo(1/1/1).RxBPDUs = %d, want 1", rxCount)
+	}
+	l.BadBPDU("1/1/1")
+	l.BadBPDU("1/1/1")
+	if badCount := l.PortInfo("1/1/1").BadBPDUs; badCount != 2 {
+		t.Errorf("PortInfo(1/1/1).BadBPDUs = %d, want 2", badCount)
+	}
+}
+
+// TestProtocolMigrationReturnToRSTP is evidence that Mcheck forces an operating
+// port back to RSTP, and that a received RST BPDU does so only after the migration
+// delay has passed.
+func TestProtocolMigrationReturnToRSTP(t *testing.T) {
+	t.Parallel()
+
+	inferiorConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorConfig.SetRole(stp.RoleDesignated)
+
+	inferiorRapid := stp.BPDU{
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorRapid.SetRole(stp.RoleDesignated)
+
+	t.Run("mcheck", func(t *testing.T) {
+		t.Parallel()
+		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+		l := stp.New(stp.Config{
+			Priority: 32768,
+			Address:  mustMAC(t, "02:00:00:00:00:02"),
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+		l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+		l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+		l.Receive(t0.Add(4*time.Second), "1/1/1", inferiorConfig)
+
+		l.Mcheck(t0.Add(10*time.Second), "1/1/1")
+		if !l.PortInfo("1/1/1").SendRSTP {
+			t.Error("after Mcheck: SendRSTP = false, want true")
+		}
+
+		w12 := l.Wake(t0.Add(12 * time.Second))
+		found := false
+		for _, em := range w12.Emissions {
+			if em.Port == "1/1/1" {
+				b, err := stp.Decode(em.Frame)
+				if err != nil {
+					t.Fatalf("decode 1/1/1 hello: %v", err)
+				}
+				if b.Type != stp.BPDUTypeRapid {
+					t.Errorf("1/1/1 hello type = %v, want Rapid", b.Type)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Error("no hello emitted on 1/1/1 at 12s")
+		}
+	})
+
+	t.Run("received rst bpdu", func(t *testing.T) {
+		t.Parallel()
+		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+		l := stp.New(stp.Config{
+			Priority: 32768,
+			Address:  mustMAC(t, "02:00:00:00:00:02"),
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+		l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+		l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+		l.Receive(t0.Add(4*time.Second), "1/1/1", inferiorConfig)
+
+		l.Receive(t0.Add(5*time.Second), "1/1/1", inferiorRapid)
+		if l.PortInfo("1/1/1").SendRSTP {
+			t.Error("SendRSTP returned to true inside migration delay at 5s")
+		}
+
+		l.Receive(t0.Add(10*time.Second), "1/1/1", inferiorRapid)
+		if !l.PortInfo("1/1/1").SendRSTP {
+			t.Error("SendRSTP remained false after delay expired at 10s")
+		}
+
+		w12 := l.Wake(t0.Add(12 * time.Second))
+		found := false
+		for _, em := range w12.Emissions {
+			if em.Port == "1/1/1" {
+				b, err := stp.Decode(em.Frame)
+				if err != nil {
+					t.Fatalf("decode 1/1/1 hello: %v", err)
+				}
+				if b.Type != stp.BPDUTypeRapid {
+					t.Errorf("1/1/1 hello type = %v, want Rapid", b.Type)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Error("no hello emitted on 1/1/1 at 12s")
+		}
+	})
+}
+
+// TestSuperiorBPDUInsideMigrationDelay is evidence that a legacy BPDU received
+// inside the migration delay does not trigger protocol migration, but updates
+// the priority vector so the port elects the root role.
+func TestSuperiorBPDUInsideMigrationDelay(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	superiorConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	superiorConfig.SetRole(stp.RoleDesignated)
+
+	l.Receive(t0.Add(time.Second), "1/1/2", superiorConfig)
+	info := l.PortInfo("1/1/2")
+	if !info.SendRSTP {
+		t.Errorf("1/1/2 SendRSTP = false, want true inside migration delay")
+	}
+	if info.Role != stp.RoleRoot {
+		t.Errorf("1/1/2 role = %v, want Root", info.Role)
+	}
+}
+
+// TestAutoEdgeDetection is evidence that a port with AutoEdge transitions to
+// edge and forward on timer expiry without BPDUs, loses edge status and resets
+// to discarding on hearing a BPDU, and regains edge status when quiet.
+func TestAutoEdgeDetection(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {AutoEdge: false},
+			"1/1/2": {AutoEdge: true},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	l.Wake(t0.Add(2 * time.Second))
+	if info := l.PortInfo("1/1/2"); info.Edge || info.State == stp.StateForwarding {
+		t.Fatalf("at 2s: 1/1/2 edge %v state %v, want not edge and discarding", info.Edge, info.State)
+	}
+
+	l.Wake(t0.Add(3 * time.Second))
+	if info := l.PortInfo("1/1/2"); !info.Edge || info.State != stp.StateForwarding {
+		t.Fatalf("at 3s: 1/1/2 edge %v state %v, want edge and forwarding", info.Edge, info.State)
+	}
+	if info := l.PortInfo("1/1/1"); info.Edge || info.State != stp.StateDiscarding {
+		t.Fatalf("at 3s: 1/1/1 edge %v state %v, want non-edge and discarding", info.Edge, info.State)
+	}
+
+	inferiorRapid := stp.BPDU{
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorRapid.SetRole(stp.RoleDesignated)
+
+	l.Receive(t0.Add(5*time.Second), "1/1/2", inferiorRapid)
+	if info := l.PortInfo("1/1/2"); info.Edge || info.State != stp.StateDiscarding {
+		t.Fatalf("at 5s after BPDU: 1/1/2 edge %v state %v, want non-edge and discarding", info.Edge, info.State)
+	}
+
+	l.Wake(t0.Add(8 * time.Second))
+	if info := l.PortInfo("1/1/2"); !info.Edge || info.State != stp.StateForwarding {
+		t.Fatalf("at 8s without BPDU: 1/1/2 edge %v state %v, want edge and forwarding", info.Edge, info.State)
+	}
+}
+
+// TestTransmitHoldCountGating is evidence that emissions are held when the
+// transmit hold count is reached, released at the next tick, and accounted for
+// on PortInfo.TxBPDUs.
+func TestTransmitHoldCountGating(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority:    32768,
+		Address:     mustMAC(t, "02:00:00:00:00:02"),
+		TxHoldCount: 2,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	l.Wake(t0.Add(2 * time.Second))
+	// The hello due at 4 s is the first of the two transmissions the bound
+	// allows within the second that follows.
+	l.Wake(t0.Add(4 * time.Second))
+
+	inferiorConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorConfig.SetRole(stp.RoleDesignated)
+
+	rx1 := l.Receive(t0.Add(4100*time.Millisecond), "1/1/1", inferiorConfig)
+	rx2 := l.Receive(t0.Add(4200*time.Millisecond), "1/1/1", inferiorConfig)
+	rx3 := l.Receive(t0.Add(4400*time.Millisecond), "1/1/1", inferiorConfig)
+
+	totalReplies := len(rx1.Emissions) + len(rx2.Emissions) + len(rx3.Emissions)
+	if totalReplies != 1 {
+		t.Fatalf("total reply emissions in burst = %d, want 1: the hello at 4 s took the other slot", totalReplies)
+	}
+
+	next, hasTimer := l.NextWake()
+	if !hasTimer || !next.Equal(t0.Add(5*time.Second)) {
+		t.Fatalf("NextWake = (%v, %v), want (%v, true)", next, hasTimer, t0.Add(5*time.Second))
+	}
+
+	w5 := l.Wake(t0.Add(5 * time.Second))
+	if len(w5.Emissions) != 1 || w5.Emissions[0].Port != "1/1/1" {
+		t.Fatalf("Wake(5s) emissions = %+v, want 1 on 1/1/1", w5.Emissions)
+	}
+
+	// The link-up proposal, the hellos at 2 s and 4 s, the one reply that
+	// passed the gate, and the one released at the tick.
+	if txCount := l.PortInfo("1/1/1").TxBPDUs; txCount != 5 {
+		t.Errorf("PortInfo(1/1/1).TxBPDUs = %d, want 5", txCount)
+	}
+}
+
+func legacyConfigBPDU(t *testing.T, rootPriority uint16, addr string) stp.BPDU {
+	t.Helper()
+	b := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: rootPriority, Address: mustMAC(t, addr)},
+		BridgeID:     stp.BridgeID{Priority: rootPriority, Address: mustMAC(t, addr)},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(stp.RoleDesignated)
+
+	return b
+}
+
+// TestMigratedRootPortClimbsTheLadder is evidence that a port in
+// compatibility mode takes no rapid transition even as a synced root port.
+func TestMigratedRootPortClimbsTheLadder(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	superior := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
+	at := t0.Add(4 * time.Second)
+	l.Receive(at, "1/1/1", superior)
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleRoot || info.SendRSTP || info.State == stp.StateForwarding {
+		t.Fatalf("after a superior legacy BPDU: %+v, want a migrated root port not yet forwarding", info)
+	}
+	// Wake every second as the fabric would, and keep the information fresh
+	// with a hello every two seconds; the ladder started at link-up, so it
+	// fires at t0+15 s and t0+30 s whatever the role.
+	for s := 5; s <= 30; s++ {
+		now := t0.Add(time.Duration(s) * time.Second)
+		if s%2 == 0 {
+			l.Receive(now, "1/1/1", superior)
+		}
+		l.Wake(now)
+		if info := l.PortInfo("1/1/1"); s < 30 && info.State == stp.StateForwarding {
+			t.Fatalf("at t0+%ds the migrated root port is forwarding; want the ladder to hold it", s)
+		}
+	}
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
+		t.Fatalf("at t0+30s the migrated root port is %v, want forwarding after two forward delays", info.State)
+	}
+}
+
+// TestMigratedPortAgreesWithoutTheAgreementBit is evidence that a port in
+// compatibility mode answers a proposal with a Configuration BPDU that
+// carries no agreement flag.
+func TestMigratedPortAgreesWithoutTheAgreementBit(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.Receive(t0.Add(4*time.Second), "1/1/1", legacyConfigBPDU(t, 61440, "02:00:00:00:00:0c"))
+	if l.PortInfo("1/1/1").SendRSTP {
+		t.Fatal("port did not migrate")
+	}
+
+	proposal := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	proposal.SetRole(stp.RoleDesignated)
+	proposal.SetProposal(true)
+	// Inside the restarted delay the RST BPDU does not end compatibility.
+	rx := l.Receive(t0.Add(5*time.Second), "1/1/1", proposal)
+	if len(rx.Emissions) != 1 {
+		t.Fatalf("emissions = %d, want the reply", len(rx.Emissions))
+	}
+	reply, err := stp.Decode(rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Type != stp.BPDUTypeConfiguration || reply.Agreement() {
+		t.Errorf("reply = type %v agreement %v, want a Configuration BPDU without agreement", reply.Type, reply.Agreement())
+	}
+}
+
+// TestTCNReceiveRaisesTopologyChange is evidence that a legacy Topology
+// Change Notification flushes the other ports and migrates the port.
+func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
+	if !slices.Contains(fx.Flush, "1/1/2") || slices.Contains(fx.Flush, "1/1/1") {
+		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
+	}
+	if l.PortInfo("1/1/1").SendRSTP {
+		t.Error("a TCN after the migration delay left the port in RSTP mode")
+	}
+	if l.PortInfo("1/1/1").RxBPDUs != 1 {
+		t.Errorf("RxBPDUs = %d, want 1", l.PortInfo("1/1/1").RxBPDUs)
+	}
+}
+
+// TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain is evidence that
+// NextWake never reports an edge delay that has already passed: a port that
+// was blocked while the delay ran gets a fresh delay when it is designated
+// again.
+func TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {AutoEdge: true}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	superior := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
+	superior.Type = stp.BPDUTypeRapid
+	l.Receive(t0.Add(1*time.Second), "1/1/1", superior)
+	if l.PortInfo("1/1/1").Role != stp.RoleRoot {
+		t.Fatal("port did not take the root role")
+	}
+	// Three hellos without a BPDU age the information out and the port is
+	// designated again; its edge delay must count from then.
+	now := t0.Add(8 * time.Second)
+	l.Wake(now)
+	if l.PortInfo("1/1/1").Role != stp.RoleDesignated {
+		t.Fatalf("role after aging = %v, want designated", l.PortInfo("1/1/1").Role)
+	}
+	next, ok := l.NextWake()
+	if !ok || next.Before(now) {
+		t.Fatalf("NextWake = (%v, %v), want a time not before %v", next, ok, now)
+	}
+}
