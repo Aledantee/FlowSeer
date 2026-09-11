@@ -7,6 +7,7 @@ nothing of FlowSeer's own.
 | ---------------------- | ------------------------------------------------------------------- |
 | `errs`                 | error types, codes, and boundary filtering                           |
 | `net/ethernet`         | Ethernet II frame codec, tag stack, and EtherType constants          |
+| `net/ip`               | IPv4 and IPv6 header codec                                           |
 | `net/netaddr`          | MAC and EUI-64 hardware address types and parsing                    |
 | `net/vlan`             | 802.1Q tag, VLAN identifier, and priority code point value types     |
 | `netsim`               | network simulation: traces, capability-built virtual switch          |
