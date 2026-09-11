@@ -98,10 +98,20 @@ The virtual switch uses a ladder of architectural layers:
 - **Bridge**: Configured with a `port.Table` and `bridge.Config` without a VLAN
   subsystem. Learns source addresses into a single filtering database (FID 0),
   filters frames destined to known ports, and drops IEEE bridge management
-  group addresses. All tags are treated as payload.
+  group addresses unless `ForwardBPDU` is set to forward them like any group address.
+  A table bound (`MaxEntries`) evicts the oldest dynamic entry when full, and
+  `Counters` tracks learned, expired, evicted, and moved entries. A bridge can
+  designate `ProtectedPorts` that never forward traffic to one another. All tags
+  are treated as payload.
 - **Switch**: Configured with a `port.Table` and `bridge.Config` containing a
   `bridge.VLAN`. Performs 802.1Q ingress classification, admission checks,
   ingress VLAN filtering, per-VLAN learning, and egress tag rewrites.
+  Configuring `FloodVLANs` disables learning and floods every frame in those
+  VLANs. An untagged egress port can emit priority tags under a `PriorityTags`
+  policy (`Never`, `IfNonzero`, `Always`). A port configured with a `Tunnel`
+  pushes an outer service tag on ingress and pops it on egress; for example, a
+  customer-tagged frame arriving on a tunnel port egresses a trunk port carrying
+  an outer S-tag with TPID 0x88A8 plus the customer C-tag.
 - **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
@@ -137,9 +147,13 @@ Forwarding and allocation behavior follows standard specifications:
   classify to the port PVID per `spec/mib/ietf/Q-BRIDGE-MIB:1379`.
 - **Reserved group addresses**: Destination MAC addresses in the range
   `01-80-C2-00-00-00` through `01-80-C2-00-00-0F` are reserved for bridge
-  management protocols. The bridge drops them without learning their sources
+  management protocols. The bridge drops them without learning their sources,
+  unless `ForwardBPDU` is set, when the bridge forwards them like any group address
   (see the IEEE Registration Authority at
   https://standards.ieee.org/products-programs/regauth/grpmac/public/).
+- **Service tag TPID**: A tunnel port pushes an S-tag with TPID 0x88A8
+  (IEEE 802.1ad; the loader's `qinq_ethtype` default follows Open vSwitch's
+  `qinq-ethtype` option).
 - **Base MAC assignment**: A switch has one base MAC (`Config.MAC`). When omitted,
   `New` assigns the first unused locally administered unicast address
   (`02:00:00:xx:xx:xx` per IEEE Std 802-2014 clause 8.2.2) not used by any
@@ -166,6 +180,7 @@ omitted values with standard defaults and records each in the `Report`:
 | `frame_admission`   | `admitAll`       | Q-BRIDGE-MIB:1413 AcceptableFrame   |
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
+| `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
 | `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
@@ -182,8 +197,10 @@ Drop reasons recorded in traces and egress records:
 | `admission`        | Tag format rejected by port admission filter            |
 | `ingress-filter`   | Ingress port is not a member of the classified VLAN     |
 | `undefined-vlan`   | Classified VLAN ID is missing from the VLAN table       |
+| `customer-vlan`    | Customer VLAN not in the tunnel port's list             |
 | `no-pvid`          | Untagged frame arrived on port without a PVID           |
 | `same-port`        | Destination MAC learned on ingress port (no reflection) |
+| `protected`        | Frame between two protected ports                       |
 | `mtu-exceeded`     | Frame payload length exceeds egress port MTU            |
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
@@ -215,7 +232,8 @@ The host drives it through explicit calls:
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
 outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
-switch without the layer drops it as a reserved address.
+switch without the layer drops it as a reserved address, unless the bridge's
+`ForwardBPDU` is set.
 
 ## Denied PoE port status
 

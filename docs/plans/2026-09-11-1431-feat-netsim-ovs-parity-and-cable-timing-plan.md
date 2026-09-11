@@ -256,7 +256,7 @@ rewritten.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase2-plan.md`
 After: U1
-Landed:
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits d591c9e4 through the phase's loader and records commit.
 Change: the bounded MAC table with eviction and counters, run-time static
 entries, `dot1q-tunnel`, the priority-tag policy, flood-only VLANs,
 protected ports, BPDU pass-through, and the loader's tunnel mode.

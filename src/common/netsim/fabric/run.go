@@ -41,6 +41,9 @@ type Device struct {
 	Power    phy.Allocation
 	Counters map[string]Counters
 	Roles    map[string]stp.PortInfo
+	// RelayCounters is what the relay's learning table counted, beside the
+	// per-port Counters.
+	RelayCounters bridge.Counters
 }
 
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, device states,
@@ -620,11 +623,12 @@ func (f *Fabric) Snapshot() Snapshot {
 	devices := make(map[string]Device, len(f.switches))
 	for name, sw := range f.switches {
 		devices[name] = Device{
-			Entries:  sw.Entries(),
-			Ports:    sw.Ports().Ports(),
-			Power:    sw.Power(),
-			Counters: f.snapshotCounters(name),
-			Roles:    sw.Roles(),
+			Entries:       sw.Entries(),
+			Ports:         sw.Ports().Ports(),
+			Power:         sw.Power(),
+			Counters:      f.snapshotCounters(name),
+			Roles:         sw.Roles(),
+			RelayCounters: sw.RelayCounters(),
 		}
 	}
 

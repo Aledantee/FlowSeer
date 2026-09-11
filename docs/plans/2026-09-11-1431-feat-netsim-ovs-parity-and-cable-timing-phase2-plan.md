@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-11
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-plan.md
 ---
 
 # Network Simulation, Phase 2: Relay Parity - Plan
+
+> Implemented.
 
 ## Goal
 

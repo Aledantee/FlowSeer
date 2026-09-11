@@ -575,6 +575,67 @@ func Load(
 					continue
 				}
 
+				if swFacet.GetMode() == switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL {
+					if !swFacet.HasPvid() {
+						report.Skipped = append(report.Skipped, Skipped{
+							Port: iface.GetName(),
+							What: "switchport",
+							Why:  "tunnel without pvid",
+						})
+						continue
+					}
+
+					pvid := vlan.ID(swFacet.GetPvid())
+					var customerVIDs []vlan.ID
+					if len(swFacet.GetTaggedVlanIds()) > 0 {
+						customerVIDs = make([]vlan.ID, len(swFacet.GetTaggedVlanIds()))
+						for i, id := range swFacet.GetTaggedVlanIds() {
+							customerVIDs[i] = vlan.ID(id)
+						}
+						slices.Sort(customerVIDs)
+					}
+
+					sw := bridge.Switchport{
+						Tunnel: &bridge.Tunnel{
+							VID:          pvid,
+							CustomerVIDs: customerVIDs,
+						},
+					}
+
+					if swFacet.HasIngressFiltering() {
+						sw.IngressFiltering = swFacet.GetIngressFiltering()
+					} else {
+						sw.IngressFiltering = false
+						report.Defaults = append(report.Defaults, Default{
+							Port:  iface.GetName(),
+							Field: "ingress_filtering",
+							Value: "false",
+						})
+					}
+
+					report.Defaults = append(report.Defaults, Default{
+						Port:  iface.GetName(),
+						Field: "qinq_ethtype",
+						Value: "0x88A8",
+					})
+
+					if len(swFacet.GetUntaggedVlanIds()) > 0 {
+						report.Skipped = append(report.Skipped, Skipped{
+							Port: iface.GetName(),
+							What: "untagged_vlan_ids",
+							Why:  "tunnel port",
+						})
+					}
+
+					vlanCfg.Switchports[iface.GetName()] = sw
+
+					if _, exists := vlanCfg.Table[pvid]; !exists {
+						vlanCfg.Table[pvid] = ""
+					}
+
+					continue
+				}
+
 				sw := bridge.Switchport{}
 				if swFacet.HasPvid() {
 					vid := vlan.ID(swFacet.GetPvid())

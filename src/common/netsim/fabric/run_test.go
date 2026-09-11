@@ -2117,3 +2117,93 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		t.Errorf("crossing.Latency = %v, want 521ns", crossing.Latency)
 	}
 }
+
+func TestSnapshotRelayCounters(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vid10 := vlan.ID(10)
+	cfg := fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports: ports,
+				Bridge: &bridge.Config{
+					MaxEntries: 2,
+					VLAN: &bridge.VLAN{
+						Table: map[vlan.ID]string{10: "VLAN10"},
+						Switchports: map[string]bridge.Switchport{
+							"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+							"1/1/3": {PVID: &vid10, Untagged: []vlan.ID{10}},
+						},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
+			"h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+			"h3": {Address: netaddr.MAC{0, 0, 0, 0, 0, 3}},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macB := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+	macC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}
+	macDst := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+
+	injections := []fabric.Injection{
+		{
+			At:     t0,
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			Frame:  ethernet.Frame{Dst: macDst, Src: macA},
+		},
+		{
+			At:     t0.Add(time.Second),
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+			Frame:  ethernet.Frame{Dst: macDst, Src: macB},
+		},
+		{
+			At:     t0.Add(2 * time.Second),
+			Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			Frame:  ethernet.Frame{Dst: macDst, Src: macC},
+		},
+	}
+
+	for _, inj := range injections {
+		if _, err := fab.Inject(inj); err != nil {
+			t.Fatalf("Inject at %v: %v", inj.At, err)
+		}
+	}
+
+	fab.Run(10)
+
+	snap := fab.Snapshot()
+	sw1, ok := snap.Devices["sw1"]
+	if !ok {
+		t.Fatal("missing sw1 in snapshot devices")
+	}
+
+	if sw1.RelayCounters.Learned != 3 {
+		t.Errorf("RelayCounters.Learned = %d, want 3", sw1.RelayCounters.Learned)
+	}
+	if sw1.RelayCounters.Evicted != 1 {
+		t.Errorf("RelayCounters.Evicted = %d, want 1", sw1.RelayCounters.Evicted)
+	}
+}
