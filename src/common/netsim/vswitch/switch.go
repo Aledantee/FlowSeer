@@ -130,6 +130,35 @@ func (s *Switch) Entries() []bridge.Entry {
 	return s.bridge.Entries()
 }
 
+// Learn preloads the switch's bridge forwarding database with the provided seeds.
+// It is a no-op when the switch has no bridge relay.
+func (s *Switch) Learn(seeds []bridge.Seed) {
+	if s.bridge != nil {
+		s.bridge.Learn(seeds)
+	}
+}
+
+// Forget removes a forwarding database entry with the given FID and MAC address from
+// the switch's bridge relay, reporting whether an entry was present. It returns false
+// when the switch has no bridge relay.
+func (s *Switch) Forget(fid vlan.ID, mac netaddr.MAC) bool {
+	if s.bridge == nil {
+		return false
+	}
+
+	return s.bridge.Forget(fid, mac)
+}
+
+// RelayCounters returns the forwarding database lifecycle counters from the switch's
+// bridge relay, or a zero-value Counters struct if the switch has no bridge relay.
+func (s *Switch) RelayCounters() bridge.Counters {
+	if s.bridge == nil {
+		return bridge.Counters{}
+	}
+
+	return s.bridge.Counters()
+}
+
 // Speeds returns the resolved physical link speeds and duplex modes keyed by
 // port name, or nil if the Ethernet capability is absent.
 func (s *Switch) Speeds() map[string]phy.Resolved {

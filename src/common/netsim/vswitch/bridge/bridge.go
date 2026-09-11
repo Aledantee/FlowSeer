@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -29,6 +30,12 @@ type Bridge struct {
 	agingTime time.Duration
 	fdb       map[fdbKey]Entry
 	gate      Gate
+	counters  Counters
+}
+
+// Counters returns a snapshot of the forwarding database lifecycle counters.
+func (b *Bridge) Counters() Counters {
+	return b.counters
 }
 
 // New constructs a [Bridge] with the provided configuration and port table.
@@ -101,6 +108,8 @@ func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
 // LAG member is stored under the LAG, as the relay learns it, so a later lookup
 // treats the aggregation as one port. A seed with a group address is ignored,
 // since the relay never learns one and the export could not carry it.
+// Non-static seeds count as learned and are bounded by MaxEntries, evicting the
+// oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
 func (b *Bridge) Learn(seeds []Seed) {
 	for _, s := range seeds {
 		if s.MAC.IsGroup() {
@@ -110,7 +119,26 @@ func (b *Bridge) Learn(seeds []Seed) {
 			s.Port = p.Name
 		}
 		key := fdbKey{fid: s.FID, mac: s.MAC}
-		b.fdb[key] = Entry(s)
+		if s.Static {
+			b.fdb[key] = Entry(s)
+			continue
+		}
+
+		existing, exists := b.fdb[key]
+		if !exists || existing.Static {
+			if b.cfg.MaxEntries > 0 && b.dynamicCount() >= b.cfg.MaxEntries {
+				b.evictOldestDynamic()
+			}
+			b.fdb[key] = Entry(s)
+			b.counters.Learned++
+		} else {
+			if existing.Port != s.Port {
+				existing.Port = s.Port
+				b.counters.Moved++
+			}
+			existing.LearnedAt = s.LearnedAt
+			b.fdb[key] = existing
+		}
 	}
 }
 
@@ -132,13 +160,72 @@ func (b *Bridge) Entries() []Entry {
 	return entries
 }
 
+// Forget removes a forwarding database entry with the given FID and MAC address,
+// regardless of whether it is static or dynamic. It reports whether an entry was present.
+func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
+	key := fdbKey{fid: fid, mac: mac}
+	if _, exists := b.fdb[key]; exists {
+		delete(b.fdb, key)
+		return true
+	}
+
+	return false
+}
+
 // Age removes dynamic forwarding database entries older than the configured aging time relative to now.
 func (b *Bridge) Age(now time.Time) {
 	for key, e := range b.fdb {
 		if !e.Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)
+			b.counters.Expired++
 		}
 	}
+}
+
+func (b *Bridge) dynamicCount() int {
+	count := 0
+	for _, e := range b.fdb {
+		if !e.Static {
+			count++
+		}
+	}
+
+	return count
+}
+
+func (b *Bridge) evictOldestDynamic() (Entry, bool) {
+	var (
+		oldestKey fdbKey
+		oldest    Entry
+		found     bool
+	)
+	for key, e := range b.fdb {
+		if e.Static {
+			continue
+		}
+		if !found {
+			oldestKey = key
+			oldest = e
+			found = true
+			continue
+		}
+		if e.LearnedAt.Before(oldest.LearnedAt) {
+			oldestKey = key
+			oldest = e
+		} else if e.LearnedAt.Equal(oldest.LearnedAt) {
+			if e.FID < oldest.FID || (e.FID == oldest.FID && bytes.Compare(e.MAC[:], oldest.MAC[:]) < 0) {
+				oldestKey = key
+				oldest = e
+			}
+		}
+	}
+	if !found {
+		return Entry{}, false
+	}
+	delete(b.fdb, oldestKey)
+	b.counters.Evicted++
+
+	return oldest, true
 }
 
 // Forward processes an ingress frame through the bridge pipeline and updates dynamic forwarding database entries.
@@ -364,6 +451,13 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
 		existing, exists := b.fdb[srcKey]
 		if !exists {
+			var (
+				evicted    Entry
+				wasEvicted bool
+			)
+			if b.cfg.MaxEntries > 0 && b.dynamicCount() >= b.cfg.MaxEntries {
+				evicted, wasEvicted = b.evictOldestDynamic()
+			}
 			b.fdb[srcKey] = Entry{
 				FID:       classifiedFID,
 				MAC:       f.Src,
@@ -371,15 +465,24 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 				Static:    false,
 				LearnedAt: now,
 			}
+			b.counters.Learned++
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,
 				Op:     trace.OpLearn,
 				Detail: fmt.Sprintf("%s -> %s", f.Src, res.Ingress),
 			})
+			if wasEvicted {
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerRelay,
+					Op:     trace.OpLearn,
+					Detail: fmt.Sprintf("evicted %s %s", evicted.MAC, evicted.Port),
+				})
+			}
 		} else if !existing.Static {
 			detail := fmt.Sprintf("%s -> %s", f.Src, res.Ingress)
 			if existing.Port != res.Ingress {
 				detail = fmt.Sprintf("%s moved %s -> %s", f.Src, existing.Port, res.Ingress)
+				b.counters.Moved++
 			}
 			existing.Port = res.Ingress
 			existing.LearnedAt = now

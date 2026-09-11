@@ -3080,3 +3080,63 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 		t.Errorf("res.FID = %d, want 20", res.FID)
 	}
 }
+
+func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports := mustTable(t, b)
+
+	t.Run("switch with bridge relay", func(t *testing.T) {
+		cfg := vswitch.Config{
+			Ports:  ports,
+			Bridge: &bridge.Config{},
+		}
+		sw := vswitch.New(cfg)
+
+		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		sw.Learn([]bridge.Seed{
+			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
+		})
+		entries := sw.Entries()
+		if len(entries) != 1 || entries[0].MAC != mac {
+			t.Fatalf("Entries() after Learn = %+v, want 1 entry with MAC %s", entries, mac)
+		}
+
+		if !sw.Forget(0, mac) {
+			t.Errorf("Forget() = false, want true")
+		}
+		if entries := sw.Entries(); len(entries) != 0 {
+			t.Errorf("Entries() after Forget = %+v, want empty", entries)
+		}
+
+		frame := ethernet.Frame{
+			Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
+			Src: mac,
+		}
+		sw.Forward(now, "1/1/1", frame)
+
+		counters := sw.RelayCounters()
+		if counters.Learned != 1 {
+			t.Errorf("RelayCounters().Learned = %d, want 1", counters.Learned)
+		}
+	})
+
+	t.Run("switch without bridge relay", func(t *testing.T) {
+		cfg := vswitch.Config{
+			Ports: ports,
+		}
+		sw := vswitch.New(cfg)
+
+		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		sw.Learn([]bridge.Seed{
+			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
+		})
+		if sw.Forget(0, mac) {
+			t.Errorf("Forget() on hub = true, want false")
+		}
+		if counters := sw.RelayCounters(); counters != (bridge.Counters{}) {
+			t.Errorf("RelayCounters() on hub = %+v, want zero", counters)
+		}
+	})
+}

@@ -11,9 +11,10 @@ import (
 
 // Derive builds a new [Switch] from the target configuration, seeding it with every
 // dynamic forwarding database entry from the current switch that the new configuration
-// still admits. A derived standalone switch keeps the roles of the current one when
-// the spanning tree configuration is unchanged. It returns an error if the new
-// configuration fails validation.
+// still admits. Reseeded dynamic entries count as learned and are bounded by the new
+// configuration's MaxEntries, evicting from the oldest; static entries are not reseeded.
+// A derived standalone switch keeps the roles of the current one when the spanning tree
+// configuration is unchanged. It returns an error if the new configuration fails validation.
 func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	if cur != nil && cfg.MAC == (netaddr.MAC{}) {
 		cfg.MAC = cur.cfg.MAC

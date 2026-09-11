@@ -92,23 +92,31 @@ func (v *VLAN) Clone() *VLAN {
 
 // Config defines the configuration for a [Bridge].
 type Config struct {
-	AgingTime time.Duration
-	VLAN      *VLAN
+	AgingTime  time.Duration
+	MaxEntries int
+	VLAN       *VLAN
 }
 
 // Clone returns an independent deep copy of the bridge configuration.
 func (c Config) Clone() Config {
 	return Config{
-		AgingTime: c.AgingTime,
-		VLAN:      c.VLAN.Clone(),
+		AgingTime:  c.AgingTime,
+		MaxEntries: c.MaxEntries,
+		VLAN:       c.VLAN.Clone(),
 	}
 }
 
 // Validate verifies the invariants of the bridge configuration against the given port table.
-// It rejects a switchport naming an absent port or a LAG member, a VLAN in both tagged and
-// untagged sets, a VLAN identifier outside 1 through 4094, and any switchport when the VLAN
-// table is absent or empty.
+// It rejects a negative maximum entries bound, a switchport naming an absent port or a LAG
+// member, a VLAN in both tagged and untagged sets, a VLAN identifier outside 1 through 4094,
+// and any switchport when the VLAN table is absent or empty.
 func (c Config) Validate(ports port.Table) error {
+	if c.MaxEntries < 0 {
+		return errs.New().
+			Attr("max_entries", c.MaxEntries).
+			Msg("max_entries cannot be negative")
+	}
+
 	if c.VLAN == nil {
 		return nil
 	}

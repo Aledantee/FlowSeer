@@ -7,6 +7,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
+// Counters records forwarding database lifecycle events on a [Bridge].
+type Counters struct {
+	Learned uint64
+	Expired uint64
+	Evicted uint64
+	Moved   uint64
+}
+
 // Seed represents a forwarding database entry to preload into a [Bridge].
 type Seed struct {
 	FID       vlan.ID

@@ -12,7 +12,8 @@ import (
 
 // Diff computes the difference between two bridge configurations, reporting changes to
 // the VLAN table (additions, removals, and renames), per-port switchport settings (PVID,
-// tagged and untagged sets, ingress filtering, and frame admission), and aging time.
+// tagged and untagged sets, ingress filtering, and frame admission), aging time, and
+// maximum table entries.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -225,6 +226,19 @@ func Diff(a, b Config) []trace.Change {
 			Field: "aging_time",
 			From:  aAging,
 			To:    bAging,
+		})
+	}
+
+	if a.MaxEntries != b.MaxEntries {
+		changes = append(changes, trace.Change{
+			Layer: port.LayerRelay,
+			Subject: trace.Subject{
+				Kind: "bridge",
+				Key:  "",
+			},
+			Field: "max_entries",
+			From:  a.MaxEntries,
+			To:    b.MaxEntries,
 		})
 	}
 

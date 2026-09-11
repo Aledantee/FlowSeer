@@ -1,6 +1,7 @@
 package bridge_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -1406,4 +1407,201 @@ func TestEgressEmptyPort(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestBoundedTableEvictsOldestDynamicEntry(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	cfg := bridge.Config{
+		MaxEntries: 2,
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				10: "ten",
+				20: "twenty",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/3": {Tagged: []vlan.ID{10, 20}},
+				"1/1/4": {},
+			},
+		},
+	}
+	br := bridge.New(cfg, ports)
+
+	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	frameA := ethernet.Frame{Dst: broadcastMAC, Src: macA}
+	frameB := ethernet.Frame{Dst: broadcastMAC, Src: macB}
+	frameC := ethernet.Frame{Dst: broadcastMAC, Src: macC}
+
+	br.Forward(testTime0, "1/1/1", frameA)
+	br.Forward(testTime0.Add(1*time.Second), "1/1/2", frameB)
+	resC := br.Forward(testTime0.Add(2*time.Second), "1/1/1", frameC)
+
+	entries := br.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("len(Entries()) = %d, want 2", len(entries))
+	}
+	if entries[0].MAC != macB || entries[1].MAC != macC {
+		t.Errorf("Entries() = %+v, want MACs B and C", entries)
+	}
+
+	counters := br.Counters()
+	wantCounters := bridge.Counters{Learned: 3, Evicted: 1}
+	if counters != wantCounters {
+		t.Errorf("Counters() = %+v, want %+v", counters, wantCounters)
+	}
+
+	wantEvictedDetail := fmt.Sprintf("evicted %s 1/1/1", macA)
+	foundEvictedStep := false
+	for _, step := range resC.Steps {
+		if step.Layer == port.LayerRelay && step.Op == trace.OpLearn && step.Detail == wantEvictedDetail {
+			foundEvictedStep = true
+			break
+		}
+	}
+	if !foundEvictedStep {
+		t.Errorf("resC.Steps did not contain learn step with detail %q; steps = %+v", wantEvictedDetail, resC.Steps)
+	}
+
+	br.Forward(testTime0.Add(3*time.Second), "1/1/2", frameB)
+	countersAfterB := br.Counters()
+	if countersAfterB.Learned != 3 || countersAfterB.Evicted != 1 {
+		t.Errorf("Counters() after fourth frame = %+v, want Learned: 3, Evicted: 1", countersAfterB)
+	}
+}
+
+func TestMovedCounterIncrementsOnPortChange(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	cfg := bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				10: "ten",
+				20: "twenty",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/3": {Tagged: []vlan.ID{10, 20}},
+				"1/1/4": {},
+			},
+		},
+	}
+	br := bridge.New(cfg, ports)
+
+	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	frameA := ethernet.Frame{Dst: broadcastMAC, Src: macA}
+	br.Forward(testTime0, "1/1/1", frameA)
+	br.Forward(testTime0.Add(1*time.Second), "1/1/2", frameA)
+
+	counters := br.Counters()
+	if counters.Moved != 1 || counters.Learned != 1 {
+		t.Errorf("Counters() = %+v, want Moved: 1, Learned: 1", counters)
+	}
+}
+
+func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	cfg := bridge.Config{
+		MaxEntries: 1,
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{
+				10: "ten",
+				20: "twenty",
+			},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"1/1/3": {Tagged: []vlan.ID{10, 20}},
+				"1/1/4": {},
+			},
+		},
+	}
+	br := bridge.New(cfg, ports)
+
+	br.Learn([]bridge.Seed{
+		{FID: 10, MAC: macD, Port: "1/1/3", Static: true, LearnedAt: testTime0},
+	})
+
+	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	frameA := ethernet.Frame{Dst: broadcastMAC, Src: macA}
+	br.Forward(testTime0, "1/1/1", frameA)
+
+	counters := br.Counters()
+	if counters.Learned != 1 || counters.Evicted != 0 {
+		t.Errorf("Counters() after frame A = %+v, want Learned: 1, Evicted: 0", counters)
+	}
+	if entries := br.Entries(); len(entries) != 2 {
+		t.Fatalf("len(Entries()) = %d, want 2", len(entries))
+	}
+
+	br.Age(testTime0.Add(301 * time.Second))
+	counters = br.Counters()
+	if counters.Expired != 1 {
+		t.Errorf("Counters().Expired = %d, want 1", counters.Expired)
+	}
+	entries := br.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("len(Entries()) after Age = %d, want 1", len(entries))
+	}
+	if entries[0].MAC != macD || !entries[0].Static {
+		t.Errorf("Entries()[0] = %+v, want D with Static: true", entries[0])
+	}
+
+	if !br.Forget(10, macD) {
+		t.Errorf("Forget(10, D) = false, want true")
+	}
+	if len(br.Entries()) != 0 {
+		t.Errorf("len(Entries()) after Forget = %d, want 0", len(br.Entries()))
+	}
+
+	if br.Forget(10, macD) {
+		t.Errorf("second Forget(10, D) = true, want false")
+	}
+}
+
+func TestValidateRefusesNegativeMaxEntries(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+
+	t.Run("with nil VLAN", func(t *testing.T) {
+		cfg := bridge.Config{MaxEntries: -1}
+		err := cfg.Validate(ports)
+		if err == nil {
+			t.Fatal("Validate with nil VLAN and MaxEntries -1 succeeded, want error")
+		}
+		if attrs := errs.Attributes(err); attrs["max_entries"] != -1 {
+			t.Errorf("error attrs = %+v, want max_entries = -1", attrs)
+		}
+	})
+
+	t.Run("with VLAN table", func(t *testing.T) {
+		cfg := bridge.Config{
+			MaxEntries: -1,
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {Untagged: []vlan.ID{10}},
+				},
+			},
+		}
+		err := cfg.Validate(ports)
+		if err == nil {
+			t.Fatal("Validate with VLAN table and MaxEntries -1 succeeded, want error")
+		}
+		if attrs := errs.Attributes(err); attrs["max_entries"] != -1 {
+			t.Errorf("error attrs = %+v, want max_entries = -1", attrs)
+		}
+	})
+}
+
+func TestDiffReportsMaxEntriesChange(t *testing.T) {
+	a := bridge.Config{MaxEntries: 0}
+	b := bridge.Config{MaxEntries: 2}
+	changes := bridge.Diff(a, b)
+	if len(changes) != 1 {
+		t.Fatalf("Diff returned %d changes, want 1", len(changes))
+	}
+	ch := changes[0]
+	if ch.Field != "max_entries" || ch.From != 0 || ch.To != 2 || ch.Layer != port.LayerRelay {
+		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
+	}
 }
