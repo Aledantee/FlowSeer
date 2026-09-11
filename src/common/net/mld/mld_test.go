@@ -219,7 +219,17 @@ func TestEncodeValidation(t *testing.T) {
 		{name: "unrepresentable v1 timer", hdr: hdr, m: mld.Message{Version: mld.V1, Type: mld.Query, MaxResp: 1500 * time.Microsecond}, want: mld.ErrMalformed},
 		{name: "unrepresentable v2 timer", hdr: hdr, m: mld.Message{Version: mld.V2, Type: mld.Query, MaxResp: 32769 * time.Millisecond}, want: mld.ErrMalformed},
 		{name: "source count overflow", hdr: hdr, m: mld.Message{Version: mld.V2, Type: mld.Query, Sources: make([]netip.Addr, math.MaxUint16+1)}, want: mld.ErrMalformed},
-		{name: "wire length overflow", hdr: hdr, m: mld.Message{Version: mld.V2, Type: mld.Query, Sources: make([]netip.Addr, 4095)}, want: mld.ErrMalformed},
+		{
+			name: "wire length overflow",
+			hdr:  hdr,
+			m: mld.Message{
+				Version: mld.V2,
+				Type:    mld.Query,
+				Group:   netip.MustParseAddr("ff05::1"),
+				Sources: make([]netip.Addr, 4094),
+			},
+			want: mld.ErrMalformed,
+		},
 		{
 			name: "wrong source family",
 			hdr:  hdr,
@@ -248,6 +258,34 @@ func TestEncodeValidation(t *testing.T) {
 				t.Errorf("Encode() error = %v, want %v", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLargestMLDMessageFitsIPv6Payload(t *testing.T) {
+	sources := make([]netip.Addr, 4093)
+	source := netip.MustParseAddr("2001:db8::1")
+	for i := range sources {
+		sources[i] = source
+	}
+
+	hdr := ipv6Header(0)
+	wire, err := mld.Encode(hdr, mld.Message{
+		Version: mld.V2,
+		Type:    mld.Query,
+		Group:   netip.MustParseAddr("ff05::1"),
+		Sources: sources,
+	})
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+
+	hopByHop := []byte{58, 0, 5, 2, 0, 0, 1, 0}
+	packet, err := hdr.Encode(append(hopByHop, wire...))
+	if err != nil {
+		t.Fatalf("IPv6 Encode() error = %v", err)
+	}
+	if len(packet)-ip.V6HeaderLen != 65524 {
+		t.Errorf("IPv6 payload length = %d, want 65524", len(packet)-ip.V6HeaderLen)
 	}
 }
 

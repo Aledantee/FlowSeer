@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 )
 
 func TestV2ReportRoundTrip(t *testing.T) {
@@ -200,7 +201,16 @@ func TestEncodeValidation(t *testing.T) {
 		{name: "unrepresentable v2 timer", m: igmp.Message{Version: igmp.V2, Type: igmp.Query, MaxResp: 150 * time.Millisecond}, want: igmp.ErrMalformed},
 		{name: "unrepresentable v3 timer", m: igmp.Message{Version: igmp.V3, Type: igmp.Query, MaxResp: 12900 * time.Millisecond}, want: igmp.ErrMalformed},
 		{name: "source count overflow", m: igmp.Message{Version: igmp.V3, Type: igmp.Query, Sources: make([]netip.Addr, math.MaxUint16+1)}, want: igmp.ErrMalformed},
-		{name: "wire length overflow", m: igmp.Message{Version: igmp.V3, Type: igmp.Query, Sources: make([]netip.Addr, 16381)}, want: igmp.ErrMalformed},
+		{
+			name: "wire length overflow",
+			m: igmp.Message{
+				Version: igmp.V3,
+				Type:    igmp.Query,
+				Group:   netip.MustParseAddr("239.1.1.1"),
+				Sources: make([]netip.Addr, 16376),
+			},
+			want: igmp.ErrMalformed,
+		},
 		{
 			name: "wrong source family",
 			m: igmp.Message{
@@ -226,6 +236,87 @@ func TestEncodeValidation(t *testing.T) {
 			_, err := igmp.Encode(tc.m)
 			if !errors.Is(err, tc.want) {
 				t.Errorf("Encode() error = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestLargestIGMPMessageFitsIPv4Packet(t *testing.T) {
+	sources := make([]netip.Addr, 16375)
+	source := netip.MustParseAddr("192.0.2.1")
+	for i := range sources {
+		sources[i] = source
+	}
+
+	wire, err := igmp.Encode(igmp.Message{
+		Version: igmp.V3,
+		Type:    igmp.Query,
+		Group:   netip.MustParseAddr("239.1.1.1"),
+		Sources: sources,
+	})
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+
+	hdr := ip.Header{
+		Src:      netip.MustParseAddr("192.0.2.1"),
+		Dst:      netip.MustParseAddr("224.0.0.1"),
+		HopLimit: 1,
+		Protocol: 2,
+		V4:       &ip.V4{},
+	}
+	packet, err := hdr.Encode(wire)
+	if err != nil {
+		t.Fatalf("IPv4 Encode() error = %v", err)
+	}
+	if len(packet) != 65532 {
+		t.Errorf("len(IPv4 packet) = %d, want 65532", len(packet))
+	}
+}
+
+func TestLimitedBroadcastSourceRejected(t *testing.T) {
+	broadcast := netip.MustParseAddr("255.255.255.255")
+	validSource := netip.MustParseAddr("192.0.2.1")
+	group := netip.MustParseAddr("239.1.1.1")
+	tests := []struct {
+		name         string
+		message      igmp.Message
+		validMessage igmp.Message
+		sourceOffset int
+	}{
+		{
+			name:         "query",
+			message:      igmp.Message{Version: igmp.V3, Type: igmp.Query, Group: group, Sources: []netip.Addr{broadcast}},
+			validMessage: igmp.Message{Version: igmp.V3, Type: igmp.Query, Group: group, Sources: []netip.Addr{validSource}},
+			sourceOffset: 12,
+		},
+		{
+			name: "report",
+			message: igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{
+				Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{broadcast},
+			}}},
+			validMessage: igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{
+				Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{validSource},
+			}}},
+			sourceOffset: 16,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := igmp.Encode(tc.message); !errors.Is(err, igmp.ErrMalformed) {
+				t.Errorf("Encode() error = %v, want ErrMalformed", err)
+			}
+
+			wire, err := igmp.Encode(tc.validMessage)
+			if err != nil {
+				t.Fatalf("Encode(valid source) error = %v", err)
+			}
+			copy(wire[tc.sourceOffset:tc.sourceOffset+4], broadcast.AsSlice())
+			wire[2], wire[3] = 0, 0
+			binary.BigEndian.PutUint16(wire[2:4], internetChecksum(wire))
+			if _, err := igmp.Decode(wire); !errors.Is(err, igmp.ErrMalformed) {
+				t.Errorf("Decode() error = %v, want ErrMalformed", err)
 			}
 		})
 	}

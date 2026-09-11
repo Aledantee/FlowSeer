@@ -404,9 +404,14 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	}
 
 	if s.bridge != nil {
-		hdr, payload, controlCandidate := multicastControlCandidate(f)
+		controlCandidate := multicastControlCandidate(f)
 		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate)
 		if !ok {
+			return s.finishForward(ingress, f, res, mutate)
+		}
+
+		if controlCandidate && s.mcast != nil && s.mcast.Snooped(in.FID) {
+			res := s.forwardMulticastControl(now, ingress, f, in, mutate)
 			return s.finishForward(ingress, f, res, mutate)
 		}
 
@@ -421,10 +426,6 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			}
 		}
 
-		if controlCandidate && s.mcast != nil && s.mcast.Snooped(in.FID) {
-			res := s.forwardMulticastControl(now, ingress, f, hdr, payload, in, mutate)
-			return s.finishForward(ingress, f, res, mutate)
-		}
 		if controlCandidate {
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 		}
@@ -435,47 +436,22 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	return s.finishForward(ingress, f, s.forwardHub(ingress, f), mutate)
 }
 
-func multicastControlCandidate(f ethernet.Frame) (ip.Header, []byte, bool) {
-	if f.EtherType != ethernet.EtherTypeIPv4 && f.EtherType != ethernet.EtherTypeIPv6 {
-		return ip.Header{}, nil, false
-	}
-
-	hdr, payload, err := ip.Decode(f.Payload)
-	if err != nil {
-		return ip.Header{}, nil, false
-	}
-	if f.EtherType == ethernet.EtherTypeIPv4 {
-		return hdr, payload, hdr.V4 != nil && hdr.Protocol == protocolIGMP
-	}
-	if hdr.V6 == nil {
-		return ip.Header{}, nil, false
-	}
-
-	typ, ok := icmpv6Type(hdr.Protocol, payload)
-	if !ok {
-		return ip.Header{}, nil, false
-	}
-
-	return hdr, payload, typ == byte(mld.Query) || typ == byte(mld.ReportV1) || typ == byte(mld.Done) || typ == byte(mld.ReportV2)
-}
-
-func icmpv6Type(protocol uint8, payload []byte) (byte, bool) {
-	if protocol == protocolICMPv6 {
-		if len(payload) == 0 {
-			return 0, false
+func multicastControlCandidate(f ethernet.Frame) bool {
+	switch f.EtherType {
+	case ethernet.EtherTypeIPv4:
+		if len(f.Payload) < ip.V4HeaderLen {
+			return false
 		}
-		return payload[0], true
+		headerLength := int(f.Payload[0]&0x0f) * 4
+		return headerLength >= ip.V4HeaderLen && len(f.Payload) >= headerLength && f.Payload[9] == protocolIGMP
+	case ethernet.EtherTypeIPv6:
+		if len(f.Payload) < ip.V6HeaderLen {
+			return false
+		}
+		return f.Payload[6] == protocolHopByHop && len(f.Payload) > ip.V6HeaderLen && f.Payload[ip.V6HeaderLen] == protocolICMPv6
+	default:
+		return false
 	}
-	if protocol != protocolHopByHop || len(payload) < 2 {
-		return 0, false
-	}
-
-	headerLength := (int(payload[1]) + 1) * 8
-	if payload[0] != protocolICMPv6 || len(payload) <= headerLength {
-		return 0, false
-	}
-
-	return payload[headerLength], true
 }
 
 func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {
@@ -496,11 +472,14 @@ func (s *Switch) forwardMulticastControl(
 	now time.Time,
 	ingress string,
 	f ethernet.Frame,
-	hdr ip.Header,
-	payload []byte,
 	in bridge.Ingress,
 	mutate bool,
 ) bridge.Result {
+	hdr, payload, err := ip.Decode(f.Payload)
+	if err != nil {
+		return badMulticastControl(in)
+	}
+
 	if hdr.V4 != nil {
 		if hdr.HopLimit != 1 || !hdr.Dst.IsMulticast() {
 			return badMulticastControl(in)
@@ -578,6 +557,7 @@ func hasRouterAlert(payload []byte) bool {
 		return false
 	}
 
+	found := false
 	for i := 2; i < headerLength; {
 		if payload[i] == 0 {
 			i++
@@ -590,13 +570,16 @@ func hasRouterAlert(payload []byte) bool {
 		if i+2+optionLength > headerLength {
 			return false
 		}
-		if payload[i] == optionRouterAlert && optionLength == 2 {
-			return true
+		if payload[i] == optionRouterAlert {
+			if optionLength != 2 || payload[i+2] != 0 || payload[i+3] != 0 || found {
+				return false
+			}
+			found = true
 		}
 		i += 2 + optionLength
 	}
 
-	return false
+	return found
 }
 
 func (s *Switch) logicalPorts() []string {

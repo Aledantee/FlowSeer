@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 )
 
-const maxWireLength = math.MaxUint16
+const maxWireLength = math.MaxUint16 - ip.V4HeaderLen
 
 // Version identifies the query wire format.
 type Version uint8
@@ -516,7 +517,7 @@ func validRecordType(typ RecordType) bool {
 }
 
 func validSource(source netip.Addr) bool {
-	return source.Is4() && !source.IsUnspecified() && !source.IsMulticast()
+	return source.Is4() && !source.IsUnspecified() && !source.IsMulticast() && source.As4() != [4]byte{255, 255, 255, 255}
 }
 
 func checksum(b []byte) uint16 {

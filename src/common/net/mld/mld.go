@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	icmpv6Protocol = 58
-	maxWireLength  = math.MaxUint16
+	icmpv6Protocol              = 58
+	minimumHopByHopHeaderLength = 8
+	maxWireLength               = math.MaxUint16 - minimumHopByHopHeaderLength
 )
 
 // Version identifies the query wire format.
@@ -88,8 +89,9 @@ var (
 )
 
 // Encode serializes m as an ICMPv6 message and writes its checksum using hdr's
-// IPv6 addresses. The result does not include a Hop-by-Hop header. Encode returns
-// [ErrMalformed] for invalid fields and [ErrUnsupported] for unknown formats.
+// IPv6 addresses. The result does not include a Hop-by-Hop header and is limited
+// so an eight-octet minimum Hop-by-Hop header fits in the IPv6 payload. Encode
+// returns [ErrMalformed] for invalid fields and [ErrUnsupported] for unknown formats.
 func Encode(hdr ip.Header, m Message) ([]byte, error) {
 	if err := validateIPv6Header(hdr); err != nil {
 		return nil, err

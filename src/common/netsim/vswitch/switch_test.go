@@ -4041,6 +4041,59 @@ func makeMLDControlFrame(t *testing.T, src, dst netip.Addr, srcMAC, dstMAC netad
 	return ethernet.Frame{Dst: dstMAC, Src: srcMAC, EtherType: ethernet.EtherTypeIPv6, Payload: packet}
 }
 
+func replaceMLDHopByHop(t *testing.T, frame *ethernet.Frame, hopByHop []byte) {
+	t.Helper()
+
+	hdr, payload, err := ip.Decode(frame.Payload)
+	if err != nil {
+		t.Fatalf("decode IPv6: %v", err)
+	}
+	headerLength := (int(payload[1]) + 1) * 8
+	packet, err := hdr.Encode(append(append([]byte(nil), hopByHop...), payload[headerLength:]...))
+	if err != nil {
+		t.Fatalf("encode IPv6: %v", err)
+	}
+	frame.Payload = packet
+}
+
+func setMLDType(t *testing.T, frame *ethernet.Frame, typ byte) {
+	t.Helper()
+
+	hdr, payload, err := ip.Decode(frame.Payload)
+	if err != nil {
+		t.Fatalf("decode IPv6: %v", err)
+	}
+	headerLength := (int(payload[1]) + 1) * 8
+	suffix := payload[headerLength:]
+	suffix[0] = typ
+	suffix[2], suffix[3] = 0, 0
+	binary.BigEndian.PutUint16(suffix[2:4], testICMPv6Checksum(hdr, suffix))
+}
+
+func testICMPv6Checksum(hdr ip.Header, payload []byte) uint16 {
+	pseudo := make([]byte, 40+len(payload))
+	src := hdr.Src.As16()
+	dst := hdr.Dst.As16()
+	copy(pseudo[0:16], src[:])
+	copy(pseudo[16:32], dst[:])
+	binary.BigEndian.PutUint32(pseudo[32:36], uint32(len(payload)))
+	pseudo[39] = 58
+	copy(pseudo[40:], payload)
+
+	var sum uint32
+	for len(pseudo) >= 2 {
+		sum += uint32(binary.BigEndian.Uint16(pseudo[:2]))
+		pseudo = pseudo[2:]
+	}
+	if len(pseudo) == 1 {
+		sum += uint32(pseudo[0]) << 8
+	}
+	for sum>>16 != 0 {
+		sum = sum&0xffff + sum>>16
+	}
+	return ^uint16(sum)
+}
+
 func mcastForwardedPorts(res bridge.Result) []string {
 	var ports []string
 	for _, egress := range res.Egress {
@@ -4118,6 +4171,22 @@ func TestIGMPControlRejectsBadFramesWithoutState(t *testing.T) {
 			},
 		},
 		{
+			name: "bad IPv4 header checksum",
+			frame: func(t *testing.T) ethernet.Frame {
+				frame := makeIGMPControlFrame(t, netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 1, report)
+				frame.Payload[10] ^= 0xff
+				return frame
+			},
+		},
+		{
+			name: "EtherType and version mismatch",
+			frame: func(t *testing.T) ethernet.Frame {
+				frame := makeIGMPControlFrame(t, netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 1, report)
+				frame.Payload[0] = 6<<4 | frame.Payload[0]&0x0f
+				return frame
+			},
+		},
+		{
 			name: "ttl two",
 			frame: func(t *testing.T) ethernet.Frame {
 				return makeIGMPControlFrame(t, netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 2, report)
@@ -4142,6 +4211,25 @@ func TestIGMPControlRejectsBadFramesWithoutState(t *testing.T) {
 				t.Errorf("bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
 			}
 		})
+	}
+}
+
+func TestMalformedMLDCandidateDoesNotLearn(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	frame := makeMLDControlFrame(t,
+		netip.MustParseAddr("fe80::1"), group,
+		mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+		mld.Message{Type: mld.ReportV1, Group: group},
+	)
+	frame.Payload = frame.Payload[:ip.V6HeaderLen+1]
+
+	sw := vswitch.New(mcastSwitchConfig(t, nil))
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
+		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+	}
+	if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
+		t.Errorf("truncated MLD control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
 	}
 }
 
@@ -4177,6 +4265,35 @@ func TestUnsupportedIGMPFloodsWithoutSnoopingMutation(t *testing.T) {
 	}
 }
 
+func TestUnsupportedMLDFloodsWithoutSnoopingMutation(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	frame := makeMLDControlFrame(t,
+		netip.MustParseAddr("fe80::1"), group,
+		mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+		mld.Message{Type: mld.ReportV1, Group: group},
+	)
+	setMLDType(t, &frame, 200)
+
+	sw := vswitch.New(mcastSwitchConfig(t, new(false)))
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
+		t.Errorf("unsupported MLD ports = %v, want every other VLAN port", got)
+	}
+	for _, egress := range res.Egress {
+		got := egress.Frame
+		if got.Dst != frame.Dst || got.Src != frame.Src || got.EtherType != frame.EtherType ||
+			!slices.Equal(got.Tags, frame.Tags) || !slices.Equal(got.Payload, frame.Payload) {
+			t.Errorf("unsupported MLD frame on %s = %+v, want unchanged %+v", egress.Port, got, frame)
+		}
+	}
+	if len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
+		t.Errorf("unsupported MLD changed snooping state: groups=%+v routers=%+v", sw.Groups(10), sw.RouterPorts(10))
+	}
+	if entries := sw.Entries(); len(entries) != 1 || entries[0].MAC != mcastHostMAC {
+		t.Errorf("Entries() = %+v, want ordinary MAC learning", entries)
+	}
+}
+
 func TestMLDControlValidatesOuterHeader(t *testing.T) {
 	group := netip.MustParseAddr("ff05::1")
 	tests := []struct {
@@ -4205,6 +4322,64 @@ func TestMLDControlValidatesOuterHeader(t *testing.T) {
 				t.Errorf("bad MLD changed state: entries=%+v groups=%+v", sw.Entries(), sw.Groups(10))
 			}
 		})
+	}
+}
+
+func TestMLDRouterAlertValidation(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	tests := []struct {
+		name     string
+		hopByHop []byte
+	}{
+		{name: "non-MLD value", hopByHop: []byte{58, 0, 5, 2, 0, 1, 1, 0}},
+		{name: "duplicate", hopByHop: []byte{58, 1, 5, 2, 0, 0, 5, 2, 0, 0, 1, 0, 0, 0, 0, 0}},
+		{name: "malformed trailing option", hopByHop: []byte{58, 0, 5, 2, 0, 0, 1, 4}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			frame := makeMLDControlFrame(t,
+				netip.MustParseAddr("fe80::1"), group,
+				mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+				mld.Message{Type: mld.ReportV1, Group: group},
+			)
+			replaceMLDHopByHop(t, &frame, tc.hopByHop)
+
+			sw := vswitch.New(mcastSwitchConfig(t, nil))
+			res := sw.Forward(fixedTime, "1/1/1", frame)
+			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
+				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+			}
+			if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
+				t.Errorf("invalid Router Alert changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+			}
+		})
+	}
+}
+
+func TestSnoopedControlPrecedesRoutedVLANOwnership(t *testing.T) {
+	group := netip.MustParseAddr("239.1.1.1")
+	cfg := mcastSwitchConfig(t, nil)
+	cfg.Routing = &routing.Config{VRFs: map[string]routing.VRF{
+		"default": {
+			Interfaces: map[string]routing.Interface{
+				"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.0.254/24")}},
+			},
+		},
+	}}
+	frame := makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.1"), group,
+		mcastHostMAC, macRouter, 2,
+		igmp.Message{Type: igmp.ReportV2, Group: group},
+	)
+
+	sw := vswitch.New(cfg)
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
+		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+	}
+	if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
+		t.Errorf("routed bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
 	}
 }
 
