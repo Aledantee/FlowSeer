@@ -59,6 +59,22 @@ func Parse(s string) (MAC, error) {
 	return m, nil
 }
 
+// Local returns the nth locally administered unicast MAC address (02:00:00:xx:xx:xx)
+// with n encoded in the lower three big-endian octets. The Universally/Locally
+// Administered (U/L) bit is set and the Individual/Group (I/G) bit is clear per
+// IEEE Std 802-2014 clause 8.2.2. Supplying n greater than 0xffffff is the caller's
+// error; values above 24 bits truncate to the low 24 bits.
+func Local(n uint32) MAC {
+	return MAC{
+		0x02,
+		0x00,
+		0x00,
+		byte(n >> 16),
+		byte(n >> 8),
+		byte(n),
+	}
+}
+
 // FromHardwareAddr converts hw into a [MAC]. It rejects any slice whose length is not exactly six.
 func FromHardwareAddr(hw net.HardwareAddr) (MAC, error) {
 	if len(hw) != 6 {

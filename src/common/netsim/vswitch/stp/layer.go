@@ -130,7 +130,8 @@ func compareVectors(a, b priorityVector) int {
 }
 
 // New constructs a spanning tree layer from the given configuration and port
-// table. A port identifier combines the 8-bit port priority in the high byte
+// table. A zero Address in cfg is the caller's error; the switch fills it.
+// A port identifier combines the 8-bit port priority in the high byte
 // with the 1-based index of the port in Ports' sorted key order in the low byte.
 func New(cfg Config, ports port.Table) *Layer {
 	prio := effectivePriority(cfg.Priority)

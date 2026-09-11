@@ -213,3 +213,40 @@ func TestEUI64(t *testing.T) {
 		}
 	})
 }
+
+func TestLocal(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		n    uint32
+		want netaddr.MAC
+	}{
+		{
+			name: "one",
+			n:    1,
+			want: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
+		},
+		{
+			name: "three octets",
+			n:    0x010203,
+			want: netaddr.MAC{0x02, 0x00, 0x00, 0x01, 0x02, 0x03},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := netaddr.Local(tc.n)
+			if got != tc.want {
+				t.Errorf("Local(%#x) = %v, want %v", tc.n, got, tc.want)
+			}
+			if got.IsGroup() {
+				t.Errorf("Local(%#x).IsGroup() = true, want false", tc.n)
+			}
+			if got[0]&0x02 == 0 {
+				t.Errorf("Local(%#x) locally administered bit not set: %v", tc.n, got)
+			}
+		})
+	}
+}

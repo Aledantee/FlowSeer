@@ -3,6 +3,7 @@ package vswitch
 import (
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -14,6 +15,10 @@ import (
 // the spanning tree configuration is unchanged. It returns an error if the new
 // configuration fails validation.
 func Derive(cur *Switch, cfg Config) (*Switch, error) {
+	if cur != nil && cfg.MAC == (netaddr.MAC{}) {
+		cfg.MAC = cur.cfg.MAC
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}

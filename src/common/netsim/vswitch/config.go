@@ -5,22 +5,27 @@ import (
 	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Config specifies the configuration of a virtual switch, combining its port table,
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
-// and optional spanning tree configuration.
+// optional spanning tree configuration, and optional layer 3 routing configuration.
+// MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
 type Config struct {
-	Ports  port.Table
-	Phy    *phy.Config
-	Bridge *bridge.Config
-	STP    *stp.Config
+	MAC     netaddr.MAC
+	Ports   port.Table
+	Phy     *phy.Config
+	Bridge  *bridge.Config
+	STP     *stp.Config
+	Routing *routing.Config
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
@@ -35,6 +40,9 @@ func (c Config) Capabilities() []port.Layer {
 	}
 	if c.STP != nil {
 		caps = append(caps, port.LayerStp)
+	}
+	if c.Routing != nil {
+		caps = append(caps, port.LayerRouting)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
@@ -80,6 +88,88 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	if c.Routing != nil {
+		if err := c.Routing.Validate(c.Ports); err != nil {
+			return err
+		}
+
+		vrfNames := make([]string, 0, len(c.Routing.VRFs))
+		for name := range c.Routing.VRFs {
+			vrfNames = append(vrfNames, name)
+		}
+		slices.Sort(vrfNames)
+
+		for _, vrfName := range vrfNames {
+			vrf := c.Routing.VRFs[vrfName]
+			ifaceNames := make([]string, 0, len(vrf.Interfaces))
+			for name := range vrf.Interfaces {
+				ifaceNames = append(ifaceNames, name)
+			}
+			slices.Sort(ifaceNames)
+
+			for _, ifaceName := range ifaceNames {
+				iface := vrf.Interfaces[ifaceName]
+				if iface.VLAN != 0 {
+					if c.Bridge == nil || c.Bridge.VLAN == nil {
+						return errs.New().
+							Attr("vrf", vrfName).
+							Attr("interface", ifaceName).
+							Attr("vlan", iface.VLAN).
+							Msgf("routed VLAN interface %q requires bridge VLAN configuration", ifaceName)
+					}
+					if _, ok := c.Bridge.VLAN.Table[iface.VLAN]; !ok {
+						return errs.New().
+							Attr("vrf", vrfName).
+							Attr("interface", ifaceName).
+							Attr("vlan", iface.VLAN).
+							Msgf("routed VLAN interface %q references VLAN %d absent from bridge VLAN table", ifaceName, iface.VLAN)
+					}
+				}
+
+				if iface.Port != "" {
+					if c.Bridge != nil && c.Bridge.VLAN != nil {
+						if _, ok := c.Bridge.VLAN.Switchports[iface.Port]; ok {
+							return errs.New().
+								Attr("vrf", vrfName).
+								Attr("interface", ifaceName).
+								Attr("port", iface.Port).
+								Msgf("routed port %q cannot be configured as a bridge switchport", iface.Port)
+						}
+					}
+					if c.STP != nil && c.STP.Ports != nil {
+						if _, ok := c.STP.Ports[iface.Port]; ok {
+							return errs.New().
+								Attr("vrf", vrfName).
+								Attr("interface", ifaceName).
+								Attr("port", iface.Port).
+								Msgf("routed port %q cannot be configured as a spanning tree port", iface.Port)
+						}
+					}
+				}
+			}
+		}
+
+		if c.Bridge == nil {
+			routedPorts := make(map[string]struct{})
+			for _, vrf := range c.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.Port != "" {
+						routedPorts[iface.Port] = struct{}{}
+					}
+				}
+			}
+			for _, p := range c.Ports.Ports() {
+				if p.LagParent != "" {
+					continue
+				}
+				if _, ok := routedPorts[p.Name]; !ok {
+					return errs.New().
+						Attr("port", p.Name).
+						Msgf("router without bridge must route port %q", p.Name)
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -87,6 +177,7 @@ func (c Config) Validate() error {
 // Clone returns an independent deep copy of the configuration.
 func (c Config) Clone() Config {
 	cp := Config{
+		MAC:   c.MAC,
 		Ports: c.Ports.Clone(),
 	}
 	if c.Phy != nil {
@@ -105,6 +196,10 @@ func (c Config) Clone() Config {
 			}
 		}
 		cp.STP = &stpCfg
+	}
+	if c.Routing != nil {
+		r := c.Routing.Clone()
+		cp.Routing = &r
 	}
 
 	return cp

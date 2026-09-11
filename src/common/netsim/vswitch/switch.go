@@ -9,17 +9,19 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
 // Switch simulates a network device composed of a port table and optional
-// physical-layer, bridge, and spanning tree subsystems.
+// physical-layer, bridge, spanning tree, and layer 3 routing subsystems.
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
@@ -29,15 +31,56 @@ type Switch struct {
 	speeds    map[string]phy.Resolved
 	power     phy.Allocation
 	stp       *stp.Layer
+	routing   *routing.Layer
 	emissions []stp.Emission
 	portP2P   map[string]bool
 	portSpeed map[string]uint64
 }
 
-// New constructs a [Switch] from the provided configuration, cloning the configuration
-// and initializing each present subsystem.
+// New constructs a [Switch] from the provided configuration, cloning the configuration,
+// assigning missing MAC addresses, and initializing each present subsystem. When the base
+// MAC is zero, New selects the first unused local MAC address; two standalone switches
+// may pick the same address. A fabric assigns unique addresses across nodes.
 func New(cfg Config) *Switch {
 	cloned := cfg.Clone()
+
+	if cloned.MAC == (netaddr.MAC{}) {
+		explicit := make(map[netaddr.MAC]struct{})
+		if cloned.STP != nil && cloned.STP.Address != (netaddr.MAC{}) {
+			explicit[cloned.STP.Address] = struct{}{}
+		}
+		if cloned.Routing != nil {
+			for _, vrf := range cloned.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.MAC != (netaddr.MAC{}) {
+						explicit[iface.MAC] = struct{}{}
+					}
+				}
+			}
+		}
+		for n := uint32(1); ; n++ {
+			cand := netaddr.Local(n)
+			if _, ok := explicit[cand]; !ok {
+				cloned.MAC = cand
+				break
+			}
+		}
+	}
+
+	if cloned.STP != nil && cloned.STP.Address == (netaddr.MAC{}) {
+		cloned.STP.Address = cloned.MAC
+	}
+	if cloned.Routing != nil {
+		for vrfName, vrf := range cloned.Routing.VRFs {
+			for ifaceName, iface := range vrf.Interfaces {
+				if iface.MAC == (netaddr.MAC{}) {
+					iface.MAC = cloned.MAC
+					vrf.Interfaces[ifaceName] = iface
+				}
+			}
+			cloned.Routing.VRFs[vrfName] = vrf
+		}
+	}
 
 	sw := &Switch{
 		cfg:   cloned,
@@ -58,6 +101,10 @@ func New(cfg Config) *Switch {
 		if sw.bridge != nil {
 			sw.bridge.SetGate(sw.stp)
 		}
+	}
+
+	if cloned.Routing != nil {
+		sw.routing = routing.New(*cloned.Routing)
 	}
 
 	return sw
@@ -119,27 +166,184 @@ func (s *Switch) Power() phy.Allocation {
 // Forward processes an arrival on an ingress port at the given time, updating
 // the forwarding database if a bridge relay is present, and returns the processing trace.
 func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) bridge.Result {
-	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.interceptBPDU(now, ingress, f, true)
-	}
-	if s.bridge != nil {
-		return s.bridge.Forward(now, ingress, f)
-	}
-
-	return s.forwardHub(ingress, f)
+	return s.forward(now, ingress, f, true)
 }
 
 // Peek processes an arrival on an ingress port at the given time without mutating
 // the forwarding database and returns the processing trace.
 func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) bridge.Result {
+	return s.forward(now, ingress, f, false)
+}
+
+func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) bridge.Result {
 	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.interceptBPDU(now, ingress, f, false)
+		return s.interceptBPDU(now, ingress, f, learn)
 	}
+
+	if s.routing != nil {
+		resolved, reason := s.ports.Receive(ingress)
+		if resolved.Name != "" {
+			if iface, ok := s.routing.ByPort(resolved.Name); ok {
+				if reason != "" {
+					return bridge.Result{
+						Trace: trace.Trace{
+							Outcome: trace.Dropped,
+							Reason:  port.ReasonPortDown,
+							Steps: []trace.Step{
+								{
+									Layer:  port.LayerRouting,
+									Op:     trace.OpDrop,
+									Detail: string(port.ReasonPortDown),
+								},
+							},
+						},
+						Ingress: resolved.Name,
+						FID:     0,
+					}
+				}
+
+				if !s.routing.Owns(iface, f) {
+					return bridge.Result{
+						Trace: trace.Trace{
+							Outcome: trace.Dropped,
+							Reason:  routing.ReasonNotBridged,
+							Steps: []trace.Step{
+								{
+									Layer:  port.LayerRouting,
+									Op:     trace.OpDrop,
+									Detail: string(routing.ReasonNotBridged),
+								},
+							},
+						},
+						Ingress: resolved.Name,
+						FID:     0,
+					}
+				}
+
+				routeRes := s.routing.Route(iface, f)
+				return s.assembleRouteResult(resolved.Name, 0, 0, false, nil, routeRes)
+			}
+		}
+	}
+
 	if s.bridge != nil {
-		return s.bridge.Peek(now, ingress, f)
+		in, res, ok := s.bridge.Ingress(now, ingress, f, learn)
+		if !ok {
+			return res
+		}
+
+		if s.routing != nil {
+			if iface, ok := s.routing.ByVLAN(in.FID); ok && s.routing.Owns(iface, f) {
+				routeRes := s.routing.Route(iface, f)
+				return s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+			}
+		}
+
+		return s.bridge.Egress(in, f)
 	}
 
 	return s.forwardHub(ingress, f)
+}
+
+func (s *Switch) assembleRouteResult(
+	ingressPort string,
+	ingressFID vlan.ID,
+	ingressPCP vlan.PCP,
+	ingressDEI bool,
+	ingressSteps []trace.Step,
+	routeRes routing.Result,
+) bridge.Result {
+	if routeRes.Reason != "" {
+		outcome := trace.Dropped
+		if routeRes.Reason == routing.ReasonNotRouted {
+			outcome = trace.Consumed
+		}
+		steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
+		steps = append(steps, ingressSteps...)
+		steps = append(steps, routeRes.Steps...)
+
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: outcome,
+				Reason:  routeRes.Reason,
+				Steps:   steps,
+			},
+			Ingress: ingressPort,
+			FID:     ingressFID,
+		}
+	}
+
+	// Route names only an interface of its own table, so the lookup cannot miss.
+	egressIface, _ := s.routing.Interface(routeRes.Interface)
+
+	if egressIface.VLAN != 0 {
+		stepsSoFar := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
+		stepsSoFar = append(stepsSoFar, ingressSteps...)
+		stepsSoFar = append(stepsSoFar, routeRes.Steps...)
+
+		bridgeIn := bridge.Ingress{
+			Port:  "",
+			FID:   egressIface.VLAN,
+			PCP:   ingressPCP,
+			DEI:   ingressDEI,
+			Steps: stepsSoFar,
+		}
+		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
+		res.FID = egressIface.VLAN
+		res.Ingress = ingressPort
+		return res
+	}
+
+	steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps)+1)
+	steps = append(steps, ingressSteps...)
+	steps = append(steps, routeRes.Steps...)
+
+	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
+	if txReason == "" {
+		steps = append(steps, trace.Step{
+			Layer:  port.LayerRouting,
+			Op:     trace.OpTransmit,
+			Detail: fmt.Sprintf("port %s", egressIface.Port),
+		})
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Forwarded,
+				Steps:   steps,
+			},
+			Ingress: ingressPort,
+			FID:     0,
+			Egress: []bridge.Egress{
+				{
+					Port:   egressIface.Port,
+					Member: member,
+					Frame:  routeRes.Frame,
+				},
+			},
+		}
+	}
+
+	steps = append(steps, trace.Step{
+		Layer:  port.LayerRouting,
+		Op:     trace.OpDrop,
+		Detail: fmt.Sprintf("port %s: %s", egressIface.Port, txReason),
+	})
+	return bridge.Result{
+		Trace: trace.Trace{
+			Outcome: trace.Dropped,
+			Reason:  txReason,
+			Steps:   steps,
+		},
+		Ingress: ingressPort,
+		FID:     0,
+		Egress: []bridge.Egress{
+			{
+				Port:    egressIface.Port,
+				Member:  member,
+				Frame:   routeRes.Frame,
+				Dropped: txReason,
+			},
+		},
+	}
 }
 
 // Age removes dynamic forwarding database entries older than the configured
@@ -270,9 +474,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	// The relay's first checks apply to a BPDU too: a dead or unknown port
 	// received nothing, and a trace saying Consumed there would hide a BPDU
 	// that died on a cut cable.
-	in, known := s.ports.Port(ingress)
-	resolved, ok := s.ports.Resolve(ingress)
-	if !known || !ok || !in.Forwards() || !resolved.Forwards() {
+	resolved, reason := s.ports.Receive(ingress)
+	if reason != "" {
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,

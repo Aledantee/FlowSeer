@@ -74,7 +74,7 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "zero address rejected",
+			name: "zero address accepted",
 			cfg: stp.Config{
 				Priority: 32768,
 				Address:  netaddr.MAC{},
@@ -82,7 +82,7 @@ func TestValidate(t *testing.T) {
 					"1/1/1": {Priority: 128},
 				},
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "non-multiple of 4096 priority rejected",

@@ -81,13 +81,10 @@ func DefaultPathCost(speedBPS uint64) uint32 {
 	}
 }
 
-// Validate checks the configuration against the port table: the bridge address
-// cannot be zero, bridge priority must be a multiple of 4096, every configured
-// port must exist in the port table, and no configured port may be a LAG member.
+// Validate checks the configuration against the port table: bridge priority must
+// be a multiple of 4096, every configured port must exist in the port table,
+// and no configured port may be a LAG member.
 func (c Config) Validate(ports port.Table) error {
-	if c.Address == (netaddr.MAC{}) {
-		return errs.New().Msg("spanning tree bridge address cannot be zero")
-	}
 	if c.Priority%4096 != 0 {
 		return errs.New().
 			Attr("priority", c.Priority).

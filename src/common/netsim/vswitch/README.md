@@ -106,6 +106,19 @@ The virtual switch uses a ladder of architectural layers:
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
   block traffic on Discarding ports while learning on Learning ports.
+- **Routing**: Configured with `routing.Config` containing VRFs and routed
+  interfaces. An interface has one of two shapes: a VLAN interface (routed
+  presence of a classified VLAN) or a routed port (physical or LAG port that
+  belongs to no VLAN and bridges nothing). A routed port bypasses the relay
+  entirely; frames arriving on it must be addressed to the interface MAC or drop
+  with `not-bridged`. For frames arriving on a VLAN or routed port, routing
+  evaluates interface ownership (`Owns`), classification, local destination
+  consumption (`not-routed`), hop limit verification, longest-prefix route lookup,
+  and neighbor resolution. The hop limit is decremented by one and packets reaching
+  zero drop without forwarding per RFC 1812 section 5.3.1. Routed packets are
+  re-encapsulated with the egress interface source MAC and next-hop neighbor
+  destination MAC with no tags, handing off to the relay (for VLAN egress) or
+  the port layer (for a routed port).
 
 Optional physical subsystems (`phy.Config`) provide physical Ethernet speed
 resolution, auto-negotiation, and Power over Ethernet budget allocation.
@@ -127,6 +140,14 @@ Forwarding and allocation behavior follows standard specifications:
   management protocols. The bridge drops them without learning their sources
   (see the IEEE Registration Authority at
   https://standards.ieee.org/products-programs/regauth/grpmac/public/).
+- **Base MAC assignment**: A switch has one base MAC (`Config.MAC`). When omitted,
+  `New` assigns the first unused locally administered unicast address
+  (`02:00:00:xx:xx:xx` per IEEE Std 802-2014 clause 8.2.2) not used by any
+  explicit interface or bridge address in the configuration. The base MAC fills
+  zero-valued routed interface addresses and spanning tree bridge addresses.
+  Two standalone switches may assign the same address; a fabric assigns across nodes.
+- **Routed frame classification**: A routed frame's `Result.FID` records the
+  egress VLAN on a VLAN interface, or zero on a routed port.
 - **PoE power budget**: PSE groups allocate power against nominal capacity per
   `spec/mib/ietf/POWER-ETHERNET-MIB:420` (`pethMainPsePower`). Ports
   allocate power by priority using IEEE 802.3 standard class limits (classes
@@ -167,6 +188,12 @@ Drop reasons recorded in traces and egress records:
 | `no-egress`        | No forwarding member port other than the ingress port   |
 | `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
 | `unsupported-bpdu` | Frame could not be decoded as an RST BPDU               |
+| `no-route`         | No route in the VRF table matches the destination IP    |
+| `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
+| `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
+| `not-routed`       | Frame addressed to local interface address (consumed)   |
+| `bad-header`       | IP packet header failed decoding or checksum validation |
+| `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
 
 ## Protocol schedule
 
