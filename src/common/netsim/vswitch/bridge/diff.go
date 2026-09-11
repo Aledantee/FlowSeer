@@ -213,10 +213,10 @@ func Diff(a, b Config) []trace.Change {
 		}
 		if tunnelChanged {
 			if aSw.Tunnel != nil {
-				fromTunnel = *aSw.Tunnel
+				fromTunnel = reportedTunnel(aSw.Tunnel)
 			}
 			if bSw.Tunnel != nil {
-				toTunnel = *bSw.Tunnel
+				toTunnel = reportedTunnel(bSw.Tunnel)
 			}
 			changes = append(changes, trace.Change{
 				Layer: port.LayerVlan,
@@ -340,4 +340,14 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	return changes
+}
+
+// reportedTunnel is the tunnel as the bridge runs it: the TPID in effect and
+// a customer list of its own, so a change outlives the configuration it read.
+func reportedTunnel(t *Tunnel) Tunnel {
+	cp := *t
+	cp.TPID = t.EffectiveTPID()
+	cp.CustomerVIDs = slices.Clone(t.CustomerVIDs)
+
+	return cp
 }

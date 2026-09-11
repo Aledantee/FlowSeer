@@ -133,9 +133,10 @@ func (s *Switch) Entries() []bridge.Entry {
 // Learn preloads the switch's bridge forwarding database with the provided seeds.
 // It is a no-op when the switch has no bridge relay.
 func (s *Switch) Learn(seeds []bridge.Seed) {
-	if s.bridge != nil {
-		s.bridge.Learn(seeds)
+	if s.bridge == nil {
+		return
 	}
+	s.bridge.Learn(seeds)
 }
 
 // Forget removes a forwarding database entry with the given FID and MAC address from

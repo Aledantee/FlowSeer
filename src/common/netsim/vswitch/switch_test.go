@@ -62,6 +62,37 @@ func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
 	}
 }
 
+func TestDeriveKeepsAnEntryLearnedOnATunnelPort(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	cfg := vswitch.Config{
+		Ports: mustTable(t, b),
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: ""},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {Tunnel: &bridge.Tunnel{VID: 10}},
+				"1/1/2": {Tagged: []vlan.ID{10}},
+			},
+		}},
+	}
+	cur := vswitch.New(cfg)
+	cur.Forward(now, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
+	})
+
+	next, err := vswitch.Derive(cur, cur.Config())
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if entries := next.Entries(); len(entries) != 1 || entries[0].FID != 10 || entries[0].Port != "1/1/1" {
+		t.Errorf("derived Entries() = %+v, want the entry learned on the tunnel port in VLAN 10", entries)
+	}
+	if got := next.RelayCounters(); got.Learned != 1 {
+		t.Errorf("derived RelayCounters() = %+v, want the reseed counted as one learn", got)
+	}
+}
+
 func TestDiffOfAHubAndAHubIsEmpty(t *testing.T) {
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical})

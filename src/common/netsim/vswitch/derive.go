@@ -73,7 +73,8 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 				continue
 			}
 			admitted := slices.Contains(sw.Tagged, entry.FID) || slices.Contains(sw.Untagged, entry.FID) ||
-				(sw.PVID != nil && *sw.PVID == entry.FID)
+				(sw.PVID != nil && *sw.PVID == entry.FID) ||
+				(sw.Tunnel != nil && sw.Tunnel.VID == entry.FID)
 			if !admitted {
 				continue
 			}

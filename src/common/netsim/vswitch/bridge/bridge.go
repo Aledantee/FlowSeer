@@ -31,11 +31,9 @@ type Bridge struct {
 	fdb       map[fdbKey]Entry
 	gate      Gate
 	counters  Counters
-}
-
-// Counters returns a snapshot of the forwarding database lifecycle counters.
-func (b *Bridge) Counters() Counters {
-	return b.counters
+	// dynamic counts the entries that are not static, so the bound is checked
+	// without a scan of the table.
+	dynamic int
 }
 
 // New constructs a [Bridge] with the provided configuration and port table.
@@ -57,6 +55,11 @@ func New(cfg Config, ports port.Table) *Bridge {
 		agingTime: aging,
 		fdb:       make(map[fdbKey]Entry),
 	}
+}
+
+// Counters returns a snapshot of the forwarding database lifecycle counters.
+func (b *Bridge) Counters() Counters {
+	return b.counters
 }
 
 // Validate verifies the invariants of the bridge configuration against the given port table.
@@ -83,6 +86,7 @@ func (b *Bridge) FlushPorts(ports []string) {
 		if !e.Static {
 			if _, ok := portSet[e.Port]; ok {
 				delete(b.fdb, key)
+				b.dynamic--
 			}
 		}
 	}
@@ -119,17 +123,21 @@ func (b *Bridge) Learn(seeds []Seed) {
 			s.Port = p.Name
 		}
 		key := fdbKey{fid: s.FID, mac: s.MAC}
+		existing, exists := b.fdb[key]
 		if s.Static {
+			if exists && !existing.Static {
+				b.dynamic--
+			}
 			b.fdb[key] = Entry(s)
 			continue
 		}
 
-		existing, exists := b.fdb[key]
 		if !exists || existing.Static {
-			if b.cfg.MaxEntries > 0 && b.dynamicCount() >= b.cfg.MaxEntries {
+			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
 				b.evictOldestDynamic()
 			}
 			b.fdb[key] = Entry(s)
+			b.dynamic++
 			b.counters.Learned++
 		} else {
 			if existing.Port != s.Port {
@@ -164,12 +172,16 @@ func (b *Bridge) Entries() []Entry {
 // regardless of whether it is static or dynamic. It reports whether an entry was present.
 func (b *Bridge) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 	key := fdbKey{fid: fid, mac: mac}
-	if _, exists := b.fdb[key]; exists {
-		delete(b.fdb, key)
-		return true
+	e, exists := b.fdb[key]
+	if !exists {
+		return false
+	}
+	delete(b.fdb, key)
+	if !e.Static {
+		b.dynamic--
 	}
 
-	return false
+	return true
 }
 
 // Age removes dynamic forwarding database entries older than the configured aging time relative to now.
@@ -177,20 +189,10 @@ func (b *Bridge) Age(now time.Time) {
 	for key, e := range b.fdb {
 		if !e.Static && now.Sub(e.LearnedAt) > b.agingTime {
 			delete(b.fdb, key)
+			b.dynamic--
 			b.counters.Expired++
 		}
 	}
-}
-
-func (b *Bridge) dynamicCount() int {
-	count := 0
-	for _, e := range b.fdb {
-		if !e.Static {
-			count++
-		}
-	}
-
-	return count
 }
 
 func (b *Bridge) evictOldestDynamic() (Entry, bool) {
@@ -223,6 +225,7 @@ func (b *Bridge) evictOldestDynamic() (Entry, bool) {
 		return Entry{}, false
 	}
 	delete(b.fdb, oldestKey)
+	b.dynamic--
 	b.counters.Evicted++
 
 	return oldest, true
@@ -506,7 +509,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 				evicted    Entry
 				wasEvicted bool
 			)
-			if b.cfg.MaxEntries > 0 && b.dynamicCount() >= b.cfg.MaxEntries {
+			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
 				evicted, wasEvicted = b.evictOldestDynamic()
 			}
 			b.fdb[srcKey] = Entry{
@@ -516,6 +519,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 				Static:    false,
 				LearnedAt: now,
 			}
+			b.dynamic++
 			b.counters.Learned++
 			res.Steps = append(res.Steps, trace.Step{
 				Layer:  port.LayerRelay,

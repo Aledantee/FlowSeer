@@ -2278,8 +2278,8 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Errorf("From = %v, want nil", ch.From)
 		}
 		to, ok := ch.To.(bridge.Tunnel)
-		if !ok || to.VID != 10 || len(to.CustomerVIDs) != 0 || to.TPID != 0 {
-			t.Errorf("To = %+v (%T), want Tunnel{VID: 10}", ch.To, ch.To)
+		if !ok || to.VID != 10 || len(to.CustomerVIDs) != 0 || to.TPID != bridge.DefaultServiceTPID {
+			t.Errorf("To = %+v (%T), want Tunnel{VID: 10} with the TPID in effect", ch.To, ch.To)
 		}
 	})
 
@@ -2425,5 +2425,36 @@ func TestSwitchportCloneWithTunnel(t *testing.T) {
 	}
 	if cloned.PriorityTags != bridge.PriorityTagsAlways {
 		t.Errorf("cloned.PriorityTags = %s, want %s", cloned.PriorityTags, bridge.PriorityTagsAlways)
+	}
+}
+
+func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
+	ports := buildTestPorts(t, 4)
+	br := bridge.New(bridge.Config{MaxEntries: 2}, ports)
+
+	br.Learn([]bridge.Seed{
+		{MAC: macA, Port: "1/1/1", LearnedAt: testTime0},
+		{MAC: macB, Port: "1/1/2", LearnedAt: testTime0.Add(time.Second)},
+		{MAC: macC, Port: "1/1/1", LearnedAt: testTime0.Add(2 * time.Second)},
+	})
+	if got := br.Counters(); got.Learned != 3 || got.Evicted != 1 {
+		t.Fatalf("Counters() after three seeds = %+v, want Learned 3, Evicted 1", got)
+	}
+	if entries := br.Entries(); len(entries) != 2 || entries[0].MAC != macB || entries[1].MAC != macC {
+		t.Fatalf("Entries() = %+v, want B and C with the oldest seed evicted", entries)
+	}
+
+	br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/3", LearnedAt: testTime0.Add(3 * time.Second)}})
+	if got := br.Counters(); got.Moved != 1 || got.Learned != 3 || got.Evicted != 1 {
+		t.Fatalf("Counters() after a seed moved B = %+v, want Moved 1 and nothing else changed", got)
+	}
+
+	// A removal frees a slot, so the next new seed evicts nothing.
+	if !br.Forget(0, macC) {
+		t.Fatal("Forget(C) = false, want true")
+	}
+	br.Learn([]bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
+	if got := br.Counters(); got.Evicted != 1 || got.Learned != 4 {
+		t.Fatalf("Counters() after Forget then a new seed = %+v, want Learned 4, Evicted 1", got)
 	}
 }
