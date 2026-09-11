@@ -21,10 +21,10 @@ message AggregationFacet {
   BondMode bond_mode = 3;
   // Delay before enabling a member link after it comes up. Absent means
   // unreported. Mirrors bond-updelay of Open vSwitch.
-  google.protobuf.Duration up_delay = 4;
+  google.protobuf.Duration up_delay = 4 [(buf.validate.field).duration.gte = {seconds: 0}];
   // Delay before disabling a member link after it goes down. Absent means
   // unreported. Mirrors bond-downdelay of Open vSwitch.
-  google.protobuf.Duration down_delay = 5;
+  google.protobuf.Duration down_delay = 5 [(buf.validate.field).duration.gte = {seconds: 0}];
   // Hash basis for balance-slb and balance-tcp bond modes. Absent means
   // unreported. Mirrors bond-hash-basis of Open vSwitch.
   uint32 hash_basis = 6;

@@ -867,3 +867,30 @@ func TestPassive(t *testing.T) {
 		}
 	}
 }
+
+// TestMemberlessLagIsDown is evidence that a LAG port with no member reads
+// Down in a snapshot whatever the configuration said.
+func TestMemberlessLagIsDown(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fab, err := fabric.New(fabric.Config{
+		Start:    t0,
+		Switches: map[string]vswitch.Config{"A": {Ports: tbl, Bridge: &bridge.Config{}}},
+		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
+		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "A", Port: "1/1/1"}}},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+	for _, p := range fab.Snapshot().Devices["A"].Ports {
+		if p.Name == "lag1" && p.OperStatus != port.Down {
+			t.Fatalf("lag1 OperStatus = %v, want Down with no member", p.OperStatus)
+		}
+	}
+}

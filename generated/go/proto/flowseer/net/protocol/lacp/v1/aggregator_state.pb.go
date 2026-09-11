@@ -335,7 +335,7 @@ type AggregatorState_builder struct {
 	// unreported. Mirrors dot3adAggActorSystemPriority (IEEE8023-LAG-MIB:264).
 	SystemPriority *uint32
 	// System identifier MAC address of this aggregator. Absent means unreported.
-	// Mirrors dot3adAggActorSystemID (IEEE8023-LAG-MIB:280).
+	// Mirrors dot3adAggActorSystemID (IEEE8023-LAG-MIB:276).
 	SystemId *v1.Eui48Address
 	// Administrative actor key of the aggregator. Absent means unreported.
 	// Mirrors dot3adAggActorAdminKey (IEEE8023-LAG-MIB:316).
@@ -344,14 +344,14 @@ type AggregatorState_builder struct {
 	// detected. Absent means unreported.
 	FallbackActiveBackup *bool
 	// System identifier MAC address of the selected partner. Absent means no
-	// partner is attached. Mirrors dot3adAggPartnerSystemID (IEEE8023-LAG-MIB:300).
+	// partner is attached. Mirrors dot3adAggPartnerSystemID (IEEE8023-LAG-MIB:352).
 	PartnerSystemId *v1.Eui48Address
 	// Partner system priority portion of the selected partner system identifier.
 	// Absent means no partner is attached. Mirrors dot3adAggPartnerSystemPriority
-	// (IEEE8023-LAG-MIB:284).
+	// (IEEE8023-LAG-MIB:367).
 	PartnerSystemPriority *uint32
 	// Operational key advertised by the selected partner. Absent means no partner
-	// is attached. Mirrors dot3adAggPartnerOperKey (IEEE8023-LAG-MIB:348).
+	// is attached. Mirrors dot3adAggPartnerOperKey (IEEE8023-LAG-MIB:381).
 	PartnerKey *uint32
 	// Member interface names currently attached and selected for traffic
 	// distribution. Empty means no members are selected.
@@ -404,19 +404,19 @@ var File_flowseer_net_protocol_lacp_v1_aggregator_state_proto protoreflect.FileD
 
 const file_flowseer_net_protocol_lacp_v1_aggregator_state_proto_rawDesc = "" +
 	"\n" +
-	"4flowseer/net/protocol/lacp/v1/aggregator_state.proto\x12\x1dflowseer.net.protocol.lacp.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a-flowseer/net/protocol/lacp/v1/lacp_mode.proto\"\xad\x04\n" +
+	"4flowseer/net/protocol/lacp/v1/aggregator_state.proto\x12\x1dflowseer.net.protocol.lacp.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a-flowseer/net/protocol/lacp/v1/lacp_mode.proto\"\xd9\x04\n" +
 	"\x0fAggregatorState\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12;\n" +
 	"\x04mode\x18\x02 \x01(\x0e2'.flowseer.net.protocol.lacp.v1.LacpModeR\x04mode\x12\x12\n" +
-	"\x04fast\x18\x03 \x01(\bR\x04fast\x12'\n" +
-	"\x0fsystem_priority\x18\x04 \x01(\rR\x0esystemPriority\x12?\n" +
-	"\tsystem_id\x18\x05 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\bsystemId\x12\x10\n" +
-	"\x03key\x18\x06 \x01(\rR\x03key\x124\n" +
+	"\x04fast\x18\x03 \x01(\bR\x04fast\x122\n" +
+	"\x0fsystem_priority\x18\x04 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x0esystemPriority\x12?\n" +
+	"\tsystem_id\x18\x05 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\bsystemId\x12\x1b\n" +
+	"\x03key\x18\x06 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x03key\x124\n" +
 	"\x16fallback_active_backup\x18\a \x01(\bR\x14fallbackActiveBackup\x12N\n" +
-	"\x11partner_system_id\x18\b \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\x0fpartnerSystemId\x126\n" +
-	"\x17partner_system_priority\x18\t \x01(\rR\x15partnerSystemPriority\x12\x1f\n" +
+	"\x11partner_system_id\x18\b \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\x0fpartnerSystemId\x12A\n" +
+	"\x17partner_system_priority\x18\t \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x15partnerSystemPriority\x12*\n" +
 	"\vpartner_key\x18\n" +
-	" \x01(\rR\n" +
+	" \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\n" +
 	"partnerKey\x129\n" +
 	"\x10selected_members\x18\v \x03(\tB\x0e\xbaH\v\x92\x01\b\"\x06r\x04\x10\x01\x18@R\x0fselectedMembersB\xa3\x02\n" +
 	"!com.flowseer.net.protocol.lacp.v1B\x14AggregatorStateProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1;lacpv1\xa2\x02\x04FNPL\xaa\x02\x1dFlowseer.Net.Protocol.Lacp.V1\xca\x02\x1dFlowseer\\Net\\Protocol\\Lacp\\V1\xe2\x02)Flowseer\\Net\\Protocol\\Lacp\\V1\\GPBMetadata\xea\x02!Flowseer::Net::Protocol::Lacp::V1b\beditionsp\xe9\a"

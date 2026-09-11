@@ -197,16 +197,16 @@ type LacpInfo_builder struct {
 	// unreported. Mirrors dot3adAggActorSystemPriority (IEEE8023-LAG-MIB:264).
 	SystemPriority *uint32
 	// System identifier MAC address. Absent means unreported. Mirrors
-	// dot3adAggActorSystemID (IEEE8023-LAG-MIB:280).
+	// dot3adAggActorSystemID (IEEE8023-LAG-MIB:276).
 	SystemId *v1.Eui48Address
 	// Operational aggregation key (0..65535). Absent means unreported. Mirrors
-	// dot3adAggActorOperKey (IEEE8023-LAG-MIB:332).
+	// dot3adAggActorOperKey (IEEE8023-LAG-MIB:337).
 	Key *uint32
 	// Administratively assigned port priority (0..65535). Absent means
 	// unreported. Mirrors dot3adAggPortActorPortPriority (IEEE8023-LAG-MIB:1413).
 	PortPriority *uint32
 	// Port number portion of the port identifier (0..65535). Absent means
-	// unreported. Mirrors dot3adAggPortIndex (IEEE8023-LAG-MIB:1270).
+	// unreported. Mirrors dot3adAggPortIndex (IEEE8023-LAG-MIB:1204).
 	PortId *uint32
 	// Active LACP operational state bits. Absent means no bits are set. Mirrors
 	// dot3adAggPortActorOperState (IEEE8023-LAG-MIB:1516).

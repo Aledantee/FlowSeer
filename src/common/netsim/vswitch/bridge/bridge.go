@@ -741,40 +741,11 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		var member string
-		if destPort.Kind == port.Lag {
-			if b.selector == nil {
-				res.Reason = ReasonNoMember
-				res.Egress = append(res.Egress, Egress{
-					Port:    destPort.Name,
-					Frame:   egressFrame,
-					Dropped: ReasonNoMember,
-				})
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpDrop,
-					Detail: fmt.Sprintf("port %s: no-member", destPort.Name),
-				})
+		member, ok := b.selectMember(&res, destPort, egressFrame, in.FID)
+		if !ok {
+			res.Reason = ReasonNoMember
 
-				return res
-			}
-			m, ok := b.selector.Select(destPort.Name, egressFrame, in.FID)
-			if !ok {
-				res.Reason = ReasonNoMember
-				res.Egress = append(res.Egress, Egress{
-					Port:    destPort.Name,
-					Frame:   egressFrame,
-					Dropped: ReasonNoMember,
-				})
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpDrop,
-					Detail: fmt.Sprintf("port %s: no-member", destPort.Name),
-				})
-
-				return res
-			}
-			member = m
+			return res
 		}
 
 		if b.cfg.VLAN != nil {
@@ -891,38 +862,9 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			continue
 		}
 
-		var member string
-		if cand.Kind == port.Lag {
-			if b.selector == nil {
-				res.Egress = append(res.Egress, Egress{
-					Port:    cand.Name,
-					Frame:   egressFrame,
-					Dropped: ReasonNoMember,
-				})
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpDrop,
-					Detail: fmt.Sprintf("port %s: no-member", cand.Name),
-				})
-
-				continue
-			}
-			m, ok := b.selector.Select(cand.Name, egressFrame, in.FID)
-			if !ok {
-				res.Egress = append(res.Egress, Egress{
-					Port:    cand.Name,
-					Frame:   egressFrame,
-					Dropped: ReasonNoMember,
-				})
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerRelay,
-					Op:     trace.OpDrop,
-					Detail: fmt.Sprintf("port %s: no-member", cand.Name),
-				})
-
-				continue
-			}
-			member = m
+		member, ok := b.selectMember(&res, cand, egressFrame, in.FID)
+		if !ok {
+			continue
 		}
 
 		if b.cfg.VLAN != nil {
@@ -957,6 +899,32 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 	}
 
 	return res
+}
+
+// selectMember asks the selector which member carries a frame out of a LAG
+// port, recording an egress drop with no-member when there is no selector or
+// it names none; a port that is not a LAG has no member and always passes.
+func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	if p.Kind != port.Lag {
+		return "", true
+	}
+	if b.selector != nil {
+		if member, ok := b.selector.Select(p.Name, f, vid); ok {
+			return member, true
+		}
+	}
+	res.Egress = append(res.Egress, Egress{
+		Port:    p.Name,
+		Frame:   f,
+		Dropped: ReasonNoMember,
+	})
+	res.Steps = append(res.Steps, trace.Step{
+		Layer:  port.LayerRelay,
+		Op:     trace.OpDrop,
+		Detail: fmt.Sprintf("port %s: no-member", p.Name),
+	})
+
+	return "", false
 }
 
 func (b *Bridge) buildEgressFrame(

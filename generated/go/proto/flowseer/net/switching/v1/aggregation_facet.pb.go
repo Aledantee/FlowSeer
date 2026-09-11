@@ -292,14 +292,14 @@ var File_flowseer_net_switching_v1_aggregation_facet_proto protoreflect.FileDesc
 
 const file_flowseer_net_switching_v1_aggregation_facet_proto_rawDesc = "" +
 	"\n" +
-	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\x1a)flowseer/net/switching/v1/bond_mode.proto\x1a\x1egoogle/protobuf/duration.proto\"\xb9\x03\n" +
+	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\x1a)flowseer/net/switching/v1/bond_mode.proto\x1a\x1egoogle/protobuf/duration.proto\"\xcd\x03\n" +
 	"\x10AggregationFacet\x129\n" +
 	"\x14minimum_active_links\x18\x01 \x01(\rB\a\xbaH\x04*\x02 \x00R\x12minimumActiveLinks\x127\n" +
 	"\x13effective_speed_bps\x18\x02 \x01(\x04B\a\xbaH\x042\x02 \x00R\x11effectiveSpeedBps\x12@\n" +
-	"\tbond_mode\x18\x03 \x01(\x0e2#.flowseer.net.switching.v1.BondModeR\bbondMode\x124\n" +
-	"\bup_delay\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\aupDelay\x128\n" +
+	"\tbond_mode\x18\x03 \x01(\x0e2#.flowseer.net.switching.v1.BondModeR\bbondMode\x12>\n" +
+	"\bup_delay\x18\x04 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\aupDelay\x12B\n" +
 	"\n" +
-	"down_delay\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\tdownDelay\x12\x1d\n" +
+	"down_delay\x18\x05 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x022\x00R\tdownDelay\x12\x1d\n" +
 	"\n" +
 	"hash_basis\x18\x06 \x01(\rR\thashBasis\x12`\n" +
 	"\x16primary_interface_name\x18\a \x01(\tB*\xbaH'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x14primaryInterfaceNameB\x8f\x02\n" +

@@ -761,13 +761,12 @@ func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 }
 
 func (s *Switch) updateLagState(now time.Time, lagName string) {
+	// The row follows the members' own rows, not the layer's delayed
+	// link: the relay refuses a LAG whose members are all down, and the row
+	// must say the same.
 	anyUp := false
 	for _, m := range s.ports.Members(lagName) {
-		if m.OperStatus == port.Up {
-			anyUp = true
-			break
-		}
-		if s.lag != nil && s.lag.PortInfo(m.Name).LinkUp {
+		if m.OperStatus != port.Down {
 			anyUp = true
 			break
 		}

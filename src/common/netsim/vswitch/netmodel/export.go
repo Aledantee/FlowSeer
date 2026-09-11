@@ -404,8 +404,8 @@ func Lacp(sw *vswitch.Switch) ([]*lacpv1.AggregatorState, []*lacpv1.PortState) {
 			partnerKey := uint32(info.PartnerKey)
 			ab.PartnerKey = &partnerKey
 		}
-		if len(info.Attached) > 0 {
-			sel := slices.Clone(info.Attached)
+		if len(info.Enabled) > 0 {
+			sel := slices.Clone(info.Enabled)
 			slices.Sort(sel)
 			ab.SelectedMembers = sel
 		}

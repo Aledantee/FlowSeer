@@ -168,7 +168,7 @@ it records the partner info, resets status to `Current`, and rearms the receive
 timer to 3 times the partner's advertised timeout.
 
 If the receive timer expires, status transitions to `Expired` and the timer rearms
-for one period. If it expires a second time without receiving an LACPDU, status
+for three more periods. If it expires a second time without receiving an LACPDU, status
 transitions to `Defaulted`, restoring zeroed partner parameters.
 
 ### Aggregator attachment and selection

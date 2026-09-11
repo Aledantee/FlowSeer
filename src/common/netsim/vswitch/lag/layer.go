@@ -1,6 +1,7 @@
 package lag
 
 import (
+	"maps"
 	"slices"
 	"time"
 
@@ -64,6 +65,7 @@ type lagState struct {
 
 func (l *lagState) clone() *lagState {
 	cp := *l
+	cp.cfg.Members = maps.Clone(l.cfg.Members)
 	cp.memberNames = slices.Clone(l.memberNames)
 	cp.enabledMembers = slices.Clone(l.enabledMembers)
 	cp.attachedMembers = slices.Clone(l.attachedMembers)
@@ -76,6 +78,7 @@ type memberState struct {
 	lagName          string
 	portID           uint16
 	cfg              Member
+	carrier          bool
 	linkUp           bool
 	hasPendingLink   bool
 	pendingLinkUp    bool
@@ -255,6 +258,14 @@ func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
 	}
 	lag := l.lags[m.lagName]
 
+	// The carrier drives the protocol at once; the delay only decides when
+	// the member carries traffic, so a partner is heard during an up delay.
+	var fx Effects
+	if m.carrier != up {
+		m.carrier = up
+		fx = l.setCarrier(now, m, up)
+	}
+
 	delay := lag.cfg.DownDelay
 	if up {
 		delay = lag.cfg.UpDelay
@@ -264,53 +275,58 @@ func (l *Layer) LinkChange(now time.Time, member string, up bool) Effects {
 		m.hasPendingLink = false
 		m.linkDelayTimer = time.Time{}
 
-		return l.applyLinkChange(now, m, up)
+		return mergeEffects(fx, l.applyLinkChange(m))
 	}
 
+	if m.hasPendingLink && m.pendingLinkUp == up {
+		return fx
+	}
 	if m.linkUp == up && !m.hasPendingLink {
-		return Effects{}
+		return fx
 	}
 	if m.linkUp == up && m.hasPendingLink && m.pendingLinkUp != up {
 		m.hasPendingLink = false
 		m.linkDelayTimer = time.Time{}
 
-		return Effects{}
+		return fx
 	}
 
 	m.hasPendingLink = true
 	m.pendingLinkUp = up
 	m.linkDelayTimer = now.Add(delay)
 
-	return Effects{}
+	return fx
 }
 
-func (l *Layer) applyLinkChange(now time.Time, m *memberState, up bool) Effects {
-	if m.linkUp == up {
+func mergeEffects(a, b Effects) Effects {
+	out := Effects{
+		Emissions: append(a.Emissions, b.Emissions...),
+		Changed:   append(a.Changed, b.Changed...),
+	}
+	slices.Sort(out.Changed)
+	out.Changed = slices.Compact(out.Changed)
+
+	return out
+}
+
+// setCarrier starts or stops the protocol on a member as its carrier comes
+// and goes; the member's enablement follows the delayed link separately.
+func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) Effects {
+	lag := l.lags[m.lagName]
+	if lag.cfg.LACP.Mode == Off {
 		return Effects{}
 	}
-	m.linkUp = up
-	lag := l.lags[m.lagName]
 
 	var emissions []Emission
 	var changed []string
 
 	if !up {
-		if lag.cfg.LACP.Mode != Off {
-			m.status = Defaulted
-			m.partnerDefaulted = true
-			m.partner = lacp.Info{State: lacp.StateDefaulted}
-			m.rxTimer = time.Time{}
-			m.txTimer = time.Time{}
-			m.hasTxActor = false
-		}
-		if l.updateLag(lag) {
-			changed = append(changed, lag.name)
-		}
-
-		return Effects{Changed: changed}
-	}
-
-	if lag.cfg.LACP.Mode == Off {
+		m.status = Defaulted
+		m.partnerDefaulted = true
+		m.partner = lacp.Info{State: lacp.StateDefaulted}
+		m.rxTimer = time.Time{}
+		m.txTimer = time.Time{}
+		m.hasTxActor = false
 		if l.updateLag(lag) {
 			changed = append(changed, lag.name)
 		}
@@ -330,10 +346,8 @@ func (l *Layer) applyLinkChange(now time.Time, m *memberState, up bool) Effects 
 
 	if m.mayTx(lag) {
 		emissions = append(emissions, l.emitLACPDU(m))
-		m.txTimer = now.Add(m.txPeriod)
-	} else {
-		m.txTimer = now.Add(m.txPeriod)
 	}
+	m.txTimer = now.Add(m.txPeriod)
 
 	for _, name := range lag.memberNames {
 		mem := l.members[name]
@@ -352,19 +366,36 @@ func (l *Layer) applyLinkChange(now time.Time, m *memberState, up bool) Effects 
 	}
 }
 
+// applyLinkChange moves the member's delayed link to its carrier and
+// re-evaluates what the LAG carries.
+func (l *Layer) applyLinkChange(m *memberState) Effects {
+	if m.linkUp == m.carrier {
+		return Effects{}
+	}
+	m.linkUp = m.carrier
+	lag := l.lags[m.lagName]
+
+	var changed []string
+	if l.updateLag(lag) {
+		changed = append(changed, lag.name)
+	}
+
+	return Effects{Changed: changed}
+}
+
 // Receive processes an incoming LACPDU on the named member port.
 func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) Effects {
 	l.now = now
 	m, ok := l.members[member]
-	if !ok || !m.linkUp {
+	if !ok {
 		return Effects{}
 	}
+	m.lacpdusRx++
 	lag := l.lags[m.lagName]
-	if lag.cfg.LACP.Mode == Off {
+	if !m.carrier || lag.cfg.LACP.Mode == Off {
 		return Effects{}
 	}
 
-	m.lacpdusRx++
 	m.partner = pdu.Actor
 	m.partnerDefaulted = false
 	m.status = Current
@@ -405,10 +436,9 @@ func (l *Layer) Wake(now time.Time) Effects {
 	for _, name := range sortedKeys(l.members) {
 		m := l.members[name]
 		if m.hasPendingLink && !m.linkDelayTimer.IsZero() && !m.linkDelayTimer.After(now) {
-			targetUp := m.pendingLinkUp
 			m.hasPendingLink = false
 			m.linkDelayTimer = time.Time{}
-			fx := l.applyLinkChange(now, m, targetUp)
+			fx := l.applyLinkChange(m)
 			emissions = append(emissions, fx.Emissions...)
 			for _, ch := range fx.Changed {
 				changedMap[ch] = struct{}{}
@@ -424,14 +454,14 @@ func (l *Layer) Wake(now time.Time) Effects {
 		lagNeedsUpdate := false
 		for _, name := range lag.memberNames {
 			m := l.members[name]
-			if !m.linkUp || m.rxTimer.IsZero() || m.rxTimer.After(now) {
+			if !m.carrier || m.rxTimer.IsZero() || m.rxTimer.After(now) {
 				continue
 			}
 
 			switch m.status {
 			case Current:
 				m.status = Expired
-				m.rxTimer = now.Add(m.rxPeriod)
+				m.rxTimer = now.Add(time.Duration(TimeoutMultiplier) * m.rxPeriod)
 				lagNeedsUpdate = true
 			case Expired:
 				m.status = Defaulted
@@ -463,15 +493,13 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 		for _, name := range lag.memberNames {
 			m := l.members[name]
-			if !m.linkUp || m.txTimer.IsZero() || m.txTimer.After(now) {
+			if !m.carrier || m.txTimer.IsZero() || m.txTimer.After(now) {
 				continue
 			}
 			if m.mayTx(lag) {
 				emissions = append(emissions, l.emitLACPDU(m))
-				m.txTimer = now.Add(m.txPeriod)
-			} else {
-				m.txTimer = now.Add(m.txPeriod)
 			}
+			m.txTimer = now.Add(m.txPeriod)
 		}
 	}
 
@@ -497,8 +525,9 @@ func (l *Layer) NextWake() (time.Time, bool) {
 		if t.IsZero() {
 			return
 		}
-		if !l.now.IsZero() && !t.After(l.now) {
-			return
+		// A timer the layer has not been woken for is due now, not never.
+		if !l.now.IsZero() && t.Before(l.now) {
+			t = l.now
 		}
 		if !hasTimer || t.Before(next) {
 			next = t
@@ -510,7 +539,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 		if m.hasPendingLink {
 			update(m.linkDelayTimer)
 		}
-		if m.linkUp {
+		if m.carrier {
 			lag := l.lags[m.lagName]
 			if lag.cfg.LACP.Mode != Off {
 				update(m.rxTimer)

@@ -427,6 +427,15 @@ go test -race ./src/common/net/... ./src/common/netsim/... ./src/common/internal
 
 ## Open questions
 
+- A protocol frame emitted on a LAG with no enabled member is recorded as a
+  `no-member` drop in `fabric.transmit`, but the switch takes the LAG's
+  spanning tree link down with its last enabled member, so no test reaches
+  the branch; it stays as the visible failure of that invariant.
+- `primary_interface_name` carries the interface-name pattern the proto
+  conformance suite requires of configured names, which the device-reported
+  `interface_name` fields are exempt from; a vendor name outside the
+  pattern is refused as a primary and accepted as a member row.
+
 - Whether the transmit period should follow the partner's ShortTimeout
   bit rather than the LAG's own `Fast`, as 802.1AX's periodic machine
   does. The plan follows OVS, which transmits at its own rate and reads

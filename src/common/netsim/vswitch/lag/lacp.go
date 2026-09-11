@@ -24,7 +24,7 @@ const (
 )
 
 func (m *memberState) mayTx(lag *lagState) bool {
-	if !m.linkUp || lag.cfg.LACP.Mode == Off {
+	if !m.carrier || lag.cfg.LACP.Mode == Off {
 		return false
 	}
 	if lag.cfg.LACP.Mode == Active {
@@ -108,12 +108,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 			}
 		}
 
-		if lag.cfg.MinLinks > 0 && len(enabled) < lag.cfg.MinLinks {
-			for _, name := range enabled {
-				l.members[name].enabled = false
-			}
-			enabled = nil
-		}
+		enabled = l.applyMinLinks(lag, enabled)
 
 		lag.enabledMembers = enabled
 		lag.attachedMembers = nil
@@ -183,12 +178,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 			}
 		}
 
-		if lag.cfg.MinLinks > 0 && len(enabled) < lag.cfg.MinLinks {
-			for _, name := range enabled {
-				l.members[name].enabled = false
-			}
-			enabled = nil
-		}
+		enabled = l.applyMinLinks(lag, enabled)
 
 		lag.enabledMembers = enabled
 
@@ -225,12 +215,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		}
 	}
 
-	if lag.cfg.MinLinks > 0 && len(enabled) < lag.cfg.MinLinks {
-		for _, name := range enabled {
-			l.members[name].enabled = false
-		}
-		enabled = nil
-	}
+	enabled = l.applyMinLinks(lag, enabled)
 
 	lag.attachedMembers = attached
 	lag.enabledMembers = enabled
@@ -240,4 +225,17 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	}
 
 	return !slices.Equal(oldEnabled, lag.enabledMembers)
+}
+
+// applyMinLinks disables every enabled member when fewer than the minimum
+// are enabled, since a LAG below its minimum carries nothing.
+func (l *Layer) applyMinLinks(lag *lagState, enabled []string) []string {
+	if lag.cfg.MinLinks == 0 || len(enabled) >= lag.cfg.MinLinks {
+		return enabled
+	}
+	for _, name := range enabled {
+		l.members[name].enabled = false
+	}
+
+	return nil
 }

@@ -202,13 +202,18 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 		ports := swCfg.Ports.Ports()
 
 		for _, p := range ports {
-			if p.Kind != port.Lag {
+			switch {
+			case p.Kind != port.Lag:
 				ep := Endpoint{Node: name, Port: p.Name}
 				if ref, ok := byEnd[ep]; ok {
 					p.OperStatus = ref.end.Oper
 				} else {
 					p.OperStatus = port.Down
 				}
+			case len(swCfg.Ports.Members(p.Name)) == 0:
+				// A LAG with no member hears no link and would keep whatever
+				// the configuration said.
+				p.OperStatus = port.Down
 			}
 			b.Add(p)
 		}

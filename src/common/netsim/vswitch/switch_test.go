@@ -3619,3 +3619,29 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 		t.Errorf("lag1 OperStatus = %v, want Down", p.OperStatus)
 	}
 }
+
+// TestLagRowFollowsMemberRowsNotTheDelay is evidence that the LAG row reads
+// Down the moment every member row is down, while a down delay still holds
+// the layer's enablement.
+func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	tbl := mustTable(t, b)
+	sw := vswitch.New(vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LAG:    &lag.Config{LAGs: map[string]lag.LAG{"lag1": {DownDelay: time.Second}}},
+	})
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.SetOperStatus("1/1/1", port.Down)
+	sw.LinkChange(t0.Add(time.Second), "1/1/1", false, true, 1_000_000_000)
+	p, _ := sw.Ports().Port("lag1")
+	if p.OperStatus != port.Down {
+		t.Fatalf("lag1 OperStatus = %v, want Down as soon as its member row is down", p.OperStatus)
+	}
+	if !sw.MemberInfo("1/1/1").LinkUp {
+		t.Fatal("the layer dropped the member before its down delay")
+	}
+}

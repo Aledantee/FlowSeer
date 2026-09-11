@@ -380,6 +380,19 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 			}
 			selected, ok := sw.SelectMember(portName, frame, vid)
 			if !ok {
+				// The switch takes the LAG's spanning tree link down with its
+				// last enabled member, so a protocol frame reaches here only
+				// if that invariant breaks; the drop names it rather than
+				// losing the frame in silence.
+				journey.Entries = append(journey.Entries, Entry{
+					At:     now,
+					Kind:   EntryDrop,
+					Device: device,
+					Port:   portName,
+					Reason: bridge.ReasonNoMember,
+				})
+				f.countEgressDrop(device, portName, bridge.ReasonNoMember)
+
 				return
 			}
 			memberName = selected

@@ -374,7 +374,7 @@ type PortState_builder struct {
 	// Mirrors dot3adAggPortActorPortPriority (IEEE8023-LAG-MIB:1413).
 	PortPriority *uint32
 	// Administratively assigned aggregation key of this port. Absent means
-	// unreported. Mirrors dot3adAggPortActorAdminKey (IEEE8023-LAG-MIB:1342).
+	// unreported. Mirrors dot3adAggPortActorAdminKey (IEEE8023-LAG-MIB:1244).
 	Key *uint32
 	// Actor operational LACP parameters transmitted by this port. Absent means
 	// unreported. Mirrors dot3adAggPortActorOperState (IEEE8023-LAG-MIB:1516).
@@ -382,7 +382,7 @@ type PortState_builder struct {
 	// Partner operational LACP parameters received on this port. Absent means no
 	// partner PDU received. Mirrors dot3adAggPortPartnerOperKey
 	// (IEEE8023-LAG-MIB:1355) and dot3adAggPortPartnerOperState
-	// (IEEE8023-LAG-MIB:1532).
+	// (IEEE8023-LAG-MIB:1545).
 	Partner *LacpInfo
 	// Partner information state machine status of this port. Absent means
 	// unreported.
@@ -458,12 +458,12 @@ var File_flowseer_net_protocol_lacp_v1_port_state_proto protoreflect.FileDescrip
 
 const file_flowseer_net_protocol_lacp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/net/protocol/lacp/v1/port_state.proto\x12\x1dflowseer.net.protocol.lacp.v1\x1a-flowseer/net/protocol/lacp/v1/lacp_info.proto\x1a/flowseer/net/protocol/lacp/v1/lacp_status.proto\"\x98\x04\n" +
+	".flowseer/net/protocol/lacp/v1/port_state.proto\x12\x1dflowseer.net.protocol.lacp.v1\x1a-flowseer/net/protocol/lacp/v1/lacp_info.proto\x1a/flowseer/net/protocol/lacp/v1/lacp_status.proto\"\xae\x04\n" +
 	"\tPortState\x123\n" +
 	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12E\n" +
-	"\x19aggregator_interface_name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x17aggregatorInterfaceName\x12#\n" +
-	"\rport_priority\x18\x03 \x01(\rR\fportPriority\x12\x10\n" +
-	"\x03key\x18\x04 \x01(\rR\x03key\x12=\n" +
+	"\x19aggregator_interface_name\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x17aggregatorInterfaceName\x12.\n" +
+	"\rport_priority\x18\x03 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\fportPriority\x12\x1b\n" +
+	"\x03key\x18\x04 \x01(\rB\t\xbaH\x06*\x04\x18\xff\xff\x03R\x03key\x12=\n" +
 	"\x05actor\x18\x05 \x01(\v2'.flowseer.net.protocol.lacp.v1.LacpInfoR\x05actor\x12A\n" +
 	"\apartner\x18\x06 \x01(\v2'.flowseer.net.protocol.lacp.v1.LacpInfoR\apartner\x12A\n" +
 	"\x06status\x18\a \x01(\x0e2).flowseer.net.protocol.lacp.v1.LacpStatusR\x06status\x12\x1a\n" +

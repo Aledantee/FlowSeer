@@ -662,3 +662,97 @@ func TestCloneIndependence(t *testing.T) {
 		t.Fatalf("cloned layer enabled = %v, want 2 members", info2.Enabled)
 	}
 }
+
+// TestExpiredHoldsForThreePeriods is evidence that Expired lasts three more
+// periods before Defaulted, so fallback engages at 6 s on fast timers.
+func TestExpiredHoldsForThreePeriods(t *testing.T) {
+	t.Parallel()
+
+	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true}}}},
+		lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	l.LinkChange(t0, "1/1/1", true)
+	for _, s := range []int{3, 4, 5} {
+		l.Wake(t0.Add(time.Duration(s) * time.Second))
+		if st := l.PortInfo("1/1/1").Status; st != lag.Expired {
+			t.Fatalf("status at %ds = %v, want Expired", s, st)
+		}
+	}
+	l.Wake(t0.Add(6 * time.Second))
+	if st := l.PortInfo("1/1/1").Status; st != lag.Defaulted {
+		t.Fatalf("status at 6s = %v, want Defaulted", st)
+	}
+}
+
+// TestMinLinksDisablesAll is evidence that a LAG below its minimum carries
+// nothing.
+func TestMinLinksDisablesAll(t *testing.T) {
+	t.Parallel()
+
+	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {MinLinks: 2}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	l.LinkChange(t0, "1/1/1", true)
+	if _, ok := l.Select("lag1", ethernet.Frame{}, 0); ok {
+		t.Fatal("Select succeeded with one of two minimum links")
+	}
+	l.LinkChange(t0, "1/1/2", true)
+	if _, ok := l.Select("lag1", ethernet.Frame{}, 0); !ok {
+		t.Fatal("Select failed with the minimum met")
+	}
+	l.LinkChange(t0.Add(time.Second), "1/1/2", false)
+	if _, ok := l.Select("lag1", ethernet.Frame{}, 0); ok {
+		t.Fatal("Select succeeded after a member left the minimum")
+	}
+}
+
+// TestUpDelayDoesNotHoldTheProtocol is evidence that LACP runs on the carrier
+// while the up delay only holds enablement, so a partner is heard at once.
+func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
+	t.Parallel()
+
+	cfg := func() lag.Config {
+		return lag.Config{LAGs: map[string]lag.LAG{"lag1": {UpDelay: 2 * time.Second, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
+	}
+	a := lag.New(cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	b := lag.New(cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0b"))
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fa := a.LinkChange(t0, "1/1/1", true)
+	fb := b.LinkChange(t0, "1/1/1", true)
+	if len(fa.Emissions) == 0 {
+		t.Fatal("no LACPDU on carrier up during the up delay")
+	}
+	exchangeEmissions(t, t0, a, b, fa.Emissions, fb.Emissions)
+	if a.PortInfo("1/1/1").LACPDUsRx == 0 || a.PortInfo("1/1/1").Status != lag.Current {
+		t.Fatalf("A did not hear B during the up delay: %+v", a.PortInfo("1/1/1"))
+	}
+	if _, ok := a.Select("lag1", ethernet.Frame{}, 0); ok {
+		t.Fatal("A selected a member before the up delay passed")
+	}
+	// A second report of the same carrier does not restart the delay.
+	a.LinkChange(t0.Add(time.Second), "1/1/1", true)
+	for s := 1; s <= 2; s++ {
+		now := t0.Add(time.Duration(s) * time.Second)
+		fa, fb = a.Wake(now), b.Wake(now)
+		exchangeEmissions(t, now, a, b, fa.Emissions, fb.Emissions)
+	}
+	if _, ok := a.Select("lag1", ethernet.Frame{}, 0); !ok {
+		t.Fatalf("A did not enable its member two seconds after carrier: %+v", a.PortInfo("1/1/1"))
+	}
+}
+
+// TestNextWakeNeverBeforeTheLastEvent is evidence that an overdue timer is
+// reported as due now rather than hidden.
+func TestNextWakeNeverBeforeTheLastEvent(t *testing.T) {
+	t.Parallel()
+
+	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}},
+		lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	l.LinkChange(t0, "1/1/1", true)
+	// An event five seconds later without a wake in between.
+	l.LinkChange(t0.Add(5*time.Second), "1/1/2", true)
+	next, ok := l.NextWake()
+	if !ok || !next.Equal(t0.Add(5*time.Second)) {
+		t.Fatalf("NextWake = (%v, %v), want the overdue timer reported at the last event time", next, ok)
+	}
+}
