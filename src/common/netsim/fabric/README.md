@@ -274,7 +274,9 @@ frame emissions through the run's arrival queue. Each device holds at most one
 wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
 0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
 before frames scheduled for the same instant. `Step` returns `EntryWake` for
-these timer events without appending to any frame journey.
+these timer events without appending to any frame journey. `Mcheck(node, port)`
+is the one out-of-band protocol call: it runs the switch's management check
+at the current clock and queues the emission and the next wake like a step.
 
 Frames emitted by switch layers during wake-ups or forwarding cross cables and
 hubs as journeys marked `Protocol`. Periodic hellos ensure the queue never

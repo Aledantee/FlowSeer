@@ -751,7 +751,11 @@ func Load(
 				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
 			}
 			if bridgeState.HasTxHoldCount() {
-				stpCfg.TxHoldCount = uint8(bridgeState.GetTxHoldCount())
+				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
+					report.Skipped = append(report.Skipped, Skipped{What: "stp_tx_hold_count", Why: "outside 1 through 10"})
+				} else {
+					stpCfg.TxHoldCount = uint8(v)
+				}
 			} else {
 				report.Defaults = append(report.Defaults, Default{
 					Field: "tx_hold_count",

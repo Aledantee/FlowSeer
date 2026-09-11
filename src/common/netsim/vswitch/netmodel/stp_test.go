@@ -49,9 +49,8 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority:    4096,
-					Address:     macs["sw1"],
-					TxHoldCount: 6,
+					Priority: 4096,
+					Address:  macs["sw1"],
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},
@@ -62,9 +61,8 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority:    12288,
-					Address:     macs["sw2"],
-					TxHoldCount: 6,
+					Priority: 12288,
+					Address:  macs["sw2"],
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},
@@ -75,9 +73,8 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				Ports:  newPorts(),
 				Bridge: &bridge.Config{},
 				STP: &stp.Config{
-					Priority:    8192,
-					Address:     macs["sw3"],
-					TxHoldCount: 6,
+					Priority: 8192,
+					Address:  macs["sw3"],
 					Ports: map[string]stp.Port{
 						"1/1/2": {},
 						"1/1/3": {},

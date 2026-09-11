@@ -468,6 +468,18 @@ func (l *Layer) emit(p *portState, now time.Time, kind emissionKind, emissions *
 	}
 }
 
+// edgeDelay is the time without a BPDU after which a port may be detected as
+// an edge: MigrateTime on a point-to-point link, the max age in force on a
+// shared one.
+func (l *Layer) edgeDelay(p *portState) time.Duration {
+	if p.pointToPoint {
+		return MigrateTime
+	}
+	maxAge, _, _ := l.Times()
+
+	return maxAge
+}
+
 func (l *Layer) isSynced(rootPort string) bool {
 	for name, p := range l.ports {
 		if name == rootPort {
@@ -626,6 +638,12 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 		// forward without a handshake on a link whose peer never agreed.
 		if p.role != oldRole && p.role != RoleDesignated {
 			p.agreed = false
+		}
+		// The edge delay counts from the moment the port could become an
+		// edge; a port that returns to Designated with the timer long past
+		// would otherwise report a wake in the past.
+		if p.role == RoleDesignated && oldRole != RoleDesignated && p.cfg.AutoEdge {
+			p.edgeDelayWhile = now.Add(l.edgeDelay(p))
 		}
 	}
 
@@ -793,12 +811,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	p.mdelayWhile = now.Add(MigrateTime)
 
 	p.edge = p.adminEdge
-	edgeDelay := MigrateTime
-	if !p.pointToPoint {
-		maxAge, _, _ := l.Times()
-		edgeDelay = maxAge
-	}
-	p.edgeDelayWhile = now.Add(edgeDelay)
+	p.edgeDelayWhile = now.Add(l.edgeDelay(p))
 
 	p.proposing = p.pointToPoint && !p.edge && p.sendRSTP
 
@@ -859,15 +872,9 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		p.mdelayWhile = now.Add(MigrateTime)
 	}
 
-	// Auto-edge detection
 	wasAutoEdge := p.edge && !p.adminEdge
 	p.edge = p.adminEdge
-	maxAge, _, _ := l.Times()
-	edgeDelay := maxAge
-	if p.pointToPoint {
-		edgeDelay = MigrateTime
-	}
-	p.edgeDelayWhile = now.Add(edgeDelay)
+	p.edgeDelayWhile = now.Add(l.edgeDelay(p))
 
 	if wasAutoEdge {
 		if p.state == StateForwarding {
@@ -1028,20 +1035,25 @@ func (l *Layer) Wake(now time.Time) Effects {
 		if !p.up || p.txTick.IsZero() || p.txTick.After(now) {
 			continue
 		}
+		// A held kind belongs to the role that requested it; released under
+		// another role it would be an agreement from a designated port or a
+		// designated claim from a blocked one.
 		if p.pendingAgreement {
 			p.pendingAgreement = false
-			l.emit(p, now, emissionAgreement, &emissions)
+			if p.role == RoleRoot || p.role == RoleAlternate {
+				l.emit(p, now, emissionAgreement, &emissions)
+			}
 		}
 		if p.pendingDesignated {
 			p.pendingDesignated = false
-			l.emit(p, now, emissionDesignated, &emissions)
+			if p.role == RoleDesignated {
+				l.emit(p, now, emissionDesignated, &emissions)
+			}
 		}
 	}
 
 	if !l.helloTimer.IsZero() && !l.helloTimer.After(now) {
-		for !l.helloTimer.After(now) {
-			l.helloTimer = l.helloTimer.Add(l.helloTime)
-		}
+		l.helloTimer = now.Add(l.helloTime)
 		for _, name := range sortedKeys(l.ports) {
 			p := l.ports[name]
 			if p.up && p.role == RoleDesignated {

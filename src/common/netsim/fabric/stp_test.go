@@ -1143,3 +1143,75 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		t.Errorf("replies between t0+4s and t0+6s = %d, want 2 (no third reply)", repliesAfter)
 	}
 }
+
+// TestFabricMcheckQueuesTheRSTReply is evidence that a management check
+// through the fabric emits at the fabric clock and reschedules the wake,
+// rather than leaving the reply buffered until an unrelated step.
+func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, _ := b.Build()
+	fab, err := fabric.New(fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  ports,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Priority: 32768,
+					Address:  netaddr.MAC{0x02, 0, 0, 0, 0, 0x02},
+					Ports:    map[string]stp.Port{"1/1/1": {}},
+				},
+			},
+		},
+		Hosts:  map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
+		Cables: []fabric.Cable{{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}}},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+	inferior := stp.BridgeID{Priority: 61440, Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}}
+	legacy := stp.BPDU{
+		Type: stp.BPDUTypeConfiguration, RootID: inferior, BridgeID: inferior, PortID: 0x8001,
+		HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
+	}
+	legacy.SetRole(stp.RoleDesignated)
+	if _, err := fab.Inject(fabric.Injection{
+		At: t0.Add(4 * time.Second), Origin: fabric.Endpoint{Node: "h1"},
+		Frame: stp.Encode(legacy, netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}),
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	for {
+		entry, ok := fab.Step()
+		if !ok || entry.At.After(t0.Add(5*time.Second)) {
+			break
+		}
+	}
+	if fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
+		t.Fatal("the port did not migrate")
+	}
+	clock := fab.Snapshot().Clock
+	if err := fab.Mcheck("sw1", "1/1/1"); err != nil {
+		t.Fatalf("Mcheck: %v", err)
+	}
+	if !fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
+		t.Fatal("Mcheck left the port in compatibility mode")
+	}
+	var found bool
+	for _, j := range fab.Report() {
+		if j.Protocol && j.Injection.Origin.Node == "sw1" && j.Injection.At.Equal(clock) {
+			bpdu, err := stp.Decode(j.Injection.Frame)
+			if err == nil && bpdu.Type == stp.BPDUTypeRapid {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no RST BPDU journey dated the fabric clock %v after Mcheck", clock)
+	}
+	if err := fab.Mcheck("h1", ""); err == nil {
+		t.Error("Mcheck on a host returned no error")
+	}
+}

@@ -277,8 +277,8 @@ func TestDiff(t *testing.T) {
 	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || from != 15*time.Second || to != 7*time.Second {
 		t.Errorf("forward_delay change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || from != uint8(0) || to != uint8(4) {
-		t.Errorf("tx_hold_count change: got (%v, %v, %v), want (0, 4, true)", from, to, ok)
+	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || from != uint8(6) || to != uint8(4) {
+		t.Errorf("tx_hold_count change: got (%v, %v, %v), want (6, 4, true): the default is what an unset count means", from, to, ok)
 	}
 
 	otherMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}

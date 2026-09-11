@@ -539,6 +539,27 @@ func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState)
 	return eth, admin
 }
 
+// Mcheck forces protocol migration checking on a switch port at the current
+// fabric clock, then queues what the spanning tree layer emitted and its next
+// wake, as every other switch call inside the run does. It returns an error
+// when the node is not a switch.
+func (f *Fabric) Mcheck(node, portName string) error {
+	sw, ok := f.switches[node]
+	if !ok {
+		return errs.New().
+			Attr("node", node).
+			Msgf("node %q is not a switch", node)
+	}
+	f.initRunState()
+	sw.Mcheck(f.clock, portName)
+	for _, em := range sw.Drain() {
+		f.injectEmission(f.clock, node, em)
+	}
+	f.scheduleWake(node)
+
+	return nil
+}
+
 // SetFault modifies the declared fault on the cable connecting endpoints a and b at the
 // current fabric clock, re-evaluating operational link states and notifying attached switches.
 // It returns an error if no cable connects the specified endpoints or if the fault configuration is invalid.

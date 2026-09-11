@@ -236,8 +236,9 @@ claims root priority 4096 from 02:00:00:00:00:0a. Hellos fall at `t0 +
 9. Loader. Acceptance: a `BridgeState` with `tx_hold_count` 4 and a
    `PortState` with `auto_edge` true load as `Config.TxHoldCount` 4 and
    `Port.AutoEdge` true; an absent `tx_hold_count` reports the default 6.
-10. Diff. Acceptance: `stp.Diff` reports `tx_hold_count` 0 to 4 and
-    `auto_edge` false to true.
+10. Diff. Acceptance: `stp.Diff` reports `tx_hold_count` 6 to 4 for a
+    count left at its default against one set to 4, since the diff reads
+    the value in effect like the timers, and `auto_edge` false to true.
 
 ## Out of scope
 
@@ -337,6 +338,12 @@ go test -race ./src/common/netsim/...
 
 - Whether the edge delay on a shared port should be `MaxAge` in force or
   the bridge's own; the plan says in force, as OVS reads `max_age`.
+- A held kind is released only under the role that requested it (an
+  agreement from a root or alternate port, a designated BPDU from a
+  designated port). No test drives a role change inside the one second
+  between the hold and the tick; the guard is stated in a comment at the
+  release loop, since a role change that fast needs a peer's superior
+  information to age out within a second, which the timers do not allow.
 - The fabric test in U3 covers a held BPDU released at a tick; a release
   that coincides with a data frame's transmission end on the same port is
   ordered by the busy clock and not asserted separately.

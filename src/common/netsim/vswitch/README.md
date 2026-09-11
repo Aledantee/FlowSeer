@@ -189,6 +189,7 @@ omitted values with standard defaults and records each in the `Report`:
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
 | `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
 | `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
+| `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
 | `power_milliwatts`  | 0 mW             | PseBudget without a budget          |
@@ -212,7 +213,7 @@ Drop reasons recorded in traces and egress records:
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
 | `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
-| `unsupported-bpdu` | Frame could not be decoded as an RST BPDU               |
+| `unsupported-bpdu` | Frame could not be decoded as a BPDU                    |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
 | `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
@@ -232,7 +233,8 @@ The host drives it through explicit calls:
   relay's tables and tells the layer nothing, since only the caller knows
   whether a member's change moves its LAG; it follows with `LinkChange`.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
-- `Wake(now)` fires due hello, forward delay, and topology change timers.
+- `Wake(now)` fires due hello, forward delay, edge delay, and topology change
+  timers and releases BPDUs the transmit hold count held.
 - `NextWake()` reports the earliest deadline when the switch needs a wake.
 - `Drain()` returns and clears pending frame emissions produced by the layer.
 - `Roles()` exposes current port roles and forwarding states.

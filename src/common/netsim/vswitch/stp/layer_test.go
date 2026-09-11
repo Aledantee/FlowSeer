@@ -1026,3 +1026,158 @@ func TestTransmitHoldCountGating(t *testing.T) {
 		t.Errorf("PortInfo(1/1/1).TxBPDUs = %d, want 5", txCount)
 	}
 }
+
+func legacyConfigBPDU(t *testing.T, rootPriority uint16, addr string) stp.BPDU {
+	t.Helper()
+	b := stp.BPDU{
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: rootPriority, Address: mustMAC(t, addr)},
+		BridgeID:     stp.BridgeID{Priority: rootPriority, Address: mustMAC(t, addr)},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(stp.RoleDesignated)
+
+	return b
+}
+
+// TestMigratedRootPortClimbsTheLadder is evidence that a port in
+// compatibility mode takes no rapid transition even as a synced root port.
+func TestMigratedRootPortClimbsTheLadder(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	superior := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
+	at := t0.Add(4 * time.Second)
+	l.Receive(at, "1/1/1", superior)
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleRoot || info.SendRSTP || info.State == stp.StateForwarding {
+		t.Fatalf("after a superior legacy BPDU: %+v, want a migrated root port not yet forwarding", info)
+	}
+	// Wake every second as the fabric would, and keep the information fresh
+	// with a hello every two seconds; the ladder started at link-up, so it
+	// fires at t0+15 s and t0+30 s whatever the role.
+	for s := 5; s <= 30; s++ {
+		now := t0.Add(time.Duration(s) * time.Second)
+		if s%2 == 0 {
+			l.Receive(now, "1/1/1", superior)
+		}
+		l.Wake(now)
+		if info := l.PortInfo("1/1/1"); s < 30 && info.State == stp.StateForwarding {
+			t.Fatalf("at t0+%ds the migrated root port is forwarding; want the ladder to hold it", s)
+		}
+	}
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
+		t.Fatalf("at t0+30s the migrated root port is %v, want forwarding after two forward delays", info.State)
+	}
+}
+
+// TestMigratedPortAgreesWithoutTheAgreementBit is evidence that a port in
+// compatibility mode answers a proposal with a Configuration BPDU that
+// carries no agreement flag.
+func TestMigratedPortAgreesWithoutTheAgreementBit(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.Receive(t0.Add(4*time.Second), "1/1/1", legacyConfigBPDU(t, 61440, "02:00:00:00:00:0c"))
+	if l.PortInfo("1/1/1").SendRSTP {
+		t.Fatal("port did not migrate")
+	}
+
+	proposal := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mustMAC(t, "02:00:00:00:00:0a")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	proposal.SetRole(stp.RoleDesignated)
+	proposal.SetProposal(true)
+	// Inside the restarted delay the RST BPDU does not end compatibility.
+	rx := l.Receive(t0.Add(5*time.Second), "1/1/1", proposal)
+	if len(rx.Emissions) != 1 {
+		t.Fatalf("emissions = %d, want the reply", len(rx.Emissions))
+	}
+	reply, err := stp.Decode(rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reply.Type != stp.BPDUTypeConfiguration || reply.Agreement() {
+		t.Errorf("reply = type %v agreement %v, want a Configuration BPDU without agreement", reply.Type, reply.Agreement())
+	}
+}
+
+// TestTCNReceiveRaisesTopologyChange is evidence that a legacy Topology
+// Change Notification flushes the other ports and migrates the port.
+func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
+	if !slices.Contains(fx.Flush, "1/1/2") || slices.Contains(fx.Flush, "1/1/1") {
+		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
+	}
+	if l.PortInfo("1/1/1").SendRSTP {
+		t.Error("a TCN after the migration delay left the port in RSTP mode")
+	}
+	if l.PortInfo("1/1/1").RxBPDUs != 1 {
+		t.Errorf("RxBPDUs = %d, want 1", l.PortInfo("1/1/1").RxBPDUs)
+	}
+}
+
+// TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain is evidence that
+// NextWake never reports an edge delay that has already passed: a port that
+// was blocked while the delay ran gets a fresh delay when it is designated
+// again.
+func TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {AutoEdge: true}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	superior := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
+	superior.Type = stp.BPDUTypeRapid
+	l.Receive(t0.Add(1*time.Second), "1/1/1", superior)
+	if l.PortInfo("1/1/1").Role != stp.RoleRoot {
+		t.Fatal("port did not take the root role")
+	}
+	// Three hellos without a BPDU age the information out and the port is
+	// designated again; its edge delay must count from then.
+	now := t0.Add(8 * time.Second)
+	l.Wake(now)
+	if l.PortInfo("1/1/1").Role != stp.RoleDesignated {
+		t.Fatalf("role after aging = %v, want designated", l.PortInfo("1/1/1").Role)
+	}
+	next, ok := l.NextWake()
+	if !ok || next.Before(now) {
+		t.Fatalf("NextWake = (%v, %v), want a time not before %v", next, ok, now)
+	}
+}

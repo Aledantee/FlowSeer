@@ -39,6 +39,14 @@ func effectiveForwardDelay(d time.Duration) time.Duration {
 	return d
 }
 
+func effectiveTxHoldCount(c uint8) uint8 {
+	if c == 0 {
+		return DefaultTxHoldCount
+	}
+
+	return c
+}
+
 func effectivePortPriority(p uint8) uint8 {
 	if p == 0 {
 		return DefaultPortPriority
@@ -118,13 +126,14 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
-	if a.TxHoldCount != b.TxHoldCount {
+	aHold, bHold := effectiveTxHoldCount(a.TxHoldCount), effectiveTxHoldCount(b.TxHoldCount)
+	if aHold != bHold {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "tx_hold_count",
-			From:    a.TxHoldCount,
-			To:      b.TxHoldCount,
+			From:    aHold,
+			To:      bHold,
 		})
 	}
 
