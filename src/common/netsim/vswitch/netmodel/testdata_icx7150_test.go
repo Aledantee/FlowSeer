@@ -8,15 +8,17 @@ import (
 
 	"buf.build/go/protovalidate"
 
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
 // Transcribed from docs/research/device-inventory/lab/labsw06-ruckus-icx7150.md "Feature inventory" table (lines 121-143).
-func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan, []*phyv1.PseBudget) {
+func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan, []*phyv1.PseBudget, *stpv1.BridgeState, []*stpv1.PortState) {
 	t.Helper()
 
 	var ifaces []*interfacev1.Interface
@@ -291,20 +293,99 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 		}
 	}
 
-	return ifaces, vlans, budgets
+	// STP bridge state
+	protoRSTP := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	localPrio := uint32(32768)
+	baseMAC := addrv1.Eui48Address_builder{
+		Octets: []byte{0x38, 0x45, 0x3b, 0x0f, 0xcb, 0xc0},
+	}.Build()
+	localBridgeID := stpv1.BridgeId_builder{
+		Priority: &localPrio,
+		Address:  baseMAC,
+	}.Build()
+
+	rootPrio := uint32(4096)
+	rootMAC := addrv1.Eui48Address_builder{
+		Octets: []byte{0x10, 0x00, 0x0c, 0xea, 0x14, 0x78},
+	}.Build()
+	designatedRootID := stpv1.BridgeId_builder{
+		Priority: &rootPrio,
+		Address:  rootMAC,
+	}.Build()
+
+	rootPort := "lg1"
+	rootCost := uint32(2000)
+	bridgeState := stpv1.BridgeState_builder{
+		ProtocolVersion:       &protoRSTP,
+		BridgeId:              localBridgeID,
+		DesignatedRoot:        designatedRootID,
+		RootPortInterfaceName: &rootPort,
+		RootPathCost:          &rootCost,
+	}.Build()
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("bridge state validation failed: %v", err)
+	}
+
+	// STP port states
+	portPrio := uint32(128)
+	adminCost0 := uint32(0)
+	cost1G := uint32(20000)
+	cost10G := uint32(2000)
+	roleRoot := stpv1.PortRole_PORT_ROLE_ROOT
+	roleDesig := stpv1.PortRole_PORT_ROLE_DESIGNATED
+	fwdState := stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+
+	stpPortConfigs := []struct {
+		name string
+		role stpv1.PortRole
+		cost uint32
+	}{
+		{name: "lg1", role: roleRoot, cost: cost10G},
+		{name: "1/1/12", role: roleDesig, cost: cost1G},
+		{name: "1/3/1", role: roleDesig, cost: cost10G},
+		{name: "1/3/2", role: roleRoot, cost: cost10G},
+		{name: "1/3/4", role: roleRoot, cost: cost10G},
+	}
+
+	var stpPorts []*stpv1.PortState
+	for _, sc := range stpPortConfigs {
+		pName := sc.name
+		pRole := sc.role
+		pCost := sc.cost
+		ps := stpv1.PortState_builder{
+			InterfaceName:  &pName,
+			Priority:       &portPrio,
+			AdminPathCost:  &adminCost0,
+			PathCost:       &pCost,
+			Role:           &pRole,
+			State:          &fwdState,
+			DesignatedRoot: designatedRootID,
+		}.Build()
+		if err := protovalidate.Validate(ps); err != nil {
+			t.Fatalf("port state %s validation failed: %v", sc.name, err)
+		}
+		stpPorts = append(stpPorts, ps)
+	}
+
+	return ifaces, vlans, budgets, bridgeState, stpPorts
 }
 
 func TestICX7150Load(t *testing.T) {
-	ifaces, vlans, budgets := icx7150Fixture(t)
+	ifaces, vlans, budgets, bridgeState, stpPorts := icx7150Fixture(t)
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, budgets, nil)
+	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, budgets, bridgeState, stpPorts, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
 
-	if len(report.Skipped) != 0 {
-		t.Errorf("expected no skipped facets, got %d: %+v", len(report.Skipped), report.Skipped)
+	if len(report.Skipped) != 2 {
+		t.Errorf("expected 2 skipped LAG member port states, got %d: %+v", len(report.Skipped), report.Skipped)
+	}
+	for _, s := range report.Skipped {
+		if s.What != "stp_port" || (s.Port != "1/3/2" && s.Port != "1/3/4") {
+			t.Errorf("unexpected skipped entry: %+v", s)
+		}
 	}
 
 	wantCaps := []port.Layer{
@@ -312,6 +393,7 @@ func TestICX7150Load(t *testing.T) {
 		port.LayerLag,
 		port.LayerPoe,
 		port.LayerRelay,
+		port.LayerStp,
 		port.LayerVlan,
 	}
 	if !slices.Equal(report.Capabilities, wantCaps) {
@@ -320,6 +402,16 @@ func TestICX7150Load(t *testing.T) {
 
 	if gotPorts := len(cfg.Ports.Ports()); gotPorts != 33 {
 		t.Errorf("ports count = %d, want 33", gotPorts)
+	}
+
+	if cfg.STP == nil {
+		t.Fatal("expected cfg.STP to be configured")
+	}
+	if _, ok := cfg.STP.Ports["lg1"]; !ok {
+		t.Errorf("expected cfg.STP.Ports[lg1] to exist")
+	}
+	if rootPort := bridgeState.GetRootPortInterfaceName(); rootPort != "lg1" {
+		t.Errorf("root port = %q, want lg1", rootPort)
 	}
 
 	// The capture reports no powered device on any port and 0 mW allocated.

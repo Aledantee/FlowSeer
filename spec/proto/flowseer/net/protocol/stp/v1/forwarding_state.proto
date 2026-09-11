@@ -1,0 +1,18 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+// Spanning tree frame forwarding state of a port.
+//
+// In RFC 4188 (BRIDGE-MIB), the legacy blocking and listening states both read
+// as Discarding under RSTP.
+enum ForwardingState {
+  // Forwarding state was not reported.
+  FORWARDING_STATE_UNSPECIFIED = 0;
+  // Frames are dropped; addresses are not learned.
+  FORWARDING_STATE_DISCARDING = 1;
+  // Addresses are learned into the forwarding database; frames are not forwarded.
+  FORWARDING_STATE_LEARNING = 2;
+  // Frames are forwarded and addresses are learned.
+  FORWARDING_STATE_FORWARDING = 3;
+}

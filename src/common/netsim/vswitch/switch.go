@@ -380,6 +380,27 @@ func (s *Switch) Roles() map[string]stp.PortInfo {
 	return roles
 }
 
+// Root returns the elected root bridge identifier, the path cost to reach it,
+// and the interface name of the root port, or zero values if the spanning tree
+// layer is absent.
+func (s *Switch) Root() (stp.BridgeID, uint32, string) {
+	if s.stp == nil {
+		return stp.BridgeID{}, 0, ""
+	}
+
+	return s.stp.Root()
+}
+
+// TopologyChanges returns the total count of detected topology changes and the
+// timestamp of the most recent change, or zero values if the spanning tree layer is absent.
+func (s *Switch) TopologyChanges() (uint64, time.Time) {
+	if s.stp == nil {
+		return 0, time.Time{}
+	}
+
+	return s.stp.TopologyChanges()
+}
+
 // Wake advances the spanning tree layer to now, firing due timers and flushing bridge entries.
 // On a switch without spanning tree configuration, Wake is a no-op.
 func (s *Switch) Wake(now time.Time) {

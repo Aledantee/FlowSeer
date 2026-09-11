@@ -1,0 +1,55 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+import "flowseer/net/protocol/stp/v1/bridge_id.proto";
+import "flowseer/net/protocol/stp/v1/protocol_version.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+// Observed spanning tree protocol state of a bridge entity.
+message BridgeState {
+  // Spanning tree protocol version running on this bridge. Mirrors
+  // dot1dStpProtocolSpecification (BRIDGE-MIB:318) and dot1dStpVersion (RSTP-MIB).
+  ProtocolVersion protocol_version = 1;
+  // Unique bridge identifier of this node. Mirrors dot1dStpPriority and
+  // dot1dBaseBridgeAddress. Must be present.
+  BridgeId bridge_id = 2 [(buf.validate.field).required = true];
+  // Bridge identifier of the spanning tree root. Mirrors dot1dStpDesignatedRoot
+  // (BRIDGE-MIB:380).
+  BridgeId designated_root = 3;
+  // Cost of the path to the root from this bridge. Mirrors dot1dStpRootCost
+  // (BRIDGE-MIB:394).
+  uint32 root_path_cost = 4;
+  // Device-local name of the port offering the lowest-cost path to the root.
+  // Absent when this bridge is the root. Mirrors dot1dStpRootPort (BRIDGE-MIB:406).
+  string root_port_interface_name = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64,
+    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
+  ];
+  // Maximum age of spanning tree information currently in force. Mirrors
+  // dot1dStpMaxAge (BRIDGE-MIB:416).
+  google.protobuf.Duration max_age = 6;
+  // Hello time interval currently in force. Mirrors dot1dStpHelloTime
+  // (BRIDGE-MIB:430).
+  google.protobuf.Duration hello_time = 7;
+  // Forward delay timer currently in force. Mirrors dot1dStpForwardDelay
+  // (BRIDGE-MIB:459).
+  google.protobuf.Duration forward_delay = 8;
+  // MaxAge value this bridge advertises when acting as root. Mirrors
+  // dot1dStpBridgeMaxAge (BRIDGE-MIB:482).
+  google.protobuf.Duration bridge_max_age = 9;
+  // HelloTime value this bridge advertises when acting as root. Mirrors
+  // dot1dStpBridgeHelloTime (BRIDGE-MIB:500).
+  google.protobuf.Duration bridge_hello_time = 10;
+  // ForwardDelay value this bridge advertises when acting as root. Mirrors
+  // dot1dStpBridgeForwardDelay (BRIDGE-MIB:516).
+  google.protobuf.Duration bridge_forward_delay = 11;
+  // Count of topology changes detected by this bridge. Mirrors dot1dStpTopChanges
+  // (BRIDGE-MIB:368).
+  uint64 topology_changes = 12;
+  // Elapsed duration since the last detected topology change. Mirrors
+  // dot1dStpTimeSinceTopologyChange (BRIDGE-MIB:352).
+  google.protobuf.Duration time_since_topology_change = 13;
+}

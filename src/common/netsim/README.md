@@ -11,6 +11,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/port`     | Port table, administrative state, and MTU              |
 | `vswitch/phy`      | Physical Ethernet speeds and PoE budget allocation     |
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging   |
+| `vswitch/stp`      | Rapid Spanning Tree Protocol state machine and BPDUs   |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos |
 | `fabric`           | Switched topology, cables, stepped execution, journeys |
 

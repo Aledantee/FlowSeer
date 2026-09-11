@@ -324,7 +324,8 @@ counters, negotiation, comparison, and diff.
 
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase3-plan.md`
 After: U2
-Landed:
+Landed: 2026-09-11, on branch `unify-netsim-plan-phases`; the phase plan
+carries the outcome note.
 Change: `netsim/vswitch/stp`, the timer facility and BPDU journeys in
 `fabric`, the relay's port-state gate, `spec/proto/flowseer/net/protocol/stp/v1`,
 and the loader's and export's protocol state.

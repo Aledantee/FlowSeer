@@ -8,6 +8,7 @@ import (
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -16,16 +17,19 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// Load translates typed network model interfaces, VLANs, FDB entries, and PoE budgets
-// into a virtual switch [vswitch.Config] and preloaded forwarding [bridge.Seed] entries.
+// Load translates typed network model interfaces, VLANs, FDB entries, PoE budgets,
+// and spanning tree states into a virtual switch [vswitch.Config] and preloaded
+// forwarding [bridge.Seed] entries.
 //
 // If want is empty, the capability set is inferred from the facets and row kinds present:
 // relay is always included, vlan if any interface carries a switchport facet, ethernet if
-// any carries an Ethernet facet, poe if any carries a PoE facet or budget, and lag if any
-// interface is an aggregation. If want is non-empty, only the requested layers are built,
-// and any present facet outside want is omitted and recorded in [Report.Skipped].
+// any carries an Ethernet facet, poe if any carries a PoE facet or budget, lag if any
+// interface is an aggregation, and stp if bridge state is present. If want is non-empty,
+// only the requested layers are built, and any present facet outside want is omitted and
+// recorded in [Report.Skipped]. When want contains stp, relay is implied.
 //
 // Load returns an error only for conditions that prevent constructing a switch at all:
 // an empty interface slice, a duplicate or empty interface name, or a LAG parent reference
@@ -37,6 +41,8 @@ func Load(
 	vlans []*switchingv1.Vlan,
 	fdb []*switchingv1.FdbEntry,
 	budgets []*phyv1.PseBudget,
+	bridgeState *stpv1.BridgeState,
+	stpPorts []*stpv1.PortState,
 	want []port.Layer,
 ) (vswitch.Config, []bridge.Seed, Report, error) {
 	if len(ifaces) == 0 {
@@ -157,6 +163,10 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerLag)
 			report.CapabilitySources[port.LayerLag] = "inferred:lag"
 		}
+		if bridgeState != nil {
+			report.Capabilities = append(report.Capabilities, port.LayerStp)
+			report.CapabilitySources[port.LayerStp] = "inferred:stp"
+		}
 	} else {
 		report.Capabilities = make([]port.Layer, len(want))
 		copy(report.Capabilities, want)
@@ -166,6 +176,10 @@ func Load(
 		if slices.Contains(want, port.LayerVlan) && !slices.Contains(want, port.LayerRelay) {
 			report.Capabilities = append(report.Capabilities, port.LayerRelay)
 			report.CapabilitySources[port.LayerRelay] = "implied:vlan"
+		}
+		if slices.Contains(want, port.LayerStp) && !slices.Contains(want, port.LayerRelay) && !slices.Contains(report.Capabilities, port.LayerRelay) {
+			report.Capabilities = append(report.Capabilities, port.LayerRelay)
+			report.CapabilitySources[port.LayerRelay] = "implied:stp"
 		}
 		if hasLag && !slices.Contains(want, port.LayerLag) {
 			report.Capabilities = append(report.Capabilities, port.LayerLag)
@@ -226,6 +240,23 @@ func Load(
 			report.Skipped = append(report.Skipped, Skipped{
 				Port: groupStr,
 				What: "pse_budget",
+				Why:  "layer not wanted",
+			})
+		}
+	}
+
+	if !isWanted(port.LayerStp) {
+		if bridgeState != nil {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: "",
+				What: "stp_bridge",
+				Why:  "layer not wanted",
+			})
+		}
+		for _, ps := range stpPorts {
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: ps.GetInterfaceName(),
+				What: "stp_port",
 				Why:  "layer not wanted",
 			})
 		}
@@ -537,6 +568,80 @@ func Load(
 		}
 
 		cfg.Bridge = bridgeCfg
+	}
+
+	if isWanted(port.LayerStp) && bridgeState != nil {
+		var mac netaddr.MAC
+		if bridgeState.GetBridgeId() != nil && bridgeState.GetBridgeId().GetAddress() != nil {
+			copy(mac[:], bridgeState.GetBridgeId().GetAddress().GetOctets())
+		}
+
+		stpCfg := stp.Config{
+			Priority: uint16(bridgeState.GetBridgeId().GetPriority()),
+			Address:  mac,
+			Ports:    make(map[string]stp.Port),
+		}
+
+		if bridgeState.GetBridgeHelloTime() != nil {
+			stpCfg.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
+		}
+		if bridgeState.GetBridgeMaxAge() != nil {
+			stpCfg.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
+		}
+		if bridgeState.GetBridgeForwardDelay() != nil {
+			stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
+		}
+
+		for _, ps := range stpPorts {
+			portName := ps.GetInterfaceName()
+			p, ok := ports.Port(portName)
+			if !ok {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: portName,
+					What: "stp_port",
+					Why:  "absent from port table",
+				})
+				continue
+			}
+			if p.LagParent != "" {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: portName,
+					What: "stp_port",
+					Why:  "port is a LAG member",
+				})
+				continue
+			}
+
+			var adminPathCost uint32
+			if ps.HasAdminPathCost() {
+				adminPathCost = ps.GetAdminPathCost()
+			} else {
+				report.Defaults = append(report.Defaults, Default{
+					Port:  portName,
+					Field: "admin_path_cost",
+					Value: "0",
+				})
+			}
+
+			var p2p stp.PointToPointMode
+			switch ps.GetPointToPoint() {
+			case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE:
+				p2p = stp.PointToPointForceTrue
+			case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
+				p2p = stp.PointToPointForceFalse
+			default:
+				p2p = stp.PointToPointAuto
+			}
+
+			stpCfg.Ports[portName] = stp.Port{
+				Priority:     uint8(ps.GetPriority()),
+				PathCost:     adminPathCost,
+				AdminEdge:    ps.GetAdminEdge(),
+				PointToPoint: p2p,
+			}
+		}
+
+		cfg.STP = &stpCfg
 	}
 
 	var seeds []bridge.Seed

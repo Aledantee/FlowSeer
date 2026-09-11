@@ -30,6 +30,7 @@ var importOrder = map[string][]string{
 
 	// A protocol may import any layer below it, and never another protocol.
 	"net/protocol/lldp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
+	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
 	// Boundary packages consume the primitives and never feed them.
 	// device/policy imports nothing FlowSeer-owned, the one leaf that lets

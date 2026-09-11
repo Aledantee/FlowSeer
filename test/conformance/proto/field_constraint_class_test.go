@@ -22,6 +22,7 @@ import (
 	// import rather than letting the package go unwalked in silence.
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 )
 

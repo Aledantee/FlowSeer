@@ -4,12 +4,17 @@ import (
 	"slices"
 	"strconv"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // FdbEntries converts active bridge forwarding database entries into typed network model
@@ -144,6 +149,175 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 	}
 
 	return budgets, facets, nil
+}
+
+// Stp exports the switch spanning tree layer's runtime and administrative state
+// as typed [stpv1.BridgeState] and [stpv1.PortState] messages.
+//
+// Stp returns nil, nil if the switch has no spanning tree configuration or layer.
+// Administrative settings (bridge priority, bridge MAC address, port priority,
+// admin path cost, admin edge, and point-to-point mode) are sourced from the switch's
+// active STP configuration. Times in force (max age, hello time, forward delay)
+// reflect the bridge's own configured times because root-advertised timer values on
+// non-root bridges are not exposed by the runtime layer's port info.
+func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
+	if sw == nil {
+		return nil, nil
+	}
+	cfg := sw.Config()
+	if cfg.STP == nil {
+		return nil, nil
+	}
+	roles := sw.Roles()
+	if roles == nil {
+		return nil, nil
+	}
+
+	rootID, rootPathCost, rootPort := sw.Root()
+	tcCount, _ := sw.TopologyChanges()
+
+	bridgePrio := uint32(cfg.STP.Priority)
+	bridgeAddr := addrv1.Eui48Address_builder{
+		Octets: cfg.STP.Address[:],
+	}.Build()
+	bridgeID := stpv1.BridgeId_builder{
+		Priority: &bridgePrio,
+		Address:  bridgeAddr,
+	}.Build()
+
+	desigRootPrio := uint32(rootID.Priority)
+	desigRootAddr := addrv1.Eui48Address_builder{
+		Octets: rootID.Address[:],
+	}.Build()
+	desigRoot := stpv1.BridgeId_builder{
+		Priority: &desigRootPrio,
+		Address:  desigRootAddr,
+	}.Build()
+
+	protoVer := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+
+	helloTime := cfg.STP.HelloTime
+	if helloTime == 0 {
+		helloTime = stp.DefaultHelloTime
+	}
+	maxAge := cfg.STP.MaxAge
+	if maxAge == 0 {
+		maxAge = stp.DefaultMaxAge
+	}
+	fwdDelay := cfg.STP.ForwardDelay
+	if fwdDelay == 0 {
+		fwdDelay = stp.DefaultForwardDelay
+	}
+
+	helloDur := durationpb.New(helloTime)
+	maxAgeDur := durationpb.New(maxAge)
+	fwdDelayDur := durationpb.New(fwdDelay)
+
+	bb := stpv1.BridgeState_builder{
+		ProtocolVersion:    &protoVer,
+		BridgeId:           bridgeID,
+		DesignatedRoot:     desigRoot,
+		RootPathCost:       &rootPathCost,
+		MaxAge:             maxAgeDur,
+		HelloTime:          helloDur,
+		ForwardDelay:       fwdDelayDur,
+		BridgeMaxAge:       maxAgeDur,
+		BridgeHelloTime:    helloDur,
+		BridgeForwardDelay: fwdDelayDur,
+		TopologyChanges:    &tcCount,
+	}
+	if rootPort != "" {
+		bb.RootPortInterfaceName = &rootPort
+	}
+	bridgeState := bb.Build()
+
+	portNames := sortedKeys(roles)
+	portStates := make([]*stpv1.PortState, 0, len(portNames))
+	for _, name := range portNames {
+		info := roles[name]
+		pCfg := cfg.STP.Ports[name]
+
+		var role stpv1.PortRole
+		switch info.Role {
+		case stp.RoleRoot:
+			role = stpv1.PortRole_PORT_ROLE_ROOT
+		case stp.RoleDesignated:
+			role = stpv1.PortRole_PORT_ROLE_DESIGNATED
+		case stp.RoleAlternate:
+			role = stpv1.PortRole_PORT_ROLE_ALTERNATE
+		case stp.RoleBackup:
+			role = stpv1.PortRole_PORT_ROLE_BACKUP
+		case stp.RoleDisabled:
+			role = stpv1.PortRole_PORT_ROLE_DISABLED
+		default:
+			role = stpv1.PortRole_PORT_ROLE_UNSPECIFIED
+		}
+
+		var fwdState stpv1.ForwardingState
+		switch info.State {
+		case stp.StateDiscarding:
+			fwdState = stpv1.ForwardingState_FORWARDING_STATE_DISCARDING
+		case stp.StateLearning:
+			fwdState = stpv1.ForwardingState_FORWARDING_STATE_LEARNING
+		case stp.StateForwarding:
+			fwdState = stpv1.ForwardingState_FORWARDING_STATE_FORWARDING
+		default:
+			fwdState = stpv1.ForwardingState_FORWARDING_STATE_UNSPECIFIED
+		}
+
+		var p2pMode stpv1.PointToPointMode
+		switch pCfg.PointToPoint {
+		case stp.PointToPointForceTrue:
+			p2pMode = stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE
+		case stp.PointToPointForceFalse:
+			p2pMode = stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE
+		default:
+			p2pMode = stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO
+		}
+
+		prio := uint32(pCfg.Priority)
+		adminPathCost := pCfg.PathCost
+		pathCost := info.PathCost
+		adminEdge := pCfg.AdminEdge
+		operEdge := info.Edge
+		operP2P := info.PointToPoint
+		fwdTransitions := info.ForwardTransitions
+
+		pb := stpv1.PortState_builder{
+			InterfaceName:      &name,
+			Priority:           &prio,
+			AdminPathCost:      &adminPathCost,
+			PathCost:           &pathCost,
+			Role:               &role,
+			State:              &fwdState,
+			DesignatedRoot:     desigRoot,
+			AdminEdge:          &adminEdge,
+			OperEdge:           &operEdge,
+			PointToPoint:       &p2pMode,
+			OperPointToPoint:   &operP2P,
+			ForwardTransitions: &fwdTransitions,
+		}
+
+		if info.Designated != (stp.BridgeID{}) {
+			desigBridgePrio := uint32(info.Designated.Priority)
+			desigBridgeAddr := addrv1.Eui48Address_builder{
+				Octets: info.Designated.Address[:],
+			}.Build()
+			pb.DesignatedBridge = stpv1.BridgeId_builder{
+				Priority: &desigBridgePrio,
+				Address:  desigBridgeAddr,
+			}.Build()
+		}
+
+		desigCost := info.DesignatedCost
+		pb.DesignatedCost = &desigCost
+		desigPort := uint32(info.DesignatedPort)
+		pb.DesignatedPort = &desigPort
+
+		portStates = append(portStates, pb.Build())
+	}
+
+	return bridgeState, portStates
 }
 
 func sortedKeys[V any](m map[string]V) []string {

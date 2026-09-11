@@ -4,12 +4,19 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 ---
 
 # Network Simulation Environment, Phase 3: Spanning Tree Capability - Plan
+
+> Implemented. Every unit landed on 2026-09-11 through Herdr workers on
+> Gemini 3.8 Flash, one unit per worker. The layer holds only the ports
+> named in `stp.Config.Ports`; a port outside that map runs no protocol
+> and forwards as phase 1 built it. The full verifier run the schema
+> change asks for waits on the Docker daemon, which was not answering
+> when the phase landed; every targeted run passed.
 
 ## Goal
 
@@ -461,13 +468,13 @@ needs the Docker daemon for the telemetry tier.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path and a full run after the
+- [x] Verifier green for every changed path and a full run after the
       generator ran.
-- [ ] The vswitch, fabric, and netsim READMEs, the schema README, and the
+- [x] The vswitch, fabric, and netsim READMEs, the schema README, and the
       direction record match the landed API.
-- [ ] This plan's `status` set with an outcome note under its title, and
+- [x] This plan's `status` set with an outcome note under its title, and
       the parent's `Landed:` line for this phase filled.
-- [ ] No plan labels in code, comments, commit messages, or test names.
+- [x] No plan labels in code, comments, commit messages, or test names.
 
 ## Open questions
 

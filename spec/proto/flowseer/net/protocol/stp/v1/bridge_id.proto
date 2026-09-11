@@ -1,0 +1,23 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import option "buf/validate/validate.proto";
+
+// An eight-octet spanning tree bridge identifier composed of a two-octet
+// priority and a six-octet MAC address. Mirrors dot1dStpBridgeId (RFC 4188).
+message BridgeId {
+  // Two-octet priority portion of the bridge identifier, constrained to a
+  // multiple of 4096 below 65536 per IEEE 802.1t. Must be present.
+  uint32 priority = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).cel = {
+      id: "bridge_id.priority"
+      message: "priority must be a multiple of 4096 below 65536"
+      expression: "this % 4096u == 0u && this < 65536u"
+    }
+  ];
+  // Six-octet MAC address portion of the bridge identifier. Must be present.
+  flowseer.net.addr.v1.Eui48Address address = 2 [(buf.validate.field).required = true];
+}
