@@ -4,12 +4,26 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 ---
 
 # Network Simulation Environment, Phase 4: Routing Capability - Plan
+
+> Implemented. Every unit landed on 2026-09-11 through Herdr workers on
+> Gemini 3.8 Flash, one unit per worker, in the order U1, U3, U2, U4, U5,
+> U6, each verified on its paths before the next was dispatched. The
+> coordinator trimmed two things after merge: an unreachable branch in the
+> switch for an interface `Route` itself named, and the host branch of
+> `Inject`, which carried the cable lookup and the VLAN form once per
+> path. The decisions the units took where this plan left a choice open
+> are recorded at the end of Decisions. The full verifier run the phase 3
+> dirty marker asks for reached the service telemetry integration tier
+> and hung on `docker info`, which the Docker daemon on this host has not
+> answered since the day before; every gate ahead of it passed, the
+> targeted run over this phase's paths passed, and the plan's race test
+> command over `net`, `netsim`, and the gopacket guard passed.
 
 > Re-planned on 2026-09-11 against the tree phases 1 through 3 left.
 
@@ -365,6 +379,23 @@ optional VLAN. This phase adds:
   no export: the layer holds nothing it learned. Why: the loader already
   maps every other row one to one, and an export of configuration back
   into rows would say nothing a run taught.
+- Decided during implementation, where the text above left a choice
+  open. `port.Table.Receive` folds the relay's three ingress checks into
+  one answer, so an unknown port and a missing LAG parent trace `ingress
+  port down` like a down port. A routing `lookup` miss traces `no route`
+  and the `drop` that follows names `vrf <name>`; the `rewrite` detail is
+  `hop limit <old> to <new>, src <mac>, dst <mac>`; `routing.Diff` keys
+  children as `<vrf>/<interface>`, `<vrf>/<prefix>`, and
+  `<vrf>/<interface>/<address>`. An `Interface.Prefixes` entry carries the
+  address form (`10.0.10.1/24`): `Prefix.Addr()` is the local address
+  `Route` consumes and `Masked()` the connected route, and the loader
+  builds it as `netip.PrefixFrom(address, prefix.length)`. A device's base
+  MAC change diffs under layer `port` with subject kind `device` and an
+  empty key. A routed port whose `Receive` refuses drops `port-down` under
+  `routing`. `fabric.HostRoutingConfig(name, host)` is the exported
+  translation of a host into its routing configuration and one-port
+  table, called by `Validate`, by `build`, and by the external test that
+  checks the default routes.
 
 ## Requirements
 

@@ -39,7 +39,7 @@ the trace package first, sits at the `netsim` level.
 - A device is built from capabilities, and a capability is the presence of
   a layer's configuration with no boolean beside it: a relay, VLAN
   awareness, Ethernet speeds, PoE, link aggregation, spanning tree, and
-  later routing. The
+  routing. The
   switch derives its capability set from its configuration and rejects
   configuration of a capability it lacks. The ladder is hub, bridge,
   switch: a port table alone repeats every frame to every other port; the
@@ -48,7 +48,8 @@ the trace package first, sits at the `netsim` level.
   facet rule of the network model applied to the simulator, and it keeps
   one code path per capability rather than one per device model.
 - One package per capability over the port table: `phy` for speeds and
-  PoE, `bridge` for the relay and VLANs, later `routing`. A layer imports
+  PoE, `bridge` for the relay and VLANs, `routing` for routed interfaces
+  and per-VRF tables. A layer imports
   the port table and the shared trace package only; `vswitch` composes them,
   and `netmodel` owns the protobuf boundary. A new layer is a new package
   and a new field.
@@ -149,7 +150,8 @@ the trace package first, sits at the `netsim` level.
 - The forwarding scope grows by capability: rapid spanning tree with
   `net/protocol/stp` as the first protocol layer, multicast filtering
   with its table, routing with `net/interface`'s VLAN interfaces and
-  `net/ip`'s neighbor entries, LLDP and LACP on the same timer facility. Each is a new package under `vswitch` or a
+  routed ports, and `net/ip`'s neighbor entries, LLDP and LACP on the
+  same timer facility. Each is a new package under `vswitch` or a
   new rule set, not a rewrite.
 - Links load from LLDP neighbors once the full-network view resolves a
   chassis and port id to a device; until then a fabric is built from a

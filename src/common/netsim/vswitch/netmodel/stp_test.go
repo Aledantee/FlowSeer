@@ -207,7 +207,7 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 			}.Build())
 		}
 
-		loadedCfg, _, _, err := netmodel.Load(t0, ifaces, nil, nil, nil, bridgeState, portStates, nil)
+		loadedCfg, _, _, err := netmodel.Load(t0, ifaces, nil, nil, nil, bridgeState, portStates, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("switch %s Load failed: %v", name, err)
 		}
@@ -294,7 +294,7 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psMember, psRegular}, nil)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psMember, psRegular}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestStpLoad_AbsentPortSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psAbsent}, nil)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psAbsent}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestStpLoad_MissingAdminPathCostReported(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psWithoutAdminCost}, nil)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psWithoutAdminCost}, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
 	}.Build()
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}

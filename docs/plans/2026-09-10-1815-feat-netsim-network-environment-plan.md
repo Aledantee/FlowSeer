@@ -4,16 +4,16 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
 
 # Network Simulation Environment - Plan
 
-This is a parent plan. Its units are phases, each with its own plan; the
-first is implemented and the later three are re-planned when their turn
-comes. It replaces
+This is a parent plan. Its units are phases, each with its own plan; every
+phase was re-planned when its turn came and all four are implemented. It
+replaces
 `docs/plans/2026-09-10-1624-feat-virtual-device-l2-switching-plan.md`, whose
 single device is now phase 1.
 
@@ -338,7 +338,8 @@ and the loader's and export's protocol state.
 
 Files: `docs/plans/2026-09-10-1815-feat-netsim-network-environment-phase4-plan.md`
 After: U3
-Landed:
+Landed: 2026-09-11, on branch `unify-netsim-plan-phases`; the phase plan
+carries the outcome note.
 Change: `netsim/vswitch/routing` with per-VRF tables over VLAN
 interfaces and routed ports, the relay split
 into an ingress and an egress half, the IPv4 and IPv6 header codec as one

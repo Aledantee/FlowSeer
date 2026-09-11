@@ -2,11 +2,14 @@ package netmodel
 
 import (
 	"cmp"
+	"net/netip"
 	"slices"
 	"strconv"
 	"time"
 
+	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
+	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
@@ -17,19 +20,25 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Load translates typed network model interfaces, VLANs, FDB entries, PoE budgets,
-// and spanning tree states into a virtual switch [vswitch.Config] and preloaded
-// forwarding [bridge.Seed] entries.
+// spanning tree states, interface addresses, and neighbor entries into a virtual switch
+// [vswitch.Config] and preloaded forwarding [bridge.Seed] entries.
 //
 // If want is empty, the capability set is inferred from the facets and row kinds present:
 // relay is always included, vlan if any interface carries a switchport facet, ethernet if
 // any carries an Ethernet facet, poe if any carries a PoE facet or budget, lag if any
-// interface is an aggregation, and stp if bridge state is present. If want is non-empty,
-// only the requested layers are built, and any present facet outside want is omitted and
-// recorded in [Report.Skipped]. When want contains stp, relay is implied.
+// interface is an aggregation, stp if bridge state is present, and routing if any interface
+// carries an IP facet. If want is non-empty, only the requested layers are built, and any
+// present facet outside want is omitted and recorded in [Report.Skipped]. When want contains
+// stp, relay is implied. When a VLAN interface with an IP facet loads, vlan and relay are
+// implied. When routing is not wanted, every IP facet, address row, and neighbor row is
+// recorded as skipped. When routing ends up with no interfaces (every IP facet skipped),
+// the routing configuration is left nil and routing is dropped from capabilities with its
+// source removed, so [vswitch.Config.Validate] does not refuse an empty VRF.
 //
 // Load returns an error only for conditions that prevent constructing a switch at all:
 // an empty interface slice, a duplicate or empty interface name, or a LAG parent reference
@@ -43,6 +52,8 @@ func Load(
 	budgets []*phyv1.PseBudget,
 	bridgeState *stpv1.BridgeState,
 	stpPorts []*stpv1.PortState,
+	addrs []*ipv1.InterfaceAddress,
+	neighbors []*ipv1.NeighborEntry,
 	want []port.Layer,
 ) (vswitch.Config, []bridge.Seed, Report, error) {
 	if len(ifaces) == 0 {
@@ -117,9 +128,17 @@ func Load(
 		hasEthernetFacet   bool
 		hasPoeFacet        bool
 		hasLag             bool
+		hasIPFacet         bool
+		hasVlanIP          bool
 	)
 
 	for _, iface := range ifaces {
+		if iface.GetIp() != nil {
+			hasIPFacet = true
+			if iface.GetVlan() != nil {
+				hasVlanIP = true
+			}
+		}
 		if iface.GetPhysical() != nil {
 			if iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
 				hasEthernetFacet = true
@@ -130,12 +149,18 @@ func Load(
 				}
 			}
 			if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
-				hasSwitchportFacet = true
+				routingWanted := len(want) == 0 || slices.Contains(want, port.LayerRouting)
+				if !routingWanted || iface.GetIp() == nil {
+					hasSwitchportFacet = true
+				}
 			}
 		} else if iface.GetLag() != nil {
 			hasLag = true
 			if iface.GetLag().HasSwitchport() && iface.GetLag().GetSwitchport() != nil {
-				hasSwitchportFacet = true
+				routingWanted := len(want) == 0 || slices.Contains(want, port.LayerRouting)
+				if !routingWanted || iface.GetIp() == nil {
+					hasSwitchportFacet = true
+				}
 			}
 		}
 	}
@@ -167,6 +192,14 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerStp)
 			report.CapabilitySources[port.LayerStp] = "inferred:stp"
 		}
+		if hasIPFacet {
+			report.Capabilities = append(report.Capabilities, port.LayerRouting)
+			report.CapabilitySources[port.LayerRouting] = "inferred:ip"
+		}
+		if hasVlanIP && !slices.Contains(report.Capabilities, port.LayerVlan) {
+			report.Capabilities = append(report.Capabilities, port.LayerVlan)
+			report.CapabilitySources[port.LayerVlan] = "implied:routing"
+		}
 	} else {
 		report.Capabilities = make([]port.Layer, len(want))
 		copy(report.Capabilities, want)
@@ -185,6 +218,16 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerLag)
 			report.CapabilitySources[port.LayerLag] = "present:lag"
 		}
+		if slices.Contains(want, port.LayerRouting) && hasVlanIP {
+			if !slices.Contains(report.Capabilities, port.LayerVlan) {
+				report.Capabilities = append(report.Capabilities, port.LayerVlan)
+				report.CapabilitySources[port.LayerVlan] = "implied:routing"
+			}
+			if !slices.Contains(report.Capabilities, port.LayerRelay) {
+				report.Capabilities = append(report.Capabilities, port.LayerRelay)
+				report.CapabilitySources[port.LayerRelay] = "implied:routing"
+			}
+		}
 	}
 
 	isWanted := func(l port.Layer) bool {
@@ -200,10 +243,14 @@ func Load(
 				hasSw = true
 			}
 			if hasSw {
+				why := "layer not wanted"
+				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
+					why = "interface is routed"
+				}
 				report.Skipped = append(report.Skipped, Skipped{
 					Port: iface.GetName(),
 					What: "switchport",
-					Why:  "layer not wanted",
+					Why:  why,
 				})
 			}
 		}
@@ -257,6 +304,38 @@ func Load(
 			report.Skipped = append(report.Skipped, Skipped{
 				Port: ps.GetInterfaceName(),
 				What: "stp_port",
+				Why:  "layer not wanted",
+			})
+		}
+	}
+
+	if !isWanted(port.LayerRouting) {
+		for _, iface := range ifaces {
+			if iface.GetIp() != nil {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: iface.GetName(),
+					What: "ip",
+					Why:  "layer not wanted",
+				})
+			}
+		}
+		for _, addr := range addrs {
+			if addr == nil {
+				continue
+			}
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: addr.GetInterfaceName(),
+				What: "ip_address",
+				Why:  "layer not wanted",
+			})
+		}
+		for _, n := range neighbors {
+			if n == nil {
+				continue
+			}
+			report.Skipped = append(report.Skipped, Skipped{
+				Port: n.GetInterfaceName(),
+				What: "ip_neighbor",
 				Why:  "layer not wanted",
 			})
 		}
@@ -485,6 +564,14 @@ func Load(
 					})
 					continue
 				}
+				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
+					report.Skipped = append(report.Skipped, Skipped{
+						Port: iface.GetName(),
+						What: "switchport",
+						Why:  "interface is routed",
+					})
+					continue
+				}
 
 				sw := bridge.Switchport{}
 				if swFacet.HasPvid() {
@@ -662,6 +749,144 @@ func Load(
 		}
 	}
 
+	if isWanted(port.LayerRouting) {
+		vrf := routing.VRF{
+			Interfaces: make(map[string]routing.Interface),
+		}
+
+		for _, iface := range ifaces {
+			if iface.GetIp() == nil {
+				continue
+			}
+
+			var (
+				vlanID      vlan.ID
+				portName    string
+				isSupported = true
+			)
+
+			switch {
+			case iface.GetVlan() != nil:
+				vlanID = vlan.ID(iface.GetVlan().GetVlanId())
+				if cfg.Bridge != nil && cfg.Bridge.VLAN != nil && vlanID.Valid() {
+					if _, exists := cfg.Bridge.VLAN.Table[vlanID]; !exists {
+						cfg.Bridge.VLAN.Table[vlanID] = ""
+					}
+				}
+			case iface.GetPhysical() != nil || iface.GetLag() != nil:
+				portName = iface.GetName()
+			default:
+				isSupported = false
+			}
+
+			if !isSupported {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: iface.GetName(),
+					What: "ip",
+					Why:  "unsupported interface kind",
+				})
+				continue
+			}
+
+			var ifaceMAC netaddr.MAC
+			if m, ok := parseMAC(iface.GetMac()); ok && m != (netaddr.MAC{}) {
+				ifaceMAC = m
+			} else {
+				report.Defaults = append(report.Defaults, Default{
+					Port:  iface.GetName(),
+					Field: "mac",
+					Value: "device base address",
+				})
+			}
+
+			vrf.Interfaces[iface.GetName()] = routing.Interface{
+				VLAN: vlanID,
+				Port: portName,
+				MAC:  ifaceMAC,
+			}
+		}
+
+		for _, addr := range addrs {
+			if addr == nil {
+				continue
+			}
+			name := addr.GetInterfaceName()
+			iface, ok := vrf.Interfaces[name]
+			if !ok {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: name,
+					What: "ip_address",
+					Why:  "interface carries no ip facet",
+				})
+				continue
+			}
+
+			ip, okIP := parseIP(addr.GetAddress())
+			length, okLen := parsePrefix(addr.GetPrefix())
+			if okIP && okLen {
+				prefix := netip.PrefixFrom(ip, length)
+				iface.Prefixes = append(iface.Prefixes, prefix)
+				vrf.Interfaces[name] = iface
+			}
+		}
+
+		for _, n := range neighbors {
+			if n == nil {
+				continue
+			}
+			mac, okMAC := parseMAC(n.GetMac())
+			if !okMAC || mac == (netaddr.MAC{}) {
+				report.Skipped = append(report.Skipped, Skipped{
+					What: "ip_neighbor",
+					Why:  "neighbor has no mac",
+				})
+				continue
+			}
+
+			name := n.GetInterfaceName()
+			if _, ok := vrf.Interfaces[name]; !ok {
+				report.Skipped = append(report.Skipped, Skipped{
+					Port: name,
+					What: "ip_neighbor",
+					Why:  "interface carries no ip facet",
+				})
+				continue
+			}
+
+			ip, okIP := parseIP(n.GetIp())
+			if okIP {
+				vrf.Neighbors = append(vrf.Neighbors, routing.Neighbor{
+					Interface: name,
+					Addr:      ip,
+					MAC:       mac,
+				})
+			}
+		}
+
+		if len(vrf.Interfaces) > 0 {
+			report.Defaults = append(report.Defaults, Default{
+				Port:  "",
+				Field: "vrf",
+				Value: routing.DefaultVRF,
+			})
+			report.Defaults = append(report.Defaults, Default{
+				Port:  "",
+				Field: "mac",
+				Value: "assigned",
+			})
+			cfg.Routing = &routing.Config{
+				VRFs: map[string]routing.VRF{
+					routing.DefaultVRF: vrf,
+				},
+			}
+		} else {
+			report.Capabilities = slices.DeleteFunc(report.Capabilities, func(l port.Layer) bool {
+				return l == port.LayerRouting
+			})
+			delete(report.CapabilitySources, port.LayerRouting)
+		}
+	}
+
 	var seeds []bridge.Seed
 	for _, entry := range fdb {
 		if entry.GetStatus() == switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_INVALID {
@@ -716,4 +941,51 @@ func Load(
 	})
 
 	return cfg, seeds, report, nil
+}
+
+func parseMAC(eui *addrv1.EuiAddress) (netaddr.MAC, bool) {
+	if eui == nil || eui.GetEui48() == nil {
+		return netaddr.MAC{}, false
+	}
+	octets := eui.GetEui48().GetOctets()
+	if len(octets) != 6 {
+		return netaddr.MAC{}, false
+	}
+	var mac netaddr.MAC
+	copy(mac[:], octets)
+	return mac, true
+}
+
+func parseIP(ipAddr *addrv1.IpAddress) (netip.Addr, bool) {
+	if ipAddr == nil {
+		return netip.Addr{}, false
+	}
+	if v4 := ipAddr.GetV4(); v4 != nil {
+		octets := v4.GetOctets()
+		if len(octets) != 4 {
+			return netip.Addr{}, false
+		}
+		return netip.AddrFrom4([4]byte(octets)), true
+	}
+	if v6 := ipAddr.GetV6(); v6 != nil {
+		octets := v6.GetOctets()
+		if len(octets) != 16 {
+			return netip.Addr{}, false
+		}
+		return netip.AddrFrom16([16]byte(octets)), true
+	}
+	return netip.Addr{}, false
+}
+
+func parsePrefix(p *addrv1.IpPrefix) (int, bool) {
+	if p == nil {
+		return 0, false
+	}
+	if v4 := p.GetV4(); v4 != nil {
+		return int(v4.GetLength()), true
+	}
+	if v6 := p.GetV6(); v6 != nil {
+		return int(v6.GetLength()), true
+	}
+	return 0, false
 }
