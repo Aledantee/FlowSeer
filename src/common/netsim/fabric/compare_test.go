@@ -435,6 +435,36 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		}
 	})
 
+	t.Run("cable medium and delay modifications", func(t *testing.T) {
+		cfgA := curCfg.Clone()
+		cfgA.Cables[0].Medium = fabric.TwistedPair
+		cfgA.Cables[0].Delay = nil
+
+		cfgB := cfgA.Clone()
+		d := 1 * time.Microsecond
+		cfgB.Cables[0].Medium = fabric.SinglemodeFiber
+		cfgB.Cables[0].Delay = &d
+
+		changes := fabric.Diff(cfgA, cfgB)
+		var foundMedium, foundDelay bool
+		for _, ch := range changes {
+			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
+				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
+					foundMedium = true
+				}
+				if ch.Field == "delay" && ch.From == nil && ch.To != nil && *ch.To.(*time.Duration) == 1*time.Microsecond {
+					foundDelay = true
+				}
+			}
+		}
+		if !foundMedium {
+			t.Errorf("missing cable medium change: %v", changes)
+		}
+		if !foundDelay {
+			t.Errorf("missing cable delay change: %v", changes)
+		}
+	})
+
 	t.Run("host moved port, address changed, vlan changed", func(t *testing.T) {
 		b := port.NewBuilder()
 		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})

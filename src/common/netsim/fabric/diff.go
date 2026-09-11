@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -97,6 +98,33 @@ func Diff(a, b Config) []trace.Change {
 				Field:   "length",
 				From:    cA.LengthMeters,
 				To:      cB.LengthMeters,
+			})
+		}
+		if cA.Medium != cB.Medium {
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "medium",
+				From:    cA.Medium,
+				To:      cB.Medium,
+			})
+		}
+		if !sameDelay(cA.Delay, cB.Delay) {
+			var fromDelay, toDelay any
+			if cA.Delay != nil {
+				d := *cA.Delay
+				fromDelay = &d
+			}
+			if cB.Delay != nil {
+				d := *cB.Delay
+				toDelay = &d
+			}
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "delay",
+				From:    fromDelay,
+				To:      toDelay,
 			})
 		}
 		if cA.TopSpeedBPS != cB.TopSpeedBPS {
@@ -397,6 +425,16 @@ func sameFault(a, b Fault) bool {
 }
 
 func sameVLAN(a, b *vlan.ID) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	if a != nil && b != nil && *a != *b {
+		return false
+	}
+	return true
+}
+
+func sameDelay(a, b *time.Duration) bool {
 	if (a == nil) != (b == nil) {
 		return false
 	}
