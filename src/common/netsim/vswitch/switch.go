@@ -21,7 +21,10 @@ import (
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
 // Emission describes an Ethernet frame to transmit out a port or member port.
-type Emission = stp.Emission
+type Emission struct {
+	Port  string
+	Frame ethernet.Frame
+}
 
 // Switch simulates a network device composed of a port table and optional
 // physical-layer, bridge, link aggregation, spanning tree, and layer 3 routing subsystems.
@@ -744,13 +747,13 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		s.bridge.FlushPorts(fx.Flush)
 	}
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+		s.emissions = append(s.emissions, Emission(em))
 	}
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+		s.emissions = append(s.emissions, Emission(em))
 	}
 	for _, lagName := range fx.Changed {
 		s.updateLagState(now, lagName)

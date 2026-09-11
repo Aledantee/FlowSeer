@@ -1,7 +1,6 @@
 package fabric
 
 import (
-	"cmp"
 	"net/netip"
 	"slices"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -371,20 +371,18 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 		outPort = memberName
 	} else if sw, ok := f.switches[device]; ok {
 		if p, ok := sw.Ports().Port(portName); ok && p.Kind == port.Lag {
-			mems := sw.Ports().Members(portName)
-			var fwdMembers []port.Port
-			for _, m := range mems {
-				if m.Forwards() {
-					fwdMembers = append(fwdMembers, m)
+			var vid vlan.ID
+			for _, tag := range frame.Tags {
+				if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
+					vid = tag.VID
+					break
 				}
 			}
-			if len(fwdMembers) == 0 {
+			selected, ok := sw.SelectMember(portName, frame, vid)
+			if !ok {
 				return
 			}
-			slices.SortFunc(fwdMembers, func(i, j port.Port) int {
-				return cmp.Compare(i.Name, j.Name)
-			})
-			memberName = fwdMembers[0].Name
+			memberName = selected
 			outPort = memberName
 		}
 	}
@@ -403,6 +401,19 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 
 	ref, ok := f.linkEnd(device, outPort)
 	if !ok {
+		return
+	}
+
+	if ref.end.Speed.SpeedBPS == 0 {
+		cableCopy := ref.link.Clone()
+		lossEntry := Entry{
+			At:     now,
+			Kind:   EntryLoss,
+			Cable:  &cableCopy,
+			Reason: ReasonCableLoss,
+		}
+		journey.Entries = append(journey.Entries, lossEntry)
+
 		return
 	}
 
@@ -528,7 +539,7 @@ func (f *Fabric) transmitCable(now time.Time, txEnd Endpoint, ref linkEndRef, fr
 	})
 }
 
-func (f *Fabric) injectEmission(now time.Time, device string, em stp.Emission) {
+func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emission) {
 	f.initRunState()
 
 	inj := Injection{

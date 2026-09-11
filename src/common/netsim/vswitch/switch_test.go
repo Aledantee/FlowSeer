@@ -1318,7 +1318,7 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 		t.Fatal("Drain() returned 0 emissions, want reply emission")
 	}
 
-	var replyEmission *stp.Emission
+	var replyEmission *vswitch.Emission
 	for i := range emissions {
 		if emissions[i].Port == "1/1/1" {
 			replyEmission = &emissions[i]

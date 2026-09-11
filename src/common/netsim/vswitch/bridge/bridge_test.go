@@ -711,7 +711,7 @@ type stubSelector struct {
 	ok     bool
 }
 
-func (s stubSelector) Select(lag string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+func (s stubSelector) Select(_ string, _ ethernet.Frame, _ vlan.ID) (string, bool) {
 	return s.member, s.ok
 }
 

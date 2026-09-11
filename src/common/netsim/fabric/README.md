@@ -300,7 +300,8 @@ replacing values provided in the input configurations:
   a forced speed, leaves both ends `Down` with `reach-exceeded`.
 - Operational cables run two-ended negotiation (`phy.Negotiate`). If speeds
   disagree, ports transition to `Down` with `speed-mismatch`.
-- A Link Aggregation Group (LAG) is `Up` when any member port is `Up`.
+- For a Link Aggregation Group (LAG), the switch's aggregation layer decides
+  the member and the LAG's state, and the fabric reports member links to it.
 
 ## Fault kinds
 

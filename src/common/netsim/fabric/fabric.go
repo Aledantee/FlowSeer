@@ -201,37 +201,15 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 		b := port.NewBuilder()
 		ports := swCfg.Ports.Ports()
 
-		newOper := make(map[string]port.LinkState, len(ports))
 		for _, p := range ports {
 			if p.Kind != port.Lag {
 				ep := Endpoint{Node: name, Port: p.Name}
 				if ref, ok := byEnd[ep]; ok {
-					newOper[p.Name] = ref.end.Oper
+					p.OperStatus = ref.end.Oper
 				} else {
-					newOper[p.Name] = port.Down
+					p.OperStatus = port.Down
 				}
 			}
-		}
-
-		for _, p := range ports {
-			if p.Kind == port.Lag {
-				lagUp := false
-				for _, mem := range swCfg.Ports.Members(p.Name) {
-					if newOper[mem.Name] == port.Up {
-						lagUp = true
-						break
-					}
-				}
-				if lagUp {
-					newOper[p.Name] = port.Up
-				} else {
-					newOper[p.Name] = port.Down
-				}
-			}
-		}
-
-		for _, p := range ports {
-			p.OperStatus = newOper[p.Name]
 			b.Add(p)
 		}
 
@@ -241,8 +219,29 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 		}
 		swCfg.Ports = newTable
 
-		switches[name] = vswitch.New(swCfg)
-		cloned.Switches[name] = switches[name].Config()
+		sw := vswitch.New(swCfg)
+		switches[name] = sw
+
+		memberPorts := sw.Ports().Ports()
+		slices.SortFunc(memberPorts, func(a, b port.Port) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+		for _, p := range memberPorts {
+			if p.LagParent == "" {
+				continue
+			}
+			ep := Endpoint{Node: name, Port: p.Name}
+			if ref, ok := byEnd[ep]; ok {
+				up := ref.end.Oper == port.Up
+				p2p := portPointToPoint(cloned, name, p.Name, *ref.end, ref.peer.Endpoint)
+				speed := ref.end.Speed.SpeedBPS
+				sw.LinkChange(cloned.Start, p.Name, up, p2p, speed)
+			}
+		}
+
+		swCfg := sw.Config()
+		swCfg.Ports = sw.Ports()
+		cloned.Switches[name] = swCfg
 	}
 
 	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
@@ -288,23 +287,25 @@ func (f *Fabric) switchNames() []string {
 func (f *Fabric) startLayers(names []string) {
 	for _, name := range names {
 		swCfg := f.cfg.Switches[name]
-		if swCfg.STP == nil {
+		sw := f.switches[name]
+		hasLag := false
+		for _, p := range sw.Ports().Ports() {
+			if p.Kind == port.Lag {
+				hasLag = true
+				break
+			}
+		}
+		if swCfg.STP == nil && !hasLag {
 			continue
 		}
 
-		sw := f.switches[name]
 		ports := sw.Ports().Ports()
 		slices.SortFunc(ports, func(a, b port.Port) int {
 			return cmp.Compare(a.Name, b.Name)
 		})
 
 		for _, p := range ports {
-			if p.LagParent != "" {
-				continue
-			}
 			if p.Kind == port.Lag {
-				lagUp, lagP2P, lagSpeed := f.lagLinkState(name, p.Name)
-				sw.LinkChange(f.clock, p.Name, lagUp, lagP2P, lagSpeed)
 				continue
 			}
 
@@ -608,30 +609,10 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 		}
 
 		sw.SetOperStatus(info.end.Port, info.end.Oper)
-		p, ok := sw.Ports().Port(info.end.Port)
-		if ok && p.LagParent != "" {
-			// The LAG is up while any member is; the relay reads that from
-			// the parent row, so it follows the member.
-			lagUp, _, _ := f.lagLinkState(info.end.Node, p.LagParent)
-			lagOper := port.Down
-			if lagUp {
-				lagOper = port.Up
-			}
-			sw.SetOperStatus(p.LagParent, lagOper)
-		}
-
-		swCfg := f.cfg.Switches[info.end.Node]
-		if swCfg.STP != nil {
-			if ok && p.LagParent != "" {
-				lagUp, lagP2P, lagSpeed := f.lagLinkState(info.end.Node, p.LagParent)
-				sw.LinkChange(f.clock, p.LagParent, lagUp, lagP2P, lagSpeed)
-			} else {
-				up := info.end.Oper == port.Up
-				p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
-				speed := info.end.Speed.SpeedBPS
-				sw.LinkChange(f.clock, info.end.Port, up, p2p, speed)
-			}
-		}
+		up := info.end.Oper == port.Up
+		p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
+		speed := info.end.Speed.SpeedBPS
+		sw.LinkChange(f.clock, info.end.Port, up, p2p, speed)
 
 		for _, em := range sw.Drain() {
 			f.injectEmission(f.clock, info.end.Node, em)
@@ -643,7 +624,11 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 }
 
 func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) bool {
-	swCfg := f.cfg.Switches[node]
+	return portPointToPoint(f.cfg, node, portName, end, peer)
+}
+
+func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) bool {
+	swCfg := cfg.Switches[node]
 	if swCfg.STP != nil {
 		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
 			if pCfg.PointToPoint == stp.PointToPointForceTrue {
@@ -658,10 +643,10 @@ func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpo
 	if end.Speed.Duplex != phy.Full {
 		return false
 	}
-	if _, isHost := f.cfg.Hosts[peer.Node]; isHost {
+	if _, isHost := cfg.Hosts[peer.Node]; isHost {
 		return true
 	}
-	if peerSw, isSw := f.cfg.Switches[peer.Node]; isSw {
+	if peerSw, isSw := cfg.Switches[peer.Node]; isSw {
 		return peerSw.Bridge != nil
 	}
 
@@ -682,51 +667,4 @@ func (f *Fabric) uncabledPointToPoint(node, portName string) bool {
 	}
 
 	return false
-}
-
-func (f *Fabric) lagLinkState(node, lagName string) (bool, bool, uint64) {
-	swCfg := f.cfg.Switches[node]
-	mems := swCfg.Ports.Members(lagName)
-	if len(mems) == 0 {
-		return false, false, 0
-	}
-
-	var (
-		lagUp    bool
-		allP2P   = true
-		maxSpeed uint64
-	)
-
-	// Only the members that are up make up the aggregation: a member that
-	// went down keeps neither its speed nor its duplex, and letting it vote
-	// would report the LAG as a changed link when nothing the LAG carries
-	// has changed.
-	for _, m := range mems {
-		ep := Endpoint{Node: node, Port: m.Name}
-		ref, ok := f.byEnd[ep]
-		if !ok || ref.end.Oper != port.Up {
-			continue
-		}
-		lagUp = true
-		if !f.portPointToPoint(node, m.Name, *ref.end, ref.peer.Endpoint) {
-			allP2P = false
-		}
-		maxSpeed = max(maxSpeed, ref.end.Speed.SpeedBPS)
-	}
-	if !lagUp {
-		allP2P = false
-	}
-
-	if swCfg.STP != nil {
-		if pCfg, ok := swCfg.STP.Ports[lagName]; ok {
-			switch pCfg.PointToPoint {
-			case stp.PointToPointForceTrue:
-				allP2P = true
-			case stp.PointToPointForceFalse:
-				allP2P = false
-			}
-		}
-	}
-
-	return lagUp, allP2P, maxSpeed
 }
