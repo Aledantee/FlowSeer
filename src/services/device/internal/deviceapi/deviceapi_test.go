@@ -42,6 +42,9 @@ const (
 type resolver struct {
 	entry   *storev1.RegistryDevice
 	missing bool
+	// extra names devices the edge also reaches that hold no lane record,
+	// for the paging tests.
+	extra []string
 }
 
 func (r *resolver) Device(id string) (*storev1.RegistryDevice, bool) {
@@ -64,7 +67,7 @@ func (r *resolver) Devices(_ context.Context, id string) ([]string, error) {
 	if r.missing || id != edgeID {
 		return nil, nil
 	}
-	return []string{deviceID}, nil
+	return append([]string{deviceID}, r.extra...), nil
 }
 
 func (r *resolver) EdgeID() string { return edgeID }
@@ -778,6 +781,65 @@ func TestListEdgeOpenMutationsNamesWhatRetiringAnEdgeWouldOrphan(t *testing.T) {
 	}
 	if got := rows[0].GetMutation().GetPhase(); got != accessv1.OperationPhase_OPERATION_PHASE_ADMITTED {
 		t.Errorf("phase = %v, want the phase it stopped at", got)
+	}
+}
+
+func TestListEdgeOpenMutationsPagesInDeviceOrder(t *testing.T) {
+	ctx := context.Background()
+	h := newHarness(t)
+	if _, err := h.svc.ApplyInterfaceDescription(ctx, applyRequest(intentFor("uplink"), false)); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	msg := &devicev1.ListEdgeOpenMutationsRequest{}
+	msg.SetEdgeId(edgeID)
+	msg.SetPageSize(1)
+	first, err := h.svc.ListEdgeOpenMutations(ctx, connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	validate(t, first.Msg)
+	if len(first.Msg.GetOpen()) != 1 {
+		t.Fatalf("first page rows = %d, want 1", len(first.Msg.GetOpen()))
+	}
+	// The one held lane is also the edge's last device, so the page is full
+	// and the listing is still known to be complete: no token.
+	if first.Msg.HasNextPageToken() {
+		t.Errorf("token %q on the last page; want none", first.Msg.GetNextPageToken())
+	}
+
+	// A second device sorting after the held one leaves the page full with
+	// devices unexamined, so a token is handed out; the page after it holds
+	// no lane and ends the listing.
+	later := "ffffffff-0000-7000-8000-0000000000d2"
+	h.resolver.extra = []string{later}
+	first, err = h.svc.ListEdgeOpenMutations(ctx, connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("first page with a later device: %v", err)
+	}
+	validate(t, first.Msg)
+	if got := first.Msg.GetNextPageToken(); got != deviceID {
+		t.Fatalf("token = %q, want the last device served %q", got, deviceID)
+	}
+	msg.SetPageToken(first.Msg.GetNextPageToken())
+	second, err := h.svc.ListEdgeOpenMutations(ctx, connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+	validate(t, second.Msg)
+	if len(second.Msg.GetOpen()) != 0 || second.Msg.HasNextPageToken() {
+		t.Errorf("page after %s = %d rows, token %q; want empty and no token", deviceID, len(second.Msg.GetOpen()), second.Msg.GetNextPageToken())
+	}
+
+	// A token naming a device that has since left the edge resumes at the
+	// next id rather than failing.
+	msg.SetPageToken("0192e6a0-0000-7000-8000-0000000000a0")
+	resumed, err := h.svc.ListEdgeOpenMutations(ctx, connect.NewRequest(msg))
+	if err != nil {
+		t.Fatalf("resume after a departed device: %v", err)
+	}
+	if len(resumed.Msg.GetOpen()) != 1 {
+		t.Errorf("rows after a departed device = %d, want the held one", len(resumed.Msg.GetOpen()))
 	}
 }
 

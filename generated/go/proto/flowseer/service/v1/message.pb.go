@@ -13,6 +13,7 @@ package servicev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -91,6 +92,7 @@ type Message struct {
 	xxx_hidden_Payload       []byte                 `protobuf:"bytes,8,opt,name=payload"`
 	xxx_hidden_Traceparent   *string                `protobuf:"bytes,9,opt,name=traceparent"`
 	xxx_hidden_Tracestate    *string                `protobuf:"bytes,10,opt,name=tracestate"`
+	xxx_hidden_PublishedAt   *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=published_at,json=publishedAt"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -218,39 +220,46 @@ func (x *Message) GetTracestate() string {
 	return ""
 }
 
+func (x *Message) GetPublishedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_PublishedAt
+	}
+	return nil
+}
+
 func (x *Message) SetKind(v MessageKind) {
 	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
 }
 
 func (x *Message) SetMessageId(v string) {
 	x.xxx_hidden_MessageId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 11)
 }
 
 func (x *Message) SetCorrelationId(v string) {
 	x.xxx_hidden_CorrelationId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
 }
 
 func (x *Message) SetCausationId(v string) {
 	x.xxx_hidden_CausationId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 11)
 }
 
 func (x *Message) SetSourcePath(v string) {
 	x.xxx_hidden_SourcePath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 11)
 }
 
 func (x *Message) SetTargetPath(v string) {
 	x.xxx_hidden_TargetPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 11)
 }
 
 func (x *Message) SetTypeName(v string) {
 	x.xxx_hidden_TypeName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 11)
 }
 
 func (x *Message) SetPayload(v []byte) {
@@ -258,17 +267,21 @@ func (x *Message) SetPayload(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Payload = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 11)
 }
 
 func (x *Message) SetTraceparent(v string) {
 	x.xxx_hidden_Traceparent = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 11)
 }
 
 func (x *Message) SetTracestate(v string) {
 	x.xxx_hidden_Tracestate = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 11)
+}
+
+func (x *Message) SetPublishedAt(v *timestamppb.Timestamp) {
+	x.xxx_hidden_PublishedAt = v
 }
 
 func (x *Message) HasKind() bool {
@@ -341,6 +354,13 @@ func (x *Message) HasTracestate() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
 }
 
+func (x *Message) HasPublishedAt() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_PublishedAt != nil
+}
+
 func (x *Message) ClearKind() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Kind = MessageKind_MESSAGE_KIND_UNSPECIFIED
@@ -391,6 +411,10 @@ func (x *Message) ClearTracestate() {
 	x.xxx_hidden_Tracestate = nil
 }
 
+func (x *Message) ClearPublishedAt() {
+	x.xxx_hidden_PublishedAt = nil
+}
+
 type Message_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -424,6 +448,8 @@ type Message_builder struct {
 	// W3C tracestate header captured beside traceparent. Unset means the
 	// publisher supplied no vendor trace state.
 	Tracestate *string
+	// When the producer handed the message to the bus. Must be present.
+	PublishedAt *timestamppb.Timestamp
 }
 
 func (b0 Message_builder) Build() *Message {
@@ -431,45 +457,46 @@ func (b0 Message_builder) Build() *Message {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
 		x.xxx_hidden_Kind = *b.Kind
 	}
 	if b.MessageId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 11)
 		x.xxx_hidden_MessageId = b.MessageId
 	}
 	if b.CorrelationId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
 		x.xxx_hidden_CorrelationId = b.CorrelationId
 	}
 	if b.CausationId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 11)
 		x.xxx_hidden_CausationId = b.CausationId
 	}
 	if b.SourcePath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 11)
 		x.xxx_hidden_SourcePath = b.SourcePath
 	}
 	if b.TargetPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 11)
 		x.xxx_hidden_TargetPath = b.TargetPath
 	}
 	if b.TypeName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 11)
 		x.xxx_hidden_TypeName = b.TypeName
 	}
 	if b.Payload != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 11)
 		x.xxx_hidden_Payload = b.Payload
 	}
 	if b.Traceparent != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 11)
 		x.xxx_hidden_Traceparent = b.Traceparent
 	}
 	if b.Tracestate != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 11)
 		x.xxx_hidden_Tracestate = b.Tracestate
 	}
+	x.xxx_hidden_PublishedAt = b.PublishedAt
 	return m0
 }
 
@@ -477,7 +504,7 @@ var File_flowseer_service_v1_message_proto protoreflect.FileDescriptor
 
 const file_flowseer_service_v1_message_proto_rawDesc = "" +
 	"\n" +
-	"!flowseer/service/v1/message.proto\x12\x13flowseer.service.v1\"\xd0\x05\n" +
+	"!flowseer/service/v1/message.proto\x12\x13flowseer.service.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\x06\n" +
 	"\aMessage\x12C\n" +
 	"\x04kind\x18\x01 \x01(\x0e2 .flowseer.service.v1.MessageKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12*\n" +
@@ -495,7 +522,8 @@ const file_flowseer_service_v1_message_proto_rawDesc = "" +
 	"\n" +
 	"tracestate\x18\n" +
 	" \x01(\tB\b\xbaH\x05r\x03\x18\x80\x04R\n" +
-	"tracestate*u\n" +
+	"tracestate\x12E\n" +
+	"\fpublished_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\vpublishedAt*u\n" +
 	"\vMessageKind\x12\x1c\n" +
 	"\x18MESSAGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MESSAGE_KIND_COMMAND\x10\x01\x12\x16\n" +
@@ -506,16 +534,18 @@ const file_flowseer_service_v1_message_proto_rawDesc = "" +
 var file_flowseer_service_v1_message_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_flowseer_service_v1_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_service_v1_message_proto_goTypes = []any{
-	(MessageKind)(0), // 0: flowseer.service.v1.MessageKind
-	(*Message)(nil),  // 1: flowseer.service.v1.Message
+	(MessageKind)(0),              // 0: flowseer.service.v1.MessageKind
+	(*Message)(nil),               // 1: flowseer.service.v1.Message
+	(*timestamppb.Timestamp)(nil), // 2: google.protobuf.Timestamp
 }
 var file_flowseer_service_v1_message_proto_depIdxs = []int32{
 	0, // 0: flowseer.service.v1.Message.kind:type_name -> flowseer.service.v1.MessageKind
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: flowseer.service.v1.Message.published_at:type_name -> google.protobuf.Timestamp
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_service_v1_message_proto_init() }

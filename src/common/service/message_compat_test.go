@@ -118,6 +118,7 @@ func messageV1Fixture(t *testing.T) []byte {
 		MessageId:     proto.String("aa36b80e-88b5-4e2b-9ff6-6412d106cf80"),
 		CorrelationId: proto.String("5a9434af-d74f-4183-ba88-30fda520d2ee"),
 		CausationId:   proto.String("3c9c2efd-44d6-4496-aefd-e2b7c17cd8e5"),
+		PublishedAt:   timestamppb.New(time.Date(2026, time.September, 3, 0, 0, 1, 0, time.UTC)),
 		SourcePath:    proto.String("edge/ingest/syslog"),
 		TargetPath:    proto.String("edge/uplink"),
 		TypeName:      proto.String("google.protobuf.Timestamp"),

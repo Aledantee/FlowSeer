@@ -11,6 +11,7 @@ import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -35,6 +36,7 @@ type Interface struct {
 	xxx_hidden_Mac         *v1.EuiAddress         `protobuf:"bytes,6,opt,name=mac"`
 	xxx_hidden_Description *string                `protobuf:"bytes,7,opt,name=description"`
 	xxx_hidden_Counters    *InterfaceCounters     `protobuf:"bytes,8,opt,name=counters"`
+	xxx_hidden_LastChange  *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=last_change,json=lastChange"`
 	xxx_hidden_Kind        isInterface_Kind       `protobuf_oneof:"kind"`
 	xxx_hidden_Ip          *v11.IpFacet           `protobuf:"bytes,20,opt,name=ip"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
@@ -134,6 +136,13 @@ func (x *Interface) GetCounters() *InterfaceCounters {
 	return nil
 }
 
+func (x *Interface) GetLastChange() *timestamppb.Timestamp {
+	if x != nil {
+		return x.xxx_hidden_LastChange
+	}
+	return nil
+}
+
 func (x *Interface) GetPhysical() *PhysicalInterface {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Kind.(*interface_Physical); ok {
@@ -215,27 +224,27 @@ func (x *Interface) GetIp() *v11.IpFacet {
 
 func (x *Interface) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 11)
 }
 
 func (x *Interface) SetIfIndex(v uint32) {
 	x.xxx_hidden_IfIndex = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 11)
 }
 
 func (x *Interface) SetAdminStatus(v AdminStatus) {
 	x.xxx_hidden_AdminStatus = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 11)
 }
 
 func (x *Interface) SetOperStatus(v OperStatus) {
 	x.xxx_hidden_OperStatus = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 11)
 }
 
 func (x *Interface) SetMtu(v uint32) {
 	x.xxx_hidden_Mtu = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 11)
 }
 
 func (x *Interface) SetMac(v *v1.EuiAddress) {
@@ -244,11 +253,15 @@ func (x *Interface) SetMac(v *v1.EuiAddress) {
 
 func (x *Interface) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 10)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 11)
 }
 
 func (x *Interface) SetCounters(v *InterfaceCounters) {
 	x.xxx_hidden_Counters = v
+}
+
+func (x *Interface) SetLastChange(v *timestamppb.Timestamp) {
+	x.xxx_hidden_LastChange = v
 }
 
 func (x *Interface) SetPhysical(v *PhysicalInterface) {
@@ -375,6 +388,13 @@ func (x *Interface) HasCounters() bool {
 	return x.xxx_hidden_Counters != nil
 }
 
+func (x *Interface) HasLastChange() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_LastChange != nil
+}
+
 func (x *Interface) HasKind() bool {
 	if x == nil {
 		return false
@@ -489,6 +509,10 @@ func (x *Interface) ClearDescription() {
 
 func (x *Interface) ClearCounters() {
 	x.xxx_hidden_Counters = nil
+}
+
+func (x *Interface) ClearLastChange() {
+	x.xxx_hidden_LastChange = nil
 }
 
 func (x *Interface) ClearKind() {
@@ -613,6 +637,12 @@ type Interface_builder struct {
 	// Cumulative traffic counters. Absent means the source reported no
 	// counters at all; individual counters carry their own presence.
 	Counters *InterfaceCounters
+	// When the operational status last changed, as the device reports it
+	// (ifLastChange in RFC 2863, resolved against the device's uptime by the
+	// source). A zero ifLastChange means the state predates the agent's last
+	// restart and is reported as absent, never as the boot instant. Absent
+	// means the source did not report it.
+	LastChange *timestamppb.Timestamp
 	// What the interface is. Exactly one arm is set, and kind-specific
 	// attributes live inside it.
 
@@ -645,31 +675,32 @@ func (b0 Interface_builder) Build() *Interface {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 11)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.IfIndex != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 11)
 		x.xxx_hidden_IfIndex = *b.IfIndex
 	}
 	if b.AdminStatus != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 11)
 		x.xxx_hidden_AdminStatus = *b.AdminStatus
 	}
 	if b.OperStatus != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 11)
 		x.xxx_hidden_OperStatus = *b.OperStatus
 	}
 	if b.Mtu != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 11)
 		x.xxx_hidden_Mtu = *b.Mtu
 	}
 	x.xxx_hidden_Mac = b.Mac
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 10)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 11)
 		x.xxx_hidden_Description = b.Description
 	}
 	x.xxx_hidden_Counters = b.Counters
+	x.xxx_hidden_LastChange = b.LastChange
 	if b.Physical != nil {
 		x.xxx_hidden_Kind = &interface_Physical{b.Physical}
 	}
@@ -772,7 +803,7 @@ var File_flowseer_net_interface_v1_interface_proto protoreflect.FileDescriptor
 
 const file_flowseer_net_interface_v1_interface_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/net/interface/v1/interface.proto\x12\x19flowseer.net.interface.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a2flowseer/net/interface/v1/interface_counters.proto\x1a-flowseer/net/interface/v1/lag_interface.proto\x1a2flowseer/net/interface/v1/loopback_interface.proto\x1a4flowseer/net/interface/v1/management_interface.proto\x1a+flowseer/net/interface/v1/oper_status.proto\x1a/flowseer/net/interface/v1/other_interface.proto\x1a2flowseer/net/interface/v1/physical_interface.proto\x1a,flowseer/net/interface/v1/subinterface.proto\x1a0flowseer/net/interface/v1/tunnel_interface.proto\x1a.flowseer/net/interface/v1/vlan_interface.proto\x1a!flowseer/net/ip/v1/ip_facet.proto\"\xf4\a\n" +
+	")flowseer/net/interface/v1/interface.proto\x12\x19flowseer.net.interface.v1\x1a\x1eflowseer/net/addr/v1/eui.proto\x1a,flowseer/net/interface/v1/admin_status.proto\x1a2flowseer/net/interface/v1/interface_counters.proto\x1a-flowseer/net/interface/v1/lag_interface.proto\x1a2flowseer/net/interface/v1/loopback_interface.proto\x1a4flowseer/net/interface/v1/management_interface.proto\x1a+flowseer/net/interface/v1/oper_status.proto\x1a/flowseer/net/interface/v1/other_interface.proto\x1a2flowseer/net/interface/v1/physical_interface.proto\x1a,flowseer/net/interface/v1/subinterface.proto\x1a0flowseer/net/interface/v1/tunnel_interface.proto\x1a.flowseer/net/interface/v1/vlan_interface.proto\x1a!flowseer/net/ip/v1/ip_facet.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb1\b\n" +
 	"\tInterface\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\a\xc8\x01\x01r\x02\x10\x01R\x04name\x12\x19\n" +
@@ -783,7 +814,9 @@ const file_flowseer_net_interface_v1_interface_proto_rawDesc = "" +
 	"\x03mtu\x18\x05 \x01(\rR\x03mtu\x122\n" +
 	"\x03mac\x18\x06 \x01(\v2 .flowseer.net.addr.v1.EuiAddressR\x03mac\x12 \n" +
 	"\vdescription\x18\a \x01(\tR\vdescription\x12H\n" +
-	"\bcounters\x18\b \x01(\v2,.flowseer.net.interface.v1.InterfaceCountersR\bcounters\x12J\n" +
+	"\bcounters\x18\b \x01(\v2,.flowseer.net.interface.v1.InterfaceCountersR\bcounters\x12;\n" +
+	"\vlast_change\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"lastChange\x12J\n" +
 	"\bphysical\x18\n" +
 	" \x01(\v2,.flowseer.net.interface.v1.PhysicalInterfaceH\x00R\bphysical\x12;\n" +
 	"\x03lag\x18\v \x01(\v2'.flowseer.net.interface.v1.LagInterfaceH\x00R\x03lag\x12>\n" +
@@ -801,40 +834,42 @@ const file_flowseer_net_interface_v1_interface_proto_rawDesc = "" +
 
 var file_flowseer_net_interface_v1_interface_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_interface_v1_interface_proto_goTypes = []any{
-	(*Interface)(nil),           // 0: flowseer.net.interface.v1.Interface
-	(AdminStatus)(0),            // 1: flowseer.net.interface.v1.AdminStatus
-	(OperStatus)(0),             // 2: flowseer.net.interface.v1.OperStatus
-	(*v1.EuiAddress)(nil),       // 3: flowseer.net.addr.v1.EuiAddress
-	(*InterfaceCounters)(nil),   // 4: flowseer.net.interface.v1.InterfaceCounters
-	(*PhysicalInterface)(nil),   // 5: flowseer.net.interface.v1.PhysicalInterface
-	(*LagInterface)(nil),        // 6: flowseer.net.interface.v1.LagInterface
-	(*VlanInterface)(nil),       // 7: flowseer.net.interface.v1.VlanInterface
-	(*Subinterface)(nil),        // 8: flowseer.net.interface.v1.Subinterface
-	(*LoopbackInterface)(nil),   // 9: flowseer.net.interface.v1.LoopbackInterface
-	(*TunnelInterface)(nil),     // 10: flowseer.net.interface.v1.TunnelInterface
-	(*ManagementInterface)(nil), // 11: flowseer.net.interface.v1.ManagementInterface
-	(*OtherInterface)(nil),      // 12: flowseer.net.interface.v1.OtherInterface
-	(*v11.IpFacet)(nil),         // 13: flowseer.net.ip.v1.IpFacet
+	(*Interface)(nil),             // 0: flowseer.net.interface.v1.Interface
+	(AdminStatus)(0),              // 1: flowseer.net.interface.v1.AdminStatus
+	(OperStatus)(0),               // 2: flowseer.net.interface.v1.OperStatus
+	(*v1.EuiAddress)(nil),         // 3: flowseer.net.addr.v1.EuiAddress
+	(*InterfaceCounters)(nil),     // 4: flowseer.net.interface.v1.InterfaceCounters
+	(*timestamppb.Timestamp)(nil), // 5: google.protobuf.Timestamp
+	(*PhysicalInterface)(nil),     // 6: flowseer.net.interface.v1.PhysicalInterface
+	(*LagInterface)(nil),          // 7: flowseer.net.interface.v1.LagInterface
+	(*VlanInterface)(nil),         // 8: flowseer.net.interface.v1.VlanInterface
+	(*Subinterface)(nil),          // 9: flowseer.net.interface.v1.Subinterface
+	(*LoopbackInterface)(nil),     // 10: flowseer.net.interface.v1.LoopbackInterface
+	(*TunnelInterface)(nil),       // 11: flowseer.net.interface.v1.TunnelInterface
+	(*ManagementInterface)(nil),   // 12: flowseer.net.interface.v1.ManagementInterface
+	(*OtherInterface)(nil),        // 13: flowseer.net.interface.v1.OtherInterface
+	(*v11.IpFacet)(nil),           // 14: flowseer.net.ip.v1.IpFacet
 }
 var file_flowseer_net_interface_v1_interface_proto_depIdxs = []int32{
 	1,  // 0: flowseer.net.interface.v1.Interface.admin_status:type_name -> flowseer.net.interface.v1.AdminStatus
 	2,  // 1: flowseer.net.interface.v1.Interface.oper_status:type_name -> flowseer.net.interface.v1.OperStatus
 	3,  // 2: flowseer.net.interface.v1.Interface.mac:type_name -> flowseer.net.addr.v1.EuiAddress
 	4,  // 3: flowseer.net.interface.v1.Interface.counters:type_name -> flowseer.net.interface.v1.InterfaceCounters
-	5,  // 4: flowseer.net.interface.v1.Interface.physical:type_name -> flowseer.net.interface.v1.PhysicalInterface
-	6,  // 5: flowseer.net.interface.v1.Interface.lag:type_name -> flowseer.net.interface.v1.LagInterface
-	7,  // 6: flowseer.net.interface.v1.Interface.vlan:type_name -> flowseer.net.interface.v1.VlanInterface
-	8,  // 7: flowseer.net.interface.v1.Interface.sub:type_name -> flowseer.net.interface.v1.Subinterface
-	9,  // 8: flowseer.net.interface.v1.Interface.loopback:type_name -> flowseer.net.interface.v1.LoopbackInterface
-	10, // 9: flowseer.net.interface.v1.Interface.tunnel:type_name -> flowseer.net.interface.v1.TunnelInterface
-	11, // 10: flowseer.net.interface.v1.Interface.management:type_name -> flowseer.net.interface.v1.ManagementInterface
-	12, // 11: flowseer.net.interface.v1.Interface.other:type_name -> flowseer.net.interface.v1.OtherInterface
-	13, // 12: flowseer.net.interface.v1.Interface.ip:type_name -> flowseer.net.ip.v1.IpFacet
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	5,  // 4: flowseer.net.interface.v1.Interface.last_change:type_name -> google.protobuf.Timestamp
+	6,  // 5: flowseer.net.interface.v1.Interface.physical:type_name -> flowseer.net.interface.v1.PhysicalInterface
+	7,  // 6: flowseer.net.interface.v1.Interface.lag:type_name -> flowseer.net.interface.v1.LagInterface
+	8,  // 7: flowseer.net.interface.v1.Interface.vlan:type_name -> flowseer.net.interface.v1.VlanInterface
+	9,  // 8: flowseer.net.interface.v1.Interface.sub:type_name -> flowseer.net.interface.v1.Subinterface
+	10, // 9: flowseer.net.interface.v1.Interface.loopback:type_name -> flowseer.net.interface.v1.LoopbackInterface
+	11, // 10: flowseer.net.interface.v1.Interface.tunnel:type_name -> flowseer.net.interface.v1.TunnelInterface
+	12, // 11: flowseer.net.interface.v1.Interface.management:type_name -> flowseer.net.interface.v1.ManagementInterface
+	13, // 12: flowseer.net.interface.v1.Interface.other:type_name -> flowseer.net.interface.v1.OtherInterface
+	14, // 13: flowseer.net.interface.v1.Interface.ip:type_name -> flowseer.net.ip.v1.IpFacet
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_interface_v1_interface_proto_init() }

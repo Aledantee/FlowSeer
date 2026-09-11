@@ -15,6 +15,7 @@ import "flowseer/net/interface/v1/subinterface.proto";
 import "flowseer/net/interface/v1/tunnel_interface.proto";
 import "flowseer/net/interface/v1/vlan_interface.proto";
 import "flowseer/net/ip/v1/ip_facet.proto";
+import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
 // One interface of a device, in the device's own naming. Attributes that
@@ -51,6 +52,12 @@ message Interface {
   // Cumulative traffic counters. Absent means the source reported no
   // counters at all; individual counters carry their own presence.
   InterfaceCounters counters = 8;
+  // When the operational status last changed, as the device reports it
+  // (ifLastChange in RFC 2863, resolved against the device's uptime by the
+  // source). A zero ifLastChange means the state predates the agent's last
+  // restart and is reported as absent, never as the boot instant. Absent
+  // means the source did not report it.
+  google.protobuf.Timestamp last_change = 9;
 
   // What the interface is. Exactly one arm is set, and kind-specific
   // attributes live inside it.

@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -40,6 +41,7 @@ func TestAtomicPublishValidatesEveryRecordBeforeStaging(t *testing.T) {
 			TargetPath:    proto.String(target),
 			TypeName:      proto.String("google.protobuf.Empty"),
 			Payload:       payload,
+			PublishedAt:   timestamppb.Now(),
 		}.Build()
 	}
 	err := runtime.publishAtomic(ctx, []*servicev1.Message{

@@ -297,6 +297,9 @@ type DeviceConfig struct {
 	xxx_hidden_Description    *string                `protobuf:"bytes,3,opt,name=description"`
 	xxx_hidden_ManagementMode DeviceManagementMode   `protobuf:"varint,4,opt,name=management_mode,json=managementMode,enum=flowseer.api.inventory.v1.DeviceManagementMode"`
 	xxx_hidden_AccessPolicy   *v1.AccessPolicyHandle `protobuf:"bytes,5,opt,name=access_policy,json=accessPolicy"`
+	xxx_hidden_Location       *LocationGlobalRef     `protobuf:"bytes,6,opt,name=location"`
+	xxx_hidden_RackPosition   uint32                 `protobuf:"varint,7,opt,name=rack_position,json=rackPosition"`
+	xxx_hidden_RackFace       RackFace               `protobuf:"varint,8,opt,name=rack_face,json=rackFace,enum=flowseer.api.inventory.v1.RackFace"`
 	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
 	XXX_presence              [1]uint32
 	unknownFields             protoimpl.UnknownFields
@@ -371,27 +374,64 @@ func (x *DeviceConfig) GetAccessPolicy() *v1.AccessPolicyHandle {
 	return nil
 }
 
+func (x *DeviceConfig) GetLocation() *LocationGlobalRef {
+	if x != nil {
+		return x.xxx_hidden_Location
+	}
+	return nil
+}
+
+func (x *DeviceConfig) GetRackPosition() uint32 {
+	if x != nil {
+		return x.xxx_hidden_RackPosition
+	}
+	return 0
+}
+
+func (x *DeviceConfig) GetRackFace() RackFace {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 7) {
+			return x.xxx_hidden_RackFace
+		}
+	}
+	return RackFace_RACK_FACE_UNSPECIFIED
+}
+
 func (x *DeviceConfig) SetRef(v *DeviceGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
 func (x *DeviceConfig) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 8)
 }
 
 func (x *DeviceConfig) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 8)
 }
 
 func (x *DeviceConfig) SetManagementMode(v DeviceManagementMode) {
 	x.xxx_hidden_ManagementMode = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 8)
 }
 
 func (x *DeviceConfig) SetAccessPolicy(v *v1.AccessPolicyHandle) {
 	x.xxx_hidden_AccessPolicy = v
+}
+
+func (x *DeviceConfig) SetLocation(v *LocationGlobalRef) {
+	x.xxx_hidden_Location = v
+}
+
+func (x *DeviceConfig) SetRackPosition(v uint32) {
+	x.xxx_hidden_RackPosition = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 8)
+}
+
+func (x *DeviceConfig) SetRackFace(v RackFace) {
+	x.xxx_hidden_RackFace = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 8)
 }
 
 func (x *DeviceConfig) HasRef() bool {
@@ -429,6 +469,27 @@ func (x *DeviceConfig) HasAccessPolicy() bool {
 	return x.xxx_hidden_AccessPolicy != nil
 }
 
+func (x *DeviceConfig) HasLocation() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Location != nil
+}
+
+func (x *DeviceConfig) HasRackPosition() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *DeviceConfig) HasRackFace() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
 func (x *DeviceConfig) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -452,6 +513,20 @@ func (x *DeviceConfig) ClearAccessPolicy() {
 	x.xxx_hidden_AccessPolicy = nil
 }
 
+func (x *DeviceConfig) ClearLocation() {
+	x.xxx_hidden_Location = nil
+}
+
+func (x *DeviceConfig) ClearRackPosition() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_RackPosition = 0
+}
+
+func (x *DeviceConfig) ClearRackFace() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_RackFace = RackFace_RACK_FACE_UNSPECIFIED
+}
+
 type DeviceConfig_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -469,6 +544,17 @@ type DeviceConfig_builder struct {
 	// The access policy governing reads and writes to this device, pinned to
 	// a version. Must be present.
 	AccessPolicy *v1.AccessPolicyHandle
+	// Where the operator says the device is, as a FlowSeer-owned location.
+	// Unset means nobody has placed it; a Placement under an integration
+	// scope is the platform's answer and never substitutes for this one.
+	Location *LocationGlobalRef
+	// The lowest rack unit the device occupies, counted from 1 at the bottom
+	// of the rack. Set only when location names a rack. Unset means the
+	// position within the rack is not recorded.
+	RackPosition *uint32
+	// Which face of the rack the device is mounted on. Set only when location
+	// names a rack.
+	RackFace *RackFace
 }
 
 func (b0 DeviceConfig_builder) Build() *DeviceConfig {
@@ -477,35 +563,52 @@ func (b0 DeviceConfig_builder) Build() *DeviceConfig {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 8)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 8)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.ManagementMode != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 8)
 		x.xxx_hidden_ManagementMode = *b.ManagementMode
 	}
 	x.xxx_hidden_AccessPolicy = b.AccessPolicy
+	x.xxx_hidden_Location = b.Location
+	if b.RackPosition != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 8)
+		x.xxx_hidden_RackPosition = *b.RackPosition
+	}
+	if b.RackFace != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 8)
+		x.xxx_hidden_RackFace = *b.RackFace
+	}
 	return m0
 }
 
-// The observed side of one device: the identity read off the box and the
-// lifecycle FlowSeer holds for it. Serial and base MAC are correlation
-// data the service merges sightings on, never the ref's key; addresses
-// and platform ids are binding data and never appear here.
+// The observed side of one device: the identity read off the box, what
+// the box is, and the lifecycle FlowSeer holds for it. Serial and base MAC
+// are correlation data the service merges sightings on, never the ref's
+// key; addresses and platform ids are binding data and never appear here.
+// Vendor, model, and software version are the whole-box reading; the
+// per-part reading is the component tree in component.proto.
 type DeviceState struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Ref         *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
-	xxx_hidden_Serial      *string                `protobuf:"bytes,2,opt,name=serial"`
-	xxx_hidden_BaseMac     *v11.Eui48Address      `protobuf:"bytes,3,opt,name=base_mac,json=baseMac"`
-	xxx_hidden_Lifecycle   DeviceLifecycle        `protobuf:"varint,4,opt,name=lifecycle,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Ref              *DeviceGlobalRef       `protobuf:"bytes,1,opt,name=ref"`
+	xxx_hidden_Serial           *string                `protobuf:"bytes,2,opt,name=serial"`
+	xxx_hidden_BaseMac          *v11.Eui48Address      `protobuf:"bytes,3,opt,name=base_mac,json=baseMac"`
+	xxx_hidden_Lifecycle        DeviceLifecycle        `protobuf:"varint,4,opt,name=lifecycle,enum=flowseer.api.inventory.v1.DeviceLifecycle"`
+	xxx_hidden_Hostname         *string                `protobuf:"bytes,5,opt,name=hostname"`
+	xxx_hidden_Vendor           *string                `protobuf:"bytes,6,opt,name=vendor"`
+	xxx_hidden_Model            *string                `protobuf:"bytes,7,opt,name=model"`
+	xxx_hidden_HardwareRevision *string                `protobuf:"bytes,8,opt,name=hardware_revision,json=hardwareRevision"`
+	xxx_hidden_SoftwareVersion  *string                `protobuf:"bytes,9,opt,name=software_version,json=softwareVersion"`
+	xxx_hidden_SysObjectId      *string                `protobuf:"bytes,10,opt,name=sys_object_id,json=sysObjectId"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *DeviceState) Reset() {
@@ -566,13 +669,73 @@ func (x *DeviceState) GetLifecycle() DeviceLifecycle {
 	return DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
 }
 
+func (x *DeviceState) GetHostname() string {
+	if x != nil {
+		if x.xxx_hidden_Hostname != nil {
+			return *x.xxx_hidden_Hostname
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetVendor() string {
+	if x != nil {
+		if x.xxx_hidden_Vendor != nil {
+			return *x.xxx_hidden_Vendor
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetModel() string {
+	if x != nil {
+		if x.xxx_hidden_Model != nil {
+			return *x.xxx_hidden_Model
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetHardwareRevision() string {
+	if x != nil {
+		if x.xxx_hidden_HardwareRevision != nil {
+			return *x.xxx_hidden_HardwareRevision
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetSoftwareVersion() string {
+	if x != nil {
+		if x.xxx_hidden_SoftwareVersion != nil {
+			return *x.xxx_hidden_SoftwareVersion
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *DeviceState) GetSysObjectId() string {
+	if x != nil {
+		if x.xxx_hidden_SysObjectId != nil {
+			return *x.xxx_hidden_SysObjectId
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *DeviceState) SetRef(v *DeviceGlobalRef) {
 	x.xxx_hidden_Ref = v
 }
 
 func (x *DeviceState) SetSerial(v string) {
 	x.xxx_hidden_Serial = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 10)
 }
 
 func (x *DeviceState) SetBaseMac(v *v11.Eui48Address) {
@@ -581,7 +744,37 @@ func (x *DeviceState) SetBaseMac(v *v11.Eui48Address) {
 
 func (x *DeviceState) SetLifecycle(v DeviceLifecycle) {
 	x.xxx_hidden_Lifecycle = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 10)
+}
+
+func (x *DeviceState) SetHostname(v string) {
+	x.xxx_hidden_Hostname = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 10)
+}
+
+func (x *DeviceState) SetVendor(v string) {
+	x.xxx_hidden_Vendor = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 10)
+}
+
+func (x *DeviceState) SetModel(v string) {
+	x.xxx_hidden_Model = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 10)
+}
+
+func (x *DeviceState) SetHardwareRevision(v string) {
+	x.xxx_hidden_HardwareRevision = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 10)
+}
+
+func (x *DeviceState) SetSoftwareVersion(v string) {
+	x.xxx_hidden_SoftwareVersion = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 10)
+}
+
+func (x *DeviceState) SetSysObjectId(v string) {
+	x.xxx_hidden_SysObjectId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 10)
 }
 
 func (x *DeviceState) HasRef() bool {
@@ -612,6 +805,48 @@ func (x *DeviceState) HasLifecycle() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *DeviceState) HasHostname() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *DeviceState) HasVendor() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *DeviceState) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
+func (x *DeviceState) HasHardwareRevision() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 7)
+}
+
+func (x *DeviceState) HasSoftwareVersion() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
+}
+
+func (x *DeviceState) HasSysObjectId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+}
+
 func (x *DeviceState) ClearRef() {
 	x.xxx_hidden_Ref = nil
 }
@@ -630,6 +865,36 @@ func (x *DeviceState) ClearLifecycle() {
 	x.xxx_hidden_Lifecycle = DeviceLifecycle_DEVICE_LIFECYCLE_UNSPECIFIED
 }
 
+func (x *DeviceState) ClearHostname() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Hostname = nil
+}
+
+func (x *DeviceState) ClearVendor() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Vendor = nil
+}
+
+func (x *DeviceState) ClearModel() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_Model = nil
+}
+
+func (x *DeviceState) ClearHardwareRevision() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 7)
+	x.xxx_hidden_HardwareRevision = nil
+}
+
+func (x *DeviceState) ClearSoftwareVersion() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 8)
+	x.xxx_hidden_SoftwareVersion = nil
+}
+
+func (x *DeviceState) ClearSysObjectId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	x.xxx_hidden_SysObjectId = nil
+}
+
 type DeviceState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -643,6 +908,28 @@ type DeviceState_builder struct {
 	BaseMac *v11.Eui48Address
 	// The device's lifecycle. Must be present; the zero value is rejected.
 	Lifecycle *DeviceLifecycle
+	// The device's own host name, as it reports it (sysName in RFC 3418).
+	// Unset means no read has yielded one.
+	Hostname *string
+	// The maker of the box, as the device or the reaching platform spells it.
+	// Unset means no read has yielded one.
+	Vendor *string
+	// The product model, as the device spells it (entPhysicalModelName of
+	// the chassis in RFC 6933, or the platform's model field). Unset means no
+	// read has yielded one.
+	Model *string
+	// The chassis hardware revision, as the device spells it. Unset means the
+	// device does not report one.
+	HardwareRevision *string
+	// The running software version, as the device spells it. This is the
+	// human-readable version string; the fingerprint a mutation pins is on
+	// the provenance and access status, not here. Unset means no read has
+	// yielded one.
+	SoftwareVersion *string
+	// The device's sysObjectID (RFC 3418) in dotted decimal, when it speaks
+	// SNMP. The vendor identity tables key on it. Unset means the device did
+	// not report one.
+	SysObjectId *string
 }
 
 func (b0 DeviceState_builder) Build() *DeviceState {
@@ -651,13 +938,37 @@ func (b0 DeviceState_builder) Build() *DeviceState {
 	_, _ = b, x
 	x.xxx_hidden_Ref = b.Ref
 	if b.Serial != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 10)
 		x.xxx_hidden_Serial = b.Serial
 	}
 	x.xxx_hidden_BaseMac = b.BaseMac
 	if b.Lifecycle != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 10)
 		x.xxx_hidden_Lifecycle = *b.Lifecycle
+	}
+	if b.Hostname != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 10)
+		x.xxx_hidden_Hostname = b.Hostname
+	}
+	if b.Vendor != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 10)
+		x.xxx_hidden_Vendor = b.Vendor
+	}
+	if b.Model != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 10)
+		x.xxx_hidden_Model = b.Model
+	}
+	if b.HardwareRevision != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 10)
+		x.xxx_hidden_HardwareRevision = b.HardwareRevision
+	}
+	if b.SoftwareVersion != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 10)
+		x.xxx_hidden_SoftwareVersion = b.SoftwareVersion
+	}
+	if b.SysObjectId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 10)
+		x.xxx_hidden_SysObjectId = b.SysObjectId
 	}
 	return m0
 }
@@ -806,11 +1117,11 @@ var File_flowseer_api_inventory_v1_device_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1eflowseer/net/addr/v1/eui.proto\"-\n" +
+	"&flowseer/api/inventory/v1/device.proto\x12\x19flowseer.api.inventory.v1\x1a(flowseer/api/inventory/v1/location.proto\x1a&flowseer/device/policy/v1/handle.proto\x1a\x1eflowseer/net/addr/v1/eui.proto\"-\n" +
 	"\x0eDeviceLocalRef\x12\x1b\n" +
 	"\x02id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x02id\"\\\n" +
 	"\x0fDeviceGlobalRef\x12I\n" +
-	"\x06device\x18\x01 \x01(\v2).flowseer.api.inventory.v1.DeviceLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xe7\x02\n" +
+	"\x06device\x18\x01 \x01(\v2).flowseer.api.inventory.v1.DeviceLocalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\"\xe4\x05\n" +
 	"\fDeviceConfig\x12D\n" +
 	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -819,13 +1130,28 @@ const file_flowseer_api_inventory_v1_device_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x10R\vdescription\x12g\n" +
 	"\x0fmanagement_mode\x18\x04 \x01(\x0e2/.flowseer.api.inventory.v1.DeviceManagementModeB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x0emanagementMode\x12Z\n" +
-	"\raccess_policy\x18\x05 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\x8e\x02\n" +
+	"\raccess_policy\x18\x05 \x01(\v2-.flowseer.device.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12H\n" +
+	"\blocation\x18\x06 \x01(\v2,.flowseer.api.inventory.v1.LocationGlobalRefR\blocation\x12.\n" +
+	"\rrack_position\x18\a \x01(\rB\t\xbaH\x06*\x04\x18d(\x01R\frackPosition\x12J\n" +
+	"\track_face\x18\b \x01(\x0e2#.flowseer.api.inventory.v1.RackFaceB\b\xbaH\x05\x82\x01\x02\x10\x01R\brackFace:\xb4\x01\xbaH\xb0\x01\x1a\xad\x01\n" +
+	"'device_config.rack_fields_need_location\x128rack_position and rack_face are set only with a location\x1aH(!has(this.rack_position) && !has(this.rack_face)) || has(this.location)\"\xae\x04\n" +
 	"\vDeviceState\x12D\n" +
 	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12!\n" +
 	"\x06serial\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x06serial\x12=\n" +
 	"\bbase_mac\x18\x03 \x01(\v2\".flowseer.net.addr.v1.Eui48AddressR\abaseMac\x12W\n" +
 	"\tlifecycle\x18\x04 \x01(\x0e2*.flowseer.api.inventory.v1.DeviceLifecycleB\r\xbaH\n" +
-	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tlifecycle\"\xe4\x02\n" +
+	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tlifecycle\x12&\n" +
+	"\bhostname\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\bhostname\x12\"\n" +
+	"\x06vendor\x18\x06 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x06vendor\x12 \n" +
+	"\x05model\x18\a \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x05model\x126\n" +
+	"\x11hardware_revision\x18\b \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x10hardwareRevision\x125\n" +
+	"\x10software_version\x18\t \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\x0fsoftwareVersion\x12A\n" +
+	"\rsys_object_id\x18\n" +
+	" \x01(\tB\x1d\xbaH\x1ar\x18\x18\x80\x022\x13^[0-9]+(\\.[0-9]+)*$R\vsysObjectId\"\xe4\x02\n" +
 	"\vDeviceEvent\x12D\n" +
 	"\x03ref\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x03ref\x12J\n" +
 	"\x04from\x18\x02 \x01(\x0e2*.flowseer.api.inventory.v1.DeviceLifecycleB\n" +
@@ -855,24 +1181,28 @@ var file_flowseer_api_inventory_v1_device_proto_goTypes = []any{
 	(*DeviceState)(nil),           // 5: flowseer.api.inventory.v1.DeviceState
 	(*DeviceEvent)(nil),           // 6: flowseer.api.inventory.v1.DeviceEvent
 	(*v1.AccessPolicyHandle)(nil), // 7: flowseer.device.policy.v1.AccessPolicyHandle
-	(*v11.Eui48Address)(nil),      // 8: flowseer.net.addr.v1.Eui48Address
+	(*LocationGlobalRef)(nil),     // 8: flowseer.api.inventory.v1.LocationGlobalRef
+	(RackFace)(0),                 // 9: flowseer.api.inventory.v1.RackFace
+	(*v11.Eui48Address)(nil),      // 10: flowseer.net.addr.v1.Eui48Address
 }
 var file_flowseer_api_inventory_v1_device_proto_depIdxs = []int32{
 	2,  // 0: flowseer.api.inventory.v1.DeviceGlobalRef.device:type_name -> flowseer.api.inventory.v1.DeviceLocalRef
 	3,  // 1: flowseer.api.inventory.v1.DeviceConfig.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
 	1,  // 2: flowseer.api.inventory.v1.DeviceConfig.management_mode:type_name -> flowseer.api.inventory.v1.DeviceManagementMode
 	7,  // 3: flowseer.api.inventory.v1.DeviceConfig.access_policy:type_name -> flowseer.device.policy.v1.AccessPolicyHandle
-	3,  // 4: flowseer.api.inventory.v1.DeviceState.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
-	8,  // 5: flowseer.api.inventory.v1.DeviceState.base_mac:type_name -> flowseer.net.addr.v1.Eui48Address
-	0,  // 6: flowseer.api.inventory.v1.DeviceState.lifecycle:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	3,  // 7: flowseer.api.inventory.v1.DeviceEvent.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
-	0,  // 8: flowseer.api.inventory.v1.DeviceEvent.from:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	0,  // 9: flowseer.api.inventory.v1.DeviceEvent.to:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	8,  // 4: flowseer.api.inventory.v1.DeviceConfig.location:type_name -> flowseer.api.inventory.v1.LocationGlobalRef
+	9,  // 5: flowseer.api.inventory.v1.DeviceConfig.rack_face:type_name -> flowseer.api.inventory.v1.RackFace
+	3,  // 6: flowseer.api.inventory.v1.DeviceState.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	10, // 7: flowseer.api.inventory.v1.DeviceState.base_mac:type_name -> flowseer.net.addr.v1.Eui48Address
+	0,  // 8: flowseer.api.inventory.v1.DeviceState.lifecycle:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	3,  // 9: flowseer.api.inventory.v1.DeviceEvent.ref:type_name -> flowseer.api.inventory.v1.DeviceGlobalRef
+	0,  // 10: flowseer.api.inventory.v1.DeviceEvent.from:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	0,  // 11: flowseer.api.inventory.v1.DeviceEvent.to:type_name -> flowseer.api.inventory.v1.DeviceLifecycle
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_inventory_v1_device_proto_init() }
@@ -880,6 +1210,7 @@ func file_flowseer_api_inventory_v1_device_proto_init() {
 	if File_flowseer_api_inventory_v1_device_proto != nil {
 		return
 	}
+	file_flowseer_api_inventory_v1_location_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

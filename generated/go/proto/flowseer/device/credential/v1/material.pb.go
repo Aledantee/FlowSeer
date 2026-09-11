@@ -347,16 +347,19 @@ func (b0 SnmpV3Credential_builder) Build() *SnmpV3Credential {
 	return m0
 }
 
-// A shell login over SSH.
+// A shell login over SSH, authenticated by a password, a private key, or
+// both when the device asks for both.
 type ShellCredential struct {
-	state                     protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Username       *string                `protobuf:"bytes,1,opt,name=username"`
-	xxx_hidden_Password       *string                `protobuf:"bytes,2,opt,name=password"`
-	xxx_hidden_EnablePassword *string                `protobuf:"bytes,3,opt,name=enable_password,json=enablePassword"`
-	XXX_raceDetectHookData    protoimpl.RaceDetectHookData
-	XXX_presence              [1]uint32
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	state                           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Username             *string                `protobuf:"bytes,1,opt,name=username"`
+	xxx_hidden_Password             *string                `protobuf:"bytes,2,opt,name=password"`
+	xxx_hidden_EnablePassword       *string                `protobuf:"bytes,3,opt,name=enable_password,json=enablePassword"`
+	xxx_hidden_PrivateKey           []byte                 `protobuf:"bytes,4,opt,name=private_key,json=privateKey"`
+	xxx_hidden_PrivateKeyPassphrase *string                `protobuf:"bytes,5,opt,name=private_key_passphrase,json=privateKeyPassphrase"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
 }
 
 func (x *ShellCredential) Reset() {
@@ -414,19 +417,49 @@ func (x *ShellCredential) GetEnablePassword() string {
 	return ""
 }
 
+func (x *ShellCredential) GetPrivateKey() []byte {
+	if x != nil {
+		return x.xxx_hidden_PrivateKey
+	}
+	return nil
+}
+
+func (x *ShellCredential) GetPrivateKeyPassphrase() string {
+	if x != nil {
+		if x.xxx_hidden_PrivateKeyPassphrase != nil {
+			return *x.xxx_hidden_PrivateKeyPassphrase
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ShellCredential) SetUsername(v string) {
 	x.xxx_hidden_Username = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *ShellCredential) SetPassword(v string) {
 	x.xxx_hidden_Password = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *ShellCredential) SetEnablePassword(v string) {
 	x.xxx_hidden_EnablePassword = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *ShellCredential) SetPrivateKey(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_PrivateKey = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *ShellCredential) SetPrivateKeyPassphrase(v string) {
+	x.xxx_hidden_PrivateKeyPassphrase = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *ShellCredential) HasUsername() bool {
@@ -450,6 +483,20 @@ func (x *ShellCredential) HasEnablePassword() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
+func (x *ShellCredential) HasPrivateKey() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *ShellCredential) HasPrivateKeyPassphrase() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *ShellCredential) ClearUsername() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Username = nil
@@ -465,16 +512,33 @@ func (x *ShellCredential) ClearEnablePassword() {
 	x.xxx_hidden_EnablePassword = nil
 }
 
+func (x *ShellCredential) ClearPrivateKey() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_PrivateKey = nil
+}
+
+func (x *ShellCredential) ClearPrivateKeyPassphrase() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_PrivateKeyPassphrase = nil
+}
+
 type ShellCredential_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
 	Username *string
-	// Must be present.
+	// The login password. Unset means the login authenticates with the
+	// private key alone.
 	Password *string
 	// The privileged-mode password, for a device that asks for one after
 	// login. Unset means the device does not ask.
 	EnablePassword *string
+	// The private key in OpenSSH or PEM encoding, as ssh-keygen writes it.
+	// Unset means the login authenticates with the password alone.
+	PrivateKey []byte
+	// The passphrase protecting private_key. Unset means the key is not
+	// encrypted. Set only with private_key.
+	PrivateKeyPassphrase *string
 }
 
 func (b0 ShellCredential_builder) Build() *ShellCredential {
@@ -482,16 +546,24 @@ func (b0 ShellCredential_builder) Build() *ShellCredential {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Username != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Username = b.Username
 	}
 	if b.Password != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_Password = b.Password
 	}
 	if b.EnablePassword != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_EnablePassword = b.EnablePassword
+	}
+	if b.PrivateKey != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		x.xxx_hidden_PrivateKey = b.PrivateKey
+	}
+	if b.PrivateKeyPassphrase != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_PrivateKeyPassphrase = b.PrivateKeyPassphrase
 	}
 	return m0
 }
@@ -684,13 +756,19 @@ const file_flowseer_device_credential_v1_material_proto_rawDesc = "" +
 	"\rpriv_protocol\x18\x04 \x01(\x0e2/.flowseer.device.credential.v1.SnmpPrivProtocolB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\fprivProtocol\x126\n" +
 	"\x0fpriv_passphrase\x18\x05 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\b\x18\x80\x02R\x0eprivPassphrase\"\x9b\x01\n" +
+	"\xc8\x01\x01r\x05\x10\b\x18\x80\x02R\x0eprivPassphrase\"\xb9\x04\n" +
 	"\x0fShellCredential\x12(\n" +
-	"\busername\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\busername\x12)\n" +
-	"\bpassword\x18\x02 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\bpassword\x123\n" +
+	"\busername\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\busername\x12&\n" +
+	"\bpassword\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\bpassword\x123\n" +
 	"\x0fenable_password\x18\x03 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x0eenablePassword\"\xbb\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x0eenablePassword\x12,\n" +
+	"\vprivate_key\x18\x04 \x01(\fB\v\xbaH\bz\x06\x10\x01\x18\x80\x80\x01R\n" +
+	"privateKey\x12@\n" +
+	"\x16private_key_passphrase\x18\x05 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\x02R\x14privateKeyPassphrase:\xae\x02\xbaH\xaa\x02\x1a\x8c\x01\n" +
+	"\x1eshell_credential.authenticator\x12=a shell credential carries a password, a private key, or both\x1a+has(this.password) || has(this.private_key)\x1a\x98\x01\n" +
+	"%shell_credential.passphrase_needs_key\x123private_key_passphrase is set only with private_key\x1a:!has(this.private_key_passphrase) || has(this.private_key)\"\xbb\x01\n" +
 	"\x12CredentialMaterial\x12J\n" +
 	"\asnmp_v3\x18\x01 \x01(\v2/.flowseer.device.credential.v1.SnmpV3CredentialH\x00R\x06snmpV3\x12F\n" +
 	"\x05shell\x18\x02 \x01(\v2..flowseer.device.credential.v1.ShellCredentialH\x00R\x05shellB\x11\n" +

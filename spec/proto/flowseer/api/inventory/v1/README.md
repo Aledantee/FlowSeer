@@ -88,10 +88,17 @@ Addresses and platform ids move between boxes, so they are binding data
 and never device identity.
 
 The family is a full triad. `DeviceConfig` is what the operator intends
-(name, description, management mode, and the pinned access policy),
-`DeviceState` is what the platform holds (the identity read plus the
-lifecycle), and `DeviceEvent` carries one lifecycle transition, with an
-unset `from` meaning the device entered the inventory.
+(name, description, management mode, the pinned access policy, and where
+the operator says the box is: a location, and within a rack the lowest
+unit and face), `DeviceState` is what the platform holds (the identity
+read, the whole-box platform reading of host name, vendor, model, hardware
+revision, software version, and sysObjectID, plus the lifecycle), and
+`DeviceEvent` carries one lifecycle transition, with an unset `from`
+meaning the device entered the inventory. The platform reading is the
+box's own account of what it is; the vendor identity tables the MIB
+generator builds key on `sys_object_id`, and the human-readable software
+version here is not the fingerprint a mutation pins, which stays on the
+provenance and the access status.
 
 The management mode says who resolves drift. Suppose an operator changes an
 interface description at the switch console. The next authoritative read
@@ -206,7 +213,76 @@ close of the old one, `effective_until` unset marks the current placement,
 and `PlacementEvent.after` is required because a placement is never
 removed. Which placement currently answers "where is this device" when
 operator and derived rows coexist is the service's precedence rule, not
-the schema's.
+the schema's. A placement answers it in the platform's terms; the
+operator's own answer is `DeviceConfig.location`, and the two coexist.
+
+## Components
+
+A component is one physical part of a device as the device reports it:
+the chassis, a backplane, a slot, a power supply, a fan, a sensor, a line
+card, a port, a stack member, or a transceiver seated in a port. The tree
+is the Entity MIB's (RFC 6933) `entPhysicalTable` with the transceiver
+added as its own kind, because a pluggable module is what a cable
+terminates on and what carries the per-lane diagnostics `net/phy`
+already models; `ComponentState.module` embeds `PluggableModule` for
+exactly that kind. A port names the interface it fronts by the device's
+own interface name, which is the `entAliasMappingTable` join and the only
+way from the physical tree to the interface model.
+
+A component is owned by its device and keyed by a device-local name, so
+`ComponentGlobalRef` composes the device's ref with that name.
+`entPhysicalIndex` is never the key: it renumbers on a reboot. The family
+is `ComponentState` plus `ComponentEvent` with no `ComponentConfig`,
+because nothing about the tree is intended; a component that stops being
+reported leaves as an event with `after` unset. Which sensor readings are
+worth carrying, and whether a sensor's value belongs here or on a live
+read, is not decided yet; `SENSOR` names the part, not its reading.
+
+## Locations, cabling, and links
+
+The operator's own hierarchy of places is the `Location` family: region,
+site, building, floor, room, row, rack, each naming its parent. It is
+FlowSeer-owned intent, unlike `IntegrationScope`, which mirrors a
+platform's hierarchy and is never edited here. A device says where it is
+through `DeviceConfig.location`, a patch panel through
+`PatchPanel.location`, and a rack occupant adds its lowest rack unit and
+face. Sibling-name uniqueness and cycle-freedom of the parent chain are
+the service's rules, as for tags.
+
+Cabling is documented, never observed. A `Cable` has a medium (the
+ISO/IEC 11801 copper categories and fiber types, direct-attach and active
+optical cables, coaxial, serial, power), a role in the plant (a patch
+cord, the permanent link behind the panels, or a pre-terminated trunk),
+a length, a color, a printed label, and two terminations. A termination
+is a device port or transceiver component, a patch panel port, or a
+location for an end with no modeled port such as a wall outlet, each with
+the connector it presents. `PatchPanel` holds the panel's front and rear
+ports as content keyed by name within the panel, with a front port naming
+the rear port it is wired through to, so a permanent link and the patch
+cords on either side of it are three cables meeting at two panels. Both
+families are pure intent: `Cable` plus `CableEvent`, `PatchPanel` plus
+`PatchPanelEvent`.
+
+What discovery sees is the `Link` family: one adjacency between two
+interfaces derived from an LLDP or CDP announcement, an LACP partner, or
+forwarding-table inference, with first and last seen and an active, stale,
+or gone status. An end is an inventoried device or, for a neighbor the
+inventory does not hold, the chassis identifier and system name the
+announcement carried. `LinkState.cable` is the cable the service
+reconciled the link to; an active link with no cable and a cable with no
+link are both findings the service raises. First and last seen are entity
+data rather than provenance because the stale and gone statuses are
+defined against them, as `BindingState.unreachable_since` is for a binding;
+which observation last reported the link still rides the envelope. The family is `LinkState` plus
+`LinkEvent` with no `LinkConfig`. The source rows a link is derived from
+stay in `net/protocol/lldp` and `net/switching`; the link is the
+inventory's conclusion, not a copy of the evidence.
+
+None of Location, Cable, PatchPanel, or Link has joined `EntityType` yet.
+Each is UUID-identified, but the existence check and the cascade that
+admission obliges need the store tables that land with the first
+location- and topology-aware service; until then nothing may name one
+through an `EntityRef`.
 
 ## Other entities
 

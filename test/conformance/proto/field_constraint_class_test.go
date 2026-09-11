@@ -80,6 +80,8 @@ var exempt = map[string]string{
 	"flowseer.net.ip.v1.NeighborEntry.interface_name":                   "device-reported scoping interface",
 	"flowseer.net.protocol.stp.v1.PortState.interface_name":             "device-reported spanning tree port",
 	"flowseer.net.protocol.stp.v1.BridgeState.root_port_interface_name": "device-reported root port",
+	"flowseer.api.inventory.v1.ComponentState.interface_name":           "device-reported port-to-interface join",
+	"flowseer.api.inventory.v1.LinkEnd.interface_name":                  "device-reported or announced interface",
 }
 
 // TestSharedFieldNamesCarryTheSameConstraints walks every message in the

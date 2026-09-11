@@ -5,6 +5,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 )
@@ -22,6 +23,7 @@ func TestServiceMessageValidation(t *testing.T) {
 			Payload:       []byte{0x08, 0x01},
 			Traceparent:   proto.String("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"),
 			Tracestate:    proto.String("vendor=value"),
+			PublishedAt:   timestamppb.Now(),
 		}
 	}
 

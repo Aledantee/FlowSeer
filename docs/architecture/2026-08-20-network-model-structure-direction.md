@@ -56,17 +56,21 @@ spec/proto/flowseer/
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
   api/
-    inventory/v1/       Device, Integration, Binding, Placement, IntegrationScope, provenance
+    inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, provenance
     edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
     capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
     device/v1/          DeviceService, the operator-facing typed device API
   device/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
+    credential/v1/      the typed secret material a device login carries; imports nothing
     access/v1/          the operation vocabulary every device-access boundary shares
   integration/device/v1/  execution envelopes between central and an integration (reserved)
   event/device/v1/      the durable DeviceOperationEvent audit record (reserved)
   errs/v1/              the error wire payload (reserved)
   service/v1/           process-local runtime messages and durable mailbox contracts
+  store/
+    device/v1/          the device service's persisted records; imported by nothing
+    edge/v1/            the edge agent's persisted configuration; imported by nothing
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
@@ -82,37 +86,48 @@ exceptions that shape a package's messages live in
 [the protobuf model conventions](../conventions/protobuf.md), which this tree
 assumes throughout.
 
-Import layering is acyclic. The foundational dependency graph is:
+Import layering is acyclic. The rows below are the imports that exist
+today; `test/conformance/proto/layering_test.go` holds the allowlist, which
+is wider where a package may still grow into a permitted import:
 
 ```
-net/addr ← {net/switching, net/ip}
+net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
 {net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
-net/interface ← {net/protocol/*, net/wlan}
-{net/interface, net/protocol/*, net/wlan} ← api/inventory
-{api/edge, device/policy} ← api/inventory
-{api/inventory, api/edge, device/policy, net/*} ← device/access
-{device/access, api/inventory, device/policy, net/*} ← api/device
+{device/credential, device/policy, net/addr} ← api/edge
+{api/edge, device/policy, net/addr, net/phy} ← api/inventory
+{api/inventory, api/edge, device/policy, net/interface} ← device/access
+{device/access, api/inventory} ← api/device
 device/access ← {integration/device, event/device}
-errs ← {api/device, integration/device, event/device}
+api/inventory ← event/device
+errs ← {integration/device, store/device}
 {net/capture, api/edge} ← api/capture
+{api/edge, api/inventory, device/access, device/policy, errs, net/addr} ← store/device
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
-never import a protocol.
+never import a protocol; a protocol package imports the address values it
+renders and nothing above them.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
 imports address values. Future integration, service API, and event packages
 consume the entity model without introducing a downward import. `api/edge`
 is the Edge's entity package and, as the first Connect service package, also
-holds the Edge's services; it imports no FlowSeer package, and
-`api/inventory` imports it because an integration names its hosting edge.
-`device/policy` is the second leaf. The service API, the execution envelope,
-and the event envelope are sibling boundary consumers of `device/access` and
-never import one another; the event envelope reaches `api/edge` only through
-`device/access`, which names the edge responsible for a mutation. The
-order's home for automated checking is `test/conformance/proto/`;
+holds the Edge's services; below it sit only the two `device/` leaves it
+carries handles and secret material from, and the address values. `api/inventory`
+imports it because an integration names its hosting edge, and imports
+`net/phy` because a component embeds the pluggable module and a cable
+names its connector. `api/inventory` does not yet embed the interface
+model: the interface entity is undecided, and the device-access boundary is
+where `net/interface` values cross today. The service API, the execution
+envelope, and the event envelope are sibling boundary consumers of
+`device/access` and never import one another; the event envelope reaches
+`api/edge` only through `device/access`, which names the edge responsible
+for a mutation, and names the device directly through `api/inventory`. The
+allowlist also grants `errs` to `api/device` and `event/device`, which do
+not use it yet. The `store/` packages are imported by nothing. The order's
+home for automated checking is `test/conformance/proto/layering_test.go`;
 `spec/proto/` holds only `.proto` and `README.md` files, so no test can sit
 beside the schemas.
 
@@ -811,3 +826,39 @@ weight: a session's state holds the `net/capture` counters and link type it
 observed, and every packet or artifact chunk on the wire holds `net/capture`
 records rather than a copy of their fields. `api/edge` supplies only the
 owning ref and the assertion a session's upload stream re-verifies.
+
+### 2026-09-11 — the graph as landed; inventory gains places, parts, and cabling
+
+The import graph above is rewritten to state the imports that exist, with
+the layering test's allowlist as the ceiling. It had drifted in four places: `api/edge` imports
+`device/credential`, `device/policy`, and `net/addr` rather than nothing;
+`device/credential` and the two `store/` packages were absent from the
+tree; `api/inventory` embeds no `net/interface` or `net/protocol` values
+yet, so the rows claiming it did were promises rather than description;
+and the protocol packages import `net/addr` directly. The rule that a
+record and the tree must not silently disagree applies to this record too.
+
+`api/inventory` gains five families, all owned there because each is
+inventory data the operator or the platform holds about a box and where it
+sits, and each is an entity that refers to others by ref:
+
+- `Location`, the operator's own place hierarchy, distinct from the
+  platform-synced `IntegrationScope`. `DeviceConfig` names one.
+- `Component`, the device's physical part tree after the Entity MIB, keyed
+  by device-local name under its device. A transceiver component embeds the
+  `net/phy` pluggable module, which is what the phy README reserved that
+  message for, and is why `api/inventory` now imports `net/phy`.
+- `PatchPanel` with its front and rear ports as content, and `Cable` with
+  medium, role, length, and two terminations on a device port, a panel port,
+  or a bare location. Both are pure intent.
+- `Link`, the observed adjacency discovery derives from LLDP, CDP, LACP, or
+  forwarding-table inference, reconciled against a cable by the service.
+  A link end is an inventoried device or the announced identity of a
+  foreign system.
+
+A cable terminates on a component, not on an interface, because a cable
+plugs into a physical connector and the interface entity is still
+undecided; the port component's `interface_name` is the join to the
+interface model. A link's end is an interface name, because that is what
+LLDP and LACP report. None of the four top-level families joins
+`EntityType` until its store table lands.

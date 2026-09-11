@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
@@ -668,6 +669,7 @@ func TestDeliveryDecodesPersistedAliasesForEveryMessageKind(t *testing.T) {
 				TargetPath:    proto.String("edge/worker"),
 				TypeName:      proto.String("legacy.Empty"),
 				Payload:       []byte{},
+				PublishedAt:   timestamppb.Now(),
 			}.Build()
 			data, err := proto.MarshalOptions{Deterministic: true}.Marshal(envelope)
 			if err != nil {
@@ -771,12 +773,30 @@ func TestInvalidTraceContextDoesNotMakePersistedMessageMalformed(t *testing.T) {
 	message.SetTargetPath("edge/worker")
 	message.SetTypeName("google.protobuf.Empty")
 	message.SetPayload(nil)
+	message.SetPublishedAt(timestamppb.Now())
 	message.SetTraceparent("not-a-traceparent")
 	if err := validatePersistedEnvelope(message); err != nil {
 		t.Fatalf("persisted invalid trace context was malformed: %v", err)
 	}
 	if err := validateOutboundEnvelope(message); err == nil {
 		t.Fatal("outbound invalid trace context was accepted")
+	}
+}
+
+// A record written before publish time was part of the envelope is
+// malformed now, on the persisted path as well as the outbound one: the
+// schema says the field must be present, and the runtime check is what
+// makes that true for what is already in the mailbox.
+func TestPersistedMessageWithoutPublishTimeIsMalformed(t *testing.T) {
+	message := &servicev1.Message{}
+	message.SetKind(MessageKindCommand)
+	message.SetMessageId("123e4567-e89b-12d3-a456-426614174000")
+	message.SetSourcePath("edge/source")
+	message.SetTargetPath("edge/worker")
+	message.SetTypeName("google.protobuf.Empty")
+	message.SetPayload(nil)
+	if err := validatePersistedEnvelope(message); err == nil {
+		t.Fatal("a persisted message without published_at was accepted")
 	}
 }
 

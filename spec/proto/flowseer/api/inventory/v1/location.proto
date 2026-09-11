@@ -1,0 +1,157 @@
+edition = "2024";
+
+// The location family — the operator's own hierarchy of places: a region,
+// a site, a building, a floor, a room, a row, a rack. Deliberately
+// partial: a location is pure operator intent that nothing observes, so
+// the family is Location plus LocationEvent, with no LocationConfig and no
+// LocationState. The platform-synced hierarchy is IntegrationScope; the
+// two never substitute for each other. Location has not joined EntityType;
+// nothing may name one through an EntityRef.
+package flowseer.api.inventory.v1;
+
+import option "buf/validate/validate.proto";
+
+// The local reference to a location.
+message LocationLocalRef {
+  // FlowSeer-assigned location identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a location.
+message LocationGlobalRef {
+  // The location's own key. Must be present.
+  LocationLocalRef location = 1 [(buf.validate.field).required = true];
+}
+
+// What kind of place a location is. The kinds nest in the listed order by
+// convention, but the schema does not enforce the nesting: an operator
+// with one building and no floors puts rooms straight under it.
+enum LocationKind {
+  // No kind named. Locations reject the zero value.
+  LOCATION_KIND_UNSPECIFIED = 0;
+  LOCATION_KIND_REGION = 1;
+  LOCATION_KIND_SITE = 2;
+  LOCATION_KIND_BUILDING = 3;
+  LOCATION_KIND_FLOOR = 4;
+  LOCATION_KIND_ROOM = 5;
+  LOCATION_KIND_ROW = 6;
+  LOCATION_KIND_RACK = 7;
+}
+
+// Which face of a rack something is mounted on.
+enum RackFace {
+  // No face named.
+  RACK_FACE_UNSPECIFIED = 0;
+  RACK_FACE_FRONT = 1;
+  RACK_FACE_REAR = 2;
+}
+
+// One place in the operator's hierarchy: its kind, its name, and its
+// parent. Sibling-name uniqueness and cycle-freedom of the parent chain
+// need state the message does not contain and are enforced by the
+// inventory service, as for tags.
+message Location {
+  option (buf.validate.message).cel = {
+    id: "location.parent_not_self"
+    message: "a location cannot be its own parent"
+    expression:
+      "!has(this.ref) || !has(this.parent) || "
+      "this.parent.location.id != this.ref.location.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "location.rack_unit_height_only_rack"
+    message: "rack_unit_height is set only on a rack"
+    expression: "!has(this.rack_unit_height) || this.kind == 7"
+  };
+  option (buf.validate.message).cel = {
+    id: "location.coordinates_paired"
+    message: "latitude and longitude are set together"
+    expression: "has(this.latitude) == has(this.longitude)"
+  };
+
+  // The ref to this location. Must be present.
+  LocationGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The ref to the parent location. Unset means this location is a root.
+  LocationGlobalRef parent = 2;
+  // What kind of place this is. Must be present; the zero value is
+  // rejected.
+  LocationKind kind = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // Operator-assigned name, unique among the siblings under one parent.
+  // Must be present.
+  string name = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description. Unset means none was provided. When set, must
+  // not be empty.
+  string description = 5 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The postal address, as free text in the operator's own convention.
+  // Unset means none was recorded; a child inherits its ancestors' address
+  // by consumer convention, never by copy.
+  string postal_address = 6 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+  // WGS 84 latitude in decimal degrees. Set together with longitude.
+  double latitude = 7 [
+    (buf.validate.field).double.gte = -90,
+    (buf.validate.field).double.lte = 90
+  ];
+  // WGS 84 longitude in decimal degrees. Set together with latitude.
+  double longitude = 8 [
+    (buf.validate.field).double.gte = -180,
+    (buf.validate.field).double.lte = 180
+  ];
+  // The rack's height in rack units. Set only on a rack; unset on a rack
+  // means the height is not recorded.
+  uint32 rack_unit_height = 9 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 100
+  ];
+}
+
+// One transition of a location, carried as the record before and after.
+message LocationEvent {
+  option (buf.validate.message).cel = {
+    id: "location_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.location.id == this.ref.location.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "location_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.location.id == this.ref.location.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "location_event.one_side"
+    message: "an event carries at least one side"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the location that changed. Must be present.
+  LocationGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The record before the transition. Unset means the location was
+  // created.
+  Location before = 2;
+  // The record after the transition. Unset means the location was deleted;
+  // what deleting a location that still has children or occupants means
+  // is the inventory service's rule.
+  Location after = 3;
+}

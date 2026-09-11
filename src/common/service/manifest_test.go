@@ -11,6 +11,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
@@ -250,12 +251,13 @@ func TestSettlementReconciliationRemovesOnlyOrphans(t *testing.T) {
 	target := "bus_test/worker"
 	messageID := "7d92135e-832f-4a83-aeda-27f0d66b0d11"
 	envelope := servicev1.Message_builder{
-		Kind:       servicev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
-		MessageId:  proto.String(messageID),
-		SourcePath: proto.String("bus_test/source"),
-		TargetPath: proto.String(target),
-		TypeName:   proto.String("google.protobuf.Empty"),
-		Payload:    []byte{},
+		Kind:        servicev1.MessageKind_MESSAGE_KIND_COMMAND.Enum(),
+		MessageId:   proto.String(messageID),
+		SourcePath:  proto.String("bus_test/source"),
+		TargetPath:  proto.String(target),
+		TypeName:    proto.String("google.protobuf.Empty"),
+		Payload:     []byte{},
+		PublishedAt: timestamppb.Now(),
 	}.Build()
 	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(envelope)
 	if err != nil {

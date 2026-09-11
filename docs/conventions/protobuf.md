@@ -147,7 +147,9 @@ Three boundaries keep it from eroding the typed refs:
   The Edge in `api/edge/v1` is the opposite exception: a landed, UUID-keyed
   entity that has not joined the enum, because the cascade and the existence
   check need the edge store, which lands with the first host. Until it joins,
-  nothing may name an edge through an `EntityRef`. `AccessPolicyHandle`,
+  nothing may name an edge through an `EntityRef`. `Location`, `PatchPanel`,
+  `Cable`, and `Link` in `api/inventory/v1` are the same class: UUID-keyed,
+  landed, and outside the enum until the inventory store answers for them. `AccessPolicyHandle`,
   `CredentialHandle`, and `HostTrustHandle` in `device/policy/v1` are the
   second deliberate class of non-entity: each an opaque key and version into
   the device service's store, with no ref pair, no triad, and no place in
@@ -163,6 +165,17 @@ Messages under `flowseer/net/` carry no refs at all — that is what makes them
 Primitives. A `net/` message names another interface by its bare `name` field,
 a VLAN by its id. The moment a `net/` message grows a ref it has become an
 Entity and belongs further up the tree.
+
+Primitives do not use the triad's suffixes either. A Primitive that bundles
+what a source reports about one interface for one layer is a `<Name>Facet`
+(`EthernetFacet`, `IpFacet`, `SwitchportFacet`); the requested values a
+caller may set for the same layer are a `<Name>Settings` message the facet
+carries beside the observed values. `CopperFacet.poe_settings` is the
+worked instance; `EthernetSettings` is declared and not yet carried by any
+facet. It is the same intended-versus-observed line the triad draws, drawn
+once inside a value rather than across three messages, because a Primitive
+has no identity to diff against and no event to carry. `Config` and `State`
+stay reserved for Entities so that the hook's family check means one thing.
 
 ## Tenancy is ambient
 

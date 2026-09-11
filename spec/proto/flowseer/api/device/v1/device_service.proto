@@ -184,6 +184,16 @@ message ListEdgeOpenMutationsRequest {
     (buf.validate.field).required = true,
     (buf.validate.field).string.uuid = true
   ];
+  // Rows per page. Unset means the service default; never more than 1000.
+  uint32 page_size = 2 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 1000
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
 }
 
 // One device whose lane still holds a mutation.
@@ -199,4 +209,10 @@ message ListEdgeOpenMutationsResponse {
   // One row per device with an open mutation, in device-id order. Empty
   // means the edge holds no lane open.
   repeated OpenMutation open = 1 [(buf.validate.field).repeated.max_items = 1000];
+  // Opaque token for the page after this one. A page may be empty while a
+  // token is set; the listing ends only when the token is unset.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
 }
