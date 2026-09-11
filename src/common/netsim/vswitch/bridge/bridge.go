@@ -254,6 +254,7 @@ type Ingress struct {
 	PCP           vlan.PCP
 	DEI           bool
 	RemainingTags []vlan.Tag
+	TPID          uint16
 	Steps         []trace.Step
 }
 
@@ -313,6 +314,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 		ingressPCP       vlan.PCP
 		ingressDEI       bool
 		remainingTags    []vlan.Tag
+		ingressTPID      uint16
 		isTagged         bool
 		isPriorityTagged bool
 		isUntagged       bool
@@ -329,121 +331,170 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	} else {
 		sw, swOk := b.cfg.VLAN.Switchports[res.Ingress]
 
-		if len(f.Tags) > 0 {
-			outer := f.Tags[0]
-			if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
-				ingressPCP = outer.PCP
-				ingressDEI = outer.DEI
-				remainingTags = f.Tags[1:]
-				if outer.VID != 0 {
-					isTagged = true
-					classifiedFID = outer.VID
-				} else {
-					isPriorityTagged = true
+		if sw.Tunnel != nil {
+			ingressTPID = sw.Tunnel.EffectiveTPID()
+			if len(f.Tags) > 0 {
+				outer := f.Tags[0]
+				if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
+					ingressPCP = outer.PCP
+					ingressDEI = outer.DEI
+					if outer.VID != 0 && len(sw.Tunnel.CustomerVIDs) > 0 && !slices.Contains(sw.Tunnel.CustomerVIDs, outer.VID) {
+						res.Reason = ReasonCustomerVLAN
+						res.Steps = append(res.Steps,
+							trace.Step{
+								Layer:  port.LayerVlan,
+								Op:     trace.OpFilter,
+								Detail: fmt.Sprintf("customer vlan %d rejected", outer.VID),
+							},
+							trace.Step{
+								Layer:  port.LayerVlan,
+								Op:     trace.OpDrop,
+								Detail: "customer-vlan",
+							},
+						)
+
+						return Ingress{}, res, false
+					}
 				}
-			} else {
-				isUntagged = true
-				remainingTags = f.Tags
 			}
-		} else {
-			isUntagged = true
-		}
 
-		admission := sw.Admission
-		if admission == "" {
-			admission = All
-		}
-		switch admission {
-		case TaggedOnly:
-			if !isTagged {
-				res.Reason = ReasonAdmission
-				res.Steps = append(res.Steps,
-					trace.Step{
-						Layer:  port.LayerVlan,
-						Op:     trace.OpFilter,
-						Detail: "admission tagged-only rejected untagged frame",
-					},
-					trace.Step{
-						Layer:  port.LayerVlan,
-						Op:     trace.OpDrop,
-						Detail: "admission",
-					},
-				)
+			classifiedFID = sw.Tunnel.VID
+			remainingTags = f.Tags
 
-				return Ingress{}, res, false
-			}
-		case UntaggedAndPriorityTaggedOnly:
-			if isTagged {
-				res.Reason = ReasonAdmission
-				res.Steps = append(res.Steps,
-					trace.Step{
-						Layer:  port.LayerVlan,
-						Op:     trace.OpFilter,
-						Detail: "admission untagged-only rejected tagged frame",
-					},
-					trace.Step{
-						Layer:  port.LayerVlan,
-						Op:     trace.OpDrop,
-						Detail: "admission",
-					},
-				)
+			res.FID = classifiedFID
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerVlan,
+				Op:     trace.OpClassify,
+				Detail: fmt.Sprintf("vlan %d", classifiedFID),
+			})
 
-				return Ingress{}, res, false
-			}
-		case All:
-		}
-
-		if isPriorityTagged || isUntagged {
-			if !swOk || sw.PVID == nil {
-				res.Reason = ReasonNoPVID
+			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
+				res.Reason = ReasonUndefinedVLAN
 				res.Steps = append(res.Steps, trace.Step{
 					Layer:  port.LayerVlan,
 					Op:     trace.OpDrop,
-					Detail: "no PVID configured",
+					Detail: fmt.Sprintf("vlan %d undefined", classifiedFID),
 				})
 
 				return Ingress{}, res, false
 			}
-			classifiedFID = *sw.PVID
-		}
+		} else {
+			if len(f.Tags) > 0 {
+				outer := f.Tags[0]
+				if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
+					ingressPCP = outer.PCP
+					ingressDEI = outer.DEI
+					remainingTags = f.Tags[1:]
+					if outer.VID != 0 {
+						isTagged = true
+						classifiedFID = outer.VID
+					} else {
+						isPriorityTagged = true
+					}
+				} else {
+					isUntagged = true
+					remainingTags = f.Tags
+				}
+			} else {
+				isUntagged = true
+			}
 
-		res.FID = classifiedFID
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerVlan,
-			Op:     trace.OpClassify,
-			Detail: fmt.Sprintf("vlan %d", classifiedFID),
-		})
+			admission := sw.Admission
+			if admission == "" {
+				admission = All
+			}
+			switch admission {
+			case TaggedOnly:
+				if !isTagged {
+					res.Reason = ReasonAdmission
+					res.Steps = append(res.Steps,
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpFilter,
+							Detail: "admission tagged-only rejected untagged frame",
+						},
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpDrop,
+							Detail: "admission",
+						},
+					)
 
-		if sw.IngressFiltering {
-			isMember := slices.Contains(sw.Tagged, classifiedFID) || slices.Contains(sw.Untagged, classifiedFID)
-			if !isMember {
-				res.Reason = ReasonIngressFilter
-				res.Steps = append(res.Steps,
-					trace.Step{
-						Layer:  port.LayerVlan,
-						Op:     trace.OpFilter,
-						Detail: fmt.Sprintf("ingress filter rejected vlan %d", classifiedFID),
-					},
-					trace.Step{
+					return Ingress{}, res, false
+				}
+			case UntaggedAndPriorityTaggedOnly:
+				if isTagged {
+					res.Reason = ReasonAdmission
+					res.Steps = append(res.Steps,
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpFilter,
+							Detail: "admission untagged-only rejected tagged frame",
+						},
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpDrop,
+							Detail: "admission",
+						},
+					)
+
+					return Ingress{}, res, false
+				}
+			case All:
+			}
+
+			if isPriorityTagged || isUntagged {
+				if !swOk || sw.PVID == nil {
+					res.Reason = ReasonNoPVID
+					res.Steps = append(res.Steps, trace.Step{
 						Layer:  port.LayerVlan,
 						Op:     trace.OpDrop,
-						Detail: "ingress-filter",
-					},
-				)
+						Detail: "no PVID configured",
+					})
+
+					return Ingress{}, res, false
+				}
+				classifiedFID = *sw.PVID
+			}
+
+			res.FID = classifiedFID
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerVlan,
+				Op:     trace.OpClassify,
+				Detail: fmt.Sprintf("vlan %d", classifiedFID),
+			})
+
+			if sw.IngressFiltering {
+				isMember := slices.Contains(sw.Tagged, classifiedFID) || slices.Contains(sw.Untagged, classifiedFID)
+				if !isMember {
+					res.Reason = ReasonIngressFilter
+					res.Steps = append(res.Steps,
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpFilter,
+							Detail: fmt.Sprintf("ingress filter rejected vlan %d", classifiedFID),
+						},
+						trace.Step{
+							Layer:  port.LayerVlan,
+							Op:     trace.OpDrop,
+							Detail: "ingress-filter",
+						},
+					)
+
+					return Ingress{}, res, false
+				}
+			}
+
+			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
+				res.Reason = ReasonUndefinedVLAN
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerVlan,
+					Op:     trace.OpDrop,
+					Detail: fmt.Sprintf("vlan %d undefined", classifiedFID),
+				})
 
 				return Ingress{}, res, false
 			}
-		}
-
-		if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
-			res.Reason = ReasonUndefinedVLAN
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:  port.LayerVlan,
-				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("vlan %d undefined", classifiedFID),
-			})
-
-			return Ingress{}, res, false
 		}
 	}
 
@@ -512,6 +563,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 		PCP:           ingressPCP,
 		DEI:           ingressDEI,
 		RemainingTags: remainingTags,
+		TPID:          ingressTPID,
 		Steps:         res.Steps,
 	}
 
@@ -610,7 +662,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		egressFrame, isMember := b.buildEgressFrame(destPort.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags)
+		egressFrame, isMember := b.buildEgressFrame(destPort.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
 		if b.cfg.VLAN != nil && !isMember {
 			res.Reason = ReasonNotMember
 			res.Egress = append(res.Egress, Egress{
@@ -717,7 +769,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			if !exists {
 				continue
 			}
-			isMember := slices.Contains(sw.Tagged, in.FID) || slices.Contains(sw.Untagged, in.FID)
+			isMember := slices.Contains(sw.Tagged, in.FID) || slices.Contains(sw.Untagged, in.FID) || (sw.Tunnel != nil && sw.Tunnel.VID == in.FID)
 			if !isMember {
 				continue
 			}
@@ -748,7 +800,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 	for i, cand := range candidates {
 		mem := memberNames[i]
 		txReason := txReasons[i]
-		egressFrame, _ := b.buildEgressFrame(cand.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags)
+		egressFrame, _ := b.buildEgressFrame(cand.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
 		if b.gate != nil && !b.gate.Forwards(cand.Name) {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
@@ -838,6 +890,7 @@ func (b *Bridge) buildEgressFrame(
 	ingressPCP vlan.PCP,
 	ingressDEI bool,
 	remainingTags []vlan.Tag,
+	ingressTPID uint16,
 ) (ethernet.Frame, bool) {
 	out := f
 	if b.cfg.VLAN == nil {
@@ -849,9 +902,28 @@ func (b *Bridge) buildEgressFrame(
 		return out, false
 	}
 
+	if sw.Tunnel != nil {
+		if sw.Tunnel.VID == vid {
+			if len(remainingTags) > 0 {
+				out.Tags = make([]vlan.Tag, len(remainingTags))
+				copy(out.Tags, remainingTags)
+			} else {
+				out.Tags = nil
+			}
+
+			return out, true
+		}
+
+		return out, false
+	}
+
 	if slices.Contains(sw.Tagged, vid) {
+		tpid := ingressTPID
+		if tpid == 0 {
+			tpid = uint16(ethernet.EtherTypeDot1Q)
+		}
 		cTag := vlan.Tag{
-			TPID: uint16(ethernet.EtherTypeDot1Q),
+			TPID: tpid,
 			PCP:  ingressPCP,
 			DEI:  ingressDEI,
 			VID:  vid,
@@ -864,6 +936,20 @@ func (b *Bridge) buildEgressFrame(
 	}
 
 	if slices.Contains(sw.Untagged, vid) {
+		if sw.PriorityTags == PriorityTagsAlways || (sw.PriorityTags == PriorityTagsIfNonzero && ingressPCP != 0) {
+			cTag := vlan.Tag{
+				TPID: uint16(ethernet.EtherTypeDot1Q),
+				PCP:  ingressPCP,
+				DEI:  ingressDEI,
+				VID:  0,
+			}
+			out.Tags = make([]vlan.Tag, 0, 1+len(remainingTags))
+			out.Tags = append(out.Tags, cTag)
+			out.Tags = append(out.Tags, remainingTags...)
+
+			return out, true
+		}
+
 		if len(remainingTags) > 0 {
 			out.Tags = make([]vlan.Tag, len(remainingTags))
 			copy(out.Tags, remainingTags)

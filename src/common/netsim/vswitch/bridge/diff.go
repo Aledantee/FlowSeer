@@ -12,8 +12,8 @@ import (
 
 // Diff computes the difference between two bridge configurations, reporting changes to
 // the VLAN table (additions, removals, and renames), per-port switchport settings (PVID,
-// tagged and untagged sets, ingress filtering, and frame admission), aging time,
-// maximum table entries, flood VLANs, protected ports, and BPDU forwarding.
+// tagged and untagged sets, ingress filtering, frame admission, tunnel, and priority tags),
+// aging time, maximum table entries, flood VLANs, protected ports, and BPDU forwarding.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -190,6 +190,56 @@ func Diff(a, b Config) []trace.Change {
 				Field: "frame_admission",
 				From:  aSw.Admission,
 				To:    bSw.Admission,
+			})
+		}
+
+		var (
+			tunnelChanged bool
+			fromTunnel    any
+			toTunnel      any
+		)
+		if (aSw.Tunnel == nil) != (bSw.Tunnel == nil) {
+			tunnelChanged = true
+		} else if aSw.Tunnel != nil && bSw.Tunnel != nil {
+			aCust := slices.Clone(aSw.Tunnel.CustomerVIDs)
+			slices.Sort(aCust)
+			bCust := slices.Clone(bSw.Tunnel.CustomerVIDs)
+			slices.Sort(bCust)
+			if aSw.Tunnel.VID != bSw.Tunnel.VID ||
+				aSw.Tunnel.EffectiveTPID() != bSw.Tunnel.EffectiveTPID() ||
+				!slices.Equal(aCust, bCust) {
+				tunnelChanged = true
+			}
+		}
+		if tunnelChanged {
+			if aSw.Tunnel != nil {
+				fromTunnel = *aSw.Tunnel
+			}
+			if bSw.Tunnel != nil {
+				toTunnel = *bSw.Tunnel
+			}
+			changes = append(changes, trace.Change{
+				Layer: port.LayerVlan,
+				Subject: trace.Subject{
+					Kind: "port",
+					Key:  name,
+				},
+				Field: "tunnel",
+				From:  fromTunnel,
+				To:    toTunnel,
+			})
+		}
+
+		if aSw.PriorityTags != bSw.PriorityTags {
+			changes = append(changes, trace.Change{
+				Layer: port.LayerVlan,
+				Subject: trace.Subject{
+					Kind: "port",
+					Key:  name,
+				},
+				Field: "priority_tags",
+				From:  aSw.PriorityTags,
+				To:    bSw.PriorityTags,
 			})
 		}
 	}

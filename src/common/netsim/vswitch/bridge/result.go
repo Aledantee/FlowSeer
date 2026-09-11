@@ -36,6 +36,9 @@ const (
 
 	// ReasonProtected indicates a frame dropped because transmission between protected ports is prohibited.
 	ReasonProtected trace.Reason = "protected"
+
+	// ReasonCustomerVLAN indicates a frame dropped on a tunnel port because its customer VLAN was not permitted.
+	ReasonCustomerVLAN trace.Reason = "customer-vlan"
 )
 
 // Egress records the transmission or per-port drop of a frame on a specific egress port.
