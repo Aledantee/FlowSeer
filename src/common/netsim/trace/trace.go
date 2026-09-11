@@ -57,6 +57,9 @@ const (
 
 	// Dropped is a frame discarded without transmission.
 	Dropped Outcome = "Dropped"
+
+	// Consumed is a frame received and taken by the device for itself.
+	Consumed Outcome = "Consumed"
 )
 
 // Reason explains why a frame met its outcome, such as why it was dropped or flooded.

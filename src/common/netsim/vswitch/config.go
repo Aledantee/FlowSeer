@@ -4,19 +4,23 @@ package vswitch
 import (
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Config specifies the configuration of a virtual switch, combining its port table,
-// optional physical layer attributes, and optional bridge relay and VLAN configuration.
+// optional physical layer attributes, optional bridge relay and VLAN configuration,
+// and optional spanning tree configuration.
 //
 // Config is safe for concurrent read access.
 type Config struct {
 	Ports  port.Table
 	Phy    *phy.Config
 	Bridge *bridge.Config
+	STP    *stp.Config
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
@@ -28,6 +32,9 @@ func (c Config) Capabilities() []port.Layer {
 		if c.Bridge.VLAN != nil {
 			caps = append(caps, port.LayerVlan)
 		}
+	}
+	if c.STP != nil {
+		caps = append(caps, port.LayerStp)
 	}
 	if c.Phy != nil {
 		if c.Phy.Ethernet != nil {
@@ -65,6 +72,14 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	if c.STP != nil {
+		if c.Bridge == nil {
+			return errs.New().Msg("spanning tree requires bridge configuration")
+		}
+		if err := c.STP.Validate(c.Ports); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -80,6 +95,16 @@ func (c Config) Clone() Config {
 	if c.Bridge != nil {
 		b := c.Bridge.Clone()
 		cp.Bridge = &b
+	}
+	if c.STP != nil {
+		stpCfg := *c.STP
+		if c.STP.Ports != nil {
+			stpCfg.Ports = make(map[string]stp.Port, len(c.STP.Ports))
+			for k, v := range c.STP.Ports {
+				stpCfg.Ports[k] = v
+			}
+		}
+		cp.STP = &stpCfg
 	}
 
 	return cp

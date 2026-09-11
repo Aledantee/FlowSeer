@@ -14,6 +14,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
+// Gate decides whether a port learns addresses and forwards frames.
+type Gate interface {
+	Learns(port string) bool
+	Forwards(port string) bool
+}
+
 // Bridge simulates an Ethernet transparent bridge with optional IEEE 802.1Q VLAN awareness.
 //
 // A Bridge is not safe for concurrent use.
@@ -22,6 +28,7 @@ type Bridge struct {
 	ports     port.Table
 	agingTime time.Duration
 	fdb       map[fdbKey]Entry
+	gate      Gate
 }
 
 // New constructs a [Bridge] with the provided configuration and port table.
@@ -48,6 +55,45 @@ func New(cfg Config, ports port.Table) *Bridge {
 // Validate verifies the invariants of the bridge configuration against the given port table.
 func (b *Bridge) Validate(ports port.Table) error {
 	return b.cfg.Validate(ports)
+}
+
+// SetGate installs g as the bridge forwarding and learning gate.
+// A nil gate allows every port to learn and forward.
+func (b *Bridge) SetGate(g Gate) {
+	b.gate = g
+}
+
+// FlushPorts removes dynamic forwarding database entries learned on the named ports.
+func (b *Bridge) FlushPorts(ports []string) {
+	if len(ports) == 0 {
+		return
+	}
+	portSet := make(map[string]struct{}, len(ports))
+	for _, p := range ports {
+		portSet[p] = struct{}{}
+	}
+	for key, e := range b.fdb {
+		if !e.Static {
+			if _, ok := portSet[e.Port]; ok {
+				delete(b.fdb, key)
+			}
+		}
+	}
+}
+
+// SetOperStatus updates the operational link state of the named port in the bridge's port table.
+func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
+	builder := port.NewBuilder()
+	for _, p := range b.ports.Ports() {
+		if p.Name == portName {
+			p.OperStatus = state
+		}
+		builder.Add(p)
+	}
+	tbl, err := builder.Build()
+	if err == nil {
+		b.ports = tbl
+	}
 }
 
 // Learn preloads the forwarding database with the provided seeds. A seed naming a
@@ -150,6 +196,24 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			Layer:  port.LayerRelay,
 			Op:     trace.OpDrop,
 			Detail: "reserved bridge address",
+		})
+
+		return res
+	}
+
+	ingressLearns := true
+	ingressForwards := true
+	if b.gate != nil {
+		ingressLearns = b.gate.Learns(res.Ingress)
+		ingressForwards = b.gate.Forwards(res.Ingress)
+	}
+
+	if !ingressLearns && !ingressForwards {
+		res.Reason = ReasonPortBlocked
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:  port.LayerRelay,
+			Op:     trace.OpDrop,
+			Detail: "port-blocked",
 		})
 
 		return res
@@ -294,7 +358,7 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		}
 	}
 
-	if learn && !f.Src.IsGroup() {
+	if learn && ingressLearns && !f.Src.IsGroup() {
 		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
 		existing, exists := b.fdb[srcKey]
 		if !exists {
@@ -324,6 +388,17 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 				Detail: detail,
 			})
 		}
+	}
+
+	if !ingressForwards {
+		res.Reason = ReasonPortBlocked
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:  port.LayerRelay,
+			Op:     trace.OpDrop,
+			Detail: "port-blocked",
+		})
+
+		return res
 	}
 
 	var (
@@ -437,6 +512,23 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 			return res
 		}
 
+		if b.gate != nil && !b.gate.Forwards(destPort.Name) {
+			res.Reason = ReasonPortBlocked
+			res.Egress = append(res.Egress, Egress{
+				Port:    destPort.Name,
+				Member:  memberName,
+				Frame:   egressFrame,
+				Dropped: ReasonPortBlocked,
+			})
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerRelay,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s: port-blocked", destPort.Name),
+			})
+
+			return res
+		}
+
 		if destPort.MTU > 0 && len(f.Payload) > destPort.MTU {
 			res.Reason = ReasonMTUExceeded
 			res.Egress = append(res.Egress, Egress{
@@ -536,6 +628,22 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 	for i, cand := range candidates {
 		mem := memberNames[i]
 		egressFrame, _ := b.buildEgressFrame(cand.Name, classifiedFID, f, ingressPCP, ingressDEI, remainingTags)
+		if b.gate != nil && !b.gate.Forwards(cand.Name) {
+			res.Egress = append(res.Egress, Egress{
+				Port:    cand.Name,
+				Member:  mem,
+				Frame:   egressFrame,
+				Dropped: ReasonPortBlocked,
+			})
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:  port.LayerRelay,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s: port-blocked", cand.Name),
+			})
+
+			continue
+		}
+
 		if cand.MTU > 0 && len(f.Payload) > cand.MTU {
 			res.Egress = append(res.Egress, Egress{
 				Port:    cand.Name,
@@ -576,7 +684,11 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 		res.Outcome = trace.Flooded
 	} else {
 		res.Outcome = trace.Dropped
-		res.Reason = ReasonMTUExceeded
+		if len(res.Egress) > 0 {
+			res.Reason = res.Egress[0].Dropped
+		} else {
+			res.Reason = ReasonMTUExceeded
+		}
 	}
 
 	return res

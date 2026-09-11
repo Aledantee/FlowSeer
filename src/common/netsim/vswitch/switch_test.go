@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 var fixedTime = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
@@ -900,4 +901,330 @@ func TestSwitchAge(t *testing.T) {
 			t.Errorf("hub entries = %v, want nil", entries)
 		}
 	})
+}
+
+func TestCapabilitiesSTP(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	want := []port.Layer{port.LayerRelay, port.LayerStp}
+	if caps := cfg.Capabilities(); !slices.Equal(caps, want) {
+		t.Errorf("got capabilities %v, want %v", caps, want)
+	}
+}
+
+func TestValidateRefusesSTPWithoutBridge(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("Validate() = nil, want error when STP is configured without bridge")
+	}
+}
+
+func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	bpdu.SetProposal(true)
+
+	frame := stp.Encode(bpdu, macRoot)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
+	}
+	if len(res.Steps) != 1 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
+		t.Errorf("res.Steps = %+v, want one classify step naming stp", res.Steps)
+	}
+
+	emissions := sw.Drain()
+	if len(emissions) == 0 {
+		t.Fatalf("Drain() returned 0 emissions, want at least 1")
+	}
+}
+
+func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"lag1":  {},
+				"1/1/3": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+
+	frame := stp.Encode(bpdu, macRoot)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
+	}
+	if res.Ingress != "lag1" {
+		t.Errorf("res.Ingress = %q, want %q", res.Ingress, "lag1")
+	}
+}
+
+func TestHubRepeatsBPDU(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{Ports: tbl}
+	sw := vswitch.New(cfg)
+
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	bpdu := stp.BPDU{
+		RootID:   stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID: stp.BridgeID{Priority: 4096, Address: macRoot},
+	}
+	frame := stp.Encode(bpdu, macRoot)
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Flooded)
+	}
+	if len(res.Egress) != 1 || res.Egress[0].Port != "1/1/2" {
+		t.Errorf("res.Egress = %+v, want flooded to 1/1/2", res.Egress)
+	}
+}
+
+func TestDiffSTPPriorityChange(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}))
+
+	mac := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	cfgA := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+	cfgB := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 4096,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	changes := vswitch.Diff(cfgA, cfgB)
+	found := false
+	for _, ch := range changes {
+		if ch.Layer == port.LayerStp && ch.Subject.Kind == "bridge" && ch.Field == "priority" {
+			found = true
+			if ch.From != uint16(32768) || ch.To != uint16(4096) {
+				t.Errorf("priority change = %+v, want 32768 -> 4096", ch)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("Diff() did not find stp priority change: %+v", changes)
+	}
+}
+
+func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	bpdu.SetProposal(true)
+
+	frame := stp.Encode(bpdu, macRoot)
+
+	res := sw.Peek(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("Peek outcome = %q, want %q", res.Outcome, trace.Consumed)
+	}
+
+	if emissions := sw.Drain(); len(emissions) != 0 {
+		t.Errorf("Peek generated emissions: %+v, want none", emissions)
+	}
+
+	roles := sw.Roles()
+	if roles["1/1/1"].Role == stp.RoleRoot {
+		t.Errorf("Peek modified role of 1/1/1 to Root")
+	}
+}
+
+func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	bpdu.SetProposal(true)
+
+	sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+
+	rolesBefore := sw.Roles()
+	if rolesBefore["1/1/1"].Role != stp.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
+		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
+	}
+
+	derived, err := vswitch.Derive(sw, cfg)
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	rolesAfter := derived.Roles()
+	if rolesAfter["1/1/1"].Role != stp.RoleRoot || rolesAfter["1/1/1"].State != stp.StateForwarding {
+		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", rolesAfter["1/1/1"].Role, rolesAfter["1/1/1"].State)
+	}
 }

@@ -5,17 +5,39 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 // Derive builds a new [Switch] from the target configuration, seeding it with every
 // dynamic forwarding database entry from the current switch that the new configuration
-// still admits. It returns an error if the new configuration fails validation.
+// still admits. A derived standalone switch keeps the roles of the current one when
+// the spanning tree configuration is unchanged. It returns an error if the new
+// configuration fails validation.
 func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	next := New(cfg)
+	if cur != nil && cur.stp != nil && cfg.STP != nil && len(stp.Diff(*cur.cfg.STP, *cfg.STP)) == 0 {
+		next.stp = cur.stp.Clone()
+		if next.bridge != nil {
+			next.bridge.SetGate(next.stp)
+		}
+		if cur.portP2P != nil {
+			next.portP2P = make(map[string]bool, len(cur.portP2P))
+			for k, v := range cur.portP2P {
+				next.portP2P[k] = v
+			}
+		}
+		if cur.portSpeed != nil {
+			next.portSpeed = make(map[string]uint64, len(cur.portSpeed))
+			for k, v := range cur.portSpeed {
+				next.portSpeed[k] = v
+			}
+		}
+	}
+
 	if cur == nil || cur.bridge == nil || next.bridge == nil {
 		return next, nil
 	}

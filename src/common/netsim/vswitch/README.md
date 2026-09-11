@@ -102,6 +102,10 @@ The virtual switch uses a ladder of architectural layers:
 - **Switch**: Configured with a `port.Table` and `bridge.Config` containing a
   `bridge.VLAN`. Performs 802.1Q ingress classification, admission checks,
   ingress VLAN filtering, per-VLAN learning, and egress tag rewrites.
+- **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
+  `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
+  bridge and compute loop-free port states. Implements the bridge gate to
+  block traffic on Discarding ports while learning on Learning ports.
 
 Optional physical subsystems (`phy.Config`) provide physical Ethernet speed
 resolution, auto-negotiation, and Power over Ethernet budget allocation.
@@ -161,6 +165,22 @@ Drop reasons recorded in traces and egress records:
 | `mtu-exceeded`     | Frame payload length exceeds egress port MTU            |
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
+| `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
+| `unsupported-bpdu` | Frame could not be decoded as an RST BPDU               |
+
+## Protocol schedule
+
+The spanning tree layer operates deterministically without background timers.
+The host drives it through explicit calls:
+
+- `Start(now)` initializes link state across all ports from the port table.
+- `Wake(now)` fires due hello, forward delay, and topology change timers.
+- `NextWake()` reports the earliest deadline when the switch needs a wake.
+- `Drain()` returns and clears pending frame emissions produced by the layer.
+- `Roles()` exposes current port roles and forwarding states.
+
+Frames addressed to 01-80-C2-00-00-00 are intercepted before relay processing;
+their trace ends with outcome `Consumed`.
 
 ## Denied PoE port status
 

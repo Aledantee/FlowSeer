@@ -36,6 +36,9 @@ const (
 
 	// ReasonNoEgress indicates a flood with no forwarding member port other than the ingress port.
 	ReasonNoEgress trace.Reason = "no-egress"
+
+	// ReasonPortBlocked indicates a frame dropped because a port is blocked from learning or forwarding.
+	ReasonPortBlocked trace.Reason = "port-blocked"
 )
 
 // Egress records the transmission or per-port drop of a frame on a specific egress port.

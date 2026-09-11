@@ -1133,3 +1133,152 @@ func TestDiff(t *testing.T) {
 		t.Errorf("missing port 1/1/2 frame_admission change")
 	}
 }
+
+type testGate struct {
+	learns   map[string]bool
+	forwards map[string]bool
+}
+
+func (g testGate) Learns(p string) bool {
+	if g.learns == nil {
+		return true
+	}
+
+	return g.learns[p]
+}
+
+func (g testGate) Forwards(p string) bool {
+	if g.forwards == nil {
+		return true
+	}
+
+	return g.forwards[p]
+}
+
+func TestGateBlocksIngressWithoutLearning(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := bridge.New(bridge.Config{}, ports)
+	br.SetGate(testGate{
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	})
+
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Outcome != trace.Dropped {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Dropped)
+	}
+	if res.Reason != bridge.ReasonPortBlocked {
+		t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortBlocked)
+	}
+	if len(br.Entries()) != 0 {
+		t.Errorf("len(br.Entries()) = %d, want 0", len(br.Entries()))
+	}
+}
+
+func TestGateLearningOnlyIngressLearnsThenDrops(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := bridge.New(bridge.Config{}, ports)
+	br.SetGate(testGate{
+		learns:   map[string]bool{"1/1/1": true, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	})
+
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Outcome != trace.Dropped {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Dropped)
+	}
+	if res.Reason != bridge.ReasonPortBlocked {
+		t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortBlocked)
+	}
+	entries := br.Entries()
+	if len(entries) != 1 || entries[0].MAC != macA || entries[0].Port != "1/1/1" {
+		t.Fatalf("Entries() = %+v, want learned entry for macA on 1/1/1", entries)
+	}
+}
+
+func TestGateBlocksEgress(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	br := bridge.New(bridge.Config{}, ports)
+	br.SetGate(testGate{
+		learns:   map[string]bool{"1/1/1": true, "1/1/2": true, "1/1/3": true},
+		forwards: map[string]bool{"1/1/1": true, "1/1/2": false, "1/1/3": true},
+	})
+
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Flooded)
+	}
+	var egress2, egress3 *bridge.Egress
+	for i := range res.Egress {
+		if res.Egress[i].Port == "1/1/2" {
+			egress2 = &res.Egress[i]
+		}
+		if res.Egress[i].Port == "1/1/3" {
+			egress3 = &res.Egress[i]
+		}
+	}
+	if egress2 == nil || egress2.Dropped != bridge.ReasonPortBlocked {
+		t.Errorf("egress on 1/1/2 = %+v, want dropped with %q", egress2, bridge.ReasonPortBlocked)
+	}
+	if egress3 == nil || egress3.Dropped != "" {
+		t.Errorf("egress on 1/1/3 = %+v, want forwarded", egress3)
+	}
+}
+
+func TestFlushPorts(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	br := bridge.New(bridge.Config{}, ports)
+	br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4})
+	br.Forward(testTime0, "1/1/2", ethernet.Frame{Dst: macA, Src: macB, EtherType: ethernet.EtherTypeIPv4})
+
+	if len(br.Entries()) != 2 {
+		t.Fatalf("initial entries count = %d, want 2", len(br.Entries()))
+	}
+
+	br.FlushPorts([]string{"1/1/1"})
+	entries := br.Entries()
+	if len(entries) != 1 || entries[0].Port != "1/1/2" {
+		t.Fatalf("after FlushPorts Entries() = %+v, want 1 entry on 1/1/2", entries)
+	}
+}
+
+func TestSetOperStatusRemovesPortFromFloodSet(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	br := bridge.New(bridge.Config{}, ports)
+
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+	resBefore := br.Forward(testTime0, "1/1/1", frame)
+	if len(resBefore.Egress) != 2 {
+		t.Fatalf("egress count before = %d, want 2", len(resBefore.Egress))
+	}
+
+	br.SetOperStatus("1/1/2", port.Down)
+
+	resAfter := br.Forward(testTime0, "1/1/1", frame)
+	if len(resAfter.Egress) != 1 || resAfter.Egress[0].Port != "1/1/3" {
+		t.Fatalf("egress after SetOperStatus = %+v, want only 1/1/3", resAfter.Egress)
+	}
+}

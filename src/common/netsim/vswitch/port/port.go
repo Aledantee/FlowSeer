@@ -28,6 +28,9 @@ const (
 
 	// LayerVlan identifies the 802.1Q VLAN awareness and filtering layer.
 	LayerVlan trace.Layer = "vlan"
+
+	// LayerStp identifies the Rapid Spanning Tree Protocol layer.
+	LayerStp trace.Layer = "stp"
 )
 
 // Kind categorizes an interface by its underlying hardware or logical implementation.
