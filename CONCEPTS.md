@@ -118,6 +118,10 @@ A bundle of per-layer attributes for one interface — switchport membership, IP
 
 Device-scoped state whose rows reference interfaces by name — the FDB, the neighbor cache, the VLAN database. Tables hang off the device, never under an interface, because every consumer queries them device-wide. The facet-versus-table distinction decides where a message embeds.
 
+### Virtual Device
+
+A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+
 ## Capture
 
 ### Capture Session

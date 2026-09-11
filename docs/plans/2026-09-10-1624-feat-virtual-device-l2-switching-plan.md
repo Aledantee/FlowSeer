@@ -4,12 +4,15 @@ type: feat
 date: 2026-09-10
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: superseded
+superseded_by: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 execution: mixed
 amends: docs/architecture/2026-09-09-mutation-shadow-projection-direction.md
 ---
 
 # Virtual Device, Sizable Ports and Basic L2 Switching - Plan
+
+> Superseded on 2026-09-10 by the network simulation environment parent plan; its phase 1 plan carries this plan's units with capability-based composition and one state per switch.
 
 ## Goal
 

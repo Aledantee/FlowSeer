@@ -144,7 +144,9 @@ Rules:
   `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines, cut what the implementer can decide alone,
   then load `references/phases.md` and split along its dependency
-  clusters into a parent plan and phase plans.
+  clusters into a parent plan and phase plans. A request that names a
+  decided sequence of changes gets a parent plan by the same reference
+  without waiting for the size check.
 
 ## 4. Review the plan
 

@@ -22,6 +22,7 @@ import (
 	// import rather than letting the package go unwalked in silence.
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 )
 
@@ -72,11 +73,13 @@ func namesAnInterface(name string) bool {
 // TestSharedFieldNamesCarryTheSameConstraints checks the bound before it
 // consults this map, so an exemption buys the pattern and nothing else.
 var exempt = map[string]string{
-	"flowseer.net.switching.v1.FdbEntry.interface_name":           "device-reported egress interface",
-	"flowseer.net.protocol.lldp.v1.PortSettings.interface_name":   "device-reported agent interface",
-	"flowseer.net.protocol.lldp.v1.Neighbor.local_interface_name": "device-reported receiving interface",
-	"flowseer.net.ip.v1.InterfaceAddress.interface_name":          "device-reported interface",
-	"flowseer.net.ip.v1.NeighborEntry.interface_name":             "device-reported scoping interface",
+	"flowseer.net.switching.v1.FdbEntry.interface_name":                 "device-reported egress interface",
+	"flowseer.net.protocol.lldp.v1.PortSettings.interface_name":         "device-reported agent interface",
+	"flowseer.net.protocol.lldp.v1.Neighbor.local_interface_name":       "device-reported receiving interface",
+	"flowseer.net.ip.v1.InterfaceAddress.interface_name":                "device-reported interface",
+	"flowseer.net.ip.v1.NeighborEntry.interface_name":                   "device-reported scoping interface",
+	"flowseer.net.protocol.stp.v1.PortState.interface_name":             "device-reported spanning tree port",
+	"flowseer.net.protocol.stp.v1.BridgeState.root_port_interface_name": "device-reported root port",
 }
 
 // TestSharedFieldNamesCarryTheSameConstraints walks every message in the

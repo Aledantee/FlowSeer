@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+// Administrative point-to-point status of the LAN segment attached to a port.
+// Mirrors dot1dStpPortAdminPointToPoint from RFC 4318 (RSTP-MIB).
+enum PointToPointMode {
+  // Point-to-point mode was not reported.
+  POINT_TO_POINT_MODE_UNSPECIFIED = 0;
+  // Derived dynamically from link duplex and media negotiation.
+  POINT_TO_POINT_MODE_AUTO = 1;
+  // Forced to point-to-point operation regardless of duplex.
+  POINT_TO_POINT_MODE_FORCE_TRUE = 2;
+  // Forced to shared-media operation regardless of duplex.
+  POINT_TO_POINT_MODE_FORCE_FALSE = 3;
+}

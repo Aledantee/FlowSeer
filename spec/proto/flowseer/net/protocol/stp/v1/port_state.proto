@@ -1,0 +1,65 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+import "flowseer/net/protocol/stp/v1/bridge_id.proto";
+import "flowseer/net/protocol/stp/v1/forwarding_state.proto";
+import "flowseer/net/protocol/stp/v1/point_to_point_mode.proto";
+import "flowseer/net/protocol/stp/v1/port_role.proto";
+import option "buf/validate/validate.proto";
+
+// Observed spanning tree protocol state and administrative settings of one
+// port. The port's administrative settings travel in the same message, so
+// this package deliberately has no PortConfig and no PortEvent.
+message PortState {
+  // Device-local name of the interface. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Administrative port priority portion of the port identifier (0..255).
+  // Mirrors dot1dStpPortPriority (BRIDGE-MIB:595).
+  uint32 priority = 2 [(buf.validate.field).uint32.lte = 255];
+  // Administratively assigned contribution of this port to the root path cost
+  // (0..200000000). Zero is the automatic default. Mirrors
+  // dot1dStpPortAdminPathCost (RSTP-MIB:232).
+  uint32 admin_path_cost = 3 [(buf.validate.field).uint32.lte = 200000000];
+  // Operational path cost in use toward the root (1..200000000). Mirrors
+  // dot1dStpPortPathCost32 (BRIDGE-MIB:725).
+  uint32 path_cost = 4 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 200000000
+  ];
+  // Spanning tree port role assigned by RSTP.
+  PortRole role = 5;
+  // Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
+  ForwardingState state = 6;
+  // Unique bridge identifier of the spanning tree root recorded in configuration
+  // BPDUs. Absent means the port has received none. Mirrors
+  // dot1dStpPortDesignatedRoot (BRIDGE-MIB:668).
+  BridgeId designated_root = 7;
+  // Path cost offered by the designated port on the attached LAN segment.
+  // Mirrors dot1dStpPortDesignatedCost (BRIDGE-MIB:681).
+  uint32 designated_cost = 8;
+  // Bridge identifier of the designated bridge on the attached LAN segment.
+  // Absent means the port has received no BPDU. Mirrors
+  // dot1dStpPortDesignatedBridge (BRIDGE-MIB:693).
+  BridgeId designated_bridge = 9;
+  // Port identifier of the designated port on the designated bridge (0..65535).
+  // Mirrors dot1dStpPortDesignatedPort (BRIDGE-MIB:705).
+  uint32 designated_port = 10 [(buf.validate.field).uint32.lte = 65535];
+  // Administrative edge port status. Mirrors dot1dStpPortAdminEdgePort (RSTP-MIB:143).
+  bool admin_edge = 11;
+  // Operational edge port status. Mirrors dot1dStpPortOperEdgePort (RSTP-MIB:166).
+  bool oper_edge = 12;
+  // Administrative point-to-point status mode. Mirrors
+  // dot1dStpPortAdminPointToPoint (RSTP-MIB:182).
+  PointToPointMode point_to_point = 13;
+  // Operational point-to-point status. Mirrors dot1dStpPortOperPointToPoint
+  // (RSTP-MIB:212).
+  bool oper_point_to_point = 14;
+  // Number of transitions from Learning to Forwarding. Mirrors
+  // dot1dStpPortForwardTransitions (BRIDGE-MIB:716).
+  uint64 forward_transitions = 15;
+}

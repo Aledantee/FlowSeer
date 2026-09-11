@@ -1,0 +1,19 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+// Port role assigned by the Rapid Spanning Tree Protocol (IEEE 802.1D-2004).
+enum PortRole {
+  // Port role was not reported.
+  PORT_ROLE_UNSPECIFIED = 0;
+  // Port is administratively or operationally inactive.
+  PORT_ROLE_DISABLED = 1;
+  // Port providing the lowest-cost path to the root bridge.
+  PORT_ROLE_ROOT = 2;
+  // Port offering the lowest-cost path to the attached LAN segment.
+  PORT_ROLE_DESIGNATED = 3;
+  // Alternate path to the root bridge, discarded to prevent loops.
+  PORT_ROLE_ALTERNATE = 4;
+  // Backup path to the attached LAN segment, discarded to prevent loops.
+  PORT_ROLE_BACKUP = 5;
+}

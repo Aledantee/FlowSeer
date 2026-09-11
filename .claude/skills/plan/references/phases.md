@@ -45,6 +45,28 @@ five in `src/protocol/snmp` whose `After` lines depend on the first four
 becomes a parent with two phase units and two phase plans. Nine units that
 all touch `src/protocol/snmp` stay one plan.
 
+## A parent written on purpose
+
+A split is not the only way a parent comes to exist. When the request
+names a sequence of changes that are decided as a sequence, each one
+bounded enough to be its own plan and each depending on the one before,
+write the parent first and the phases under it in the same shape: the
+parent holds the Goal, the Decisions the phases share, and the
+Requirements each phase will claim; every phase after the first carries
+`needs-decisions` and its re-planning line. The parent is the one place
+the sequence and its `Landed:` lines live, so a later session sees what
+landed without reading the git log.
+
+The test is that the sequence is decided, not hoped for. A direction
+record's Consequences that name what could come later (a next layer, a
+later protocol) stay prose in that record; a parent plan for them would
+sit at `planned` with no code behind it and read as unfinished work. An
+example: a virtual switch whose L2 forwarding, spanning tree, and L3
+layers are each requested and ordered gets a parent with three phases and
+one implementation-ready phase plan; the same switch with only L2
+requested and the rest listed as possible growth in its direction record
+gets one plan.
+
 ## Review and hand off
 
 Step 4 dispatches the reviewer against the parent and the first phase

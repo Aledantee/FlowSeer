@@ -1,0 +1,13 @@
+edition = "2024";
+
+package flowseer.net.protocol.stp.v1;
+
+// Spanning Tree Protocol specification version.
+enum ProtocolVersion {
+  // Protocol version was not reported.
+  PROTOCOL_VERSION_UNSPECIFIED = 0;
+  // Legacy Spanning Tree Protocol (IEEE 802.1D-1998; dot1dStpVersion stpCompatible).
+  PROTOCOL_VERSION_STP = 1;
+  // Rapid Spanning Tree Protocol (IEEE 802.1D-2004; dot1dStpVersion rstp).
+  PROTOCOL_VERSION_RSTP = 2;
+}
