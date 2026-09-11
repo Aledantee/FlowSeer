@@ -5,6 +5,7 @@ edition = "2024";
 // changing any of them requires a queued-data migration.
 package flowseer.service.v1;
 
+import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
 // How the bus routes and interprets a persisted message.
@@ -77,4 +78,6 @@ message Message {
   // W3C tracestate header captured beside traceparent. Unset means the
   // publisher supplied no vendor trace state.
   string tracestate = 10 [(buf.validate.field).string.max_len = 512];
+  // When the producer handed the message to the bus. Must be present.
+  google.protobuf.Timestamp published_at = 11 [(buf.validate.field).required = true];
 }

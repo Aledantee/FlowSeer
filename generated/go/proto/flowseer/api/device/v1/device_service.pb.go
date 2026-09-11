@@ -1270,6 +1270,8 @@ func (b0 ResolveDesynchronizationResponse_builder) Build() *ResolveDesynchroniza
 type ListEdgeOpenMutationsRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_EdgeId      *string                `protobuf:"bytes,1,opt,name=edge_id,json=edgeId"`
+	xxx_hidden_PageSize    uint32                 `protobuf:"varint,2,opt,name=page_size,json=pageSize"`
+	xxx_hidden_PageToken   *string                `protobuf:"bytes,3,opt,name=page_token,json=pageToken"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1311,9 +1313,36 @@ func (x *ListEdgeOpenMutationsRequest) GetEdgeId() string {
 	return ""
 }
 
+func (x *ListEdgeOpenMutationsRequest) GetPageSize() uint32 {
+	if x != nil {
+		return x.xxx_hidden_PageSize
+	}
+	return 0
+}
+
+func (x *ListEdgeOpenMutationsRequest) GetPageToken() string {
+	if x != nil {
+		if x.xxx_hidden_PageToken != nil {
+			return *x.xxx_hidden_PageToken
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ListEdgeOpenMutationsRequest) SetEdgeId(v string) {
 	x.xxx_hidden_EdgeId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ListEdgeOpenMutationsRequest) SetPageSize(v uint32) {
+	x.xxx_hidden_PageSize = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *ListEdgeOpenMutationsRequest) SetPageToken(v string) {
+	x.xxx_hidden_PageToken = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
 func (x *ListEdgeOpenMutationsRequest) HasEdgeId() bool {
@@ -1323,9 +1352,33 @@ func (x *ListEdgeOpenMutationsRequest) HasEdgeId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *ListEdgeOpenMutationsRequest) HasPageSize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ListEdgeOpenMutationsRequest) HasPageToken() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
 func (x *ListEdgeOpenMutationsRequest) ClearEdgeId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_EdgeId = nil
+}
+
+func (x *ListEdgeOpenMutationsRequest) ClearPageSize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_PageSize = 0
+}
+
+func (x *ListEdgeOpenMutationsRequest) ClearPageToken() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_PageToken = nil
 }
 
 type ListEdgeOpenMutationsRequest_builder struct {
@@ -1337,6 +1390,10 @@ type ListEdgeOpenMutationsRequest_builder struct {
 	// edge is named here by identifier rather than by reference. Must be
 	// present.
 	EdgeId *string
+	// Rows per page. Unset means the service default; never more than 1000.
+	PageSize *uint32
+	// Opaque token from the previous page. Unset means the first page.
+	PageToken *string
 }
 
 func (b0 ListEdgeOpenMutationsRequest_builder) Build() *ListEdgeOpenMutationsRequest {
@@ -1344,8 +1401,16 @@ func (b0 ListEdgeOpenMutationsRequest_builder) Build() *ListEdgeOpenMutationsReq
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.EdgeId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_EdgeId = b.EdgeId
+	}
+	if b.PageSize != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_PageSize = *b.PageSize
+	}
+	if b.PageToken != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_PageToken = b.PageToken
 	}
 	return m0
 }
@@ -1448,10 +1513,13 @@ func (b0 OpenMutation_builder) Build() *OpenMutation {
 }
 
 type ListEdgeOpenMutationsResponse struct {
-	state           protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Open *[]*OpenMutation       `protobuf:"bytes,1,rep,name=open"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Open          *[]*OpenMutation       `protobuf:"bytes,1,rep,name=open"`
+	xxx_hidden_NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ListEdgeOpenMutationsResponse) Reset() {
@@ -1488,8 +1556,35 @@ func (x *ListEdgeOpenMutationsResponse) GetOpen() []*OpenMutation {
 	return nil
 }
 
+func (x *ListEdgeOpenMutationsResponse) GetNextPageToken() string {
+	if x != nil {
+		if x.xxx_hidden_NextPageToken != nil {
+			return *x.xxx_hidden_NextPageToken
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *ListEdgeOpenMutationsResponse) SetOpen(v []*OpenMutation) {
 	x.xxx_hidden_Open = &v
+}
+
+func (x *ListEdgeOpenMutationsResponse) SetNextPageToken(v string) {
+	x.xxx_hidden_NextPageToken = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ListEdgeOpenMutationsResponse) HasNextPageToken() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ListEdgeOpenMutationsResponse) ClearNextPageToken() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_NextPageToken = nil
 }
 
 type ListEdgeOpenMutationsResponse_builder struct {
@@ -1498,6 +1593,9 @@ type ListEdgeOpenMutationsResponse_builder struct {
 	// One row per device with an open mutation, in device-id order. Empty
 	// means the edge holds no lane open.
 	Open []*OpenMutation
+	// Opaque token for the page after this one. A page may be empty while a
+	// token is set; the listing ends only when the token is unset.
+	NextPageToken *string
 }
 
 func (b0 ListEdgeOpenMutationsResponse_builder) Build() *ListEdgeOpenMutationsResponse {
@@ -1505,6 +1603,10 @@ func (b0 ListEdgeOpenMutationsResponse_builder) Build() *ListEdgeOpenMutationsRe
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Open = &b.Open
+	if b.NextPageToken != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_NextPageToken = b.NextPageToken
+	}
 	return m0
 }
 
@@ -1559,14 +1661,21 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\areplace\x18\f \x01(\v2).flowseer.device.access.v1.MutationIntentH\x00R\areplaceB\x11\n" +
 	"\bdecision\x12\x05\xbaH\x02\b\x01\"h\n" +
 	" ResolveDesynchronizationResponse\x12D\n" +
-	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\"D\n" +
+	"\bmutation\x18\x01 \x01(\v2(.flowseer.device.access.v1.MutationStateR\bmutation\"\x98\x01\n" +
 	"\x1cListEdgeOpenMutationsRequest\x12$\n" +
-	"\aedge_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x06edgeId\"\xa8\x01\n" +
+	"\aedge_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x06edgeId\x12'\n" +
+	"\tpage_size\x18\x02 \x01(\rB\n" +
+	"\xbaH\a*\x05\x18\xe8\a \x00R\bpageSize\x12)\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\tpageToken\"\xa8\x01\n" +
 	"\fOpenMutation\x12J\n" +
 	"\x06device\x18\x01 \x01(\v2*.flowseer.api.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12L\n" +
-	"\bmutation\x18\x02 \x01(\v2(.flowseer.device.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"d\n" +
+	"\bmutation\x18\x02 \x01(\v2(.flowseer.device.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x98\x01\n" +
 	"\x1dListEdgeOpenMutationsResponse\x12C\n" +
-	"\x04open\x18\x01 \x03(\v2$.flowseer.api.device.v1.OpenMutationB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\x04open2\xa2\x06\n" +
+	"\x04open\x18\x01 \x03(\v2$.flowseer.api.device.v1.OpenMutationB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\x04open\x122\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xa2\x06\n" +
 	"\rDeviceService\x12l\n" +
 	"\rReadInterface\x12,.flowseer.api.device.v1.ReadInterfaceRequest\x1a-.flowseer.api.device.v1.ReadInterfaceResponse\x12\x90\x01\n" +
 	"\x19ApplyInterfaceDescription\x128.flowseer.api.device.v1.ApplyInterfaceDescriptionRequest\x1a9.flowseer.api.device.v1.ApplyInterfaceDescriptionResponse\x12\x84\x01\n" +

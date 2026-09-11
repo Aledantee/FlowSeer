@@ -9,6 +9,10 @@ import (
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 )
 
+// maxOpenMutationPage is the most rows one page carries, matching the
+// response's max_items rule.
+const maxOpenMutationPage = 1000
+
 // ListEdgeOpenMutations names the devices whose lanes an edge is still holding
 // open work on.
 //
@@ -27,8 +31,29 @@ func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Reques
 	}
 	slices.Sort(devices)
 
-	rows := make([]*devicev1.OpenMutation, 0, len(devices))
+	// The page token is the last device id of the previous page. Rows are in
+	// device-id order, so resuming after it is a plain cut of the sorted
+	// list and survives devices appearing or leaving between pages.
+	if token := req.Msg.GetPageToken(); token != "" {
+		cut, found := slices.BinarySearch(devices, token)
+		if found {
+			cut++
+		}
+		devices = devices[cut:]
+	}
+	pageSize := int(req.Msg.GetPageSize())
+	if pageSize <= 0 || pageSize > maxOpenMutationPage {
+		pageSize = maxOpenMutationPage
+	}
+
+	rows := make([]*devicev1.OpenMutation, 0, min(len(devices), pageSize))
+	lastServed := ""
+	nextToken := ""
 	for _, deviceID := range devices {
+		if len(rows) == pageSize {
+			nextToken = lastServed
+			break
+		}
 		record, err := s.cfg.Journal.Record(ctx, deviceID)
 		if err != nil {
 			// One unreadable record must not hide the rest: an operator acting
@@ -43,9 +68,13 @@ func (s *Service) ListEdgeOpenMutations(ctx context.Context, req *connect.Reques
 		row.SetDevice(record.GetDevice())
 		row.SetMutation(mutation)
 		rows = append(rows, row)
+		lastServed = deviceID
 	}
 
 	resp := &devicev1.ListEdgeOpenMutationsResponse{}
 	resp.SetOpen(rows)
+	if nextToken != "" {
+		resp.SetNextPageToken(nextToken)
+	}
 	return connect.NewResponse(resp), nil
 }

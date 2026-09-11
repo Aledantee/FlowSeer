@@ -165,9 +165,11 @@ func OpenShell(endpoint Endpoint) func(context.Context, *edgev1.DeviceCredential
 		}
 
 		session, err := ssh.Dial(ctx, endpoint.sshTarget(), ssh.Options{
-			Username:      shell.GetUsername(),
-			Password:      secret.NewString(shell.GetPassword()),
-			HostKeySHA256: hostKeySHA256,
+			Username:             shell.GetUsername(),
+			Password:             secret.NewString(shell.GetPassword()),
+			PrivateKeyPEM:        secret.New(shell.GetPrivateKey()),
+			PrivateKeyPassphrase: secret.NewString(shell.GetPrivateKeyPassphrase()),
+			HostKeySHA256:        hostKeySHA256,
 		})
 		if err != nil {
 			return access.ShellSession{}, errs.From(err).Code(ErrCodeSession).

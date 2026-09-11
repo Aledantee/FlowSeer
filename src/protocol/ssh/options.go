@@ -37,6 +37,9 @@ type Options struct {
 	// PrivateKeyPEM enables SSH public-key authentication when set.
 	// Both may be set; the transport offers both.
 	PrivateKeyPEM secret.Value
+	// PrivateKeyPassphrase decrypts PrivateKeyPEM when the key is
+	// encrypted. Unset means the key is expected to be plain.
+	PrivateKeyPassphrase secret.Value
 
 	// HostKeySHA256 pins the peer's host key as the base64 SHA-256
 	// fingerprint (the ssh-keygen -lf form, with or without the
@@ -104,7 +107,7 @@ func sshConfig(opts Options) (*ssh.ClientConfig, error) {
 	}
 	var auth []ssh.AuthMethod
 	if !opts.PrivateKeyPEM.Empty() {
-		signer, err := ssh.ParsePrivateKey(opts.PrivateKeyPEM.Reveal())
+		signer, err := parsePrivateKey(opts)
 		if err != nil {
 			return nil, errs.From(err).Code(ErrCodeTransport).Msg("options: parse private key")
 		}
@@ -128,6 +131,15 @@ func sshConfig(opts Options) (*ssh.ClientConfig, error) {
 		HostKeyCallback: hostKey,
 		Timeout:         opts.DialTimeout,
 	}, nil
+}
+
+// parsePrivateKey reads the configured key, with the passphrase when one is
+// given.
+func parsePrivateKey(opts Options) (ssh.Signer, error) {
+	if opts.PrivateKeyPassphrase.Empty() {
+		return ssh.ParsePrivateKey(opts.PrivateKeyPEM.Reveal())
+	}
+	return ssh.ParsePrivateKeyWithPassphrase(opts.PrivateKeyPEM.Reveal(), opts.PrivateKeyPassphrase.Reveal())
 }
 
 // hostKeyCallback builds the host-key verification callback. Exactly

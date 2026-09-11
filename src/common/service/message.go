@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -305,6 +306,7 @@ func (b *MessageBus) envelope(ctx context.Context, kind servicev1.MessageKind, i
 	message.SetTargetPath(target)
 	message.SetTypeName(string(fullName))
 	message.SetPayload(payload)
+	message.SetPublishedAt(timestamppb.Now())
 	if value := carrier.Get("traceparent"); value != "" {
 		message.SetTraceparent(value)
 	}

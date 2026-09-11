@@ -17,13 +17,15 @@ message KeyProofPayload {
   ];
 
   // What the registration is bound to. Must be present.
+  reserved 2, 3;
+
   oneof binding {
     option (buf.validate.oneof).required = true;
 
     // At enrollment: the identifier segment of the setup key being consumed.
-    string setup_key_id = 2 [(buf.validate.field).string.pattern = "^[a-z2-7]{26}$"];
+    string setup_key_id = 10 [(buf.validate.field).string.pattern = "^[a-z2-7]{26}$"];
     // At rekey: the nonce of the assertion carried on the same call.
-    bytes assertion_nonce = 3 [(buf.validate.field).bytes.len = 16];
+    bytes assertion_nonce = 11 [(buf.validate.field).bytes.len = 16];
   }
 }
 

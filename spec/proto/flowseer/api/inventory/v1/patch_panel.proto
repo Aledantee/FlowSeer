@@ -1,0 +1,173 @@
+edition = "2024";
+
+// The patch panel family — a passive panel in a location whose front ports
+// take patch cords and whose rear ports take the permanent link behind it.
+// Deliberately partial: a panel is pure operator intent that nothing
+// observes, so the family is PatchPanel plus PatchPanelEvent, with no
+// PatchPanelConfig and no PatchPanelState. A port is content of its panel,
+// keyed by name within it; it carries a ref pair so a cable can terminate
+// on it, and is not an entity of its own. PatchPanel has not joined
+// EntityType; nothing may name one through an EntityRef.
+package flowseer.api.inventory.v1;
+
+import "flowseer/api/inventory/v1/location.proto";
+import "flowseer/net/phy/v1/module_connector.proto";
+import option "buf/validate/validate.proto";
+
+// The local reference to a patch panel.
+message PatchPanelLocalRef {
+  // FlowSeer-assigned panel identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a patch panel.
+message PatchPanelGlobalRef {
+  // The panel's own key. Must be present.
+  PatchPanelLocalRef panel = 1 [(buf.validate.field).required = true];
+}
+
+// The local reference to a port within its panel.
+message PatchPanelPortLocalRef {
+  // The port's name as printed on the panel, unique within the panel across
+  // both sides. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+}
+
+// The global reference to a patch panel port.
+message PatchPanelPortGlobalRef {
+  // The owning panel. Must be present.
+  PatchPanelGlobalRef panel = 1 [(buf.validate.field).required = true];
+  // The port's own key. Must be present.
+  PatchPanelPortLocalRef port = 2 [(buf.validate.field).required = true];
+}
+
+// Which side of the panel a port is on.
+enum PatchPanelPortSide {
+  // No side named. Ports reject the zero value.
+  PATCH_PANEL_PORT_SIDE_UNSPECIFIED = 0;
+  // Faces the rack; takes patch cords.
+  PATCH_PANEL_PORT_SIDE_FRONT = 1;
+  // Faces the wall; takes the permanent link.
+  PATCH_PANEL_PORT_SIDE_REAR = 2;
+}
+
+// One port on a panel and, when the panel wires it through, the port on
+// the other side it is joined to.
+message PatchPanelPort {
+  // The port's name as printed on the panel. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Which side the port is on. Must be present; the zero value is
+  // rejected.
+  PatchPanelPortSide side = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).enum = {
+      defined_only: true
+      not_in: [0]
+    }
+  ];
+  // The connector the port presents. Unset means the operator did not
+  // record it.
+  flowseer.net.phy.v1.ModuleConnector connector = 3 [(buf.validate.field).enum.defined_only = true];
+  // The port on the other side this one is wired through to, by name.
+  // Unset means the port is not wired through; a rear port whose front is
+  // named here need not name it back, the service treats the pairing as
+  // symmetric.
+  PatchPanelPortLocalRef paired_port = 4;
+  // The port's position along its side, counted from 1 at the left. Unset
+  // means the operator did not record it.
+  uint32 position = 5 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 1024
+  ];
+}
+
+// One panel: what the operator calls it, where it is, and its ports.
+message PatchPanel {
+  option (buf.validate.message).cel = {
+    id: "patch_panel.port_names_unique"
+    message: "port names are unique within the panel"
+    expression: "this.ports.map(p, p.name).unique()"
+  };
+  option (buf.validate.message).cel = {
+    id: "patch_panel.port_not_paired_with_itself"
+    message: "a port is not wired through to itself"
+    expression: "this.ports.all(p, !has(p.paired_port) || p.paired_port.name != p.name)"
+  };
+  option (buf.validate.message).cel = {
+    id: "patch_panel.rack_fields_need_location"
+    message: "rack_position and rack_face are set only with a location"
+    expression: "(!has(this.rack_position) && !has(this.rack_face)) || has(this.location)"
+  };
+
+  // The ref to this panel. Must be present.
+  PatchPanelGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // Operator-assigned name, unique within its location. Must be present.
+  string name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text description. Unset means none was provided. When set, must
+  // not be empty.
+  string description = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Where the panel is. Unset means nobody has placed it.
+  LocationGlobalRef location = 4;
+  // The lowest rack unit the panel occupies, counted from 1 at the bottom.
+  // Set only with a location that names a rack.
+  uint32 rack_position = 5 [
+    (buf.validate.field).uint32.gte = 1,
+    (buf.validate.field).uint32.lte = 100
+  ];
+  // Which face of the rack the panel is mounted on. Set only with a
+  // location that names a rack.
+  RackFace rack_face = 6 [(buf.validate.field).enum.defined_only = true];
+  // The panel's ports, both sides. Empty means the operator has not
+  // enumerated them yet.
+  repeated PatchPanelPort ports = 7 [(buf.validate.field).repeated.max_items = 2048];
+}
+
+// One transition of a panel, carried as the record before and after.
+message PatchPanelEvent {
+  option (buf.validate.message).cel = {
+    id: "patch_panel_event.before_matches_ref"
+    message: "the before side must describe the entity the event names"
+    expression:
+      "!has(this.before) || !has(this.ref) || !has(this.before.ref) || "
+      "this.before.ref.panel.id == this.ref.panel.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "patch_panel_event.after_matches_ref"
+    message: "the after side must describe the entity the event names"
+    expression:
+      "!has(this.after) || !has(this.ref) || !has(this.after.ref) || "
+      "this.after.ref.panel.id == this.ref.panel.id"
+  };
+  option (buf.validate.message).cel = {
+    id: "patch_panel_event.one_side"
+    message: "an event carries at least one side"
+    expression: "has(this.before) || has(this.after)"
+  };
+
+  // The ref to the panel that changed. Must be present.
+  PatchPanelGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The record before the transition. Unset means the panel was created.
+  PatchPanel before = 2;
+  // The record after the transition. Unset means the panel was deleted;
+  // what deleting a panel with cables still terminated on it means is the
+  // inventory service's rule.
+  PatchPanel after = 3;
+}

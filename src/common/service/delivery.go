@@ -434,6 +434,9 @@ func validatePersistedEnvelope(message *servicev1.Message) error {
 	if !message.HasTypeName() || !name.IsValid() || !strings.Contains(message.GetTypeName(), ".") || len(name) > maxMessageNameLength || !message.HasPayload() {
 		return fmt.Errorf("message payload identity is missing or malformed")
 	}
+	if !message.HasPublishedAt() || !message.GetPublishedAt().IsValid() {
+		return fmt.Errorf("message publish time is missing or malformed")
+	}
 	return nil
 }
 

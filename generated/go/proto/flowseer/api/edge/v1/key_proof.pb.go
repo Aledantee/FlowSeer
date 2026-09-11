@@ -157,8 +157,8 @@ func (x *KeyProofPayload) ClearAssertionNonce() {
 }
 
 const KeyProofPayload_Binding_not_set_case case_KeyProofPayload_Binding = 0
-const KeyProofPayload_SetupKeyId_case case_KeyProofPayload_Binding = 2
-const KeyProofPayload_AssertionNonce_case case_KeyProofPayload_Binding = 3
+const KeyProofPayload_SetupKeyId_case case_KeyProofPayload_Binding = 10
+const KeyProofPayload_AssertionNonce_case case_KeyProofPayload_Binding = 11
 
 func (x *KeyProofPayload) WhichBinding() case_KeyProofPayload_Binding {
 	if x == nil {
@@ -179,8 +179,6 @@ type KeyProofPayload_builder struct {
 
 	// The Ed25519 public key being registered, 32 bytes. Must be present.
 	PublicKey []byte
-	// What the registration is bound to. Must be present.
-
 	// Fields of oneof xxx_hidden_Binding:
 	// At enrollment: the identifier segment of the setup key being consumed.
 	SetupKeyId *string
@@ -222,12 +220,12 @@ type isKeyProofPayload_Binding interface {
 
 type keyProofPayload_SetupKeyId struct {
 	// At enrollment: the identifier segment of the setup key being consumed.
-	SetupKeyId string `protobuf:"bytes,2,opt,name=setup_key_id,json=setupKeyId,oneof"`
+	SetupKeyId string `protobuf:"bytes,10,opt,name=setup_key_id,json=setupKeyId,oneof"`
 }
 
 type keyProofPayload_AssertionNonce struct {
 	// At rekey: the nonce of the assertion carried on the same call.
-	AssertionNonce []byte `protobuf:"bytes,3,opt,name=assertion_nonce,json=assertionNonce,oneof"`
+	AssertionNonce []byte `protobuf:"bytes,11,opt,name=assertion_nonce,json=assertionNonce,oneof"`
 }
 
 func (*keyProofPayload_SetupKeyId) isKeyProofPayload_Binding() {}
@@ -354,15 +352,16 @@ var File_flowseer_api_edge_v1_key_proof_proto protoreflect.FileDescriptor
 
 const file_flowseer_api_edge_v1_key_proof_proto_rawDesc = "" +
 	"\n" +
-	"$flowseer/api/edge/v1/key_proof.proto\x12\x14flowseer.api.edge.v1\"\xbd\x01\n" +
+	"$flowseer/api/edge/v1/key_proof.proto\x12\x14flowseer.api.edge.v1\"\xc9\x01\n" +
 	"\x0fKeyProofPayload\x12)\n" +
 	"\n" +
 	"public_key\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02h R\tpublicKey\x129\n" +
-	"\fsetup_key_id\x18\x02 \x01(\tB\x15\xbaH\x12r\x102\x0e^[a-z2-7]{26}$H\x00R\n" +
+	"\fsetup_key_id\x18\n" +
+	" \x01(\tB\x15\xbaH\x12r\x102\x0e^[a-z2-7]{26}$H\x00R\n" +
 	"setupKeyId\x122\n" +
-	"\x0fassertion_nonce\x18\x03 \x01(\fB\a\xbaH\x04z\x02h\x10H\x00R\x0eassertionNonceB\x10\n" +
-	"\abinding\x12\x05\xbaH\x02\b\x01\"]\n" +
+	"\x0fassertion_nonce\x18\v \x01(\fB\a\xbaH\x04z\x02h\x10H\x00R\x0eassertionNonceB\x10\n" +
+	"\abinding\x12\x05\xbaH\x02\b\x01J\x04\b\x02\x10\x03J\x04\b\x03\x10\x04\"]\n" +
 	"\bKeyProof\x12'\n" +
 	"\apayload\x18\x01 \x01(\fB\r\xbaH\n" +
 	"\xc8\x01\x01z\x05\x10\x01\x18\x80\bR\apayload\x12(\n" +

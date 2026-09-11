@@ -45,4 +45,10 @@ message Neighbor {
   // The addresses at which the neighbor announced it can be managed. An
   // empty list means none were announced.
   repeated ManagementAddress management_addresses = 9;
+  // The time to live the neighbor announced, in seconds, from the mandatory
+  // Time To Live TLV (IEEE 802.1AB-2016 8.5.4). Zero means the neighbor
+  // asked for its information to be discarded. Absent means the source did
+  // not report it; a consumer then cannot tell a fresh announcement from
+  // one about to expire.
+  uint32 time_to_live_seconds = 10 [(buf.validate.field).uint32.lte = 65535];
 }

@@ -1,7 +1,12 @@
 package ssh
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/pem"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/secret"
 )
@@ -28,6 +33,38 @@ func TestSSHConfigRejectsUnparseablePrivateKey(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("sshConfig() = nil error, want a refusal for an unparseable private key")
+	}
+}
+
+func TestSSHConfigDecryptsPrivateKeyWithPassphrase(t *testing.T) {
+	_, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate key: %v", err)
+	}
+	block, err := ssh.MarshalPrivateKeyWithPassphrase(private, "", []byte("open sesame"))
+	if err != nil {
+		t.Fatalf("encrypt key: %v", err)
+	}
+	encrypted := pem.EncodeToMemory(block)
+
+	if _, err := sshConfig(Options{
+		Username:      "tester",
+		PrivateKeyPEM: secret.New(encrypted),
+		HostKeySHA256: "SHA256:whatever",
+	}); err == nil {
+		t.Fatal("sshConfig() = nil error, want a refusal for an encrypted key without its passphrase")
+	}
+	cfg, err := sshConfig(Options{
+		Username:             "tester",
+		PrivateKeyPEM:        secret.New(encrypted),
+		PrivateKeyPassphrase: secret.NewString("open sesame"),
+		HostKeySHA256:        "SHA256:whatever",
+	})
+	if err != nil {
+		t.Fatalf("sshConfig() with the passphrase: %v", err)
+	}
+	if len(cfg.Auth) != 1 {
+		t.Fatalf("auth methods = %d, want the one public-key method", len(cfg.Auth))
 	}
 }
 

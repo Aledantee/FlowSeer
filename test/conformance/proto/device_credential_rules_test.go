@@ -31,9 +31,25 @@ func TestCredentialMaterialRules(t *testing.T) {
 		{name: "an authentication passphrase under 8 characters is rejected", message: shortAuth},
 		{name: "snmpv3 without a privacy protocol is rejected", message: noPriv},
 		{
-			name: "shell login without a password is rejected",
+			name: "shell login with neither password nor key is rejected",
 			message: credentialv1.ShellCredential_builder{
 				Username: proto.String("flowseer"),
+			}.Build(),
+		},
+		{
+			name: "shell login with a private key alone is valid",
+			message: credentialv1.ShellCredential_builder{
+				Username:   proto.String("flowseer"),
+				PrivateKey: []byte("-----BEGIN OPENSSH PRIVATE KEY-----\n"),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "a key passphrase without a key is rejected",
+			message: credentialv1.ShellCredential_builder{
+				Username:             proto.String("flowseer"),
+				Password:             proto.String("shell-password"),
+				PrivateKeyPassphrase: proto.String("secret"),
 			}.Build(),
 		},
 		{
