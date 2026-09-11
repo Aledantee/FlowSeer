@@ -213,12 +213,15 @@ claims root priority 4096 from 02:00:00:00:00:0a. Hellos fall at `t0 +
    clears `Edge`, moves it to discarding, and a wake at `t0 + 8s` with no
    further BPDU makes it an edge port again; `1/1/1` with `AutoEdge`
    false stays a non-edge port in discarding at `t0 + 3s`.
-6. Transmit hold count. Acceptance: `TxHoldCount` 2; three inferior
-   Configuration BPDUs received on `1/1/1` at `t0 + 4s`, `t0 + 4.2s`, and
-   `t0 + 4.4s` produce two reply emissions, `NextWake` then reports
-   `t0 + 5s`, `Wake(t0 + 5s)` emits the third, and `PortInfo.TxBPDUs`
-   reads the count of every emission on the port so far including the
-   hellos; `Validate` refuses `TxHoldCount` 11.
+6. Transmit hold count. Acceptance: `TxHoldCount` 2; after the hello at
+   `t0 + 4s`, three inferior Configuration BPDUs received on `1/1/1` at
+   `t0 + 4.1s`, `t0 + 4.2s`, and `t0 + 4.4s` produce one reply emission,
+   since the hello took the other slot of that second and a held kind is
+   released once; `NextWake` then reports `t0 + 5s`, `Wake(t0 + 5s)`
+   emits the held reply, and `PortInfo.TxBPDUs` reads 5 (the link-up
+   proposal, two hellos, the reply, the release); `Validate` refuses
+   `TxHoldCount` 11. The original example placed the burst at the hello
+   instant and counted two replies; the implementation corrected it.
 7. Counters. Acceptance: after requirement 2, `PortInfo("1/1/1")` reads
    `RxBPDUs` 1; `Switch.Forward` of an undecodable frame to
    01-80-C2-00-00-00 on a spanning-tree switch reads `BadBPDUs` 1 with

@@ -27,6 +27,12 @@ const (
 
 	// DefaultPortPriority is the standard administrative port priority (128).
 	DefaultPortPriority uint8 = 128
+
+	// DefaultTxHoldCount is the standard transmit hold count limit of 6 BPDUs per second.
+	DefaultTxHoldCount uint8 = 6
+
+	// MigrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
+	MigrateTime time.Duration = 3 * time.Second
 )
 
 // PointToPointMode controls whether a port operates as a point-to-point link.
@@ -48,6 +54,7 @@ type Port struct {
 	Priority     uint8
 	PathCost     uint32
 	AdminEdge    bool
+	AutoEdge     bool
 	PointToPoint PointToPointMode
 }
 
@@ -58,6 +65,7 @@ type Config struct {
 	HelloTime    time.Duration
 	MaxAge       time.Duration
 	ForwardDelay time.Duration
+	TxHoldCount  uint8
 	Ports        map[string]Port
 }
 
@@ -107,6 +115,11 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("value", t.value).
 				Msgf("%s %s is outside %s through %s", t.name, t.value, t.low, t.hi)
 		}
+	}
+	if c.TxHoldCount > 10 {
+		return errs.New().
+			Attr("tx_hold_count", c.TxHoldCount).
+			Msgf("tx hold count %d exceeds maximum 10", c.TxHoldCount)
 	}
 	// A port id keeps its index in one byte.
 	if len(c.Ports) > 255 {

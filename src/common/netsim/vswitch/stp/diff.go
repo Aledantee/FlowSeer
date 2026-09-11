@@ -57,7 +57,8 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 
 // Diff computes the difference between two spanning tree configurations,
 // reporting changes to bridge priority, hello time, max age, forward delay,
-// and per-port priority, admin path cost, admin edge, and point-to-point mode.
+// tx hold count, and per-port priority, admin path cost, admin edge,
+// point-to-point mode, and auto edge.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -117,6 +118,16 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
+	if a.TxHoldCount != b.TxHoldCount {
+		changes = append(changes, trace.Change{
+			Layer:   layer,
+			Subject: trace.Subject{Kind: "bridge", Key: ""},
+			Field:   "tx_hold_count",
+			From:    a.TxHoldCount,
+			To:      b.TxHoldCount,
+		})
+	}
+
 	for _, name := range sortedKeys(a.Ports) {
 		ap := a.Ports[name]
 		bp, exists := b.Ports[name]
@@ -169,6 +180,16 @@ func Diff(a, b Config) []trace.Change {
 				Field:   "admin_point_to_point",
 				From:    from,
 				To:      to,
+			})
+		}
+
+		if ap.AutoEdge != bp.AutoEdge {
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "port", Key: name},
+				Field:   "auto_edge",
+				From:    ap.AutoEdge,
+				To:      bp.AutoEdge,
 			})
 		}
 	}

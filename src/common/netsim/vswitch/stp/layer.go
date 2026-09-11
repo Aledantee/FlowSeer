@@ -36,6 +36,10 @@ type PortInfo struct {
 	PointToPoint       bool
 	Edge               bool
 	ForwardTransitions uint64
+	TxBPDUs            uint64
+	RxBPDUs            uint64
+	BadBPDUs           uint64
+	SendRSTP           bool
 }
 
 // Layer implements the Rapid Spanning Tree protocol layer for a virtual switch.
@@ -50,6 +54,7 @@ type Layer struct {
 	helloTime    time.Duration
 	maxAge       time.Duration
 	forwardDelay time.Duration
+	txHoldCount  uint8
 
 	ports map[string]*portState
 
@@ -94,6 +99,19 @@ type portState struct {
 	rcvTime         time.Time
 
 	forwardTransitions uint64
+
+	sendRSTP       bool
+	mdelayWhile    time.Time
+	edgeDelayWhile time.Time
+
+	txCount           int
+	txTick            time.Time
+	pendingDesignated bool
+	pendingAgreement  bool
+
+	txBPDUs  uint64
+	rxBPDUs  uint64
+	badBPDUs uint64
 }
 
 func (p *portState) clone() *portState {
@@ -141,6 +159,11 @@ func New(cfg Config, ports port.Table) *Layer {
 
 	bridgeID := BridgeID{Priority: prio, Address: cfg.Address}
 
+	holdCount := cfg.TxHoldCount
+	if holdCount == 0 {
+		holdCount = DefaultTxHoldCount
+	}
+
 	l := &Layer{
 		cfg:          cfg,
 		priority:     prio,
@@ -149,6 +172,7 @@ func New(cfg Config, ports port.Table) *Layer {
 		helloTime:    hello,
 		maxAge:       maxAge,
 		forwardDelay: fwdDelay,
+		txHoldCount:  holdCount,
 		ports:        make(map[string]*portState, len(cfg.Ports)),
 		rootID:       bridgeID,
 		rootPathCost: 0,
@@ -177,6 +201,7 @@ func New(cfg Config, ports port.Table) *Layer {
 			up:           false,
 			role:         RoleDisabled,
 			state:        StateDiscarding,
+			sendRSTP:     true,
 		}
 	}
 
@@ -194,6 +219,7 @@ func (l *Layer) Clone() *Layer {
 		helloTime:           l.helloTime,
 		maxAge:              l.maxAge,
 		forwardDelay:        l.forwardDelay,
+		txHoldCount:         l.txHoldCount,
 		ports:               make(map[string]*portState, len(l.ports)),
 		helloTimer:          l.helloTimer,
 		rootID:              l.rootID,
@@ -306,6 +332,58 @@ func (l *Layer) PortInfo(port string) PortInfo {
 		PointToPoint:       p.pointToPoint,
 		Edge:               p.edge,
 		ForwardTransitions: p.forwardTransitions,
+		TxBPDUs:            p.txBPDUs,
+		RxBPDUs:            p.rxBPDUs,
+		BadBPDUs:           p.badBPDUs,
+		SendRSTP:           p.sendRSTP,
+	}
+}
+
+// BadBPDU records that a frame received on the named port could not be decoded as a BPDU.
+// An untracked port is ignored.
+func (l *Layer) BadBPDU(port string) {
+	p, ok := l.ports[port]
+	if !ok {
+		return
+	}
+
+	p.badBPDUs++
+}
+
+// Mcheck triggers protocol migration checking on the named port, forcing it
+// to transmit RSTP BPDUs and restarting the migration delay. If the port is
+// unknown or down, Mcheck has no effect.
+func (l *Layer) Mcheck(now time.Time, port string) Effects {
+	p, ok := l.ports[port]
+	if !ok || !p.up {
+		return Effects{}
+	}
+
+	p.sendRSTP = true
+	p.mdelayWhile = now.Add(MigrateTime)
+
+	var flushes []string
+	var emissions []Emission
+
+	subEmissions := l.recompute(now, &flushes)
+	emissions = append(emissions, subEmissions...)
+
+	if p.role == RoleDesignated && p.up {
+		alreadyEmitted := false
+		for _, e := range emissions {
+			if e.Port == p.name {
+				alreadyEmitted = true
+				break
+			}
+		}
+		if !alreadyEmitted && !p.pendingDesignated {
+			l.emit(p, now, emissionDesignated, &emissions)
+		}
+	}
+
+	return Effects{
+		Emissions: emissions,
+		Flush:     flushes,
 	}
 }
 
@@ -333,9 +411,61 @@ func (l *Layer) NextWake() (time.Time, bool) {
 		if p.rcvInfoValid {
 			update(p.rcvTime.Add(3 * p.rcvHelloTime))
 		}
+		// The edge delay is due only on a port that can still become an
+		// edge, or a wake would be scheduled that changes nothing.
+		if p.cfg.AutoEdge && !p.edge && p.up && p.sendRSTP && p.role == RoleDesignated &&
+			p.state == StateDiscarding && p.pointToPoint && p.proposing {
+			update(p.edgeDelayWhile)
+		}
+		if (p.pendingAgreement || p.pendingDesignated) && !p.txTick.IsZero() {
+			update(p.txTick)
+		}
 	}
 
 	return next, hasTimer
+}
+
+type emissionKind uint8
+
+const (
+	emissionDesignated emissionKind = iota
+	emissionAgreement
+)
+
+func (l *Layer) emit(p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
+	for p.txCount > 0 && !p.txTick.After(now) {
+		p.txCount--
+		p.txTick = p.txTick.Add(time.Second)
+	}
+	if p.txCount == 0 {
+		p.txTick = time.Time{}
+	}
+
+	if p.txCount < int(l.txHoldCount) {
+		var bpdu BPDU
+		switch kind {
+		case emissionDesignated:
+			proposal := p.pointToPoint && p.state == StateDiscarding && !p.agreed && p.sendRSTP
+			bpdu = l.makeBPDU(p, now, proposal)
+		case emissionAgreement:
+			bpdu = l.makeAgreementBPDU(p, now)
+		}
+
+		*emissions = append(*emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
+		p.txBPDUs++
+		wasZero := p.txCount == 0
+		p.txCount++
+		if wasZero {
+			p.txTick = now.Add(time.Second)
+		}
+	} else {
+		switch kind {
+		case emissionDesignated:
+			p.pendingDesignated = true
+		case emissionAgreement:
+			p.pendingAgreement = true
+		}
+	}
 }
 
 func (l *Layer) isSynced(rootPort string) bool {
@@ -389,6 +519,15 @@ func (l *Layer) makeBPDU(p *portState, now time.Time, proposal bool) BPDU {
 		ForwardDelay: fwdDelay,
 	}
 
+	if !p.sendRSTP {
+		b.Version = 0
+		b.Type = BPDUTypeConfiguration
+		proposal = false
+	} else {
+		b.Version = 2
+		b.Type = BPDUTypeRapid
+	}
+
 	b.SetRole(p.role)
 	b.SetProposal(proposal)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
@@ -403,7 +542,9 @@ func (l *Layer) makeBPDU(p *portState, now time.Time, proposal bool) BPDU {
 func (l *Layer) makeAgreementBPDU(p *portState, now time.Time) BPDU {
 	b := l.makeBPDU(p, now, false)
 	b.SetRole(p.role)
-	b.SetAgreement(true)
+	if p.sendRSTP {
+		b.SetAgreement(true)
+	}
 	b.SetProposal(false)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
@@ -497,7 +638,7 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 			p.state = StateDiscarding
 			p.fwdDelayTimer = time.Time{}
 		case RoleRoot:
-			if p.pointToPoint && l.isSynced(p.name) {
+			if p.pointToPoint && l.isSynced(p.name) && p.sendRSTP {
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
 			} else if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
@@ -539,8 +680,7 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 		for _, name := range sortedKeys(l.ports) {
 			p := l.ports[name]
 			if p.up && p.role == RoleDesignated && p.pointToPoint && p.state == StateDiscarding && !p.agreed {
-				bpdu := l.makeBPDU(p, now, true)
-				emissions = append(emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
+				l.emit(p, now, emissionDesignated, &emissions)
 			}
 		}
 	}
@@ -605,6 +745,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		p.rcvInfoValid = false
 		p.agreed = false
 		p.proposing = false
+		p.pendingDesignated = false
+		p.pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
 
 		// The entries learned on the dead port are the ones certainly stale;
@@ -647,7 +789,18 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 	p.role = RoleDesignated
 	p.agreed = false
-	p.proposing = p.pointToPoint && !p.edge
+	p.sendRSTP = true
+	p.mdelayWhile = now.Add(MigrateTime)
+
+	p.edge = p.adminEdge
+	edgeDelay := MigrateTime
+	if !p.pointToPoint {
+		maxAge, _, _ := l.Times()
+		edgeDelay = maxAge
+	}
+	p.edgeDelayWhile = now.Add(edgeDelay)
+
+	p.proposing = p.pointToPoint && !p.edge && p.sendRSTP
 
 	if p.edge {
 		p.state = StateForwarding
@@ -671,9 +824,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 				break
 			}
 		}
-		if !alreadyEmitted {
-			bpdu := l.makeBPDU(p, now, true)
-			emissions = append(emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
+		if !alreadyEmitted && !p.pendingDesignated {
+			l.emit(p, now, emissionDesignated, &emissions)
 		}
 	}
 
@@ -690,12 +842,58 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		return Effects{}
 	}
 
+	p.rxBPDUs++
+
 	if l.helloTimer.IsZero() {
 		l.helloTimer = now.Add(l.helloTime)
 	}
 
 	var flushes []string
 	var emissions []Emission
+
+	if (b.Type == BPDUTypeConfiguration || b.Type == BPDUTypeTopologyChangeNotification) && p.sendRSTP && !p.mdelayWhile.After(now) {
+		p.sendRSTP = false
+		p.mdelayWhile = now.Add(MigrateTime)
+	} else if b.Type == BPDUTypeRapid && !p.sendRSTP && !p.mdelayWhile.After(now) {
+		p.sendRSTP = true
+		p.mdelayWhile = now.Add(MigrateTime)
+	}
+
+	// Auto-edge detection
+	wasAutoEdge := p.edge && !p.adminEdge
+	p.edge = p.adminEdge
+	maxAge, _, _ := l.Times()
+	edgeDelay := maxAge
+	if p.pointToPoint {
+		edgeDelay = MigrateTime
+	}
+	p.edgeDelayWhile = now.Add(edgeDelay)
+
+	if wasAutoEdge {
+		if p.state == StateForwarding {
+			l.raiseTopologyChange(p.name, now, &flushes)
+		}
+		p.state = StateDiscarding
+		p.fwdDelayTimer = time.Time{}
+		p.proposing = p.pointToPoint && p.sendRSTP
+	}
+
+	if b.Type == BPDUTypeTopologyChangeNotification {
+		l.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+		for _, name := range sortedKeys(l.ports) {
+			if name != port && !slices.Contains(flushes, name) {
+				flushes = append(flushes, name)
+			}
+		}
+
+		subEmissions := l.recompute(now, &flushes)
+		emissions = append(emissions, subEmissions...)
+
+		return Effects{
+			Emissions: emissions,
+			Flush:     flushes,
+		}
+	}
 
 	incoming := priorityVector{
 		rootID:       b.RootID,
@@ -765,7 +963,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			otherP := l.ports[otherName]
 			if otherP.role == RoleDesignated && !otherP.edge {
 				otherP.agreed = false
-				otherP.proposing = otherP.pointToPoint
+				otherP.proposing = otherP.pointToPoint && otherP.sendRSTP
 				if otherP.state != StateDiscarding {
 					wasFwd := otherP.state == StateForwarding
 					otherP.state = StateDiscarding
@@ -776,7 +974,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			}
 		}
 
-		if p.role == RoleRoot && p.pointToPoint && l.isSynced(p.name) {
+		if p.role == RoleRoot && p.pointToPoint && l.isSynced(p.name) && p.sendRSTP {
 			if p.state != StateForwarding {
 				p.state = StateForwarding
 				p.forwardTransitions++
@@ -786,8 +984,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			}
 		}
 
-		agree := l.makeAgreementBPDU(p, now)
-		emissions = append(emissions, Emission{Port: port, Frame: Encode(agree, l.address)})
+		l.emit(p, now, emissionAgreement, &emissions)
 	} else if p.role == RoleDesignated && !b.Agreement() {
 		desig := priorityVector{
 			rootID:       l.rootID,
@@ -796,8 +993,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			portID:       p.portID,
 		}
 		if compareVectors(incoming, desig) > 0 {
-			bpdu := l.makeBPDU(p, now, p.pointToPoint && p.state == StateDiscarding && !p.agreed)
-			emissions = append(emissions, Emission{Port: port, Frame: Encode(bpdu, l.address)})
+			l.emit(p, now, emissionDesignated, &emissions)
 		}
 	}
 
@@ -813,14 +1009,43 @@ func (l *Layer) Wake(now time.Time) Effects {
 	var flushes []string
 	var emissions []Emission
 
+	for _, name := range sortedKeys(l.ports) {
+		p := l.ports[name]
+		if p.cfg.AutoEdge && p.sendRSTP && p.up && p.role == RoleDesignated &&
+			p.state == StateDiscarding && p.pointToPoint && p.proposing &&
+			!p.edgeDelayWhile.IsZero() && !p.edgeDelayWhile.After(now) {
+			p.edge = true
+			p.edgeDelayWhile = time.Time{}
+			p.state = StateForwarding
+			p.fwdDelayTimer = time.Time{}
+			p.proposing = false
+			p.forwardTransitions++
+		}
+	}
+
+	for _, name := range sortedKeys(l.ports) {
+		p := l.ports[name]
+		if !p.up || p.txTick.IsZero() || p.txTick.After(now) {
+			continue
+		}
+		if p.pendingAgreement {
+			p.pendingAgreement = false
+			l.emit(p, now, emissionAgreement, &emissions)
+		}
+		if p.pendingDesignated {
+			p.pendingDesignated = false
+			l.emit(p, now, emissionDesignated, &emissions)
+		}
+	}
+
 	if !l.helloTimer.IsZero() && !l.helloTimer.After(now) {
-		l.helloTimer = now.Add(l.helloTime)
+		for !l.helloTimer.After(now) {
+			l.helloTimer = l.helloTimer.Add(l.helloTime)
+		}
 		for _, name := range sortedKeys(l.ports) {
 			p := l.ports[name]
 			if p.up && p.role == RoleDesignated {
-				proposal := p.pointToPoint && p.state == StateDiscarding && !p.agreed
-				bpdu := l.makeBPDU(p, now, proposal)
-				emissions = append(emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
+				l.emit(p, now, emissionDesignated, &emissions)
 			}
 		}
 	}
