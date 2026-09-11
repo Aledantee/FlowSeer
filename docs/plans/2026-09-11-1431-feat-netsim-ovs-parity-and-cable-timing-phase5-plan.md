@@ -63,8 +63,10 @@ against. This phase settles the shapes its stub left open:
   the rates here are bits per second and the burst octets, since the
   tree's cable timing counts wire octets and bits.
 - Mirroring is a pure function of the traffic package, `Copies(cfg,
-  ingress string, vid vlan.ID, received ethernet.Frame, egress
-  []bridge.Egress, ports port.Table) []Copy` with `Copy{Mirror, Port
+  vlans *bridge.VLAN, ingress string, vid vlan.ID, received
+  ethernet.Frame, egress []bridge.Egress) []Copy` (the bridge's VLAN
+  configuration says which ports carry the output VLAN and how; a port
+  table cannot, so the first draft's `ports` parameter gave way to it) with `Copy{Mirror, Port
   string; Frame ethernet.Frame}`: a mirror to a port yields one copy of
   the received frame, tags and all, truncated so the encoded frame is at
   most `SnapLen` octets; a mirror to a VLAN yields one copy per port that

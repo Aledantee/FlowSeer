@@ -1,0 +1,240 @@
+// Package traffic defines traffic mirroring, ingress policing, and egress queue
+// configuration for a virtual switch.
+package traffic
+
+import (
+	"maps"
+	"slices"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+)
+
+const (
+	// Layer identifies traffic configuration changes.
+	Layer trace.Layer = "traffic"
+
+	// ReasonPoliced identifies a frame refused by an ingress policer.
+	ReasonPoliced trace.Reason = "policed"
+
+	// ReasonMirrorOutput identifies ordinary traffic refused on a reserved mirror output port.
+	ReasonMirrorOutput trace.Reason = "mirror-output"
+)
+
+// Mirror defines the frames selected for copying and their output destination.
+// Exactly one output must be set. SnapLen zero leaves copies untruncated.
+type Mirror struct {
+	Name           string
+	SelectAll      bool
+	SelectSrcPorts []string
+	SelectDstPorts []string
+	SelectVLANs    []vlan.ID
+	OutputPort     string
+	OutputVLAN     *vlan.ID
+	SnapLen        int
+}
+
+// Policer defines an ingress token bucket. RateBPS is in bits per second and
+// BurstOctets is the bucket capacity; a zero rate disables policing.
+type Policer struct {
+	RateBPS     uint64
+	BurstOctets int
+}
+
+// PortQueues defines maximum rates in bits per second by priority code point
+// for one port. An absent priority has no configured maximum.
+type PortQueues struct {
+	MaxRateBPS map[vlan.PCP]uint64
+}
+
+// Config defines traffic handling for a virtual switch. Its zero value has no
+// mirrors, policers, or queue limits. Callers must not mutate it concurrently.
+type Config struct {
+	Mirrors  []Mirror
+	Policers map[string]Policer
+	Queues   map[string]PortQueues
+}
+
+// Clone returns an independent deep copy of the configuration.
+func (c Config) Clone() Config {
+	cp := Config{}
+	if c.Mirrors != nil {
+		cp.Mirrors = make([]Mirror, len(c.Mirrors))
+		for i, mirror := range c.Mirrors {
+			cp.Mirrors[i] = cloneMirror(mirror)
+		}
+	}
+	if c.Policers != nil {
+		cp.Policers = make(map[string]Policer, len(c.Policers))
+		maps.Copy(cp.Policers, c.Policers)
+	}
+	if c.Queues != nil {
+		cp.Queues = make(map[string]PortQueues, len(c.Queues))
+		for name, queues := range c.Queues {
+			queueCopy := PortQueues{}
+			if queues.MaxRateBPS != nil {
+				queueCopy.MaxRateBPS = make(map[vlan.PCP]uint64, len(queues.MaxRateBPS))
+				maps.Copy(queueCopy.MaxRateBPS, queues.MaxRateBPS)
+			}
+			cp.Queues[name] = queueCopy
+		}
+	}
+
+	return cp
+}
+
+// Validate checks mirror names and destinations, referenced ports and VLANs,
+// policer bursts, and queue rates against the supplied port table.
+func (c Config) Validate(ports port.Table) error {
+	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
+	outputPorts := make(map[string]struct{}, len(c.Mirrors))
+	for _, mirror := range c.Mirrors {
+		if mirror.Name == "" {
+			return errs.New().Attr("mirror", "").Msg("mirror name cannot be empty")
+		}
+		if _, exists := mirrorNames[mirror.Name]; exists {
+			return errs.New().
+				Attr("mirror", mirror.Name).
+				Msgf("duplicate mirror name %q", mirror.Name)
+		}
+		mirrorNames[mirror.Name] = struct{}{}
+
+		if (mirror.OutputPort == "") == (mirror.OutputVLAN == nil) {
+			return errs.New().
+				Attr("mirror", mirror.Name).
+				Msgf("mirror %q must have exactly one output", mirror.Name)
+		}
+		if mirror.OutputPort != "" {
+			if _, ok := ports.Port(mirror.OutputPort); !ok {
+				return errs.New().
+					Attr("mirror", mirror.Name).
+					Attr("port", mirror.OutputPort).
+					Msgf("mirror output port %q absent from port table", mirror.OutputPort)
+			}
+			outputPorts[mirror.OutputPort] = struct{}{}
+		}
+		if mirror.OutputVLAN != nil && !mirror.OutputVLAN.Valid() {
+			return errs.New().
+				Attr("mirror", mirror.Name).
+				Attr("vlan", *mirror.OutputVLAN).
+				Msgf("mirror output VLAN %d is outside 1 through 4094", *mirror.OutputVLAN)
+		}
+		if mirror.SnapLen < 0 {
+			return errs.New().
+				Attr("mirror", mirror.Name).
+				Attr("snap_len", mirror.SnapLen).
+				Msg("mirror snap length cannot be negative")
+		}
+
+		for _, name := range append(slices.Clone(mirror.SelectSrcPorts), mirror.SelectDstPorts...) {
+			if _, ok := ports.Port(name); !ok {
+				return errs.New().
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Msgf("mirror selector port %q absent from port table", name)
+			}
+		}
+		for _, id := range mirror.SelectVLANs {
+			if !id.Valid() {
+				return errs.New().
+					Attr("mirror", mirror.Name).
+					Attr("vlan", id).
+					Msgf("mirror selector VLAN %d is outside 1 through 4094", id)
+			}
+		}
+	}
+
+	for _, mirror := range c.Mirrors {
+		for _, name := range append(slices.Clone(mirror.SelectSrcPorts), mirror.SelectDstPorts...) {
+			if _, reserved := outputPorts[name]; reserved {
+				return errs.New().
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Msgf("mirror selector port %q is reserved for mirror output", name)
+			}
+		}
+	}
+
+	for _, name := range sortedKeys(c.Policers) {
+		policer := c.Policers[name]
+		if _, ok := ports.Port(name); !ok {
+			return errs.New().
+				Attr("port", name).
+				Msgf("policer port %q absent from port table", name)
+		}
+		if policer.RateBPS > 0 && policer.BurstOctets < 1 {
+			return errs.New().
+				Attr("port", name).
+				Attr("rate_bps", policer.RateBPS).
+				Attr("burst_octets", policer.BurstOctets).
+				Msgf("policer on port %q requires a positive burst", name)
+		}
+	}
+
+	for _, name := range sortedKeys(c.Queues) {
+		queues := c.Queues[name]
+		if _, ok := ports.Port(name); !ok {
+			return errs.New().
+				Attr("port", name).
+				Msgf("queue port %q absent from port table", name)
+		}
+		for pcp, rate := range queues.MaxRateBPS {
+			if rate == 0 {
+				return errs.New().
+					Attr("port", name).
+					Attr("pcp", pcp).
+					Msgf("queue maximum rate on port %q PCP %d must be positive", name, pcp)
+			}
+		}
+	}
+
+	return nil
+}
+
+// MaxRate returns the configured maximum rate for a port and priority.
+func (c Config) MaxRate(name string, pcp vlan.PCP) (uint64, bool) {
+	queues, ok := c.Queues[name]
+	if !ok {
+		return 0, false
+	}
+	rate, ok := queues.MaxRateBPS[pcp]
+
+	return rate, ok
+}
+
+// OutputPorts returns the sorted set of ports reserved for mirror output.
+func (c Config) OutputPorts() []string {
+	ports := make(map[string]struct{}, len(c.Mirrors))
+	for _, mirror := range c.Mirrors {
+		if mirror.OutputPort != "" {
+			ports[mirror.OutputPort] = struct{}{}
+		}
+	}
+
+	return sortedKeys(ports)
+}
+
+func cloneMirror(mirror Mirror) Mirror {
+	cp := mirror
+	cp.SelectSrcPorts = slices.Clone(mirror.SelectSrcPorts)
+	cp.SelectDstPorts = slices.Clone(mirror.SelectDstPorts)
+	cp.SelectVLANs = slices.Clone(mirror.SelectVLANs)
+	if mirror.OutputVLAN != nil {
+		id := *mirror.OutputVLAN
+		cp.OutputVLAN = &id
+	}
+
+	return cp
+}
+
+func sortedKeys[K ~string, V any](values map[K]V) []K {
+	keys := make([]K, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	return keys
+}
