@@ -246,7 +246,7 @@ examples; here they are one line each.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase1-plan.md`
 After: none
-Landed: 2026-09-11, commits 015f0dee through the phase's documentation commit on `unify-netsim-plan-phases`.
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits 015f0dee through the review-fix commit that follows the documentation commit.
 Change: `fabric.Cable` gains `Medium` and `Delay`, the run gains
 serialization, the per-port busy clock, and propagation by medium, the
 reach table bounds negotiation, and the direction record's cable line is

@@ -1570,6 +1570,11 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 	if gotBusy := snap.Busy[trunkEP]; !gotBusy.Equal(wantBusy) {
 		t.Errorf("snap.Busy[%v] = %v, want %v", trunkEP, gotBusy, wantBusy)
 	}
+	for _, host := range []string{"h1", "h3"} {
+		if until, ok := snap.Busy[fabric.Endpoint{Node: host}]; ok {
+			t.Errorf("snap.Busy[%s] = %v, want absent: its clock is not after Clock %v", host, until, snap.Clock)
+		}
+	}
 
 	step3, ok := fab.Step()
 	if !ok {

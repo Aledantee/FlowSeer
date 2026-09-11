@@ -4,10 +4,8 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
-	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
@@ -100,24 +98,22 @@ func Diff(a, b Config) []trace.Change {
 				To:      cB.LengthMeters,
 			})
 		}
-		if cA.Medium != cB.Medium {
+		if mA, mB := normalizedMedium(cA.Medium), normalizedMedium(cB.Medium); mA != mB {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "medium",
-				From:    cA.Medium,
-				To:      cB.Medium,
+				From:    mA,
+				To:      mB,
 			})
 		}
-		if !sameDelay(cA.Delay, cB.Delay) {
+		if !samePtr(cA.Delay, cB.Delay) {
 			var fromDelay, toDelay any
 			if cA.Delay != nil {
-				d := *cA.Delay
-				fromDelay = &d
+				fromDelay = *cA.Delay
 			}
 			if cB.Delay != nil {
-				d := *cB.Delay
-				toDelay = &d
+				toDelay = *cB.Delay
 			}
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
@@ -214,7 +210,7 @@ func Diff(a, b Config) []trace.Change {
 					To:      hB.Address,
 				})
 			}
-			if !sameVLAN(hA.VLAN, hB.VLAN) {
+			if !samePtr(hA.VLAN, hB.VLAN) {
 				var fromVal, toVal any
 				if hA.VLAN != nil {
 					fromVal = *hA.VLAN
@@ -424,24 +420,22 @@ func sameFault(a, b Fault) bool {
 	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
-func sameVLAN(a, b *vlan.ID) bool {
-	if (a == nil) != (b == nil) {
-		return false
+// normalizedMedium reads an unset medium as TwistedPair, so a change reports
+// the medium a reader compares against.
+func normalizedMedium(m Medium) Medium {
+	if m == "" {
+		return TwistedPair
 	}
-	if a != nil && b != nil && *a != *b {
-		return false
-	}
-	return true
+
+	return m
 }
 
-func sameDelay(a, b *time.Duration) bool {
+func samePtr[T comparable](a, b *T) bool {
 	if (a == nil) != (b == nil) {
 		return false
 	}
-	if a != nil && b != nil && *a != *b {
-		return false
-	}
-	return true
+
+	return a == nil || *a == *b
 }
 
 func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {

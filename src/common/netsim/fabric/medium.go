@@ -25,15 +25,14 @@ const (
 )
 
 // VelocityFactor returns the ratio of propagation speed through the medium
-// relative to the speed of light in vacuum. An empty medium defaults to [TwistedPair].
+// relative to the speed of light in vacuum. An empty medium is [TwistedPair];
+// so is any value Validate refuses.
 func (m Medium) VelocityFactor() float64 {
 	switch m {
 	case MultimodeFiber, SinglemodeFiber:
 		return 0.67
 	case Twinax:
 		return 0.77
-	case "", TwistedPair:
-		return 0.64
 	default:
 		return 0.64
 	}

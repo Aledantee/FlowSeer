@@ -43,7 +43,8 @@ type Device struct {
 	Roles    map[string]stp.PortInfo
 }
 
-// Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, and device states.
+// Snapshot captures an instantaneous view of simulation time, in-flight arrivals, physical links, device states,
+// and the endpoints still transmitting past the clock.
 type Snapshot struct {
 	Clock   time.Time
 	Queue   []Arrival
@@ -63,10 +64,9 @@ func wireOctets(frame ethernet.Frame) int {
 	return n + 24
 }
 
+// serialization is the time the frame occupies the wire at rateBPS. Every
+// caller transmits on a link that negotiated, so the rate is never 0.
 func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
-	if rateBPS == 0 {
-		return 0
-	}
 	bits := uint64(wireOctets(frame)) * 8
 	nanos := (bits*1_000_000_000 + rateBPS - 1) / rateBPS
 
@@ -76,11 +76,14 @@ func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
 // Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
 //
 // For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged)
-// and the arrival is scheduled on the switch port connected to the host. When Packet is set, the frame is originated
-// by the host's IP stack and Frame must have no field set. For a device port origin, the frame is queued directly as given.
+// and the frame is transmitted on the host's cable end: the journey records a crossing, the host end's busy clock
+// is charged, and the arrival at the connected switch port is the transmission end plus the cable's propagation.
+// When Packet is set, the frame is originated by the host's IP stack and Frame must have no field set. For a device
+// port origin, the frame is queued directly as given at At.
 // Inject returns an error if the origin names an unknown host, an unknown switch port, a host without a connected cable,
-// a switch origin with Packet set, a host without an IP stack when Packet is set, a Packet injection specifying Frame fields,
-// a non-empty origin port for host packet injection, or if packet origination fails.
+// a host whose link has no negotiated speed (naming the link's reason), a switch origin with Packet set, a host without
+// an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port for host packet
+// injection, or if packet origination fails.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
@@ -603,7 +606,8 @@ func (f *Fabric) Run(n int) int {
 	return n
 }
 
-// Snapshot captures the current simulation clock, queued arrivals, link states, and switch subsystem states.
+// Snapshot captures the current simulation clock, queued arrivals, link states, switch subsystem states, and Busy,
+// the endpoints whose transmission ends after the clock.
 func (f *Fabric) Snapshot() Snapshot {
 	var q []Arrival
 	if len(f.queue) > 0 {

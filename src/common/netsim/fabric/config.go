@@ -208,8 +208,9 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 	}, tbl
 }
 
-// Cable models a physical link connecting two endpoints with propagation latency,
-// an optional top speed limit, and declared faults.
+// Cable models a physical link connecting two endpoints: a length and a medium that give the propagation time and
+// bound the negotiated speed, an optional Delay that replaces the propagation term, an optional top speed limit,
+// and declared faults.
 type Cable struct {
 	A            Endpoint
 	B            Endpoint

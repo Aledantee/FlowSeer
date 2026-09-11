@@ -436,6 +436,20 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		}
 	})
 
+	t.Run("unset medium diffs as twisted pair", func(t *testing.T) {
+		cfgA := curCfg.Clone()
+		cfgA.Cables[0].Medium = ""
+
+		cfgB := cfgA.Clone()
+		cfgB.Cables[0].Medium = fabric.TwistedPair
+
+		for _, ch := range fabric.Diff(cfgA, cfgB) {
+			if ch.Subject.Kind == "cable" && ch.Field == "medium" {
+				t.Errorf("Diff reported medium %v -> %v for two cables that mean twisted pair", ch.From, ch.To)
+			}
+		}
+	})
+
 	t.Run("cable medium and delay modifications", func(t *testing.T) {
 		cfgA := curCfg.Clone()
 		cfgA.Cables[0].Medium = fabric.TwistedPair
@@ -453,7 +467,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
 					foundMedium = true
 				}
-				if ch.Field == "delay" && ch.From == nil && ch.To != nil && *ch.To.(*time.Duration) == 1*time.Microsecond {
+				if ch.Field == "delay" && ch.From == nil && ch.To == 1*time.Microsecond {
 					foundDelay = true
 				}
 			}
