@@ -146,8 +146,9 @@ Forwarding and allocation behavior follows standard specifications:
   explicit interface or bridge address in the configuration. The base MAC fills
   zero-valued routed interface addresses and spanning tree bridge addresses.
   Two standalone switches may assign the same address; a fabric assigns across nodes.
-- **Routed frame classification**: A routed frame's `Result.FID` records the
-  egress VLAN on a VLAN interface, or zero on a routed port.
+- **Routed frame classification**: A forwarded routed frame's `Result.FID`
+  records the egress VLAN on a VLAN interface, or zero on a routed port; a
+  refused one keeps the ingress VLAN, zero when it arrived on a routed port.
 - **PoE power budget**: PSE groups allocate power against nominal capacity per
   `spec/mib/ietf/POWER-ETHERNET-MIB:420` (`pethMainPsePower`). Ports
   allocate power by priority using IEEE 802.3 standard class limits (classes

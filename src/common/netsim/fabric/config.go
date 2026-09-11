@@ -146,6 +146,8 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 		AdminStatus: port.Up,
 		OperStatus:  port.Up,
 	})
+	// One physical port with a name and no LAG parent cannot fail the
+	// table's rules; Config.Validate refuses an empty host name before this.
 	tbl, _ := b.Build()
 
 	if h.IP == nil {

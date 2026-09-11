@@ -63,25 +63,6 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 
 	cloned := cfg.Clone()
 
-	if cur != nil {
-		for name, swCfg := range cloned.Switches {
-			if swCfg.MAC == (netaddr.MAC{}) {
-				if curSw, ok := cur.cfg.Switches[name]; ok && curSw.MAC != (netaddr.MAC{}) {
-					swCfg.MAC = curSw.MAC
-					cloned.Switches[name] = swCfg
-				}
-			}
-		}
-		for name, h := range cloned.Hosts {
-			if h.Address == (netaddr.MAC{}) {
-				if curH, ok := cur.cfg.Hosts[name]; ok && curH.Address != (netaddr.MAC{}) {
-					h.Address = curH.Address
-					cloned.Hosts[name] = h
-				}
-			}
-		}
-	}
-
 	usedMACs := make(map[netaddr.MAC]struct{})
 	for _, swCfg := range cloned.Switches {
 		if swCfg.MAC != (netaddr.MAC{}) {
@@ -103,6 +84,45 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 	for _, h := range cloned.Hosts {
 		if h.Address != (netaddr.MAC{}) {
 			usedMACs[h.Address] = struct{}{}
+		}
+	}
+
+	// A node whose new configuration leaves its address zero keeps the one
+	// cur assigned, unless the new configuration claims that address
+	// explicitly elsewhere; then the node takes the next free one.
+	if cur != nil {
+		carry := func(assigned netaddr.MAC) (netaddr.MAC, bool) {
+			if assigned == (netaddr.MAC{}) {
+				return netaddr.MAC{}, false
+			}
+			if _, taken := usedMACs[assigned]; taken {
+				return netaddr.MAC{}, false
+			}
+			usedMACs[assigned] = struct{}{}
+
+			return assigned, true
+		}
+		for name, swCfg := range cloned.Switches {
+			if swCfg.MAC != (netaddr.MAC{}) {
+				continue
+			}
+			if curSw, ok := cur.cfg.Switches[name]; ok {
+				if mac, ok := carry(curSw.MAC); ok {
+					swCfg.MAC = mac
+					cloned.Switches[name] = swCfg
+				}
+			}
+		}
+		for name, h := range cloned.Hosts {
+			if h.Address != (netaddr.MAC{}) {
+				continue
+			}
+			if curH, ok := cur.cfg.Hosts[name]; ok {
+				if mac, ok := carry(curH.Address); ok {
+					h.Address = mac
+					cloned.Hosts[name] = h
+				}
+			}
 		}
 	}
 
@@ -219,7 +239,6 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "rebuild ports for switch %q", name)
 		}
 		swCfg.Ports = newTable
-		cloned.Switches[name] = swCfg
 
 		switches[name] = vswitch.New(swCfg)
 		cloned.Switches[name] = switches[name].Config()

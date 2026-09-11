@@ -127,6 +127,15 @@ func (c Config) Validate() error {
 				}
 
 				if iface.Port != "" {
+					// A relay without VLANs floods to every forwarding port and
+					// has no table to leave a routed port out of.
+					if c.Bridge != nil && c.Bridge.VLAN == nil {
+						return errs.New().
+							Attr("vrf", vrfName).
+							Attr("interface", ifaceName).
+							Attr("port", iface.Port).
+							Msgf("routed port %q needs a relay with VLAN configuration or no relay", iface.Port)
+					}
 					if c.Bridge != nil && c.Bridge.VLAN != nil {
 						if _, ok := c.Bridge.VLAN.Switchports[iface.Port]; ok {
 							return errs.New().

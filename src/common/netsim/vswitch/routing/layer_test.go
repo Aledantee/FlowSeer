@@ -921,3 +921,84 @@ func TestOriginate(t *testing.T) {
 		}
 	})
 }
+
+// TestRouteRefusesEtherTypeFamilyMismatch is evidence that the header family
+// the version nibble names must agree with the frame's EtherType, since the
+// egress frame keeps that EtherType.
+func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
+	t.Parallel()
+	l := routing.New(standardSwitchConfig())
+	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+
+	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("ipv6 data"))
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
+		Dst:       deviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	}
+
+	res := l.Route("vlan10", frame)
+	if res.Reason != routing.ReasonBadHeader {
+		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
+	}
+	last := res.Steps[len(res.Steps)-1]
+	if last.Op != trace.OpDrop || last.Detail != string(routing.ReasonBadHeader) {
+		t.Errorf("last step = %+v, want drop bad-header", last)
+	}
+}
+
+// TestRouteLeavesInputUntouched is evidence that Route works on a copy: the
+// input frame's payload bytes are the same after the call, and writing to the
+// egress payload does not reach them.
+func TestRouteLeavesInputUntouched(t *testing.T) {
+	t.Parallel()
+	l := routing.New(standardSwitchConfig())
+	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+
+	pkt := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.7"), 64, []byte("data"))
+	before := append([]byte(nil), pkt...)
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
+		Dst:       deviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	}
+
+	res := l.Route("vlan10", frame)
+	if res.Reason != "" {
+		t.Fatalf("reason = %q, want empty", res.Reason)
+	}
+	if string(frame.Payload) != string(before) {
+		t.Fatal("Route changed the input payload")
+	}
+	res.Frame.Payload[len(res.Frame.Payload)-1] ^= 0xff
+	if string(frame.Payload) != string(before) {
+		t.Fatal("the egress payload aliases the input payload")
+	}
+}
+
+// TestRouteUnknownInterface is evidence that a name the layer does not hold
+// gets the same step shape as a table miss: classify, lookup, drop.
+func TestRouteUnknownInterface(t *testing.T) {
+	t.Parallel()
+	l := routing.New(standardSwitchConfig())
+
+	res := l.Route("vlan99", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4})
+	if res.Reason != routing.ReasonNoRoute {
+		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
+	}
+	want := []trace.Step{
+		{Layer: port.LayerRouting, Op: trace.OpClassify, Detail: "interface vlan99"},
+		{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
+		{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: "unknown interface vlan99"},
+	}
+	if len(res.Steps) != len(want) {
+		t.Fatalf("steps = %+v, want %+v", res.Steps, want)
+	}
+	for i := range want {
+		if res.Steps[i] != want[i] {
+			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], want[i])
+		}
+	}
+}

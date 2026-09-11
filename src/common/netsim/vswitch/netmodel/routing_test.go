@@ -42,6 +42,30 @@ func protoEUI48(octets [6]byte) *addrv1.EuiAddress {
 	}.Build()
 }
 
+func validateFixtures(t *testing.T, ifaces []*interfacev1.Interface, vlans []*switchingv1.Vlan, addrs []*ipv1.InterfaceAddress, neighbors []*ipv1.NeighborEntry) {
+	t.Helper()
+	for _, m := range ifaces {
+		if err := protovalidate.Validate(m); err != nil {
+			t.Fatalf("interface %s validation failed: %v", m.GetName(), err)
+		}
+	}
+	for _, m := range vlans {
+		if err := protovalidate.Validate(m); err != nil {
+			t.Fatalf("vlan %d validation failed: %v", m.GetId(), err)
+		}
+	}
+	for _, m := range addrs {
+		if err := protovalidate.Validate(m); err != nil {
+			t.Fatalf("address %s validation failed: %v", m.GetInterfaceName(), err)
+		}
+	}
+	for _, m := range neighbors {
+		if err := protovalidate.Validate(m); err != nil {
+			t.Fatalf("neighbor %s validation failed: %v", m.GetInterfaceName(), err)
+		}
+	}
+}
+
 func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
@@ -147,6 +171,7 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 		}
 	}
 
+	validateFixtures(t, ifaces, vlans, addrs, neighbors)
 	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -256,6 +281,7 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, nil, addrs, nil)
 	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -264,8 +290,8 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	if !slices.Contains(report.Capabilities, port.LayerRouting) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
 	}
-	if slices.Contains(report.Capabilities, port.LayerVlan) {
-		t.Errorf("did not expect vlan capability in %v", report.Capabilities)
+	if !slices.Contains(report.Capabilities, port.LayerVlan) || report.CapabilitySources[port.LayerVlan] != "implied:routing" {
+		t.Errorf("expected vlan implied by routing in %v (%v)", report.Capabilities, report.CapabilitySources)
 	}
 	if report.CapabilitySources[port.LayerRouting] != "inferred:ip" {
 		t.Errorf("routing capability source = %q, want inferred:ip", report.CapabilitySources[port.LayerRouting])
@@ -324,6 +350,7 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, vlans, addrs, nil)
 	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -375,6 +402,7 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, nil, nil, nil)
 	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -438,6 +466,7 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, nil, addrs, nil)
 	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -522,6 +551,7 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, vlans, addrs, nil)
 	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -595,6 +625,7 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, vlans, addrs, neighbors)
 	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -674,6 +705,7 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 	}
 
 	want := []port.Layer{port.LayerRelay}
+	validateFixtures(t, ifaces, nil, addrs, neighbors)
 	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, addrs, neighbors, want)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -774,6 +806,7 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		}.Build(),
 	}
 
+	validateFixtures(t, ifaces, vlans, addrs, nil)
 	cfg, _, _, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)

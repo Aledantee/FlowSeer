@@ -301,6 +301,73 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "duplicate interface name across VRFs",
+			mutate: func(c *routing.Config) {
+				c.VRFs["tenant"] = routing.VRF{
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {
+							VLAN:     30,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("192.168.1.1/24")},
+						},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate route prefix within VRF",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:    netip.MustParsePrefix("10.0.30.0/24"),
+					NextHop:   netip.MustParseAddr("10.0.10.253"),
+					Interface: "vlan10",
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "IPv4-mapped interface prefix",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				iface := vrf.Interfaces["vlan10"]
+				iface.Prefixes = append(iface.Prefixes, netip.MustParsePrefix("::ffff:10.0.10.1/120"))
+				vrf.Interfaces["vlan10"] = iface
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "IPv4-mapped neighbor address",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				iface := vrf.Interfaces["vlan10"]
+				iface.Prefixes = append(iface.Prefixes, netip.MustParsePrefix("2001:db8:10::1/64"))
+				vrf.Interfaces["vlan10"] = iface
+				vrf.Neighbors = append(vrf.Neighbors, routing.Neighbor{
+					Interface: "vlan10",
+					Addr:      netip.MustParseAddr("::ffff:10.0.10.9"),
+					MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99},
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "IPv4-mapped next hop",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:    netip.MustParsePrefix("10.0.40.0/24"),
+					NextHop:   netip.MustParseAddr("::ffff:10.0.10.254"),
+					Interface: "vlan10",
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

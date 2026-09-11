@@ -7,7 +7,7 @@ goroutines or wall-clock dependencies.
 | Package            | What it does                                              |
 | ------------------ | --------------------------------------------------------- |
 | `trace`            | Step, outcome, and change trace records                   |
-| `vswitch`          | Virtual switch composing pipeline capabilities           |
+| `vswitch`          | Virtual switch composing pipeline capabilities            |
 | `vswitch/port`     | Port table, administrative state, and MTU                 |
 | `vswitch/phy`      | Physical Ethernet speeds and PoE budget allocation        |
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging      |

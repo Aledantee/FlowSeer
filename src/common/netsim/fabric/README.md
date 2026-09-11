@@ -173,8 +173,8 @@ originated:
   no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
   naming the address and reason without creating a journey.
 
-MAC addresses left zero in a fabric configuration are assigned during `New`
-and `build` before subsystem instantiation. The allocator walks switch names
+MAC addresses left zero in a fabric configuration are assigned by `New`
+and `Derive` before any switch or host stack is built. The allocator walks switch names
 then host names in sorted order, assigning the first locally administered
 unicast MAC `netaddr.Local(n)` (`02:00:00:` followed by n big-endian, starting
 from 1) that is not explicitly used by any switch base MAC, host address, routed

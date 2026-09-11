@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -74,7 +75,6 @@ type vrfState struct {
 //
 // A Layer is safe for concurrent use.
 type Layer struct {
-	cfg      Config
 	byVLAN   map[vlan.ID]string
 	byPort   map[string]string
 	ifaceVRF map[string]string
@@ -92,7 +92,6 @@ func New(cfg Config) *Layer {
 	cloned := cfg.Clone()
 
 	l := &Layer{
-		cfg:      cloned,
 		byVLAN:   make(map[vlan.ID]string),
 		byPort:   make(map[string]string),
 		ifaceVRF: make(map[string]string),
@@ -232,7 +231,9 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if !ok {
 		return Result{
 			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: "no-route"},
+				{Layer: port.LayerRouting, Op: trace.OpClassify, Detail: fmt.Sprintf("interface %s", iface)},
+				{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
+				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: fmt.Sprintf("unknown interface %s", iface)},
 			},
 			Reason: ReasonNoRoute,
 		}
@@ -247,6 +248,11 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	})
 
 	hdr, payload, err := ip.Decode(f.Payload)
+	// The egress frame keeps the EtherType, so a header whose family the
+	// EtherType does not name would leave with a label no receiver can parse.
+	if err == nil && (hdr.Version() == 4) != (f.EtherType == ethernet.EtherTypeIPv4) {
+		err = errs.New().Attr("field", "version").Msg("IP version disagrees with the frame's EtherType")
+	}
 	if err != nil {
 		res.Reason = ReasonBadHeader
 		res.Steps = append(res.Steps, trace.Step{

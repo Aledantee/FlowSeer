@@ -24,7 +24,9 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	next := New(cfg)
-	if cur != nil && cur.stp != nil && cfg.STP != nil && len(stp.Diff(*cur.cfg.STP, *cfg.STP)) == 0 {
+	// Both sides are compared as New filled them, so a bridge address the
+	// switch assigned does not read as a change.
+	if cur != nil && cur.stp != nil && next.cfg.STP != nil && len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 {
 		next.stp = cur.stp.Clone()
 		if next.bridge != nil {
 			next.bridge.SetGate(next.stp)

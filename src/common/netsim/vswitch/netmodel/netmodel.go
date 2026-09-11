@@ -34,9 +34,9 @@ import (
 // interface is an aggregation, stp if bridge state is present, and routing if any interface
 // carries an IP facet. If want is non-empty, only the requested layers are built, and any
 // present facet outside want is omitted and recorded in [Report.Skipped]. When want contains
-// stp, relay is implied. When a VLAN interface with an IP facet loads, vlan and relay are
-// implied. When routing is not wanted, every IP facet, address row, and neighbor row is
-// recorded as skipped. When routing ends up with no interfaces (every IP facet skipped),
+// stp, relay is implied. When a routed interface loads, a VLAN interface or a routed port,
+// vlan and relay are implied so the relay can leave the routed port out. When routing is
+// not wanted, every IP facet, address row, and neighbor row is recorded as skipped. When routing ends up with no interfaces (every IP facet skipped),
 // the routing configuration is left nil and routing is dropped from capabilities with its
 // source removed, so [vswitch.Config.Validate] does not refuse an empty VRF.
 //
@@ -129,14 +129,16 @@ func Load(
 		hasPoeFacet        bool
 		hasLag             bool
 		hasIPFacet         bool
-		hasVlanIP          bool
+		hasRoutedIface     bool
 	)
 
 	for _, iface := range ifaces {
 		if iface.GetIp() != nil {
 			hasIPFacet = true
-			if iface.GetVlan() != nil {
-				hasVlanIP = true
+			// A routed interface needs a relay that can leave it out, which
+			// only a VLAN-aware relay has.
+			if iface.GetVlan() != nil || iface.GetPhysical() != nil || iface.GetLag() != nil {
+				hasRoutedIface = true
 			}
 		}
 		if iface.GetPhysical() != nil {
@@ -196,7 +198,7 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerRouting)
 			report.CapabilitySources[port.LayerRouting] = "inferred:ip"
 		}
-		if hasVlanIP && !slices.Contains(report.Capabilities, port.LayerVlan) {
+		if hasRoutedIface && !slices.Contains(report.Capabilities, port.LayerVlan) {
 			report.Capabilities = append(report.Capabilities, port.LayerVlan)
 			report.CapabilitySources[port.LayerVlan] = "implied:routing"
 		}
@@ -218,7 +220,7 @@ func Load(
 			report.Capabilities = append(report.Capabilities, port.LayerLag)
 			report.CapabilitySources[port.LayerLag] = "present:lag"
 		}
-		if slices.Contains(want, port.LayerRouting) && hasVlanIP {
+		if slices.Contains(want, port.LayerRouting) && hasRoutedIface {
 			if !slices.Contains(report.Capabilities, port.LayerVlan) {
 				report.Capabilities = append(report.Capabilities, port.LayerVlan)
 				report.CapabilitySources[port.LayerVlan] = "implied:routing"

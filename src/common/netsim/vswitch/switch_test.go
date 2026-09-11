@@ -1236,6 +1236,60 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	}
 }
 
+// TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress is evidence that
+// Derive compares the spanning tree configuration New filled in, so a bridge
+// address the switch assigned does not read as a change that rebuilds the
+// layer.
+func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		},
+	}
+
+	sw := vswitch.New(cfg)
+	if sw.Config().STP.Address == (netaddr.MAC{}) {
+		t.Fatal("New left the bridge address zero")
+	}
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	bpdu.SetProposal(true)
+	sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+	if before := sw.Roles()["1/1/1"]; before.Role != stp.RoleRoot || before.State != stp.StateForwarding {
+		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
+	}
+
+	derived, err := vswitch.Derive(sw, cfg)
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+	if after := derived.Roles()["1/1/1"]; after.Role != stp.RoleRoot || after.State != stp.StateForwarding {
+		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", after.Role, after.State)
+	}
+	if derived.BridgeID().Address != sw.BridgeID().Address {
+		t.Errorf("derived bridge address = %s, want %s", derived.BridgeID().Address, sw.BridgeID().Address)
+	}
+}
+
 // TestBPDUOnDownPortIsDropped is evidence that the intercept applies the
 // relay's port check: a BPDU on a port that is not up never reaches the
 // layer, and its trace says so instead of Consumed.
@@ -1445,6 +1499,29 @@ func TestCrossLayerValidation(t *testing.T) {
 		attrs := errs.Attributes(err)
 		if attrs["vrf"] != "default" || attrs["interface"] != "vlan10" || attrs["vlan"] != vlan.ID(10) {
 			t.Errorf("got attrs %v, want vrf=default, interface=vlan10, vlan=10", attrs)
+		}
+	})
+
+	t.Run("routed port refused on a relay without VLAN", func(t *testing.T) {
+		cfg := vswitch.Config{
+			Ports:  ports,
+			Bridge: &bridge.Config{},
+			Routing: &routing.Config{
+				VRFs: map[string]routing.VRF{
+					"default": {
+						Interfaces: map[string]routing.Interface{
+							"1/1/2": {Port: "1/1/2", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+						},
+					},
+				},
+			},
+		}
+		err := cfg.Validate()
+		if err == nil {
+			t.Fatal("Validate succeeded, want error for a routed port on a relay that cannot filter it")
+		}
+		if attrs := errs.Attributes(err); attrs["port"] != "1/1/2" {
+			t.Errorf("got attrs %v, want port=1/1/2", attrs)
 		}
 	})
 
@@ -2894,6 +2971,27 @@ func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
 		if step.Layer == port.LayerRouting {
 			t.Errorf("found routing step in ARP flood trace: %+v", step)
 		}
+	}
+}
+
+// TestDiffReportsDeviceMAC is evidence for the device-level mac change.
+func TestDiffReportsDeviceMAC(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}))
+	cfgA := vswitch.Config{Ports: ports, MAC: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+	cfgB := vswitch.Config{Ports: ports, MAC: netaddr.MAC{0x02, 0, 0, 0, 0, 2}}
+
+	changes := vswitch.Diff(cfgA, cfgB)
+	if len(changes) != 1 {
+		t.Fatalf("changes = %+v, want one", changes)
+	}
+	ch := changes[0]
+	if ch.Layer != port.LayerPort || ch.Subject != (trace.Subject{Kind: "device"}) || ch.Field != "mac" ||
+		ch.From != cfgA.MAC || ch.To != cfgB.MAC {
+		t.Errorf("change = %+v, want layer port, subject device, field mac, %s to %s", ch, cfgA.MAC, cfgB.MAC)
+	}
+	if got := vswitch.Diff(cfgA, cfgA); len(got) != 0 {
+		t.Errorf("Diff(a, a) = %+v, want none", got)
 	}
 }
 

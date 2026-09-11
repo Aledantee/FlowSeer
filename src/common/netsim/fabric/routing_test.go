@@ -568,3 +568,50 @@ func assertSteps(t *testing.T, got []trace.Step, want []trace.Step) {
 		}
 	}
 }
+
+// TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims is evidence that
+// an assignment carried over from the current fabric yields to an explicit
+// address in the new configuration, so no two nodes share one.
+func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	cfgFor := func(h1 netaddr.MAC) fabric.Config {
+		return fabric.Config{
+			Start:    time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
+			Hosts:    map[string]fabric.Host{"h1": {Address: h1}},
+			Cables: []fabric.Cable{{
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			}},
+		}
+	}
+
+	cur, err := fabric.New(cfgFor(netaddr.MAC{}))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+	if got := cur.Config().Switches["sw1"].MAC; got != netaddr.Local(1) {
+		t.Fatalf("sw1 = %s, want %s", got, netaddr.Local(1))
+	}
+
+	next, err := fabric.Derive(cur, cfgFor(netaddr.Local(1)))
+	if err != nil {
+		t.Fatalf("fabric.Derive: %v", err)
+	}
+	sw1 := next.Config().Switches["sw1"].MAC
+	h1 := next.Config().Hosts["h1"].Address
+	if h1 != netaddr.Local(1) {
+		t.Errorf("h1 = %s, want the explicit %s", h1, netaddr.Local(1))
+	}
+	if sw1 == h1 {
+		t.Errorf("sw1 and h1 both carry %s", sw1)
+	}
+	if sw1 != netaddr.Local(2) {
+		t.Errorf("sw1 = %s, want the next free %s", sw1, netaddr.Local(2))
+	}
+}

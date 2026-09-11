@@ -95,6 +95,8 @@ func (c Config) Validate(ports port.Table) error {
 
 	claimedVLANs := make(map[vlan.ID]string)
 	claimedPorts := make(map[string]string)
+	// The layer keys interfaces by name across every VRF, as a device does.
+	claimedIfaces := make(map[string]string)
 
 	for _, vrfName := range vrfNames {
 		if vrfName == "" {
@@ -120,6 +122,15 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Msgf("interface name in VRF %q cannot be empty", vrfName)
 			}
+
+			if prev, ok := claimedIfaces[ifaceName]; ok {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("interface", ifaceName).
+					Attr("claimed_by", prev).
+					Msgf("interface %q is named by VRF %q and VRF %q", ifaceName, prev, vrfName)
+			}
+			claimedIfaces[ifaceName] = vrfName
 
 			iface := vrf.Interfaces[ifaceName]
 			hasVLAN := iface.VLAN != 0
@@ -194,9 +205,18 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("prefix", p).
 						Msgf("interface %q address %s cannot have prefix length 0", ifaceName, p)
 				}
+				if p.Addr().Is4In6() {
+					return errs.New().
+						Attr("vrf", vrfName).
+						Attr("interface", ifaceName).
+						Attr("prefix", p).
+						Msgf("interface %q address %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", ifaceName, p)
+				}
 			}
 		}
 
+		// The table holds one route per prefix.
+		seenPrefixes := make(map[netip.Prefix]struct{}, len(vrf.Routes))
 		for _, r := range vrf.Routes {
 			if !r.Prefix.IsValid() || r.Prefix != r.Prefix.Masked() {
 				return errs.New().
@@ -204,6 +224,20 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("prefix", r.Prefix).
 					Msgf("route prefix %s is not masked", r.Prefix)
 			}
+			if r.Prefix.Addr().Is4In6() || r.NextHop.Is4In6() {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("prefix", r.Prefix).
+					Attr("next_hop", r.NextHop).
+					Msgf("route %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", r.Prefix)
+			}
+			if _, dup := seenPrefixes[r.Prefix]; dup {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("prefix", r.Prefix).
+					Msgf("route prefix %s appears twice in VRF %q", r.Prefix, vrfName)
+			}
+			seenPrefixes[r.Prefix] = struct{}{}
 
 			if !r.NextHop.IsValid() && r.Interface == "" {
 				return errs.New().
@@ -260,6 +294,13 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("neighbor", n.Addr).
 					Attr("mac", n.MAC).
 					Msgf("neighbor %s MAC %s cannot be a group MAC", n.Addr, n.MAC)
+			}
+			if n.Addr.Is4In6() {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("neighbor", n.Addr).
+					Attr("interface", n.Interface).
+					Msgf("neighbor %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", n.Addr)
 			}
 
 			matchingFamily := false

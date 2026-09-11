@@ -365,8 +365,9 @@ optional VLAN. This phase adds:
   naming it that carry a MAC. A routed port's switchport facet, if the
   source reported one beside the IP facet, is reported and skipped, since
   the two cannot both hold. `routing` is inferred into the capability
-  set, and `vlan` and `relay` are implied only when a VLAN interface
-  loaded. An address row naming an interface that carries no IP facet
+  set, and `vlan` and `relay` are implied when a routed interface of
+  either shape loaded, because a relay without a VLAN table floods to
+  every port and could not leave a routed port out. An address row naming an interface that carries no IP facet
   and a neighbor row without a MAC or naming such an interface are
   reported and skipped. A VLAN interface still loads into the port table
   as today, kind `Other` with no switchport, so the relay never floods to
@@ -395,7 +396,15 @@ optional VLAN. This phase adds:
   `routing`. `fabric.HostRoutingConfig(name, host)` is the exported
   translation of a host into its routing configuration and one-port
   table, called by `Validate`, by `build`, and by the external test that
-  checks the default routes.
+  checks the default routes. The review's fixes added, on 2026-09-11: an
+  interface name is claimed once across every VRF; a VRF holds one route
+  per prefix; IPv4-mapped addresses are refused everywhere a decoded
+  4-byte address would have to match them; `Route` refuses a header whose
+  family the EtherType does not name; a routed port is refused beside a
+  relay without VLANs, and so the loader implies `vlan` for a routed port
+  too; `Derive` compares the spanning tree configuration `New` filled in;
+  and `fabric.Derive` carries an assigned address only when the new
+  configuration does not claim it explicitly.
 
 ## Requirements
 
@@ -692,7 +701,7 @@ Tests: `routing_test.go` in `netmodel`, a VLAN interface with an IP
 facet, a MAC, two address rows, and one neighbor row loading to the
 configuration of 41 in the VRF `default` with `routing` inferred and the
 VRF listed as a default, a physical interface with an IP facet loading
-as a routed port named as the interface with `routing` inferred and no
+as a routed port named as the interface with `routing` inferred and
 `vlan` implied, a VLAN interface without a MAC loading with a zero MAC
 and `mac` reported as a default for it and for the device, a loopback
 with an IP facet reported unsupported, a routed port with a switchport
