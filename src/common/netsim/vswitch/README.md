@@ -199,6 +199,8 @@ omitted values with standard defaults and records each in the `Report`:
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
 | `power_milliwatts`  | 0 mW             | PseBudget without a budget          |
+| `bond_mode`         | `active-backup`  | Open vSwitch bond_mode default      |
+| `lacp`              | `off`            | Open vSwitch lacp default           |
 
 ## Drop reasons
 

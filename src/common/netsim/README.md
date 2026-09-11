@@ -9,6 +9,7 @@ goroutines or wall-clock dependencies.
 | `trace`            | Step, outcome, and change trace records                      |
 | `vswitch`          | Virtual switch composing pipeline capabilities               |
 | `vswitch/port`     | Port table, administrative state, and MTU                    |
+| `vswitch/lag`      | Bond modes, member delays, LACP                              |
 | `vswitch/phy`      | Physical Ethernet speeds and PoE budget allocation           |
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging         |
 | `vswitch/routing`  | Routed interfaces, per-VRF forwarding and neighbor tables    |

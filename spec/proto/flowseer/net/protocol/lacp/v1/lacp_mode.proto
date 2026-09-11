@@ -1,0 +1,16 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+// Administrative Link Aggregation Control Protocol (LACP) mode of an
+// aggregator.
+enum LacpMode {
+  // LACP mode was not reported.
+  LACP_MODE_UNSPECIFIED = 0;
+  // LACP is disabled on the aggregator.
+  LACP_MODE_OFF = 1;
+  // Aggregator actively transmits LACPDUs at configured intervals.
+  LACP_MODE_ACTIVE = 2;
+  // Aggregator transmits LACPDUs only when it receives one from a partner.
+  LACP_MODE_PASSIVE = 3;
+}

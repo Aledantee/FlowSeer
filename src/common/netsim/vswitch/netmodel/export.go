@@ -9,12 +9,17 @@ import (
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
+	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -323,6 +328,211 @@ func bridgeIDMessage(id stp.BridgeID) *stpv1.BridgeId {
 		Priority: &prio,
 		Address:  addrv1.Eui48Address_builder{Octets: id.Address[:]}.Build(),
 	}.Build()
+}
+
+// Lacp exports the switch link aggregation layer's runtime and administrative state
+// as typed [lacpv1.AggregatorState] and [lacpv1.PortState] messages.
+//
+// Lacp returns nil, nil if the switch has no link aggregation group ports.
+func Lacp(sw *vswitch.Switch) ([]*lacpv1.AggregatorState, []*lacpv1.PortState) {
+	if sw == nil {
+		return nil, nil
+	}
+	ports := sw.Ports()
+	var lagPortNames []string
+	for _, p := range ports.Ports() {
+		if p.Kind == port.Lag {
+			lagPortNames = append(lagPortNames, p.Name)
+		}
+	}
+	if len(lagPortNames) == 0 {
+		return nil, nil
+	}
+	slices.Sort(lagPortNames)
+
+	cfg := sw.Config()
+	lagCfg := lag.Config{}
+	if cfg.LAG != nil {
+		lagCfg = *cfg.LAG
+	}
+	effective := lagCfg.Defaults(ports, cfg.MAC)
+
+	aggregators := make([]*lacpv1.AggregatorState, 0, len(lagPortNames))
+	var portStates []*lacpv1.PortState
+
+	for _, lagName := range lagPortNames {
+		lCfg := effective.LAGs[lagName]
+		info := sw.LagInfo(lagName)
+
+		var mode lacpv1.LacpMode
+		switch lCfg.LACP.Mode {
+		case lag.Active:
+			mode = lacpv1.LacpMode_LACP_MODE_ACTIVE
+		case lag.Passive:
+			mode = lacpv1.LacpMode_LACP_MODE_PASSIVE
+		case lag.Off:
+			mode = lacpv1.LacpMode_LACP_MODE_OFF
+		default:
+			mode = lacpv1.LacpMode_LACP_MODE_OFF
+		}
+
+		prio := uint32(lCfg.LACP.SystemPriority)
+		key := uint32(lCfg.LACP.Key)
+		fast := lCfg.LACP.Fast
+		fallback := lCfg.LACP.Fallback
+
+		aggName := lagName
+		ab := lacpv1.AggregatorState_builder{
+			InterfaceName:        &aggName,
+			Mode:                 &mode,
+			Fast:                 &fast,
+			SystemPriority:       &prio,
+			Key:                  &key,
+			FallbackActiveBackup: &fallback,
+		}
+		if lCfg.LACP.SystemID != (netaddr.MAC{}) {
+			ab.SystemId = addrv1.Eui48Address_builder{Octets: lCfg.LACP.SystemID[:]}.Build()
+		}
+		if info.PartnerSystemID != (netaddr.MAC{}) {
+			ab.PartnerSystemId = addrv1.Eui48Address_builder{Octets: info.PartnerSystemID[:]}.Build()
+		}
+		if info.PartnerSystemPriority != 0 {
+			partnerPrio := uint32(info.PartnerSystemPriority)
+			ab.PartnerSystemPriority = &partnerPrio
+		}
+		if info.PartnerKey != 0 {
+			partnerKey := uint32(info.PartnerKey)
+			ab.PartnerKey = &partnerKey
+		}
+		if len(info.Attached) > 0 {
+			sel := slices.Clone(info.Attached)
+			slices.Sort(sel)
+			ab.SelectedMembers = sel
+		}
+
+		aggregators = append(aggregators, ab.Build())
+
+		members := ports.Members(lagName)
+		var memberNames []string
+		for _, m := range members {
+			memberNames = append(memberNames, m.Name)
+		}
+		slices.Sort(memberNames)
+
+		for _, memName := range memberNames {
+			memInfo := sw.MemberInfo(memName)
+			mCfg := lCfg.Members[memName]
+
+			memPortPrio := uint32(mCfg.Priority)
+			memKey := uint32(mCfg.Key)
+
+			actorSysPrio := uint32(memInfo.Actor.SystemPriority)
+			actorKey := uint32(memInfo.Actor.Key)
+			actorPortPrio := uint32(memInfo.Actor.PortPriority)
+			actorPortID := uint32(memInfo.Actor.PortID)
+			actorStateBits := mapStateBits(memInfo.Actor.State)
+
+			actorBuilder := lacpv1.LacpInfo_builder{
+				SystemPriority: &actorSysPrio,
+				Key:            &actorKey,
+				PortPriority:   &actorPortPrio,
+				PortId:         &actorPortID,
+				State:          actorStateBits,
+			}
+			if memInfo.Actor.SystemID != (netaddr.MAC{}) {
+				actorBuilder.SystemId = addrv1.Eui48Address_builder{Octets: memInfo.Actor.SystemID[:]}.Build()
+			}
+
+			var partner *lacpv1.LacpInfo
+			if memInfo.Partner != (lacp.Info{}) {
+				partnerSysPrio := uint32(memInfo.Partner.SystemPriority)
+				partnerKey := uint32(memInfo.Partner.Key)
+				partnerPortPrio := uint32(memInfo.Partner.PortPriority)
+				partnerPortID := uint32(memInfo.Partner.PortID)
+				partnerStateBits := mapStateBits(memInfo.Partner.State)
+
+				pb := lacpv1.LacpInfo_builder{
+					SystemPriority: &partnerSysPrio,
+					Key:            &partnerKey,
+					PortPriority:   &partnerPortPrio,
+					PortId:         &partnerPortID,
+					State:          partnerStateBits,
+				}
+				if memInfo.Partner.SystemID != (netaddr.MAC{}) {
+					pb.SystemId = addrv1.Eui48Address_builder{Octets: memInfo.Partner.SystemID[:]}.Build()
+				}
+				partner = pb.Build()
+			}
+
+			var status lacpv1.LacpStatus
+			switch memInfo.Status {
+			case lag.Current:
+				status = lacpv1.LacpStatus_LACP_STATUS_CURRENT
+			case lag.Expired:
+				status = lacpv1.LacpStatus_LACP_STATUS_EXPIRED
+			case lag.Defaulted:
+				status = lacpv1.LacpStatus_LACP_STATUS_DEFAULTED
+			default:
+				status = lacpv1.LacpStatus_LACP_STATUS_UNSPECIFIED
+			}
+
+			attached := memInfo.Attached
+			enabled := memInfo.Enabled
+			tx := memInfo.LACPDUsTx
+			rx := memInfo.LACPDUsRx
+			bad := memInfo.BadLACPDUs
+
+			mName := memName
+			pLagName := lagName
+			psb := lacpv1.PortState_builder{
+				InterfaceName:           &mName,
+				AggregatorInterfaceName: &pLagName,
+				PortPriority:            &memPortPrio,
+				Key:                     &memKey,
+				Actor:                   actorBuilder.Build(),
+				Partner:                 partner,
+				Status:                  &status,
+				Attached:                &attached,
+				Enabled:                 &enabled,
+				LacpdusTx:               &tx,
+				LacpdusRx:               &rx,
+				BadLacpdus:              &bad,
+			}
+			portStates = append(portStates, psb.Build())
+		}
+	}
+
+	return aggregators, portStates
+}
+
+func mapStateBits(st lacp.State) []lacpv1.LacpStateBit {
+	var bits []lacpv1.LacpStateBit
+	if st&lacp.StateActive != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_ACTIVITY)
+	}
+	if st&lacp.StateShortTimeout != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_TIMEOUT)
+	}
+	if st&lacp.StateAggregation != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_AGGREGATION)
+	}
+	if st&lacp.StateSynchronization != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_SYNCHRONIZATION)
+	}
+	if st&lacp.StateCollecting != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_COLLECTING)
+	}
+	if st&lacp.StateDistributing != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_DISTRIBUTING)
+	}
+	if st&lacp.StateDefaulted != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_DEFAULTED)
+	}
+	if st&lacp.StateExpired != 0 {
+		bits = append(bits, lacpv1.LacpStateBit_LACP_STATE_BIT_EXPIRED)
+	}
+
+	return bits
 }
 
 func sortedKeys[V any](m map[string]V) []string {

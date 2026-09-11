@@ -1,0 +1,57 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/protocol/lacp/v1/lacp_mode.proto";
+import option "buf/validate/validate.proto";
+
+// Observed Link Aggregation Control Protocol (LACP) state and administrative
+// settings of an aggregator. The aggregator's administrative settings travel
+// in the same message, so this package deliberately has no AggregatorConfig
+// and no AggregatorEvent.
+message AggregatorState {
+  // Device-local name of the aggregator interface. Must be present.
+  string interface_name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Administrative LACP mode of the aggregator. Absent means unreported.
+  LacpMode mode = 2;
+  // Whether the aggregator requests fast periodic transmission (1 s instead of
+  // 30 s). Absent means unreported.
+  bool fast = 3;
+  // Administrative system priority assigned to this aggregator. Absent means
+  // unreported. Mirrors dot3adAggActorSystemPriority (IEEE8023-LAG-MIB:264).
+  uint32 system_priority = 4;
+  // System identifier MAC address of this aggregator. Absent means unreported.
+  // Mirrors dot3adAggActorSystemID (IEEE8023-LAG-MIB:280).
+  flowseer.net.addr.v1.Eui48Address system_id = 5;
+  // Administrative actor key of the aggregator. Absent means unreported.
+  // Mirrors dot3adAggActorAdminKey (IEEE8023-LAG-MIB:316).
+  uint32 key = 6;
+  // Whether the aggregator falls back to active-backup mode when no partner is
+  // detected. Absent means unreported.
+  bool fallback_active_backup = 7;
+  // System identifier MAC address of the selected partner. Absent means no
+  // partner is attached. Mirrors dot3adAggPartnerSystemID (IEEE8023-LAG-MIB:300).
+  flowseer.net.addr.v1.Eui48Address partner_system_id = 8;
+  // Partner system priority portion of the selected partner system identifier.
+  // Absent means no partner is attached. Mirrors dot3adAggPartnerSystemPriority
+  // (IEEE8023-LAG-MIB:284).
+  uint32 partner_system_priority = 9;
+  // Operational key advertised by the selected partner. Absent means no partner
+  // is attached. Mirrors dot3adAggPartnerOperKey (IEEE8023-LAG-MIB:348).
+  uint32 partner_key = 10;
+  // Member interface names currently attached and selected for traffic
+  // distribution. Empty means no members are selected.
+  repeated string selected_members = 11 [(buf.validate.field).repeated = {
+    items: {
+      string: {
+        min_len: 1
+        max_len: 64
+      }
+    }
+  }];
+}

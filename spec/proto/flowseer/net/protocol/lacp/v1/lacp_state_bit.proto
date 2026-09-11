@@ -1,0 +1,25 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+// Bit flags of the LACP state field exchanged in LACPDUs.
+enum LacpStateBit {
+  // Unspecified or non-bit state.
+  LACP_STATE_BIT_UNSPECIFIED = 0;
+  // LACP activity bit (lacpActivity, bit position 0 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_ACTIVITY = 1;
+  // LACP timeout bit (lacpTimeout, bit position 1 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_TIMEOUT = 2;
+  // Aggregation bit (aggregation, bit position 2 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_AGGREGATION = 3;
+  // Synchronization bit (synchronization, bit position 3 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_SYNCHRONIZATION = 4;
+  // Collecting bit (collecting, bit position 4 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_COLLECTING = 5;
+  // Distributing bit (distributing, bit position 5 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_DISTRIBUTING = 6;
+  // Defaulted bit (defaulted, bit position 6 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_DEFAULTED = 7;
+  // Expired bit (expired, bit position 7 in IEEE8023-LAG-MIB:73).
+  LACP_STATE_BIT_EXPIRED = 8;
+}

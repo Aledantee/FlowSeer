@@ -273,7 +273,7 @@ transmit hold count, per-port BPDU counters, and their export.
 
 Files: `docs/plans/2026-09-11-1431-feat-netsim-ovs-parity-and-cable-timing-phase4-plan.md`
 After: U1, U3
-Landed:
+Landed: 2026-09-11 on `unify-netsim-plan-phases`, commits 045f7878 through the schema, loader, and export commit and the review-fix commit that follows it.
 Change: `netsim/vswitch/lag` with bond modes, hashing, member delays, and
 LACP on the timer facility, an LACPDU codec under `src/common/net/lacp`,
 and the loader's aggregation facet.

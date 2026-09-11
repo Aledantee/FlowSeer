@@ -22,6 +22,7 @@ import (
 	// import rather than letting the package go unwalked in silence.
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/edge/v1"
 )
@@ -80,6 +81,9 @@ var exempt = map[string]string{
 	"flowseer.net.ip.v1.NeighborEntry.interface_name":                   "device-reported scoping interface",
 	"flowseer.net.protocol.stp.v1.PortState.interface_name":             "device-reported spanning tree port",
 	"flowseer.net.protocol.stp.v1.BridgeState.root_port_interface_name": "device-reported root port",
+	"flowseer.net.protocol.lacp.v1.AggregatorState.interface_name":      "device-reported aggregator",
+	"flowseer.net.protocol.lacp.v1.PortState.interface_name":            "device-reported aggregation member",
+	"flowseer.net.protocol.lacp.v1.PortState.aggregator_interface_name": "device-reported aggregator of the member",
 }
 
 // TestSharedFieldNamesCarryTheSameConstraints walks every message in the

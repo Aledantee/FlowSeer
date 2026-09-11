@@ -9,6 +9,7 @@ package switchingv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	reflect "reflect"
 	unsafe "unsafe"
 )
@@ -24,13 +25,18 @@ const (
 // FlowSeer-normalized with no registry behind them; LACP actor, partner,
 // selection, and synchronization facts belong to net.protocol.lacp.
 type AggregationFacet struct {
-	state                         protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MinimumActiveLinks uint32                 `protobuf:"varint,1,opt,name=minimum_active_links,json=minimumActiveLinks"`
-	xxx_hidden_EffectiveSpeedBps  uint64                 `protobuf:"varint,2,opt,name=effective_speed_bps,json=effectiveSpeedBps"`
-	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
-	XXX_presence                  [1]uint32
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	state                           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_MinimumActiveLinks   uint32                 `protobuf:"varint,1,opt,name=minimum_active_links,json=minimumActiveLinks"`
+	xxx_hidden_EffectiveSpeedBps    uint64                 `protobuf:"varint,2,opt,name=effective_speed_bps,json=effectiveSpeedBps"`
+	xxx_hidden_BondMode             BondMode               `protobuf:"varint,3,opt,name=bond_mode,json=bondMode,enum=flowseer.net.switching.v1.BondMode"`
+	xxx_hidden_UpDelay              *durationpb.Duration   `protobuf:"bytes,4,opt,name=up_delay,json=upDelay"`
+	xxx_hidden_DownDelay            *durationpb.Duration   `protobuf:"bytes,5,opt,name=down_delay,json=downDelay"`
+	xxx_hidden_HashBasis            uint32                 `protobuf:"varint,6,opt,name=hash_basis,json=hashBasis"`
+	xxx_hidden_PrimaryInterfaceName *string                `protobuf:"bytes,7,opt,name=primary_interface_name,json=primaryInterfaceName"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
 }
 
 func (x *AggregationFacet) Reset() {
@@ -72,14 +78,77 @@ func (x *AggregationFacet) GetEffectiveSpeedBps() uint64 {
 	return 0
 }
 
+func (x *AggregationFacet) GetBondMode() BondMode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_BondMode
+		}
+	}
+	return BondMode_BOND_MODE_UNSPECIFIED
+}
+
+func (x *AggregationFacet) GetUpDelay() *durationpb.Duration {
+	if x != nil {
+		return x.xxx_hidden_UpDelay
+	}
+	return nil
+}
+
+func (x *AggregationFacet) GetDownDelay() *durationpb.Duration {
+	if x != nil {
+		return x.xxx_hidden_DownDelay
+	}
+	return nil
+}
+
+func (x *AggregationFacet) GetHashBasis() uint32 {
+	if x != nil {
+		return x.xxx_hidden_HashBasis
+	}
+	return 0
+}
+
+func (x *AggregationFacet) GetPrimaryInterfaceName() string {
+	if x != nil {
+		if x.xxx_hidden_PrimaryInterfaceName != nil {
+			return *x.xxx_hidden_PrimaryInterfaceName
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *AggregationFacet) SetMinimumActiveLinks(v uint32) {
 	x.xxx_hidden_MinimumActiveLinks = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 7)
 }
 
 func (x *AggregationFacet) SetEffectiveSpeedBps(v uint64) {
 	x.xxx_hidden_EffectiveSpeedBps = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 7)
+}
+
+func (x *AggregationFacet) SetBondMode(v BondMode) {
+	x.xxx_hidden_BondMode = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 7)
+}
+
+func (x *AggregationFacet) SetUpDelay(v *durationpb.Duration) {
+	x.xxx_hidden_UpDelay = v
+}
+
+func (x *AggregationFacet) SetDownDelay(v *durationpb.Duration) {
+	x.xxx_hidden_DownDelay = v
+}
+
+func (x *AggregationFacet) SetHashBasis(v uint32) {
+	x.xxx_hidden_HashBasis = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 7)
+}
+
+func (x *AggregationFacet) SetPrimaryInterfaceName(v string) {
+	x.xxx_hidden_PrimaryInterfaceName = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 7)
 }
 
 func (x *AggregationFacet) HasMinimumActiveLinks() bool {
@@ -96,6 +165,41 @@ func (x *AggregationFacet) HasEffectiveSpeedBps() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *AggregationFacet) HasBondMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *AggregationFacet) HasUpDelay() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_UpDelay != nil
+}
+
+func (x *AggregationFacet) HasDownDelay() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_DownDelay != nil
+}
+
+func (x *AggregationFacet) HasHashBasis() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *AggregationFacet) HasPrimaryInterfaceName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 6)
+}
+
 func (x *AggregationFacet) ClearMinimumActiveLinks() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_MinimumActiveLinks = 0
@@ -104,6 +208,29 @@ func (x *AggregationFacet) ClearMinimumActiveLinks() {
 func (x *AggregationFacet) ClearEffectiveSpeedBps() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_EffectiveSpeedBps = 0
+}
+
+func (x *AggregationFacet) ClearBondMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_BondMode = BondMode_BOND_MODE_UNSPECIFIED
+}
+
+func (x *AggregationFacet) ClearUpDelay() {
+	x.xxx_hidden_UpDelay = nil
+}
+
+func (x *AggregationFacet) ClearDownDelay() {
+	x.xxx_hidden_DownDelay = nil
+}
+
+func (x *AggregationFacet) ClearHashBasis() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_HashBasis = 0
+}
+
+func (x *AggregationFacet) ClearPrimaryInterfaceName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 6)
+	x.xxx_hidden_PrimaryInterfaceName = nil
 }
 
 type AggregationFacet_builder struct {
@@ -115,6 +242,21 @@ type AggregationFacet_builder struct {
 	// The active aggregate capacity in bits per second. Absent means the source
 	// did not report it; zero is invalid when present.
 	EffectiveSpeedBps *uint64
+	// Bond mode governing member selection for the aggregation. Absent means
+	// unreported. Mirrors bond_mode of Open vSwitch.
+	BondMode *BondMode
+	// Delay before enabling a member link after it comes up. Absent means
+	// unreported. Mirrors bond-updelay of Open vSwitch.
+	UpDelay *durationpb.Duration
+	// Delay before disabling a member link after it goes down. Absent means
+	// unreported. Mirrors bond-downdelay of Open vSwitch.
+	DownDelay *durationpb.Duration
+	// Hash basis for balance-slb and balance-tcp bond modes. Absent means
+	// unreported. Mirrors bond-hash-basis of Open vSwitch.
+	HashBasis *uint32
+	// Primary member interface name for active-backup mode. Absent means the
+	// lowest member.
+	PrimaryInterfaceName *string
 }
 
 func (b0 AggregationFacet_builder) Build() *AggregationFacet {
@@ -122,12 +264,26 @@ func (b0 AggregationFacet_builder) Build() *AggregationFacet {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.MinimumActiveLinks != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 7)
 		x.xxx_hidden_MinimumActiveLinks = *b.MinimumActiveLinks
 	}
 	if b.EffectiveSpeedBps != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 7)
 		x.xxx_hidden_EffectiveSpeedBps = *b.EffectiveSpeedBps
+	}
+	if b.BondMode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 7)
+		x.xxx_hidden_BondMode = *b.BondMode
+	}
+	x.xxx_hidden_UpDelay = b.UpDelay
+	x.xxx_hidden_DownDelay = b.DownDelay
+	if b.HashBasis != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 7)
+		x.xxx_hidden_HashBasis = *b.HashBasis
+	}
+	if b.PrimaryInterfaceName != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 7)
+		x.xxx_hidden_PrimaryInterfaceName = b.PrimaryInterfaceName
 	}
 	return m0
 }
@@ -136,22 +292,34 @@ var File_flowseer_net_switching_v1_aggregation_facet_proto protoreflect.FileDesc
 
 const file_flowseer_net_switching_v1_aggregation_facet_proto_rawDesc = "" +
 	"\n" +
-	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\"\x86\x01\n" +
+	"1flowseer/net/switching/v1/aggregation_facet.proto\x12\x19flowseer.net.switching.v1\x1a)flowseer/net/switching/v1/bond_mode.proto\x1a\x1egoogle/protobuf/duration.proto\"\xb9\x03\n" +
 	"\x10AggregationFacet\x129\n" +
 	"\x14minimum_active_links\x18\x01 \x01(\rB\a\xbaH\x04*\x02 \x00R\x12minimumActiveLinks\x127\n" +
-	"\x13effective_speed_bps\x18\x02 \x01(\x04B\a\xbaH\x042\x02 \x00R\x11effectiveSpeedBpsB\x8f\x02\n" +
+	"\x13effective_speed_bps\x18\x02 \x01(\x04B\a\xbaH\x042\x02 \x00R\x11effectiveSpeedBps\x12@\n" +
+	"\tbond_mode\x18\x03 \x01(\x0e2#.flowseer.net.switching.v1.BondModeR\bbondMode\x124\n" +
+	"\bup_delay\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\aupDelay\x128\n" +
+	"\n" +
+	"down_delay\x18\x05 \x01(\v2\x19.google.protobuf.DurationR\tdownDelay\x12\x1d\n" +
+	"\n" +
+	"hash_basis\x18\x06 \x01(\rR\thashBasis\x12`\n" +
+	"\x16primary_interface_name\x18\a \x01(\tB*\xbaH'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x14primaryInterfaceNameB\x8f\x02\n" +
 	"\x1dcom.flowseer.net.switching.v1B\x15AggregationFacetProtoP\x01ZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1;switchingv1\xa2\x02\x03FNS\xaa\x02\x19Flowseer.Net.Switching.V1\xca\x02\x19Flowseer\\Net\\Switching\\V1\xe2\x02%Flowseer\\Net\\Switching\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Net::Switching::V1b\beditionsp\xe9\a"
 
 var file_flowseer_net_switching_v1_aggregation_facet_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_flowseer_net_switching_v1_aggregation_facet_proto_goTypes = []any{
-	(*AggregationFacet)(nil), // 0: flowseer.net.switching.v1.AggregationFacet
+	(*AggregationFacet)(nil),    // 0: flowseer.net.switching.v1.AggregationFacet
+	(BondMode)(0),               // 1: flowseer.net.switching.v1.BondMode
+	(*durationpb.Duration)(nil), // 2: google.protobuf.Duration
 }
 var file_flowseer_net_switching_v1_aggregation_facet_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: flowseer.net.switching.v1.AggregationFacet.bond_mode:type_name -> flowseer.net.switching.v1.BondMode
+	2, // 1: flowseer.net.switching.v1.AggregationFacet.up_delay:type_name -> google.protobuf.Duration
+	2, // 2: flowseer.net.switching.v1.AggregationFacet.down_delay:type_name -> google.protobuf.Duration
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_net_switching_v1_aggregation_facet_proto_init() }
@@ -159,6 +327,7 @@ func file_flowseer_net_switching_v1_aggregation_facet_proto_init() {
 	if File_flowseer_net_switching_v1_aggregation_facet_proto != nil {
 		return
 	}
+	file_flowseer_net_switching_v1_bond_mode_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

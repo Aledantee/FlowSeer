@@ -1,0 +1,29 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+import "flowseer/net/addr/v1/eui.proto";
+import "flowseer/net/protocol/lacp/v1/lacp_state_bit.proto";
+import option "buf/validate/validate.proto";
+
+// Operational actor or partner parameter tuple exchanged in LACPDUs.
+message LacpInfo {
+  // Administrative or operational system priority (0..65535). Absent means
+  // unreported. Mirrors dot3adAggActorSystemPriority (IEEE8023-LAG-MIB:264).
+  uint32 system_priority = 1 [(buf.validate.field).uint32.lte = 65535];
+  // System identifier MAC address. Absent means unreported. Mirrors
+  // dot3adAggActorSystemID (IEEE8023-LAG-MIB:280).
+  flowseer.net.addr.v1.Eui48Address system_id = 2;
+  // Operational aggregation key (0..65535). Absent means unreported. Mirrors
+  // dot3adAggActorOperKey (IEEE8023-LAG-MIB:332).
+  uint32 key = 3 [(buf.validate.field).uint32.lte = 65535];
+  // Administratively assigned port priority (0..65535). Absent means
+  // unreported. Mirrors dot3adAggPortActorPortPriority (IEEE8023-LAG-MIB:1413).
+  uint32 port_priority = 4 [(buf.validate.field).uint32.lte = 65535];
+  // Port number portion of the port identifier (0..65535). Absent means
+  // unreported. Mirrors dot3adAggPortIndex (IEEE8023-LAG-MIB:1270).
+  uint32 port_id = 5 [(buf.validate.field).uint32.lte = 65535];
+  // Active LACP operational state bits. Absent means no bits are set. Mirrors
+  // dot3adAggPortActorOperState (IEEE8023-LAG-MIB:1516).
+  repeated LacpStateBit state = 6;
+}

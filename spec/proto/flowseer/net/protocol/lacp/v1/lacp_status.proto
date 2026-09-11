@@ -1,0 +1,15 @@
+edition = "2024";
+
+package flowseer.net.protocol.lacp.v1;
+
+// LACP operational status of a port with respect to its partner information.
+enum LacpStatus {
+  // LACP status was not reported.
+  LACP_STATUS_UNSPECIFIED = 0;
+  // Port is receiving partner LACPDUs and operational information is current.
+  LACP_STATUS_CURRENT = 1;
+  // Port partner information timer expired; waiting before defaulting.
+  LACP_STATUS_EXPIRED = 2;
+  // Port partner information timed out and administrative defaults are in use.
+  LACP_STATUS_DEFAULTED = 3;
+}
