@@ -14,7 +14,7 @@ import (
 
 const (
 	// ReasonUnsupportedBPDU indicates that a received frame could not be decoded
-	// as an RST BPDU because of an unexpected LLC header, protocol identifier,
+	// as a BPDU because of an unexpected LLC header, protocol identifier,
 	// version, or BPDU type.
 	ReasonUnsupportedBPDU trace.Reason = "unsupported-bpdu"
 )
@@ -86,8 +86,40 @@ const (
 	flagTopologyChangeAck uint8 = 1 << 7
 )
 
-// BPDU represents an IEEE 802.1D-2004 Rapid Spanning Tree Bridge Protocol Data Unit.
+// BPDUType identifies the format and purpose of a Spanning Tree Bridge Protocol Data Unit.
+//
+// IEEE 802.1D-2004 clause 9.3 defines three BPDU types: Configuration BPDUs (clause 9.3.1,
+// 35 octets after the LLC header), Topology Change Notification BPDUs (clause 9.3.2,
+// 4 octets after the LLC header), and Rapid Spanning Tree BPDUs (clause 9.3.3, 36 octets
+// after the LLC header).
+type BPDUType uint8
+
+const (
+	// BPDUTypeRapid identifies an IEEE 802.1D-2004 Rapid Spanning Tree BPDU
+	// (clause 9.3.3, wire type 0x02).
+	BPDUTypeRapid BPDUType = iota
+
+	// BPDUTypeConfiguration identifies a legacy IEEE 802.1D Configuration BPDU
+	// (clause 9.3.1, wire type 0x00).
+	BPDUTypeConfiguration
+
+	// BPDUTypeTopologyChangeNotification identifies a legacy IEEE 802.1D Topology Change
+	// Notification BPDU (clause 9.3.2, wire type 0x80).
+	BPDUTypeTopologyChangeNotification
+)
+
+const (
+	bpduTypeWireConfig = 0x00
+	bpduTypeWireRST    = 0x02
+	bpduTypeWireTCN    = 0x80
+)
+
+// BPDU represents an IEEE 802.1D Spanning Tree Bridge Protocol Data Unit.
+//
+// The zero value represents an RST BPDU ([BPDUTypeRapid]).
 type BPDU struct {
+	Version      uint8
+	Type         BPDUType
 	Flags        uint8
 	RootID       BridgeID
 	RootPathCost uint32
@@ -100,7 +132,14 @@ type BPDU struct {
 }
 
 // Role returns the port role carried in the BPDU flags.
+//
+// For legacy Configuration BPDUs ([BPDUTypeConfiguration]), the role is always
+// [RoleDesignated].
 func (b BPDU) Role() Role {
+	if b.Type == BPDUTypeConfiguration {
+		return RoleDesignated
+	}
+
 	switch (b.Flags & flagPortRoleMask) >> flagPortRoleShift {
 	case 1:
 		return RoleAlternate
@@ -129,6 +168,10 @@ func (b *BPDU) SetRole(r Role) {
 
 // Proposal reports whether the proposal flag bit is set.
 func (b BPDU) Proposal() bool {
+	if b.Type == BPDUTypeConfiguration {
+		return false
+	}
+
 	return b.Flags&flagProposal != 0
 }
 
@@ -143,6 +186,10 @@ func (b *BPDU) SetProposal(v bool) {
 
 // Agreement reports whether the agreement flag bit is set.
 func (b BPDU) Agreement() bool {
+	if b.Type == BPDUTypeConfiguration {
+		return false
+	}
+
 	return b.Flags&flagAgreement != 0
 }
 
@@ -214,9 +261,19 @@ func (b *BPDU) SetTopologyChangeAck(v bool) {
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
 const (
-	// llcBPDULength is the LLC header plus the RST BPDU body, the value the
-	// 802.3 length field carries.
+	// llcBPDULength is the LLC header plus the RST BPDU body (IEEE 802.1D-2004
+	// clause 9.3.3), the value the 802.3 length field carries.
 	llcBPDULength = 3 + 36
+
+	// llcConfigBPDULength is the LLC header plus the Configuration BPDU body
+	// (IEEE 802.1D-2004 clause 9.3.1), the value the 802.3 length field carries.
+	llcConfigBPDULength = 3 + 35
+
+	// llcTCNBPDULength is the LLC header plus the Topology Change Notification
+	// BPDU body (IEEE 802.1D-2004 clause 9.3.2), the value the 802.3 length
+	// field carries.
+	llcTCNBPDULength = 3 + 4
+
 	// minDataLength pads the frame to the 802.3 minimum of 60 octets before
 	// the check sequence, as a capture would show it.
 	minDataLength = 46
@@ -224,45 +281,92 @@ const (
 
 // Encode serializes b into an untagged IEEE 802.3 LLC frame addressed to the
 // standard bridge group address (01:80:c2:00:00:00), padded to 60 octets.
+//
+// Encode supports all three IEEE 802.1D-2004 clause 9.3 shapes:
+//   - [BPDUTypeRapid] (or zero value) writes an RST BPDU (clause 9.3.3) with version 2
+//     (or b.Version when at least 2), wire type 0x02, and LLC length 39.
+//   - [BPDUTypeConfiguration] writes a Configuration BPDU (clause 9.3.1) with version 0
+//     (or b.Version when 0 or 1), wire type 0x00, LLC length 38, and flags masked to
+//     Topology Change (bit 0) and Topology Change Acknowledgment (bit 7).
+//   - [BPDUTypeTopologyChangeNotification] writes a Topology Change Notification BPDU
+//     (clause 9.3.2) with version 0, wire type 0x80, LLC length 7, and no body fields.
 func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 	payload := make([]byte, minDataLength)
 	payload[0] = 0x42
 	payload[1] = 0x42
 	payload[2] = 0x03
 	binary.BigEndian.PutUint16(payload[3:5], 0x0000)
-	payload[5] = 2
-	payload[6] = 2
-	payload[7] = b.Flags
-	binary.BigEndian.PutUint16(payload[8:10], b.RootID.Priority)
-	copy(payload[10:16], b.RootID.Address[:])
-	binary.BigEndian.PutUint32(payload[16:20], b.RootPathCost)
-	binary.BigEndian.PutUint16(payload[20:22], b.BridgeID.Priority)
-	copy(payload[22:28], b.BridgeID.Address[:])
-	binary.BigEndian.PutUint16(payload[28:30], b.PortID)
-	binary.BigEndian.PutUint16(payload[30:32], encodeDuration(b.MessageAge))
-	binary.BigEndian.PutUint16(payload[32:34], encodeDuration(b.MaxAge))
-	binary.BigEndian.PutUint16(payload[34:36], encodeDuration(b.HelloTime))
-	binary.BigEndian.PutUint16(payload[36:38], encodeDuration(b.ForwardDelay))
-	payload[38] = 0
 
-	return ethernet.Frame{
-		Dst:       stpGroupAddress,
-		Src:       src,
-		EtherType: ethernet.EtherType(llcBPDULength),
-		Payload:   payload,
+	switch b.Type {
+	case BPDUTypeConfiguration:
+		version := b.Version
+		if version > 1 {
+			version = 0
+		}
+		payload[5] = version
+		payload[6] = bpduTypeWireConfig
+		payload[7] = b.Flags & (flagTopologyChange | flagTopologyChangeAck)
+		putBody(payload, b)
+
+		return ethernet.Frame{
+			Dst:       stpGroupAddress,
+			Src:       src,
+			EtherType: ethernet.EtherType(llcConfigBPDULength),
+			Payload:   payload,
+		}
+
+	case BPDUTypeTopologyChangeNotification:
+		payload[5] = 0
+		payload[6] = bpduTypeWireTCN
+
+		return ethernet.Frame{
+			Dst:       stpGroupAddress,
+			Src:       src,
+			EtherType: ethernet.EtherType(llcTCNBPDULength),
+			Payload:   payload,
+		}
+
+	default:
+		version := b.Version
+		if version < 2 {
+			version = 2
+		}
+		payload[5] = version
+		payload[6] = bpduTypeWireRST
+		payload[7] = b.Flags
+		putBody(payload, b)
+		payload[38] = 0
+
+		return ethernet.Frame{
+			Dst:       stpGroupAddress,
+			Src:       src,
+			EtherType: ethernet.EtherType(llcBPDULength),
+			Payload:   payload,
+		}
 	}
 }
 
-// Decode deserializes an RST BPDU from the payload of an Ethernet frame. It
-// rejects frames with truncated payloads, unexpected LLC headers, protocol
-// identifiers other than 0, versions below 2, or types other than 2 with
-// [ReasonUnsupportedBPDU].
+// Decode deserializes an IEEE 802.1D Spanning Tree BPDU from the payload of an
+// Ethernet frame.
+//
+// Decode recognizes three shapes defined by IEEE 802.1D-2004 clause 9.3:
+//   - Configuration BPDUs (clause 9.3.1): version 0 or 1, wire type 0x00, requiring at
+//     least 38 payload octets. Decoded flags are masked to bits 0 and 7; [BPDU.Role]
+//     reports [RoleDesignated].
+//   - Topology Change Notification BPDUs (clause 9.3.2): version 0 or 1, wire type 0x80,
+//     requiring at least 7 payload octets.
+//   - Rapid Spanning Tree BPDUs (clause 9.3.3): version 2 or greater, wire type 0x02,
+//     requiring at least 39 payload octets.
+//
+// Decode rejects frames with truncated payloads, unexpected LLC headers, protocol
+// identifiers other than 0, unsupported version and type combinations, or zero hello
+// time (on Configuration and RST shapes) with [ReasonUnsupportedBPDU].
 func Decode(f ethernet.Frame) (BPDU, error) {
-	if len(f.Payload) < 39 {
+	if len(f.Payload) < 7 {
 		return BPDU{}, errs.New().
 			Attr("reason", ReasonUnsupportedBPDU).
 			Attr("have", len(f.Payload)).
-			Attr("min", 39).
+			Attr("min", 7).
 			Msgf("BPDU payload length %d is too short", len(f.Payload))
 	}
 
@@ -299,47 +403,114 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	}
 
 	version := f.Payload[5]
-	if version < 2 {
+	bpduType := f.Payload[6]
+
+	switch {
+	case (version == 0 || version == 1) && bpduType == bpduTypeWireConfig:
+		if len(f.Payload) < 38 {
+			return BPDU{}, errs.New().
+				Attr("reason", ReasonUnsupportedBPDU).
+				Attr("have", len(f.Payload)).
+				Attr("min", 38).
+				Msgf("BPDU payload length %d is too short", len(f.Payload))
+		}
+
+		b, err := readBody(f.Payload)
+		if err != nil {
+			return BPDU{}, err
+		}
+
+		b.Version = version
+		b.Type = BPDUTypeConfiguration
+		b.Flags = f.Payload[7] & (flagTopologyChange | flagTopologyChangeAck)
+
+		return b, nil
+
+	case (version == 0 || version == 1) && bpduType == bpduTypeWireTCN:
+		return BPDU{
+			Version: version,
+			Type:    BPDUTypeTopologyChangeNotification,
+		}, nil
+
+	case version >= 2 && bpduType == bpduTypeWireRST:
+		if len(f.Payload) < 39 {
+			return BPDU{}, errs.New().
+				Attr("reason", ReasonUnsupportedBPDU).
+				Attr("have", len(f.Payload)).
+				Attr("min", 39).
+				Msgf("BPDU payload length %d is too short", len(f.Payload))
+		}
+
+		b, err := readBody(f.Payload)
+		if err != nil {
+			return BPDU{}, err
+		}
+
+		b.Version = version
+		b.Type = BPDUTypeRapid
+		b.Flags = f.Payload[7]
+
+		return b, nil
+
+	default:
+		if bpduType == bpduTypeWireRST {
+			return BPDU{}, errs.New().
+				Attr("reason", ReasonUnsupportedBPDU).
+				Attr("version", version).
+				Msgf("unsupported BPDU version %d, want at least 2", version)
+		}
+		if version >= 2 {
+			return BPDU{}, errs.New().
+				Attr("reason", ReasonUnsupportedBPDU).
+				Attr("type", bpduType).
+				Msgf("unsupported BPDU type %d, want 2", bpduType)
+		}
 		return BPDU{}, errs.New().
 			Attr("reason", ReasonUnsupportedBPDU).
 			Attr("version", version).
-			Msgf("unsupported BPDU version %d, want at least 2", version)
-	}
-
-	bpduType := f.Payload[6]
-	if bpduType != 2 {
-		return BPDU{}, errs.New().
-			Attr("reason", ReasonUnsupportedBPDU).
 			Attr("type", bpduType).
-			Msgf("unsupported BPDU type %d, want 2", bpduType)
+			Msgf("unsupported BPDU type 0x%02x for version %d", bpduType, version)
 	}
+}
 
-	rootPriority := binary.BigEndian.Uint16(f.Payload[8:10])
-	var rootAddr netaddr.MAC
-	copy(rootAddr[:], f.Payload[10:16])
+// putBody writes the fields the Configuration and RST shapes share, from the
+// root identifier at octet 8 through the forward delay at octet 37.
+func putBody(payload []byte, b BPDU) {
+	binary.BigEndian.PutUint16(payload[8:10], b.RootID.Priority)
+	copy(payload[10:16], b.RootID.Address[:])
+	binary.BigEndian.PutUint32(payload[16:20], b.RootPathCost)
+	binary.BigEndian.PutUint16(payload[20:22], b.BridgeID.Priority)
+	copy(payload[22:28], b.BridgeID.Address[:])
+	binary.BigEndian.PutUint16(payload[28:30], b.PortID)
+	binary.BigEndian.PutUint16(payload[30:32], encodeDuration(b.MessageAge))
+	binary.BigEndian.PutUint16(payload[32:34], encodeDuration(b.MaxAge))
+	binary.BigEndian.PutUint16(payload[34:36], encodeDuration(b.HelloTime))
+	binary.BigEndian.PutUint16(payload[36:38], encodeDuration(b.ForwardDelay))
+}
 
-	bridgePriority := binary.BigEndian.Uint16(f.Payload[20:22])
-	var bridgeAddr netaddr.MAC
-	copy(bridgeAddr[:], f.Payload[22:28])
-
-	// Received information ages on the sender's hello time, so a zero one
-	// would be stale the instant it arrived and never elect anything.
-	if binary.BigEndian.Uint16(f.Payload[34:36]) == 0 {
+// readBody reads the fields putBody writes. Received information ages on the
+// sender's hello time, so a zero one would be stale the instant it arrived and
+// never elect anything; it is refused.
+func readBody(payload []byte) (BPDU, error) {
+	if binary.BigEndian.Uint16(payload[34:36]) == 0 {
 		return BPDU{}, errs.New().
 			Attr("reason", ReasonUnsupportedBPDU).
 			Msg("BPDU hello time is zero")
 	}
 
+	var rootAddr, bridgeAddr netaddr.MAC
+	copy(rootAddr[:], payload[10:16])
+	copy(bridgeAddr[:], payload[22:28])
+
 	return BPDU{
-		Flags:        f.Payload[7],
-		RootID:       BridgeID{Priority: rootPriority, Address: rootAddr},
-		RootPathCost: binary.BigEndian.Uint32(f.Payload[16:20]),
-		BridgeID:     BridgeID{Priority: bridgePriority, Address: bridgeAddr},
-		PortID:       binary.BigEndian.Uint16(f.Payload[28:30]),
-		MessageAge:   decodeDuration(binary.BigEndian.Uint16(f.Payload[30:32])),
-		MaxAge:       decodeDuration(binary.BigEndian.Uint16(f.Payload[32:34])),
-		HelloTime:    decodeDuration(binary.BigEndian.Uint16(f.Payload[34:36])),
-		ForwardDelay: decodeDuration(binary.BigEndian.Uint16(f.Payload[36:38])),
+		RootID:       BridgeID{Priority: binary.BigEndian.Uint16(payload[8:10]), Address: rootAddr},
+		RootPathCost: binary.BigEndian.Uint32(payload[16:20]),
+		BridgeID:     BridgeID{Priority: binary.BigEndian.Uint16(payload[20:22]), Address: bridgeAddr},
+		PortID:       binary.BigEndian.Uint16(payload[28:30]),
+		MessageAge:   decodeDuration(binary.BigEndian.Uint16(payload[30:32])),
+		MaxAge:       decodeDuration(binary.BigEndian.Uint16(payload[32:34])),
+		HelloTime:    decodeDuration(binary.BigEndian.Uint16(payload[34:36])),
+		ForwardDelay: decodeDuration(binary.BigEndian.Uint16(payload[36:38])),
 	}, nil
 }
 
