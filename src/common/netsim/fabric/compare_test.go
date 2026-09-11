@@ -1,6 +1,8 @@
 package fabric_test
 
 import (
+	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
@@ -556,6 +558,86 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		}
 		if !h1Removed || !h2Added {
 			t.Errorf("host add/remove diff failed: %v", changes)
+		}
+	})
+
+	t.Run("host IP stack diff reports gateway and neighbor changes", func(t *testing.T) {
+		gw1 := netip.MustParseAddr("10.0.10.1")
+		gw2 := netip.MustParseAddr("10.0.10.254")
+		nbr1 := netip.MustParseAddr("10.0.10.2")
+		nbr2 := netip.MustParseAddr("10.0.10.3")
+		mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+		mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x22}
+
+		cfgA := fabric.Config{
+			Hosts: map[string]fabric.Host{
+				"h1": {
+					Address: macH1,
+					IP: &fabric.HostIP{
+						Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
+						Gateway:   gw1,
+						Neighbors: map[netip.Addr]netaddr.MAC{
+							nbr1: mac1,
+						},
+					},
+				},
+			},
+		}
+
+		cfgB := fabric.Config{
+			Hosts: map[string]fabric.Host{
+				"h1": {
+					Address: macH1,
+					IP: &fabric.HostIP{
+						Addresses: []netip.Prefix{
+							netip.MustParsePrefix("10.0.10.10/24"),
+							netip.MustParsePrefix("fd00::10/64"),
+						},
+						Gateway: gw2,
+						Neighbors: map[netip.Addr]netaddr.MAC{
+							nbr1: mac1,
+							nbr2: mac2,
+						},
+					},
+				},
+			},
+		}
+
+		changes := fabric.Diff(cfgA, cfgB)
+
+		var foundAddrs, foundGW, foundNbr bool
+		for _, ch := range changes {
+			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
+				if ch.Field == "addresses" {
+					foundAddrs = true
+					if !slices.Equal(ch.From.([]string), []string{"10.0.10.10/24"}) ||
+						!slices.Equal(ch.To.([]string), []string{"10.0.10.10/24", "fd00::10/64"}) {
+						t.Errorf("addresses diff = %v -> %v", ch.From, ch.To)
+					}
+				}
+				if ch.Field == "gateway" {
+					foundGW = true
+					if ch.From != gw1 || ch.To != gw2 {
+						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
+					}
+				}
+				if ch.Field == "neighbors.10.0.10.3" {
+					foundNbr = true
+					if ch.From != nil || ch.To != mac2 {
+						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
+					}
+				}
+			}
+		}
+
+		if !foundAddrs {
+			t.Errorf("missing addresses diff: %v", changes)
+		}
+		if !foundGW {
+			t.Errorf("missing gateway diff: %v", changes)
+		}
+		if !foundNbr {
+			t.Errorf("missing neighbor diff: %v", changes)
 		}
 	})
 }

@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
 var fixedTime = time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
@@ -293,6 +296,175 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "duplicate host addresses",
+			mutate: func(c *fabric.Config) {
+				h2 := c.Hosts["h2"]
+				h2.Address = c.Hosts["h1"].Address
+				c.Hosts["h2"] = h2
+			},
+			wantError: true,
+		},
+		{
+			name: "host address equals switch base MAC",
+			mutate: func(c *fabric.Config) {
+				sw1 := c.Switches["sw1"]
+				sw1.MAC = c.Hosts["h1"].Address
+				c.Switches["sw1"] = sw1
+			},
+			wantError: true,
+		},
+		{
+			name: "host address equals switch routed interface MAC",
+			mutate: func(c *fabric.Config) {
+				sw1 := c.Switches["sw1"]
+				sw1.Routing = &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"1/1/1": {
+									Port:     "1/1/1",
+									MAC:      c.Hosts["h1"].Address,
+									Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")},
+								},
+							},
+						},
+					},
+				}
+				c.Switches["sw1"] = sw1
+			},
+			wantError: true,
+		},
+		{
+			name: "host address equals switch STP address",
+			mutate: func(c *fabric.Config) {
+				sw1 := c.Switches["sw1"]
+				c.Start = fixedTime
+				sw1.Bridge = &bridge.Config{}
+				sw1.STP = &stp.Config{
+					Address: c.Hosts["h1"].Address,
+				}
+				c.Switches["sw1"] = sw1
+			},
+			wantError: true,
+		},
+		{
+			name: "duplicate switch base MACs",
+			mutate: func(c *fabric.Config) {
+				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
+				sw1 := c.Switches["sw1"]
+				sw1.MAC = mac
+				c.Switches["sw1"] = sw1
+				sw2 := c.Switches["sw2"]
+				sw2.MAC = mac
+				c.Switches["sw2"] = sw2
+			},
+			wantError: true,
+		},
+		{
+			name: "switch base MAC equals another switch routed interface MAC",
+			mutate: func(c *fabric.Config) {
+				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
+				sw1 := c.Switches["sw1"]
+				sw1.MAC = mac
+				c.Switches["sw1"] = sw1
+				sw2 := c.Switches["sw2"]
+				sw2.Routing = &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"1/1/1": {
+									Port:     "1/1/1",
+									MAC:      mac,
+									Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.2.1/24")},
+								},
+							},
+						},
+					},
+				}
+				c.Switches["sw2"] = sw2
+			},
+			wantError: true,
+		},
+		{
+			name: "switch routed interface MAC equals same switch base MAC",
+			mutate: func(c *fabric.Config) {
+				mac := netaddr.MAC{0x00, 0x5e, 0x00, 0x01, 0x01, 0x01}
+				b := port.NewBuilder()
+				b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+				pTable, _ := b.Build()
+				sw1 := c.Switches["sw1"]
+				sw1.Ports = pTable
+				sw1.MAC = mac
+				sw1.Routing = &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"1/1/1": {
+									Port:     "1/1/1",
+									MAC:      mac,
+									Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")},
+								},
+								"1/1/2": {
+									Port:     "1/1/2",
+									Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.2.1/24")},
+								},
+							},
+						},
+					},
+				}
+				c.Switches["sw1"] = sw1
+			},
+			wantError: false,
+		},
+		{
+			name: "host with IP stack but no addresses",
+			mutate: func(c *fabric.Config) {
+				h1 := c.Hosts["h1"]
+				h1.IP = &fabric.HostIP{Addresses: nil}
+				c.Hosts["h1"] = h1
+			},
+			wantError: true,
+		},
+		{
+			name: "host with IP stack gateway unreachable",
+			mutate: func(c *fabric.Config) {
+				h1 := c.Hosts["h1"]
+				h1.IP = &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.20.1"),
+				}
+				c.Hosts["h1"] = h1
+			},
+			wantError: true,
+		},
+		{
+			name: "host with IP stack prefix length 0",
+			mutate: func(c *fabric.Config) {
+				h1 := c.Hosts["h1"]
+				h1.IP = &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/0")},
+				}
+				c.Hosts["h1"] = h1
+			},
+			wantError: true,
+		},
+		{
+			name: "valid host with IP stack",
+			mutate: func(c *fabric.Config) {
+				gw := netip.MustParseAddr("10.0.10.1")
+				h1 := c.Hosts["h1"]
+				h1.IP = &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   gw,
+					Neighbors: map[netip.Addr]netaddr.MAC{
+						gw: {0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+					},
+				}
+				c.Hosts["h1"] = h1
+			},
+			wantError: false,
+		},
 	}
 
 	for _, tc := range cases {
@@ -312,6 +484,14 @@ func TestConfigClone(t *testing.T) {
 	vid := vlan.ID(10)
 	h1 := cfg.Hosts["h1"]
 	h1.VLAN = &vid
+	gw := netip.MustParseAddr("10.0.10.1")
+	h1.IP = &fabric.HostIP{
+		Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+		Gateway:   gw,
+		Neighbors: map[netip.Addr]netaddr.MAC{
+			gw: {0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		},
+	}
 	cfg.Hosts["h1"] = h1
 	cfg.Cables[0].Fault = fabric.Fault{
 		Kind:     fabric.FaultLoseSequence,
@@ -337,5 +517,8 @@ func TestConfigClone(t *testing.T) {
 	}
 	if cloned.Cables[0].Fault.Sequence[0] != 1 {
 		t.Errorf("cloned fault sequence modified: got %d, want 1", cloned.Cables[0].Fault.Sequence[0])
+	}
+	if cloned.Hosts["h1"].IP == nil || len(cloned.Hosts["h1"].IP.Addresses) != 1 {
+		t.Errorf("cloned host IP not cloned properly: %+v", cloned.Hosts["h1"].IP)
 	}
 }

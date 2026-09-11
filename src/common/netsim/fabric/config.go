@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"net/netip"
 	"slices"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
 // Layer is the architectural trace layer identifier for the network fabric.
@@ -92,13 +94,22 @@ type Endpoint struct {
 	Port string
 }
 
+// HostIP configures the layer 3 addressing, default gateway, and static link-layer neighbors
+// for a simulated host.
+type HostIP struct {
+	Addresses []netip.Prefix
+	Gateway   netip.Addr
+	Neighbors map[netip.Addr]netaddr.MAC
+}
+
 // Host is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
 //
 // A nil VLAN emits and accepts untagged frames, while a non-nil VLAN restricts the host to C-TAG frames
-// with that VID.
+// with that VID. An optional IP stack enables packet origination through routing and neighbor lookup.
 type Host struct {
 	Address netaddr.MAC
 	VLAN    *vlan.ID
+	IP      *HostIP
 }
 
 // Clone returns an independent deep copy of the host configuration.
@@ -108,8 +119,88 @@ func (h Host) Clone() Host {
 		v := *h.VLAN
 		cp.VLAN = &v
 	}
+	if h.IP != nil {
+		ip := HostIP{
+			Addresses: slices.Clone(h.IP.Addresses),
+			Gateway:   h.IP.Gateway,
+		}
+		if h.IP.Neighbors != nil {
+			ip.Neighbors = make(map[netip.Addr]netaddr.MAC, len(h.IP.Neighbors))
+			for k, v := range h.IP.Neighbors {
+				ip.Neighbors[k] = v
+			}
+		}
+		cp.IP = &ip
+	}
 
 	return cp
+}
+
+// HostRoutingConfig translates a host's IP configuration into a virtual switch routing configuration
+// and single-port table for layer 3 packet origination.
+func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
+	b := port.NewBuilder()
+	b.Add(port.Port{
+		Name:        name,
+		Kind:        port.Physical,
+		AdminStatus: port.Up,
+		OperStatus:  port.Up,
+	})
+	tbl, _ := b.Build()
+
+	if h.IP == nil {
+		return routing.Config{}, tbl
+	}
+
+	var routes []routing.Route
+	if h.IP.Gateway.IsValid() {
+		var pfx netip.Prefix
+		if h.IP.Gateway.Is4() {
+			pfx = netip.MustParsePrefix("0.0.0.0/0")
+		} else if h.IP.Gateway.Is6() {
+			pfx = netip.MustParsePrefix("::/0")
+		}
+		routes = append(routes, routing.Route{
+			Prefix:  pfx,
+			NextHop: h.IP.Gateway,
+		})
+	}
+
+	var neighbors []routing.Neighbor
+	if len(h.IP.Neighbors) > 0 {
+		addrs := make([]netip.Addr, 0, len(h.IP.Neighbors))
+		for addr := range h.IP.Neighbors {
+			addrs = append(addrs, addr)
+		}
+		slices.SortFunc(addrs, func(a, b netip.Addr) int {
+			return a.Compare(b)
+		})
+		for _, addr := range addrs {
+			neighbors = append(neighbors, routing.Neighbor{
+				Interface: name,
+				Addr:      addr,
+				MAC:       h.IP.Neighbors[addr],
+			})
+		}
+	}
+
+	vrf := routing.VRF{
+		Interfaces: map[string]routing.Interface{
+			name: {
+				Port:     name,
+				MAC:      h.Address,
+				Prefixes: slices.Clone(h.IP.Addresses),
+			},
+		},
+		Routes:    routes,
+		Neighbors: neighbors,
+	}
+
+	return routing.Config{
+		VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: vrf,
+		},
+	}, tbl
 }
 
 // Cable models a physical link connecting two endpoints with propagation latency,
@@ -170,10 +261,40 @@ func (c Config) Clone() Config {
 // nodes and ports, cable attachments cannot target LAGs or duplicate existing links,
 // and hosts must attach to exactly one cable with an empty port name.
 func (c Config) Validate() error {
-	for name, swCfg := range c.Switches {
+	swNames := make([]string, 0, len(c.Switches))
+	for name := range c.Switches {
+		swNames = append(swNames, name)
+	}
+	slices.Sort(swNames)
+
+	hostNames := make([]string, 0, len(c.Hosts))
+	for name := range c.Hosts {
+		hostNames = append(hostNames, name)
+	}
+	slices.Sort(hostNames)
+
+	claimedMACs := make(map[netaddr.MAC]string)
+	checkMAC := func(node string, mac netaddr.MAC) error {
+		if mac == (netaddr.MAC{}) {
+			return nil
+		}
+		if prevNode, ok := claimedMACs[mac]; ok && prevNode != node {
+			return errs.New().
+				Attr("node", node).
+				Attr("mac", mac).
+				Attr("collides_with", prevNode).
+				Msgf("MAC address %s on %q collides with %q", mac, node, prevNode)
+		}
+		claimedMACs[mac] = node
+
+		return nil
+	}
+
+	for _, name := range swNames {
 		if name == "" {
 			return errs.New().Msg("switch name cannot be empty")
 		}
+		swCfg := c.Switches[name]
 		// A protocol layer schedules its first hello from Start; a zero Start
 		// puts every wake in year 1, ahead of any frame a caller injects.
 		if swCfg.STP != nil && c.Start.IsZero() {
@@ -182,20 +303,57 @@ func (c Config) Validate() error {
 		if err := swCfg.Validate(); err != nil {
 			return errs.Wrapf(err, "switch %q", name)
 		}
+		if err := checkMAC(name, swCfg.MAC); err != nil {
+			return err
+		}
+		if swCfg.STP != nil {
+			if err := checkMAC(name, swCfg.STP.Address); err != nil {
+				return err
+			}
+		}
+		if swCfg.Routing != nil {
+			for _, vrf := range swCfg.Routing.VRFs {
+				ifaceNames := make([]string, 0, len(vrf.Interfaces))
+				for ifName := range vrf.Interfaces {
+					ifaceNames = append(ifaceNames, ifName)
+				}
+				slices.Sort(ifaceNames)
+				for _, ifName := range ifaceNames {
+					if err := checkMAC(name, vrf.Interfaces[ifName].MAC); err != nil {
+						return err
+					}
+				}
+			}
+		}
 	}
 
-	for name, h := range c.Hosts {
+	for _, name := range hostNames {
 		if name == "" {
 			return errs.New().Msg("host name cannot be empty")
 		}
 		if _, isSw := c.Switches[name]; isSw {
 			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a host", name)
 		}
+		h := c.Hosts[name]
+		if err := checkMAC(name, h.Address); err != nil {
+			return err
+		}
 		if h.VLAN != nil && !h.VLAN.Valid() {
 			return errs.New().
 				Attr("host", name).
 				Attr("vlan", *h.VLAN).
 				Msgf("host %q has invalid VLAN ID %d", name, *h.VLAN)
+		}
+		if h.IP != nil {
+			if len(h.IP.Addresses) == 0 {
+				return errs.New().
+					Attr("host", name).
+					Msgf("host %q with IP stack must configure at least one address", name)
+			}
+			rtCfg, tbl := HostRoutingConfig(name, h)
+			if err := rtCfg.Validate(tbl); err != nil {
+				return errs.Wrapf(err, "host %q", name)
+			}
 		}
 	}
 
@@ -221,12 +379,6 @@ func (c Config) Validate() error {
 			return errs.Wrapf(err, "cable %d endpoint B", i)
 		}
 	}
-
-	hostNames := make([]string, 0, len(c.Hosts))
-	for name := range c.Hosts {
-		hostNames = append(hostNames, name)
-	}
-	slices.Sort(hostNames)
 
 	for _, name := range hostNames {
 		n := hostCables[name]

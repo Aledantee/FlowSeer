@@ -2,8 +2,10 @@ package fabric
 
 import (
 	"cmp"
+	"net/netip"
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -200,10 +202,146 @@ func Diff(a, b Config) []trace.Change {
 					To:      toVal,
 				})
 			}
+			diffHostIP(&changes, name, hA.IP, hB.IP)
 		}
 	}
 
 	return changes
+}
+
+func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
+	if a == nil && b == nil {
+		return
+	}
+
+	var (
+		pfxA []string
+		pfxB []string
+	)
+	if a != nil {
+		pfxA = sortedPrefixStrings(a.Addresses)
+	}
+	if b != nil {
+		pfxB = sortedPrefixStrings(b.Addresses)
+	}
+
+	if !slices.Equal(pfxA, pfxB) {
+		var fromVal, toVal any
+		if a != nil {
+			fromVal = pfxA
+		}
+		if b != nil {
+			toVal = pfxB
+		}
+		*changes = append(*changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "host", Key: name},
+			Field:   "addresses",
+			From:    fromVal,
+			To:      toVal,
+		})
+	}
+
+	var (
+		gwA netip.Addr
+		gwB netip.Addr
+	)
+	if a != nil {
+		gwA = a.Gateway
+	}
+	if b != nil {
+		gwB = b.Gateway
+	}
+	if gwA != gwB {
+		var fromVal, toVal any
+		if gwA.IsValid() {
+			fromVal = gwA
+		}
+		if gwB.IsValid() {
+			toVal = gwB
+		}
+		*changes = append(*changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "host", Key: name},
+			Field:   "gateway",
+			From:    fromVal,
+			To:      toVal,
+		})
+	}
+
+	var (
+		nbrA map[netip.Addr]netaddr.MAC
+		nbrB map[netip.Addr]netaddr.MAC
+	)
+	if a != nil {
+		nbrA = a.Neighbors
+	}
+	if b != nil {
+		nbrB = b.Neighbors
+	}
+
+	neighborAddrs := make(map[netip.Addr]struct{})
+	for addr := range nbrA {
+		neighborAddrs[addr] = struct{}{}
+	}
+	for addr := range nbrB {
+		neighborAddrs[addr] = struct{}{}
+	}
+
+	sortedAddrs := make([]netip.Addr, 0, len(neighborAddrs))
+	for addr := range neighborAddrs {
+		sortedAddrs = append(sortedAddrs, addr)
+	}
+	slices.SortFunc(sortedAddrs, func(x, y netip.Addr) int {
+		return x.Compare(y)
+	})
+
+	for _, addr := range sortedAddrs {
+		macA, inA := nbrA[addr]
+		macB, inB := nbrB[addr]
+		field := "neighbors." + addr.String()
+		switch {
+		case inA && !inB:
+			*changes = append(*changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "host", Key: name},
+				Field:   field,
+				From:    macA,
+				To:      nil,
+			})
+		case !inA && inB:
+			*changes = append(*changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "host", Key: name},
+				Field:   field,
+				From:    nil,
+				To:      macB,
+			})
+		case inA && inB:
+			if macA != macB {
+				*changes = append(*changes, trace.Change{
+					Layer:   Layer,
+					Subject: trace.Subject{Kind: "host", Key: name},
+					Field:   field,
+					From:    macA,
+					To:      macB,
+				})
+			}
+		}
+	}
+}
+
+func sortedPrefixStrings(prefixes []netip.Prefix) []string {
+	if len(prefixes) == 0 {
+		return nil
+	}
+	strs := make([]string, len(prefixes))
+	for i, p := range prefixes {
+		strs[i] = p.String()
+	}
+	slices.Sort(strs)
+
+	return strs
 }
 
 func sortedCables(cables []Cable) []Cable {

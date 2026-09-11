@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -20,6 +22,7 @@ type Fabric struct {
 	cfg            Config
 	links          []Link
 	switches       map[string]*vswitch.Switch
+	hostStacks     map[string]*routing.Layer
 	byEnd          map[Endpoint]linkEndRef
 	clock          time.Time
 	queue          []Arrival
@@ -42,7 +45,7 @@ type linkEndRef struct {
 // operational link states and negotiated speeds across all cables before instantiating
 // the constituent virtual switches, then starts every protocol layer at Start.
 func New(cfg Config) (*Fabric, error) {
-	fab, err := build(cfg)
+	fab, err := build(nil, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -53,12 +56,91 @@ func New(cfg Config) (*Fabric, error) {
 
 // build makes the fabric without starting any protocol layer, so Derive can
 // swap in cloned layers first.
-func build(cfg Config) (*Fabric, error) {
+func build(cur *Fabric, cfg Config) (*Fabric, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
 	cloned := cfg.Clone()
+
+	if cur != nil {
+		for name, swCfg := range cloned.Switches {
+			if swCfg.MAC == (netaddr.MAC{}) {
+				if curSw, ok := cur.cfg.Switches[name]; ok && curSw.MAC != (netaddr.MAC{}) {
+					swCfg.MAC = curSw.MAC
+					cloned.Switches[name] = swCfg
+				}
+			}
+		}
+		for name, h := range cloned.Hosts {
+			if h.Address == (netaddr.MAC{}) {
+				if curH, ok := cur.cfg.Hosts[name]; ok && curH.Address != (netaddr.MAC{}) {
+					h.Address = curH.Address
+					cloned.Hosts[name] = h
+				}
+			}
+		}
+	}
+
+	usedMACs := make(map[netaddr.MAC]struct{})
+	for _, swCfg := range cloned.Switches {
+		if swCfg.MAC != (netaddr.MAC{}) {
+			usedMACs[swCfg.MAC] = struct{}{}
+		}
+		if swCfg.STP != nil && swCfg.STP.Address != (netaddr.MAC{}) {
+			usedMACs[swCfg.STP.Address] = struct{}{}
+		}
+		if swCfg.Routing != nil {
+			for _, vrf := range swCfg.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.MAC != (netaddr.MAC{}) {
+						usedMACs[iface.MAC] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	for _, h := range cloned.Hosts {
+		if h.Address != (netaddr.MAC{}) {
+			usedMACs[h.Address] = struct{}{}
+		}
+	}
+
+	assignLocal := func() netaddr.MAC {
+		for n := uint32(1); ; n++ {
+			cand := netaddr.Local(n)
+			if _, ok := usedMACs[cand]; !ok {
+				usedMACs[cand] = struct{}{}
+				return cand
+			}
+		}
+	}
+
+	swNames := make([]string, 0, len(cloned.Switches))
+	for name := range cloned.Switches {
+		swNames = append(swNames, name)
+	}
+	slices.Sort(swNames)
+	for _, name := range swNames {
+		swCfg := cloned.Switches[name]
+		if swCfg.MAC == (netaddr.MAC{}) {
+			swCfg.MAC = assignLocal()
+			cloned.Switches[name] = swCfg
+		}
+	}
+
+	hNames := make([]string, 0, len(cloned.Hosts))
+	for name := range cloned.Hosts {
+		hNames = append(hNames, name)
+	}
+	slices.Sort(hNames)
+	for _, name := range hNames {
+		h := cloned.Hosts[name]
+		if h.Address == (netaddr.MAC{}) {
+			h.Address = assignLocal()
+			cloned.Hosts[name] = h
+		}
+	}
 
 	// Sort cables by endpoint names to ensure stable ordering.
 	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
@@ -140,12 +222,22 @@ func build(cfg Config) (*Fabric, error) {
 		cloned.Switches[name] = swCfg
 
 		switches[name] = vswitch.New(swCfg)
+		cloned.Switches[name] = switches[name].Config()
+	}
+
+	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
+	for name, h := range cloned.Hosts {
+		if h.IP != nil {
+			rtCfg, _ := HostRoutingConfig(name, h)
+			hostStacks[name] = routing.New(rtCfg)
+		}
 	}
 
 	fab := &Fabric{
 		cfg:            cloned,
 		links:          links,
 		switches:       switches,
+		hostStacks:     hostStacks,
 		byEnd:          byEnd,
 		clock:          cloned.Start,
 		wakes:          make(map[string]time.Time),

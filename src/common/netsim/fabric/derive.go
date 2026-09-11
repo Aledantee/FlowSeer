@@ -16,7 +16,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 	if cur != nil && cfg.Start.IsZero() {
 		cfg.Start = cur.clock
 	}
-	next, err := build(cfg)
+	next, err := build(cur, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +37,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
+		next.cfg.Switches[name] = derived.Config()
 	}
 	next.startLayers(next.switchNames())
 

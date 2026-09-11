@@ -149,6 +149,39 @@ record the progression across devices and cables:
 Frames cabled directly to destination hosts deliver on transmission without
 occupying an arrival queue step.
 
+## Hosts with an IP stack and address assignment
+
+A host configured with `IP *HostIP` translates to an internal routing layer
+operating with VRF `default` and a single routed port carrying the host's
+assigned MAC and configured IP address prefixes. When an injected packet is
+originated:
+
+- Source address selection chooses among the host's interface addresses
+  matching the destination family by longest matching prefix, falling back
+  to the first configured address of that family.
+- Datagrams transmit with hop limit 64 direct on a connected prefix, and
+  through the default gateway when destination is off-link.
+- Link-layer encapsulation looks up destination or gateway addresses in the
+  static neighbor table.
+
+`Inject` validates packet injections and refuses them with an error when:
+
+- `Origin` names a switch or a host without an IP stack.
+- `Origin.Port` is non-empty.
+- `Frame` specifies any fields alongside `Packet`.
+- Packet origination encounters `no-route` (destination off every prefix with
+  no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
+  naming the address and reason without creating a journey.
+
+MAC addresses left zero in a fabric configuration are assigned during `New`
+and `build` before subsystem instantiation. The allocator walks switch names
+then host names in sorted order, assigning the first locally administered
+unicast MAC `netaddr.Local(n)` (`02:00:00:` followed by n big-endian, starting
+from 1) that is not explicitly used by any switch base MAC, host address, routed
+interface MAC, or spanning tree address. `Fabric.Config()` returns the filled
+values, and `Derive` preserves existing assignments for nodes whose new
+configuration leaves them zero.
+
 ## Snapshot after one step
 
 Calling `fab.Run(1)` on the scenario processes the initial arrival at `sw1`

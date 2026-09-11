@@ -1,10 +1,12 @@
 package fabric_test
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
@@ -12,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -1202,5 +1205,238 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 				t.Errorf("found EntryWake in journey of non-STP fabric: %+v", e)
 			}
 		}
+	}
+}
+
+func TestInjectMalformedPacketRejected(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+	gateway := netip.MustParseAddr("10.0.10.1")
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: ports},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   gateway,
+					Neighbors: map[netip.Addr]netaddr.MAC{
+						gateway: {0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+					},
+				},
+			},
+			"h2": {
+				Address: macH2,
+			},
+		},
+		Cables: []fabric.Cable{
+			{
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			},
+			{
+				A: fabric.Endpoint{Node: "h2"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+			},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	validPacket := &fabric.Packet{
+		To:       gateway,
+		Protocol: 17,
+		Payload:  []byte("test"),
+	}
+
+	// 1. Frame field set alongside Packet.
+	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Dst: macH2},
+		Packet: validPacket,
+	})
+	if err == nil {
+		t.Error("Inject with Frame.Dst set alongside Packet succeeded, want error")
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Payload: []byte("frame-payload")},
+		Packet: validPacket,
+	})
+	if err == nil {
+		t.Error("Inject with Frame.Payload set alongside Packet succeeded, want error")
+	}
+
+	// 2. Switch origin with Packet.
+	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Packet: validPacket,
+	})
+	if err == nil {
+		t.Error("Inject with switch origin and Packet succeeded, want error")
+	}
+
+	// 3. Host without an IP stack.
+	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h2"},
+		Packet: validPacket,
+	})
+	if err == nil {
+		t.Error("Inject from host without IP stack succeeded, want error")
+	}
+
+	// 4. Host origin with Port set.
+	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1", Port: "1/1/1"},
+		Packet: validPacket,
+	})
+	if err == nil {
+		t.Error("Inject from host with Port set succeeded, want error")
+	}
+}
+
+func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macGW := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x02}
+	gateway := netip.MustParseAddr("2001:db8:1::1")
+	offLinkDst := netip.MustParseAddr("2001:db8:99::1")
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: ports},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("2001:db8:1::7/64")},
+					Gateway:   gateway,
+					Neighbors: map[netip.Addr]netaddr.MAC{
+						gateway: macGW,
+					},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			},
+		},
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	fid, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{
+			To:       offLinkDst,
+			Protocol: 6,
+			Payload:  []byte("tcp-ipv6-payload"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject IPv6 packet: %v", err)
+	}
+
+	snap := fab.Snapshot()
+	if len(snap.Queue) != 1 {
+		t.Fatalf("queue length = %d, want 1", len(snap.Queue))
+	}
+
+	arr := snap.Queue[0]
+	if arr.FrameID != fid {
+		t.Errorf("arr.FrameID = %d, want %d", arr.FrameID, fid)
+	}
+	if arr.Frame.Dst != macGW {
+		t.Errorf("arr.Frame.Dst = %v, want gateway MAC %v", arr.Frame.Dst, macGW)
+	}
+	if arr.Frame.EtherType != ethernet.EtherTypeIPv6 {
+		t.Errorf("arr.Frame.EtherType = %v, want IPv6", arr.Frame.EtherType)
+	}
+
+	hdr, payload, err := ip.Decode(arr.Frame.Payload)
+	if err != nil {
+		t.Fatalf("decode queued IPv6 payload: %v", err)
+	}
+	if hdr.HopLimit != 64 {
+		t.Errorf("originated HopLimit = %d, want 64", hdr.HopLimit)
+	}
+	if hdr.Src != netip.MustParseAddr("2001:db8:1::7") {
+		t.Errorf("hdr.Src = %v, want 2001:db8:1::7", hdr.Src)
+	}
+	if hdr.Dst != offLinkDst {
+		t.Errorf("hdr.Dst = %v, want %v", hdr.Dst, offLinkDst)
+	}
+	if string(payload) != "tcp-ipv6-payload" {
+		t.Errorf("payload = %q, want %q", string(payload), "tcp-ipv6-payload")
+	}
+}
+
+func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
+	gateway := netip.MustParseAddr("10.0.10.1")
+	h := fabric.Host{
+		Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
+		IP: &fabric.HostIP{
+			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+			Gateway:   gateway,
+			Neighbors: map[netip.Addr]netaddr.MAC{
+				gateway: {0x02, 0x00, 0x00, 0x00, 0x00, 0x02},
+			},
+		},
+	}
+
+	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
+	if err := rtCfg.Validate(tbl); err != nil {
+		t.Fatalf("HostRoutingConfig failed Validate: %v", err)
+	}
+
+	vrf, ok := rtCfg.VRFs[routing.DefaultVRF]
+	if !ok {
+		t.Fatalf("missing VRF %q in translated config", routing.DefaultVRF)
+	}
+
+	var foundDefaultRoute bool
+	for _, r := range vrf.Routes {
+		if r.Prefix == netip.MustParsePrefix("0.0.0.0/0") && r.NextHop == gateway {
+			foundDefaultRoute = true
+			break
+		}
+	}
+	if !foundDefaultRoute {
+		t.Errorf("default route 0.0.0.0/0 -> %v not found in routes: %+v", gateway, vrf.Routes)
 	}
 }

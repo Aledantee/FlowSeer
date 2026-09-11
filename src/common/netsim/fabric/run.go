@@ -3,24 +3,36 @@ package fabric
 import (
 	"cmp"
 	"math"
+	"net/netip"
 	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// Injection specifies a frame to introduce into the fabric at a particular origin endpoint and timestamp.
+// Packet specifies an IP datagram destination address, protocol, and payload to originate
+// from a host with an IP stack.
+type Packet struct {
+	To       netip.Addr
+	Protocol uint8
+	Payload  []byte
+}
+
+// Injection specifies a frame or packet to introduce into the fabric at a particular origin endpoint and timestamp.
 type Injection struct {
 	At     time.Time
 	Origin Endpoint
 	Frame  ethernet.Frame
+	Packet *Packet
 }
 
 // Device represents the instantaneous subsystem state of a virtual switch in the fabric.
@@ -40,19 +52,21 @@ type Snapshot struct {
 	Devices map[string]Device
 }
 
-// Inject queues a frame for introduction into the fabric at the requested origin endpoint and time.
+// Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
 //
 // For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged)
-// and the arrival is scheduled on the switch port connected to the host. For a device port origin, the frame is
-// queued directly as given. Inject returns an error if the origin names an unknown host, an unknown switch port,
-// or a host without a connected cable.
+// and the arrival is scheduled on the switch port connected to the host. When Packet is set, the frame is originated
+// by the host's IP stack and Frame must have no field set. For a device port origin, the frame is queued directly as given.
+// Inject returns an error if the origin names an unknown host, an unknown switch port, a host without a connected cable,
+// a switch origin with Packet set, a host without an IP stack when Packet is set, a Packet injection specifying Frame fields,
+// a non-empty origin port for host packet injection, or if packet origination fails.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
 	var (
 		targetDevice string
 		targetPort   string
-		frame        = cloneFrame(inj.Frame)
+		frame        ethernet.Frame
 	)
 
 	if host, isHost := f.cfg.Hosts[inj.Origin.Node]; isHost {
@@ -70,6 +84,32 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 				Msgf("host %q has no connected cable", inj.Origin.Node)
 		}
 
+		if inj.Packet != nil {
+			if inj.Frame.Dst != (netaddr.MAC{}) || inj.Frame.Src != (netaddr.MAC{}) || inj.Frame.EtherType != 0 ||
+				len(inj.Frame.Tags) != 0 || len(inj.Frame.Payload) != 0 {
+				return 0, errs.New().
+					Attr("host", inj.Origin.Node).
+					Msg("packet injection cannot specify frame fields")
+			}
+			stack, ok := f.hostStacks[inj.Origin.Node]
+			if !ok {
+				return 0, errs.New().
+					Attr("host", inj.Origin.Node).
+					Msgf("host %q has no IP stack", inj.Origin.Node)
+			}
+			res := stack.Originate(routing.DefaultVRF, inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload)
+			if res.Reason != "" {
+				return 0, errs.New().
+					Attr("host", inj.Origin.Node).
+					Attr("address", inj.Packet.To).
+					Attr("reason", res.Reason).
+					Msgf("host %q cannot originate packet to %s: %s", inj.Origin.Node, inj.Packet.To, res.Reason)
+			}
+			frame = res.Frame
+		} else {
+			frame = cloneFrame(inj.Frame)
+		}
+
 		// A host emits one form only, so its tag replaces whatever the caller
 		// put on the frame; a second tag would be a form no host port emits.
 		if host.VLAN != nil {
@@ -81,6 +121,11 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 		targetDevice = ref.peer.Node
 		targetPort = ref.peer.Port
 	} else if swCfg, isSwitch := f.cfg.Switches[inj.Origin.Node]; isSwitch {
+		if inj.Packet != nil {
+			return 0, errs.New().
+				Attr("switch", inj.Origin.Node).
+				Msgf("cannot inject packet at switch origin %q", inj.Origin.Node)
+		}
 		if _, ok := swCfg.Ports.Port(inj.Origin.Port); !ok {
 			return 0, errs.New().
 				Attr("node", inj.Origin.Node).
@@ -88,6 +133,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 				Msgf("port %q not found on switch %q", inj.Origin.Port, inj.Origin.Node)
 		}
 
+		frame = cloneFrame(inj.Frame)
 		targetDevice = inj.Origin.Node
 		targetPort = inj.Origin.Port
 	} else {
