@@ -667,6 +667,7 @@ func TestLAGMemberResolutionAndForwarding(t *testing.T) {
 	}
 
 	br := bridge.New(cfg, ports)
+	br.SetSelector(stubSelector{member: "1/1/5", ok: true})
 	frameFromMember := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -703,6 +704,94 @@ func TestLAGMemberResolutionAndForwarding(t *testing.T) {
 	if lagEgress.Member != "1/1/5" {
 		t.Errorf("lagEgress.Member = %q, want lowest member 1/1/5", lagEgress.Member)
 	}
+}
+
+type stubSelector struct {
+	member string
+	ok     bool
+}
+
+func (s stubSelector) Select(lag string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	return s.member, s.ok
+}
+
+func TestSelectorOnLAGEgress(t *testing.T) {
+	builder := port.NewBuilder()
+	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	builder.Add(port.Port{Name: "1/1/5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	builder.Add(port.Port{Name: "1/1/6", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	builder.Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	cfg := bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
+				"lag1":  {Tagged: []vlan.ID{10}},
+			},
+		},
+	}
+
+	frame := ethernet.Frame{
+		Dst:       macC,
+		Src:       macB,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+
+	t.Run("selector returning second member fills Egress.Member", func(t *testing.T) {
+		br := bridge.New(cfg, ports)
+		br.SetSelector(stubSelector{member: "1/1/6", ok: true})
+		res := br.Forward(testTime0, "1/1/1", frame)
+		if res.Outcome != trace.Flooded {
+			t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
+		}
+		if len(res.Egress) != 1 {
+			t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
+		}
+		if got, want := res.Egress[0].Member, "1/1/6"; got != want {
+			t.Errorf("Egress.Member = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("selector returning false records Egress.Dropped no-member", func(t *testing.T) {
+		br := bridge.New(cfg, ports)
+		br.SetSelector(stubSelector{member: "", ok: false})
+		res := br.Forward(testTime0, "1/1/1", frame)
+		if res.Outcome != trace.Dropped {
+			t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
+		}
+		if len(res.Egress) != 1 {
+			t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
+		}
+		if got, want := res.Egress[0].Dropped, bridge.ReasonNoMember; got != want {
+			t.Errorf("Egress.Dropped = %q, want %q", got, want)
+		}
+		if res.Reason != bridge.ReasonNoMember {
+			t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonNoMember)
+		}
+	})
+
+	t.Run("no selector on bridge with LAG port records no-member", func(t *testing.T) {
+		br := bridge.New(cfg, ports)
+		res := br.Forward(testTime0, "1/1/1", frame)
+		if res.Outcome != trace.Dropped {
+			t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
+		}
+		if len(res.Egress) != 1 {
+			t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
+		}
+		if got, want := res.Egress[0].Dropped, bridge.ReasonNoMember; got != want {
+			t.Errorf("Egress.Dropped = %q, want %q", got, want)
+		}
+		if res.Reason != bridge.ReasonNoMember {
+			t.Errorf("res.Reason = %q, want %q", res.Reason, bridge.ReasonNoMember)
+		}
+	})
 }
 
 func TestBridgeWithoutVLANRelaysByAddressAlone(t *testing.T) {

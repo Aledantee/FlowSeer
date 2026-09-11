@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -42,6 +43,22 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 			next.portSpeed = make(map[string]uint64, len(cur.portSpeed))
 			for k, v := range cur.portSpeed {
 				next.portSpeed[k] = v
+			}
+		}
+	}
+
+	if cur != nil && cur.lag != nil && next.lag != nil {
+		var aLAG, bLAG lag.Config
+		if cur.cfg.LAG != nil {
+			aLAG = *cur.cfg.LAG
+		}
+		if next.cfg.LAG != nil {
+			bLAG = *next.cfg.LAG
+		}
+		if len(lag.Diff(aLAG, bLAG)) == 0 {
+			next.lag = cur.lag.Clone()
+			if next.bridge != nil {
+				next.bridge.SetSelector(next.lag)
 			}
 		}
 	}

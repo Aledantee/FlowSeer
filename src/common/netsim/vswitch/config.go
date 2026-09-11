@@ -7,6 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -15,7 +16,8 @@ import (
 
 // Config specifies the configuration of a virtual switch, combining its port table,
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
-// optional spanning tree configuration, and optional layer 3 routing configuration.
+// optional link aggregation configuration, optional spanning tree configuration,
+// and optional layer 3 routing configuration.
 // MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
@@ -24,6 +26,7 @@ type Config struct {
 	Ports   port.Table
 	Phy     *phy.Config
 	Bridge  *bridge.Config
+	LAG     *lag.Config
 	STP     *stp.Config
 	Routing *routing.Config
 }
@@ -52,11 +55,17 @@ func (c Config) Capabilities() []port.Layer {
 			caps = append(caps, port.LayerPoe)
 		}
 	}
-	for _, p := range c.Ports.Ports() {
-		if p.Kind == port.Lag {
-			caps = append(caps, port.LayerLag)
-			break
+	hasLag := c.LAG != nil
+	if !hasLag {
+		for _, p := range c.Ports.Ports() {
+			if p.Kind == port.Lag {
+				hasLag = true
+				break
+			}
 		}
+	}
+	if hasLag {
+		caps = append(caps, port.LayerLag)
 	}
 
 	slices.Sort(caps)
@@ -77,6 +86,11 @@ func (c Config) Validate() error {
 	}
 	if c.Bridge != nil {
 		if err := c.Bridge.Validate(c.Ports); err != nil {
+			return err
+		}
+	}
+	if c.LAG != nil {
+		if err := c.LAG.Validate(c.Ports); err != nil {
 			return err
 		}
 	}
@@ -195,6 +209,10 @@ func (c Config) Clone() Config {
 	if c.Bridge != nil {
 		b := c.Bridge.Clone()
 		cp.Bridge = &b
+	}
+	if c.LAG != nil {
+		lagCfg := c.LAG.Clone()
+		cp.LAG = &lagCfg
 	}
 	if c.STP != nil {
 		stpCfg := *c.STP

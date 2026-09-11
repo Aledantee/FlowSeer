@@ -1,17 +1,17 @@
 package vswitch
 
 import (
-	"cmp"
 	"fmt"
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -20,8 +20,11 @@ import (
 
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
+// Emission describes an Ethernet frame to transmit out a port or member port.
+type Emission = stp.Emission
+
 // Switch simulates a network device composed of a port table and optional
-// physical-layer, bridge, spanning tree, and layer 3 routing subsystems.
+// physical-layer, bridge, link aggregation, spanning tree, and layer 3 routing subsystems.
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
@@ -31,8 +34,9 @@ type Switch struct {
 	speeds    map[string]phy.Resolved
 	power     phy.Allocation
 	stp       *stp.Layer
+	lag       *lag.Layer
 	routing   *routing.Layer
-	emissions []stp.Emission
+	emissions []Emission
 	portP2P   map[string]bool
 	portSpeed map[string]uint64
 }
@@ -94,6 +98,32 @@ func New(cfg Config) *Switch {
 
 	if cloned.Bridge != nil {
 		sw.bridge = bridge.New(*cloned.Bridge, cloned.Ports)
+	}
+
+	var hasLag bool
+	for _, p := range cloned.Ports.Ports() {
+		if p.Kind == port.Lag {
+			hasLag = true
+			break
+		}
+	}
+	if hasLag {
+		lagCfg := lag.Config{}
+		if cloned.LAG != nil {
+			lagCfg = *cloned.LAG
+		}
+		sw.lag = lag.New(lagCfg, cloned.Ports, cloned.MAC)
+		if sw.bridge != nil {
+			sw.bridge.SetSelector(sw.lag)
+		}
+		for _, p := range cloned.Ports.Ports() {
+			if p.LagParent != "" && p.Forwards() {
+				lCfg := lagCfg.LAGs[p.LagParent]
+				if lCfg.LACP.Mode == lag.Off && lCfg.UpDelay == 0 {
+					sw.lag.LinkChange(time.Time{}, p.Name, true)
+				}
+			}
+		}
 	}
 
 	if cloned.STP != nil {
@@ -206,6 +236,13 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) bridge.Re
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) bridge.Result {
+	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
+		p, ok := s.ports.Port(ingress)
+		if ok && p.LagParent != "" && p.Forwards() {
+			return s.interceptLACP(now, ingress, f, learn)
+		}
+	}
+
 	if s.stp != nil && f.Dst == stpGroupAddress {
 		return s.interceptBPDU(now, ingress, f, learn)
 	}
@@ -329,48 +366,77 @@ func (s *Switch) assembleRouteResult(
 	steps = append(steps, routeRes.Steps...)
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
-	if txReason == "" {
+	if txReason != "" {
 		steps = append(steps, trace.Step{
 			Layer:  port.LayerRouting,
-			Op:     trace.OpTransmit,
-			Detail: fmt.Sprintf("port %s", egressIface.Port),
+			Op:     trace.OpDrop,
+			Detail: fmt.Sprintf("port %s: %s", egressIface.Port, txReason),
 		})
 		return bridge.Result{
 			Trace: trace.Trace{
-				Outcome: trace.Forwarded,
+				Outcome: trace.Dropped,
+				Reason:  txReason,
 				Steps:   steps,
 			},
 			Ingress: ingressPort,
 			FID:     0,
 			Egress: []bridge.Egress{
 				{
-					Port:   egressIface.Port,
-					Member: member,
-					Frame:  routeRes.Frame,
+					Port:    egressIface.Port,
+					Member:  member,
+					Frame:   routeRes.Frame,
+					Dropped: txReason,
 				},
 			},
 		}
 	}
 
+	p, _ := s.ports.Port(egressIface.Port)
+	if p.Kind == port.Lag {
+		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
+		if !ok {
+			steps = append(steps, trace.Step{
+				Layer:  port.LayerRouting,
+				Op:     trace.OpDrop,
+				Detail: fmt.Sprintf("port %s: no-member", egressIface.Port),
+			})
+			return bridge.Result{
+				Trace: trace.Trace{
+					Outcome: trace.Dropped,
+					Reason:  bridge.ReasonNoMember,
+					Steps:   steps,
+				},
+				Ingress: ingressPort,
+				FID:     0,
+				Egress: []bridge.Egress{
+					{
+						Port:    egressIface.Port,
+						Frame:   routeRes.Frame,
+						Dropped: bridge.ReasonNoMember,
+					},
+				},
+			}
+		}
+		member = mem
+	}
+
 	steps = append(steps, trace.Step{
 		Layer:  port.LayerRouting,
-		Op:     trace.OpDrop,
-		Detail: fmt.Sprintf("port %s: %s", egressIface.Port, txReason),
+		Op:     trace.OpTransmit,
+		Detail: fmt.Sprintf("port %s", egressIface.Port),
 	})
 	return bridge.Result{
 		Trace: trace.Trace{
-			Outcome: trace.Dropped,
-			Reason:  txReason,
+			Outcome: trace.Forwarded,
 			Steps:   steps,
 		},
 		Ingress: ingressPort,
 		FID:     0,
 		Egress: []bridge.Egress{
 			{
-				Port:    egressIface.Port,
-				Member:  member,
-				Frame:   routeRes.Frame,
-				Dropped: txReason,
+				Port:   egressIface.Port,
+				Member: member,
+				Frame:  routeRes.Frame,
 			},
 		},
 	}
@@ -425,33 +491,12 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		return res
 	}
 
-	var (
-		candidates  []port.Port
-		memberNames []string
-	)
+	var candidates []port.Port
 	for _, cand := range s.ports.Ports() {
 		if cand.LagParent != "" || cand.Name == res.Ingress || !cand.Forwards() {
 			continue
 		}
-		var member string
-		if cand.Kind == port.Lag {
-			mems := s.ports.Members(cand.Name)
-			var fwdMembers []port.Port
-			for _, m := range mems {
-				if m.Forwards() {
-					fwdMembers = append(fwdMembers, m)
-				}
-			}
-			if len(fwdMembers) == 0 {
-				continue
-			}
-			slices.SortFunc(fwdMembers, func(i, j port.Port) int {
-				return cmp.Compare(i.Name, j.Name)
-			})
-			member = fwdMembers[0].Name
-		}
 		candidates = append(candidates, cand)
-		memberNames = append(memberNames, member)
 	}
 
 	if len(candidates) == 0 {
@@ -459,12 +504,10 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	}
 
 	var transmitted int
-	for i, cand := range candidates {
-		mem := memberNames[i]
+	for _, cand := range candidates {
 		if cand.MTU > 0 && len(f.Payload) > cand.MTU {
 			res.Egress = append(res.Egress, bridge.Egress{
 				Port:    cand.Name,
-				Member:  mem,
 				Frame:   f,
 				Dropped: port.ReasonMTUExceeded,
 			})
@@ -477,6 +520,26 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			continue
 		}
 
+		var member string
+		if cand.Kind == port.Lag {
+			mem, ok := s.SelectMember(cand.Name, f, 0)
+			if !ok {
+				res.Egress = append(res.Egress, bridge.Egress{
+					Port:    cand.Name,
+					Frame:   f,
+					Dropped: bridge.ReasonNoMember,
+				})
+				res.Steps = append(res.Steps, trace.Step{
+					Layer:  port.LayerPort,
+					Op:     trace.OpDrop,
+					Detail: fmt.Sprintf("port %s: no-member", cand.Name),
+				})
+
+				continue
+			}
+			member = mem
+		}
+
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:  port.LayerPort,
 			Op:     trace.OpReplicate,
@@ -484,7 +547,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		})
 		res.Egress = append(res.Egress, bridge.Egress{
 			Port:   cand.Name,
-			Member: mem,
+			Member: member,
 			Frame:  f,
 		})
 		transmitted++
@@ -494,10 +557,57 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		res.Outcome = trace.Flooded
 	} else {
 		res.Outcome = trace.Dropped
-		res.Reason = port.ReasonMTUExceeded
+		if len(res.Egress) > 0 {
+			res.Reason = res.Egress[0].Dropped
+		} else {
+			res.Reason = port.ReasonMTUExceeded
+		}
 	}
 
 	return res
+}
+
+func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	pdu, err := lacp.Decode(f)
+	if err != nil {
+		if mutate {
+			s.lag.BadLACPDU(ingress)
+		}
+
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  lag.ReasonUnsupportedLACPDU,
+				Steps: []trace.Step{
+					{
+						Layer:  port.LayerLag,
+						Op:     trace.OpDrop,
+						Detail: string(lag.ReasonUnsupportedLACPDU),
+					},
+				},
+			},
+			Ingress: ingress,
+		}
+	}
+
+	if mutate {
+		fx := s.lag.Receive(now, ingress, pdu)
+		s.applyLAGEffects(now, fx)
+	}
+
+	return bridge.Result{
+		Trace: trace.Trace{
+			Outcome: trace.Consumed,
+			Steps: []trace.Step{
+				{
+					Layer:  port.LayerLag,
+					Op:     trace.OpClassify,
+					Detail: "lacp",
+				},
+			},
+		},
+		Ingress: ingress,
+	}
 }
 
 func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
@@ -546,7 +656,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 
 	if mutate {
 		fx := s.stp.Receive(now, resolvedPort, bpdu)
-		s.applyEffects(fx)
+		s.applySTPEffects(fx)
 	}
 
 	return bridge.Result{
@@ -564,18 +674,33 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	}
 }
 
-// Start initializes the spanning tree layer with the current link state of every port in the table.
-// On a switch without spanning tree configuration, Start is a no-op.
+// Start initializes the protocol layers with the current link state of every port in the table.
+// On a switch without spanning tree or link aggregation, Start is a no-op.
 func (s *Switch) Start(now time.Time) {
-	if s.stp == nil {
+	if s.stp == nil && s.lag == nil {
 		return
 	}
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]bool)
 		s.portSpeed = make(map[string]uint64)
 	}
+
 	for _, p := range s.ports.Ports() {
 		if p.LagParent != "" {
+			speed := s.linkSpeed(p)
+			p2p := true
+			s.portP2P[p.Name] = p2p
+			s.portSpeed[p.Name] = speed
+			if s.lag != nil {
+				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
+				s.applyLAGEffects(now, fx)
+			}
+			s.updateLagState(now, p.LagParent)
+		}
+	}
+
+	for _, p := range s.ports.Ports() {
+		if p.LagParent != "" || p.Kind == port.Lag {
 			continue
 		}
 		p2p := true
@@ -590,8 +715,10 @@ func (s *Switch) Start(now time.Time) {
 		s.portP2P[p.Name] = p2p
 		s.portSpeed[p.Name] = speed
 
-		fx := s.stp.LinkChange(now, p.Name, p.Forwards(), p2p, speed)
-		s.applyEffects(fx)
+		if s.stp != nil {
+			fx := s.stp.LinkChange(now, p.Name, p.Forwards(), p2p, speed)
+			s.applySTPEffects(fx)
+		}
 	}
 }
 
@@ -612,17 +739,83 @@ func (s *Switch) linkSpeed(p port.Port) uint64 {
 	return best
 }
 
-func (s *Switch) applyEffects(fx stp.Effects) {
+func (s *Switch) applySTPEffects(fx stp.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
 		s.bridge.FlushPorts(fx.Flush)
 	}
-	if len(fx.Emissions) > 0 {
-		s.emissions = append(s.emissions, fx.Emissions...)
+	for _, em := range fx.Emissions {
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
 	}
 }
 
-// Drain returns and clears pending frame emissions produced by the spanning tree layer.
-func (s *Switch) Drain() []stp.Emission {
+func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
+	for _, em := range fx.Emissions {
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+	}
+	for _, lagName := range fx.Changed {
+		s.updateLagState(now, lagName)
+	}
+}
+
+func (s *Switch) updateLagState(now time.Time, lagName string) {
+	anyUp := false
+	for _, m := range s.ports.Members(lagName) {
+		if m.OperStatus == port.Up {
+			anyUp = true
+			break
+		}
+		if s.lag != nil && s.lag.PortInfo(m.Name).LinkUp {
+			anyUp = true
+			break
+		}
+	}
+	lagOper := port.Down
+	if anyUp {
+		lagOper = port.Up
+	}
+	s.SetOperStatus(lagName, lagOper)
+
+	if s.stp != nil {
+		var enabledMembers []string
+		if s.lag != nil {
+			info := s.lag.Info(lagName)
+			enabledMembers = info.Enabled
+		}
+		lagUp := len(enabledMembers) > 0
+
+		var highestSpeed uint64
+		lagP2P := len(enabledMembers) > 0
+		for _, memName := range enabledMembers {
+			memSpeed := s.portSpeed[memName]
+			if memSpeed == 0 && s.speeds != nil {
+				memSpeed = s.speeds[memName].SpeedBPS
+			}
+			highestSpeed = max(highestSpeed, memSpeed)
+
+			memP2P := true
+			if p2p, ok := s.portP2P[memName]; ok {
+				memP2P = p2p
+			}
+			if !memP2P {
+				lagP2P = false
+			}
+		}
+		if s.cfg.STP != nil && s.cfg.STP.Ports != nil {
+			if pCfg, ok := s.cfg.STP.Ports[lagName]; ok && pCfg.PointToPoint == stp.PointToPointForceFalse {
+				lagP2P = false
+			}
+		}
+		if s.portP2P != nil {
+			s.portP2P[lagName] = lagP2P
+			s.portSpeed[lagName] = highestSpeed
+		}
+		fxSTP := s.stp.LinkChange(now, lagName, lagUp, lagP2P, highestSpeed)
+		s.applySTPEffects(fxSTP)
+	}
+}
+
+// Drain returns and clears pending frame emissions produced by the protocol layers.
+func (s *Switch) Drain() []Emission {
 	em := s.emissions
 	s.emissions = nil
 
@@ -684,24 +877,46 @@ func (s *Switch) Times() (maxAge, hello, forwardDelay time.Duration) {
 	return s.stp.Times()
 }
 
-// Wake advances the spanning tree layer to now, firing due timers and flushing bridge entries.
-// On a switch without spanning tree configuration, Wake is a no-op.
+// Wake advances the protocol layers to now, firing due timers, flushing bridge entries,
+// and triggering periodic transmissions.
+// On a switch without spanning tree or link aggregation, Wake is a no-op.
 func (s *Switch) Wake(now time.Time) {
-	if s.stp == nil {
-		return
+	if s.stp != nil {
+		fx := s.stp.Wake(now)
+		s.applySTPEffects(fx)
 	}
-	fx := s.stp.Wake(now)
-	s.applyEffects(fx)
+	if s.lag != nil {
+		fx := s.lag.Wake(now)
+		s.applyLAGEffects(now, fx)
+	}
 }
 
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
-// and reports whether any timer is currently active.
+// and reports whether any timer is currently active across spanning tree and link aggregation.
 func (s *Switch) NextWake() (time.Time, bool) {
-	if s.stp == nil {
-		return time.Time{}, false
+	var (
+		earliest time.Time
+		hasTimer bool
+	)
+
+	update := func(t time.Time, ok bool) {
+		if !ok || t.IsZero() {
+			return
+		}
+		if !hasTimer || t.Before(earliest) {
+			earliest = t
+			hasTimer = true
+		}
 	}
 
-	return s.stp.NextWake()
+	if s.stp != nil {
+		update(s.stp.NextWake())
+	}
+	if s.lag != nil {
+		update(s.lag.NextWake())
+	}
+
+	return earliest, hasTimer
 }
 
 // Mcheck triggers protocol migration checking on the named port, forcing it to
@@ -716,28 +931,85 @@ func (s *Switch) Mcheck(now time.Time, port string) {
 		resolvedPort = p.Name
 	}
 	fx := s.stp.Mcheck(now, resolvedPort)
-	s.applyEffects(fx)
+	s.applySTPEffects(fx)
 }
 
-// LinkChange notifies the spanning tree layer of a link transition on the named port,
-// resolving a LAG member to its LAG parent.
+// LinkChange notifies the protocol layers of a link transition on the named port.
 func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint bool, speed uint64) {
-	if s.stp == nil {
+	if s.stp == nil && s.lag == nil {
 		return
-	}
-	resolvedPort := portName
-	if p, ok := s.ports.Resolve(portName); ok {
-		resolvedPort = p.Name
 	}
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]bool)
 		s.portSpeed = make(map[string]uint64)
 	}
+
+	p, ok := s.ports.Port(portName)
+	if ok && p.LagParent != "" {
+		s.portP2P[portName] = pointToPoint
+		s.portSpeed[portName] = speed
+
+		oper := port.Down
+		if up {
+			oper = port.Up
+		}
+		s.SetOperStatus(portName, oper)
+
+		if s.lag != nil {
+			fx := s.lag.LinkChange(now, portName, up)
+			s.applyLAGEffects(now, fx)
+		}
+		s.updateLagState(now, p.LagParent)
+		return
+	}
+
+	resolvedPort := portName
+	if p, ok := s.ports.Resolve(portName); ok {
+		resolvedPort = p.Name
+	}
 	s.portP2P[resolvedPort] = pointToPoint
 	s.portSpeed[resolvedPort] = speed
 
-	fx := s.stp.LinkChange(now, resolvedPort, up, pointToPoint, speed)
-	s.applyEffects(fx)
+	oper := port.Down
+	if up {
+		oper = port.Up
+	}
+	s.SetOperStatus(resolvedPort, oper)
+
+	if s.stp != nil {
+		fx := s.stp.LinkChange(now, resolvedPort, up, pointToPoint, speed)
+		s.applySTPEffects(fx)
+	}
+}
+
+// SelectMember chooses an enabled member of the named LAG to carry the given frame.
+// It returns false if the LAG is unknown, has no layer, or has no enabled member.
+func (s *Switch) SelectMember(lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	if s.lag == nil {
+		return "", false
+	}
+
+	return s.lag.Select(lagName, f, vid)
+}
+
+// LagInfo returns the runtime aggregation status of the named LAG,
+// or a zero-value Info if the aggregation layer is absent.
+func (s *Switch) LagInfo(lagName string) lag.Info {
+	if s.lag == nil {
+		return lag.Info{}
+	}
+
+	return s.lag.Info(lagName)
+}
+
+// MemberInfo returns the runtime aggregation status of the named member port,
+// or a zero-value MemberInfo if the aggregation layer is absent.
+func (s *Switch) MemberInfo(member string) lag.MemberInfo {
+	if s.lag == nil {
+		return lag.MemberInfo{}
+	}
+
+	return s.lag.PortInfo(member)
 }
 
 // SetOperStatus updates the operational link state of the named port in the

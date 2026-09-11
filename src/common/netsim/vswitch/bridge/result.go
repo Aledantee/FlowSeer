@@ -39,6 +39,9 @@ const (
 
 	// ReasonCustomerVLAN indicates a frame dropped on a tunnel port because its customer VLAN was not permitted.
 	ReasonCustomerVLAN trace.Reason = "customer-vlan"
+
+	// ReasonNoMember indicates a frame dropped because no member port was selected for LAG egress.
+	ReasonNoMember trace.Reason = "no-member"
 )
 
 // Egress records the transmission or per-port drop of a frame on a specific egress port.

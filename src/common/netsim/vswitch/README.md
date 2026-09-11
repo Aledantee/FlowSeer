@@ -112,6 +112,12 @@ The virtual switch uses a ladder of architectural layers:
   pushes an outer service tag on ingress and pops it on egress; for example, a
   customer-tagged frame arriving on a tunnel port egresses a trunk port carrying
   an outer S-tag with TPID 0x88A8 plus the customer C-tag.
+- **Link aggregation**: Configured with a `port.Table` containing LAG ports and
+  optional `lag.Config`. Manages bond modes (ActiveBackup, BalanceSLB,
+  BalanceTCP), member link transitions with up/down delays, and the LACP
+  exchange. Chooses enabled member ports for frames egressing a LAG, intercepts
+  LACPDUs on member ports, and derives the LAG row's operational state from its
+  members' links.
 - **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
@@ -212,8 +218,10 @@ Drop reasons recorded in traces and egress records:
 | `mtu-exceeded`     | Frame payload length exceeds egress port MTU            |
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
+| `no-member`        | LAG has no enabled member port to transmit egress frame |
 | `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
 | `unsupported-bpdu` | Frame could not be decoded as a BPDU                    |
+| `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
 | `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
@@ -223,27 +231,39 @@ Drop reasons recorded in traces and egress records:
 
 ## Protocol schedule
 
-The spanning tree layer operates deterministically without background timers.
-The host drives it through explicit calls:
+The spanning tree and link aggregation layers operate deterministically without
+background timers. The host drives them through explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
-- `LinkChange(now, port, up, pointToPoint, speed)` tells the layer one link
-  moved; a report of the state the port already has is ignored.
+- `LinkChange(now, port, up, pointToPoint, speed)` tells the protocol layers
+  one link moved; for a LAG member, it notifies the aggregation layer, updates
+  the LAG port's operational state, and informs spanning tree of the LAG's
+  link and speed from the enabled members.
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
-  relay's tables and tells the layer nothing, since only the caller knows
-  whether a member's change moves its LAG; it follows with `LinkChange`.
+  relay's tables and tells the protocol layers nothing, since only the caller
+  knows whether a member's change moves its LAG; it follows with `LinkChange`.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
-- `Wake(now)` fires due hello, forward delay, edge delay, and topology change
-  timers and releases BPDUs the transmit hold count held.
-- `NextWake()` reports the earliest deadline when the switch needs a wake.
-- `Drain()` returns and clears pending frame emissions produced by the layer.
+- `Wake(now)` fires due timers across spanning tree and link aggregation,
+  flushing bridge entries and triggering periodic transmissions.
+- `NextWake()` reports the earliest deadline when the switch needs a wake
+  across both layers.
+- `Drain()` returns and clears pending frame emissions produced by both layers.
 - `Roles()` exposes current port roles and forwarding states.
+- `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
+- `MemberInfo(member)` returns the runtime aggregation status of the member port.
+- `SelectMember(lag, frame, vid)` chooses an enabled member port for a frame.
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
 outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
 switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
+
+On a switch with link aggregation, a frame with EtherType 0x8809 whose first
+payload octet is 1 arriving on an up member port is intercepted before relay
+processing. It decodes as an LACPDU and enters the aggregation layer with
+outcome `Consumed`, or drops with `unsupported-lacpdu` if decoding fails. On a
+port that is not a LAG member, it drops as a reserved address.
 
 A port that hears a version 0 BPDU after its 3 s migration delay sends
 Configuration BPDUs until `Mcheck` or an RST BPDU after another delay returns it

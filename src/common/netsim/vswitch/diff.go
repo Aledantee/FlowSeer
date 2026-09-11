@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -13,8 +14,8 @@ import (
 
 // Diff computes the difference between two switch configurations, concatenating
 // device-level MAC differences, port table differences, capability presence changes,
-// physical layer differences, bridge relay differences, spanning tree differences,
-// and routing differences.
+// physical layer differences, bridge relay differences, link aggregation differences,
+// spanning tree differences, and routing differences.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
@@ -49,6 +50,17 @@ func Diff(a, b Config) []trace.Change {
 			bBridge = *b.Bridge
 		}
 		changes = append(changes, bridge.Diff(aBridge, bBridge)...)
+	}
+
+	if a.LAG != nil || b.LAG != nil {
+		var aLAG, bLAG lag.Config
+		if a.LAG != nil {
+			aLAG = *a.LAG
+		}
+		if b.LAG != nil {
+			bLAG = *b.LAG
+		}
+		changes = append(changes, lag.Diff(aLAG, bLAG)...)
 	}
 
 	if a.STP != nil || b.STP != nil {

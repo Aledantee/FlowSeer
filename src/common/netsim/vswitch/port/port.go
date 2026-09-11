@@ -3,9 +3,6 @@
 package port
 
 import (
-	"cmp"
-	"slices"
-
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
@@ -193,38 +190,33 @@ func (t Table) Receive(name string) (Port, trace.Reason) {
 
 // Transmit evaluates whether a frame of payloadLen can egress through the named port.
 // It returns [ReasonPortDown] if the port is unknown, does not forward, or is a LAG
-// with no forwarding members. For a forwarding LAG, Transmit selects the lowest-named
-// forwarding member. It returns [ReasonMTUExceeded] if the port has an MTU configured
-// (> 0) and payloadLen exceeds it. A plain port returns an empty member.
+// with no forwarding members. Member selection is handled by the link aggregation layer,
+// so Transmit returns an empty member for both plain and LAG ports. It returns
+// [ReasonMTUExceeded] if the port has an MTU configured (> 0) and payloadLen exceeds it.
 func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
 	p, ok := t.Port(name)
 	if !ok || !p.Forwards() {
 		return "", ReasonPortDown
 	}
 
-	var member string
 	if p.Kind == Lag {
-		mems := t.Members(p.Name)
-		var fwdMembers []Port
-		for _, m := range mems {
+		hasFwd := false
+		for _, m := range t.Members(p.Name) {
 			if m.Forwards() {
-				fwdMembers = append(fwdMembers, m)
+				hasFwd = true
+				break
 			}
 		}
-		if len(fwdMembers) == 0 {
+		if !hasFwd {
 			return "", ReasonPortDown
 		}
-		slices.SortFunc(fwdMembers, func(i, j Port) int {
-			return cmp.Compare(i.Name, j.Name)
-		})
-		member = fwdMembers[0].Name
 	}
 
 	if p.MTU > 0 && payloadLen > p.MTU {
-		return member, ReasonMTUExceeded
+		return "", ReasonMTUExceeded
 	}
 
-	return member, ""
+	return "", ""
 }
 
 // Validate verifies the invariants of the table: all port names must be non-empty
