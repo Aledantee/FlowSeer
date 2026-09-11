@@ -227,7 +227,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("topology change", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetTopologyChange(true)
 		if !b.TopologyChange() {
 			t.Error("TopologyChange() = false, want true")
@@ -252,7 +252,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("proposal", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetProposal(true)
 		if !b.Proposal() {
 			t.Error("Proposal() = false, want true")
@@ -289,7 +289,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		}
 
 		for _, c := range cases {
-			var b stp.BPDU
+			b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 			b.SetRole(c.role)
 			if (b.Flags & (3 << 2)) != c.wantBits {
 				t.Errorf("role %v: Flags bits 2-3 = 0x%02x, want 0x%02x", c.role, b.Flags&(3<<2), c.wantBits)
@@ -311,7 +311,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("learning", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetLearning(true)
 		if !b.Learning() {
 			t.Error("Learning() = false, want true")
@@ -336,7 +336,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("forwarding", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetForwarding(true)
 		if !b.Forwarding() {
 			t.Error("Forwarding() = false, want true")
@@ -361,7 +361,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("agreement", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetAgreement(true)
 		if !b.Agreement() {
 			t.Error("Agreement() = false, want true")
@@ -386,7 +386,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("topology change ack", func(t *testing.T) {
 		t.Parallel()
-		var b stp.BPDU
+		b := stp.BPDU{HelloTime: stp.DefaultHelloTime}
 		b.SetTopologyChangeAck(true)
 		if !b.TopologyChangeAck() {
 			t.Error("TopologyChangeAck() = false, want true")
@@ -408,4 +408,16 @@ func TestBPDUFlagBits(t *testing.T) {
 			t.Error("TopologyChangeAck() = true after clear, want false")
 		}
 	})
+}
+
+// TestDecodeRefusesZeroHelloTime guards the aging arithmetic: a BPDU whose
+// hello time is zero would otherwise expire the instant it arrived.
+func TestDecodeRefusesZeroHelloTime(t *testing.T) {
+	t.Parallel()
+
+	root := stp.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 1}}
+	frame := stp.Encode(stp.BPDU{RootID: root, BridgeID: root, MaxAge: 20 * time.Second}, root.Address)
+	if _, err := stp.Decode(frame); err == nil {
+		t.Fatal("Decode accepted a BPDU with hello time 0")
+	}
 }

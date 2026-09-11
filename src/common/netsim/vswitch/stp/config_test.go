@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -91,6 +92,36 @@ func TestValidate(t *testing.T) {
 				Ports: map[string]stp.Port{
 					"1/1/1": {Priority: 128},
 				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "hello time above ten seconds rejected",
+			cfg: stp.Config{
+				Priority:  32768,
+				Address:   validMAC,
+				HelloTime: 11 * time.Second,
+				Ports:     map[string]stp.Port{"1/1/1": {}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "max age below six seconds rejected",
+			cfg: stp.Config{
+				Priority: 32768,
+				Address:  validMAC,
+				MaxAge:   5 * time.Second,
+				Ports:    map[string]stp.Port{"1/1/1": {}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "forward delay above thirty seconds rejected",
+			cfg: stp.Config{
+				Priority:     32768,
+				Address:      validMAC,
+				ForwardDelay: 31 * time.Second,
+				Ports:        map[string]stp.Port{"1/1/1": {}},
 			},
 			wantErr: true,
 		},
@@ -210,6 +241,13 @@ func TestDiff(t *testing.T) {
 		t.Errorf("forward_delay change: got (%v, %v, %v)", from, to, ok)
 	}
 
+	otherMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
+	moved := b
+	moved.Address = otherMAC
+	if from, to, ok := findAddress(stp.Diff(b, moved)); !ok || from != mac || to != otherMAC {
+		t.Errorf("address change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, mac, otherMAC)
+	}
+
 	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != uint8(128) || to != uint8(64) {
 		t.Errorf("port priority change: got (%v, %v, %v)", from, to, ok)
 	}
@@ -231,4 +269,13 @@ func TestDiff(t *testing.T) {
 	if from, to, ok := findChange("port", "1/1/3", ""); !ok || from != nil || to == nil {
 		t.Errorf("port 1/1/3 added: got (%v, %v, %v)", from, to, ok)
 	}
+}
+
+func findAddress(changes []trace.Change) (any, any, bool) {
+	for _, c := range changes {
+		if c.Subject.Kind == "bridge" && c.Field == "address" {
+			return c.From, c.To, true
+		}
+	}
+	return nil, nil, false
 }

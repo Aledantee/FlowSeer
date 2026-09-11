@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
 func effectivePriority(p uint16) uint16 {
@@ -60,7 +61,17 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 
-	const layer trace.Layer = "stp"
+	layer := port.LayerStp
+
+	if a.Address != b.Address {
+		changes = append(changes, trace.Change{
+			Layer:   layer,
+			Subject: trace.Subject{Kind: "bridge", Key: ""},
+			Field:   "address",
+			From:    a.Address,
+			To:      b.Address,
+		})
+	}
 
 	aPrio, bPrio := effectivePriority(a.Priority), effectivePriority(b.Priority)
 	if aPrio != bPrio {

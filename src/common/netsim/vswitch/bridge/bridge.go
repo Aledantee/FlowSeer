@@ -90,8 +90,9 @@ func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
 		}
 		builder.Add(p)
 	}
-	tbl, err := builder.Build()
-	if err == nil {
+	// Only OperStatus changed on a table that already validated, so the
+	// rebuild cannot fail.
+	if tbl, err := builder.Build(); err == nil {
 		b.ports = tbl
 	}
 }

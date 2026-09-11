@@ -22,7 +22,8 @@ const (
 )
 
 // An eight-octet spanning tree bridge identifier composed of a two-octet
-// priority and a six-octet MAC address. Mirrors dot1dStpBridgeId (RFC 4188).
+// priority and a six-octet MAC address. Mirrors the BridgeId textual
+// convention (BRIDGE-MIB:76).
 type BridgeId struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Priority    uint32                 `protobuf:"varint,1,opt,name=priority"`

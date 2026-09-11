@@ -572,76 +572,94 @@ func Load(
 
 	if isWanted(port.LayerStp) && bridgeState != nil {
 		var mac netaddr.MAC
-		if bridgeState.GetBridgeId() != nil && bridgeState.GetBridgeId().GetAddress() != nil {
-			copy(mac[:], bridgeState.GetBridgeId().GetAddress().GetOctets())
-		}
+		copy(mac[:], bridgeState.GetBridgeId().GetAddress().GetOctets())
+		prio := bridgeState.GetBridgeId().GetPriority()
 
-		stpCfg := stp.Config{
-			Priority: uint16(bridgeState.GetBridgeId().GetPriority()),
-			Address:  mac,
-			Ports:    make(map[string]stp.Port),
+		var bridgeWhy string
+		switch {
+		case mac == (netaddr.MAC{}):
+			bridgeWhy = "bridge id has no address"
+		case prio >= 65536 || prio%4096 != 0:
+			bridgeWhy = "bridge priority is not a multiple of 4096 below 65536"
 		}
-
-		if bridgeState.GetBridgeHelloTime() != nil {
-			stpCfg.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
-		}
-		if bridgeState.GetBridgeMaxAge() != nil {
-			stpCfg.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
-		}
-		if bridgeState.GetBridgeForwardDelay() != nil {
-			stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
-		}
-
-		for _, ps := range stpPorts {
-			portName := ps.GetInterfaceName()
-			p, ok := ports.Port(portName)
-			if !ok {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: portName,
-					What: "stp_port",
-					Why:  "absent from port table",
-				})
-				continue
-			}
-			if p.LagParent != "" {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: portName,
-					What: "stp_port",
-					Why:  "port is a LAG member",
-				})
-				continue
+		if bridgeWhy != "" {
+			report.Skipped = append(report.Skipped, Skipped{What: "stp_bridge", Why: bridgeWhy})
+		} else {
+			stpCfg := stp.Config{
+				Priority: uint16(prio),
+				Address:  mac,
+				Ports:    make(map[string]stp.Port),
 			}
 
-			var adminPathCost uint32
-			if ps.HasAdminPathCost() {
-				adminPathCost = ps.GetAdminPathCost()
-			} else {
-				report.Defaults = append(report.Defaults, Default{
-					Port:  portName,
-					Field: "admin_path_cost",
-					Value: "0",
-				})
+			if bridgeState.GetBridgeHelloTime() != nil {
+				stpCfg.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
+			}
+			if bridgeState.GetBridgeMaxAge() != nil {
+				stpCfg.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
+			}
+			if bridgeState.GetBridgeForwardDelay() != nil {
+				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
 			}
 
-			var p2p stp.PointToPointMode
-			switch ps.GetPointToPoint() {
-			case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE:
-				p2p = stp.PointToPointForceTrue
-			case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
-				p2p = stp.PointToPointForceFalse
-			default:
-				p2p = stp.PointToPointAuto
+			for _, ps := range stpPorts {
+				portName := ps.GetInterfaceName()
+				p, ok := ports.Port(portName)
+				if !ok {
+					report.Skipped = append(report.Skipped, Skipped{
+						Port: portName,
+						What: "stp_port",
+						Why:  "absent from port table",
+					})
+					continue
+				}
+				if p.LagParent != "" {
+					report.Skipped = append(report.Skipped, Skipped{
+						Port: portName,
+						What: "stp_port",
+						Why:  "port is a LAG member",
+					})
+					continue
+				}
+				if ps.GetPriority() > 255 {
+					report.Skipped = append(report.Skipped, Skipped{
+						Port: portName,
+						What: "stp_port",
+						Why:  "priority above 255",
+					})
+					continue
+				}
+
+				var adminPathCost uint32
+				if ps.HasAdminPathCost() {
+					adminPathCost = ps.GetAdminPathCost()
+				} else {
+					report.Defaults = append(report.Defaults, Default{
+						Port:  portName,
+						Field: "admin_path_cost",
+						Value: "0",
+					})
+				}
+
+				var p2p stp.PointToPointMode
+				switch ps.GetPointToPoint() {
+				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE:
+					p2p = stp.PointToPointForceTrue
+				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
+					p2p = stp.PointToPointForceFalse
+				default:
+					p2p = stp.PointToPointAuto
+				}
+
+				stpCfg.Ports[portName] = stp.Port{
+					Priority:     uint8(ps.GetPriority()),
+					PathCost:     adminPathCost,
+					AdminEdge:    ps.GetAdminEdge(),
+					PointToPoint: p2p,
+				}
 			}
 
-			stpCfg.Ports[portName] = stp.Port{
-				Priority:     uint8(ps.GetPriority()),
-				PathCost:     adminPathCost,
-				AdminEdge:    ps.GetAdminEdge(),
-				PointToPoint: p2p,
-			}
+			cfg.STP = &stpCfg
 		}
-
-		cfg.STP = &stpCfg
 	}
 
 	var seeds []bridge.Seed

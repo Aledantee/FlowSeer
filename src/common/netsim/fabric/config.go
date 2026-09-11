@@ -174,6 +174,11 @@ func (c Config) Validate() error {
 		if name == "" {
 			return errs.New().Msg("switch name cannot be empty")
 		}
+		// A protocol layer schedules its first hello from Start; a zero Start
+		// puts every wake in year 1, ahead of any frame a caller injects.
+		if swCfg.STP != nil && c.Start.IsZero() {
+			return errs.New().Attr("switch", name).Msg("a fabric with a spanning tree switch needs a Start time")
+		}
 		if err := swCfg.Validate(); err != nil {
 			return errs.Wrapf(err, "switch %q", name)
 		}

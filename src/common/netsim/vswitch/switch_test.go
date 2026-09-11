@@ -1036,6 +1036,7 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 		RootPathCost: 0,
 		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
 	}
 	bpdu.SetRole(stp.RoleDesignated)
 
@@ -1152,6 +1153,7 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 		RootPathCost: 0,
 		BridgeID:     stp.BridgeID{Priority: 4096, Address: macRoot},
 		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
 	}
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
@@ -1226,5 +1228,46 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	rolesAfter := derived.Roles()
 	if rolesAfter["1/1/1"].Role != stp.RoleRoot || rolesAfter["1/1/1"].State != stp.StateForwarding {
 		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", rolesAfter["1/1/1"].Role, rolesAfter["1/1/1"].State)
+	}
+}
+
+// TestBPDUOnDownPortIsDropped is evidence that the intercept applies the
+// relay's port check: a BPDU on a port that is not up never reaches the
+// layer, and its trace says so instead of Consumed.
+func TestBPDUOnDownPortIsDropped(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	sw := vswitch.New(vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		},
+	})
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bpdu := stp.BPDU{
+		RootID:    stp.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:  stp.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:    0x8001,
+		HelloTime: stp.DefaultHelloTime,
+		MaxAge:    stp.DefaultMaxAge,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+
+	res := sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortDown {
+		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonPortDown)
+	}
+	if root, _, _ := sw.Root(); root.Address == macRoot {
+		t.Error("layer adopted a root from a BPDU on a down port")
 	}
 }

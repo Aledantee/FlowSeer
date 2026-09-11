@@ -20,7 +20,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Observed spanning tree protocol state and administrative settings of one port.
+// Observed spanning tree protocol state and administrative settings of one
+// port. The port's administrative settings travel in the same message, so
+// this package deliberately has no PortConfig and no PortEvent.
 type PortState struct {
 	state                         protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_InterfaceName      *string                `protobuf:"bytes,1,opt,name=interface_name,json=interfaceName"`
@@ -454,13 +456,15 @@ type PortState_builder struct {
 	// Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
 	State *ForwardingState
 	// Unique bridge identifier of the spanning tree root recorded in configuration
-	// BPDUs. Mirrors dot1dStpPortDesignatedRoot (BRIDGE-MIB:668).
+	// BPDUs. Absent means the port has received none. Mirrors
+	// dot1dStpPortDesignatedRoot (BRIDGE-MIB:668).
 	DesignatedRoot *BridgeId
 	// Path cost offered by the designated port on the attached LAN segment.
 	// Mirrors dot1dStpPortDesignatedCost (BRIDGE-MIB:681).
 	DesignatedCost *uint32
 	// Bridge identifier of the designated bridge on the attached LAN segment.
-	// Mirrors dot1dStpPortDesignatedBridge (BRIDGE-MIB:693).
+	// Absent means the port has received no BPDU. Mirrors
+	// dot1dStpPortDesignatedBridge (BRIDGE-MIB:693).
 	DesignatedBridge *BridgeId
 	// Port identifier of the designated port on the designated bridge (0..65535).
 	// Mirrors dot1dStpPortDesignatedPort (BRIDGE-MIB:705).
@@ -545,9 +549,9 @@ var File_flowseer_net_protocol_stp_v1_port_state_proto protoreflect.FileDescript
 
 const file_flowseer_net_protocol_stp_v1_port_state_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\"\xdc\x06\n" +
-	"\tPortState\x12T\n" +
-	"\x0einterface_name\x18\x01 \x01(\tB-\xbaH*\xc8\x01\x01r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\rinterfaceName\x12$\n" +
+	"-flowseer/net/protocol/stp/v1/port_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/forwarding_state.proto\x1a6flowseer/net/protocol/stp/v1/point_to_point_mode.proto\x1a,flowseer/net/protocol/stp/v1/port_role.proto\"\xbb\x06\n" +
+	"\tPortState\x123\n" +
+	"\x0einterface_name\x18\x01 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\rinterfaceName\x12$\n" +
 	"\bpriority\x18\x02 \x01(\rB\b\xbaH\x05*\x03\x18\xff\x01R\bpriority\x122\n" +
 	"\x0fadmin_path_cost\x18\x03 \x01(\rB\n" +
 	"\xbaH\a*\x05\x18\x80\x84\xaf_R\radminPathCost\x12)\n" +

@@ -6,7 +6,8 @@ import "flowseer/net/addr/v1/eui.proto";
 import option "buf/validate/validate.proto";
 
 // An eight-octet spanning tree bridge identifier composed of a two-octet
-// priority and a six-octet MAC address. Mirrors dot1dStpBridgeId (RFC 4188).
+// priority and a six-octet MAC address. Mirrors the BridgeId textual
+// convention (BRIDGE-MIB:76).
 message BridgeId {
   // Two-octet priority portion of the bridge identifier, constrained to a
   // multiple of 4096 below 65536 per IEEE 802.1t. Must be present.

@@ -174,13 +174,20 @@ The spanning tree layer operates deterministically without background timers.
 The host drives it through explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
+- `LinkChange(now, port, up, pointToPoint, speed)` tells the layer one link
+  moved; a report of the state the port already has is ignored.
+- `SetOperStatus(port, state)` rewrites the port in the switch's and the
+  relay's tables and tells the layer nothing, since only the caller knows
+  whether a member's change moves its LAG; it follows with `LinkChange`.
 - `Wake(now)` fires due hello, forward delay, and topology change timers.
 - `NextWake()` reports the earliest deadline when the switch needs a wake.
 - `Drain()` returns and clears pending frame emissions produced by the layer.
 - `Roles()` exposes current port roles and forwarding states.
 
-Frames addressed to 01-80-C2-00-00-00 are intercepted before relay processing;
-their trace ends with outcome `Consumed`.
+On a switch configured with `stp.Config`, a frame addressed to
+01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
+outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
+switch without the layer drops it as a reserved address.
 
 ## Denied PoE port status
 

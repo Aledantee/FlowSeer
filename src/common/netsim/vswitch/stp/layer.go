@@ -27,7 +27,9 @@ type Effects struct {
 type PortInfo struct {
 	Role               Role
 	State              State
+	Priority           uint8
 	PathCost           uint32
+	DesignatedRoot     BridgeID
 	Designated         BridgeID
 	DesignatedPort     uint16
 	DesignatedCost     uint32
@@ -246,6 +248,23 @@ func (l *Layer) TopologyChanges() (uint64, time.Time) {
 	return l.topologyChangeCount, l.lastTopologyChange
 }
 
+// BridgeID returns this bridge's identifier with the priority in effect.
+func (l *Layer) BridgeID() BridgeID {
+	return l.bridgeID
+}
+
+// Times returns the max age, hello time, and forward delay in force: the root's
+// values as received on the root port, or this bridge's own while it is root.
+func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
+	if l.rootPort != "" {
+		if rp, ok := l.ports[l.rootPort]; ok && rp.rcvInfoValid {
+			return rp.rcvMaxAge, rp.rcvHelloTime, rp.rcvForwardDelay
+		}
+	}
+
+	return l.maxAge, l.helloTime, l.forwardDelay
+}
+
 // PortInfo returns runtime spanning tree information for the named port. If the
 // port is not tracked by the layer, PortInfo returns a zero value.
 func (l *Layer) PortInfo(port string) PortInfo {
@@ -254,17 +273,19 @@ func (l *Layer) PortInfo(port string) PortInfo {
 		return PortInfo{}
 	}
 
-	var desig BridgeID
+	var desigRoot, desig BridgeID
 	var desigPort uint16
 	var desigCost uint32
 
 	switch p.role {
 	case RoleDesignated:
+		desigRoot = l.rootID
 		desig = l.bridgeID
 		desigPort = p.portID
 		desigCost = l.rootPathCost
 	case RoleRoot, RoleAlternate, RoleBackup:
 		if p.rcvInfoValid {
+			desigRoot = p.rcvRootID
 			desig = p.rcvBridgeID
 			desigPort = p.rcvPortID
 			desigCost = p.rcvRootPathCost
@@ -275,7 +296,9 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	return PortInfo{
 		Role:               p.role,
 		State:              p.state,
+		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
+		DesignatedRoot:     desigRoot,
 		Designated:         desig,
 		DesignatedPort:     desigPort,
 		DesignatedCost:     desigCost,
@@ -346,16 +369,11 @@ func (l *Layer) raiseTopologyChange(originPort string, now time.Time, flushes *[
 
 func (l *Layer) makeBPDU(p *portState, now time.Time, proposal bool) BPDU {
 	var msgAge time.Duration
-	maxAge := l.maxAge
-	hello := l.helloTime
-	fwdDelay := l.forwardDelay
+	maxAge, hello, fwdDelay := l.Times()
 
 	if l.rootPort != "" {
 		if rp, ok := l.ports[l.rootPort]; ok && rp.rcvInfoValid {
 			msgAge = rp.rcvMessageAge + time.Second
-			maxAge = rp.rcvMaxAge
-			hello = rp.rcvHelloTime
-			fwdDelay = rp.rcvForwardDelay
 		}
 	}
 
@@ -399,7 +417,6 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 	oldRootCost := l.rootPathCost
 	oldRootPort := l.rootPort
 
-	// 1. Root selection
 	bestVector := priorityVector{
 		rootID:       l.bridgeID,
 		rootPathCost: 0,
@@ -451,49 +468,25 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 		l.rootPort = bestPort
 	}
 
-	// 2. Roles
 	for _, name := range sortedKeys(l.ports) {
 		p := l.ports[name]
-		if !p.up {
+		oldRole := p.role
+		switch {
+		case !p.up:
 			p.role = RoleDisabled
-
-			continue
-		}
-		if name == l.rootPort {
+		case name == l.rootPort:
 			p.role = RoleRoot
-
-			continue
+		default:
+			p.role = l.designatedOrBlocked(p, now)
 		}
-
-		desig := priorityVector{
-			rootID:       l.rootID,
-			rootPathCost: l.rootPathCost,
-			bridgeID:     l.bridgeID,
-			portID:       p.portID,
+		// An agreement belongs to the Designated role that earned it; a port
+		// that leaves the role and comes back must propose again, or it would
+		// forward without a handshake on a link whose peer never agreed.
+		if p.role != oldRole && p.role != RoleDesignated {
+			p.agreed = false
 		}
-
-		if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-			rcv := priorityVector{
-				rootID:       p.rcvRootID,
-				rootPathCost: p.rcvRootPathCost,
-				bridgeID:     p.rcvBridgeID,
-				portID:       p.rcvPortID,
-			}
-			if compareVectors(rcv, desig) < 0 {
-				if p.rcvBridgeID == l.bridgeID {
-					p.role = RoleBackup
-				} else {
-					p.role = RoleAlternate
-				}
-
-				continue
-			}
-		}
-
-		p.role = RoleDesignated
 	}
 
-	// 3. States
 	for _, name := range sortedKeys(l.ports) {
 		p := l.ports[name]
 		oldState := p.state
@@ -503,30 +496,26 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 			p.state = StateDiscarding
 			p.fwdDelayTimer = time.Time{}
 		case RoleRoot:
-			if p.pointToPoint {
-				if l.isSynced(p.name) {
-					p.state = StateForwarding
-					p.fwdDelayTimer = time.Time{}
-				}
-			} else {
-				if p.state == StateDiscarding {
-					p.state = StateLearning
-					p.fwdDelayTimer = now.Add(l.forwardDelay)
-				}
+			if p.pointToPoint && l.isSynced(p.name) {
+				p.state = StateForwarding
+				p.fwdDelayTimer = time.Time{}
+			} else if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
+				// No agreement path: the forward delay ladder carries the port
+				// through Learning and Forwarding as on a shared link.
+				p.fwdDelayTimer = now.Add(l.forwardDelay)
 			}
 		case RoleDesignated:
 			switch {
 			case p.edge:
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
-			case p.pointToPoint:
-				if p.agreed {
-					p.state = StateForwarding
-					p.fwdDelayTimer = time.Time{}
-				} else {
-					p.state = StateDiscarding
-				}
+			case p.pointToPoint && p.agreed:
+				p.state = StateForwarding
+				p.fwdDelayTimer = time.Time{}
 			default:
+				// Without an agreement the port still forwards after two
+				// forward delays, so a peer that never answers, a host for
+				// one, does not leave the port dark for the run.
 				if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
 					p.fwdDelayTimer = now.Add(l.forwardDelay)
 				}
@@ -558,6 +547,35 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 	return emissions
 }
 
+// designatedOrBlocked decides the role of a port that is up and not the root
+// port: Alternate when a better bridge is designated on its segment, Backup
+// when that bridge is this one through another port, else Designated.
+func (l *Layer) designatedOrBlocked(p *portState, now time.Time) Role {
+	if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
+		desig := priorityVector{
+			rootID:       l.rootID,
+			rootPathCost: l.rootPathCost,
+			bridgeID:     l.bridgeID,
+			portID:       p.portID,
+		}
+		rcv := priorityVector{
+			rootID:       p.rcvRootID,
+			rootPathCost: p.rcvRootPathCost,
+			bridgeID:     p.rcvBridgeID,
+			portID:       p.rcvPortID,
+		}
+		if compareVectors(rcv, desig) < 0 {
+			if p.rcvBridgeID == l.bridgeID {
+				return RoleBackup
+			}
+
+			return RoleAlternate
+		}
+	}
+
+	return RoleDesignated
+}
+
 // LinkChange records a physical or administrative link transition on a port.
 // A port coming up point-to-point transmits a proposal immediately in the
 // returned emissions. A link down clears received information and moves the
@@ -576,6 +594,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	}
 
 	if !up {
+		if !p.up {
+			return Effects{}
+		}
 		oldState := p.state
 		p.up = false
 		p.role = RoleDisabled
@@ -585,6 +606,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		p.proposing = false
 		p.fwdDelayTimer = time.Time{}
 
+		// The entries learned on the dead port are the ones certainly stale;
+		// the topology change below flushes every other port.
+		flushes = append(flushes, p.name)
 		if oldState == StateForwarding && !p.edge {
 			l.raiseTopologyChange(p.name, now, &flushes)
 		}
@@ -598,21 +622,27 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 	}
 
-	p.up = true
+	p2p := pointToPoint
 	switch p.cfg.PointToPoint {
 	case PointToPointForceTrue:
-		p.pointToPoint = true
+		p2p = true
 	case PointToPointForceFalse:
-		p.pointToPoint = false
-	default:
-		p.pointToPoint = pointToPoint
+		p2p = false
+	}
+	cost := p.cfg.PathCost
+	if cost == 0 {
+		cost = DefaultPathCost(speedBPS)
+	}
+	// A report of the state the port already has is not a transition: two
+	// callers may describe the same link, and re-entering a port that is up
+	// would restart its handshake for nothing.
+	if p.up && p.pointToPoint == p2p && p.pathCost == cost {
+		return Effects{}
 	}
 
-	if p.cfg.PathCost != 0 {
-		p.pathCost = p.cfg.PathCost
-	} else {
-		p.pathCost = DefaultPathCost(speedBPS)
-	}
+	p.up = true
+	p.pointToPoint = p2p
+	p.pathCost = cost
 
 	p.role = RoleDesignated
 	p.agreed = false
@@ -815,13 +845,18 @@ func (l *Layer) Wake(now time.Time) Effects {
 				case StateForwarding:
 				}
 			case RoleRoot:
-				if p.state == StateLearning {
+				switch p.state {
+				case StateDiscarding:
+					p.state = StateLearning
+					p.fwdDelayTimer = now.Add(l.forwardDelay)
+				case StateLearning:
 					p.state = StateForwarding
 					p.forwardTransitions++
 					stateChanged = true
 					if !p.edge {
 						l.raiseTopologyChange(p.name, now, &flushes)
 					}
+				case StateForwarding:
 				}
 			case RoleDisabled, RoleAlternate, RoleBackup:
 			}

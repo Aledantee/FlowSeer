@@ -537,3 +537,107 @@ func TestUntrackedPortLearnsAndForwards(t *testing.T) {
 		t.Error("Forwards(\"1/1/99\") = false, want true for untracked port")
 	}
 }
+
+// TestDesignatedPointToPointForwardsWithoutAgreement is evidence for the
+// forward-delay fallback: a designated port on a point-to-point link whose
+// peer never answers a proposal, such as a host, still reaches Forwarding
+// after two forward delays.
+func TestDesignatedPointToPointForwardsWithoutAgreement(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDesignated || info.State != stp.StateDiscarding {
+		t.Fatalf("after link up: role %v state %v, want Designated Discarding", info.Role, info.State)
+	}
+
+	l.Wake(now.Add(stp.DefaultForwardDelay - time.Millisecond))
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateDiscarding {
+		t.Fatalf("just before the forward delay: state %v, want Discarding", info.State)
+	}
+	l.Wake(now.Add(stp.DefaultForwardDelay))
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateLearning {
+		t.Fatalf("after one forward delay: state %v, want Learning", info.State)
+	}
+	l.Wake(now.Add(2 * stp.DefaultForwardDelay))
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
+		t.Fatalf("after two forward delays: state %v, want Forwarding", info.State)
+	}
+}
+
+// TestLinkDownFlushesPortAndRepeatIsSilent is evidence that a link going
+// down names the port for a flush, and that reporting a link state the layer
+// already holds produces no effect.
+func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	up := l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	if len(up.Emissions) != 1 {
+		t.Fatalf("first link up emitted %d frames, want 1", len(up.Emissions))
+	}
+	again := l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	if len(again.Emissions) != 0 || len(again.Flush) != 0 {
+		t.Fatalf("repeated link up produced %+v, want nothing", again)
+	}
+
+	down := l.LinkChange(now.Add(time.Second), "1/1/1", false, true, 0)
+	if !slices.Contains(down.Flush, "1/1/1") {
+		t.Fatalf("link down flushes %v, want 1/1/1 among them", down.Flush)
+	}
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDisabled {
+		t.Errorf("after link down: role %v, want Disabled", info.Role)
+	}
+	downAgain := l.LinkChange(now.Add(2*time.Second), "1/1/1", false, true, 0)
+	if len(downAgain.Flush) != 0 || len(downAgain.Emissions) != 0 {
+		t.Fatalf("repeated link down produced %+v, want nothing", downAgain)
+	}
+}
+
+// TestTimesInForceFollowTheRoot is evidence that Times reports the root's
+// timer values on a non-root bridge and the bridge's own while it is root.
+func TestTimesInForceFollowTheRoot(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := stp.New(stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	if maxAge, hello, fwd := l.Times(); maxAge != stp.DefaultMaxAge || hello != stp.DefaultHelloTime || fwd != stp.DefaultForwardDelay {
+		t.Fatalf("own times = %v %v %v, want defaults", maxAge, hello, fwd)
+	}
+
+	root := stp.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:01")}
+	b := stp.BPDU{
+		RootID: root, BridgeID: root, PortID: 0x8001,
+		MaxAge: 30 * time.Second, HelloTime: 3 * time.Second, ForwardDelay: 20 * time.Second,
+	}
+	b.SetRole(stp.RoleDesignated)
+	l.Receive(now, "1/1/1", b)
+
+	if l.BridgeID() != (stp.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")}) {
+		t.Errorf("BridgeID = %+v", l.BridgeID())
+	}
+	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != 3*time.Second || fwd != 20*time.Second {
+		t.Errorf("times in force = %v %v %v, want the root's 30s 3s 20s", maxAge, hello, fwd)
+	}
+	if info := l.PortInfo("1/1/1"); info.DesignatedRoot != root || info.Priority != stp.DefaultPortPriority {
+		t.Errorf("PortInfo = %+v, want designated root %+v and default priority", info, root)
+	}
+}

@@ -93,6 +93,30 @@ func (c Config) Validate(ports port.Table) error {
 			Attr("priority", c.Priority).
 			Msgf("bridge priority %d must be a multiple of 4096", c.Priority)
 	}
+	// The BPDU carries each timer in 1/256 s in 16 bits and 802.1D-2004
+	// clause 17.14 bounds them; a value outside would encode as another.
+	for _, t := range []struct {
+		name    string
+		value   time.Duration
+		low, hi time.Duration
+	}{
+		{"hello_time", c.HelloTime, time.Second, 10 * time.Second},
+		{"max_age", c.MaxAge, 6 * time.Second, 40 * time.Second},
+		{"forward_delay", c.ForwardDelay, 4 * time.Second, 30 * time.Second},
+	} {
+		if t.value != 0 && (t.value < t.low || t.value > t.hi) {
+			return errs.New().
+				Attr("field", t.name).
+				Attr("value", t.value).
+				Msgf("%s %s is outside %s through %s", t.name, t.value, t.low, t.hi)
+		}
+	}
+	// A port id keeps its index in one byte.
+	if len(c.Ports) > 255 {
+		return errs.New().
+			Attr("ports", len(c.Ports)).
+			Msg("a bridge holds at most 255 spanning tree ports")
+	}
 
 	for _, name := range sortedKeys(c.Ports) {
 		p, ok := ports.Port(name)

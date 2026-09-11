@@ -161,6 +161,11 @@ and leaves the transmission in flight:
 
 ## Protocol traffic and wake-ups
 
+`Config.Start` is the fabric's clock when it is built: every protocol layer
+hears its links at `Start`, the first proposals are dated `Start`, and a
+fabric with a spanning tree switch refuses a zero `Start`, since its hellos
+would otherwise fire in year 1, ahead of any frame a caller injects.
+
 Spanning tree and other internal protocols schedule state transitions and
 frame emissions through the run's arrival queue. Each device holds at most one
 wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence

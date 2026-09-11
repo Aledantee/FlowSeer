@@ -306,7 +306,7 @@ func icx7150Fixture(t *testing.T) ([]*interfacev1.Interface, []*switchingv1.Vlan
 
 	rootPrio := uint32(4096)
 	rootMAC := addrv1.Eui48Address_builder{
-		Octets: []byte{0x10, 0x00, 0x0c, 0xea, 0x14, 0x78},
+		Octets: []byte{0x0c, 0xea, 0x14, 0x78, 0xf2, 0x04},
 	}.Build()
 	designatedRootID := stpv1.BridgeId_builder{
 		Priority: &rootPrio,

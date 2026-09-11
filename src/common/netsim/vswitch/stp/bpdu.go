@@ -213,10 +213,19 @@ func (b *BPDU) SetTopologyChangeAck(v bool) {
 
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
+const (
+	// llcBPDULength is the LLC header plus the RST BPDU body, the value the
+	// 802.3 length field carries.
+	llcBPDULength = 3 + 36
+	// minDataLength pads the frame to the 802.3 minimum of 60 octets before
+	// the check sequence, as a capture would show it.
+	minDataLength = 46
+)
+
 // Encode serializes b into an untagged IEEE 802.3 LLC frame addressed to the
 // standard bridge group address (01:80:c2:00:00:00), padded to 60 octets.
 func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
-	payload := make([]byte, 46)
+	payload := make([]byte, minDataLength)
 	payload[0] = 0x42
 	payload[1] = 0x42
 	payload[2] = 0x03
@@ -239,7 +248,7 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 	return ethernet.Frame{
 		Dst:       stpGroupAddress,
 		Src:       src,
-		EtherType: ethernet.EtherType(39),
+		EtherType: ethernet.EtherType(llcBPDULength),
 		Payload:   payload,
 	}
 }
@@ -312,6 +321,14 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	bridgePriority := binary.BigEndian.Uint16(f.Payload[20:22])
 	var bridgeAddr netaddr.MAC
 	copy(bridgeAddr[:], f.Payload[22:28])
+
+	// Received information ages on the sender's hello time, so a zero one
+	// would be stale the instant it arrived and never elect anything.
+	if binary.BigEndian.Uint16(f.Payload[34:36]) == 0 {
+		return BPDU{}, errs.New().
+			Attr("reason", ReasonUnsupportedBPDU).
+			Msg("BPDU hello time is zero")
+	}
 
 	return BPDU{
 		Flags:        f.Payload[7],

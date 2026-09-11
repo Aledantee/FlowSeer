@@ -16,7 +16,15 @@ parent: docs/plans/2026-09-10-1815-feat-netsim-network-environment-plan.md
 > named in `stp.Config.Ports`; a port outside that map runs no protocol
 > and forwards as phase 1 built it. The full verifier run the schema
 > change asks for waits on the Docker daemon, which was not answering
-> when the phase landed; every targeted run passed.
+> when the phase landed; every targeted run passed. The review's fixes
+> landed on 2026-09-11: the fabric alone tells a layer about a link,
+> the switch's `SetOperStatus` touches only the tables, a designated
+> port on a point-to-point link falls back to the forward-delay ladder
+> when no agreement comes, a link going down flushes the port, a
+> repeated link report is ignored, `Derive` starts layers only after
+> the cloned ones are in place, a LAG follows its up members alone,
+> the export carries the values in effect, and a fabric with the layer
+> refuses a zero `Start`.
 
 ## Goal
 
@@ -136,8 +144,10 @@ This phase adds:
   fabric's journey still marks the frame as protocol traffic, so a ring
   that failed to converge shows where the BPDU died. A hub repeats it like
   any frame. The switch exposes `Start(now)` (tells the layer every
-  port's link state from the table), `SetOperStatus(now, port, state)`
-  (updates its table, the relay's, and the layer), `Wake(now)`,
+  port's link state from the table), `SetOperStatus(port, state)`
+  (updates its table and the relay's; the caller follows with
+  `LinkChange`, because only it knows whether a member's change moves
+  its LAG), `Wake(now)`,
   `NextWake()`, `Drain()` (the emissions since the last drain), and
   `Roles()` (role and state per port). `vswitch.Derive` clones the
   current layer when the two configurations' `stp` parts diff empty and
@@ -164,8 +174,10 @@ This phase adds:
 - `Fabric.SetFault(a, b Endpoint, fault Fault) error` changes one cable's
   declared fault at the fabric's clock: the link is resolved again, both
   ends' operational states reach their switches through `SetOperStatus`,
-  and every layer that holds one of the ports hears `LinkChange` at the
-  clock. Why: the parent says faults are declared, never random; a fault
+  a member's LAG is recomputed from the members still up, and the fabric
+  gives every layer that holds one of the ports one `LinkChange` at the
+  clock; a report of the state the layer already holds changes nothing.
+  Why: the parent says faults are declared, never random; a fault
   declared at a time is still declared, and a cut whose re-convergence
   keeps the protocol's state is what requirement 35 asks for.
 - `spec/proto/flowseer/net/protocol/stp/v1` follows the `lldp` package:
@@ -190,9 +202,12 @@ This phase adds:
 - `netmodel.Load` takes the bridge state and the port states as two more
   inputs and builds `stp.Config` when a bridge state is present from the
   admin values (priority, admin path cost, admin edge, point-to-point
-  mode), so loading what `netmodel.Stp(sw)` exported gives back the
-  configuration it came from; `Stp` exports a `BridgeState` and one
-  `PortState` per port the layer holds, or nil without the layer. Why:
+  mode), so loading what `netmodel.Stp(now, sw)` exported gives back
+  the configuration it came from; `Stp` exports a `BridgeState` and one
+  `PortState` per port the layer holds, with the priorities and times
+  in effect and the time since the last topology change measured from
+  `now`, or nil without the layer. A bridge state without an address or
+  with a priority the layer cannot run is reported and skipped. Why:
   the loader already maps every other row one to one.
 
 ## Requirements
@@ -358,7 +373,7 @@ the layer; a decode failure drops with the codec's reason; `Peek`
 returns the same result without calling the layer. `Wake(now)`,
 `NextWake()`, `Drain() []stp.Emission`, `Roles() map[string]
 stp.PortInfo`, `LinkChange(now, port, up, pointToPoint, speed)` (the
-port resolved to its LAG), and `SetOperStatus(now, port, state)` are the
+port resolved to its LAG), and `SetOperStatus(port, state)` are the
 Decisions text. `Derive` clones the current layer when `stp.Diff` of the
 two configurations is empty and builds a fresh one otherwise; `Compare`
 is unchanged and therefore runs on the derived layer's roles. `Diff`
@@ -440,9 +455,9 @@ budgets and builds `stp.Config` from the admin values when the bridge
 state is present, with `stp` inferred into the capability set and `relay`
 implied; a port state naming an absent port or a LAG member is skipped
 and reported; a port state without an admin path cost loads as 0, the
-automatic default, and the report lists it. `netmodel.Stp(sw
-*vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState)` exports the
-layer's state with the admin values as configured, and returns nil
+automatic default, and the report lists it. `netmodel.Stp(now
+time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState)`
+exports the layer's state with the values in effect, and returns nil
 without the layer. The ICX7150 fixture gains the capture's RSTP facts
 (`docs/research/device-inventory/lab/labsw06-ruckus-icx7150.md:127`:
 root reached via `lg1`, `1/1/12` and `1/3/1` designated forwarding) as a

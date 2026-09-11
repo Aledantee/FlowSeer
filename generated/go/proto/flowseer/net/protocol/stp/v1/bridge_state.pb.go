@@ -21,7 +21,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Observed spanning tree protocol state of a bridge entity.
+// Observed spanning tree protocol state of a bridge. The bridge's
+// administrative settings travel in the same message, so this package
+// deliberately has no BridgeConfig and no BridgeEvent.
 type BridgeState struct {
 	state                              protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_ProtocolVersion         ProtocolVersion        `protobuf:"varint,1,opt,name=protocol_version,json=protocolVersion,enum=flowseer.net.protocol.stp.v1.ProtocolVersion"`
@@ -370,43 +372,50 @@ func (x *BridgeState) ClearTimeSinceTopologyChange() {
 type BridgeState_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Spanning tree protocol version running on this bridge. Mirrors
-	// dot1dStpProtocolSpecification (BRIDGE-MIB:318) and dot1dStpVersion (RSTP-MIB).
+	// Spanning tree protocol version running on this bridge. Absent means the
+	// version was not reported. Mirrors dot1dStpProtocolSpecification
+	// (BRIDGE-MIB:318) and dot1dStpVersion (RSTP-MIB:49).
 	ProtocolVersion *ProtocolVersion
 	// Unique bridge identifier of this node. Mirrors dot1dStpPriority and
 	// dot1dBaseBridgeAddress. Must be present.
 	BridgeId *BridgeId
-	// Bridge identifier of the spanning tree root. Mirrors dot1dStpDesignatedRoot
-	// (BRIDGE-MIB:380).
+	// Bridge identifier of the spanning tree root. Absent means no root has
+	// been elected yet. Mirrors dot1dStpDesignatedRoot (BRIDGE-MIB:380).
 	DesignatedRoot *BridgeId
-	// Cost of the path to the root from this bridge. Mirrors dot1dStpRootCost
-	// (BRIDGE-MIB:394).
+	// Cost of the path to the root from this bridge; zero on the root. Mirrors
+	// dot1dStpRootCost (BRIDGE-MIB:394).
 	RootPathCost *uint32
 	// Device-local name of the port offering the lowest-cost path to the root.
-	// Absent when this bridge is the root. Mirrors dot1dStpRootPort (BRIDGE-MIB:406).
+	// Absent means this bridge is the root. Mirrors dot1dStpRootPort
+	// (BRIDGE-MIB:405).
 	RootPortInterfaceName *string
-	// Maximum age of spanning tree information currently in force. Mirrors
-	// dot1dStpMaxAge (BRIDGE-MIB:416).
+	// Maximum age of spanning tree information currently in force. Absent means
+	// the bridge has not learned a root yet. Mirrors dot1dStpMaxAge
+	// (BRIDGE-MIB:416).
 	MaxAge *durationpb.Duration
-	// Hello time interval currently in force. Mirrors dot1dStpHelloTime
-	// (BRIDGE-MIB:430).
+	// Hello time interval currently in force. Absent means the bridge has not
+	// learned a root yet. Mirrors dot1dStpHelloTime (BRIDGE-MIB:430).
 	HelloTime *durationpb.Duration
-	// Forward delay timer currently in force. Mirrors dot1dStpForwardDelay
-	// (BRIDGE-MIB:459).
+	// Forward delay timer currently in force. Absent means the bridge has not
+	// learned a root yet. Mirrors dot1dStpForwardDelay (BRIDGE-MIB:459).
 	ForwardDelay *durationpb.Duration
-	// MaxAge value this bridge advertises when acting as root. Mirrors
-	// dot1dStpBridgeMaxAge (BRIDGE-MIB:482).
+	// MaxAge value this bridge advertises when acting as root. Absent means the
+	// bridge runs the 802.1D default. Mirrors dot1dStpBridgeMaxAge
+	// (BRIDGE-MIB:482).
 	BridgeMaxAge *durationpb.Duration
-	// HelloTime value this bridge advertises when acting as root. Mirrors
-	// dot1dStpBridgeHelloTime (BRIDGE-MIB:500).
+	// HelloTime value this bridge advertises when acting as root. Absent means
+	// the bridge runs the 802.1D default. Mirrors dot1dStpBridgeHelloTime
+	// (BRIDGE-MIB:500).
 	BridgeHelloTime *durationpb.Duration
-	// ForwardDelay value this bridge advertises when acting as root. Mirrors
+	// ForwardDelay value this bridge advertises when acting as root. Absent
+	// means the bridge runs the 802.1D default. Mirrors
 	// dot1dStpBridgeForwardDelay (BRIDGE-MIB:516).
 	BridgeForwardDelay *durationpb.Duration
 	// Count of topology changes detected by this bridge. Mirrors dot1dStpTopChanges
 	// (BRIDGE-MIB:368).
 	TopologyChanges *uint64
-	// Elapsed duration since the last detected topology change. Mirrors
+	// Elapsed duration since the last detected topology change. Absent means
+	// no topology change has been detected. Mirrors
 	// dot1dStpTimeSinceTopologyChange (BRIDGE-MIB:352).
 	TimeSinceTopologyChange *durationpb.Duration
 }
@@ -447,13 +456,13 @@ var File_flowseer_net_protocol_stp_v1_bridge_state_proto protoreflect.FileDescri
 
 const file_flowseer_net_protocol_stp_v1_bridge_state_proto_rawDesc = "" +
 	"\n" +
-	"/flowseer/net/protocol/stp/v1/bridge_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\x1a\x1egoogle/protobuf/duration.proto\"\x96\a\n" +
+	"/flowseer/net/protocol/stp/v1/bridge_state.proto\x12\x1cflowseer.net.protocol.stp.v1\x1a,flowseer/net/protocol/stp/v1/bridge_id.proto\x1a3flowseer/net/protocol/stp/v1/protocol_version.proto\x1a\x1egoogle/protobuf/duration.proto\"\xf5\x06\n" +
 	"\vBridgeState\x12X\n" +
 	"\x10protocol_version\x18\x01 \x01(\x0e2-.flowseer.net.protocol.stp.v1.ProtocolVersionR\x0fprotocolVersion\x12K\n" +
 	"\tbridge_id\x18\x02 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdB\x06\xbaH\x03\xc8\x01\x01R\bbridgeId\x12O\n" +
 	"\x0fdesignated_root\x18\x03 \x01(\v2&.flowseer.net.protocol.stp.v1.BridgeIdR\x0edesignatedRoot\x12$\n" +
-	"\x0eroot_path_cost\x18\x04 \x01(\rR\frootPathCost\x12c\n" +
-	"\x18root_port_interface_name\x18\x05 \x01(\tB*\xbaH'r%\x10\x01\x18@2\x1f^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$R\x15rootPortInterfaceName\x122\n" +
+	"\x0eroot_path_cost\x18\x04 \x01(\rR\frootPathCost\x12B\n" +
+	"\x18root_port_interface_name\x18\x05 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18@R\x15rootPortInterfaceName\x122\n" +
 	"\amax_age\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\x06maxAge\x128\n" +
 	"\n" +
 	"hello_time\x18\a \x01(\v2\x19.google.protobuf.DurationR\thelloTime\x12>\n" +

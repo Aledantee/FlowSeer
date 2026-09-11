@@ -267,10 +267,22 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 }
 
 func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
-	resolvedPort := ingress
-	if p, ok := s.ports.Resolve(ingress); ok {
-		resolvedPort = p.Name
+	// The relay's first checks apply to a BPDU too: a dead or unknown port
+	// received nothing, and a trace saying Consumed there would hide a BPDU
+	// that died on a cut cable.
+	in, known := s.ports.Port(ingress)
+	resolved, ok := s.ports.Resolve(ingress)
+	if !known || !ok || !in.Forwards() || !resolved.Forwards() {
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  bridge.ReasonPortDown,
+				Steps:   []trace.Step{{Layer: port.LayerStp, Op: trace.OpDrop, Detail: "ingress port down"}},
+			},
+			Ingress: resolved.Name,
+		}
 	}
+	resolvedPort := resolved.Name
 
 	bpdu, err := stp.Decode(f)
 	if err != nil {
@@ -337,16 +349,30 @@ func (s *Switch) Start(now time.Time) {
 				}
 			}
 		}
-		var speed uint64
-		if s.speeds != nil {
-			speed = s.speeds[p.Name].SpeedBPS
-		}
+		speed := s.linkSpeed(p)
 		s.portP2P[p.Name] = p2p
 		s.portSpeed[p.Name] = speed
 
 		fx := s.stp.LinkChange(now, p.Name, p.Forwards(), p2p, speed)
 		s.applyEffects(fx)
 	}
+}
+
+// linkSpeed is the resolved speed of a port, or of a LAG's fastest member,
+// since a LAG has no physical layer of its own.
+func (s *Switch) linkSpeed(p port.Port) uint64 {
+	if s.speeds == nil {
+		return 0
+	}
+	if p.Kind != port.Lag {
+		return s.speeds[p.Name].SpeedBPS
+	}
+	var best uint64
+	for _, m := range s.ports.Members(p.Name) {
+		best = max(best, s.speeds[m.Name].SpeedBPS)
+	}
+
+	return best
 }
 
 func (s *Switch) applyEffects(fx stp.Effects) {
@@ -401,6 +427,26 @@ func (s *Switch) TopologyChanges() (uint64, time.Time) {
 	return s.stp.TopologyChanges()
 }
 
+// BridgeID returns the spanning tree bridge identifier with the priority in
+// effect, or a zero value if the spanning tree layer is absent.
+func (s *Switch) BridgeID() stp.BridgeID {
+	if s.stp == nil {
+		return stp.BridgeID{}
+	}
+
+	return s.stp.BridgeID()
+}
+
+// Times returns the spanning tree max age, hello time, and forward delay in
+// force, or zero values if the spanning tree layer is absent.
+func (s *Switch) Times() (maxAge, hello, forwardDelay time.Duration) {
+	if s.stp == nil {
+		return 0, 0, 0
+	}
+
+	return s.stp.Times()
+}
+
 // Wake advances the spanning tree layer to now, firing due timers and flushing bridge entries.
 // On a switch without spanning tree configuration, Wake is a no-op.
 func (s *Switch) Wake(now time.Time) {
@@ -442,9 +488,11 @@ func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint boo
 	s.applyEffects(fx)
 }
 
-// SetOperStatus updates the operational link state of the named port in the switch's port table,
-// updates the bridge relay's port table, and notifies the spanning tree layer.
-func (s *Switch) SetOperStatus(now time.Time, portName string, state port.LinkState) {
+// SetOperStatus updates the operational link state of the named port in the
+// switch's port table and the relay's. It tells the spanning tree layer
+// nothing: only the caller knows whether a member's change moves its LAG or
+// what the link's speed and kind are, so the caller follows with LinkChange.
+func (s *Switch) SetOperStatus(portName string, state port.LinkState) {
 	builder := port.NewBuilder()
 	for _, p := range s.ports.Ports() {
 		if p.Name == portName {
@@ -452,41 +500,13 @@ func (s *Switch) SetOperStatus(now time.Time, portName string, state port.LinkSt
 		}
 		builder.Add(p)
 	}
-	tbl, err := builder.Build()
-	if err == nil {
+	// Only OperStatus changed on a table that already validated, so the
+	// rebuild cannot fail.
+	if tbl, err := builder.Build(); err == nil {
 		s.ports = tbl
 	}
 
 	if s.bridge != nil {
 		s.bridge.SetOperStatus(portName, state)
-	}
-
-	if s.stp != nil {
-		resolvedPort := portName
-		if p, ok := s.ports.Resolve(portName); ok {
-			resolvedPort = p.Name
-		}
-		p2p := true
-		if s.portP2P != nil {
-			if v, ok := s.portP2P[resolvedPort]; ok {
-				p2p = v
-			}
-		} else if s.cfg.STP != nil {
-			if pCfg, ok := s.cfg.STP.Ports[resolvedPort]; ok {
-				if pCfg.PointToPoint == stp.PointToPointForceFalse {
-					p2p = false
-				}
-			}
-		}
-		var speed uint64
-		if s.portSpeed != nil {
-			if v, ok := s.portSpeed[resolvedPort]; ok {
-				speed = v
-			}
-		} else if s.speeds != nil {
-			speed = s.speeds[resolvedPort].SpeedBPS
-		}
-		fx := s.stp.LinkChange(now, resolvedPort, state != port.Down, p2p, speed)
-		s.applyEffects(fx)
 	}
 }

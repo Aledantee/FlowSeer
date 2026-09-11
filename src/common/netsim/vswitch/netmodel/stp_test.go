@@ -156,7 +156,7 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 			t.Fatalf("switch %s not found in fabric", name)
 		}
 
-		bridgeState, portStates := netmodel.Stp(sw)
+		bridgeState, portStates := netmodel.Stp(fab.Snapshot().Clock, sw)
 		if bridgeState == nil {
 			t.Fatalf("switch %s exported nil BridgeState", name)
 		}
@@ -450,8 +450,102 @@ func TestStpExport_NoLayerReturnsNil(t *testing.T) {
 	}
 
 	sw := vswitch.New(vswitch.Config{Ports: tbl})
-	bState, pStates := netmodel.Stp(sw)
+	bState, pStates := netmodel.Stp(time.Time{}, sw)
 	if bState != nil || pStates != nil {
 		t.Errorf("Stp(sw without stp) = (%v, %v), want (nil, nil)", bState, pStates)
+	}
+}
+
+// TestStpExportCarriesEffectiveValues is evidence that the export reports
+// what the layer runs with: a configuration that left the bridge and port
+// priorities zero exports the 802.1D defaults, and the time since the last
+// topology change is measured from the caller's clock.
+func TestStpExportCarriesEffectiveValues(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	sw := vswitch.New(vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Address: netaddr.MAC{0, 0, 0, 0, 1, 1},
+			Ports:   map[string]stp.Port{"1/1/1": {}},
+		},
+	})
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	bridgeState, portStates := netmodel.Stp(now.Add(5*time.Second), sw)
+	if err := protovalidate.Validate(bridgeState); err != nil {
+		t.Fatalf("exported bridge state fails validation: %v", err)
+	}
+	if got := bridgeState.GetBridgeId().GetPriority(); got != uint32(stp.DefaultBridgePriority) {
+		t.Errorf("bridge priority = %d, want %d", got, stp.DefaultBridgePriority)
+	}
+	if len(portStates) != 1 {
+		t.Fatalf("port states = %d, want 1", len(portStates))
+	}
+	if err := protovalidate.Validate(portStates[0]); err != nil {
+		t.Fatalf("exported port state fails validation: %v", err)
+	}
+	if got := portStates[0].GetPriority(); got != uint32(stp.DefaultPortPriority) {
+		t.Errorf("port priority = %d, want %d", got, stp.DefaultPortPriority)
+	}
+	if bridgeState.GetDesignatedRoot() == portStates[0].GetDesignatedRoot() {
+		t.Error("bridge and port rows share one designated root message")
+	}
+
+	_, lastTC := sw.TopologyChanges()
+	if lastTC.IsZero() {
+		if bridgeState.HasTimeSinceTopologyChange() {
+			t.Error("time since topology change present without a topology change")
+		}
+		return
+	}
+	if got := bridgeState.GetTimeSinceTopologyChange().AsDuration(); got != now.Add(5*time.Second).Sub(lastTC) {
+		t.Errorf("time since topology change = %v, want %v", got, now.Add(5*time.Second).Sub(lastTC))
+	}
+}
+
+// TestLoadSkipsBridgeWithoutAddress guards the loader against a bridge state
+// the wire would refuse: without an address the layer cannot be configured,
+// so the report says so and no spanning tree layer is built.
+func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
+	name := "1/1/1"
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	ifaces := []*interfacev1.Interface{
+		interfacev1.Interface_builder{
+			Name:        &name,
+			AdminStatus: &adminUp,
+			OperStatus:  &operUp,
+			Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		}.Build(),
+	}
+	prio := uint32(32768)
+	bridgeState := stpv1.BridgeState_builder{
+		BridgeId: stpv1.BridgeId_builder{Priority: &prio}.Build(),
+	}.Build()
+
+	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.STP != nil {
+		t.Errorf("Load built a spanning tree layer from a bridge without an address")
+	}
+	found := false
+	for _, s := range report.Skipped {
+		if s.What == "stp_bridge" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("report.Skipped = %+v, want an stp_bridge entry", report.Skipped)
 	}
 }

@@ -8,14 +8,15 @@ import "flowseer/net/protocol/stp/v1/point_to_point_mode.proto";
 import "flowseer/net/protocol/stp/v1/port_role.proto";
 import option "buf/validate/validate.proto";
 
-// Observed spanning tree protocol state and administrative settings of one port.
+// Observed spanning tree protocol state and administrative settings of one
+// port. The port's administrative settings travel in the same message, so
+// this package deliberately has no PortConfig and no PortEvent.
 message PortState {
   // Device-local name of the interface. Must be present.
   string interface_name = 1 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 64,
-    (buf.validate.field).string.pattern = "^[A-Za-z0-9][A-Za-z0-9 ./:_-]*$"
+    (buf.validate.field).string.max_len = 64
   ];
   // Administrative port priority portion of the port identifier (0..255).
   // Mirrors dot1dStpPortPriority (BRIDGE-MIB:595).
@@ -35,13 +36,15 @@ message PortState {
   // Current forwarding state of the port. Mirrors dot1dStpPortState (BRIDGE-MIB:611).
   ForwardingState state = 6;
   // Unique bridge identifier of the spanning tree root recorded in configuration
-  // BPDUs. Mirrors dot1dStpPortDesignatedRoot (BRIDGE-MIB:668).
+  // BPDUs. Absent means the port has received none. Mirrors
+  // dot1dStpPortDesignatedRoot (BRIDGE-MIB:668).
   BridgeId designated_root = 7;
   // Path cost offered by the designated port on the attached LAN segment.
   // Mirrors dot1dStpPortDesignatedCost (BRIDGE-MIB:681).
   uint32 designated_cost = 8;
   // Bridge identifier of the designated bridge on the attached LAN segment.
-  // Mirrors dot1dStpPortDesignatedBridge (BRIDGE-MIB:693).
+  // Absent means the port has received no BPDU. Mirrors
+  // dot1dStpPortDesignatedBridge (BRIDGE-MIB:693).
   BridgeId designated_bridge = 9;
   // Port identifier of the designated port on the designated bridge (0..65535).
   // Mirrors dot1dStpPortDesignatedPort (BRIDGE-MIB:705).

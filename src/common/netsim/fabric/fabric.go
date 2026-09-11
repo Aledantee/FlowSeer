@@ -40,8 +40,20 @@ type linkEndRef struct {
 
 // New constructs a validated [Fabric] from the provided configuration, computing
 // operational link states and negotiated speeds across all cables before instantiating
-// the constituent virtual switches.
+// the constituent virtual switches, then starts every protocol layer at Start.
 func New(cfg Config) (*Fabric, error) {
+	fab, err := build(cfg)
+	if err != nil {
+		return nil, err
+	}
+	fab.startLayers(fab.switchNames())
+
+	return fab, nil
+}
+
+// build makes the fabric without starting any protocol layer, so Derive can
+// swap in cloned layers first.
+func build(cfg Config) (*Fabric, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -144,19 +156,31 @@ func New(cfg Config) (*Fabric, error) {
 		cableCrossings: make(map[Endpoint]uint),
 	}
 
-	swNames := make([]string, 0, len(cloned.Switches))
-	for name := range cloned.Switches {
-		swNames = append(swNames, name)
-	}
-	slices.Sort(swNames)
+	return fab, nil
+}
 
-	for _, name := range swNames {
-		swCfg := cloned.Switches[name]
+func (f *Fabric) switchNames() []string {
+	names := make([]string, 0, len(f.cfg.Switches))
+	for name := range f.cfg.Switches {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	return names
+}
+
+// startLayers tells the named switches' protocol layers their links at the
+// fabric's clock, injects what they emit, and schedules their wakes. A layer
+// that already knows a link ignores the report, so a cloned layer hears only
+// the links that differ from the fabric it came from.
+func (f *Fabric) startLayers(names []string) {
+	for _, name := range names {
+		swCfg := f.cfg.Switches[name]
 		if swCfg.STP == nil {
 			continue
 		}
 
-		sw := switches[name]
+		sw := f.switches[name]
 		ports := sw.Ports().Ports()
 		slices.SortFunc(ports, func(a, b port.Port) int {
 			return cmp.Compare(a.Name, b.Name)
@@ -167,30 +191,28 @@ func New(cfg Config) (*Fabric, error) {
 				continue
 			}
 			if p.Kind == port.Lag {
-				lagUp, lagP2P, lagSpeed := fab.lagLinkState(name, p.Name)
-				sw.LinkChange(cloned.Start, p.Name, lagUp, lagP2P, lagSpeed)
+				lagUp, lagP2P, lagSpeed := f.lagLinkState(name, p.Name)
+				sw.LinkChange(f.clock, p.Name, lagUp, lagP2P, lagSpeed)
 				continue
 			}
 
 			ep := Endpoint{Node: name, Port: p.Name}
-			if ref, ok := fab.byEnd[ep]; ok {
+			if ref, ok := f.byEnd[ep]; ok {
 				up := ref.end.Oper == port.Up
-				p2p := fab.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
+				p2p := f.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
 				speed := ref.end.Speed.SpeedBPS
-				sw.LinkChange(cloned.Start, p.Name, up, p2p, speed)
+				sw.LinkChange(f.clock, p.Name, up, p2p, speed)
 			} else {
-				p2p := fab.uncabledPointToPoint(name, p.Name)
-				sw.LinkChange(cloned.Start, p.Name, false, p2p, 0)
+				p2p := f.uncabledPointToPoint(name, p.Name)
+				sw.LinkChange(f.clock, p.Name, false, p2p, 0)
 			}
 		}
 
 		for _, em := range sw.Drain() {
-			fab.injectEmission(cloned.Start, name, em)
+			f.injectEmission(f.clock, name, em)
 		}
-		fab.scheduleWake(name)
+		f.scheduleWake(name)
 	}
-
-	return fab, nil
 }
 
 func (f *Fabric) linkEnd(node, portName string) (linkEndRef, bool) {
@@ -383,11 +405,21 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 			continue
 		}
 
-		sw.SetOperStatus(f.clock, info.end.Port, info.end.Oper)
+		sw.SetOperStatus(info.end.Port, info.end.Oper)
+		p, ok := sw.Ports().Port(info.end.Port)
+		if ok && p.LagParent != "" {
+			// The LAG is up while any member is; the relay reads that from
+			// the parent row, so it follows the member.
+			lagUp, _, _ := f.lagLinkState(info.end.Node, p.LagParent)
+			lagOper := port.Down
+			if lagUp {
+				lagOper = port.Up
+			}
+			sw.SetOperStatus(p.LagParent, lagOper)
+		}
 
 		swCfg := f.cfg.Switches[info.end.Node]
 		if swCfg.STP != nil {
-			p, ok := sw.Ports().Port(info.end.Port)
 			if ok && p.LagParent != "" {
 				lagUp, lagP2P, lagSpeed := f.lagLinkState(info.end.Node, p.LagParent)
 				sw.LinkChange(f.clock, p.LagParent, lagUp, lagP2P, lagSpeed)
@@ -463,23 +495,24 @@ func (f *Fabric) lagLinkState(node, lagName string) (bool, bool, uint64) {
 		maxSpeed uint64
 	)
 
+	// Only the members that are up make up the aggregation: a member that
+	// went down keeps neither its speed nor its duplex, and letting it vote
+	// would report the LAG as a changed link when nothing the LAG carries
+	// has changed.
 	for _, m := range mems {
 		ep := Endpoint{Node: node, Port: m.Name}
 		ref, ok := f.byEnd[ep]
-		if !ok {
-			allP2P = false
+		if !ok || ref.end.Oper != port.Up {
 			continue
 		}
-		if ref.end.Oper == port.Up {
-			lagUp = true
-		}
-		mP2P := f.portPointToPoint(node, m.Name, *ref.end, ref.peer.Endpoint)
-		if !mP2P {
+		lagUp = true
+		if !f.portPointToPoint(node, m.Name, *ref.end, ref.peer.Endpoint) {
 			allP2P = false
 		}
-		if ref.end.Speed.SpeedBPS > maxSpeed {
-			maxSpeed = ref.end.Speed.SpeedBPS
-		}
+		maxSpeed = max(maxSpeed, ref.end.Speed.SpeedBPS)
+	}
+	if !lagUp {
+		allP2P = false
 	}
 
 	if swCfg.STP != nil {

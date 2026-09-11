@@ -411,6 +411,9 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 	}
 	journey.Entries = append(journey.Entries, crossingEntry)
 
+	// A copy keeps its injection's sequence, so two copies of one frame that
+	// arrive at the same instant fall through to the device and port order
+	// rather than to the order the bridge listed them in.
 	f.enqueue(Arrival{
 		At:      deliveryAt,
 		Seq:     seq,

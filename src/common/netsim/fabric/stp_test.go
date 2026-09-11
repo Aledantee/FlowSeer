@@ -709,3 +709,116 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 		t.Errorf("last entry = %+v, want Drop at sw2 with reserved-address", lastEntry)
 	}
 }
+
+// TestZeroStartRefusedWithSpanningTree guards the clock: a fabric that runs
+// a spanning tree layer needs a start time, or its hellos are dated year 1.
+func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  tbl,
+				Bridge: &bridge.Config{},
+				STP: &stp.Config{
+					Address: netaddr.MAC{0, 0, 0, 0, 1, 1},
+					Ports:   map[string]stp.Port{"1/1/1": {}},
+				},
+			},
+		},
+	}
+	if _, err := fabric.New(cfg); err == nil {
+		t.Fatal("New accepted a spanning tree fabric with a zero Start")
+	}
+}
+
+// TestDeriveWithSpanningTreeQueuesNoStrayProposals is evidence that Derive
+// starts the layers only after the cloned ones are in place: a derived
+// fabric under the same configuration holds only wake entries, no proposal
+// from a layer that was thrown away.
+func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
+	fab, _, _ := newThreeSwitchRingTopology(t)
+	fab.Run(200)
+	before := fab.Snapshot()
+
+	cfg := fab.Config()
+	cfg.Start = before.Clock
+	next, err := fabric.Derive(fab, cfg)
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	after := next.Snapshot()
+
+	for _, arr := range after.Queue {
+		if !arr.Wake {
+			t.Errorf("derived fabric queued a frame arrival %+v, want wakes only", arr)
+		}
+	}
+	if after.Clock != before.Clock {
+		t.Errorf("derived clock = %v, want %v", after.Clock, before.Clock)
+	}
+	if !rolesAgree(extractRoles(before), extractRoles(after)) {
+		t.Errorf("derived roles differ from the source fabric's")
+	}
+}
+
+// TestCutLagMemberKeepsLagUp is evidence that a fault on one member's cable
+// recomputes the LAG's own state: the LAG stays up and its spanning tree
+// port keeps forwarding, and only the last member's loss takes it down.
+func TestCutLagMemberKeepsLagUp(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	lagPorts := func() port.Table {
+		return mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}))
+	}
+	stpCfg := func(last byte, prio uint16) *stp.Config {
+		return &stp.Config{
+			Priority: prio,
+			Address:  netaddr.MAC{0, 0, 0, 0, 1, last},
+			Ports:    map[string]stp.Port{"lag1": {}},
+		}
+	}
+	cfg := fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: lagPorts(), Bridge: &bridge.Config{}, STP: stpCfg(1, 4096)},
+			"sw2": {Ports: lagPorts(), Bridge: &bridge.Config{}, STP: stpCfg(2, 32768)},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+		},
+	}
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	fab.Run(50)
+
+	lagState := func() (port.LinkState, stp.PortInfo) {
+		sw := fab.Switch("sw2")
+		lag, _ := sw.Ports().Port("lag1")
+
+		return lag.OperStatus, sw.Roles()["lag1"]
+	}
+	if oper, info := lagState(); oper != port.Up || info.Role != stp.RoleRoot || info.State != stp.StateForwarding {
+		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
+	}
+
+	cut := fabric.Fault{Kind: fabric.FaultCut}
+	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, cut); err != nil {
+		t.Fatalf("SetFault first member: %v", err)
+	}
+	if oper, info := lagState(); oper != port.Up || info.Role != stp.RoleRoot || info.State != stp.StateForwarding {
+		t.Fatalf("after one member cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
+	}
+
+	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, cut); err != nil {
+		t.Fatalf("SetFault second member: %v", err)
+	}
+	if oper, info := lagState(); oper != port.Down || info.Role != stp.RoleDisabled {
+		t.Fatalf("after both members cut: lag1 %v %v, want Down Disabled", oper, info.Role)
+	}
+}

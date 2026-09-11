@@ -3,6 +3,7 @@ package netmodel
 import (
 	"slices"
 	"strconv"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -155,12 +156,11 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 // as typed [stpv1.BridgeState] and [stpv1.PortState] messages.
 //
 // Stp returns nil, nil if the switch has no spanning tree configuration or layer.
-// Administrative settings (bridge priority, bridge MAC address, port priority,
-// admin path cost, admin edge, and point-to-point mode) are sourced from the switch's
-// active STP configuration. Times in force (max age, hello time, forward delay)
-// reflect the bridge's own configured times because root-advertised timer values on
-// non-root bridges are not exposed by the runtime layer's port info.
-func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
+// The bridge identifier, port priorities, and the bridge's own times carry the
+// values in effect, so a configuration that left them zero exports the
+// defaults the layer runs with. The times in force are the root's as received
+// on the root port, and time_since_topology_change is measured from now.
+func Stp(now time.Time, sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 	if sw == nil {
 		return nil, nil
 	}
@@ -174,60 +174,42 @@ func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 	}
 
 	rootID, rootPathCost, rootPort := sw.Root()
-	tcCount, _ := sw.TopologyChanges()
-
-	bridgePrio := uint32(cfg.STP.Priority)
-	bridgeAddr := addrv1.Eui48Address_builder{
-		Octets: cfg.STP.Address[:],
-	}.Build()
-	bridgeID := stpv1.BridgeId_builder{
-		Priority: &bridgePrio,
-		Address:  bridgeAddr,
-	}.Build()
-
-	desigRootPrio := uint32(rootID.Priority)
-	desigRootAddr := addrv1.Eui48Address_builder{
-		Octets: rootID.Address[:],
-	}.Build()
-	desigRoot := stpv1.BridgeId_builder{
-		Priority: &desigRootPrio,
-		Address:  desigRootAddr,
-	}.Build()
+	tcCount, lastTC := sw.TopologyChanges()
+	maxAge, helloTime, fwdDelay := sw.Times()
 
 	protoVer := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 
-	helloTime := cfg.STP.HelloTime
-	if helloTime == 0 {
-		helloTime = stp.DefaultHelloTime
+	bridgeHello := cfg.STP.HelloTime
+	if bridgeHello == 0 {
+		bridgeHello = stp.DefaultHelloTime
 	}
-	maxAge := cfg.STP.MaxAge
-	if maxAge == 0 {
-		maxAge = stp.DefaultMaxAge
+	bridgeMaxAge := cfg.STP.MaxAge
+	if bridgeMaxAge == 0 {
+		bridgeMaxAge = stp.DefaultMaxAge
 	}
-	fwdDelay := cfg.STP.ForwardDelay
-	if fwdDelay == 0 {
-		fwdDelay = stp.DefaultForwardDelay
+	bridgeFwdDelay := cfg.STP.ForwardDelay
+	if bridgeFwdDelay == 0 {
+		bridgeFwdDelay = stp.DefaultForwardDelay
 	}
-
-	helloDur := durationpb.New(helloTime)
-	maxAgeDur := durationpb.New(maxAge)
-	fwdDelayDur := durationpb.New(fwdDelay)
 
 	bb := stpv1.BridgeState_builder{
 		ProtocolVersion:    &protoVer,
-		BridgeId:           bridgeID,
-		DesignatedRoot:     desigRoot,
+		BridgeId:           bridgeIDMessage(sw.BridgeID()),
+		DesignatedRoot:     bridgeIDMessage(rootID),
 		RootPathCost:       &rootPathCost,
-		MaxAge:             maxAgeDur,
-		HelloTime:          helloDur,
-		ForwardDelay:       fwdDelayDur,
-		BridgeMaxAge:       maxAgeDur,
-		BridgeHelloTime:    helloDur,
-		BridgeForwardDelay: fwdDelayDur,
+		MaxAge:             durationpb.New(maxAge),
+		HelloTime:          durationpb.New(helloTime),
+		ForwardDelay:       durationpb.New(fwdDelay),
+		BridgeMaxAge:       durationpb.New(bridgeMaxAge),
+		BridgeHelloTime:    durationpb.New(bridgeHello),
+		BridgeForwardDelay: durationpb.New(bridgeFwdDelay),
 		TopologyChanges:    &tcCount,
 	}
 	if rootPort != "" {
 		bb.RootPortInterfaceName = &rootPort
+	}
+	if !lastTC.IsZero() {
+		bb.TimeSinceTopologyChange = durationpb.New(now.Sub(lastTC))
 	}
 	bridgeState := bb.Build()
 
@@ -275,7 +257,7 @@ func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 			p2pMode = stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO
 		}
 
-		prio := uint32(pCfg.Priority)
+		prio := uint32(info.Priority)
 		adminPathCost := pCfg.PathCost
 		pathCost := info.PathCost
 		adminEdge := pCfg.AdminEdge
@@ -290,7 +272,6 @@ func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 			PathCost:           &pathCost,
 			Role:               &role,
 			State:              &fwdState,
-			DesignatedRoot:     desigRoot,
 			AdminEdge:          &adminEdge,
 			OperEdge:           &operEdge,
 			PointToPoint:       &p2pMode,
@@ -298,15 +279,11 @@ func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 			ForwardTransitions: &fwdTransitions,
 		}
 
+		if info.DesignatedRoot != (stp.BridgeID{}) {
+			pb.DesignatedRoot = bridgeIDMessage(info.DesignatedRoot)
+		}
 		if info.Designated != (stp.BridgeID{}) {
-			desigBridgePrio := uint32(info.Designated.Priority)
-			desigBridgeAddr := addrv1.Eui48Address_builder{
-				Octets: info.Designated.Address[:],
-			}.Build()
-			pb.DesignatedBridge = stpv1.BridgeId_builder{
-				Priority: &desigBridgePrio,
-				Address:  desigBridgeAddr,
-			}.Build()
+			pb.DesignatedBridge = bridgeIDMessage(info.Designated)
 		}
 
 		desigCost := info.DesignatedCost
@@ -318,6 +295,16 @@ func Stp(sw *vswitch.Switch) (*stpv1.BridgeState, []*stpv1.PortState) {
 	}
 
 	return bridgeState, portStates
+}
+
+// bridgeIDMessage builds a fresh message per call, so no two rows share one.
+func bridgeIDMessage(id stp.BridgeID) *stpv1.BridgeId {
+	prio := uint32(id.Priority)
+
+	return stpv1.BridgeId_builder{
+		Priority: &prio,
+		Address:  addrv1.Eui48Address_builder{Octets: id.Address[:]}.Build(),
+	}.Build()
 }
 
 func sortedKeys[V any](m map[string]V) []string {
