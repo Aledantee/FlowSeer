@@ -2112,4 +2112,3 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		t.Errorf("crossing.Latency = %v, want 521ns", crossing.Latency)
 	}
 }
-

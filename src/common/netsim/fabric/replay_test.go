@@ -818,4 +818,3 @@ func TestReplayedRunReproducesArrivalTimes(t *testing.T) {
 		t.Errorf("replayed run arrival times differ:\nrun 1: %v\nrun 2: %v", times1, times2)
 	}
 }
-
