@@ -1,6 +1,7 @@
 package lag_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -282,7 +283,8 @@ func TestDiff(t *testing.T) {
 		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
 	}
 
-	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
+	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
+	if from, to, ok := findChange("port", memberKey, "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
 		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
 	}
 }

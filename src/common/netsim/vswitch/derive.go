@@ -1,6 +1,7 @@
 package vswitch
 
 import (
+	"maps"
 	"net/netip"
 	"slices"
 
@@ -22,6 +23,8 @@ import (
 // trust come only from target.
 // A derived standalone switch keeps spanning tree roles and eligible multicast
 // memberships and learned router ports when their layer configuration is unchanged.
+// It keeps LAG runtime state only while every member's administrative and operational
+// state also matches the target.
 // It returns an error if the target specification fails validation.
 func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	next, err := NewWithSpec(target)
@@ -65,7 +68,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if next.cfg.LAG != nil {
 			bLAG = *next.cfg.LAG
 		}
-		if len(lag.Diff(aLAG, bLAG)) == 0 {
+		if len(lag.Diff(aLAG, bLAG)) == 0 && lagMemberStatesEqual(cur.ports, next.ports) {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
 				next.bridge.SetSelector(next.lag)
@@ -161,6 +164,32 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	}
 
 	return next, nil
+}
+
+type lagMemberDependency struct {
+	parent string
+	admin  port.LinkState
+	oper   port.LinkState
+}
+
+func lagMemberStatesEqual(a, b port.Table) bool {
+	return maps.Equal(lagMemberStates(a), lagMemberStates(b))
+}
+
+func lagMemberStates(ports port.Table) map[string]lagMemberDependency {
+	members := make(map[string]lagMemberDependency)
+	for _, member := range ports.Ports() {
+		if member.LagParent == "" {
+			continue
+		}
+		members[member.Name] = lagMemberDependency{
+			parent: member.LagParent,
+			admin:  member.AdminStatus,
+			oper:   member.OperStatus,
+		}
+	}
+
+	return members
 }
 
 type bridgeSeedKey struct {

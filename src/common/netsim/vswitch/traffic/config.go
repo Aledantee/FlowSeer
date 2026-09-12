@@ -19,6 +19,10 @@ const (
 
 	// RulePolicerRefuse identifies a token-bucket decision that drops an ingress frame.
 	RulePolicerRefuse trace.RuleID = "traffic.policer.refuse"
+	// RuleMirrorCopy identifies a mirror copy admitted to its configured output.
+	RuleMirrorCopy trace.RuleID = "traffic.mirror.copy"
+	// RuleMirrorCopyDrop identifies a mirror copy suppressed because its output cannot forward.
+	RuleMirrorCopyDrop trace.RuleID = "traffic.mirror.copy_drop"
 
 	// ReasonPoliced identifies a frame refused by an ingress policer.
 	ReasonPoliced trace.Reason = "policed"
@@ -121,8 +125,8 @@ func (c Config) Normalize() Config {
 	return cp
 }
 
-// Validate checks mirror names and destinations, referenced ports and VLANs,
-// policer bursts, and queue rates against the supplied port table.
+// Validate checks mirror names and destinations, logical selector ports and
+// VLANs, policer bursts, and queue rates against the supplied port table.
 func (c Config) Validate(ports port.Table) error {
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
@@ -179,21 +183,39 @@ func (c Config) Validate(ports port.Table) error {
 		}
 
 		for selectorIndex, name := range mirror.SelectSrcPorts {
-			if _, ok := ports.Port(name); !ok {
+			selected, ok := ports.Port(name)
+			if !ok {
 				return errs.New().
 					Attr("field", prefix+".select_src_ports."+strconv.Itoa(selectorIndex)).
 					Attr("mirror", mirror.Name).
 					Attr("port", name).
 					Msgf("mirror selector port %q absent from port table", name)
 			}
+			if selected.LagParent != "" {
+				return errs.New().
+					Attr("field", prefix+".select_src_ports."+strconv.Itoa(selectorIndex)).
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Attr("lag", selected.LagParent).
+					Msgf("mirror selector port %q is a physical LAG member", name)
+			}
 		}
 		for selectorIndex, name := range mirror.SelectDstPorts {
-			if _, ok := ports.Port(name); !ok {
+			selected, ok := ports.Port(name)
+			if !ok {
 				return errs.New().
 					Attr("field", prefix+".select_dst_ports."+strconv.Itoa(selectorIndex)).
 					Attr("mirror", mirror.Name).
 					Attr("port", name).
 					Msgf("mirror selector port %q absent from port table", name)
+			}
+			if selected.LagParent != "" {
+				return errs.New().
+					Attr("field", prefix+".select_dst_ports."+strconv.Itoa(selectorIndex)).
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Attr("lag", selected.LagParent).
+					Msgf("mirror selector port %q is a physical LAG member", name)
 			}
 		}
 		for selectorIndex, id := range mirror.SelectVLANs {

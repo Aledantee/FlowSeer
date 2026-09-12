@@ -148,8 +148,11 @@ The virtual switch uses a ladder of architectural layers:
   the port layer (for a routed port).
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
-  copies after bridge, hub, or routed forwarding. `Copies` returns and clears
-  those copies so the fabric can enqueue them as separate transmissions.
+  copies after bridge, hub, or routed forwarding. A copy is exposed only when
+  its output port and any selected LAG member are known up. Unknown output state
+  suppresses the copy and makes the forwarding result incomplete; known-down
+  state suppresses it with complete readiness. `Copies` returns and clears the
+  admitted copies so the fabric can enqueue them as separate transmissions.
   `Police` applies the switch-owned token bucket when the fabric checks a frame
   at arrival, while `QueueMaxRate` gives the fabric scheduler the maximum rate
   for an egress port and PCP.
@@ -324,8 +327,11 @@ Exported constructors validate and normalize configurations:
   identity, and trust metadata come only from that target; they are not copied
   from the current switch. A target dynamic seed yields to the current switch's
   learned entry for the same FID and MAC, while a target static seed remains
-  authoritative. To retain existing target trust while changing its configuration,
-  start with [Switch.Spec] and replace its `Config` field.
+  authoritative. Seed timestamps normalize to their UTC wall-clock instant.
+  LAG runtime state is retained only while every member's administrative and
+  operational state matches the target. To retain existing target trust while
+  changing its configuration, start with [Switch.Spec] and replace its `Config`
+  field.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards

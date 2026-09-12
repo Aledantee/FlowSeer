@@ -277,10 +277,11 @@ func Diff(a, b Config) []trace.Change {
 		for _, memName := range sortedKeys(aLag.Members) {
 			am := aLag.Members[memName]
 			bm, memExists := bLag.Members[memName]
+			subject := trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)}
 			if !memExists {
 				changes = append(changes, trace.Change{
 					Layer:   layer,
-					Subject: trace.Subject{Kind: "port", Key: memName},
+					Subject: subject,
 					Field:   "",
 					From:    am,
 					To:      nil,
@@ -292,7 +293,7 @@ func Diff(a, b Config) []trace.Change {
 			if am.Priority != bm.Priority {
 				changes = append(changes, trace.Change{
 					Layer:   layer,
-					Subject: trace.Subject{Kind: "port", Key: memName},
+					Subject: subject,
 					Field:   "priority",
 					From:    PortPriorityFact(am.Priority),
 					To:      PortPriorityFact(bm.Priority),
@@ -302,7 +303,7 @@ func Diff(a, b Config) []trace.Change {
 			if am.Key != bm.Key {
 				changes = append(changes, trace.Change{
 					Layer:   layer,
-					Subject: trace.Subject{Kind: "port", Key: memName},
+					Subject: subject,
 					Field:   "key",
 					From:    Uint16Fact(am.Key),
 					To:      Uint16Fact(bm.Key),
@@ -314,7 +315,7 @@ func Diff(a, b Config) []trace.Change {
 			if _, memExists := aLag.Members[memName]; !memExists {
 				changes = append(changes, trace.Change{
 					Layer:   layer,
-					Subject: trace.Subject{Kind: "port", Key: memName},
+					Subject: trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)},
 					Field:   "",
 					From:    nil,
 					To:      bLag.Members[memName],
@@ -336,4 +337,8 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	return changes
+}
+
+func memberSubjectKey(lagName, memberName string) string {
+	return strconv.Quote(lagName) + "/" + strconv.Quote(memberName)
 }

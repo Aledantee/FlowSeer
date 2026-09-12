@@ -1571,11 +1571,14 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
-	if len(res.Steps) != 1 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
-		t.Errorf("res.Steps = %+v, want one classify step naming stp", res.Steps)
+	if len(res.Steps) != 2 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
+		t.Errorf("res.Steps = %+v, want spanning-tree classification followed by the mirror decision", res.Steps)
 	}
 	if !traceHasFactType(res.Steps, "stp.bpdu_decision") {
 		t.Errorf("BPDU trace has no spanning-tree decision fact: %+v", res.Steps)
+	}
+	if step, ok := mirrorCopyStep(res.Steps); !ok || step.Op != trace.OpReplicate {
+		t.Errorf("BPDU trace has no admitted mirror decision: %+v", res.Steps)
 	}
 	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
 		t.Errorf("Copies() = %+v, want received BPDU mirrored to 1/1/3", copies)

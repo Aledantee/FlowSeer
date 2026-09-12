@@ -52,7 +52,8 @@ type ConstructionSpec struct {
 }
 
 // Normalize validates and returns an independent construction specification
-// with normalized configuration and forwarding database seeds.
+// with normalized configuration and forwarding database seeds. Seed timestamps
+// are canonical UTC wall-clock instants without monotonic readings.
 func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 	owned := s.Clone()
 	// Traffic field paths name submitted slice positions, which sorting and
@@ -76,6 +77,9 @@ func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 		if err != nil {
 			return ConstructionSpec{}, err
 		}
+		for i := range seeds {
+			seeds[i].LearnedAt = seeds[i].LearnedAt.Round(0).UTC()
+		}
 		owned.Seeds = seeds
 	}
 
@@ -95,7 +99,8 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 	return cp
 }
 
-// Equal reports whether two construction specifications are identical.
+// Equal reports whether two construction specifications carry the same fields,
+// treating seed timestamps at the same instant as equal.
 func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
 	if s.NodeID != other.NodeID || !s.Config.Equal(other.Config) || !metadataEqual(s.Metadata, other.Metadata) {
 		return false
@@ -104,7 +109,8 @@ func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
 		return false
 	}
 	for i := range s.Seeds {
-		if s.Seeds[i] != other.Seeds[i] {
+		a, b := s.Seeds[i], other.Seeds[i]
+		if a.FID != b.FID || a.MAC != b.MAC || a.Port != b.Port || a.Static != b.Static || !a.LearnedAt.Equal(b.LearnedAt) {
 			return false
 		}
 	}
@@ -292,8 +298,9 @@ func (s *Switch) Config() Config {
 	return s.cfg.Clone()
 }
 
-// Copies returns and clears mirror copies produced by the most recent call to
-// [Switch.Forward]. Calls to [Switch.Peek] leave pending copies unchanged.
+// Copies returns and clears mirror copies admitted to a forwarding output by the
+// most recent call to [Switch.Forward]. Calls to [Switch.Peek] leave pending copies
+// unchanged.
 func (s *Switch) Copies() []traffic.Copy {
 	copies := s.copies
 	s.copies = nil
@@ -892,19 +899,87 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 		res.Reason = traffic.ReasonMirrorOutput
 	}
 
+	var vlans *bridge.VLAN
+	if s.cfg.Bridge != nil {
+		vlans = s.cfg.Bridge.VLAN
+	}
+	resolvedIngress := res.Ingress
+	if resolvedIngress == "" {
+		resolvedIngress = ingress
+	}
+	copies := traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
+	copies = s.readyMirrorCopies(&res, copies)
 	if mutate {
-		var vlans *bridge.VLAN
-		if s.cfg.Bridge != nil {
-			vlans = s.cfg.Bridge.VLAN
-		}
-		resolvedIngress := res.Ingress
-		if resolvedIngress == "" {
-			resolvedIngress = ingress
-		}
-		s.copies = traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
+		s.copies = copies
 	}
 
 	return res
+}
+
+func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []traffic.Copy {
+	ready := copies[:0]
+	for _, copy := range copies {
+		output, ok := s.ports.Port(copy.Port)
+		if !ok {
+			continue
+		}
+		res.Consult(s.egressDependencies(copy.Port)...)
+
+		reason := trace.Reason("")
+		var selection trace.Fact
+		if !output.Forwards() {
+			reason = port.ReasonPortDown
+		} else if output.Kind == port.Lag {
+			vid := mirrorCopyVID(copy.Frame)
+			member, selected := s.SelectMember(copy.Port, copy.Frame, vid)
+			selection = s.lag.SelectionFact(copy.Port, copy.Frame, vid, member, selected)
+			if !selected {
+				reason = bridge.ReasonNoMember
+			} else if memberPort, exists := s.ports.Port(member); !exists || !memberPort.Forwards() {
+				reason = port.ReasonPortDown
+			}
+		}
+
+		decision := traffic.MirrorDecisionFact(copy.Mirror, copy.Port, frameOctets(copy.Frame), reason)
+		inputs := traceFacts(selection)
+		if reason != "" {
+			inputs = append(inputs,
+				port.ForwardingFact(copy.Port, output, false, reason),
+				decision,
+			)
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:   port.LayerTraffic,
+				Op:      trace.OpDrop,
+				RuleID:  traffic.RuleMirrorCopyDrop,
+				Subject: trace.Subject{Kind: "port", Key: copy.Port},
+				Inputs:  inputs,
+			})
+
+			continue
+		}
+
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerTraffic,
+			Op:      trace.OpReplicate,
+			RuleID:  traffic.RuleMirrorCopy,
+			Subject: trace.Subject{Kind: "port", Key: copy.Port},
+			Inputs:  inputs,
+			Outputs: []trace.Fact{decision},
+		})
+		ready = append(ready, copy)
+	}
+
+	return ready
+}
+
+func mirrorCopyVID(frame ethernet.Frame) vlan.ID {
+	for _, tag := range frame.Tags {
+		if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
+			return tag.VID
+		}
+	}
+
+	return 0
 }
 
 func (s *Switch) isMirrorOutputPort(name string) bool {
