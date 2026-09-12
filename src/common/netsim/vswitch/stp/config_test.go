@@ -267,6 +267,24 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
+func TestNormalizePreservesExplicitZeroPriorities(t *testing.T) {
+	cfg := stp.Config{
+		Priority:        0,
+		PriorityPresent: true,
+		Ports: map[string]stp.Port{
+			"1/1/1": {Priority: 0, PriorityPresent: true},
+		},
+	}
+
+	norm := cfg.Normalize()
+	if norm.Priority != 0 {
+		t.Errorf("bridge priority = %d, want explicit zero", norm.Priority)
+	}
+	if got := norm.Ports["1/1/1"].Priority; got != 0 {
+		t.Errorf("port priority = %d, want explicit zero", got)
+	}
+}
+
 func TestBridgeID(t *testing.T) {
 	t.Parallel()
 

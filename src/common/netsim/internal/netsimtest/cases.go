@@ -184,16 +184,45 @@ func CasePlanningPortVLANChange() Case {
 func CaseShadowingPartialUnknownPort() Case {
 	var cat analysis.EvidenceCatalog
 	var refOperUnknown, refAgingDefault trace.EvidenceRef
-	cat, refOperUnknown = cat.Add(analysis.Evidence{
+	operUnknownEvidence := analysis.Evidence{
 		Kind:    netmodel.EvidenceKindState,
 		Origin:  "telemetry-snapshot",
 		Context: "conformance-shadowing; interface 1/1/2 oper_status unspecified or unknown",
-	})
-	_, refAgingDefault = cat.Add(analysis.Evidence{
+	}
+	agingDefaultEvidence := analysis.Evidence{
 		Kind:    netmodel.EvidenceKindDefault,
 		Origin:  "telemetry-snapshot",
 		Context: "conformance-shadowing; default aging_time=300s",
+	}
+	cat, refOperUnknown = cat.Add(operUnknownEvidence)
+	cat, refAgingDefault = cat.Add(agingDefaultEvidence)
+	expectedIssue := IssueExpectation{
+		Code:     netmodel.IssueMissingOperStatus,
+		Status:   analysis.Incomplete,
+		Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
+		Message:  `interface "1/1/2" has unspecified or missing operational status`,
+		Evidence: []trace.EvidenceRef{refOperUnknown},
+	}
+	expectedAssumption := AssumptionExpectation{
+		Scope:     analysis.NodeScope("shadow-sw1"),
+		Statement: "default value applied for aging_time: 300s",
+		Evidence:  []trace.EvidenceRef{refAgingDefault},
+	}
+	modelMetadata := MetadataExpectation{
+		Status:      analysis.Incomplete,
+		Scope:       analysis.NodeScope("shadow-sw1"),
+		Issues:      []IssueExpectation{expectedIssue},
+		Evidence:    cat.Entries(),
+		Assumptions: []AssumptionExpectation{expectedAssumption},
+	}.Canonical()
+	forwardMetadata := modelMetadata.Canonical()
+	forwardMetadata.Issues = append(forwardMetadata.Issues, IssueExpectation{
+		Code:    "unknown-operational-status",
+		Status:  analysis.Incomplete,
+		Scope:   analysis.PortScope("shadow-sw1", "1/1/2"),
+		Message: `port "1/1/2" has unknown operational status`,
 	})
+	forwardMetadata = forwardMetadata.Canonical()
 	unknownPortFact := NewFactExpectation(port.ForwardingFact(
 		"1/1/2",
 		port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
@@ -231,28 +260,13 @@ func CaseShadowingPartialUnknownPort() Case {
 		},
 		ExpectedSteps: expectedSteps,
 		ExpectedIssues: []IssueExpectation{
-			{
-				Code:     netmodel.IssueMissingOperStatus,
-				Status:   analysis.Incomplete,
-				Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
-				Evidence: []trace.EvidenceRef{refOperUnknown},
-			},
+			expectedIssue,
 		},
 		ExpectedAssumptions: []AssumptionExpectation{
-			{
-				Scope:     analysis.NodeScope("shadow-sw1"),
-				Statement: "default value applied for aging_time: 300s",
-				Evidence:  []trace.EvidenceRef{refAgingDefault},
-			},
+			expectedAssumption,
 		},
-		ExpectedModelMetadata: &MetadataExpectation{
-			Status: analysis.Incomplete,
-			Scope:  analysis.NodeScope("shadow-sw1"),
-		},
-		ExpectedForwardMetadata: &MetadataExpectation{
-			Status: analysis.Incomplete,
-			Scope:  analysis.NodeScope("shadow-sw1"),
-		},
+		ExpectedModelMetadata:   &modelMetadata,
+		ExpectedForwardMetadata: &forwardMetadata,
 		Execute: func() (ExecutionResult, error) {
 			now := time.Unix(1700000000, 0)
 			src := netmodel.SourceContext{

@@ -248,7 +248,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 	)
 
 	for _, ch := range changes {
-		if ch.Subject.Kind == "port" && ch.Subject.Key == "sw2/1/1/1" {
+		if ch.Subject.Kind == "port" && ch.Subject.Key == "sw2/1%2F1%2F1" {
 			if ch.Field == "pvid" {
 				foundSwitchportChange = true
 			}
@@ -267,7 +267,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 	}
 
 	if !foundSwitchportChange {
-		t.Errorf("Diff missing switchport change under sw2/1/1/1: %v", changes)
+		t.Errorf("Diff missing switchport change under sw2/1%%2F1%%2F1: %v", changes)
 	}
 	if !foundCableFaultChange {
 		t.Errorf("Diff missing cable fault change sw1:1/1/24-sw2:1/1/24: %v", changes)

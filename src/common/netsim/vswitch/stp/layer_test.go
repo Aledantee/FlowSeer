@@ -120,6 +120,53 @@ func TestTwoBridgesExchange(t *testing.T) {
 	}
 }
 
+func TestExplicitZeroPrioritiesParticipateInElections(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	localMAC := mustMAC(t, "00:11:22:33:44:02")
+	rootMAC := mustMAC(t, "00:11:22:33:44:01")
+	l := mustNewSTP(t, stp.Config{
+		Priority:        0,
+		PriorityPresent: true,
+		Address:         localMAC,
+		Ports: map[string]stp.Port{
+			"preferred": {Priority: 0, PriorityPresent: true},
+			"defaulted": {},
+		},
+	}, mustPortTable(t, "preferred", "defaulted"))
+
+	if got := l.BridgeID().Priority; got != 0 {
+		t.Fatalf("bridge election priority = %d, want explicit zero", got)
+	}
+
+	l.LinkChange(now, "preferred", true, true, 1_000_000_000)
+	l.LinkChange(now, "defaulted", true, true, 1_000_000_000)
+	bpdu := stp.BPDU{
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		RootID:       stp.BridgeID{Priority: 0, Address: rootMAC},
+		BridgeID:     stp.BridgeID{Priority: 0, Address: rootMAC},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	l.Receive(now, "defaulted", bpdu)
+	l.Receive(now, "preferred", bpdu)
+
+	if _, _, rootPort := l.Root(); rootPort != "preferred" {
+		t.Errorf("root port = %q, want explicit-priority-zero port", rootPort)
+	}
+	if got := l.PortInfo("preferred").Priority; got != 0 {
+		t.Errorf("preferred port election priority = %d, want explicit zero", got)
+	}
+	if got := l.PortInfo("defaulted").Priority; got != stp.DefaultPortPriority {
+		t.Errorf("defaulted port election priority = %d, want %d", got, stp.DefaultPortPriority)
+	}
+}
+
 func TestThreeBridgeRingConvergence(t *testing.T) {
 	t.Parallel()
 

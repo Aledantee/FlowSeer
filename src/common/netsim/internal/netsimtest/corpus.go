@@ -3,6 +3,7 @@
 package netsimtest
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"reflect"
@@ -142,6 +143,7 @@ type IssueExpectation struct {
 	Code     analysis.IssueCode
 	Status   analysis.Status
 	Scope    analysis.Scope
+	Message  string
 	Evidence []trace.EvidenceRef
 }
 
@@ -151,6 +153,7 @@ func NewIssueExpectation(issue analysis.Issue) IssueExpectation {
 		Code:     issue.Code,
 		Status:   issue.Status,
 		Scope:    issue.Scope,
+		Message:  issue.Message,
 		Evidence: canonicalEvidence(issue.Evidence),
 	}
 }
@@ -168,6 +171,7 @@ func (e IssueExpectation) Matches(issue analysis.Issue) bool {
 	return actual.Code == expected.Code &&
 		actual.Status == expected.Status &&
 		actual.Scope.Compare(expected.Scope) == 0 &&
+		actual.Message == expected.Message &&
 		slices.Equal(actual.Evidence, expected.Evidence)
 }
 
@@ -243,10 +247,79 @@ func (e ChangeExpectation) Matches(change trace.Change) bool {
 		slices.Equal(actual.Evidence, expected.Evidence)
 }
 
-// MetadataExpectation identifies the exact readiness summary and evaluated scope of a result axis.
+// MetadataExpectation identifies the exact trust metadata of a result axis.
 type MetadataExpectation struct {
-	Status analysis.Status
-	Scope  analysis.Scope
+	Status      analysis.Status
+	Scope       analysis.Scope
+	Issues      []IssueExpectation
+	Evidence    []analysis.EvidenceEntry
+	Assumptions []AssumptionExpectation
+}
+
+// NewMetadataExpectation returns an independent structural expectation for metadata.
+func NewMetadataExpectation(metadata analysis.Metadata) MetadataExpectation {
+	issues := metadata.Issues()
+	issueExpectations := make([]IssueExpectation, len(issues))
+	for i, issue := range issues {
+		issueExpectations[i] = NewIssueExpectation(issue)
+	}
+	assumptions := metadata.Assumptions()
+	assumptionExpectations := make([]AssumptionExpectation, len(assumptions))
+	for i, assumption := range assumptions {
+		assumptionExpectations[i] = NewAssumptionExpectation(assumption)
+	}
+
+	return MetadataExpectation{
+		Status:      metadata.Status(),
+		Scope:       metadata.Scope(),
+		Issues:      issueExpectations,
+		Evidence:    slices.Clone(metadata.Evidence().Entries()),
+		Assumptions: assumptionExpectations,
+	}
+}
+
+// Canonical returns an independent expectation in deterministic metadata order.
+func (e MetadataExpectation) Canonical() MetadataExpectation {
+	e.Issues = cloneIssueExpectations(e.Issues)
+	slices.SortFunc(e.Issues, compareIssueExpectations)
+	e.Evidence = slices.Clone(e.Evidence)
+	slices.SortFunc(e.Evidence, func(a, b analysis.EvidenceEntry) int {
+		return strings.Compare(string(a.Ref), string(b.Ref))
+	})
+	e.Assumptions = cloneAssumptionExpectations(e.Assumptions)
+	slices.SortFunc(e.Assumptions, compareAssumptionExpectations)
+	return e
+}
+
+// Matches reports whether metadata has exactly the expected structural contents.
+func (e MetadataExpectation) Matches(metadata analysis.Metadata) bool {
+	return reflect.DeepEqual(NewMetadataExpectation(metadata), e.Canonical())
+}
+
+func compareIssueExpectations(a, b IssueExpectation) int {
+	if order := a.Scope.Compare(b.Scope); order != 0 {
+		return order
+	}
+	if order := strings.Compare(string(a.Code), string(b.Code)); order != 0 {
+		return order
+	}
+	if order := cmp.Compare(a.Status, b.Status); order != 0 {
+		return order
+	}
+	if order := strings.Compare(a.Message, b.Message); order != 0 {
+		return order
+	}
+	return slices.Compare(a.Evidence, b.Evidence)
+}
+
+func compareAssumptionExpectations(a, b AssumptionExpectation) int {
+	if order := a.Scope.Compare(b.Scope); order != 0 {
+		return order
+	}
+	if order := strings.Compare(a.Statement, b.Statement); order != 0 {
+		return order
+	}
+	return slices.Compare(a.Evidence, b.Evidence)
 }
 
 // ForwardExpectation identifies the exact trace and trust summary for one forwarding result axis.
@@ -413,11 +486,11 @@ func (c Case) Clone() Case {
 		cp.ExpectedComparison = &expectation
 	}
 	if c.ExpectedModelMetadata != nil {
-		expectation := *c.ExpectedModelMetadata
+		expectation := c.ExpectedModelMetadata.Canonical()
 		cp.ExpectedModelMetadata = &expectation
 	}
 	if c.ExpectedForwardMetadata != nil {
-		expectation := *c.ExpectedForwardMetadata
+		expectation := c.ExpectedForwardMetadata.Canonical()
 		cp.ExpectedForwardMetadata = &expectation
 	}
 	return cp
@@ -456,6 +529,7 @@ func cloneAssumptionExpectations(expectations []AssumptionExpectation) []Assumpt
 }
 
 func cloneForwardExpectation(expectation ForwardExpectation) ForwardExpectation {
+	expectation.Metadata = expectation.Metadata.Canonical()
 	expectation.Steps = cloneStepExpectations(expectation.Steps)
 	return expectation
 }
@@ -587,8 +661,78 @@ func ValidateCase(c Case) error {
 			return err
 		}
 	}
+	if c.ExpectedComparison != nil {
+		if err := validateMetadataExpectation(c.ID, "comparison current", c.ExpectedComparison.Current.Metadata); err != nil {
+			return err
+		}
+		if err := validateMetadataExpectation(c.ID, "comparison expected", c.ExpectedComparison.Expected.Metadata); err != nil {
+			return err
+		}
+	}
+	if c.ExpectedModelMetadata != nil {
+		if err := validateMetadataExpectation(c.ID, "model", *c.ExpectedModelMetadata); err != nil {
+			return err
+		}
+	}
+	if c.ExpectedForwardMetadata != nil {
+		if err := validateMetadataExpectation(c.ID, "forward", *c.ExpectedForwardMetadata); err != nil {
+			return err
+		}
+	}
 	if c.Execute == nil {
 		return fmt.Errorf("corpus case %q has nil execute function", c.ID)
+	}
+	return nil
+}
+
+func validateMetadataExpectation(caseID, axis string, expectation MetadataExpectation) error {
+	if expectation.Status > analysis.Unsupported {
+		return fmt.Errorf("corpus case %q has invalid %s metadata status %d", caseID, axis, expectation.Status)
+	}
+	if expectation.Status != analysis.Complete && len(expectation.Issues) == 0 {
+		return fmt.Errorf("corpus case %q has non-Complete %s metadata but no expected issues", caseID, axis)
+	}
+	for i, issue := range expectation.Issues {
+		if strings.TrimSpace(string(issue.Code)) == "" {
+			return fmt.Errorf("corpus case %q has empty %s metadata issue code at index %d", caseID, axis, i)
+		}
+		if issue.Status == analysis.Complete || issue.Status > analysis.Unsupported {
+			return fmt.Errorf("corpus case %q has invalid %s metadata issue status at index %d", caseID, axis, i)
+		}
+		if err := validateEvidenceRefs(caseID, axis+" metadata issue", i, issue.Evidence); err != nil {
+			return err
+		}
+	}
+	for i, assumption := range expectation.Assumptions {
+		if strings.TrimSpace(assumption.Statement) == "" {
+			return fmt.Errorf("corpus case %q has empty %s metadata assumption at index %d", caseID, axis, i)
+		}
+		if len(assumption.Evidence) == 0 {
+			return fmt.Errorf("corpus case %q has %s metadata assumption without evidence at index %d", caseID, axis, i)
+		}
+		if err := validateEvidenceRefs(caseID, axis+" metadata assumption", i, assumption.Evidence); err != nil {
+			return err
+		}
+	}
+
+	entries := make(map[trace.EvidenceRef]struct{}, len(expectation.Evidence))
+	for i, entry := range expectation.Evidence {
+		if strings.TrimSpace(string(entry.Ref)) == "" {
+			return fmt.Errorf("corpus case %q has empty %s metadata evidence reference at index %d", caseID, axis, i)
+		}
+		if _, duplicate := entries[entry.Ref]; duplicate {
+			return fmt.Errorf("corpus case %q has duplicate %s metadata evidence reference %q", caseID, axis, entry.Ref)
+		}
+		catalog, ref := (analysis.EvidenceCatalog{}).Add(entry.Evidence)
+		if _, ok := catalog.Lookup(entry.Ref); !ok || ref != entry.Ref {
+			return fmt.Errorf("corpus case %q has %s metadata evidence whose reference does not match its contents at index %d", caseID, axis, i)
+		}
+		entries[entry.Ref] = struct{}{}
+	}
+	for _, ref := range expectedEvidenceRefs(expectation.Issues, expectation.Assumptions) {
+		if _, ok := entries[ref]; !ok {
+			return fmt.Errorf("corpus case %q has %s metadata reference %q without expected evidence contents", caseID, axis, ref)
+		}
 	}
 	return nil
 }
@@ -875,11 +1019,14 @@ func assertOptionalMetadataExpectation(t testing.TB, caseID, axis string, actual
 
 func assertMetadataExpectation(t testing.TB, caseID, axis string, actual analysis.Metadata, expected MetadataExpectation) {
 	t.Helper()
-	if actual.Status() != expected.Status {
-		t.Errorf("case %s %s status = %s, want %s", caseID, axis, actual.Status(), expected.Status)
-	}
-	if actual.Scope().Compare(expected.Scope) != 0 {
-		t.Errorf("case %s %s scope = %s, want %s", caseID, axis, actual.Scope(), expected.Scope)
+	if !expected.Matches(actual) {
+		t.Errorf(
+			"case %s %s metadata does not match its exact structured expectation: got %+v, want %+v",
+			caseID,
+			axis,
+			NewMetadataExpectation(actual),
+			expected.Canonical(),
+		)
 	}
 }
 

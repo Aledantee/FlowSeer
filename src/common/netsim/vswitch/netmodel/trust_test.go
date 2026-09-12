@@ -241,8 +241,10 @@ func lagInterfaces() []*interfacev1.Interface {
 }
 
 func validBridgeState() *stpv1.BridgeState {
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32768)
 	return stpv1.BridgeState_builder{
+		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
 			Address: addrv1.Eui48Address_builder{
@@ -250,6 +252,95 @@ func validBridgeState() *stpv1.BridgeState {
 			}.Build(),
 		}.Build(),
 	}.Build()
+}
+
+func TestLoadRejectsUnusableRequestedCapabilities(t *testing.T) {
+	result := (loadInput{
+		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		want: []port.Layer{
+			port.LayerRelay,
+			port.LayerRelay,
+			port.LayerMcast,
+			port.Layer("future-layer"),
+		},
+	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "requested-capabilities"})
+
+	if !slices.Equal(result.Report.Capabilities, []port.Layer{port.LayerRelay}) {
+		t.Errorf("capabilities = %v, want one supported relay capability", result.Report.Capabilities)
+	}
+	if result.Readiness() != analysis.Unsupported {
+		t.Errorf("readiness = %s, want Unsupported", result.Readiness())
+	}
+	for _, code := range []analysis.IssueCode{
+		netmodel.IssueDuplicateRequestedCapability,
+		netmodel.IssueUnsupportedRequestedCapability,
+	} {
+		if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+			return issue.Code == code && len(issue.Evidence) > 0
+		}) {
+			t.Errorf("issues = %+v, want evidenced %s", result.Metadata.Issues(), code)
+		}
+	}
+}
+
+func TestLoadDoesNotInferCapabilitiesAfterRejectingEveryRequest(t *testing.T) {
+	result := (loadInput{
+		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		want:   []port.Layer{port.LayerMcast, port.Layer("future-layer")},
+	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "unsupported-capabilities"})
+
+	if len(result.Report.Capabilities) != 0 {
+		t.Errorf("capabilities = %v, want no inferred capabilities for an explicit request", result.Report.Capabilities)
+	}
+	if result.Readiness() != analysis.Unsupported {
+		t.Errorf("readiness = %s, want Unsupported", result.Readiness())
+	}
+}
+
+func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
+	priority := uint32(32768)
+	bridgeID := stpv1.BridgeId_builder{
+		Priority: &priority,
+		Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+	}.Build()
+
+	tests := []struct {
+		name    string
+		version *stpv1.ProtocolVersion
+		status  analysis.Status
+		issue   analysis.IssueCode
+	}{
+		{name: "missing", status: analysis.Incomplete, issue: netmodel.IssueMissingSTPProtocolVersion},
+		{name: "unspecified", version: ptr(stpv1.ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED), status: analysis.Incomplete, issue: netmodel.IssueMissingSTPProtocolVersion},
+		{name: "legacy STP", version: ptr(stpv1.ProtocolVersion_PROTOCOL_VERSION_STP), status: analysis.Unsupported, issue: netmodel.IssueUnsupportedSTPProtocolVersion},
+		{name: "unknown", version: ptr(stpv1.ProtocolVersion(99)), status: analysis.Unsupported, issue: netmodel.IssueUnsupportedSTPProtocolVersion},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			state := stpv1.BridgeState_builder{
+				ProtocolVersion: test.version,
+				BridgeId:        bridgeID,
+			}.Build()
+			result := (loadInput{
+				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				bridgeState: state,
+				want:        []port.Layer{port.LayerStp},
+			}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "stp-version"})
+
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerStp) {
+				t.Errorf("unsupported STP protocol constructed a layer: config=%+v capabilities=%v", result.Spec.Config.STP, result.Report.Capabilities)
+			}
+			if result.Readiness() != test.status {
+				t.Errorf("readiness = %s, want %s", result.Readiness(), test.status)
+			}
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == test.issue && issue.Status == test.status && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("issues = %+v, want evidenced %s at %s", result.Metadata.Issues(), test.issue, test.status)
+			}
+		})
+	}
 }
 
 func TestLoadFDBRequiresAuthoritativeKindAndStatus(t *testing.T) {
@@ -699,8 +790,10 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 	src := netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "protocol-mac"}
 
 	t.Run("spanning tree bridge", func(t *testing.T) {
+		protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 		priority := uint32(32768)
 		bridgeState := stpv1.BridgeState_builder{
+			ProtocolVersion: &protocol,
 			BridgeId: stpv1.BridgeId_builder{
 				Priority: &priority,
 				Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4}}.Build(),
@@ -759,8 +852,10 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 }
 
 func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
 	priority := uint32(32767)
 	bridgeState := stpv1.BridgeState_builder{
+		ProtocolVersion: &protocol,
 		BridgeId: stpv1.BridgeId_builder{
 			Priority: &priority,
 			Address: addrv1.Eui48Address_builder{

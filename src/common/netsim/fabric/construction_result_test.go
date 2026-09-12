@@ -230,6 +230,10 @@ func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	if _, err := b.Normalize(); err != nil {
 		t.Fatalf("Normalize(b): %v", err)
 	}
+	configChanges := fabric.Diff(a.Config(), b.Config())
+	if len(configChanges) != 1 || configChanges[0].Field != "start" {
+		t.Fatalf("Diff omitted public configuration start change: %+v", configChanges)
+	}
 
 	changes, err := fabric.DiffSpecs(a, b)
 	if err != nil {
@@ -237,6 +241,9 @@ func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	}
 	if len(changes) == 0 {
 		t.Fatal("DiffSpecs returned no changes for unequal valid specifications")
+	}
+	if len(changes) != 1 {
+		t.Errorf("DiffSpecs duplicated the configuration start change: %+v", changes)
 	}
 
 	for _, change := range changes {
@@ -256,6 +263,42 @@ func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	}
 
 	t.Errorf("DiffSpecs omitted start change: %+v", changes)
+}
+
+func TestFabricConstructionSpecNormalizesSeedInstantsToUTC(t *testing.T) {
+	a := constructionSpec(twoSwitchBaseConfig(t))
+	switchSpec := a.Switches["sw1"]
+	switchSpec.Config.Bridge = &bridge.Config{}
+	instant := time.Date(2026, 9, 12, 10, 0, 0, 123, time.FixedZone("UTC+2", 2*60*60))
+	switchSpec.Seeds = []bridge.Seed{{
+		MAC:       netaddr.MAC{0, 1, 2, 3, 4, 5},
+		Port:      "1/1/1",
+		Static:    true,
+		LearnedAt: instant,
+	}}
+	a.Switches["sw1"] = switchSpec
+	b := a.Clone()
+	bSwitch := b.Switches["sw1"]
+	bSwitch.Seeds[0].LearnedAt = instant.UTC()
+	b.Switches["sw1"] = bSwitch
+
+	normalized, err := a.Normalize()
+	if err != nil {
+		t.Fatalf("Normalize: %v", err)
+	}
+	if got := normalized.Switches["sw1"].Seeds[0].LearnedAt; got.Location() != time.UTC {
+		t.Errorf("normalized seed time location = %s, want UTC", got.Location())
+	}
+	if !a.Equal(b) {
+		t.Error("construction specifications with the same seed instant compare unequal")
+	}
+	changes, err := fabric.DiffSpecs(a, b)
+	if err != nil {
+		t.Fatalf("DiffSpecs: %v", err)
+	}
+	if len(changes) != 0 {
+		t.Errorf("DiffSpecs reported a location-only seed change: %+v", changes)
+	}
 }
 
 func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {

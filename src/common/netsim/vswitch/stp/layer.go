@@ -157,7 +157,7 @@ func New(cfg Config, ports port.Table) (*Layer, error) {
 }
 
 func newLayer(cfg Config) *Layer {
-	prio := effectivePriority(cfg.Priority)
+	prio := effectivePriority(cfg.Priority, cfg.PriorityPresent)
 	hello := effectiveHelloTime(cfg.HelloTime)
 	maxAge := effectiveMaxAge(cfg.MaxAge)
 	fwdDelay := effectiveForwardDelay(cfg.ForwardDelay)
@@ -187,7 +187,7 @@ func newLayer(cfg Config) *Layer {
 	sortedNames := sortedKeys(cfg.Ports)
 	for i, name := range sortedNames {
 		pCfg := cfg.Ports[name]
-		portPrio := effectivePortPriority(pCfg.Priority)
+		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
 		portID := (uint16(portPrio) << 8) | uint16(i+1)
 
 		cost := pCfg.PathCost

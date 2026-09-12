@@ -246,6 +246,34 @@ func TestConfigValidateRules(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name: "inactive N on cut fault",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCut, N: 2}
+			},
+			wantError: true,
+		},
+		{
+			name: "inactive sequence on every Nth fault",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2, Sequence: []uint{1}}
+			},
+			wantError: true,
+		},
+		{
+			name: "inactive N on sequence fault",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, N: 2, Sequence: []uint{1}}
+			},
+			wantError: true,
+		},
+		{
+			name: "sequence fault with zero position",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{0, 1}}
+			},
+			wantError: true,
+		},
+		{
 			name: "cable fault with unknown kind",
 			mutate: func(c *fabric.Config) {
 				c.Cables[0].Fault = fabric.Fault{Kind: "InvalidKind"}
@@ -660,6 +688,38 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	}
 }
 
+func TestConfigNormalizeClearsInactiveFaultParametersAndNegativeZero(t *testing.T) {
+	cfg := twoSwitchBaseConfig(t)
+	cfg.Cables[0].LengthMeters = math.Copysign(0, -1)
+	cfg.Cables[0].Fault = fabric.Fault{
+		Kind:     fabric.FaultCut,
+		N:        7,
+		Sequence: []uint{3, 1},
+	}
+	cfg.Cables[1].Fault = fabric.Fault{
+		Kind:     fabric.FaultLoseEveryNth,
+		N:        3,
+		Sequence: []uint{4, 2},
+	}
+
+	norm := cfg.Normalize()
+	for _, cable := range norm.Cables {
+		if math.Signbit(cable.LengthMeters) && cable.LengthMeters == 0 {
+			t.Error("normalized cable retained negative zero length")
+		}
+		switch cable.Fault.Kind {
+		case fabric.FaultCut:
+			if cable.Fault.N != 0 || cable.Fault.Sequence != nil {
+				t.Errorf("normalized Cut fault retained inactive parameters: %+v", cable.Fault)
+			}
+		case fabric.FaultLoseEveryNth:
+			if cable.Fault.N != 3 || cable.Fault.Sequence != nil {
+				t.Errorf("normalized LoseEveryNth fault = %+v, want N only", cable.Fault)
+			}
+		}
+	}
+}
+
 func TestCableLengthEqualityAndDiffAreReflexive(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -740,5 +800,42 @@ func TestCableDiffKeysAreInjectiveForDelimiterHeavyEndpoints(t *testing.T) {
 	}
 	if len(keys) != 2 {
 		t.Errorf("delimiter-heavy cables produced %d distinct diff keys, want 2: %+v", len(keys), changes)
+	}
+}
+
+func TestNestedSwitchDiffKeysAreInjective(t *testing.T) {
+	ports := func(name string, down bool) port.Table {
+		status := port.Up
+		if down {
+			status = port.Down
+		}
+		builder := port.NewBuilder()
+		builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: status, OperStatus: port.Up})
+		table, err := builder.Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+		return table
+	}
+
+	a := fabric.Config{Switches: map[string]vswitch.Config{
+		"edge/a": {Ports: ports("b", false)},
+		"edge":   {Ports: ports("a/b", false)},
+	}}
+	b := fabric.Config{Switches: map[string]vswitch.Config{
+		"edge/a": {Ports: ports("b", true)},
+		"edge":   {Ports: ports("a/b", true)},
+	}}
+
+	keys := make(map[string]struct{})
+	for _, change := range fabric.Diff(a, b) {
+		if change.Subject.Kind == "port" && change.Field == "admin_status" {
+			keys[change.Subject.Key] = struct{}{}
+		}
+	}
+	for _, key := range []string{"edge%2Fa/b", "edge/a%2Fb"} {
+		if _, ok := keys[key]; !ok {
+			t.Errorf("nested switch diff keys = %v, want injective key %q", keys, key)
+		}
 	}
 }

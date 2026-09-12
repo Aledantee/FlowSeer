@@ -52,11 +52,12 @@ const (
 
 // Port defines administrative spanning tree settings for one network port.
 type Port struct {
-	Priority     uint8
-	PathCost     uint32
-	AdminEdge    bool
-	AutoEdge     bool
-	PointToPoint PointToPointMode
+	Priority        uint8
+	PriorityPresent bool
+	PathCost        uint32
+	AdminEdge       bool
+	AutoEdge        bool
+	PointToPoint    PointToPointMode
 }
 
 // TypeID returns the fact type identifier for Port.
@@ -76,13 +77,14 @@ func (m PointToPointMode) Canonical() string { return string(m) }
 
 // Config defines the spanning tree configuration of a virtual switch.
 type Config struct {
-	Priority     uint16
-	Address      netaddr.MAC
-	HelloTime    time.Duration
-	MaxAge       time.Duration
-	ForwardDelay time.Duration
-	TxHoldCount  uint8
-	Ports        map[string]Port
+	Priority        uint16
+	PriorityPresent bool
+	Address         netaddr.MAC
+	HelloTime       time.Duration
+	MaxAge          time.Duration
+	ForwardDelay    time.Duration
+	TxHoldCount     uint8
+	Ports           map[string]Port
 }
 
 // Clone returns a deep copy of the spanning tree configuration.
@@ -97,8 +99,8 @@ func (c Config) Clone() Config {
 	return cloned
 }
 
-func effectivePriority(p uint16) uint16 {
-	if p == 0 {
+func effectivePriority(p uint16, present bool) uint16 {
+	if p == 0 && !present {
 		return DefaultBridgePriority
 	}
 	return p
@@ -132,8 +134,8 @@ func effectiveTxHoldCount(c uint8) uint8 {
 	return c
 }
 
-func effectivePortPriority(p uint8) uint8 {
-	if p == 0 {
+func effectivePortPriority(p uint8, present bool) uint8 {
+	if p == 0 && !present {
 		return DefaultPortPriority
 	}
 	return p
@@ -150,13 +152,15 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 // filling unspecified fields with standard defaults.
 func (c Config) Normalize() Config {
 	cloned := c.Clone()
-	cloned.Priority = effectivePriority(cloned.Priority)
+	cloned.Priority = effectivePriority(cloned.Priority, cloned.PriorityPresent)
+	cloned.PriorityPresent = true
 	cloned.HelloTime = effectiveHelloTime(cloned.HelloTime)
 	cloned.MaxAge = effectiveMaxAge(cloned.MaxAge)
 	cloned.ForwardDelay = effectiveForwardDelay(cloned.ForwardDelay)
 	cloned.TxHoldCount = effectiveTxHoldCount(cloned.TxHoldCount)
 	for name, p := range cloned.Ports {
-		p.Priority = effectivePortPriority(p.Priority)
+		p.Priority = effectivePortPriority(p.Priority, p.PriorityPresent)
+		p.PriorityPresent = true
 		p.PointToPoint = effectivePointToPoint(p.PointToPoint)
 		cloned.Ports[name] = p
 	}

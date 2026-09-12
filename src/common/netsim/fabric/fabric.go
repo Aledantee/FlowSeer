@@ -268,6 +268,9 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 	for _, name := range names {
 		switchSpec := owned.Switches[name]
 		switchSpec.Config = cfg.Switches[name]
+		for i := range switchSpec.Seeds {
+			switchSpec.Seeds[i].LearnedAt = switchSpec.Seeds[i].LearnedAt.UTC()
+		}
 		normalized, err := switchSpec.Normalize()
 		if err != nil {
 			return ConstructionSpec{}, errs.Wrapf(err, "switch %q", name)

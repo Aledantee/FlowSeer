@@ -78,6 +78,18 @@ also name a logical switchport that admits its VLAN in the completed bridge
 configuration. A row that has no relay, no VLAN-aware relay, no matching VLAN,
 or no admitting switchport is omitted with a port-scoped issue.
 
+An explicit capability request is also input to the trust decision. The loader
+deduplicates supported layers and reports duplicate requests as Incomplete.
+Unknown layers and layers that the loader cannot construct are omitted and
+reported as Unsupported. If every requested layer is rejected, the loader does
+not fall back to capability inference.
+
+The spanning tree layer constructs only from a bridge state that explicitly
+reports RSTP. A missing or `UNSPECIFIED` protocol version is Incomplete; STP and
+unknown versions are Unsupported. In each case the STP layer is omitted. An
+absent bridge or port priority uses the IEEE default, while an explicitly
+reported priority of zero remains zero through switch construction.
+
 ## Operational uncertainty and localized scoping
 
 Interfaces with unspecified or unobserved operational status are assigned
@@ -99,7 +111,8 @@ synthesis decisions:
   interfaces without an IP facet. Each record carries the exact scope, explanation,
   and source evidence references.
 - **Defaults and assumptions**: Standards-based fallback values applied when
-  optional fields are absent, such as default STP timers or bridge MAC assignment.
+  optional fields are absent, including STP bridge and port priorities, hello
+  time, max age, forward delay, and transmit hold count.
   These are recorded both in the report and as executable assumptions in metadata.
 - **Conflicts**: Distinct values for the same source key, such as one MAC and VLAN
   reported on two ports. The conflicted fact is omitted, while identical repeated

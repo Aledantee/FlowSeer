@@ -440,6 +440,9 @@ func (c Config) Normalize() Config {
 
 	for i := range cloned.Cables {
 		cable := cloned.Cables[i]
+		if cable.LengthMeters == 0 {
+			cable.LengthMeters = 0
+		}
 		cable.Medium = normalizedMedium(cable.Medium)
 		cable.Fault = normalizedFault(cable.Fault)
 		cloned.Cables[i] = canonicalCableOrientation(cable)
@@ -703,16 +706,32 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 func validateFault(f Fault) error {
 	switch f.Kind {
 	case "", FaultNone, FaultCut, FaultDeadAToB, FaultDeadBToA:
+		if f.N != 0 || len(f.Sequence) != 0 {
+			return errs.New().
+				Attr("kind", f.Kind).
+				Msg("fault parameters are set for a kind that does not use them")
+		}
 		return nil
 	case FaultLoseEveryNth, FaultCorruptEveryNth:
 		if f.N == 0 {
 			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N must be greater than zero")
 		}
+		if len(f.Sequence) != 0 {
+			return errs.New().Attr("kind", f.Kind).Msg("fault sequence is set for an every-Nth kind")
+		}
 
 		return nil
 	case FaultLoseSequence:
+		if f.N != 0 {
+			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N is set for a sequence kind")
+		}
 		if len(f.Sequence) == 0 {
 			return errs.New().Attr("kind", f.Kind).Msg("fault sequence cannot be empty")
+		}
+		for _, position := range f.Sequence {
+			if position == 0 {
+				return errs.New().Attr("kind", f.Kind).Msg("fault sequence positions must be greater than zero")
+			}
 		}
 
 		return nil

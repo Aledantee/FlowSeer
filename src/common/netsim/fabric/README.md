@@ -357,6 +357,12 @@ Cables support deterministic defect configurations:
 | `LoseSequence`    | Drops frames matching 1-based crossing positions |
 | `CorruptEveryNth` | Marks every Nth crossing damaged; recipient drop |
 
+`N` is active only for the two every-Nth kinds and must be greater than zero.
+`Sequence` is active only for `LoseSequence`; it must be non-empty and every
+position must be at least one. Validation rejects parameters on other variants.
+Normalization clears inactive parameters and sorts and deduplicates an active
+sequence.
+
 `SetFault(a, b Endpoint, fault Fault) error` alters a cable defect mid-run at
 the current clock. The fabric re-resolves the link, updates each endpoint's
 operational status on its switch, and notifies active spanning tree layers of

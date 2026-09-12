@@ -135,15 +135,6 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 	}
 
 	changes := Diff(a.Config(), b.Config())
-	if !a.Start.Equal(b.Start) {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: trace.Subject{Kind: "fabric"},
-			Field:   "start",
-			From:    newStartFact(a.Start),
-			To:      newStartFact(b.Start),
-		})
-	}
 	names := make(map[string]struct{}, len(a.Switches)+len(b.Switches))
 	for name := range a.Switches {
 		names[name] = struct{}{}
@@ -195,6 +186,15 @@ func Diff(a, b Config) []trace.Change {
 	b = b.Normalize()
 
 	var changes []trace.Change
+	if !a.Start.Equal(b.Start) {
+		changes = append(changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "fabric"},
+			Field:   "start",
+			From:    newStartFact(a.Start),
+			To:      newStartFact(b.Start),
+		})
+	}
 
 	swNames := make(map[string]struct{})
 	for name := range a.Switches {
@@ -238,7 +238,7 @@ func Diff(a, b Config) []trace.Change {
 		case inA && inB:
 			swChanges := vswitch.Diff(swA, swB)
 			for _, ch := range swChanges {
-				ch.Subject.Key = name + "/" + ch.Subject.Key
+				ch.Subject.Key = nestedSubjectKey(name, ch.Subject.Key)
 				changes = append(changes, ch)
 			}
 		}
@@ -431,7 +431,7 @@ func switchConstructionInputs(spec vswitch.ConstructionSpec) constructionInputsF
 		writeStringField(&out, "mac", seed.MAC.String())
 		writeStringField(&out, "port", seed.Port)
 		writeStringField(&out, "static", strconv.FormatBool(seed.Static))
-		writeStringField(&out, "learned_at", seed.LearnedAt.String())
+		writeStringField(&out, "learned_at", seed.LearnedAt.UTC().Format(time.RFC3339Nano))
 		out.WriteByte('}')
 	}
 	out.WriteString("];")
@@ -618,6 +618,11 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 	}
 }
 
+func nestedSubjectKey(outer, inner string) string {
+	escape := strings.NewReplacer("%", "%25", "/", "%2F").Replace
+	return escape(outer) + "/" + escape(inner)
+}
+
 func sortedPrefixStrings(prefixes []netip.Prefix) []string {
 	if len(prefixes) == 0 {
 		return nil
@@ -673,9 +678,16 @@ func normalizedFault(f Fault) Fault {
 	if f.Kind == "" {
 		f.Kind = FaultNone
 	}
-	if len(f.Sequence) > 0 {
+	switch f.Kind {
+	case FaultLoseEveryNth, FaultCorruptEveryNth:
+		f.Sequence = nil
+	case FaultLoseSequence:
+		f.N = 0
 		slices.Sort(f.Sequence)
 		f.Sequence = slices.Compact(f.Sequence)
+	default:
+		f.N = 0
+		f.Sequence = nil
 	}
 
 	return f

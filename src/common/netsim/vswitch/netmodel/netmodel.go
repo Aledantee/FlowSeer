@@ -41,47 +41,51 @@ const (
 
 // Issue codes used by netmodel.
 const (
-	IssueMissingAdminStatus       analysis.IssueCode = "netmodel.interface.missing_admin_status"
-	IssueInvalidAdminStatus       analysis.IssueCode = "netmodel.interface.invalid_admin_status"
-	IssueMissingOperStatus        analysis.IssueCode = "netmodel.interface.missing_oper_status"
-	IssueInvalidOperStatus        analysis.IssueCode = "netmodel.interface.invalid_oper_status"
-	IssueSkippedLayerNotWanted    analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
-	IssueSkippedMissingFacet      analysis.IssueCode = "netmodel.skipped.missing_facet"
-	IssueSkippedUnsupportedFacet  analysis.IssueCode = "netmodel.skipped.unsupported_facet"
-	IssueSkippedLagMember         analysis.IssueCode = "netmodel.switchport.lag_member"
-	IssueSkippedInterfaceRouted   analysis.IssueCode = "netmodel.switchport.interface_routed"
-	IssueUnsupportedPowerClass    analysis.IssueCode = "netmodel.poe.unsupported_power_class"
-	IssueTunnelWithoutPvid        analysis.IssueCode = "netmodel.switchport.tunnel_without_pvid"
-	IssueInvalidBridgePriority    analysis.IssueCode = "netmodel.stp.invalid_bridge_priority"
-	IssueMissingBridgeAddress     analysis.IssueCode = "netmodel.stp.missing_bridge_address"
-	IssueInvalidTxHoldCount       analysis.IssueCode = "netmodel.stp.invalid_tx_hold_count"
-	IssueInvalidPortPriority      analysis.IssueCode = "netmodel.stp.invalid_port_priority"
-	IssueUnknownPort              analysis.IssueCode = "netmodel.skipped.unknown_port"
-	IssueUnsupportedInterfaceKind analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
-	IssueMissingIPFacet           analysis.IssueCode = "netmodel.routing.missing_ip_facet"
-	IssueMissingNeighborMAC       analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
-	IssueInvalidMAC               analysis.IssueCode = "netmodel.address.invalid_mac"
-	IssueInvalidIPAddress         analysis.IssueCode = "netmodel.routing.invalid_ip_address"
-	IssueInvalidNeighborAddress   analysis.IssueCode = "netmodel.routing.invalid_neighbor_address"
-	IssueInvalidPrefix            analysis.IssueCode = "netmodel.routing.invalid_prefix"
-	IssueInvalidFDBKind           analysis.IssueCode = "netmodel.fdb.invalid_kind"
-	IssueInvalidFDBStatus         analysis.IssueCode = "netmodel.fdb.invalid_status"
-	IssueInvalidVlanID            analysis.IssueCode = "netmodel.vlan.invalid_id"
-	IssueInvalidEthernetDuplex    analysis.IssueCode = "netmodel.ethernet.invalid_duplex"
-	IssueInvalidPoePriority       analysis.IssueCode = "netmodel.poe.invalid_priority"
-	IssueInvalidSwitchportMode    analysis.IssueCode = "netmodel.switchport.invalid_mode"
-	IssueInvalidFrameAdmission    analysis.IssueCode = "netmodel.switchport.invalid_frame_admission"
-	IssueInvalidPointToPointMode  analysis.IssueCode = "netmodel.stp.invalid_point_to_point_mode"
-	IssueInvalidBondMode          analysis.IssueCode = "netmodel.lag.invalid_bond_mode"
-	IssueInvalidLACPMode          analysis.IssueCode = "netmodel.lacp.invalid_mode"
-	IssueMissingSTPBridgeState    analysis.IssueCode = "netmodel.stp.missing_bridge_state"
-	IssueConflictFDB              analysis.IssueCode = "netmodel.fdb.conflict"
-	IssueConflictSTPPort          analysis.IssueCode = "netmodel.stp.conflict"
-	IssueConflictLACP             analysis.IssueCode = "netmodel.lacp.conflict"
-	IssueConflictBudget           analysis.IssueCode = "netmodel.poe.conflict"
-	IssueConflictVlan             analysis.IssueCode = "netmodel.vlan.conflict"
-	IssueConflictAddress          analysis.IssueCode = "netmodel.routing.address_conflict"
-	IssueConflictNeighbor         analysis.IssueCode = "netmodel.routing.conflict"
+	IssueMissingAdminStatus             analysis.IssueCode = "netmodel.interface.missing_admin_status"
+	IssueInvalidAdminStatus             analysis.IssueCode = "netmodel.interface.invalid_admin_status"
+	IssueMissingOperStatus              analysis.IssueCode = "netmodel.interface.missing_oper_status"
+	IssueInvalidOperStatus              analysis.IssueCode = "netmodel.interface.invalid_oper_status"
+	IssueSkippedLayerNotWanted          analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
+	IssueSkippedMissingFacet            analysis.IssueCode = "netmodel.skipped.missing_facet"
+	IssueSkippedUnsupportedFacet        analysis.IssueCode = "netmodel.skipped.unsupported_facet"
+	IssueSkippedLagMember               analysis.IssueCode = "netmodel.switchport.lag_member"
+	IssueSkippedInterfaceRouted         analysis.IssueCode = "netmodel.switchport.interface_routed"
+	IssueUnsupportedPowerClass          analysis.IssueCode = "netmodel.poe.unsupported_power_class"
+	IssueTunnelWithoutPvid              analysis.IssueCode = "netmodel.switchport.tunnel_without_pvid"
+	IssueInvalidBridgePriority          analysis.IssueCode = "netmodel.stp.invalid_bridge_priority"
+	IssueMissingBridgeAddress           analysis.IssueCode = "netmodel.stp.missing_bridge_address"
+	IssueInvalidTxHoldCount             analysis.IssueCode = "netmodel.stp.invalid_tx_hold_count"
+	IssueInvalidPortPriority            analysis.IssueCode = "netmodel.stp.invalid_port_priority"
+	IssueUnknownPort                    analysis.IssueCode = "netmodel.skipped.unknown_port"
+	IssueUnsupportedInterfaceKind       analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
+	IssueMissingIPFacet                 analysis.IssueCode = "netmodel.routing.missing_ip_facet"
+	IssueMissingNeighborMAC             analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
+	IssueInvalidMAC                     analysis.IssueCode = "netmodel.address.invalid_mac"
+	IssueInvalidIPAddress               analysis.IssueCode = "netmodel.routing.invalid_ip_address"
+	IssueInvalidNeighborAddress         analysis.IssueCode = "netmodel.routing.invalid_neighbor_address"
+	IssueInvalidPrefix                  analysis.IssueCode = "netmodel.routing.invalid_prefix"
+	IssueInvalidFDBKind                 analysis.IssueCode = "netmodel.fdb.invalid_kind"
+	IssueInvalidFDBStatus               analysis.IssueCode = "netmodel.fdb.invalid_status"
+	IssueInvalidVlanID                  analysis.IssueCode = "netmodel.vlan.invalid_id"
+	IssueInvalidEthernetDuplex          analysis.IssueCode = "netmodel.ethernet.invalid_duplex"
+	IssueInvalidPoePriority             analysis.IssueCode = "netmodel.poe.invalid_priority"
+	IssueInvalidSwitchportMode          analysis.IssueCode = "netmodel.switchport.invalid_mode"
+	IssueInvalidFrameAdmission          analysis.IssueCode = "netmodel.switchport.invalid_frame_admission"
+	IssueInvalidPointToPointMode        analysis.IssueCode = "netmodel.stp.invalid_point_to_point_mode"
+	IssueInvalidBondMode                analysis.IssueCode = "netmodel.lag.invalid_bond_mode"
+	IssueInvalidLACPMode                analysis.IssueCode = "netmodel.lacp.invalid_mode"
+	IssueMissingSTPBridgeState          analysis.IssueCode = "netmodel.stp.missing_bridge_state"
+	IssueMissingSTPProtocolVersion      analysis.IssueCode = "netmodel.stp.missing_protocol_version"
+	IssueUnsupportedSTPProtocolVersion  analysis.IssueCode = "netmodel.stp.unsupported_protocol_version"
+	IssueDuplicateRequestedCapability   analysis.IssueCode = "netmodel.capability.duplicate_request"
+	IssueUnsupportedRequestedCapability analysis.IssueCode = "netmodel.capability.unsupported_request"
+	IssueConflictFDB                    analysis.IssueCode = "netmodel.fdb.conflict"
+	IssueConflictSTPPort                analysis.IssueCode = "netmodel.stp.conflict"
+	IssueConflictLACP                   analysis.IssueCode = "netmodel.lacp.conflict"
+	IssueConflictBudget                 analysis.IssueCode = "netmodel.poe.conflict"
+	IssueConflictVlan                   analysis.IssueCode = "netmodel.vlan.conflict"
+	IssueConflictAddress                analysis.IssueCode = "netmodel.routing.address_conflict"
+	IssueConflictNeighbor               analysis.IssueCode = "netmodel.routing.conflict"
 )
 
 type factKey struct {
@@ -303,6 +307,40 @@ func Load(
 		})
 	}
 
+	explicitRequest := len(want) > 0
+	if explicitRequest {
+		requested := make([]port.Layer, 0, len(want))
+		seen := make(map[port.Layer]struct{}, len(want))
+		for _, layer := range want {
+			switch layer {
+			case port.LayerRelay, port.LayerVlan, port.LayerEthernet, port.LayerPoe,
+				port.LayerLag, port.LayerStp, port.LayerRouting:
+			default:
+				addSkipped(
+					"",
+					"requested_capability",
+					fmt.Sprintf("layer %q is not supported by the network model loader", layer),
+					analysis.Unsupported,
+					IssueUnsupportedRequestedCapability,
+				)
+				continue
+			}
+			if _, duplicate := seen[layer]; duplicate {
+				addSkipped(
+					"",
+					"requested_capability",
+					fmt.Sprintf("layer %q is requested more than once", layer),
+					analysis.Incomplete,
+					IssueDuplicateRequestedCapability,
+				)
+				continue
+			}
+			seen[layer] = struct{}{}
+			requested = append(requested, layer)
+		}
+		want = requested
+	}
+
 	portBuilder := port.NewBuilder()
 	for _, iface := range ifaces {
 		p := port.Port{
@@ -429,7 +467,7 @@ func Load(
 				}
 			}
 			if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
-				routingWanted := len(want) == 0 || slices.Contains(want, port.LayerRouting)
+				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
 				if !routingWanted || iface.GetIp() == nil {
 					hasSwitchportFacet = true
 				}
@@ -437,7 +475,7 @@ func Load(
 		} else if iface.GetLag() != nil {
 			hasLag = true
 			if iface.GetLag().HasSwitchport() && iface.GetLag().GetSwitchport() != nil {
-				routingWanted := len(want) == 0 || slices.Contains(want, port.LayerRouting)
+				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
 				if !routingWanted || iface.GetIp() == nil {
 					hasSwitchportFacet = true
 				}
@@ -445,7 +483,7 @@ func Load(
 		}
 	}
 
-	if len(want) == 0 {
+	if !explicitRequest {
 		report.Capabilities = append(report.Capabilities, port.LayerRelay)
 		report.CapabilitySources[port.LayerRelay] = "always"
 
@@ -996,6 +1034,7 @@ func Load(
 		bridgeAddress := bridgeState.GetBridgeId().GetAddress()
 		mac, validBridgeAddress := parseEUI48(bridgeAddress)
 		prio := bridgeState.GetBridgeId().GetPriority()
+		priorityPresent := bridgeState.GetBridgeId() != nil && bridgeState.GetBridgeId().HasPriority()
 
 		var (
 			bridgeWhy    string
@@ -1003,6 +1042,14 @@ func Load(
 			bridgeStatus analysis.Status
 		)
 		switch {
+		case !bridgeState.HasProtocolVersion() || bridgeState.GetProtocolVersion() == stpv1.ProtocolVersion_PROTOCOL_VERSION_UNSPECIFIED:
+			bridgeWhy = "protocol version is unreported or UNSPECIFIED"
+			bridgeCode = IssueMissingSTPProtocolVersion
+			bridgeStatus = analysis.Incomplete
+		case bridgeState.GetProtocolVersion() != stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP:
+			bridgeWhy = fmt.Sprintf("protocol version %d is not supported by the RSTP layer", bridgeState.GetProtocolVersion())
+			bridgeCode = IssueUnsupportedSTPProtocolVersion
+			bridgeStatus = analysis.Unsupported
 		case bridgeAddress == nil:
 			bridgeWhy = "bridge id has no address"
 			bridgeCode = IssueMissingBridgeAddress
@@ -1015,7 +1062,7 @@ func Load(
 			bridgeWhy = "bridge id has no address"
 			bridgeCode = IssueMissingBridgeAddress
 			bridgeStatus = analysis.Unsupported
-		case prio >= 65536 || prio%4096 != 0:
+		case priorityPresent && (prio >= 65536 || prio%4096 != 0):
 			bridgeWhy = "bridge priority is not a multiple of 4096 below 65536"
 			bridgeCode = IssueInvalidBridgePriority
 			bridgeStatus = analysis.Unsupported
@@ -1036,19 +1083,29 @@ func Load(
 			}
 		} else {
 			stpCfg := stp.Config{
-				Priority: uint16(prio),
-				Address:  mac,
-				Ports:    make(map[string]stp.Port),
+				Priority:        uint16(prio),
+				PriorityPresent: priorityPresent,
+				Address:         mac,
+				Ports:           make(map[string]stp.Port),
+			}
+			if !priorityPresent {
+				addDefault("", "bridge_priority", strconv.FormatUint(uint64(stp.DefaultBridgePriority), 10))
 			}
 
 			if bridgeState.GetBridgeHelloTime() != nil {
 				stpCfg.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
+			} else {
+				addDefault("", "bridge_hello_time", stp.DefaultHelloTime.String())
 			}
 			if bridgeState.GetBridgeMaxAge() != nil {
 				stpCfg.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
+			} else {
+				addDefault("", "bridge_max_age", stp.DefaultMaxAge.String())
 			}
 			if bridgeState.GetBridgeForwardDelay() != nil {
 				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
+			} else {
+				addDefault("", "bridge_forward_delay", stp.DefaultForwardDelay.String())
 			}
 			if bridgeState.HasTxHoldCount() {
 				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
@@ -1091,9 +1148,13 @@ func Load(
 				if ps.HasAdminPathCost() {
 					adminPathCost = strconv.FormatUint(uint64(ps.GetAdminPathCost()), 10)
 				}
+				priority := "unreported"
+				if ps.HasPriority() {
+					priority = strconv.FormatUint(uint64(ps.GetPriority()), 10)
+				}
 				value := fmt.Sprintf(
-					"priority=%d, admin_path_cost=%s, admin_edge=%t, auto_edge=%t, point_to_point=%d",
-					ps.GetPriority(), adminPathCost, ps.GetAdminEdge(), ps.GetAutoEdge(), ps.GetPointToPoint(),
+					"priority=%s, admin_path_cost=%s, admin_edge=%t, auto_edge=%t, point_to_point=%d",
+					priority, adminPathCost, ps.GetAdminEdge(), ps.GetAutoEdge(), ps.GetPointToPoint(),
 				)
 				return factKey{id: portName, display: portName, scope: portScope(portName)}, value, true
 			})
@@ -1102,6 +1163,10 @@ func Load(
 			}
 			for _, portName := range sortedKeys(stpPortRows) {
 				ps := stpPortRows[portName]
+				priorityPresent := ps.HasPriority()
+				if !priorityPresent {
+					addDefault(portName, "port_priority", strconv.FormatUint(uint64(stp.DefaultPortPriority), 10))
+				}
 
 				var adminPathCost uint32
 				if ps.HasAdminPathCost() {
@@ -1124,11 +1189,12 @@ func Load(
 				}
 
 				stpCfg.Ports[portName] = stp.Port{
-					Priority:     uint8(ps.GetPriority()),
-					PathCost:     adminPathCost,
-					AdminEdge:    ps.GetAdminEdge(),
-					AutoEdge:     ps.GetAutoEdge(),
-					PointToPoint: p2p,
+					Priority:        uint8(ps.GetPriority()),
+					PriorityPresent: priorityPresent,
+					PathCost:        adminPathCost,
+					AdminEdge:       ps.GetAdminEdge(),
+					AutoEdge:        ps.GetAutoEdge(),
+					PointToPoint:    p2p,
 				}
 			}
 
@@ -1536,7 +1602,7 @@ func Load(
 			MAC:       mac,
 			Port:      entry.GetInterfaceName(),
 			Static:    entry.GetKind() == switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC,
-			LearnedAt: now,
+			LearnedAt: now.UTC(),
 		})
 		if !ok {
 			addSkipped(entry.GetInterfaceName(), "fdb_entry", why, analysis.Incomplete, code)
