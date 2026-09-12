@@ -42,6 +42,34 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
+func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	for _, portName := range []string{"1/1/2", "missing"} {
+		t.Run(portName, func(t *testing.T) {
+			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+			before := sw.Ports().Ports()
+
+			err := sw.SetOperStatus(portName, port.LinkState("invalid"))
+			if err == nil {
+				t.Fatal("SetOperStatus with invalid state succeeded, want error")
+			}
+			attrs := errs.Attributes(err)
+			if got := attrs["field"]; got != "ports."+portName+".oper_status" {
+				t.Errorf("field attribute = %v, want ports.%s.oper_status", got, portName)
+			}
+			if got := attrs["oper_status"]; got != port.LinkState("invalid") {
+				t.Errorf("oper_status attribute = %v, want invalid", got)
+			}
+			if after := sw.Ports().Ports(); !slices.Equal(after, before) {
+				t.Errorf("ports after invalid update = %+v, want unchanged %+v", after, before)
+			}
+		})
+	}
+}
+
 func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -3165,7 +3193,9 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 	})
 
 	t.Run("down routed port drops with port-down under routing", func(t *testing.T) {
-		sw.SetOperStatus("1/1/5", port.Down)
+		if err := sw.SetOperStatus("1/1/5", port.Down); err != nil {
+			t.Fatalf("SetOperStatus down: %v", err)
+		}
 		frame := ethernet.Frame{
 			Src:       macPort5Neighbor,
 			Dst:       baseMAC,
@@ -3180,7 +3210,9 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 			t.Errorf("got outcome=%v reason=%v, want Dropped/port-down", res.Outcome, res.Reason)
 		}
-		sw.SetOperStatus("1/1/5", port.Up)
+		if err := sw.SetOperStatus("1/1/5", port.Up); err != nil {
+			t.Fatalf("SetOperStatus up: %v", err)
+		}
 	})
 
 	t.Run("router without bridge routes packet between two ports", func(t *testing.T) {
@@ -4207,7 +4239,9 @@ func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.SetOperStatus("1/1/1", port.Down)
+	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
 	sw.LinkChange(t0.Add(time.Second), "1/1/1", false, true, 1_000_000_000)
 	p, _ := sw.Ports().Port("lag1")
 	if p.OperStatus != port.Down {

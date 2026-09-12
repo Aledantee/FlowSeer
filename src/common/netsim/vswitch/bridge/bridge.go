@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -127,8 +128,14 @@ func (b *Bridge) FlushPorts(ports []string) {
 	}
 }
 
-// SetOperStatus updates the operational link state of the named port in the bridge's port table.
-func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
+// SetOperStatus updates the operational link state of the named port in the
+// bridge's port table. It returns a structured validation error when state is
+// outside the [port.LinkState] domain and leaves the table unchanged.
+func (b *Bridge) SetOperStatus(portName string, state port.LinkState) error {
+	if err := validateOperStatus(portName, state); err != nil {
+		return err
+	}
+
 	builder := port.NewBuilder()
 	for _, p := range b.ports.Ports() {
 		if p.Name == portName {
@@ -136,10 +143,25 @@ func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
 		}
 		builder.Add(p)
 	}
-	// Only OperStatus changed on a table that already validated, so the
-	// rebuild cannot fail.
-	if tbl, err := builder.Build(); err == nil {
-		b.ports = tbl
+	tbl, err := builder.Build()
+	if err != nil {
+		return err
+	}
+	b.ports = tbl
+
+	return nil
+}
+
+func validateOperStatus(portName string, state port.LinkState) error {
+	switch state {
+	case "", port.Unknown, port.Up, port.Down:
+		return nil
+	default:
+		return errs.New().
+			Attr("field", "ports."+portName+".oper_status").
+			Attr("name", portName).
+			Attr("oper_status", state).
+			Msgf("port %q has invalid oper status %q", portName, state)
 	}
 }
 
@@ -1180,7 +1202,7 @@ func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vl
 func (b *Bridge) forwardingPath(name string) []port.Port {
 	p, ok := b.ports.Port(name)
 	if !ok {
-		return nil
+		return []port.Port{(port.Port{Name: name}).Normalize()}
 	}
 	path := []port.Port{p}
 	if p.LagParent != "" {

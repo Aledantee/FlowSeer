@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -12,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
@@ -303,6 +305,134 @@ func TestComposeForwardResultTreatsMissingDependencyAsUnknown(t *testing.T) {
 	consulted := res.ConsultedPorts()
 	if len(consulted) != 1 || consulted[0].AdminStatus != port.Unknown || consulted[0].OperStatus != port.Unknown {
 		t.Errorf("consulted ports = %+v, want missing placeholder with explicit Unknown states", consulted)
+	}
+}
+
+func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "present", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	catalog, loadedRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "inventory",
+		Context: "missing ingress state was unavailable",
+	})
+	metadata := analysis.NewMetadata(
+		analysis.PortScope("sw1", "present"),
+		[]analysis.Issue{{
+			Code:     "test.missing-ingress",
+			Status:   analysis.Incomplete,
+			Scope:    analysis.PortScope("sw1", "missing"),
+			Message:  "missing ingress state was unavailable",
+			Evidence: []trace.EvidenceRef{loadedRef},
+		}},
+		catalog,
+		nil,
+	)
+
+	bpduFrame := ethernet.Frame{
+		Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Dst: netaddr.MAC{0x01, 0x80, 0xc2, 0, 0, 0},
+	}
+	dataFrame := ethernet.Frame{Src: macH1, Dst: macH2}
+	tests := []struct {
+		name  string
+		cfg   vswitch.Config
+		frame ethernet.Frame
+	}{
+		{name: "hub", cfg: vswitch.Config{Ports: ports}, frame: dataFrame},
+		{name: "bridge", cfg: vswitch.Config{Ports: ports, Bridge: &bridge.Config{}}, frame: dataFrame},
+		{name: "BPDU", cfg: vswitch.Config{Ports: ports, Bridge: &bridge.Config{}, STP: &stp.Config{}}, frame: bpduFrame},
+		{
+			name: "routing",
+			cfg: vswitch.Config{
+				Ports: ports,
+				Routing: &routing.Config{VRFs: map[string]routing.VRF{
+					routing.DefaultVRF: {
+						Interfaces: map[string]routing.Interface{
+							"present": {
+								Port:     "present",
+								Prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24")},
+							},
+						},
+					},
+				}},
+			},
+			frame: dataFrame,
+		},
+	}
+
+	for _, test := range tests {
+		for _, operation := range []struct {
+			name string
+			run  func(*vswitch.Switch) vswitch.ForwardResult
+		}{
+			{name: "Forward", run: func(sw *vswitch.Switch) vswitch.ForwardResult {
+				return sw.Forward(fixedTime, "missing", test.frame)
+			}},
+			{name: "Peek", run: func(sw *vswitch.Switch) vswitch.ForwardResult {
+				return sw.Peek(fixedTime, "missing", test.frame)
+			}},
+		} {
+			t.Run(test.name+"/"+operation.name, func(t *testing.T) {
+				sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+					Config: test.cfg, NodeID: "sw1", Metadata: metadata,
+				})
+				if err != nil {
+					t.Fatalf("NewWithSpec: %v", err)
+				}
+
+				res := operation.run(sw)
+				assertMissingIngressDependency(t, res, loadedRef)
+			})
+		}
+	}
+}
+
+func assertMissingIngressDependency(t *testing.T, res vswitch.ForwardResult, loadedRef trace.EvidenceRef) {
+	t.Helper()
+
+	consulted := res.ConsultedPorts()
+	want := (port.Port{Name: "missing"}).Normalize()
+	if len(consulted) != 1 || consulted[0] != want {
+		t.Fatalf("consulted ports = %+v, want normalized placeholder %+v", consulted, want)
+	}
+
+	wantCodes := map[analysis.IssueCode]bool{
+		"forwarding-dependency-outside-loaded-scope": false,
+		"test.missing-ingress":                       false,
+		"unknown-operational-status":                 false,
+	}
+	for _, issue := range res.Metadata.Issues() {
+		if _, ok := wantCodes[issue.Code]; !ok {
+			continue
+		}
+		wantCodes[issue.Code] = true
+		if len(issue.Evidence) == 0 {
+			t.Errorf("issue %q has no evidence", issue.Code)
+		}
+		for _, ref := range issue.Evidence {
+			if ref == "" {
+				t.Errorf("issue %q has an empty evidence reference", issue.Code)
+				continue
+			}
+			evidence, ok := res.Metadata.Evidence().Lookup(ref)
+			if !ok {
+				t.Errorf("issue %q evidence %q is absent from catalog", issue.Code, ref)
+				continue
+			}
+			if issue.Code != "test.missing-ingress" &&
+				(evidence.Kind != "vswitch.runtime" || evidence.Origin != "forward" || evidence.Context != issue.Message) {
+				t.Errorf("issue %q evidence = %+v, want stable runtime evidence", issue.Code, evidence)
+			}
+		}
+	}
+	for code, found := range wantCodes {
+		if !found {
+			t.Errorf("issues = %+v, want %q", res.Metadata.Issues(), code)
+		}
+	}
+	if _, ok := res.Metadata.Evidence().Lookup(loadedRef); !ok {
+		t.Errorf("evidence = %+v, want loaded reference %q", res.Metadata.Evidence().Entries(), loadedRef)
 	}
 }
 

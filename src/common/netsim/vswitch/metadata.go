@@ -79,8 +79,20 @@ func forwardingMetadata(
 		portScopes[i] = analysis.PortScope(nodeID, consultedPort.Name)
 	}
 
-	issues := slices.Clone(runtimeIssues)
+	issues := make([]analysis.Issue, len(runtimeIssues))
 	issueEvidence := make(map[trace.EvidenceRef]struct{})
+	catalog := analysis.EvidenceCatalog{}
+	for i, issue := range runtimeIssues {
+		var ref trace.EvidenceRef
+		catalog, ref = catalog.Add(analysis.Evidence{
+			Kind:    "vswitch.runtime",
+			Origin:  "forward",
+			Context: issue.Message,
+		})
+		issue.Evidence = append(issue.Evidence, ref)
+		issues[i] = issue
+		issueEvidence[ref] = struct{}{}
+	}
 	for _, issue := range loaded.Issues() {
 		if !forwardingScopeRelevant(nodeID, issue.Scope, portScopes) {
 			continue
@@ -104,7 +116,6 @@ func forwardingMetadata(
 		}
 	}
 
-	catalog := analysis.EvidenceCatalog{}
 	for _, entry := range loaded.Evidence().Entries() {
 		if _, ok := evidenceRefs[entry.Ref]; !ok {
 			continue

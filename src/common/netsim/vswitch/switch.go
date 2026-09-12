@@ -1210,6 +1210,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
+	res.Consult(s.forwardingPath(ingress)...)
 	pcp, _ := framePriority(f)
 
 	p, ok := s.ports.Port(ingress)
@@ -1225,8 +1226,6 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 		return res
 	}
-	res.Consult(s.forwardingPath(ingress)...)
-
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
 		res.Reason = port.ReasonPortDown
@@ -1363,7 +1362,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 func (s *Switch) forwardingPath(name string) []port.Port {
 	p, ok := s.ports.Port(name)
 	if !ok {
-		return nil
+		return []port.Port{(port.Port{Name: name}).Normalize()}
 	}
 	path := []port.Port{p}
 	if p.LagParent != "" {
@@ -1608,7 +1607,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
 	lagOper := aggregateOperStatus(s.ports.Members(lagName))
-	s.SetOperStatus(lagName, lagOper)
+	s.mustSetOperStatus(lagName, lagOper)
 
 	if s.stp != nil {
 		var enabledMembers []string
@@ -1805,7 +1804,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint boo
 		if up {
 			oper = port.Up
 		}
-		s.SetOperStatus(portName, oper)
+		s.mustSetOperStatus(portName, oper)
 
 		if s.lag != nil {
 			fx := s.lag.LinkChange(now, portName, up)
@@ -1826,7 +1825,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint boo
 	if up {
 		oper = port.Up
 	}
-	s.SetOperStatus(resolvedPort, oper)
+	s.mustSetOperStatus(resolvedPort, oper)
 
 	if s.stp != nil {
 		fx := s.stp.LinkChange(now, resolvedPort, up, pointToPoint, speed)
@@ -1868,7 +1867,13 @@ func (s *Switch) MemberInfo(member string) lag.MemberInfo {
 // switch's port table and the relay's. It tells the spanning tree layer
 // nothing: only the caller knows whether a member's change moves its LAG or
 // what the link's speed and kind are, so the caller follows with LinkChange.
-func (s *Switch) SetOperStatus(portName string, state port.LinkState) {
+// SetOperStatus returns a structured validation error when state is outside
+// the [port.LinkState] domain and leaves both tables unchanged.
+func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
+	if err := validateOperStatus(portName, state); err != nil {
+		return err
+	}
+
 	builder := port.NewBuilder()
 	for _, p := range s.ports.Ports() {
 		if p.Name == portName {
@@ -1876,13 +1881,36 @@ func (s *Switch) SetOperStatus(portName string, state port.LinkState) {
 		}
 		builder.Add(p)
 	}
-	// Only OperStatus changed on a table that already validated, so the
-	// rebuild cannot fail.
-	if tbl, err := builder.Build(); err == nil {
-		s.ports = tbl
+	tbl, err := builder.Build()
+	if err != nil {
+		return err
 	}
 
 	if s.bridge != nil {
-		s.bridge.SetOperStatus(portName, state)
+		if err := s.bridge.SetOperStatus(portName, state); err != nil {
+			return err
+		}
+	}
+	s.ports = tbl
+
+	return nil
+}
+
+func (s *Switch) mustSetOperStatus(portName string, state port.LinkState) {
+	if err := s.SetOperStatus(portName, state); err != nil {
+		panic(err)
+	}
+}
+
+func validateOperStatus(portName string, state port.LinkState) error {
+	switch state {
+	case "", port.Unknown, port.Up, port.Down:
+		return nil
+	default:
+		return errs.New().
+			Attr("field", "ports."+portName+".oper_status").
+			Attr("name", portName).
+			Attr("oper_status", state).
+			Msgf("port %q has invalid oper status %q", portName, state)
 	}
 }

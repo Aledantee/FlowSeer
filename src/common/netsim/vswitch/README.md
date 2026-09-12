@@ -270,6 +270,8 @@ background timers. The host drives them through explicit calls:
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
   relay's tables and tells the protocol layers nothing, since only the caller
   knows whether a member's change moves its LAG; it follows with `LinkChange`.
+  An invalid link state returns a structured error without changing either
+  table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `Wake(now)` fires due timers across spanning tree and link aggregation,
   flushing bridge entries and triggering periodic transmissions.
@@ -361,7 +363,10 @@ with the retained issues. The combined issues, assumptions, and evidence catalog
 use their canonical ordering, so repeated forwarding and cloned specifications
 produce the same metadata. An issue's message is retained for people but does
 not change construction identity; code, status, scope, and evidence carry its
-semantics.
+semantics. An ingress name absent from the port table remains a consulted,
+normalized port with explicit Unknown states, so its scoped construction issues
+still reach hub, bridge, routing, and protocol-interception results. Runtime
+issues carry deterministic evidence from the forwarding evaluation.
 
 ## Concurrency contract
 

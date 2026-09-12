@@ -250,7 +250,9 @@ func TestPeekCalculatesMirrorDependenciesWithoutReplacingPendingCopies(t *testin
 	peeked := ethernet.Frame{Src: netaddr.MAC{6}, Dst: netaddr.MAC{8}, Payload: []byte("peeked")}
 
 	sw.Forward(fixedTime, "in", pending)
-	sw.SetOperStatus("mirror", port.Unknown)
+	if err := sw.SetOperStatus("mirror", port.Unknown); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
 	res := sw.Peek(fixedTime, "in", peeked)
 	if got := res.Metadata.Status(); got != analysis.Incomplete {
 		t.Errorf("Peek status = %s, want Incomplete; issues: %+v", got, res.Metadata.Issues())

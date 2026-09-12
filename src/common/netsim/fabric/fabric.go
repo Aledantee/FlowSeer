@@ -777,7 +777,9 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 			continue
 		}
 
-		sw.SetOperStatus(info.end.Port, info.end.Oper)
+		if err := sw.SetOperStatus(info.end.Port, info.end.Oper); err != nil {
+			return errs.Wrapf(err, "update operational status for %s", info.end.Port)
+		}
 		up := info.end.Oper == port.Up
 		p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
 		speed := info.end.Speed.SpeedBPS
