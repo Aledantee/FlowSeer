@@ -339,9 +339,11 @@ Exported constructors validate and normalize configurations:
   drop traffic authoritatively with Complete readiness.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
-scopes. An empty key identifies an anonymous standalone switch; only then does a
-whole-analysis issue count as node-wide. A fabric uses its switch map key as the
-node identity. `netmodel.Load` uses `SourceContext.DeviceID`.
+scopes. An empty key identifies an anonymous standalone switch. For a named
+switch, non-empty construction metadata must evaluate that node or one of its
+children; issue and assumption scopes may also be whole-analysis scopes because
+they affect every node. Canonical zero metadata remains valid. A fabric uses its
+switch map key as the node identity. `netmodel.Load` uses `SourceContext.DeviceID`.
 
 Forwarding database seeds require a bridge relay. Their MAC addresses must be
 usable unicast addresses, their ports must resolve to an admitted logical port,
@@ -349,13 +351,15 @@ and their FIDs must belong to that port. Duplicate FID and MAC pairs are rejecte
 [Switch.Learn] applies the same validation and leaves the switch unchanged when
 it returns an error.
 
-Forwarding combines runtime issues with construction issues on the exact ports the
-forwarding result consulted. Field scopes below those ports overlap them. An issue
-on a sibling port is left out, while an issue scoped exactly to the switch node is
-included in every result. Relevant assumptions and evidence references travel with
-the retained issues. The combined issues, assumptions, and evidence catalog use
-their canonical ordering, so repeated forwarding and cloned specifications produce
-the same metadata.
+Forwarding combines runtime issues with construction issues on the exact ports
+the forwarding result consulted. Field scopes below those ports overlap them.
+An issue on a sibling port is left out, while node and whole-analysis issues are
+included in every result. Relevant assumptions and evidence references travel
+with the retained issues. The combined issues, assumptions, and evidence catalog
+use their canonical ordering, so repeated forwarding and cloned specifications
+produce the same metadata. An issue's message is retained for people but does
+not change construction identity; code, status, scope, and evidence carry its
+semantics.
  
 ## Concurrency contract
 

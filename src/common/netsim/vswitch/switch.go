@@ -82,6 +82,9 @@ func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 		}
 		owned.Seeds = seeds
 	}
+	if err := validateConstructionMetadata(owned.NodeID, owned.Metadata); err != nil {
+		return ConstructionSpec{}, err
+	}
 
 	return owned, nil
 }
@@ -677,7 +680,7 @@ func (s *Switch) forwardMulticastControl(
 		if err != nil {
 			if errors.Is(err, igmp.ErrUnsupported) {
 				in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-				in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "igmp", false, "unsupported"))
+				in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "igmp", false, "unsupported", nil))
 				return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 			}
 
@@ -685,7 +688,9 @@ func (s *Switch) forwardMulticastControl(
 		}
 
 		in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-		in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "igmp", true, ""))
+		in.Steps = append(in.Steps, multicastControlStep(
+			"mcast.control.admit", "igmp", true, "", mcast.IGMPControlMessageFact(hdr.Src, message),
+		))
 		if mutate {
 			s.mcast.Learn(now, in.FID, in.Port, hdr.Src, message)
 		}
@@ -703,7 +708,7 @@ func (s *Switch) forwardMulticastControl(
 	if err != nil {
 		if errors.Is(err, mld.ErrUnsupported) {
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-			in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "mld", false, "unsupported"))
+			in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "mld", false, "unsupported", nil))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
@@ -711,7 +716,9 @@ func (s *Switch) forwardMulticastControl(
 	}
 
 	in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-	in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "mld", true, ""))
+	in.Steps = append(in.Steps, multicastControlStep(
+		"mcast.control.admit", "mld", true, "", mcast.MLDControlMessageFact(hdr.Src, message),
+	))
 	if mutate {
 		s.mcast.LearnMLD(now, in.FID, in.Port, hdr.Src, message)
 	}
@@ -722,12 +729,13 @@ func (s *Switch) forwardMulticastControl(
 	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
 }
 
-func multicastControlStep(ruleID trace.RuleID, proto string, admitted bool, reason trace.Reason) trace.Step {
+func multicastControlStep(ruleID trace.RuleID, proto string, admitted bool, reason trace.Reason, message trace.Fact) trace.Step {
 	return trace.Step{
 		Layer:   port.LayerMcast,
 		Op:      trace.OpClassify,
 		RuleID:  ruleID,
 		Subject: trace.Subject{Kind: "protocol", Key: proto},
+		Inputs:  traceFacts(message),
 		Outputs: []trace.Fact{mcast.ControlDecisionFact(proto, admitted, reason)},
 	}
 }
@@ -930,9 +938,8 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 		if !output.Forwards() {
 			reason = port.ReasonPortDown
 		} else if output.Kind == port.Lag {
-			vid := mirrorCopyVID(copy.Frame)
-			member, selected := s.SelectMember(copy.Port, copy.Frame, vid)
-			selection = s.lag.SelectionFact(copy.Port, copy.Frame, vid, member, selected)
+			member, selected := s.SelectMember(copy.Port, copy.Frame, copy.VLAN)
+			selection = s.lag.SelectionFact(copy.Port, copy.Frame, copy.VLAN, member, selected)
 			if !selected {
 				reason = bridge.ReasonNoMember
 			} else if memberPort, exists := s.ports.Port(member); !exists || !memberPort.Forwards() {
@@ -970,16 +977,6 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 	}
 
 	return ready
-}
-
-func mirrorCopyVID(frame ethernet.Frame) vlan.ID {
-	for _, tag := range frame.Tags {
-		if tag.TPID == uint16(ethernet.EtherTypeDot1Q) {
-			return tag.VID
-		}
-	}
-
-	return 0
 }
 
 func (s *Switch) isMirrorOutputPort(name string) bool {

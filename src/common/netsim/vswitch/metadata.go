@@ -2,7 +2,9 @@ package vswitch
 
 import (
 	"slices"
+	"strconv"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -25,7 +27,7 @@ func cloneMetadata(metadata analysis.Metadata) analysis.Metadata {
 func metadataEqual(a, b analysis.Metadata) bool {
 	return a.Scope().Compare(b.Scope()) == 0 &&
 		a.Status() == b.Status() &&
-		slices.EqualFunc(a.Issues(), b.Issues(), issueEqual) &&
+		issueListsEqual(a.Issues(), b.Issues()) &&
 		slices.Equal(a.Evidence().Entries(), b.Evidence().Entries()) &&
 		slices.EqualFunc(a.Assumptions(), b.Assumptions(), assumptionEqual)
 }
@@ -34,8 +36,30 @@ func issueEqual(a, b analysis.Issue) bool {
 	return a.Code == b.Code &&
 		a.Status == b.Status &&
 		a.Scope.Compare(b.Scope) == 0 &&
-		a.Message == b.Message &&
 		slices.Equal(a.Evidence, b.Evidence)
+}
+
+func issueListsEqual(a, b []analysis.Issue) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	matched := make([]bool, len(b))
+	for _, issue := range a {
+		found := -1
+		for i, candidate := range b {
+			if !matched[i] && issueEqual(issue, candidate) {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			return false
+		}
+		matched[found] = true
+	}
+
+	return true
 }
 
 func assumptionEqual(a, b analysis.Assumption) bool {
@@ -92,13 +116,56 @@ func forwardingMetadata(
 }
 
 func forwardingScopeRelevant(nodeID string, scope analysis.Scope, ports []analysis.Scope) bool {
+	if scope.Compare(analysis.WholeScope()) == 0 {
+		return true
+	}
 	if scope.Compare(analysis.NodeScope(nodeID)) == 0 {
 		return true
 	}
-	if nodeID == "" && scope.Compare(analysis.WholeScope()) == 0 {
-		return true
-	}
 	return slices.ContainsFunc(ports, scope.Overlaps)
+}
+
+func validateConstructionMetadata(nodeID string, metadata analysis.Metadata) error {
+	if nodeID == "" || canonicalZeroMetadata(metadata) {
+		return nil
+	}
+
+	node := analysis.NodeScope(nodeID)
+	if !node.Contains(metadata.Scope()) {
+		return incompatibleMetadataScopeError("metadata.scope", nodeID, metadata.Scope())
+	}
+	for i, issue := range metadata.Issues() {
+		if !constructionScopeCompatible(node, issue.Scope) {
+			return incompatibleMetadataScopeError("metadata.issues."+strconv.Itoa(i)+".scope", nodeID, issue.Scope)
+		}
+	}
+	for i, assumption := range metadata.Assumptions() {
+		if !constructionScopeCompatible(node, assumption.Scope) {
+			return incompatibleMetadataScopeError("metadata.assumptions."+strconv.Itoa(i)+".scope", nodeID, assumption.Scope)
+		}
+	}
+
+	return nil
+}
+
+func canonicalZeroMetadata(metadata analysis.Metadata) bool {
+	return metadata.Scope().Compare(analysis.WholeScope()) == 0 &&
+		metadata.Status() == analysis.Complete &&
+		len(metadata.Issues()) == 0 &&
+		len(metadata.Evidence().Entries()) == 0 &&
+		len(metadata.Assumptions()) == 0
+}
+
+func constructionScopeCompatible(node, scope analysis.Scope) bool {
+	return scope.Compare(analysis.WholeScope()) == 0 || node.Contains(scope)
+}
+
+func incompatibleMetadataScopeError(field, nodeID string, scope analysis.Scope) error {
+	return errs.New().
+		Attr("field", field).
+		Attr("node_id", nodeID).
+		Attr("scope", scope.String()).
+		Msgf("construction metadata scope %s is incompatible with node %q", scope, nodeID)
 }
 
 func referencesAny(refs []trace.EvidenceRef, selected map[trace.EvidenceRef]struct{}) bool {

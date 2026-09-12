@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -4396,6 +4397,70 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 	res = withoutRouter.Forward(fixedTime, "1/1/1", report)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonNoRouterPort {
 		t.Errorf("report before query = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonNoRouterPort)
+	}
+}
+
+func TestMulticastControlTraceDescribesGroupRecordTransition(t *testing.T) {
+	tests := []struct {
+		name        string
+		firstGroup  netip.Addr
+		secondGroup netip.Addr
+		frame       func(*testing.T, netip.Addr) ethernet.Frame
+	}{
+		{
+			name:        "IGMPv3",
+			firstGroup:  netip.MustParseAddr("239.1.1.1"),
+			secondGroup: netip.MustParseAddr("239.1.1.2"),
+			frame: func(t *testing.T, group netip.Addr) ethernet.Frame {
+				return makeIGMPControlFrame(t,
+					netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("224.0.0.22"),
+					mcastHostMAC, netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x16}, 1,
+					igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{
+						Type: igmp.ChangeToExcludeMode, Group: group, Sources: []netip.Addr{netip.MustParseAddr("10.0.0.9")},
+					}}},
+				)
+			},
+		},
+		{
+			name:        "MLDv2",
+			firstGroup:  netip.MustParseAddr("ff05::1"),
+			secondGroup: netip.MustParseAddr("ff05::2"),
+			frame: func(t *testing.T, group netip.Addr) ethernet.Frame {
+				return makeMLDControlFrame(t,
+					netip.MustParseAddr("fe80::1"), netip.MustParseAddr("ff02::16"),
+					mcastHostMAC, netaddr.MAC{0x33, 0x33, 0x00, 0x00, 0x00, 0x16}, 1, true,
+					mld.Message{Type: mld.ReportV2, Records: []mld.AddressRecord{{
+						Type: mld.ChangeToExcludeMode, Group: group, Sources: []netip.Addr{netip.MustParseAddr("2001:db8::9")},
+					}}},
+				)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			first := mustSwitch(t, mcastSwitchConfig(t, nil)).Forward(fixedTime, "1/1/1", test.frame(t, test.firstGroup))
+			second := mustSwitch(t, mcastSwitchConfig(t, nil)).Forward(fixedTime, "1/1/1", test.frame(t, test.secondGroup))
+			if first.Equal(second.Trace) {
+				t.Fatal("equal-length reports for distinct groups produced equal traces")
+			}
+
+			found := false
+			for _, step := range first.Steps {
+				facts := append(slices.Clone(step.Inputs), step.Outputs...)
+				for _, fact := range facts {
+					if fact.TypeID() != "mcast.control_message" {
+						continue
+					}
+					found = strings.Contains(fact.Canonical(), test.firstGroup.String()) &&
+						strings.Contains(fact.Canonical(), "record_type=") &&
+						strings.Contains(fact.Canonical(), "sources=[")
+				}
+			}
+			if !found {
+				t.Errorf("steps = %+v, want decoded multicast control transition for %s", first.Steps, test.firstGroup)
+			}
+		})
 	}
 }
 

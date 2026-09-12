@@ -3,6 +3,7 @@ package vswitch_test
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -125,6 +126,74 @@ func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
+	const outputVLAN vlan.ID = 99
+
+	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("mirror")}
+	for _, test := range []struct {
+		name       string
+		switchport bridge.Switchport
+	}{
+		{name: "untagged", switchport: bridge.Switchport{Untagged: []vlan.ID{outputVLAN}}},
+		{name: "tunnel", switchport: bridge.Switchport{Tunnel: &bridge.Tunnel{VID: outputVLAN}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			inputVLAN := vlan.ID(10)
+			ports := mustTable(t, port.NewBuilder().
+				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+			cfg := vswitch.Config{
+				Ports: ports,
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{inputVLAN: "input", outputVLAN: "mirror"},
+					Switchports: map[string]bridge.Switchport{
+						"in":   {PVID: &inputVLAN, Untagged: []vlan.ID{inputVLAN}},
+						"out":  {PVID: &inputVLAN, Untagged: []vlan.ID{inputVLAN}},
+						"lag1": test.switchport,
+					},
+				}},
+				LAG: &lag.Config{LAGs: map[string]lag.LAG{
+					"lag1": {
+						Mode:    lag.BalanceSLB,
+						Members: map[string]lag.Member{"member-a": {}, "member-b": {}},
+					},
+				}},
+				Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+					Name: "span", SelectAll: true, OutputVLAN: new(outputVLAN),
+				}}},
+			}
+			sw := mustSwitch(t, cfg)
+
+			wantMember, ok := sw.SelectMember("lag1", frame, outputVLAN)
+			if !ok {
+				t.Fatal("output VLAN has no selected LAG member")
+			}
+			inferredMember, ok := sw.SelectMember("lag1", frame, 0)
+			if !ok || inferredMember == wantMember {
+				t.Fatalf("test does not distinguish logical VLAN selection: VLAN 99 = %q, VLAN 0 = %q", wantMember, inferredMember)
+			}
+
+			res := sw.Forward(fixedTime, "in", frame)
+			step, ok := mirrorCopyStep(res.Steps)
+			if !ok {
+				t.Fatalf("steps = %+v, want mirror copy decision", res.Steps)
+			}
+			var selection string
+			for _, fact := range step.Inputs {
+				if fact.TypeID() == "lag.selection" {
+					selection = fact.Canonical()
+				}
+			}
+			if !strings.Contains(selection, `;vid=99;`) || !strings.Contains(selection, `;member="`+wantMember+`";`) {
+				t.Errorf("LAG selection fact = %q, want logical VID 99 and member %q", selection, wantMember)
+			}
+		})
 	}
 }
 
@@ -331,5 +400,135 @@ func TestConstructionSpecCanonicalizesSeedTimesAndComparesInstants(t *testing.T)
 	}
 	if normalizedA.Seeds[0].LearnedAt != wall || normalizedB.Seeds[0].LearnedAt != wall {
 		t.Errorf("normalized times = %v and %v, want canonical UTC %v", normalizedA.Seeds[0].LearnedAt, normalizedB.Seeds[0].LearnedAt, wall)
+	}
+}
+
+func TestConstructionSpecIssueMessagesDoNotChangeIdentity(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	issue := analysis.Issue{
+		Code:    "test.unobserved",
+		Status:  analysis.Incomplete,
+		Scope:   analysis.PortScope("sw1", "in"),
+		Message: "first wording",
+	}
+	a := vswitch.ConstructionSpec{
+		Config:   vswitch.Config{Ports: ports},
+		NodeID:   "sw1",
+		Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{issue}, analysis.EvidenceCatalog{}, nil),
+	}
+	b := a.Clone()
+	issue.Message = "revised wording"
+	b.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{issue}, analysis.EvidenceCatalog{}, nil)
+
+	if !a.Equal(b) {
+		t.Fatal("ConstructionSpec.Equal distinguished human-only issue messages")
+	}
+	sw, err := vswitch.NewWithSpec(a)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	if got := sw.Spec().Metadata.Issues()[0].Message; got != "first wording" {
+		t.Errorf("copied issue message = %q, want retained human wording", got)
+	}
+}
+
+func TestConstructionSpecIssueMessageOrderingDoesNotChangeIdentity(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	catalog, firstRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "snapshot", Origin: "first"})
+	catalog, secondRef := catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "second"})
+	issue := func(message string, ref trace.EvidenceRef) analysis.Issue {
+		return analysis.Issue{
+			Code: "test.unobserved", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "in"),
+			Message: message, Evidence: []trace.EvidenceRef{ref},
+		}
+	}
+	spec := func(issues []analysis.Issue) vswitch.ConstructionSpec {
+		return vswitch.ConstructionSpec{
+			Config:   vswitch.Config{Ports: ports},
+			NodeID:   "sw1",
+			Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), issues, catalog, nil),
+		}
+	}
+
+	a := spec([]analysis.Issue{issue("a", firstRef), issue("z", secondRef)})
+	b := spec([]analysis.Issue{issue("z", firstRef), issue("a", secondRef)})
+	if !a.Equal(b) {
+		t.Fatal("human message sort order changed construction identity")
+	}
+}
+
+func TestConstructionSpecValidatesMetadataScopesAgainstNode(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	config := vswitch.Config{Ports: ports}
+	nodeScope := analysis.NodeScope("sw1")
+
+	valid := []struct {
+		name     string
+		metadata analysis.Metadata
+	}{
+		{name: "zero value", metadata: analysis.Metadata{}},
+		{name: "canonical zero", metadata: analysis.NewMetadata(analysis.WholeScope(), nil, analysis.EvidenceCatalog{}, nil)},
+		{name: "node", metadata: analysis.NewMetadata(nodeScope, nil, analysis.EvidenceCatalog{}, nil)},
+		{name: "child", metadata: analysis.NewMetadata(analysis.PortScope("sw1", "in"), nil, analysis.EvidenceCatalog{}, nil)},
+		{name: "whole issue", metadata: analysis.NewMetadata(nodeScope, []analysis.Issue{{
+			Code: "test.global", Status: analysis.Incomplete, Scope: analysis.WholeScope(),
+		}}, analysis.EvidenceCatalog{}, nil)},
+		{name: "whole assumption", metadata: analysis.NewMetadata(nodeScope, nil, analysis.EvidenceCatalog{}, []analysis.Assumption{{
+			Scope: analysis.WholeScope(), Statement: "global premise",
+		}})},
+	}
+	for _, test := range valid {
+		t.Run("valid "+test.name, func(t *testing.T) {
+			if _, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{Config: config, NodeID: "sw1", Metadata: test.metadata}); err != nil {
+				t.Fatalf("NewWithSpec rejected compatible metadata: %v", err)
+			}
+		})
+	}
+
+	invalid := []struct {
+		name      string
+		metadata  analysis.Metadata
+		wantField string
+	}{
+		{
+			name: "whole evaluated scope with content",
+			metadata: analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{{
+				Code: "test.local", Status: analysis.Incomplete, Scope: nodeScope,
+			}}, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.scope",
+		},
+		{
+			name:      "foreign evaluated node",
+			metadata:  analysis.NewMetadata(analysis.NodeScope("sw2"), nil, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.scope",
+		},
+		{
+			name: "foreign issue node",
+			metadata: analysis.NewMetadata(nodeScope, []analysis.Issue{{
+				Code: "test.foreign", Status: analysis.Incomplete, Scope: analysis.PortScope("sw2", "in"),
+			}}, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.issues.0.scope",
+		},
+		{
+			name: "foreign assumption node",
+			metadata: analysis.NewMetadata(nodeScope, nil, analysis.EvidenceCatalog{}, []analysis.Assumption{{
+				Scope: analysis.PortScope("sw2", "in"), Statement: "foreign premise",
+			}}),
+			wantField: "metadata.assumptions.0.scope",
+		},
+	}
+	for _, test := range invalid {
+		t.Run("invalid "+test.name, func(t *testing.T) {
+			_, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{Config: config, NodeID: "sw1", Metadata: test.metadata})
+			if err == nil {
+				t.Fatal("NewWithSpec accepted incompatible metadata")
+			}
+			if got := errs.Attributes(err)["field"]; got != test.wantField {
+				t.Errorf("field = %v, want %q", got, test.wantField)
+			}
+		})
 	}
 }

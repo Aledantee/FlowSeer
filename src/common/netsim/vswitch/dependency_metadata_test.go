@@ -283,6 +283,52 @@ func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
 	}
 }
 
+func TestNamedSwitchKeepsWholeConstructionMetadataWithoutPortDependencies(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "inventory",
+		Context: "switch-wide state was unavailable",
+	})
+	metadata := analysis.NewMetadata(
+		analysis.NodeScope("sw1"),
+		[]analysis.Issue{{
+			Code:     "test.whole",
+			Status:   analysis.Unsupported,
+			Scope:    analysis.WholeScope(),
+			Message:  "the source could not model switch-wide state",
+			Evidence: []trace.EvidenceRef{ref},
+		}},
+		catalog,
+		[]analysis.Assumption{{
+			Scope:     analysis.WholeScope(),
+			Statement: "the unavailable state affects every switch result",
+			Evidence:  []trace.EvidenceRef{ref},
+		}},
+	)
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{Ports: ports}, NodeID: "sw1", Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	res := sw.ComposeForwardResult(bridge.Result{})
+	if got := res.Metadata.Status(); got != analysis.Unsupported {
+		t.Errorf("status = %s, want Unsupported", got)
+	}
+	if issues := res.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.whole" {
+		t.Errorf("issues = %+v, want whole-scope construction issue", issues)
+	}
+	if assumptions := res.Metadata.Assumptions(); len(assumptions) != 1 || assumptions[0].Statement == "" {
+		t.Errorf("assumptions = %+v, want whole-scope construction assumption", assumptions)
+	}
+	if _, ok := res.Metadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("evidence = %+v, want %q", res.Metadata.Evidence().Entries(), ref)
+	}
+}
+
 func TestMirrorOutputDropUsesIngressDependencyMetadata(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "mirror", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
