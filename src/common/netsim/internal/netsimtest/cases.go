@@ -218,12 +218,21 @@ func CaseShadowingPartialUnknownPort() Case {
 		Evidence:    cat.Entries(),
 		Assumptions: []AssumptionExpectation{expectedAssumption},
 	}.Canonical()
+	forwardEvidence := analysis.Evidence{
+		Kind:    "vswitch.runtime",
+		Origin:  "forward",
+		Context: `port "1/1/2" has unknown operational status`,
+	}
+	var refForwardUnknown trace.EvidenceRef
+	cat, refForwardUnknown = cat.Add(forwardEvidence)
 	forwardMetadata := modelMetadata.Canonical()
+	forwardMetadata.Evidence = cat.Entries()
 	forwardMetadata.Issues = append(forwardMetadata.Issues, IssueExpectation{
-		Code:    "unknown-operational-status",
-		Status:  analysis.Incomplete,
-		Scope:   analysis.PortScope("shadow-sw1", "1/1/2"),
-		Message: `port "1/1/2" has unknown operational status`,
+		Code:     "unknown-operational-status",
+		Status:   analysis.Incomplete,
+		Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
+		Message:  `port "1/1/2" has unknown operational status`,
+		Evidence: []trace.EvidenceRef{refForwardUnknown},
 	})
 	forwardMetadata = forwardMetadata.Canonical()
 	unknownPortFact := NewFactExpectation(port.ForwardingFact(

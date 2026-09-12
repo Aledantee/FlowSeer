@@ -294,6 +294,10 @@ func TestAdmissionValidation(t *testing.T) {
 func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 	localScope := analysis.PortScope("status-node", "local")
 	otherScope := analysis.PortScope("status-node", "other")
+	var catalog analysis.EvidenceCatalog
+	catalog, incompleteRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "incomplete issue"})
+	catalog, unsupportedRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "unsupported issue"})
+	evidence := catalog.Entries()
 
 	tests := []struct {
 		name        string
@@ -306,8 +310,9 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 				Status: analysis.Complete,
 				Scope:  localScope,
 				Issues: []netsimtest.IssueExpectation{{
-					Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope,
+					Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope, Evidence: []trace.EvidenceRef{incompleteRef},
 				}},
+				Evidence: evidence,
 			},
 			wantErr: "metadata status complete, want incomplete derived",
 		},
@@ -317,9 +322,10 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 				Status: analysis.Incomplete,
 				Scope:  analysis.NodeScope("status-node"),
 				Issues: []netsimtest.IssueExpectation{
-					{Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope},
-					{Code: "test.unsupported", Status: analysis.Unsupported, Scope: otherScope},
+					{Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope, Evidence: []trace.EvidenceRef{incompleteRef}},
+					{Code: "test.unsupported", Status: analysis.Unsupported, Scope: otherScope, Evidence: []trace.EvidenceRef{unsupportedRef}},
 				},
+				Evidence: evidence,
 			},
 			wantErr: "metadata status incomplete, want unsupported derived",
 		},
@@ -329,8 +335,9 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 				Status: analysis.Incomplete,
 				Scope:  localScope,
 				Issues: []netsimtest.IssueExpectation{{
-					Code: "test.incomplete", Status: analysis.Incomplete, Scope: otherScope,
+					Code: "test.incomplete", Status: analysis.Incomplete, Scope: otherScope, Evidence: []trace.EvidenceRef{incompleteRef},
 				}},
+				Evidence: evidence,
 			},
 			wantErr: "metadata status incomplete, want complete derived",
 		},
@@ -354,12 +361,16 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 
 func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing.T) {
 	c := netsimtest.CasePlanningPortVLANChange()
+	var catalog analysis.EvidenceCatalog
+	catalog, incompleteRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "incomplete issue"})
+	catalog, unsupportedRef := catalog.Add(analysis.Evidence{Kind: "test.status", Origin: "corpus-test", Context: "unsupported issue"})
 	c.ExpectedMetadata.Status = analysis.Incomplete
 	c.ExpectedMetadata.Scope = analysis.NodeScope("")
 	c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{
-		{Code: "test.incomplete", Status: analysis.Incomplete, Scope: analysis.PortScope("", "p1")},
-		{Code: "test.unsupported", Status: analysis.Unsupported, Scope: analysis.PortScope("", "p2")},
+		{Code: "test.incomplete", Status: analysis.Incomplete, Scope: analysis.PortScope("", "p1"), Evidence: []trace.EvidenceRef{incompleteRef}},
+		{Code: "test.unsupported", Status: analysis.Unsupported, Scope: analysis.PortScope("", "p2"), Evidence: []trace.EvidenceRef{unsupportedRef}},
 	}
+	c.ExpectedMetadata.Evidence = catalog.Entries()
 
 	err := netsimtest.ValidateCase(c)
 	if err == nil {
@@ -653,6 +664,116 @@ func TestAdmissionRequiresPrimaryMetadataEvidenceContents(t *testing.T) {
 	}
 	if !containsSubstring(err.Error(), "evidence") {
 		t.Errorf("error %q does not mention evidence", err.Error())
+	}
+}
+
+func TestAdmissionRequiresIssueEvidenceOnEveryNestedMetadataAxis(t *testing.T) {
+	tests := []struct {
+		name    string
+		caseFn  func() netsimtest.Case
+		mutate  func(*netsimtest.Case)
+		wantErr string
+	}{
+		{
+			name:   "comparison current",
+			caseFn: netsimtest.CasePlanningPortVLANChange,
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedComparison.Current.Metadata = metadataWithUnprovenIssue()
+			},
+			wantErr: "comparison current metadata issue without evidence",
+		},
+		{
+			name:   "comparison expected",
+			caseFn: netsimtest.CasePlanningPortVLANChange,
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedComparison.Expected.Metadata = metadataWithUnprovenIssue()
+			},
+			wantErr: "comparison expected metadata issue without evidence",
+		},
+		{
+			name:   "model",
+			caseFn: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(c *netsimtest.Case) {
+				isolated := c.ExpectedModelMetadata.Canonical()
+				c.ExpectedModelMetadata = &isolated
+				c.ExpectedModelMetadata.Issues[0].Evidence = nil
+			},
+			wantErr: "model metadata issue without evidence",
+		},
+		{
+			name:   "forward",
+			caseFn: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(c *netsimtest.Case) {
+				for i := range c.ExpectedForwardMetadata.Issues {
+					c.ExpectedForwardMetadata.Issues[i].Evidence = nil
+				}
+			},
+			wantErr: "forward metadata issue without evidence",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := test.caseFn()
+			test.mutate(&c)
+
+			err := netsimtest.ValidateCase(c)
+			if err == nil {
+				t.Fatalf("ValidateCase() error = nil, want one containing %q", test.wantErr)
+			}
+			if !containsSubstring(err.Error(), test.wantErr) {
+				t.Errorf("ValidateCase() error = %q, want one containing %q", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestBaselineMetadataIssuesCarryResolvableEvidence(t *testing.T) {
+	for _, c := range []netsimtest.Case{
+		netsimtest.CasePlanningPortVLANChange(),
+		netsimtest.CaseShadowingPartialUnknownPort(),
+		netsimtest.CaseTroubleshootingUnicastForwarding(),
+	} {
+		axes := map[string]*netsimtest.MetadataExpectation{
+			"result":  c.ExpectedMetadata,
+			"model":   c.ExpectedModelMetadata,
+			"forward": c.ExpectedForwardMetadata,
+		}
+		if c.ExpectedComparison != nil {
+			axes["comparison current"] = &c.ExpectedComparison.Current.Metadata
+			axes["comparison expected"] = &c.ExpectedComparison.Expected.Metadata
+		}
+
+		for axis, metadata := range axes {
+			if metadata == nil {
+				continue
+			}
+			entries := make(map[trace.EvidenceRef]struct{}, len(metadata.Evidence))
+			for _, entry := range metadata.Evidence {
+				entries[entry.Ref] = struct{}{}
+			}
+			for i, issue := range metadata.Issues {
+				if len(issue.Evidence) == 0 {
+					t.Errorf("case %q %s issue %d has no evidence", c.ID, axis, i)
+				}
+				for _, ref := range issue.Evidence {
+					if _, ok := entries[ref]; !ok {
+						t.Errorf("case %q %s issue %d evidence %q is absent from the catalog", c.ID, axis, i, ref)
+					}
+				}
+			}
+		}
+	}
+}
+
+func metadataWithUnprovenIssue() netsimtest.MetadataExpectation {
+	scope := analysis.NodeScope("")
+	return netsimtest.MetadataExpectation{
+		Status: analysis.Incomplete,
+		Scope:  scope,
+		Issues: []netsimtest.IssueExpectation{{
+			Code: "test.issue", Status: analysis.Incomplete, Scope: scope,
+		}},
 	}
 }
 

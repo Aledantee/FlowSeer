@@ -551,11 +551,6 @@ func ValidateCase(c Case) error {
 	if err := validateMetadataExpectation(c.ID, "result", *c.ExpectedMetadata); err != nil {
 		return err
 	}
-	for i, issue := range c.ExpectedMetadata.Issues {
-		if len(issue.Evidence) == 0 {
-			return fmt.Errorf("corpus case %q has result metadata issue without evidence at index %d", c.ID, i)
-		}
-	}
 	if len(c.ExpectedRules) == 0 {
 		return fmt.Errorf("corpus case %q must define at least one expected trace rule", c.ID)
 	}
@@ -656,6 +651,9 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 		}
 		if issue.Status == analysis.Complete || issue.Status > analysis.Unsupported {
 			return fmt.Errorf("corpus case %q has invalid %s metadata issue status at index %d", caseID, axis, i)
+		}
+		if len(issue.Evidence) == 0 {
+			return fmt.Errorf("corpus case %q has %s metadata issue without evidence at index %d", caseID, axis, i)
 		}
 		if err := validateEvidenceRefs(caseID, axis+" metadata issue", i, issue.Evidence); err != nil {
 			return err

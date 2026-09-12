@@ -1,6 +1,7 @@
 package lag
 
 import (
+	"encoding/hex"
 	"strconv"
 	"strings"
 
@@ -27,14 +28,67 @@ func (l *Layer) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, mem
 		return selectionFact("lag=" + strconv.Quote(lagName) + ";present=false;selected=false")
 	}
 
-	return selectionFact("lag=" + strconv.Quote(lagName) +
-		";present=true;mode=" + strconv.Quote(string(lagState.cfg.Mode)) +
-		";vid=" + strconv.FormatUint(uint64(vid), 10) +
-		";src=" + strconv.Quote(f.Src.String()) +
-		";dst=" + strconv.Quote(f.Dst.String()) +
-		";enabled=" + quotedStrings(lagState.enabledMembers) +
-		";member=" + strconv.Quote(member) +
-		";selected=" + strconv.FormatBool(selected))
+	var b strings.Builder
+	b.WriteString("lag=")
+	b.WriteString(strconv.Quote(lagName))
+	b.WriteString(";present=true;mode=")
+	b.WriteString(strconv.Quote(string(lagState.cfg.Mode)))
+	b.WriteString(";hash_basis=")
+	b.WriteString(strconv.FormatUint(uint64(lagState.cfg.HashBasis), 10))
+	b.WriteByte(';')
+
+	switch lagState.cfg.Mode {
+	case BalanceSLB:
+		b.WriteString("src=")
+		b.WriteString(strconv.Quote(f.Src.String()))
+		b.WriteString(";vid=")
+		b.WriteString(strconv.FormatUint(uint64(vid), 10))
+		b.WriteByte(';')
+	case BalanceTCP:
+		input := inspectTCPHashInput(f)
+		ipSrc := ""
+		ipDst := ""
+		transport4 := ""
+		if input.ipDecoded {
+			ipSrc = input.ipSrc.String()
+			ipDst = input.ipDst.String()
+		}
+		if input.hasTransport {
+			transport4 = hex.EncodeToString(input.transport4[:])
+		}
+
+		b.WriteString("src=")
+		b.WriteString(strconv.Quote(f.Src.String()))
+		b.WriteString(";dst=")
+		b.WriteString(strconv.Quote(f.Dst.String()))
+		b.WriteString(";ether_type=")
+		b.WriteString(strconv.FormatUint(uint64(f.EtherType), 10))
+		b.WriteString(";ip_decoded=")
+		b.WriteString(strconv.FormatBool(input.ipDecoded))
+		b.WriteString(";ip_src=")
+		b.WriteString(strconv.Quote(ipSrc))
+		b.WriteString(";ip_dst=")
+		b.WriteString(strconv.Quote(ipDst))
+		b.WriteString(";ip_protocol=")
+		b.WriteString(strconv.FormatUint(uint64(input.ipProtocol), 10))
+		b.WriteString(";transport_4=")
+		b.WriteString(strconv.Quote(transport4))
+		b.WriteByte(';')
+	default:
+		b.WriteString("primary=")
+		b.WriteString(strconv.Quote(lagState.cfg.Primary))
+		b.WriteByte(';')
+	}
+
+	b.WriteString("enabled=")
+	b.WriteString(quotedStrings(lagState.enabledMembers))
+	b.WriteString(";member=")
+	b.WriteString(strconv.Quote(member))
+	b.WriteString(";selected=")
+	b.WriteString(strconv.FormatBool(selected))
+	b.WriteByte(';')
+
+	return selectionFact(b.String())
 }
 
 // LACPDecisionFact returns an immutable snapshot of a received LACPDU and the
