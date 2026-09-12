@@ -131,8 +131,10 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 	return lagSnapshotFact(b.String())
 }
 
-// Diff computes the difference between two link aggregation configurations,
-// reporting changes to LAG settings and per-member administrative parameters.
+// Diff computes the difference between two normalized link aggregation
+// configurations, reporting changes to LAG settings and per-member
+// administrative parameters. The caller supplies the port and system-ID
+// context by normalizing each configuration before calling Diff.
 func Diff(a, b Config) []trace.Change {
 	var changes []trace.Change
 	layer := port.LayerLag

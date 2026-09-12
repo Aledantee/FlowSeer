@@ -51,6 +51,30 @@ type ConstructionSpec struct {
 	Metadata analysis.Metadata
 }
 
+// Normalize validates and returns an independent construction specification
+// with normalized configuration and forwarding database seeds.
+func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
+	owned := s.Clone()
+	owned.Config = owned.Config.Normalize()
+	if err := owned.Config.Validate(); err != nil {
+		return ConstructionSpec{}, err
+	}
+	if len(owned.Seeds) > 0 && owned.Config.Bridge == nil {
+		return ConstructionSpec{}, errs.New().
+			Attr("field", "seeds").
+			Msg("forwarding database seeds require bridge configuration")
+	}
+	if owned.Config.Bridge != nil {
+		seeds, err := bridge.NormalizeSeeds(*owned.Config.Bridge, owned.Config.Ports, owned.Seeds)
+		if err != nil {
+			return ConstructionSpec{}, err
+		}
+		owned.Seeds = seeds
+	}
+
+	return owned, nil
+}
+
 // Clone returns an independent deep copy of the construction specification.
 func (s ConstructionSpec) Clone() ConstructionSpec {
 	cp := ConstructionSpec{
@@ -133,12 +157,11 @@ func New(cfg Config) (*Switch, error) {
 // NewWithSpec constructs a [Switch] from an immutable deep clone of spec,
 // restoring preloaded forwarding database seeds and construction trust metadata.
 func NewWithSpec(spec ConstructionSpec) (*Switch, error) {
-	owned := spec.Clone()
-	norm := owned.Config.Normalize()
-	if err := norm.Validate(); err != nil {
+	norm, err := spec.Normalize()
+	if err != nil {
 		return nil, err
 	}
-	return newSwitch(norm, owned.Seeds, owned.NodeID, owned.Metadata)
+	return newSwitch(norm.Config, norm.Seeds, norm.NodeID, norm.Metadata)
 }
 
 func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysis.Metadata) (*Switch, error) {
@@ -234,7 +257,9 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 	}
 
 	if len(seeds) > 0 && sw.bridge != nil {
-		sw.bridge.Learn(seeds)
+		if err := sw.bridge.Learn(seeds); err != nil {
+			return nil, err
+		}
 	}
 
 	return sw, nil
@@ -322,17 +347,30 @@ func (s *Switch) RouterPorts(vid vlan.ID) []mcast.RouterPort {
 	return s.mcast.RouterPorts(vid)
 }
 
-// Learn preloads the switch's bridge forwarding database with the provided seeds.
-// It records the seeds in the switch's construction specification and is a no-op
-// when the switch has no bridge relay.
-func (s *Switch) Learn(seeds []bridge.Seed) {
-	if len(seeds) > 0 {
-		s.seeds = append(s.seeds, slices.Clone(seeds)...)
+// Learn validates and preloads the switch's bridge forwarding database with the
+// provided seeds. It records normalized seeds in the construction specification.
+// Invalid or duplicate seeds leave the switch unchanged.
+func (s *Switch) Learn(seeds []bridge.Seed) error {
+	if len(seeds) == 0 {
+		return nil
 	}
-	if s.bridge == nil {
-		return
+	if s.bridge == nil || s.cfg.Bridge == nil {
+		return errs.New().
+			Attr("field", "seeds").
+			Msg("forwarding database seeds require bridge configuration")
 	}
-	s.bridge.Learn(seeds)
+
+	combined := append(slices.Clone(s.seeds), seeds...)
+	normalized, err := bridge.NormalizeSeeds(*s.cfg.Bridge, s.ports, combined)
+	if err != nil {
+		return err
+	}
+	if err := s.bridge.Learn(seeds); err != nil {
+		return err
+	}
+	s.seeds = normalized
+
+	return nil
 }
 
 // Forget removes a forwarding database entry with the given FID and MAC address from
@@ -1104,21 +1142,31 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	}
 
 	var candidates []port.Port
+	var eligible int
+	var unavailable []trace.Fact
 	for _, cand := range s.ports.Ports() {
 		if cand.LagParent != "" || cand.Name == res.Ingress {
 			continue
 		}
+		eligible++
+		res.Consult(s.egressDependencies(cand.Name)...)
 		if !cand.Forwards() {
+			unavailable = append(unavailable, port.ForwardingFact(cand.Name, cand, false, port.ReasonPortDown))
 			continue
-		}
-		res.Consult(cand)
-		if cand.Kind == port.Lag {
-			res.Consult(s.ports.Members(cand.Name)...)
 		}
 		candidates = append(candidates, cand)
 	}
 
 	if len(candidates) == 0 {
+		res.Reason = bridge.ReasonNoEgress
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.hub.no_egress",
+			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+			Inputs:  unavailable,
+			Outputs: []trace.Fact{port.HubEgressFact(eligible, 0, bridge.ReasonNoEgress)},
+		})
 		return res
 	}
 
@@ -1215,7 +1263,7 @@ func (s *Switch) forwardingPath(name string) []port.Port {
 
 func (s *Switch) egressDependencies(name string) []port.Port {
 	path := s.forwardingPath(name)
-	if len(path) != 1 || path[0].Kind != port.Lag || !path[0].Forwards() {
+	if len(path) != 1 || path[0].Kind != port.Lag {
 		return path
 	}
 
@@ -1375,7 +1423,11 @@ func (s *Switch) Start(now time.Time) {
 				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
 				s.applyLAGEffects(now, fx)
 			}
-			s.updateLagState(now, p.LagParent)
+		}
+	}
+	for _, p := range s.ports.Ports() {
+		if p.Kind == port.Lag {
+			s.updateLagState(now, p.Name)
 		}
 	}
 
@@ -1441,17 +1493,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	// The row follows the members' own rows, not the layer's delayed
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
-	anyUp := false
-	for _, m := range s.ports.Members(lagName) {
-		if m.OperStatus != port.Down {
-			anyUp = true
-			break
-		}
-	}
-	lagOper := port.Down
-	if anyUp {
-		lagOper = port.Up
-	}
+	lagOper := aggregateOperStatus(s.ports.Members(lagName))
 	s.SetOperStatus(lagName, lagOper)
 
 	if s.stp != nil {
@@ -1491,6 +1533,23 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 		fxSTP := s.stp.LinkChange(now, lagName, lagUp, lagP2P, highestSpeed)
 		s.applySTPEffects(fxSTP)
 	}
+}
+
+func aggregateOperStatus(members []port.Port) port.LinkState {
+	possible := false
+	for _, member := range members {
+		if member.AdminStatus == port.Up && member.OperStatus == port.Up {
+			return port.Up
+		}
+		if member.AdminStatus != port.Down && member.OperStatus != port.Down {
+			possible = true
+		}
+	}
+	if possible {
+		return port.Unknown
+	}
+
+	return port.Down
 }
 
 // Drain returns and clears pending frame emissions produced by the protocol layers.

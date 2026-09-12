@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -12,20 +13,89 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
-func TestHubCompletenessUsesOnlyConsultedPortState(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
-	sw := mustSwitch(t, vswitch.Config{Ports: ports})
+func TestHubCompletenessUsesEveryEligibleEgressState(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		state      port.LinkState
+		wantStatus analysis.Status
+		wantEgress int
+	}{
+		{name: "unknown can change egress", state: port.Unknown, wantStatus: analysis.Incomplete},
+		{name: "known down is definite", state: port.Down, wantStatus: analysis.Complete},
+		{name: "known up forwards", state: port.Up, wantStatus: analysis.Complete, wantEgress: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ports := mustTable(t, port.NewBuilder().
+				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: test.state}))
+			sw := mustSwitch(t, vswitch.Config{Ports: ports})
 
-	res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
-	if got := res.Metadata.Status(); got != analysis.Complete {
-		t.Fatalf("hub status = %s, want %s; issues: %+v", got, analysis.Complete, res.Metadata.Issues())
+			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			if got := res.Metadata.Status(); got != test.wantStatus {
+				t.Fatalf("hub status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
+			}
+			if got := len(res.Egress); got != test.wantEgress {
+				t.Errorf("hub egress count = %d, want %d", got, test.wantEgress)
+			}
+			if test.state == port.Unknown {
+				assertSingleUnknownPortIssue(t, res)
+			}
+		})
+	}
+}
+
+func TestBridgeFloodCompletenessUsesEligibleButNotIrrelevantUnknownPorts(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		state      port.LinkState
+		wantStatus analysis.Status
+		wantEgress int
+	}{
+		{name: "unknown can change egress", state: port.Unknown, wantStatus: analysis.Incomplete},
+		{name: "known down is definite", state: port.Down, wantStatus: analysis.Complete},
+		{name: "known up forwards", state: port.Up, wantStatus: analysis.Complete, wantEgress: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ports := mustTable(t, port.NewBuilder().
+				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: test.state}))
+			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+
+			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			if got := res.Metadata.Status(); got != test.wantStatus {
+				t.Fatalf("bridge status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
+			}
+			if got := len(res.Egress); got != test.wantEgress {
+				t.Errorf("bridge egress count = %d, want %d", got, test.wantEgress)
+			}
+			if test.state == port.Unknown {
+				assertSingleUnknownPortIssue(t, res)
+			}
+		})
 	}
 
-	res = sw.Forward(fixedTime, "unrelated", ethernet.Frame{Src: macH1, Dst: macH2})
-	assertSingleUnknownPortIssue(t, res, "unrelated")
+	t.Run("unknown VLAN non-member is irrelevant", func(t *testing.T) {
+		vid := vlan.ID(10)
+		ports := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
+		sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{vid: "ten"},
+			Switchports: map[string]bridge.Switchport{
+				"in":  {PVID: &vid, Untagged: []vlan.ID{vid}},
+				"out": {PVID: &vid, Untagged: []vlan.ID{vid}},
+			},
+		}}})
+
+		res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+		if got := res.Metadata.Status(); got != analysis.Complete {
+			t.Fatalf("bridge status = %s, want %s; issues: %+v", got, analysis.Complete, res.Metadata.Issues())
+		}
+		if got := len(res.Egress); got != 1 {
+			t.Errorf("bridge egress count = %d, want 1", got)
+		}
+	})
 }
 
 func TestKnownBridgeEgressUsesItsOwnPortState(t *testing.T) {
@@ -44,14 +114,14 @@ func TestKnownBridgeEgressUsesItsOwnPortState(t *testing.T) {
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: test.admin, OperStatus: test.oper}).
 				Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
 			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
-			sw.Learn([]bridge.Seed{{MAC: macH2, Port: "out", Static: true}})
+			mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH2, Port: "out", Static: true}})
 
 			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			if got := res.Metadata.Status(); got != test.wantStatus {
 				t.Fatalf("bridge status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
 			if test.wantStatus == analysis.Incomplete {
-				assertSingleUnknownPortIssue(t, res, "out")
+				assertSingleUnknownPortIssue(t, res)
 			} else if issues := res.Metadata.Issues(); len(issues) != 0 {
 				t.Errorf("known-down bridge egress issues = %+v, want none", issues)
 			}
@@ -98,7 +168,7 @@ func TestRoutedEgressCompletenessUsesConsultedPortState(t *testing.T) {
 				t.Fatalf("routed status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
 			if test.wantStatus == analysis.Incomplete {
-				assertSingleUnknownPortIssue(t, res, "out")
+				assertSingleUnknownPortIssue(t, res)
 			} else if issues := res.Metadata.Issues(); len(issues) != 0 {
 				t.Errorf("known-down routed egress issues = %+v, want none", issues)
 			}
@@ -106,7 +176,7 @@ func TestRoutedEgressCompletenessUsesConsultedPortState(t *testing.T) {
 	}
 }
 
-func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult, name string) {
+func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult) {
 	t.Helper()
 	if !traceHasFactType(res.Steps, "port.forwarding") {
 		t.Errorf("unknown-port trace has no port forwarding fact: %+v", res.Steps)
@@ -118,7 +188,7 @@ func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult, name 
 	if len(issues) != 1 {
 		t.Fatalf("issues = %+v, want one unknown-port issue", issues)
 	}
-	if want := analysis.PortScope("", name); issues[0].Scope.Compare(want) != 0 {
+	if want := analysis.PortScope("", "out"); issues[0].Scope.Compare(want) != 0 {
 		t.Errorf("issue scope = %s, want %s", issues[0].Scope, want)
 	}
 }

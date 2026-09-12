@@ -5,6 +5,7 @@ package traffic
 import (
 	"maps"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -125,12 +126,14 @@ func (c Config) Normalize() Config {
 func (c Config) Validate(ports port.Table) error {
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
-	for _, mirror := range c.Mirrors {
+	for mirrorIndex, mirror := range c.Mirrors {
+		prefix := "mirrors." + strconv.Itoa(mirrorIndex)
 		if mirror.Name == "" {
-			return errs.New().Attr("mirror", "").Msg("mirror name cannot be empty")
+			return errs.New().Attr("field", prefix+".name").Attr("mirror", "").Msg("mirror name cannot be empty")
 		}
 		if _, exists := mirrorNames[mirror.Name]; exists {
 			return errs.New().
+				Attr("field", prefix+".name").
 				Attr("mirror", mirror.Name).
 				Msgf("duplicate mirror name %q", mirror.Name)
 		}
@@ -138,6 +141,7 @@ func (c Config) Validate(ports port.Table) error {
 
 		if (mirror.OutputPort == "") == (mirror.OutputVLAN == nil) {
 			return errs.New().
+				Attr("field", prefix+".output").
 				Attr("mirror", mirror.Name).
 				Msgf("mirror %q must have exactly one output", mirror.Name)
 		}
@@ -145,12 +149,14 @@ func (c Config) Validate(ports port.Table) error {
 			output, ok := ports.Port(mirror.OutputPort)
 			if !ok {
 				return errs.New().
+					Attr("field", prefix+".output_port").
 					Attr("mirror", mirror.Name).
 					Attr("port", mirror.OutputPort).
 					Msgf("mirror output port %q absent from port table", mirror.OutputPort)
 			}
 			if output.Kind == port.Lag || output.LagParent != "" {
 				return errs.New().
+					Attr("field", prefix+".output_port").
 					Attr("mirror", mirror.Name).
 					Attr("port", mirror.OutputPort).
 					Msgf("mirror output port %q cannot be a LAG or LAG member", mirror.OutputPort)
@@ -159,28 +165,41 @@ func (c Config) Validate(ports port.Table) error {
 		}
 		if mirror.OutputVLAN != nil && !mirror.OutputVLAN.Valid() {
 			return errs.New().
+				Attr("field", prefix+".output_vlan").
 				Attr("mirror", mirror.Name).
 				Attr("vlan", *mirror.OutputVLAN).
 				Msgf("mirror output VLAN %d is outside 1 through 4094", *mirror.OutputVLAN)
 		}
 		if mirror.SnapLen < 0 || mirror.SnapLen > 0 && mirror.SnapLen < 18 {
 			return errs.New().
+				Attr("field", prefix+".snap_len").
 				Attr("mirror", mirror.Name).
 				Attr("snap_len", mirror.SnapLen).
 				Msg("mirror snap length must be zero or at least 18 octets")
 		}
 
-		for _, name := range append(slices.Clone(mirror.SelectSrcPorts), mirror.SelectDstPorts...) {
+		for selectorIndex, name := range mirror.SelectSrcPorts {
 			if _, ok := ports.Port(name); !ok {
 				return errs.New().
+					Attr("field", prefix+".select_src_ports."+strconv.Itoa(selectorIndex)).
 					Attr("mirror", mirror.Name).
 					Attr("port", name).
 					Msgf("mirror selector port %q absent from port table", name)
 			}
 		}
-		for _, id := range mirror.SelectVLANs {
+		for selectorIndex, name := range mirror.SelectDstPorts {
+			if _, ok := ports.Port(name); !ok {
+				return errs.New().
+					Attr("field", prefix+".select_dst_ports."+strconv.Itoa(selectorIndex)).
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Msgf("mirror selector port %q absent from port table", name)
+			}
+		}
+		for selectorIndex, id := range mirror.SelectVLANs {
 			if !id.Valid() {
 				return errs.New().
+					Attr("field", prefix+".select_vlans."+strconv.Itoa(selectorIndex)).
 					Attr("mirror", mirror.Name).
 					Attr("vlan", id).
 					Msgf("mirror selector VLAN %d is outside 1 through 4094", id)
@@ -188,10 +207,20 @@ func (c Config) Validate(ports port.Table) error {
 		}
 	}
 
-	for _, mirror := range c.Mirrors {
-		for _, name := range append(slices.Clone(mirror.SelectSrcPorts), mirror.SelectDstPorts...) {
+	for mirrorIndex, mirror := range c.Mirrors {
+		for selectorIndex, name := range mirror.SelectSrcPorts {
 			if _, reserved := outputPorts[name]; reserved {
 				return errs.New().
+					Attr("field", "mirrors."+strconv.Itoa(mirrorIndex)+".select_src_ports."+strconv.Itoa(selectorIndex)).
+					Attr("mirror", mirror.Name).
+					Attr("port", name).
+					Msgf("mirror selector port %q is reserved for mirror output", name)
+			}
+		}
+		for selectorIndex, name := range mirror.SelectDstPorts {
+			if _, reserved := outputPorts[name]; reserved {
+				return errs.New().
+					Attr("field", "mirrors."+strconv.Itoa(mirrorIndex)+".select_dst_ports."+strconv.Itoa(selectorIndex)).
 					Attr("mirror", mirror.Name).
 					Attr("port", name).
 					Msgf("mirror selector port %q is reserved for mirror output", name)
@@ -203,11 +232,13 @@ func (c Config) Validate(ports port.Table) error {
 		policer := c.Policers[name]
 		if _, ok := ports.Port(name); !ok {
 			return errs.New().
+				Attr("field", "policers."+name).
 				Attr("port", name).
 				Msgf("policer port %q absent from port table", name)
 		}
 		if policer.RateBPS > 0 && policer.BurstOctets < 1 {
 			return errs.New().
+				Attr("field", "policers."+name+".burst_octets").
 				Attr("port", name).
 				Attr("rate_bps", policer.RateBPS).
 				Attr("burst_octets", policer.BurstOctets).
@@ -219,18 +250,28 @@ func (c Config) Validate(ports port.Table) error {
 		queues := c.Queues[name]
 		if _, ok := ports.Port(name); !ok {
 			return errs.New().
+				Attr("field", "queues."+name).
 				Attr("port", name).
 				Msgf("queue port %q absent from port table", name)
 		}
-		for pcp, rate := range queues.MaxRateBPS {
+		pcps := make([]vlan.PCP, 0, len(queues.MaxRateBPS))
+		for pcp := range queues.MaxRateBPS {
+			pcps = append(pcps, pcp)
+		}
+		slices.Sort(pcps)
+		for _, pcp := range pcps {
+			rate := queues.MaxRateBPS[pcp]
+			field := "queues." + name + ".max_rate_bps." + strconv.Itoa(int(pcp))
 			if !pcp.Valid() {
 				return errs.New().
+					Attr("field", field).
 					Attr("port", name).
 					Attr("pcp", pcp).
 					Msgf("queue PCP %d on port %q is invalid", pcp, name)
 			}
 			if rate == 0 {
 				return errs.New().
+					Attr("field", field).
 					Attr("port", name).
 					Attr("pcp", pcp).
 					Msgf("queue maximum rate on port %q PCP %d must be positive", name, pcp)

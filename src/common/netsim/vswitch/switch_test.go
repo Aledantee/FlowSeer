@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -40,6 +41,158 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
+func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
+	tests := []struct {
+		name        string
+		members     []port.Port
+		wantAtStart port.LinkState
+	}{
+		{
+			name: "definite up wins",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"},
+			},
+			wantAtStart: port.Up,
+		},
+		{
+			name: "possible member is unknown",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Unknown, OperStatus: port.Up, LagParent: "lag1"},
+			},
+			wantAtStart: port.Unknown,
+		},
+		{
+			name: "administratively or operationally down is definite",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Unknown, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Unknown, OperStatus: port.Down, LagParent: "lag1"},
+			},
+			wantAtStart: port.Down,
+		},
+		{
+			name:        "no members is definite down",
+			wantAtStart: port.Down,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			builder := port.NewBuilder().Add(port.Port{
+				Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up,
+			})
+			for _, member := range test.members {
+				builder.Add(member)
+			}
+			sw := mustSwitch(t, vswitch.Config{Ports: mustTable(t, builder), Bridge: &bridge.Config{}})
+
+			sw.Start(fixedTime)
+			lagPort, _ := sw.Ports().Port("lag1")
+			if got := lagPort.OperStatus; got != test.wantAtStart {
+				t.Fatalf("oper status after Start = %s, want %s", got, test.wantAtStart)
+			}
+		})
+	}
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
+	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+	sw.Start(fixedTime)
+	sw.LinkChange(fixedTime.Add(time.Second), "member", true, true, 1_000_000_000)
+	lagPort, _ := sw.Ports().Port("lag1")
+	if got := lagPort.OperStatus; got != port.Up {
+		t.Fatalf("oper status after link up = %s, want %s", got, port.Up)
+	}
+	sw.LinkChange(fixedTime.Add(2*time.Second), "member", false, true, 1_000_000_000)
+	lagPort, _ = sw.Ports().Port("lag1")
+	if got := lagPort.OperStatus; got != port.Down {
+		t.Fatalf("oper status after link down = %s, want %s", got, port.Down)
+	}
+}
+
+func TestConfigEqualAndDiffNormalizeCompleteConfiguration(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag}).
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1"}))
+	raw := vswitch.Config{Ports: ports}
+	explicit := raw.Normalize()
+
+	if !raw.Equal(explicit) {
+		t.Fatal("raw configuration and its normalized form compare unequal")
+	}
+	if got := vswitch.Diff(raw, explicit); len(got) != 0 {
+		t.Errorf("Diff(raw, raw.Normalize()) = %+v, want none", got)
+	}
+}
+
+func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := vswitch.Config{Ports: ports, Bridge: &bridge.Config{}}
+	oldMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x10}
+	newMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x20}
+	oldMetadata := analysis.NewMetadata(
+		analysis.NodeScope("old"),
+		[]analysis.Issue{{Code: "test.old", Status: analysis.Incomplete, Scope: analysis.NodeScope("old")}},
+		analysis.EvidenceCatalog{},
+		nil,
+	)
+	newMetadata := analysis.NewMetadata(
+		analysis.NodeScope("new"),
+		[]analysis.Issue{{Code: "test.new", Status: analysis.Incomplete, Scope: analysis.NodeScope("new")}},
+		analysis.EvidenceCatalog{},
+		nil,
+	)
+	cur, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config:   cfg,
+		Seeds:    []bridge.Seed{{MAC: oldMAC, Port: "out", Static: true}},
+		NodeID:   "old",
+		Metadata: oldMetadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec(current) error = %v", err)
+	}
+	target := vswitch.ConstructionSpec{
+		Config:   cfg,
+		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Static: true}},
+		NodeID:   "new",
+		Metadata: newMetadata,
+	}
+
+	next, err := vswitch.Derive(cur, target)
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+	got := next.Spec()
+	if !got.Equal(target) {
+		t.Errorf("derived spec = %+v, want target spec %+v", got, target)
+	}
+	entries := next.Entries()
+	if len(entries) != 1 || entries[0].MAC != newMAC {
+		t.Errorf("derived entries = %+v, want only target static seed %s", entries, newMAC)
+	}
+}
+
+func TestHubNoCandidateHasSemanticTerminalDecision(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "only", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{Ports: ports})
+
+	res := sw.Forward(fixedTime, "only", ethernet.Frame{Src: macH1, Dst: macH2})
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
+		t.Fatalf("hub result = %s/%s, want %s/%s", res.Outcome, res.Reason, trace.Dropped, bridge.ReasonNoEgress)
+	}
+	if len(res.Steps) != 1 || res.Steps[0].RuleID != "port.hub.no_egress" {
+		t.Fatalf("hub steps = %+v, want one no-egress decision", res.Steps)
+	}
+	if outputs := res.Steps[0].Outputs; len(outputs) != 1 || outputs[0].TypeID() != "port.hub_egress" {
+		t.Errorf("hub decision outputs = %+v, want port.hub_egress fact", outputs)
+	}
+}
+
 func mustSwitch(t *testing.T, cfg vswitch.Config) *vswitch.Switch {
 	t.Helper()
 	sw, err := vswitch.New(cfg)
@@ -47,6 +200,13 @@ func mustSwitch(t *testing.T, cfg vswitch.Config) *vswitch.Switch {
 		t.Fatalf("vswitch.New: %v", err)
 	}
 	return sw
+}
+
+func mustSwitchLearn(t *testing.T, sw *vswitch.Switch, seeds []bridge.Seed) {
+	t.Helper()
+	if err := sw.Learn(seeds); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
 }
 
 func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
@@ -69,7 +229,7 @@ func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, err := vswitch.Derive(cur, cur.Config())
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -97,7 +257,7 @@ func TestDeriveKeepsAnEntryLearnedOnATunnelPort(t *testing.T) {
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, err := vswitch.Derive(cur, cur.Config())
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -348,7 +508,7 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 	if copies := sw.Copies(); len(copies) != 0 {
 		t.Errorf("second Copies() = %+v, want empty", copies)
 	}
-	sw.Learn([]bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Static: true}})
+	mustSwitchLearn(t, sw, []bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Static: true}})
 	reservedOnly := sw.Forward(fixedTime, "1/1/1", frame)
 	if reservedOnly.Outcome != trace.Dropped || reservedOnly.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("reserved-only trace = %+v, want mirror-output drop", reservedOnly.Trace)
@@ -498,7 +658,7 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 
 			next := cfg.Clone()
 			tt.change(&next)
-			derived, err := vswitch.Derive(cur, next)
+			derived, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: next})
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
@@ -733,7 +893,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 		t.Fatalf("current switch has %d entries, want 2", len(entries))
 	}
 
-	derived, err := vswitch.Derive(cur, expCfg)
+	derived, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg})
 	if err != nil {
 		t.Fatalf("derive switch: %v", err)
 	}
@@ -1081,7 +1241,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Bridge: &bridge.Config{},
 		}
 
-		derived, err := vswitch.Derive(sw, targetCfg)
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
 		if err != nil {
 			t.Fatalf("unexpected derive error: %v", err)
 		}
@@ -1103,7 +1263,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			},
 		}
 
-		if _, err := vswitch.Derive(sw, invalidCfg); err == nil {
+		if _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
 			t.Errorf("expected validation error from Derive, got nil")
 		}
 	})
@@ -1121,7 +1281,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 		})
 
-		derived, err := vswitch.Derive(sw, cfg)
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1157,7 +1317,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Ports:  ports,
 			Bridge: &bridge.Config{},
 		}
-		derived, err := vswitch.Derive(sw, nonVlanCfg)
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -1731,7 +1891,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
 	}
 
-	derived, err := vswitch.Derive(sw, cfg)
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -1784,7 +1944,7 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
 	}
 
-	derived, err := vswitch.Derive(sw, cfg)
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -2268,7 +2428,10 @@ func TestBaseMACAssignment(t *testing.T) {
 		nextCfg := vswitch.Config{
 			Ports: ports,
 		}
-		nextSw, err := vswitch.Derive(cur, nextCfg)
+		target := cur.Spec()
+		target.Config = nextCfg
+		target.Config.MAC = cur.Config().MAC
+		nextSw, err := vswitch.Derive(cur, target)
 		if err != nil {
 			t.Fatalf("Derive failed: %v", err)
 		}
@@ -3571,7 +3734,7 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 	})
 	nextCfg.Routing.VRFs["default"] = defaultVRF
 
-	nextSw, err := vswitch.Derive(cur, nextCfg)
+	nextSw, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
@@ -3607,7 +3770,7 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 		sw := mustSwitch(t, cfg)
 
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-		sw.Learn([]bridge.Seed{
+		mustSwitchLearn(t, sw, []bridge.Seed{
 			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
 		})
 		entries := sw.Entries()
@@ -3641,9 +3804,15 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 		sw := mustSwitch(t, cfg)
 
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-		sw.Learn([]bridge.Seed{
+		err := sw.Learn([]bridge.Seed{
 			{FID: 0, MAC: mac, Port: "1/1/1", Static: true, LearnedAt: now},
 		})
+		if err == nil {
+			t.Fatal("Learn() on hub = nil error, want bridge-required error")
+		}
+		if got := errs.Attributes(err)["field"]; got != "seeds" {
+			t.Errorf("field = %v, want %q", got, "seeds")
+		}
 		if sw.Forget(0, mac) {
 			t.Errorf("Forget() on hub = true, want false")
 		}
@@ -4564,7 +4733,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	))
 
-	kept, err := vswitch.Derive(cur, base.Clone())
+	kept, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()})
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
@@ -4574,7 +4743,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 
 	removed := base.Clone()
 	delete(removed.Mcast.VLANs, 10)
-	dropped, err := vswitch.Derive(cur, removed)
+	dropped, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed})
 	if err != nil {
 		t.Fatalf("Derive removing snooped VLAN: %v", err)
 	}
@@ -4594,7 +4763,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	changedMcast.RouterPortInterval = 45 * time.Second
 	changedMcast.RouterPorts = []string{"1/1/3"}
 	changed.Mcast.VLANs[10] = changedMcast
-	retained, err := vswitch.Derive(cur, changed)
+	retained, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed})
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}

@@ -23,7 +23,9 @@ func TestForwardCarriesRelevantLoadConflictWithEvidence(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
 	}
-	sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/3", Static: true}})
+	if err := sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/3", Static: true}}); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
 
 	forwarded := sw.Peek(trustTestTime, "1/1/1", frame)
 	if forwarded.Metadata.Status() != analysis.Unstable {
@@ -42,7 +44,9 @@ func TestForwardExcludesUnrelatedLoadConflict(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
 	}
-	sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/2", Static: true}})
+	if err := sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/2", Static: true}}); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
 
 	forwarded := sw.Peek(trustTestTime, "1/1/1", frame)
 	if forwarded.Metadata.Status() != analysis.Complete {
@@ -128,7 +132,9 @@ func TestConstructionSpecMetadataIsCloneIsolatedAndDeterministic(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
 	}
-	sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/3", Static: true}})
+	if err := sw.Learn([]bridge.Seed{{MAC: frame.Dst, Port: "1/1/3", Static: true}}); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
 	first := sw.Peek(trustTestTime, "1/1/1", frame).Metadata
 	for range 10 {
 		next := sw.Peek(trustTestTime, "1/1/1", frame).Metadata

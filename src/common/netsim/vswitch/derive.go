@@ -15,28 +15,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// Derive builds a new [Switch] from the target configuration, seeding it with every
+// Derive builds a new [Switch] from the target construction specification, seeding it with every
 // dynamic forwarding database entry from the current switch that the new configuration
 // still admits. Reseeded dynamic entries count as learned and are bounded by the new
-// configuration's MaxEntries, evicting from the oldest; static entries are not reseeded.
+// configuration's MaxEntries, evicting from the oldest. Static entries and construction
+// trust come only from target.
 // A derived standalone switch keeps spanning tree roles and eligible multicast
 // memberships and learned router ports when their layer configuration is unchanged.
-// It returns an error if the new configuration fails validation.
-func Derive(cur *Switch, cfg Config) (*Switch, error) {
-	if cur != nil && cfg.MAC == (netaddr.MAC{}) {
-		cfg.MAC = cur.cfg.MAC
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return nil, err
-	}
-
-	spec := ConstructionSpec{Config: cfg}
-	if cur != nil {
-		spec.NodeID = cur.nodeID
-		spec.Metadata = cloneMetadata(cur.metadata)
-	}
-	next, err := NewWithSpec(spec)
+// It returns an error if the target specification fails validation.
+func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
+	next, err := NewWithSpec(target)
 	if err != nil {
 		return nil, err
 	}
@@ -111,24 +99,31 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	curVLAN := cur.cfg.Bridge != nil && cur.cfg.Bridge.VLAN != nil
-	nextVLAN := cfg.Bridge != nil && cfg.Bridge.VLAN != nil
+	nextVLAN := next.cfg.Bridge != nil && next.cfg.Bridge.VLAN != nil
+	targetSeeds := make(map[bridgeSeedKey]struct{}, len(next.seeds))
+	for _, seed := range next.seeds {
+		targetSeeds[bridgeSeedKey{fid: seed.FID, mac: seed.MAC}] = struct{}{}
+	}
 
 	var seeds []bridge.Seed
 	for _, entry := range cur.Entries() {
 		if entry.Static {
 			continue
 		}
+		if _, configured := targetSeeds[bridgeSeedKey{fid: entry.FID, mac: entry.MAC}]; configured {
+			continue
+		}
 
-		p, ok := cfg.Ports.Port(entry.Port)
+		p, ok := next.cfg.Ports.Port(entry.Port)
 		if !ok {
 			continue
 		}
-		if p.Kind == port.Lag && len(cfg.Ports.Members(entry.Port)) == 0 {
+		if p.Kind == port.Lag && len(next.cfg.Ports.Members(entry.Port)) == 0 {
 			continue
 		}
 
 		if nextVLAN {
-			sw, ok := cfg.Bridge.VLAN.Switchports[entry.Port]
+			sw, ok := next.cfg.Bridge.VLAN.Switchports[entry.Port]
 			if !ok {
 				continue
 			}
@@ -157,10 +152,17 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	if len(seeds) > 0 {
-		next.bridge.Learn(seeds)
+		if err := next.bridge.Learn(seeds); err != nil {
+			return nil, err
+		}
 	}
 
 	return next, nil
+}
+
+type bridgeSeedKey struct {
+	fid vlan.ID
+	mac netaddr.MAC
 }
 
 // restoreMulticastState replays retained dynamic records into the new layer so

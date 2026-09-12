@@ -32,7 +32,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 			continue
 		}
 
-		derived, err := vswitch.Derive(curSw, sw.Config())
+		derived, err := vswitch.Derive(curSw, sw.Spec())
 		if err != nil {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}

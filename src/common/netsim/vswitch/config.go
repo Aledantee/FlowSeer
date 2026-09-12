@@ -437,8 +437,5 @@ func (c Config) Clone() Config {
 
 // Equal reports whether two switch configurations are semantically equal.
 func (c Config) Equal(other Config) bool {
-	if c.MAC != other.MAC {
-		return false
-	}
 	return len(Diff(c, other)) == 0
 }

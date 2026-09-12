@@ -143,20 +143,18 @@ func (b *Bridge) SetOperStatus(portName string, state port.LinkState) {
 	}
 }
 
-// Learn preloads the forwarding database with the provided seeds. A seed naming a
+// Learn validates and preloads the forwarding database with the provided seeds. A seed naming a
 // LAG member is stored under the LAG, as the relay learns it, so a later lookup
-// treats the aggregation as one port. A seed with a group address is ignored,
-// since the relay never learns one and the export could not carry it.
+// treats the aggregation as one port. Invalid or duplicate seeds leave the table unchanged.
 // Non-static seeds count as learned and are bounded by MaxEntries, evicting the
 // oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
-func (b *Bridge) Learn(seeds []Seed) {
-	for _, s := range seeds {
-		if s.MAC.IsGroup() {
-			continue
-		}
-		if p, ok := b.ports.Resolve(s.Port); ok {
-			s.Port = p.Name
-		}
+func (b *Bridge) Learn(seeds []Seed) error {
+	normalized, err := NormalizeSeeds(b.cfg, b.ports, seeds)
+	if err != nil {
+		return err
+	}
+
+	for _, s := range normalized {
 		key := fdbKey{fid: s.FID, mac: s.MAC}
 		existing, exists := b.fdb[key]
 		if s.Static {
@@ -183,6 +181,8 @@ func (b *Bridge) Learn(seeds []Seed) {
 			b.fdb[key] = existing
 		}
 	}
+
+	return nil
 }
 
 // Entries returns all active forwarding database entries sorted by filtering database ID then MAC address.
@@ -971,16 +971,20 @@ func (b *Bridge) replicate(
 		if !ok || candidate.LagParent != "" || candidate.Name == in.Port {
 			continue
 		}
-		_, txReason := b.ports.Transmit(candidate.Name, len(f.Payload))
-		if txReason == port.ReasonPortDown {
-			if replicationLayer == port.LayerMcast {
-				res.Consult(b.egressDependencies(candidate)...)
-			}
+		egressFrame, isMember := b.buildEgressFrame(candidate.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
+		if !isMember {
 			continue
 		}
 		res.Consult(b.egressDependencies(candidate)...)
-		egressFrame, isMember := b.buildEgressFrame(candidate.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
-		if !isMember {
+		_, txReason := b.ports.Transmit(candidate.Name, len(f.Payload))
+		if txReason == port.ReasonPortDown {
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:   port.LayerPort,
+				Op:      trace.OpDrop,
+				RuleID:  "port.status.down",
+				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
+				Inputs:  []trace.Fact{port.ForwardingFact(candidate.Name, candidate, false, txReason)},
+			})
 			continue
 		}
 		candidates = append(candidates, candidate)
@@ -1190,7 +1194,7 @@ func (b *Bridge) forwardingPath(name string) []port.Port {
 
 func (b *Bridge) egressDependencies(p port.Port) []port.Port {
 	path := []port.Port{p}
-	if p.Kind != port.Lag || !p.Forwards() {
+	if p.Kind != port.Lag {
 		return path
 	}
 

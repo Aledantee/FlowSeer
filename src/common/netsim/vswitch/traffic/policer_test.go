@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
@@ -79,7 +80,11 @@ func TestBucketCloneHasIndependentState(t *testing.T) {
 func TestNewBucketRejectsInvalidPolicer(t *testing.T) {
 	t.Parallel()
 
-	if _, err := traffic.NewBucket(traffic.Policer{RateBPS: 1, BurstOctets: 0}); err == nil {
+	_, err := traffic.NewBucket(traffic.Policer{RateBPS: 1, BurstOctets: 0})
+	if err == nil {
 		t.Fatal("NewBucket() error = nil, want error")
+	}
+	if got := errs.Attributes(err)["field"]; got != "burst_octets" {
+		t.Errorf("field = %v, want %q", got, "burst_octets")
 	}
 }

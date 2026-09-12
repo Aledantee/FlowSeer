@@ -107,8 +107,10 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 
 func TestFabricConstructionSpecRejectsUnknownSeedSwitch(t *testing.T) {
 	cfg := twoSwitchBaseConfig(t)
+	sw1 := cfg.Switches["sw1"]
+	sw1.Bridge = &bridge.Config{}
+	cfg.Switches["sw1"] = sw1
 	seed := bridge.Seed{
-		FID:    1,
 		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
 		Port:   "1/1/1",
 		Static: true,

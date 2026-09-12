@@ -39,6 +39,9 @@ func (f LayerFact) Canonical() string { return string(f) }
 // spanning tree differences, multicast snooping differences, routing differences,
 // and traffic differences.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize()
+	b = b.Normalize()
+
 	var changes []trace.Change
 
 	if a.MAC != b.MAC {

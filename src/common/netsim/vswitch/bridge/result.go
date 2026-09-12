@@ -29,7 +29,7 @@ const (
 	// ReasonNotMember indicates a known unicast whose destination port is not a member of the classified VLAN.
 	ReasonNotMember trace.Reason = "not-member"
 
-	// ReasonNoEgress indicates a flood with no forwarding member port other than the ingress port.
+	// ReasonNoEgress indicates replication with no forwarding logical port other than the ingress port.
 	ReasonNoEgress trace.Reason = "no-egress"
 
 	// ReasonPortBlocked indicates a frame dropped because a port is blocked from learning or forwarding.

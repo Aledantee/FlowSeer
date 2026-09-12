@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
@@ -183,6 +184,141 @@ func TestConstructionSpecIdentityAndSeedDifferences(t *testing.T) {
 	returnedSpec.Seeds[0].Port = "mutated"
 	if swWithSeed.Spec().Seeds[0].Port == "mutated" {
 		t.Errorf("mutating returned spec affected internal switch construction spec")
+	}
+}
+
+func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "access", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "outside", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	bridgeConfig := &bridge.Config{VLAN: &bridge.VLAN{
+		Table: map[vlan.ID]string{vid10: "ten"},
+		Switchports: map[string]bridge.Switchport{
+			"lag1":   {PVID: &vid10, Untagged: []vlan.ID{vid10}},
+			"access": {PVID: &vid10, Untagged: []vlan.ID{vid10}},
+		},
+	}}
+	validMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	tests := []struct {
+		name      string
+		config    vswitch.Config
+		seeds     []bridge.Seed
+		wantField string
+	}{
+		{
+			name:      "relay required",
+			config:    vswitch.Config{Ports: ports},
+			seeds:     []bridge.Seed{{FID: vid10, MAC: validMAC, Port: "access"}},
+			wantField: "seeds",
+		},
+		{
+			name:      "zero MAC",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: vid10, Port: "access"}},
+			wantField: "seeds.0.mac",
+		},
+		{
+			name:      "group MAC",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: vid10, MAC: netaddr.MAC{0x01}, Port: "access"}},
+			wantField: "seeds.0.mac",
+		},
+		{
+			name:      "unknown port",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: vid10, MAC: validMAC, Port: "missing"}},
+			wantField: "seeds.0.port",
+		},
+		{
+			name:      "FID outside VLAN range",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: 0, MAC: validMAC, Port: "access"}},
+			wantField: "seeds.0.fid",
+		},
+		{
+			name:      "FID absent from table",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: vid20, MAC: validMAC, Port: "access"}},
+			wantField: "seeds.0.fid",
+		},
+		{
+			name:      "port not admitted to FID",
+			config:    vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds:     []bridge.Seed{{FID: vid10, MAC: validMAC, Port: "outside"}},
+			wantField: "seeds.0.port",
+		},
+		{
+			name:   "nonzero FID without VLAN awareness",
+			config: vswitch.Config{Ports: ports, Bridge: &bridge.Config{}},
+			seeds: []bridge.Seed{
+				{FID: vid10, MAC: validMAC, Port: "access"},
+			},
+			wantField: "seeds.0.fid",
+		},
+		{
+			name:   "duplicate FID and MAC",
+			config: vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+			seeds: []bridge.Seed{
+				{FID: vid10, MAC: validMAC, Port: "access"},
+				{FID: vid10, MAC: validMAC, Port: "lag1"},
+			},
+			wantField: "seeds.1",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{Config: test.config, Seeds: test.seeds})
+			if err == nil {
+				t.Fatal("NewWithSpec() = nil error, want validation error")
+			}
+			if got := errs.Attributes(err)["field"]; got != test.wantField {
+				t.Errorf("field = %v, want %q", got, test.wantField)
+			}
+		})
+	}
+
+	secondMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{Ports: ports, Bridge: bridgeConfig},
+		Seeds: []bridge.Seed{
+			{FID: vid10, MAC: secondMAC, Port: "access", Static: true},
+			{FID: vid10, MAC: validMAC, Port: "member", Static: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec() error = %v", err)
+	}
+	wantSeeds := []bridge.Seed{
+		{FID: vid10, MAC: validMAC, Port: "lag1", Static: true},
+		{FID: vid10, MAC: secondMAC, Port: "access", Static: true},
+	}
+	if got := sw.Spec().Seeds; !slices.Equal(got, wantSeeds) {
+		t.Errorf("normalized seeds = %+v, want %+v", got, wantSeeds)
+	}
+}
+
+func TestSwitchLearnRejectsInvalidSeedsWithoutRecordingThem(t *testing.T) {
+	ports := twoPortTable(t)
+	sw, err := vswitch.New(vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	err = sw.Learn([]bridge.Seed{{MAC: netaddr.MAC{0x01}, Port: "1/1/1"}})
+	if err == nil {
+		t.Fatal("Learn() = nil error, want invalid MAC error")
+	}
+	if got := errs.Attributes(err)["field"]; got != "seeds.0.mac" {
+		t.Errorf("field = %v, want seeds.0.mac", got)
+	}
+	if got := sw.Spec().Seeds; len(got) != 0 {
+		t.Errorf("Spec().Seeds = %+v, want none", got)
 	}
 }
 

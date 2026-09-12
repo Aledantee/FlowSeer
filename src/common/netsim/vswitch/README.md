@@ -81,7 +81,9 @@ func main() {
 		panic(err)
 	}
 
-	nextSw, err := vswitch.Derive(sw, nextCfg)
+	nextSpec := sw.Spec()
+	nextSpec.Config = nextCfg
+	nextSw, err := vswitch.Derive(sw, nextSpec)
 	if err != nil {
 		panic(err)
 	}
@@ -309,14 +311,19 @@ port cannot source is `FAULT`. A port with no attached device exports no
 `power_class` and draws nothing from the budget.
 
 ## Construction specifications and trust metadata
- 
+
 Exported constructors validate and normalize configurations:
+
 - [New] normalizes and validates the input configuration, returning an error
   if port tables or subsystem invariants fail.
 - [NewWithSpec] constructs a switch from a [ConstructionSpec], restoring preloaded
   forwarding database seeds and construction trust metadata alongside normalized
   configuration. [Switch.Spec] extracts an independent deep copy of this
   specification for exact reproducibility.
+- [Derive] takes the target [ConstructionSpec]. Static forwarding entries, node
+  identity, and trust metadata come only from that target; they are not copied
+  from the current switch. To retain existing target trust while changing its
+  configuration, start with [Switch.Spec] and replace its `Config` field.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
@@ -327,6 +334,12 @@ Exported constructors validate and normalize configurations:
 scopes. An empty key identifies an anonymous standalone switch; only then does a
 whole-analysis issue count as node-wide. A fabric uses its switch map key as the
 node identity. `netmodel.Load` uses `SourceContext.DeviceID`.
+
+Forwarding database seeds require a bridge relay. Their MAC addresses must be
+usable unicast addresses, their ports must resolve to an admitted logical port,
+and their FIDs must belong to that port. Duplicate FID and MAC pairs are rejected.
+[Switch.Learn] applies the same validation and leaves the switch unchanged when
+it returns an error.
 
 Forwarding combines runtime issues with construction issues on the exact ports the
 forwarding result consulted. Field scopes below those ports overlap them. An issue

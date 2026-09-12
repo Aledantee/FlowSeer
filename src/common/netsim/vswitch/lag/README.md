@@ -91,6 +91,13 @@ member = enabled[bucket % len(enabled)]
 Here `enabled` contains the currently enabled member names sorted in alphabetical
 order.
 
+## Configuration comparison
+
+`Diff` accepts normalized `Config` values. Normalize each side with the same
+port table and switch system ID before comparing them. Top-level `vswitch.Diff`
+does this automatically, including the case where a port table implies the LAG
+capability but the raw `LAG` field was omitted.
+
 ### BalanceSLB hash input
 
 `hashSLB` writes the following fields in sequence into the 32-bit FNV-1a hasher:

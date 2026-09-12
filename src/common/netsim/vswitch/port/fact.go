@@ -37,3 +37,15 @@ func ForwardingFact(name string, p Port, eligible bool, reason trace.Reason) tra
 
 	return forwardingFact(b.String())
 }
+
+type hubEgressFact string
+
+func (f hubEgressFact) TypeID() string    { return "port.hub_egress" }
+func (f hubEgressFact) Canonical() string { return string(f) }
+
+// HubEgressFact returns an immutable snapshot of a hub replication decision.
+func HubEgressFact(eligible, forwarding int, reason trace.Reason) trace.Fact {
+	return hubEgressFact("eligible=" + strconv.Itoa(eligible) +
+		";forwarding=" + strconv.Itoa(forwarding) +
+		";reason=" + strconv.Quote(string(reason)))
+}

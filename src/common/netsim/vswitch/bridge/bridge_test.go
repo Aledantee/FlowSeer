@@ -54,6 +54,13 @@ func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Br
 	return br
 }
 
+func mustLearn(t *testing.T, br *bridge.Bridge, seeds []bridge.Seed) {
+	t.Helper()
+	if err := br.Learn(seeds); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
+}
+
 func TestDropsWithoutAnEgressCarryAReason(t *testing.T) {
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
@@ -113,13 +120,18 @@ func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
 	}
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
 	br := mustNewBridge(t, bridge.Config{}, tbl)
-	br.Learn([]bridge.Seed{
-		{MAC: macB, Port: "1/1/6", LearnedAt: now},
-		{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now},
-	})
+	if err := br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/6", LearnedAt: now}}); err != nil {
+		t.Fatalf("Learn() error = %v", err)
+	}
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "lag1" {
-		t.Fatalf("Entries() = %+v, want one entry on lag1 and the group seed ignored", entries)
+		t.Fatalf("Entries() = %+v, want one entry on lag1", entries)
+	}
+	if err := br.Learn([]bridge.Seed{{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now}}); err == nil {
+		t.Fatal("Learn() accepted a group MAC")
+	}
+	if got := br.Entries(); len(got) != 1 || got[0] != entries[0] {
+		t.Errorf("Entries() after invalid Learn = %+v, want unchanged %+v", got, entries)
 	}
 
 	res := br.Forward(now, "1/1/5", ethernet.Frame{Dst: macB, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa}})
@@ -572,7 +584,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	}
 	br.Forward(testTime0, "1/1/1", learnFrame)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{
 			FID:       10,
 			MAC:       macC,
@@ -1210,7 +1222,7 @@ func TestFDBHitWithDownPortDropsPortDown(t *testing.T) {
 	}
 
 	br := mustNewBridge(t, cfg, ports)
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{
 			FID:       10,
 			MAC:       macB,
@@ -1492,7 +1504,7 @@ func TestEgressEmptyPort(t *testing.T) {
 			},
 		}
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/1", FID: 10},
 		})
 
@@ -1712,7 +1724,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 	}
 	br := mustNewBridge(t, cfg, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{FID: 10, MAC: macD, Port: "1/1/3", Static: true, LearnedAt: testTime0},
 	})
 
@@ -1876,7 +1888,7 @@ func TestProtectedPortsDropTrafficBetweenProtectedPorts(t *testing.T) {
 	}
 	br := mustNewBridge(t, cfg, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{FID: 10, MAC: macB, Port: "1/1/2", LearnedAt: testTime0},
 		{FID: 10, MAC: macC, Port: "1/1/3", LearnedAt: testTime0},
 	})
@@ -2142,7 +2154,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 	t.Run("customer tagged frame to tagged port emits service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2175,7 +2187,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 	t.Run("customer tagged frame to untagged port pops service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/1", FID: 10, Static: true},
 		})
 
@@ -2207,7 +2219,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 	t.Run("customer tag outside permitted list is dropped", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2226,7 +2238,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 	t.Run("untagged frame on tunnel port classifies to tunnel VID", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2255,7 +2267,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 
 	t.Run("tagged frame from trunk to tunnel port pops service tag", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macA, Port: "1/1/4", FID: 10, Static: true},
 		})
 
@@ -2293,7 +2305,7 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 		filtCfg.VLAN.Switchports["1/1/4"] = sw
 
 		br := mustNewBridge(t, filtCfg, ports)
-		br.Learn([]bridge.Seed{
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2361,7 +2373,7 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(string(tc.policy), func(t *testing.T) {
 				br := mustNewBridge(t, baseCfg(tc.policy), ports)
-				br.Learn([]bridge.Seed{
+				mustLearn(t, br, []bridge.Seed{
 					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
 				})
 
@@ -2418,7 +2430,7 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(string(tc.policy), func(t *testing.T) {
 				br := mustNewBridge(t, baseCfg(tc.policy), ports)
-				br.Learn([]bridge.Seed{
+				mustLearn(t, br, []bridge.Seed{
 					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
 				})
 
@@ -2770,7 +2782,7 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	br := mustNewBridge(t, bridge.Config{MaxEntries: 2}, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{MAC: macA, Port: "1/1/1", LearnedAt: testTime0},
 		{MAC: macB, Port: "1/1/2", LearnedAt: testTime0.Add(time.Second)},
 		{MAC: macC, Port: "1/1/1", LearnedAt: testTime0.Add(2 * time.Second)},
@@ -2782,7 +2794,7 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 		t.Fatalf("Entries() = %+v, want B and C with the oldest seed evicted", entries)
 	}
 
-	br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/3", LearnedAt: testTime0.Add(3 * time.Second)}})
+	mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "1/1/3", LearnedAt: testTime0.Add(3 * time.Second)}})
 	if got := br.Counters(); got.Moved != 1 || got.Learned != 3 || got.Evicted != 1 {
 		t.Fatalf("Counters() after a seed moved B = %+v, want Moved 1 and nothing else changed", got)
 	}
@@ -2791,7 +2803,7 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	if !br.Forget(0, macC) {
 		t.Fatal("Forget(C) = false, want true")
 	}
-	br.Learn([]bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
+	mustLearn(t, br, []bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
 	if got := br.Counters(); got.Evicted != 1 || got.Learned != 4 {
 		t.Fatalf("Counters() after Forget then a new seed = %+v, want Learned 4, Evicted 1", got)
 	}

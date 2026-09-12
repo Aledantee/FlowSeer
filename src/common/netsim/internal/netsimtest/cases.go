@@ -152,7 +152,7 @@ func CasePlanningPortVLANChange() Case {
 
 			changes := vswitch.Diff(cfgCur, cfgNext)
 
-			swNext, err := vswitch.Derive(swCur, cfgNext)
+			swNext, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -214,9 +214,9 @@ func CaseShadowingPartialUnknownPort() Case {
 	return Case{
 		ID:              "topology-shadowing/partial-model-unknown-port",
 		UseCase:         UseCaseTopologyShadowing,
-		Question:        "Does a device model with one unknown operational port remain constructible, localize Incomplete readiness to that port, and preserve Complete readiness for known-up ports?",
-		FalseAnswer:     "Failing model construction as an error, treating unknown operational status as active forwarding, or tainting unrelated known-up ports with incomplete status",
-		CurrentResult:   "netmodel.Load returns a constructible ConstructionSpec with Incomplete status scoped strictly to the unknown port; the switch drops frames on the unknown port while forwarding on the known-up port with Complete readiness",
+		Question:        "Does a device model with one unknown operational port remain constructible and localize its Incomplete issue to that port?",
+		FalseAnswer:     "Failing model construction as an error, treating unknown operational status as active forwarding, or hiding uncertainty when that port could change flood egress",
+		CurrentResult:   "netmodel.Load returns a constructible ConstructionSpec with an Incomplete issue scoped strictly to the unknown port; forwarding that could use the port remains Incomplete",
 		ExpectedStatus:  StatusPtr(analysis.Incomplete),
 		ExpectedOutcome: trace.Dropped,
 		ExpectedReason:  port.ReasonPortDown,
