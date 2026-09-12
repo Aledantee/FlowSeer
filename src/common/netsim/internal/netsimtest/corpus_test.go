@@ -291,6 +291,67 @@ func TestAdmissionValidation(t *testing.T) {
 	}
 }
 
+func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
+	localScope := analysis.PortScope("status-node", "local")
+	otherScope := analysis.PortScope("status-node", "other")
+
+	tests := []struct {
+		name        string
+		expectation netsimtest.MetadataExpectation
+		wantErr     string
+	}{
+		{
+			name: "complete with overlapping incomplete issue",
+			expectation: netsimtest.MetadataExpectation{
+				Status: analysis.Complete,
+				Scope:  localScope,
+				Issues: []netsimtest.IssueExpectation{{
+					Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope,
+				}},
+			},
+			wantErr: "metadata status complete, want incomplete derived",
+		},
+		{
+			name: "lower precedence than overlapping issues",
+			expectation: netsimtest.MetadataExpectation{
+				Status: analysis.Incomplete,
+				Scope:  analysis.NodeScope("status-node"),
+				Issues: []netsimtest.IssueExpectation{
+					{Code: "test.incomplete", Status: analysis.Incomplete, Scope: localScope},
+					{Code: "test.unsupported", Status: analysis.Unsupported, Scope: otherScope},
+				},
+			},
+			wantErr: "metadata status incomplete, want unsupported derived",
+		},
+		{
+			name: "non-complete status justified only by disjoint issue",
+			expectation: netsimtest.MetadataExpectation{
+				Status: analysis.Incomplete,
+				Scope:  localScope,
+				Issues: []netsimtest.IssueExpectation{{
+					Code: "test.incomplete", Status: analysis.Incomplete, Scope: otherScope,
+				}},
+			},
+			wantErr: "metadata status incomplete, want complete derived",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := netsimtest.CasePlanningPortVLANChange()
+			c.ExpectedForwardMetadata = &tc.expectation
+
+			err := netsimtest.ValidateCase(c)
+			if err == nil {
+				t.Fatal("ValidateCase() error = nil, want metadata status contradiction")
+			}
+			if !containsSubstring(err.Error(), tc.wantErr) {
+				t.Errorf("ValidateCase() error = %q, want one containing %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func TestRegistryDuplicateRejection(t *testing.T) {
 	r := netsimtest.NewRegistry()
 	c := netsimtest.CasePlanningPortVLANChange()

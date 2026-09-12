@@ -734,6 +734,18 @@ func validateMetadataExpectation(caseID, axis string, expectation MetadataExpect
 			return fmt.Errorf("corpus case %q has %s metadata reference %q without expected evidence contents", caseID, axis, ref)
 		}
 	}
+
+	statusIssues := make([]analysis.Issue, len(expectation.Issues))
+	for i, issue := range expectation.Issues {
+		statusIssues[i] = analysis.Issue{Status: issue.Status, Scope: issue.Scope}
+	}
+	derivedStatus := analysis.NewMetadata(expectation.Scope, statusIssues, analysis.EvidenceCatalog{}, nil).Status()
+	if expectation.Status != derivedStatus {
+		return fmt.Errorf(
+			"corpus case %q has %s metadata status %s, want %s derived from issues overlapping scope %s",
+			caseID, axis, expectation.Status, derivedStatus, expectation.Scope,
+		)
+	}
 	return nil
 }
 
