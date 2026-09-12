@@ -179,7 +179,7 @@ func TestRouteIPv4Connected(t *testing.T) {
 		t.Fatalf("steps count = %d, want %d: %+v", len(res.Steps), len(expectedSteps), res.Steps)
 	}
 	for i, step := range expectedSteps {
-		if !res.Steps[i].Equal(step) {
+		if !sameStepIdentity(res.Steps[i], step) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], step)
 		}
 	}
@@ -233,7 +233,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 		t.Fatalf("steps count = %d, want %d: %+v", len(res.Steps), len(expectedSteps), res.Steps)
 	}
 	for i, step := range expectedSteps {
-		if !res.Steps[i].Equal(step) {
+		if !sameStepIdentity(res.Steps[i], step) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], step)
 		}
 	}
@@ -1023,8 +1023,12 @@ func TestRouteUnknownInterface(t *testing.T) {
 		t.Fatalf("steps = %+v, want %+v", res.Steps, want)
 	}
 	for i := range want {
-		if !res.Steps[i].Equal(want[i]) {
+		if !sameStepIdentity(res.Steps[i], want[i]) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], want[i])
 		}
 	}
+}
+
+func sameStepIdentity(got, want trace.Step) bool {
+	return got.Layer == want.Layer && got.Op == want.Op && got.RuleID == want.RuleID && got.Subject == want.Subject
 }

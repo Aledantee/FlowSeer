@@ -4,6 +4,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
 const (
@@ -58,7 +59,33 @@ type Egress struct {
 // Result embeds [trace.Trace] and includes structured bridge forwarding metadata.
 type Result struct {
 	trace.Trace
-	Ingress string
-	FID     vlan.ID
-	Egress  []Egress
+	Ingress        string
+	FID            vlan.ID
+	Egress         []Egress
+	consultedPorts []port.Port
+}
+
+// ConsultedPorts returns independent snapshots of the port state that could
+// change this forwarding result, in first-consulted order.
+func (r Result) ConsultedPorts() []port.Port {
+	return append([]port.Port(nil), r.consultedPorts...)
+}
+
+// Consult records port-state snapshots that could change this forwarding result.
+func (r *Result) Consult(ports ...port.Port) {
+	for _, candidate := range ports {
+		if candidate.Name == "" {
+			continue
+		}
+		seen := false
+		for _, existing := range r.consultedPorts {
+			if existing.Name == candidate.Name {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			r.consultedPorts = append(r.consultedPorts, candidate)
+		}
+	}
 }

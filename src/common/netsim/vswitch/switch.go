@@ -378,37 +378,27 @@ func (s *Switch) Power() phy.Allocation {
 // the forwarding database if a bridge relay is present, and returns the forwarding result
 // with analysis metadata.
 func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
-	return s.wrapResult(s.forward(now, ingress, f, true), ingress)
+	return s.wrapResult(s.forward(now, ingress, f, true))
 }
 
 // Peek processes an arrival on an ingress port at the given time without mutating
 // the forwarding database and returns the forwarding result with analysis metadata.
 func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
-	return s.wrapResult(s.forward(now, ingress, f, false), ingress)
+	return s.wrapResult(s.forward(now, ingress, f, false))
 }
 
-func (s *Switch) wrapResult(res bridge.Result, ingress string) ForwardResult {
-	scope := analysis.PortScope("", ingress)
+func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
+	scope := analysis.NodeScope("")
 	var issues []analysis.Issue
 
-	p, ok := s.ports.Port(ingress)
-	if ok {
+	for _, p := range res.ConsultedPorts() {
 		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
 			issues = append(issues, analysis.Issue{
 				Code:    "unknown-operational-status",
 				Status:  analysis.Incomplete,
-				Scope:   scope,
-				Message: fmt.Sprintf("port %q has unknown operational status", ingress),
+				Scope:   analysis.PortScope("", p.Name),
+				Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
 			})
-		} else if p.LagParent != "" {
-			if parent, parentOk := s.ports.Port(p.LagParent); parentOk && (parent.AdminStatus == port.Unknown || parent.OperStatus == port.Unknown) {
-				issues = append(issues, analysis.Issue{
-					Code:    "unknown-operational-status",
-					Status:  analysis.Incomplete,
-					Scope:   scope,
-					Message: fmt.Sprintf("port %q LAG parent %q has unknown operational status", ingress, p.LagParent),
-				})
-			}
 		}
 	}
 
@@ -423,6 +413,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		s.copies = nil
 	}
 	if s.isMirrorOutputPort(ingress) {
+		mirror := s.mirrorForOutput(ingress)
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
@@ -432,6 +423,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					Op:      trace.OpDrop,
 					RuleID:  "traffic.mirror.output_drop",
 					Subject: trace.Subject{Kind: "port", Key: ingress},
+					Inputs:  []trace.Fact{traffic.MirrorDecisionFact(mirror, ingress, frameOctets(f), traffic.ReasonMirrorOutput)},
 				}},
 			},
 			Ingress: ingress,
@@ -441,12 +433,16 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
-			return s.finishForward(ingress, f, s.interceptLACP(now, ingress, f, mutate), mutate)
+			res := s.interceptLACP(now, ingress, f, mutate)
+			res.Consult(s.forwardingPath(ingress)...)
+			return s.finishForward(ingress, f, res, mutate)
 		}
 	}
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.finishForward(ingress, f, s.interceptBPDU(now, ingress, f, mutate), mutate)
+		res := s.interceptBPDU(now, ingress, f, mutate)
+		res.Consult(s.forwardingPath(ingress)...)
+		return s.finishForward(ingress, f, res, mutate)
 	}
 
 	if s.routing != nil {
@@ -464,12 +460,14 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 									Op:      trace.OpDrop,
 									RuleID:  "port.status.down",
 									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+									Inputs:  []trace.Fact{port.ForwardingFact(resolved.Name, resolved, false, port.ReasonPortDown)},
 								},
 							},
 						},
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					res.Consult(s.forwardingPath(ingress)...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
@@ -484,18 +482,21 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 									Op:      trace.OpDrop,
 									RuleID:  "routing.not_bridged",
 									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+									Inputs:  []trace.Fact{port.ForwardingFact(resolved.Name, resolved, true, routing.ReasonNotBridged)},
 								},
 							},
 						},
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					res.Consult(s.forwardingPath(ingress)...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
 				pcp, dei := framePriority(f)
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
+				res.Consult(s.forwardingPath(ingress)...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
@@ -520,6 +521,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				}
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+				res.Consult(in.ConsultedPorts()...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
@@ -586,7 +588,7 @@ func (s *Switch) forwardMulticastControl(
 		if err != nil {
 			if errors.Is(err, igmp.ErrUnsupported) {
 				in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-				in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "igmp"))
+				in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "igmp", false, "unsupported"))
 				return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 			}
 
@@ -594,7 +596,7 @@ func (s *Switch) forwardMulticastControl(
 		}
 
 		in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-		in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "igmp"))
+		in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "igmp", true, ""))
 		if mutate {
 			s.mcast.Learn(now, in.FID, in.Port, hdr.Src, message)
 		}
@@ -612,7 +614,7 @@ func (s *Switch) forwardMulticastControl(
 	if err != nil {
 		if errors.Is(err, mld.ErrUnsupported) {
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-			in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "mld"))
+			in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "mld", false, "unsupported"))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
@@ -620,7 +622,7 @@ func (s *Switch) forwardMulticastControl(
 	}
 
 	in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-	in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "mld"))
+	in.Steps = append(in.Steps, multicastControlStep("mcast.control.admit", "mld", true, ""))
 	if mutate {
 		s.mcast.LearnMLD(now, in.FID, in.Port, hdr.Src, message)
 	}
@@ -631,12 +633,13 @@ func (s *Switch) forwardMulticastControl(
 	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
 }
 
-func multicastControlStep(ruleID trace.RuleID, proto string) trace.Step {
+func multicastControlStep(ruleID trace.RuleID, proto string, admitted bool, reason trace.Reason) trace.Step {
 	return trace.Step{
 		Layer:   port.LayerMcast,
 		Op:      trace.OpClassify,
 		RuleID:  ruleID,
 		Subject: trace.Subject{Kind: "protocol", Key: proto},
+		Outputs: []trace.Fact{mcast.ControlDecisionFact(proto, admitted, reason)},
 	}
 }
 
@@ -647,13 +650,17 @@ func badMulticastControl(in bridge.Ingress) bridge.Result {
 		Op:      trace.OpDrop,
 		RuleID:  "mcast.control.bad",
 		Subject: trace.Subject{Kind: "port", Key: in.Port},
+		Outputs: []trace.Fact{mcast.ControlDecisionFact("", false, mcast.ReasonBadControl)},
 	})
 
-	return bridge.Result{
+	res := bridge.Result{
 		Trace:   trace.Trace{Outcome: trace.Dropped, Reason: mcast.ReasonBadControl, Steps: steps},
 		Ingress: in.Port,
 		FID:     in.FID,
 	}
+	res.Consult(in.ConsultedPorts()...)
+
+	return res
 }
 
 func hasRouterAlert(payload []byte) bool {
@@ -754,6 +761,20 @@ func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 	return ports, true
 }
 
+// MembershipFact records the multicast membership lookup used by bridge replication.
+func (s *Switch) MembershipFact(vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
+	if s.mcast == nil {
+		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+	}
+	hdr, _, err := ip.Decode(f.Payload)
+	if err != nil {
+		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+	}
+	_, registered := s.mcast.Resolve(vid, hdr.Dst)
+
+	return mcast.MembershipDecisionFact(vid, hdr.Dst, ports, registered, decided)
+}
+
 func (s *Switch) finishForward(ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
 	if s.traffic == nil {
 		return res
@@ -781,6 +802,7 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 			Op:      trace.OpDrop,
 			RuleID:  "traffic.mirror.egress_drop",
 			Subject: trace.Subject{Kind: "port", Key: egress.Port},
+			Inputs:  []trace.Fact{traffic.MirrorDecisionFact(s.mirrorForOutput(egress.Port), egress.Port, frameOctets(egress.Frame), traffic.ReasonMirrorOutput)},
 		})
 	}
 	if reserved && !transmitted {
@@ -814,6 +836,34 @@ func (s *Switch) isMirrorOutputPort(name string) bool {
 	}
 
 	return false
+}
+
+func (s *Switch) mirrorForOutput(name string) string {
+	if s.traffic == nil {
+		return ""
+	}
+	for _, mirror := range s.traffic.Mirrors {
+		if mirror.OutputPort == name {
+			return mirror.Name
+		}
+	}
+
+	return ""
+}
+
+func frameOctets(f ethernet.Frame) int {
+	return 14 + len(f.Payload) + 4*len(f.Tags)
+}
+
+func traceFacts(values ...trace.Fact) []trace.Fact {
+	result := make([]trace.Fact, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, value)
+		}
+	}
+
+	return result
 }
 
 func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
@@ -883,13 +933,16 @@ func (s *Switch) assembleRouteResult(
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
 	if txReason != "" {
+		egressPort, _ := s.ports.Port(egressIface.Port)
 		steps = append(steps, trace.Step{
 			Layer:   port.LayerRouting,
 			Op:      trace.OpDrop,
 			RuleID:  trace.RuleID("port.status." + string(txReason)),
 			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+			Inputs:  []trace.Fact{port.ForwardingFact(egressIface.Port, egressPort, false, txReason)},
+			Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, member, txReason)},
 		})
-		return bridge.Result{
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
 				Reason:  txReason,
@@ -907,19 +960,25 @@ func (s *Switch) assembleRouteResult(
 				},
 			},
 		}
+		res.Consult(s.egressDependencies(egressIface.Port)...)
+		return res
 	}
 
 	p, _ := s.ports.Port(egressIface.Port)
+	var selection trace.Fact
 	if p.Kind == port.Lag {
 		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
+		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
 		if !ok {
 			steps = append(steps, trace.Step{
 				Layer:   port.LayerRouting,
 				Op:      trace.OpDrop,
 				RuleID:  "lag.egress.no_member",
 				Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+				Inputs:  []trace.Fact{selection},
+				Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, "", bridge.ReasonNoMember)},
 			})
-			return bridge.Result{
+			res := bridge.Result{
 				Trace: trace.Trace{
 					Outcome: trace.Dropped,
 					Reason:  bridge.ReasonNoMember,
@@ -936,6 +995,8 @@ func (s *Switch) assembleRouteResult(
 					},
 				},
 			}
+			res.Consult(s.egressDependencies(egressIface.Port)...)
+			return res
 		}
 		member = mem
 	}
@@ -945,8 +1006,10 @@ func (s *Switch) assembleRouteResult(
 		Op:      trace.OpTransmit,
 		RuleID:  "routing.transmit",
 		Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+		Inputs:  traceFacts(selection),
+		Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, member, "")},
 	})
-	return bridge.Result{
+	res := bridge.Result{
 		Trace: trace.Trace{
 			Outcome: trace.Forwarded,
 			Steps:   steps,
@@ -962,6 +1025,8 @@ func (s *Switch) assembleRouteResult(
 			},
 		},
 	}
+	res.Consult(s.egressDependencies(egressIface.Port)...)
+	return res
 }
 
 // Age removes dynamic forwarding database entries older than the configured
@@ -989,10 +1054,12 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			Op:      trace.OpDrop,
 			RuleID:  "port.status.not_found",
 			Subject: trace.Subject{Kind: "port", Key: ingress},
+			Outputs: []trace.Fact{port.ForwardingFact(ingress, port.Port{}, false, port.ReasonPortDown)},
 		})
 
 		return res
 	}
+	res.Consult(s.forwardingPath(ingress)...)
 
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
@@ -1002,6 +1069,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			Op:      trace.OpDrop,
 			RuleID:  "port.lag.parent_not_found",
 			Subject: trace.Subject{Kind: "port", Key: ingress},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
 		})
 
 		return res
@@ -1015,6 +1083,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			Op:      trace.OpDrop,
 			RuleID:  "port.status.down",
 			Subject: trace.Subject{Kind: "port", Key: ingress},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, p.Forwards(), port.ReasonPortDown), port.ForwardingFact(resolved.Name, resolved, resolved.Forwards(), port.ReasonPortDown)},
 		})
 
 		return res
@@ -1022,8 +1091,15 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 	var candidates []port.Port
 	for _, cand := range s.ports.Ports() {
-		if cand.LagParent != "" || cand.Name == res.Ingress || !cand.Forwards() {
+		if cand.LagParent != "" || cand.Name == res.Ingress {
 			continue
+		}
+		if !cand.Forwards() {
+			continue
+		}
+		res.Consult(cand)
+		if cand.Kind == port.Lag {
+			res.Consult(s.ports.Members(cand.Name)...)
 		}
 		candidates = append(candidates, cand)
 	}
@@ -1046,14 +1122,17 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 				Op:      trace.OpDrop,
 				RuleID:  "port.status.mtu-exceeded",
 				Subject: trace.Subject{Kind: "port", Key: cand.Name},
+				Inputs:  []trace.Fact{port.ForwardingFact(cand.Name, cand, false, port.ReasonMTUExceeded)},
 			})
 
 			continue
 		}
 
 		var member string
+		var selection trace.Fact
 		if cand.Kind == port.Lag {
 			mem, ok := s.SelectMember(cand.Name, f, 0)
+			selection = s.lag.SelectionFact(cand.Name, f, 0, mem, ok)
 			if !ok {
 				res.Egress = append(res.Egress, bridge.Egress{
 					Port:    cand.Name,
@@ -1066,6 +1145,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 					Op:      trace.OpDrop,
 					RuleID:  "lag.egress.no_member",
 					Subject: trace.Subject{Kind: "port", Key: cand.Name},
+					Inputs:  []trace.Fact{selection},
 				})
 
 				continue
@@ -1078,6 +1158,8 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			Op:      trace.OpReplicate,
 			RuleID:  "port.hub.replicate",
 			Subject: trace.Subject{Kind: "port", Key: cand.Name},
+			Inputs:  traceFacts(selection),
+			Outputs: []trace.Fact{port.ForwardingFact(cand.Name, cand, true, "")},
 		})
 		res.Egress = append(res.Egress, bridge.Egress{
 			Port:   cand.Name,
@@ -1102,12 +1184,38 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	return res
 }
 
+func (s *Switch) forwardingPath(name string) []port.Port {
+	p, ok := s.ports.Port(name)
+	if !ok {
+		return nil
+	}
+	path := []port.Port{p}
+	if p.LagParent != "" {
+		if parent, exists := s.ports.Port(p.LagParent); exists {
+			path = append(path, parent)
+		}
+	}
+
+	return path
+}
+
+func (s *Switch) egressDependencies(name string) []port.Port {
+	path := s.forwardingPath(name)
+	if len(path) != 1 || path[0].Kind != port.Lag || !path[0].Forwards() {
+		return path
+	}
+
+	return append(path, s.ports.Members(name)...)
+}
+
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	before := s.lag.PortInfo(ingress)
 	pdu, err := lacp.Decode(f)
 	if err != nil {
 		if mutate {
 			s.lag.BadLACPDU(ingress)
 		}
+		after := s.lag.PortInfo(ingress)
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -1119,6 +1227,8 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 						Op:      trace.OpDrop,
 						RuleID:  "lag.lacpdu.unsupported",
 						Subject: trace.Subject{Kind: "port", Key: ingress},
+						Inputs:  []trace.Fact{lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)},
+						Outputs: []trace.Fact{lag.MemberTransitionFact(ingress, "bad-lacpdu", before, after)},
 					},
 				},
 			},
@@ -1130,6 +1240,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 		fx := s.lag.Receive(now, ingress, pdu)
 		s.applyLAGEffects(now, fx)
 	}
+	after := s.lag.PortInfo(ingress)
 
 	return bridge.Result{
 		Trace: trace.Trace{
@@ -1140,6 +1251,8 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 					Op:      trace.OpClassify,
 					RuleID:  "lag.lacpdu.admit",
 					Subject: trace.Subject{Kind: "port", Key: ingress},
+					Inputs:  []trace.Fact{lag.LACPDecodeFact(f, true, "")},
+					Outputs: []trace.Fact{lag.LACPDecisionFact(pdu, before, after)},
 				},
 			},
 		},
@@ -1153,6 +1266,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	// that died on a cut cable.
 	resolved, reason := s.ports.Receive(ingress)
 	if reason != "" {
+		physical, _ := s.ports.Port(ingress)
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
@@ -1162,18 +1276,21 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 					Op:      trace.OpDrop,
 					RuleID:  "port.status.down",
 					Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+					Inputs:  []trace.Fact{port.ForwardingFact(ingress, physical, false, port.ReasonPortDown)},
 				}},
 			},
 			Ingress: resolved.Name,
 		}
 	}
 	resolvedPort := resolved.Name
+	before := s.stp.PortInfo(resolvedPort)
 
 	bpdu, err := stp.Decode(f)
 	if err != nil {
 		if mutate {
 			s.stp.BadBPDU(resolvedPort)
 		}
+		after := s.stp.PortInfo(resolvedPort)
 
 		reason := stp.ReasonUnsupportedBPDU
 		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
@@ -1190,6 +1307,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 						Op:      trace.OpDrop,
 						RuleID:  trace.RuleID("stp.bpdu." + string(reason)),
 						Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+						Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, false, reason)},
+						Outputs: []trace.Fact{stp.PortTransitionFact(resolvedPort, "bad-bpdu", before, after)},
 					},
 				},
 			},
@@ -1201,6 +1320,7 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 		fx := s.stp.Receive(now, resolvedPort, bpdu)
 		s.applySTPEffects(fx)
 	}
+	after := s.stp.PortInfo(resolvedPort)
 
 	return bridge.Result{
 		Trace: trace.Trace{
@@ -1211,6 +1331,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 					Op:      trace.OpClassify,
 					RuleID:  "stp.bpdu.admit",
 					Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+					Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, true, "")},
+					Outputs: []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)},
 				},
 			},
 		},

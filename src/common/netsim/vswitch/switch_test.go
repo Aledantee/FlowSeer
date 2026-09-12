@@ -362,8 +362,13 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 		t.Errorf("mirror output ingress trace = %+v, want mirror-output drop", dropped.Trace)
 	}
 	wantStep := trace.Step{Layer: port.LayerTraffic, Op: trace.OpDrop, RuleID: "traffic.mirror.output_drop", Subject: trace.Subject{Kind: "port", Key: "1/1/4"}}
-	if len(dropped.Steps) != 1 || !dropped.Steps[0].Equal(wantStep) {
+	if len(dropped.Steps) != 1 {
 		t.Errorf("mirror output ingress steps = %+v, want %+v", dropped.Steps, wantStep)
+	} else {
+		assertSteps(t, dropped.Steps, []trace.Step{wantStep})
+	}
+	if !traceHasFactType(dropped.Steps, "traffic.mirror_decision") {
+		t.Errorf("mirror output trace has no mirror decision fact: %+v", dropped.Steps)
 	}
 
 	// Peek leaves copy storage untouched.
@@ -1362,6 +1367,9 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	}
 	if len(res.Steps) != 1 || res.Steps[0].Layer != port.LayerStp || res.Steps[0].Op != trace.OpClassify {
 		t.Errorf("res.Steps = %+v, want one classify step naming stp", res.Steps)
+	}
+	if !traceHasFactType(res.Steps, "stp.bpdu_decision") {
+		t.Errorf("BPDU trace has no spanning-tree decision fact: %+v", res.Steps)
 	}
 	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
 		t.Errorf("Copies() = %+v, want received BPDU mirrored to 1/1/3", copies)
@@ -3244,6 +3252,12 @@ func TestRoutedPortLAGLowestForwardingMember(t *testing.T) {
 	if res.Egress[0].Member != "1/1/5a" {
 		t.Errorf("egress member = %q, want lowest-named 1/1/5a", res.Egress[0].Member)
 	}
+	if !traceHasFactType(res.Steps, "lag.selection") {
+		t.Errorf("routed LAG trace has no member selection fact: %+v", res.Steps)
+	}
+	if !traceHasFactType(res.Steps, "routing.lookup_decision") {
+		t.Errorf("routed LAG trace has no route lookup fact: %+v", res.Steps)
+	}
 }
 
 func TestRoutedFrameMTUExceededVLANAndPort(t *testing.T) {
@@ -3778,6 +3792,9 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 	if len(res.Steps) == 0 || res.Steps[0].Layer != port.LayerLag || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
 		t.Errorf("res.Steps = %+v, want step with LayerLag, OpClassify, rule lag.lacpdu.admit", res.Steps)
+	}
+	if !traceHasFactType(res.Steps, "lag.lacp_decision") {
+		t.Errorf("LACP trace has no member decision fact: %+v", res.Steps)
 	}
 	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 1 {
 		t.Errorf("after Forward, LACPDUsRx = %d, want 1", info.LACPDUsRx)
@@ -4418,6 +4435,9 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	if res.Reason != mcast.ReasonUnregistered {
 		t.Errorf("unregistered group without router reason = %q, want %q", res.Reason, mcast.ReasonUnregistered)
 	}
+	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
+		t.Errorf("unregistered multicast trace has no membership decision: %+v", res.Steps)
+	}
 
 	query := makeIGMPControlFrame(t,
 		netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
@@ -4428,6 +4448,9 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	res = sw.Forward(fixedTime, "1/1/3", data(group, netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02}, ethernet.EtherTypeIPv4))
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("unregistered group with router ports = %v, want [1/1/4]", got)
+	}
+	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
+		t.Errorf("router-port multicast trace has no membership decision: %+v", res.Steps)
 	}
 
 	for name, frame := range map[string]ethernet.Frame{
