@@ -3,9 +3,11 @@ package mcast_test
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 )
@@ -83,19 +85,37 @@ func TestControlMessageFactsDistinguishTypeAndGroupTransition(t *testing.T) {
 	}
 }
 
-func TestControlMessageFactsNormalizeRecordOrder(t *testing.T) {
-	groupOne := netip.MustParseAddr("239.1.1.1")
-	groupTwo := netip.MustParseAddr("239.1.1.2")
-	recordOne := igmp.GroupRecord{Type: igmp.ModeIsExclude, Group: groupOne}
-	recordTwo := igmp.GroupRecord{Type: igmp.ChangeToIncludeMode, Group: groupTwo}
+func TestControlMessageFactsPreserveBehaviorSignificantRecordOrder(t *testing.T) {
+	const vid vlan.ID = 10
+	group := netip.MustParseAddr("239.1.1.1")
+	joinRecord := igmp.GroupRecord{Type: igmp.ModeIsExclude, Group: group}
+	leaveRecord := igmp.GroupRecord{Type: igmp.ChangeToIncludeMode, Group: group}
 	fact := func(records []igmp.GroupRecord) trace.Fact {
 		return mcast.IGMPControlMessageFact(netip.MustParseAddr("10.0.0.1"), igmp.Message{
 			Type:    igmp.ReportV3,
 			Records: records,
 		})
 	}
+	learn := func(records []igmp.GroupRecord) []mcast.Entry {
+		layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			vid: {FastLeave: true},
+		}}, mcastPortTable(t))
+		layer.Learn(time.Unix(5_000, 0), vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{
+			Type:    igmp.ReportV3,
+			Records: records,
+		})
+		return layer.Groups(vid)
+	}
 
-	if !trace.EqualFact(fact([]igmp.GroupRecord{recordTwo, recordOne}), fact([]igmp.GroupRecord{recordOne, recordTwo})) {
-		t.Fatal("record set order changed multicast control fact")
+	joinedThenLeft := []igmp.GroupRecord{joinRecord, leaveRecord}
+	leftThenJoined := []igmp.GroupRecord{leaveRecord, joinRecord}
+	if got := learn(joinedThenLeft); len(got) != 0 {
+		t.Fatalf("join then leave groups = %+v, want none", got)
+	}
+	if got := learn(leftThenJoined); len(got) != 1 {
+		t.Fatalf("leave then join groups = %+v, want one", got)
+	}
+	if trace.EqualFact(fact(joinedThenLeft), fact(leftThenJoined)) {
+		t.Fatal("behaviorally distinct record orders produced equal control facts")
 	}
 }

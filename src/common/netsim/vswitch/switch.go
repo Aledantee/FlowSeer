@@ -62,6 +62,9 @@ func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 		if err := owned.Config.Traffic.Validate(owned.Config.Ports.Normalize()); err != nil {
 			return ConstructionSpec{}, err
 		}
+		if err := owned.Config.validateTrafficVLANs(); err != nil {
+			return ConstructionSpec{}, err
+		}
 	}
 	owned.Config = owned.Config.Normalize()
 	if err := owned.Config.Validate(); err != nil {

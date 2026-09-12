@@ -210,7 +210,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, ifName := range sortedIfaces {
 				ifA, ifInA := aVRF.Interfaces[ifName]
 				ifB, ifInB := bVRF.Interfaces[ifName]
-				key := vrfName + "/" + ifName
+				key := compositeSubjectKey(vrfName, ifName)
 
 				switch {
 				case ifInA && !ifInB:
@@ -293,7 +293,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, p := range sortedPrefixes {
 				rA, rInA := aRoutes[p]
 				rB, rInB := bRoutes[p]
-				key := vrfName + "/" + p.String()
+				key := compositeSubjectKey(vrfName, p.String())
 
 				switch {
 				case rInA && !rInB:
@@ -363,7 +363,7 @@ func Diff(a, b Config) []trace.Change {
 			for _, k := range sortedNeighbors {
 				nA, nInA := aNeighbors[k]
 				nB, nInB := bNeighbors[k]
-				key := vrfName + "/" + k.iface + "/" + k.addr.String()
+				key := compositeSubjectKey(vrfName, k.iface, k.addr.String())
 
 				switch {
 				case nInA && !nInB:
@@ -398,4 +398,12 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	return changes
+}
+
+func compositeSubjectKey(parts ...string) string {
+	encoded := make([]string, len(parts))
+	for i, part := range parts {
+		encoded[i] = strconv.Quote(part)
+	}
+	return strings.Join(encoded, "/")
 }

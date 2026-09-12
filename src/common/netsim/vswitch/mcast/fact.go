@@ -64,7 +64,6 @@ func IGMPControlMessageFact(source netip.Addr, message igmp.Message) trace.Fact 
 	for i, record := range message.Records {
 		records[i] = controlRecord(uint64(record.Type), record.Group, record.Sources)
 	}
-	slices.Sort(records)
 
 	return controlMessageFact(controlMessage(
 		"igmp",
@@ -84,7 +83,6 @@ func MLDControlMessageFact(source netip.Addr, message mld.Message) trace.Fact {
 	for i, record := range message.Records {
 		records[i] = controlRecord(uint64(record.Type), record.Group, record.Sources)
 	}
-	slices.Sort(records)
 
 	return controlMessageFact(controlMessage(
 		"mld",

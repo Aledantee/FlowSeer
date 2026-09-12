@@ -126,7 +126,7 @@ func forwardingScopeRelevant(nodeID string, scope analysis.Scope, ports []analys
 }
 
 func validateConstructionMetadata(nodeID string, metadata analysis.Metadata) error {
-	if nodeID == "" || canonicalZeroMetadata(metadata) {
+	if canonicalZeroMetadata(metadata) {
 		return nil
 	}
 
@@ -138,10 +138,26 @@ func validateConstructionMetadata(nodeID string, metadata analysis.Metadata) err
 		if !constructionScopeCompatible(node, issue.Scope) {
 			return incompatibleMetadataScopeError("metadata.issues."+strconv.Itoa(i)+".scope", nodeID, issue.Scope)
 		}
+		for j, ref := range issue.Evidence {
+			if _, ok := metadata.Evidence().Lookup(ref); !ok {
+				return missingMetadataEvidenceError(
+					"metadata.issues."+strconv.Itoa(i)+".evidence."+strconv.Itoa(j),
+					ref,
+				)
+			}
+		}
 	}
 	for i, assumption := range metadata.Assumptions() {
 		if !constructionScopeCompatible(node, assumption.Scope) {
 			return incompatibleMetadataScopeError("metadata.assumptions."+strconv.Itoa(i)+".scope", nodeID, assumption.Scope)
+		}
+		for j, ref := range assumption.Evidence {
+			if _, ok := metadata.Evidence().Lookup(ref); !ok {
+				return missingMetadataEvidenceError(
+					"metadata.assumptions."+strconv.Itoa(i)+".evidence."+strconv.Itoa(j),
+					ref,
+				)
+			}
 		}
 	}
 
@@ -166,6 +182,13 @@ func incompatibleMetadataScopeError(field, nodeID string, scope analysis.Scope) 
 		Attr("node_id", nodeID).
 		Attr("scope", scope.String()).
 		Msgf("construction metadata scope %s is incompatible with node %q", scope, nodeID)
+}
+
+func missingMetadataEvidenceError(field string, ref trace.EvidenceRef) error {
+	return errs.New().
+		Attr("field", field).
+		Attr("evidence_ref", ref).
+		Msgf("construction metadata evidence reference %q is absent from the evidence catalog", ref)
 }
 
 func referencesAny(refs []trace.EvidenceRef, selected map[trace.EvidenceRef]struct{}) bool {

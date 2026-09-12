@@ -17,8 +17,9 @@ logical ports: a LAG name is valid, while one of its physical members is not.
 apart from the ingress port. A tagged switchport receives a C-tag whose VID is
 the output VLAN. It keeps PCP and DEI from an outer received C-tag. An untagged
 switchport or a tunnel for that VID receives the remaining tag stack without
-the outer tag. VLAN-unaware bridges cannot resolve an output VLAN, and reserved
-bridge-group destinations are never copied to a VLAN.
+the outer tag. `OutputVLAN` and each `SelectVLANs` entry require a VLAN-aware
+bridge and must name an entry in its VLAN table. Reserved bridge-group
+destinations are never copied to a VLAN.
 
 `Copies` produces candidate copies from these selection and tag rules. Each
 VLAN-output copy keeps that configured logical VLAN separately from the emitted

@@ -339,11 +339,13 @@ Exported constructors validate and normalize configurations:
   drop traffic authoritatively with Complete readiness.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
-scopes. An empty key identifies an anonymous standalone switch. For a named
-switch, non-empty construction metadata must evaluate that node or one of its
-children; issue and assumption scopes may also be whole-analysis scopes because
-they affect every node. Canonical zero metadata remains valid. A fabric uses its
-switch map key as the node identity. `netmodel.Load` uses `SourceContext.DeviceID`.
+scopes. An empty key identifies an anonymous standalone switch and uses the
+anonymous node scope. Non-empty construction metadata must evaluate the named or
+anonymous node, or one of its children. Issue and assumption scopes may also be
+whole-analysis scopes because they affect every node. Canonical zero metadata
+remains valid. Every evidence reference on an issue or assumption must resolve
+in the metadata's evidence catalog. A fabric uses its switch map key as the node
+identity. `netmodel.Load` uses `SourceContext.DeviceID`.
 
 Forwarding database seeds require a bridge relay. Their MAC addresses must be
 usable unicast addresses, their ports must resolve to an admitted logical port,
@@ -360,7 +362,7 @@ use their canonical ordering, so repeated forwarding and cloned specifications
 produce the same metadata. An issue's message is retained for people but does
 not change construction identity; code, status, scope, and evidence carry its
 semantics.
- 
+
 ## Concurrency contract
 
 A `vswitch.Switch` holds the forwarding database and is not safe for

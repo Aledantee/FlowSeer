@@ -213,6 +213,43 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	}
 }
 
+func TestFabricDiffSpecsIgnoresConstructionIssueMessages(t *testing.T) {
+	a := constructionSpec(twoSwitchBaseConfig(t))
+	catalog, firstRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "snapshot", Origin: "first"})
+	catalog, secondRef := catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "second"})
+	issue := func(message string, ref trace.EvidenceRef) analysis.Issue {
+		return analysis.Issue{
+			Code: "test.unobserved", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "1/1/1"),
+			Message: message, Evidence: []trace.EvidenceRef{ref},
+		}
+	}
+
+	aSwitch := a.Switches["sw1"]
+	aSwitch.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		issue("first wording", firstRef),
+		issue("second wording", secondRef),
+	}, catalog, nil)
+	a.Switches["sw1"] = aSwitch
+	b := a.Clone()
+	bSwitch := b.Switches["sw1"]
+	bSwitch.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		issue("second wording", firstRef),
+		issue("first wording", secondRef),
+	}, catalog, nil)
+	b.Switches["sw1"] = bSwitch
+
+	if !a.Equal(b) {
+		t.Fatal("ConstructionSpec.Equal distinguished human-only issue messages")
+	}
+	changes, err := fabric.DiffSpecs(a, b)
+	if err != nil {
+		t.Fatalf("DiffSpecs: %v", err)
+	}
+	if len(changes) != 0 {
+		t.Errorf("DiffSpecs reported human-only issue message changes: %+v", changes)
+	}
+}
+
 func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 	tests := []struct {
 		name  string

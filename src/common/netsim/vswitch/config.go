@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -156,6 +157,9 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	if err := c.validateTrafficVLANs(); err != nil {
+		return err
+	}
 	if c.LAG != nil {
 		if err := c.LAG.Validate(c.Ports); err != nil {
 			return err
@@ -297,6 +301,53 @@ func (c Config) Validate() error {
 						Attr("port", p.Name).
 						Msgf("router without bridge must route port %q", p.Name)
 				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c Config) validateTrafficVLANs() error {
+	if c.Traffic == nil {
+		return nil
+	}
+
+	for mirrorIndex, mirror := range c.Traffic.Mirrors {
+		prefix := "traffic.mirrors." + strconv.Itoa(mirrorIndex)
+		if mirror.OutputVLAN != nil {
+			field := prefix + ".output_vlan"
+			if c.Bridge == nil || c.Bridge.VLAN == nil {
+				return errs.New().
+					Attr("field", field).
+					Attr("mirror", mirror.Name).
+					Attr("vlan", *mirror.OutputVLAN).
+					Msgf("mirror %q output VLAN %d requires bridge VLAN configuration", mirror.Name, *mirror.OutputVLAN)
+			}
+			if _, ok := c.Bridge.VLAN.Table[*mirror.OutputVLAN]; !ok {
+				return errs.New().
+					Attr("field", field).
+					Attr("mirror", mirror.Name).
+					Attr("vlan", *mirror.OutputVLAN).
+					Msgf("mirror %q output VLAN %d is absent from the bridge VLAN table", mirror.Name, *mirror.OutputVLAN)
+			}
+		}
+
+		for selectorIndex, vid := range mirror.SelectVLANs {
+			field := prefix + ".select_vlans." + strconv.Itoa(selectorIndex)
+			if c.Bridge == nil || c.Bridge.VLAN == nil {
+				return errs.New().
+					Attr("field", field).
+					Attr("mirror", mirror.Name).
+					Attr("vlan", vid).
+					Msgf("mirror %q selector VLAN %d requires bridge VLAN configuration", mirror.Name, vid)
+			}
+			if _, ok := c.Bridge.VLAN.Table[vid]; !ok {
+				return errs.New().
+					Attr("field", field).
+					Attr("mirror", mirror.Name).
+					Attr("vlan", vid).
+					Msgf("mirror %q selector VLAN %d is absent from the bridge VLAN table", mirror.Name, vid)
 			}
 		}
 	}

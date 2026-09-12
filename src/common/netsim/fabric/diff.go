@@ -444,24 +444,26 @@ func writeMetadata(out *strings.Builder, metadata analysis.Metadata) {
 	writeStringField(out, "metadata.scope", metadata.Scope().String())
 	writeUintField(out, "metadata.status", uint64(metadata.Status()))
 	out.WriteString("metadata.issues=[")
-	for i, issue := range metadata.Issues() {
-		if i > 0 {
-			out.WriteByte(',')
-		}
-		out.WriteByte('{')
-		writeStringField(out, "code", issue.Code.String())
-		writeUintField(out, "status", uint64(issue.Status))
-		writeStringField(out, "scope", issue.Scope.String())
-		writeStringField(out, "message", issue.Message)
-		out.WriteString("evidence=[")
+	issues := metadata.Issues()
+	issueFacts := make([]string, len(issues))
+	for i, issue := range issues {
+		var fact strings.Builder
+		fact.WriteByte('{')
+		writeStringField(&fact, "code", issue.Code.String())
+		writeUintField(&fact, "status", uint64(issue.Status))
+		writeStringField(&fact, "scope", issue.Scope.String())
+		fact.WriteString("evidence=[")
 		for j, ref := range issue.Evidence {
 			if j > 0 {
-				out.WriteByte(',')
+				fact.WriteByte(',')
 			}
-			out.WriteString(strconv.Quote(string(ref)))
+			fact.WriteString(strconv.Quote(string(ref)))
 		}
-		out.WriteString("]}")
+		fact.WriteString("]}")
+		issueFacts[i] = fact.String()
 	}
+	slices.Sort(issueFacts)
+	out.WriteString(strings.Join(issueFacts, ","))
 	out.WriteString("];")
 	out.WriteString("metadata.evidence=[")
 	for i, entry := range metadata.Evidence().Entries() {

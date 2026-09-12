@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
@@ -634,6 +635,81 @@ func TestDiff(t *testing.T) {
 				}
 			}
 		}
+	})
+}
+
+func TestDiffCompositeSubjectKeysAreInjective(t *testing.T) {
+	t.Parallel()
+
+	pairs := []struct {
+		vrf   string
+		iface string
+	}{
+		{vrf: "blue/a", iface: `b/"edge\one`},
+		{vrf: "blue", iface: `a/b/"edge\one`},
+	}
+	assertKeys := func(t *testing.T, changes []trace.Change, want []string) {
+		t.Helper()
+		if len(changes) != len(want) {
+			t.Fatalf("changes = %+v, want %d", changes, len(want))
+		}
+		got := make(map[string]struct{}, len(changes))
+		for _, change := range changes {
+			got[change.Subject.Key] = struct{}{}
+		}
+		if len(got) != len(want) {
+			t.Fatalf("subject keys = %v, want %d unique keys", got, len(want))
+		}
+		for _, key := range want {
+			if _, ok := got[key]; !ok {
+				t.Errorf("subject keys = %v, want %q", got, key)
+			}
+		}
+	}
+
+	t.Run("interfaces", func(t *testing.T) {
+		a := routing.Config{VRFs: make(map[string]routing.VRF)}
+		b := routing.Config{VRFs: make(map[string]routing.VRF)}
+		var want []string
+		for i, pair := range pairs {
+			a.VRFs[pair.vrf] = routing.VRF{Interfaces: map[string]routing.Interface{
+				pair.iface: {VLAN: vlan.ID(10 + i)},
+			}}
+			b.VRFs[pair.vrf] = routing.VRF{Interfaces: map[string]routing.Interface{
+				pair.iface: {VLAN: vlan.ID(20 + i)},
+			}}
+			want = append(want, fmt.Sprintf("%q/%q", pair.vrf, pair.iface))
+		}
+		assertKeys(t, routing.Diff(a, b), want)
+	})
+
+	t.Run("neighbors", func(t *testing.T) {
+		addr := netip.MustParseAddr("10.0.0.7")
+		a := routing.Config{VRFs: make(map[string]routing.VRF)}
+		b := routing.Config{VRFs: make(map[string]routing.VRF)}
+		var want []string
+		for _, pair := range pairs {
+			a.VRFs[pair.vrf] = routing.VRF{Neighbors: []routing.Neighbor{{
+				Interface: pair.iface, Addr: addr, MAC: netaddr.MAC{2},
+			}}}
+			b.VRFs[pair.vrf] = routing.VRF{Neighbors: []routing.Neighbor{{
+				Interface: pair.iface, Addr: addr, MAC: netaddr.MAC{4},
+			}}}
+			want = append(want, fmt.Sprintf("%q/%q/%q", pair.vrf, pair.iface, addr.String()))
+		}
+		assertKeys(t, routing.Diff(a, b), want)
+	})
+
+	t.Run("routes", func(t *testing.T) {
+		vrfName := `blue/"west\core`
+		prefix := netip.MustParsePrefix("10.0.0.0/24")
+		a := routing.Config{VRFs: map[string]routing.VRF{
+			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.1")}}},
+		}}
+		b := routing.Config{VRFs: map[string]routing.VRF{
+			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.2")}}},
+		}}
+		assertKeys(t, routing.Diff(a, b), []string{fmt.Sprintf("%q/%q", vrfName, prefix.String())})
 	})
 }
 

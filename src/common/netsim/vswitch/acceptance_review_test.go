@@ -531,4 +531,177 @@ func TestConstructionSpecValidatesMetadataScopesAgainstNode(t *testing.T) {
 			}
 		})
 	}
+
+	anonymousNode := analysis.NodeScope("")
+	anonymousInvalid := []struct {
+		name      string
+		metadata  analysis.Metadata
+		wantField string
+	}{
+		{
+			name:      "foreign evaluated node",
+			metadata:  analysis.NewMetadata(analysis.NodeScope("sw2"), nil, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.scope",
+		},
+		{
+			name: "foreign issue node",
+			metadata: analysis.NewMetadata(anonymousNode, []analysis.Issue{{
+				Code: "test.foreign", Status: analysis.Incomplete, Scope: analysis.PortScope("sw2", "in"),
+			}}, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.issues.0.scope",
+		},
+		{
+			name: "foreign assumption node",
+			metadata: analysis.NewMetadata(anonymousNode, nil, analysis.EvidenceCatalog{}, []analysis.Assumption{{
+				Scope: analysis.PortScope("sw2", "in"), Statement: "foreign premise",
+			}}),
+			wantField: "metadata.assumptions.0.scope",
+		},
+	}
+	for _, test := range anonymousInvalid {
+		t.Run("anonymous invalid "+test.name, func(t *testing.T) {
+			_, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{Config: config, Metadata: test.metadata})
+			if err == nil {
+				t.Fatal("NewWithSpec accepted incompatible anonymous metadata")
+			}
+			if got := errs.Attributes(err)["field"]; got != test.wantField {
+				t.Errorf("field = %v, want %q", got, test.wantField)
+			}
+		})
+	}
+
+	if _, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: config,
+		Metadata: analysis.NewMetadata(anonymousNode, []analysis.Issue{{
+			Code: "test.anonymous", Status: analysis.Incomplete, Scope: analysis.PortScope("", "in"),
+		}}, analysis.EvidenceCatalog{}, nil),
+	}); err != nil {
+		t.Fatalf("NewWithSpec rejected anonymous-node metadata: %v", err)
+	}
+}
+
+func TestConstructionSpecRejectsDanglingMetadataEvidence(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	const missing trace.EvidenceRef = "evidence:missing"
+
+	for _, test := range []struct {
+		name      string
+		metadata  analysis.Metadata
+		wantField string
+	}{
+		{
+			name: "issue",
+			metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+				Code: "test.missing", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "in"),
+				Evidence: []trace.EvidenceRef{missing},
+			}}, analysis.EvidenceCatalog{}, nil),
+			wantField: "metadata.issues.0.evidence.0",
+		},
+		{
+			name: "assumption",
+			metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), nil, analysis.EvidenceCatalog{}, []analysis.Assumption{{
+				Scope: analysis.PortScope("sw1", "in"), Statement: "missing support",
+				Evidence: []trace.EvidenceRef{missing},
+			}}),
+			wantField: "metadata.assumptions.0.evidence.0",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+				Config: vswitch.Config{Ports: ports}, NodeID: "sw1", Metadata: test.metadata,
+			})
+			if err == nil {
+				t.Fatal("NewWithSpec accepted a dangling evidence reference")
+			}
+			if got := errs.Attributes(err)["field"]; got != test.wantField {
+				t.Errorf("field = %v, want %q", got, test.wantField)
+			}
+		})
+	}
+}
+
+func TestConfigValidatesMirrorVLANsAgainstBridge(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	const referencedVLAN vlan.ID = 10
+
+	for _, test := range []struct {
+		name      string
+		bridge    *bridge.Config
+		mirror    traffic.Mirror
+		wantField string
+	}{
+		{
+			name:      "output VLAN without bridge",
+			mirror:    traffic.Mirror{Name: "span", SelectAll: true, OutputVLAN: new(referencedVLAN)},
+			wantField: "traffic.mirrors.0.output_vlan",
+		},
+		{
+			name:      "output VLAN without VLAN awareness",
+			bridge:    &bridge.Config{},
+			mirror:    traffic.Mirror{Name: "span", SelectAll: true, OutputVLAN: new(referencedVLAN)},
+			wantField: "traffic.mirrors.0.output_vlan",
+		},
+		{
+			name: "output VLAN absent from table",
+			bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "other"},
+			}},
+			mirror:    traffic.Mirror{Name: "span", SelectAll: true, OutputVLAN: new(referencedVLAN)},
+			wantField: "traffic.mirrors.0.output_vlan",
+		},
+		{
+			name:      "selector VLAN without bridge",
+			mirror:    traffic.Mirror{Name: "span", SelectAll: true, SelectVLANs: []vlan.ID{referencedVLAN}, OutputPort: "out"},
+			wantField: "traffic.mirrors.0.select_vlans.0",
+		},
+		{
+			name: "selector VLAN absent from table",
+			bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{20: "other"},
+			}},
+			mirror:    traffic.Mirror{Name: "span", SelectAll: true, SelectVLANs: []vlan.ID{referencedVLAN}, OutputPort: "out"},
+			wantField: "traffic.mirrors.0.select_vlans.0",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := (vswitch.Config{
+				Ports: ports, Bridge: test.bridge, Traffic: &traffic.Config{Mirrors: []traffic.Mirror{test.mirror}},
+			}).Validate()
+			if err == nil {
+				t.Fatal("Validate accepted a mirror VLAN without bridge VLAN support")
+			}
+			if got := errs.Attributes(err)["field"]; got != test.wantField {
+				t.Errorf("field = %v, want %q", got, test.wantField)
+			}
+		})
+	}
+
+	configured := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{referencedVLAN: "mirror"},
+		}},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+			Name: "span", SelectAll: true, SelectVLANs: []vlan.ID{referencedVLAN}, OutputVLAN: new(referencedVLAN),
+		}}},
+	}
+	if err := configured.Validate(); err != nil {
+		t.Fatalf("Validate rejected mirror VLANs present in the bridge table: %v", err)
+	}
+
+	withSubmittedOrder := configured
+	withSubmittedOrder.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{
+		{Name: "z-valid", SelectAll: true, OutputVLAN: new(referencedVLAN)},
+		{Name: "a-invalid", SelectAll: true, SelectVLANs: []vlan.ID{20}, OutputPort: "out"},
+	}}
+	_, err := (vswitch.ConstructionSpec{Config: withSubmittedOrder}).Normalize()
+	if err == nil {
+		t.Fatal("Normalize accepted a selector VLAN absent from the bridge table")
+	}
+	if got := errs.Attributes(err)["field"]; got != "traffic.mirrors.1.select_vlans.0" {
+		t.Errorf("submitted field = %v, want traffic.mirrors.1.select_vlans.0", got)
+	}
 }
