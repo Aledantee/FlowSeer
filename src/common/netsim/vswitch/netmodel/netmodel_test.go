@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
@@ -469,8 +470,8 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 	seeds := res.Spec.Seeds
 	report := res.Report
 
-	if len(seeds) != 1 {
-		t.Errorf("seeds count = %d, want 1", len(seeds))
+	if len(seeds) != 0 {
+		t.Errorf("seeds = %+v, want both unusable rows omitted", seeds)
 	}
 
 	foundSkipped := false
@@ -482,6 +483,12 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 	}
 	if !foundSkipped {
 		t.Errorf("expected invalid FDB entry in Skipped, got %+v", report.Skipped)
+	}
+	if res.Readiness() == analysis.Complete {
+		t.Error("readiness = Complete, want unusable active row reported")
+	}
+	if _, err := vswitch.NewWithSpec(res.Spec); err != nil {
+		t.Errorf("NewWithSpec: %v", err)
 	}
 }
 
@@ -635,7 +642,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 	vid10 := uint32(10)
 	fdbStatic := switchingv1.FdbEntry_builder{
 		VlanId:        &vid10,
-		InterfaceName: &p1Name,
+		InterfaceName: &p2Name,
 		Kind:          &staticKind,
 		Status:        &statusActive,
 		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),

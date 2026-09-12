@@ -176,6 +176,52 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 	}
 }
 
+func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "old", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "current", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := vswitch.Config{Ports: ports, Bridge: &bridge.Config{}}
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	oldTime := fixedTime.Add(-time.Minute)
+
+	cur, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: cfg,
+		Seeds:  []bridge.Seed{{MAC: mac, Port: "current", LearnedAt: fixedTime}},
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec(current): %v", err)
+	}
+
+	for _, test := range []struct {
+		name       string
+		static     bool
+		wantPort   string
+		wantTime   time.Time
+		wantStatic bool
+	}{
+		{name: "dynamic target yields to newer current state", wantPort: "current", wantTime: fixedTime},
+		{name: "static target remains authoritative", static: true, wantPort: "old", wantTime: oldTime, wantStatic: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
+				Config: cfg,
+				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Static: test.static, LearnedAt: oldTime}},
+			})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+
+			entries := next.Entries()
+			if len(entries) != 1 {
+				t.Fatalf("entries = %+v, want one", entries)
+			}
+			if got := entries[0]; got.Port != test.wantPort || got.LearnedAt != test.wantTime || got.Static != test.wantStatic {
+				t.Errorf("entry = %+v, want port=%q learned_at=%s static=%t", got, test.wantPort, test.wantTime, test.wantStatic)
+			}
+		})
+	}
+}
+
 func TestHubNoCandidateHasSemanticTerminalDecision(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "only", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))

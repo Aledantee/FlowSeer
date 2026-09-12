@@ -102,6 +102,9 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	nextVLAN := next.cfg.Bridge != nil && next.cfg.Bridge.VLAN != nil
 	targetSeeds := make(map[bridgeSeedKey]struct{}, len(next.seeds))
 	for _, seed := range next.seeds {
+		if !seed.Static {
+			continue
+		}
 		targetSeeds[bridgeSeedKey{fid: seed.FID, mac: seed.MAC}] = struct{}{}
 	}
 

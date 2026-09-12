@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -1026,6 +1027,33 @@ func TestRouteUnknownInterface(t *testing.T) {
 		if !sameStepIdentity(res.Steps[i], want[i]) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], want[i])
 		}
+	}
+}
+
+func TestConstructorsNormalizeRoutePrefixesBeforeValidation(t *testing.T) {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "wan", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	cfg := routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {
+			Interfaces: map[string]routing.Interface{
+				"wan": {Port: "wan", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.0.1/24")}},
+			},
+			Routes: []routing.Route{{
+				Prefix:    netip.MustParsePrefix("192.0.2.99/24"),
+				Interface: "wan",
+			}},
+		},
+	}}
+
+	if _, err := routing.New(cfg, ports); err != nil {
+		t.Errorf("routing.New: %v", err)
+	}
+	if _, err := vswitch.New(vswitch.Config{Ports: ports, Routing: &cfg}); err != nil {
+		t.Errorf("vswitch.New: %v", err)
 	}
 }
 

@@ -453,7 +453,7 @@ func TestLoad_SpecConfigNormalizedDirectly(t *testing.T) {
 
 func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 	p1 := makeTestInterface("1/1/1", true)
-	p2 := makeTestInterface("1/1/2", true)
+	p2 := switchedPhysicalInterface("1/1/2", 20)
 
 	vid10 := uint32(10)
 	vid20 := uint32(20)

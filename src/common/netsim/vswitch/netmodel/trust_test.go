@@ -153,6 +153,51 @@ func plainPhysicalInterface(name string) *interfacev1.Interface {
 	}.Build()
 }
 
+func switchedPhysicalInterface(name string, taggedVLANs ...uint32) *interfacev1.Interface {
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	admission := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
+	ingressFiltering := false
+	return interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &admin,
+		OperStatus:  &oper,
+		Physical: interfacev1.PhysicalInterface_builder{
+			Switchport: switchingv1.SwitchportFacet_builder{
+				TaggedVlanIds:    taggedVLANs,
+				FrameAdmission:   &admission,
+				IngressFiltering: &ingressFiltering,
+			}.Build(),
+		}.Build(),
+	}.Build()
+}
+
+func routedPhysicalInterface(name string) *interfacev1.Interface {
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	return interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &admin,
+		OperStatus:  &oper,
+		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+	}.Build()
+}
+
+func activeFDBRow(portName string, vid uint32) *switchingv1.FdbEntry {
+	active := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
+	static := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
+	return switchingv1.FdbEntry_builder{
+		VlanId:        &vid,
+		InterfaceName: &portName,
+		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		Kind:          &static,
+		Status:        &active,
+	}.Build()
+}
+
 func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP
@@ -285,7 +330,7 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 				Mac: addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(), Kind: &tt.kind, Status: &active,
 			}.Build()
 			input := loadInput{
-				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid)},
 				fdb:    []*switchingv1.FdbEntry{row, row},
 			}
 			input.validate(t)
@@ -296,6 +341,104 @@ func TestLoadKeepsExplicitActiveFDBKindsAndDeduplicatesEqualRows(t *testing.T) {
 			}
 			if len(result.Report.Conflicts) != 0 || result.Readiness() != analysis.Complete {
 				t.Errorf("conflicts = %+v, readiness = %v, want no conflict and Complete", result.Report.Conflicts, result.Readiness())
+			}
+		})
+	}
+}
+
+func TestLoadOmitsFDBRowsTheCompletedSwitchCannotConstruct(t *testing.T) {
+	portName := "1/1/1"
+	vid10 := uint32(10)
+	vid20 := uint32(20)
+	vlan10 := switchingv1.Vlan_builder{Id: &vid10, Name: ptr("ten")}.Build()
+
+	tests := []struct {
+		name      string
+		input     loadInput
+		wantSeeds int
+	}{
+		{
+			name: "relay absent",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+				want:   []port.Layer{port.LayerEthernet},
+			},
+		},
+		{
+			name: "VLAN awareness absent",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{plainPhysicalInterface(portName)},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+				want:   []port.Layer{port.LayerRelay},
+			},
+		},
+		{
+			name: "VLAN absent from table",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			},
+		},
+		{
+			name: "routed port",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{routedPhysicalInterface(portName)},
+				vlans:  []*switchingv1.Vlan{vlan10},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			},
+		},
+		{
+			name: "switchport does not admit VLAN",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid20)},
+				vlans:  []*switchingv1.Vlan{vlan10},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			},
+		},
+		{
+			name: "admitted switchport",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{switchedPhysicalInterface(portName, vid10)},
+				fdb:    []*switchingv1.FdbEntry{activeFDBRow(portName, vid10)},
+			},
+			wantSeeds: 1,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.input.validate(t)
+			result := test.input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+
+			if got := len(result.Spec.Seeds); got != test.wantSeeds {
+				t.Errorf("seed count = %d, want %d: %+v", got, test.wantSeeds, result.Spec.Seeds)
+			}
+			normalized, err := result.Spec.Normalize()
+			if err != nil {
+				t.Fatalf("Spec.Normalize: %v", err)
+			}
+			if !result.Spec.Equal(normalized) {
+				t.Errorf("Load returned a non-normalized spec:\n got: %+v\nwant: %+v", result.Spec, normalized)
+			}
+			if _, err := vswitch.NewWithSpec(result.Spec); err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+
+			if test.wantSeeds > 0 {
+				return
+			}
+			if result.Readiness() == analysis.Complete {
+				t.Fatal("readiness = Complete, want scoped FDB omission")
+			}
+			if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+				return skip.Port == portName && skip.What == "fdb_entry" && len(skip.Evidence) > 0
+			}) {
+				t.Errorf("skipped = %+v, want evidenced fdb_entry omission on %q", result.Report.Skipped, portName)
+			}
+			issues := result.Metadata.IssuesFor(analysis.PortScope("sw1", portName))
+			if len(issues) == 0 || len(issues[0].Evidence) == 0 {
+				t.Errorf("issues = %+v, want evidenced port-scoped issue", issues)
 			}
 		})
 	}
@@ -613,6 +756,41 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 			t.Errorf("NewWithSpec: %v", err)
 		}
 	})
+}
+
+func TestLoadInvalidSTPBridgeSkipsEveryPortRow(t *testing.T) {
+	priority := uint32(32767)
+	bridgeState := stpv1.BridgeState_builder{
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address: addrv1.Eui48Address_builder{
+				Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+			}.Build(),
+		}.Build(),
+	}.Build()
+	portA := "1/1/1"
+	portB := "1/1/2"
+	result := (loadInput{
+		ifaces:      []*interfacev1.Interface{plainPhysicalInterface(portA), plainPhysicalInterface(portB)},
+		bridgeState: bridgeState,
+		stpPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: &portA}.Build(),
+			nil,
+			stpv1.PortState_builder{InterfaceName: &portB}.Build(),
+		},
+		want: []port.Layer{port.LayerStp},
+	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot"})
+
+	if result.Spec.Config.STP != nil {
+		t.Errorf("STP = %+v, want invalid bridge omitted", result.Spec.Config.STP)
+	}
+	for _, name := range []string{portA, portB} {
+		if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+			return skip.Port == name && skip.What == "stp_port" && len(skip.Evidence) > 0
+		}) {
+			t.Errorf("skipped = %+v, want evidenced stp_port omission on %q", result.Report.Skipped, name)
+		}
+	}
 }
 
 func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *testing.T) {

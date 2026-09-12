@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
 
 func TestHubCompletenessUsesEveryEligibleEgressState(t *testing.T) {
@@ -279,5 +280,63 @@ func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
 	}
 	if !foundMissingEvidence {
 		t.Errorf("missing ingress result lacks its loaded issue evidence: %+v", missing.Metadata.Issues())
+	}
+}
+
+func TestMirrorOutputDropUsesIngressDependencyMetadata(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "mirror", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
+	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "switch",
+		Context: "mirror output state is incomplete",
+	})
+	metadata := analysis.NewMetadata(
+		analysis.NodeScope("sw1"),
+		[]analysis.Issue{{
+			Code:     "test.mirror-output",
+			Status:   analysis.Unsupported,
+			Scope:    analysis.PortScope("sw1", "mirror"),
+			Message:  "mirror output cannot be modeled",
+			Evidence: []trace.EvidenceRef{ref},
+		}},
+		catalog,
+		nil,
+	)
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+				Name:       "span",
+				OutputPort: "mirror",
+			}}},
+		},
+		NodeID:   "sw1",
+		Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	res := sw.Forward(fixedTime, "mirror", ethernet.Frame{Src: macH1, Dst: macH2})
+	if res.Reason != traffic.ReasonMirrorOutput {
+		t.Fatalf("reason = %s, want %s", res.Reason, traffic.ReasonMirrorOutput)
+	}
+	wantCodes := map[analysis.IssueCode]bool{
+		"unknown-operational-status": false,
+		"test.mirror-output":         false,
+	}
+	for _, issue := range res.Metadata.Issues() {
+		if _, ok := wantCodes[issue.Code]; ok {
+			wantCodes[issue.Code] = true
+		}
+	}
+	for code, found := range wantCodes {
+		if !found {
+			t.Errorf("issues = %+v, want %q", res.Metadata.Issues(), code)
+		}
+	}
+	if _, ok := res.Metadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("evidence = %+v, want %q", res.Metadata.Evidence().Entries(), ref)
 	}
 }

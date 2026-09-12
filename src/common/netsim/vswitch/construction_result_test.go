@@ -303,6 +303,70 @@ func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
 	}
 }
 
+func TestAggregateConstructorsReportSubmittedTrafficIndices(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "z-valid", Kind: port.Physical}).
+		Add(port.Port{Name: "output", Kind: port.Physical}))
+	tests := []struct {
+		name      string
+		traffic   traffic.Config
+		wantField string
+	}{
+		{
+			name: "mirror order",
+			traffic: traffic.Config{Mirrors: []traffic.Mirror{
+				{Name: "z-valid", OutputPort: "output"},
+				{Name: "a-invalid", OutputPort: "missing"},
+			}},
+			wantField: "mirrors.1.output_port",
+		},
+		{
+			name: "compacted selector order",
+			traffic: traffic.Config{Mirrors: []traffic.Mirror{{
+				Name:           "span",
+				SelectSrcPorts: []string{"z-valid", "z-valid", "zz-missing"},
+				OutputPort:     "output",
+			}}},
+			wantField: "mirrors.0.select_src_ports.2",
+		},
+	}
+	constructors := []struct {
+		name string
+		new  func(vswitch.Config) error
+	}{
+		{
+			name: "New",
+			new: func(cfg vswitch.Config) error {
+				_, err := vswitch.New(cfg)
+				return err
+			},
+		},
+		{
+			name: "NewWithSpec",
+			new: func(cfg vswitch.Config) error {
+				_, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{Config: cfg})
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for _, constructor := range constructors {
+				t.Run(constructor.name, func(t *testing.T) {
+					err := constructor.new(vswitch.Config{Ports: ports, Traffic: &test.traffic})
+					if err == nil {
+						t.Fatal("constructor succeeded, want validation error")
+					}
+					if got := errs.Attributes(err)["field"]; got != test.wantField {
+						t.Errorf("field = %v, want %q", got, test.wantField)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestSwitchLearnRejectsInvalidSeedsWithoutRecordingThem(t *testing.T) {
 	ports := twoPortTable(t)
 	sw, err := vswitch.New(vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})

@@ -81,18 +81,20 @@ type Layer struct {
 	vrfs     map[string]*vrfState
 }
 
-// New constructs a [Layer] from the provided configuration and port table.
-// It returns an error if the configuration is invalid against the ports.
+// New normalizes and constructs a [Layer] from the provided configuration and
+// port table. It returns an error if the normalized configuration is invalid
+// against the ports.
 //
 // Per VRF the forwarding table contains connected routes derived from each interface
 // prefix and configured static routes, sorted by prefix length descending then by prefix,
 // with connected routes listed first at equal length. Lookup selects the first match; a
 // static route on a prefix a connected route also covers wins nothing.
 func New(cfg Config, ports port.Table) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+	norm := cfg.Normalize()
+	if err := norm.Validate(ports); err != nil {
 		return nil, err
 	}
-	return newLayer(cfg.Normalize()), nil
+	return newLayer(norm), nil
 }
 
 func newLayer(cfg Config) *Layer {

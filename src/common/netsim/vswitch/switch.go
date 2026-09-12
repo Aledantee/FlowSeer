@@ -55,6 +55,13 @@ type ConstructionSpec struct {
 // with normalized configuration and forwarding database seeds.
 func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
 	owned := s.Clone()
+	// Traffic field paths name submitted slice positions, which sorting and
+	// compaction would otherwise replace with normalized positions.
+	if owned.Config.Traffic != nil {
+		if err := owned.Config.Traffic.Validate(owned.Config.Ports.Normalize()); err != nil {
+			return ConstructionSpec{}, err
+		}
+	}
 	owned.Config = owned.Config.Normalize()
 	if err := owned.Config.Validate(); err != nil {
 		return ConstructionSpec{}, err
@@ -487,7 +494,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	}
 	if s.isMirrorOutputPort(ingress) {
 		mirror := s.mirrorForOutput(ingress)
-		return bridge.Result{
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
 				Reason:  traffic.ReasonMirrorOutput,
@@ -501,6 +508,8 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			},
 			Ingress: ingress,
 		}
+		res.Consult(s.forwardingPath(ingress)...)
+		return res
 	}
 
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {

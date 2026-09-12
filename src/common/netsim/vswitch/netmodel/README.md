@@ -73,7 +73,10 @@ the whole switch unconstructible.
 
 An FDB row becomes a seed only when it reports `ACTIVE` status and either
 `STATIC` or `DYNAMIC` kind. Missing, unspecified, unsupported, and unrecognized
-values leave no executable seed and make readiness non-Complete.
+values leave no executable seed and make readiness non-Complete. The row must
+also name a logical switchport that admits its VLAN in the completed bridge
+configuration. A row that has no relay, no VLAN-aware relay, no matching VLAN,
+or no admitting switchport is omitted with a port-scoped issue.
 
 ## Operational uncertainty and localized scoping
 

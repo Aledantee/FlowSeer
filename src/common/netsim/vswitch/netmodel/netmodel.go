@@ -576,6 +576,9 @@ func Load(
 	if !isWanted(port.LayerStp) && bridgeState != nil {
 		addSkipped("", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		for _, ps := range stpPorts {
+			if ps == nil {
+				continue
+			}
 			addSkipped(ps.GetInterfaceName(), "stp_port", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
@@ -1019,6 +1022,18 @@ func Load(
 		}
 		if bridgeWhy != "" {
 			addSkipped("", "stp_bridge", bridgeWhy, bridgeStatus, bridgeCode)
+			for _, ps := range stpPorts {
+				if ps == nil {
+					continue
+				}
+				addSkipped(
+					ps.GetInterfaceName(),
+					"stp_port",
+					"spanning tree bridge configuration is unavailable",
+					analysis.Incomplete,
+					IssueMissingSTPBridgeState,
+				)
+			}
 		} else {
 			stpCfg := stp.Config{
 				Priority: uint16(prio),
@@ -1452,6 +1467,11 @@ func Load(
 		}
 	}
 
+	normCfg := cfg.Normalize()
+	if err := normCfg.Validate(); err != nil {
+		return Result{}, errs.Wrap(err, "validate switch configuration")
+	}
+
 	var seeds []bridge.Seed
 	fdbRows, fdbConflicts := resolveFacts(fdb, func(entry *switchingv1.FdbEntry) (factKey, string, bool) {
 		if entry == nil {
@@ -1511,13 +1531,18 @@ func Load(
 		entry := fdbRows[fdbKey]
 		vid := vlan.ID(entry.GetVlanId())
 		mac, _ := parseEUI48(entry.GetMac())
-		seeds = append(seeds, bridge.Seed{
+		seed, why, code, ok := normalizeLoadedFDBSeed(normCfg, bridge.Seed{
 			FID:       vid,
 			MAC:       mac,
 			Port:      entry.GetInterfaceName(),
 			Static:    entry.GetKind() == switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC,
 			LearnedAt: now,
 		})
+		if !ok {
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", why, analysis.Incomplete, code)
+			continue
+		}
+		seeds = append(seeds, seed)
 	}
 
 	slices.Sort(report.Capabilities)
@@ -1569,23 +1594,56 @@ func Load(
 		return a.LearnedAt.Compare(b.LearnedAt)
 	})
 
-	normCfg := cfg.Normalize()
-	if err := normCfg.Validate(); err != nil {
-		return Result{}, errs.Wrap(err, "validate switch configuration")
+	metadata := analysis.NewMetadata(rootScope, issues, catalog, assumptions)
+	spec, err := (vswitch.ConstructionSpec{
+		Config:   normCfg,
+		Seeds:    seeds,
+		NodeID:   src.DeviceID,
+		Metadata: metadata,
+	}).Normalize()
+	if err != nil {
+		return Result{}, errs.Wrap(err, "normalize switch construction specification")
 	}
 
-	metadata := analysis.NewMetadata(rootScope, issues, catalog, assumptions)
-
 	return Result{
-		Spec: vswitch.ConstructionSpec{
-			Config:   normCfg,
-			Seeds:    seeds,
-			NodeID:   src.DeviceID,
-			Metadata: metadata,
-		},
+		Spec:     spec,
 		Report:   report.Clone(),
 		Metadata: metadata,
 	}, nil
+}
+
+func normalizeLoadedFDBSeed(cfg vswitch.Config, seed bridge.Seed) (bridge.Seed, string, analysis.IssueCode, bool) {
+	if cfg.Bridge == nil {
+		return bridge.Seed{}, "bridge relay is absent", IssueSkippedMissingFacet, false
+	}
+	if cfg.Bridge.VLAN == nil {
+		return bridge.Seed{}, "VLAN awareness is absent", IssueSkippedMissingFacet, false
+	}
+
+	normalized, err := bridge.NormalizeSeeds(*cfg.Bridge, cfg.Ports, []bridge.Seed{seed})
+	if err == nil {
+		return normalized[0], "", "", true
+	}
+
+	code := IssueSkippedMissingFacet
+	if routingUsesPort(cfg.Routing, seed.Port) {
+		code = IssueSkippedInterfaceRouted
+	}
+	return bridge.Seed{}, err.Error(), code, false
+}
+
+func routingUsesPort(cfg *routing.Config, portName string) bool {
+	if cfg == nil {
+		return false
+	}
+	for _, vrf := range cfg.VRFs {
+		for _, iface := range vrf.Interfaces {
+			if iface.Port == portName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func parseMAC(eui *addrv1.EuiAddress) (netaddr.MAC, bool) {

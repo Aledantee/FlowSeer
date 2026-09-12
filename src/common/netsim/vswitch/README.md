@@ -322,8 +322,10 @@ Exported constructors validate and normalize configurations:
   specification for exact reproducibility.
 - [Derive] takes the target [ConstructionSpec]. Static forwarding entries, node
   identity, and trust metadata come only from that target; they are not copied
-  from the current switch. To retain existing target trust while changing its
-  configuration, start with [Switch.Spec] and replace its `Config` field.
+  from the current switch. A target dynamic seed yields to the current switch's
+  learned entry for the same FID and MAC, while a target static seed remains
+  authoritative. To retain existing target trust while changing its configuration,
+  start with [Switch.Spec] and replace its `Config` field.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
