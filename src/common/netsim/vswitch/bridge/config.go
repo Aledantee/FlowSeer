@@ -36,7 +36,7 @@ type Tunnel struct {
 }
 
 // TypeID returns the fact type identifier for Tunnel.
-func (t Tunnel) TypeID() string { return "tunnel" }
+func (t Tunnel) TypeID() string { return "bridge.tunnel" }
 
 // Canonical returns the canonical string representation of the Tunnel fact.
 func (t Tunnel) Canonical() string {
@@ -56,7 +56,7 @@ func (t *Tunnel) EffectiveTPID() uint16 {
 type PriorityTagPolicy string
 
 // TypeID returns the fact type identifier for PriorityTagPolicy.
-func (p PriorityTagPolicy) TypeID() string { return "priority_tags" }
+func (p PriorityTagPolicy) TypeID() string { return "bridge.priority_tags" }
 
 // Canonical returns the string representation of PriorityTagPolicy.
 func (p PriorityTagPolicy) Canonical() string {
@@ -81,7 +81,7 @@ const (
 type Admission string
 
 // TypeID returns the fact type identifier for Admission.
-func (a Admission) TypeID() string { return "admission" }
+func (a Admission) TypeID() string { return "bridge.admission" }
 
 // Canonical returns the string representation of Admission.
 func (a Admission) Canonical() string {
@@ -114,7 +114,7 @@ type Switchport struct {
 }
 
 // TypeID returns the fact type identifier for Switchport.
-func (s Switchport) TypeID() string { return "switchport" }
+func (s Switchport) TypeID() string { return "bridge.switchport" }
 
 // Canonical returns the canonical string representation of the Switchport fact.
 func (s Switchport) Canonical() string {

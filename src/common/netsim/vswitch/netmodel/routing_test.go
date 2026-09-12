@@ -820,7 +820,10 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		t.Errorf("vlan10 port kind = %v, want port.Other", p.Kind)
 	}
 
-	sw := vswitch.New(cfg)
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 
 	broadcastFrame := ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},

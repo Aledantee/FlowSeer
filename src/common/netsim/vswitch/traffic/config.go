@@ -3,8 +3,10 @@
 package traffic
 
 import (
+	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -35,6 +37,19 @@ type Mirror struct {
 	OutputPort     string
 	OutputVLAN     *vlan.ID
 	SnapLen        int
+}
+
+// TypeID returns the fact type identifier for Mirror.
+func (m Mirror) TypeID() string { return "traffic.mirror" }
+
+// Canonical returns the canonical string representation of the Mirror fact.
+func (m Mirror) Canonical() string {
+	var outVLAN string
+	if m.OutputVLAN != nil {
+		outVLAN = strconv.Itoa(int(*m.OutputVLAN))
+	}
+	return fmt.Sprintf("name=%s,select_all=%t,output_port=%s,output_vlan=%s,snap_len=%d",
+		m.Name, m.SelectAll, m.OutputPort, outVLAN, m.SnapLen)
 }
 
 // Policer defines an ingress token bucket. RateBPS is in bits per second and
@@ -85,6 +100,35 @@ func (c Config) Clone() Config {
 		}
 	}
 
+	return cp
+}
+
+// Normalize returns a normalized copy of the configuration with mirror selectors sorted deterministically.
+func (c Config) Normalize() Config {
+	cp := c.Clone()
+	for i := range cp.Mirrors {
+		if len(cp.Mirrors[i].SelectSrcPorts) > 0 {
+			slices.Sort(cp.Mirrors[i].SelectSrcPorts)
+			cp.Mirrors[i].SelectSrcPorts = slices.Compact(cp.Mirrors[i].SelectSrcPorts)
+		}
+		if len(cp.Mirrors[i].SelectDstPorts) > 0 {
+			slices.Sort(cp.Mirrors[i].SelectDstPorts)
+			cp.Mirrors[i].SelectDstPorts = slices.Compact(cp.Mirrors[i].SelectDstPorts)
+		}
+		if len(cp.Mirrors[i].SelectVLANs) > 0 {
+			slices.Sort(cp.Mirrors[i].SelectVLANs)
+			cp.Mirrors[i].SelectVLANs = slices.Compact(cp.Mirrors[i].SelectVLANs)
+		}
+	}
+	slices.SortFunc(cp.Mirrors, func(a, b Mirror) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
 	return cp
 }
 

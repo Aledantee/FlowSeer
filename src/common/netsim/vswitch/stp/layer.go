@@ -147,11 +147,16 @@ func compareVectors(a, b priorityVector) int {
 	return cmp.Compare(a.portID, b.portID)
 }
 
-// New constructs a spanning tree layer from the given configuration and port
-// table. A zero Address in cfg is the caller's error; the switch fills it.
-// A port identifier combines the 8-bit port priority in the high byte
-// with the 1-based index of the port in Ports' sorted key order in the low byte.
-func New(cfg Config, ports port.Table) *Layer {
+// New constructs a spanning tree layer from the given configuration and port table.
+// It returns an error if the configuration is invalid against the ports.
+func New(cfg Config, ports port.Table) (*Layer, error) {
+	if err := cfg.Validate(ports); err != nil {
+		return nil, err
+	}
+	return newLayer(cfg.Normalize()), nil
+}
+
+func newLayer(cfg Config) *Layer {
 	prio := effectivePriority(cfg.Priority)
 	hello := effectiveHelloTime(cfg.HelloTime)
 	maxAge := effectiveMaxAge(cfg.MaxAge)

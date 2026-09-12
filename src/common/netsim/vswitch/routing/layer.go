@@ -2,7 +2,6 @@ package routing
 
 import (
 	"cmp"
-	"fmt"
 	"net/netip"
 	"slices"
 
@@ -82,13 +81,21 @@ type Layer struct {
 	vrfs     map[string]*vrfState
 }
 
-// New constructs a [Layer] from the provided configuration.
+// New constructs a [Layer] from the provided configuration and port table.
+// It returns an error if the configuration is invalid against the ports.
 //
 // Per VRF the forwarding table contains connected routes derived from each interface
 // prefix and configured static routes, sorted by prefix length descending then by prefix,
 // with connected routes listed first at equal length. Lookup selects the first match; a
 // static route on a prefix a connected route also covers wins nothing.
-func New(cfg Config) *Layer {
+func New(cfg Config, ports port.Table) (*Layer, error) {
+	if err := cfg.Validate(ports); err != nil {
+		return nil, err
+	}
+	return newLayer(cfg.Normalize()), nil
+}
+
+func newLayer(cfg Config) *Layer {
 	cloned := cfg.Clone()
 
 	l := &Layer{
@@ -231,9 +238,9 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if !ok {
 		return Result{
 			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpClassify, Detail: fmt.Sprintf("interface %s", iface)},
-				{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: fmt.Sprintf("unknown interface %s", iface)},
+				{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: trace.RuleID("classify"), Subject: trace.Subject{Kind: "interface", Key: iface}},
+				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "interface", Key: iface}},
+				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("unknown-interface"), Subject: trace.Subject{Kind: "interface", Key: iface}},
 			},
 			Reason: ReasonNoRoute,
 		}
@@ -242,9 +249,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	vrf := l.vrfs[vrfName]
 	var res Result
 	res.Steps = append(res.Steps, trace.Step{
-		Layer:  port.LayerRouting,
-		Op:     trace.OpClassify,
-		Detail: fmt.Sprintf("vrf %s interface %s", vrfName, iface),
+		Layer:   port.LayerRouting,
+		Op:      trace.OpClassify,
+		RuleID:  trace.RuleID("classify"),
+		Subject: trace.Subject{Kind: "interface", Key: iface},
 	})
 
 	hdr, payload, err := ip.Decode(f.Payload)
@@ -256,9 +264,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if err != nil {
 		res.Reason = ReasonBadHeader
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: string(ReasonBadHeader),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonBadHeader),
+			Subject: trace.Subject{Kind: "interface", Key: iface},
 		})
 		return res
 	}
@@ -266,9 +275,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if _, isLocal := vrf.localAddrs[hdr.Dst]; isLocal {
 		res.Reason = ReasonNotRouted
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpLookup,
-			Detail: hdr.Dst.String(),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpLookup,
+			RuleID:  trace.RuleID("local-delivery"),
+			Subject: trace.Subject{Kind: "ip", Key: hdr.Dst.String()},
 		})
 		return res
 	}
@@ -276,9 +286,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if hdr.HopLimit <= 1 {
 		res.Reason = ReasonTTLExpired
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: string(ReasonTTLExpired),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonTTLExpired),
+			Subject: trace.Subject{Kind: "ip", Key: hdr.Dst.String()},
 		})
 		return res
 	}
@@ -295,24 +306,26 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		res.Reason = ReasonNoRoute
 		res.Steps = append(res.Steps,
 			trace.Step{
-				Layer:  port.LayerRouting,
-				Op:     trace.OpLookup,
-				Detail: "no route",
+				Layer:   port.LayerRouting,
+				Op:      trace.OpLookup,
+				RuleID:  trace.RuleID("no-route"),
+				Subject: trace.Subject{Kind: "ip", Key: hdr.Dst.String()},
 			},
 			trace.Step{
-				Layer:  port.LayerRouting,
-				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("vrf %s", vrfName),
+				Layer:   port.LayerRouting,
+				Op:      trace.OpDrop,
+				RuleID:  trace.RuleID("no-route"),
+				Subject: trace.Subject{Kind: "vrf", Key: vrfName},
 			},
 		)
 		return res
 	}
 
-	lookupDetail := fmt.Sprintf("%s %s %s", matchedRoute.Prefix, matchedRoute.kind, matchedRoute.Interface)
 	res.Steps = append(res.Steps, trace.Step{
-		Layer:  port.LayerRouting,
-		Op:     trace.OpLookup,
-		Detail: lookupDetail,
+		Layer:   port.LayerRouting,
+		Op:      trace.OpLookup,
+		RuleID:  trace.RuleID(matchedRoute.kind),
+		Subject: trace.Subject{Kind: "prefix", Key: matchedRoute.Prefix.String()},
 	})
 
 	targetAddr := hdr.Dst
@@ -325,9 +338,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if !ok {
 		res.Reason = ReasonNeighborMiss
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: fmt.Sprintf("vrf %s interface %s address %s", vrfName, targetIface, targetAddr),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonNeighborMiss),
+			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 		})
 		return res
 	}
@@ -336,9 +350,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	egressMAC := egressIfaceObj.MAC
 
 	res.Steps = append(res.Steps, trace.Step{
-		Layer:  port.LayerRouting,
-		Op:     trace.OpRewrite,
-		Detail: fmt.Sprintf("hop limit %d to %d, src %s, dst %s", hdr.HopLimit, hdr.HopLimit-1, egressMAC, neighbor.MAC),
+		Layer:   port.LayerRouting,
+		Op:      trace.OpRewrite,
+		RuleID:  trace.RuleID("decrement-ttl"),
+		Subject: trace.Subject{Kind: "interface", Key: targetIface},
 	})
 
 	newHdr := hdr
@@ -347,9 +362,10 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	if err != nil {
 		res.Reason = ReasonBadHeader
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: string(ReasonBadHeader),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonBadHeader),
+			Subject: trace.Subject{Kind: "interface", Key: targetIface},
 		})
 		return res
 	}
@@ -361,6 +377,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		EtherType: f.EtherType,
 		Payload:   newPayload,
 	}
+
 	return res
 }
 
@@ -376,8 +393,8 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	if !ok {
 		return Result{
 			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: fmt.Sprintf("vrf %s", vrf)},
+				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}},
+				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}},
 			},
 			Reason: ReasonNoRoute,
 		}
@@ -416,8 +433,8 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	if !srcAddr.IsValid() {
 		return Result{
 			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: fmt.Sprintf("vrf %s", vrf)},
+				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}},
+				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}},
 			},
 			Reason: ReasonNoRoute,
 		}
@@ -434,19 +451,19 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	if matchedRoute == nil {
 		return Result{
 			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: fmt.Sprintf("vrf %s", vrf)},
+				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "ip", Key: dst.String()}},
+				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}},
 			},
 			Reason: ReasonNoRoute,
 		}
 	}
 
 	var steps []trace.Step
-	lookupDetail := fmt.Sprintf("%s %s %s", matchedRoute.Prefix, matchedRoute.kind, matchedRoute.Interface)
 	steps = append(steps, trace.Step{
-		Layer:  port.LayerRouting,
-		Op:     trace.OpLookup,
-		Detail: lookupDetail,
+		Layer:   port.LayerRouting,
+		Op:      trace.OpLookup,
+		RuleID:  trace.RuleID(matchedRoute.kind),
+		Subject: trace.Subject{Kind: "prefix", Key: matchedRoute.Prefix.String()},
 	})
 
 	targetAddr := dst
@@ -459,9 +476,10 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	if !ok {
 		return Result{
 			Steps: append(steps, trace.Step{
-				Layer:  port.LayerRouting,
-				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("vrf %s interface %s address %s", vrf, targetIface, targetAddr),
+				Layer:   port.LayerRouting,
+				Op:      trace.OpDrop,
+				RuleID:  trace.RuleID(ReasonNeighborMiss),
+				Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			}),
 			Reason: ReasonNeighborMiss,
 		}
@@ -486,9 +504,10 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	if err != nil {
 		return Result{
 			Steps: append(steps, trace.Step{
-				Layer:  port.LayerRouting,
-				Op:     trace.OpDrop,
-				Detail: string(ReasonBadHeader),
+				Layer:   port.LayerRouting,
+				Op:      trace.OpDrop,
+				RuleID:  trace.RuleID(ReasonBadHeader),
+				Subject: trace.Subject{Kind: "interface", Key: targetIface},
 			}),
 			Reason: ReasonBadHeader,
 		}

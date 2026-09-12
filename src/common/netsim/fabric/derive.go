@@ -16,7 +16,7 @@ func Derive(cur *Fabric, cfg Config) (*Fabric, error) {
 	if cur != nil && cfg.Start.IsZero() {
 		cfg.Start = cur.clock
 	}
-	next, err := build(cur, cfg)
+	next, err := build(cur, cfg, nil)
 	if err != nil {
 		return nil, err
 	}

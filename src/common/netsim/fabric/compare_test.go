@@ -459,10 +459,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		var foundLen, foundSpeed bool
 		for _, ch := range changes {
 			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "length" && ch.From == float64(0) && ch.To == float64(50) {
+				if ch.Field == "length" && ch.From == fabric.LengthFact(0) && ch.To == fabric.LengthFact(50) {
 					foundLen = true
 				}
-				if ch.Field == "top_speed" && ch.From == uint64(0) && ch.To == uint64(100_000_000) {
+				if ch.Field == "top_speed" && ch.From == fabric.TopSpeedFact(0) && ch.To == fabric.TopSpeedFact(100_000_000) {
 					foundSpeed = true
 				}
 			}
@@ -503,7 +503,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
 					foundMedium = true
 				}
-				if ch.Field == "delay" && ch.From == nil && ch.To == 1*time.Microsecond {
+				if ch.Field == "delay" && ch.From == nil && ch.To == fabric.DelayFact(1*time.Microsecond) {
 					foundDelay = true
 				}
 			}
@@ -559,10 +559,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 					ch.To == (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
 					foundPort = true
 				}
-				if ch.Field == "address" && ch.From == macH1 && ch.To == macH1New {
+				if ch.Field == "address" && ch.From == fabric.MACFact(macH1) && ch.To == fabric.MACFact(macH1New) {
 					foundAddr = true
 				}
-				if ch.Field == "vlan" && ch.From == vid10 && ch.To == vid20 {
+				if ch.Field == "vlan" && ch.From == fabric.VLANFact(vid10) && ch.To == fabric.VLANFact(vid20) {
 					foundVLAN = true
 				}
 			}
@@ -691,20 +691,22 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
 				if ch.Field == "addresses" {
 					foundAddrs = true
-					if !slices.Equal(ch.From.([]string), []string{"10.0.10.10/24"}) ||
-						!slices.Equal(ch.To.([]string), []string{"10.0.10.10/24", "fd00::10/64"}) {
+					fromAddrs, okFrom := ch.From.(fabric.PrefixesFact)
+					toAddrs, okTo := ch.To.(fabric.PrefixesFact)
+					if !okFrom || !okTo || !slices.Equal(fromAddrs, []string{"10.0.10.10/24"}) ||
+						!slices.Equal(toAddrs, []string{"10.0.10.10/24", "fd00::10/64"}) {
 						t.Errorf("addresses diff = %v -> %v", ch.From, ch.To)
 					}
 				}
 				if ch.Field == "gateway" {
 					foundGW = true
-					if ch.From != gw1 || ch.To != gw2 {
+					if ch.From != fabric.GatewayFact(gw1) || ch.To != fabric.GatewayFact(gw2) {
 						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
 					}
 				}
 				if ch.Field == "neighbors.10.0.10.3" {
 					foundNbr = true
-					if ch.From != nil || ch.To != mac2 {
+					if ch.From != nil || ch.To != fabric.MACFact(mac2) {
 						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
 					}
 				}

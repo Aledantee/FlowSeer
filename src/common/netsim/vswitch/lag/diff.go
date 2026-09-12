@@ -13,7 +13,7 @@ import (
 type PrimaryFact string
 
 // TypeID returns the fact type identifier for PrimaryFact.
-func (f PrimaryFact) TypeID() string { return "primary" }
+func (f PrimaryFact) TypeID() string { return "lag.primary" }
 
 // Canonical returns the primary port name.
 func (f PrimaryFact) Canonical() string { return string(f) }
@@ -22,7 +22,7 @@ func (f PrimaryFact) Canonical() string { return string(f) }
 type DurationFact time.Duration
 
 // TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "duration" }
+func (f DurationFact) TypeID() string { return "lag.duration" }
 
 // Canonical returns the duration string.
 func (f DurationFact) Canonical() string { return time.Duration(f).String() }
@@ -31,7 +31,7 @@ func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 type HashBasisFact uint32
 
 // TypeID returns the fact type identifier for HashBasisFact.
-func (f HashBasisFact) TypeID() string { return "hash_basis" }
+func (f HashBasisFact) TypeID() string { return "lag.hash_basis" }
 
 // Canonical returns the decimal string of the hash basis.
 func (f HashBasisFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -40,7 +40,7 @@ func (f HashBasisFact) Canonical() string { return strconv.FormatUint(uint64(f),
 type MinLinksFact int
 
 // TypeID returns the fact type identifier for MinLinksFact.
-func (f MinLinksFact) TypeID() string { return "min_links" }
+func (f MinLinksFact) TypeID() string { return "lag.min_links" }
 
 // Canonical returns the decimal string of min links.
 func (f MinLinksFact) Canonical() string { return strconv.Itoa(int(f)) }
@@ -49,7 +49,7 @@ func (f MinLinksFact) Canonical() string { return strconv.Itoa(int(f)) }
 type BoolFact bool
 
 // TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "bool" }
+func (f BoolFact) TypeID() string { return "lag.bool" }
 
 // Canonical returns "true" or "false".
 func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
@@ -58,7 +58,7 @@ func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 type Uint16Fact uint16
 
 // TypeID returns the fact type identifier for Uint16Fact.
-func (f Uint16Fact) TypeID() string { return "uint16" }
+func (f Uint16Fact) TypeID() string { return "lag.uint16" }
 
 // Canonical returns the decimal string of the uint16 value.
 func (f Uint16Fact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -67,7 +67,7 @@ func (f Uint16Fact) Canonical() string { return strconv.FormatUint(uint64(f), 10
 type MACFact netaddr.MAC
 
 // TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "mac" }
+func (f MACFact) TypeID() string { return "lag.mac" }
 
 // Canonical returns the formatted MAC string.
 func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
@@ -76,7 +76,7 @@ func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
 type PortPriorityFact uint16
 
 // TypeID returns the fact type identifier for PortPriorityFact.
-func (f PortPriorityFact) TypeID() string { return "port_priority" }
+func (f PortPriorityFact) TypeID() string { return "lag.port_priority" }
 
 // Canonical returns the decimal string of the port priority.
 func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }

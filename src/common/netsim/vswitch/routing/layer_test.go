@@ -86,9 +86,23 @@ func encodeIPv6Packet(t *testing.T, src, dst netip.Addr, hopLimit uint8, payload
 	return b
 }
 
+func mustNewRouting(t *testing.T, cfg routing.Config) *routing.Layer {
+	t.Helper()
+	return mustNewRoutingWithPorts(t, cfg, port.Table{})
+}
+
+func mustNewRoutingWithPorts(t *testing.T, cfg routing.Config, ports port.Table) *routing.Layer {
+	t.Helper()
+	l, err := routing.New(cfg, ports)
+	if err != nil {
+		t.Fatalf("routing.New: %v", err)
+	}
+	return l
+}
+
 func TestRouteIPv4Connected(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 
 	ifaceName, ok := l.ByVLAN(10)
 	if !ok || ifaceName != "vlan10" {
@@ -143,26 +157,29 @@ func TestRouteIPv4Connected(t *testing.T) {
 
 	expectedSteps := []trace.Step{
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpClassify,
-			Detail: "vrf default interface vlan10",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpClassify,
+			RuleID:  "classify",
+			Subject: trace.Subject{Kind: "interface", Key: "vlan10"},
 		},
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpLookup,
-			Detail: "10.0.20.0/24 connected vlan20",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpLookup,
+			RuleID:  "connected",
+			Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 		},
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpRewrite,
-			Detail: "hop limit 64 to 63, src 00:00:5e:00:01:01, dst 00:11:22:33:44:77",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpRewrite,
+			RuleID:  "decrement-ttl",
+			Subject: trace.Subject{Kind: "interface", Key: "vlan20"},
 		},
 	}
 	if len(res.Steps) != len(expectedSteps) {
 		t.Fatalf("steps count = %d, want %d: %+v", len(res.Steps), len(expectedSteps), res.Steps)
 	}
 	for i, step := range expectedSteps {
-		if res.Steps[i] != step {
+		if !res.Steps[i].Equal(step) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], step)
 		}
 	}
@@ -175,7 +192,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 	vrf.Neighbors = nil
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	l := routing.New(cfg)
+	l := mustNewRouting(t, cfg)
 	pkt := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.7"), 64, []byte("payload"))
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
@@ -194,26 +211,29 @@ func TestRouteNeighborMiss(t *testing.T) {
 
 	expectedSteps := []trace.Step{
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpClassify,
-			Detail: "vrf default interface vlan10",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpClassify,
+			RuleID:  "classify",
+			Subject: trace.Subject{Kind: "interface", Key: "vlan10"},
 		},
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpLookup,
-			Detail: "10.0.20.0/24 connected vlan20",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpLookup,
+			RuleID:  "connected",
+			Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
 		},
 		{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: "vrf default interface vlan20 address 10.0.20.7",
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  "neighbor-miss",
+			Subject: trace.Subject{Kind: "ip", Key: "10.0.20.7"},
 		},
 	}
 	if len(res.Steps) != len(expectedSteps) {
 		t.Fatalf("steps count = %d, want %d: %+v", len(res.Steps), len(expectedSteps), res.Steps)
 	}
 	for i, step := range expectedSteps {
-		if res.Steps[i] != step {
+		if !res.Steps[i].Equal(step) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], step)
 		}
 	}
@@ -221,7 +241,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 
 func TestRouteDropsAndLocalAddress(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
 	t.Run("hop limit 1 drops with ttl-expired", func(t *testing.T) {
@@ -240,7 +260,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 		if len(res.Frame.Payload) != 0 {
 			t.Errorf("expected no egress payload, got %d bytes", len(res.Frame.Payload))
 		}
-		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.Detail != "ttl-expired" {
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonTTLExpired) {
 			t.Errorf("last step = %+v, want drop ttl-expired", last)
 		}
 	})
@@ -263,8 +283,8 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 				t.Errorf("unexpected drop step in not-routed result: %+v", s)
 			}
 		}
-		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpLookup || last.Detail != "10.0.10.1" {
-			t.Errorf("last step = %+v, want lookup 10.0.10.1", last)
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpLookup || last.RuleID != "local-delivery" || last.Subject.Key != "10.0.10.1" {
+			t.Errorf("last step = %+v, want lookup local-delivery 10.0.10.1", last)
 		}
 	})
 
@@ -285,7 +305,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 		if res.Reason != routing.ReasonBadHeader {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
 		}
-		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.Detail != "bad-header" {
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonBadHeader) {
 			t.Errorf("last step = %+v, want drop bad-header", last)
 		}
 	})
@@ -303,7 +323,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 		if res.Reason != routing.ReasonNoRoute {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 		}
-		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.Detail != "vrf default" {
+		if last := res.Steps[len(res.Steps)-1]; last.Op != trace.OpDrop || last.RuleID != "no-route" || last.Subject.Key != "default" {
 			t.Errorf("last step = %+v, want drop vrf default", last)
 		}
 	})
@@ -311,7 +331,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 
 func TestRouteIPv6(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
 	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("ipv6 data"))
@@ -380,7 +400,7 @@ func TestVRFIsolation(t *testing.T) {
 		},
 	}
 
-	l := routing.New(cfg)
+	l := mustNewRouting(t, cfg)
 
 	// Injected on vlan30 to tenant MAC.
 	pkt := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.7"), 64, []byte("tenant traffic"))
@@ -401,8 +421,8 @@ func TestVRFIsolation(t *testing.T) {
 	if resTenant.Frame.Dst != tenantNeighborMAC {
 		t.Errorf("tenant frame dst = %s, want %s", resTenant.Frame.Dst, tenantNeighborMAC)
 	}
-	if resTenant.Steps[0].Detail != "vrf tenant interface vlan30" {
-		t.Errorf("tenant classify detail = %q, want vrf tenant interface vlan30", resTenant.Steps[0].Detail)
+	if resTenant.Steps[0].RuleID != "classify" || resTenant.Steps[0].Subject.Key != "vlan30" {
+		t.Errorf("tenant classify step = %+v, want classify vlan30", resTenant.Steps[0])
 	}
 
 	// Packet in default VRF still routes to default VRF neighbor.
@@ -428,7 +448,7 @@ func TestVRFIsolation(t *testing.T) {
 		Interface: "vlan10",
 	})
 	cfgWithDefaultRoute.VRFs[routing.DefaultVRF] = vrfDef
-	l2 := routing.New(cfgWithDefaultRoute)
+	l2 := mustNewRouting(t, cfgWithDefaultRoute)
 
 	pkt99 := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.99.7"), 64, []byte("data"))
 	frameTenant99 := ethernet.Frame{
@@ -441,7 +461,7 @@ func TestVRFIsolation(t *testing.T) {
 	if resTenant99.Reason != routing.ReasonNoRoute {
 		t.Fatalf("tenant99 reason = %q, want %q", resTenant99.Reason, routing.ReasonNoRoute)
 	}
-	if last := resTenant99.Steps[len(resTenant99.Steps)-1]; last.Op != trace.OpDrop || last.Detail != "vrf tenant" {
+	if last := resTenant99.Steps[len(resTenant99.Steps)-1]; last.Op != trace.OpDrop || last.RuleID != "no-route" || last.Subject.Key != "tenant" {
 		t.Errorf("tenant99 drop step = %+v, want drop naming vrf tenant", last)
 	}
 }
@@ -465,7 +485,13 @@ func TestRoutedPort(t *testing.T) {
 	})
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	l := routing.New(cfg)
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/5", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.NewBuilder: %v", err)
+	}
+	l := mustNewRoutingWithPorts(t, cfg, ports)
 
 	ifName, ok := l.ByPort("1/1/5")
 	if !ok || ifName != "1/1/5" {
@@ -509,8 +535,8 @@ func TestRoutedPort(t *testing.T) {
 	if resFromPort.Interface != "vlan20" {
 		t.Errorf("interface = %q, want vlan20", resFromPort.Interface)
 	}
-	if resFromPort.Steps[0].Detail != "vrf default interface 1/1/5" {
-		t.Errorf("classify detail = %q, want vrf default interface 1/1/5", resFromPort.Steps[0].Detail)
+	if resFromPort.Steps[0].RuleID != "classify" || resFromPort.Steps[0].Subject.Key != "1/1/5" {
+		t.Errorf("classify step = %+v, want classify 1/1/5", resFromPort.Steps[0])
 	}
 }
 
@@ -574,7 +600,7 @@ func TestStaticRoutes(t *testing.T) {
 		},
 	}
 
-	l := routing.New(cfg)
+	l := mustNewRouting(t, cfg)
 
 	t.Run("static route to next hop resolved on interface whose prefix contains it", func(t *testing.T) {
 		t.Parallel()
@@ -595,8 +621,8 @@ func TestStaticRoutes(t *testing.T) {
 		if res.Frame.Dst != gwMAC {
 			t.Errorf("destination MAC = %s, want %s", res.Frame.Dst, gwMAC)
 		}
-		if res.Steps[1].Detail != "192.168.1.0/24 static vlan20" {
-			t.Errorf("lookup step = %q, want 192.168.1.0/24 static vlan20", res.Steps[1].Detail)
+		if res.Steps[1].RuleID != "static" || res.Steps[1].Subject.Key != "192.168.1.0/24" {
+			t.Errorf("lookup step = %+v, want static 192.168.1.0/24", res.Steps[1])
 		}
 	})
 
@@ -735,7 +761,7 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 		t.Fatalf("expected valid configuration, got: %v", err)
 	}
 
-	l := routing.New(validExplicitCfg)
+	l := mustNewRoutingWithPorts(t, validExplicitCfg, ports)
 	pkt := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("192.168.1.5"), 64, []byte("data"))
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77},
@@ -756,7 +782,7 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 
 func TestOwns(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 	wrongMAC := netaddr.MAC{0x00, 0x99, 0x99, 0x99, 0x99, 0x99}
 
@@ -848,7 +874,7 @@ func TestOriginate(t *testing.T) {
 		},
 	}
 
-	l := routing.New(cfg)
+	l := mustNewRouting(t, cfg)
 
 	t.Run("longest matching source selection", func(t *testing.T) {
 		t.Parallel()
@@ -927,7 +953,7 @@ func TestOriginate(t *testing.T) {
 // egress frame keeps that EtherType.
 func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
 	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("ipv6 data"))
@@ -943,7 +969,7 @@ func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
 	}
 	last := res.Steps[len(res.Steps)-1]
-	if last.Op != trace.OpDrop || last.Detail != string(routing.ReasonBadHeader) {
+	if last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonBadHeader) {
 		t.Errorf("last step = %+v, want drop bad-header", last)
 	}
 }
@@ -953,7 +979,7 @@ func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 // egress payload does not reach them.
 func TestRouteLeavesInputUntouched(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
 	pkt := encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr("10.0.20.7"), 64, []byte("data"))
@@ -982,22 +1008,22 @@ func TestRouteLeavesInputUntouched(t *testing.T) {
 // gets the same step shape as a table miss: classify, lookup, drop.
 func TestRouteUnknownInterface(t *testing.T) {
 	t.Parallel()
-	l := routing.New(standardSwitchConfig())
+	l := mustNewRouting(t, standardSwitchConfig())
 
 	res := l.Route("vlan99", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4})
 	if res.Reason != routing.ReasonNoRoute {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 	}
 	want := []trace.Step{
-		{Layer: port.LayerRouting, Op: trace.OpClassify, Detail: "interface vlan99"},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "no route"},
-		{Layer: port.LayerRouting, Op: trace.OpDrop, Detail: "unknown interface vlan99"},
+		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: trace.RuleID("classify"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
+		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
+		{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("unknown-interface"), Subject: trace.Subject{Kind: "interface", Key: "vlan99"}},
 	}
 	if len(res.Steps) != len(want) {
 		t.Fatalf("steps = %+v, want %+v", res.Steps, want)
 	}
 	for i := range want {
-		if res.Steps[i] != want[i] {
+		if !res.Steps[i].Equal(want[i]) {
 			t.Errorf("step %d = %+v, want %+v", i, res.Steps[i], want[i])
 		}
 	}

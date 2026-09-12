@@ -244,7 +244,7 @@ func TestStpExport_MigratedPort(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	sw := vswitch.New(vswitch.Config{
+	sw, err := vswitch.New(vswitch.Config{
 		Ports:  tbl,
 		Bridge: &bridge.Config{},
 		STP: &stp.Config{
@@ -257,6 +257,9 @@ func TestStpExport_MigratedPort(t *testing.T) {
 			},
 		},
 	})
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	sw.Start(t0)
@@ -533,7 +536,10 @@ func TestStpExport_NoLayerReturnsNil(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	sw := vswitch.New(vswitch.Config{Ports: tbl})
+	sw, err := vswitch.New(vswitch.Config{Ports: tbl})
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 	bState, pStates := netmodel.Stp(time.Time{}, sw)
 	if bState != nil || pStates != nil {
 		t.Errorf("Stp(sw without stp) = (%v, %v), want (nil, nil)", bState, pStates)
@@ -551,7 +557,7 @@ func TestStpExportCarriesEffectiveValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build ports: %v", err)
 	}
-	sw := vswitch.New(vswitch.Config{
+	sw, err := vswitch.New(vswitch.Config{
 		Ports:  tbl,
 		Bridge: &bridge.Config{},
 		STP: &stp.Config{
@@ -559,6 +565,9 @@ func TestStpExportCarriesEffectiveValues(t *testing.T) {
 			Ports:   map[string]stp.Port{"1/1/1": {}},
 		},
 	})
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	sw.Start(now)
 	sw.Drain()

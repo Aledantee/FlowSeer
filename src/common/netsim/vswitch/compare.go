@@ -11,8 +11,8 @@ import (
 // Comparison holds the forwarding results from evaluating the same frame arrival
 // on two switches, and reports whether their observable forwarding behaviors match.
 type Comparison struct {
-	Current  bridge.Result
-	Expected bridge.Result
+	Current  ForwardResult
+	Expected ForwardResult
 	Same     bool
 }
 

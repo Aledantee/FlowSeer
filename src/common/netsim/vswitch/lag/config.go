@@ -33,7 +33,7 @@ const (
 type Mode string
 
 // TypeID returns the fact type identifier for Mode.
-func (m Mode) TypeID() string { return "bond_mode" }
+func (m Mode) TypeID() string { return "lag.bond_mode" }
 
 // Canonical returns the string representation of the mode.
 func (m Mode) Canonical() string {
@@ -58,7 +58,7 @@ const (
 type LACPMode string
 
 // TypeID returns the fact type identifier for LACPMode.
-func (m LACPMode) TypeID() string { return "lacp_mode" }
+func (m LACPMode) TypeID() string { return "lag.lacp_mode" }
 
 // Canonical returns the string representation of the LACP mode.
 func (m LACPMode) Canonical() string {
@@ -86,7 +86,7 @@ type Member struct {
 }
 
 // TypeID returns the fact type identifier for Member.
-func (m Member) TypeID() string { return "member" }
+func (m Member) TypeID() string { return "lag.member" }
 
 // Canonical returns the canonical string representation of the Member fact.
 func (m Member) Canonical() string {
@@ -116,7 +116,7 @@ type LAG struct {
 }
 
 // TypeID returns the fact type identifier for LAG.
-func (l LAG) TypeID() string { return "lag" }
+func (l LAG) TypeID() string { return "lag.lag" }
 
 // Canonical returns the canonical string representation of the LAG fact.
 func (l LAG) Canonical() string {

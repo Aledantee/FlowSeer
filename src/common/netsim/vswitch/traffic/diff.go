@@ -3,10 +3,102 @@ package traffic
 import (
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
+
+// RateFact wraps a uint64 rate in bits per second as a trace.Fact.
+type RateFact uint64
+
+// TypeID returns the fact type identifier for RateFact.
+func (f RateFact) TypeID() string { return "traffic.rate_bps" }
+
+// Canonical returns the decimal string of the rate.
+func (f RateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// BurstFact wraps a burst size in octets as a trace.Fact.
+type BurstFact int
+
+// TypeID returns the fact type identifier for BurstFact.
+func (f BurstFact) TypeID() string { return "traffic.burst_octets" }
+
+// Canonical returns the decimal string of the burst.
+func (f BurstFact) Canonical() string { return strconv.Itoa(int(f)) }
+
+// MaxRateFact wraps a maximum rate in bits per second as a trace.Fact.
+type MaxRateFact uint64
+
+// TypeID returns the fact type identifier for MaxRateFact.
+func (f MaxRateFact) TypeID() string { return "traffic.max_rate_bps" }
+
+// Canonical returns the decimal string of the max rate.
+func (f MaxRateFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// SelectAllFact wraps a boolean select_all flag as a trace.Fact.
+type SelectAllFact bool
+
+// TypeID returns the fact type identifier for SelectAllFact.
+func (f SelectAllFact) TypeID() string { return "traffic.select_all" }
+
+// Canonical returns "true" or "false".
+func (f SelectAllFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+
+// PortsFact wraps a slice of port names as a trace.Fact.
+type PortsFact []string
+
+// TypeID returns the fact type identifier for PortsFact.
+func (f PortsFact) TypeID() string { return "traffic.ports" }
+
+// Canonical returns the comma-separated port names.
+func (f PortsFact) Canonical() string { return strings.Join(f, ",") }
+
+// VLANsFact wraps a slice of VLAN IDs as a trace.Fact.
+type VLANsFact []vlan.ID
+
+// TypeID returns the fact type identifier for VLANsFact.
+func (f VLANsFact) TypeID() string { return "traffic.vlans" }
+
+// Canonical returns the comma-separated VLAN IDs.
+func (f VLANsFact) Canonical() string {
+	if len(f) == 0 {
+		return ""
+	}
+	strs := make([]string, len(f))
+	for i, vid := range f {
+		strs[i] = strconv.Itoa(int(vid))
+	}
+	return strings.Join(strs, ",")
+}
+
+// OutputPortFact wraps an output port name as a trace.Fact.
+type OutputPortFact string
+
+// TypeID returns the fact type identifier for OutputPortFact.
+func (f OutputPortFact) TypeID() string { return "traffic.output_port" }
+
+// Canonical returns the output port name string.
+func (f OutputPortFact) Canonical() string { return string(f) }
+
+// OutputVLANFact wraps an output VLAN ID as a trace.Fact.
+type OutputVLANFact vlan.ID
+
+// TypeID returns the fact type identifier for OutputVLANFact.
+func (f OutputVLANFact) TypeID() string { return "traffic.output_vlan" }
+
+// Canonical returns the decimal string of the VLAN ID.
+func (f OutputVLANFact) Canonical() string { return strconv.Itoa(int(f)) }
+
+// SnapLenFact wraps a snap length as a trace.Fact.
+type SnapLenFact int
+
+// TypeID returns the fact type identifier for SnapLenFact.
+func (f SnapLenFact) TypeID() string { return "traffic.snap_len" }
+
+// Canonical returns the decimal string of the snap length.
+func (f SnapLenFact) Canonical() string { return strconv.Itoa(int(f)) }
 
 // Diff computes field-level changes between two traffic configurations.
 // Mirror selector slices are sets, so their order does not produce a change.
@@ -42,12 +134,12 @@ func Diff(a, b Config) []trace.Change {
 		subject := trace.Subject{Kind: "port", Key: name}
 		if ap.RateBPS != bp.RateBPS {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: subject, Field: "rate", From: ap.RateBPS, To: bp.RateBPS,
+				Layer: Layer, Subject: subject, Field: "rate", From: RateFact(ap.RateBPS), To: RateFact(bp.RateBPS),
 			})
 		}
 		if ap.BurstOctets != bp.BurstOctets {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: subject, Field: "burst", From: ap.BurstOctets, To: bp.BurstOctets,
+				Layer: Layer, Subject: subject, Field: "burst", From: BurstFact(ap.BurstOctets), To: BurstFact(bp.BurstOctets),
 			})
 		}
 	}
@@ -68,8 +160,8 @@ func Diff(a, b Config) []trace.Change {
 					Key:  fmt.Sprintf("%s/%d", portName, pcp),
 				},
 				Field: "max_rate",
-				From:  aRate,
-				To:    bRate,
+				From:  MaxRateFact(aRate),
+				To:    MaxRateFact(bRate),
 			})
 		}
 	}
@@ -79,32 +171,32 @@ func Diff(a, b Config) []trace.Change {
 
 func diffMirror(changes []trace.Change, name string, a, b Mirror) []trace.Change {
 	subject := trace.Subject{Kind: "mirror", Key: name}
-	appendChange := func(field string, from, to any) {
+	appendChange := func(field string, from, to trace.Fact) {
 		changes = append(changes, trace.Change{
 			Layer: Layer, Subject: subject, Field: field, From: from, To: to,
 		})
 	}
 
 	if a.SelectAll != b.SelectAll {
-		appendChange("select_all", a.SelectAll, b.SelectAll)
+		appendChange("select_all", SelectAllFact(a.SelectAll), SelectAllFact(b.SelectAll))
 	}
 	if from, to := normalizedStrings(a.SelectSrcPorts), normalizedStrings(b.SelectSrcPorts); !slices.Equal(from, to) {
-		appendChange("select_src_ports", from, to)
+		appendChange("select_src_ports", PortsFact(from), PortsFact(to))
 	}
 	if from, to := normalizedStrings(a.SelectDstPorts), normalizedStrings(b.SelectDstPorts); !slices.Equal(from, to) {
-		appendChange("select_dst_ports", from, to)
+		appendChange("select_dst_ports", PortsFact(from), PortsFact(to))
 	}
 	if from, to := normalizedVLANs(a.SelectVLANs), normalizedVLANs(b.SelectVLANs); !slices.Equal(from, to) {
-		appendChange("select_vlans", from, to)
+		appendChange("select_vlans", VLANsFact(from), VLANsFact(to))
 	}
 	if a.OutputPort != b.OutputPort {
-		appendChange("output_port", a.OutputPort, b.OutputPort)
+		appendChange("output_port", OutputPortFact(a.OutputPort), OutputPortFact(b.OutputPort))
 	}
 	if !equalVLANs(a.OutputVLAN, b.OutputVLAN) {
-		appendChange("output_vlan", vlanValue(a.OutputVLAN), vlanValue(b.OutputVLAN))
+		appendChange("output_vlan", vlanFact(a.OutputVLAN), vlanFact(b.OutputVLAN))
 	}
 	if a.SnapLen != b.SnapLen {
-		appendChange("snap_len", a.SnapLen, b.SnapLen)
+		appendChange("snap_len", SnapLenFact(a.SnapLen), SnapLenFact(b.SnapLen))
 	}
 
 	return changes
@@ -179,10 +271,10 @@ func equalVLANs(a, b *vlan.ID) bool {
 	return *a == *b
 }
 
-func vlanValue(id *vlan.ID) any {
+func vlanFact(id *vlan.ID) trace.Fact {
 	if id == nil {
 		return nil
 	}
 
-	return *id
+	return OutputVLANFact(*id)
 }

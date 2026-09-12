@@ -9,11 +9,56 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
+
+// ConstructionSpec captures the normalized configuration and non-configuration
+// inputs (such as per-switch preloaded forwarding database seeds) needed to construct
+// an identical [Fabric].
+type ConstructionSpec struct {
+	Config Config
+	Seeds  map[string][]bridge.Seed
+}
+
+// Clone returns an independent deep copy of the construction specification.
+func (s ConstructionSpec) Clone() ConstructionSpec {
+	cp := ConstructionSpec{
+		Config: s.Config.Clone(),
+	}
+	if s.Seeds != nil {
+		cp.Seeds = make(map[string][]bridge.Seed, len(s.Seeds))
+		for k, v := range s.Seeds {
+			cp.Seeds[k] = slices.Clone(v)
+		}
+	}
+	return cp
+}
+
+// Equal reports whether two construction specifications are identical.
+func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
+	if !s.Config.Equal(other.Config) {
+		return false
+	}
+	if len(s.Seeds) != len(other.Seeds) {
+		return false
+	}
+	for k, v := range s.Seeds {
+		ov, ok := other.Seeds[k]
+		if !ok || len(v) != len(ov) {
+			return false
+		}
+		for i := range v {
+			if v[i] != ov[i] {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 // Fabric is a set of switches and hosts joined by cables, with every port state decided by its cable.
 //
@@ -48,7 +93,14 @@ type linkEndRef struct {
 // operational link states and negotiated speeds across all cables before instantiating
 // the constituent virtual switches, then starts every protocol layer at Start.
 func New(cfg Config) (*Fabric, error) {
-	fab, err := build(nil, cfg)
+	return NewWithSpec(ConstructionSpec{Config: cfg})
+}
+
+// NewWithSpec constructs a validated [Fabric] from the provided construction specification,
+// restoring preloaded forwarding database seeds across switches.
+func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
+	norm := spec.Config.Normalize()
+	fab, err := build(nil, norm, spec.Seeds)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +109,25 @@ func New(cfg Config) (*Fabric, error) {
 	return fab, nil
 }
 
+// Spec returns a [ConstructionSpec] capturing the normalized configuration and
+// per-switch preloaded forwarding database seeds needed to reconstruct this fabric.
+func (f *Fabric) Spec() ConstructionSpec {
+	spec := ConstructionSpec{
+		Config: f.cfg.Clone(),
+		Seeds:  make(map[string][]bridge.Seed),
+	}
+	for name, sw := range f.switches {
+		swSpec := sw.Spec()
+		if len(swSpec.Seeds) > 0 {
+			spec.Seeds[name] = slices.Clone(swSpec.Seeds)
+		}
+	}
+	return spec
+}
+
 // build makes the fabric without starting any protocol layer, so Derive can
 // swap in cloned layers first.
-func build(cur *Fabric, cfg Config) (*Fabric, error) {
+func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -226,7 +294,17 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 		}
 		swCfg.Ports = newTable
 
-		sw := vswitch.New(swCfg)
+		var swSeeds []bridge.Seed
+		if seeds != nil {
+			swSeeds = seeds[name]
+		}
+		sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+			Config: swCfg,
+			Seeds:  swSeeds,
+		})
+		if err != nil {
+			return nil, errs.Wrapf(err, "build switch %q", name)
+		}
 		switches[name] = sw
 
 		memberPorts := sw.Ports().Ports()
@@ -254,8 +332,12 @@ func build(cur *Fabric, cfg Config) (*Fabric, error) {
 	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
 	for name, h := range cloned.Hosts {
 		if h.IP != nil {
-			rtCfg, _ := HostRoutingConfig(name, h)
-			hostStacks[name] = routing.New(rtCfg)
+			rtCfg, tbl := HostRoutingConfig(name, h)
+			layer, err := routing.New(rtCfg, tbl)
+			if err != nil {
+				return nil, errs.Wrapf(err, "host %q routing", name)
+			}
+			hostStacks[name] = layer
 		}
 	}
 

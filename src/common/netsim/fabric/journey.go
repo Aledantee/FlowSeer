@@ -8,7 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
 
 // FrameID uniquely identifies an injected frame and its copies throughout the fabric simulation.
@@ -64,7 +64,7 @@ type Entry struct {
 	Serialization time.Duration
 	Wait          time.Duration
 	PCP           vlan.PCP
-	Result        *bridge.Result
+	Result        *vswitch.ForwardResult
 	Reason        trace.Reason
 }
 
@@ -130,7 +130,7 @@ func (e Entry) clone() Entry {
 	return cp
 }
 
-func cloneResult(r bridge.Result) *bridge.Result {
+func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
 	cp := r
 	if len(r.Steps) > 0 {
 		cp.Steps = slices.Clone(r.Steps)

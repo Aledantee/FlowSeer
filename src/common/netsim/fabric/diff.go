@@ -4,11 +4,78 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
+
+// LengthFact wraps a cable length in meters as a trace.Fact.
+type LengthFact float64
+
+// TypeID returns the fact type identifier for LengthFact.
+func (f LengthFact) TypeID() string { return "fabric.length_meters" }
+
+// Canonical returns the decimal string representation of the cable length.
+func (f LengthFact) Canonical() string { return strconv.FormatFloat(float64(f), 'f', -1, 64) }
+
+// TopSpeedFact wraps a top speed in bits per second as a trace.Fact.
+type TopSpeedFact uint64
+
+// TypeID returns the fact type identifier for TopSpeedFact.
+func (f TopSpeedFact) TypeID() string { return "fabric.top_speed_bps" }
+
+// Canonical returns the decimal string representation of the top speed.
+func (f TopSpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// DelayFact wraps a cable delay duration as a trace.Fact.
+type DelayFact time.Duration
+
+// TypeID returns the fact type identifier for DelayFact.
+func (f DelayFact) TypeID() string { return "fabric.delay" }
+
+// Canonical returns the string representation of the delay duration.
+func (f DelayFact) Canonical() string { return time.Duration(f).String() }
+
+// MACFact wraps a netaddr.MAC as a trace.Fact.
+type MACFact netaddr.MAC
+
+// TypeID returns the fact type identifier for MACFact.
+func (f MACFact) TypeID() string { return "fabric.mac" }
+
+// Canonical returns the formatted MAC address string.
+func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
+
+// VLANFact wraps a vlan.ID as a trace.Fact.
+type VLANFact vlan.ID
+
+// TypeID returns the fact type identifier for VLANFact.
+func (f VLANFact) TypeID() string { return "fabric.vlan" }
+
+// Canonical returns the decimal string representation of the VLAN ID.
+func (f VLANFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// PrefixesFact wraps a slice of prefix strings as a trace.Fact.
+type PrefixesFact []string
+
+// TypeID returns the fact type identifier for PrefixesFact.
+func (f PrefixesFact) TypeID() string { return "fabric.prefixes" }
+
+// Canonical returns the comma-separated prefix strings.
+func (f PrefixesFact) Canonical() string { return strings.Join(f, ",") }
+
+// GatewayFact wraps a netip.Addr as a trace.Fact.
+type GatewayFact netip.Addr
+
+// TypeID returns the fact type identifier for GatewayFact.
+func (f GatewayFact) TypeID() string { return "fabric.gateway" }
+
+// Canonical returns the string representation of the gateway IP.
+func (f GatewayFact) Canonical() string { return netip.Addr(f).String() }
 
 // Diff computes the differences between two fabric configurations, reporting switch differences,
 // cable additions, removals, and modifications, and host additions, removals, and moves.
@@ -94,8 +161,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "length",
-				From:    cA.LengthMeters,
-				To:      cB.LengthMeters,
+				From:    LengthFact(cA.LengthMeters),
+				To:      LengthFact(cB.LengthMeters),
 			})
 		}
 		if mA, mB := normalizedMedium(cA.Medium), normalizedMedium(cB.Medium); mA != mB {
@@ -108,12 +175,12 @@ func Diff(a, b Config) []trace.Change {
 			})
 		}
 		if !samePtr(cA.Delay, cB.Delay) {
-			var fromDelay, toDelay any
+			var fromDelay, toDelay trace.Fact
 			if cA.Delay != nil {
-				fromDelay = *cA.Delay
+				fromDelay = DelayFact(*cA.Delay)
 			}
 			if cB.Delay != nil {
-				toDelay = *cB.Delay
+				toDelay = DelayFact(*cB.Delay)
 			}
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
@@ -128,8 +195,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "top_speed",
-				From:    cA.TopSpeedBPS,
-				To:      cB.TopSpeedBPS,
+				From:    TopSpeedFact(cA.TopSpeedBPS),
+				To:      TopSpeedFact(cB.TopSpeedBPS),
 			})
 		}
 		if !sameFault(cA.Fault, cB.Fault) {
@@ -206,17 +273,17 @@ func Diff(a, b Config) []trace.Change {
 					Layer:   Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   "address",
-					From:    hA.Address,
-					To:      hB.Address,
+					From:    MACFact(hA.Address),
+					To:      MACFact(hB.Address),
 				})
 			}
 			if !samePtr(hA.VLAN, hB.VLAN) {
-				var fromVal, toVal any
+				var fromVal, toVal trace.Fact
 				if hA.VLAN != nil {
-					fromVal = *hA.VLAN
+					fromVal = VLANFact(*hA.VLAN)
 				}
 				if hB.VLAN != nil {
-					toVal = *hB.VLAN
+					toVal = VLANFact(*hB.VLAN)
 				}
 				changes = append(changes, trace.Change{
 					Layer:   Layer,
@@ -250,12 +317,12 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 	}
 
 	if !slices.Equal(pfxA, pfxB) {
-		var fromVal, toVal any
+		var fromVal, toVal trace.Fact
 		if a != nil {
-			fromVal = pfxA
+			fromVal = PrefixesFact(pfxA)
 		}
 		if b != nil {
-			toVal = pfxB
+			toVal = PrefixesFact(pfxB)
 		}
 		*changes = append(*changes, trace.Change{
 			Layer:   Layer,
@@ -277,12 +344,12 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 		gwB = b.Gateway
 	}
 	if gwA != gwB {
-		var fromVal, toVal any
+		var fromVal, toVal trace.Fact
 		if gwA.IsValid() {
-			fromVal = gwA
+			fromVal = GatewayFact(gwA)
 		}
 		if gwB.IsValid() {
-			toVal = gwB
+			toVal = GatewayFact(gwB)
 		}
 		*changes = append(*changes, trace.Change{
 			Layer:   Layer,
@@ -330,7 +397,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   field,
-				From:    macA,
+				From:    MACFact(macA),
 				To:      nil,
 			})
 		case !inA && inB:
@@ -339,7 +406,7 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   field,
 				From:    nil,
-				To:      macB,
+				To:      MACFact(macB),
 			})
 		case inA && inB:
 			if macA != macB {
@@ -347,8 +414,8 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
 					Layer:   Layer,
 					Subject: trace.Subject{Kind: "host", Key: name},
 					Field:   field,
-					From:    macA,
-					To:      macB,
+					From:    MACFact(macA),
+					To:      MACFact(macB),
 				})
 			}
 		}

@@ -17,7 +17,7 @@ import (
 type VLANFact vlan.ID
 
 // TypeID returns the fact type identifier for VLANFact.
-func (f VLANFact) TypeID() string { return "vlan" }
+func (f VLANFact) TypeID() string { return "routing.vlan" }
 
 // Canonical returns the decimal string of the VLAN ID.
 func (f VLANFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -29,7 +29,7 @@ func (f VLANFact) VID() vlan.ID { return vlan.ID(f) }
 type PortFact string
 
 // TypeID returns the fact type identifier for PortFact.
-func (f PortFact) TypeID() string { return "port" }
+func (f PortFact) TypeID() string { return "routing.port" }
 
 // Canonical returns the port name string.
 func (f PortFact) Canonical() string { return string(f) }
@@ -38,7 +38,7 @@ func (f PortFact) Canonical() string { return string(f) }
 type MACFact netaddr.MAC
 
 // TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "mac" }
+func (f MACFact) TypeID() string { return "routing.mac" }
 
 // Canonical returns the formatted MAC string.
 func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
@@ -47,7 +47,7 @@ func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
 type PrefixesFact []netip.Prefix
 
 // TypeID returns the fact type identifier for PrefixesFact.
-func (f PrefixesFact) TypeID() string { return "prefixes" }
+func (f PrefixesFact) TypeID() string { return "routing.prefixes" }
 
 // Canonical returns the comma-separated prefix strings.
 func (f PrefixesFact) Canonical() string {
@@ -65,7 +65,7 @@ func (f PrefixesFact) Canonical() string {
 type AddrFact netip.Addr
 
 // TypeID returns the fact type identifier for AddrFact.
-func (f AddrFact) TypeID() string { return "addr" }
+func (f AddrFact) TypeID() string { return "routing.addr" }
 
 // Canonical returns the IP address string.
 func (f AddrFact) Canonical() string { return netip.Addr(f).String() }
@@ -74,7 +74,7 @@ func (f AddrFact) Canonical() string { return netip.Addr(f).String() }
 type RouteInterfaceFact string
 
 // TypeID returns the fact type identifier for RouteInterfaceFact.
-func (f RouteInterfaceFact) TypeID() string { return "interface" }
+func (f RouteInterfaceFact) TypeID() string { return "routing.interface" }
 
 // Canonical returns the interface name string.
 func (f RouteInterfaceFact) Canonical() string { return string(f) }

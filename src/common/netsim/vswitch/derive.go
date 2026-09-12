@@ -31,7 +31,10 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 		return nil, err
 	}
 
-	next := New(cfg)
+	next, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
 	if cur != nil && cur.traffic != nil && next.traffic != nil {
 		for name, policer := range next.traffic.Policers {
 			if current, ok := cur.traffic.Policers[name]; ok && current == policer {

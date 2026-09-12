@@ -112,7 +112,10 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		t.Errorf("expected 1/1/6 switchport to be skipped, got: %+v", report.Skipped)
 	}
 
-	sw := vswitch.New(cfg)
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 
 	// Ingress on member 1/1/6 traces ingress port lag1.
 	tag10 := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
@@ -308,7 +311,10 @@ func TestFdbAndPoeExport(t *testing.T) {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
 
-	sw := vswitch.New(cfg)
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 
 	srcMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 	frame := ethernet.Frame{

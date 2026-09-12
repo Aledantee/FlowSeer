@@ -229,14 +229,14 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	if len(changes) != 2 {
 		t.Fatalf("Diff returned %d changes, want 2: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", 64, 128)
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", uint64(1_000_000), uint64(2_000_000))
+	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", traffic.SnapLenFact(64), traffic.SnapLenFact(128))
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", traffic.RateFact(1_000_000), traffic.RateFact(2_000_000))
 }
 
-func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to any) {
+func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to trace.Fact) {
 	t.Helper()
 	for _, change := range changes {
-		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && change.From == from && change.To == to {
+		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && trace.CompareFact(change.From, from) == 0 && trace.CompareFact(change.To, to) == 0 {
 			return
 		}
 	}

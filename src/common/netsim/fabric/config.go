@@ -1,8 +1,11 @@
 package fabric
 
 import (
+	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -79,6 +82,16 @@ type Fault struct {
 	Sequence []uint
 }
 
+// TypeID returns the fact type identifier for Fault.
+func (f Fault) TypeID() string {
+	return "fabric.fault"
+}
+
+// Canonical returns the canonical representation of the fault.
+func (f Fault) Canonical() string {
+	return fmt.Sprintf("kind=%s,n=%d", f.Kind, f.N)
+}
+
 // Clone returns an independent deep copy of the fault configuration.
 func (f Fault) Clone() Fault {
 	cp := f
@@ -95,6 +108,19 @@ func (f Fault) Clone() Fault {
 type Endpoint struct {
 	Node string
 	Port string
+}
+
+// TypeID returns the fact type identifier for Endpoint.
+func (e Endpoint) TypeID() string {
+	return "fabric.endpoint"
+}
+
+// Canonical returns the canonical representation of the endpoint.
+func (e Endpoint) Canonical() string {
+	if e.Port == "" {
+		return e.Node
+	}
+	return e.Node + ":" + e.Port
 }
 
 // HostIP configures the layer 3 addressing, default gateway, and static link-layer neighbors
@@ -137,6 +163,46 @@ func (h Host) Clone() Host {
 	}
 
 	return cp
+}
+
+// TypeID returns the fact type identifier for Host.
+func (h Host) TypeID() string {
+	return "fabric.host"
+}
+
+// Canonical returns the canonical representation of the host.
+func (h Host) Canonical() string {
+	return h.Address.String()
+}
+
+// Equal reports whether two host configurations are identical.
+func (h Host) Equal(other Host) bool {
+	if h.Address != other.Address {
+		return false
+	}
+	if (h.VLAN == nil) != (other.VLAN == nil) {
+		return false
+	}
+	if h.VLAN != nil && *h.VLAN != *other.VLAN {
+		return false
+	}
+	if (h.IP == nil) != (other.IP == nil) {
+		return false
+	}
+	if h.IP != nil {
+		if !slices.Equal(h.IP.Addresses, other.IP.Addresses) || h.IP.Gateway != other.IP.Gateway {
+			return false
+		}
+		if len(h.IP.Neighbors) != len(other.IP.Neighbors) {
+			return false
+		}
+		for k, v := range h.IP.Neighbors {
+			if other.IP.Neighbors[k] != v {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // HostRoutingConfig translates a host's IP configuration into a virtual switch routing configuration
@@ -233,6 +299,36 @@ func (c Cable) Clone() Cable {
 	return cp
 }
 
+// TypeID returns the fact type identifier for Cable.
+func (c Cable) TypeID() string {
+	return "fabric.cable"
+}
+
+// Canonical returns the canonical representation of the cable.
+func (c Cable) Canonical() string {
+	return fmt.Sprintf("a=%s:%s,b=%s:%s,len=%s,medium=%s,speed=%d",
+		c.A.Node, c.A.Port, c.B.Node, c.B.Port,
+		strconv.FormatFloat(c.LengthMeters, 'f', -1, 64),
+		c.Medium, c.TopSpeedBPS)
+}
+
+// Equal reports whether two cable configurations are identical.
+func (c Cable) Equal(other Cable) bool {
+	if c.A != other.A || c.B != other.B || c.LengthMeters != other.LengthMeters || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
+		return false
+	}
+	if (c.Delay == nil) != (other.Delay == nil) {
+		return false
+	}
+	if c.Delay != nil && *c.Delay != *other.Delay {
+		return false
+	}
+	if c.Fault.Kind != other.Fault.Kind || c.Fault.N != other.Fault.N || !slices.Equal(c.Fault.Sequence, other.Fault.Sequence) {
+		return false
+	}
+	return true
+}
+
 // Config declares the full static topology of a simulated network fabric.
 type Config struct {
 	Start    time.Time
@@ -266,6 +362,118 @@ func (c Config) Clone() Config {
 	}
 
 	return cp
+}
+
+// Equal reports whether two fabric configurations are identical.
+func (c Config) Equal(other Config) bool {
+	if !c.Start.Equal(other.Start) {
+		return false
+	}
+	if len(c.Switches) != len(other.Switches) || len(c.Hosts) != len(other.Hosts) || len(c.Cables) != len(other.Cables) {
+		return false
+	}
+	for k, sw := range c.Switches {
+		otherSW, ok := other.Switches[k]
+		if !ok || !sw.Equal(otherSW) {
+			return false
+		}
+	}
+	for k, h := range c.Hosts {
+		otherH, ok := other.Hosts[k]
+		if !ok || !h.Equal(otherH) {
+			return false
+		}
+	}
+	for i := range c.Cables {
+		if !c.Cables[i].Equal(other.Cables[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Normalize returns a normalized copy of the fabric configuration with assigned
+// hardware addresses across all switches and hosts, normalized switch configurations,
+// and deterministically ordered cables.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+
+	usedMACs := make(map[netaddr.MAC]struct{})
+	for _, swCfg := range cloned.Switches {
+		if swCfg.MAC != (netaddr.MAC{}) {
+			usedMACs[swCfg.MAC] = struct{}{}
+		}
+		if swCfg.STP != nil && swCfg.STP.Address != (netaddr.MAC{}) {
+			usedMACs[swCfg.STP.Address] = struct{}{}
+		}
+		if swCfg.Routing != nil {
+			for _, vrf := range swCfg.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.MAC != (netaddr.MAC{}) {
+						usedMACs[iface.MAC] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	for _, h := range cloned.Hosts {
+		if h.Address != (netaddr.MAC{}) {
+			usedMACs[h.Address] = struct{}{}
+		}
+	}
+
+	assignLocal := func() netaddr.MAC {
+		for n := uint32(1); ; n++ {
+			cand := netaddr.Local(n)
+			if _, ok := usedMACs[cand]; !ok {
+				usedMACs[cand] = struct{}{}
+				return cand
+			}
+		}
+	}
+
+	swNames := make([]string, 0, len(cloned.Switches))
+	for name := range cloned.Switches {
+		swNames = append(swNames, name)
+	}
+	slices.Sort(swNames)
+	for _, name := range swNames {
+		swCfg := cloned.Switches[name]
+		if swCfg.MAC == (netaddr.MAC{}) {
+			swCfg.MAC = assignLocal()
+		}
+		cloned.Switches[name] = swCfg.Normalize()
+	}
+
+	hNames := make([]string, 0, len(cloned.Hosts))
+	for name := range cloned.Hosts {
+		hNames = append(hNames, name)
+	}
+	slices.Sort(hNames)
+	for _, name := range hNames {
+		h := cloned.Hosts[name]
+		if h.Address == (netaddr.MAC{}) {
+			h.Address = assignLocal()
+			cloned.Hosts[name] = h
+		}
+	}
+
+	// Sort cables by endpoint names to ensure stable ordering.
+	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
+		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(i.A.Port, j.A.Port); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(i.B.Node, j.B.Node); r != 0 {
+			return r
+		}
+
+		return cmp.Compare(i.B.Port, j.B.Port)
+	})
+
+	return cloned
 }
 
 // Validate verifies structural and topological invariants of the configuration:

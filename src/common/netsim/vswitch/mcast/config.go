@@ -170,20 +170,20 @@ func (c Config) Floods(vid vlan.ID) bool {
 	return *cfg.FloodUnregistered
 }
 
-func (c VLANSnooping) membershipInterval() time.Duration {
-	if c.MembershipInterval == 0 {
+func (v VLANSnooping) membershipInterval() time.Duration {
+	if v.MembershipInterval == 0 {
 		return DefaultMembershipInterval
 	}
 
-	return c.MembershipInterval
+	return v.MembershipInterval
 }
 
-func (c VLANSnooping) routerPortInterval() time.Duration {
-	if c.RouterPortInterval == 0 {
+func (v VLANSnooping) routerPortInterval() time.Duration {
+	if v.RouterPortInterval == 0 {
 		return DefaultMembershipInterval
 	}
 
-	return c.RouterPortInterval
+	return v.RouterPortInterval
 }
 
 func sortedVLANIDs[V any](values map[vlan.ID]V) []vlan.ID {

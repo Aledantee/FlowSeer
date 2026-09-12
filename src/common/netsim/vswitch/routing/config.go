@@ -109,7 +109,7 @@ func (c Config) Normalize() Config {
 }
 
 // TypeID returns the fact type identifier for VRF.
-func (v VRF) TypeID() string { return "vrf" }
+func (v VRF) TypeID() string { return "routing.vrf" }
 
 // Canonical returns the canonical string representation of the VRF fact.
 func (v VRF) Canonical() string {
@@ -117,7 +117,7 @@ func (v VRF) Canonical() string {
 }
 
 // TypeID returns the fact type identifier for Interface.
-func (i Interface) TypeID() string { return "interface" }
+func (i Interface) TypeID() string { return "routing.interface" }
 
 // Canonical returns the canonical string representation of the Interface fact.
 func (i Interface) Canonical() string {
@@ -125,7 +125,7 @@ func (i Interface) Canonical() string {
 }
 
 // TypeID returns the fact type identifier for Route.
-func (r Route) TypeID() string { return "route" }
+func (r Route) TypeID() string { return "routing.route" }
 
 // Canonical returns the canonical string representation of the Route fact.
 func (r Route) Canonical() string {
@@ -133,7 +133,7 @@ func (r Route) Canonical() string {
 }
 
 // TypeID returns the fact type identifier for Neighbor.
-func (n Neighbor) TypeID() string { return "neighbor" }
+func (n Neighbor) TypeID() string { return "routing.neighbor" }
 
 // Canonical returns the canonical string representation of the Neighbor fact.
 func (n Neighbor) Canonical() string {

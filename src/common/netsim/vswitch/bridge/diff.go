@@ -16,7 +16,7 @@ import (
 type VLANNameFact string
 
 // TypeID returns the fact type identifier for VLANNameFact.
-func (f VLANNameFact) TypeID() string { return "vlan_name" }
+func (f VLANNameFact) TypeID() string { return "bridge.vlan_name" }
 
 // Canonical returns the VLAN name string.
 func (f VLANNameFact) Canonical() string { return string(f) }
@@ -25,7 +25,7 @@ func (f VLANNameFact) Canonical() string { return string(f) }
 type PVIDFact vlan.ID
 
 // TypeID returns the fact type identifier for PVIDFact.
-func (f PVIDFact) TypeID() string { return "pvid" }
+func (f PVIDFact) TypeID() string { return "bridge.pvid" }
 
 // Canonical returns the decimal string of the PVID.
 func (f PVIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -37,7 +37,7 @@ func (f PVIDFact) VID() vlan.ID { return vlan.ID(f) }
 type VLANsFact []vlan.ID
 
 // TypeID returns the fact type identifier for VLANsFact.
-func (f VLANsFact) TypeID() string { return "vlans" }
+func (f VLANsFact) TypeID() string { return "bridge.vlans" }
 
 // Canonical returns the comma-separated VLAN IDs.
 func (f VLANsFact) Canonical() string {
@@ -58,7 +58,7 @@ func (f VLANsFact) IDs() []vlan.ID { return slices.Clone([]vlan.ID(f)) }
 type BoolFact bool
 
 // TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "bool" }
+func (f BoolFact) TypeID() string { return "bridge.bool" }
 
 // Canonical returns "true" or "false".
 func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
@@ -67,7 +67,7 @@ func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 type DurationFact time.Duration
 
 // TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "duration" }
+func (f DurationFact) TypeID() string { return "bridge.duration" }
 
 // Canonical returns the formatted duration string.
 func (f DurationFact) Canonical() string { return time.Duration(f).String() }
@@ -76,7 +76,7 @@ func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 type IntFact int
 
 // TypeID returns the fact type identifier for IntFact.
-func (f IntFact) TypeID() string { return "int" }
+func (f IntFact) TypeID() string { return "bridge.int" }
 
 // Canonical returns the decimal string of the integer.
 func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
@@ -85,7 +85,7 @@ func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
 type StringsFact []string
 
 // TypeID returns the fact type identifier for StringsFact.
-func (f StringsFact) TypeID() string { return "strings" }
+func (f StringsFact) TypeID() string { return "bridge.strings" }
 
 // Canonical returns the comma-separated strings.
 func (f StringsFact) Canonical() string {

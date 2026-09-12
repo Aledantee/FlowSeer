@@ -60,7 +60,7 @@ type Port struct {
 }
 
 // TypeID returns the fact type identifier for Port.
-func (p Port) TypeID() string { return "port" }
+func (p Port) TypeID() string { return "stp.port" }
 
 // Canonical returns the canonical string representation of the Port fact.
 func (p Port) Canonical() string {
@@ -69,7 +69,7 @@ func (p Port) Canonical() string {
 }
 
 // TypeID returns the fact type identifier for PointToPointMode.
-func (m PointToPointMode) TypeID() string { return "point_to_point" }
+func (m PointToPointMode) TypeID() string { return "stp.point_to_point" }
 
 // Canonical returns the string representation of the mode.
 func (m PointToPointMode) Canonical() string { return string(m) }

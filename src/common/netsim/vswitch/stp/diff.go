@@ -13,7 +13,7 @@ import (
 type MACFact netaddr.MAC
 
 // TypeID returns the fact type identifier for MACFact.
-func (f MACFact) TypeID() string { return "mac" }
+func (f MACFact) TypeID() string { return "stp.mac" }
 
 // Canonical returns the formatted MAC string.
 func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
@@ -22,7 +22,7 @@ func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
 type PriorityFact uint16
 
 // TypeID returns the fact type identifier for PriorityFact.
-func (f PriorityFact) TypeID() string { return "priority" }
+func (f PriorityFact) TypeID() string { return "stp.priority" }
 
 // Canonical returns the decimal string of the priority.
 func (f PriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -31,7 +31,7 @@ func (f PriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 
 type DurationFact time.Duration
 
 // TypeID returns the fact type identifier for DurationFact.
-func (f DurationFact) TypeID() string { return "duration" }
+func (f DurationFact) TypeID() string { return "stp.duration" }
 
 // Canonical returns the formatted duration string.
 func (f DurationFact) Canonical() string { return time.Duration(f).String() }
@@ -40,7 +40,7 @@ func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 type TxHoldCountFact uint8
 
 // TypeID returns the fact type identifier for TxHoldCountFact.
-func (f TxHoldCountFact) TypeID() string { return "tx_hold_count" }
+func (f TxHoldCountFact) TypeID() string { return "stp.tx_hold_count" }
 
 // Canonical returns the decimal string of the tx hold count.
 func (f TxHoldCountFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -49,7 +49,7 @@ func (f TxHoldCountFact) Canonical() string { return strconv.FormatUint(uint64(f
 type PortPriorityFact uint8
 
 // TypeID returns the fact type identifier for PortPriorityFact.
-func (f PortPriorityFact) TypeID() string { return "port_priority" }
+func (f PortPriorityFact) TypeID() string { return "stp.port_priority" }
 
 // Canonical returns the decimal string of the port priority.
 func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -58,7 +58,7 @@ func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(
 type PathCostFact uint32
 
 // TypeID returns the fact type identifier for PathCostFact.
-func (f PathCostFact) TypeID() string { return "path_cost" }
+func (f PathCostFact) TypeID() string { return "stp.path_cost" }
 
 // Canonical returns the decimal string of the path cost.
 func (f PathCostFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
@@ -67,7 +67,7 @@ func (f PathCostFact) Canonical() string { return strconv.FormatUint(uint64(f), 
 type BoolFact bool
 
 // TypeID returns the fact type identifier for BoolFact.
-func (f BoolFact) TypeID() string { return "bool" }
+func (f BoolFact) TypeID() string { return "stp.bool" }
 
 // Canonical returns "true" or "false".
 func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }

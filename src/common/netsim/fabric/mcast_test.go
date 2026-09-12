@@ -190,7 +190,7 @@ func TestFabricMulticastGroupForwardingAndSnapshot(t *testing.T) {
 	var replicated bool
 	for _, entry := range journey.Entries {
 		if entry.Result != nil && slices.ContainsFunc(entry.Result.Steps, func(step trace.Step) bool {
-			return step.Op == trace.OpReplicate && step.Detail == "group members"
+			return step.Op == trace.OpReplicate && step.RuleID == "group-members"
 		}) {
 			replicated = true
 		}

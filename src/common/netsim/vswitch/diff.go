@@ -3,6 +3,7 @@ package vswitch
 import (
 	"slices"
 
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
@@ -13,6 +14,24 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/traffic"
 )
+
+// DeviceMACFact wraps a netaddr.MAC as a trace.Fact.
+type DeviceMACFact netaddr.MAC
+
+// TypeID returns the fact type identifier for DeviceMACFact.
+func (f DeviceMACFact) TypeID() string { return "vswitch.mac" }
+
+// Canonical returns the MAC address string.
+func (f DeviceMACFact) Canonical() string { return netaddr.MAC(f).String() }
+
+// LayerFact wraps a port.Layer capability as a trace.Fact.
+type LayerFact port.Layer
+
+// TypeID returns the fact type identifier for LayerFact.
+func (f LayerFact) TypeID() string { return "vswitch.layer" }
+
+// Canonical returns the layer string.
+func (f LayerFact) Canonical() string { return string(f) }
 
 // Diff computes the difference between two switch configurations, concatenating
 // device-level MAC differences, port table differences, capability presence changes,
@@ -27,8 +46,8 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   port.LayerPort,
 			Subject: trace.Subject{Kind: "device", Key: ""},
 			Field:   "mac",
-			From:    a.MAC,
-			To:      b.MAC,
+			From:    DeviceMACFact(a.MAC),
+			To:      DeviceMACFact(b.MAC),
 		})
 	}
 
@@ -143,7 +162,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 					Key:  string(l),
 				},
 				Field: "",
-				From:  l,
+				From:  LayerFact(l),
 				To:    nil,
 			})
 		} else if !inA && inB {
@@ -155,7 +174,7 @@ func diffCapabilities(a, b Config) []trace.Change {
 				},
 				Field: "",
 				From:  nil,
-				To:    l,
+				To:    LayerFact(l),
 			})
 		}
 	}
