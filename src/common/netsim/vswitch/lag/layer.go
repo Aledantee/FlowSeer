@@ -121,10 +121,11 @@ type Layer struct {
 // New constructs a link aggregation layer from the given configuration, port table, and switch system ID.
 // It returns an error if the configuration is invalid against the ports.
 func New(cfg Config, ports port.Table, systemID netaddr.MAC) (*Layer, error) {
-	if err := cfg.Validate(ports); err != nil {
+	norm := cfg.Normalize(ports, systemID)
+	if err := norm.Validate(ports); err != nil {
 		return nil, err
 	}
-	return newLayer(cfg.Defaults(ports, systemID).Normalize(), ports, systemID), nil
+	return newLayer(norm, ports, systemID), nil
 }
 
 func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {

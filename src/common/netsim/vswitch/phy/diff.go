@@ -191,6 +191,15 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				To:      to,
 			})
 		}
+		if from, to := ae.Resolve().Source, be.Resolve().Source; from != to {
+			changes = append(changes, trace.Change{
+				Layer:   port.LayerEthernet,
+				Subject: trace.Subject{Kind: "port", Key: name},
+				Field:   "resolve_source",
+				From:    StringFact(from),
+				To:      StringFact(to),
+			})
+		}
 	}
 
 	for _, name := range sortedKeys(b) {

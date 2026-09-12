@@ -79,6 +79,70 @@ func (f RouteInterfaceFact) TypeID() string { return "routing.route.interface" }
 // Canonical returns the interface name string.
 func (f RouteInterfaceFact) Canonical() string { return string(f) }
 
+type interfaceSnapshotFact string
+
+func (f interfaceSnapshotFact) TypeID() string    { return "routing.interface" }
+func (f interfaceSnapshotFact) Canonical() string { return string(f) }
+
+type vrfSnapshotFact string
+
+func (f vrfSnapshotFact) TypeID() string    { return "routing.vrf" }
+func (f vrfSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotInterface(iface Interface) interfaceSnapshotFact {
+	return interfaceSnapshotFact("vlan=" + strconv.Itoa(int(iface.VLAN)) +
+		";port=" + strconv.Quote(iface.Port) +
+		";mac=" + strconv.Quote(iface.MAC.String()) +
+		";prefixes=[" + PrefixesFact(iface.Prefixes).Canonical() + "]")
+}
+
+func snapshotVRF(vrf VRF) vrfSnapshotFact {
+	var b strings.Builder
+	b.WriteString("interfaces={")
+	interfaceNames := make([]string, 0, len(vrf.Interfaces))
+	for name := range vrf.Interfaces {
+		interfaceNames = append(interfaceNames, name)
+	}
+	slices.Sort(interfaceNames)
+	for i, name := range interfaceNames {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.Quote(name))
+		b.WriteByte(':')
+		b.WriteString(snapshotInterface(vrf.Interfaces[name]).Canonical())
+	}
+	b.WriteString("};routes=[")
+	for i, route := range vrf.Routes {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString("{prefix=")
+		b.WriteString(strconv.Quote(route.Prefix.String()))
+		b.WriteString(";next_hop=")
+		b.WriteString(strconv.Quote(route.NextHop.String()))
+		b.WriteString(";interface=")
+		b.WriteString(strconv.Quote(route.Interface))
+		b.WriteByte('}')
+	}
+	b.WriteString("];neighbors=[")
+	for i, neighbor := range vrf.Neighbors {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString("{interface=")
+		b.WriteString(strconv.Quote(neighbor.Interface))
+		b.WriteString(";addr=")
+		b.WriteString(strconv.Quote(neighbor.Addr.String()))
+		b.WriteString(";mac=")
+		b.WriteString(strconv.Quote(neighbor.MAC.String()))
+		b.WriteByte('}')
+	}
+	b.WriteByte(']')
+
+	return vrfSnapshotFact(b.String())
+}
+
 // Diff computes the difference between two routing configurations, reporting
 // added or removed VRFs, interface changes (vlan, port, mac, prefixes), route
 // changes (next_hop, interface keyed by prefix), and neighbor changes (mac
@@ -115,7 +179,7 @@ func Diff(a, b Config) []trace.Change {
 					Key:  vrfName,
 				},
 				Field: "",
-				From:  aVRF,
+				From:  snapshotVRF(aVRF),
 				To:    nil,
 			})
 		case !inA && inB:
@@ -127,7 +191,7 @@ func Diff(a, b Config) []trace.Change {
 				},
 				Field: "",
 				From:  nil,
-				To:    bVRF,
+				To:    snapshotVRF(bVRF),
 			})
 		case inA && inB:
 			ifaceNames := make(map[string]struct{})
@@ -154,7 +218,7 @@ func Diff(a, b Config) []trace.Change {
 						Layer:   port.LayerRouting,
 						Subject: trace.Subject{Kind: "interface", Key: key},
 						Field:   "",
-						From:    ifA,
+						From:    snapshotInterface(ifA),
 						To:      nil,
 					})
 				case !ifInA && ifInB:
@@ -163,7 +227,7 @@ func Diff(a, b Config) []trace.Change {
 						Subject: trace.Subject{Kind: "interface", Key: key},
 						Field:   "",
 						From:    nil,
-						To:      ifB,
+						To:      snapshotInterface(ifB),
 					})
 				case ifInA && ifInB:
 					if ifA.VLAN != ifB.VLAN {

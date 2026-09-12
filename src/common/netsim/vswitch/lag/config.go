@@ -115,15 +115,6 @@ type LAG struct {
 	Members   map[string]Member
 }
 
-// TypeID returns the fact type identifier for LAG.
-func (l LAG) TypeID() string { return "lag.lag" }
-
-// Canonical returns the canonical string representation of the LAG fact.
-func (l LAG) Canonical() string {
-	return fmt.Sprintf("mode=%s,primary=%s,up_delay=%s,down_delay=%s,hash_basis=%d,min_links=%d,lacp_mode=%s,members=%d",
-		l.Mode, l.Primary, l.UpDelay, l.DownDelay, l.HashBasis, l.MinLinks, l.LACP.Mode, len(l.Members))
-}
-
 // Config defines the link aggregation configuration for a virtual switch.
 type Config struct {
 	LAGs map[string]LAG
@@ -151,11 +142,39 @@ func (c Config) Clone() Config {
 	return cp
 }
 
-// Normalize returns a normalized copy of the configuration,
-// filling unspecified fields with standard defaults.
-func (c Config) Normalize() Config {
+// Normalize returns the effective configuration for the supplied port table and
+// system ID. It adds entries for configured LAG ports and fills omitted defaults.
+func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 	cloned := c.Clone()
-	for lagName, lag := range cloned.LAGs {
+	if cloned.LAGs == nil {
+		cloned.LAGs = make(map[string]LAG)
+	}
+
+	lagKeys := make(map[string]uint16)
+	lagMembers := make(map[string][]string)
+	var lagNames []string
+	for _, p := range ports.Ports() {
+		if p.Kind == port.Lag {
+			lagNames = append(lagNames, p.Name)
+		}
+	}
+	slices.Sort(lagNames)
+	for i, lagName := range lagNames {
+		lagKeys[lagName] = uint16(i + 1)
+		members := ports.Members(lagName)
+		names := make([]string, 0, len(members))
+		for _, member := range members {
+			names = append(names, member.Name)
+		}
+		slices.Sort(names)
+		lagMembers[lagName] = names
+		if _, ok := cloned.LAGs[lagName]; !ok {
+			cloned.LAGs[lagName] = LAG{}
+		}
+	}
+
+	for _, lagName := range sortedKeys(cloned.LAGs) {
+		lag := cloned.LAGs[lagName]
 		if lag.Mode == "" {
 			lag.Mode = ActiveBackup
 		}
@@ -164,6 +183,25 @@ func (c Config) Normalize() Config {
 		}
 		if lag.LACP.SystemPriority == 0 {
 			lag.LACP.SystemPriority = DefaultSystemPriority
+		}
+		if lag.LACP.SystemID == (netaddr.MAC{}) {
+			lag.LACP.SystemID = systemID
+		}
+		if lag.LACP.Key == 0 {
+			lag.LACP.Key = lagKeys[lagName]
+		}
+
+		members, knownLAG := lagMembers[lagName]
+		if lag.Primary == "" && len(members) > 0 {
+			lag.Primary = members[0]
+		}
+		if knownLAG && lag.Members == nil {
+			lag.Members = make(map[string]Member, len(members))
+		}
+		for _, memberName := range members {
+			if _, ok := lag.Members[memberName]; !ok {
+				lag.Members[memberName] = Member{}
+			}
 		}
 		for memName, m := range lag.Members {
 			if m.Priority == 0 {
@@ -176,6 +214,7 @@ func (c Config) Normalize() Config {
 		}
 		cloned.LAGs[lagName] = lag
 	}
+
 	return cloned
 }
 
@@ -219,6 +258,13 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("lag", lagName).
 				Attr("lacp_mode", lagCfg.LACP.Mode).
 				Msgf("unknown LACP mode %q", lagCfg.LACP.Mode)
+		}
+		if lagCfg.LACP.SystemID.IsGroup() {
+			return errs.New().
+				Attr("field", "lags."+lagName+".lacp.system_id").
+				Attr("lag", lagName).
+				Attr("system_id", lagCfg.LACP.SystemID).
+				Msgf("LACP system ID %s on LAG %q cannot be a group MAC", lagCfg.LACP.SystemID, lagName)
 		}
 
 		if lagCfg.UpDelay < 0 {
@@ -275,87 +321,9 @@ func (c Config) Validate(ports port.Table) error {
 	return nil
 }
 
-// Defaults fills zero-valued fields with standard defaults and adds default entries
-// for any LAG ports in the port table that are absent from the configuration.
+// Defaults returns the normalized effective configuration.
 func (c Config) Defaults(ports port.Table, systemID netaddr.MAC) Config {
-	cp := c.Clone()
-	if cp.LAGs == nil {
-		cp.LAGs = make(map[string]LAG)
-	}
-
-	var lagNames []string
-	for _, p := range ports.Ports() {
-		if p.Kind == port.Lag {
-			lagNames = append(lagNames, p.Name)
-		}
-	}
-	slices.Sort(lagNames)
-
-	for i, lagName := range lagNames {
-		key := uint16(i + 1)
-		lag, exists := cp.LAGs[lagName]
-		if !exists {
-			lag = LAG{}
-		}
-
-		if lag.LACP.SystemPriority == 0 {
-			lag.LACP.SystemPriority = DefaultSystemPriority
-		}
-		if lag.LACP.SystemID == (netaddr.MAC{}) {
-			lag.LACP.SystemID = systemID
-		}
-		if lag.LACP.Key == 0 {
-			lag.LACP.Key = key
-		}
-
-		members := ports.Members(lagName)
-		var memNames []string
-		for _, m := range members {
-			memNames = append(memNames, m.Name)
-		}
-		slices.Sort(memNames)
-
-		if lag.Primary == "" && len(memNames) > 0 {
-			lag.Primary = memNames[0]
-		}
-
-		if lag.Members == nil {
-			lag.Members = make(map[string]Member, len(memNames))
-		}
-		for _, memName := range memNames {
-			m := lag.Members[memName]
-			if m.Priority == 0 {
-				m.Priority = DefaultPortPriority
-			}
-			if m.Key == 0 {
-				m.Key = lag.LACP.Key
-			}
-			lag.Members[memName] = m
-		}
-
-		cp.LAGs[lagName] = lag
-	}
-
-	for lagName, lag := range cp.LAGs {
-		if lag.LACP.SystemPriority == 0 {
-			lag.LACP.SystemPriority = DefaultSystemPriority
-		}
-		if lag.LACP.SystemID == (netaddr.MAC{}) {
-			lag.LACP.SystemID = systemID
-		}
-		for memName, m := range lag.Members {
-			if m.Priority == 0 {
-				m.Priority = DefaultPortPriority
-			}
-			if m.Key == 0 && lag.LACP.Key != 0 {
-				m.Key = lag.LACP.Key
-			}
-			lag.Members[memName] = m
-		}
-		cp.LAGs[lagName] = lag
-	}
-
-	return cp
+	return c.Normalize(ports, systemID)
 }
 
 func sortedKeys[V any](m map[string]V) []string {

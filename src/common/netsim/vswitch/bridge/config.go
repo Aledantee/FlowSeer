@@ -1,7 +1,6 @@
 package bridge
 
 import (
-	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -18,7 +17,7 @@ const DefaultAgingTime = 300 * time.Second
 // the default when the configuration left it unset. New and Diff share it so two
 // configurations that build the same bridge diff empty.
 func effectiveAgingTime(configured time.Duration) time.Duration {
-	if configured <= 0 {
+	if configured == 0 {
 		return DefaultAgingTime
 	}
 
@@ -33,14 +32,6 @@ type Tunnel struct {
 	VID          vlan.ID
 	CustomerVIDs []vlan.ID
 	TPID         uint16
-}
-
-// TypeID returns the fact type identifier for Tunnel.
-func (t Tunnel) TypeID() string { return "bridge.tunnel" }
-
-// Canonical returns the canonical string representation of the Tunnel fact.
-func (t Tunnel) Canonical() string {
-	return fmt.Sprintf("vid=%d,tpid=0x%04x,customer_vids=%d", t.VID, t.EffectiveTPID(), len(t.CustomerVIDs))
 }
 
 // EffectiveTPID returns the configured service TPID or [DefaultServiceTPID] when unset.
@@ -111,23 +102,6 @@ type Switchport struct {
 	Admission        Admission
 	Tunnel           *Tunnel
 	PriorityTags     PriorityTagPolicy
-}
-
-// TypeID returns the fact type identifier for Switchport.
-func (s Switchport) TypeID() string { return "bridge.switchport" }
-
-// Canonical returns the canonical string representation of the Switchport fact.
-func (s Switchport) Canonical() string {
-	pvidStr := "none"
-	if s.PVID != nil {
-		pvidStr = strconv.Itoa(int(*s.PVID))
-	}
-	tunStr := "none"
-	if s.Tunnel != nil {
-		tunStr = s.Tunnel.Canonical()
-	}
-	return fmt.Sprintf("pvid=%s,tagged=%d,untagged=%d,ingress_filtering=%t,admission=%s,priority_tags=%s,tunnel=%s",
-		pvidStr, len(s.Tagged), len(s.Untagged), s.IngressFiltering, s.Admission, s.PriorityTags, tunStr)
 }
 
 // Clone returns an independent deep copy of the switchport configuration.
@@ -217,7 +191,7 @@ func (c Config) Clone() Config {
 // and deduplicating slices for deterministic behavior.
 func (c Config) Normalize() Config {
 	cloned := c.Clone()
-	if cloned.AgingTime <= 0 {
+	if cloned.AgingTime == 0 {
 		cloned.AgingTime = DefaultAgingTime
 	}
 	if len(cloned.FloodVLANs) > 0 {
@@ -267,6 +241,12 @@ func (c Config) Normalize() Config {
 // a VLAN in both tagged and untagged sets, a VLAN identifier outside 1 through 4094, and any
 // switchport when the VLAN table is absent or empty.
 func (c Config) Validate(ports port.Table) error {
+	if c.AgingTime < 0 {
+		return errs.New().
+			Attr("field", "aging_time").
+			Attr("aging_time", c.AgingTime).
+			Msg("aging_time cannot be negative")
+	}
 	if c.MaxEntries < 0 {
 		return errs.New().
 			Attr("field", "max_entries").
@@ -275,11 +255,24 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, vid := range c.FloodVLANs {
+		field := "flood_vlans." + strconv.Itoa(int(vid))
 		if !vid.Valid() {
 			return errs.New().
-				Attr("field", "flood_vlans").
+				Attr("field", field).
 				Attr("vlan", vid).
 				Msgf("flood VLAN ID %d outside valid range 1..4094", vid)
+		}
+		if c.VLAN == nil {
+			return errs.New().
+				Attr("field", field).
+				Attr("vlan", vid).
+				Msgf("flood VLAN %d requires VLAN awareness", vid)
+		}
+		if _, ok := c.VLAN.Table[vid]; !ok {
+			return errs.New().
+				Attr("field", field).
+				Attr("vlan", vid).
+				Msgf("flood VLAN %d absent from VLAN table", vid)
 		}
 	}
 
@@ -401,6 +394,13 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vlan", sw.Tunnel.VID).
 					Msgf("tunnel VLAN ID %d on switchport %q outside valid range 1..4094", sw.Tunnel.VID, name)
 			}
+			if _, ok := c.VLAN.Table[sw.Tunnel.VID]; !ok {
+				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tunnel.vid").
+					Attr("port", name).
+					Attr("vlan", sw.Tunnel.VID).
+					Msgf("tunnel VLAN ID %d on switchport %q absent from VLAN table", sw.Tunnel.VID, name)
+			}
 
 			for _, vid := range sw.Tunnel.CustomerVIDs {
 				if !vid.Valid() {
@@ -420,6 +420,15 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("vlan", *sw.PVID).
 				Msgf("PVID %d on switchport %q outside valid range 1..4094", *sw.PVID, name)
 		}
+		if sw.PVID != nil {
+			if _, ok := c.VLAN.Table[*sw.PVID]; !ok {
+				return errs.New().
+					Attr("field", "vlan.switchports."+name+".pvid").
+					Attr("port", name).
+					Attr("vlan", *sw.PVID).
+					Msgf("PVID %d on switchport %q absent from VLAN table", *sw.PVID, name)
+			}
+		}
 
 		for _, vid := range sw.Tagged {
 			if !vid.Valid() {
@@ -428,6 +437,13 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("port", name).
 					Attr("vlan", vid).
 					Msgf("tagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
+			}
+			if _, ok := c.VLAN.Table[vid]; !ok {
+				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tagged."+strconv.Itoa(int(vid))).
+					Attr("port", name).
+					Attr("vlan", vid).
+					Msgf("tagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
 			}
 		}
 
@@ -438,6 +454,13 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("port", name).
 					Attr("vlan", vid).
 					Msgf("untagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
+			}
+			if _, ok := c.VLAN.Table[vid]; !ok {
+				return errs.New().
+					Attr("field", "vlan.switchports."+name+".untagged."+strconv.Itoa(int(vid))).
+					Attr("port", name).
+					Attr("vlan", vid).
+					Msgf("untagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
 			}
 		}
 
