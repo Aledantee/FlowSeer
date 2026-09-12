@@ -90,19 +90,32 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has invalid expected status",
 		},
 		{
-			name: "missing trace invariant",
+			name: "missing expected rules",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedRules = nil
-				c.ExpectedFacts = nil
 			},
-			wantErr: "must define at least one expected trace rule or semantic fact",
+			wantErr: "must define at least one expected trace rule",
 		},
 		{
-			name: "empty invariants",
+			name: "missing expected subjects",
 			mutate: func(c *netsimtest.Case) {
-				c.Invariants = nil
+				c.ExpectedSubjects = nil
 			},
-			wantErr: "must declare at least one reproducibility invariant",
+			wantErr: "must define at least one expected trace subject",
+		},
+		{
+			name: "missing expected facts",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedFacts = nil
+			},
+			wantErr: "must define at least one expected semantic fact",
+		},
+		{
+			name: "missing ordered expected steps",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps = nil
+			},
+			wantErr: "must define its ordered expected trace steps",
 		},
 		{
 			name: "non-complete status without issue codes",
@@ -135,6 +148,16 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has non-Complete expected status but no expected evidence references",
 		},
 		{
+			name: "issue code without paired scope",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
+				c.ExpectedIssues = []analysis.IssueCode{"test.issue", "test.other"}
+				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
+				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
+			},
+			wantErr: "must pair each expected issue code with one exact scope",
+		},
+		{
 			name: "empty expected assumption statement",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedAssumptions = []string{"   "}
@@ -149,6 +172,13 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has empty expected rule ID",
 		},
 		{
+			name: "empty expected subject",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSubjects = []trace.Subject{{}}
+			},
+			wantErr: "has empty expected subject",
+		},
+		{
 			name: "empty expected fact type ID",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedFacts = []netsimtest.FactExpectation{{TypeID: "  "}}
@@ -156,11 +186,25 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has empty expected fact type ID",
 		},
 		{
-			name: "blank invariant entry",
+			name: "rule not bound to an expected step",
 			mutate: func(c *netsimtest.Case) {
-				c.Invariants = []string{"   "}
+				c.ExpectedRules = []trace.RuleID{"missing-rule"}
 			},
-			wantErr: "has empty reproducibility invariant",
+			wantErr: "without a matching step expectation",
+		},
+		{
+			name: "subject not bound to structured expectation",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSubjects = []trace.Subject{{Kind: "port", Key: "missing"}}
+			},
+			wantErr: "without a matching step or change expectation",
+		},
+		{
+			name: "fact not bound to structured expectation",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedFacts = []netsimtest.FactExpectation{{TypeID: "missing.fact", Canonical: "missing"}}
+			},
+			wantErr: "without a matching step or change expectation",
 		},
 		{
 			name: "nil execute function",
@@ -217,7 +261,9 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	retrieved.ExpectedRules[0] = "mutated-rule"
 	retrieved.ExpectedSubjects[0] = trace.Subject{Kind: "mutated", Key: "mutated"}
 	retrieved.ExpectedFacts[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
-	retrieved.Invariants = append(retrieved.Invariants, "mutated-invariant")
+	retrieved.ExpectedSteps[0].Outputs[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
+	retrieved.ExpectedChanges[0].From.TypeID = "mutated"
+	retrieved.ExpectedComparison.Current.Steps[0].Inputs[0].TypeID = "mutated"
 	*retrieved.ExpectedStatus = analysis.Incomplete
 
 	// Fresh retrieval must remain unchanged.
@@ -234,8 +280,14 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if fresh.ExpectedFacts[0].TypeID == "mutated" {
 		t.Error("registry internal case was mutated through retrieved ExpectedFacts slice")
 	}
-	if len(fresh.Invariants) == len(retrieved.Invariants) {
-		t.Error("registry internal invariants slice was mutated")
+	if fresh.ExpectedSteps[0].Outputs[0].TypeID == "mutated" {
+		t.Error("registry internal ExpectedSteps fact was mutated")
+	}
+	if fresh.ExpectedChanges[0].From.TypeID == "mutated" {
+		t.Error("registry internal ExpectedChanges fact was mutated")
+	}
+	if fresh.ExpectedComparison.Current.Steps[0].Inputs[0].TypeID == "mutated" {
+		t.Error("registry internal ExpectedComparison steps were mutated")
 	}
 	if *fresh.ExpectedStatus != analysis.Complete {
 		t.Error("registry internal expected status was mutated through pointer alias")
@@ -253,6 +305,8 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	retrievedShadow.ExpectedIssueScopes[0] = analysis.WholeScope()
 	retrievedShadow.ExpectedEvidenceRefs[0] = "mutated-evidence"
 	retrievedShadow.ExpectedAssumptions[0] = "mutated-assumption"
+	retrievedShadow.ExpectedModelMetadata.Scope = analysis.WholeScope()
+	retrievedShadow.ExpectedForwardMetadata.Scope = analysis.WholeScope()
 
 	freshShadow, ok := r.Get(cShadow.ID)
 	if !ok {
@@ -269,6 +323,12 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	}
 	if freshShadow.ExpectedAssumptions[0] == "mutated-assumption" {
 		t.Error("registry internal ExpectedAssumptions was mutated")
+	}
+	if freshShadow.ExpectedModelMetadata.Scope == analysis.WholeScope() {
+		t.Error("registry internal ExpectedModelMetadata was mutated")
+	}
+	if freshShadow.ExpectedForwardMetadata.Scope == analysis.WholeScope() {
+		t.Error("registry internal ExpectedForwardMetadata was mutated")
 	}
 }
 
@@ -367,7 +427,7 @@ func TestExecuteShadowingCase(t *testing.T) {
 	issues := res.ModelResult.Metadata.Issues()
 	var foundMissingOper bool
 	for _, issue := range issues {
-		if issue.Code == netmodel.IssueMissingOperStatus && issue.Scope.Overlaps(unknownScope) {
+		if issue.Code == netmodel.IssueMissingOperStatus && issue.Scope.Compare(unknownScope) == 0 {
 			foundMissingOper = true
 		}
 	}
@@ -535,6 +595,261 @@ func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
 	if !foundAssumptionErr {
 		t.Error("AssertCase accepted substring assumption match; want exact match requirement")
 	}
+}
+
+func TestAssertCaseRejectsReorderedDecisiveSteps(t *testing.T) {
+	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		res.Steps[0], res.Steps[1] = res.Steps[1], res.Steps[0]
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "step at index") {
+		t.Errorf("AssertCase errors = %v, want reordered-step failure", rec.errors)
+	}
+}
+
+func TestAssertCaseRejectsFactOnWrongStep(t *testing.T) {
+	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	baseline, err := c.Execute()
+	if err != nil {
+		t.Fatalf("execute baseline: %v", err)
+	}
+	if len(baseline.Steps) < 2 || len(baseline.Steps[0].Outputs) == 0 {
+		t.Fatal("baseline does not expose a movable output fact")
+	}
+	c.ExpectedFacts = []netsimtest.FactExpectation{
+		netsimtest.NewFactExpectation(baseline.Steps[0].Outputs[0]),
+	}
+
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		fact := res.Steps[0].Outputs[0]
+		res.Steps[0].Outputs = res.Steps[0].Outputs[1:]
+		res.Steps[1].Outputs = append(res.Steps[1].Outputs, fact)
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "step at index") {
+		t.Errorf("AssertCase errors = %v, want wrong-step fact failure", rec.errors)
+	}
+}
+
+func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		issues := res.Metadata.Issues()
+		issues[0].Scope = analysis.NodeScope("shadow-sw1")
+		res.Metadata = analysis.NewMetadata(
+			res.Metadata.Scope(),
+			issues,
+			res.Metadata.Evidence(),
+			res.Metadata.Assumptions(),
+		)
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "exact scope") {
+		t.Errorf("AssertCase errors = %v, want exact-scope failure", rec.errors)
+	}
+}
+
+func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
+	tests := []struct {
+		name      string
+		caseValue func() netsimtest.Case
+		mutate    func(*netsimtest.ExecutionResult)
+		wantError string
+	}{
+		{
+			name:      "outcome",
+			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Outcome = trace.Dropped
+			},
+			wantError: "non-deterministic outcome",
+		},
+		{
+			name:      "reason",
+			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Reason = "changed-reason"
+			},
+			wantError: "non-deterministic reason",
+		},
+		{
+			name:      "steps with equal count",
+			caseValue: netsimtest.CaseTroubleshootingUnicastForwarding,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Steps[0], res.Steps[1] = res.Steps[1], res.Steps[0]
+			},
+			wantError: "non-deterministic result step",
+		},
+		{
+			name:      "changes with equal count",
+			caseValue: netsimtest.CasePlanningPortVLANChange,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Changes[0].Field = "changed-field"
+			},
+			wantError: "non-deterministic change",
+		},
+		{
+			name:      "metadata status",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				issues := res.Metadata.Issues()
+				issues[0].Status = analysis.Unsupported
+				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
+			},
+			wantError: "non-deterministic result metadata status",
+		},
+		{
+			name:      "metadata scope",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Metadata = analysis.NewMetadata(analysis.WholeScope(), res.Metadata.Issues(), res.Metadata.Evidence(), res.Metadata.Assumptions())
+			},
+			wantError: "non-deterministic result metadata scope",
+		},
+		{
+			name:      "issues with equal count",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				issues := res.Metadata.Issues()
+				issues[0].Message = "changed issue message"
+				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
+			},
+			wantError: "non-deterministic result metadata issues",
+		},
+		{
+			name:      "assumptions with equal count",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				assumptions := res.Metadata.Assumptions()
+				assumptions[0].Statement = "changed assumption"
+				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), res.Metadata.Issues(), res.Metadata.Evidence(), assumptions)
+			},
+			wantError: "non-deterministic result metadata assumptions",
+		},
+		{
+			name:      "evidence contents with equal count",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				var catalog analysis.EvidenceCatalog
+				for i, entry := range res.Metadata.Evidence().Entries() {
+					evidence := entry.Evidence
+					if i == 0 {
+						evidence.Context = "changed evidence context"
+					}
+					catalog, _ = catalog.Add(evidence)
+				}
+				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), res.Metadata.Issues(), catalog, res.Metadata.Assumptions())
+			},
+			wantError: "non-deterministic result metadata evidence",
+		},
+		{
+			name:      "comparison current axis",
+			caseValue: netsimtest.CasePlanningPortVLANChange,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Comparison.Current.Reason = "changed-current-reason"
+			},
+			wantError: "non-deterministic comparison current domain result",
+		},
+		{
+			name:      "comparison expected axis",
+			caseValue: netsimtest.CasePlanningPortVLANChange,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				res.Comparison.Expected.Reason = "changed-expected-reason"
+			},
+			wantError: "non-deterministic comparison expected domain result",
+		},
+		{
+			name:      "model metadata axis",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				metadata := res.ModelResult.Metadata
+				res.ModelResult.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())
+			},
+			wantError: "non-deterministic model metadata scope",
+		},
+		{
+			name:      "forward metadata axis",
+			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
+			mutate: func(res *netsimtest.ExecutionResult) {
+				metadata := res.Forward.Metadata
+				res.Forward.Metadata = analysis.NewMetadata(analysis.WholeScope(), metadata.Issues(), metadata.Evidence(), metadata.Assumptions())
+			},
+			wantError: "non-deterministic forward metadata scope",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := tc.caseValue()
+			origExecute := c.Execute
+			executions := 0
+			c.Execute = func() (netsimtest.ExecutionResult, error) {
+				res, err := origExecute()
+				if err != nil {
+					return res, err
+				}
+				executions++
+				if executions == 2 {
+					tc.mutate(&res)
+				}
+				return res, nil
+			}
+
+			rec := &recordingTB{}
+			netsimtest.AssertCase(rec, c)
+			if !recordedErrorContains(rec, tc.wantError) {
+				t.Errorf("AssertCase errors = %v, want one containing %q", rec.errors, tc.wantError)
+			}
+		})
+	}
+}
+
+func TestCanonicalExpectationsDoNotRetainMutableFacts(t *testing.T) {
+	mutableFact := bridge.VLANsFact([]vlan.ID{10})
+	expectation := netsimtest.NewFactExpectation(mutableFact)
+	stepExpectation := netsimtest.NewStepExpectation(trace.Step{Inputs: []trace.Fact{mutableFact}})
+
+	mutableFact[0] = 20
+	if expectation.Canonical != "10" {
+		t.Errorf("fact expectation canonical value = %q, want %q", expectation.Canonical, "10")
+	}
+	if stepExpectation.Inputs[0].Canonical != "10" {
+		t.Errorf("step expectation canonical input = %q, want %q", stepExpectation.Inputs[0].Canonical, "10")
+	}
+}
+
+func recordedErrorContains(rec *recordingTB, substring string) bool {
+	for _, recorded := range rec.errors {
+		if containsSubstring(recorded, substring) {
+			return true
+		}
+	}
+	return false
 }
 
 func containsSubstring(s, sub string) bool {

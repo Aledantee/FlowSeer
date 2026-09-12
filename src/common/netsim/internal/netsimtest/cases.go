@@ -20,6 +20,42 @@ import (
 func CasePlanningPortVLANChange() Case {
 	vid10 := vlan.ID(10)
 	vid20 := vlan.ID(20)
+	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[];payload_len=13`)
+	currentSteps := []StepExpectation{
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="1/1/1";fid=10;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "00:11:22:33:44:02"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:02";present=true;port="1/1/2";static=true`)}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "1/1/2"},
+			[]FactExpectation{frame},
+			[]FactExpectation{
+				frame,
+				expectedFact("bridge.vlan_decision", `port="1/1/2";fid=10;pcp=0;dei=false;form="egress"`),
+			}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "1/1/2"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="1/1/2";member="";fid=10;eligible=true;reason=""`)}),
+	}
+	expectedSteps := []StepExpectation{
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "20"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="1/1/1";fid=20;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-miss", trace.Subject{Kind: "mac", Key: "00:11:22:33:44:02"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="00:11:22:33:44:02";present=false;port="";static=false`)}),
+		expectedStep("relay", trace.OpDrop, "no-egress", trace.Subject{Kind: "vlan", Key: "20"}, nil,
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="";member="";fid=20;eligible=false;reason="no-egress"`)}),
+	}
+	pvid10 := NewFactExpectation(bridge.PVIDFact(vid10))
+	pvid20 := NewFactExpectation(bridge.PVIDFact(vid20))
+	vlans10 := NewFactExpectation(bridge.VLANsFact([]vlan.ID{vid10}))
+	vlans20 := NewFactExpectation(bridge.VLANsFact([]vlan.ID{vid20}))
+	expectedChanges := []ChangeExpectation{
+		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, "pvid", &pvid10, &pvid20),
+		expectedChange("vlan", trace.Subject{Kind: "port", Key: "1/1/1"}, "untagged_vlan_ids", &vlans10, &vlans20),
+	}
 
 	return Case{
 		ID:              "planning/port-vlan-change",
@@ -29,6 +65,7 @@ func CasePlanningPortVLANChange() Case {
 		CurrentResult:   "vswitch.Diff produces typed bridge.PVIDFact and bridge.VLANsFact change facts; vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
 		ExpectedStatus:  StatusPtr(analysis.Complete),
 		ExpectedOutcome: trace.Dropped,
+		ExpectedReason:  bridge.ReasonNoEgress,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("vlan-classify"),
 			trace.RuleID("unicast-miss"),
@@ -38,13 +75,30 @@ func CasePlanningPortVLANChange() Case {
 			{Kind: "port", Key: "1/1/1"},
 		},
 		ExpectedFacts: []FactExpectation{
-			NewFactExpectation(bridge.PVIDFact(vid10)),
-			NewFactExpectation(bridge.PVIDFact(vid20)),
+			pvid10,
+			pvid20,
 		},
-		Invariants: []string{
-			"Configuration diff emits typed From and To Fact values for pvid and untagged_vlan_ids without string parsing",
-			"Switch comparison detects forwarding outcome divergence (Forwarded vs Dropped) under changed VLAN assignment",
-			"Both switch evaluations retain Complete analysis status throughout planning comparison",
+		ExpectedSteps:   expectedSteps,
+		ExpectedChanges: expectedChanges,
+		ExpectedComparison: &ComparisonExpectation{
+			Current: ForwardExpectation{
+				Outcome: trace.Forwarded,
+				Metadata: MetadataExpectation{
+					Status: analysis.Complete,
+					Scope:  analysis.NodeScope(""),
+				},
+				Steps: currentSteps,
+			},
+			Expected: ForwardExpectation{
+				Outcome: trace.Dropped,
+				Reason:  bridge.ReasonNoEgress,
+				Metadata: MetadataExpectation{
+					Status: analysis.Complete,
+					Scope:  analysis.NodeScope(""),
+				},
+				Steps: cloneStepExpectations(expectedSteps),
+			},
+			Same: false,
 		},
 		Execute: func() (ExecutionResult, error) {
 			b := port.NewBuilder()
@@ -140,6 +194,22 @@ func CaseShadowingPartialUnknownPort() Case {
 		Origin:  "telemetry-snapshot",
 		Context: "conformance-shadowing; default aging_time=300s",
 	})
+	unknownPortFact := NewFactExpectation(port.ForwardingFact(
+		"1/1/2",
+		port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown},
+		false,
+		port.ReasonPortDown,
+	))
+	expectedSteps := []StepExpectation{
+		expectedStep(
+			"relay",
+			trace.OpDrop,
+			"ingress-port-down",
+			trace.Subject{Kind: "port", Key: "1/1/2"},
+			nil,
+			[]FactExpectation{unknownPortFact},
+		),
+	}
 
 	return Case{
 		ID:              "topology-shadowing/partial-model-unknown-port",
@@ -149,12 +219,17 @@ func CaseShadowingPartialUnknownPort() Case {
 		CurrentResult:   "netmodel.Load returns a constructible ConstructionSpec with Incomplete status scoped strictly to the unknown port; the switch drops frames on the unknown port while forwarding on the known-up port with Complete readiness",
 		ExpectedStatus:  StatusPtr(analysis.Incomplete),
 		ExpectedOutcome: trace.Dropped,
+		ExpectedReason:  port.ReasonPortDown,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("ingress-port-down"),
 		},
 		ExpectedSubjects: []trace.Subject{
 			{Kind: "port", Key: "1/1/2"},
 		},
+		ExpectedFacts: []FactExpectation{
+			unknownPortFact,
+		},
+		ExpectedSteps: expectedSteps,
 		ExpectedIssues: []analysis.IssueCode{
 			netmodel.IssueMissingOperStatus,
 		},
@@ -168,11 +243,13 @@ func CaseShadowingPartialUnknownPort() Case {
 		ExpectedAssumptions: []string{
 			"default value applied for aging_time: 300s",
 		},
-		Invariants: []string{
-			"Partial device model with missing operational status loads into a valid ConstructionSpec without error",
-			"Incomplete analysis status is strictly localized to the unobserved port scope",
-			"Unrelated sibling ports with known-up status maintain Complete analysis status",
-			"Frames arriving on unknown operational ports are dropped deterministically and never forwarded",
+		ExpectedModelMetadata: &MetadataExpectation{
+			Status: analysis.Incomplete,
+			Scope:  analysis.NodeScope("shadow-sw1"),
+		},
+		ExpectedForwardMetadata: &MetadataExpectation{
+			Status: analysis.Incomplete,
+			Scope:  analysis.NodeScope(""),
 		},
 		Execute: func() (ExecutionResult, error) {
 			now := time.Unix(1700000000, 0)
@@ -262,6 +339,27 @@ func CaseShadowingPartialUnknownPort() Case {
 // CaseTroubleshootingUnicastForwarding returns the baseline troubleshooting case evaluating decisive forwarding rules and trace progression.
 func CaseTroubleshootingUnicastForwarding() Case {
 	vid10 := vlan.ID(10)
+	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[];payload_len=17`)
+	taggedFrame := expectedFact("bridge.frame", `src="00:11:22:33:44:01";dst="00:11:22:33:44:02";ether_type=2048;tags=[{tpid=33024;pcp=0;dei=false;vid=10}];payload_len=17`)
+	fdbHit := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:02";present=true;port="1/1/2";static=true`)
+	expectedSteps := []StepExpectation{
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="1/1/1";fid=10;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "00:11:22:33:44:01"}, nil,
+			[]FactExpectation{expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:01";present=true;port="1/1/1";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "00:11:22:33:44:02"},
+			[]FactExpectation{frame}, []FactExpectation{fdbHit}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "1/1/2"},
+			[]FactExpectation{frame},
+			[]FactExpectation{
+				taggedFrame,
+				expectedFact("bridge.vlan_decision", `port="1/1/2";fid=10;pcp=0;dei=false;form="egress"`),
+			}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "1/1/2"},
+			[]FactExpectation{taggedFrame},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="1/1/2";member="";fid=10;eligible=true;reason=""`)}),
+	}
 
 	return Case{
 		ID:              "troubleshooting/unicast-fdb-forwarding",
@@ -282,11 +380,13 @@ func CaseTroubleshootingUnicastForwarding() Case {
 			{Kind: "mac", Key: "00:11:22:33:44:02"},
 			{Kind: "port", Key: "1/1/2"},
 		},
-		Invariants: []string{
-			"First decisive forwarding lookup rule is unicast-hit identifying the destination MAC",
-			"Trace records the full deterministic sequence: vlan-classify -> learn -> unicast-hit -> vlan-tag-form -> transmit",
-			"Egress frame on trunk port carries outer 802.1Q tag matching the classified VID",
-			"Forwarding result retains Complete analysis status across known active ports",
+		ExpectedFacts: []FactExpectation{
+			fdbHit,
+		},
+		ExpectedSteps: expectedSteps,
+		ExpectedForwardMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
 		},
 		Execute: func() (ExecutionResult, error) {
 			b := port.NewBuilder()
@@ -351,6 +451,44 @@ func CaseTroubleshootingUnicastForwarding() Case {
 			}, nil
 		},
 	}
+}
+
+func expectedFact(typeID, canonical string) FactExpectation {
+	return FactExpectation{TypeID: typeID, Canonical: canonical}
+}
+
+func expectedStep(
+	layer trace.Layer,
+	op trace.Op,
+	ruleID trace.RuleID,
+	subject trace.Subject,
+	inputs []FactExpectation,
+	outputs []FactExpectation,
+) StepExpectation {
+	return StepExpectation{
+		Layer:   layer,
+		Op:      op,
+		RuleID:  ruleID,
+		Subject: subject,
+		Inputs:  inputs,
+		Outputs: outputs,
+	}.Canonical()
+}
+
+func expectedChange(
+	layer trace.Layer,
+	subject trace.Subject,
+	field string,
+	from *FactExpectation,
+	to *FactExpectation,
+) ChangeExpectation {
+	return ChangeExpectation{
+		Layer:   layer,
+		Subject: subject,
+		Field:   field,
+		From:    from,
+		To:      to,
+	}.Canonical()
 }
 
 // RegisterBaselineCases populates registry with the three initial baseline cases.

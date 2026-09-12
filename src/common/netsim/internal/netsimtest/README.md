@@ -12,8 +12,8 @@ The corpus maintains executable scenarios locking the simulation contracts
 established across the library:
 
 - `planning/port-vlan-change`: Reconfigures an access switchport from VLAN 10 to
-  VLAN 20 and asserts behavioral divergence alongside typed diff facts
-  ([bridge.PVIDFact], [bridge.VLANsFact]) without string parsing.
+  VLAN 20 and asserts both forwarding sides, their ordered traces, and typed
+  diff facts ([bridge.PVIDFact], [bridge.VLANsFact]) without string parsing.
 - `topology-shadowing/partial-model-unknown-port`: Loads a device model with one
   unknown operational port via [netmodel.Load]. Proves that the construction
   specification remains usable, readiness is Incomplete strictly for the
@@ -31,7 +31,17 @@ Every admitted case must define:
 - Use-case class (`planning`, `topology-shadowing`, or `troubleshooting`).
 - Evaluated question and false answer prevented.
 - Expected analysis status and domain outcome.
-- Decisive trace rules, subjects, and semantic facts.
-- Expected issue codes, scopes, and evidence references when non-Complete.
-- Deterministic reproducibility invariants.
+- Non-empty decisive trace rules, subjects, and semantic facts. Each is bound
+  to an exact [StepExpectation] or [ChangeExpectation].
+- The complete ordered semantic trace, including each operation, rule,
+  subject, input facts, output facts, and evidence references.
+- Expected issue codes paired with exact scopes, plus evidence references when
+  non-Complete.
+- Structured expectations for each returned comparison, model, or forwarding
+  axis.
 - Executable fixture binding to library packages.
+
+[AssertCase] executes each fixture twice. It compares outcome and reason,
+ordered steps and changes, the evaluated metadata scope, canonical issues,
+assumptions, and every evidence entry. Composite results compare both sides of
+a switch comparison and the model-loading and forwarding metadata separately.
