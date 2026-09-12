@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	"math"
 	"net/netip"
 	"slices"
 	"testing"
@@ -165,6 +166,41 @@ func TestConfigValidateRules(t *testing.T) {
 				c.Cables[0].LengthMeters = -1.0
 			},
 			wantError: true,
+		},
+		{
+			name: "cable with NaN length",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].LengthMeters = math.NaN()
+			},
+			wantError: true,
+		},
+		{
+			name: "cable with positive infinite length",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].LengthMeters = math.Inf(1)
+			},
+			wantError: true,
+		},
+		{
+			name: "cable with negative infinite length",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].LengthMeters = math.Inf(-1)
+			},
+			wantError: true,
+		},
+		{
+			name: "cable with zero length",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].LengthMeters = 0
+			},
+			wantError: false,
+		},
+		{
+			name: "cable with maximum finite length",
+			mutate: func(c *fabric.Config) {
+				c.Cables[0].LengthMeters = math.MaxFloat64
+			},
+			wantError: false,
 		},
 		{
 			name: "cable with negative delay",
@@ -621,6 +657,43 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	}
 	if changes := fabric.Diff(cfgA, cfgB); len(changes) != 0 {
 		t.Errorf("Diff returned %d changes for behaviorally equivalent configurations: %v", len(changes), changes)
+	}
+}
+
+func TestCableLengthEqualityAndDiffAreReflexive(t *testing.T) {
+	tests := []struct {
+		name   string
+		length float64
+	}{
+		{name: "zero", length: 0},
+		{name: "negative zero", length: math.Copysign(0, -1)},
+		{name: "maximum finite", length: math.MaxFloat64},
+		{name: "NaN", length: math.NaN()},
+		{name: "positive infinity", length: math.Inf(1)},
+		{name: "negative infinity", length: math.Inf(-1)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cable := fabric.Cable{LengthMeters: tt.length}
+			if !cable.Equal(cable.Clone()) {
+				t.Error("Cable.Equal is not reflexive")
+			}
+
+			cfg := fabric.Config{Cables: []fabric.Cable{cable}}
+			if !cfg.Equal(cfg.Clone()) {
+				t.Error("Config.Equal is not reflexive")
+			}
+			if changes := fabric.Diff(cfg, cfg.Clone()); len(changes) != 0 {
+				t.Errorf("Diff(config, config) = %+v, want no changes", changes)
+			}
+		})
+	}
+
+	negativeZero := fabric.Cable{LengthMeters: math.Copysign(0, -1)}
+	positiveZero := fabric.Cable{LengthMeters: 0}
+	if !negativeZero.Equal(positiveZero) {
+		t.Error("negative and positive zero lengths are not semantically equal")
 	}
 }
 

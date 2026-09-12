@@ -219,8 +219,8 @@ the second PCP 0 frame.
 
 Each cable specifies a transmission medium (`TwistedPair`, `MultimodeFiber`,
 `SinglemodeFiber`, or `Twinax`). An empty medium defaults to `TwistedPair`. The
-medium defines the signal velocity factor and the maximum reach per link
-speed:
+length must be finite and non-negative. The medium defines the signal velocity
+factor and the maximum reach per link speed:
 
 | Medium            | Factor | 10 Mbps | 100 Mbps | 1 Gbps | 10 Gbps |
 | ----------------- | ------ | ------- | -------- | ------ | ------- |

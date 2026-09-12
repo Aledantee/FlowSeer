@@ -97,7 +97,35 @@ func JourneyScope(journeyID string) Scope {
 // FieldScope returns the scope for path beneath parent. Empty path elements
 // remain significant so the rendered scope and canonical ordering stay lossless.
 func FieldScope(parent Scope, path ...string) Scope {
-	return appendScope(parent, ScopeField, path...)
+	var key strings.Builder
+	key.WriteString(parent.key)
+	key.WriteString(strconv.Itoa(int(ScopeField)))
+	key.WriteByte(':')
+	for _, value := range path {
+		encoded := hex.EncodeToString([]byte(value))
+		key.WriteByte('v')
+		key.WriteString(strconv.Itoa(len(encoded)))
+		key.WriteByte(':')
+		key.WriteString(encoded)
+		key.WriteByte(';')
+	}
+
+	var rendered strings.Builder
+	if parent.rendered != "" {
+		rendered.WriteString(parent.rendered)
+		rendered.WriteByte('/')
+	}
+	rendered.WriteString(ScopeField.String())
+	rendered.WriteByte('[')
+	for i, value := range path {
+		if i > 0 {
+			rendered.WriteByte(',')
+		}
+		rendered.WriteString(strconv.Quote(value))
+	}
+	rendered.WriteByte(']')
+
+	return Scope{key: key.String(), rendered: rendered.String(), kind: ScopeField}
 }
 
 // Kind returns the most specific kind represented by the scope.

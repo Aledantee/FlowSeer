@@ -213,6 +213,51 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	}
 }
 
+func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
+	t.Parallel()
+
+	a := constructionSpec(twoSwitchBaseConfig(t))
+	a.Start = time.Date(2026, 9, 12, 10, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
+	b := a.Clone()
+	b.Start = a.Start.Add(time.Second)
+
+	if a.Equal(b) {
+		t.Fatal("construction specifications with different starts compare equal")
+	}
+	if _, err := a.Normalize(); err != nil {
+		t.Fatalf("Normalize(a): %v", err)
+	}
+	if _, err := b.Normalize(); err != nil {
+		t.Fatalf("Normalize(b): %v", err)
+	}
+
+	changes, err := fabric.DiffSpecs(a, b)
+	if err != nil {
+		t.Fatalf("DiffSpecs: %v", err)
+	}
+	if len(changes) == 0 {
+		t.Fatal("DiffSpecs returned no changes for unequal valid specifications")
+	}
+
+	for _, change := range changes {
+		if change.Subject != (trace.Subject{Kind: "fabric"}) || change.Field != "start" {
+			continue
+		}
+		if change.From == nil || change.To == nil {
+			t.Fatalf("start change facts = %v -> %v, want two typed facts", change.From, change.To)
+		}
+		if change.From.TypeID() != "fabric.start" || change.To.TypeID() != "fabric.start" {
+			t.Errorf("start fact types = %q -> %q, want fabric.start", change.From.TypeID(), change.To.TypeID())
+		}
+		if change.From.Canonical() != "2026-09-12T08:00:00Z" || change.To.Canonical() != "2026-09-12T08:00:01Z" {
+			t.Errorf("start facts = %q -> %q, want canonical UTC instants", change.From.Canonical(), change.To.Canonical())
+		}
+		return
+	}
+
+	t.Errorf("DiffSpecs omitted start change: %+v", changes)
+}
+
 func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})

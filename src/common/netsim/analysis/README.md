@@ -41,8 +41,11 @@ precedence `unsupported > unstable > exhausted > incomplete > complete`.
 
 Scopes cover the whole analysis, a node, one of its ports, a link, a protocol
 instance, a journey, or a field path beneath any of those subjects. Parent and
-child scopes overlap, while siblings do not. `Scope.String` quotes identifiers,
-so rendering stays deterministic even when an identifier contains `/`.
+child scopes overlap, while siblings do not. Field paths retain element
+boundaries: the field root contains every field path, `FieldScope(parent, "")`
+is distinct from that root, and a path contains paths with the same element
+prefix. `Scope.String` quotes identifiers, so rendering stays deterministic
+even when an identifier contains `/`.
 
 `Metadata`, `Scope`, and `EvidenceCatalog` are immutable values safe for
 concurrent readers. `EvidenceCatalog.Add` returns a new catalog. Collection

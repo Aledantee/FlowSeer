@@ -130,6 +130,53 @@ func TestScopeOrderingAndRendering(t *testing.T) {
 	}
 }
 
+func TestFieldScopePreservesPathIdentityAndContainment(t *testing.T) {
+	t.Parallel()
+
+	parent := analysis.NodeScope("switch-a")
+	root := analysis.FieldScope(parent)
+	empty := analysis.FieldScope(parent, "")
+	name := analysis.FieldScope(parent, "interfaces")
+	child := analysis.FieldScope(parent, "interfaces", "1/1")
+	sibling := analysis.FieldScope(parent, "interface", "s1/1")
+
+	if root.Compare(empty) == 0 {
+		t.Fatal("zero-element field path and one empty element have the same canonical identity")
+	}
+	if !root.Contains(empty) || !root.Contains(child) {
+		t.Error("field root does not contain its descendant paths")
+	}
+	if !name.Contains(child) {
+		t.Error("field path does not contain a longer path with the same elements")
+	}
+	if name.Contains(sibling) || sibling.Contains(name) {
+		t.Error("field paths with different element boundaries overlap")
+	}
+}
+
+func TestMetadataMatchesExactFieldPathIdentity(t *testing.T) {
+	t.Parallel()
+
+	parent := analysis.NodeScope("switch-a")
+	root := analysis.FieldScope(parent)
+	empty := analysis.FieldScope(parent, "")
+	named := analysis.FieldScope(parent, "interfaces")
+	metadata := analysis.NewMetadata(parent, []analysis.Issue{
+		{Code: "field/root", Status: analysis.Incomplete, Scope: root},
+		{Code: "field/empty", Status: analysis.Unsupported, Scope: empty},
+	}, analysis.EvidenceCatalog{}, nil)
+
+	if got := metadata.IssuesFor(named); len(got) != 1 || got[0].Code != analysis.IssueCode("field/root") {
+		t.Errorf("IssuesFor(named field) = %+v, want only field/root", got)
+	}
+	if got := metadata.IssuesFor(empty); len(got) != 2 {
+		t.Errorf("len(IssuesFor(empty element)) = %d, want 2", len(got))
+	}
+	if root.Compare(empty) == 0 {
+		t.Error("exact scope matching cannot distinguish zero path from an empty element")
+	}
+}
+
 func TestEvidenceCatalogDeduplicatesAndLooksUp(t *testing.T) {
 	t.Parallel()
 

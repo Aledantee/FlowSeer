@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"cmp"
+	"math"
 	"net/netip"
 	"slices"
 	"strings"
@@ -279,9 +280,9 @@ func (c Cable) Clone() Cable {
 	return cp
 }
 
-// Equal reports whether two cable configurations are identical.
+// Equal reports whether two cable configurations are semantically equal.
 func (c Cable) Equal(other Cable) bool {
-	if c.A != other.A || c.B != other.B || c.LengthMeters != other.LengthMeters || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
+	if c.A != other.A || c.B != other.B || !sameLengthMeters(c.LengthMeters, other.LengthMeters) || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
 		return false
 	}
 	if (c.Delay == nil) != (other.Delay == nil) {
@@ -294,6 +295,10 @@ func (c Cable) Equal(other Cable) bool {
 		return false
 	}
 	return true
+}
+
+func sameLengthMeters(a, b float64) bool {
+	return cmp.Compare(a, b) == 0
 }
 
 // Config declares the full static topology of a simulated network fabric.
@@ -595,11 +600,11 @@ func (c Config) Validate() error {
 	portCables := make(map[Endpoint]int)
 
 	for i, cable := range c.Cables {
-		if cable.LengthMeters < 0 {
+		if math.IsNaN(cable.LengthMeters) || math.IsInf(cable.LengthMeters, 0) || cable.LengthMeters < 0 {
 			return errs.New().
 				Attr("cable", i).
 				Attr("length", cable.LengthMeters).
-				Msg("cable length cannot be negative")
+				Msg("cable length must be finite and non-negative")
 		}
 
 		if cable.Delay != nil && *cable.Delay < 0 {

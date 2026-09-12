@@ -112,6 +112,16 @@ func (f constructionInputsFact) TypeID() string { return "fabric.switch_construc
 
 func (f constructionInputsFact) Canonical() string { return string(f) }
 
+type startFact string
+
+func (f startFact) TypeID() string { return "fabric.start" }
+
+func (f startFact) Canonical() string { return string(f) }
+
+func newStartFact(start time.Time) startFact {
+	return startFact(start.UTC().Format(time.RFC3339Nano))
+}
+
 // DiffSpecs computes the differences between two construction specifications. It reports
 // switch configuration and construction-input differences, cable changes, and host changes.
 func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
@@ -125,6 +135,15 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 	}
 
 	changes := Diff(a.Config(), b.Config())
+	if !a.Start.Equal(b.Start) {
+		changes = append(changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "fabric"},
+			Field:   "start",
+			From:    newStartFact(a.Start),
+			To:      newStartFact(b.Start),
+		})
+	}
 	names := make(map[string]struct{}, len(a.Switches)+len(b.Switches))
 	for name := range a.Switches {
 		names[name] = struct{}{}
@@ -254,7 +273,7 @@ func Diff(a, b Config) []trace.Change {
 		cA = canonicalCableOrientation(cA)
 		cB = canonicalCableOrientation(cB)
 
-		if cA.LengthMeters != cB.LengthMeters {
+		if !sameLengthMeters(cA.LengthMeters, cB.LengthMeters) {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
