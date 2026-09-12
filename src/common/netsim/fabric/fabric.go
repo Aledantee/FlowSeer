@@ -98,7 +98,8 @@ func New(cfg Config) (*Fabric, error) {
 }
 
 // NewWithSpec constructs a validated [Fabric] from the provided construction specification,
-// restoring preloaded forwarding database seeds across switches.
+// restoring preloaded forwarding database seeds across switches. It returns an error when a
+// seed key does not name a configured switch.
 func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
 	norm := spec.Config.Normalize()
 	fab, err := build(nil, norm, spec.Seeds)
@@ -131,6 +132,18 @@ func (f *Fabric) Spec() ConstructionSpec {
 func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
+	}
+	seedNames := make([]string, 0, len(seeds))
+	for name := range seeds {
+		seedNames = append(seedNames, name)
+	}
+	slices.Sort(seedNames)
+	for _, name := range seedNames {
+		if _, ok := cfg.Switches[name]; !ok {
+			return nil, errs.New().
+				Attr("switch", name).
+				Msgf("construction seeds reference unconfigured switch %q", name)
+		}
 	}
 
 	cloned := cfg.Clone()

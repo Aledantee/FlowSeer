@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"cmp"
+	"math"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -77,9 +78,30 @@ func (f GatewayFact) TypeID() string { return "fabric.gateway" }
 // Canonical returns the string representation of the gateway IP.
 func (f GatewayFact) Canonical() string { return netip.Addr(f).String() }
 
+type faultSnapshotFact string
+
+func (f faultSnapshotFact) TypeID() string { return "fabric.fault" }
+
+func (f faultSnapshotFact) Canonical() string { return string(f) }
+
+type hostSnapshotFact string
+
+func (f hostSnapshotFact) TypeID() string { return "fabric.host" }
+
+func (f hostSnapshotFact) Canonical() string { return string(f) }
+
+type cableSnapshotFact string
+
+func (f cableSnapshotFact) TypeID() string { return "fabric.cable" }
+
+func (f cableSnapshotFact) Canonical() string { return string(f) }
+
 // Diff computes the differences between two fabric configurations, reporting switch differences,
 // cable additions, removals, and modifications, and host additions, removals, and moves.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize()
+	b = b.Normalize()
+
 	var changes []trace.Change
 
 	swNames := make(map[string]struct{})
@@ -150,11 +172,13 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
-				From:    cA.Clone(),
+				From:    cableSnapshot(cA),
 				To:      nil,
 			})
 			continue
 		}
+		cA = canonicalCableOrientation(cA)
+		cB = canonicalCableOrientation(cB)
 
 		if cA.LengthMeters != cB.LengthMeters {
 			changes = append(changes, trace.Change{
@@ -165,7 +189,7 @@ func Diff(a, b Config) []trace.Change {
 				To:      LengthFact(cB.LengthMeters),
 			})
 		}
-		if mA, mB := normalizedMedium(cA.Medium), normalizedMedium(cB.Medium); mA != mB {
+		if mA, mB := cA.Medium, cB.Medium; mA != mB {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
@@ -204,8 +228,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "fault",
-				From:    normalizedFault(cA.Fault),
-				To:      normalizedFault(cB.Fault),
+				From:    faultSnapshot(cA.Fault),
+				To:      faultSnapshot(cB.Fault),
 			})
 		}
 	}
@@ -218,7 +242,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: trace.Subject{Kind: "cable", Key: key},
 				Field:   "",
 				From:    nil,
-				To:      cB.Clone(),
+				To:      cableSnapshot(cB),
 			})
 		}
 	}
@@ -245,7 +269,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
-				From:    hA.Clone(),
+				From:    hostSnapshot(hA),
 				To:      nil,
 			})
 		case !inA && inB:
@@ -254,7 +278,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: trace.Subject{Kind: "host", Key: name},
 				Field:   "",
 				From:    nil,
-				To:      hB.Clone(),
+				To:      hostSnapshot(hB),
 			})
 		case inA && inB:
 			epA, okA := hostEndpoint(name, a.Cables)
@@ -457,9 +481,8 @@ func sortedCables(cables []Cable) []Cable {
 }
 
 // cableKey names a cable by its two ends with the smaller end first, so the
-// same cable written in either orientation is one subject. A fault change on
-// such a cable carries the fault as declared, whose dead direction is read
-// against the declared A and B.
+// same cable written in either orientation is one subject. Diff aligns
+// directional faults to that ordering before comparing them.
 func cableKey(c Cable) string {
 	a := c.A.Node + ":" + c.A.Port
 	b := c.B.Node + ":" + c.B.Port
@@ -470,6 +493,24 @@ func cableKey(c Cable) string {
 	return a + "-" + b
 }
 
+func canonicalCableOrientation(c Cable) Cable {
+	a := c.A.Node + ":" + c.A.Port
+	b := c.B.Node + ":" + c.B.Port
+	if a <= b {
+		return c
+	}
+
+	c.A, c.B = c.B, c.A
+	switch c.Fault.Kind {
+	case FaultDeadAToB:
+		c.Fault.Kind = FaultDeadBToA
+	case FaultDeadBToA:
+		c.Fault.Kind = FaultDeadAToB
+	}
+
+	return c
+}
+
 // normalizedFault reads an unset kind as FaultNone, so a change reports the
 // kind a reader compares against.
 func normalizedFault(f Fault) Fault {
@@ -477,13 +518,15 @@ func normalizedFault(f Fault) Fault {
 	if f.Kind == "" {
 		f.Kind = FaultNone
 	}
+	if len(f.Sequence) > 0 {
+		slices.Sort(f.Sequence)
+		f.Sequence = slices.Compact(f.Sequence)
+	}
 
 	return f
 }
 
 func sameFault(a, b Fault) bool {
-	a, b = normalizedFault(a), normalizedFault(b)
-
 	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
@@ -515,4 +558,100 @@ func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {
 		}
 	}
 	return Endpoint{}, false
+}
+
+func faultSnapshot(f Fault) faultSnapshotFact {
+	var out strings.Builder
+	writeStringField(&out, "kind", string(f.Kind))
+	writeUintField(&out, "n", uint64(f.N))
+	out.WriteString("sequence=[")
+	for i, value := range f.Sequence {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.FormatUint(uint64(value), 10))
+	}
+	out.WriteString("];")
+
+	return faultSnapshotFact(out.String())
+}
+
+func hostSnapshot(h Host) hostSnapshotFact {
+	var out strings.Builder
+	writeStringField(&out, "address", h.Address.String())
+	if h.VLAN == nil {
+		out.WriteString("vlan=nil;")
+	} else {
+		writeUintField(&out, "vlan", uint64(*h.VLAN))
+	}
+	if h.IP == nil {
+		out.WriteString("ip=nil;")
+
+		return hostSnapshotFact(out.String())
+	}
+
+	out.WriteString("ip=present;addresses=[")
+	for i, prefix := range h.IP.Addresses {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(prefix.String()))
+	}
+	out.WriteString("];")
+	writeStringField(&out, "gateway", h.IP.Gateway.String())
+
+	addrs := make([]netip.Addr, 0, len(h.IP.Neighbors))
+	for addr := range h.IP.Neighbors {
+		addrs = append(addrs, addr)
+	}
+	slices.SortFunc(addrs, func(a, b netip.Addr) int {
+		return a.Compare(b)
+	})
+	out.WriteString("neighbors=[")
+	for i, addr := range addrs {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(addr.String()))
+		out.WriteByte('=')
+		out.WriteString(strconv.Quote(h.IP.Neighbors[addr].String()))
+	}
+	out.WriteString("];")
+
+	return hostSnapshotFact(out.String())
+}
+
+func cableSnapshot(c Cable) cableSnapshotFact {
+	var out strings.Builder
+	writeStringField(&out, "a.node", c.A.Node)
+	writeStringField(&out, "a.port", c.A.Port)
+	writeStringField(&out, "b.node", c.B.Node)
+	writeStringField(&out, "b.port", c.B.Port)
+	writeUintField(&out, "length_bits", math.Float64bits(c.LengthMeters))
+	writeUintField(&out, "top_speed", c.TopSpeedBPS)
+	writeStringField(&out, "fault", faultSnapshot(c.Fault).Canonical())
+	writeStringField(&out, "medium", string(c.Medium))
+	if c.Delay == nil {
+		out.WriteString("delay=nil;")
+	} else {
+		out.WriteString("delay=")
+		out.WriteString(strconv.FormatInt(int64(*c.Delay), 10))
+		out.WriteByte(';')
+	}
+
+	return cableSnapshotFact(out.String())
+}
+
+func writeStringField(out *strings.Builder, name, value string) {
+	out.WriteString(name)
+	out.WriteByte('=')
+	out.WriteString(strconv.Quote(value))
+	out.WriteByte(';')
+}
+
+func writeUintField(out *strings.Builder, name string, value uint64) {
+	out.WriteString(name)
+	out.WriteByte('=')
+	out.WriteString(strconv.FormatUint(value, 10))
+	out.WriteByte(';')
 }

@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 )
 
 // FrameID uniquely identifies an injected frame and its copies throughout the fabric simulation.
@@ -97,6 +98,7 @@ func (f *Fabric) Report() []Journey {
 
 func (j Journey) clone() Journey {
 	cp := j
+	cp.Injection = j.Injection.clone()
 	if len(j.Entries) > 0 {
 		cp.Entries = make([]Entry, len(j.Entries))
 		for i, e := range j.Entries {
@@ -133,13 +135,41 @@ func (e Entry) clone() Entry {
 func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
 	cp := r
 	if len(r.Steps) > 0 {
-		cp.Steps = slices.Clone(r.Steps)
+		cp.Steps = make([]trace.Step, len(r.Steps))
+		for i, step := range r.Steps {
+			cp.Steps[i] = cloneStep(step)
+		}
 	}
 	if len(r.Egress) > 0 {
-		cp.Egress = slices.Clone(r.Egress)
+		cp.Egress = make([]bridge.Egress, len(r.Egress))
+		for i, egress := range r.Egress {
+			cp.Egress[i] = egress
+			cp.Egress[i].Frame = cloneFrame(egress.Frame)
+		}
 	}
 
 	return &cp
+}
+
+func (i Injection) clone() Injection {
+	cp := i
+	cp.Frame = cloneFrame(i.Frame)
+	if i.Packet != nil {
+		packet := *i.Packet
+		packet.Payload = slices.Clone(i.Packet.Payload)
+		cp.Packet = &packet
+	}
+
+	return cp
+}
+
+func cloneStep(step trace.Step) trace.Step {
+	cp := step
+	cp.Inputs = slices.Clone(step.Inputs)
+	cp.Outputs = slices.Clone(step.Outputs)
+	cp.Evidence = slices.Clone(step.Evidence)
+
+	return cp
 }
 
 func cloneFrame(f ethernet.Frame) ethernet.Frame {

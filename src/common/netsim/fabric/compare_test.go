@@ -2,7 +2,9 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -254,13 +257,11 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		if ch.Subject.Kind == "cable" && ch.Subject.Key == "sw1:1/1/24-sw2:1/1/24" {
 			if ch.Field == "fault" && ch.Layer == fabric.Layer {
 				foundCableFaultChange = true
-				fromFault, okFrom := ch.From.(fabric.Fault)
-				toFault, okTo := ch.To.(fabric.Fault)
-				if !okFrom || fromFault.Kind != fabric.FaultNone && fromFault.Kind != "" {
-					t.Errorf("cable fault From = %+v, want empty or FaultNone", ch.From)
+				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(fabric.FaultNone)) {
+					t.Errorf("cable fault From = %v:%q, want FaultNone snapshot", ch.From.TypeID(), ch.From.Canonical())
 				}
-				if !okTo || toFault.Kind != fabric.FaultCut {
-					t.Errorf("cable fault To = %+v, want FaultCut", ch.To)
+				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(fabric.FaultCut)) {
+					t.Errorf("cable fault To = %v:%q, want FaultCut snapshot", ch.To.TypeID(), ch.To.Canonical())
 				}
 			}
 		}
@@ -723,4 +724,211 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			t.Errorf("missing neighbor diff: %v", changes)
 		}
 	})
+}
+
+func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
+	for _, kind := range []fabric.FaultKind{fabric.FaultDeadAToB, fabric.FaultDeadBToA} {
+		t.Run(string(kind), func(t *testing.T) {
+			cfgA, _, _ := makeTwoSwitchConfigs(t)
+			cfgA.Cables[1].Fault = fabric.Fault{Kind: kind}
+			cfgB := cfgA.Clone()
+			cfgB.Cables[1].A, cfgB.Cables[1].B = cfgB.Cables[1].B, cfgB.Cables[1].A
+
+			changes := fabric.Diff(cfgA, cfgB)
+			var faultChange *trace.Change
+			for i := range changes {
+				if changes[i].Subject.Kind == "cable" && changes[i].Field == "fault" {
+					faultChange = &changes[i]
+					break
+				}
+			}
+			if faultChange == nil {
+				t.Fatal("Diff missed behavior change from reversing a directional cable fault")
+			}
+			if trace.EqualFact(faultChange.From, faultChange.To) {
+				t.Errorf("fault change has equal facts: %v -> %v", faultChange.From, faultChange.To)
+			}
+			wantFrom, wantTo := kind, fabric.FaultDeadAToB
+			if kind == fabric.FaultDeadAToB {
+				wantTo = fabric.FaultDeadBToA
+			}
+			if !strings.Contains(faultChange.From.Canonical(), string(wantFrom)) ||
+				!strings.Contains(faultChange.To.Canonical(), string(wantTo)) {
+				t.Errorf("fault change = %q -> %q, want %q -> %q", faultChange.From.Canonical(), faultChange.To.Canonical(), wantFrom, wantTo)
+			}
+
+			reverseFrom, reverseTo := changedFieldFacts(t, "fault", cfgB, cfgA)
+			if !strings.Contains(reverseFrom.Canonical(), string(wantTo)) ||
+				!strings.Contains(reverseTo.Canonical(), string(wantFrom)) {
+				t.Errorf("reverse fault change = %q -> %q, want %q -> %q", reverseFrom.Canonical(), reverseTo.Canonical(), wantTo, wantFrom)
+			}
+
+			equivalent := cfgA.Clone()
+			equivalent.Cables[1].A, equivalent.Cables[1].B = equivalent.Cables[1].B, equivalent.Cables[1].A
+			if kind == fabric.FaultDeadAToB {
+				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadBToA
+			} else {
+				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadAToB
+			}
+			if changes := fabric.Diff(cfgA, equivalent); len(changes) != 0 {
+				t.Errorf("equivalent reversed cable diff = %v, want no changes", changes)
+			}
+		})
+	}
+}
+
+func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	gateway := netip.MustParseAddr("10.0.10.1")
+	host := fabric.Host{
+		Address: mac,
+		VLAN:    &vid10,
+		IP: &fabric.HostIP{
+			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
+			Gateway:   gateway,
+			Neighbors: map[netip.Addr]netaddr.MAC{
+				gateway: {0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+			},
+		},
+	}
+
+	hostCfgA := fabric.Config{Hosts: map[string]fabric.Host{"h1": host}}
+	hostCfgB := hostCfgA.Clone()
+	hostB := hostCfgB.Hosts["h1"]
+	hostB.VLAN = &vid20
+	hostCfgB.Hosts["h1"] = hostB
+	hostFactA := addedFact(t, "host", hostCfgA)
+	hostFactB := addedFact(t, "host", hostCfgB)
+	if trace.EqualFact(hostFactA, hostFactB) {
+		t.Error("host snapshot facts collide when VLAN behavior differs")
+	}
+	if got := reflect.TypeOf(hostFactA); got == reflect.TypeOf(fabric.Host{}) {
+		t.Errorf("host diff fact has mutable config type %v", got)
+	}
+	hostVariants := []struct {
+		name   string
+		mutate func(*fabric.Host)
+	}{
+		{name: "address", mutate: func(h *fabric.Host) { h.Address[5]++ }},
+		{name: "IP presence", mutate: func(h *fabric.Host) { h.IP = nil }},
+		{name: "IP address", mutate: func(h *fabric.Host) {
+			h.IP.Addresses[0] = netip.MustParsePrefix("10.0.20.10/24")
+		}},
+		{name: "gateway", mutate: func(h *fabric.Host) {
+			h.IP.Gateway = netip.MustParseAddr("10.0.10.254")
+		}},
+		{name: "neighbor", mutate: func(h *fabric.Host) {
+			h.IP.Neighbors[gateway] = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+		}},
+	}
+	for _, variant := range hostVariants {
+		t.Run("host "+variant.name, func(t *testing.T) {
+			changed := host.Clone()
+			variant.mutate(&changed)
+			fact := addedFact(t, "host", fabric.Config{Hosts: map[string]fabric.Host{"h1": changed}})
+			if trace.EqualFact(hostFactA, fact) {
+				t.Errorf("host snapshot facts collide when %s differs", variant.name)
+			}
+		})
+	}
+
+	delay := time.Nanosecond
+	cableA := fabric.Cable{
+		A: fabric.Endpoint{Node: "left", Port: "one"},
+		B: fabric.Endpoint{Node: "right", Port: "two"},
+	}
+	cableB := cableA.Clone()
+	cableB.Delay = &delay
+	cableB.Fault = fabric.Fault{Kind: fabric.FaultCut}
+	cableCfgA := fabric.Config{Cables: []fabric.Cable{cableA}}
+	cableCfgB := fabric.Config{Cables: []fabric.Cable{cableB}}
+	cableFactA := addedFact(t, "cable", cableCfgA)
+	cableFactB := addedFact(t, "cable", cableCfgB)
+	if got := reflect.TypeOf(cableFactA); got == reflect.TypeOf(fabric.Cable{}) {
+		t.Errorf("cable diff fact has mutable config type %v", got)
+	}
+	cableVariants := []struct {
+		name   string
+		mutate func(*fabric.Cable)
+	}{
+		{name: "endpoint node", mutate: func(c *fabric.Cable) { c.A.Node = "left:one" }},
+		{name: "endpoint port", mutate: func(c *fabric.Cable) { c.A.Port = "one:two" }},
+		{name: "length", mutate: func(c *fabric.Cable) { c.LengthMeters = 1.5 }},
+		{name: "top speed", mutate: func(c *fabric.Cable) { c.TopSpeedBPS = 1_000_000_000 }},
+		{name: "fault", mutate: func(c *fabric.Cable) { c.Fault = fabric.Fault{Kind: fabric.FaultCut} }},
+		{name: "medium", mutate: func(c *fabric.Cable) { c.Medium = fabric.SinglemodeFiber }},
+		{name: "delay", mutate: func(c *fabric.Cable) { c.Delay = &delay }},
+	}
+	for _, variant := range cableVariants {
+		t.Run("cable "+variant.name, func(t *testing.T) {
+			changed := cableA.Clone()
+			variant.mutate(&changed)
+			fact := addedFact(t, "cable", fabric.Config{Cables: []fabric.Cable{changed}})
+			if trace.EqualFact(cableFactA, fact) {
+				t.Errorf("cable snapshot facts collide when %s differs", variant.name)
+			}
+		})
+	}
+
+	faultCfgA := fabric.Config{Cables: []fabric.Cable{{
+		A:     cableA.A,
+		B:     cableA.B,
+		Fault: fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{1}},
+	}}}
+	faultCfgB := faultCfgA.Clone()
+	faultCfgB.Cables[0].Fault.Sequence[0] = 2
+	faultFactA, faultFactB := changedFieldFacts(t, "fault", faultCfgA, faultCfgB)
+	if trace.EqualFact(faultFactA, faultFactB) {
+		t.Error("fault snapshot facts collide when loss sequence differs")
+	}
+	if got := reflect.TypeOf(faultFactA); got == reflect.TypeOf(fabric.Fault{}) {
+		t.Errorf("fault diff fact has mutable config type %v", got)
+	}
+
+	wantHost := hostFactA.Canonical()
+	wantCable := cableFactB.Canonical()
+	wantFault := faultFactA.Canonical()
+	*hostCfgA.Hosts["h1"].VLAN = 30
+	hostCfgA.Hosts["h1"].IP.Addresses[0] = netip.MustParsePrefix("10.0.30.10/24")
+	hostCfgA.Hosts["h1"].IP.Neighbors[gateway] = netaddr.MAC{}
+	*cableCfgB.Cables[0].Delay = 2 * time.Nanosecond
+	cableCfgB.Cables[0].Fault.Kind = fabric.FaultNone
+	faultCfgA.Cables[0].Fault.Sequence[0] = 99
+	if got := hostFactA.Canonical(); got != wantHost {
+		t.Errorf("host fact changed after source mutation: got %q, want %q", got, wantHost)
+	}
+	if got := cableFactB.Canonical(); got != wantCable {
+		t.Errorf("cable fact changed after source mutation: got %q, want %q", got, wantCable)
+	}
+	if got := faultFactA.Canonical(); got != wantFault {
+		t.Errorf("fault fact changed after source mutation: got %q, want %q", got, wantFault)
+	}
+}
+
+func addedFact(t *testing.T, kind string, cfg fabric.Config) trace.Fact {
+	t.Helper()
+
+	for _, change := range fabric.Diff(fabric.Config{}, cfg) {
+		if change.Subject.Kind == kind && change.Field == "" && change.To != nil {
+			return change.To
+		}
+	}
+	t.Fatalf("missing added %s fact", kind)
+
+	return nil
+}
+
+func changedFieldFacts(t *testing.T, field string, a, b fabric.Config) (trace.Fact, trace.Fact) {
+	t.Helper()
+
+	for _, change := range fabric.Diff(a, b) {
+		if change.Field == field {
+			return change.From, change.To
+		}
+	}
+	t.Fatalf("missing %s change", field)
+
+	return nil, nil
 }

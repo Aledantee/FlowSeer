@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
@@ -549,5 +550,62 @@ func TestConfigClone(t *testing.T) {
 	}
 	if cloned.Hosts["h1"].IP == nil || len(cloned.Hosts["h1"].IP.Addresses) != 1 {
 		t.Errorf("cloned host IP not cloned properly: %+v", cloned.Hosts["h1"].IP)
+	}
+}
+
+func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
+	cfgA := twoSwitchBaseConfig(t)
+	cfgB := cfgA.Clone()
+
+	cfgA.Cables[0].Medium = ""
+	cfgA.Cables[0].Fault = fabric.Fault{}
+	cfgB.Cables[0].Medium = fabric.TwistedPair
+	cfgB.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultNone}
+
+	cfgA.Cables[1].Fault = fabric.Fault{
+		Kind:     fabric.FaultLoseSequence,
+		Sequence: []uint{5, 1, 3},
+	}
+	cfgB.Cables[1].Fault = fabric.Fault{
+		Kind:     fabric.FaultLoseSequence,
+		Sequence: []uint{1, 3, 5},
+	}
+
+	addresses := []netip.Prefix{
+		netip.MustParsePrefix("fd00::10/64"),
+		netip.MustParsePrefix("10.0.10.10/24"),
+	}
+	hostA := cfgA.Hosts["h1"]
+	hostA.IP = &fabric.HostIP{Addresses: slices.Clone(addresses)}
+	cfgA.Hosts["h1"] = hostA
+	hostB := cfgB.Hosts["h1"]
+	hostB.IP = &fabric.HostIP{Addresses: []netip.Prefix{addresses[1], addresses[0]}}
+	cfgB.Hosts["h1"] = hostB
+
+	norm := cfgA.Normalize()
+	if got := norm.Cables[0].Medium; got != fabric.TwistedPair {
+		t.Errorf("normalized medium = %q, want %q", got, fabric.TwistedPair)
+	}
+	if got := norm.Cables[0].Fault.Kind; got != fabric.FaultNone {
+		t.Errorf("normalized fault kind = %q, want %q", got, fabric.FaultNone)
+	}
+	var normalizedSequence []uint
+	for _, cable := range norm.Cables {
+		if cable.Fault.Kind == fabric.FaultLoseSequence {
+			normalizedSequence = cable.Fault.Sequence
+		}
+	}
+	if !slices.Equal(normalizedSequence, []uint{1, 3, 5}) {
+		t.Errorf("normalized fault sequence = %v, want [1 3 5]", normalizedSequence)
+	}
+	wantAddresses := []netip.Prefix{addresses[1], addresses[0]}
+	if got := norm.Hosts["h1"].IP.Addresses; !slices.Equal(got, wantAddresses) {
+		t.Errorf("normalized host addresses = %v, want %v", got, wantAddresses)
+	}
+	if !cfgA.Equal(cfgB) {
+		t.Error("Config.Equal reports behaviorally equivalent configurations as different")
+	}
+	if changes := fabric.Diff(cfgA, cfgB); len(changes) != 0 {
+		t.Errorf("Diff returned %d changes for behaviorally equivalent configurations: %v", len(changes), changes)
 	}
 }

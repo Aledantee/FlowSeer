@@ -136,8 +136,10 @@ func main() {
 
 ## Traversal journey
 
-Calling `Report()` returns the journey recorded for each frame id. The entries
-record the progression across devices and cables:
+Calling `Report()` returns an independent copy of the journey recorded for each
+frame id. Mutating frames, packets, step input, output, or evidence lists, or
+egress data in that copy does not change later reports. The entries record the
+progression across devices and cables:
 
 - `Injection`: Introduces the frame at `h1` at `t0`.
 - `Crossing`: Host leg transmission across the 0-meter cable to `sw1:1/1/1`

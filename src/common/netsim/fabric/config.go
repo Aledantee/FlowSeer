@@ -2,10 +2,8 @@ package fabric
 
 import (
 	"cmp"
-	"fmt"
 	"net/netip"
 	"slices"
-	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -82,16 +80,6 @@ type Fault struct {
 	Sequence []uint
 }
 
-// TypeID returns the fact type identifier for Fault.
-func (f Fault) TypeID() string {
-	return "fabric.fault"
-}
-
-// Canonical returns the canonical representation of the fault.
-func (f Fault) Canonical() string {
-	return fmt.Sprintf("kind=%s,n=%d", f.Kind, f.N)
-}
-
 // Clone returns an independent deep copy of the fault configuration.
 func (f Fault) Clone() Fault {
 	cp := f
@@ -163,16 +151,6 @@ func (h Host) Clone() Host {
 	}
 
 	return cp
-}
-
-// TypeID returns the fact type identifier for Host.
-func (h Host) TypeID() string {
-	return "fabric.host"
-}
-
-// Canonical returns the canonical representation of the host.
-func (h Host) Canonical() string {
-	return h.Address.String()
 }
 
 // Equal reports whether two host configurations are identical.
@@ -299,19 +277,6 @@ func (c Cable) Clone() Cable {
 	return cp
 }
 
-// TypeID returns the fact type identifier for Cable.
-func (c Cable) TypeID() string {
-	return "fabric.cable"
-}
-
-// Canonical returns the canonical representation of the cable.
-func (c Cable) Canonical() string {
-	return fmt.Sprintf("a=%s:%s,b=%s:%s,len=%s,medium=%s,speed=%d",
-		c.A.Node, c.A.Port, c.B.Node, c.B.Port,
-		strconv.FormatFloat(c.LengthMeters, 'f', -1, 64),
-		c.Medium, c.TopSpeedBPS)
-}
-
 // Equal reports whether two cable configurations are identical.
 func (c Cable) Equal(other Cable) bool {
 	if c.A != other.A || c.B != other.B || c.LengthMeters != other.LengthMeters || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
@@ -366,6 +331,10 @@ func (c Config) Clone() Config {
 
 // Equal reports whether two fabric configurations are identical.
 func (c Config) Equal(other Config) bool {
+	return equalNormalizedConfigs(c.Normalize(), other.Normalize())
+}
+
+func equalNormalizedConfigs(c, other Config) bool {
 	if !c.Start.Equal(other.Start) {
 		return false
 	}
@@ -454,8 +423,19 @@ func (c Config) Normalize() Config {
 		h := cloned.Hosts[name]
 		if h.Address == (netaddr.MAC{}) {
 			h.Address = assignLocal()
-			cloned.Hosts[name] = h
 		}
+		if h.IP != nil && len(h.IP.Addresses) > 0 {
+			slices.SortFunc(h.IP.Addresses, comparePrefix)
+			h.IP.Addresses = slices.Compact(h.IP.Addresses)
+		}
+		cloned.Hosts[name] = h
+	}
+
+	for i := range cloned.Cables {
+		cable := cloned.Cables[i]
+		cable.Medium = normalizedMedium(cable.Medium)
+		cable.Fault = normalizedFault(cable.Fault)
+		cloned.Cables[i] = cable
 	}
 
 	// Sort cables by endpoint names to ensure stable ordering.
@@ -474,6 +454,14 @@ func (c Config) Normalize() Config {
 	})
 
 	return cloned
+}
+
+func comparePrefix(a, b netip.Prefix) int {
+	if order := a.Addr().Compare(b.Addr()); order != 0 {
+		return order
+	}
+
+	return cmp.Compare(a.Bits(), b.Bits())
 }
 
 // Validate verifies structural and topological invariants of the configuration:

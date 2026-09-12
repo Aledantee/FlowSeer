@@ -105,6 +105,41 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 	}
 }
 
+func TestFabricConstructionSpecRejectsUnknownSeedSwitch(t *testing.T) {
+	cfg := twoSwitchBaseConfig(t)
+	seed := bridge.Seed{
+		FID:    1,
+		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
+		Port:   "1/1/1",
+		Static: true,
+	}
+
+	_, err := fabric.NewWithSpec(fabric.ConstructionSpec{
+		Config: cfg,
+		Seeds:  map[string][]bridge.Seed{"missing": {seed}},
+	})
+	if err == nil {
+		t.Fatal("NewWithSpec accepted seeds for an unconfigured switch")
+	}
+
+	want := fabric.ConstructionSpec{
+		Config: cfg,
+		Seeds:  map[string][]bridge.Seed{"sw1": {seed}},
+	}
+	fab, err := fabric.NewWithSpec(want)
+	if err != nil {
+		t.Fatalf("NewWithSpec with configured seed switch: %v", err)
+	}
+	roundTrip := fab.Spec()
+	rebuilt, err := fabric.NewWithSpec(roundTrip)
+	if err != nil {
+		t.Fatalf("NewWithSpec from returned spec: %v", err)
+	}
+	if got := rebuilt.Spec(); !got.Equal(roundTrip) {
+		t.Errorf("round-trip spec = %+v, want %+v", got, roundTrip)
+	}
+}
+
 func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
