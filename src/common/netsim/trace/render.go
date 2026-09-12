@@ -147,9 +147,6 @@ func renderStepFact(f Fact) string {
 	if f == nil {
 		return "<nil>"
 	}
-	if s, ok := f.(fmt.Stringer); ok {
-		return s.String()
-	}
 	if f.TypeID() == "" {
 		return f.Canonical()
 	}
@@ -159,9 +156,6 @@ func renderStepFact(f Fact) string {
 func renderChangeFact(f Fact) string {
 	if f == nil {
 		return "<nil>"
-	}
-	if s, ok := f.(fmt.Stringer); ok {
-		return s.String()
 	}
 	if f.Canonical() != "" {
 		return f.Canonical()

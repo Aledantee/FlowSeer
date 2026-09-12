@@ -55,6 +55,20 @@ func (f testStatusFact) Canonical() string {
 	return f.status
 }
 
+type misleadingStringFact struct{}
+
+func (misleadingStringFact) TypeID() string {
+	return "stable"
+}
+
+func (misleadingStringFact) Canonical() string {
+	return "canonical"
+}
+
+func (misleadingStringFact) String() string {
+	return "unstable display"
+}
+
 func TestVocabulary(t *testing.T) {
 	t.Run("outcomes", func(t *testing.T) {
 		if trace.Forwarded != "Forwarded" || trace.Flooded != "Flooded" || trace.Dropped != "Dropped" || trace.Consumed != "Consumed" {
@@ -482,6 +496,23 @@ func TestUnknownRuleIDs(t *testing.T) {
 	stepSame := step
 	if !trace.EqualStep(step, stepSame) {
 		t.Errorf("EqualStep with unknown rule = false, want true")
+	}
+}
+
+func TestRenderingUsesOnlyTheFactContract(t *testing.T) {
+	fact := misleadingStringFact{}
+	step := trace.Step{
+		Layer:  "test",
+		Op:     trace.OpLookup,
+		Inputs: []trace.Fact{fact},
+	}
+	if got, want := trace.RenderStep(step), "[test:lookup] in=[stable=canonical]"; got != want {
+		t.Errorf("RenderStep = %q, want %q", got, want)
+	}
+
+	change := trace.Change{Layer: "test", Field: "value", From: fact}
+	if got, want := trace.RenderChange(change), "[test] value: canonical -> <nil>"; got != want {
+		t.Errorf("RenderChange = %q, want %q", got, want)
 	}
 }
 
