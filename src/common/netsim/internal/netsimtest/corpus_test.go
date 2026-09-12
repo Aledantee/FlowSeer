@@ -1,6 +1,7 @@
 package netsimtest_test
 
 import (
+	"fmt"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -75,9 +76,16 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has empty expected outcome",
 		},
 		{
+			name: "unspecified expected status",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedStatus = nil
+			},
+			wantErr: "has unspecified expected status",
+		},
+		{
 			name: "invalid expected status",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = 99
+				c.ExpectedStatus = netsimtest.StatusPtr(99)
 			},
 			wantErr: "has invalid expected status",
 		},
@@ -99,20 +107,39 @@ func TestAdmissionValidation(t *testing.T) {
 		{
 			name: "non-complete status without issue codes",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = analysis.Incomplete
+				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
 				c.ExpectedIssues = nil
 				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
+				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
 			},
 			wantErr: "has non-Complete expected status but no expected issue codes",
 		},
 		{
 			name: "non-complete status without issue scopes",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = analysis.Incomplete
+				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
 				c.ExpectedIssues = []analysis.IssueCode{"test.issue"}
 				c.ExpectedIssueScopes = nil
+				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
 			},
 			wantErr: "has non-Complete expected status but no expected issue scopes",
+		},
+		{
+			name: "non-complete status without evidence references",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
+				c.ExpectedIssues = []analysis.IssueCode{"test.issue"}
+				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
+				c.ExpectedEvidenceRefs = nil
+			},
+			wantErr: "has non-Complete expected status but no expected evidence references",
+		},
+		{
+			name: "empty expected assumption statement",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedAssumptions = []string{"   "}
+			},
+			wantErr: "has empty expected assumption statement",
 		},
 		{
 			name: "nil execute function",
@@ -165,9 +192,12 @@ func TestRegistryCopyIsolation(t *testing.T) {
 		t.Fatalf("case %s not found in registry", c.ID)
 	}
 
-	// Mutate slice in retrieved copy.
+	// Mutate fields in retrieved copy.
 	retrieved.ExpectedRules[0] = "mutated-rule"
+	retrieved.ExpectedSubjects[0] = trace.Subject{Kind: "mutated", Key: "mutated"}
+	retrieved.ExpectedFacts[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
 	retrieved.Invariants = append(retrieved.Invariants, "mutated-invariant")
+	*retrieved.ExpectedStatus = analysis.Incomplete
 
 	// Fresh retrieval must remain unchanged.
 	fresh, ok := r.Get(c.ID)
@@ -175,10 +205,49 @@ func TestRegistryCopyIsolation(t *testing.T) {
 		t.Fatalf("case %s not found on second retrieval", c.ID)
 	}
 	if fresh.ExpectedRules[0] == "mutated-rule" {
-		t.Error("registry internal case was mutated through retrieved slice")
+		t.Error("registry internal case was mutated through retrieved ExpectedRules slice")
+	}
+	if fresh.ExpectedSubjects[0].Kind == "mutated" {
+		t.Error("registry internal case was mutated through retrieved ExpectedSubjects slice")
+	}
+	if fresh.ExpectedFacts[0].TypeID == "mutated" {
+		t.Error("registry internal case was mutated through retrieved ExpectedFacts slice")
 	}
 	if len(fresh.Invariants) == len(retrieved.Invariants) {
 		t.Error("registry internal invariants slice was mutated")
+	}
+	if *fresh.ExpectedStatus != analysis.Complete {
+		t.Error("registry internal expected status was mutated through pointer alias")
+	}
+
+	// Also verify non-Complete shadowing case isolation for issues, scopes, evidence, assumptions.
+	cShadow := netsimtest.CaseShadowingPartialUnknownPort()
+	r.MustRegister(cShadow)
+
+	retrievedShadow, ok := r.Get(cShadow.ID)
+	if !ok {
+		t.Fatalf("case %s not found in registry", cShadow.ID)
+	}
+	retrievedShadow.ExpectedIssues[0] = "mutated-issue"
+	retrievedShadow.ExpectedIssueScopes[0] = analysis.WholeScope()
+	retrievedShadow.ExpectedEvidenceRefs[0] = "mutated-evidence"
+	retrievedShadow.ExpectedAssumptions[0] = "mutated-assumption"
+
+	freshShadow, ok := r.Get(cShadow.ID)
+	if !ok {
+		t.Fatalf("case %s not found on second retrieval", cShadow.ID)
+	}
+	if freshShadow.ExpectedIssues[0] == "mutated-issue" {
+		t.Error("registry internal ExpectedIssues was mutated")
+	}
+	if freshShadow.ExpectedIssueScopes[0] == analysis.WholeScope() {
+		t.Error("registry internal ExpectedIssueScopes was mutated")
+	}
+	if freshShadow.ExpectedEvidenceRefs[0] == "mutated-evidence" {
+		t.Error("registry internal ExpectedEvidenceRefs was mutated")
+	}
+	if freshShadow.ExpectedAssumptions[0] == "mutated-assumption" {
+		t.Error("registry internal ExpectedAssumptions was mutated")
 	}
 }
 
@@ -318,6 +387,117 @@ func TestExecuteTroubleshootingCase(t *testing.T) {
 	}
 	if !decisiveFound {
 		t.Error("trace steps missing decisive unicast-hit lookup step")
+	}
+}
+
+func TestExecutionResultCloneMutationIsolation(t *testing.T) {
+	orig := netsimtest.ExecutionResult{
+		Steps: []trace.Step{{
+			Inputs:   []trace.Fact{bridge.PVIDFact(10)},
+			Outputs:  []trace.Fact{bridge.PVIDFact(20)},
+			Evidence: []trace.EvidenceRef{"ev-orig"},
+		}},
+		Changes: []trace.Change{{
+			Evidence: []trace.EvidenceRef{"ev-chg-orig"},
+		}},
+	}
+	cp := orig.Clone()
+	cp.Steps[0].Inputs[0] = bridge.PVIDFact(99)
+	cp.Steps[0].Outputs[0] = bridge.PVIDFact(88)
+	cp.Steps[0].Evidence[0] = "ev-mutated"
+	cp.Changes[0].Evidence[0] = "ev-chg-mutated"
+	cp.Steps = append(cp.Steps, trace.Step{})
+	cp.Changes = append(cp.Changes, trace.Change{})
+
+	if trace.EqualFact(orig.Steps[0].Inputs[0], bridge.PVIDFact(99)) {
+		t.Error("mutating cp.Steps[0].Inputs mutated orig.Steps[0].Inputs")
+	}
+	if trace.EqualFact(orig.Steps[0].Outputs[0], bridge.PVIDFact(88)) {
+		t.Error("mutating cp.Steps[0].Outputs mutated orig.Steps[0].Outputs")
+	}
+	if orig.Steps[0].Evidence[0] == "ev-mutated" {
+		t.Error("mutating cp.Steps[0].Evidence mutated orig.Steps[0].Evidence")
+	}
+	if orig.Changes[0].Evidence[0] == "ev-chg-mutated" {
+		t.Error("mutating cp.Changes[0].Evidence mutated orig.Changes[0].Evidence")
+	}
+	if len(orig.Steps) != 1 {
+		t.Errorf("appending to cp.Steps affected orig.Steps length: got %d, want 1", len(orig.Steps))
+	}
+	if len(orig.Changes) != 1 {
+		t.Errorf("appending to cp.Changes affected orig.Changes length: got %d, want 1", len(orig.Changes))
+	}
+
+	// Status() derives exclusively from Metadata.Status().
+	meta := analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{{
+		Code:   "test.issue",
+		Status: analysis.Incomplete,
+	}}, analysis.EvidenceCatalog{}, nil)
+	origWithMeta := netsimtest.ExecutionResult{Metadata: meta}
+	if origWithMeta.Status() != analysis.Incomplete {
+		t.Errorf("origWithMeta.Status() = %v, want Incomplete (derived from Metadata)", origWithMeta.Status())
+	}
+}
+
+func TestAdmissionRequiresEvidenceForNonComplete(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c.ExpectedEvidenceRefs = nil
+	err := netsimtest.ValidateCase(c)
+	if err == nil {
+		t.Fatal("expected error for non-Complete case with nil ExpectedEvidenceRefs, got nil")
+	}
+	if !containsSubstring(err.Error(), "evidence") {
+		t.Errorf("error %q does not mention evidence", err.Error())
+	}
+}
+
+type recordingTB struct {
+	testing.TB
+	errors []string
+}
+
+func (r *recordingTB) Helper() {}
+
+func (r *recordingTB) Errorf(format string, args ...any) {
+	r.errors = append(r.errors, fmt.Sprintf(format, args...))
+}
+
+func (r *recordingTB) Fatalf(format string, args ...any) {
+	r.errors = append(r.errors, fmt.Sprintf(format, args...))
+}
+
+func TestAssertCaseVerifiesEvidenceAndAssumptions(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c.ExpectedEvidenceRefs = []trace.EvidenceRef{"non-existent-evidence-ref"}
+	c.ExpectedAssumptions = []string{"non-existent-assumption"}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+
+	var foundEvidenceErr, foundAssumptionErr bool
+	for _, errStr := range rec.errors {
+		if containsSubstring(errStr, "evidence") {
+			foundEvidenceErr = true
+		}
+		if containsSubstring(errStr, "assumption") {
+			foundAssumptionErr = true
+		}
+	}
+	if !foundEvidenceErr {
+		t.Error("AssertCase did not report error for missing expected evidence reference")
+	}
+	if !foundAssumptionErr {
+		t.Error("AssertCase did not report error for missing expected assumption")
+	}
+}
+
+func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	if len(c.ExpectedEvidenceRefs) == 0 {
+		t.Error("CaseShadowingPartialUnknownPort must populate ExpectedEvidenceRefs")
+	}
+	if len(c.ExpectedAssumptions) == 0 {
+		t.Error("CaseShadowingPartialUnknownPort must populate ExpectedAssumptions")
 	}
 }
 

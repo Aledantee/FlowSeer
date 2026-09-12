@@ -27,7 +27,7 @@ func CasePlanningPortVLANChange() Case {
 		Question:        "Does reconfiguring an access switchport from VLAN 10 to VLAN 20 alter forwarding behavior and emit typed configuration diff facts without string parsing?",
 		FalseAnswer:     "Silently ignoring the switchport reconfiguration, masking behavioral divergence behind identical prose strings, or requiring string parsing to observe diffs",
 		CurrentResult:   "vswitch.Diff produces typed bridge.PVIDFact and bridge.VLANsFact change facts; vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
-		ExpectedStatus:  analysis.Complete,
+		ExpectedStatus:  StatusPtr(analysis.Complete),
 		ExpectedOutcome: trace.Dropped,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("vlan-classify"),
@@ -37,9 +37,9 @@ func CasePlanningPortVLANChange() Case {
 		ExpectedSubjects: []trace.Subject{
 			{Kind: "port", Key: "1/1/1"},
 		},
-		ExpectedFacts: []trace.Fact{
-			bridge.PVIDFact(vid10),
-			bridge.PVIDFact(vid20),
+		ExpectedFacts: []FactExpectation{
+			NewFactExpectation(bridge.PVIDFact(vid10)),
+			NewFactExpectation(bridge.PVIDFact(vid20)),
 		},
 		Invariants: []string{
 			"Configuration diff emits typed From and To Fact values for pvid and untagged_vlan_ids without string parsing",
@@ -114,7 +114,6 @@ func CasePlanningPortVLANChange() Case {
 			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
 
 			return ExecutionResult{
-				Status:     cmp.Expected.Metadata.Status(),
 				Outcome:    cmp.Expected.Outcome,
 				Reason:     cmp.Expected.Reason,
 				Steps:      cmp.Expected.Steps,
@@ -135,7 +134,7 @@ func CaseShadowingPartialUnknownPort() Case {
 		Question:        "Does a device model with one unknown operational port remain constructible, localize Incomplete readiness to that port, and preserve Complete readiness for known-up ports?",
 		FalseAnswer:     "Failing model construction as an error, treating unknown operational status as active forwarding, or tainting unrelated known-up ports with incomplete status",
 		CurrentResult:   "netmodel.Load returns a constructible ConstructionSpec with Incomplete status scoped strictly to the unknown port; the switch drops frames on the unknown port while forwarding on the known-up port with Complete readiness",
-		ExpectedStatus:  analysis.Incomplete,
+		ExpectedStatus:  StatusPtr(analysis.Incomplete),
 		ExpectedOutcome: trace.Dropped,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("ingress-port-down"),
@@ -148,6 +147,13 @@ func CaseShadowingPartialUnknownPort() Case {
 		},
 		ExpectedIssueScopes: []analysis.Scope{
 			analysis.PortScope("shadow-sw1", "1/1/2"),
+		},
+		ExpectedEvidenceRefs: []trace.EvidenceRef{
+			trace.EvidenceRef("evidence:251299641caf47b0440376a0f501da001db1bbd9ab6a0f30c4a9af4dd37bd3aa"),
+			trace.EvidenceRef("evidence:75d5e054d944c71cc89426875edf5668dd711f0901fe32820578c338e454b066"),
+		},
+		ExpectedAssumptions: []string{
+			"default value applied for aging_time: 300s",
 		},
 		Invariants: []string{
 			"Partial device model with missing operational status loads into a valid ConstructionSpec without error",
@@ -228,7 +234,6 @@ func CaseShadowingPartialUnknownPort() Case {
 			fwdUnknown := sw.Forward(now, "1/1/2", frame)
 
 			return ExecutionResult{
-				Status:      loadRes.Readiness(),
 				Outcome:     fwdUnknown.Outcome,
 				Reason:      fwdUnknown.Reason,
 				Steps:       fwdUnknown.Steps,
@@ -251,7 +256,7 @@ func CaseTroubleshootingUnicastForwarding() Case {
 		Question:        "Does forwarding an untagged frame through an access port to a trunk port expose the decisive unicast FDB lookup rule, VLAN classification, tag rewrite, and Complete status?",
 		FalseAnswer:     "Reporting frame delivery without exposing the decisive FDB lookup rule, discarding intermediate classification steps, or obscuring tag rewrites",
 		CurrentResult:   "Forwarding produces a deterministic trace sequence including vlan-classify, learn, unicast-hit, vlan-tag-form, and transmit with Complete status and outer 802.1Q tagging on egress",
-		ExpectedStatus:  analysis.Complete,
+		ExpectedStatus:  StatusPtr(analysis.Complete),
 		ExpectedOutcome: trace.Forwarded,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("vlan-classify"),
@@ -324,7 +329,6 @@ func CaseTroubleshootingUnicastForwarding() Case {
 			fwd := sw.Forward(now, "1/1/1", frame)
 
 			return ExecutionResult{
-				Status:   fwd.Metadata.Status(),
 				Outcome:  fwd.Outcome,
 				Reason:   fwd.Reason,
 				Steps:    fwd.Steps,

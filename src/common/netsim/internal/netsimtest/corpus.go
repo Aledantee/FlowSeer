@@ -33,8 +33,8 @@ const (
 )
 
 // ExecutionResult captures the artifacts and outcomes produced by executing a corpus case.
+// Metadata is the sole readiness authority; callers access the derived readiness status via Status().
 type ExecutionResult struct {
-	Status      analysis.Status
 	Outcome     trace.Outcome
 	Reason      trace.Reason
 	Steps       []trace.Step
@@ -46,16 +46,72 @@ type ExecutionResult struct {
 	Forward     *vswitch.ForwardResult
 }
 
-// Clone returns an independent copy of the execution result.
+// Status returns the analysis readiness status derived from Metadata.
+func (r ExecutionResult) Status() analysis.Status {
+	return r.Metadata.Status()
+}
+
+// Clone returns an independent deep copy of the execution result.
 func (r ExecutionResult) Clone() ExecutionResult {
 	cp := r
 	if len(r.Steps) > 0 {
-		cp.Steps = slices.Clone(r.Steps)
+		cp.Steps = make([]trace.Step, len(r.Steps))
+		for i, s := range r.Steps {
+			stepCp := s
+			if len(s.Inputs) > 0 {
+				stepCp.Inputs = slices.Clone(s.Inputs)
+			}
+			if len(s.Outputs) > 0 {
+				stepCp.Outputs = slices.Clone(s.Outputs)
+			}
+			if len(s.Evidence) > 0 {
+				stepCp.Evidence = slices.Clone(s.Evidence)
+			}
+			cp.Steps[i] = stepCp
+		}
 	}
 	if len(r.Changes) > 0 {
-		cp.Changes = slices.Clone(r.Changes)
+		cp.Changes = make([]trace.Change, len(r.Changes))
+		for i, c := range r.Changes {
+			chgCp := c
+			if len(c.Evidence) > 0 {
+				chgCp.Evidence = slices.Clone(c.Evidence)
+			}
+			cp.Changes[i] = chgCp
+		}
 	}
 	return cp
+}
+
+// FactExpectation represents an immutable, canonical expectation for a trace.Fact
+// without retaining slices or mutable references that could alias across copies.
+type FactExpectation struct {
+	TypeID    string
+	Canonical string
+}
+
+// NewFactExpectation creates a canonical fact expectation from a trace.Fact.
+func NewFactExpectation(f trace.Fact) FactExpectation {
+	if f == nil {
+		return FactExpectation{}
+	}
+	return FactExpectation{
+		TypeID:    f.TypeID(),
+		Canonical: f.Canonical(),
+	}
+}
+
+// Matches reports whether f satisfies this fact expectation.
+func (e FactExpectation) Matches(f trace.Fact) bool {
+	if f == nil {
+		return false
+	}
+	return f.TypeID() == e.TypeID && f.Canonical() == e.Canonical
+}
+
+// StatusPtr returns a pointer to an analysis.Status for explicit, copy-safe status expectations.
+func StatusPtr(s analysis.Status) *analysis.Status {
+	return &s
 }
 
 // Case defines an admitted conformance case in the versioned test corpus.
@@ -77,7 +133,9 @@ type Case struct {
 	CurrentResult string
 
 	// ExpectedStatus is the expected overall analysis readiness status.
-	ExpectedStatus analysis.Status
+	// It must be explicitly specified (non-nil) so omitted values are rejected
+	// rather than defaulting to analysis.Complete.
+	ExpectedStatus *analysis.Status
 
 	// ExpectedOutcome is the expected domain forwarding outcome.
 	ExpectedOutcome trace.Outcome
@@ -88,8 +146,8 @@ type Case struct {
 	// ExpectedSubjects names decisive subjects that must be present in trace steps or changes.
 	ExpectedSubjects []trace.Subject
 
-	// ExpectedFacts names typed semantic facts that must be present in trace steps or changes.
-	ExpectedFacts []trace.Fact
+	// ExpectedFacts names canonical fact expectations that must be present in trace steps or changes.
+	ExpectedFacts []FactExpectation
 
 	// ExpectedIssues names issue codes that must be present when ExpectedStatus is non-Complete.
 	ExpectedIssues []analysis.IssueCode
@@ -113,6 +171,10 @@ type Case struct {
 // Clone returns an independent deep copy of the case to preserve immutability.
 func (c Case) Clone() Case {
 	cp := c
+	if c.ExpectedStatus != nil {
+		s := *c.ExpectedStatus
+		cp.ExpectedStatus = &s
+	}
 	if len(c.ExpectedRules) > 0 {
 		cp.ExpectedRules = slices.Clone(c.ExpectedRules)
 	}
@@ -162,8 +224,11 @@ func ValidateCase(c Case) error {
 	if c.ExpectedOutcome == "" {
 		return fmt.Errorf("corpus case %q has empty expected outcome", c.ID)
 	}
-	if c.ExpectedStatus > analysis.Unsupported {
-		return fmt.Errorf("corpus case %q has invalid expected status %d", c.ID, c.ExpectedStatus)
+	if c.ExpectedStatus == nil {
+		return fmt.Errorf("corpus case %q has unspecified expected status (must be explicitly set)", c.ID)
+	}
+	if *c.ExpectedStatus > analysis.Unsupported {
+		return fmt.Errorf("corpus case %q has invalid expected status %d", c.ID, *c.ExpectedStatus)
 	}
 	if len(c.ExpectedRules) == 0 && len(c.ExpectedFacts) == 0 {
 		return fmt.Errorf("corpus case %q must define at least one expected trace rule or semantic fact", c.ID)
@@ -171,12 +236,20 @@ func ValidateCase(c Case) error {
 	if len(c.Invariants) == 0 {
 		return fmt.Errorf("corpus case %q must declare at least one reproducibility invariant", c.ID)
 	}
-	if c.ExpectedStatus != analysis.Complete {
+	if *c.ExpectedStatus != analysis.Complete {
 		if len(c.ExpectedIssues) == 0 {
 			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected issue codes", c.ID)
 		}
 		if len(c.ExpectedIssueScopes) == 0 {
 			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected issue scopes", c.ID)
+		}
+		if len(c.ExpectedEvidenceRefs) == 0 {
+			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected evidence references", c.ID)
+		}
+	}
+	for _, a := range c.ExpectedAssumptions {
+		if strings.TrimSpace(a) == "" {
+			return fmt.Errorf("corpus case %q has empty expected assumption statement", c.ID)
 		}
 	}
 	if c.Execute == nil {
@@ -266,8 +339,8 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 		t.Fatalf("case %s execution failed: %v", c.ID, err)
 	}
 
-	if res1.Status != c.ExpectedStatus {
-		t.Errorf("case %s status = %v, want %v", c.ID, res1.Status, c.ExpectedStatus)
+	if res1.Status() != *c.ExpectedStatus {
+		t.Errorf("case %s status = %v, want %v", c.ID, res1.Status(), *c.ExpectedStatus)
 	}
 	if res1.Outcome != c.ExpectedOutcome {
 		t.Errorf("case %s outcome = %v, want %v", c.ID, res1.Outcome, c.ExpectedOutcome)
@@ -311,13 +384,16 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 		found := false
 		for _, step := range res1.Steps {
 			for _, in := range step.Inputs {
-				if trace.EqualFact(in, wantFact) {
+				if wantFact.Matches(in) {
 					found = true
 					break
 				}
 			}
+			if found {
+				break
+			}
 			for _, out := range step.Outputs {
-				if trace.EqualFact(out, wantFact) {
+				if wantFact.Matches(out) {
 					found = true
 					break
 				}
@@ -328,18 +404,18 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 		}
 		if !found {
 			for _, chg := range res1.Changes {
-				if trace.EqualFact(chg.From, wantFact) || trace.EqualFact(chg.To, wantFact) {
+				if wantFact.Matches(chg.From) || wantFact.Matches(chg.To) {
 					found = true
 					break
 				}
 			}
 		}
 		if !found {
-			t.Errorf("case %s missing expected fact %s (%s)", c.ID, wantFact.TypeID(), wantFact.Canonical())
+			t.Errorf("case %s missing expected fact %s (%s)", c.ID, wantFact.TypeID, wantFact.Canonical)
 		}
 	}
 
-	if c.ExpectedStatus != analysis.Complete {
+	if *c.ExpectedStatus != analysis.Complete {
 		issues := res1.Metadata.Issues()
 		for _, wantCode := range c.ExpectedIssues {
 			found := false
@@ -368,12 +444,36 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 		}
 	}
 
+	catalog := res1.Metadata.Evidence()
+	for _, wantRef := range c.ExpectedEvidenceRefs {
+		if _, ok := catalog.Lookup(wantRef); !ok {
+			t.Errorf("case %s missing expected evidence reference %q in metadata catalog", c.ID, wantRef)
+		}
+	}
+
+	actualAssumptions := res1.Metadata.Assumptions()
+	if len(actualAssumptions) > 0 && len(c.ExpectedAssumptions) == 0 {
+		t.Errorf("case %s produced %d defaulted assumptions but declared none in ExpectedAssumptions", c.ID, len(actualAssumptions))
+	}
+	for _, wantAssumption := range c.ExpectedAssumptions {
+		found := false
+		for _, actual := range actualAssumptions {
+			if actual.Statement == wantAssumption || strings.Contains(actual.Statement, wantAssumption) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("case %s missing expected assumption statement %q", c.ID, wantAssumption)
+		}
+	}
+
 	res2, err := c.Execute()
 	if err != nil {
 		t.Fatalf("case %s repeated execution failed: %v", c.ID, err)
 	}
-	if res1.Status != res2.Status {
-		t.Errorf("case %s non-deterministic status across runs: %v vs %v", c.ID, res1.Status, res2.Status)
+	if res1.Status() != res2.Status() {
+		t.Errorf("case %s non-deterministic status across runs: %v vs %v", c.ID, res1.Status(), res2.Status())
 	}
 	if res1.Outcome != res2.Outcome {
 		t.Errorf("case %s non-deterministic outcome across runs: %v vs %v", c.ID, res1.Outcome, res2.Outcome)
@@ -397,6 +497,9 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 				break
 			}
 		}
+	}
+	if len(res1.Metadata.Evidence().Entries()) != len(res2.Metadata.Evidence().Entries()) {
+		t.Errorf("case %s non-deterministic evidence count across runs: %d vs %d", c.ID, len(res1.Metadata.Evidence().Entries()), len(res2.Metadata.Evidence().Entries()))
 	}
 
 	return res1
