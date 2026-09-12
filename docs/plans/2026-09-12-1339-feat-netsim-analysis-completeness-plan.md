@@ -451,7 +451,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase1-plan.md`
 - **After:** none
-- **Landed:**
+- **Landed:** `601e6e03..2f44b140`
 - **Change:** Introduce the shared status, issue, evidence, readiness, and
   semantic trace contracts; add switch-owned forwarding metadata; make
   constructors strict; localize unknown port facts; complete current behavioral

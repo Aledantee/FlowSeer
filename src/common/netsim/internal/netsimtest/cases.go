@@ -128,6 +128,19 @@ func CasePlanningPortVLANChange() Case {
 
 // CaseShadowingPartialUnknownPort returns the baseline topology shadowing case evaluating a partial model with an unknown port.
 func CaseShadowingPartialUnknownPort() Case {
+	var cat analysis.EvidenceCatalog
+	var refOperUnknown, refAgingDefault trace.EvidenceRef
+	cat, refOperUnknown = cat.Add(analysis.Evidence{
+		Kind:    netmodel.EvidenceKindState,
+		Origin:  "telemetry-snapshot",
+		Context: "conformance-shadowing; interface 1/1/2 oper_status unspecified or unknown",
+	})
+	_, refAgingDefault = cat.Add(analysis.Evidence{
+		Kind:    netmodel.EvidenceKindDefault,
+		Origin:  "telemetry-snapshot",
+		Context: "conformance-shadowing; default aging_time=300s",
+	})
+
 	return Case{
 		ID:              "topology-shadowing/partial-model-unknown-port",
 		UseCase:         UseCaseTopologyShadowing,
@@ -149,8 +162,8 @@ func CaseShadowingPartialUnknownPort() Case {
 			analysis.PortScope("shadow-sw1", "1/1/2"),
 		},
 		ExpectedEvidenceRefs: []trace.EvidenceRef{
-			trace.EvidenceRef("evidence:251299641caf47b0440376a0f501da001db1bbd9ab6a0f30c4a9af4dd37bd3aa"),
-			trace.EvidenceRef("evidence:75d5e054d944c71cc89426875edf5668dd711f0901fe32820578c338e454b066"),
+			refOperUnknown,
+			refAgingDefault,
 		},
 		ExpectedAssumptions: []string{
 			"default value applied for aging_time: 300s",

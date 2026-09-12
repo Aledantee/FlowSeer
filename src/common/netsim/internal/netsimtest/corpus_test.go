@@ -142,6 +142,27 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has empty expected assumption statement",
 		},
 		{
+			name: "empty expected rule ID",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedRules = []trace.RuleID{""}
+			},
+			wantErr: "has empty expected rule ID",
+		},
+		{
+			name: "empty expected fact type ID",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedFacts = []netsimtest.FactExpectation{{TypeID: "  "}}
+			},
+			wantErr: "has empty expected fact type ID",
+		},
+		{
+			name: "blank invariant entry",
+			mutate: func(c *netsimtest.Case) {
+				c.Invariants = []string{"   "}
+			},
+			wantErr: "has empty reproducibility invariant",
+		},
+		{
 			name: "nil execute function",
 			mutate: func(c *netsimtest.Case) {
 				c.Execute = nil
@@ -390,52 +411,14 @@ func TestExecuteTroubleshootingCase(t *testing.T) {
 	}
 }
 
-func TestExecutionResultCloneMutationIsolation(t *testing.T) {
-	orig := netsimtest.ExecutionResult{
-		Steps: []trace.Step{{
-			Inputs:   []trace.Fact{bridge.PVIDFact(10)},
-			Outputs:  []trace.Fact{bridge.PVIDFact(20)},
-			Evidence: []trace.EvidenceRef{"ev-orig"},
-		}},
-		Changes: []trace.Change{{
-			Evidence: []trace.EvidenceRef{"ev-chg-orig"},
-		}},
-	}
-	cp := orig.Clone()
-	cp.Steps[0].Inputs[0] = bridge.PVIDFact(99)
-	cp.Steps[0].Outputs[0] = bridge.PVIDFact(88)
-	cp.Steps[0].Evidence[0] = "ev-mutated"
-	cp.Changes[0].Evidence[0] = "ev-chg-mutated"
-	cp.Steps = append(cp.Steps, trace.Step{})
-	cp.Changes = append(cp.Changes, trace.Change{})
-
-	if trace.EqualFact(orig.Steps[0].Inputs[0], bridge.PVIDFact(99)) {
-		t.Error("mutating cp.Steps[0].Inputs mutated orig.Steps[0].Inputs")
-	}
-	if trace.EqualFact(orig.Steps[0].Outputs[0], bridge.PVIDFact(88)) {
-		t.Error("mutating cp.Steps[0].Outputs mutated orig.Steps[0].Outputs")
-	}
-	if orig.Steps[0].Evidence[0] == "ev-mutated" {
-		t.Error("mutating cp.Steps[0].Evidence mutated orig.Steps[0].Evidence")
-	}
-	if orig.Changes[0].Evidence[0] == "ev-chg-mutated" {
-		t.Error("mutating cp.Changes[0].Evidence mutated orig.Changes[0].Evidence")
-	}
-	if len(orig.Steps) != 1 {
-		t.Errorf("appending to cp.Steps affected orig.Steps length: got %d, want 1", len(orig.Steps))
-	}
-	if len(orig.Changes) != 1 {
-		t.Errorf("appending to cp.Changes affected orig.Changes length: got %d, want 1", len(orig.Changes))
-	}
-
-	// Status() derives exclusively from Metadata.Status().
+func TestExecutionResultStatusDerivesFromMetadata(t *testing.T) {
 	meta := analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{{
 		Code:   "test.issue",
 		Status: analysis.Incomplete,
 	}}, analysis.EvidenceCatalog{}, nil)
-	origWithMeta := netsimtest.ExecutionResult{Metadata: meta}
-	if origWithMeta.Status() != analysis.Incomplete {
-		t.Errorf("origWithMeta.Status() = %v, want Incomplete (derived from Metadata)", origWithMeta.Status())
+	res := netsimtest.ExecutionResult{Metadata: meta}
+	if res.Status() != analysis.Incomplete {
+		t.Errorf("res.Status() = %v, want Incomplete (derived from Metadata)", res.Status())
 	}
 }
 
@@ -498,6 +481,59 @@ func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
 	}
 	if len(c.ExpectedAssumptions) == 0 {
 		t.Error("CaseShadowingPartialUnknownPort must populate ExpectedAssumptions")
+	}
+}
+
+func TestAssertCaseRejectsUnattachedEvidence(t *testing.T) {
+	c := netsimtest.CasePlanningPortVLANChange()
+	cat := analysis.EvidenceCatalog{}
+	cat, unattachedRef := cat.Add(analysis.Evidence{
+		Kind:    "test.kind",
+		Origin:  "test-origin",
+		Context: "unattached evidence",
+	})
+	c.ExpectedEvidenceRefs = []trace.EvidenceRef{unattachedRef}
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		res.Metadata = analysis.NewMetadata(analysis.WholeScope(), nil, cat, nil)
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+
+	var foundUnattachedErr bool
+	for _, errStr := range rec.errors {
+		if containsSubstring(errStr, "not attached to any issue or assumption") {
+			foundUnattachedErr = true
+			break
+		}
+	}
+	if !foundUnattachedErr {
+		t.Error("AssertCase did not report error for evidence ref that is present in catalog but not attached to an issue or assumption")
+	}
+}
+
+func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	c.ExpectedAssumptions = []string{"aging_time: 300s"}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+
+	var foundAssumptionErr bool
+	for _, errStr := range rec.errors {
+		if containsSubstring(errStr, "missing expected assumption statement") {
+			foundAssumptionErr = true
+			break
+		}
+	}
+	if !foundAssumptionErr {
+		t.Error("AssertCase accepted substring assumption match; want exact match requirement")
 	}
 }
 

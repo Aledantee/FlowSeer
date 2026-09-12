@@ -51,38 +51,6 @@ func (r ExecutionResult) Status() analysis.Status {
 	return r.Metadata.Status()
 }
 
-// Clone returns an independent deep copy of the execution result.
-func (r ExecutionResult) Clone() ExecutionResult {
-	cp := r
-	if len(r.Steps) > 0 {
-		cp.Steps = make([]trace.Step, len(r.Steps))
-		for i, s := range r.Steps {
-			stepCp := s
-			if len(s.Inputs) > 0 {
-				stepCp.Inputs = slices.Clone(s.Inputs)
-			}
-			if len(s.Outputs) > 0 {
-				stepCp.Outputs = slices.Clone(s.Outputs)
-			}
-			if len(s.Evidence) > 0 {
-				stepCp.Evidence = slices.Clone(s.Evidence)
-			}
-			cp.Steps[i] = stepCp
-		}
-	}
-	if len(r.Changes) > 0 {
-		cp.Changes = make([]trace.Change, len(r.Changes))
-		for i, c := range r.Changes {
-			chgCp := c
-			if len(c.Evidence) > 0 {
-				chgCp.Evidence = slices.Clone(c.Evidence)
-			}
-			cp.Changes[i] = chgCp
-		}
-	}
-	return cp
-}
-
 // FactExpectation represents an immutable, canonical expectation for a trace.Fact
 // without retaining slices or mutable references that could alias across copies.
 type FactExpectation struct {
@@ -233,8 +201,23 @@ func ValidateCase(c Case) error {
 	if len(c.ExpectedRules) == 0 && len(c.ExpectedFacts) == 0 {
 		return fmt.Errorf("corpus case %q must define at least one expected trace rule or semantic fact", c.ID)
 	}
+	for _, rule := range c.ExpectedRules {
+		if strings.TrimSpace(string(rule)) == "" {
+			return fmt.Errorf("corpus case %q has empty expected rule ID", c.ID)
+		}
+	}
+	for _, fact := range c.ExpectedFacts {
+		if strings.TrimSpace(fact.TypeID) == "" {
+			return fmt.Errorf("corpus case %q has empty expected fact type ID", c.ID)
+		}
+	}
 	if len(c.Invariants) == 0 {
 		return fmt.Errorf("corpus case %q must declare at least one reproducibility invariant", c.ID)
+	}
+	for _, inv := range c.Invariants {
+		if strings.TrimSpace(inv) == "" {
+			return fmt.Errorf("corpus case %q has empty reproducibility invariant", c.ID)
+		}
 	}
 	if *c.ExpectedStatus != analysis.Complete {
 		if len(c.ExpectedIssues) == 0 {
@@ -445,20 +428,39 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 	}
 
 	catalog := res1.Metadata.Evidence()
+	issues := res1.Metadata.Issues()
+	actualAssumptions := res1.Metadata.Assumptions()
 	for _, wantRef := range c.ExpectedEvidenceRefs {
 		if _, ok := catalog.Lookup(wantRef); !ok {
 			t.Errorf("case %s missing expected evidence reference %q in metadata catalog", c.ID, wantRef)
 		}
+		attached := false
+		for _, issue := range issues {
+			if slices.Contains(issue.Evidence, wantRef) {
+				attached = true
+				break
+			}
+		}
+		if !attached {
+			for _, assumption := range actualAssumptions {
+				if slices.Contains(assumption.Evidence, wantRef) {
+					attached = true
+					break
+				}
+			}
+		}
+		if !attached {
+			t.Errorf("case %s expected evidence reference %q is not attached to any issue or assumption", c.ID, wantRef)
+		}
 	}
 
-	actualAssumptions := res1.Metadata.Assumptions()
 	if len(actualAssumptions) > 0 && len(c.ExpectedAssumptions) == 0 {
 		t.Errorf("case %s produced %d defaulted assumptions but declared none in ExpectedAssumptions", c.ID, len(actualAssumptions))
 	}
 	for _, wantAssumption := range c.ExpectedAssumptions {
 		found := false
 		for _, actual := range actualAssumptions {
-			if actual.Statement == wantAssumption || strings.Contains(actual.Statement, wantAssumption) {
+			if actual.Statement == wantAssumption {
 				found = true
 				break
 			}

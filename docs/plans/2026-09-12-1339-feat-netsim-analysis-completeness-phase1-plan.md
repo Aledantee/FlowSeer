@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-12
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 1: Analysis trust contract and semantic trace - Plan
+
+> Implemented.
 
 ## Goal
 
@@ -233,16 +235,16 @@ rather than shimmed.
 
 ## Definition of done
 
-- [ ] Parent requirements R1-R7, R9, and R39 pass their phase-local acceptance
+- [x] Parent requirements R1-R7, R9, and R39 pass their phase-local acceptance
       examples.
-- [ ] Invalid input is an error; partial valid input has scoped status and a
+- [x] Invalid input is an error; partial valid input has scoped status and a
       lossless issue set independent of stop reason and domain outcome.
-- [ ] No unknown or zero-value operational state forwards by accident.
-- [ ] All trace producers emit typed semantic facts with stable ordering and
+- [x] No unknown or zero-value operational state forwards by accident.
+- [x] All trace producers emit typed semantic facts with stable ordering and
       evidence references.
-- [ ] Model reports identify readiness and the exact scope affected by missing,
+- [x] Model reports identify readiness and the exact scope affected by missing,
       assumed, skipped, or conflicting facts.
-- [ ] Existing behavior-bearing config fields are covered by validation,
+- [x] Existing behavior-bearing config fields are covered by validation,
       normalization, clone, and diff matrices.
-- [ ] Old constructor and trace APIs are removed without compatibility shims.
-- [ ] Package tests, netsim race tests, vet, and the diff-aware verifier pass.
+- [x] Old constructor and trace APIs are removed without compatibility shims.
+- [x] Package tests, netsim race tests, vet, and the diff-aware verifier pass.
