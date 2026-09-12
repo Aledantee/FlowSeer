@@ -135,7 +135,7 @@ func comparePrefix(a, b netip.Prefix) int {
 // It refuses empty VRF or interface names, VRFs with no interfaces, interfaces with both or
 // neither VLAN and Port, duplicate VLAN or port assignments across VRFs, unknown ports,
 // LAG members configured as routed ports, group MAC addresses, unmasked route prefixes,
-// interface address prefixes of length 0, routes with neither next hop nor interface,
+// routes with neither next hop nor interface,
 // routes or neighbors referencing interfaces outside their VRF, next hops unreachable by
 // any interface prefix in the VRF when the route omits an interface, neighbor address families
 // mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
@@ -262,14 +262,6 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("interface", ifaceName).
 						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q contains invalid prefix", ifaceName)
-				}
-				if p.Bits() == 0 {
-					return errs.New().
-						Attr("vrf", vrfName).
-						Attr("interface", ifaceName).
-						Attr("prefix", p).
-						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
-						Msgf("interface %q address %s cannot have prefix length 0", ifaceName, p)
 				}
 				if p.Addr().Is4In6() {
 					return errs.New().

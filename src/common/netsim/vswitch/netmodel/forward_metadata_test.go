@@ -12,13 +12,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 )
 
 func TestForwardCarriesRelevantLoadConflictWithEvidence(t *testing.T) {
-	sw, result := loadSwitchWithPortConflict(t, "1/1/3")
+	sw, result := loadSwitchWithPortConflict(t)
 	frame := ethernet.Frame{
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
@@ -38,8 +39,66 @@ func TestForwardCarriesRelevantLoadConflictWithEvidence(t *testing.T) {
 	}
 }
 
+func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
+	_, loaded := loadSwitchWithPortConflict(t)
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+	fab, err := fabric.NewWithSpec(fabric.ConstructionSpec{
+		Start: trustTestTime,
+		Switches: map[string]vswitch.ConstructionSpec{
+			"sw1": loaded.Spec,
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("fabric.NewWithSpec: %v", err)
+	}
+	frameID, err := fab.Inject(fabric.Injection{
+		At:     trustTestTime,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame: ethernet.Frame{
+			Src: macH1,
+			Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(100)
+
+	var hop *vswitch.ForwardResult
+	for _, journey := range fab.Report() {
+		if journey.FrameID != frameID {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryHop && entry.Device == "sw1" {
+				hop = entry.Result
+				break
+			}
+		}
+	}
+	if hop == nil {
+		t.Fatal("Load -> Fabric -> Journey produced no sw1 hop result")
+	}
+	if hop.Metadata.Status() != analysis.Unstable {
+		t.Fatalf("journey hop status = %s, want Unstable; issues: %+v", hop.Metadata.Status(), hop.Metadata.Issues())
+	}
+	assertIssueEvidencePresent(t, hop.Metadata, netmodel.IssueConflictSTPPort)
+	if got := fab.Spec().Switches["sw1"]; got.NodeID != "sw1" || got.Metadata.Status() != loaded.Spec.Metadata.Status() {
+		t.Errorf("fabric construction spec lost load identity/trust: %+v", got)
+	}
+}
+
 func TestForwardExcludesUnrelatedLoadConflict(t *testing.T) {
-	sw, _ := loadSwitchWithPortConflict(t, "1/1/3")
+	sw, _ := loadSwitchWithPortConflict(t)
 	frame := ethernet.Frame{
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
@@ -96,7 +155,7 @@ func TestForwardIncludesNodeWideLoadIssue(t *testing.T) {
 }
 
 func TestConstructionSpecMetadataIsCloneIsolatedAndDeterministic(t *testing.T) {
-	sw, loaded := loadSwitchWithPortConflict(t, "1/1/3")
+	sw, loaded := loadSwitchWithPortConflict(t)
 	want := sw.Spec()
 	if !want.Equal(loaded.Spec) {
 		t.Fatalf("switch spec differs from load spec:\n got: %+v\nwant: %+v", want, loaded.Spec)
@@ -147,8 +206,9 @@ func TestConstructionSpecMetadataIsCloneIsolatedAndDeterministic(t *testing.T) {
 	}
 }
 
-func loadSwitchWithPortConflict(t *testing.T, conflictPort string) (*vswitch.Switch, netmodel.Result) {
+func loadSwitchWithPortConflict(t *testing.T) (*vswitch.Switch, netmodel.Result) {
 	t.Helper()
+	conflictPort := "1/1/3"
 	input := loadInput{
 		ifaces: []*interfacev1.Interface{
 			plainPhysicalInterface("1/1/1"),

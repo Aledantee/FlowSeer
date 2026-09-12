@@ -10,55 +10,122 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// ConstructionSpec captures the normalized configuration and non-configuration
-// inputs (such as per-switch preloaded forwarding database seeds) needed to construct
-// an identical [Fabric].
+// ConstructionSpec captures the topology and each switch's complete construction
+// specification needed to construct an identical [Fabric]. Every switch specification's
+// NodeID must equal its map key.
 type ConstructionSpec struct {
-	Config Config
-	Seeds  map[string][]bridge.Seed
+	Start    time.Time
+	Switches map[string]vswitch.ConstructionSpec
+	Hosts    map[string]Host
+	Cables   []Cable
 }
 
 // Clone returns an independent deep copy of the construction specification.
 func (s ConstructionSpec) Clone() ConstructionSpec {
 	cp := ConstructionSpec{
-		Config: s.Config.Clone(),
+		Start: s.Start,
 	}
-	if s.Seeds != nil {
-		cp.Seeds = make(map[string][]bridge.Seed, len(s.Seeds))
-		for k, v := range s.Seeds {
-			cp.Seeds[k] = slices.Clone(v)
+	if s.Switches != nil {
+		cp.Switches = make(map[string]vswitch.ConstructionSpec, len(s.Switches))
+		for name, spec := range s.Switches {
+			cp.Switches[name] = spec.Clone()
 		}
 	}
+	if s.Hosts != nil {
+		cp.Hosts = make(map[string]Host, len(s.Hosts))
+		for name, host := range s.Hosts {
+			cp.Hosts[name] = host.Clone()
+		}
+	}
+	if s.Cables != nil {
+		cp.Cables = make([]Cable, len(s.Cables))
+		for i, cable := range s.Cables {
+			cp.Cables[i] = cable.Clone()
+		}
+	}
+
 	return cp
 }
 
-// Equal reports whether two construction specifications are identical.
+// Config returns an independent fabric configuration assembled from the topology
+// and per-switch configurations in the construction specification.
+func (s ConstructionSpec) Config() Config {
+	cfg := Config{
+		Start: s.Start,
+	}
+	if s.Switches != nil {
+		cfg.Switches = make(map[string]vswitch.Config, len(s.Switches))
+		for name, spec := range s.Switches {
+			cfg.Switches[name] = spec.Config.Clone()
+		}
+	}
+	if s.Hosts != nil {
+		cfg.Hosts = make(map[string]Host, len(s.Hosts))
+		for name, host := range s.Hosts {
+			cfg.Hosts[name] = host.Clone()
+		}
+	}
+	if s.Cables != nil {
+		cfg.Cables = make([]Cable, len(s.Cables))
+		for i, cable := range s.Cables {
+			cfg.Cables[i] = cable.Clone()
+		}
+	}
+
+	return cfg
+}
+
+// Normalize validates and returns an independent normalized construction specification.
+func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
+	return normalizeConstructionSpec(nil, s)
+}
+
+// Equal reports whether two valid construction specifications normalize identically.
 func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
-	if !s.Config.Equal(other.Config) {
+	a, err := s.Normalize()
+	if err != nil {
 		return false
 	}
-	if len(s.Seeds) != len(other.Seeds) {
+	b, err := other.Normalize()
+	if err != nil {
 		return false
 	}
-	for k, v := range s.Seeds {
-		ov, ok := other.Seeds[k]
-		if !ok || len(v) != len(ov) {
+
+	if !equalNormalizedConfigs(a.Config(), b.Config()) || len(a.Switches) != len(b.Switches) {
+		return false
+	}
+	for name, spec := range a.Switches {
+		otherSpec, ok := b.Switches[name]
+		if !ok || !spec.Equal(otherSpec) {
 			return false
 		}
-		for i := range v {
-			if v[i] != ov[i] {
-				return false
-			}
+	}
+
+	return true
+}
+
+// NewConstructionSpec validates cfg and returns its normalized construction
+// specification with stable switch node identities.
+func NewConstructionSpec(cfg Config) (ConstructionSpec, error) {
+	spec := ConstructionSpec{
+		Start:  cfg.Start,
+		Hosts:  cfg.Hosts,
+		Cables: cfg.Cables,
+	}
+	if cfg.Switches != nil {
+		spec.Switches = make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
+		for name, switchConfig := range cfg.Switches {
+			spec.Switches[name] = vswitch.ConstructionSpec{Config: switchConfig, NodeID: name}
 		}
 	}
-	return true
+
+	return spec.Normalize()
 }
 
 // Fabric is a set of switches and hosts joined by cables, with every port state decided by its cable.
@@ -94,15 +161,18 @@ type linkEndRef struct {
 // operational link states and negotiated speeds across all cables before instantiating
 // the constituent virtual switches, then starts every protocol layer at Start.
 func New(cfg Config) (*Fabric, error) {
-	return NewWithSpec(ConstructionSpec{Config: cfg})
+	spec, err := NewConstructionSpec(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewWithSpec(spec)
 }
 
 // NewWithSpec constructs a validated [Fabric] from the provided construction specification,
-// restoring preloaded forwarding database seeds across switches. It returns an error when a
-// seed key does not name a configured switch.
+// preserving every switch's node identity, trust metadata, and preloaded forwarding database seeds.
 func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
-	norm := spec.Config.Normalize()
-	fab, err := build(nil, norm, spec.Seeds)
+	fab, err := build(nil, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -111,71 +181,48 @@ func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
 	return fab, nil
 }
 
-// Spec returns a [ConstructionSpec] capturing the normalized configuration and
-// per-switch preloaded forwarding database seeds needed to reconstruct this fabric.
+// Spec returns a [ConstructionSpec] capturing the normalized topology and every
+// per-switch construction input needed to reconstruct this fabric.
 func (f *Fabric) Spec() ConstructionSpec {
 	spec := ConstructionSpec{
-		Config: f.cfg.Clone(),
-		Seeds:  make(map[string][]bridge.Seed),
+		Start:    f.cfg.Start,
+		Switches: make(map[string]vswitch.ConstructionSpec, len(f.switches)),
+		Hosts:    make(map[string]Host, len(f.cfg.Hosts)),
+		Cables:   make([]Cable, len(f.cfg.Cables)),
 	}
 	for name, sw := range f.switches {
-		swSpec := sw.Spec()
-		if len(swSpec.Seeds) > 0 {
-			spec.Seeds[name] = slices.Clone(swSpec.Seeds)
-		}
+		spec.Switches[name] = sw.Spec()
 	}
+	for name, host := range f.cfg.Hosts {
+		spec.Hosts[name] = host.Clone()
+	}
+	for i, cable := range f.cfg.Cables {
+		spec.Cables[i] = cable.Clone()
+	}
+
 	return spec
 }
 
-// build makes the fabric without starting any protocol layer, so Derive can
-// swap in cloned layers first.
-func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, err
+func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (ConstructionSpec, error) {
+	owned := spec.Clone()
+	names := make([]string, 0, len(owned.Switches))
+	for name := range owned.Switches {
+		names = append(names, name)
 	}
-	seedNames := make([]string, 0, len(seeds))
-	for name := range seeds {
-		seedNames = append(seedNames, name)
-	}
-	slices.Sort(seedNames)
-	for _, name := range seedNames {
-		if _, ok := cfg.Switches[name]; !ok {
-			return nil, errs.New().
+	slices.Sort(names)
+	for _, name := range names {
+		switchSpec := owned.Switches[name]
+		if switchSpec.NodeID != name {
+			return ConstructionSpec{}, errs.New().
 				Attr("switch", name).
-				Msgf("construction seeds reference unconfigured switch %q", name)
+				Attr("node_id", switchSpec.NodeID).
+				Msgf("switch %q construction NodeID must equal its map key", name)
 		}
 	}
 
-	cloned := cfg.Clone()
-
-	usedMACs := make(map[netaddr.MAC]struct{})
-	for _, swCfg := range cloned.Switches {
-		if swCfg.MAC != (netaddr.MAC{}) {
-			usedMACs[swCfg.MAC] = struct{}{}
-		}
-		if swCfg.STP != nil && swCfg.STP.Address != (netaddr.MAC{}) {
-			usedMACs[swCfg.STP.Address] = struct{}{}
-		}
-		if swCfg.Routing != nil {
-			for _, vrf := range swCfg.Routing.VRFs {
-				for _, iface := range vrf.Interfaces {
-					if iface.MAC != (netaddr.MAC{}) {
-						usedMACs[iface.MAC] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-	for _, h := range cloned.Hosts {
-		if h.Address != (netaddr.MAC{}) {
-			usedMACs[h.Address] = struct{}{}
-		}
-	}
-
-	// A node whose new configuration leaves its address zero keeps the one
-	// cur assigned, unless the new configuration claims that address
-	// explicitly elsewhere; then the node takes the next free one.
+	cfg := owned.Config()
 	if cur != nil {
+		usedMACs := configuredMACs(cfg)
 		carry := func(assigned netaddr.MAC) (netaddr.MAC, bool) {
 			if assigned == (netaddr.MAC{}) {
 				return netaddr.MAC{}, false
@@ -187,80 +234,86 @@ func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, er
 
 			return assigned, true
 		}
-		for name, swCfg := range cloned.Switches {
+		for name, swCfg := range cfg.Switches {
 			if swCfg.MAC != (netaddr.MAC{}) {
 				continue
 			}
-			if curSw, ok := cur.cfg.Switches[name]; ok {
-				if mac, ok := carry(curSw.MAC); ok {
+			if current, ok := cur.cfg.Switches[name]; ok {
+				if mac, ok := carry(current.MAC); ok {
 					swCfg.MAC = mac
-					cloned.Switches[name] = swCfg
+					cfg.Switches[name] = swCfg
 				}
 			}
 		}
-		for name, h := range cloned.Hosts {
-			if h.Address != (netaddr.MAC{}) {
+		for name, host := range cfg.Hosts {
+			if host.Address != (netaddr.MAC{}) {
 				continue
 			}
-			if curH, ok := cur.cfg.Hosts[name]; ok {
-				if mac, ok := carry(curH.Address); ok {
-					h.Address = mac
-					cloned.Hosts[name] = h
+			if current, ok := cur.cfg.Hosts[name]; ok {
+				if mac, ok := carry(current.Address); ok {
+					host.Address = mac
+					cfg.Hosts[name] = host
 				}
 			}
 		}
 	}
 
-	assignLocal := func() netaddr.MAC {
-		for n := uint32(1); ; n++ {
-			cand := netaddr.Local(n)
-			if _, ok := usedMACs[cand]; !ok {
-				usedMACs[cand] = struct{}{}
-				return cand
+	cfg = cfg.Normalize()
+	if err := cfg.Validate(); err != nil {
+		return ConstructionSpec{}, err
+	}
+	owned.Start = cfg.Start
+	owned.Hosts = cfg.Hosts
+	owned.Cables = cfg.Cables
+	for _, name := range names {
+		switchSpec := owned.Switches[name]
+		switchSpec.Config = cfg.Switches[name]
+		normalized, err := switchSpec.Normalize()
+		if err != nil {
+			return ConstructionSpec{}, errs.Wrapf(err, "switch %q", name)
+		}
+		owned.Switches[name] = normalized
+	}
+
+	return owned, nil
+}
+
+func configuredMACs(cfg Config) map[netaddr.MAC]struct{} {
+	used := make(map[netaddr.MAC]struct{})
+	for _, swCfg := range cfg.Switches {
+		if swCfg.MAC != (netaddr.MAC{}) {
+			used[swCfg.MAC] = struct{}{}
+		}
+		if swCfg.STP != nil && swCfg.STP.Address != (netaddr.MAC{}) {
+			used[swCfg.STP.Address] = struct{}{}
+		}
+		if swCfg.Routing != nil {
+			for _, vrf := range swCfg.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.MAC != (netaddr.MAC{}) {
+						used[iface.MAC] = struct{}{}
+					}
+				}
 			}
 		}
 	}
-
-	swNames := make([]string, 0, len(cloned.Switches))
-	for name := range cloned.Switches {
-		swNames = append(swNames, name)
-	}
-	slices.Sort(swNames)
-	for _, name := range swNames {
-		swCfg := cloned.Switches[name]
-		if swCfg.MAC == (netaddr.MAC{}) {
-			swCfg.MAC = assignLocal()
-			cloned.Switches[name] = swCfg
+	for _, host := range cfg.Hosts {
+		if host.Address != (netaddr.MAC{}) {
+			used[host.Address] = struct{}{}
 		}
 	}
 
-	hNames := make([]string, 0, len(cloned.Hosts))
-	for name := range cloned.Hosts {
-		hNames = append(hNames, name)
-	}
-	slices.Sort(hNames)
-	for _, name := range hNames {
-		h := cloned.Hosts[name]
-		if h.Address == (netaddr.MAC{}) {
-			h.Address = assignLocal()
-			cloned.Hosts[name] = h
-		}
-	}
+	return used
+}
 
-	// Sort cables by endpoint names to ensure stable ordering.
-	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
-		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
-			return r
-		}
-		if r := cmp.Compare(i.A.Port, j.A.Port); r != 0 {
-			return r
-		}
-		if r := cmp.Compare(i.B.Node, j.B.Node); r != 0 {
-			return r
-		}
-
-		return cmp.Compare(i.B.Port, j.B.Port)
-	})
+// build makes the fabric without starting any protocol layer, so Derive can
+// swap in cloned layers first.
+func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
+	norm, err := normalizeConstructionSpec(cur, spec)
+	if err != nil {
+		return nil, err
+	}
+	cloned := norm.Config()
 
 	links := make([]Link, len(cloned.Cables))
 	byEnd := make(map[Endpoint]linkEndRef, len(cloned.Cables)*2)
@@ -308,15 +361,9 @@ func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, er
 		}
 		swCfg.Ports = newTable
 
-		var swSeeds []bridge.Seed
-		if seeds != nil {
-			swSeeds = seeds[name]
-		}
-		sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-			Config: swCfg,
-			Seeds:  swSeeds,
-			NodeID: name,
-		})
+		swSpec := norm.Switches[name].Clone()
+		swSpec.Config = swCfg
+		sw, err := vswitch.NewWithSpec(swSpec)
 		if err != nil {
 			return nil, errs.Wrapf(err, "build switch %q", name)
 		}

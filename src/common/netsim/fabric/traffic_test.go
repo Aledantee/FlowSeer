@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -374,6 +375,38 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	fab, macs := newTrafficTopology(t, &traffic.Config{Policers: map[string]traffic.Policer{
 		"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
 	}})
+	spec := fab.Spec()
+	catalog := analysis.EvidenceCatalog{}
+	issues := make([]analysis.Issue, 0, 3)
+	for _, scoped := range []struct {
+		code  analysis.IssueCode
+		scope analysis.Scope
+	}{
+		{code: "test.node-conflict", scope: analysis.NodeScope("sw1")},
+		{code: "test.ingress-conflict", scope: analysis.PortScope("sw1", "1/1/1")},
+		{code: "test.unrelated-conflict", scope: analysis.PortScope("sw1", "1/1/2")},
+	} {
+		var ref trace.EvidenceRef
+		catalog, ref = catalog.Add(analysis.Evidence{
+			Kind:    "snapshot",
+			Origin:  scoped.code.String(),
+			Context: "conflicting loaded state",
+		})
+		issues = append(issues, analysis.Issue{
+			Code:     scoped.code,
+			Status:   analysis.Unstable,
+			Scope:    scoped.scope,
+			Message:  "loaded state conflicts",
+			Evidence: []trace.EvidenceRef{ref},
+		})
+	}
+	sw1Spec := spec.Switches["sw1"]
+	sw1Spec.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), issues, catalog, nil)
+	spec.Switches["sw1"] = sw1Spec
+	fab, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
 	var ids []fabric.FrameID
 	for i := 0; i < 10; i++ {
 		fid, err := fab.Inject(fabric.Injection{
@@ -423,6 +456,28 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	}
 	if len(policed.Result.Steps) != 1 || !policed.Result.Steps[0].Equal(wantStep) {
 		t.Errorf("policed trace steps = %+v, want %+v", policed.Result.Steps, []trace.Step{wantStep})
+	}
+	if policed.Result.Metadata.Status() != analysis.Unstable {
+		t.Errorf("policed metadata status = %s, want Unstable", policed.Result.Metadata.Status())
+	}
+	wantIssues := map[analysis.IssueCode]bool{
+		"test.node-conflict":    false,
+		"test.ingress-conflict": false,
+	}
+	for _, issue := range policed.Result.Metadata.Issues() {
+		if _, ok := wantIssues[issue.Code]; !ok {
+			t.Errorf("policed metadata contains unrelated issue %q", issue.Code)
+			continue
+		}
+		wantIssues[issue.Code] = true
+		if len(issue.Evidence) != 1 {
+			t.Errorf("policed issue %q evidence = %+v, want one reference", issue.Code, issue.Evidence)
+		}
+	}
+	for code, found := range wantIssues {
+		if !found {
+			t.Errorf("policed metadata missing issue %q", code)
+		}
 	}
 	counters := fab.Snapshot().Devices["sw1"].Counters["1/1/1"]
 	if counters.InDiscards != 1 || counters.Discards[traffic.ReasonPoliced] != 1 {

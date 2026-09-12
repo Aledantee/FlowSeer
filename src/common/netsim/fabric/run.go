@@ -11,7 +11,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -397,8 +396,8 @@ func (f *Fabric) Step() (Entry, bool) {
 		}
 
 		policer := f.cfg.Switches[arr.Device].Traffic.Policers[arr.Port]
-		result := vswitch.ForwardResult{
-			Result: bridge.Result{
+		result := sw.ComposeForwardResult(
+			bridge.Result{
 				Trace: trace.Trace{
 					Outcome: trace.Dropped,
 					Reason:  traffic.ReasonPoliced,
@@ -412,8 +411,8 @@ func (f *Fabric) Step() (Entry, bool) {
 				},
 				Ingress: arr.Port,
 			},
-			Metadata: analysis.NewMetadata(analysis.NodeScope(arr.Device), nil, analysis.EvidenceCatalog{}, nil),
-		}
+			arr.Port,
+		)
 		dropEntry := Entry{
 			At:     arr.At,
 			Kind:   EntryDrop,

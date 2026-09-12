@@ -437,7 +437,7 @@ func (c Config) Normalize() Config {
 		cable := cloned.Cables[i]
 		cable.Medium = normalizedMedium(cable.Medium)
 		cable.Fault = normalizedFault(cable.Fault)
-		cloned.Cables[i] = cable
+		cloned.Cables[i] = canonicalCableOrientation(cable)
 	}
 
 	// Sort cables by endpoint names to ensure stable ordering.
@@ -456,6 +456,30 @@ func (c Config) Normalize() Config {
 	})
 
 	return cloned
+}
+
+func canonicalCableOrientation(c Cable) Cable {
+	if compareEndpoint(c.A, c.B) <= 0 {
+		return c
+	}
+
+	c.A, c.B = c.B, c.A
+	switch c.Fault.Kind {
+	case FaultDeadAToB:
+		c.Fault.Kind = FaultDeadBToA
+	case FaultDeadBToA:
+		c.Fault.Kind = FaultDeadAToB
+	}
+
+	return c
+}
+
+func compareEndpoint(a, b Endpoint) int {
+	if order := cmp.Compare(a.Node, b.Node); order != 0 {
+		return order
+	}
+
+	return cmp.Compare(a.Port, b.Port)
 }
 
 func comparePrefix(a, b netip.Prefix) int {

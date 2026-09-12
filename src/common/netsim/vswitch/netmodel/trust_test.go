@@ -615,6 +615,216 @@ func TestLoadMalformedProtocolMACsArePartial(t *testing.T) {
 	})
 }
 
+func TestLoadRequestedSTPWithoutBridgeStateReportsConstructedCapabilities(t *testing.T) {
+	result := (loadInput{
+		ifaces: []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+		stpPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: ptr("1/1/1")}.Build(),
+		},
+		want: []port.Layer{port.LayerStp},
+	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-bridge"})
+
+	if slices.Contains(result.Report.Capabilities, port.LayerStp) {
+		t.Errorf("reported capabilities = %v, includes unconstructed STP", result.Report.Capabilities)
+	}
+	if result.Spec.Config.STP != nil {
+		t.Errorf("STP config = %+v, want nil", result.Spec.Config.STP)
+	}
+	if result.Readiness() == analysis.Complete {
+		t.Fatal("readiness = Complete, want scoped omission")
+	}
+	for _, want := range []struct {
+		port string
+		what string
+	}{
+		{what: "stp_bridge"},
+		{port: "1/1/1", what: "stp_port"},
+	} {
+		if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+			return skip.Port == want.port && skip.What == want.what && len(skip.Evidence) > 0
+		}) {
+			t.Errorf("skipped = %+v, want evidenced %s omission on %q", result.Report.Skipped, want.what, want.port)
+		}
+	}
+}
+
+func TestLoadOrphanSTPRowsAreScopedOmissions(t *testing.T) {
+	name := "1/1/1"
+	result := (loadInput{
+		ifaces: []*interfacev1.Interface{plainPhysicalInterface(name)},
+		stpPorts: []*stpv1.PortState{
+			stpv1.PortState_builder{InterfaceName: &name}.Build(),
+		},
+	}).load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "orphan-stp-row"})
+
+	if slices.Contains(result.Report.Capabilities, port.LayerStp) || result.Spec.Config.STP != nil {
+		t.Errorf("orphan row constructed or reported STP: capabilities=%v config=%+v", result.Report.Capabilities, result.Spec.Config.STP)
+	}
+	if result.Readiness() == analysis.Complete {
+		t.Fatal("readiness = Complete, want scoped orphan-row omission")
+	}
+	if !slices.ContainsFunc(result.Report.Skipped, func(skip netmodel.Skipped) bool {
+		return skip.Port == name && skip.What == "stp_port" && len(skip.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced stp_port omission on %q", result.Report.Skipped, name)
+	}
+}
+
+func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
+	assertUnsupported := func(t *testing.T, result netmodel.Result, code analysis.IssueCode, portName string) {
+		t.Helper()
+		if result.Readiness() != analysis.Unsupported {
+			t.Fatalf("readiness = %s, want %s; issues: %+v", result.Readiness(), analysis.Unsupported, result.Metadata.Issues())
+		}
+		issues := result.Metadata.Issues()
+		issueIndex := slices.IndexFunc(issues, func(issue analysis.Issue) bool {
+			return issue.Code == code && issue.Scope.Compare(analysis.PortScope("sw1", portName)) == 0
+		})
+		if issueIndex < 0 {
+			t.Fatalf("issues = %+v, want %s on %s", issues, code, portName)
+		}
+		issue := issues[issueIndex]
+		if len(issue.Evidence) == 0 {
+			t.Fatalf("issue %s has no evidence", code)
+		}
+		if _, ok := result.Metadata.Evidence().Lookup(issue.Evidence[0]); !ok {
+			t.Errorf("issue %s evidence is absent from catalog", code)
+		}
+	}
+
+	t.Run("frame admission", func(t *testing.T) {
+		name := "1/1/1"
+		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+		oper := interfacev1.OperStatus_OPER_STATUS_UP
+		unknown := switchingv1.FrameAdmission(99)
+		result := (loadInput{ifaces: []*interfacev1.Interface{
+			interfacev1.Interface_builder{
+				Name: &name, AdminStatus: &admin, OperStatus: &oper,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Switchport: switchingv1.SwitchportFacet_builder{FrameAdmission: &unknown}.Build(),
+				}.Build(),
+			}.Build(),
+		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidFrameAdmission, name)
+		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
+			t.Error("unknown frame admission was coerced into an executable switchport")
+		}
+	})
+
+	t.Run("switchport mode", func(t *testing.T) {
+		name := "1/1/1"
+		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+		oper := interfacev1.OperStatus_OPER_STATUS_UP
+		unknown := switchingv1.SwitchportMode(99)
+		result := (loadInput{ifaces: []*interfacev1.Interface{
+			interfacev1.Interface_builder{
+				Name: &name, AdminStatus: &admin, OperStatus: &oper,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Switchport: switchingv1.SwitchportFacet_builder{Mode: &unknown}.Build(),
+				}.Build(),
+			}.Build(),
+		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidSwitchportMode, name)
+		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
+			t.Error("unknown switchport mode was coerced into an executable switchport")
+		}
+	})
+
+	t.Run("ethernet duplex", func(t *testing.T) {
+		name := "1/1/1"
+		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+		oper := interfacev1.OperStatus_OPER_STATUS_UP
+		unknown := phyv1.EthernetDuplex(99)
+		result := (loadInput{ifaces: []*interfacev1.Interface{
+			interfacev1.Interface_builder{
+				Name: &name, AdminStatus: &admin, OperStatus: &oper,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{ActiveDuplex: &unknown}.Build(),
+				}.Build(),
+			}.Build(),
+		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidEthernetDuplex, name)
+		if observed := result.Spec.Config.Phy.Ethernet[name].Observed; observed != nil {
+			t.Errorf("unknown duplex produced observed link state %+v", observed)
+		}
+	})
+
+	t.Run("PoE priority", func(t *testing.T) {
+		name := "1/1/1"
+		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+		oper := interfacev1.OperStatus_OPER_STATUS_UP
+		unknown := phyv1.PoePriority(99)
+		group := uint32(1)
+		power := uint32(100_000)
+		result := (loadInput{
+			ifaces: []*interfacev1.Interface{
+				interfacev1.Interface_builder{
+					Name: &name, AdminStatus: &admin, OperStatus: &oper,
+					Physical: interfacev1.PhysicalInterface_builder{
+						Ethernet: phyv1.EthernetFacet_builder{
+							Copper: phyv1.CopperFacet_builder{
+								PoeSettings: phyv1.PoeSettings_builder{Priority: &unknown}.Build(),
+								PoeDetail:   phyv1.PoePortDetail_builder{PseGroup: &group}.Build(),
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			},
+			budgets: []*phyv1.PseBudget{
+				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
+			},
+		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, name)
+		if _, ok := result.Spec.Config.Phy.PoE.Ports[name]; ok {
+			t.Error("unknown PoE priority was coerced into an executable PSE port")
+		}
+	})
+
+	t.Run("stp point to point", func(t *testing.T) {
+		name := "1/1/1"
+		unknown := stpv1.PointToPointMode(99)
+		result := (loadInput{
+			ifaces:      []*interfacev1.Interface{plainPhysicalInterface(name)},
+			bridgeState: validBridgeState(),
+			stpPorts: []*stpv1.PortState{
+				stpv1.PortState_builder{InterfaceName: &name, PointToPoint: &unknown}.Build(),
+			},
+		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidPointToPointMode, name)
+		if _, ok := result.Spec.Config.STP.Ports[name]; ok {
+			t.Error("unknown point-to-point mode was coerced into an executable STP row")
+		}
+	})
+
+	t.Run("lacp mode", func(t *testing.T) {
+		name := "lag1"
+		unknown := lacpv1.LacpMode(99)
+		result := (loadInput{
+			ifaces: lagInterfaces(),
+			lacpAggregators: []*lacpv1.AggregatorState{
+				lacpv1.AggregatorState_builder{InterfaceName: &name, Mode: &unknown}.Build(),
+			},
+		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidLACPMode, name)
+	})
+
+	t.Run("bond mode", func(t *testing.T) {
+		name := "lag1"
+		admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+		oper := interfacev1.OperStatus_OPER_STATUS_UP
+		unknown := switchingv1.BondMode(99)
+		ifaces := lagInterfaces()
+		ifaces[0] = interfacev1.Interface_builder{
+			Name: &name, AdminStatus: &admin, OperStatus: &oper,
+			Lag: interfacev1.LagInterface_builder{
+				Aggregation: switchingv1.AggregationFacet_builder{BondMode: &unknown}.Build(),
+			}.Build(),
+		}.Build()
+		result := (loadInput{ifaces: ifaces}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+		assertUnsupported(t, result, netmodel.IssueInvalidBondMode, name)
+	})
+}
+
 func reversed[T any](values []T) []T {
 	result := slices.Clone(values)
 	slices.Reverse(result)

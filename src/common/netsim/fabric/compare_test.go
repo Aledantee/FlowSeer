@@ -374,7 +374,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 	}
 	expCfg.Switches["sw1"] = expSw
 
-	derivedFab, err := fabric.Derive(curFab, expCfg)
+	derivedFab, err := fabric.Derive(curFab, constructionSpec(expCfg))
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 		B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 	})
 
-	derived, err := fabric.Derive(curFab, expCfg)
+	derived, err := fabric.Derive(curFab, constructionSpec(expCfg))
 	if err != nil {
 		t.Fatalf("Derive with new switch: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 	}
 
 	// From nil cur
-	fromNil, err := fabric.Derive(nil, expCfg)
+	fromNil, err := fabric.Derive(nil, constructionSpec(expCfg))
 	if err != nil {
 		t.Fatalf("Derive from nil: %v", err)
 	}

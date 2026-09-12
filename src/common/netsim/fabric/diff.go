@@ -11,6 +11,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 )
@@ -105,6 +106,69 @@ func (f cableSnapshotFact) TypeID() string { return "fabric.cable" }
 
 func (f cableSnapshotFact) Canonical() string { return string(f) }
 
+type constructionInputsFact string
+
+func (f constructionInputsFact) TypeID() string { return "fabric.switch_construction_inputs" }
+
+func (f constructionInputsFact) Canonical() string { return string(f) }
+
+// DiffSpecs computes the differences between two construction specifications. It reports
+// switch configuration and construction-input differences, cable changes, and host changes.
+func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
+	a, err := a.Normalize()
+	if err != nil {
+		return nil, err
+	}
+	b, err = b.Normalize()
+	if err != nil {
+		return nil, err
+	}
+
+	changes := Diff(a.Config(), b.Config())
+	names := make(map[string]struct{}, len(a.Switches)+len(b.Switches))
+	for name := range a.Switches {
+		names[name] = struct{}{}
+	}
+	for name := range b.Switches {
+		names[name] = struct{}{}
+	}
+	sortedNames := make([]string, 0, len(names))
+	for name := range names {
+		sortedNames = append(sortedNames, name)
+	}
+	slices.Sort(sortedNames)
+	for _, name := range sortedNames {
+		specA, inA := a.Switches[name]
+		specB, inB := b.Switches[name]
+		var from, to trace.Fact
+		if inA {
+			from = switchConstructionInputs(specA)
+		}
+		if inB {
+			to = switchConstructionInputs(specB)
+		}
+		if trace.EqualFact(from, to) {
+			continue
+		}
+		changes = append(changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "switch", Key: name},
+			Field:   "construction_inputs",
+			From:    from,
+			To:      to,
+		})
+	}
+
+	slices.SortFunc(changes, func(a, b trace.Change) int {
+		if order := a.Subject.Compare(b.Subject); order != 0 {
+			return order
+		}
+		return cmp.Compare(a.Field, b.Field)
+	})
+
+	return changes, nil
+}
+
 // Diff computes the differences between two fabric configurations, reporting switch differences,
 // cable additions, removals, and modifications, and host additions, removals, and moves.
 func Diff(a, b Config) []trace.Change {
@@ -164,18 +228,19 @@ func Diff(a, b Config) []trace.Change {
 	cablesA := sortedCables(a.Cables)
 	cablesB := sortedCables(b.Cables)
 
-	mapA := make(map[string]Cable, len(cablesA))
+	mapA := make(map[cableEndpoints]Cable, len(cablesA))
 	for _, c := range cablesA {
-		mapA[cableKey(c)] = c
+		mapA[cableEndpointsFor(c)] = c
 	}
-	mapB := make(map[string]Cable, len(cablesB))
+	mapB := make(map[cableEndpoints]Cable, len(cablesB))
 	for _, c := range cablesB {
-		mapB[cableKey(c)] = c
+		mapB[cableEndpointsFor(c)] = c
 	}
 
 	for _, cA := range cablesA {
-		key := cableKey(cA)
-		cB, exists := mapB[key]
+		endpoints := cableEndpointsFor(cA)
+		key := endpoints.Canonical()
+		cB, exists := mapB[endpoints]
 		if !exists {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
@@ -244,8 +309,9 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	for _, cB := range cablesB {
-		key := cableKey(cB)
-		if _, exists := mapA[key]; !exists {
+		endpoints := cableEndpointsFor(cB)
+		key := endpoints.Canonical()
+		if _, exists := mapA[endpoints]; !exists {
 			changes = append(changes, trace.Change{
 				Layer:   Layer,
 				Subject: trace.Subject{Kind: "cable", Key: key},
@@ -331,6 +397,84 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	return changes
+}
+
+func switchConstructionInputs(spec vswitch.ConstructionSpec) constructionInputsFact {
+	var out strings.Builder
+	writeStringField(&out, "node_id", spec.NodeID)
+	out.WriteString("seeds=[")
+	for i, seed := range spec.Seeds {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeUintField(&out, "fid", uint64(seed.FID))
+		writeStringField(&out, "mac", seed.MAC.String())
+		writeStringField(&out, "port", seed.Port)
+		writeStringField(&out, "static", strconv.FormatBool(seed.Static))
+		writeStringField(&out, "learned_at", seed.LearnedAt.String())
+		out.WriteByte('}')
+	}
+	out.WriteString("];")
+	writeMetadata(&out, spec.Metadata)
+
+	return constructionInputsFact(out.String())
+}
+
+func writeMetadata(out *strings.Builder, metadata analysis.Metadata) {
+	writeStringField(out, "metadata.scope", metadata.Scope().String())
+	writeUintField(out, "metadata.status", uint64(metadata.Status()))
+	out.WriteString("metadata.issues=[")
+	for i, issue := range metadata.Issues() {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeStringField(out, "code", issue.Code.String())
+		writeUintField(out, "status", uint64(issue.Status))
+		writeStringField(out, "scope", issue.Scope.String())
+		writeStringField(out, "message", issue.Message)
+		out.WriteString("evidence=[")
+		for j, ref := range issue.Evidence {
+			if j > 0 {
+				out.WriteByte(',')
+			}
+			out.WriteString(strconv.Quote(string(ref)))
+		}
+		out.WriteString("]}")
+	}
+	out.WriteString("];")
+	out.WriteString("metadata.evidence=[")
+	for i, entry := range metadata.Evidence().Entries() {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeStringField(out, "ref", string(entry.Ref))
+		writeStringField(out, "kind", entry.Evidence.Kind.String())
+		writeStringField(out, "origin", entry.Evidence.Origin)
+		writeStringField(out, "context", entry.Evidence.Context)
+		out.WriteByte('}')
+	}
+	out.WriteString("];")
+	out.WriteString("metadata.assumptions=[")
+	for i, assumption := range metadata.Assumptions() {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteByte('{')
+		writeStringField(out, "scope", assumption.Scope.String())
+		writeStringField(out, "statement", assumption.Statement)
+		out.WriteString("evidence=[")
+		for j, ref := range assumption.Evidence {
+			if j > 0 {
+				out.WriteByte(',')
+			}
+			out.WriteString(strconv.Quote(string(ref)))
+		}
+		out.WriteString("]}")
+	}
+	out.WriteString("];")
 }
 
 func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
@@ -489,35 +633,18 @@ func sortedCables(cables []Cable) []Cable {
 	return cp
 }
 
-// cableKey names a cable by its two ends with the smaller end first, so the
-// same cable written in either orientation is one subject. Diff aligns
-// directional faults to that ordering before comparing them.
-func cableKey(c Cable) string {
-	a := c.A.Canonical()
-	b := c.B.Canonical()
-	if b < a {
-		a, b = b, a
-	}
-
-	return a + "-" + b
+type cableEndpoints struct {
+	A Endpoint
+	B Endpoint
 }
 
-func canonicalCableOrientation(c Cable) Cable {
-	a := c.A.Canonical()
-	b := c.B.Canonical()
-	if a <= b {
-		return c
-	}
+func cableEndpointsFor(c Cable) cableEndpoints {
+	c = canonicalCableOrientation(c)
+	return cableEndpoints{A: c.A, B: c.B}
+}
 
-	c.A, c.B = c.B, c.A
-	switch c.Fault.Kind {
-	case FaultDeadAToB:
-		c.Fault.Kind = FaultDeadBToA
-	case FaultDeadBToA:
-		c.Fault.Kind = FaultDeadAToB
-	}
-
-	return c
+func (e cableEndpoints) Canonical() string {
+	return e.A.Canonical() + "-" + e.B.Canonical()
 }
 
 // normalizedFault reads an unset kind as FaultNone, so a change reports the

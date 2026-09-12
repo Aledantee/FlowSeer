@@ -7,6 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -190,5 +191,93 @@ func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult) {
 	}
 	if want := analysis.PortScope("", "out"); issues[0].Scope.Compare(want) != 0 {
 		t.Errorf("issue scope = %s, want %s", issues[0].Scope, want)
+	}
+}
+
+func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	catalog := analysis.EvidenceCatalog{}
+	issues := make([]analysis.Issue, 0, 5)
+	for _, scoped := range []struct {
+		name  string
+		scope analysis.Scope
+	}{
+		{name: "node", scope: analysis.NodeScope("sw1")},
+		{name: "member", scope: analysis.PortScope("sw1", "member")},
+		{name: "lag", scope: analysis.PortScope("sw1", "lag1")},
+		{name: "missing", scope: analysis.PortScope("sw1", "missing")},
+		{name: "unrelated", scope: analysis.PortScope("sw1", "unrelated")},
+	} {
+		var ref trace.EvidenceRef
+		catalog, ref = catalog.Add(analysis.Evidence{
+			Kind:    "snapshot",
+			Origin:  scoped.name,
+			Context: "conflicting loaded state",
+		})
+		issues = append(issues, analysis.Issue{
+			Code:     analysis.IssueCode("test." + scoped.name),
+			Status:   analysis.Unsupported,
+			Scope:    scoped.scope,
+			Message:  scoped.name + " is unsupported",
+			Evidence: []trace.EvidenceRef{ref},
+		})
+	}
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{Ports: ports},
+		NodeID: "sw1",
+		Metadata: analysis.NewMetadata(
+			analysis.NodeScope("sw1"),
+			issues,
+			catalog,
+			nil,
+		),
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	member := sw.ComposeForwardResult(bridge.Result{Ingress: "member"}, "member")
+	if member.Metadata.Status() != analysis.Unsupported {
+		t.Fatalf("member status = %s, want Unsupported", member.Metadata.Status())
+	}
+	wantMemberCodes := map[analysis.IssueCode]bool{
+		"test.node":   false,
+		"test.member": false,
+		"test.lag":    false,
+	}
+	for _, issue := range member.Metadata.Issues() {
+		if _, ok := wantMemberCodes[issue.Code]; !ok {
+			t.Errorf("member result contains unrelated issue %q", issue.Code)
+			continue
+		}
+		wantMemberCodes[issue.Code] = true
+		if len(issue.Evidence) != 1 {
+			t.Errorf("issue %q evidence = %+v, want one reference", issue.Code, issue.Evidence)
+		}
+	}
+	for code, found := range wantMemberCodes {
+		if !found {
+			t.Errorf("member result missing issue %q", code)
+		}
+	}
+
+	missing := sw.ComposeForwardResult(bridge.Result{Ingress: "missing"}, "missing")
+	if missing.Metadata.Status() != analysis.Unsupported {
+		t.Fatalf("missing status = %s, want Unsupported", missing.Metadata.Status())
+	}
+	foundMissingEvidence := false
+	for _, issue := range missing.Metadata.Issues() {
+		if issue.Code == "test.missing" && len(issue.Evidence) == 1 {
+			foundMissingEvidence = true
+		}
+		if issue.Code == "test.unrelated" || issue.Code == "test.member" || issue.Code == "test.lag" {
+			t.Errorf("missing result contains unrelated issue %q", issue.Code)
+		}
+	}
+	if !foundMissingEvidence {
+		t.Errorf("missing ingress result lacks its loaded issue evidence: %+v", missing.Metadata.Issues())
 	}
 }

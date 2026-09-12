@@ -36,6 +36,21 @@ func protoIPv4Prefix(masked [4]byte, length uint32) *addrv1.IpPrefix {
 	}.Build()
 }
 
+func protoIPv6Addr(octets [16]byte) *addrv1.IpAddress {
+	return addrv1.IpAddress_builder{
+		V6: addrv1.Ipv6Address_builder{Octets: octets[:]}.Build(),
+	}.Build()
+}
+
+func protoIPv6Prefix(masked [16]byte, length uint32) *addrv1.IpPrefix {
+	return addrv1.IpPrefix_builder{
+		V6: addrv1.Ipv6Prefix_builder{
+			Address: addrv1.Ipv6Address_builder{Octets: masked[:]}.Build(),
+			Length:  &length,
+		}.Build(),
+	}.Build()
+}
+
 func protoEUI48(octets [6]byte) *addrv1.EuiAddress {
 	return addrv1.EuiAddress_builder{
 		Eui48: addrv1.Eui48Address_builder{Octets: octets[:]}.Build(),
@@ -864,5 +879,55 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		if eg.Port == "vlan10" {
 			t.Errorf("vlan10 should not receive flooded broadcast frame")
 		}
+	}
+}
+
+func TestLoadRoutingAcceptsZeroLengthPrefixes(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		iface   *interfacev1.Interface
+		address *addrv1.IpAddress
+		prefix  *addrv1.IpPrefix
+		want    string
+	}{
+		{
+			name:    "IPv4",
+			iface:   routedVLANInterface("vlan10", 10, []byte{0, 1, 2, 3, 4, 5}),
+			address: protoIPv4Addr([4]byte{203, 0, 113, 7}),
+			prefix:  protoIPv4Prefix([4]byte{}, 0),
+			want:    "203.0.113.7/0",
+		},
+		{
+			name: "IPv6",
+			iface: func() *interfacev1.Interface {
+				name := "vlan10"
+				vid := uint32(10)
+				admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+				oper := interfacev1.OperStatus_OPER_STATUS_UP
+				return interfacev1.Interface_builder{
+					Name: &name, AdminStatus: &admin, OperStatus: &oper,
+					Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
+					Ip:   ipv1.IpFacet_builder{Ipv6: ipv1.Ipv6Facet_builder{}.Build()}.Build(),
+				}.Build()
+			}(),
+			address: protoIPv6Addr([16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x07}),
+			prefix:  protoIPv6Prefix([16]byte{}, 0),
+			want:    "2001:db8::7/0",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			name := test.iface.GetName()
+			result := (loadInput{
+				ifaces: []*interfacev1.Interface{test.iface},
+				addrs: []*ipv1.InterfaceAddress{
+					ipv1.InterfaceAddress_builder{InterfaceName: &name, Address: test.address, Prefix: test.prefix}.Build(),
+				},
+			}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			prefixes := result.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[name].Prefixes
+			if len(prefixes) != 1 || prefixes[0].String() != test.want {
+				t.Errorf("prefixes = %v, want [%s]", prefixes, test.want)
+			}
+		})
 	}
 }

@@ -440,6 +440,27 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardRe
 	return s.wrapResult(s.forward(now, ingress, f, false))
 }
 
+// ComposeForwardResult attaches switch-owned trust metadata to a forwarding result
+// produced before the bridge pipeline. dependencyPorts names the port state that
+// could have changed the result; a member port also depends on its logical LAG.
+func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...string) ForwardResult {
+	for _, name := range dependencyPorts {
+		p, ok := s.ports.Port(name)
+		if !ok {
+			p = port.Port{Name: name}
+		}
+		res.Consult(p)
+		if p.LagParent == "" {
+			continue
+		}
+		if parent, ok := s.ports.Port(p.LagParent); ok {
+			res.Consult(parent)
+		}
+	}
+
+	return s.wrapResult(res)
+}
+
 func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	var issues []analysis.Issue
 

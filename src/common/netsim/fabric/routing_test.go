@@ -377,7 +377,7 @@ func TestFabricMACAssignment(t *testing.T) {
 		t.Errorf("explicit h2 Address = %v, want %v", filledShift.Hosts["h2"].Address, netaddr.Local(1))
 	}
 
-	fabDerived, err := fabric.Derive(fab, baseCfg())
+	fabDerived, err := fabric.Derive(fab, constructionSpec(baseCfg()))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		t.Fatalf("sw1 = %s, want %s", got, netaddr.Local(1))
 	}
 
-	next, err := fabric.Derive(cur, cfgFor(netaddr.Local(1)))
+	next, err := fabric.Derive(cur, constructionSpec(cfgFor(netaddr.Local(1))))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}

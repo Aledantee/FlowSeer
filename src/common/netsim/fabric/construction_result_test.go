@@ -59,7 +59,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 	}
 
 	spec := fab.Spec()
-	if spec.Config.Switches == nil {
+	if spec.Switches == nil {
 		t.Errorf("expected spec to contain normalized switches")
 	}
 
@@ -105,40 +105,111 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 	}
 }
 
-func TestFabricConstructionSpecRejectsUnknownSeedSwitch(t *testing.T) {
+func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	cfg := twoSwitchBaseConfig(t)
 	sw1 := cfg.Switches["sw1"]
 	sw1.Bridge = &bridge.Config{}
 	cfg.Switches["sw1"] = sw1
+	spec := constructionSpec(cfg)
 	seed := bridge.Seed{
 		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
 		Port:   "1/1/1",
 		Static: true,
 	}
-
-	_, err := fabric.NewWithSpec(fabric.ConstructionSpec{
-		Config: cfg,
-		Seeds:  map[string][]bridge.Seed{"missing": {seed}},
+	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "switch sw1",
+		Context: "incomplete interface state",
 	})
+	metadata := analysis.NewMetadata(
+		analysis.NodeScope("sw1"),
+		[]analysis.Issue{{
+			Code:     "test.incomplete-interface-state",
+			Status:   analysis.Incomplete,
+			Scope:    analysis.PortScope("sw1", "1/1/1"),
+			Message:  "interface state is incomplete",
+			Evidence: []trace.EvidenceRef{ref},
+		}},
+		catalog,
+		nil,
+	)
+	sw1Spec := spec.Switches["sw1"]
+	sw1Spec.Seeds = []bridge.Seed{seed}
+	sw1Spec.Metadata = metadata
+	spec.Switches["sw1"] = sw1Spec
+
+	mismatched := spec.Clone()
+	mismatchedSpec := mismatched.Switches["sw1"]
+	mismatchedSpec.NodeID = "different-node"
+	mismatched.Switches["sw1"] = mismatchedSpec
+	_, err := fabric.NewWithSpec(mismatched)
 	if err == nil {
-		t.Fatal("NewWithSpec accepted seeds for an unconfigured switch")
+		t.Fatal("NewWithSpec accepted a switch NodeID that differs from its map key")
 	}
 
-	want := fabric.ConstructionSpec{
-		Config: cfg,
-		Seeds:  map[string][]bridge.Seed{"sw1": {seed}},
-	}
-	fab, err := fabric.NewWithSpec(want)
+	fab, err := fabric.NewWithSpec(spec)
 	if err != nil {
-		t.Fatalf("NewWithSpec with configured seed switch: %v", err)
+		t.Fatalf("NewWithSpec: %v", err)
 	}
 	roundTrip := fab.Spec()
+	gotMetadata := roundTrip.Switches["sw1"].Metadata
+	if gotMetadata.Status() != analysis.Incomplete || len(gotMetadata.Issues()) != 1 {
+		t.Errorf("round-trip metadata = %+v, want one incomplete issue", gotMetadata)
+	}
+	if _, ok := gotMetadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("round-trip metadata lost evidence %s", ref)
+	}
+	if got := roundTrip.Switches["sw1"].Seeds; len(got) != 1 || got[0] != seed {
+		t.Errorf("round-trip seeds = %+v, want %+v", got, []bridge.Seed{seed})
+	}
 	rebuilt, err := fabric.NewWithSpec(roundTrip)
 	if err != nil {
 		t.Fatalf("NewWithSpec from returned spec: %v", err)
 	}
 	if got := rebuilt.Spec(); !got.Equal(roundTrip) {
 		t.Errorf("round-trip spec = %+v, want %+v", got, roundTrip)
+	}
+
+	clone := roundTrip.Clone()
+	cloneSw1 := clone.Switches["sw1"]
+	cloneSw1.Seeds[0].Port = "mutated"
+	cloneSw1.Config.MAC[5] ^= 0xff
+	clone.Switches["sw1"] = cloneSw1
+	if roundTrip.Switches["sw1"].Seeds[0].Port == "mutated" {
+		t.Fatal("ConstructionSpec.Clone shares switch seeds")
+	}
+	if roundTrip.Switches["sw1"].Config.MAC == cloneSw1.Config.MAC {
+		t.Fatal("ConstructionSpec.Clone shares switch configuration")
+	}
+
+	withoutMetadata := roundTrip.Clone()
+	withoutMetadataSpec := withoutMetadata.Switches["sw1"]
+	withoutMetadataSpec.Metadata = analysis.Metadata{}
+	withoutMetadata.Switches["sw1"] = withoutMetadataSpec
+	changes, err := fabric.DiffSpecs(roundTrip, withoutMetadata)
+	if err != nil {
+		t.Fatalf("DiffSpecs: %v", err)
+	}
+	foundConstructionInputs := false
+	for _, change := range changes {
+		if change.Subject == (trace.Subject{Kind: "switch", Key: "sw1"}) && change.Field == "construction_inputs" {
+			foundConstructionInputs = true
+		}
+	}
+	if !foundConstructionInputs {
+		t.Errorf("DiffSpecs omitted metadata change: %+v", changes)
+	}
+
+	derived, err := fabric.Derive(fab, withoutMetadata)
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	derivedSpec := derived.Spec().Switches["sw1"]
+	if derivedSpec.Metadata.Status() != analysis.Complete {
+		t.Errorf("derived metadata status = %v, want Complete", derivedSpec.Metadata.Status())
+	}
+	if got := derivedSpec.Seeds; len(got) != 1 || got[0] != seed {
+		t.Errorf("derived seeds = %+v, want %+v", got, []bridge.Seed{seed})
 	}
 }
 

@@ -227,7 +227,7 @@ func TestValidate(t *testing.T) {
 				vrf.Interfaces["vlan10"] = iface
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "route naming neither next hop nor interface",

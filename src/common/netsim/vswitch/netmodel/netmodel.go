@@ -67,6 +67,14 @@ const (
 	IssueInvalidFDBKind           analysis.IssueCode = "netmodel.fdb.invalid_kind"
 	IssueInvalidFDBStatus         analysis.IssueCode = "netmodel.fdb.invalid_status"
 	IssueInvalidVlanID            analysis.IssueCode = "netmodel.vlan.invalid_id"
+	IssueInvalidEthernetDuplex    analysis.IssueCode = "netmodel.ethernet.invalid_duplex"
+	IssueInvalidPoePriority       analysis.IssueCode = "netmodel.poe.invalid_priority"
+	IssueInvalidSwitchportMode    analysis.IssueCode = "netmodel.switchport.invalid_mode"
+	IssueInvalidFrameAdmission    analysis.IssueCode = "netmodel.switchport.invalid_frame_admission"
+	IssueInvalidPointToPointMode  analysis.IssueCode = "netmodel.stp.invalid_point_to_point_mode"
+	IssueInvalidBondMode          analysis.IssueCode = "netmodel.lag.invalid_bond_mode"
+	IssueInvalidLACPMode          analysis.IssueCode = "netmodel.lacp.invalid_mode"
+	IssueMissingSTPBridgeState    analysis.IssueCode = "netmodel.stp.missing_bridge_state"
 	IssueConflictFDB              analysis.IssueCode = "netmodel.fdb.conflict"
 	IssueConflictSTPPort          analysis.IssueCode = "netmodel.stp.conflict"
 	IssueConflictLACP             analysis.IssueCode = "netmodel.lacp.conflict"
@@ -345,7 +353,7 @@ func Load(
 			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s admin_status unrecognized value %d", iface.GetName(), iface.GetAdminStatus()))
 			issues = append(issues, analysis.Issue{
 				Code:     IssueInvalidAdminStatus,
-				Status:   analysis.Incomplete,
+				Status:   analysis.Unsupported,
 				Scope:    portScope(iface.GetName()),
 				Message:  fmt.Sprintf("interface %q has invalid or unrecognized administrative status value %d", iface.GetName(), iface.GetAdminStatus()),
 				Evidence: []trace.EvidenceRef{ref},
@@ -378,7 +386,7 @@ func Load(
 			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s oper_status unrecognized value %d", iface.GetName(), iface.GetOperStatus()))
 			issues = append(issues, analysis.Issue{
 				Code:     IssueInvalidOperStatus,
-				Status:   analysis.Incomplete,
+				Status:   analysis.Unsupported,
 				Scope:    portScope(iface.GetName()),
 				Message:  fmt.Sprintf("interface %q has invalid or unrecognized operational status value %d", iface.GetName(), iface.GetOperStatus()),
 				Evidence: []trace.EvidenceRef{ref},
@@ -506,6 +514,23 @@ func Load(
 		return slices.Contains(report.Capabilities, l)
 	}
 
+	stpRequestedWithoutBridge := isWanted(port.LayerStp) && bridgeState == nil
+	if bridgeState == nil && (stpRequestedWithoutBridge || len(stpPorts) > 0) {
+		if stpRequestedWithoutBridge {
+			addSkipped("", "stp_bridge", "requested STP layer has no bridge state", analysis.Incomplete, IssueMissingSTPBridgeState)
+		}
+		for _, ps := range stpPorts {
+			if ps == nil {
+				continue
+			}
+			addSkipped(ps.GetInterfaceName(), "stp_port", "bridge state is missing", analysis.Incomplete, IssueMissingSTPBridgeState)
+		}
+		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
+			return layer == port.LayerStp
+		})
+		delete(report.CapabilitySources, port.LayerStp)
+	}
+
 	if !isWanted(port.LayerVlan) {
 		for _, iface := range ifaces {
 			hasSw := false
@@ -548,10 +573,8 @@ func Load(
 		}
 	}
 
-	if !isWanted(port.LayerStp) {
-		if bridgeState != nil {
-			addSkipped("", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
-		}
+	if !isWanted(port.LayerStp) && bridgeState != nil {
+		addSkipped("", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		for _, ps := range stpPorts {
 			addSkipped(ps.GetInterfaceName(), "stp_port", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
@@ -629,10 +652,14 @@ func Load(
 				duplex := phy.Unknown
 				if ef.HasActiveDuplex() {
 					switch ef.GetActiveDuplex() {
+					case phyv1.EthernetDuplex_ETHERNET_DUPLEX_UNSPECIFIED:
+						addSkipped(iface.GetName(), "ethernet_duplex", "active_duplex is UNSPECIFIED", analysis.Incomplete, IssueInvalidEthernetDuplex)
 					case phyv1.EthernetDuplex_ETHERNET_DUPLEX_FULL:
 						duplex = phy.Full
 					case phyv1.EthernetDuplex_ETHERNET_DUPLEX_HALF:
 						duplex = phy.Half
+					default:
+						addSkipped(iface.GetName(), "ethernet_duplex", fmt.Sprintf("active_duplex has unrecognized value %d", ef.GetActiveDuplex()), analysis.Unsupported, IssueInvalidEthernetDuplex)
 					}
 				}
 				if speed > 0 || duplex != phy.Unknown {
@@ -706,6 +733,7 @@ func Load(
 					MaxClass: 8,
 					Enabled:  true,
 				}
+				validPriority := true
 				if ps := copper.GetPoeSettings(); ps != nil {
 					if ps.HasEnabled() {
 						psePort.Enabled = ps.GetEnabled()
@@ -714,20 +742,28 @@ func Load(
 						lim := ps.GetPowerLimitMilliwatts()
 						psePort.Limit = &lim
 					}
-					if ps.HasPriority() && ps.GetPriority() != phyv1.PoePriority_POE_PRIORITY_UNSPECIFIED {
+					if ps.HasPriority() {
 						switch ps.GetPriority() {
+						case phyv1.PoePriority_POE_PRIORITY_UNSPECIFIED:
+							addDefault(iface.GetName(), "priority", "")
 						case phyv1.PoePriority_POE_PRIORITY_CRITICAL:
 							psePort.Priority = phy.PriorityCritical
 						case phyv1.PoePriority_POE_PRIORITY_HIGH:
 							psePort.Priority = phy.PriorityHigh
 						case phyv1.PoePriority_POE_PRIORITY_LOW:
 							psePort.Priority = phy.PriorityLow
+						default:
+							addSkipped(iface.GetName(), "poe_priority", fmt.Sprintf("priority has unrecognized value %d", ps.GetPriority()), analysis.Unsupported, IssueInvalidPoePriority)
+							validPriority = false
 						}
 					} else {
 						addDefault(iface.GetName(), "priority", "")
 					}
 				} else {
 					addDefault(iface.GetName(), "priority", "")
+				}
+				if !validPriority {
+					continue
 				}
 				if copper.GetPoe() != nil && copper.GetPoe().HasPowerClass() {
 					if class := copper.GetPoe().GetPowerClass(); class > 8 {
@@ -810,6 +846,30 @@ func Load(
 				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
 					addSkipped(iface.GetName(), "switchport", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
 					continue
+				}
+				if swFacet.HasMode() {
+					switch swFacet.GetMode() {
+					case switchingv1.SwitchportMode_SWITCHPORT_MODE_UNSPECIFIED,
+						switchingv1.SwitchportMode_SWITCHPORT_MODE_OTHER,
+						switchingv1.SwitchportMode_SWITCHPORT_MODE_ACCESS,
+						switchingv1.SwitchportMode_SWITCHPORT_MODE_TRUNK,
+						switchingv1.SwitchportMode_SWITCHPORT_MODE_HYBRID,
+						switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL:
+					default:
+						addSkipped(iface.GetName(), "switchport", fmt.Sprintf("mode has unrecognized value %d", swFacet.GetMode()), analysis.Unsupported, IssueInvalidSwitchportMode)
+						continue
+					}
+				}
+				if swFacet.HasFrameAdmission() {
+					switch swFacet.GetFrameAdmission() {
+					case switchingv1.FrameAdmission_FRAME_ADMISSION_UNSPECIFIED,
+						switchingv1.FrameAdmission_FRAME_ADMISSION_ALL,
+						switchingv1.FrameAdmission_FRAME_ADMISSION_TAGGED_ONLY,
+						switchingv1.FrameAdmission_FRAME_ADMISSION_UNTAGGED_AND_PRIORITY_TAGGED_ONLY:
+					default:
+						addSkipped(iface.GetName(), "switchport", fmt.Sprintf("frame_admission has unrecognized value %d", swFacet.GetFrameAdmission()), analysis.Unsupported, IssueInvalidFrameAdmission)
+						continue
+					}
 				}
 
 				if swFacet.GetMode() == switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL {
@@ -1003,6 +1063,15 @@ func Load(
 					addSkipped(portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
 					return factKey{}, "", false
 				}
+				switch ps.GetPointToPoint() {
+				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_UNSPECIFIED,
+					stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO,
+					stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE,
+					stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
+				default:
+					addSkipped(portName, "stp_port", fmt.Sprintf("point_to_point has unrecognized value %d", ps.GetPointToPoint()), analysis.Unsupported, IssueInvalidPointToPointMode)
+					return factKey{}, "", false
+				}
 				adminPathCost := "unreported"
 				if ps.HasAdminPathCost() {
 					adminPathCost = strconv.FormatUint(uint64(ps.GetAdminPathCost()), 10)
@@ -1028,12 +1097,15 @@ func Load(
 
 				var p2p stp.PointToPointMode
 				switch ps.GetPointToPoint() {
+				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_UNSPECIFIED:
+					p2p = stp.PointToPointAuto
+					addDefault(portName, "point_to_point", "AUTO")
+				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO:
+					p2p = stp.PointToPointAuto
 				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE:
 					p2p = stp.PointToPointForceTrue
 				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
 					p2p = stp.PointToPointForceFalse
-				default:
-					p2p = stp.PointToPointAuto
 				}
 
 				stpCfg.Ports[portName] = stp.Port{
@@ -1048,6 +1120,12 @@ func Load(
 			cfg.STP = &stpCfg
 		}
 	}
+	if isWanted(port.LayerStp) && cfg.STP == nil {
+		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
+			return layer == port.LayerStp
+		})
+		delete(report.CapabilitySources, port.LayerStp)
+	}
 
 	aggByPort, aggConflicts := resolveFacts(lacpAggregators, func(agg *lacpv1.AggregatorState) (factKey, string, bool) {
 		if agg == nil {
@@ -1061,6 +1139,15 @@ func Load(
 		}
 		if p.Kind != port.Lag {
 			addSkipped(name, "lacp_port", "port is not a LAG", analysis.Incomplete, IssueSkippedUnsupportedFacet)
+			return factKey{}, "", false
+		}
+		switch agg.GetMode() {
+		case lacpv1.LacpMode_LACP_MODE_UNSPECIFIED,
+			lacpv1.LacpMode_LACP_MODE_OFF,
+			lacpv1.LacpMode_LACP_MODE_ACTIVE,
+			lacpv1.LacpMode_LACP_MODE_PASSIVE:
+		default:
+			addSkipped(name, "lacp_aggregator", fmt.Sprintf("mode has unrecognized value %d", agg.GetMode()), analysis.Unsupported, IssueInvalidLACPMode)
 			return factKey{}, "", false
 		}
 		systemID := "unreported"
@@ -1116,8 +1203,11 @@ func Load(
 			facet := iface.GetLag().GetAggregation()
 			lagItem := lag.LAG{}
 
-			if facet != nil && facet.HasBondMode() && facet.GetBondMode() != switchingv1.BondMode_BOND_MODE_UNSPECIFIED {
+			if facet != nil && facet.HasBondMode() {
 				switch facet.GetBondMode() {
+				case switchingv1.BondMode_BOND_MODE_UNSPECIFIED:
+					lagItem.Mode = lag.ActiveBackup
+					addDefault(lagName, "bond_mode", "active-backup")
 				case switchingv1.BondMode_BOND_MODE_ACTIVE_BACKUP:
 					lagItem.Mode = lag.ActiveBackup
 				case switchingv1.BondMode_BOND_MODE_BALANCE_SLB:
@@ -1126,7 +1216,7 @@ func Load(
 					lagItem.Mode = lag.BalanceTCP
 				default:
 					lagItem.Mode = lag.ActiveBackup
-					addDefault(lagName, "bond_mode", "active-backup")
+					addSkipped(lagName, "bond_mode", fmt.Sprintf("has unrecognized value %d", facet.GetBondMode()), analysis.Unsupported, IssueInvalidBondMode)
 				}
 			} else {
 				lagItem.Mode = lag.ActiveBackup
@@ -1167,13 +1257,14 @@ func Load(
 					Fallback:       agg.GetFallbackActiveBackup(),
 				}
 				switch agg.GetMode() {
+				case lacpv1.LacpMode_LACP_MODE_UNSPECIFIED:
+					lacpCfg.Mode = lag.Off
+					addDefault(lagName, "lacp_mode", "off")
 				case lacpv1.LacpMode_LACP_MODE_ACTIVE:
 					lacpCfg.Mode = lag.Active
 				case lacpv1.LacpMode_LACP_MODE_PASSIVE:
 					lacpCfg.Mode = lag.Passive
-				case lacpv1.LacpMode_LACP_MODE_OFF, lacpv1.LacpMode_LACP_MODE_UNSPECIFIED:
-					lacpCfg.Mode = lag.Off
-				default:
+				case lacpv1.LacpMode_LACP_MODE_OFF:
 					lacpCfg.Mode = lag.Off
 				}
 				if agg.GetSystemId() != nil {
@@ -1377,7 +1468,7 @@ func Load(
 			addSkipped(entry.GetInterfaceName(), "fdb_entry", "status is INVALID", analysis.Unsupported, IssueInvalidFDBStatus)
 			return factKey{}, "", false
 		case entry.GetStatus() != switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE:
-			addSkipped(entry.GetInterfaceName(), "fdb_entry", fmt.Sprintf("status has unrecognized value %d", entry.GetStatus()), analysis.Incomplete, IssueInvalidFDBStatus)
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", fmt.Sprintf("status has unrecognized value %d", entry.GetStatus()), analysis.Unsupported, IssueInvalidFDBStatus)
 			return factKey{}, "", false
 		}
 		switch {
@@ -1544,7 +1635,7 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 	}
 	if address.Is4() {
 		v4 := p.GetV4()
-		if v4 == nil || !v4.HasAddress() || !v4.HasLength() || len(v4.GetAddress().GetOctets()) != 4 || v4.GetLength() == 0 || v4.GetLength() > 32 {
+		if v4 == nil || !v4.HasAddress() || !v4.HasLength() || len(v4.GetAddress().GetOctets()) != 4 || v4.GetLength() > 32 {
 			return 0, false
 		}
 		prefixAddress := netip.AddrFrom4([4]byte(v4.GetAddress().GetOctets()))
@@ -1556,7 +1647,7 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 	}
 	if address.Is6() {
 		v6 := p.GetV6()
-		if v6 == nil || !v6.HasAddress() || !v6.HasLength() || len(v6.GetAddress().GetOctets()) != 16 || v6.GetLength() == 0 || v6.GetLength() > 128 {
+		if v6 == nil || !v6.HasAddress() || !v6.HasLength() || len(v6.GetAddress().GetOctets()) != 16 || v6.GetLength() > 128 {
 			return 0, false
 		}
 		prefixAddress := netip.AddrFrom16([16]byte(v6.GetAddress().GetOctets()))

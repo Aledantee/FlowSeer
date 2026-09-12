@@ -28,6 +28,20 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
+func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
+	switches := make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
+	for name, swCfg := range cfg.Switches {
+		switches[name] = vswitch.ConstructionSpec{Config: swCfg, NodeID: name}
+	}
+
+	return fabric.ConstructionSpec{
+		Start:    cfg.Start,
+		Switches: switches,
+		Hosts:    cfg.Hosts,
+		Cables:   cfg.Cables,
+	}
+}
+
 func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 	t.Helper()
 	b1 := port.NewBuilder()
@@ -471,7 +485,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 				}
 				c.Hosts["h1"] = h1
 			},
-			wantError: true,
+			wantError: false,
 		},
 		{
 			name: "valid host with IP stack",
@@ -607,5 +621,51 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	}
 	if changes := fabric.Diff(cfgA, cfgB); len(changes) != 0 {
 		t.Errorf("Diff returned %d changes for behaviorally equivalent configurations: %v", len(changes), changes)
+	}
+}
+
+func TestConfigNormalizeCanonicalizesCableOrientation(t *testing.T) {
+	cfg := twoSwitchBaseConfig(t)
+	cable := cfg.Cables[1]
+	cable.A, cable.B = cable.B, cable.A
+	cable.Fault.Kind = fabric.FaultDeadBToA
+	cfg.Cables = []fabric.Cable{cable}
+
+	norm := cfg.Normalize()
+	if got := norm.Cables[0]; got.A != cable.B || got.B != cable.A {
+		t.Fatalf("normalized endpoints = %v -> %v, want %v -> %v", got.A, got.B, cable.B, cable.A)
+	}
+	if got := norm.Cables[0].Fault.Kind; got != fabric.FaultDeadAToB {
+		t.Errorf("normalized directional fault = %s, want %s", got, fabric.FaultDeadAToB)
+	}
+
+	equivalent := cfg.Clone()
+	equivalent.Cables[0].A, equivalent.Cables[0].B = equivalent.Cables[0].B, equivalent.Cables[0].A
+	equivalent.Cables[0].Fault.Kind = fabric.FaultDeadAToB
+	if !cfg.Equal(equivalent) {
+		t.Error("reversing endpoints and the directional fault changed config equality")
+	}
+}
+
+func TestCableDiffKeysAreInjectiveForDelimiterHeavyEndpoints(t *testing.T) {
+	cfg := fabric.Config{Cables: []fabric.Cable{
+		{
+			A: fabric.Endpoint{Node: "left-right", Port: "port:one%"},
+			B: fabric.Endpoint{Node: "peer", Port: "two-three"},
+		},
+		{
+			A: fabric.Endpoint{Node: "left", Port: "right-port:one%"},
+			B: fabric.Endpoint{Node: "peer-two", Port: "three"},
+		},
+	}}
+	changes := fabric.Diff(fabric.Config{}, cfg)
+	keys := make(map[string]struct{})
+	for _, change := range changes {
+		if change.Subject.Kind == "cable" {
+			keys[change.Subject.Key] = struct{}{}
+		}
+	}
+	if len(keys) != 2 {
+		t.Errorf("delimiter-heavy cables produced %d distinct diff keys, want 2: %+v", len(keys), changes)
 	}
 }

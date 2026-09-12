@@ -605,8 +605,8 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		t.Errorf("1/1/1 AdminStatus = %v, want Unknown", port1.AdminStatus)
 	}
 	issues1 := res.Metadata.IssuesFor(analysis.PortScope("sw1", "1/1/1"))
-	if len(issues1) == 0 || issues1[0].Code != netmodel.IssueInvalidAdminStatus || issues1[0].Status != analysis.Incomplete {
-		t.Errorf("1/1/1 issues = %+v, want IssueInvalidAdminStatus with Incomplete status", issues1)
+	if len(issues1) == 0 || issues1[0].Code != netmodel.IssueInvalidAdminStatus || issues1[0].Status != analysis.Unsupported {
+		t.Errorf("1/1/1 issues = %+v, want IssueInvalidAdminStatus with Unsupported status", issues1)
 	}
 
 	// 2. Invalid numeric oper status enum must produce Unknown, not silent Down
@@ -615,8 +615,8 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		t.Errorf("1/1/2 OperStatus = %v, want Unknown", port2.OperStatus)
 	}
 	issues2 := res.Metadata.IssuesFor(analysis.PortScope("sw1", "1/1/2"))
-	if len(issues2) == 0 || issues2[0].Code != netmodel.IssueInvalidOperStatus || issues2[0].Status != analysis.Incomplete {
-		t.Errorf("1/1/2 issues = %+v, want IssueInvalidOperStatus with Incomplete status", issues2)
+	if len(issues2) == 0 || issues2[0].Code != netmodel.IssueInvalidOperStatus || issues2[0].Status != analysis.Unsupported {
+		t.Errorf("1/1/2 issues = %+v, want IssueInvalidOperStatus with Unsupported status", issues2)
 	}
 
 	// 3. Known non-forwarding statuses map deliberately to Down without invalid enum issues
@@ -647,16 +647,16 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	}
 
-	// 1/1/1 (invalid admin enum -> Unknown) drops with unknown-operational-status and Incomplete status
+	// 1/1/1 (invalid admin enum -> Unknown) drops with unknown-operational-status and Unsupported status
 	fwd1 := sw.Forward(now, "1/1/1", frame)
-	if fwd1.Metadata.Status() != analysis.Incomplete {
-		t.Errorf("1/1/1 Forward status = %v, want Incomplete", fwd1.Metadata.Status())
+	if fwd1.Metadata.Status() != analysis.Unsupported {
+		t.Errorf("1/1/1 Forward status = %v, want Unsupported", fwd1.Metadata.Status())
 	}
 
-	// 1/1/2 (invalid oper enum -> Unknown) drops with unknown-operational-status and Incomplete status
+	// 1/1/2 (invalid oper enum -> Unknown) drops with unknown-operational-status and Unsupported status
 	fwd2 := sw.Forward(now, "1/1/2", frame)
-	if fwd2.Metadata.Status() != analysis.Incomplete {
-		t.Errorf("1/1/2 Forward status = %v, want Incomplete", fwd2.Metadata.Status())
+	if fwd2.Metadata.Status() != analysis.Unsupported {
+		t.Errorf("1/1/2 Forward status = %v, want Unsupported", fwd2.Metadata.Status())
 	}
 
 	// 1/1/3 (known admin down) drops with port-down and Complete status
