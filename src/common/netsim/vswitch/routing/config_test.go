@@ -1,10 +1,13 @@
 package routing_test
 
 import (
+	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -622,6 +625,51 @@ func TestDiff(t *testing.T) {
 			if changes[i].Layer != port.LayerRouting {
 				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, port.LayerRouting)
 			}
+			if changes[i].Field == "interface" {
+				if changes[i].From.TypeID() != "routing.route.interface" {
+					t.Errorf("route interface change From.TypeID() = %q, want routing.route.interface", changes[i].From.TypeID())
+				}
+				if changes[i].To.TypeID() != "routing.route.interface" {
+					t.Errorf("route interface change To.TypeID() = %q, want routing.route.interface", changes[i].To.TypeID())
+				}
+			}
 		}
 	})
+}
+
+func TestFactTypeIDsUnique(t *testing.T) {
+	t.Parallel()
+
+	facts := []trace.Fact{
+		routing.VRF{},
+		routing.Interface{},
+		routing.Route{},
+		routing.Neighbor{},
+		routing.VLANFact(0),
+		routing.PortFact(""),
+		routing.MACFact{},
+		routing.PrefixesFact{},
+		routing.AddrFact{},
+		routing.RouteInterfaceFact(""),
+	}
+
+	seen := make(map[string]string)
+	for _, f := range facts {
+		tid := f.TypeID()
+		if tid == "" {
+			t.Errorf("fact %T has empty TypeID", f)
+		}
+		if !strings.HasPrefix(tid, "routing.") {
+			t.Errorf("fact %T TypeID %q must be prefixed with 'routing.'", f, tid)
+		}
+		if prev, ok := seen[tid]; ok {
+			t.Errorf("duplicate TypeID %q shared by %s and %T", tid, prev, f)
+		}
+		seen[tid] = fmt.Sprintf("%T", f)
+	}
+
+	// Specifically verify that Interface and RouteInterfaceFact have distinct TypeIDs.
+	if (routing.Interface{}).TypeID() == routing.RouteInterfaceFact("").TypeID() {
+		t.Errorf("Interface.TypeID() and RouteInterfaceFact.TypeID() must not collide: %q", (routing.Interface{}).TypeID())
+	}
 }

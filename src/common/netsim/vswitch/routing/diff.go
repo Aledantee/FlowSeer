@@ -74,7 +74,7 @@ func (f AddrFact) Canonical() string { return netip.Addr(f).String() }
 type RouteInterfaceFact string
 
 // TypeID returns the fact type identifier for RouteInterfaceFact.
-func (f RouteInterfaceFact) TypeID() string { return "routing.interface" }
+func (f RouteInterfaceFact) TypeID() string { return "routing.route.interface" }
 
 // Canonical returns the interface name string.
 func (f RouteInterfaceFact) Canonical() string { return string(f) }
