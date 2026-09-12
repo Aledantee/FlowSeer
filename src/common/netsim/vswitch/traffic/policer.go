@@ -1,6 +1,10 @@
 package traffic
 
-import "time"
+import (
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+)
 
 // Bucket is a lazily refilled ingress token bucket whose tokens are octets.
 // It starts full and is not safe for concurrent use.
@@ -11,9 +15,17 @@ type Bucket struct {
 	primed bool
 }
 
-// NewBucket returns a full bucket configured by cfg.
-func NewBucket(cfg Policer) *Bucket {
-	return &Bucket{cfg: cfg, tokens: float64(cfg.BurstOctets)}
+// NewBucket returns a full bucket after validating cfg.
+func NewBucket(cfg Policer) (*Bucket, error) {
+	if cfg.RateBPS > 0 && cfg.BurstOctets < 1 {
+		return nil, errs.New().
+			Attr("field", "burst_octets").
+			Attr("rate_bps", cfg.RateBPS).
+			Attr("burst_octets", cfg.BurstOctets).
+			Msg("a rate-limited policer requires a positive burst")
+	}
+
+	return &Bucket{cfg: cfg, tokens: float64(cfg.BurstOctets)}, nil
 }
 
 // Admit refills the bucket through now and takes octets when they fit. A

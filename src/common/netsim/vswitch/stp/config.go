@@ -193,6 +193,12 @@ func (c Config) Validate(ports port.Table) error {
 			Attr("priority", c.Priority).
 			Msgf("bridge priority %d must be a multiple of 4096", c.Priority)
 	}
+	if c.Address.IsGroup() {
+		return errs.New().
+			Attr("field", "address").
+			Attr("address", c.Address).
+			Msgf("spanning tree address %s cannot be a group MAC", c.Address)
+	}
 	// The BPDU carries each timer in 1/256 s in 16 bits and 802.1D-2004
 	// clause 17.14 bounds them; a value outside would encode as another.
 	for _, t := range []struct {

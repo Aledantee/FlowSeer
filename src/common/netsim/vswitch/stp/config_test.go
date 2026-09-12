@@ -85,6 +85,15 @@ func TestValidate(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "group address rejected",
+			cfg: stp.Config{
+				Priority: 32768,
+				Address:  netaddr.MAC{0x01, 0, 0, 0, 0, 1},
+				Ports:    map[string]stp.Port{"1/1/1": {Priority: 128}},
+			},
+			wantErr: true,
+		},
+		{
 			name: "non-multiple of 4096 priority rejected",
 			cfg: stp.Config{
 				Priority: 32767,

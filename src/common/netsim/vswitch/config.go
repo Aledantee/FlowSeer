@@ -2,6 +2,7 @@
 package vswitch
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -39,13 +40,42 @@ type Config struct {
 }
 
 // TypeID returns the fact type identifier for Config.
-func (c Config) TypeID() string {
+//
+// Config remains a fact because fabric switch add/remove changes use a deep
+// clone of it. Capability diffs use package-owned immutable snapshot facts.
+func (Config) TypeID() string {
 	return "vswitch.config"
 }
 
-// Canonical returns the canonical string representation of the switch configuration.
+// Canonical returns a deterministic encoding of the normalized configuration.
 func (c Config) Canonical() string {
-	return c.MAC.String()
+	norm := c.Normalize()
+	snapshot := struct {
+		MAC     netaddr.MAC     `json:"mac"`
+		Ports   []port.Port     `json:"ports"`
+		Phy     *phy.Config     `json:"phy"`
+		Bridge  *bridge.Config  `json:"bridge"`
+		LAG     *lag.Config     `json:"lag"`
+		STP     *stp.Config     `json:"stp"`
+		Mcast   *mcast.Config   `json:"mcast"`
+		Routing *routing.Config `json:"routing"`
+		Traffic *traffic.Config `json:"traffic"`
+	}{
+		MAC:     norm.MAC,
+		Ports:   norm.Ports.Ports(),
+		Phy:     norm.Phy,
+		Bridge:  norm.Bridge,
+		LAG:     norm.LAG,
+		STP:     norm.STP,
+		Mcast:   norm.Mcast,
+		Routing: norm.Routing,
+		Traffic: norm.Traffic,
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		panic(fmt.Sprintf("encode virtual switch configuration fact: %v", err))
+	}
+	return string(encoded)
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.
@@ -102,6 +132,12 @@ func (c Config) Validate() error {
 	if err := c.Ports.Validate(); err != nil {
 		return err
 	}
+	if c.MAC.IsGroup() {
+		return errs.New().
+			Attr("field", "mac").
+			Attr("mac", c.MAC).
+			Msgf("switch MAC %s cannot be a group MAC", c.MAC)
+	}
 	if c.Phy != nil {
 		if err := c.Phy.Validate(c.Ports); err != nil {
 			return err
@@ -151,11 +187,10 @@ func (c Config) Validate() error {
 					Msgf("multicast snooping references VLAN %d absent from bridge VLAN table", vid)
 			}
 			for _, name := range c.Mcast.VLANs[vid].RouterPorts {
-				p, _ := c.Ports.Port(name)
 				switchport, ok := c.Bridge.VLAN.Switchports[name]
 				member := ok && (slices.Contains(switchport.Tagged, vid) || slices.Contains(switchport.Untagged, vid) ||
 					(switchport.Tunnel != nil && switchport.Tunnel.VID == vid))
-				if p.LagParent != "" || !p.Forwards() || !member {
+				if !member {
 					return errs.New().
 						Attr("field", fmt.Sprintf("mcast.vlans.%d.router_ports.%s", vid, name)).
 						Attr("vlan", vid).
@@ -304,8 +339,21 @@ func (c Config) Normalize() Config {
 		b := norm.Bridge.Normalize()
 		norm.Bridge = &b
 	}
-	if norm.LAG != nil {
-		l := norm.LAG.Normalize()
+	hasLAG := norm.LAG != nil
+	if !hasLAG {
+		for _, p := range norm.Ports.Ports() {
+			if p.Kind == port.Lag {
+				hasLAG = true
+				break
+			}
+		}
+	}
+	if hasLAG {
+		var cfg lag.Config
+		if norm.LAG != nil {
+			cfg = *norm.LAG
+		}
+		l := cfg.Normalize(norm.Ports, norm.MAC)
 		norm.LAG = &l
 	}
 	if norm.STP != nil {
@@ -347,7 +395,8 @@ func (c Config) Clone() Config {
 		Ports: c.Ports.Clone(),
 	}
 	if c.Phy != nil {
-		cp.Phy = clonePhy(c.Phy)
+		phyCfg := c.Phy.Clone()
+		cp.Phy = &phyCfg
 	}
 	if c.Bridge != nil {
 		b := c.Bridge.Clone()
@@ -378,55 +427,6 @@ func (c Config) Clone() Config {
 	if c.Traffic != nil {
 		trafficCfg := c.Traffic.Clone()
 		cp.Traffic = &trafficCfg
-	}
-
-	return cp
-}
-
-func clonePhy(p *phy.Config) *phy.Config {
-	if p == nil {
-		return nil
-	}
-	cp := &phy.Config{}
-	if p.Ethernet != nil {
-		cp.Ethernet = make(map[string]phy.Ethernet, len(p.Ethernet))
-		for k, v := range p.Ethernet {
-			eth := v
-			if len(v.SupportedSpeedsBPS) > 0 {
-				eth.SupportedSpeedsBPS = make([]uint64, len(v.SupportedSpeedsBPS))
-				copy(eth.SupportedSpeedsBPS, v.SupportedSpeedsBPS)
-			}
-			if v.Setting != nil {
-				s := *v.Setting
-				eth.Setting = &s
-			}
-			if v.Observed != nil {
-				o := *v.Observed
-				eth.Observed = &o
-			}
-			cp.Ethernet[k] = eth
-		}
-	}
-	if p.PoE != nil {
-		poe := &phy.PoE{}
-		if p.PoE.Groups != nil {
-			poe.Groups = make(map[string]phy.Group, len(p.PoE.Groups))
-			for k, v := range p.PoE.Groups {
-				poe.Groups[k] = v
-			}
-		}
-		if p.PoE.Ports != nil {
-			poe.Ports = make(map[string]phy.PsePort, len(p.PoE.Ports))
-			for k, v := range p.PoE.Ports {
-				pp := v
-				if v.Limit != nil {
-					lim := *v.Limit
-					pp.Limit = &lim
-				}
-				poe.Ports[k] = pp
-			}
-		}
-		cp.PoE = poe
 	}
 
 	return cp

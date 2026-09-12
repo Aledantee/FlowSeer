@@ -233,6 +233,28 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", traffic.RateFact(1_000_000), traffic.RateFact(2_000_000))
 }
 
+func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	sourcePortsA := []string{"1/1/1"}
+	a := traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", SelectSrcPorts: sourcePortsA, OutputPort: "1/1/4"}}}
+	b := traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", SelectSrcPorts: []string{"1/1/24"}, OutputPort: "1/1/4"}}}
+
+	factA := traffic.Diff(traffic.Config{}, a)[0].To
+	factB := traffic.Diff(traffic.Config{}, b)[0].To
+	if factA.TypeID() != "traffic.mirror" {
+		t.Errorf("TypeID() = %q, want traffic.mirror", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different mirrors share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	sourcePortsA[0] = "1/1/2"
+	if got := factA.Canonical(); got != before {
+		t.Errorf("fact changed after source mutation: got %q, want %q", got, before)
+	}
+}
+
 func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to trace.Fact) {
 	t.Helper()
 	for _, change := range changes {

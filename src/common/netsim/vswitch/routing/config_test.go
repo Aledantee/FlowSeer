@@ -637,12 +637,48 @@ func TestDiff(t *testing.T) {
 	})
 }
 
+func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	prefixesA := []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}
+	prefixesB := []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}
+	configFor := func(prefixes []netip.Prefix) routing.Config {
+		return routing.Config{VRFs: map[string]routing.VRF{
+			"default": {Interfaces: map[string]routing.Interface{
+				"vlan10": {VLAN: 10, Prefixes: prefixes},
+			}},
+		}}
+	}
+
+	factA := routing.Diff(routing.Config{}, configFor(prefixesA))[0].To
+	factB := routing.Diff(routing.Config{}, configFor(prefixesB))[0].To
+	if factA.TypeID() != "routing.vrf" {
+		t.Errorf("TypeID() = %q, want routing.vrf", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different VRFs share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	prefixesA[0] = netip.MustParsePrefix("192.0.2.1/24")
+	if got := factA.Canonical(); got != before {
+		t.Errorf("VRF fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	base := routing.Config{VRFs: map[string]routing.VRF{"default": {Interfaces: map[string]routing.Interface{}}}}
+	interfaceFactA := routing.Diff(base, configFor([]netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}))[0].To
+	interfaceFactB := routing.Diff(base, configFor([]netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}))[0].To
+	if interfaceFactA.TypeID() != "routing.interface" {
+		t.Errorf("TypeID() = %q, want routing.interface", interfaceFactA.TypeID())
+	}
+	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
+		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
+	}
+}
+
 func TestFactTypeIDsUnique(t *testing.T) {
 	t.Parallel()
 
 	facts := []trace.Fact{
-		routing.VRF{},
-		routing.Interface{},
 		routing.Route{},
 		routing.Neighbor{},
 		routing.VLANFact(0),
@@ -666,10 +702,5 @@ func TestFactTypeIDsUnique(t *testing.T) {
 			t.Errorf("duplicate TypeID %q shared by %s and %T", tid, prev, f)
 		}
 		seen[tid] = fmt.Sprintf("%T", f)
-	}
-
-	// Specifically verify that Interface and RouteInterfaceFact have distinct TypeIDs.
-	if (routing.Interface{}).TypeID() == routing.RouteInterfaceFact("").TypeID() {
-		t.Errorf("Interface.TypeID() and RouteInterfaceFact.TypeID() must not collide: %q", (routing.Interface{}).TypeID())
 	}
 }

@@ -100,6 +100,51 @@ func (f SnapLenFact) TypeID() string { return "traffic.snap_len" }
 // Canonical returns the decimal string of the snap length.
 func (f SnapLenFact) Canonical() string { return strconv.Itoa(int(f)) }
 
+type mirrorSnapshotFact string
+
+func (f mirrorSnapshotFact) TypeID() string    { return "traffic.mirror" }
+func (f mirrorSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotMirror(m Mirror) mirrorSnapshotFact {
+	var b strings.Builder
+	b.WriteString("name=")
+	b.WriteString(strconv.Quote(m.Name))
+	b.WriteString(";select_all=")
+	b.WriteString(strconv.FormatBool(m.SelectAll))
+	b.WriteString(";select_src_ports=[")
+	writeQuotedStrings(&b, normalizedStrings(m.SelectSrcPorts))
+	b.WriteString("];select_dst_ports=[")
+	writeQuotedStrings(&b, normalizedStrings(m.SelectDstPorts))
+	b.WriteString("];select_vlans=[")
+	for i, vid := range normalizedVLANs(m.SelectVLANs) {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.Itoa(int(vid)))
+	}
+	b.WriteString("];output_port=")
+	b.WriteString(strconv.Quote(m.OutputPort))
+	b.WriteString(";output_vlan=")
+	if m.OutputVLAN == nil {
+		b.WriteString("none")
+	} else {
+		b.WriteString(strconv.Itoa(int(*m.OutputVLAN)))
+	}
+	b.WriteString(";snap_len=")
+	b.WriteString(strconv.Itoa(m.SnapLen))
+
+	return mirrorSnapshotFact(b.String())
+}
+
+func writeQuotedStrings(b *strings.Builder, values []string) {
+	for i, value := range values {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(strconv.Quote(value))
+	}
+}
+
 // Diff computes field-level changes between two traffic configurations.
 // Mirror selector slices are sets, so their order does not produce a change.
 func Diff(a, b Config) []trace.Change {
@@ -112,14 +157,14 @@ func Diff(a, b Config) []trace.Change {
 		bm, inB := bMirrors[name]
 		if !inA {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: nil, To: bm,
+				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: nil, To: snapshotMirror(bm),
 			})
 
 			continue
 		}
 		if !inB {
 			changes = append(changes, trace.Change{
-				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: am, To: nil,
+				Layer: Layer, Subject: trace.Subject{Kind: "mirror", Key: name}, Field: "", From: snapshotMirror(am), To: nil,
 			})
 
 			continue

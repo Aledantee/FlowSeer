@@ -156,6 +156,18 @@ func TestDiffIgnoresSetOrderAndTheAgingDefault(t *testing.T) {
 	}
 }
 
+func TestDiffDistinguishesVLANAwareness(t *testing.T) {
+	t.Parallel()
+
+	changes := bridge.Diff(bridge.Config{}, bridge.Config{VLAN: &bridge.VLAN{}})
+	if len(changes) != 1 {
+		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
+	}
+	if got := changes[0]; got.Field != "vlan_awareness" || got.From != bridge.BoolFact(false) || got.To != bridge.BoolFact(true) {
+		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
+	}
+}
+
 func TestUntaggedIngressClassifiesToPVIDAndLearns(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	cfg := bridge.Config{
@@ -964,6 +976,92 @@ func TestValidationRules(t *testing.T) {
 				t.Errorf("attribute %q = %v (%T), want %v (%T)", tc.wantAttrKey, val, val, tc.wantAttrValue, tc.wantAttrValue)
 			}
 		})
+	}
+}
+
+func TestValidateRejectsVLANReferencesAbsentFromTable(t *testing.T) {
+	t.Parallel()
+
+	ports := buildTestPorts(t, 1)
+	missing := vlan.ID(20)
+	cases := []struct {
+		name      string
+		cfg       bridge.Config
+		wantField string
+	}{
+		{
+			name: "PVID",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &missing}},
+			}},
+			wantField: "vlan.switchports.1/1/1.pvid",
+		},
+		{
+			name: "tagged VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Tagged: []vlan.ID{missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.tagged.20",
+		},
+		{
+			name: "untagged VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Untagged: []vlan.ID{missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.untagged.20",
+		},
+		{
+			name: "tunnel VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Tunnel: &bridge.Tunnel{VID: missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.tunnel.vid",
+		},
+		{
+			name: "flood VLAN",
+			cfg: bridge.Config{
+				FloodVLANs: []vlan.ID{missing},
+				VLAN:       &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}},
+			},
+			wantField: "flood_vlans.20",
+		},
+		{
+			name:      "flood VLAN without VLAN awareness",
+			cfg:       bridge.Config{FloodVLANs: []vlan.ID{10}},
+			wantField: "flood_vlans.10",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.cfg.Validate(ports)
+			if err == nil {
+				t.Fatal("Validate() = nil, want error")
+			}
+			if got := errs.Attributes(err)["field"]; got != tc.wantField {
+				t.Errorf("field = %v, want %q", got, tc.wantField)
+			}
+		})
+	}
+}
+
+func TestNegativeAgingTimeIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	cfg := bridge.Config{AgingTime: -time.Second}
+	if got := cfg.Normalize().AgingTime; got != -time.Second {
+		t.Errorf("Normalize().AgingTime = %s, want -1s", got)
+	}
+	err := cfg.Validate(buildTestPorts(t, 1))
+	if err == nil {
+		t.Fatal("Validate() = nil, want error")
+	}
+	if got := errs.Attributes(err)["field"]; got != "aging_time" {
+		t.Errorf("field = %v, want aging_time", got)
 	}
 }
 
@@ -2373,9 +2471,8 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 		if ch.From != nil {
 			t.Errorf("From = %v, want nil", ch.From)
 		}
-		to, ok := ch.To.(bridge.Tunnel)
-		if !ok || to.VID != 10 || len(to.CustomerVIDs) != 0 || to.TPID != bridge.DefaultServiceTPID {
-			t.Errorf("To = %+v (%T), want Tunnel{VID: 10} with the TPID in effect", ch.To, ch.To)
+		if ch.To == nil || ch.To.TypeID() != "bridge.tunnel" || ch.To.Canonical() != "vid=10;tpid=34984;customer_vids=[]" {
+			t.Errorf("To = %+v (%T), want a complete tunnel snapshot", ch.To, ch.To)
 		}
 	})
 
@@ -2415,6 +2512,62 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Errorf("change = %+v, want priority_tags From: Never To: Always", ch)
 		}
 	})
+}
+
+func TestBridgeSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	taggedA := []vlan.ID{10}
+	configForSwitchport := func(tagged []vlan.ID) bridge.Config {
+		return bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{
+			"1/1/1": {Tagged: tagged},
+		}}}
+	}
+	base := bridge.Config{VLAN: &bridge.VLAN{}}
+	factA := bridge.Diff(base, configForSwitchport(taggedA))[0].To
+	factB := bridge.Diff(base, configForSwitchport([]vlan.ID{20}))[0].To
+	if factA.TypeID() != "bridge.switchport" {
+		t.Errorf("TypeID() = %q, want bridge.switchport", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different switchports share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	taggedA[0] = 30
+	if got := factA.Canonical(); got != before {
+		t.Errorf("switchport fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	customersA := []vlan.ID{100}
+	configForTunnel := func(customers []vlan.ID) bridge.Config {
+		return bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{
+			"1/1/1": {Tunnel: &bridge.Tunnel{VID: 10, CustomerVIDs: customers}},
+		}}}
+	}
+	tunnelFactA := bridge.Diff(base, configForTunnel(customersA))[0].To
+	tunnelFactB := bridge.Diff(base, configForTunnel([]vlan.ID{200}))[0].To
+	if tunnelFactA.TypeID() != "bridge.switchport" {
+		t.Errorf("TypeID() = %q, want bridge.switchport", tunnelFactA.TypeID())
+	}
+	if tunnelFactA.Canonical() == tunnelFactB.Canonical() {
+		t.Errorf("different tunnel switchports share canonical form %q", tunnelFactA.Canonical())
+	}
+	before = tunnelFactA.Canonical()
+	customersA[0] = 300
+	if got := tunnelFactA.Canonical(); got != before {
+		t.Errorf("tunnel switchport fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	directA := configForTunnel([]vlan.ID{100})
+	directB := configForTunnel([]vlan.ID{200})
+	directFactA := bridge.Diff(directA, directB)[0].From
+	directFactB := bridge.Diff(directA, directB)[0].To
+	if directFactA.TypeID() != "bridge.tunnel" {
+		t.Errorf("TypeID() = %q, want bridge.tunnel", directFactA.TypeID())
+	}
+	if directFactA.Canonical() == directFactB.Canonical() {
+		t.Errorf("different tunnels share canonical form %q", directFactA.Canonical())
+	}
 }
 
 func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {

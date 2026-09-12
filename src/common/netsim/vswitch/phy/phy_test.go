@@ -473,7 +473,7 @@ func TestDiff(t *testing.T) {
 		}}
 
 		diffs := phy.Diff(a, b)
-		if got, want := len(diffs), 2; got != want {
+		if got, want := len(diffs), 3; got != want {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
 		if diffs[0].Field != "speed_bps" || diffs[0].From != phy.SpeedFact(100_000_000) || diffs[0].To != phy.SpeedFact(0) {
@@ -481,6 +481,22 @@ func TestDiff(t *testing.T) {
 		}
 		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From != phy.BoolFact(false) || diffs[1].To != phy.BoolFact(true) {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
+		}
+		if diffs[2].Field != "resolve_source" || diffs[2].From != phy.StringFact(phy.SourceSetting) || diffs[2].To != phy.StringFact(phy.SourceUnresolved) {
+			t.Errorf("diffs[2] = %+v, want resolve_source setting -> unresolved", diffs[2])
+		}
+	})
+
+	t.Run("present zero observation changes resolution source", func(t *testing.T) {
+		a := phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {}}}
+		b := phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {Observed: &phy.Observed{}}}}
+
+		diffs := phy.Diff(a, b)
+		if len(diffs) != 1 {
+			t.Fatalf("len(Diff()) = %d, want 1: %+v", len(diffs), diffs)
+		}
+		if got := diffs[0]; got.Field != "resolve_source" || got.From != phy.StringFact(phy.SourceUnresolved) || got.To != phy.StringFact(phy.SourceObserved) {
+			t.Errorf("Diff()[0] = %+v, want resolve_source unresolved -> observed", got)
 		}
 	})
 

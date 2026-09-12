@@ -3,10 +3,8 @@
 package traffic
 
 import (
-	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -37,19 +35,6 @@ type Mirror struct {
 	OutputPort     string
 	OutputVLAN     *vlan.ID
 	SnapLen        int
-}
-
-// TypeID returns the fact type identifier for Mirror.
-func (m Mirror) TypeID() string { return "traffic.mirror" }
-
-// Canonical returns the canonical string representation of the Mirror fact.
-func (m Mirror) Canonical() string {
-	var outVLAN string
-	if m.OutputVLAN != nil {
-		outVLAN = strconv.Itoa(int(*m.OutputVLAN))
-	}
-	return fmt.Sprintf("name=%s,select_all=%t,output_port=%s,output_vlan=%s,snap_len=%d",
-		m.Name, m.SelectAll, m.OutputPort, outVLAN, m.SnapLen)
 }
 
 // Policer defines an ingress token bucket. RateBPS is in bits per second and

@@ -213,7 +213,11 @@ func newSwitch(norm Config, seeds []bridge.Seed) (*Switch, error) {
 		sw.traffic = norm.Traffic
 		sw.buckets = make(map[string]*traffic.Bucket, len(norm.Traffic.Policers))
 		for name, policer := range norm.Traffic.Policers {
-			sw.buckets[name] = traffic.NewBucket(policer)
+			bucket, err := traffic.NewBucket(policer)
+			if err != nil {
+				return nil, fmt.Errorf("create policer bucket for %q: %w", name, err)
+			}
+			sw.buckets[name] = bucket
 		}
 	}
 

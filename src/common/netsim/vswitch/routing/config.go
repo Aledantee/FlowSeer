@@ -108,22 +108,6 @@ func (c Config) Normalize() Config {
 	return cloned
 }
 
-// TypeID returns the fact type identifier for VRF.
-func (v VRF) TypeID() string { return "routing.vrf" }
-
-// Canonical returns the canonical string representation of the VRF fact.
-func (v VRF) Canonical() string {
-	return fmt.Sprintf("interfaces=%d,routes=%d,neighbors=%d", len(v.Interfaces), len(v.Routes), len(v.Neighbors))
-}
-
-// TypeID returns the fact type identifier for Interface.
-func (i Interface) TypeID() string { return "routing.interface" }
-
-// Canonical returns the canonical string representation of the Interface fact.
-func (i Interface) Canonical() string {
-	return fmt.Sprintf("vlan=%d,port=%s,mac=%s,prefixes=%d", i.VLAN, i.Port, i.MAC, len(i.Prefixes))
-}
-
 // TypeID returns the fact type identifier for Route.
 func (r Route) TypeID() string { return "routing.route" }
 

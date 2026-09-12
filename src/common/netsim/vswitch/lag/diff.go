@@ -2,6 +2,7 @@ package lag
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -81,12 +82,58 @@ func (f PortPriorityFact) TypeID() string { return "lag.port_priority" }
 // Canonical returns the decimal string of the port priority.
 func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
+type lagSnapshotFact string
+
+func (f lagSnapshotFact) TypeID() string    { return "lag.lag" }
+func (f lagSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotLAG(l LAG) lagSnapshotFact {
+	var b strings.Builder
+	b.WriteString("mode=")
+	b.WriteString(strconv.Quote(string(l.Mode)))
+	b.WriteString(";primary=")
+	b.WriteString(strconv.Quote(l.Primary))
+	b.WriteString(";up_delay_ns=")
+	b.WriteString(strconv.FormatInt(int64(l.UpDelay), 10))
+	b.WriteString(";down_delay_ns=")
+	b.WriteString(strconv.FormatInt(int64(l.DownDelay), 10))
+	b.WriteString(";hash_basis=")
+	b.WriteString(strconv.FormatUint(uint64(l.HashBasis), 10))
+	b.WriteString(";min_links=")
+	b.WriteString(strconv.Itoa(l.MinLinks))
+	b.WriteString(";lacp={mode=")
+	b.WriteString(strconv.Quote(string(l.LACP.Mode)))
+	b.WriteString(";fast=")
+	b.WriteString(strconv.FormatBool(l.LACP.Fast))
+	b.WriteString(";system_priority=")
+	b.WriteString(strconv.FormatUint(uint64(l.LACP.SystemPriority), 10))
+	b.WriteString(";system_id=")
+	b.WriteString(strconv.Quote(l.LACP.SystemID.String()))
+	b.WriteString(";key=")
+	b.WriteString(strconv.FormatUint(uint64(l.LACP.Key), 10))
+	b.WriteString(";fallback=")
+	b.WriteString(strconv.FormatBool(l.LACP.Fallback))
+	b.WriteString("};members={")
+	for i, name := range sortedKeys(l.Members) {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		member := l.Members[name]
+		b.WriteString(strconv.Quote(name))
+		b.WriteString(":{priority=")
+		b.WriteString(strconv.FormatUint(uint64(member.Priority), 10))
+		b.WriteString(";key=")
+		b.WriteString(strconv.FormatUint(uint64(member.Key), 10))
+		b.WriteByte('}')
+	}
+	b.WriteByte('}')
+
+	return lagSnapshotFact(b.String())
+}
+
 // Diff computes the difference between two link aggregation configurations,
 // reporting changes to LAG settings and per-member administrative parameters.
 func Diff(a, b Config) []trace.Change {
-	a = a.Normalize()
-	b = b.Normalize()
-
 	var changes []trace.Change
 	layer := port.LayerLag
 
@@ -98,7 +145,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
-				From:    aLag,
+				From:    snapshotLAG(aLag),
 				To:      nil,
 			})
 
@@ -281,7 +328,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: trace.Subject{Kind: "lag", Key: lagName},
 				Field:   "",
 				From:    nil,
-				To:      b.LAGs[lagName],
+				To:      snapshotLAG(b.LAGs[lagName]),
 			})
 		}
 	}
