@@ -3,6 +3,9 @@
 package port
 
 import (
+	"fmt"
+	"strconv"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
@@ -64,6 +67,16 @@ const (
 	Other Kind = "Other"
 )
 
+// TypeID returns the stable identifier for Kind facts.
+func (k Kind) TypeID() string {
+	return "port.kind"
+}
+
+// Canonical returns the string value of the Kind.
+func (k Kind) Canonical() string {
+	return string(k)
+}
+
 // LinkState represents the administrative or operational link state of a port.
 type LinkState string
 
@@ -78,6 +91,16 @@ const (
 	Unreported LinkState = "Unreported"
 )
 
+// TypeID returns the stable identifier for LinkState facts.
+func (s LinkState) TypeID() string {
+	return "port.link_state"
+}
+
+// Canonical returns the string value of the LinkState.
+func (s LinkState) Canonical() string {
+	return string(s)
+}
+
 // Port represents a network port or interface with its state, limits, and LAG membership.
 // IfIndex is the interface's ifIndex, or 0 when the source reported none; ifIndex values
 // start at 1, so 0 is free to mean absent.
@@ -91,10 +114,74 @@ type Port struct {
 	LagParent   string
 }
 
-// Forwards reports whether the port forwards frames. A port forwards unless its
-// administrative or operational state is Down.
+// TypeID returns the stable identifier for Port facts.
+func (p Port) TypeID() string {
+	return "port.port"
+}
+
+// Canonical returns a deterministic representation of the port for equality and ordering.
+func (p Port) Canonical() string {
+	return fmt.Sprintf("name=%s,kind=%s,ifindex=%d,admin=%s,oper=%s,mtu=%d,lag=%s",
+		p.Name, p.Kind, p.IfIndex, p.AdminStatus, p.OperStatus, p.MTU, p.LagParent)
+}
+
+// Normalize returns a deterministic copy of the port with standard defaults applied.
+// An unspecified Kind defaults to [Physical], and unspecified AdminStatus and OperStatus default to [Down].
+func (p Port) Normalize() Port {
+	cp := p
+	if cp.Kind == "" {
+		cp.Kind = Physical
+	}
+	if cp.AdminStatus == "" {
+		cp.AdminStatus = Down
+	}
+	if cp.OperStatus == "" {
+		cp.OperStatus = Down
+	}
+
+	return cp
+}
+
+// MTUFact is an immutable semantic fact representing a port's MTU setting.
+type MTUFact int
+
+// TypeID returns the stable identifier for MTUFact.
+func (m MTUFact) TypeID() string { return "port.mtu" }
+
+// Canonical returns the decimal string representation of the MTU.
+func (m MTUFact) Canonical() string { return strconv.Itoa(int(m)) }
+
+// String returns the string representation of the MTU.
+func (m MTUFact) String() string { return strconv.Itoa(int(m)) }
+
+// LagParentFact is an immutable semantic fact representing a port's LAG parent membership.
+type LagParentFact string
+
+// TypeID returns the stable identifier for LagParentFact.
+func (f LagParentFact) TypeID() string { return "port.lag_parent" }
+
+// Canonical returns the string representation of the LAG parent.
+func (f LagParentFact) Canonical() string { return string(f) }
+
+// String returns the string representation of the LAG parent.
+func (f LagParentFact) String() string { return string(f) }
+
+// IfIndexFact is an immutable semantic fact representing a port's ifIndex.
+type IfIndexFact uint32
+
+// TypeID returns the stable identifier for IfIndexFact.
+func (f IfIndexFact) TypeID() string { return "port.ifindex" }
+
+// Canonical returns the decimal string representation of the ifIndex.
+func (f IfIndexFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// String returns the string representation of the ifIndex.
+func (f IfIndexFact) String() string { return strconv.FormatUint(uint64(f), 10) }
+
+// Forwards reports whether the port forwards frames. A port forwards only if its
+// administrative and operational states are both Up.
 func (p Port) Forwards() bool {
-	return p.AdminStatus != Down && p.OperStatus != Down
+	return p.AdminStatus == Up && p.OperStatus == Up
 }
 
 // Table is an ordered collection of ports keyed by port name.
@@ -225,24 +312,82 @@ func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
 	return "", ""
 }
 
+// Normalize returns an independent copy of the table with standard port defaults applied.
+func (t Table) Normalize() Table {
+	if len(t.ports) == 0 {
+		return Table{}
+	}
+	norm := Table{
+		ports:  make([]Port, len(t.ports)),
+		byName: make(map[string]Port, len(t.ports)),
+	}
+	for i, p := range t.ports {
+		np := p.Normalize()
+		norm.ports[i] = np
+		norm.byName[np.Name] = np
+	}
+
+	return norm
+}
+
 // Validate verifies the invariants of the table: all port names must be non-empty
-// and unique, any configured LAG parent must refer to an existing port of kind Lag,
+// and unique, enums must be in their declared domains, MTU must be non-negative,
+// any configured LAG parent must refer to an existing port of kind Lag,
 // and no LAG port may have a LAG parent.
 func (t Table) Validate() error {
 	seen := make(map[string]struct{}, len(t.ports))
 	for _, p := range t.ports {
 		if p.Name == "" {
-			return errs.New().Attr("name", "").Msg("port name cannot be empty")
+			return errs.New().Attr("field", "name").Attr("name", "").Msg("port name cannot be empty")
 		}
 		if _, exists := seen[p.Name]; exists {
-			return errs.New().Attr("name", p.Name).Msgf("duplicate port name %q", p.Name)
+			return errs.New().Attr("field", "ports."+p.Name).Attr("name", p.Name).Msgf("duplicate port name %q", p.Name)
 		}
 		seen[p.Name] = struct{}{}
+
+		switch p.Kind {
+		case Physical, Lag, Other, "":
+		default:
+			return errs.New().
+				Attr("field", "ports."+p.Name+".kind").
+				Attr("name", p.Name).
+				Attr("kind", p.Kind).
+				Msgf("port %q has unknown kind %q", p.Name, p.Kind)
+		}
+
+		switch p.AdminStatus {
+		case Up, Down, Unreported, "":
+		default:
+			return errs.New().
+				Attr("field", "ports."+p.Name+".admin_status").
+				Attr("name", p.Name).
+				Attr("admin_status", p.AdminStatus).
+				Msgf("port %q has unknown admin status %q", p.Name, p.AdminStatus)
+		}
+
+		switch p.OperStatus {
+		case Up, Down, Unreported, "":
+		default:
+			return errs.New().
+				Attr("field", "ports."+p.Name+".oper_status").
+				Attr("name", p.Name).
+				Attr("oper_status", p.OperStatus).
+				Msgf("port %q has unknown oper status %q", p.Name, p.OperStatus)
+		}
+
+		if p.MTU < 0 {
+			return errs.New().
+				Attr("field", "ports."+p.Name+".mtu").
+				Attr("name", p.Name).
+				Attr("mtu", p.MTU).
+				Msgf("port %q MTU cannot be negative", p.Name)
+		}
 	}
 
 	for _, p := range t.ports {
 		if p.Kind == Lag && p.LagParent != "" {
 			return errs.New().
+				Attr("field", "ports."+p.Name+".lag_parent").
 				Attr("name", p.Name).
 				Attr("parent", p.LagParent).
 				Msgf("LAG port %q cannot have a LAG parent", p.Name)
@@ -251,12 +396,14 @@ func (t Table) Validate() error {
 			parent, exists := t.byName[p.LagParent]
 			if !exists {
 				return errs.New().
+					Attr("field", "ports."+p.Name+".lag_parent").
 					Attr("name", p.Name).
 					Attr("parent", p.LagParent).
 					Msgf("port %q refers to non-existent LAG parent %q", p.Name, p.LagParent)
 			}
 			if parent.Kind != Lag {
 				return errs.New().
+					Attr("field", "ports."+p.Name+".lag_parent").
 					Attr("name", p.Name).
 					Attr("parent", p.LagParent).
 					Msgf("port %q parent %q is not a LAG", p.Name, p.LagParent)

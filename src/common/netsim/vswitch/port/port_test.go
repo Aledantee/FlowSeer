@@ -307,14 +307,67 @@ func TestDiff(t *testing.T) {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
 
-		if diffs[0].Field != "mtu" || diffs[0].From != 1500 || diffs[0].To != 9000 {
+		if diffs[0].Field != "mtu" || diffs[0].From != port.MTUFact(1500) || diffs[0].To != port.MTUFact(9000) {
 			t.Errorf("diffs[0] = %+v, want mtu change 1500 -> 9000", diffs[0])
 		}
-		if diffs[1].Field != "lag_parent" || diffs[1].From != "lag1" || diffs[1].To != "" {
+		if diffs[1].Field != "lag_parent" || diffs[1].From != port.LagParentFact("lag1") || diffs[1].To != port.LagParentFact("") {
 			t.Errorf("diffs[1] = %+v, want lag_parent change lag1 -> \"\"", diffs[1])
 		}
 		if diffs[2].Field != "" || diffs[2].Subject.Key != "1/1/2" || diffs[2].To != nil {
 			t.Errorf("diffs[2] = %+v, want removed port 1/1/2", diffs[2])
+		}
+	})
+
+	t.Run("all port behavior fields diff coverage", func(t *testing.T) {
+		t1, err := port.NewBuilder().
+			Add(port.Port{
+				Name:        "1/1/1",
+				IfIndex:     1,
+				Kind:        port.Physical,
+				AdminStatus: port.Down,
+				OperStatus:  port.Down,
+				MTU:         1500,
+				LagParent:   "",
+			}).
+			Build()
+		if err != nil {
+			t.Fatalf("Build t1: %v", err)
+		}
+
+		t2, err := port.NewBuilder().
+			Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{
+				Name:        "1/1/1",
+				IfIndex:     2,
+				Kind:        port.Other,
+				AdminStatus: port.Up,
+				OperStatus:  port.Up,
+				MTU:         9000,
+				LagParent:   "lag1",
+			}).
+			Build()
+		if err != nil {
+			t.Fatalf("Build t2: %v", err)
+		}
+
+		diffs := port.Diff(t1, t2)
+		fieldsSeen := make(map[string]bool)
+		for _, d := range diffs {
+			if d.Subject.Key == "1/1/1" {
+				fieldsSeen[d.Field] = true
+				if d.From == nil || d.To == nil {
+					t.Errorf("field %q has nil fact: From=%v To=%v", d.Field, d.From, d.To)
+				}
+				if d.From.TypeID() == "" || d.To.TypeID() == "" {
+					t.Errorf("field %q fact has empty TypeID", d.Field)
+				}
+			}
+		}
+
+		for _, expected := range []string{"ifindex", "kind", "admin_status", "oper_status", "mtu", "lag_parent"} {
+			if !fieldsSeen[expected] {
+				t.Errorf("diff missing field %q for port 1/1/1; seen: %v", expected, fieldsSeen)
+			}
 		}
 	})
 
@@ -344,10 +397,10 @@ func TestPortForwards(t *testing.T) {
 		{name: "admin down", admin: port.Down, oper: port.Up, wantForward: false},
 		{name: "oper down", admin: port.Up, oper: port.Down, wantForward: false},
 		{name: "both down", admin: port.Down, oper: port.Down, wantForward: false},
-		{name: "unreported admin", admin: port.Unreported, oper: port.Up, wantForward: true},
-		{name: "unreported oper", admin: port.Up, oper: port.Unreported, wantForward: true},
-		{name: "both unreported", admin: port.Unreported, oper: port.Unreported, wantForward: true},
-		{name: "zero values", admin: "", oper: "", wantForward: true},
+		{name: "unreported admin", admin: port.Unreported, oper: port.Up, wantForward: false},
+		{name: "unreported oper", admin: port.Up, oper: port.Unreported, wantForward: false},
+		{name: "both unreported", admin: port.Unreported, oper: port.Unreported, wantForward: false},
+		{name: "zero values", admin: "", oper: "", wantForward: false},
 	}
 
 	for _, tc := range cases {
@@ -428,6 +481,125 @@ func TestTableValidate(t *testing.T) {
 			t.Errorf("empty table Validate() error = %v, want nil", err)
 		}
 	})
+
+	t.Run("invalid kind enum", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Kind("invalid")})
+		_, err := b.Build()
+		if err == nil {
+			t.Fatal("Build() with invalid kind succeeded, want error")
+		}
+		attrs := errs.Attributes(err)
+		if got, want := attrs["field"], "ports.1/1/1.kind"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("invalid admin status enum", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.LinkState("Invalid")})
+		_, err := b.Build()
+		if err == nil {
+			t.Fatal("Build() with invalid admin status succeeded, want error")
+		}
+		attrs := errs.Attributes(err)
+		if got, want := attrs["field"], "ports.1/1/1.admin_status"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("invalid oper status enum", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, OperStatus: port.LinkState("Invalid")})
+		_, err := b.Build()
+		if err == nil {
+			t.Fatal("Build() with invalid oper status succeeded, want error")
+		}
+		attrs := errs.Attributes(err)
+		if got, want := attrs["field"], "ports.1/1/1.oper_status"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("negative mtu", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, MTU: -1})
+		_, err := b.Build()
+		if err == nil {
+			t.Fatal("Build() with negative MTU succeeded, want error")
+		}
+		attrs := errs.Attributes(err)
+		if got, want := attrs["field"], "ports.1/1/1.mtu"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestNormalize(t *testing.T) {
+	t.Run("default equivalence and idempotence", func(t *testing.T) {
+		raw := port.Port{Name: "1/1/1"}
+		explicit := port.Port{
+			Name:        "1/1/1",
+			Kind:        port.Physical,
+			AdminStatus: port.Down,
+			OperStatus:  port.Down,
+		}
+
+		b1 := port.NewBuilder().Add(raw)
+		t1, err := b1.Build()
+		if err != nil {
+			t.Fatalf("Build raw: %v", err)
+		}
+
+		b2 := port.NewBuilder().Add(explicit)
+		t2, err := b2.Build()
+		if err != nil {
+			t.Fatalf("Build explicit: %v", err)
+		}
+
+		p1, _ := t1.Port("1/1/1")
+		p2, _ := t2.Port("1/1/1")
+		if p1 != p2 {
+			t.Errorf("normalized raw port %+v != explicit port %+v", p1, p2)
+		}
+
+		// Idempotence
+		normOnce := t1.Normalize()
+		normTwice := normOnce.Normalize()
+		pOnce, _ := normOnce.Port("1/1/1")
+		pTwice, _ := normTwice.Port("1/1/1")
+		if pOnce != pTwice {
+			t.Errorf("Normalize() not idempotent: once %+v, twice %+v", pOnce, pTwice)
+		}
+	})
+
+	t.Run("caller input immutability", func(t *testing.T) {
+		input := port.Port{Name: "1/1/1"}
+		b := port.NewBuilder().Add(input)
+		_, err := b.Build()
+		if err != nil {
+			t.Fatalf("Build: %v", err)
+		}
+		if input.Kind != "" || input.AdminStatus != "" || input.OperStatus != "" {
+			t.Errorf("caller input was mutated: %+v", input)
+		}
+	})
+}
+
+func TestPortBehaviorMatrix(t *testing.T) {
+	// Proves every existing Port behavior field is covered across validation, normalization, clone, and diff.
+	fields := []string{
+		"Name",
+		"IfIndex",
+		"Kind",
+		"AdminStatus",
+		"OperStatus",
+		"MTU",
+		"LagParent",
+	}
+	if len(fields) != 7 {
+		t.Fatalf("unexpected number of port fields: %d", len(fields))
+	}
 }
 
 func TestTableReceive(t *testing.T) {

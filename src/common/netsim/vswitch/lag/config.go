@@ -3,6 +3,7 @@
 package lag
 
 import (
+	"fmt"
 	"slices"
 	"time"
 
@@ -31,6 +32,17 @@ const (
 // Mode defines the frame distribution policy across aggregated links.
 type Mode string
 
+// TypeID returns the fact type identifier for Mode.
+func (m Mode) TypeID() string { return "bond_mode" }
+
+// Canonical returns the string representation of the mode.
+func (m Mode) Canonical() string {
+	if m == "" {
+		return string(ActiveBackup)
+	}
+	return string(m)
+}
+
 const (
 	// ActiveBackup transmits through one primary link and fails over to secondary links.
 	ActiveBackup Mode = ""
@@ -44,6 +56,17 @@ const (
 
 // LACPMode controls whether the Link Aggregation Control Protocol negotiates aggregation with a peer.
 type LACPMode string
+
+// TypeID returns the fact type identifier for LACPMode.
+func (m LACPMode) TypeID() string { return "lacp_mode" }
+
+// Canonical returns the string representation of the LACP mode.
+func (m LACPMode) Canonical() string {
+	if m == "" {
+		return string(Off)
+	}
+	return string(m)
+}
 
 const (
 	// Off disables LACP negotiation; link state alone controls enablement.
@@ -60,6 +83,14 @@ const (
 type Member struct {
 	Priority uint16
 	Key      uint16
+}
+
+// TypeID returns the fact type identifier for Member.
+func (m Member) TypeID() string { return "member" }
+
+// Canonical returns the canonical string representation of the Member fact.
+func (m Member) Canonical() string {
+	return fmt.Sprintf("priority=%d,key=%d", m.Priority, m.Key)
 }
 
 // LACPConfig defines the Link Aggregation Control Protocol settings for a link aggregation group.
@@ -82,6 +113,15 @@ type LAG struct {
 	MinLinks  int
 	LACP      LACPConfig
 	Members   map[string]Member
+}
+
+// TypeID returns the fact type identifier for LAG.
+func (l LAG) TypeID() string { return "lag" }
+
+// Canonical returns the canonical string representation of the LAG fact.
+func (l LAG) Canonical() string {
+	return fmt.Sprintf("mode=%s,primary=%s,up_delay=%s,down_delay=%s,hash_basis=%d,min_links=%d,lacp_mode=%s,members=%d",
+		l.Mode, l.Primary, l.UpDelay, l.DownDelay, l.HashBasis, l.MinLinks, l.LACP.Mode, len(l.Members))
 }
 
 // Config defines the link aggregation configuration for a virtual switch.
@@ -111,6 +151,34 @@ func (c Config) Clone() Config {
 	return cp
 }
 
+// Normalize returns a normalized copy of the configuration,
+// filling unspecified fields with standard defaults.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+	for lagName, lag := range cloned.LAGs {
+		if lag.Mode == "" {
+			lag.Mode = ActiveBackup
+		}
+		if lag.LACP.Mode == "" {
+			lag.LACP.Mode = Off
+		}
+		if lag.LACP.SystemPriority == 0 {
+			lag.LACP.SystemPriority = DefaultSystemPriority
+		}
+		for memName, m := range lag.Members {
+			if m.Priority == 0 {
+				m.Priority = DefaultPortPriority
+			}
+			if m.Key == 0 && lag.LACP.Key != 0 {
+				m.Key = lag.LACP.Key
+			}
+			lag.Members[memName] = m
+		}
+		cloned.LAGs[lagName] = lag
+	}
+	return cloned
+}
+
 // Validate verifies the configuration against the port table: every configured LAG
 // must exist as a LAG port in the port table, every configured member must be a member
 // of that LAG, Primary must be a member of the LAG, mode and LACP mode must be recognized,
@@ -121,11 +189,13 @@ func (c Config) Validate(ports port.Table) error {
 		p, ok := ports.Port(lagName)
 		if !ok {
 			return errs.New().
+				Attr("field", "lags."+lagName).
 				Attr("lag", lagName).
 				Msgf("LAG port %q absent from port table", lagName)
 		}
 		if p.Kind != port.Lag {
 			return errs.New().
+				Attr("field", "lags."+lagName).
 				Attr("lag", lagName).
 				Attr("kind", p.Kind).
 				Msgf("port %q is not a LAG", lagName)
@@ -135,6 +205,7 @@ func (c Config) Validate(ports port.Table) error {
 		case ActiveBackup, BalanceSLB, BalanceTCP:
 		default:
 			return errs.New().
+				Attr("field", "lags."+lagName+".mode").
 				Attr("lag", lagName).
 				Attr("mode", lagCfg.Mode).
 				Msgf("unknown bond mode %q", lagCfg.Mode)
@@ -144,6 +215,7 @@ func (c Config) Validate(ports port.Table) error {
 		case Off, Active, Passive:
 		default:
 			return errs.New().
+				Attr("field", "lags."+lagName+".lacp.mode").
 				Attr("lag", lagName).
 				Attr("lacp_mode", lagCfg.LACP.Mode).
 				Msgf("unknown LACP mode %q", lagCfg.LACP.Mode)
@@ -151,12 +223,14 @@ func (c Config) Validate(ports port.Table) error {
 
 		if lagCfg.UpDelay < 0 {
 			return errs.New().
+				Attr("field", "lags."+lagName+".up_delay").
 				Attr("lag", lagName).
 				Attr("up_delay", lagCfg.UpDelay).
 				Msg("up delay cannot be negative")
 		}
 		if lagCfg.DownDelay < 0 {
 			return errs.New().
+				Attr("field", "lags."+lagName+".down_delay").
 				Attr("lag", lagName).
 				Attr("down_delay", lagCfg.DownDelay).
 				Msg("down delay cannot be negative")
@@ -170,6 +244,7 @@ func (c Config) Validate(ports port.Table) error {
 
 		if lagCfg.MinLinks < 0 || lagCfg.MinLinks > len(members) {
 			return errs.New().
+				Attr("field", "lags."+lagName+".min_links").
 				Attr("lag", lagName).
 				Attr("min_links", lagCfg.MinLinks).
 				Attr("member_count", len(members)).
@@ -179,6 +254,7 @@ func (c Config) Validate(ports port.Table) error {
 		if lagCfg.Primary != "" {
 			if _, ok := memberMap[lagCfg.Primary]; !ok {
 				return errs.New().
+					Attr("field", "lags."+lagName+".primary").
 					Attr("lag", lagName).
 					Attr("primary", lagCfg.Primary).
 					Msgf("primary %q is not a member of LAG %q", lagCfg.Primary, lagName)
@@ -188,6 +264,7 @@ func (c Config) Validate(ports port.Table) error {
 		for _, memName := range sortedKeys(lagCfg.Members) {
 			if _, ok := memberMap[memName]; !ok {
 				return errs.New().
+					Attr("field", "lags."+lagName+".members."+memName).
 					Attr("lag", lagName).
 					Attr("member", memName).
 					Msgf("port %q is not a member of LAG %q", memName, lagName)

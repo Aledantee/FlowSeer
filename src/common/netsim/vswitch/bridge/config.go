@@ -1,7 +1,9 @@
 package bridge
 
 import (
+	"fmt"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -33,6 +35,14 @@ type Tunnel struct {
 	TPID         uint16
 }
 
+// TypeID returns the fact type identifier for Tunnel.
+func (t Tunnel) TypeID() string { return "tunnel" }
+
+// Canonical returns the canonical string representation of the Tunnel fact.
+func (t Tunnel) Canonical() string {
+	return fmt.Sprintf("vid=%d,tpid=0x%04x,customer_vids=%d", t.VID, t.EffectiveTPID(), len(t.CustomerVIDs))
+}
+
 // EffectiveTPID returns the configured service TPID or [DefaultServiceTPID] when unset.
 func (t *Tunnel) EffectiveTPID() uint16 {
 	if t == nil || t.TPID == 0 {
@@ -44,6 +54,17 @@ func (t *Tunnel) EffectiveTPID() uint16 {
 
 // PriorityTagPolicy specifies how untagged egress frames are priority-tagged.
 type PriorityTagPolicy string
+
+// TypeID returns the fact type identifier for PriorityTagPolicy.
+func (p PriorityTagPolicy) TypeID() string { return "priority_tags" }
+
+// Canonical returns the string representation of PriorityTagPolicy.
+func (p PriorityTagPolicy) Canonical() string {
+	if p == "" {
+		return string(PriorityTagsNever)
+	}
+	return string(p)
+}
 
 const (
 	// PriorityTagsNever omits the 802.1Q header on untagged egress.
@@ -58,6 +79,17 @@ const (
 
 // Admission specifies which Ethernet frame-tag forms a switchport admits at ingress.
 type Admission string
+
+// TypeID returns the fact type identifier for Admission.
+func (a Admission) TypeID() string { return "admission" }
+
+// Canonical returns the string representation of Admission.
+func (a Admission) Canonical() string {
+	if a == "" {
+		return string(All)
+	}
+	return string(a)
+}
 
 const (
 	// All admits untagged, priority-tagged, and tagged frames.
@@ -79,6 +111,23 @@ type Switchport struct {
 	Admission        Admission
 	Tunnel           *Tunnel
 	PriorityTags     PriorityTagPolicy
+}
+
+// TypeID returns the fact type identifier for Switchport.
+func (s Switchport) TypeID() string { return "switchport" }
+
+// Canonical returns the canonical string representation of the Switchport fact.
+func (s Switchport) Canonical() string {
+	pvidStr := "none"
+	if s.PVID != nil {
+		pvidStr = strconv.Itoa(int(*s.PVID))
+	}
+	tunStr := "none"
+	if s.Tunnel != nil {
+		tunStr = s.Tunnel.Canonical()
+	}
+	return fmt.Sprintf("pvid=%s,tagged=%d,untagged=%d,ingress_filtering=%t,admission=%s,priority_tags=%s,tunnel=%s",
+		pvidStr, len(s.Tagged), len(s.Untagged), s.IngressFiltering, s.Admission, s.PriorityTags, tunStr)
 }
 
 // Clone returns an independent deep copy of the switchport configuration.
@@ -163,6 +212,53 @@ func (c Config) Clone() Config {
 	return cp
 }
 
+// Normalize returns a normalized copy of the configuration,
+// filling unspecified fields with standard defaults, and sorting
+// and deduplicating slices for deterministic behavior.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+	if cloned.AgingTime <= 0 {
+		cloned.AgingTime = DefaultAgingTime
+	}
+	if len(cloned.FloodVLANs) > 0 {
+		slices.Sort(cloned.FloodVLANs)
+		cloned.FloodVLANs = slices.Compact(cloned.FloodVLANs)
+	}
+	if len(cloned.ProtectedPorts) > 0 {
+		slices.Sort(cloned.ProtectedPorts)
+		cloned.ProtectedPorts = slices.Compact(cloned.ProtectedPorts)
+	}
+	if cloned.VLAN != nil {
+		for portName, sw := range cloned.VLAN.Switchports {
+			if sw.Admission == "" {
+				sw.Admission = All
+			}
+			if sw.PriorityTags == "" {
+				sw.PriorityTags = PriorityTagsNever
+			}
+			if len(sw.Tagged) > 0 {
+				slices.Sort(sw.Tagged)
+				sw.Tagged = slices.Compact(sw.Tagged)
+			}
+			if len(sw.Untagged) > 0 {
+				slices.Sort(sw.Untagged)
+				sw.Untagged = slices.Compact(sw.Untagged)
+			}
+			if sw.Tunnel != nil {
+				if sw.Tunnel.TPID == 0 {
+					sw.Tunnel.TPID = DefaultServiceTPID
+				}
+				if len(sw.Tunnel.CustomerVIDs) > 0 {
+					slices.Sort(sw.Tunnel.CustomerVIDs)
+					sw.Tunnel.CustomerVIDs = slices.Compact(sw.Tunnel.CustomerVIDs)
+				}
+			}
+			cloned.VLAN.Switchports[portName] = sw
+		}
+	}
+	return cloned
+}
+
 // Validate verifies the invariants of the bridge configuration against the given port table.
 // It rejects a negative maximum entries bound, a flood VLAN identifier outside 1 through 4094,
 // a protected port absent from the port table or naming a LAG member, a switchport naming an
@@ -173,6 +269,7 @@ func (c Config) Clone() Config {
 func (c Config) Validate(ports port.Table) error {
 	if c.MaxEntries < 0 {
 		return errs.New().
+			Attr("field", "max_entries").
 			Attr("max_entries", c.MaxEntries).
 			Msg("max_entries cannot be negative")
 	}
@@ -180,6 +277,7 @@ func (c Config) Validate(ports port.Table) error {
 	for _, vid := range c.FloodVLANs {
 		if !vid.Valid() {
 			return errs.New().
+				Attr("field", "flood_vlans").
 				Attr("vlan", vid).
 				Msgf("flood VLAN ID %d outside valid range 1..4094", vid)
 		}
@@ -189,12 +287,14 @@ func (c Config) Validate(ports port.Table) error {
 		p, ok := ports.Port(name)
 		if !ok {
 			return errs.New().
+				Attr("field", "protected_ports."+name).
 				Attr("port", name).
 				Msgf("protected port %q not found in port table", name)
 		}
 
 		if p.LagParent != "" {
 			return errs.New().
+				Attr("field", "protected_ports."+name).
 				Attr("port", name).
 				Attr("member", name).
 				Msgf("protected port %q is a member of LAG %q", name, p.LagParent)
@@ -213,6 +313,7 @@ func (c Config) Validate(ports port.Table) error {
 		slices.Sort(names)
 
 		return errs.New().
+			Attr("field", "vlan.table").
 			Attr("port", names[0]).
 			Msgf("switchport %q configured with no VLAN table", names[0])
 	}
@@ -220,6 +321,7 @@ func (c Config) Validate(ports port.Table) error {
 	for id := range c.VLAN.Table {
 		if !id.Valid() {
 			return errs.New().
+				Attr("field", "vlan.table."+strconv.Itoa(int(id))).
 				Attr("vlan", id).
 				Msgf("VLAN ID %d outside valid range 1..4094", id)
 		}
@@ -237,21 +339,34 @@ func (c Config) Validate(ports port.Table) error {
 		p, ok := ports.Port(name)
 		if !ok {
 			return errs.New().
+				Attr("field", "vlan.switchports."+name).
 				Attr("port", name).
 				Msgf("switchport %q not found in port table", name)
 		}
 
 		if p.LagParent != "" {
 			return errs.New().
+				Attr("field", "vlan.switchports."+name).
 				Attr("port", name).
 				Attr("member", name).
 				Msgf("switchport %q is a member of LAG %q", name, p.LagParent)
+		}
+
+		switch sw.Admission {
+		case "", All, TaggedOnly, UntaggedAndPriorityTaggedOnly:
+		default:
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".admission").
+				Attr("port", name).
+				Attr("admission", sw.Admission).
+				Msgf("unknown admission %q on switchport %q", sw.Admission, name)
 		}
 
 		switch sw.PriorityTags {
 		case "", PriorityTagsNever, PriorityTagsIfNonzero, PriorityTagsAlways:
 		default:
 			return errs.New().
+				Attr("field", "vlan.switchports."+name+".priority_tags").
 				Attr("port", name).
 				Attr("priority_tags", sw.PriorityTags).
 				Msgf("unknown priority-tag policy %q on switchport %q", sw.PriorityTags, name)
@@ -260,24 +375,28 @@ func (c Config) Validate(ports port.Table) error {
 		if sw.Tunnel != nil {
 			if sw.PVID != nil {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tunnel").
 					Attr("port", name).
 					Msgf("tunnel switchport %q cannot have PVID configured", name)
 			}
 
 			if len(sw.Tagged) > 0 {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tunnel").
 					Attr("port", name).
 					Msgf("tunnel switchport %q cannot have tagged VLANs configured", name)
 			}
 
 			if len(sw.Untagged) > 0 {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tunnel").
 					Attr("port", name).
 					Msgf("tunnel switchport %q cannot have untagged VLANs configured", name)
 			}
 
 			if !sw.Tunnel.VID.Valid() {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tunnel.vid").
 					Attr("port", name).
 					Attr("vlan", sw.Tunnel.VID).
 					Msgf("tunnel VLAN ID %d on switchport %q outside valid range 1..4094", sw.Tunnel.VID, name)
@@ -286,6 +405,7 @@ func (c Config) Validate(ports port.Table) error {
 			for _, vid := range sw.Tunnel.CustomerVIDs {
 				if !vid.Valid() {
 					return errs.New().
+						Attr("field", "vlan.switchports."+name+".tunnel.customer_vids").
 						Attr("port", name).
 						Attr("vlan", vid).
 						Msgf("customer VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
@@ -295,6 +415,7 @@ func (c Config) Validate(ports port.Table) error {
 
 		if sw.PVID != nil && !sw.PVID.Valid() {
 			return errs.New().
+				Attr("field", "vlan.switchports."+name+".pvid").
 				Attr("port", name).
 				Attr("vlan", *sw.PVID).
 				Msgf("PVID %d on switchport %q outside valid range 1..4094", *sw.PVID, name)
@@ -303,6 +424,7 @@ func (c Config) Validate(ports port.Table) error {
 		for _, vid := range sw.Tagged {
 			if !vid.Valid() {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".tagged").
 					Attr("port", name).
 					Attr("vlan", vid).
 					Msgf("tagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
@@ -312,6 +434,7 @@ func (c Config) Validate(ports port.Table) error {
 		for _, vid := range sw.Untagged {
 			if !vid.Valid() {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name+".untagged").
 					Attr("port", name).
 					Attr("vlan", vid).
 					Msgf("untagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
@@ -321,6 +444,7 @@ func (c Config) Validate(ports port.Table) error {
 		for _, vid := range sw.Tagged {
 			if slices.Contains(sw.Untagged, vid) {
 				return errs.New().
+					Attr("field", "vlan.switchports."+name).
 					Attr("port", name).
 					Attr("vlan", vid).
 					Msgf("VLAN %d cannot be both tagged and untagged on switchport %q", vid, name)

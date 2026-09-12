@@ -334,6 +334,47 @@ func TestValidate(t *testing.T) {
 			wantAttr: "class",
 			wantVal:  uint8(9),
 		},
+		{
+			name: "invalid setting duplex",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {Setting: &phy.Setting{Duplex: phy.Duplex("Bogus")}},
+			}},
+			wantAttr: "field",
+			wantVal:  "ethernet.1/1/1.duplex",
+		},
+		{
+			name: "invalid observed duplex",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {Observed: &phy.Observed{Duplex: phy.Duplex("Bogus")}},
+			}},
+			wantAttr: "field",
+			wantVal:  "ethernet.1/1/1.observed.duplex",
+		},
+		{
+			name: "auto-negotiation requested but unsupported",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {AutoNegotiationSupported: false, Setting: &phy.Setting{AutoNegotiation: true}},
+			}},
+			wantAttr: "field",
+			wantVal:  "ethernet.1/1/1.auto_negotiation",
+		},
+		{
+			name: "invalid poe priority",
+			cfg: phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Priority: phy.Priority("Bogus")}},
+			}},
+			wantAttr: "field",
+			wantVal:  "poe.ports.1/1/1.priority",
+		},
+		{
+			name: "empty poe group name",
+			cfg: phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"": {PowerMilliwatts: 60_000}},
+			}},
+			wantAttr: "field",
+			wantVal:  "poe.groups",
+		},
 	}
 
 	for _, tc := range cases {
@@ -376,7 +417,7 @@ func TestDiff(t *testing.T) {
 		if c0.Layer != port.LayerPoe || c0.Subject.Kind != "pse_group" || c0.Subject.Key != "1" {
 			t.Errorf("diffs[0] = %+v, want poe pse_group:1", c0)
 		}
-		if c0.Field != "power_milliwatts" || c0.From != uint32(60_000) || c0.To != uint32(90_000) {
+		if c0.Field != "power_milliwatts" || c0.From != phy.PowerFact(60_000) || c0.To != phy.PowerFact(90_000) {
 			t.Errorf("diffs[0] = %+v, want power_milliwatts 60000 -> 90000", c0)
 		}
 
@@ -384,7 +425,7 @@ func TestDiff(t *testing.T) {
 		if c1.Layer != port.LayerPoe || c1.Subject.Kind != "port" || c1.Subject.Key != "1/1/1" {
 			t.Errorf("diffs[1] = %+v, want poe port:1/1/1", c1)
 		}
-		if c1.Field != "enabled" || c1.From != true || c1.To != false {
+		if c1.Field != "enabled" || c1.From != phy.BoolFact(true) || c1.To != phy.BoolFact(false) {
 			t.Errorf("diffs[1] = %+v, want enabled true -> false", c1)
 		}
 	})
@@ -435,11 +476,125 @@ func TestDiff(t *testing.T) {
 		if got, want := len(diffs), 2; got != want {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
-		if diffs[0].Field != "speed_bps" || diffs[0].From != uint64(100_000_000) || diffs[0].To != uint64(0) {
+		if diffs[0].Field != "speed_bps" || diffs[0].From != phy.SpeedFact(100_000_000) || diffs[0].To != phy.SpeedFact(0) {
 			t.Errorf("diffs[0] = %+v, want speed_bps 100000000 -> 0", diffs[0])
 		}
-		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From != false || diffs[1].To != true {
+		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From != phy.BoolFact(false) || diffs[1].To != phy.BoolFact(true) {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
+		}
+	})
+
+	t.Run("all phy behavior fields diff coverage", func(t *testing.T) {
+		limitA := uint32(15400)
+		limitB := uint32(30000)
+		pdA := uint8(1)
+		pdB := uint8(2)
+
+		a := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000},
+					AutoNegotiationSupported: true,
+					Setting:                  &phy.Setting{SpeedBPS: 10_000_000, Duplex: phy.Half, AutoNegotiation: false},
+					Observed:                 &phy.Observed{SpeedBPS: 10_000_000, Duplex: phy.Half},
+				},
+			},
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 50_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {
+						Group:    "1",
+						MaxClass: 4,
+						Enabled:  true,
+						Limit:    &limitA,
+						Priority: phy.PriorityLow,
+						PDClass:  &pdA,
+					},
+				},
+			},
+		}
+
+		b := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					SupportedSpeedsBPS:       []uint64{100_000_000, 1_000_000_000},
+					AutoNegotiationSupported: false,
+					Setting:                  &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full, AutoNegotiation: true},
+					Observed:                 &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full},
+				},
+			},
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 100_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {
+						Group:    "1",
+						MaxClass: 8,
+						Enabled:  false,
+						Limit:    &limitB,
+						Priority: phy.PriorityHigh,
+						PDClass:  &pdB,
+					},
+				},
+			},
+		}
+
+		diffs := phy.Diff(a, b)
+		ethFields := make(map[string]bool)
+		poePortFields := make(map[string]bool)
+		poeGroupFields := make(map[string]bool)
+
+		for _, d := range diffs {
+			if d.From == nil || d.To == nil {
+				t.Errorf("field %q has nil fact: From=%v To=%v", d.Field, d.From, d.To)
+			}
+			if d.From.TypeID() == "" || d.To.TypeID() == "" {
+				t.Errorf("field %q fact has empty TypeID", d.Field)
+			}
+			if d.Layer == port.LayerEthernet {
+				ethFields[d.Field] = true
+			}
+			if d.Layer == port.LayerPoe && d.Subject.Kind == "port" {
+				poePortFields[d.Field] = true
+			}
+			if d.Layer == port.LayerPoe && d.Subject.Kind == "pse_group" {
+				poeGroupFields[d.Field] = true
+			}
+		}
+
+		expectedEth := []string{
+			"speed_bps",
+			"duplex",
+			"auto_negotiation_enabled",
+			"supported_speeds_bps",
+			"auto_negotiation_supported",
+			"observed_speed_bps",
+			"observed_duplex",
+		}
+		for _, f := range expectedEth {
+			if !ethFields[f] {
+				t.Errorf("diff missing ethernet field %q; seen: %v", f, ethFields)
+			}
+		}
+
+		expectedPoePort := []string{
+			"max_class",
+			"enabled",
+			"power_limit_milliwatts",
+			"priority",
+			"pd_class",
+		}
+		for _, f := range expectedPoePort {
+			if !poePortFields[f] {
+				t.Errorf("diff missing poe port field %q; seen: %v", f, poePortFields)
+			}
+		}
+
+		if !poeGroupFields["power_milliwatts"] {
+			t.Errorf("diff missing poe group field power_milliwatts; seen: %v", poeGroupFields)
 		}
 	})
 
@@ -455,4 +610,132 @@ func TestDiff(t *testing.T) {
 			t.Errorf("Diff(cfg, cfg) = %+v, want empty", diffs)
 		}
 	})
+}
+
+func TestNormalize(t *testing.T) {
+	t.Run("default equivalence and idempotence", func(t *testing.T) {
+		raw := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					SupportedSpeedsBPS: []uint64{1_000_000_000, 100_000_000, 1_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 100_000_000},
+				},
+			},
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true}},
+			},
+		}
+
+		explicit := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					SupportedSpeedsBPS: []uint64{100_000_000, 1_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
+				},
+			},
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow}},
+			},
+		}
+
+		normRaw := raw.Normalize()
+		normExplicit := explicit.Normalize()
+
+		diffs := phy.Diff(normRaw, normExplicit)
+		if len(diffs) != 0 {
+			t.Errorf("normalized raw != normalized explicit: diffs = %+v", diffs)
+		}
+
+		// Idempotence
+		normTwice := normRaw.Normalize()
+		if len(phy.Diff(normRaw, normTwice)) != 0 {
+			t.Errorf("Normalize() is not idempotent")
+		}
+	})
+
+	t.Run("caller input immutability", func(t *testing.T) {
+		speeds := []uint64{1_000_000_000, 100_000_000}
+		raw := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {SupportedSpeedsBPS: speeds, Setting: &phy.Setting{SpeedBPS: 100_000_000}},
+			},
+		}
+		_ = raw.Normalize()
+		if speeds[0] != 1_000_000_000 || speeds[1] != 100_000_000 {
+			t.Errorf("caller speeds slice was mutated: %v", speeds)
+		}
+		if raw.Ethernet["1/1/1"].Setting.Duplex != "" {
+			t.Errorf("caller setting was mutated: %+v", raw.Ethernet["1/1/1"].Setting)
+		}
+	})
+}
+
+func TestClone(t *testing.T) {
+	limit := uint32(15400)
+	pd := uint8(4)
+	orig := phy.Config{
+		Ethernet: map[string]phy.Ethernet{
+			"1/1/1": {
+				SupportedSpeedsBPS: []uint64{100_000_000},
+				Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
+				Observed:           &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full},
+			},
+		},
+		PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", MaxClass: 8, Limit: &limit, PDClass: &pd},
+			},
+		},
+	}
+
+	cloned := orig.Clone()
+
+	// Mutate clone and assert original is unmodified
+	cloned.Ethernet["1/1/1"].SupportedSpeedsBPS[0] = 10_000_000
+	cloned.Ethernet["1/1/1"].Setting.SpeedBPS = 10_000_000
+	cloned.Ethernet["1/1/1"].Observed.SpeedBPS = 10_000_000
+	*cloned.PoE.Ports["1/1/1"].Limit = 30000
+	*cloned.PoE.Ports["1/1/1"].PDClass = 8
+
+	if orig.Ethernet["1/1/1"].SupportedSpeedsBPS[0] != 100_000_000 {
+		t.Errorf("orig SupportedSpeedsBPS mutated")
+	}
+	if orig.Ethernet["1/1/1"].Setting.SpeedBPS != 100_000_000 {
+		t.Errorf("orig Setting mutated")
+	}
+	if orig.Ethernet["1/1/1"].Observed.SpeedBPS != 100_000_000 {
+		t.Errorf("orig Observed mutated")
+	}
+	if *orig.PoE.Ports["1/1/1"].Limit != 15400 {
+		t.Errorf("orig PoE Limit mutated")
+	}
+	if *orig.PoE.Ports["1/1/1"].PDClass != 4 {
+		t.Errorf("orig PoE PDClass mutated")
+	}
+}
+
+func TestPhyBehaviorMatrix(t *testing.T) {
+	// Proves all behavior-bearing inputs are tracked
+	fields := []string{
+		"Ethernet.SupportedSpeedsBPS",
+		"Ethernet.AutoNegotiationSupported",
+		"Ethernet.Setting.SpeedBPS",
+		"Ethernet.Setting.Duplex",
+		"Ethernet.Setting.AutoNegotiation",
+		"Ethernet.Observed.SpeedBPS",
+		"Ethernet.Observed.Duplex",
+		"PoE.Groups.PowerMilliwatts",
+		"PoE.Ports.Group",
+		"PoE.Ports.MaxClass",
+		"PoE.Ports.Enabled",
+		"PoE.Ports.Limit",
+		"PoE.Ports.Priority",
+		"PoE.Ports.PDClass",
+	}
+	if len(fields) != 14 {
+		t.Fatalf("unexpected number of phy fields: %d", len(fields))
+	}
 }

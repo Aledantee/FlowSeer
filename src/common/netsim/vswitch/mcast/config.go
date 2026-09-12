@@ -1,7 +1,9 @@
 package mcast
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -17,6 +19,44 @@ type Config struct {
 	VLANs map[vlan.ID]VLANSnooping
 }
 
+// Normalize returns an independent copy of the configuration with standard defaults applied.
+// Unspecified FloodUnregistered defaults to true, zero intervals default to [DefaultMembershipInterval],
+// and router ports are sorted and deduplicated.
+func (c Config) Normalize() Config {
+	if c.VLANs == nil {
+		return Config{}
+	}
+
+	norm := Config{VLANs: make(map[vlan.ID]VLANSnooping, len(c.VLANs))}
+	for _, vid := range sortedVLANIDs(c.VLANs) {
+		cfg := c.VLANs[vid]
+		flood := true
+		if cfg.FloodUnregistered != nil {
+			flood = *cfg.FloodUnregistered
+		}
+		cfg.FloodUnregistered = &flood
+
+		if cfg.MembershipInterval == 0 {
+			cfg.MembershipInterval = DefaultMembershipInterval
+		}
+		if cfg.RouterPortInterval == 0 {
+			cfg.RouterPortInterval = DefaultMembershipInterval
+		}
+
+		if len(cfg.RouterPorts) > 0 {
+			rports := slices.Clone(cfg.RouterPorts)
+			slices.Sort(rports)
+			cfg.RouterPorts = slices.Compact(rports)
+		} else {
+			cfg.RouterPorts = nil
+		}
+
+		norm.VLANs[vid] = cfg
+	}
+
+	return norm
+}
+
 // VLANSnooping controls membership and router-port learning for one VLAN.
 // Zero intervals use [DefaultMembershipInterval], and a nil FloodUnregistered enables flooding.
 type VLANSnooping struct {
@@ -27,6 +67,24 @@ type VLANSnooping struct {
 	RouterPortInterval time.Duration
 }
 
+// TypeID returns the stable identifier for VLANSnooping facts.
+func (v VLANSnooping) TypeID() string {
+	return "mcast.vlan_snooping"
+}
+
+// Canonical returns a deterministic representation of the VLAN snooping configuration.
+func (v VLANSnooping) Canonical() string {
+	flood := true
+	if v.FloodUnregistered != nil {
+		flood = *v.FloodUnregistered
+	}
+	ports := slices.Clone(v.RouterPorts)
+	slices.Sort(ports)
+
+	return fmt.Sprintf("flood=%t,fast_leave=%t,router_ports=[%s],mem_int=%s,rtr_int=%s",
+		flood, v.FastLeave, strings.Join(ports, ","), v.membershipInterval(), v.routerPortInterval())
+}
+
 // Validate rejects invalid VLANs, physical LAG members used as router ports,
 // missing router ports, and negative aging intervals.
 func (c Config) Validate(ports port.Table) error {
@@ -34,32 +92,43 @@ func (c Config) Validate(ports port.Table) error {
 		cfg := c.VLANs[vid]
 		if !vid.Valid() {
 			return errs.New().
+				Attr("field", fmt.Sprintf("vlans.%d", vid)).
 				Attr("vlan", vid).
 				Msgf("VLAN %d is outside the assignable range", vid)
 		}
 		if cfg.MembershipInterval < 0 {
 			return errs.New().
+				Attr("field", fmt.Sprintf("vlans.%d.membership_interval", vid)).
 				Attr("vlan", vid).
 				Attr("membership_interval", cfg.MembershipInterval).
 				Msg("membership interval cannot be negative")
 		}
 		if cfg.RouterPortInterval < 0 {
 			return errs.New().
+				Attr("field", fmt.Sprintf("vlans.%d.router_port_interval", vid)).
 				Attr("vlan", vid).
 				Attr("router_port_interval", cfg.RouterPortInterval).
 				Msg("router port interval cannot be negative")
 		}
 
 		for _, name := range cfg.RouterPorts {
+			if name == "" {
+				return errs.New().
+					Attr("field", fmt.Sprintf("vlans.%d.router_ports", vid)).
+					Attr("vlan", vid).
+					Msg("router port name cannot be empty")
+			}
 			p, ok := ports.Port(name)
 			if !ok {
 				return errs.New().
+					Attr("field", fmt.Sprintf("vlans.%d.router_ports", vid)).
 					Attr("vlan", vid).
 					Attr("port", name).
 					Msgf("router port %q absent from port table", name)
 			}
 			if p.LagParent != "" {
 				return errs.New().
+					Attr("field", fmt.Sprintf("vlans.%d.router_ports", vid)).
 					Attr("vlan", vid).
 					Attr("port", name).
 					Attr("lag", p.LagParent).

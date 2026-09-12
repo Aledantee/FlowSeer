@@ -2,7 +2,9 @@ package phy
 
 import (
 	"cmp"
+	"fmt"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
@@ -22,6 +24,16 @@ const (
 	// PriorityLow allocates after high-priority ports.
 	PriorityLow Priority = "Low"
 )
+
+// TypeID returns the stable identifier for Priority facts.
+func (p Priority) TypeID() string {
+	return "phy.priority"
+}
+
+// Canonical returns the string representation of the Priority.
+func (p Priority) Canonical() string {
+	return string(p)
+}
 
 // rank orders critical first; an unset priority sorts behind low, since a
 // port the source never prioritized has the weakest claim on the budget.
@@ -44,6 +56,16 @@ type Group struct {
 	PowerMilliwatts uint32
 }
 
+// TypeID returns the stable identifier for Group facts.
+func (g Group) TypeID() string {
+	return "phy.pse_group"
+}
+
+// Canonical returns the string representation of the group.
+func (g Group) Canonical() string {
+	return strconv.FormatUint(uint64(g.PowerMilliwatts), 10)
+}
+
 // PsePort is one power-sourcing port. MaxClass is the highest powered-device
 // class the port can source; no net/phy message carries it, so the loader
 // supplies it. Limit optionally caps the power the port may draw. PDClass is
@@ -58,6 +80,41 @@ type PsePort struct {
 	PDClass  *uint8
 }
 
+// Clone returns an independent deep copy of the PSE port.
+func (p PsePort) Clone() PsePort {
+	cp := p
+	if p.Limit != nil {
+		lim := *p.Limit
+		cp.Limit = &lim
+	}
+	if p.PDClass != nil {
+		pd := *p.PDClass
+		cp.PDClass = &pd
+	}
+
+	return cp
+}
+
+// TypeID returns the stable identifier for PsePort facts.
+func (p PsePort) TypeID() string {
+	return "phy.pse_port"
+}
+
+// Canonical returns a deterministic representation of the PSE port.
+func (p PsePort) Canonical() string {
+	limStr := "<nil>"
+	if p.Limit != nil {
+		limStr = strconv.FormatUint(uint64(*p.Limit), 10)
+	}
+	pdStr := "<nil>"
+	if p.PDClass != nil {
+		pdStr = strconv.Itoa(int(*p.PDClass))
+	}
+
+	return fmt.Sprintf("group=%s,max_class=%d,enabled=%t,limit=%s,priority=%s,pd_class=%s",
+		p.Group, p.MaxClass, p.Enabled, limStr, p.Priority, pdStr)
+}
+
 // Class returns a pointer to c, for a PsePort literal.
 func Class(c uint8) *uint8 {
 	return new(c)
@@ -68,6 +125,25 @@ func Class(c uint8) *uint8 {
 type PoE struct {
 	Groups map[string]Group
 	Ports  map[string]PsePort
+}
+
+// Clone returns an independent deep copy of the PoE configuration, or nil if p is nil.
+func (p *PoE) Clone() *PoE {
+	if p == nil {
+		return nil
+	}
+	cp := &PoE{
+		Groups: make(map[string]Group, len(p.Groups)),
+		Ports:  make(map[string]PsePort, len(p.Ports)),
+	}
+	for k, v := range p.Groups {
+		cp.Groups[k] = v
+	}
+	for k, v := range p.Ports {
+		cp.Ports[k] = v.Clone()
+	}
+
+	return cp
 }
 
 // Denial reasons recorded by [Config.Allocate] for a port granted no power.

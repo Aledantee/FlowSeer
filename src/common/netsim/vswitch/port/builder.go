@@ -72,9 +72,10 @@ func (b *Builder) Range(pattern string, from, to int, attrs Port) *Builder {
 	return b
 }
 
-// Build validates the accumulated ports and returns a [Table]. It returns an error
-// if a pattern lacked exactly one %d verb, if a duplicate name was added, if a port's
-// LAG parent is not a LAG, or if a LAG has a parent.
+// Build validates the accumulated ports, applies standard defaults, and returns a [Table].
+// It returns an error if a pattern lacked exactly one %d verb, if a duplicate name was added,
+// if an enum value is invalid, if MTU is negative, if a port's LAG parent is not a LAG,
+// or if a LAG has a parent.
 func (b *Builder) Build() (Table, error) {
 	if b.err != nil {
 		return Table{}, b.err
@@ -91,7 +92,7 @@ func (b *Builder) Build() (Table, error) {
 		return Table{}, err
 	}
 
-	return t, nil
+	return t.Normalize(), nil
 }
 
 func validatePattern(pattern string) error {

@@ -4,6 +4,7 @@
 package stp
 
 import (
+	"fmt"
 	"slices"
 	"time"
 
@@ -58,6 +59,21 @@ type Port struct {
 	PointToPoint PointToPointMode
 }
 
+// TypeID returns the fact type identifier for Port.
+func (p Port) TypeID() string { return "port" }
+
+// Canonical returns the canonical string representation of the Port fact.
+func (p Port) Canonical() string {
+	return fmt.Sprintf("priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%s",
+		p.Priority, p.PathCost, p.AdminEdge, p.AutoEdge, p.PointToPoint)
+}
+
+// TypeID returns the fact type identifier for PointToPointMode.
+func (m PointToPointMode) TypeID() string { return "point_to_point" }
+
+// Canonical returns the string representation of the mode.
+func (m PointToPointMode) Canonical() string { return string(m) }
+
 // Config defines the spanning tree configuration of a virtual switch.
 type Config struct {
 	Priority     uint16
@@ -67,6 +83,84 @@ type Config struct {
 	ForwardDelay time.Duration
 	TxHoldCount  uint8
 	Ports        map[string]Port
+}
+
+// Clone returns a deep copy of the spanning tree configuration.
+func (c Config) Clone() Config {
+	cloned := c
+	if c.Ports != nil {
+		cloned.Ports = make(map[string]Port, len(c.Ports))
+		for k, v := range c.Ports {
+			cloned.Ports[k] = v
+		}
+	}
+	return cloned
+}
+
+func effectivePriority(p uint16) uint16 {
+	if p == 0 {
+		return DefaultBridgePriority
+	}
+	return p
+}
+
+func effectiveHelloTime(d time.Duration) time.Duration {
+	if d == 0 {
+		return DefaultHelloTime
+	}
+	return d
+}
+
+func effectiveMaxAge(d time.Duration) time.Duration {
+	if d == 0 {
+		return DefaultMaxAge
+	}
+	return d
+}
+
+func effectiveForwardDelay(d time.Duration) time.Duration {
+	if d == 0 {
+		return DefaultForwardDelay
+	}
+	return d
+}
+
+func effectiveTxHoldCount(c uint8) uint8 {
+	if c == 0 {
+		return DefaultTxHoldCount
+	}
+	return c
+}
+
+func effectivePortPriority(p uint8) uint8 {
+	if p == 0 {
+		return DefaultPortPriority
+	}
+	return p
+}
+
+func effectivePointToPoint(m PointToPointMode) PointToPointMode {
+	if m == "" {
+		return PointToPointAuto
+	}
+	return m
+}
+
+// Normalize returns a normalized copy of the spanning tree configuration,
+// filling unspecified fields with standard defaults.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+	cloned.Priority = effectivePriority(cloned.Priority)
+	cloned.HelloTime = effectiveHelloTime(cloned.HelloTime)
+	cloned.MaxAge = effectiveMaxAge(cloned.MaxAge)
+	cloned.ForwardDelay = effectiveForwardDelay(cloned.ForwardDelay)
+	cloned.TxHoldCount = effectiveTxHoldCount(cloned.TxHoldCount)
+	for name, p := range cloned.Ports {
+		p.Priority = effectivePortPriority(p.Priority)
+		p.PointToPoint = effectivePointToPoint(p.PointToPoint)
+		cloned.Ports[name] = p
+	}
+	return cloned
 }
 
 // DefaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
@@ -95,6 +189,7 @@ func DefaultPathCost(speedBPS uint64) uint32 {
 func (c Config) Validate(ports port.Table) error {
 	if c.Priority%4096 != 0 {
 		return errs.New().
+			Attr("field", "priority").
 			Attr("priority", c.Priority).
 			Msgf("bridge priority %d must be a multiple of 4096", c.Priority)
 	}
@@ -118,12 +213,14 @@ func (c Config) Validate(ports port.Table) error {
 	}
 	if c.TxHoldCount > 10 {
 		return errs.New().
+			Attr("field", "tx_hold_count").
 			Attr("tx_hold_count", c.TxHoldCount).
 			Msgf("tx hold count %d exceeds maximum 10", c.TxHoldCount)
 	}
 	// A port id keeps its index in one byte.
 	if len(c.Ports) > 255 {
 		return errs.New().
+			Attr("field", "ports").
 			Attr("ports", len(c.Ports)).
 			Msg("a bridge holds at most 255 spanning tree ports")
 	}
@@ -132,14 +229,26 @@ func (c Config) Validate(ports port.Table) error {
 		p, ok := ports.Port(name)
 		if !ok {
 			return errs.New().
+				Attr("field", "ports."+name).
 				Attr("port", name).
 				Msgf("spanning tree port %q absent from port table", name)
 		}
 		if p.LagParent != "" {
 			return errs.New().
+				Attr("field", "ports."+name).
 				Attr("port", name).
 				Attr("parent", p.LagParent).
 				Msgf("spanning tree port %q cannot be a LAG member", name)
+		}
+		cfgPort := c.Ports[name]
+		switch cfgPort.PointToPoint {
+		case "", PointToPointAuto, PointToPointForceTrue, PointToPointForceFalse:
+		default:
+			return errs.New().
+				Attr("field", "ports."+name+".point_to_point").
+				Attr("port", name).
+				Attr("mode", cfgPort.PointToPoint).
+				Msgf("unknown point to point mode %q on port %q", cfgPort.PointToPoint, name)
 		}
 	}
 

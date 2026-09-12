@@ -401,6 +401,80 @@ func TestClone(t *testing.T) {
 	}
 }
 
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+	cfg := routing.Config{
+		VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"vlan10": {
+						VLAN: 10,
+						Prefixes: []netip.Prefix{
+							netip.MustParsePrefix("10.0.20.1/24"),
+							netip.MustParsePrefix("10.0.10.1/24"),
+						},
+					},
+				},
+				Routes: []routing.Route{
+					{
+						Prefix:    netip.MustParsePrefix("10.0.30.5/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.254"),
+						Interface: "vlan10",
+					},
+					{
+						Prefix:    netip.MustParsePrefix("10.0.10.0/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.1"),
+						Interface: "vlan10",
+					},
+				},
+				Neighbors: []routing.Neighbor{
+					{
+						Interface: "vlan10",
+						Addr:      netip.MustParseAddr("10.0.10.9"),
+						MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99},
+					},
+					{
+						Interface: "vlan10",
+						Addr:      netip.MustParseAddr("10.0.10.7"),
+						MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77},
+					},
+				},
+			},
+		},
+	}
+
+	norm := cfg.Normalize()
+	vrf := norm.VRFs[routing.DefaultVRF]
+
+	// Check interface prefixes sorted
+	iface := vrf.Interfaces["vlan10"]
+	if len(iface.Prefixes) != 2 || iface.Prefixes[0].String() != "10.0.10.1/24" || iface.Prefixes[1].String() != "10.0.20.1/24" {
+		t.Fatalf("prefixes not sorted: %v", iface.Prefixes)
+	}
+
+	// Check route prefix masked and routes sorted
+	if len(vrf.Routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(vrf.Routes))
+	}
+	if vrf.Routes[0].Prefix.String() != "10.0.10.0/24" {
+		t.Errorf("route 0 prefix: got %s, want 10.0.10.0/24", vrf.Routes[0].Prefix)
+	}
+	if vrf.Routes[1].Prefix.String() != "10.0.30.0/24" {
+		t.Errorf("route 1 prefix not masked or sorted: got %s, want 10.0.30.0/24", vrf.Routes[1].Prefix)
+	}
+
+	// Check neighbors sorted
+	if len(vrf.Neighbors) != 2 {
+		t.Fatalf("expected 2 neighbors, got %d", len(vrf.Neighbors))
+	}
+	if vrf.Neighbors[0].Addr.String() != "10.0.10.7" {
+		t.Errorf("neighbor 0: got %s, want 10.0.10.7", vrf.Neighbors[0].Addr)
+	}
+	if vrf.Neighbors[1].Addr.String() != "10.0.10.9" {
+		t.Errorf("neighbor 1: got %s, want 10.0.10.9", vrf.Neighbors[1].Addr)
+	}
+}
+
 func TestDiff(t *testing.T) {
 	t.Parallel()
 
@@ -466,10 +540,10 @@ func TestDiff(t *testing.T) {
 		if len(changes) != 2 {
 			t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
 		}
-		if changes[0].Field != "vlan" || changes[0].From != vlan.ID(10) || changes[0].To != vlan.ID(0) {
+		if changes[0].Field != "vlan" || changes[0].From != routing.VLANFact(10) || changes[0].To != routing.VLANFact(0) {
 			t.Errorf("expected vlan change, got %+v", changes[0])
 		}
-		if changes[1].Field != "port" || changes[1].From != "" || changes[1].To != "1/1/1" {
+		if changes[1].Field != "port" || changes[1].From != routing.PortFact("") || changes[1].To != routing.PortFact("1/1/1") {
 			t.Errorf("expected port change, got %+v", changes[1])
 		}
 	})

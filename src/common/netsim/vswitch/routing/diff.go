@@ -4,16 +4,89 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"strconv"
+	"strings"
 
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
+
+// VLANFact wraps a vlan.ID as a trace.Fact.
+type VLANFact vlan.ID
+
+// TypeID returns the fact type identifier for VLANFact.
+func (f VLANFact) TypeID() string { return "vlan" }
+
+// Canonical returns the decimal string of the VLAN ID.
+func (f VLANFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// VID returns the underlying vlan.ID.
+func (f VLANFact) VID() vlan.ID { return vlan.ID(f) }
+
+// PortFact wraps a port name as a trace.Fact.
+type PortFact string
+
+// TypeID returns the fact type identifier for PortFact.
+func (f PortFact) TypeID() string { return "port" }
+
+// Canonical returns the port name string.
+func (f PortFact) Canonical() string { return string(f) }
+
+// MACFact wraps a netaddr.MAC as a trace.Fact.
+type MACFact netaddr.MAC
+
+// TypeID returns the fact type identifier for MACFact.
+func (f MACFact) TypeID() string { return "mac" }
+
+// Canonical returns the formatted MAC string.
+func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
+
+// PrefixesFact wraps a slice of IP prefixes as a trace.Fact.
+type PrefixesFact []netip.Prefix
+
+// TypeID returns the fact type identifier for PrefixesFact.
+func (f PrefixesFact) TypeID() string { return "prefixes" }
+
+// Canonical returns the comma-separated prefix strings.
+func (f PrefixesFact) Canonical() string {
+	if len(f) == 0 {
+		return ""
+	}
+	strs := make([]string, len(f))
+	for i, p := range f {
+		strs[i] = p.String()
+	}
+	return strings.Join(strs, ",")
+}
+
+// AddrFact wraps a netip.Addr as a trace.Fact.
+type AddrFact netip.Addr
+
+// TypeID returns the fact type identifier for AddrFact.
+func (f AddrFact) TypeID() string { return "addr" }
+
+// Canonical returns the IP address string.
+func (f AddrFact) Canonical() string { return netip.Addr(f).String() }
+
+// RouteInterfaceFact wraps a route interface name as a trace.Fact.
+type RouteInterfaceFact string
+
+// TypeID returns the fact type identifier for RouteInterfaceFact.
+func (f RouteInterfaceFact) TypeID() string { return "interface" }
+
+// Canonical returns the interface name string.
+func (f RouteInterfaceFact) Canonical() string { return string(f) }
 
 // Diff computes the difference between two routing configurations, reporting
 // added or removed VRFs, interface changes (vlan, port, mac, prefixes), route
 // changes (next_hop, interface keyed by prefix), and neighbor changes (mac
 // keyed by interface and address).
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize()
+	b = b.Normalize()
+
 	var changes []trace.Change
 
 	vrfNames := make(map[string]struct{})
@@ -98,8 +171,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "vlan",
-							From:    ifA.VLAN,
-							To:      ifB.VLAN,
+							From:    VLANFact(ifA.VLAN),
+							To:      VLANFact(ifB.VLAN),
 						})
 					}
 					if ifA.Port != ifB.Port {
@@ -107,8 +180,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "port",
-							From:    ifA.Port,
-							To:      ifB.Port,
+							From:    PortFact(ifA.Port),
+							To:      PortFact(ifB.Port),
 						})
 					}
 					if ifA.MAC != ifB.MAC {
@@ -116,8 +189,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "mac",
-							From:    ifA.MAC,
-							To:      ifB.MAC,
+							From:    MACFact(ifA.MAC),
+							To:      MACFact(ifB.MAC),
 						})
 					}
 					if !slices.Equal(ifA.Prefixes, ifB.Prefixes) {
@@ -125,8 +198,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "interface", Key: key},
 							Field:   "prefixes",
-							From:    slices.Clone(ifA.Prefixes),
-							To:      slices.Clone(ifB.Prefixes),
+							From:    PrefixesFact(slices.Clone(ifA.Prefixes)),
+							To:      PrefixesFact(slices.Clone(ifB.Prefixes)),
 						})
 					}
 				}
@@ -181,8 +254,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "next_hop",
-							From:    rA.NextHop,
-							To:      rB.NextHop,
+							From:    AddrFact(rA.NextHop),
+							To:      AddrFact(rB.NextHop),
 						})
 					}
 					if rA.Interface != rB.Interface {
@@ -190,8 +263,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "route", Key: key},
 							Field:   "interface",
-							From:    rA.Interface,
-							To:      rB.Interface,
+							From:    RouteInterfaceFact(rA.Interface),
+							To:      RouteInterfaceFact(rB.Interface),
 						})
 					}
 				}
@@ -251,8 +324,8 @@ func Diff(a, b Config) []trace.Change {
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "neighbor", Key: key},
 							Field:   "mac",
-							From:    nA.MAC,
-							To:      nB.MAC,
+							From:    MACFact(nA.MAC),
+							To:      MACFact(nB.MAC),
 						})
 					}
 				}
@@ -261,11 +334,4 @@ func Diff(a, b Config) []trace.Change {
 	}
 
 	return changes
-}
-
-func comparePrefix(a, b netip.Prefix) int {
-	if c := a.Addr().Compare(b.Addr()); c != 0 {
-		return c
-	}
-	return cmp.Compare(a.Bits(), b.Bits())
 }

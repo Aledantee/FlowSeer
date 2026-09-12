@@ -263,7 +263,36 @@ func TestDiff(t *testing.T) {
 		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
 	}
 
-	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != lag.DefaultPortPriority || to != uint16(100) {
+	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
 		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := lag.Config{
+		LAGs: map[string]lag.LAG{
+			"lag1": {
+				Members: map[string]lag.Member{
+					"1/1/1": {},
+				},
+			},
+		},
+	}
+	norm := cfg.Normalize()
+	l := norm.LAGs["lag1"]
+	if l.Mode != lag.ActiveBackup {
+		t.Errorf("Mode: got %v, want %v", l.Mode, lag.ActiveBackup)
+	}
+	if l.LACP.Mode != lag.Off {
+		t.Errorf("LACP.Mode: got %v, want %v", l.LACP.Mode, lag.Off)
+	}
+	if l.LACP.SystemPriority != lag.DefaultSystemPriority {
+		t.Errorf("LACP.SystemPriority: got %d, want %d", l.LACP.SystemPriority, lag.DefaultSystemPriority)
+	}
+	m := l.Members["1/1/1"]
+	if m.Priority != lag.DefaultPortPriority {
+		t.Errorf("Member Priority: got %d, want %d", m.Priority, lag.DefaultPortPriority)
 	}
 }

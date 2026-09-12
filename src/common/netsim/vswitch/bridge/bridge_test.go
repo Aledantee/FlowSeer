@@ -1690,7 +1690,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From != 0 || ch.To != 2 || ch.Layer != port.LayerRelay {
+	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != port.LayerRelay {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -1968,7 +1968,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []vlan.ID{10, 20}
 		wantTo := []vlan.ID{10, 30}
-		if !slices.Equal(ch.From.([]vlan.ID), wantFrom) || !slices.Equal(ch.To.([]vlan.ID), wantTo) {
+		if !slices.Equal(ch.From.(bridge.VLANsFact).IDs(), wantFrom) || !slices.Equal(ch.To.(bridge.VLANsFact).IDs(), wantTo) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})
@@ -1994,7 +1994,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []string{"1/1/1", "1/1/2"}
 		wantTo := []string{"1/1/1", "1/1/3"}
-		if !slices.Equal(ch.From.([]string), wantFrom) || !slices.Equal(ch.To.([]string), wantTo) {
+		if !slices.Equal(ch.From.(bridge.StringsFact).Strings(), wantFrom) || !slices.Equal(ch.To.(bridge.StringsFact).Strings(), wantTo) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})
@@ -2007,7 +2007,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From != false || ch.To != true || ch.Layer != port.LayerRelay {
+		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != port.LayerRelay {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})
@@ -2634,5 +2634,86 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	br.Learn([]bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
 	if got := br.Counters(); got.Evicted != 1 || got.Learned != 4 {
 		t.Fatalf("Counters() after Forget then a new seed = %+v, want Learned 4, Evicted 1", got)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := bridge.Config{
+		FloodVLANs:     []vlan.ID{20, 10, 20},
+		ProtectedPorts: []string{"1/1/2", "1/1/1", "1/1/2"},
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {
+					Tagged:   []vlan.ID{30, 20, 20},
+					Untagged: []vlan.ID{10, 10},
+					Tunnel: &bridge.Tunnel{
+						VID:          100,
+						CustomerVIDs: []vlan.ID{200, 100, 200},
+					},
+				},
+			},
+		},
+	}
+
+	norm := cfg.Normalize()
+	if norm.AgingTime != bridge.DefaultAgingTime {
+		t.Errorf("AgingTime: got %v, want %v", norm.AgingTime, bridge.DefaultAgingTime)
+	}
+	wantFlood := []vlan.ID{10, 20}
+	if !slices.Equal(norm.FloodVLANs, wantFlood) {
+		t.Errorf("FloodVLANs: got %v, want %v", norm.FloodVLANs, wantFlood)
+	}
+	wantProt := []string{"1/1/1", "1/1/2"}
+	if !slices.Equal(norm.ProtectedPorts, wantProt) {
+		t.Errorf("ProtectedPorts: got %v, want %v", norm.ProtectedPorts, wantProt)
+	}
+
+	sw := norm.VLAN.Switchports["1/1/1"]
+	if sw.Admission != bridge.All {
+		t.Errorf("Admission: got %v, want %v", sw.Admission, bridge.All)
+	}
+	if sw.PriorityTags != bridge.PriorityTagsNever {
+		t.Errorf("PriorityTags: got %v, want %v", sw.PriorityTags, bridge.PriorityTagsNever)
+	}
+	wantTagged := []vlan.ID{20, 30}
+	if !slices.Equal(sw.Tagged, wantTagged) {
+		t.Errorf("Tagged: got %v, want %v", sw.Tagged, wantTagged)
+	}
+	wantUntagged := []vlan.ID{10}
+	if !slices.Equal(sw.Untagged, wantUntagged) {
+		t.Errorf("Untagged: got %v, want %v", sw.Untagged, wantUntagged)
+	}
+	if sw.Tunnel.TPID != bridge.DefaultServiceTPID {
+		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, bridge.DefaultServiceTPID)
+	}
+	wantCust := []vlan.ID{100, 200}
+	if !slices.Equal(sw.Tunnel.CustomerVIDs, wantCust) {
+		t.Errorf("CustomerVIDs: got %v, want %v", sw.Tunnel.CustomerVIDs, wantCust)
+	}
+}
+
+func TestValidateEnumDomains(t *testing.T) {
+	t.Parallel()
+
+	builder := port.NewBuilder()
+	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	cfg := bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {Admission: "InvalidAdmission"},
+			},
+		},
+	}
+	if err := cfg.Validate(ports); err == nil {
+		t.Fatal("Validate() succeeded for invalid Admission, want error")
 	}
 }

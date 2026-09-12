@@ -3,6 +3,8 @@
 package routing
 
 import (
+	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
 
@@ -78,6 +80,73 @@ func (c Config) Clone() Config {
 	return cloned
 }
 
+// Normalize returns a normalized copy of the configuration, sorting routes by prefix,
+// neighbors by (interface, addr), interface prefixes, and masking route prefixes.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+	for vrfName, vrf := range cloned.VRFs {
+		for ifName, iface := range vrf.Interfaces {
+			slices.SortFunc(iface.Prefixes, comparePrefix)
+			vrf.Interfaces[ifName] = iface
+		}
+		for i := range vrf.Routes {
+			if vrf.Routes[i].Prefix.IsValid() {
+				vrf.Routes[i].Prefix = vrf.Routes[i].Prefix.Masked()
+			}
+		}
+		slices.SortFunc(vrf.Routes, func(a, b Route) int {
+			return comparePrefix(a.Prefix, b.Prefix)
+		})
+		slices.SortFunc(vrf.Neighbors, func(x, y Neighbor) int {
+			if c := cmp.Compare(x.Interface, y.Interface); c != 0 {
+				return c
+			}
+			return x.Addr.Compare(y.Addr)
+		})
+		cloned.VRFs[vrfName] = vrf
+	}
+	return cloned
+}
+
+// TypeID returns the fact type identifier for VRF.
+func (v VRF) TypeID() string { return "vrf" }
+
+// Canonical returns the canonical string representation of the VRF fact.
+func (v VRF) Canonical() string {
+	return fmt.Sprintf("interfaces=%d,routes=%d,neighbors=%d", len(v.Interfaces), len(v.Routes), len(v.Neighbors))
+}
+
+// TypeID returns the fact type identifier for Interface.
+func (i Interface) TypeID() string { return "interface" }
+
+// Canonical returns the canonical string representation of the Interface fact.
+func (i Interface) Canonical() string {
+	return fmt.Sprintf("vlan=%d,port=%s,mac=%s,prefixes=%d", i.VLAN, i.Port, i.MAC, len(i.Prefixes))
+}
+
+// TypeID returns the fact type identifier for Route.
+func (r Route) TypeID() string { return "route" }
+
+// Canonical returns the canonical string representation of the Route fact.
+func (r Route) Canonical() string {
+	return fmt.Sprintf("prefix=%s,next_hop=%s,interface=%s", r.Prefix, r.NextHop, r.Interface)
+}
+
+// TypeID returns the fact type identifier for Neighbor.
+func (n Neighbor) TypeID() string { return "neighbor" }
+
+// Canonical returns the canonical string representation of the Neighbor fact.
+func (n Neighbor) Canonical() string {
+	return fmt.Sprintf("interface=%s,addr=%s,mac=%s", n.Interface, n.Addr, n.MAC)
+}
+
+func comparePrefix(a, b netip.Prefix) int {
+	if c := a.Addr().Compare(b.Addr()); c != 0 {
+		return c
+	}
+	return cmp.Compare(a.Bits(), b.Bits())
+}
+
 // Validate verifies the configuration against the port table and internal routing invariants.
 // It refuses empty VRF or interface names, VRFs with no interfaces, interfaces with both or
 // neither VLAN and Port, duplicate VLAN or port assignments across VRFs, unknown ports,
@@ -100,13 +169,16 @@ func (c Config) Validate(ports port.Table) error {
 
 	for _, vrfName := range vrfNames {
 		if vrfName == "" {
-			return errs.New().Msg("VRF name cannot be empty")
+			return errs.New().
+				Attr("field", "vrfs").
+				Msg("VRF name cannot be empty")
 		}
 
 		vrf := c.VRFs[vrfName]
 		if len(vrf.Interfaces) == 0 {
 			return errs.New().
 				Attr("vrf", vrfName).
+				Attr("field", "vrfs."+vrfName+".interfaces").
 				Msgf("VRF %q must have at least one interface", vrfName)
 		}
 
@@ -120,6 +192,7 @@ func (c Config) Validate(ports port.Table) error {
 			if ifaceName == "" {
 				return errs.New().
 					Attr("vrf", vrfName).
+					Attr("field", "vrfs."+vrfName+".interfaces").
 					Msgf("interface name in VRF %q cannot be empty", vrfName)
 			}
 
@@ -128,6 +201,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("interface", ifaceName).
 					Attr("claimed_by", prev).
+					Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName).
 					Msgf("interface %q is named by VRF %q and VRF %q", ifaceName, prev, vrfName)
 			}
 			claimedIfaces[ifaceName] = vrfName
@@ -139,6 +213,7 @@ func (c Config) Validate(ports port.Table) error {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("interface", ifaceName).
+					Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName).
 					Msgf("interface %q must configure exactly one of VLAN or Port", ifaceName)
 			}
 
@@ -149,6 +224,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("interface", ifaceName).
 						Attr("vlan", iface.VLAN).
 						Attr("claimed_by", prev).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".vlan").
 						Msgf("VLAN %d claimed by multiple interfaces across VRFs (%q and %q)", iface.VLAN, prev, ifaceName)
 				}
 				claimedVLANs[iface.VLAN] = ifaceName
@@ -161,6 +237,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("interface", ifaceName).
 						Attr("port", iface.Port).
 						Attr("claimed_by", prev).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".port").
 						Msgf("port %q claimed by multiple interfaces across VRFs (%q and %q)", iface.Port, prev, ifaceName)
 				}
 				claimedPorts[iface.Port] = ifaceName
@@ -171,6 +248,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("vrf", vrfName).
 						Attr("interface", ifaceName).
 						Attr("port", iface.Port).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".port").
 						Msgf("routed port %q absent from port table", iface.Port)
 				}
 				if p.LagParent != "" {
@@ -179,6 +257,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("interface", ifaceName).
 						Attr("port", iface.Port).
 						Attr("parent", p.LagParent).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".port").
 						Msgf("routed port %q cannot be a LAG member", iface.Port)
 				}
 			}
@@ -188,6 +267,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("interface", ifaceName).
 					Attr("mac", iface.MAC).
+					Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".mac").
 					Msgf("interface %q MAC %s cannot be a group MAC", ifaceName, iface.MAC)
 			}
 
@@ -196,6 +276,7 @@ func (c Config) Validate(ports port.Table) error {
 					return errs.New().
 						Attr("vrf", vrfName).
 						Attr("interface", ifaceName).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q contains invalid prefix", ifaceName)
 				}
 				if p.Bits() == 0 {
@@ -203,6 +284,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("vrf", vrfName).
 						Attr("interface", ifaceName).
 						Attr("prefix", p).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q address %s cannot have prefix length 0", ifaceName, p)
 				}
 				if p.Addr().Is4In6() {
@@ -210,6 +292,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("vrf", vrfName).
 						Attr("interface", ifaceName).
 						Attr("prefix", p).
+						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q address %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", ifaceName, p)
 				}
 			}
@@ -222,6 +305,7 @@ func (c Config) Validate(ports port.Table) error {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
+					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route prefix %s is not masked", r.Prefix)
 			}
 			if r.Prefix.Addr().Is4In6() || r.NextHop.Is4In6() {
@@ -229,12 +313,14 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
 					Attr("next_hop", r.NextHop).
+					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", r.Prefix)
 			}
 			if _, dup := seenPrefixes[r.Prefix]; dup {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
+					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route prefix %s appears twice in VRF %q", r.Prefix, vrfName)
 			}
 			seenPrefixes[r.Prefix] = struct{}{}
@@ -243,6 +329,7 @@ func (c Config) Validate(ports port.Table) error {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
+					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s must name at least one of next hop or interface", r.Prefix)
 			}
 
@@ -252,6 +339,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("vrf", vrfName).
 						Attr("route", r.Prefix).
 						Attr("interface", r.Interface).
+						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".interface").
 						Msgf("route %s names interface %q outside VRF %q", r.Prefix, r.Interface, vrfName)
 				}
 			} else {
@@ -272,6 +360,7 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("vrf", vrfName).
 						Attr("route", r.Prefix).
 						Attr("next_hop", r.NextHop).
+						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".next_hop").
 						Msgf("route %s next hop %s not contained in any interface prefix in VRF %q", r.Prefix, r.NextHop, vrfName)
 				}
 			}
@@ -285,6 +374,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("interface", n.Interface).
+					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()+".interface").
 					Msgf("neighbor %s names interface %q outside VRF %q", n.Addr, n.Interface, vrfName)
 			}
 
@@ -293,6 +383,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("mac", n.MAC).
+					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()+".mac").
 					Msgf("neighbor %s MAC %s cannot be a group MAC", n.Addr, n.MAC)
 			}
 			if n.Addr.Is4In6() {
@@ -300,6 +391,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("interface", n.Interface).
+					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()+".addr").
 					Msgf("neighbor %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", n.Addr)
 			}
 
@@ -315,6 +407,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("interface", n.Interface).
+					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()+".addr").
 					Msgf("neighbor %s address family differs from every prefix on interface %q", n.Addr, n.Interface)
 			}
 
@@ -324,6 +417,7 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("interface", n.Interface).
+					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()).
 					Msgf("duplicate neighbor %s on interface %q in VRF %q", n.Addr, n.Interface, vrfName)
 			}
 			seenNeighbors[key] = struct{}{}
