@@ -113,7 +113,7 @@ func (r Route) TypeID() string { return "routing.route" }
 
 // Canonical returns the canonical string representation of the Route fact.
 func (r Route) Canonical() string {
-	return fmt.Sprintf("prefix=%s,next_hop=%s,interface=%s", r.Prefix, r.NextHop, r.Interface)
+	return fmt.Sprintf("prefix=%q,next_hop=%q,interface=%q", r.Prefix.String(), r.NextHop.String(), r.Interface)
 }
 
 // TypeID returns the fact type identifier for Neighbor.
@@ -121,7 +121,7 @@ func (n Neighbor) TypeID() string { return "routing.neighbor" }
 
 // Canonical returns the canonical string representation of the Neighbor fact.
 func (n Neighbor) Canonical() string {
-	return fmt.Sprintf("interface=%s,addr=%s,mac=%s", n.Interface, n.Addr, n.MAC)
+	return fmt.Sprintf("interface=%q,addr=%q,mac=%q", n.Interface, n.Addr.String(), n.MAC.String())
 }
 
 func comparePrefix(a, b netip.Prefix) int {

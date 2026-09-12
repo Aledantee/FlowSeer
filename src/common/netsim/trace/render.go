@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -15,15 +16,13 @@ func Render(t Trace) string {
 		lines = append(lines, fmt.Sprintf("%d. %s", i+1, RenderStep(s)))
 	}
 
-	outcome := string(t.Outcome)
-	if outcome == "" {
-		outcome = "unspecified"
-	}
-
-	if t.Reason != "" {
-		lines = append(lines, fmt.Sprintf("Outcome: %s (%s)", outcome, t.Reason))
-	} else {
-		lines = append(lines, fmt.Sprintf("Outcome: %s", outcome))
+	switch {
+	case t.Outcome == "":
+		lines = append(lines, "Outcome: unspecified")
+	case t.Reason != "":
+		lines = append(lines, "Outcome: "+strconv.Quote(string(t.Outcome))+" reason="+strconv.Quote(string(t.Reason)))
+	default:
+		lines = append(lines, "Outcome: "+strconv.Quote(string(t.Outcome)))
 	}
 
 	return strings.Join(lines, "\n")
@@ -42,25 +41,28 @@ func RenderStep(s Step) string {
 		return "[unspecified]"
 	}
 
-	var header string
-	switch {
-	case canon.Layer != "" && canon.Op != "":
-		header = fmt.Sprintf("[%s:%s]", canon.Layer, canon.Op)
-	case canon.Layer != "":
-		header = fmt.Sprintf("[%s]", canon.Layer)
-	case canon.Op != "":
-		header = fmt.Sprintf("[%s]", canon.Op)
-	default:
-		header = "[-]"
+	var headerParts []string
+	if canon.Layer != "" {
+		headerParts = append(headerParts, "layer="+strconv.Quote(string(canon.Layer)))
+	}
+	if canon.Op != "" {
+		headerParts = append(headerParts, "op="+strconv.Quote(string(canon.Op)))
+	}
+	header := "[-]"
+	if len(headerParts) > 0 {
+		header = "[" + strings.Join(headerParts, " ") + "]"
 	}
 
 	parts := []string{header}
 
 	if canon.RuleID != "" {
-		parts = append(parts, fmt.Sprintf("rule=%s", canon.RuleID))
+		parts = append(parts, "rule="+strconv.Quote(string(canon.RuleID)))
 	}
 	if canon.Subject.Kind != "" || canon.Subject.Key != "" {
-		parts = append(parts, fmt.Sprintf("subject=%s", canon.Subject.String()))
+		parts = append(parts,
+			"subject.kind="+strconv.Quote(canon.Subject.Kind),
+			"subject.key="+strconv.Quote(canon.Subject.Key),
+		)
 	}
 	if len(canon.Inputs) > 0 {
 		var facts []string
@@ -79,7 +81,7 @@ func RenderStep(s Step) string {
 	if len(canon.Evidence) > 0 {
 		var evs []string
 		for _, e := range canon.Evidence {
-			evs = append(evs, string(e))
+			evs = append(evs, strconv.Quote(string(e)))
 		}
 		parts = append(parts, fmt.Sprintf("evidence=[%s]", strings.Join(evs, ", ")))
 	}
@@ -99,36 +101,30 @@ func RenderChange(c Change) string {
 		return "[unspecified]"
 	}
 
-	layer := string(canon.Layer)
-	if layer == "" {
-		layer = "-"
+	parts := []string{"[-]"}
+	if canon.Layer != "" {
+		parts[0] = "[layer=" + strconv.Quote(string(canon.Layer)) + "]"
 	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "[%s]", layer)
-
-	if subj := canon.Subject.String(); subj != "" {
-		sb.WriteString(" ")
-		sb.WriteString(subj)
+	if canon.Subject.Kind != "" || canon.Subject.Key != "" {
+		parts = append(parts,
+			"subject.kind="+strconv.Quote(canon.Subject.Kind),
+			"subject.key="+strconv.Quote(canon.Subject.Key),
+		)
 	}
-
 	if canon.Field != "" {
-		sb.WriteString(" ")
-		sb.WriteString(canon.Field)
-		sb.WriteString(":")
+		parts = append(parts, "field="+strconv.Quote(canon.Field))
 	}
-
-	fmt.Fprintf(&sb, " %s -> %s", renderChangeFact(canon.From), renderChangeFact(canon.To))
+	parts = append(parts, "from="+renderFact(canon.From), "to="+renderFact(canon.To))
 
 	if len(canon.Evidence) > 0 {
 		var evs []string
 		for _, e := range canon.Evidence {
-			evs = append(evs, string(e))
+			evs = append(evs, strconv.Quote(string(e)))
 		}
-		fmt.Fprintf(&sb, " (evidence: %s)", strings.Join(evs, ", "))
+		parts = append(parts, fmt.Sprintf("evidence=[%s]", strings.Join(evs, ", ")))
 	}
 
-	return sb.String()
+	return strings.Join(parts, " ")
 }
 
 // RenderChanges formats a slice of [Change] records as newline-delimited text.
@@ -144,21 +140,13 @@ func RenderChanges(changes []Change) string {
 }
 
 func renderStepFact(f Fact) string {
-	if f == nil {
-		return "<nil>"
-	}
-	if f.TypeID() == "" {
-		return f.Canonical()
-	}
-	return f.TypeID() + "=" + f.Canonical()
+	return renderFact(f)
 }
 
-func renderChangeFact(f Fact) string {
+func renderFact(f Fact) string {
 	if f == nil {
 		return "<nil>"
 	}
-	if f.Canonical() != "" {
-		return f.Canonical()
-	}
-	return f.TypeID()
+
+	return "{type=" + strconv.Quote(f.TypeID()) + " value=" + strconv.Quote(f.Canonical()) + "}"
 }

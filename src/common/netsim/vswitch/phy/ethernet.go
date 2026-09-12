@@ -86,11 +86,6 @@ func (e Ethernet) Clone() Ethernet {
 	}
 }
 
-// TypeID returns the stable identifier for Ethernet facts.
-func (e Ethernet) TypeID() string {
-	return "phy.ethernet"
-}
-
 // Canonical returns a deterministic representation of the Ethernet configuration.
 func (e Ethernet) Canonical() string {
 	speeds := slices.Clone(e.SupportedSpeedsBPS)
@@ -101,11 +96,11 @@ func (e Ethernet) Canonical() string {
 	}
 	settingStr := "<nil>"
 	if e.Setting != nil {
-		settingStr = fmt.Sprintf("speed=%d,duplex=%s,autoneg=%t", e.Setting.SpeedBPS, e.Setting.Duplex, e.Setting.AutoNegotiation)
+		settingStr = fmt.Sprintf("speed=%d,duplex=%q,autoneg=%t", e.Setting.SpeedBPS, string(e.Setting.Duplex), e.Setting.AutoNegotiation)
 	}
 	obsStr := "<nil>"
 	if e.Observed != nil {
-		obsStr = fmt.Sprintf("speed=%d,duplex=%s", e.Observed.SpeedBPS, e.Observed.Duplex)
+		obsStr = fmt.Sprintf("speed=%d,duplex=%q", e.Observed.SpeedBPS, string(e.Observed.Duplex))
 	}
 
 	return fmt.Sprintf("speeds=[%s],autoneg_sup=%t,setting={%s},observed={%s}",

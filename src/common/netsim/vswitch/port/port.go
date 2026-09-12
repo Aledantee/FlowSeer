@@ -121,8 +121,8 @@ func (p Port) TypeID() string {
 
 // Canonical returns a deterministic representation of the port for equality and ordering.
 func (p Port) Canonical() string {
-	return fmt.Sprintf("name=%s,kind=%s,ifindex=%d,admin=%s,oper=%s,mtu=%d,lag=%s",
-		p.Name, p.Kind, p.IfIndex, p.AdminStatus, p.OperStatus, p.MTU, p.LagParent)
+	return fmt.Sprintf("name=%q,kind=%q,ifindex=%d,admin=%q,oper=%q,mtu=%d,lag=%q",
+		p.Name, string(p.Kind), p.IfIndex, string(p.AdminStatus), string(p.OperStatus), p.MTU, p.LagParent)
 }
 
 // Normalize returns a deterministic copy of the port with standard defaults applied.

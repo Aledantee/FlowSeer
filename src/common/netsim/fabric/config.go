@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -105,10 +106,11 @@ func (e Endpoint) TypeID() string {
 
 // Canonical returns the canonical representation of the endpoint.
 func (e Endpoint) Canonical() string {
-	if e.Port == "" {
-		return e.Node
-	}
-	return e.Node + ":" + e.Port
+	return encodeEndpointPart(e.Node) + ":" + encodeEndpointPart(e.Port)
+}
+
+func encodeEndpointPart(value string) string {
+	return strings.NewReplacer("%", "%25", ":", "%3A", "-", "%2D").Replace(value)
 }
 
 // HostIP configures the layer 3 addressing, default gateway, and static link-layer neighbors

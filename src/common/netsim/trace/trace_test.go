@@ -2,6 +2,7 @@ package trace_test
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -68,6 +69,15 @@ func (misleadingStringFact) Canonical() string {
 func (misleadingStringFact) String() string {
 	return "unstable display"
 }
+
+type untrustedFact struct {
+	typeID string
+	value  string
+}
+
+func (f untrustedFact) TypeID() string { return f.typeID }
+
+func (f untrustedFact) Canonical() string { return f.value }
 
 func TestVocabulary(t *testing.T) {
 	t.Run("outcomes", func(t *testing.T) {
@@ -274,7 +284,7 @@ func TestDeterministicRendering(t *testing.T) {
 		}
 
 		rendered := trace.RenderStep(step)
-		want := "[bridge:lookup] rule=fdb-miss subject=port:1/1/1 in=[mac=00:11:22:33:44:55, vlan=10] out=[action=flood] evidence=[ev-1, ev-2]"
+		want := `[layer="bridge" op="lookup"] rule="fdb-miss" subject.kind="port" subject.key="1/1/1" in=[{type="mac" value="00:11:22:33:44:55"}, {type="vlan" value="10"}] out=[{type="action" value="flood"}] evidence=["ev-1", "ev-2"]`
 		if rendered != want {
 			t.Errorf("RenderStep(step) =\n%q\nwant:\n%q", rendered, want)
 		}
@@ -306,7 +316,7 @@ func TestDeterministicRendering(t *testing.T) {
 		}
 
 		rendered := trace.Render(tr)
-		want := "1. [vlan:filter] rule=ingress-admission subject=port:1/1/1 in=[vlan=10]\n2. [bridge:lookup] rule=fdb-miss subject=port:1/1/1 out=[action=flood]\nOutcome: Flooded (fdb-miss)"
+		want := "1. [layer=\"vlan\" op=\"filter\"] rule=\"ingress-admission\" subject.kind=\"port\" subject.key=\"1/1/1\" in=[{type=\"vlan\" value=\"10\"}]\n2. [layer=\"bridge\" op=\"lookup\"] rule=\"fdb-miss\" subject.kind=\"port\" subject.key=\"1/1/1\" out=[{type=\"action\" value=\"flood\"}]\nOutcome: \"Flooded\" reason=\"fdb-miss\""
 		if rendered != want {
 			t.Errorf("Render(tr) =\n%q\nwant:\n%q", rendered, want)
 		}
@@ -326,7 +336,7 @@ func TestDeterministicRendering(t *testing.T) {
 		}
 
 		rendered := trace.RenderChange(change)
-		want := "[port] port:1/1/1 admin_status: Down -> Up (evidence: ev-1)"
+		want := `[layer="port"] subject.kind="port" subject.key="1/1/1" field="admin_status" from={type="admin_status" value="Down"} to={type="admin_status" value="Up"} evidence=["ev-1"]`
 		if rendered != want {
 			t.Errorf("RenderChange(change) = %q, want %q", rendered, want)
 		}
@@ -354,7 +364,7 @@ func TestDeterministicRendering(t *testing.T) {
 		}
 
 		rendered := trace.RenderChanges(changes)
-		want := "[port] port:1/1/1 admin_status: Down -> Up\n[port] port:1/1/2 admin_status: <nil> -> Up"
+		want := "[layer=\"port\"] subject.kind=\"port\" subject.key=\"1/1/1\" field=\"admin_status\" from={type=\"admin_status\" value=\"Down\"} to={type=\"admin_status\" value=\"Up\"}\n[layer=\"port\"] subject.kind=\"port\" subject.key=\"1/1/2\" field=\"admin_status\" from=<nil> to={type=\"admin_status\" value=\"Up\"}"
 		if rendered != want {
 			t.Errorf("RenderChanges(changes) =\n%q\nwant:\n%q", rendered, want)
 		}
@@ -488,7 +498,7 @@ func TestUnknownRuleIDs(t *testing.T) {
 	}
 
 	rendered := trace.RenderStep(step)
-	want := "[traffic:drop] rule=vendor-proprietary-extension:rate-limit-rule-42 subject=port:1/1/1 out=[action=rate-limit-drop]"
+	want := `[layer="traffic" op="drop"] rule="vendor-proprietary-extension:rate-limit-rule-42" subject.kind="port" subject.key="1/1/1" out=[{type="action" value="rate-limit-drop"}]`
 	if rendered != want {
 		t.Errorf("RenderStep with unknown RuleID =\n%q\nwant:\n%q", rendered, want)
 	}
@@ -506,13 +516,60 @@ func TestRenderingUsesOnlyTheFactContract(t *testing.T) {
 		Op:     trace.OpLookup,
 		Inputs: []trace.Fact{fact},
 	}
-	if got, want := trace.RenderStep(step), "[test:lookup] in=[stable=canonical]"; got != want {
+	if got, want := trace.RenderStep(step), `[layer="test" op="lookup"] in=[{type="stable" value="canonical"}]`; got != want {
 		t.Errorf("RenderStep = %q, want %q", got, want)
 	}
 
 	change := trace.Change{Layer: "test", Field: "value", From: fact}
-	if got, want := trace.RenderChange(change), "[test] value: canonical -> <nil>"; got != want {
+	if got, want := trace.RenderChange(change), `[layer="test"] field="value" from={type="stable" value="canonical"} to=<nil>`; got != want {
 		t.Errorf("RenderChange = %q, want %q", got, want)
+	}
+}
+
+func TestRenderingEscapesEveryDynamicValue(t *testing.T) {
+	injected := "value:\n\r\t\x1b[31m,[bracket]"
+	quoted := strconv.Quote(injected)
+	step := trace.Step{
+		Layer:    trace.Layer(injected),
+		Op:       trace.Op(injected),
+		RuleID:   trace.RuleID(injected),
+		Subject:  trace.Subject{Kind: injected, Key: injected},
+		Inputs:   []trace.Fact{untrustedFact{typeID: injected, value: injected}},
+		Evidence: []trace.EvidenceRef{trace.EvidenceRef(injected)},
+	}
+	change := trace.Change{
+		Layer:    trace.Layer(injected),
+		Subject:  trace.Subject{Kind: injected, Key: injected},
+		Field:    injected,
+		From:     untrustedFact{typeID: injected, value: injected},
+		Evidence: []trace.EvidenceRef{trace.EvidenceRef(injected)},
+	}
+	stepWant := "[layer=" + quoted + " op=" + quoted + "] rule=" + quoted +
+		" subject.kind=" + quoted + " subject.key=" + quoted +
+		" in=[{type=" + quoted + " value=" + quoted + "}] evidence=[" + quoted + "]"
+	changeWant := "[layer=" + quoted + "] subject.kind=" + quoted + " subject.key=" + quoted +
+		" field=" + quoted + " from={type=" + quoted + " value=" + quoted + "} to=<nil> evidence=[" + quoted + "]"
+
+	for name, test := range map[string]struct {
+		got  string
+		want string
+	}{
+		"step":   {got: trace.RenderStep(step), want: stepWant},
+		"change": {got: trace.RenderChange(change), want: changeWant},
+		"trace": {
+			got: trace.Render(trace.Trace{
+				Steps:   []trace.Step{step},
+				Outcome: trace.Outcome(injected),
+				Reason:  trace.Reason(injected),
+			}),
+			want: "1. " + stepWant + "\nOutcome: " + quoted + " reason=" + quoted,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if test.got != test.want {
+				t.Errorf("rendered text = %q, want %q", test.got, test.want)
+			}
+		})
 	}
 }
 

@@ -35,8 +35,10 @@ Every admitted case must define:
   to an exact [StepExpectation] or [ChangeExpectation].
 - The complete ordered semantic trace, including each operation, rule,
   subject, input facts, output facts, and evidence references.
-- Expected issue codes paired with exact scopes, plus evidence references when
-  non-Complete.
+- Exact issue expectations binding code, status, scope, and evidence references
+  to the same issue when non-Complete.
+- Exact assumption expectations binding scope, statement, and evidence
+  references to the same assumption.
 - Structured expectations for each returned comparison, model, or forwarding
   axis.
 - Executable fixture binding to library packages.

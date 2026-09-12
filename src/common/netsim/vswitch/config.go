@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
@@ -37,14 +38,6 @@ type Config struct {
 	Mcast   *mcast.Config
 	Routing *routing.Config
 	Traffic *traffic.Config
-}
-
-// TypeID returns the fact type identifier for Config.
-//
-// Config remains a fact because fabric switch add/remove changes use a deep
-// clone of it. Capability diffs use package-owned immutable snapshot facts.
-func (Config) TypeID() string {
-	return "vswitch.config"
 }
 
 // Canonical returns a deterministic encoding of the normalized configuration.
@@ -76,6 +69,16 @@ func (c Config) Canonical() string {
 		panic(fmt.Sprintf("encode virtual switch configuration fact: %v", err))
 	}
 	return string(encoded)
+}
+
+type configSnapshotFact string
+
+func (f configSnapshotFact) TypeID() string    { return "vswitch.config" }
+func (f configSnapshotFact) Canonical() string { return string(f) }
+
+// ConfigFact returns an immutable semantic snapshot of a virtual switch configuration.
+func ConfigFact(config Config) trace.Fact {
+	return configSnapshotFact(config.Canonical())
 }
 
 // Capabilities returns the sorted architectural layers implied by the present configuration.

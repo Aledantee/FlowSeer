@@ -1,6 +1,7 @@
 package phy_test
 
 import (
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -446,7 +447,7 @@ func TestDiff(t *testing.T) {
 		if c0.Layer != port.LayerEthernet || c0.Field != "" || c0.To != nil {
 			t.Errorf("diffs[0] = %+v, want removed ethernet port with empty field and nil To", c0)
 		}
-		if e, ok := c0.From.(phy.Ethernet); !ok || len(e.SupportedSpeedsBPS) != 3 {
+		if c0.From == nil || c0.From.TypeID() != "phy.ethernet" || !strings.Contains(c0.From.Canonical(), "1000000000") {
 			t.Errorf("diffs[0].From = %+v, want the removed Ethernet entry", c0.From)
 		}
 

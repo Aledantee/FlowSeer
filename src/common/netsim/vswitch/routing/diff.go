@@ -43,22 +43,22 @@ func (f MACFact) TypeID() string { return "routing.mac" }
 // Canonical returns the formatted MAC string.
 func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
 
-// PrefixesFact wraps a slice of IP prefixes as a trace.Fact.
-type PrefixesFact []netip.Prefix
+type prefixesFact string
 
-// TypeID returns the fact type identifier for PrefixesFact.
-func (f PrefixesFact) TypeID() string { return "routing.prefixes" }
+func (f prefixesFact) TypeID() string    { return "routing.prefixes" }
+func (f prefixesFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated prefix strings.
-func (f PrefixesFact) Canonical() string {
-	if len(f) == 0 {
-		return ""
+// PrefixesFact returns an immutable, injective snapshot of IP prefixes in their supplied order.
+func PrefixesFact(prefixes []netip.Prefix) trace.Fact {
+	var out strings.Builder
+	for i, prefix := range prefixes {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(prefix.String()))
 	}
-	strs := make([]string, len(f))
-	for i, p := range f {
-		strs[i] = p.String()
-	}
-	return strings.Join(strs, ",")
+
+	return prefixesFact(out.String())
 }
 
 // AddrFact wraps a netip.Addr as a trace.Fact.

@@ -46,31 +46,37 @@ func (f SelectAllFact) TypeID() string { return "traffic.select_all" }
 // Canonical returns "true" or "false".
 func (f SelectAllFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
-// PortsFact wraps a slice of port names as a trace.Fact.
-type PortsFact []string
+type portsFact string
 
-// TypeID returns the fact type identifier for PortsFact.
-func (f PortsFact) TypeID() string { return "traffic.ports" }
+func (f portsFact) TypeID() string    { return "traffic.ports" }
+func (f portsFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated port names.
-func (f PortsFact) Canonical() string { return strings.Join(f, ",") }
-
-// VLANsFact wraps a slice of VLAN IDs as a trace.Fact.
-type VLANsFact []vlan.ID
-
-// TypeID returns the fact type identifier for VLANsFact.
-func (f VLANsFact) TypeID() string { return "traffic.vlans" }
-
-// Canonical returns the comma-separated VLAN IDs.
-func (f VLANsFact) Canonical() string {
-	if len(f) == 0 {
-		return ""
+// PortsFact returns an immutable, injective snapshot of port names in their supplied order.
+func PortsFact(ports []string) trace.Fact {
+	var out strings.Builder
+	for i, portName := range ports {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(portName))
 	}
-	strs := make([]string, len(f))
-	for i, vid := range f {
-		strs[i] = strconv.Itoa(int(vid))
+
+	return portsFact(out.String())
+}
+
+type vlansFact string
+
+func (f vlansFact) TypeID() string    { return "traffic.vlans" }
+func (f vlansFact) Canonical() string { return string(f) }
+
+// VLANsFact returns an immutable snapshot of VLAN IDs in their supplied order.
+func VLANsFact(ids []vlan.ID) trace.Fact {
+	values := make([]string, len(ids))
+	for i, id := range ids {
+		values[i] = strconv.Itoa(int(id))
 	}
-	return strings.Join(strs, ",")
+
+	return vlansFact(strings.Join(values, ","))
 }
 
 // OutputPortFact wraps an output port name as a trace.Fact.

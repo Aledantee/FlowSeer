@@ -230,18 +230,20 @@ func CaseShadowingPartialUnknownPort() Case {
 			unknownPortFact,
 		},
 		ExpectedSteps: expectedSteps,
-		ExpectedIssues: []analysis.IssueCode{
-			netmodel.IssueMissingOperStatus,
+		ExpectedIssues: []IssueExpectation{
+			{
+				Code:     netmodel.IssueMissingOperStatus,
+				Status:   analysis.Incomplete,
+				Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
+				Evidence: []trace.EvidenceRef{refOperUnknown},
+			},
 		},
-		ExpectedIssueScopes: []analysis.Scope{
-			analysis.PortScope("shadow-sw1", "1/1/2"),
-		},
-		ExpectedEvidenceRefs: []trace.EvidenceRef{
-			refOperUnknown,
-			refAgingDefault,
-		},
-		ExpectedAssumptions: []string{
-			"default value applied for aging_time: 300s",
+		ExpectedAssumptions: []AssumptionExpectation{
+			{
+				Scope:     analysis.NodeScope("shadow-sw1"),
+				Statement: "default value applied for aging_time: 300s",
+				Evidence:  []trace.EvidenceRef{refAgingDefault},
+			},
 		},
 		ExpectedModelMetadata: &MetadataExpectation{
 			Status: analysis.Incomplete,

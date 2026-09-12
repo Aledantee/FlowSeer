@@ -69,26 +69,40 @@ func (f ClassFact) Canonical() string { return strconv.Itoa(int(f)) }
 // String returns the decimal string representation of the class.
 func (f ClassFact) String() string { return strconv.Itoa(int(f)) }
 
-// SpeedsFact represents supported Ethernet speeds.
-type SpeedsFact []uint64
+type speedsFact string
 
-// TypeID returns the stable identifier for SpeedsFact.
-func (f SpeedsFact) TypeID() string { return "phy.supported_speeds" }
+func (f speedsFact) TypeID() string    { return "phy.supported_speeds" }
+func (f speedsFact) Canonical() string { return string(f) }
 
-// Canonical returns a sorted, comma-delimited representation of the speeds.
-func (f SpeedsFact) Canonical() string {
-	cp := slices.Clone(f)
+// SpeedsFact returns an immutable, sorted snapshot of supported Ethernet speeds.
+func SpeedsFact(speeds []uint64) trace.Fact {
+	cp := slices.Clone(speeds)
 	slices.Sort(cp)
 	var strs []string
 	for _, s := range cp {
 		strs = append(strs, strconv.FormatUint(s, 10))
 	}
 
-	return strings.Join(strs, ",")
+	return speedsFact(strings.Join(strs, ","))
 }
 
-// String returns the canonical representation.
-func (f SpeedsFact) String() string { return f.Canonical() }
+type ethernetSnapshotFact string
+
+func (f ethernetSnapshotFact) TypeID() string    { return "phy.ethernet" }
+func (f ethernetSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotEthernet(ethernet Ethernet) trace.Fact {
+	return ethernetSnapshotFact(ethernet.Canonical())
+}
+
+type psePortSnapshotFact string
+
+func (f psePortSnapshotFact) TypeID() string    { return "phy.pse_port" }
+func (f psePortSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotPSEPort(psePort PsePort) trace.Fact {
+	return psePortSnapshotFact(psePort.Canonical())
+}
 
 // StringFact represents a string setting in the physical layer.
 type StringFact string
@@ -122,7 +136,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerEthernet,
 				Subject: trace.Subject{Kind: "port", Key: name},
-				From:    ae,
+				From:    snapshotEthernet(ae),
 			})
 
 			continue
@@ -207,7 +221,7 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerEthernet,
 				Subject: trace.Subject{Kind: "port", Key: name},
-				To:      b[name],
+				To:      snapshotEthernet(b[name]),
 			})
 		}
 	}
@@ -266,7 +280,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerPoe,
 				Subject: trace.Subject{Kind: "port", Key: name},
-				From:    ap,
+				From:    snapshotPSEPort(ap),
 			})
 
 			continue
@@ -332,7 +346,7 @@ func diffPoE(a, b *PoE) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   port.LayerPoe,
 				Subject: trace.Subject{Kind: "port", Key: name},
-				To:      bPorts[name],
+				To:      snapshotPSEPort(bPorts[name]),
 			})
 		}
 	}

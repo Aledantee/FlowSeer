@@ -137,6 +137,77 @@ type ChangeExpectation struct {
 	Evidence []trace.EvidenceRef
 }
 
+// IssueExpectation binds one issue's identity, trust status, scope, and exact evidence references.
+type IssueExpectation struct {
+	Code     analysis.IssueCode
+	Status   analysis.Status
+	Scope    analysis.Scope
+	Evidence []trace.EvidenceRef
+}
+
+// NewIssueExpectation creates an exact canonical expectation from an analysis issue.
+func NewIssueExpectation(issue analysis.Issue) IssueExpectation {
+	return IssueExpectation{
+		Code:     issue.Code,
+		Status:   issue.Status,
+		Scope:    issue.Scope,
+		Evidence: canonicalEvidence(issue.Evidence),
+	}
+}
+
+// Canonical returns an independent expectation with sorted, deduplicated evidence references.
+func (e IssueExpectation) Canonical() IssueExpectation {
+	e.Evidence = canonicalEvidence(e.Evidence)
+	return e
+}
+
+// Matches reports whether issue has exactly the expected semantic trust metadata.
+func (e IssueExpectation) Matches(issue analysis.Issue) bool {
+	actual := NewIssueExpectation(issue)
+	expected := e.Canonical()
+	return actual.Code == expected.Code &&
+		actual.Status == expected.Status &&
+		actual.Scope.Compare(expected.Scope) == 0 &&
+		slices.Equal(actual.Evidence, expected.Evidence)
+}
+
+// AssumptionExpectation binds one assumption's scope, statement, and exact evidence references.
+type AssumptionExpectation struct {
+	Scope     analysis.Scope
+	Statement string
+	Evidence  []trace.EvidenceRef
+}
+
+// NewAssumptionExpectation creates an exact canonical expectation from an analysis assumption.
+func NewAssumptionExpectation(assumption analysis.Assumption) AssumptionExpectation {
+	return AssumptionExpectation{
+		Scope:     assumption.Scope,
+		Statement: assumption.Statement,
+		Evidence:  canonicalEvidence(assumption.Evidence),
+	}
+}
+
+// Canonical returns an independent expectation with sorted, deduplicated evidence references.
+func (e AssumptionExpectation) Canonical() AssumptionExpectation {
+	e.Evidence = canonicalEvidence(e.Evidence)
+	return e
+}
+
+// Matches reports whether assumption has exactly the expected semantic trust metadata.
+func (e AssumptionExpectation) Matches(assumption analysis.Assumption) bool {
+	actual := NewAssumptionExpectation(assumption)
+	expected := e.Canonical()
+	return actual.Scope.Compare(expected.Scope) == 0 &&
+		actual.Statement == expected.Statement &&
+		slices.Equal(actual.Evidence, expected.Evidence)
+}
+
+func canonicalEvidence(refs []trace.EvidenceRef) []trace.EvidenceRef {
+	canonical := slices.Clone(refs)
+	slices.Sort(canonical)
+	return slices.Compact(canonical)
+}
+
 // NewChangeExpectation copies a trace change into its canonical expectation form.
 func NewChangeExpectation(change trace.Change) ChangeExpectation {
 	canonical := change.Canonical()
@@ -290,17 +361,11 @@ type Case struct {
 	// ExpectedChanges defines the complete ordered configuration diff.
 	ExpectedChanges []ChangeExpectation
 
-	// ExpectedIssues names issue codes that must be present when ExpectedStatus is non-Complete.
-	ExpectedIssues []analysis.IssueCode
+	// ExpectedIssues defines the complete issue set with exact status, scope, and evidence bindings.
+	ExpectedIssues []IssueExpectation
 
-	// ExpectedIssueScopes pairs by index with ExpectedIssues and requires exact scope equality.
-	ExpectedIssueScopes []analysis.Scope
-
-	// ExpectedEvidenceRefs names the complete evidence catalog when ExpectedStatus is non-Complete.
-	ExpectedEvidenceRefs []trace.EvidenceRef
-
-	// ExpectedAssumptions names the complete set of assumption statements.
-	ExpectedAssumptions []string
+	// ExpectedAssumptions defines the complete assumption set with exact scope, statement, and evidence bindings.
+	ExpectedAssumptions []AssumptionExpectation
 
 	// ExpectedComparison defines both forwarding axes when the case returns a comparison.
 	ExpectedComparison *ComparisonExpectation
@@ -338,16 +403,10 @@ func (c Case) Clone() Case {
 		cp.ExpectedChanges = cloneChangeExpectations(c.ExpectedChanges)
 	}
 	if len(c.ExpectedIssues) > 0 {
-		cp.ExpectedIssues = slices.Clone(c.ExpectedIssues)
-	}
-	if len(c.ExpectedIssueScopes) > 0 {
-		cp.ExpectedIssueScopes = slices.Clone(c.ExpectedIssueScopes)
-	}
-	if len(c.ExpectedEvidenceRefs) > 0 {
-		cp.ExpectedEvidenceRefs = slices.Clone(c.ExpectedEvidenceRefs)
+		cp.ExpectedIssues = cloneIssueExpectations(c.ExpectedIssues)
 	}
 	if len(c.ExpectedAssumptions) > 0 {
-		cp.ExpectedAssumptions = slices.Clone(c.ExpectedAssumptions)
+		cp.ExpectedAssumptions = cloneAssumptionExpectations(c.ExpectedAssumptions)
 	}
 	if c.ExpectedComparison != nil {
 		expectation := cloneComparisonExpectation(*c.ExpectedComparison)
@@ -374,6 +433,22 @@ func cloneStepExpectations(expectations []StepExpectation) []StepExpectation {
 
 func cloneChangeExpectations(expectations []ChangeExpectation) []ChangeExpectation {
 	clones := make([]ChangeExpectation, len(expectations))
+	for i, expectation := range expectations {
+		clones[i] = expectation.Canonical()
+	}
+	return clones
+}
+
+func cloneIssueExpectations(expectations []IssueExpectation) []IssueExpectation {
+	clones := make([]IssueExpectation, len(expectations))
+	for i, expectation := range expectations {
+		clones[i] = expectation.Canonical()
+	}
+	return clones
+}
+
+func cloneAssumptionExpectations(expectations []AssumptionExpectation) []AssumptionExpectation {
+	clones := make([]AssumptionExpectation, len(expectations))
 	for i, expectation := range expectations {
 		clones[i] = expectation.Canonical()
 	}
@@ -440,7 +515,7 @@ func ValidateCase(c Case) error {
 		}
 	}
 	for _, subject := range c.ExpectedSubjects {
-		if strings.TrimSpace(subject.String()) == "" {
+		if strings.TrimSpace(subject.Kind) == "" {
 			return fmt.Errorf("corpus case %q has empty expected subject", c.ID)
 		}
 		if !expectationsContainSubject(c.ExpectedSteps, c.ExpectedChanges, subject) {
@@ -456,7 +531,11 @@ func ValidateCase(c Case) error {
 		}
 	}
 	for i, step := range c.ExpectedSteps {
-		if step.Op == "" || step.RuleID == "" || strings.TrimSpace(step.Subject.String()) == "" {
+		if strings.TrimSpace(string(step.Layer)) == "" ||
+			strings.TrimSpace(string(step.Op)) == "" ||
+			strings.TrimSpace(string(step.RuleID)) == "" ||
+			strings.TrimSpace(step.Subject.Kind) == "" ||
+			strings.TrimSpace(step.Subject.Key) == "" {
 			return fmt.Errorf("corpus case %q has incomplete expected step at index %d", c.ID, i)
 		}
 		for _, fact := range append(slices.Clone(step.Inputs), step.Outputs...) {
@@ -466,7 +545,10 @@ func ValidateCase(c Case) error {
 		}
 	}
 	for i, change := range c.ExpectedChanges {
-		if strings.TrimSpace(change.Subject.String()) == "" || strings.TrimSpace(change.Field) == "" {
+		if strings.TrimSpace(string(change.Layer)) == "" ||
+			strings.TrimSpace(change.Subject.Kind) == "" ||
+			(strings.TrimSpace(change.Subject.Key) == "" && strings.TrimSpace(change.Field) == "") ||
+			(change.From == nil && change.To == nil) {
 			return fmt.Errorf("corpus case %q has incomplete expected change at index %d", c.ID, i)
 		}
 		for _, fact := range []*FactExpectation{change.From, change.To} {
@@ -477,30 +559,45 @@ func ValidateCase(c Case) error {
 	}
 	if *c.ExpectedStatus != analysis.Complete {
 		if len(c.ExpectedIssues) == 0 {
-			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected issue codes", c.ID)
-		}
-		if len(c.ExpectedIssueScopes) == 0 {
-			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected issue scopes", c.ID)
-		}
-		if len(c.ExpectedIssues) != len(c.ExpectedIssueScopes) {
-			return fmt.Errorf("corpus case %q must pair each expected issue code with one exact scope", c.ID)
-		}
-		if len(c.ExpectedEvidenceRefs) == 0 {
-			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected evidence references", c.ID)
+			return fmt.Errorf("corpus case %q has non-Complete expected status but no expected issues", c.ID)
 		}
 	}
-	for _, code := range c.ExpectedIssues {
-		if strings.TrimSpace(string(code)) == "" {
+	for i, issue := range c.ExpectedIssues {
+		if strings.TrimSpace(string(issue.Code)) == "" {
 			return fmt.Errorf("corpus case %q has empty expected issue code", c.ID)
 		}
+		if issue.Status == analysis.Complete || issue.Status > analysis.Unsupported {
+			return fmt.Errorf("corpus case %q has invalid expected issue status at index %d", c.ID, i)
+		}
+		if len(issue.Evidence) == 0 {
+			return fmt.Errorf("corpus case %q has expected issue without evidence at index %d", c.ID, i)
+		}
+		if err := validateEvidenceRefs(c.ID, "issue", i, issue.Evidence); err != nil {
+			return err
+		}
 	}
-	for _, a := range c.ExpectedAssumptions {
-		if strings.TrimSpace(a) == "" {
+	for i, assumption := range c.ExpectedAssumptions {
+		if strings.TrimSpace(assumption.Statement) == "" {
 			return fmt.Errorf("corpus case %q has empty expected assumption statement", c.ID)
+		}
+		if len(assumption.Evidence) == 0 {
+			return fmt.Errorf("corpus case %q has expected assumption without evidence at index %d", c.ID, i)
+		}
+		if err := validateEvidenceRefs(c.ID, "assumption", i, assumption.Evidence); err != nil {
+			return err
 		}
 	}
 	if c.Execute == nil {
 		return fmt.Errorf("corpus case %q has nil execute function", c.ID)
+	}
+	return nil
+}
+
+func validateEvidenceRefs(caseID, owner string, index int, refs []trace.EvidenceRef) error {
+	for _, ref := range refs {
+		if strings.TrimSpace(string(ref)) == "" {
+			return fmt.Errorf("corpus case %q has empty evidence reference on expected %s at index %d", caseID, owner, index)
+		}
 	}
 	return nil
 }
@@ -622,71 +719,54 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 	assertExpectedSteps(t, c.ID, res1.Steps, c.ExpectedSteps)
 	assertExpectedChanges(t, c.ID, res1.Changes, c.ExpectedChanges)
 
-	if *c.ExpectedStatus != analysis.Complete {
-		issues := res1.Metadata.Issues()
-		if len(issues) != len(c.ExpectedIssues) {
-			t.Errorf("case %s issue count = %d, want %d", c.ID, len(issues), len(c.ExpectedIssues))
-		}
-		matched := make([]bool, len(issues))
-		for i, wantCode := range c.ExpectedIssues {
-			wantScope := c.ExpectedIssueScopes[i]
-			found := false
-			for j, issue := range issues {
-				if !matched[j] && issue.Code == wantCode && issue.Scope.Compare(wantScope) == 0 {
-					matched[j] = true
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("case %s missing expected issue %q at exact scope %s", c.ID, wantCode, wantScope)
-			}
-		}
+	actualIssues := res1.Metadata.Issues()
+	if len(actualIssues) != len(c.ExpectedIssues) {
+		t.Errorf("case %s issue count = %d, want %d", c.ID, len(actualIssues), len(c.ExpectedIssues))
 	}
-
-	catalog := res1.Metadata.Evidence()
-	if entries := catalog.Entries(); len(entries) != len(c.ExpectedEvidenceRefs) {
-		t.Errorf("case %s evidence entry count = %d, want %d", c.ID, len(entries), len(c.ExpectedEvidenceRefs))
-	}
-	issues := res1.Metadata.Issues()
-	actualAssumptions := res1.Metadata.Assumptions()
-	for _, wantRef := range c.ExpectedEvidenceRefs {
-		if _, ok := catalog.Lookup(wantRef); !ok {
-			t.Errorf("case %s missing expected evidence reference %q in metadata catalog", c.ID, wantRef)
-		}
-		attached := false
-		for _, issue := range issues {
-			if slices.Contains(issue.Evidence, wantRef) {
-				attached = true
-				break
-			}
-		}
-		if !attached {
-			for _, assumption := range actualAssumptions {
-				if slices.Contains(assumption.Evidence, wantRef) {
-					attached = true
-					break
-				}
-			}
-		}
-		if !attached {
-			t.Errorf("case %s expected evidence reference %q is not attached to any issue or assumption", c.ID, wantRef)
-		}
-	}
-
-	if len(actualAssumptions) != len(c.ExpectedAssumptions) {
-		t.Errorf("case %s assumption count = %d, want %d", c.ID, len(actualAssumptions), len(c.ExpectedAssumptions))
-	}
-	for _, wantAssumption := range c.ExpectedAssumptions {
+	matchedIssues := make([]bool, len(actualIssues))
+	for _, expected := range c.ExpectedIssues {
 		found := false
-		for _, actual := range actualAssumptions {
-			if actual.Statement == wantAssumption {
+		for i, actual := range actualIssues {
+			if !matchedIssues[i] && expected.Matches(actual) {
+				matchedIssues[i] = true
 				found = true
 				break
 			}
 		}
 		if !found {
-			t.Errorf("case %s missing expected assumption statement %q", c.ID, wantAssumption)
+			t.Errorf("case %s missing exact issue expectation code=%q status=%s scope=%s evidence=%v",
+				c.ID, expected.Code, expected.Status, expected.Scope, expected.Canonical().Evidence)
+		}
+	}
+
+	actualAssumptions := res1.Metadata.Assumptions()
+	if len(actualAssumptions) != len(c.ExpectedAssumptions) {
+		t.Errorf("case %s assumption count = %d, want %d", c.ID, len(actualAssumptions), len(c.ExpectedAssumptions))
+	}
+	matchedAssumptions := make([]bool, len(actualAssumptions))
+	for _, expected := range c.ExpectedAssumptions {
+		found := false
+		for i, actual := range actualAssumptions {
+			if !matchedAssumptions[i] && expected.Matches(actual) {
+				matchedAssumptions[i] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("case %s missing exact assumption expectation scope=%s statement=%q evidence=%v",
+				c.ID, expected.Scope, expected.Statement, expected.Canonical().Evidence)
+		}
+	}
+
+	catalog := res1.Metadata.Evidence()
+	expectedRefs := expectedEvidenceRefs(c.ExpectedIssues, c.ExpectedAssumptions)
+	if entries := catalog.Entries(); len(entries) != len(expectedRefs) {
+		t.Errorf("case %s evidence entry count = %d, want %d", c.ID, len(entries), len(expectedRefs))
+	}
+	for _, ref := range expectedRefs {
+		if _, ok := catalog.Lookup(ref); !ok {
+			t.Errorf("case %s missing expected evidence reference %q in metadata catalog", c.ID, ref)
 		}
 	}
 
@@ -701,6 +781,18 @@ func AssertCase(t testing.TB, c Case) ExecutionResult {
 	assertDeterministicExecution(t, c.ID, res1, res2)
 
 	return res1
+}
+
+func expectedEvidenceRefs(issues []IssueExpectation, assumptions []AssumptionExpectation) []trace.EvidenceRef {
+	var refs []trace.EvidenceRef
+	for _, issue := range issues {
+		refs = append(refs, issue.Evidence...)
+	}
+	for _, assumption := range assumptions {
+		refs = append(refs, assumption.Evidence...)
+	}
+
+	return canonicalEvidence(refs)
 }
 
 func assertExpectedSteps(t testing.TB, caseID string, actual []trace.Step, expected []StepExpectation) {

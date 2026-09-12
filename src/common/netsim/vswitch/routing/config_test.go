@@ -684,7 +684,7 @@ func TestFactTypeIDsUnique(t *testing.T) {
 		routing.VLANFact(0),
 		routing.PortFact(""),
 		routing.MACFact{},
-		routing.PrefixesFact{},
+		routing.PrefixesFact(nil),
 		routing.AddrFact{},
 		routing.RouteInterfaceFact(""),
 	}

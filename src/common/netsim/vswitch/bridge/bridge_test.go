@@ -2073,7 +2073,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []vlan.ID{10, 20}
 		wantTo := []vlan.ID{10, 30}
-		if !slices.Equal(ch.From.(bridge.VLANsFact).IDs(), wantFrom) || !slices.Equal(ch.To.(bridge.VLANsFact).IDs(), wantTo) {
+		if !trace.EqualFact(ch.From, bridge.VLANsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.VLANsFact(wantTo)) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})
@@ -2099,7 +2099,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []string{"1/1/1", "1/1/2"}
 		wantTo := []string{"1/1/1", "1/1/3"}
-		if !slices.Equal(ch.From.(bridge.StringsFact).Strings(), wantFrom) || !slices.Equal(ch.To.(bridge.StringsFact).Strings(), wantTo) {
+		if !trace.EqualFact(ch.From, bridge.StringsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.StringsFact(wantTo)) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})

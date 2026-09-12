@@ -60,14 +60,23 @@ func (f VLANFact) TypeID() string { return "fabric.vlan" }
 // Canonical returns the decimal string representation of the VLAN ID.
 func (f VLANFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// PrefixesFact wraps a slice of prefix strings as a trace.Fact.
-type PrefixesFact []string
+type prefixesFact string
 
-// TypeID returns the fact type identifier for PrefixesFact.
-func (f PrefixesFact) TypeID() string { return "fabric.prefixes" }
+func (f prefixesFact) TypeID() string    { return "fabric.prefixes" }
+func (f prefixesFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated prefix strings.
-func (f PrefixesFact) Canonical() string { return strings.Join(f, ",") }
+// PrefixesFact returns an immutable, injective snapshot of prefix strings in their supplied order.
+func PrefixesFact(prefixes []string) trace.Fact {
+	var out strings.Builder
+	for i, prefix := range prefixes {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(prefix))
+	}
+
+	return prefixesFact(out.String())
+}
 
 // GatewayFact wraps a netip.Addr as a trace.Fact.
 type GatewayFact netip.Addr
@@ -129,7 +138,7 @@ func Diff(a, b Config) []trace.Change {
 					Key:  name,
 				},
 				Field: "",
-				From:  swA.Clone(),
+				From:  vswitch.ConfigFact(swA),
 				To:    nil,
 			})
 		case !inA && inB:
@@ -141,7 +150,7 @@ func Diff(a, b Config) []trace.Change {
 				},
 				Field: "",
 				From:  nil,
-				To:    swB.Clone(),
+				To:    vswitch.ConfigFact(swB),
 			})
 		case inA && inB:
 			swChanges := vswitch.Diff(swA, swB)
@@ -484,8 +493,8 @@ func sortedCables(cables []Cable) []Cable {
 // same cable written in either orientation is one subject. Diff aligns
 // directional faults to that ordering before comparing them.
 func cableKey(c Cable) string {
-	a := c.A.Node + ":" + c.A.Port
-	b := c.B.Node + ":" + c.B.Port
+	a := c.A.Canonical()
+	b := c.B.Canonical()
 	if b < a {
 		a, b = b, a
 	}
@@ -494,8 +503,8 @@ func cableKey(c Cable) string {
 }
 
 func canonicalCableOrientation(c Cable) Cable {
-	a := c.A.Node + ":" + c.A.Port
-	b := c.B.Node + ":" + c.B.Port
+	a := c.A.Canonical()
+	b := c.B.Canonical()
 	if a <= b {
 		return c
 	}

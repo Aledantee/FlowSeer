@@ -3,6 +3,7 @@ package mcast
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,11 +68,6 @@ type VLANSnooping struct {
 	RouterPortInterval time.Duration
 }
 
-// TypeID returns the stable identifier for VLANSnooping facts.
-func (v VLANSnooping) TypeID() string {
-	return "mcast.vlan_snooping"
-}
-
 // Canonical returns a deterministic representation of the VLAN snooping configuration.
 func (v VLANSnooping) Canonical() string {
 	flood := true
@@ -80,9 +76,16 @@ func (v VLANSnooping) Canonical() string {
 	}
 	ports := slices.Clone(v.RouterPorts)
 	slices.Sort(ports)
+	var encodedPorts strings.Builder
+	for i, portName := range ports {
+		if i > 0 {
+			encodedPorts.WriteByte(',')
+		}
+		encodedPorts.WriteString(strconv.Quote(portName))
+	}
 
 	return fmt.Sprintf("flood=%t,fast_leave=%t,router_ports=[%s],mem_int=%s,rtr_int=%s",
-		flood, v.FastLeave, strings.Join(ports, ","), v.membershipInterval(), v.routerPortInterval())
+		flood, v.FastLeave, encodedPorts.String(), v.membershipInterval(), v.routerPortInterval())
 }
 
 // Validate rejects invalid VLANs, physical LAG members used as router ports,

@@ -37,7 +37,7 @@ if step.Equal(expectedStep) {
 
 // Render trace records for operator inspection.
 fmt.Println(trace.RenderStep(step))
-// [bridge:lookup] rule=fdb-hit subject=port:1/1/2 in=[mac=00:11:22:33:44:55, vlan=10] out=[port=1/1/2] evidence=[obs:fdb:dynamic]
+// [layer="bridge" op="lookup"] rule="fdb-hit" subject.kind="port" subject.key="1/1/2" in=[{type="mac" value="00:11:22:33:44:55"}, {type="vlan" value="10"}] out=[{type="port" value="1/1/2"}] evidence=["obs:fdb:dynamic"]
 ```
 
 ## Semantic facts
@@ -59,7 +59,9 @@ type Fact interface {
 A fact exposes a stable type identifier and a deterministic canonical string.
 Semantic comparison compares `TypeID()` then `Canonical()` without reflection,
 `any`, or JSON serialization. A capability owns its fact types and validation;
-`trace` only requires equality and canonical ordering keys.
+`trace` only requires equality and canonical ordering keys. Capability APIs
+return immutable fact snapshots so a retained step or change cannot be altered
+by later mutation of the source configuration.
 
 ## Producer-owned rule identifiers
 

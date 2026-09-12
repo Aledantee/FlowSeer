@@ -33,26 +33,20 @@ func (f PVIDFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) 
 // VID returns the underlying vlan.ID.
 func (f PVIDFact) VID() vlan.ID { return vlan.ID(f) }
 
-// VLANsFact wraps a slice of VLAN IDs as a trace.Fact.
-type VLANsFact []vlan.ID
+type vlansFact string
 
-// TypeID returns the fact type identifier for VLANsFact.
-func (f VLANsFact) TypeID() string { return "bridge.vlans" }
+func (f vlansFact) TypeID() string    { return "bridge.vlans" }
+func (f vlansFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated VLAN IDs.
-func (f VLANsFact) Canonical() string {
-	if len(f) == 0 {
-		return ""
+// VLANsFact returns an immutable snapshot of VLAN IDs in their supplied order.
+func VLANsFact(ids []vlan.ID) trace.Fact {
+	values := make([]string, len(ids))
+	for i, id := range ids {
+		values[i] = strconv.Itoa(int(id))
 	}
-	strs := make([]string, len(f))
-	for i, vid := range f {
-		strs[i] = strconv.Itoa(int(vid))
-	}
-	return strings.Join(strs, ",")
+
+	return vlansFact(strings.Join(values, ","))
 }
-
-// IDs returns a clone of the underlying VLAN ID slice.
-func (f VLANsFact) IDs() []vlan.ID { return slices.Clone([]vlan.ID(f)) }
 
 // BoolFact wraps a boolean value as a trace.Fact.
 type BoolFact bool
@@ -81,22 +75,23 @@ func (f IntFact) TypeID() string { return "bridge.int" }
 // Canonical returns the decimal string of the integer.
 func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
 
-// StringsFact wraps a slice of strings as a trace.Fact.
-type StringsFact []string
+type stringsFact string
 
-// TypeID returns the fact type identifier for StringsFact.
-func (f StringsFact) TypeID() string { return "bridge.strings" }
+func (f stringsFact) TypeID() string    { return "bridge.strings" }
+func (f stringsFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated strings.
-func (f StringsFact) Canonical() string {
-	if len(f) == 0 {
-		return ""
+// StringsFact returns an immutable, injective snapshot of strings in their supplied order.
+func StringsFact(values []string) trace.Fact {
+	var out strings.Builder
+	for i, value := range values {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(value))
 	}
-	return strings.Join(f, ",")
-}
 
-// Strings returns a clone of the underlying string slice.
-func (f StringsFact) Strings() []string { return slices.Clone([]string(f)) }
+	return stringsFact(out.String())
+}
 
 type tunnelSnapshotFact string
 

@@ -149,7 +149,8 @@ func TestDiff(t *testing.T) {
 
 	routers := changes[2]
 	if routers.From == nil || routers.To == nil ||
-		routers.From.Canonical() != "1/1/1,1/1/2" || routers.To.Canonical() != "1/1/4" {
+		!trace.EqualFact(routers.From, mcast.RouterPortsFact([]string{"1/1/1", "1/1/2"})) ||
+		!trace.EqualFact(routers.To, mcast.RouterPortsFact([]string{"1/1/4"})) {
 		t.Errorf("router_ports change = (%v, %v), want sorted port sets", routers.From, routers.To)
 	}
 	for i, c := range changes {

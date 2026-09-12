@@ -48,22 +48,34 @@ func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 // String returns the string representation of the duration.
 func (f DurationFact) String() string { return time.Duration(f).String() }
 
-// RouterPortsFact represents configured router ports.
-type RouterPortsFact []string
+type routerPortsFact string
 
-// TypeID returns the stable identifier for RouterPortsFact.
-func (f RouterPortsFact) TypeID() string { return "mcast.router_ports" }
+func (f routerPortsFact) TypeID() string    { return "mcast.router_ports" }
+func (f routerPortsFact) Canonical() string { return string(f) }
 
-// Canonical returns the comma-separated sorted port names.
-func (f RouterPortsFact) Canonical() string {
-	cp := slices.Clone(f)
+// RouterPortsFact returns an immutable, injective snapshot of sorted router-port names.
+func RouterPortsFact(ports []string) trace.Fact {
+	cp := slices.Clone(ports)
 	slices.Sort(cp)
+	var out strings.Builder
+	for i, portName := range cp {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(portName))
+	}
 
-	return strings.Join(cp, ",")
+	return routerPortsFact(out.String())
 }
 
-// String returns the canonical representation.
-func (f RouterPortsFact) String() string { return f.Canonical() }
+type vlanSnoopingSnapshotFact string
+
+func (f vlanSnoopingSnapshotFact) TypeID() string    { return "mcast.vlan_snooping" }
+func (f vlanSnoopingSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotVLANSnooping(snooping VLANSnooping) trace.Fact {
+	return vlanSnoopingSnapshotFact(snooping.Canonical())
+}
 
 // Diff returns deterministic per-VLAN changes between a and b.
 // Defaulted intervals and router-port order do not create changes.
@@ -76,7 +88,7 @@ func Diff(a, b Config) []trace.Change {
 		aCfg := na.VLANs[vid]
 		bCfg, ok := nb.VLANs[vid]
 		if !ok {
-			changes = append(changes, vlanChange(vid, "", aCfg, nil))
+			changes = append(changes, vlanChange(vid, "", snapshotVLANSnooping(aCfg), nil))
 
 			continue
 		}
@@ -101,7 +113,7 @@ func Diff(a, b Config) []trace.Change {
 
 	for _, vid := range sortedVLANIDs(nb.VLANs) {
 		if _, ok := na.VLANs[vid]; !ok {
-			changes = append(changes, vlanChange(vid, "", nil, nb.VLANs[vid]))
+			changes = append(changes, vlanChange(vid, "", nil, snapshotVLANSnooping(nb.VLANs[vid])))
 		}
 	}
 

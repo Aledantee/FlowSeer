@@ -95,11 +95,6 @@ func (p PsePort) Clone() PsePort {
 	return cp
 }
 
-// TypeID returns the stable identifier for PsePort facts.
-func (p PsePort) TypeID() string {
-	return "phy.pse_port"
-}
-
 // Canonical returns a deterministic representation of the PSE port.
 func (p PsePort) Canonical() string {
 	limStr := "<nil>"
@@ -111,8 +106,8 @@ func (p PsePort) Canonical() string {
 		pdStr = strconv.Itoa(int(*p.PDClass))
 	}
 
-	return fmt.Sprintf("group=%s,max_class=%d,enabled=%t,limit=%s,priority=%s,pd_class=%s",
-		p.Group, p.MaxClass, p.Enabled, limStr, p.Priority, pdStr)
+	return fmt.Sprintf("group=%q,max_class=%d,enabled=%t,limit=%s,priority=%q,pd_class=%s",
+		p.Group, p.MaxClass, p.Enabled, limStr, string(p.Priority), pdStr)
 }
 
 // Class returns a pointer to c, for a PsePort literal.

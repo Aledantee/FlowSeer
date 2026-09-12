@@ -3,7 +3,6 @@ package fabric_test
 import (
 	"net/netip"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -692,10 +691,8 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
 				if ch.Field == "addresses" {
 					foundAddrs = true
-					fromAddrs, okFrom := ch.From.(fabric.PrefixesFact)
-					toAddrs, okTo := ch.To.(fabric.PrefixesFact)
-					if !okFrom || !okTo || !slices.Equal(fromAddrs, []string{"10.0.10.10/24"}) ||
-						!slices.Equal(toAddrs, []string{"10.0.10.10/24", "fd00::10/64"}) {
+					if !trace.EqualFact(ch.From, fabric.PrefixesFact([]string{"10.0.10.10/24"})) ||
+						!trace.EqualFact(ch.To, fabric.PrefixesFact([]string{"10.0.10.10/24", "fd00::10/64"})) {
 						t.Errorf("addresses diff = %v -> %v", ch.From, ch.To)
 					}
 				}

@@ -64,8 +64,8 @@ func (p Port) TypeID() string { return "stp.port" }
 
 // Canonical returns the canonical string representation of the Port fact.
 func (p Port) Canonical() string {
-	return fmt.Sprintf("priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%s",
-		p.Priority, p.PathCost, p.AdminEdge, p.AutoEdge, p.PointToPoint)
+	return fmt.Sprintf("priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%q",
+		p.Priority, p.PathCost, p.AdminEdge, p.AutoEdge, string(p.PointToPoint))
 }
 
 // TypeID returns the fact type identifier for PointToPointMode.

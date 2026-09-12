@@ -765,8 +765,8 @@ func TestDiffFieldChangesAcrossLayers(t *testing.T) {
 
 		untaggedChange := changes[1]
 		if untaggedChange.Subject.Key != "1/1/2" || untaggedChange.Field != "untagged_vlan_ids" ||
-			trace.CompareFact(untaggedChange.From, bridge.VLANsFact{10}) != 0 ||
-			trace.CompareFact(untaggedChange.To, bridge.VLANsFact{20}) != 0 {
+			trace.CompareFact(untaggedChange.From, bridge.VLANsFact([]vlan.ID{10})) != 0 ||
+			trace.CompareFact(untaggedChange.To, bridge.VLANsFact([]vlan.ID{20})) != 0 {
 			t.Errorf("unexpected untagged_vlan_ids change: %+v", untaggedChange)
 		}
 	})

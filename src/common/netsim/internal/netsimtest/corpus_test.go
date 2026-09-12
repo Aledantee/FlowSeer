@@ -118,49 +118,100 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "must define its ordered expected trace steps",
 		},
 		{
-			name: "non-complete status without issue codes",
+			name: "step without layer",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps[0].Layer = ""
+			},
+			wantErr: "incomplete expected step",
+		},
+		{
+			name: "step without operation",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps[0].Op = ""
+			},
+			wantErr: "incomplete expected step",
+		},
+		{
+			name: "step without rule",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps[0].RuleID = ""
+				c.ExpectedRules = c.ExpectedRules[1:]
+			},
+			wantErr: "incomplete expected step",
+		},
+		{
+			name: "step without subject kind",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps[0].Subject.Kind = ""
+			},
+			wantErr: "incomplete expected step",
+		},
+		{
+			name: "step without subject key",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedSteps[0].Subject.Key = ""
+			},
+			wantErr: "incomplete expected step",
+		},
+		{
+			name: "change without layer",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedChanges[0].Layer = ""
+			},
+			wantErr: "incomplete expected change",
+		},
+		{
+			name: "whole-subject change without key",
+			mutate: func(c *netsimtest.Case) {
+				c.ExpectedChanges[0].Subject.Key = ""
+				c.ExpectedChanges[0].Field = ""
+			},
+			wantErr: "incomplete expected change",
+		},
+		{
+			name: "non-complete status without issues",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
 				c.ExpectedIssues = nil
-				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
-				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
 			},
-			wantErr: "has non-Complete expected status but no expected issue codes",
+			wantErr: "has non-Complete expected status but no expected issues",
 		},
 		{
-			name: "non-complete status without issue scopes",
+			name: "issue without evidence",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []analysis.IssueCode{"test.issue"}
-				c.ExpectedIssueScopes = nil
-				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
+				c.ExpectedIssues = []netsimtest.IssueExpectation{{
+					Code: "test.issue", Status: analysis.Incomplete, Scope: analysis.WholeScope(),
+				}}
 			},
-			wantErr: "has non-Complete expected status but no expected issue scopes",
+			wantErr: "expected issue without evidence",
 		},
 		{
-			name: "non-complete status without evidence references",
+			name: "issue with invalid status",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []analysis.IssueCode{"test.issue"}
-				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
-				c.ExpectedEvidenceRefs = nil
+				c.ExpectedIssues = []netsimtest.IssueExpectation{{
+					Code: "test.issue", Status: analysis.Complete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
+				}}
 			},
-			wantErr: "has non-Complete expected status but no expected evidence references",
+			wantErr: "invalid expected issue status",
 		},
 		{
-			name: "issue code without paired scope",
+			name: "empty issue code",
 			mutate: func(c *netsimtest.Case) {
 				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []analysis.IssueCode{"test.issue", "test.other"}
-				c.ExpectedIssueScopes = []analysis.Scope{analysis.WholeScope()}
-				c.ExpectedEvidenceRefs = []trace.EvidenceRef{"ev-1"}
+				c.ExpectedIssues = []netsimtest.IssueExpectation{{
+					Status: analysis.Incomplete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
+				}}
 			},
-			wantErr: "must pair each expected issue code with one exact scope",
+			wantErr: "empty expected issue code",
 		},
 		{
 			name: "empty expected assumption statement",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedAssumptions = []string{"   "}
+				c.ExpectedAssumptions = []netsimtest.AssumptionExpectation{{
+					Scope: analysis.WholeScope(), Statement: "   ", Evidence: []trace.EvidenceRef{"ev-1"},
+				}}
 			},
 			wantErr: "has empty expected assumption statement",
 		},
@@ -301,10 +352,11 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if !ok {
 		t.Fatalf("case %s not found in registry", cShadow.ID)
 	}
-	retrievedShadow.ExpectedIssues[0] = "mutated-issue"
-	retrievedShadow.ExpectedIssueScopes[0] = analysis.WholeScope()
-	retrievedShadow.ExpectedEvidenceRefs[0] = "mutated-evidence"
-	retrievedShadow.ExpectedAssumptions[0] = "mutated-assumption"
+	retrievedShadow.ExpectedIssues[0].Code = "mutated-issue"
+	retrievedShadow.ExpectedIssues[0].Evidence[0] = "mutated-issue-evidence"
+	retrievedShadow.ExpectedAssumptions[0].Scope = analysis.WholeScope()
+	retrievedShadow.ExpectedAssumptions[0].Statement = "mutated-assumption"
+	retrievedShadow.ExpectedAssumptions[0].Evidence[0] = "mutated-assumption-evidence"
 	retrievedShadow.ExpectedModelMetadata.Scope = analysis.WholeScope()
 	retrievedShadow.ExpectedForwardMetadata.Scope = analysis.WholeScope()
 
@@ -312,16 +364,12 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if !ok {
 		t.Fatalf("case %s not found on second retrieval", cShadow.ID)
 	}
-	if freshShadow.ExpectedIssues[0] == "mutated-issue" {
+	if freshShadow.ExpectedIssues[0].Code == "mutated-issue" || freshShadow.ExpectedIssues[0].Evidence[0] == "mutated-issue-evidence" {
 		t.Error("registry internal ExpectedIssues was mutated")
 	}
-	if freshShadow.ExpectedIssueScopes[0] == analysis.WholeScope() {
-		t.Error("registry internal ExpectedIssueScopes was mutated")
-	}
-	if freshShadow.ExpectedEvidenceRefs[0] == "mutated-evidence" {
-		t.Error("registry internal ExpectedEvidenceRefs was mutated")
-	}
-	if freshShadow.ExpectedAssumptions[0] == "mutated-assumption" {
+	if freshShadow.ExpectedAssumptions[0].Scope == analysis.WholeScope() ||
+		freshShadow.ExpectedAssumptions[0].Statement == "mutated-assumption" ||
+		freshShadow.ExpectedAssumptions[0].Evidence[0] == "mutated-assumption-evidence" {
 		t.Error("registry internal ExpectedAssumptions was mutated")
 	}
 	if freshShadow.ExpectedModelMetadata.Scope == analysis.WholeScope() {
@@ -484,10 +532,10 @@ func TestExecutionResultStatusDerivesFromMetadata(t *testing.T) {
 
 func TestAdmissionRequiresEvidenceForNonComplete(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedEvidenceRefs = nil
+	c.ExpectedIssues[0].Evidence = nil
 	err := netsimtest.ValidateCase(c)
 	if err == nil {
-		t.Fatal("expected error for non-Complete case with nil ExpectedEvidenceRefs, got nil")
+		t.Fatal("expected error for non-Complete issue with nil evidence, got nil")
 	}
 	if !containsSubstring(err.Error(), "evidence") {
 		t.Errorf("error %q does not mention evidence", err.Error())
@@ -511,8 +559,8 @@ func (r *recordingTB) Fatalf(format string, args ...any) {
 
 func TestAssertCaseVerifiesEvidenceAndAssumptions(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedEvidenceRefs = []trace.EvidenceRef{"non-existent-evidence-ref"}
-	c.ExpectedAssumptions = []string{"non-existent-assumption"}
+	c.ExpectedIssues[0].Evidence = []trace.EvidenceRef{"non-existent-evidence-ref"}
+	c.ExpectedAssumptions[0].Statement = "non-existent-assumption"
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
@@ -536,23 +584,22 @@ func TestAssertCaseVerifiesEvidenceAndAssumptions(t *testing.T) {
 
 func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	if len(c.ExpectedEvidenceRefs) == 0 {
-		t.Error("CaseShadowingPartialUnknownPort must populate ExpectedEvidenceRefs")
+	if len(c.ExpectedIssues) == 0 || len(c.ExpectedIssues[0].Evidence) == 0 {
+		t.Error("CaseShadowingPartialUnknownPort must bind issue evidence")
 	}
-	if len(c.ExpectedAssumptions) == 0 {
-		t.Error("CaseShadowingPartialUnknownPort must populate ExpectedAssumptions")
+	if len(c.ExpectedAssumptions) == 0 || len(c.ExpectedAssumptions[0].Evidence) == 0 {
+		t.Error("CaseShadowingPartialUnknownPort must bind assumption evidence")
 	}
 }
 
-func TestAssertCaseRejectsUnattachedEvidence(t *testing.T) {
+func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 	c := netsimtest.CasePlanningPortVLANChange()
 	cat := analysis.EvidenceCatalog{}
-	cat, unattachedRef := cat.Add(analysis.Evidence{
+	cat, _ = cat.Add(analysis.Evidence{
 		Kind:    "test.kind",
 		Origin:  "test-origin",
 		Context: "unattached evidence",
 	})
-	c.ExpectedEvidenceRefs = []trace.EvidenceRef{unattachedRef}
 	origExecute := c.Execute
 	c.Execute = func() (netsimtest.ExecutionResult, error) {
 		res, err := origExecute()
@@ -566,34 +613,54 @@ func TestAssertCaseRejectsUnattachedEvidence(t *testing.T) {
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
 
-	var foundUnattachedErr bool
-	for _, errStr := range rec.errors {
-		if containsSubstring(errStr, "not attached to any issue or assumption") {
-			foundUnattachedErr = true
-			break
-		}
-	}
-	if !foundUnattachedErr {
-		t.Error("AssertCase did not report error for evidence ref that is present in catalog but not attached to an issue or assumption")
+	if !recordedErrorContains(rec, "evidence entry count") {
+		t.Errorf("AssertCase errors = %v, want undeclared evidence failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedAssumptions = []string{"aging_time: 300s"}
+	c.ExpectedAssumptions[0].Statement = "aging_time: 300s"
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
 
 	var foundAssumptionErr bool
 	for _, errStr := range rec.errors {
-		if containsSubstring(errStr, "missing expected assumption statement") {
+		if containsSubstring(errStr, "exact assumption expectation") {
 			foundAssumptionErr = true
 			break
 		}
 	}
 	if !foundAssumptionErr {
 		t.Error("AssertCase accepted substring assumption match; want exact match requirement")
+	}
+}
+
+func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		issues := res.Metadata.Issues()
+		assumptions := res.Metadata.Assumptions()
+		issues[0].Evidence, assumptions[0].Evidence = assumptions[0].Evidence, issues[0].Evidence
+		assumptions[0].Scope = analysis.WholeScope()
+		res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), assumptions)
+
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "exact issue expectation") {
+		t.Errorf("AssertCase errors = %v, want exact issue evidence failure", rec.errors)
+	}
+	if !recordedErrorContains(rec, "exact assumption expectation") {
+		t.Errorf("AssertCase errors = %v, want exact assumption scope/evidence failure", rec.errors)
 	}
 }
 
@@ -669,7 +736,7 @@ func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
-	if !recordedErrorContains(rec, "exact scope") {
+	if !recordedErrorContains(rec, "exact issue expectation") {
 		t.Errorf("AssertCase errors = %v, want exact-scope failure", rec.errors)
 	}
 }
@@ -830,11 +897,12 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 }
 
 func TestCanonicalExpectationsDoNotRetainMutableFacts(t *testing.T) {
-	mutableFact := bridge.VLANsFact([]vlan.ID{10})
-	expectation := netsimtest.NewFactExpectation(mutableFact)
-	stepExpectation := netsimtest.NewStepExpectation(trace.Step{Inputs: []trace.Fact{mutableFact}})
+	ids := []vlan.ID{10}
+	fact := bridge.VLANsFact(ids)
+	expectation := netsimtest.NewFactExpectation(fact)
+	stepExpectation := netsimtest.NewStepExpectation(trace.Step{Inputs: []trace.Fact{fact}})
 
-	mutableFact[0] = 20
+	ids[0] = 20
 	if expectation.Canonical != "10" {
 		t.Errorf("fact expectation canonical value = %q, want %q", expectation.Canonical, "10")
 	}

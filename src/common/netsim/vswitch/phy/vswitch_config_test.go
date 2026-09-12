@@ -81,9 +81,9 @@ func TestVSwitchConfigFactIsLosslessAndSourceIsolated(t *testing.T) {
 		"1/1/1": {SupportedSpeedsBPS: []uint64{1_000_000_000}},
 	}}}
 
-	fact := a.Clone()
+	fact := vswitch.ConfigFact(a)
 	before := fact.Canonical()
-	if got := b.Canonical(); got == before {
+	if got := vswitch.ConfigFact(b).Canonical(); got == before {
 		t.Fatalf("different effective configurations share canonical form %q", got)
 	}
 	a.Phy.Ethernet["1/1/1"] = phy.Ethernet{SupportedSpeedsBPS: []uint64{10_000_000_000}}
@@ -93,7 +93,7 @@ func TestVSwitchConfigFactIsLosslessAndSourceIsolated(t *testing.T) {
 
 	portA := vswitch.Config{Ports: mustTable(t, port.Port{Name: "1/1/1", Kind: port.Physical})}
 	portB := vswitch.Config{Ports: mustTable(t, port.Port{Name: "1/1/2", Kind: port.Physical})}
-	if portA.Canonical() == portB.Canonical() {
-		t.Errorf("configurations with different ports share canonical form %q", portA.Canonical())
+	if vswitch.ConfigFact(portA).Canonical() == vswitch.ConfigFact(portB).Canonical() {
+		t.Errorf("configurations with different ports share canonical form %q", vswitch.ConfigFact(portA).Canonical())
 	}
 }
