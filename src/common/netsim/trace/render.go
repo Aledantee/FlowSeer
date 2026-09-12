@@ -105,7 +105,7 @@ func RenderChange(c Change) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("[%s]", layer))
+	fmt.Fprintf(&sb, "[%s]", layer)
 
 	if subj := canon.Subject.String(); subj != "" {
 		sb.WriteString(" ")
@@ -118,14 +118,14 @@ func RenderChange(c Change) string {
 		sb.WriteString(":")
 	}
 
-	sb.WriteString(fmt.Sprintf(" %s -> %s", renderChangeFact(canon.From), renderChangeFact(canon.To)))
+	fmt.Fprintf(&sb, " %s -> %s", renderChangeFact(canon.From), renderChangeFact(canon.To))
 
 	if len(canon.Evidence) > 0 {
 		var evs []string
 		for _, e := range canon.Evidence {
 			evs = append(evs, string(e))
 		}
-		sb.WriteString(fmt.Sprintf(" (evidence: %s)", strings.Join(evs, ", ")))
+		fmt.Fprintf(&sb, " (evidence: %s)", strings.Join(evs, ", "))
 	}
 
 	return sb.String()
