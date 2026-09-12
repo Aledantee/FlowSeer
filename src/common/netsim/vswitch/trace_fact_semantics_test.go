@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -90,6 +91,51 @@ func TestCapabilityFactsAreImmutableAndDecisionSensitive(t *testing.T) {
 	if (trace.Step{Outputs: []trace.Fact{lag.MemberTransitionFact("one", "lacpdu", lagBefore, lagBefore)}}).
 		Equal(trace.Step{Outputs: []trace.Fact{lag.MemberTransitionFact("one", "lacpdu", lagBefore, lagAfter)}}) {
 		t.Fatal("different LAG member transitions compare equal")
+	}
+}
+
+func TestConfigFactAgreesWithSemanticConfigEquality(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	tests := []struct {
+		name string
+		a    vswitch.Config
+		b    vswitch.Config
+	}{
+		{
+			name: "nil and empty traffic collections",
+			a:    vswitch.Config{Ports: ports, Traffic: &traffic.Config{}},
+			b: vswitch.Config{Ports: ports, Traffic: &traffic.Config{
+				Mirrors:  []traffic.Mirror{},
+				Policers: map[string]traffic.Policer{},
+				Queues:   map[string]traffic.PortQueues{},
+			}},
+		},
+		{
+			name: "nil and empty bridge collections",
+			a:    vswitch.Config{Ports: ports, Bridge: &bridge.Config{}},
+			b: vswitch.Config{Ports: ports, Bridge: &bridge.Config{
+				FloodVLANs:     []vlan.ID{},
+				ProtectedPorts: []string{},
+			}},
+		},
+		{
+			name: "defaulted bridge aging time",
+			a:    vswitch.Config{Ports: ports, Bridge: &bridge.Config{}},
+			b:    vswitch.Config{Ports: ports, Bridge: &bridge.Config{AgingTime: bridge.DefaultAgingTime}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if !test.a.Equal(test.b) {
+				t.Fatal("test configurations are not semantically equal")
+			}
+			if !trace.EqualFact(vswitch.ConfigFact(test.a), vswitch.ConfigFact(test.b)) {
+				t.Errorf("equal configs have different facts:\n a: %s\n b: %s", vswitch.ConfigFact(test.a).Canonical(), vswitch.ConfigFact(test.b).Canonical())
+			}
+		})
 	}
 }
 

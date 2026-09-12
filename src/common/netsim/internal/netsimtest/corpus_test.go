@@ -76,18 +76,18 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has empty expected outcome",
 		},
 		{
-			name: "unspecified expected status",
+			name: "unspecified expected metadata",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = nil
+				c.ExpectedMetadata = nil
 			},
-			wantErr: "has unspecified expected status",
+			wantErr: "has unspecified expected metadata",
 		},
 		{
 			name: "invalid expected status",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = netsimtest.StatusPtr(99)
+				c.ExpectedMetadata.Status = 99
 			},
-			wantErr: "has invalid expected status",
+			wantErr: "has invalid result metadata status",
 		},
 		{
 			name: "missing expected rules",
@@ -171,10 +171,10 @@ func TestAdmissionValidation(t *testing.T) {
 		{
 			name: "non-complete status without issues",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = nil
+				c.ExpectedMetadata.Status = analysis.Incomplete
+				c.ExpectedMetadata.Issues = nil
 			},
-			wantErr: "has non-Complete expected status but no expected issues",
+			wantErr: "has non-Complete result metadata but no expected issues",
 		},
 		{
 			name: "non-complete side metadata without issues",
@@ -187,43 +187,43 @@ func TestAdmissionValidation(t *testing.T) {
 			wantErr: "has non-Complete forward metadata but no expected issues",
 		},
 		{
-			name: "issue without evidence",
+			name: "primary issue without evidence",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []netsimtest.IssueExpectation{{
-					Code: "test.issue", Status: analysis.Incomplete, Scope: analysis.WholeScope(),
+				c.ExpectedMetadata.Status = analysis.Incomplete
+				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
+					Code: "test.issue", Status: analysis.Incomplete, Scope: c.ExpectedMetadata.Scope,
 				}}
 			},
-			wantErr: "expected issue without evidence",
+			wantErr: "result metadata issue without evidence",
 		},
 		{
 			name: "issue with invalid status",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []netsimtest.IssueExpectation{{
+				c.ExpectedMetadata.Status = analysis.Incomplete
+				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
 					Code: "test.issue", Status: analysis.Complete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
-			wantErr: "invalid expected issue status",
+			wantErr: "invalid result metadata issue status",
 		},
 		{
 			name: "empty issue code",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedStatus = netsimtest.StatusPtr(analysis.Incomplete)
-				c.ExpectedIssues = []netsimtest.IssueExpectation{{
+				c.ExpectedMetadata.Status = analysis.Incomplete
+				c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{{
 					Status: analysis.Incomplete, Scope: analysis.WholeScope(), Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
-			wantErr: "empty expected issue code",
+			wantErr: "empty result metadata issue code",
 		},
 		{
 			name: "empty expected assumption statement",
 			mutate: func(c *netsimtest.Case) {
-				c.ExpectedAssumptions = []netsimtest.AssumptionExpectation{{
+				c.ExpectedMetadata.Assumptions = []netsimtest.AssumptionExpectation{{
 					Scope: analysis.WholeScope(), Statement: "   ", Evidence: []trace.EvidenceRef{"ev-1"},
 				}}
 			},
-			wantErr: "has empty expected assumption statement",
+			wantErr: "has empty result metadata assumption",
 		},
 		{
 			name: "empty expected rule ID",
@@ -352,6 +352,24 @@ func TestAdmissionRejectsMetadataStatusContradictions(t *testing.T) {
 	}
 }
 
+func TestAdmissionRejectsPrimaryMetadataStatusPrecedenceContradiction(t *testing.T) {
+	c := netsimtest.CasePlanningPortVLANChange()
+	c.ExpectedMetadata.Status = analysis.Incomplete
+	c.ExpectedMetadata.Scope = analysis.NodeScope("")
+	c.ExpectedMetadata.Issues = []netsimtest.IssueExpectation{
+		{Code: "test.incomplete", Status: analysis.Incomplete, Scope: analysis.PortScope("", "p1")},
+		{Code: "test.unsupported", Status: analysis.Unsupported, Scope: analysis.PortScope("", "p2")},
+	}
+
+	err := netsimtest.ValidateCase(c)
+	if err == nil {
+		t.Fatal("ValidateCase() error = nil, want primary metadata status contradiction")
+	}
+	if !containsSubstring(err.Error(), "status incomplete, want unsupported derived") {
+		t.Errorf("ValidateCase() error = %q, want status precedence contradiction", err)
+	}
+}
+
 func TestRegistryDuplicateRejection(t *testing.T) {
 	r := netsimtest.NewRegistry()
 	c := netsimtest.CasePlanningPortVLANChange()
@@ -386,7 +404,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	retrieved.ExpectedSteps[0].Outputs[0] = netsimtest.FactExpectation{TypeID: "mutated", Canonical: "mutated"}
 	retrieved.ExpectedChanges[0].From.TypeID = "mutated"
 	retrieved.ExpectedComparison.Current.Steps[0].Inputs[0].TypeID = "mutated"
-	*retrieved.ExpectedStatus = analysis.Incomplete
+	retrieved.ExpectedMetadata.Scope = analysis.WholeScope()
 
 	// Fresh retrieval must remain unchanged.
 	fresh, ok := r.Get(c.ID)
@@ -411,8 +429,8 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if fresh.ExpectedComparison.Current.Steps[0].Inputs[0].TypeID == "mutated" {
 		t.Error("registry internal ExpectedComparison steps were mutated")
 	}
-	if *fresh.ExpectedStatus != analysis.Complete {
-		t.Error("registry internal expected status was mutated through pointer alias")
+	if fresh.ExpectedMetadata.Scope.Compare(analysis.NodeScope("")) != 0 {
+		t.Error("registry internal expected metadata was mutated through pointer alias")
 	}
 
 	// Also verify non-Complete shadowing case isolation for issues, scopes, evidence, assumptions.
@@ -423,11 +441,13 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if !ok {
 		t.Fatalf("case %s not found in registry", cShadow.ID)
 	}
-	retrievedShadow.ExpectedIssues[0].Code = "mutated-issue"
-	retrievedShadow.ExpectedIssues[0].Evidence[0] = "mutated-issue-evidence"
-	retrievedShadow.ExpectedAssumptions[0].Scope = analysis.WholeScope()
-	retrievedShadow.ExpectedAssumptions[0].Statement = "mutated-assumption"
-	retrievedShadow.ExpectedAssumptions[0].Evidence[0] = "mutated-assumption-evidence"
+	retrievedShadow.ExpectedMetadata.Scope = analysis.WholeScope()
+	retrievedShadow.ExpectedMetadata.Issues[0].Code = "mutated-issue"
+	retrievedShadow.ExpectedMetadata.Issues[0].Evidence[0] = "mutated-issue-evidence"
+	retrievedShadow.ExpectedMetadata.Evidence[0].Evidence.Context = "mutated-evidence"
+	retrievedShadow.ExpectedMetadata.Assumptions[0].Scope = analysis.WholeScope()
+	retrievedShadow.ExpectedMetadata.Assumptions[0].Statement = "mutated-assumption"
+	retrievedShadow.ExpectedMetadata.Assumptions[0].Evidence[0] = "mutated-assumption-evidence"
 	retrievedShadow.ExpectedModelMetadata.Scope = analysis.WholeScope()
 	retrievedShadow.ExpectedModelMetadata.Issues[0].Message = "mutated-model-issue"
 	retrievedShadow.ExpectedModelMetadata.Issues[0].Evidence[0] = "mutated-model-issue-evidence"
@@ -443,13 +463,16 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if !ok {
 		t.Fatalf("case %s not found on second retrieval", cShadow.ID)
 	}
-	if freshShadow.ExpectedIssues[0].Code == "mutated-issue" || freshShadow.ExpectedIssues[0].Evidence[0] == "mutated-issue-evidence" {
-		t.Error("registry internal ExpectedIssues was mutated")
+	if freshShadow.ExpectedMetadata.Scope.Compare(analysis.WholeScope()) == 0 {
+		t.Error("registry internal ExpectedMetadata scope was mutated")
 	}
-	if freshShadow.ExpectedAssumptions[0].Scope == analysis.WholeScope() ||
-		freshShadow.ExpectedAssumptions[0].Statement == "mutated-assumption" ||
-		freshShadow.ExpectedAssumptions[0].Evidence[0] == "mutated-assumption-evidence" {
-		t.Error("registry internal ExpectedAssumptions was mutated")
+	if freshShadow.ExpectedMetadata.Issues[0].Code == "mutated-issue" ||
+		freshShadow.ExpectedMetadata.Issues[0].Evidence[0] == "mutated-issue-evidence" ||
+		freshShadow.ExpectedMetadata.Evidence[0].Evidence.Context == "mutated-evidence" ||
+		freshShadow.ExpectedMetadata.Assumptions[0].Scope.Compare(analysis.WholeScope()) == 0 ||
+		freshShadow.ExpectedMetadata.Assumptions[0].Statement == "mutated-assumption" ||
+		freshShadow.ExpectedMetadata.Assumptions[0].Evidence[0] == "mutated-assumption-evidence" {
+		t.Error("registry internal ExpectedMetadata contents were mutated")
 	}
 	if freshShadow.ExpectedModelMetadata.Scope == analysis.WholeScope() {
 		t.Error("registry internal ExpectedModelMetadata was mutated")
@@ -621,12 +644,12 @@ func TestExecutionResultStatusDerivesFromMetadata(t *testing.T) {
 	}
 }
 
-func TestAdmissionRequiresEvidenceForNonComplete(t *testing.T) {
+func TestAdmissionRequiresPrimaryMetadataEvidenceContents(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedIssues[0].Evidence = nil
+	c.ExpectedMetadata.Evidence = nil
 	err := netsimtest.ValidateCase(c)
 	if err == nil {
-		t.Fatal("expected error for non-Complete issue with nil evidence, got nil")
+		t.Fatal("expected error for metadata reference without evidence contents, got nil")
 	}
 	if !containsSubstring(err.Error(), "evidence") {
 		t.Errorf("error %q does not mention evidence", err.Error())
@@ -648,40 +671,33 @@ func (r *recordingTB) Fatalf(format string, args ...any) {
 	r.errors = append(r.errors, fmt.Sprintf(format, args...))
 }
 
-func TestAssertCaseVerifiesEvidenceAndAssumptions(t *testing.T) {
+func TestAssertCaseVerifiesExactPrimaryEvidenceAndAssumptions(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedIssues[0].Evidence = []trace.EvidenceRef{"non-existent-evidence-ref"}
-	c.ExpectedAssumptions[0].Statement = "non-existent-assumption"
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		issues := res.Metadata.Issues()
+		assumptions := res.Metadata.Assumptions()
+		issues[0].Evidence, assumptions[0].Evidence = assumptions[0].Evidence, issues[0].Evidence
+		assumptions[0].Statement = "changed assumption"
+		res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), assumptions)
+		return res, nil
+	}
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
-
-	var foundEvidenceErr, foundAssumptionErr bool
-	for _, errStr := range rec.errors {
-		if containsSubstring(errStr, "evidence") {
-			foundEvidenceErr = true
-		}
-		if containsSubstring(errStr, "assumption") {
-			foundAssumptionErr = true
-		}
-	}
-	if !foundEvidenceErr {
-		t.Error("AssertCase did not report error for missing expected evidence reference")
-	}
-	if !foundAssumptionErr {
-		t.Error("AssertCase did not report error for missing expected assumption")
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want exact primary metadata failure", rec.errors)
 	}
 }
 
 func TestShadowingCasePopulatesEvidenceAndAssumptions(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	if len(c.ExpectedIssues) == 0 || len(c.ExpectedIssues[0].Evidence) == 0 {
-		t.Error("CaseShadowingPartialUnknownPort must bind issue evidence")
-	}
-	if len(c.ExpectedAssumptions) == 0 || len(c.ExpectedAssumptions[0].Evidence) == 0 {
-		t.Error("CaseShadowingPartialUnknownPort must bind assumption evidence")
-	}
 	for axis, metadata := range map[string]*netsimtest.MetadataExpectation{
+		"result":  c.ExpectedMetadata,
 		"model":   c.ExpectedModelMetadata,
 		"forward": c.ExpectedForwardMetadata,
 	} {
@@ -750,34 +766,27 @@ func TestAssertCaseRejectsUndeclaredCatalogEvidence(t *testing.T) {
 		if err != nil {
 			return res, err
 		}
-		res.Metadata = analysis.NewMetadata(analysis.WholeScope(), nil, cat, nil)
+		res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), res.Metadata.Issues(), cat, res.Metadata.Assumptions())
 		return res, nil
 	}
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
 
-	if !recordedErrorContains(rec, "evidence entry count") {
-		t.Errorf("AssertCase errors = %v, want undeclared evidence failure", rec.errors)
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want exact primary metadata evidence failure", rec.errors)
 	}
 }
 
 func TestAssertCaseRequiresExactAssumptionMatch(t *testing.T) {
 	c := netsimtest.CaseShadowingPartialUnknownPort()
-	c.ExpectedAssumptions[0].Statement = "aging_time: 300s"
+	c.ExpectedMetadata.Assumptions[0].Statement = "aging_time: 300s"
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
 
-	var foundAssumptionErr bool
-	for _, errStr := range rec.errors {
-		if containsSubstring(errStr, "exact assumption expectation") {
-			foundAssumptionErr = true
-			break
-		}
-	}
-	if !foundAssumptionErr {
-		t.Error("AssertCase accepted substring assumption match; want exact match requirement")
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want exact primary assumption failure", rec.errors)
 	}
 }
 
@@ -800,11 +809,8 @@ func TestAssertCaseBindsTrustEvidenceToItsIssueAndAssumption(t *testing.T) {
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
-	if !recordedErrorContains(rec, "exact issue expectation") {
-		t.Errorf("AssertCase errors = %v, want exact issue evidence failure", rec.errors)
-	}
-	if !recordedErrorContains(rec, "exact assumption expectation") {
-		t.Errorf("AssertCase errors = %v, want exact assumption scope/evidence failure", rec.errors)
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want exact primary metadata binding failure", rec.errors)
 	}
 }
 
@@ -880,8 +886,50 @@ func TestAssertCaseRejectsBroaderIssueScope(t *testing.T) {
 
 	rec := &recordingTB{}
 	netsimtest.AssertCase(rec, c)
-	if !recordedErrorContains(rec, "exact issue expectation") {
-		t.Errorf("AssertCase errors = %v, want exact-scope failure", rec.errors)
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want exact primary issue-scope failure", rec.errors)
+	}
+}
+
+func TestAssertCaseRejectsWrongPrimaryMetadataScope(t *testing.T) {
+	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		res.Metadata = analysis.NewMetadata(analysis.WholeScope(), res.Metadata.Issues(), res.Metadata.Evidence(), res.Metadata.Assumptions())
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want primary metadata scope failure", rec.errors)
+	}
+}
+
+func TestAssertCaseRejectsWrongPrimaryMetadataStatus(t *testing.T) {
+	c := netsimtest.CaseTroubleshootingUnicastForwarding()
+	origExecute := c.Execute
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), []analysis.Issue{{
+			Code:   "test.wrong-status",
+			Status: analysis.Unsupported,
+			Scope:  res.Metadata.Scope(),
+		}}, analysis.EvidenceCatalog{}, nil)
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if !recordedErrorContains(rec, "result metadata does not match its exact structured expectation") {
+		t.Errorf("AssertCase errors = %v, want primary metadata status failure", rec.errors)
 	}
 }
 

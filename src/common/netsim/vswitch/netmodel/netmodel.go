@@ -178,18 +178,10 @@ func Load(
 		return Result{}, errs.New().Msg("interface list cannot be empty")
 	}
 
-	var rootScope analysis.Scope
-	if src.DeviceID != "" {
-		rootScope = analysis.NodeScope(src.DeviceID)
-	} else {
-		rootScope = analysis.WholeScope()
-	}
+	rootScope := analysis.NodeScope(src.DeviceID)
 
 	portScope := func(portName string) analysis.Scope {
-		if src.DeviceID != "" {
-			return analysis.PortScope(src.DeviceID, portName)
-		}
-		return analysis.PortScope("", portName)
+		return analysis.PortScope(src.DeviceID, portName)
 	}
 
 	catalog := analysis.EvidenceCatalog{}

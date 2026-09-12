@@ -467,7 +467,7 @@ func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...stri
 	for _, name := range dependencyPorts {
 		p, ok := s.ports.Port(name)
 		if !ok {
-			p = port.Port{Name: name}
+			p = (port.Port{Name: name}).Normalize()
 		}
 		res.Consult(p)
 		if p.LagParent == "" {
@@ -485,11 +485,20 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	var issues []analysis.Issue
 
 	for _, p := range res.ConsultedPorts() {
+		scope := analysis.PortScope(s.nodeID, p.Name)
+		if !s.metadata.Scope().Contains(scope) {
+			issues = append(issues, analysis.Issue{
+				Code:    "forwarding-dependency-outside-loaded-scope",
+				Status:  analysis.Incomplete,
+				Scope:   scope,
+				Message: fmt.Sprintf("port %q lies outside loaded analysis scope %s", p.Name, s.metadata.Scope()),
+			})
+		}
 		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
 			issues = append(issues, analysis.Issue{
 				Code:    "unknown-operational-status",
 				Status:  analysis.Incomplete,
-				Scope:   analysis.PortScope(s.nodeID, p.Name),
+				Scope:   scope,
 				Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
 			})
 		}

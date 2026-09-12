@@ -143,6 +143,48 @@ func assertEvidenceSource(t *testing.T, result netmodel.Result, src netmodel.Sou
 	}
 }
 
+func TestLoadAnonymousSourceUsesAnonymousNodeScope(t *testing.T) {
+	name := "p1"
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	input := loadInput{ifaces: []*interfacev1.Interface{interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &admin,
+		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
+	}.Build()}}
+	input.validate(t)
+
+	loaded := input.load(t, netmodel.SourceContext{})
+	wantScope := analysis.NodeScope("")
+	if got := loaded.Metadata.Scope(); got.Compare(wantScope) != 0 {
+		t.Fatalf("metadata scope = %s, want %s", got, wantScope)
+	}
+	if len(loaded.Report.Defaults) == 0 {
+		t.Fatal("anonymous load produced no defaults")
+	}
+	for _, item := range loaded.Report.Defaults {
+		if !wantScope.Contains(item.Scope) {
+			t.Errorf("default scope = %s, want scope beneath %s", item.Scope, wantScope)
+		}
+	}
+	issues := loaded.Metadata.Issues()
+	if len(issues) == 0 {
+		t.Fatal("anonymous load produced no issues")
+	}
+	for _, issue := range issues {
+		if !wantScope.Contains(issue.Scope) {
+			t.Errorf("issue scope = %s, want scope beneath %s", issue.Scope, wantScope)
+		}
+	}
+
+	sw, err := vswitch.NewWithSpec(loaded.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec(Load().Spec): %v", err)
+	}
+	if got := sw.Spec(); !got.Equal(loaded.Spec) {
+		t.Errorf("round-trip spec differs:\n got: %+v\nwant: %+v", got, loaded.Spec)
+	}
+}
+
 func plainPhysicalInterface(name string) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP

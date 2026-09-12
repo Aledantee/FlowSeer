@@ -58,12 +58,15 @@ func CasePlanningPortVLANChange() Case {
 	}
 
 	return Case{
-		ID:              "planning/port-vlan-change",
-		UseCase:         UseCasePlanning,
-		Question:        "Does reconfiguring an access switchport from VLAN 10 to VLAN 20 alter forwarding behavior and emit typed configuration diff facts without string parsing?",
-		FalseAnswer:     "Silently ignoring the switchport reconfiguration, masking behavioral divergence behind identical prose strings, or requiring string parsing to observe diffs",
-		CurrentResult:   "vswitch.Diff produces typed bridge.PVIDFact and bridge.VLANsFact change facts; vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
-		ExpectedStatus:  StatusPtr(analysis.Complete),
+		ID:            "planning/port-vlan-change",
+		UseCase:       UseCasePlanning,
+		Question:      "Does reconfiguring an access switchport from VLAN 10 to VLAN 20 alter forwarding behavior and emit typed configuration diff facts without string parsing?",
+		FalseAnswer:   "Silently ignoring the switchport reconfiguration, masking behavioral divergence behind identical prose strings, or requiring string parsing to observe diffs",
+		CurrentResult: "vswitch.Diff produces typed bridge.PVIDFact and bridge.VLANsFact change facts; vswitch.Compare detects forwarding divergence with the expected switch dropping traffic due to no-egress member ports in VLAN 20",
+		ExpectedMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
 		ExpectedOutcome: trace.Dropped,
 		ExpectedReason:  bridge.ReasonNoEgress,
 		ExpectedRules: []trace.RuleID{
@@ -241,14 +244,14 @@ func CaseShadowingPartialUnknownPort() Case {
 	}
 
 	return Case{
-		ID:              "topology-shadowing/partial-model-unknown-port",
-		UseCase:         UseCaseTopologyShadowing,
-		Question:        "Does a device model with one unknown operational port remain constructible and localize its Incomplete issue to that port?",
-		FalseAnswer:     "Failing model construction as an error, treating unknown operational status as active forwarding, or hiding uncertainty when that port could change flood egress",
-		CurrentResult:   "netmodel.Load returns a constructible ConstructionSpec with an Incomplete issue scoped strictly to the unknown port; forwarding that could use the port remains Incomplete",
-		ExpectedStatus:  StatusPtr(analysis.Incomplete),
-		ExpectedOutcome: trace.Dropped,
-		ExpectedReason:  port.ReasonPortDown,
+		ID:               "topology-shadowing/partial-model-unknown-port",
+		UseCase:          UseCaseTopologyShadowing,
+		Question:         "Does a device model with one unknown operational port remain constructible and localize its Incomplete issue to that port?",
+		FalseAnswer:      "Failing model construction as an error, treating unknown operational status as active forwarding, or hiding uncertainty when that port could change flood egress",
+		CurrentResult:    "netmodel.Load returns a constructible ConstructionSpec with an Incomplete issue scoped strictly to the unknown port; forwarding that could use the port remains Incomplete",
+		ExpectedMetadata: &modelMetadata,
+		ExpectedOutcome:  trace.Dropped,
+		ExpectedReason:   port.ReasonPortDown,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("ingress-port-down"),
 		},
@@ -258,13 +261,7 @@ func CaseShadowingPartialUnknownPort() Case {
 		ExpectedFacts: []FactExpectation{
 			unknownPortFact,
 		},
-		ExpectedSteps: expectedSteps,
-		ExpectedIssues: []IssueExpectation{
-			expectedIssue,
-		},
-		ExpectedAssumptions: []AssumptionExpectation{
-			expectedAssumption,
-		},
+		ExpectedSteps:           expectedSteps,
 		ExpectedModelMetadata:   &modelMetadata,
 		ExpectedForwardMetadata: &forwardMetadata,
 		Execute: func() (ExecutionResult, error) {
@@ -378,12 +375,15 @@ func CaseTroubleshootingUnicastForwarding() Case {
 	}
 
 	return Case{
-		ID:              "troubleshooting/unicast-fdb-forwarding",
-		UseCase:         UseCaseTroubleshooting,
-		Question:        "Does forwarding an untagged frame through an access port to a trunk port expose the decisive unicast FDB lookup rule, VLAN classification, tag rewrite, and Complete status?",
-		FalseAnswer:     "Reporting frame delivery without exposing the decisive FDB lookup rule, discarding intermediate classification steps, or obscuring tag rewrites",
-		CurrentResult:   "Forwarding produces a deterministic trace sequence including vlan-classify, learn, unicast-hit, vlan-tag-form, and transmit with Complete status and outer 802.1Q tagging on egress",
-		ExpectedStatus:  StatusPtr(analysis.Complete),
+		ID:            "troubleshooting/unicast-fdb-forwarding",
+		UseCase:       UseCaseTroubleshooting,
+		Question:      "Does forwarding an untagged frame through an access port to a trunk port expose the decisive unicast FDB lookup rule, VLAN classification, tag rewrite, and Complete status?",
+		FalseAnswer:   "Reporting frame delivery without exposing the decisive FDB lookup rule, discarding intermediate classification steps, or obscuring tag rewrites",
+		CurrentResult: "Forwarding produces a deterministic trace sequence including vlan-classify, learn, unicast-hit, vlan-tag-form, and transmit with Complete status and outer 802.1Q tagging on egress",
+		ExpectedMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
 		ExpectedOutcome: trace.Forwarded,
 		ExpectedRules: []trace.RuleID{
 			trace.RuleID("vlan-classify"),

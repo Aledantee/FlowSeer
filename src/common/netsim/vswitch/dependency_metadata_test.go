@@ -283,6 +283,84 @@ func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
 	}
 }
 
+func TestComposeForwardResultTreatsMissingDependencyAsUnknown(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "present", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{Ports: ports})
+
+	res := sw.ComposeForwardResult(bridge.Result{}, "missing")
+	if got := res.Metadata.Status(); got != analysis.Incomplete {
+		t.Fatalf("status = %s, want %s; issues: %+v", got, analysis.Incomplete, res.Metadata.Issues())
+	}
+	issues := res.Metadata.Issues()
+	if len(issues) != 1 {
+		t.Fatalf("issues = %+v, want one missing-dependency issue", issues)
+	}
+	wantScope := analysis.PortScope("", "missing")
+	if issues[0].Code != "unknown-operational-status" || issues[0].Scope.Compare(wantScope) != 0 {
+		t.Errorf("issue = %+v, want unknown-operational-status at %s", issues[0], wantScope)
+	}
+	consulted := res.ConsultedPorts()
+	if len(consulted) != 1 || consulted[0].AdminStatus != port.Unknown || consulted[0].OperStatus != port.Unknown {
+		t.Errorf("consulted ports = %+v, want missing placeholder with explicit Unknown states", consulted)
+	}
+}
+
+func TestForwardingMetadataDoesNotOverstateLoadedCoverage(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "p2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	tests := []struct {
+		name             string
+		loadedScope      analysis.Scope
+		dependencies     []string
+		wantStatus       analysis.Status
+		wantCoveragePort string
+	}{
+		{name: "child scope excludes consulted sibling", loadedScope: analysis.PortScope("sw1", "p1"), dependencies: []string{"p2"}, wantStatus: analysis.Incomplete, wantCoveragePort: "p2"},
+		{name: "child scope covers consulted port", loadedScope: analysis.PortScope("sw1", "p1"), dependencies: []string{"p1"}, wantStatus: analysis.Complete},
+		{name: "child scope with no dependencies", loadedScope: analysis.PortScope("sw1", "p1"), wantStatus: analysis.Complete},
+		{name: "node scope covers sibling", loadedScope: analysis.NodeScope("sw1"), dependencies: []string{"p2"}, wantStatus: analysis.Complete},
+		{name: "whole scope covers sibling", loadedScope: analysis.WholeScope(), dependencies: []string{"p2"}, wantStatus: analysis.Complete},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+				Config:   vswitch.Config{Ports: ports},
+				NodeID:   "sw1",
+				Metadata: analysis.NewMetadata(test.loadedScope, nil, analysis.EvidenceCatalog{}, nil),
+			})
+			if err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+
+			res := sw.ComposeForwardResult(bridge.Result{}, test.dependencies...)
+			if got := res.Metadata.Status(); got != test.wantStatus {
+				t.Fatalf("status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
+			}
+			if got := res.Metadata.Scope(); got.Compare(analysis.NodeScope("sw1")) != 0 {
+				t.Errorf("scope = %s, want %s", got, analysis.NodeScope("sw1"))
+			}
+			issues := res.Metadata.Issues()
+			if test.wantCoveragePort == "" {
+				if len(issues) != 0 {
+					t.Errorf("issues = %+v, want none", issues)
+				}
+				return
+			}
+			if len(issues) != 1 {
+				t.Fatalf("issues = %+v, want one coverage issue", issues)
+			}
+			wantScope := analysis.PortScope("sw1", test.wantCoveragePort)
+			if issues[0].Code != "forwarding-dependency-outside-loaded-scope" || issues[0].Scope.Compare(wantScope) != 0 {
+				t.Errorf("coverage issue = %+v, want scoped issue at %s", issues[0], wantScope)
+			}
+		})
+	}
+}
+
 func TestNamedSwitchKeepsWholeConstructionMetadataWithoutPortDependencies(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))

@@ -30,15 +30,13 @@ Every admitted case must define:
 - Stable case identifier.
 - Use-case class (`planning`, `topology-shadowing`, or `troubleshooting`).
 - Evaluated question and false answer prevented.
-- Expected analysis status and domain outcome.
+- Exact primary-result metadata and the domain outcome. The metadata expectation
+  includes the evaluated scope, derived status, issues, evidence contents, and
+  assumptions.
 - Non-empty decisive trace rules, subjects, and semantic facts. Each is bound
   to an exact [StepExpectation] or [ChangeExpectation].
 - The complete ordered semantic trace, including each operation, rule,
   subject, input facts, output facts, and evidence references.
-- Exact issue expectations binding code, status, scope, message, and evidence
-  references to the same issue when non-Complete.
-- Exact assumption expectations binding scope, statement, and evidence
-  references to the same assumption.
 - Exact status, scope, issues, evidence contents, and assumptions for each
   returned comparison, model, or forwarding axis. A non-Complete side must
   declare at least one expected issue.

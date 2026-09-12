@@ -2,7 +2,6 @@
 package vswitch
 
 import (
-	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -41,35 +40,15 @@ type Config struct {
 	Traffic *traffic.Config
 }
 
-// Canonical returns a deterministic encoding of the normalized configuration.
+// Canonical returns a deterministic encoding of the configuration semantics used
+// by [Config.Equal]. Nil, empty, and defaulted representations that compare equal
+// therefore have the same encoding.
 func (c Config) Canonical() string {
-	norm := c.Normalize()
-	snapshot := struct {
-		MAC     netaddr.MAC     `json:"mac"`
-		Ports   []port.Port     `json:"ports"`
-		Phy     *phy.Config     `json:"phy"`
-		Bridge  *bridge.Config  `json:"bridge"`
-		LAG     *lag.Config     `json:"lag"`
-		STP     *stp.Config     `json:"stp"`
-		Mcast   *mcast.Config   `json:"mcast"`
-		Routing *routing.Config `json:"routing"`
-		Traffic *traffic.Config `json:"traffic"`
-	}{
-		MAC:     norm.MAC,
-		Ports:   norm.Ports.Ports(),
-		Phy:     norm.Phy,
-		Bridge:  norm.Bridge,
-		LAG:     norm.LAG,
-		STP:     norm.STP,
-		Mcast:   norm.Mcast,
-		Routing: norm.Routing,
-		Traffic: norm.Traffic,
+	changes := Diff(Config{}, c)
+	if len(changes) == 0 {
+		return "[]"
 	}
-	encoded, err := json.Marshal(snapshot)
-	if err != nil {
-		panic(fmt.Sprintf("encode virtual switch configuration fact: %v", err))
-	}
-	return string(encoded)
+	return trace.RenderChanges(changes)
 }
 
 type configSnapshotFact string
