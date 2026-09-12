@@ -9,6 +9,7 @@ import (
 
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -338,6 +339,86 @@ func TestLoadRequiresExplicitRSTPBridgeProtocol(t *testing.T) {
 				return issue.Code == test.issue && issue.Status == test.status && len(issue.Evidence) > 0
 			}) {
 				t.Errorf("issues = %+v, want evidenced %s at %s", result.Metadata.Issues(), test.issue, test.status)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	bridgeID := stpv1.BridgeId_builder{
+		Priority: &priority,
+		Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+	}.Build()
+	zero := durationpb.New(0)
+	tests := []struct {
+		name  string
+		field string
+		set   func(*stpv1.BridgeState_builder)
+	}{
+		{
+			name:  "hello time",
+			field: "bridge_hello_time",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeHelloTime = zero
+			},
+		},
+		{
+			name:  "max age",
+			field: "bridge_max_age",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeMaxAge = zero
+			},
+		},
+		{
+			name:  "forward delay",
+			field: "bridge_forward_delay",
+			set: func(builder *stpv1.BridgeState_builder) {
+				builder.BridgeForwardDelay = zero
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			builder := stpv1.BridgeState_builder{
+				ProtocolVersion: &protocol,
+				BridgeId:        bridgeID,
+			}
+			test.set(&builder)
+			input := loadInput{
+				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				bridgeState: builder.Build(),
+				want:        []port.Layer{port.LayerStp},
+			}
+			input.validate(t)
+
+			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "zero-stp-timer"})
+			if result.Spec.Config.STP != nil || slices.Contains(result.Report.Capabilities, port.LayerStp) {
+				t.Errorf("present zero %s constructed an STP layer: config=%+v capabilities=%v", test.field, result.Spec.Config.STP, result.Report.Capabilities)
+			}
+			if result.Readiness() != analysis.Unsupported {
+				t.Errorf("readiness = %s, want Unsupported", result.Readiness())
+			}
+			if slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+				return got.Field == test.field
+			}) {
+				t.Errorf("present zero %s reported as an absent-field default: %+v", test.field, result.Report.Defaults)
+			}
+
+			issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer && issue.Scope.Compare(analysis.NodeScope("sw1")) == 0
+			})
+			if issueIndex < 0 {
+				t.Fatalf("issues = %+v, want %s scoped to sw1", result.Metadata.Issues(), netmodel.IssueInvalidSTPBridgeTimer)
+			}
+			issue := result.Metadata.Issues()[issueIndex]
+			if len(issue.Evidence) == 0 {
+				t.Fatalf("issue %s has no evidence", issue.Code)
+			}
+			if _, ok := result.Metadata.Evidence().Lookup(issue.Evidence[0]); !ok {
+				t.Errorf("issue %s evidence is absent from catalog", issue.Code)
 			}
 		})
 	}

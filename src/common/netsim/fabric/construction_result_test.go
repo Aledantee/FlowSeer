@@ -213,6 +213,54 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	}
 }
 
+func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
+	tests := []struct {
+		name  string
+		fault fabric.Fault
+	}{
+		{
+			name:  "N on cut fault",
+			fault: fabric.Fault{Kind: fabric.FaultCut, N: 2},
+		},
+		{
+			name:  "sequence on every Nth fault",
+			fault: fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2, Sequence: []uint{1}},
+		},
+	}
+	constructors := []struct {
+		name string
+		new  func(fabric.Config) error
+	}{
+		{
+			name: "NewConstructionSpec",
+			new: func(cfg fabric.Config) error {
+				_, err := fabric.NewConstructionSpec(cfg)
+				return err
+			},
+		},
+		{
+			name: "New",
+			new: func(cfg fabric.Config) error {
+				_, err := fabric.New(cfg)
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		for _, constructor := range constructors {
+			t.Run(test.name+"/"+constructor.name, func(t *testing.T) {
+				cfg := twoSwitchBaseConfig(t)
+				cfg.Cables[0].Fault = test.fault
+
+				if err := constructor.new(cfg); err == nil {
+					t.Fatalf("%s accepted fault with an inactive discriminated field: %+v", constructor.name, test.fault)
+				}
+			})
+		}
+	}
+}
+
 func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	t.Parallel()
 

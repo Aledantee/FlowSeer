@@ -219,6 +219,11 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 				Msgf("switch %q construction NodeID must equal its map key", name)
 		}
 	}
+	for i, cable := range owned.Cables {
+		if err := validateFault(cable.Fault); err != nil {
+			return ConstructionSpec{}, errs.Wrapf(err, "cable %d fault", i)
+		}
+	}
 
 	cfg := owned.Config()
 	if cur != nil {
@@ -731,6 +736,7 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 	if err := validateFault(fault); err != nil {
 		return err
 	}
+	normalized := normalizedFault(fault)
 
 	idx := slices.IndexFunc(f.links, func(l Link) bool {
 		c := l.Cable
@@ -743,13 +749,13 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 			Msgf("no cable found connecting endpoints %v and %v", a, b)
 	}
 
-	f.links[idx].Fault = fault.Clone()
+	f.links[idx].Fault = normalized.Clone()
 
 	cfgIdx := slices.IndexFunc(f.cfg.Cables, func(c Cable) bool {
 		return (c.A == a && c.B == b) || (c.A == b && c.B == a)
 	})
 	if cfgIdx >= 0 {
-		f.cfg.Cables[cfgIdx].Fault = fault.Clone()
+		f.cfg.Cables[cfgIdx].Fault = normalized.Clone()
 	}
 
 	linkA, linkB := resolveLink(f.links[idx].Cable, f.cfg)

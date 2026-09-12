@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
@@ -53,6 +55,7 @@ const (
 	IssueUnsupportedPowerClass          analysis.IssueCode = "netmodel.poe.unsupported_power_class"
 	IssueTunnelWithoutPvid              analysis.IssueCode = "netmodel.switchport.tunnel_without_pvid"
 	IssueInvalidBridgePriority          analysis.IssueCode = "netmodel.stp.invalid_bridge_priority"
+	IssueInvalidSTPBridgeTimer          analysis.IssueCode = "netmodel.stp.invalid_bridge_timer"
 	IssueMissingBridgeAddress           analysis.IssueCode = "netmodel.stp.missing_bridge_address"
 	IssueInvalidTxHoldCount             analysis.IssueCode = "netmodel.stp.invalid_tx_hold_count"
 	IssueInvalidPortPriority            analysis.IssueCode = "netmodel.stp.invalid_port_priority"
@@ -1035,6 +1038,29 @@ func Load(
 		mac, validBridgeAddress := parseEUI48(bridgeAddress)
 		prio := bridgeState.GetBridgeId().GetPriority()
 		priorityPresent := bridgeState.GetBridgeId() != nil && bridgeState.GetBridgeId().HasPriority()
+		var timerWhy string
+		for _, timer := range []struct {
+			field     string
+			value     *durationpb.Duration
+			low, high time.Duration
+		}{
+			{"bridge_hello_time", bridgeState.GetBridgeHelloTime(), time.Second, 10 * time.Second},
+			{"bridge_max_age", bridgeState.GetBridgeMaxAge(), 6 * time.Second, 40 * time.Second},
+			{"bridge_forward_delay", bridgeState.GetBridgeForwardDelay(), 4 * time.Second, 30 * time.Second},
+		} {
+			if timer.value == nil {
+				continue
+			}
+			if err := timer.value.CheckValid(); err != nil {
+				timerWhy = fmt.Sprintf("%s is not a valid protobuf duration: %v", timer.field, err)
+				break
+			}
+			duration := timer.value.AsDuration()
+			if duration < timer.low || duration > timer.high {
+				timerWhy = fmt.Sprintf("%s %s is outside %s through %s", timer.field, duration, timer.low, timer.high)
+				break
+			}
+		}
 
 		var (
 			bridgeWhy    string
@@ -1065,6 +1091,10 @@ func Load(
 		case priorityPresent && (prio >= 65536 || prio%4096 != 0):
 			bridgeWhy = "bridge priority is not a multiple of 4096 below 65536"
 			bridgeCode = IssueInvalidBridgePriority
+			bridgeStatus = analysis.Unsupported
+		case timerWhy != "":
+			bridgeWhy = timerWhy
+			bridgeCode = IssueInvalidSTPBridgeTimer
 			bridgeStatus = analysis.Unsupported
 		}
 		if bridgeWhy != "" {

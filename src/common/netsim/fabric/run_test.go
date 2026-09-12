@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1177,6 +1178,74 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 	)
 	if errUnknown == nil {
 		t.Error("SetFault expected error for unknown endpoints, got nil")
+	}
+}
+
+func TestSetFaultStoresNormalizedFault(t *testing.T) {
+	a := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
+	b := fabric.Endpoint{Node: "sw2", Port: "1/1/24"}
+	tests := []struct {
+		name  string
+		fault fabric.Fault
+		want  fabric.Fault
+	}{
+		{
+			name:  "empty kind",
+			fault: fabric.Fault{},
+			want:  fabric.Fault{Kind: fabric.FaultNone},
+		},
+		{
+			name: "unsorted duplicate sequence",
+			fault: fabric.Fault{
+				Kind:     fabric.FaultLoseSequence,
+				Sequence: []uint{5, 1, 5, 3},
+			},
+			want: fabric.Fault{
+				Kind:     fabric.FaultLoseSequence,
+				Sequence: []uint{1, 3, 5},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+			if err := fab.SetFault(a, b, test.fault); err != nil {
+				t.Fatalf("SetFault: %v", err)
+			}
+			if len(test.fault.Sequence) > 0 {
+				test.fault.Sequence[0] = 99
+			}
+
+			assertFault := func(where string, got fabric.Fault) {
+				t.Helper()
+				if got.Kind != test.want.Kind || got.N != test.want.N || !slices.Equal(got.Sequence, test.want.Sequence) {
+					t.Errorf("%s fault = %+v, want %+v", where, got, test.want)
+				}
+			}
+			foundLink := false
+			for _, link := range fab.Links() {
+				if (link.Cable.A == a && link.Cable.B == b) || (link.Cable.A == b && link.Cable.B == a) {
+					foundLink = true
+					assertFault("live link", link.Fault)
+				}
+			}
+			if !foundLink {
+				t.Fatal("live link is absent")
+			}
+
+			spec := fab.Spec()
+			foundCable := false
+			for _, cable := range spec.Cables {
+				if (cable.A == a && cable.B == b) || (cable.A == b && cable.B == a) {
+					foundCable = true
+					assertFault("construction spec", cable.Fault)
+				}
+			}
+			if !foundCable {
+				t.Fatal("construction specification cable is absent")
+			}
+		})
 	}
 }
 
