@@ -249,7 +249,7 @@ func CaseShadowingPartialUnknownPort() Case {
 		},
 		ExpectedForwardMetadata: &MetadataExpectation{
 			Status: analysis.Incomplete,
-			Scope:  analysis.NodeScope(""),
+			Scope:  analysis.NodeScope("shadow-sw1"),
 		},
 		Execute: func() (ExecutionResult, error) {
 			now := time.Unix(1700000000, 0)

@@ -16,6 +16,9 @@ const (
 	// Layer identifies traffic configuration changes.
 	Layer trace.Layer = "traffic"
 
+	// RulePolicerRefuse identifies a token-bucket decision that drops an ingress frame.
+	RulePolicerRefuse trace.RuleID = "traffic.policer.refuse"
+
 	// ReasonPoliced identifies a frame refused by an ingress policer.
 	ReasonPoliced trace.Reason = "policed"
 

@@ -107,8 +107,15 @@ synthesis decisions:
 
 ## Construction trust boundary
 
-The construction specification contains normalized configuration and executable
-seeds. It does not contain the loading report or metadata. A caller that builds a
-switch with `vswitch.NewWithSpec(res.Spec)` must retain `res.Metadata` alongside the
-switch; later `Forward` results do not automatically include loading conflicts,
-skips, or assumptions.
+The construction specification contains normalized configuration, executable
+seeds, the source device identity, and an immutable copy of the loading metadata.
+Building a switch with `vswitch.NewWithSpec(res.Spec)` therefore carries scoped
+loading conflicts, skips, assumptions, and their evidence into later `Forward`
+results. The detailed loading report remains on `Result` because it describes the
+translation rather than runtime forwarding.
+
+A forwarding result selects metadata against the ports it actually consulted. For
+example, a conflict on `sw1:1/1/3` affects a known unicast that uses that port, but
+not a known unicast that consults only `sw1:1/1/1` and `sw1:1/1/2`. A node-scoped
+conflict affects both queries. The result's scope retains `SourceContext.DeviceID`,
+which keeps similarly named ports on different devices disjoint.

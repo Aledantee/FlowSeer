@@ -173,6 +173,12 @@ configuration that made the copy, and `Journey.Parent` identifies the original
 frame's journey. The copy's injection origin is the switch and mirror output
 port, followed by its own crossings, delivery, or drop.
 
+An ingress policer rejection happens before the forwarding pipeline and remains an
+`EntryDrop`. Its `Result` records a traffic-layer drop step with a typed
+`traffic.PolicerDecisionFact`, including the configured rate and burst, the frame's
+wire octets, and the refusal. This keeps the pre-forward decision available to the
+same semantic trace consumers as ordinary switch hops.
+
 ## Egress queues
 
 Every transmitting endpoint has eight FIFO queues, one for each PCP. Normal

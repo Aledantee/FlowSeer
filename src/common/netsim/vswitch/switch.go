@@ -39,17 +39,24 @@ var (
 	allNodesAddress = netip.MustParseAddr("ff02::1")
 )
 
-// ConstructionSpec holds the normalized configuration and non-configuration
-// inputs (such as observed or preloaded FDB seeds) needed to construct an identical [Switch].
+// ConstructionSpec holds the normalized configuration, preloaded FDB seeds,
+// stable node identity, and construction trust metadata needed to reproduce a
+// [Switch]. NodeID keys node and port scopes; an empty value identifies an
+// anonymous standalone switch. ConstructionSpec is safe for concurrent reads
+// when its exported fields are not mutated.
 type ConstructionSpec struct {
-	Config Config
-	Seeds  []bridge.Seed
+	Config   Config
+	Seeds    []bridge.Seed
+	NodeID   string
+	Metadata analysis.Metadata
 }
 
 // Clone returns an independent deep copy of the construction specification.
 func (s ConstructionSpec) Clone() ConstructionSpec {
 	cp := ConstructionSpec{
-		Config: s.Config.Clone(),
+		Config:   s.Config.Clone(),
+		NodeID:   s.NodeID,
+		Metadata: cloneMetadata(s.Metadata),
 	}
 	if len(s.Seeds) > 0 {
 		cp.Seeds = slices.Clone(s.Seeds)
@@ -59,7 +66,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 
 // Equal reports whether two construction specifications are identical.
 func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
-	if !s.Config.Equal(other.Config) {
+	if s.NodeID != other.NodeID || !s.Config.Equal(other.Config) || !metadataEqual(s.Metadata, other.Metadata) {
 		return false
 	}
 	if len(s.Seeds) != len(other.Seeds) {
@@ -74,7 +81,7 @@ func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
 }
 
 // ForwardResult combines the Ethernet bridge forwarding outcome with analysis
-// trust metadata recording status, issues, and evidence.
+// trust metadata recording status, issues, evidence, and assumptions.
 type ForwardResult struct {
 	bridge.Result
 	Metadata analysis.Metadata
@@ -110,6 +117,8 @@ type Switch struct {
 	portP2P   map[string]bool
 	portSpeed map[string]uint64
 	seeds     []bridge.Seed
+	nodeID    string
+	metadata  analysis.Metadata
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
@@ -121,21 +130,24 @@ func New(cfg Config) (*Switch, error) {
 	return NewWithSpec(ConstructionSpec{Config: cfg})
 }
 
-// NewWithSpec constructs a [Switch] from the provided construction specification,
-// restoring preloaded forwarding database seeds if any.
+// NewWithSpec constructs a [Switch] from an immutable deep clone of spec,
+// restoring preloaded forwarding database seeds and construction trust metadata.
 func NewWithSpec(spec ConstructionSpec) (*Switch, error) {
-	norm := spec.Config.Normalize()
+	owned := spec.Clone()
+	norm := owned.Config.Normalize()
 	if err := norm.Validate(); err != nil {
 		return nil, err
 	}
-	return newSwitch(norm, spec.Seeds)
+	return newSwitch(norm, owned.Seeds, owned.NodeID, owned.Metadata)
 }
 
-func newSwitch(norm Config, seeds []bridge.Seed) (*Switch, error) {
+func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysis.Metadata) (*Switch, error) {
 	sw := &Switch{
-		cfg:   norm,
-		ports: norm.Ports.Clone(),
-		seeds: slices.Clone(seeds),
+		cfg:      norm,
+		ports:    norm.Ports.Clone(),
+		seeds:    slices.Clone(seeds),
+		nodeID:   nodeID,
+		metadata: cloneMetadata(metadata),
 	}
 
 	if norm.Phy != nil {
@@ -228,11 +240,14 @@ func newSwitch(norm Config, seeds []bridge.Seed) (*Switch, error) {
 	return sw, nil
 }
 
-// Spec returns a [ConstructionSpec] capturing the normalized configuration and
-// preloaded forwarding database seeds needed to reconstruct this switch.
+// Spec returns an independent [ConstructionSpec] capturing every construction
+// input needed to reproduce this switch, including its node identity and trust
+// metadata.
 func (s *Switch) Spec() ConstructionSpec {
 	spec := ConstructionSpec{
-		Config: s.cfg.Clone(),
+		Config:   s.cfg.Clone(),
+		NodeID:   s.nodeID,
+		Metadata: cloneMetadata(s.metadata),
 	}
 	if len(s.seeds) > 0 {
 		spec.Seeds = slices.Clone(s.seeds)
@@ -388,7 +403,6 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardRe
 }
 
 func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
-	scope := analysis.NodeScope("")
 	var issues []analysis.Issue
 
 	for _, p := range res.ConsultedPorts() {
@@ -396,7 +410,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 			issues = append(issues, analysis.Issue{
 				Code:    "unknown-operational-status",
 				Status:  analysis.Incomplete,
-				Scope:   analysis.PortScope("", p.Name),
+				Scope:   analysis.PortScope(s.nodeID, p.Name),
 				Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
 			})
 		}
@@ -404,7 +418,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 
 	return ForwardResult{
 		Result:   res,
-		Metadata: analysis.NewMetadata(scope, issues, analysis.EvidenceCatalog{}, nil),
+		Metadata: forwardingMetadata(s.nodeID, s.metadata, res.ConsultedPorts(), issues),
 	}
 }
 

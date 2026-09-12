@@ -314,13 +314,27 @@ Exported constructors validate and normalize configurations:
 - [New] normalizes and validates the input configuration, returning an error
   if port tables or subsystem invariants fail.
 - [NewWithSpec] constructs a switch from a [ConstructionSpec], restoring preloaded
-  forwarding database seeds alongside normalized configuration. [Switch.Spec]
-  extracts an independent copy of this specification for exact reproducibility.
+  forwarding database seeds and construction trust metadata alongside normalized
+  configuration. [Switch.Spec] extracts an independent deep copy of this
+  specification for exact reproducibility.
 - [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
   and attaches an Incomplete issue scoped to that port, while known-down ports
   drop traffic authoritatively with Complete readiness.
+
+`ConstructionSpec.NodeID` is the stable node key used to construct node and port
+scopes. An empty key identifies an anonymous standalone switch; only then does a
+whole-analysis issue count as node-wide. A fabric uses its switch map key as the
+node identity. `netmodel.Load` uses `SourceContext.DeviceID`.
+
+Forwarding combines runtime issues with construction issues on the exact ports the
+forwarding result consulted. Field scopes below those ports overlap them. An issue
+on a sibling port is left out, while an issue scoped exactly to the switch node is
+included in every result. Relevant assumptions and evidence references travel with
+the retained issues. The combined issues, assumptions, and evidence catalog use
+their canonical ordering, so repeated forwarding and cloned specifications produce
+the same metadata.
  
 ## Concurrency contract
 

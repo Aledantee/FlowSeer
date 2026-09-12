@@ -186,6 +186,50 @@ func TestConstructionSpecIdentityAndSeedDifferences(t *testing.T) {
 	}
 }
 
+func TestForwardMetadataKeepsEvidenceLinkedAssumptions(t *testing.T) {
+	ports := twoPortTable(t)
+	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "device-state",
+		Context: "conflicting output state",
+	})
+	metadata := analysis.NewMetadata(
+		analysis.NodeScope("sw1"),
+		[]analysis.Issue{{
+			Code:     "test.output-conflict",
+			Status:   analysis.Unstable,
+			Scope:    analysis.PortScope("sw1", "1/1/2"),
+			Message:  "output state conflicts",
+			Evidence: []trace.EvidenceRef{ref},
+		}},
+		catalog,
+		[]analysis.Assumption{{
+			Scope:     analysis.FieldScope(analysis.NodeScope("sw1"), "snapshot-window"),
+			Statement: "conflicting rows came from the same snapshot window",
+			Evidence:  []trace.EvidenceRef{ref},
+		}},
+	)
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config:   vswitch.Config{Ports: ports},
+		NodeID:   "sw1",
+		Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	forwarded := sw.Peek(fixedTime, "1/1/1", ethernet.Frame{
+		Src: netaddr.MAC{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
+		Dst: netaddr.MAC{0x00, 0x01, 0x02, 0x03, 0x04, 0x06},
+	})
+	if assumptions := forwarded.Metadata.Assumptions(); len(assumptions) != 1 || assumptions[0].Statement != "conflicting rows came from the same snapshot window" {
+		t.Fatalf("forward assumptions = %+v, want evidence-linked snapshot assumption", assumptions)
+	}
+	if _, ok := forwarded.Metadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("forward evidence catalog does not contain %s", ref)
+	}
+}
+
 func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown})

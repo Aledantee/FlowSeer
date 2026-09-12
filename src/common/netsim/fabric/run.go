@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -389,16 +390,36 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	// A mirror journey has already passed the original ingress policy, so a
 	// downstream switch must not charge the copy's bytes again.
-	if journey.Mirror == "" && !sw.Police(arr.At, arr.Port, wireOctets(arr.Frame)) {
+	frameWireOctets := wireOctets(arr.Frame)
+	if journey.Mirror == "" && !sw.Police(arr.At, arr.Port, frameWireOctets) {
 		for _, p := range inPorts {
 			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
 		}
 
+		policer := f.cfg.Switches[arr.Device].Traffic.Policers[arr.Port]
+		result := vswitch.ForwardResult{
+			Result: bridge.Result{
+				Trace: trace.Trace{
+					Outcome: trace.Dropped,
+					Reason:  traffic.ReasonPoliced,
+					Steps: []trace.Step{{
+						Layer:   traffic.Layer,
+						Op:      trace.OpDrop,
+						RuleID:  traffic.RulePolicerRefuse,
+						Subject: trace.Subject{Kind: "port", Key: arr.Port},
+						Outputs: []trace.Fact{traffic.PolicerDecisionFact(policer.RateBPS, policer.BurstOctets, frameWireOctets, false)},
+					}},
+				},
+				Ingress: arr.Port,
+			},
+			Metadata: analysis.NewMetadata(analysis.NodeScope(arr.Device), nil, analysis.EvidenceCatalog{}, nil),
+		}
 		dropEntry := Entry{
 			At:     arr.At,
 			Kind:   EntryDrop,
 			Device: arr.Device,
 			Port:   arr.Port,
+			Result: &result,
 			Reason: traffic.ReasonPoliced,
 		}
 		journey.Entries = append(journey.Entries, dropEntry)

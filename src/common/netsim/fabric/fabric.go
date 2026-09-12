@@ -315,6 +315,7 @@ func build(cur *Fabric, cfg Config, seeds map[string][]bridge.Seed) (*Fabric, er
 		sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
 			Config: swCfg,
 			Seeds:  swSeeds,
+			NodeID: name,
 		})
 		if err != nil {
 			return nil, errs.Wrapf(err, "build switch %q", name)

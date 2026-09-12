@@ -31,7 +31,12 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 		return nil, err
 	}
 
-	next, err := New(cfg)
+	spec := ConstructionSpec{Config: cfg}
+	if cur != nil {
+		spec.NodeID = cur.nodeID
+		spec.Metadata = cloneMetadata(cur.metadata)
+	}
+	next, err := NewWithSpec(spec)
 	if err != nil {
 		return nil, err
 	}

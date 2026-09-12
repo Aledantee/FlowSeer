@@ -1487,8 +1487,10 @@ func Load(
 
 	return Result{
 		Spec: vswitch.ConstructionSpec{
-			Config: normCfg,
-			Seeds:  seeds,
+			Config:   normCfg,
+			Seeds:    seeds,
+			NodeID:   src.DeviceID,
+			Metadata: metadata,
 		},
 		Report:   report.Clone(),
 		Metadata: metadata,

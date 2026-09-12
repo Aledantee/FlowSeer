@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
@@ -408,6 +409,20 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	}
 	if len(tenth.Entries) == 0 || tenth.Entries[len(tenth.Entries)-1].Reason != traffic.ReasonPoliced {
 		t.Errorf("tenth journey = %+v, want final policed drop", tenth.Entries)
+	}
+	policed := tenth.Entries[len(tenth.Entries)-1]
+	if policed.Result == nil {
+		t.Fatal("policed drop has no forwarding result")
+	}
+	wantStep := trace.Step{
+		Layer:   traffic.Layer,
+		Op:      trace.OpDrop,
+		RuleID:  traffic.RulePolicerRefuse,
+		Subject: trace.Subject{Kind: "port", Key: "1/1/1"},
+		Outputs: []trace.Fact{traffic.PolicerDecisionFact(1_000_000, 10_000, 1038, false)},
+	}
+	if len(policed.Result.Steps) != 1 || !policed.Result.Steps[0].Equal(wantStep) {
+		t.Errorf("policed trace steps = %+v, want %+v", policed.Result.Steps, []trace.Step{wantStep})
 	}
 	counters := fab.Snapshot().Devices["sw1"].Counters["1/1/1"]
 	if counters.InDiscards != 1 || counters.Discards[traffic.ReasonPoliced] != 1 {
