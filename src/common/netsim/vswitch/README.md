@@ -53,7 +53,10 @@ func main() {
 	}
 
 	now := time.Unix(1700000000, 0)
-	sw := vswitch.New(swCfg)
+	sw, err := vswitch.New(swCfg)
+	if err != nil {
+		panic(err)
+	}
 
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -63,7 +66,7 @@ func main() {
 	}
 
 	res := sw.Forward(now, "1/1/1", frame)
-	fmt.Printf("Outcome: %s, Egress count: %d\n", res.Outcome, len(res.Egress))
+	fmt.Printf("Outcome: %s, Egress count: %d, Status: %s\n", res.Outcome, len(res.Egress), res.Metadata.Status())
 
 	nextCfg := swCfg.Clone()
 	b := port.NewBuilder()
@@ -305,6 +308,20 @@ a port whose delivery is disabled is `DISABLED`; a device of a class the
 port cannot source is `FAULT`. A port with no attached device exports no
 `power_class` and draws nothing from the budget.
 
+## Construction specifications and trust metadata
+ 
+Exported constructors validate and normalize configurations:
+- [New] normalizes and validates the input configuration, returning an error
+  if port tables or subsystem invariants fail.
+- [NewWithSpec] constructs a switch from a [ConstructionSpec], restoring preloaded
+  forwarding database seeds alongside normalized configuration. [Switch.Spec]
+  extracts an independent copy of this specification for exact reproducibility.
+- [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
+  [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
+  readiness, and evidence. A port with unknown operational status never forwards
+  and attaches an Incomplete issue scoped to that port, while known-down ports
+  drop traffic authoritatively with Complete readiness.
+ 
 ## Concurrency contract
 
 A `vswitch.Switch` holds the forwarding database and is not safe for

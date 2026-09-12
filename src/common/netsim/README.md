@@ -9,6 +9,7 @@ goroutines or wall-clock dependencies.
 | `../net/igmp`      | IGMPv1, IGMPv2, and IGMPv3 message codec                    |
 | `../net/mld`       | MLDv1 and MLDv2 message codec                               |
 | `trace`            | Step, outcome, and change trace records                      |
+| `analysis`         | Analysis trust metadata, scoped issues, and evidence catalog |
 | `vswitch`          | Virtual switch composing pipeline capabilities               |
 | `vswitch/port`     | Port table, administrative state, and MTU                    |
 | `vswitch/lag`      | Bond modes, member delays, LACP                              |
