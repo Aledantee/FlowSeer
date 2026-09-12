@@ -67,8 +67,13 @@ Errors returned by [Load] are strictly reserved for impossible construction inpu
 - Configuration invariants that violate switch validation.
 
 Partial, uncertain, or conflicting inputs do not return an error. Instead, [Load]
-preserves all constructible configuration and records scoped findings in
-`res.Report` and `res.Metadata`.
+preserves the unaffected configuration and records scoped findings in `res.Report`
+and `res.Metadata`. A malformed address or prefix omits its row rather than making
+the whole switch unconstructible.
+
+An FDB row becomes a seed only when it reports `ACTIVE` status and either
+`STATIC` or `DYNAMIC` kind. Missing, unspecified, unsupported, and unrecognized
+values leave no executable seed and make readiness non-Complete.
 
 ## Operational uncertainty and localized scoping
 
@@ -93,8 +98,17 @@ synthesis decisions:
 - **Defaults and assumptions**: Standards-based fallback values applied when
   optional fields are absent, such as default STP timers or bridge MAC assignment.
   These are recorded both in the report and as executable assumptions in metadata.
-- **Conflicts**: Duplicate or conflicting rows, such as duplicate FDB records for
-  the same MAC and VLAN across different ports. Conflicts lower the overall model
-  readiness to [analysis.Unstable] while preserving usable switch structure.
+- **Conflicts**: Distinct values for the same source key, such as one MAC and VLAN
+  reported on two ports. The conflicted fact is omitted, while identical repeated
+  rows collapse to one fact. Conflicts lower readiness to [analysis.Unstable] and
+  do not depend on input order.
 - **Deterministic ordering**: All report collections (capabilities, skips, defaults,
   conflicts) are sorted deterministically, ensuring reproducible diffs and tests.
+
+## Construction trust boundary
+
+The construction specification contains normalized configuration and executable
+seeds. It does not contain the loading report or metadata. A caller that builds a
+switch with `vswitch.NewWithSpec(res.Spec)` must retain `res.Metadata` alongside the
+switch; later `Forward` results do not automatically include loading conflicts,
+skips, or assumptions.
