@@ -216,10 +216,11 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 			}.Build())
 		}
 
-		loadedCfg, _, _, err := netmodel.Load(t0, ifaces, nil, nil, nil, bridgeState, portStates, nil, nil, nil, nil, nil)
+		res, err := netmodel.Load(t0, netmodel.SourceContext{DeviceID: name}, ifaces, nil, nil, nil, bridgeState, portStates, nil, nil, nil, nil, nil)
 		if err != nil {
 			t.Fatalf("switch %s Load failed: %v", name, err)
 		}
+		loadedCfg := res.Spec.Config
 
 		if loadedCfg.STP == nil {
 			t.Fatalf("switch %s loaded STP configuration is nil", name)
@@ -381,10 +382,12 @@ func TestStpLoad_LagMemberSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psMember, psRegular}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psMember, psRegular}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -447,10 +450,12 @@ func TestStpLoad_AbsentPortSkipped(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psAbsent}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psAbsent}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -507,10 +512,12 @@ func TestStpLoad_MissingAdminPathCostReported(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psWithoutAdminCost}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{psWithoutAdminCost}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundDefault := false
 	for _, d := range report.Defaults {
@@ -628,10 +635,12 @@ func TestLoadSkipsBridgeWithoutAddress(t *testing.T) {
 	}.Build()
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 	if cfg.STP != nil {
 		t.Errorf("Load built a spanning tree layer from a bridge without an address")
 	}
@@ -695,10 +704,11 @@ func TestStpLoad_TxHoldCountAndAutoEdge(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, _, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{ps}, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, []*stpv1.PortState{ps}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
 
 	if cfg.STP == nil {
 		t.Fatal("Load returned nil STP config")
@@ -738,10 +748,12 @@ func TestStpLoad_AbsentTxHoldCountReportedDefault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, bridgeState, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if cfg.STP == nil {
 		t.Fatal("Load returned nil STP config")

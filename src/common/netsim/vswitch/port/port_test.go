@@ -397,10 +397,12 @@ func TestPortForwards(t *testing.T) {
 		{name: "admin down", admin: port.Down, oper: port.Up, wantForward: false},
 		{name: "oper down", admin: port.Up, oper: port.Down, wantForward: false},
 		{name: "both down", admin: port.Down, oper: port.Down, wantForward: false},
-		{name: "unreported admin", admin: port.Unreported, oper: port.Up, wantForward: false},
-		{name: "unreported oper", admin: port.Up, oper: port.Unreported, wantForward: false},
-		{name: "both unreported", admin: port.Unreported, oper: port.Unreported, wantForward: false},
+		{name: "unknown admin", admin: port.Unknown, oper: port.Up, wantForward: false},
+		{name: "unknown oper", admin: port.Up, oper: port.Unknown, wantForward: false},
+		{name: "both unknown", admin: port.Unknown, oper: port.Unknown, wantForward: false},
 		{name: "zero values", admin: "", oper: "", wantForward: false},
+		{name: "zero admin oper up", admin: "", oper: port.Up, wantForward: false},
+		{name: "admin up zero oper", admin: port.Up, oper: "", wantForward: false},
 	}
 
 	for _, tc := range cases {
@@ -506,6 +508,13 @@ func TestTableValidate(t *testing.T) {
 		if got, want := attrs["field"], "ports.1/1/1.admin_status"; got != want {
 			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
 		}
+
+		// Non-zero unreported enum is also rejected
+		bUnreported := port.NewBuilder()
+		bUnreported.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.LinkState("Unreported")})
+		if _, err := bUnreported.Build(); err == nil {
+			t.Fatal("Build() with Unreported admin status succeeded, want error")
+		}
 	})
 
 	t.Run("invalid oper status enum", func(t *testing.T) {
@@ -518,6 +527,26 @@ func TestTableValidate(t *testing.T) {
 		attrs := errs.Attributes(err)
 		if got, want := attrs["field"], "ports.1/1/1.oper_status"; got != want {
 			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+
+		// Non-zero unreported enum is also rejected
+		bUnreported := port.NewBuilder()
+		bUnreported.Add(port.Port{Name: "1/1/1", Kind: port.Physical, OperStatus: port.LinkState("Unreported")})
+		if _, err := bUnreported.Build(); err == nil {
+			t.Fatal("Build() with Unreported oper status succeeded, want error")
+		}
+	})
+
+	t.Run("valid explicit unknown and up down enums", func(t *testing.T) {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Unknown, OperStatus: port.Unknown})
+		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatalf("Build() with valid enums failed: %v", err)
+		}
+		if p1, ok := tbl.Port("1/1/1"); !ok || p1.AdminStatus != port.Unknown || p1.OperStatus != port.Unknown {
+			t.Errorf("port 1/1/1 = %+v, want Admin=Unknown Oper=Unknown", p1)
 		}
 	})
 
@@ -541,8 +570,8 @@ func TestNormalize(t *testing.T) {
 		explicit := port.Port{
 			Name:        "1/1/1",
 			Kind:        port.Physical,
-			AdminStatus: port.Down,
-			OperStatus:  port.Down,
+			AdminStatus: port.Unknown,
+			OperStatus:  port.Unknown,
 		}
 
 		b1 := port.NewBuilder().Add(raw)
@@ -561,6 +590,22 @@ func TestNormalize(t *testing.T) {
 		p2, _ := t2.Port("1/1/1")
 		if p1 != p2 {
 			t.Errorf("normalized raw port %+v != explicit port %+v", p1, p2)
+		}
+
+		// Verify zero value normalizes to Unknown, not Down
+		if p1.AdminStatus != port.Unknown || p1.OperStatus != port.Unknown {
+			t.Errorf("zero port normalized admin=%v oper=%v, want Unknown", p1.AdminStatus, p1.OperStatus)
+		}
+
+		// Explicit down remains distinct from unknown
+		downPort := port.Port{
+			Name:        "1/1/1",
+			Kind:        port.Physical,
+			AdminStatus: port.Down,
+			OperStatus:  port.Down,
+		}.Normalize()
+		if p1 == downPort {
+			t.Errorf("unknown port equals explicit down port: %+v", p1)
 		}
 
 		// Idempotence

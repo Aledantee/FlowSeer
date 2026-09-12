@@ -172,10 +172,12 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if !slices.Contains(report.Capabilities, port.LayerRouting) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
@@ -282,10 +284,12 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if !slices.Contains(report.Capabilities, port.LayerRouting) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
@@ -351,15 +355,17 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
 	iface := vrf.Interfaces["vlan10"]
-	if iface.MAC != (netaddr.MAC{}) {
-		t.Errorf("vlan10 MAC = %s, want zero MAC", iface.MAC)
+	if iface.MAC != cfg.MAC || iface.MAC == (netaddr.MAC{}) {
+		t.Errorf("vlan10 MAC = %s, want normalized switch MAC %s", iface.MAC, cfg.MAC)
 	}
 
 	hasIfaceMACDefault := false
@@ -403,10 +409,12 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, nil, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -467,10 +475,12 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -552,10 +562,12 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -626,10 +638,12 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -706,10 +720,12 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 
 	want := []port.Layer{port.LayerRelay}
 	validateFixtures(t, ifaces, nil, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, want)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, want)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if cfg.Routing != nil {
 		t.Errorf("expected Routing configuration to be nil when routing not in want, got %+v", cfg.Routing)
@@ -807,10 +823,11 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, _, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
 
 	p, ok := cfg.Ports.Port("vlan10")
 	if !ok {
@@ -832,18 +849,18 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		Payload:   []byte("test broadcast payload"),
 	}
 
-	res := sw.Forward(now, "1/1/1", broadcastFrame)
-	if res.Outcome != trace.Flooded {
-		t.Fatalf("forward outcome = %v, want Flooded", res.Outcome)
+	fwdRes := sw.Forward(now, "1/1/1", broadcastFrame)
+	if fwdRes.Outcome != trace.Flooded {
+		t.Fatalf("forward outcome = %v, want Flooded", fwdRes.Outcome)
 	}
 
-	if len(res.Egress) != 1 {
-		t.Fatalf("egress count = %d, want 1", len(res.Egress))
+	if len(fwdRes.Egress) != 1 {
+		t.Fatalf("egress count = %d, want 1", len(fwdRes.Egress))
 	}
-	if res.Egress[0].Port != "1/1/2" {
-		t.Errorf("egress port = %q, want 1/1/2", res.Egress[0].Port)
+	if fwdRes.Egress[0].Port != "1/1/2" {
+		t.Errorf("egress port = %q, want 1/1/2", fwdRes.Egress[0].Port)
 	}
-	for _, eg := range res.Egress {
+	for _, eg := range fwdRes.Egress {
 		if eg.Port == "vlan10" {
 			t.Errorf("vlan10 should not receive flooded broadcast frame")
 		}

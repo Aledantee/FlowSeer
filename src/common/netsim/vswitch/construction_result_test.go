@@ -188,7 +188,7 @@ func TestConstructionSpecIdentityAndSeedDifferences(t *testing.T) {
 
 func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	b := port.NewBuilder()
-	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unreported})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down})
 	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, err := b.Build()
@@ -221,7 +221,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	}
 	now := time.Now()
 
-	// Ingress on Unknown / Unreported port: produces Incomplete issue and does not forward
+	// Ingress on Unknown oper status port: produces Incomplete issue and does not forward
 	resUnknown := sw.Forward(now, "1/1/1", frame)
 	if resUnknown.Metadata.Status() != analysis.Incomplete {
 		t.Errorf("unknown oper status Forward status = %v, want Incomplete", resUnknown.Metadata.Status())
@@ -253,6 +253,15 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	}
 	if resDown.Metadata.Status() != analysis.Complete {
 		t.Errorf("known down port Forward status = %v, want Complete (not incomplete)", resDown.Metadata.Status())
+	}
+
+	// Ingress on Known Up port: sibling port uncertainty does NOT taint unrelated port
+	resUp := sw.Forward(now, "1/1/3", frame)
+	if resUp.Metadata.Status() != analysis.Complete {
+		t.Errorf("unrelated known-up port Forward status = %v, want Complete", resUp.Metadata.Status())
+	}
+	if len(resUp.Metadata.Issues()) != 0 {
+		t.Errorf("unrelated known-up port has unexpected issues: %+v", resUp.Metadata.Issues())
 	}
 }
 

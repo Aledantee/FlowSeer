@@ -2,6 +2,7 @@ package netmodel
 
 import (
 	"cmp"
+	"fmt"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -17,6 +18,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
@@ -26,10 +29,53 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
+// Evidence kinds used by netmodel.
+const (
+	EvidenceKindConfig   analysis.EvidenceKind = "netmodel.config"
+	EvidenceKindState    analysis.EvidenceKind = "netmodel.state"
+	EvidenceKindDefault  analysis.EvidenceKind = "netmodel.default"
+	EvidenceKindSkipped  analysis.EvidenceKind = "netmodel.skipped"
+	EvidenceKindConflict analysis.EvidenceKind = "netmodel.conflict"
+)
+
+// Issue codes used by netmodel.
+const (
+	IssueMissingAdminStatus       analysis.IssueCode = "netmodel.interface.missing_admin_status"
+	IssueInvalidAdminStatus       analysis.IssueCode = "netmodel.interface.invalid_admin_status"
+	IssueMissingOperStatus        analysis.IssueCode = "netmodel.interface.missing_oper_status"
+	IssueInvalidOperStatus        analysis.IssueCode = "netmodel.interface.invalid_oper_status"
+	IssueSkippedLayerNotWanted    analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
+	IssueSkippedMissingFacet      analysis.IssueCode = "netmodel.skipped.missing_facet"
+	IssueSkippedUnsupportedFacet  analysis.IssueCode = "netmodel.skipped.unsupported_facet"
+	IssueSkippedLagMember         analysis.IssueCode = "netmodel.switchport.lag_member"
+	IssueSkippedInterfaceRouted   analysis.IssueCode = "netmodel.switchport.interface_routed"
+	IssueUnsupportedPowerClass    analysis.IssueCode = "netmodel.poe.unsupported_power_class"
+	IssueTunnelWithoutPvid        analysis.IssueCode = "netmodel.switchport.tunnel_without_pvid"
+	IssueInvalidBridgePriority    analysis.IssueCode = "netmodel.stp.invalid_bridge_priority"
+	IssueMissingBridgeAddress     analysis.IssueCode = "netmodel.stp.missing_bridge_address"
+	IssueInvalidTxHoldCount       analysis.IssueCode = "netmodel.stp.invalid_tx_hold_count"
+	IssueInvalidPortPriority      analysis.IssueCode = "netmodel.stp.invalid_port_priority"
+	IssueUnknownPort              analysis.IssueCode = "netmodel.skipped.unknown_port"
+	IssueUnsupportedInterfaceKind analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
+	IssueMissingIPFacet           analysis.IssueCode = "netmodel.routing.missing_ip_facet"
+	IssueMissingNeighborMAC       analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
+	IssueInvalidFDBStatus         analysis.IssueCode = "netmodel.fdb.invalid_status"
+	IssueInvalidVlanID            analysis.IssueCode = "netmodel.vlan.invalid_id"
+	IssueConflictFDB              analysis.IssueCode = "netmodel.fdb.conflict"
+	IssueConflictSTPPort          analysis.IssueCode = "netmodel.stp.conflict"
+	IssueConflictLACP             analysis.IssueCode = "netmodel.lacp.conflict"
+	IssueConflictBudget           analysis.IssueCode = "netmodel.poe.conflict"
+	IssueConflictVlan             analysis.IssueCode = "netmodel.vlan.conflict"
+	IssueConflictNeighbor         analysis.IssueCode = "netmodel.routing.conflict"
+)
+
 // Load translates typed network model interfaces, VLANs, FDB entries, PoE budgets,
 // spanning tree states, link aggregation and LACP states, interface addresses, and
-// neighbor entries into a virtual switch [vswitch.Config] and preloaded forwarding
-// [bridge.Seed] entries.
+// neighbor entries into a virtual switch construction specification, loading report,
+// and analysis trust metadata.
+//
+// Source context src provides caller-owned origin and context for evidence references
+// without importing transport provenance types.
 //
 // If want is empty, the capability set is inferred from the facets and row kinds present:
 // relay is always included, vlan if any interface carries a switchport facet, ethernet if
@@ -45,10 +91,11 @@ import (
 //
 // Load returns an error only for conditions that prevent constructing a switch at all:
 // an empty interface slice, a duplicate or empty interface name, or a LAG parent reference
-// that is invalid or refers to a non-LAG interface. All other omissions and defaults are
-// captured in the returned [Report].
+// that is invalid or refers to a non-LAG interface. All other omissions, defaults, conflicts,
+// and uncertainty are captured in the returned [Result] with non-Complete readiness metadata.
 func Load(
 	now time.Time,
+	src SourceContext,
 	ifaces []*interfacev1.Interface,
 	vlans []*switchingv1.Vlan,
 	fdb []*switchingv1.FdbEntry,
@@ -60,13 +107,141 @@ func Load(
 	addrs []*ipv1.InterfaceAddress,
 	neighbors []*ipv1.NeighborEntry,
 	want []port.Layer,
-) (vswitch.Config, []bridge.Seed, Report, error) {
+) (Result, error) {
 	if len(ifaces) == 0 {
-		return vswitch.Config{}, nil, Report{}, errs.New().Msg("interface list cannot be empty")
+		return Result{}, errs.New().Msg("interface list cannot be empty")
+	}
+
+	var rootScope analysis.Scope
+	if src.DeviceID != "" {
+		rootScope = analysis.NodeScope(src.DeviceID)
+	} else {
+		rootScope = analysis.WholeScope()
+	}
+
+	portScope := func(portName string) analysis.Scope {
+		if src.DeviceID != "" {
+			return analysis.PortScope(src.DeviceID, portName)
+		}
+		return analysis.PortScope("", portName)
+	}
+
+	catalog := analysis.EvidenceCatalog{}
+	var issues []analysis.Issue
+	var assumptions []analysis.Assumption
+
+	addEvidence := func(kind analysis.EvidenceKind, detail string) trace.EvidenceRef {
+		origin := src.Origin
+		if origin == "" {
+			if src.DeviceID != "" {
+				origin = src.DeviceID
+			} else {
+				origin = "netmodel"
+			}
+		}
+		contextStr := src.Context
+		if detail != "" {
+			if contextStr != "" {
+				contextStr = contextStr + "; " + detail
+			} else {
+				contextStr = detail
+			}
+		}
+		var ref trace.EvidenceRef
+		catalog, ref = catalog.Add(analysis.Evidence{
+			Kind:    kind,
+			Origin:  origin,
+			Context: contextStr,
+		})
+		return ref
 	}
 
 	report := Report{
 		CapabilitySources: make(map[port.Layer]string),
+	}
+
+	addDefault := func(portName, field, value string) {
+		var scope analysis.Scope
+		if portName != "" {
+			scope = portScope(portName)
+		} else {
+			scope = rootScope
+		}
+		detail := fmt.Sprintf("default %s=%s", field, value)
+		if portName != "" {
+			detail = fmt.Sprintf("port %s default %s=%s", portName, field, value)
+		}
+		ref := addEvidence(EvidenceKindDefault, detail)
+
+		report.Defaults = append(report.Defaults, Default{
+			Scope:    scope,
+			Port:     portName,
+			Field:    field,
+			Value:    value,
+			Evidence: []trace.EvidenceRef{ref},
+		})
+
+		assumptions = append(assumptions, analysis.Assumption{
+			Scope:     scope,
+			Statement: fmt.Sprintf("default value applied for %s: %s", field, value),
+			Evidence:  []trace.EvidenceRef{ref},
+		})
+	}
+
+	addSkipped := func(portName, what, why string, status analysis.Status, code analysis.IssueCode) {
+		var scope analysis.Scope
+		if portName != "" {
+			scope = portScope(portName)
+		} else {
+			scope = rootScope
+		}
+		detail := fmt.Sprintf("skipped %s: %s", what, why)
+		if portName != "" {
+			detail = fmt.Sprintf("port %s skipped %s: %s", portName, what, why)
+		}
+		ref := addEvidence(EvidenceKindSkipped, detail)
+
+		report.Skipped = append(report.Skipped, Skipped{
+			Scope:    scope,
+			Port:     portName,
+			What:     what,
+			Why:      why,
+			Evidence: []trace.EvidenceRef{ref},
+		})
+
+		if status > analysis.Complete {
+			msg := fmt.Sprintf("%s omitted: %s", what, why)
+			if portName != "" {
+				msg = fmt.Sprintf("port %q %s omitted: %s", portName, what, why)
+			}
+			issues = append(issues, analysis.Issue{
+				Code:     code,
+				Status:   status,
+				Scope:    scope,
+				Message:  msg,
+				Evidence: []trace.EvidenceRef{ref},
+			})
+		}
+	}
+
+	addConflict := func(scope analysis.Scope, what, key, detail string, code analysis.IssueCode) {
+		ref := addEvidence(EvidenceKindConflict, fmt.Sprintf("conflict in %s for %s: %s", what, key, detail))
+
+		report.Conflicts = append(report.Conflicts, Conflict{
+			Scope:    scope,
+			What:     what,
+			Key:      key,
+			Detail:   detail,
+			Evidence: []trace.EvidenceRef{ref},
+		})
+
+		issues = append(issues, analysis.Issue{
+			Code:     code,
+			Status:   analysis.Unstable,
+			Scope:    scope,
+			Message:  fmt.Sprintf("conflicting %s for %s: %s", what, key, detail),
+			Evidence: []trace.EvidenceRef{ref},
+		})
 	}
 
 	portBuilder := port.NewBuilder()
@@ -91,11 +266,7 @@ func Load(
 
 		if iface.HasMtu() {
 			if iface.GetMtu() == 0 {
-				report.Defaults = append(report.Defaults, Default{
-					Port:  iface.GetName(),
-					Field: "mtu",
-					Value: "0",
-				})
+				addDefault(iface.GetName(), "mtu", "0")
 				p.MTU = 0
 			} else {
 				p.MTU = int(iface.GetMtu())
@@ -104,20 +275,63 @@ func Load(
 
 		switch {
 		case !iface.HasAdminStatus() || iface.GetAdminStatus() == interfacev1.AdminStatus_ADMIN_STATUS_UNSPECIFIED:
-			p.AdminStatus = port.Unreported
+			p.AdminStatus = port.Unknown
+			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s admin_status unspecified", iface.GetName()))
+			issues = append(issues, analysis.Issue{
+				Code:     IssueMissingAdminStatus,
+				Status:   analysis.Incomplete,
+				Scope:    portScope(iface.GetName()),
+				Message:  fmt.Sprintf("interface %q has unspecified or missing administrative status", iface.GetName()),
+				Evidence: []trace.EvidenceRef{ref},
+			})
 		case iface.GetAdminStatus() == interfacev1.AdminStatus_ADMIN_STATUS_UP:
 			p.AdminStatus = port.Up
-		default:
+		case iface.GetAdminStatus() == interfacev1.AdminStatus_ADMIN_STATUS_DOWN ||
+			iface.GetAdminStatus() == interfacev1.AdminStatus_ADMIN_STATUS_TESTING:
 			p.AdminStatus = port.Down
+		default:
+			p.AdminStatus = port.Unknown
+			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s admin_status unrecognized value %d", iface.GetName(), iface.GetAdminStatus()))
+			issues = append(issues, analysis.Issue{
+				Code:     IssueInvalidAdminStatus,
+				Status:   analysis.Incomplete,
+				Scope:    portScope(iface.GetName()),
+				Message:  fmt.Sprintf("interface %q has invalid or unrecognized administrative status value %d", iface.GetName(), iface.GetAdminStatus()),
+				Evidence: []trace.EvidenceRef{ref},
+			})
 		}
 
 		switch {
-		case !iface.HasOperStatus() || iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_UNSPECIFIED:
-			p.OperStatus = port.Unreported
+		case !iface.HasOperStatus() ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_UNSPECIFIED ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_UNKNOWN:
+			p.OperStatus = port.Unknown
+			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s oper_status unspecified or unknown", iface.GetName()))
+			issues = append(issues, analysis.Issue{
+				Code:     IssueMissingOperStatus,
+				Status:   analysis.Incomplete,
+				Scope:    portScope(iface.GetName()),
+				Message:  fmt.Sprintf("interface %q has unspecified or missing operational status", iface.GetName()),
+				Evidence: []trace.EvidenceRef{ref},
+			})
 		case iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_UP:
 			p.OperStatus = port.Up
-		default:
+		case iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_DOWN ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_TESTING ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_DORMANT ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_NOT_PRESENT ||
+			iface.GetOperStatus() == interfacev1.OperStatus_OPER_STATUS_LOWER_LAYER_DOWN:
 			p.OperStatus = port.Down
+		default:
+			p.OperStatus = port.Unknown
+			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s oper_status unrecognized value %d", iface.GetName(), iface.GetOperStatus()))
+			issues = append(issues, analysis.Issue{
+				Code:     IssueInvalidOperStatus,
+				Status:   analysis.Incomplete,
+				Scope:    portScope(iface.GetName()),
+				Message:  fmt.Sprintf("interface %q has invalid or unrecognized operational status value %d", iface.GetName(), iface.GetOperStatus()),
+				Evidence: []trace.EvidenceRef{ref},
+			})
 		}
 
 		portBuilder.Add(p)
@@ -125,7 +339,7 @@ func Load(
 
 	ports, err := portBuilder.Build()
 	if err != nil {
-		return vswitch.Config{}, nil, Report{}, errs.Wrap(err, "build port table")
+		return Result{}, errs.Wrap(err, "build port table")
 	}
 
 	var (
@@ -254,11 +468,7 @@ func Load(
 				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
 					why = "interface is routed"
 				}
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: iface.GetName(),
-					What: "switchport",
-					Why:  why,
-				})
+				addSkipped(iface.GetName(), "switchport", why, analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
 		}
 	}
@@ -266,11 +476,7 @@ func Load(
 	if !isWanted(port.LayerEthernet) {
 		for _, iface := range ifaces {
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: iface.GetName(),
-					What: "ethernet",
-					Why:  "layer not wanted",
-				})
+				addSkipped(iface.GetName(), "ethernet", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
 		}
 	}
@@ -280,71 +486,43 @@ func Load(
 			if iface.GetPhysical() != nil && iface.GetPhysical().HasEthernet() && iface.GetPhysical().GetEthernet() != nil {
 				if copper := iface.GetPhysical().GetEthernet().GetCopper(); copper != nil {
 					if copper.GetPoe() != nil || copper.GetPoeSettings() != nil || copper.GetPoeDetail() != nil {
-						report.Skipped = append(report.Skipped, Skipped{
-							Port: iface.GetName(),
-							What: "poe",
-							Why:  "layer not wanted",
-						})
+						addSkipped(iface.GetName(), "poe", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 					}
 				}
 			}
 		}
 		for _, b := range budgets {
 			groupStr := strconv.FormatUint(uint64(b.GetPseGroup()), 10)
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: groupStr,
-				What: "pse_budget",
-				Why:  "layer not wanted",
-			})
+			addSkipped(groupStr, "pse_budget", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
 	if !isWanted(port.LayerStp) {
 		if bridgeState != nil {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: "",
-				What: "stp_bridge",
-				Why:  "layer not wanted",
-			})
+			addSkipped("", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 		for _, ps := range stpPorts {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: ps.GetInterfaceName(),
-				What: "stp_port",
-				Why:  "layer not wanted",
-			})
+			addSkipped(ps.GetInterfaceName(), "stp_port", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
 	if !isWanted(port.LayerRouting) {
 		for _, iface := range ifaces {
 			if iface.GetIp() != nil {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: iface.GetName(),
-					What: "ip",
-					Why:  "layer not wanted",
-				})
+				addSkipped(iface.GetName(), "ip", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
 		}
 		for _, addr := range addrs {
 			if addr == nil {
 				continue
 			}
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: addr.GetInterfaceName(),
-				What: "ip_address",
-				Why:  "layer not wanted",
-			})
+			addSkipped(addr.GetInterfaceName(), "ip_address", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 		for _, n := range neighbors {
 			if n == nil {
 				continue
 			}
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: n.GetInterfaceName(),
-				What: "ip_neighbor",
-				Why:  "layer not wanted",
-			})
+			addSkipped(n.GetInterfaceName(), "ip_neighbor", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
@@ -423,16 +601,19 @@ func Load(
 				Ports:  make(map[string]phy.PsePort),
 			}
 			for _, b := range budgets {
+				if b == nil {
+					continue
+				}
 				groupStr := strconv.FormatUint(uint64(b.GetPseGroup()), 10)
+				if _, exists := poe.Groups[groupStr]; exists {
+					addConflict(rootScope, "pse_budget", groupStr, "duplicate pse_group budget entry", IssueConflictBudget)
+					continue
+				}
 				var power uint32
 				if b.HasPowerMilliwatts() {
 					power = b.GetPowerMilliwatts()
 				} else {
-					report.Defaults = append(report.Defaults, Default{
-						Port:  groupStr,
-						Field: "power_milliwatts",
-						Value: "0",
-					})
+					addDefault(groupStr, "power_milliwatts", "0")
 				}
 				poe.Groups[groupStr] = phy.Group{
 					PowerMilliwatts: power,
@@ -453,19 +634,11 @@ func Load(
 				}
 				detail := copper.GetPoeDetail()
 				if detail == nil || !detail.HasPseGroup() {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: iface.GetName(),
-						What: "poe",
-						Why:  "missing poe_detail",
-					})
+					addSkipped(iface.GetName(), "poe", "missing poe_detail", analysis.Incomplete, IssueSkippedMissingFacet)
 					continue
 				}
 				groupStr := strconv.FormatUint(uint64(detail.GetPseGroup()), 10)
-				report.Defaults = append(report.Defaults, Default{
-					Port:  iface.GetName(),
-					Field: "max_class",
-					Value: "8",
-				})
+				addDefault(iface.GetName(), "max_class", "8")
 				psePort := phy.PsePort{
 					Group:    groupStr,
 					MaxClass: 8,
@@ -489,26 +662,14 @@ func Load(
 							psePort.Priority = phy.PriorityLow
 						}
 					} else {
-						report.Defaults = append(report.Defaults, Default{
-							Port:  iface.GetName(),
-							Field: "priority",
-							Value: "",
-						})
+						addDefault(iface.GetName(), "priority", "")
 					}
 				} else {
-					report.Defaults = append(report.Defaults, Default{
-						Port:  iface.GetName(),
-						Field: "priority",
-						Value: "",
-					})
+					addDefault(iface.GetName(), "priority", "")
 				}
 				if copper.GetPoe() != nil && copper.GetPoe().HasPowerClass() {
 					if class := copper.GetPoe().GetPowerClass(); class > 8 {
-						report.Skipped = append(report.Skipped, Skipped{
-							Port: iface.GetName(),
-							What: "power_class",
-							Why:  "class above 8",
-						})
+						addSkipped(iface.GetName(), "power_class", "class above 8", analysis.Unsupported, IssueUnsupportedPowerClass)
 					} else {
 						psePort.PDClass = phy.Class(uint8(class))
 					}
@@ -527,11 +688,7 @@ func Load(
 		bridgeCfg := &bridge.Config{
 			AgingTime: 300 * time.Second,
 		}
-		report.Defaults = append(report.Defaults, Default{
-			Port:  "",
-			Field: "aging_time",
-			Value: "300s",
-		})
+		addDefault("", "aging_time", "300s")
 
 		if isWanted(port.LayerVlan) {
 			vlanCfg := &bridge.VLAN{
@@ -539,7 +696,19 @@ func Load(
 				Switchports: make(map[string]bridge.Switchport),
 			}
 			for _, v := range vlans {
-				vlanCfg.Table[vlan.ID(v.GetId())] = v.GetName()
+				if v == nil {
+					continue
+				}
+				vid := vlan.ID(v.GetId())
+				if !vid.Valid() {
+					addSkipped("", "vlan", fmt.Sprintf("invalid vlan id %d", v.GetId()), analysis.Unsupported, IssueInvalidVlanID)
+					continue
+				}
+				if existing, exists := vlanCfg.Table[vid]; exists {
+					addConflict(rootScope, "vlan", strconv.FormatUint(uint64(vid), 10), fmt.Sprintf("duplicate vlan id %d (names: %q and %q)", vid, existing, v.GetName()), IssueConflictVlan)
+					continue
+				}
+				vlanCfg.Table[vid] = v.GetName()
 			}
 
 			for _, iface := range ifaces {
@@ -564,29 +733,17 @@ func Load(
 					continue
 				}
 				if isMember {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: iface.GetName(),
-						What: "switchport",
-						Why:  "lag member",
-					})
+					addSkipped(iface.GetName(), "switchport", "lag member", analysis.Incomplete, IssueSkippedLagMember)
 					continue
 				}
 				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: iface.GetName(),
-						What: "switchport",
-						Why:  "interface is routed",
-					})
+					addSkipped(iface.GetName(), "switchport", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
 					continue
 				}
 
 				if swFacet.GetMode() == switchingv1.SwitchportMode_SWITCHPORT_MODE_DOT1Q_TUNNEL {
 					if !swFacet.HasPvid() {
-						report.Skipped = append(report.Skipped, Skipped{
-							Port: iface.GetName(),
-							What: "switchport",
-							Why:  "tunnel without pvid",
-						})
+						addSkipped(iface.GetName(), "switchport", "tunnel without pvid", analysis.Unsupported, IssueTunnelWithoutPvid)
 						continue
 					}
 
@@ -611,25 +768,13 @@ func Load(
 						sw.IngressFiltering = swFacet.GetIngressFiltering()
 					} else {
 						sw.IngressFiltering = false
-						report.Defaults = append(report.Defaults, Default{
-							Port:  iface.GetName(),
-							Field: "ingress_filtering",
-							Value: "false",
-						})
+						addDefault(iface.GetName(), "ingress_filtering", "false")
 					}
 
-					report.Defaults = append(report.Defaults, Default{
-						Port:  iface.GetName(),
-						Field: "qinq_ethtype",
-						Value: "0x88A8",
-					})
+					addDefault(iface.GetName(), "qinq_ethtype", "0x88A8")
 
 					if len(swFacet.GetUntaggedVlanIds()) > 0 {
-						report.Skipped = append(report.Skipped, Skipped{
-							Port: iface.GetName(),
-							What: "untagged_vlan_ids",
-							Why:  "tunnel port",
-						})
+						addSkipped(iface.GetName(), "untagged_vlan_ids", "tunnel port", analysis.Incomplete, IssueSkippedLayerNotWanted)
 					}
 
 					vlanCfg.Switchports[iface.GetName()] = sw
@@ -648,11 +793,7 @@ func Load(
 				} else if len(swFacet.GetUntaggedVlanIds()) == 1 {
 					vid := vlan.ID(swFacet.GetUntaggedVlanIds()[0])
 					sw.PVID = &vid
-					report.Defaults = append(report.Defaults, Default{
-						Port:  iface.GetName(),
-						Field: "pvid",
-						Value: strconv.FormatUint(uint64(vid), 10),
-					})
+					addDefault(iface.GetName(), "pvid", strconv.FormatUint(uint64(vid), 10))
 				}
 
 				if len(swFacet.GetTaggedVlanIds()) > 0 {
@@ -675,11 +816,7 @@ func Load(
 					sw.IngressFiltering = swFacet.GetIngressFiltering()
 				} else {
 					sw.IngressFiltering = false
-					report.Defaults = append(report.Defaults, Default{
-						Port:  iface.GetName(),
-						Field: "ingress_filtering",
-						Value: "false",
-					})
+					addDefault(iface.GetName(), "ingress_filtering", "false")
 				}
 
 				if swFacet.HasFrameAdmission() && swFacet.GetFrameAdmission() != switchingv1.FrameAdmission_FRAME_ADMISSION_UNSPECIFIED {
@@ -693,11 +830,7 @@ func Load(
 					}
 				} else {
 					sw.Admission = bridge.All
-					report.Defaults = append(report.Defaults, Default{
-						Port:  iface.GetName(),
-						Field: "frame_admission",
-						Value: "ALL",
-					})
+					addDefault(iface.GetName(), "frame_admission", "ALL")
 				}
 
 				vlanCfg.Switchports[iface.GetName()] = sw
@@ -730,15 +863,20 @@ func Load(
 		copy(mac[:], bridgeState.GetBridgeId().GetAddress().GetOctets())
 		prio := bridgeState.GetBridgeId().GetPriority()
 
-		var bridgeWhy string
+		var (
+			bridgeWhy  string
+			bridgeCode analysis.IssueCode
+		)
 		switch {
 		case mac == (netaddr.MAC{}):
 			bridgeWhy = "bridge id has no address"
+			bridgeCode = IssueMissingBridgeAddress
 		case prio >= 65536 || prio%4096 != 0:
 			bridgeWhy = "bridge priority is not a multiple of 4096 below 65536"
+			bridgeCode = IssueInvalidBridgePriority
 		}
 		if bridgeWhy != "" {
-			report.Skipped = append(report.Skipped, Skipped{What: "stp_bridge", Why: bridgeWhy})
+			addSkipped("", "stp_bridge", bridgeWhy, analysis.Unsupported, bridgeCode)
 		} else {
 			stpCfg := stp.Config{
 				Priority: uint16(prio),
@@ -757,42 +895,37 @@ func Load(
 			}
 			if bridgeState.HasTxHoldCount() {
 				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
-					report.Skipped = append(report.Skipped, Skipped{What: "stp_tx_hold_count", Why: "outside 1 through 10"})
+					addSkipped("", "stp_tx_hold_count", "outside 1 through 10", analysis.Unsupported, IssueInvalidTxHoldCount)
 				} else {
 					stpCfg.TxHoldCount = uint8(v)
 				}
 			} else {
-				report.Defaults = append(report.Defaults, Default{
-					Field: "tx_hold_count",
-					Value: "6",
-				})
+				addDefault("", "tx_hold_count", "6")
 			}
 
+			seenStpPorts := make(map[string]bool)
 			for _, ps := range stpPorts {
+				if ps == nil {
+					continue
+				}
 				portName := ps.GetInterfaceName()
+				if seenStpPorts[portName] {
+					addConflict(portScope(portName), "stp_port", portName, "duplicate stp port state entry", IssueConflictSTPPort)
+					continue
+				}
+				seenStpPorts[portName] = true
+
 				p, ok := ports.Port(portName)
 				if !ok {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: portName,
-						What: "stp_port",
-						Why:  "absent from port table",
-					})
+					addSkipped(portName, "stp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
 					continue
 				}
 				if p.LagParent != "" {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: portName,
-						What: "stp_port",
-						Why:  "port is a LAG member",
-					})
+					addSkipped(portName, "stp_port", "port is a LAG member", analysis.Incomplete, IssueSkippedLagMember)
 					continue
 				}
 				if ps.GetPriority() > 255 {
-					report.Skipped = append(report.Skipped, Skipped{
-						Port: portName,
-						What: "stp_port",
-						Why:  "priority above 255",
-					})
+					addSkipped(portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
 					continue
 				}
 
@@ -800,11 +933,7 @@ func Load(
 				if ps.HasAdminPathCost() {
 					adminPathCost = ps.GetAdminPathCost()
 				} else {
-					report.Defaults = append(report.Defaults, Default{
-						Port:  portName,
-						Field: "admin_path_cost",
-						Value: "0",
-					})
+					addDefault(portName, "admin_path_cost", "0")
 				}
 
 				var p2p stp.PointToPointMode
@@ -836,21 +965,17 @@ func Load(
 			continue
 		}
 		name := agg.GetInterfaceName()
+		if _, exists := aggByPort[name]; exists {
+			addConflict(portScope(name), "lacp_aggregator", name, "duplicate lacp aggregator state entry", IssueConflictLACP)
+			continue
+		}
 		p, ok := ports.Port(name)
 		if !ok {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: name,
-				What: "lacp_port",
-				Why:  "absent from port table",
-			})
+			addSkipped(name, "lacp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
 			continue
 		}
 		if p.Kind != port.Lag {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: name,
-				What: "lacp_port",
-				Why:  "port is not a LAG",
-			})
+			addSkipped(name, "lacp_port", "port is not a LAG", analysis.Incomplete, IssueSkippedUnsupportedFacet)
 			continue
 		}
 		aggByPort[name] = agg
@@ -862,21 +987,17 @@ func Load(
 			continue
 		}
 		name := ps.GetInterfaceName()
+		if _, exists := portStateByMember[name]; exists {
+			addConflict(portScope(name), "lacp_port_state", name, "duplicate lacp port state entry", IssueConflictLACP)
+			continue
+		}
 		p, ok := ports.Port(name)
 		if !ok {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: name,
-				What: "lacp_port",
-				Why:  "absent from port table",
-			})
+			addSkipped(name, "lacp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
 			continue
 		}
 		if p.LagParent == "" {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: name,
-				What: "lacp_port",
-				Why:  "port is not a LAG member",
-			})
+			addSkipped(name, "lacp_port", "port is not a LAG member", analysis.Incomplete, IssueSkippedLagMember)
 			continue
 		}
 		portStateByMember[name] = ps
@@ -905,41 +1026,25 @@ func Load(
 					lagItem.Mode = lag.BalanceTCP
 				default:
 					lagItem.Mode = lag.ActiveBackup
-					report.Defaults = append(report.Defaults, Default{
-						Port:  lagName,
-						Field: "bond_mode",
-						Value: "active-backup",
-					})
+					addDefault(lagName, "bond_mode", "active-backup")
 				}
 			} else {
 				lagItem.Mode = lag.ActiveBackup
-				report.Defaults = append(report.Defaults, Default{
-					Port:  lagName,
-					Field: "bond_mode",
-					Value: "active-backup",
-				})
+				addDefault(lagName, "bond_mode", "active-backup")
 			}
 
 			if facet != nil && facet.HasUpDelay() {
 				lagItem.UpDelay = facet.GetUpDelay().AsDuration()
 			} else {
 				lagItem.UpDelay = 0
-				report.Defaults = append(report.Defaults, Default{
-					Port:  lagName,
-					Field: "up_delay",
-					Value: "0",
-				})
+				addDefault(lagName, "up_delay", "0")
 			}
 
 			if facet != nil && facet.HasDownDelay() {
 				lagItem.DownDelay = facet.GetDownDelay().AsDuration()
 			} else {
 				lagItem.DownDelay = 0
-				report.Defaults = append(report.Defaults, Default{
-					Port:  lagName,
-					Field: "down_delay",
-					Value: "0",
-				})
+				addDefault(lagName, "down_delay", "0")
 			}
 
 			if facet != nil && facet.HasHashBasis() {
@@ -977,11 +1082,7 @@ func Load(
 				lagItem.LACP = lacpCfg
 			} else {
 				lagItem.LACP.Mode = lag.Off
-				report.Defaults = append(report.Defaults, Default{
-					Port:  lagName,
-					Field: "lacp",
-					Value: "off",
-				})
+				addDefault(lagName, "lacp", "off")
 			}
 
 			members := ports.Members(lagName)
@@ -1034,11 +1135,7 @@ func Load(
 			}
 
 			if !isSupported {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: iface.GetName(),
-					What: "ip",
-					Why:  "unsupported interface kind",
-				})
+				addSkipped(iface.GetName(), "ip", "unsupported interface kind", analysis.Unsupported, IssueUnsupportedInterfaceKind)
 				continue
 			}
 
@@ -1046,11 +1143,7 @@ func Load(
 			if m, ok := parseMAC(iface.GetMac()); ok && m != (netaddr.MAC{}) {
 				ifaceMAC = m
 			} else {
-				report.Defaults = append(report.Defaults, Default{
-					Port:  iface.GetName(),
-					Field: "mac",
-					Value: "device base address",
-				})
+				addDefault(iface.GetName(), "mac", "device base address")
 			}
 
 			vrf.Interfaces[iface.GetName()] = routing.Interface{
@@ -1067,11 +1160,7 @@ func Load(
 			name := addr.GetInterfaceName()
 			iface, ok := vrf.Interfaces[name]
 			if !ok {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: name,
-					What: "ip_address",
-					Why:  "interface carries no ip facet",
-				})
+				addSkipped(name, "ip_address", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
 				continue
 			}
 
@@ -1084,31 +1173,32 @@ func Load(
 			}
 		}
 
+		seenNeighbors := make(map[string]bool)
 		for _, n := range neighbors {
 			if n == nil {
 				continue
 			}
 			mac, okMAC := parseMAC(n.GetMac())
 			if !okMAC || mac == (netaddr.MAC{}) {
-				report.Skipped = append(report.Skipped, Skipped{
-					What: "ip_neighbor",
-					Why:  "neighbor has no mac",
-				})
+				addSkipped("", "ip_neighbor", "neighbor has no mac", analysis.Incomplete, IssueMissingNeighborMAC)
 				continue
 			}
 
 			name := n.GetInterfaceName()
 			if _, ok := vrf.Interfaces[name]; !ok {
-				report.Skipped = append(report.Skipped, Skipped{
-					Port: name,
-					What: "ip_neighbor",
-					Why:  "interface carries no ip facet",
-				})
+				addSkipped(name, "ip_neighbor", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
 				continue
 			}
 
 			ip, okIP := parseIP(n.GetIp())
 			if okIP {
+				key := fmt.Sprintf("%s/%s", name, ip.String())
+				if seenNeighbors[key] {
+					addConflict(portScope(name), "ip_neighbor", key, "duplicate neighbor entry", IssueConflictNeighbor)
+					continue
+				}
+				seenNeighbors[key] = true
+
 				vrf.Neighbors = append(vrf.Neighbors, routing.Neighbor{
 					Interface: name,
 					Addr:      ip,
@@ -1118,16 +1208,8 @@ func Load(
 		}
 
 		if len(vrf.Interfaces) > 0 {
-			report.Defaults = append(report.Defaults, Default{
-				Port:  "",
-				Field: "vrf",
-				Value: routing.DefaultVRF,
-			})
-			report.Defaults = append(report.Defaults, Default{
-				Port:  "",
-				Field: "mac",
-				Value: "assigned",
-			})
+			addDefault("", "vrf", routing.DefaultVRF)
+			addDefault("", "mac", "assigned")
 			cfg.Routing = &routing.Config{
 				VRFs: map[string]routing.VRF{
 					routing.DefaultVRF: vrf,
@@ -1142,30 +1224,41 @@ func Load(
 	}
 
 	var seeds []bridge.Seed
+	seenFdb := make(map[string]bool)
 	for _, entry := range fdb {
+		if entry == nil {
+			continue
+		}
 		if entry.GetStatus() == switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_INVALID {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: entry.GetInterfaceName(),
-				What: "fdb_entry",
-				Why:  "status is INVALID",
-			})
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", "status is INVALID", analysis.Unsupported, IssueInvalidFDBStatus)
 			continue
 		}
-		if !vlan.ID(entry.GetVlanId()).Valid() || uint64(entry.GetVlanId()) > uint64(vlan.MaxID) {
-			report.Skipped = append(report.Skipped, Skipped{
-				Port: entry.GetInterfaceName(),
-				What: "fdb_entry",
-				Why:  "vlan_id outside 1 through 4094",
-			})
+		vid := vlan.ID(entry.GetVlanId())
+		if !vid.Valid() || uint64(entry.GetVlanId()) > uint64(vlan.MaxID) {
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", "vlan_id outside 1 through 4094", analysis.Unsupported, IssueInvalidVlanID)
 			continue
 		}
+
+		if _, ok := ports.Port(entry.GetInterfaceName()); !ok {
+			addSkipped(entry.GetInterfaceName(), "fdb_entry", "absent from port table", analysis.Incomplete, IssueUnknownPort)
+			continue
+		}
+
 		var mac netaddr.MAC
 		if entry.GetMac() != nil {
 			copy(mac[:], entry.GetMac().GetOctets())
 		}
+
+		fdbKey := fmt.Sprintf("%d/%s", vid, mac.String())
+		if seenFdb[fdbKey] {
+			addConflict(portScope(entry.GetInterfaceName()), "fdb_entry", fdbKey, fmt.Sprintf("duplicate fdb entry for mac %s on vlan %d", mac.String(), vid), IssueConflictFDB)
+			continue
+		}
+		seenFdb[fdbKey] = true
+
 		isStatic := entry.GetKind() == switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 		seeds = append(seeds, bridge.Seed{
-			FID:       vlan.ID(entry.GetVlanId()),
+			FID:       vid,
 			MAC:       mac,
 			Port:      entry.GetInterfaceName(),
 			Static:    isStatic,
@@ -1193,8 +1286,50 @@ func Load(
 		}
 		return cmp.Compare(a.Value, b.Value)
 	})
+	slices.SortFunc(report.Conflicts, func(a, b Conflict) int {
+		if r := cmp.Compare(a.What, b.What); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.Key, b.Key); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.Detail, b.Detail)
+	})
 
-	return cfg, seeds, report, nil
+	slices.SortFunc(seeds, func(a, b bridge.Seed) int {
+		if r := cmp.Compare(a.FID, b.FID); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.MAC.String(), b.MAC.String()); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.Port, b.Port); r != 0 {
+			return r
+		}
+		if a.Static != b.Static {
+			if a.Static {
+				return -1
+			}
+			return 1
+		}
+		return a.LearnedAt.Compare(b.LearnedAt)
+	})
+
+	normCfg := cfg.Normalize()
+	if err := normCfg.Validate(); err != nil {
+		return Result{}, errs.Wrap(err, "validate switch configuration")
+	}
+
+	metadata := analysis.NewMetadata(rootScope, issues, catalog, assumptions)
+
+	return Result{
+		Spec: vswitch.ConstructionSpec{
+			Config: normCfg,
+			Seeds:  seeds,
+		},
+		Report:   report.Clone(),
+		Metadata: metadata,
+	}, nil
 }
 
 func parseMAC(eui *addrv1.EuiAddress) (netaddr.MAC, bool) {

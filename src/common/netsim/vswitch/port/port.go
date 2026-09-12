@@ -81,14 +81,14 @@ func (k Kind) Canonical() string {
 type LinkState string
 
 const (
+	// Unknown indicates the link state is unknown or unspecified.
+	Unknown LinkState = "Unknown"
+
 	// Up indicates the link is administratively or operationally active.
 	Up LinkState = "Up"
 
 	// Down indicates the link is administratively disabled or operationally inactive.
 	Down LinkState = "Down"
-
-	// Unreported indicates the link state was not reported.
-	Unreported LinkState = "Unreported"
 )
 
 // TypeID returns the stable identifier for LinkState facts.
@@ -126,17 +126,17 @@ func (p Port) Canonical() string {
 }
 
 // Normalize returns a deterministic copy of the port with standard defaults applied.
-// An unspecified Kind defaults to [Physical], and unspecified AdminStatus and OperStatus default to [Down].
+// An unspecified Kind defaults to [Physical], and unspecified AdminStatus and OperStatus default to [Unknown].
 func (p Port) Normalize() Port {
 	cp := p
 	if cp.Kind == "" {
 		cp.Kind = Physical
 	}
 	if cp.AdminStatus == "" {
-		cp.AdminStatus = Down
+		cp.AdminStatus = Unknown
 	}
 	if cp.OperStatus == "" {
-		cp.OperStatus = Down
+		cp.OperStatus = Unknown
 	}
 
 	return cp
@@ -356,23 +356,23 @@ func (t Table) Validate() error {
 		}
 
 		switch p.AdminStatus {
-		case Up, Down, Unreported, "":
+		case Up, Down, Unknown, "":
 		default:
 			return errs.New().
 				Attr("field", "ports."+p.Name+".admin_status").
 				Attr("name", p.Name).
 				Attr("admin_status", p.AdminStatus).
-				Msgf("port %q has unknown admin status %q", p.Name, p.AdminStatus)
+				Msgf("port %q has invalid admin status %q", p.Name, p.AdminStatus)
 		}
 
 		switch p.OperStatus {
-		case Up, Down, Unreported, "":
+		case Up, Down, Unknown, "":
 		default:
 			return errs.New().
 				Attr("field", "ports."+p.Name+".oper_status").
 				Attr("name", p.Name).
 				Attr("oper_status", p.OperStatus).
-				Msgf("port %q has unknown oper status %q", p.Name, p.OperStatus)
+				Msgf("port %q has invalid oper status %q", p.Name, p.OperStatus)
 		}
 
 		if p.MTU < 0 {

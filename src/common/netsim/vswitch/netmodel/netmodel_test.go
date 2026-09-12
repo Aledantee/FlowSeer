@@ -95,10 +95,12 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		}
 	}
 
-	cfg, _, report, err := netmodel.Load(testTime, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	// Member's switchport facet must be reported as skipped.
 	foundSkipped := false
@@ -192,10 +194,12 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 
 	// Part 1: Infer {relay, vlan} and report defaults.
-	cfg, _, report, err := netmodel.Load(testTime, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	wantCaps := []port.Layer{port.LayerRelay, port.LayerVlan}
 	if !slices.Equal(report.Capabilities, wantCaps) {
@@ -236,10 +240,12 @@ func TestInferCapabilitiesAndReportDefaults(t *testing.T) {
 	}
 
 	// Part 2: Wanted set of {relay} drops every switchport facet and lists each as skipped.
-	cfgRelayOnly, _, reportRelayOnly, err := netmodel.Load(testTime, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
+	resRelayOnly, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerRelay})
 	if err != nil {
 		t.Fatalf("netmodel.Load with relay failed: %v", err)
 	}
+	cfgRelayOnly := resRelayOnly.Spec.Config
+	reportRelayOnly := resRelayOnly.Report
 	if cfgRelayOnly.Bridge.VLAN != nil {
 		t.Errorf("expected VLAN configuration to be nil when only relay is wanted")
 	}
@@ -306,10 +312,11 @@ func TestFdbAndPoeExport(t *testing.T) {
 		switchingv1.Vlan_builder{Id: &vid10, Name: &vname10}.Build(),
 	}
 
-	cfg, _, _, err := netmodel.Load(testTime, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, vlans, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
 
 	sw, err := vswitch.New(cfg)
 	if err != nil {
@@ -455,10 +462,12 @@ func TestNetmodel_InvalidFdbEntrySkipped(t *testing.T) {
 		Mac:           addrv1.Eui48Address_builder{Octets: macBytes}.Build(),
 	}.Build()
 
-	_, seeds, report, err := netmodel.Load(testTime, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, []*switchingv1.FdbEntry{fdb1, fdb2}, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	seeds := res.Spec.Seeds
+	report := res.Report
 
 	if len(seeds) != 1 {
 		t.Errorf("seeds count = %d, want 1", len(seeds))
@@ -507,10 +516,12 @@ func TestNetmodel_PortWithoutPoeDetailSkipped(t *testing.T) {
 		}.Build(),
 	}.Build()
 
-	cfg, _, report, err := netmodel.Load(testTime, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{iface}, nil, nil, []*phyv1.PseBudget{budget}, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -533,7 +544,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 
 	t.Run("empty interfaces", func(t *testing.T) {
-		_, _, _, err := netmodel.Load(testTime, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		if err == nil {
 			t.Fatal("expected error on empty interface list")
 		}
@@ -543,7 +554,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 		p1Name := "1/1/1"
 		p1 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
 		p2 := interfacev1.Interface_builder{Name: &p1Name, AdminStatus: &adminUp, OperStatus: &operUp}.Build()
-		_, _, _, err := netmodel.Load(testTime, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		if err == nil {
 			t.Fatal("expected error on duplicate interface name")
 		}
@@ -560,7 +571,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 				LagParent: &lagParent,
 			}.Build(),
 		}.Build()
-		_, _, _, err := netmodel.Load(testTime, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		if err == nil {
 			t.Fatal("expected error on non-existent lag parent")
 		}
@@ -578,7 +589,7 @@ func TestNetmodel_LoadErrors(t *testing.T) {
 				LagParent: &p1Name,
 			}.Build(),
 		}.Build()
-		_, _, _, err := netmodel.Load(testTime, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+		_, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 		if err == nil {
 			t.Fatal("expected error on lag parent that is not a LAG")
 		}
@@ -630,10 +641,13 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		Mac:           addrv1.Eui48Address_builder{Octets: []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}}.Build(),
 	}.Build()
 
-	cfg, seeds, report, err := netmodel.Load(testTime, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{p1, p2}, nil, []*switchingv1.FdbEntry{fdbStatic}, []*phyv1.PseBudget{budgetWithoutPower}, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	seeds := res.Spec.Seeds
+	report := res.Report
 
 	// MTU 0 treated as unlimited in Port
 	port1, ok := cfg.Ports.Port("1/1/1")
@@ -743,10 +757,12 @@ func TestLoadImpliesRelayForVlanAndKeepsLagPresent(t *testing.T) {
 			LagParent: &lagParent,
 		}.Build()}.Build(),
 	}
-	cfg, _, report, err := netmodel.Load(testTime, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVlan})
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerVlan})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
 		t.Fatal("a wanted vlan layer did not build the bridge")
 	}
@@ -813,10 +829,12 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		}
 	}
 
-	cfg, _, report, err := netmodel.Load(testTime, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	sw1, ok := cfg.Bridge.VLAN.Switchports["1/1/1"]
 	if !ok {

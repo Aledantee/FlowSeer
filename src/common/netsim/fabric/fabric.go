@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
@@ -514,6 +515,15 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 		if adminB == port.Down {
 			endB.Reason = ReasonAdminDown
 		}
+
+		return endA, endB
+	}
+
+	if adminA == port.Unknown || adminB == port.Unknown {
+		endA.Oper = port.Unknown
+		endB.Oper = port.Unknown
+		endA.Reason = trace.Reason("unknown-operational-status")
+		endB.Reason = trace.Reason("unknown-operational-status")
 
 		return endA, endB
 	}

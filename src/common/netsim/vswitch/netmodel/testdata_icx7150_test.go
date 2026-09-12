@@ -374,10 +374,12 @@ func TestICX7150Load(t *testing.T) {
 	ifaces, vlans, budgets, bridgeState, stpPorts := icx7150Fixture(t)
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, budgets, bridgeState, stpPorts, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "icx7150"}, ifaces, vlans, nil, budgets, bridgeState, stpPorts, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("netmodel.Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if len(report.Skipped) != 2 {
 		t.Errorf("expected 2 skipped LAG member port states, got %d: %+v", len(report.Skipped), report.Skipped)

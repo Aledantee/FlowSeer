@@ -389,20 +389,20 @@ func (s *Switch) wrapResult(res bridge.Result, ingress string) ForwardResult {
 
 	p, ok := s.ports.Port(ingress)
 	if ok {
-		if p.OperStatus == port.Unreported {
+		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
 			issues = append(issues, analysis.Issue{
-				Code:    "unreported-operational-status",
+				Code:    "unknown-operational-status",
 				Status:  analysis.Incomplete,
 				Scope:   scope,
-				Message: fmt.Sprintf("port %q has unreported operational status", ingress),
+				Message: fmt.Sprintf("port %q has unknown operational status", ingress),
 			})
 		} else if p.LagParent != "" {
-			if parent, parentOk := s.ports.Port(p.LagParent); parentOk && parent.OperStatus == port.Unreported {
+			if parent, parentOk := s.ports.Port(p.LagParent); parentOk && (parent.AdminStatus == port.Unknown || parent.OperStatus == port.Unknown) {
 				issues = append(issues, analysis.Issue{
-					Code:    "unreported-operational-status",
+					Code:    "unknown-operational-status",
 					Status:  analysis.Incomplete,
 					Scope:   scope,
-					Message: fmt.Sprintf("port %q LAG parent %q has unreported operational status", ingress, p.LagParent),
+					Message: fmt.Sprintf("port %q LAG parent %q has unknown operational status", ingress, p.LagParent),
 				})
 			}
 		}
