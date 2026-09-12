@@ -900,3 +900,119 @@ func TestStpLoadDefaultsOnlyAbsentPriorities(t *testing.T) {
 		t.Errorf("constructed port priority = %d, want %d", got, stp.DefaultPortPriority)
 	}
 }
+
+func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
+	t.Parallel()
+
+	name := "1/1/1"
+	validName := "1/1/2"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	adminPathCost := uint32(200_000_001)
+	validAdminPathCost := stp.MaxPathCost
+	bridgeState := stpv1.BridgeState_builder{
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+	}.Build()
+	portState := stpv1.PortState_builder{
+		InterfaceName: &name,
+		AdminPathCost: &adminPathCost,
+	}.Build()
+	validPortState := stpv1.PortState_builder{
+		InterfaceName: &validName,
+		AdminPathCost: &validAdminPathCost,
+	}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-admin-path-cost"},
+		[]*interfacev1.Interface{plainPhysicalInterface(name), plainPhysicalInterface(validName)},
+		nil, nil, nil, bridgeState, []*stpv1.PortState{portState, validPortState}, nil, nil, nil, nil,
+		[]port.Layer{port.LayerStp},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if result.Spec.Config.STP == nil {
+		t.Fatal("STP config is nil")
+	}
+	if _, ok := result.Spec.Config.STP.Ports[name]; ok {
+		t.Errorf("STP config contains port with unsupported admin path cost")
+	}
+	if got, ok := result.Spec.Config.STP.Ports[validName]; !ok || got.PathCost != stp.MaxPathCost {
+		t.Errorf("valid sibling STP port = (%+v, present=%t), want maximum path cost", got, ok)
+	}
+
+	scope := analysis.PortScope("sw1", name)
+	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
+		return got.Scope == scope && got.Port == name && got.What == "stp_port" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced port-scoped STP row", result.Report.Skipped)
+	}
+	if !slices.ContainsFunc(result.Metadata.IssuesFor(scope), func(got analysis.Issue) bool {
+		return got.Code == analysis.IssueCode("netmodel.stp.invalid_admin_path_cost") &&
+			got.Status == analysis.Unsupported && len(got.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced unsupported admin path cost", result.Metadata.IssuesFor(scope))
+	}
+	if got := result.Metadata.StatusFor(analysis.PortScope("sw1", validName)); got != analysis.Complete {
+		t.Errorf("valid sibling status = %v, want Complete", got)
+	}
+}
+
+func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
+	t.Parallel()
+
+	name := "1/1/1"
+	protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+	priority := uint32(32768)
+	invalidTxHoldCount := uint32(11)
+	bridgeState := stpv1.BridgeState_builder{
+		ProtocolVersion: &protocol,
+		BridgeId: stpv1.BridgeId_builder{
+			Priority: &priority,
+			Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+		}.Build(),
+		TxHoldCount: &invalidTxHoldCount,
+	}.Build()
+
+	result, err := netmodel.Load(
+		time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC),
+		netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "invalid-tx-hold-count"},
+		[]*interfacev1.Interface{plainPhysicalInterface(name)},
+		nil, nil, nil, bridgeState, nil, nil, nil, nil, nil,
+		[]port.Layer{port.LayerStp},
+	)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if result.Spec.Config.STP == nil {
+		t.Fatal("STP config is nil")
+	}
+	if got := result.Spec.Config.STP.TxHoldCount; got != stp.DefaultTxHoldCount {
+		t.Errorf("tx hold count = %d, want fallback %d", got, stp.DefaultTxHoldCount)
+	}
+	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
+		return got.Scope == analysis.NodeScope("sw1") && got.What == "stp_tx_hold_count" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("skipped = %+v, want evidenced invalid tx_hold_count", result.Report.Skipped)
+	}
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(got analysis.Issue) bool {
+		return got.Code == netmodel.IssueInvalidTxHoldCount && got.Status == analysis.Unsupported && len(got.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced invalid tx_hold_count", result.Metadata.Issues())
+	}
+	if !slices.ContainsFunc(result.Report.Defaults, func(got netmodel.Default) bool {
+		return got.Field == "tx_hold_count" && got.Value == "6" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("defaults = %+v, want evidenced tx_hold_count fallback", result.Report.Defaults)
+	}
+	if !slices.ContainsFunc(result.Metadata.Assumptions(), func(got analysis.Assumption) bool {
+		return got.Statement == "default value applied for tx_hold_count: 6" && len(got.Evidence) > 0
+	}) {
+		t.Errorf("assumptions = %+v, want evidenced tx_hold_count fallback", result.Metadata.Assumptions())
+	}
+}

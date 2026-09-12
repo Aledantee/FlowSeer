@@ -59,6 +59,7 @@ const (
 	IssueMissingBridgeAddress           analysis.IssueCode = "netmodel.stp.missing_bridge_address"
 	IssueInvalidTxHoldCount             analysis.IssueCode = "netmodel.stp.invalid_tx_hold_count"
 	IssueInvalidPortPriority            analysis.IssueCode = "netmodel.stp.invalid_port_priority"
+	IssueInvalidAdminPathCost           analysis.IssueCode = "netmodel.stp.invalid_admin_path_cost"
 	IssueUnknownPort                    analysis.IssueCode = "netmodel.skipped.unknown_port"
 	IssueUnsupportedInterfaceKind       analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
 	IssueMissingIPFacet                 analysis.IssueCode = "netmodel.routing.missing_ip_facet"
@@ -1132,6 +1133,7 @@ func Load(
 			if bridgeState.HasTxHoldCount() {
 				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
 					addSkipped("", "stp_tx_hold_count", "outside 1 through 10", analysis.Unsupported, IssueInvalidTxHoldCount)
+					addDefault("", "tx_hold_count", strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10))
 				} else {
 					stpCfg.TxHoldCount = uint8(v)
 				}
@@ -1155,6 +1157,16 @@ func Load(
 				}
 				if ps.GetPriority() > 255 {
 					addSkipped(portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
+					return factKey{}, "", false
+				}
+				if ps.HasAdminPathCost() && ps.GetAdminPathCost() > stp.MaxPathCost {
+					addSkipped(
+						portName,
+						"stp_port",
+						fmt.Sprintf("admin_path_cost exceeds maximum %d", stp.MaxPathCost),
+						analysis.Unsupported,
+						IssueInvalidAdminPathCost,
+					)
 					return factKey{}, "", false
 				}
 				switch ps.GetPointToPoint() {

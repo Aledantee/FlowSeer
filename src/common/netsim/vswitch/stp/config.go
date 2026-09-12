@@ -29,6 +29,9 @@ const (
 	// DefaultPortPriority is the standard administrative port priority (128).
 	DefaultPortPriority uint8 = 128
 
+	// MaxPathCost is the largest administrative or operational path cost IEEE 802.1D permits.
+	MaxPathCost uint32 = 200_000_000
+
 	// DefaultTxHoldCount is the standard transmit hold count limit of 6 BPDUs per second.
 	DefaultTxHoldCount uint8 = 6
 
@@ -66,14 +69,18 @@ func (p Port) TypeID() string { return "stp.port" }
 // Canonical returns the canonical string representation of the Port fact.
 func (p Port) Canonical() string {
 	return fmt.Sprintf("priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%q",
-		p.Priority, p.PathCost, p.AdminEdge, p.AutoEdge, string(p.PointToPoint))
+		effectivePortPriority(p.Priority, p.PriorityPresent),
+		p.PathCost,
+		p.AdminEdge,
+		p.AutoEdge,
+		effectivePointToPoint(p.PointToPoint))
 }
 
 // TypeID returns the fact type identifier for PointToPointMode.
 func (m PointToPointMode) TypeID() string { return "stp.point_to_point" }
 
 // Canonical returns the string representation of the mode.
-func (m PointToPointMode) Canonical() string { return string(m) }
+func (m PointToPointMode) Canonical() string { return string(effectivePointToPoint(m)) }
 
 // Config defines the spanning tree configuration of a virtual switch.
 type Config struct {
@@ -251,6 +258,13 @@ func (c Config) Validate(ports port.Table) error {
 				Msgf("spanning tree port %q cannot be a LAG member", name)
 		}
 		cfgPort := c.Ports[name]
+		if cfgPort.PathCost > MaxPathCost {
+			return errs.New().
+				Attr("field", "ports."+name+".path_cost").
+				Attr("port", name).
+				Attr("path_cost", cfgPort.PathCost).
+				Msgf("spanning tree path cost %d on port %q exceeds maximum %d", cfgPort.PathCost, name, MaxPathCost)
+		}
 		switch cfgPort.PointToPoint {
 		case "", PointToPointAuto, PointToPointForceTrue, PointToPointForceFalse:
 		default:

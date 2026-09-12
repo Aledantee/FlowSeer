@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -216,6 +217,36 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestNewRejectsPathCostAboveMaximum(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	cfg := stp.Config{
+		Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 200_000_001},
+		},
+	}
+	_, err = stp.New(cfg, tbl)
+	if err == nil {
+		t.Fatal("New() error = nil, want path cost rejection")
+	}
+	if got, want := errs.Attributes(err)["field"], "ports.1/1/1.path_cost"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
+	}
+
+	cfg.Ports["1/1/1"] = stp.Port{PathCost: stp.MaxPathCost}
+	if _, err := stp.New(cfg, tbl); err != nil {
+		t.Errorf("New() at maximum path cost: %v", err)
+	}
+}
+
 func TestClone(t *testing.T) {
 	t.Parallel()
 
@@ -282,6 +313,35 @@ func TestNormalizePreservesExplicitZeroPriorities(t *testing.T) {
 	}
 	if got := norm.Ports["1/1/1"].Priority; got != 0 {
 		t.Errorf("port priority = %d, want explicit zero", got)
+	}
+}
+
+func TestPortFactCanonicalUsesEffectiveElectionSettings(t *testing.T) {
+	t.Parallel()
+
+	defaulted := stp.Port{}
+	explicitDefaults := stp.Port{
+		Priority:        stp.DefaultPortPriority,
+		PriorityPresent: true,
+		PointToPoint:    stp.PointToPointAuto,
+	}
+	explicitZero := stp.Port{
+		Priority:        0,
+		PriorityPresent: true,
+	}
+
+	if !trace.EqualFact(defaulted, explicitDefaults) {
+		t.Errorf("defaulted fact = %q, want effective defaults %q", defaulted.Canonical(), explicitDefaults.Canonical())
+	}
+	if trace.EqualFact(explicitZero, defaulted) {
+		t.Errorf("explicit-zero fact = %q, want distinct from omitted priority", explicitZero.Canonical())
+	}
+	if !trace.EqualFact(stp.PointToPointMode(""), stp.PointToPointAuto) {
+		t.Errorf(
+			"unspecified point-to-point fact = %q, want %q",
+			stp.PointToPointMode("").Canonical(),
+			stp.PointToPointAuto.Canonical(),
+		)
 	}
 }
 
