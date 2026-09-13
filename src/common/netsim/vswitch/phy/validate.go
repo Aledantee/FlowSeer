@@ -29,6 +29,16 @@ func (c Config) Validate(ports port.Table) error {
 				Msgf("ethernet entry names LAG %q", name)
 		}
 
+		switch e.AutoNegotiationSupported {
+		case CapabilityUnknown, CapabilitySupported, CapabilityUnsupported:
+		default:
+			return errs.New().
+				Attr("field", "ethernet."+name+".auto_negotiation_supported").
+				Attr("port", name).
+				Attr("capability", e.AutoNegotiationSupported).
+				Msgf("port %q has unknown capability %q", name, e.AutoNegotiationSupported)
+		}
+
 		if e.Setting != nil {
 			switch e.Setting.Duplex {
 			case Full, Half, Unknown, "":
@@ -40,7 +50,7 @@ func (c Config) Validate(ports port.Table) error {
 					Msgf("port %q has unknown setting duplex %q", name, e.Setting.Duplex)
 			}
 
-			if e.Setting.AutoNegotiation && !e.AutoNegotiationSupported {
+			if e.Setting.AutoNegotiation && e.AutoNegotiationSupported == CapabilityUnsupported {
 				return errs.New().
 					Attr("field", "ethernet."+name+".auto_negotiation").
 					Attr("port", name).
@@ -112,6 +122,22 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("port", name).
 				Attr("priority", pp.Priority).
 				Msgf("port %q has unknown priority %q", name, pp.Priority)
+		}
+		switch pp.PD {
+		case PDUnknown, PDAbsent, PDAttached:
+		default:
+			return errs.New().
+				Attr("field", "poe.ports."+name+".pd").
+				Attr("port", name).
+				Attr("pd", pp.PD).
+				Msgf("port %q has unknown pd state %q", name, pp.PD)
+		}
+		if pp.PDClass != nil && pp.PD != PDAttached {
+			return errs.New().
+				Attr("field", "poe.ports."+name+".pd_class").
+				Attr("port", name).
+				Attr("class", *pp.PDClass).
+				Msgf("port %q has pd class %d without attached powered device", name, *pp.PDClass)
 		}
 		if pp.PDClass != nil && *pp.PDClass > maxClass {
 			return errs.New().

@@ -339,6 +339,11 @@ Exported constructors validate and normalize configurations:
   readiness, and evidence. A port with unknown operational status never forwards
   and attaches an Incomplete issue scoped to that port, while known-down ports
   drop traffic authoritatively with Complete readiness.
+- [Switch.Power] returns [PowerResult], combining [phy.Allocation] with
+  [analysis.Metadata]. The metadata records an Incomplete issue
+  (`poe-demand-unknown`) for each port whose power demand is uncertain,
+  keeping PoE uncertainty scoped to the port's PoE field and out of forwarding
+  metadata.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
 scopes. An empty key identifies an anonymous standalone switch and uses the

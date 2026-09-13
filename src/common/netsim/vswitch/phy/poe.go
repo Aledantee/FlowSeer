@@ -66,17 +66,51 @@ func (g Group) Canonical() string {
 	return strconv.FormatUint(uint64(g.PowerMilliwatts), 10)
 }
 
+// PDState represents the powered-device attachment state on a PSE port.
+type PDState string
+
+const (
+	// PDUnknown indicates the attachment state is unreported. It is the zero value.
+	PDUnknown PDState = ""
+
+	// PDAbsent indicates no powered device is attached.
+	PDAbsent PDState = "Absent"
+
+	// PDAttached indicates a powered device is attached.
+	PDAttached PDState = "Attached"
+)
+
+// TypeID returns the stable identifier for PDState facts.
+func (s PDState) TypeID() string {
+	return "phy.pd_state"
+}
+
+// Canonical returns the string representation of the PDState.
+func (s PDState) Canonical() string {
+	if s == "" {
+		return "Unknown"
+	}
+
+	return string(s)
+}
+
+// String returns the string representation of the PDState.
+func (s PDState) String() string {
+	return s.Canonical()
+}
+
 // PsePort is one power-sourcing port. MaxClass is the highest powered-device
 // class the port can source; no net/phy message carries it, so the loader
-// supplies it. Limit optionally caps the power the port may draw. PDClass is
-// the class of the attached powered device; nil means no device is attached,
-// since class 0 is a real class that draws 15.4 W.
+// supplies it. Limit optionally caps the power the port may draw. PD is the
+// powered device attachment state. PDClass is the class of the attached
+// powered device, valid only when PD is [PDAttached].
 type PsePort struct {
 	Group    string
 	MaxClass uint8
 	Enabled  bool
 	Limit    *uint32
 	Priority Priority
+	PD       PDState
 	PDClass  *uint8
 }
 
@@ -106,8 +140,8 @@ func (p PsePort) Canonical() string {
 		pdStr = strconv.Itoa(int(*p.PDClass))
 	}
 
-	return fmt.Sprintf("group=%q,max_class=%d,enabled=%t,limit=%s,priority=%q,pd_class=%s",
-		p.Group, p.MaxClass, p.Enabled, limStr, string(p.Priority), pdStr)
+	return fmt.Sprintf("group=%q,max_class=%d,enabled=%t,limit=%s,priority=%q,pd=%s,pd_class=%s",
+		p.Group, p.MaxClass, p.Enabled, limStr, string(p.Priority), p.PD.Canonical(), pdStr)
 }
 
 // Class returns a pointer to c, for a PsePort literal.
@@ -176,6 +210,42 @@ func ClassPowerMW(class uint8) (uint32, bool) {
 	return classPowerMW[class], true
 }
 
+// PowerState represents the power allocation state of a PSE port.
+type PowerState string
+
+const (
+	// PowerUnknown indicates power allocation is uncertain. It is the zero value.
+	PowerUnknown PowerState = ""
+
+	// PowerNoDevice indicates no power is allocated because no device is attached.
+	PowerNoDevice PowerState = "NoDevice"
+
+	// PowerDenied indicates power was requested but denied.
+	PowerDenied PowerState = "Denied"
+
+	// PowerDelivered indicates power was granted and is delivered to the port.
+	PowerDelivered PowerState = "Delivered"
+)
+
+// TypeID returns the stable identifier for PowerState facts.
+func (s PowerState) TypeID() string {
+	return "phy.power_state"
+}
+
+// Canonical returns the string representation of the PowerState.
+func (s PowerState) Canonical() string {
+	if s == "" {
+		return "Unknown"
+	}
+
+	return string(s)
+}
+
+// String returns the string representation of the PowerState.
+func (s PowerState) String() string {
+	return s.Canonical()
+}
+
 // Allocation is the result of distributing each group's budget over its PSE
 // ports.
 type Allocation struct {
@@ -183,11 +253,12 @@ type Allocation struct {
 	Groups map[string]GroupAllocation
 }
 
-// PortAllocation records the power granted to one port, or the reason it was
-// denied. Denial is empty when power was granted.
+// PortAllocation records the power distribution state, power interval, and denial reason for one port.
 type PortAllocation struct {
-	Milliwatts uint32
-	Denial     trace.Reason
+	State         PowerState
+	MinMilliwatts uint32
+	MaxMilliwatts uint32
+	Denial        trace.Reason
 }
 
 // GroupAllocation records a group's budget, the power allocated from it, and
@@ -200,12 +271,28 @@ type GroupAllocation struct {
 
 // Allocate distributes each group's budget over its ports, critical priority
 // first with the port name as tie-break, charging each port its class power.
-// Priority order is what keeps the budget invariant under oversubscription:
-// a port whose class power exceeds the remainder is denied rather than
-// overdrawing the group. A port with no attached device draws nothing and
-// records no denial. A port naming an unknown group is skipped;
-// [Config.Validate] rejects such a configuration. Allocate returns empty
-// maps when the PoE capability is absent.
+//
+// Allocation follows the PoE truth table:
+//   - Disabled ports with no attached device yield [PowerNoDevice] 0..0 mW.
+//   - Disabled ports with an attached device yield [PowerDenied] with [ReasonDisabled] 0..0 mW.
+//   - Disabled ports with uncertain device state yield [PowerUnknown] 0..0 mW.
+//   - Enabled ports with no attached device yield [PowerNoDevice] 0..0 mW.
+//   - Enabled ports with an attached device whose class exceeds the port's maximum class
+//     yield [PowerDenied] with [ReasonClassUnsupported] 0..0 mW.
+//   - Enabled ports with an attached device whose class power exceeds the port's configured
+//     limit yield [PowerDenied] with [ReasonLimit] 0..0 mW.
+//   - Enabled ports with an attached device whose class power fits the group's minimum remainder
+//     yield [PowerDelivered] with power delivered and both remainders decremented.
+//   - Enabled ports with an attached device whose class power exceeds the group's maximum remainder
+//     yield [PowerDenied] with [ReasonBudget] 0..0 mW.
+//   - Enabled ports with an attached device whose class power falls between the minimum and
+//     maximum remainders yield [PowerUnknown] 0..P mW, decrementing minimum remainder.
+//   - Enabled ports with an attached device of unknown class, or whose device attachment is
+//     unreported, yield [PowerUnknown] 0..D mW (where D is the largest class power fitting
+//     the port's limit up to its maximum class), decrementing minimum remainder.
+//
+// Minimum remainder subtraction saturates at zero. Allocate returns empty maps when
+// the PoE capability is absent.
 func (c Config) Allocate() Allocation {
 	result := Allocation{}
 	if c.PoE == nil {
@@ -230,42 +317,120 @@ func (c Config) Allocate() Allocation {
 		})
 
 		budget := c.PoE.Groups[groupName].PowerMilliwatts
-		remainder := budget
+		remMin := budget
+		remMax := budget
 		var allocated uint32
 
 		for _, name := range names {
 			p := c.PoE.Ports[name]
-			pa := PortAllocation{}
-			if p.PDClass == nil {
-				result.Ports[name] = pa
+			d := maxFittingPower(p.MaxClass, p.Limit)
+
+			if !p.Enabled {
+				switch p.PD {
+				case PDAbsent:
+					result.Ports[name] = PortAllocation{State: PowerNoDevice}
+				case PDAttached:
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonDisabled}
+				case PDUnknown:
+					result.Ports[name] = PortAllocation{State: PowerUnknown}
+				}
 
 				continue
 			}
-			power, known := ClassPowerMW(*p.PDClass)
 
-			switch {
-			case !p.Enabled:
-				pa.Denial = ReasonDisabled
-			case !known || *p.PDClass > p.MaxClass:
-				pa.Denial = ReasonClassUnsupported
-			case p.Limit != nil && power > *p.Limit:
-				pa.Denial = ReasonLimit
-			case power > remainder:
-				pa.Denial = ReasonBudget
-			default:
-				pa.Milliwatts = power
-				remainder -= power
-				allocated += power
+			switch p.PD {
+			case PDAbsent:
+				result.Ports[name] = PortAllocation{State: PowerNoDevice}
+			case PDAttached:
+				if p.PDClass == nil {
+					result.Ports[name] = PortAllocation{
+						State:         PowerUnknown,
+						MinMilliwatts: 0,
+						MaxMilliwatts: d,
+					}
+					remMin = subSat(remMin, d)
+
+					continue
+				}
+
+				class := *p.PDClass
+				if class > p.MaxClass {
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonClassUnsupported}
+
+					continue
+				}
+
+				power, _ := ClassPowerMW(class)
+				if p.Limit != nil && power > *p.Limit {
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonLimit}
+
+					continue
+				}
+
+				if power <= remMin {
+					result.Ports[name] = PortAllocation{
+						State:         PowerDelivered,
+						MinMilliwatts: power,
+						MaxMilliwatts: power,
+					}
+					remMin -= power
+					remMax -= power
+					allocated += power
+
+					continue
+				}
+
+				if power > remMax {
+					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonBudget}
+
+					continue
+				}
+
+				result.Ports[name] = PortAllocation{
+					State:         PowerUnknown,
+					MinMilliwatts: 0,
+					MaxMilliwatts: power,
+				}
+				remMin = subSat(remMin, power)
+
+			case PDUnknown:
+				result.Ports[name] = PortAllocation{
+					State:         PowerUnknown,
+					MinMilliwatts: 0,
+					MaxMilliwatts: d,
+				}
+				remMin = subSat(remMin, d)
 			}
-			result.Ports[name] = pa
 		}
 
 		result.Groups[groupName] = GroupAllocation{
 			BudgetMilliwatts:    budget,
 			AllocatedMilliwatts: allocated,
-			RemainderMilliwatts: remainder,
+			RemainderMilliwatts: remMax,
 		}
 	}
 
 	return result
+}
+
+func maxFittingPower(maxClass uint8, limit *uint32) uint32 {
+	var d uint32
+	for c := uint8(0); c <= maxClass && int(c) < len(classPowerMW); c++ {
+		power := classPowerMW[c]
+		if limit == nil || power <= *limit {
+			if power > d {
+				d = power
+			}
+		}
+	}
+
+	return d
+}
+
+func subSat(a, b uint32) uint32 {
+	if b >= a {
+		return 0
+	}
+
+	return a - b
 }

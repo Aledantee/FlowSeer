@@ -29,7 +29,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 	t.Run("auto-negotiation on resolves to 1000 full", func(t *testing.T) {
 		e := phy.Ethernet{
 			SupportedSpeedsBPS:       gigabitCapable,
-			AutoNegotiationSupported: true,
+			AutoNegotiationSupported: phy.CapabilitySupported,
 			Setting:                  &phy.Setting{AutoNegotiation: true},
 		}
 		got := e.Resolve()
@@ -73,7 +73,7 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 
 func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 	class4 := func(priority phy.Priority, limit *uint32) phy.PsePort {
-		return phy.PsePort{Group: "1", MaxClass: 8, Enabled: true, Limit: limit, Priority: priority, PDClass: phy.Class(4)}
+		return phy.PsePort{Group: "1", MaxClass: 8, Enabled: true, Limit: limit, Priority: priority, PD: phy.PDAttached, PDClass: phy.Class(4)}
 	}
 	threePorts := func() map[string]phy.PsePort {
 		return map[string]phy.PsePort{
@@ -91,11 +91,11 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 
 		got := cfg.Allocate()
 		for _, name := range []string{"1/1/2", "1/1/3"} {
-			if pa := got.Ports[name]; pa.Denial != "" || pa.Milliwatts != 30_000 {
+			if pa := got.Ports[name]; pa.Denial != "" || pa.MaxMilliwatts != 30_000 || pa.State != phy.PowerDelivered {
 				t.Errorf("Ports[%q] = %+v, want 30000 mW granted", name, pa)
 			}
 		}
-		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonBudget || pa.Milliwatts != 0 {
+		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonBudget || pa.MaxMilliwatts != 0 || pa.State != phy.PowerDenied {
 			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonBudget)
 		}
 		if g := got.Groups["1"]; g.BudgetMilliwatts != 60_000 || g.AllocatedMilliwatts != 60_000 || g.RemainderMilliwatts != 0 {
@@ -111,7 +111,7 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 
 		got := cfg.Allocate()
 		for _, name := range []string{"1/1/1", "1/1/2", "1/1/3"} {
-			if pa := got.Ports[name]; pa.Denial != "" || pa.Milliwatts != 30_000 {
+			if pa := got.Ports[name]; pa.Denial != "" || pa.MaxMilliwatts != 30_000 || pa.State != phy.PowerDelivered {
 				t.Errorf("Ports[%q] = %+v, want 30000 mW granted", name, pa)
 			}
 		}
@@ -128,7 +128,7 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		}}
 
 		got := cfg.Allocate()
-		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonLimit || pa.Milliwatts != 0 {
+		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonLimit || pa.MaxMilliwatts != 0 || pa.State != phy.PowerDenied {
 			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonLimit)
 		}
 		if g := got.Groups["1"]; g.RemainderMilliwatts != 60_000 {
@@ -146,10 +146,10 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		}}
 
 		got := cfg.Allocate()
-		if pa := got.Ports["1/1/1"]; pa.Denial != "" || pa.Milliwatts != 30_000 {
+		if pa := got.Ports["1/1/1"]; pa.Denial != "" || pa.MaxMilliwatts != 30_000 || pa.State != phy.PowerDelivered {
 			t.Errorf("Ports[\"1/1/1\"] = %+v, want 30000 mW granted", pa)
 		}
-		if pa := got.Ports["1/1/2"]; pa.Denial != phy.ReasonBudget {
+		if pa := got.Ports["1/1/2"]; pa.Denial != phy.ReasonBudget || pa.State != phy.PowerDenied {
 			t.Errorf("Ports[\"1/1/2\"].Denial = %q, want %q", pa.Denial, phy.ReasonBudget)
 		}
 	})
@@ -159,12 +159,12 @@ func TestClassAbovePortMaximum(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 90_000}},
 		Ports: map[string]phy.PsePort{
-			"1/1/1": {Group: "1", MaxClass: 4, Enabled: true, Priority: phy.PriorityCritical, PDClass: phy.Class(6)},
+			"1/1/1": {Group: "1", MaxClass: 4, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(6)},
 		},
 	}}
 
 	got := cfg.Allocate()
-	if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonClassUnsupported || pa.Milliwatts != 0 {
+	if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonClassUnsupported || pa.MaxMilliwatts != 0 || pa.State != phy.PowerDenied {
 		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonClassUnsupported)
 	}
 	if g := got.Groups["1"]; g.RemainderMilliwatts != 90_000 {
@@ -185,7 +185,7 @@ func TestObservedOverridesResolution(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			e := phy.Ethernet{
 				SupportedSpeedsBPS:       gigabitCapable,
-				AutoNegotiationSupported: true,
+				AutoNegotiationSupported: phy.CapabilitySupported,
 				Setting:                  tc.setting,
 				Observed:                 &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Half},
 			}
@@ -200,7 +200,7 @@ func TestObservedOverridesResolution(t *testing.T) {
 
 func TestUnresolvedLinkDown(t *testing.T) {
 	t.Run("no setting and no observation", func(t *testing.T) {
-		e := phy.Ethernet{SupportedSpeedsBPS: gigabitCapable, AutoNegotiationSupported: true}
+		e := phy.Ethernet{SupportedSpeedsBPS: gigabitCapable, AutoNegotiationSupported: phy.CapabilitySupported}
 		got := e.Resolve()
 		if got.SpeedBPS != 0 || got.Source != phy.SourceUnresolved {
 			t.Errorf("Resolve() = %+v, want zero speed with source %q", got, phy.SourceUnresolved)
@@ -258,7 +258,7 @@ func TestValidate(t *testing.T) {
 	)
 	validPoE := &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: phy.Class(4)}},
+		Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(4)}},
 	}
 
 	cases := []struct {
@@ -275,7 +275,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "an auto-negotiating setting carries no speed to check",
 			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
-				"1/1/1": {SupportedSpeedsBPS: gigabitCapable, AutoNegotiationSupported: true, Setting: &phy.Setting{AutoNegotiation: true}},
+				"1/1/1": {SupportedSpeedsBPS: gigabitCapable, AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true}},
 			}},
 			wantAttr: "",
 		},
@@ -321,7 +321,7 @@ func TestValidate(t *testing.T) {
 			name: "pd class above 8",
 			cfg: phy.Config{PoE: &phy.PoE{
 				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
-				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, PDClass: phy.Class(9)}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(9)}},
 			}},
 			wantAttr: "class",
 			wantVal:  uint8(9),
@@ -352,12 +352,38 @@ func TestValidate(t *testing.T) {
 			wantVal:  "ethernet.1/1/1.observed.duplex",
 		},
 		{
+			name: "invalid auto-negotiation capability",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {AutoNegotiationSupported: phy.Capability("Bogus")},
+			}},
+			wantAttr: "field",
+			wantVal:  "ethernet.1/1/1.auto_negotiation_supported",
+		},
+		{
 			name: "auto-negotiation requested but unsupported",
 			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
-				"1/1/1": {AutoNegotiationSupported: false, Setting: &phy.Setting{AutoNegotiation: true}},
+				"1/1/1": {AutoNegotiationSupported: phy.CapabilityUnsupported, Setting: &phy.Setting{AutoNegotiation: true}},
 			}},
 			wantAttr: "field",
 			wantVal:  "ethernet.1/1/1.auto_negotiation",
+		},
+		{
+			name: "invalid poe pd state",
+			cfg: phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", PD: phy.PDState("Bogus")}},
+			}},
+			wantAttr: "field",
+			wantVal:  "poe.ports.1/1/1.pd",
+		},
+		{
+			name: "pd class declared without attached pd",
+			cfg: phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+				Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", PDClass: phy.Class(4)}},
+			}},
+			wantAttr: "field",
+			wantVal:  "poe.ports.1/1/1.pd_class",
 		},
 		{
 			name: "invalid poe priority",
@@ -470,7 +496,7 @@ func TestDiff(t *testing.T) {
 			"1/1/1": {Setting: &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full}},
 		}}
 		b := phy.Config{Ethernet: map[string]phy.Ethernet{
-			"1/1/1": {Setting: &phy.Setting{AutoNegotiation: true}},
+			"1/1/1": {Setting: &phy.Setting{AutoNegotiation: true, Duplex: phy.Full}},
 		}}
 
 		diffs := phy.Diff(a, b)
@@ -511,7 +537,7 @@ func TestDiff(t *testing.T) {
 			Ethernet: map[string]phy.Ethernet{
 				"1/1/1": {
 					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000},
-					AutoNegotiationSupported: true,
+					AutoNegotiationSupported: phy.CapabilitySupported,
 					Setting:                  &phy.Setting{SpeedBPS: 10_000_000, Duplex: phy.Half, AutoNegotiation: false},
 					Observed:                 &phy.Observed{SpeedBPS: 10_000_000, Duplex: phy.Half},
 				},
@@ -527,6 +553,7 @@ func TestDiff(t *testing.T) {
 						Enabled:  true,
 						Limit:    &limitA,
 						Priority: phy.PriorityLow,
+						PD:       phy.PDAttached,
 						PDClass:  &pdA,
 					},
 				},
@@ -537,7 +564,7 @@ func TestDiff(t *testing.T) {
 			Ethernet: map[string]phy.Ethernet{
 				"1/1/1": {
 					SupportedSpeedsBPS:       []uint64{100_000_000, 1_000_000_000},
-					AutoNegotiationSupported: false,
+					AutoNegotiationSupported: phy.CapabilityUnsupported,
 					Setting:                  &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full, AutoNegotiation: true},
 					Observed:                 &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full},
 				},
@@ -553,6 +580,7 @@ func TestDiff(t *testing.T) {
 						Enabled:  false,
 						Limit:    &limitB,
 						Priority: phy.PriorityHigh,
+						PD:       phy.PDAbsent,
 						PDClass:  &pdB,
 					},
 				},
@@ -602,6 +630,7 @@ func TestDiff(t *testing.T) {
 			"enabled",
 			"power_limit_milliwatts",
 			"priority",
+			"pd",
 			"pd_class",
 		}
 		for _, f := range expectedPoePort {
@@ -648,7 +677,7 @@ func TestNormalize(t *testing.T) {
 			Ethernet: map[string]phy.Ethernet{
 				"1/1/1": {
 					SupportedSpeedsBPS: []uint64{100_000_000, 1_000_000_000},
-					Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
+					Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Unknown},
 				},
 			},
 			PoE: &phy.PoE{
@@ -750,9 +779,238 @@ func TestPhyBehaviorMatrix(t *testing.T) {
 		"PoE.Ports.Enabled",
 		"PoE.Ports.Limit",
 		"PoE.Ports.Priority",
+		"PoE.Ports.PD",
 		"PoE.Ports.PDClass",
 	}
-	if len(fields) != 14 {
+	if len(fields) != 15 {
 		t.Fatalf("unexpected number of phy fields: %d", len(fields))
 	}
+}
+
+func TestPoeAllocateTruthTable(t *testing.T) {
+	limit15k := uint32(15_000)
+
+	t.Run("row 1: disabled and absent yields PowerNoDevice 0..0", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: false, PD: phy.PDAbsent}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerNoDevice, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 2: disabled and attached yields PowerDenied disabled 0..0", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: false, PD: phy.PDAttached, PDClass: phy.Class(4)}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonDisabled, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 3: disabled and unknown yields PowerUnknown 0..0", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: false, PD: phy.PDUnknown}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 4: enabled and absent yields PowerNoDevice 0..0", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, PD: phy.PDAbsent}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerNoDevice, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 5: enabled, attached, class above maxClass yields PowerDenied class-unsupported", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 3, PD: phy.PDAttached, PDClass: phy.Class(4)}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonClassUnsupported, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 6: enabled, attached, P above limit yields PowerDenied limit", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 8, Limit: &limit15k, PD: phy.PDAttached, PDClass: phy.Class(4)}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonLimit, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 7: enabled, attached, P <= remMin yields PowerDelivered P..P", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(4)}},
+		}}
+		alloc := cfg.Allocate()
+		got := alloc.Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerDelivered, MinMilliwatts: 30_000, MaxMilliwatts: 30_000}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+		if g := alloc.Groups["1"]; g.AllocatedMilliwatts != 30_000 || g.RemainderMilliwatts != 30_000 {
+			t.Errorf("Allocate() group = %+v, want allocated 30000 remainder 30000", g)
+		}
+	})
+
+	t.Run("row 8: enabled, attached, P > remMax yields PowerDenied budget", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 15_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(4)}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonBudget, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 9: enabled, attached, remMin < P <= remMax yields PowerUnknown 0..P", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", Enabled: true, Priority: phy.PriorityHigh, MaxClass: 4, PD: phy.PDUnknown},
+				"1/1/2": {Group: "1", Enabled: true, Priority: phy.PriorityLow, MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			},
+		}}
+		got := cfg.Allocate().Ports["1/1/2"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 30_000}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 10: enabled, attached with unknown class yields PowerUnknown 0..D", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 50_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 4, PD: phy.PDAttached}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 30_000}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("row 11: enabled, PD unknown yields PowerUnknown 0..D", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 50_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 4, PD: phy.PDUnknown}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 30_000}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("acceptance example: 30W budget with critical unknown, low class 3, low class 1", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", Priority: phy.PriorityCritical, Enabled: true, MaxClass: 4, PD: phy.PDUnknown},
+				"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(3)},
+				"1/1/3": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 8, PD: phy.PDAttached, PDClass: phy.Class(1)},
+			},
+		}}
+		alloc := cfg.Allocate()
+		p1 := alloc.Ports["1/1/1"]
+		if p1.State != phy.PowerUnknown || p1.MinMilliwatts != 0 || p1.MaxMilliwatts != 30_000 {
+			t.Errorf("port 1/1/1 = %+v, want PowerUnknown 0..30000", p1)
+		}
+		p2 := alloc.Ports["1/1/2"]
+		if p2.State != phy.PowerUnknown || p2.MinMilliwatts != 0 || p2.MaxMilliwatts != 15_400 {
+			t.Errorf("port 1/1/2 = %+v, want PowerUnknown 0..15400", p2)
+		}
+		p3 := alloc.Ports["1/1/3"]
+		if p3.State != phy.PowerUnknown || p3.MinMilliwatts != 0 || p3.MaxMilliwatts != 4_000 {
+			t.Errorf("port 1/1/3 = %+v, want PowerUnknown 0..4000", p3)
+		}
+		if g := alloc.Groups["1"]; g.RemainderMilliwatts != 30_000 || g.AllocatedMilliwatts != 0 {
+			t.Errorf("group = %+v, want allocated 0 remainder 30000", g)
+		}
+	})
+
+	t.Run("remMin subtraction saturates at zero without underflow", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 10_000}},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", Priority: phy.PriorityHigh, Enabled: true, MaxClass: 4, PD: phy.PDUnknown},
+				"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 4, PD: phy.PDUnknown},
+			},
+		}}
+		alloc := cfg.Allocate()
+		p1 := alloc.Ports["1/1/1"]
+		if p1.State != phy.PowerUnknown || p1.MinMilliwatts != 0 || p1.MaxMilliwatts != 30_000 {
+			t.Errorf("port 1/1/1 = %+v, want PowerUnknown 0..30000", p1)
+		}
+		p2 := alloc.Ports["1/1/2"]
+		if p2.State != phy.PowerUnknown || p2.MinMilliwatts != 0 || p2.MaxMilliwatts != 30_000 {
+			t.Errorf("port 1/1/2 = %+v, want PowerUnknown 0..30000", p2)
+		}
+	})
+
+	t.Run("D is capped by port limit", func(t *testing.T) {
+		lim := uint32(15_400)
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 50_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 4, Limit: &lim, PD: phy.PDUnknown}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 15_400}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("D is zero when no class fits limit", func(t *testing.T) {
+		lim := uint32(1_000)
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 50_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 4, Limit: &lim, PD: phy.PDUnknown}},
+		}}
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 0}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
+
+	t.Run("D is maximum class power rather than lookup at maxClass", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 50_000}},
+			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: true, MaxClass: 2, PD: phy.PDUnknown}},
+		}}
+		// Classes <= 2 have powers: class 0 (15400), class 1 (4000), class 2 (7000). Max is 15400, not class 2's 7000.
+		got := cfg.Allocate().Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinMilliwatts: 0, MaxMilliwatts: 15_400}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+	})
 }

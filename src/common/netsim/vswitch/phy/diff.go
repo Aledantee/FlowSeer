@@ -183,8 +183,8 @@ func diffEthernet(a, b map[string]Ethernet) []trace.Change {
 				Layer:   port.LayerEthernet,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_negotiation_supported",
-				From:    BoolFact(ae.AutoNegotiationSupported),
-				To:      BoolFact(be.AutoNegotiationSupported),
+				From:    ae.AutoNegotiationSupported,
+				To:      be.AutoNegotiationSupported,
 			})
 		}
 		if from, to := observedSpeed(ae), observedSpeed(be); from != to {
@@ -329,6 +329,15 @@ func diffPoE(a, b *PoE) []trace.Change {
 				Field:   "priority",
 				From:    ap.Priority,
 				To:      bp.Priority,
+			})
+		}
+		if ap.PD != bp.PD {
+			changes = append(changes, trace.Change{
+				Layer:   port.LayerPoe,
+				Subject: trace.Subject{Kind: "port", Key: name},
+				Field:   "pd",
+				From:    ap.PD,
+				To:      bp.PD,
 			})
 		}
 		if !equalUint8Ptr(ap.PDClass, bp.PDClass) {

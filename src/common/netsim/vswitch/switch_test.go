@@ -1461,11 +1461,87 @@ func TestSwitchReadableState(t *testing.T) {
 	if power.Groups == nil || len(power.Groups) != 1 {
 		t.Errorf("expected 1 group allocation, got %v", power.Groups)
 	}
+	if issues := power.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "poe-demand-unknown" {
+		t.Errorf("expected 1 poe-demand-unknown issue, got %v", issues)
+	}
 
 	// Config clone
 	cloned := sw.Config()
 	if cloned.Phy == nil {
 		t.Errorf("cloned config missing phy")
+	}
+}
+
+func TestSwitchPowerMetadata(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	spec := vswitch.ConstructionSpec{
+		NodeID: "sw1",
+		Config: vswitch.Config{
+			Ports:  ports,
+			Bridge: &bridge.Config{},
+			Phy: &phy.Config{
+				PoE: &phy.PoE{
+					Groups: map[string]phy.Group{"g1": {PowerMilliwatts: 60_000}},
+					Ports: map[string]phy.PsePort{
+						"1/1/1": {Group: "g1", Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
+						"1/1/2": {Group: "g1", Enabled: true, MaxClass: 4, PD: phy.PDUnknown},
+					},
+				},
+			},
+		},
+	}
+
+	sw, err := vswitch.NewWithSpec(spec)
+	if err != nil {
+		t.Fatalf("vswitch.NewWithSpec() error = %v", err)
+	}
+
+	power := sw.Power()
+	if got, want := power.Ports["1/1/1"].State, phy.PowerDelivered; got != want {
+		t.Errorf("port 1/1/1 state = %v, want %v", got, want)
+	}
+	if got, want := power.Ports["1/1/2"].State, phy.PowerUnknown; got != want {
+		t.Errorf("port 1/1/2 state = %v, want %v", got, want)
+	}
+
+	wantEvaluatedScope := analysis.FieldScope(analysis.NodeScope("sw1"), "poe")
+	if got := power.Metadata.Scope(); got != wantEvaluatedScope {
+		t.Errorf("power.Metadata.Scope() = %v, want %v", got, wantEvaluatedScope)
+	}
+	if got, want := power.Metadata.Status(), analysis.Incomplete; got != want {
+		t.Errorf("power.Metadata.Status() = %v, want %v", got, want)
+	}
+
+	issues := power.Metadata.Issues()
+	if len(issues) != 1 {
+		t.Fatalf("len(power.Metadata.Issues()) = %d, want 1", len(issues))
+	}
+	issue := issues[0]
+	if issue.Code != "poe-demand-unknown" {
+		t.Errorf("issue.Code = %q, want %q", issue.Code, "poe-demand-unknown")
+	}
+	if issue.Status != analysis.Incomplete {
+		t.Errorf("issue.Status = %v, want %v", issue.Status, analysis.Incomplete)
+	}
+	wantPortScope := analysis.FieldScope(analysis.NodeScope("sw1"), "poe", "1/1/2")
+	if issue.Scope != wantPortScope {
+		t.Errorf("issue.Scope = %v, want %v", issue.Scope, wantPortScope)
+	}
+
+	// Forwarding metadata must not contain poe-demand-unknown
+	frame := ethernet.Frame{
+		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	fwd := sw.Forward(fixedTime, "1/1/1", frame)
+	for _, fi := range fwd.Metadata.Issues() {
+		if fi.Code == "poe-demand-unknown" {
+			t.Errorf("forwarding metadata contains poe-demand-unknown: %+v", fi)
+		}
 	}
 }
 

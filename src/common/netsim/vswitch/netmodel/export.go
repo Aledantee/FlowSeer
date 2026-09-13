@@ -124,7 +124,7 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 		role := phyv1.PoeRole_POE_ROLE_PSE
 
 		pa, ok := alloc.Ports[portName]
-		isAllocated := ok && pa.Denial == "" && pa.Milliwatts > 0
+		isAllocated := ok && pa.Denial == "" && pa.State == phy.PowerDelivered
 
 		var status phyv1.PoeStatus
 		switch {
@@ -148,7 +148,7 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 			fb.PowerClass = &powerClass
 		}
 		if isAllocated {
-			allocMW := pa.Milliwatts
+			allocMW := pa.MaxMilliwatts
 			fb.AllocatedPowerMilliwatts = &allocMW
 		}
 		facets[portName] = fb.Build()

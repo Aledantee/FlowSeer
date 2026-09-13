@@ -369,9 +369,9 @@ func TestFdbAndPoeExport(t *testing.T) {
 				"1": {PowerMilliwatts: 60_000},
 			},
 			Ports: map[string]phy.PsePort{
-				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PDClass: phy.Class(4)},
-				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PDClass: phy.Class(4)},
-				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: phy.Class(4)},
+				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				"1/1/2": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PD: phy.PDAttached, PDClass: phy.Class(4)},
 			},
 		},
 	}
@@ -721,11 +721,11 @@ func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerMilliwatts: 30_000}},
 		Ports: map[string]phy.PsePort{
-			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PDClass: phy.Class(4)},
-			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PDClass: phy.Class(4)},
-			"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PDClass: phy.Class(4)},
-			"1/1/4": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PDClass: phy.Class(4)},
-			"1/1/5": {Group: "1", MaxClass: 8, Enabled: true},
+			"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/2": {Group: "1", MaxClass: 3, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/3": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityHigh, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/4": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityLow, PD: phy.PDAttached, PDClass: phy.Class(4)},
+			"1/1/5": {Group: "1", MaxClass: 8, Enabled: true, PD: phy.PDAbsent},
 		},
 	}}
 	_, facets, err := netmodel.Poe(cfg, cfg.Allocate())

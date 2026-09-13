@@ -525,10 +525,10 @@ func TestTwoHostsOnOneCableResolveTo1000(t *testing.T) {
 		t.Fatalf("got %d links, want 1", len(links))
 	}
 	l := links[0]
-	if l.A.Oper != port.Up || l.A.Speed.SpeedBPS != 1_000_000_000 || l.A.Speed.Duplex != phy.Full {
+	if l.A.Oper != port.Up || l.A.Speed.SpeedBPS != 1_000_000_000 || l.A.Speed.DuplexA != phy.Full {
 		t.Errorf("host 1 link end = %+v, want Up at 1000M Full", l.A)
 	}
-	if l.B.Oper != port.Up || l.B.Speed.SpeedBPS != 1_000_000_000 || l.B.Speed.Duplex != phy.Full {
+	if l.B.Oper != port.Up || l.B.Speed.SpeedBPS != 1_000_000_000 || l.B.Speed.DuplexA != phy.Full {
 		t.Errorf("host 2 link end = %+v, want Up at 1000M Full", l.B)
 	}
 }
@@ -770,8 +770,8 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 				if l.A.Speed.SpeedBPS != tc.wantSpeedBPS || l.B.Speed.SpeedBPS != tc.wantSpeedBPS {
 					t.Errorf("link speeds A=%d B=%d, want %d", l.A.Speed.SpeedBPS, l.B.Speed.SpeedBPS, tc.wantSpeedBPS)
 				}
-				if l.A.Speed.Duplex != phy.Full || l.B.Speed.Duplex != phy.Full {
-					t.Errorf("link duplex A=%v B=%v, want Full", l.A.Speed.Duplex, l.B.Speed.Duplex)
+				if l.A.Speed.DuplexA != phy.Full || l.B.Speed.DuplexA != phy.Full {
+					t.Errorf("link duplex A=%v B=%v, want Full", l.A.Speed.DuplexA, l.B.Speed.DuplexA)
 				}
 			}
 		})

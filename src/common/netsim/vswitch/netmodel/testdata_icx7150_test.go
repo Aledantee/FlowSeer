@@ -422,7 +422,7 @@ func TestICX7150Load(t *testing.T) {
 		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370000 mW", g)
 	}
 	for name, pa := range alloc.Ports {
-		if pa.Milliwatts != 0 || pa.Denial != "" {
+		if pa.MinMilliwatts != 0 || pa.Denial != "" {
 			t.Errorf("port %s allocation = %+v, want no power and no denial", name, pa)
 		}
 	}
