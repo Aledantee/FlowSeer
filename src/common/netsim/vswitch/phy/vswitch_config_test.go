@@ -35,7 +35,7 @@ func TestSwitchConfigAndSpecIsolatePDClass(t *testing.T) {
 		Phy: &phy.Config{PoE: &phy.PoE{
 			Groups: map[string]phy.Group{"1": {PowerMilliwatts: 60_000}},
 			Ports: map[string]phy.PsePort{
-				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PDClass: &pdClass},
+				"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, PD: phy.PDAttached, PDClass: &pdClass},
 			},
 		}},
 	}

@@ -699,7 +699,11 @@ func Load(
 						copy(eth.SupportedSpeedsBPS, caps.GetSupportedSpeedsBps())
 					}
 					if caps.HasAutoNegotiationSupported() {
-						eth.AutoNegotiationSupported = caps.GetAutoNegotiationSupported()
+						if caps.GetAutoNegotiationSupported() {
+							eth.AutoNegotiationSupported = phy.CapabilitySupported
+						} else {
+							eth.AutoNegotiationSupported = phy.CapabilityUnsupported
+						}
 					}
 				}
 				if ef.HasAppliedAutoNegotiation() && ef.GetAppliedAutoNegotiation() != nil {
@@ -831,11 +835,16 @@ func Load(
 				if !validPriority {
 					continue
 				}
-				if copper.GetPoe() != nil && copper.GetPoe().HasPowerClass() {
-					if class := copper.GetPoe().GetPowerClass(); class > 8 {
-						addSkipped(iface.GetName(), "power_class", "class above 8", analysis.Unsupported, IssueUnsupportedPowerClass)
-					} else {
-						psePort.PDClass = phy.Class(uint8(class))
+				if poeFacet := copper.GetPoe(); poeFacet != nil {
+					if poeFacet.HasPowerClass() {
+						if class := poeFacet.GetPowerClass(); class > 8 {
+							addSkipped(iface.GetName(), "power_class", "class above 8", analysis.Unsupported, IssueUnsupportedPowerClass)
+						} else {
+							psePort.PD = phy.PDAttached
+							psePort.PDClass = phy.Class(uint8(class))
+						}
+					} else if poeFacet.HasStatus() && poeFacet.GetStatus() == phyv1.PoeStatus_POE_STATUS_SEARCHING {
+						psePort.PD = phy.PDAbsent
 					}
 				}
 				poe.Ports[iface.GetName()] = psePort

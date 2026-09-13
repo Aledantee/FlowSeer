@@ -1461,6 +1461,9 @@ func TestSwitchReadableState(t *testing.T) {
 	if power.Groups == nil || len(power.Groups) != 1 {
 		t.Errorf("expected 1 group allocation, got %v", power.Groups)
 	}
+	if issues := power.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "poe-demand-unknown" {
+		t.Errorf("expected 1 poe-demand-unknown issue, got %v", issues)
+	}
 
 	// Config clone
 	cloned := sw.Config()

@@ -661,13 +661,21 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 	}
 
 	negotiated := phy.Negotiate(ethA, ethB, top)
-	if negotiated.SpeedBPS == 0 {
+	speedB := phy.Link{
+		State:    negotiated.State,
+		SpeedBPS: negotiated.SpeedBPS,
+		DuplexA:  negotiated.DuplexB,
+		DuplexB:  negotiated.DuplexA,
+		Source:   negotiated.Source,
+		Reason:   negotiated.Reason,
+	}
+	if negotiated.State != phy.LinkResolved {
 		endA.Oper = port.Down
-		endA.Reason = phy.ReasonSpeedMismatch
+		endA.Reason = negotiated.Reason
 		endA.Speed = negotiated
 		endB.Oper = port.Down
-		endB.Reason = phy.ReasonSpeedMismatch
-		endB.Speed = negotiated
+		endB.Reason = negotiated.Reason
+		endB.Speed = speedB
 
 		return endA, endB
 	}
@@ -675,7 +683,7 @@ func resolveLink(cable Cable, cfg Config) (LinkEnd, LinkEnd) {
 	endA.Oper = port.Up
 	endA.Speed = negotiated
 	endB.Oper = port.Up
-	endB.Speed = negotiated
+	endB.Speed = speedB
 
 	return endA, endB
 }
@@ -811,7 +819,7 @@ func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpo
 		}
 	}
 
-	if end.Speed.Duplex != phy.Full {
+	if end.Speed.DuplexA != phy.Full {
 		return false
 	}
 	if _, isHost := cfg.Hosts[peer.Node]; isHost {

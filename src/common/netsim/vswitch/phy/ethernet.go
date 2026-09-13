@@ -31,6 +31,39 @@ func (d Duplex) Canonical() string {
 	return string(d)
 }
 
+// Capability describes support for an Ethernet physical-layer feature.
+type Capability string
+
+const (
+	// CapabilityUnknown indicates support is unreported. It is the zero value.
+	CapabilityUnknown Capability = ""
+
+	// CapabilitySupported indicates the feature is supported.
+	CapabilitySupported Capability = "Supported"
+
+	// CapabilityUnsupported indicates the feature is not supported.
+	CapabilityUnsupported Capability = "Unsupported"
+)
+
+// TypeID returns the stable identifier for Capability facts.
+func (c Capability) TypeID() string {
+	return "phy.capability"
+}
+
+// Canonical returns the string representation of the capability.
+func (c Capability) Canonical() string {
+	if c == "" {
+		return "Unknown"
+	}
+
+	return string(c)
+}
+
+// String returns the string representation of the capability.
+func (c Capability) String() string {
+	return c.Canonical()
+}
+
 // Setting is the requested link configuration of one port. With
 // AutoNegotiation on, the port negotiates over its supported speeds; with it
 // off, SpeedBPS and Duplex are the requested fixed link.
@@ -71,7 +104,7 @@ func (o *Observed) Clone() *Observed {
 // active speed and duplex when the source reported them.
 type Ethernet struct {
 	SupportedSpeedsBPS       []uint64
-	AutoNegotiationSupported bool
+	AutoNegotiationSupported Capability
 	Setting                  *Setting
 	Observed                 *Observed
 }
@@ -103,8 +136,8 @@ func (e Ethernet) Canonical() string {
 		obsStr = fmt.Sprintf("speed=%d,duplex=%q", e.Observed.SpeedBPS, string(e.Observed.Duplex))
 	}
 
-	return fmt.Sprintf("speeds=[%s],autoneg_sup=%t,setting={%s},observed={%s}",
-		strings.Join(speedStrs, ","), e.AutoNegotiationSupported, settingStr, obsStr)
+	return fmt.Sprintf("speeds=[%s],autoneg_sup=%s,setting={%s},observed={%s}",
+		strings.Join(speedStrs, ","), e.AutoNegotiationSupported.Canonical(), settingStr, obsStr)
 }
 
 // Source identifies which fact resolved a port's active speed.

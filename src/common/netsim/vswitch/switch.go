@@ -130,6 +130,13 @@ type ForwardResult struct {
 	Metadata analysis.Metadata
 }
 
+// PowerResult combines the Power over Ethernet allocation outcome with analysis
+// trust metadata.
+type PowerResult struct {
+	phy.Allocation
+	Metadata analysis.Metadata
+}
+
 // Emission describes an Ethernet frame to transmit out a port or member port.
 type Emission struct {
 	Port  string
@@ -435,8 +442,8 @@ func (s *Switch) Speeds() map[string]phy.Resolved {
 	return cp
 }
 
-// Power returns the Power over Ethernet budget distribution and port allocations.
-func (s *Switch) Power() phy.Allocation {
+// Power returns the Power over Ethernet budget distribution and port allocations with analysis metadata.
+func (s *Switch) Power() PowerResult {
 	cp := phy.Allocation{}
 	if s.power.Ports != nil {
 		cp.Ports = make(map[string]phy.PortAllocation, len(s.power.Ports))
@@ -451,7 +458,33 @@ func (s *Switch) Power() phy.Allocation {
 		}
 	}
 
-	return cp
+	var issues []analysis.Issue
+	portNames := make([]string, 0, len(cp.Ports))
+	for name := range cp.Ports {
+		portNames = append(portNames, name)
+	}
+	slices.Sort(portNames)
+
+	for _, portName := range portNames {
+		pa := cp.Ports[portName]
+		if pa.State == phy.PowerUnknown {
+			scope := analysis.FieldScope(analysis.NodeScope(s.nodeID), "poe", portName)
+			issues = append(issues, analysis.Issue{
+				Code:    "poe-demand-unknown",
+				Status:  analysis.Incomplete,
+				Scope:   scope,
+				Message: fmt.Sprintf("port %q has unknown poe power demand", portName),
+			})
+		}
+	}
+
+	scope := analysis.FieldScope(analysis.NodeScope(s.nodeID), "poe")
+	meta := analysis.NewMetadata(scope, issues, analysis.EvidenceCatalog{}, nil)
+
+	return PowerResult{
+		Allocation: cp,
+		Metadata:   meta,
+	}
 }
 
 // Forward processes an arrival on an ingress port at the given time, updating

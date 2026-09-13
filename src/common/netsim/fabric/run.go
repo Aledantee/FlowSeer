@@ -15,7 +15,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -44,7 +43,7 @@ type Device struct {
 	Groups      map[vlan.ID][]mcast.Entry
 	RouterPorts map[vlan.ID][]mcast.RouterPort
 	Ports       []port.Port
-	Power       phy.Allocation
+	Power       vswitch.PowerResult
 	Counters    map[string]Counters
 	Roles       map[string]stp.PortInfo
 	// RelayCounters is what the relay's learning table counted, beside the
