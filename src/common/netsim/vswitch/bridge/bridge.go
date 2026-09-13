@@ -666,6 +666,9 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 				evicted    Entry
 				wasEvicted bool
 			)
+			if b.cfg.MaxEntries > 0 && b.fdbScope.Compare(analysis.WholeScope()) != 0 {
+				res.ConsultScopes(analysis.FieldScope(b.fdbScope, "fdb"))
+			}
 			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
 				evicted, wasEvicted = b.evictOldestDynamic()
 			}
@@ -1259,33 +1262,30 @@ func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vl
 	return "", selection, false
 }
 
-func (b *Bridge) forwardingPath(name string) []port.Port {
+func (b *Bridge) consultForwardingPath(res *Result, name string) {
 	p, ok := b.ports.Port(name)
 	if !ok {
-		return []port.Port{(port.Port{Name: name}).Normalize()}
-	}
-	path := []port.Port{p}
-	if p.LagParent != "" {
-		if parent, exists := b.ports.Port(p.LagParent); exists {
-			path = append(path, parent)
-		}
-	}
-
-	return path
-}
-
-func (b *Bridge) consultForwardingPath(res *Result, name string) {
-	path := b.forwardingPath(name)
-	res.Consult(path...)
-	if len(path) == 0 || path[0].LagParent == "" || b.selector == nil {
+		res.Consult((port.Port{Name: name}).Normalize())
 		return
 	}
-	res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", path[0].LagParent))
+	res.Consult(p)
+	if !p.Forwards() || p.LagParent == "" {
+		return
+	}
+	parent, ok := b.ports.Port(p.LagParent)
+	if !ok {
+		return
+	}
+	res.Consult(parent)
+	if !parent.Forwards() || b.selector == nil {
+		return
+	}
+	res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", p.LagParent))
 }
 
 func (b *Bridge) egressDependencies(p port.Port) []port.Port {
 	path := []port.Port{p}
-	if p.Kind != port.Lag {
+	if p.Kind != port.Lag || !p.Forwards() {
 		return path
 	}
 

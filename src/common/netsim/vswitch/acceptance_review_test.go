@@ -113,9 +113,10 @@ func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 		memberOper port.LinkState
 		parentOper port.LinkState
 		decisive   string
+		factNames  []string
 	}{
-		{name: "member down", memberOper: port.Down, parentOper: port.Up, decisive: "member"},
-		{name: "parent down", memberOper: port.Up, parentOper: port.Down, decisive: "lag1"},
+		{name: "member down", memberOper: port.Down, parentOper: port.Up, decisive: "member", factNames: []string{"member"}},
+		{name: "parent down", memberOper: port.Up, parentOper: port.Down, decisive: "lag1", factNames: []string{"member", "lag1"}},
 	} {
 		for _, pipeline := range []struct {
 			name  string
@@ -167,7 +168,7 @@ func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 				}
 
 				facts := append(slices.Clone(res.Steps[0].Inputs), res.Steps[0].Outputs...)
-				for _, name := range []string{"member", "lag1"} {
+				for _, name := range state.factNames {
 					if !slices.ContainsFunc(facts, func(fact trace.Fact) bool {
 						return fact.TypeID() == "port.forwarding" && strings.Contains(fact.Canonical(), `name="`+name+`"`)
 					}) {

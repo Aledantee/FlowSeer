@@ -271,6 +271,9 @@ func (r ReceiveResult) ConsultedPorts() []Port {
 	if r.Physical.Name == "" {
 		return nil
 	}
+	if r.Decisive == r.Physical.Name {
+		return []Port{r.Physical}
+	}
 	if r.Resolved.Name == "" || r.Resolved.Name == r.Physical.Name {
 		return []Port{r.Physical}
 	}
@@ -286,6 +289,9 @@ func (r ReceiveResult) ForwardingFacts() []trace.Fact {
 		physicalReason = r.Reason
 	}
 	facts := []trace.Fact{ForwardingFact(r.Ingress, r.Physical, r.Physical.Forwards(), physicalReason)}
+	if r.Decisive == r.Physical.Name {
+		return facts
+	}
 
 	resolvedName := r.Resolved.Name
 	if resolvedName == "" && r.Physical.LagParent != "" {
@@ -325,6 +331,12 @@ func (t Table) Receive(name string) ReceiveResult {
 
 		return result
 	}
+	if !p.Forwards() {
+		result.Decisive = p.Name
+		result.Reason = ReasonPortDown
+
+		return result
+	}
 	parent, ok := t.Port(p.LagParent)
 	if !ok {
 		result.Resolved = Port{}
@@ -334,12 +346,6 @@ func (t Table) Receive(name string) ReceiveResult {
 		return result
 	}
 	result.Resolved = parent
-	if !p.Forwards() {
-		result.Decisive = p.Name
-		result.Reason = ReasonPortDown
-
-		return result
-	}
 	if !parent.Forwards() {
 		result.Decisive = parent.Name
 		result.Reason = ReasonPortDown

@@ -115,8 +115,62 @@ func TestFDBDependencyInvariantAcrossLearningAndLookup(t *testing.T) {
 	}
 }
 
+func TestBoundedFDBLearningConsultsTableState(t *testing.T) {
+	candidateMAC := netaddr.MAC{2, 0, 0, 0, 5, 5}
+	newSourceMAC := netaddr.MAC{2, 0, 0, 0, 6, 6}
+	destinationMAC := netaddr.MAC{2, 0, 0, 0, 7, 7}
+
+	for _, test := range []struct {
+		name         string
+		maxEntries   int
+		wantUnstable bool
+	}{
+		{name: "at capacity", maxEntries: 1, wantUnstable: true},
+		{name: "below capacity", maxEntries: 2, wantUnstable: true},
+		{name: "unbounded", maxEntries: 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := mcastSwitchConfig(t, nil)
+			cfg.Mcast = nil
+			cfg.Bridge.MaxEntries = test.maxEntries
+			metadata := analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+				Code:   "test.fdb.candidate",
+				Status: analysis.Unstable,
+				Scope:  bridge.FDBLookupScope("sw1", 10, candidateMAC),
+			}}, analysis.EvidenceCatalog{}, nil)
+			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+				Config: cfg,
+				Seeds: []bridge.Seed{{
+					FID: 10, MAC: candidateMAC, Port: "1/1/2", LearnedAt: fixedTime.Add(-1),
+				}},
+				NodeID:   "sw1",
+				Metadata: metadata,
+			})
+			if err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+
+			result := sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+				Src: newSourceMAC, Dst: destinationMAC,
+			})
+			if test.wantUnstable {
+				if result.Metadata.Status() != analysis.Unstable {
+					t.Fatalf("metadata status = %s, want Unstable; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+				}
+				if issues := result.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.fdb.candidate" {
+					t.Fatalf("issues = %+v, want bounded-table candidate issue", issues)
+				}
+				return
+			}
+			if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
+				t.Fatalf("unbounded metadata = %s %+v, want Complete", result.Metadata.Status(), result.Metadata.Issues())
+			}
+		})
+	}
+}
+
 func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
-	issueScope := exactAggregatorScope("sw1", "lag1")
+	issueScope := exactAggregatorScope()
 
 	for _, path := range []struct {
 		name string
@@ -178,10 +232,118 @@ func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
 	}
 }
 
-func exactAggregatorScope(nodeID, name string) analysis.Scope {
+func TestAggregatorDependencyExcludedBeforePhysicalShortCircuit(t *testing.T) {
+	aggregatorScope := exactAggregatorScope()
+	metadata := analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+		{Code: "test.aggregator", Status: analysis.Incomplete, Scope: aggregatorScope},
+		{Code: "test.parent-port", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "lag1")},
+	}, analysis.EvidenceCatalog{}, nil)
+
+	for _, withBridge := range []bool{false, true} {
+		name := "hub"
+		if withBridge {
+			name = "bridge"
+		}
+		t.Run(name, func(t *testing.T) {
+			ports := mustTable(t, port.NewBuilder().
+				Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Down}).
+				Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+			cfg := vswitch.Config{
+				Ports: ports,
+				LAG:   &lag.Config{LAGs: map[string]lag.LAG{"lag1": {}}},
+			}
+			var seeds []bridge.Seed
+			if withBridge {
+				cfg.Bridge = &bridge.Config{}
+				seeds = []bridge.Seed{{FID: 0, MAC: macH2, Port: "out", Static: true}}
+			}
+			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+				Config: cfg, Seeds: seeds, NodeID: "sw1", Metadata: metadata,
+			})
+			if err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+
+			result := sw.Forward(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
+			if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
+				t.Fatalf("metadata = %s %+v, want Complete physical-port short circuit", result.Metadata.Status(), result.Metadata.Issues())
+			}
+			if slices.ContainsFunc(result.ConsultedScopes(), func(scope analysis.Scope) bool {
+				return scope.Compare(aggregatorScope) == 0
+			}) {
+				t.Fatalf("consulted scopes = %v, must exclude untouched aggregator", result.ConsultedScopes())
+			}
+		})
+	}
+}
+
+func TestAggregatorDependencyExcludedBeforeAggregateEgressSelection(t *testing.T) {
+	aggregatorScope := exactAggregatorScope()
+	metadata := analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+		Code: "test.aggregator", Status: analysis.Incomplete, Scope: aggregatorScope,
+	}}, analysis.EvidenceCatalog{}, nil)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down}))
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			LAG:   &lag.Config{LAGs: map[string]lag.LAG{"lag1": {}}},
+		},
+		NodeID: "sw1", Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	result := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+	if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
+		t.Fatalf("metadata = %s %+v, want Complete aggregate-port short circuit", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	if slices.ContainsFunc(result.ConsultedScopes(), func(scope analysis.Scope) bool {
+		return scope.Compare(aggregatorScope) == 0
+	}) {
+		t.Fatalf("consulted scopes = %v, must exclude untouched aggregator", result.ConsultedScopes())
+	}
+}
+
+func TestLACPConsultsAggregatorAfterPhysicalAdmission(t *testing.T) {
+	aggregatorScope := exactAggregatorScope()
+	metadata := analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+		Code: "test.aggregator", Status: analysis.Incomplete, Scope: aggregatorScope,
+	}}, analysis.EvidenceCatalog{}, nil)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Down}))
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			LAG:   &lag.Config{LAGs: map[string]lag.LAG{"lag1": {}}},
+		},
+		NodeID: "sw1", Metadata: metadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	result := sw.Forward(fixedTime, "member", ethernet.Frame{
+		EtherType: ethernet.EtherTypeSlowProtocols,
+		Payload:   []byte{1},
+	})
+	if result.Metadata.Status() != analysis.Incomplete {
+		t.Fatalf("metadata = %s %+v, want exact aggregator issue", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	if issues := result.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.aggregator" {
+		t.Fatalf("issues = %+v, want only aggregator issue", issues)
+	}
+}
+
+func exactAggregatorScope() analysis.Scope {
 	return analysis.FieldScope(
-		analysis.ProtocolScope(nodeID, string(port.LayerLag), "0"),
-		"aggregators", name,
+		analysis.ProtocolScope("sw1", string(port.LayerLag), "0"),
+		"aggregators", "lag1",
 	)
 }
 

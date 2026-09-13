@@ -550,6 +550,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
 			res := s.interceptLACP(now, ingress, f, mutate)
+			res.ConsultScopes(s.aggregatorScope(p.LagParent))
 			res.ConsultScopes(analysis.FieldScope(
 				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
 			))
@@ -1015,6 +1016,7 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 		if !output.Forwards() {
 			reason = port.ReasonPortDown
 		} else if output.Kind == port.Lag {
+			res.ConsultScopes(s.aggregatorScope(copy.Port))
 			member, selected := s.SelectMember(copy.Port, copy.Frame, copy.VLAN)
 			selection = s.lag.SelectionFact(copy.Port, copy.Frame, copy.VLAN, member, selected)
 			if !selected {
@@ -1208,7 +1210,9 @@ func (s *Switch) assembleRouteResult(
 
 	p, _ := s.ports.Port(egressIface.Port)
 	var selection trace.Fact
+	resultScopes := routeScopes
 	if p.Kind == port.Lag {
+		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
 		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
 		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
 		if !ok {
@@ -1238,7 +1242,7 @@ func (s *Switch) assembleRouteResult(
 				},
 			}
 			s.egressDependencies(egressIface.Port).consult(&res)
-			res.ConsultScopes(routeScopes...)
+			res.ConsultScopes(resultScopes...)
 			return res
 		}
 		member = mem
@@ -1269,7 +1273,7 @@ func (s *Switch) assembleRouteResult(
 		},
 	}
 	s.egressDependencies(egressIface.Port).consult(&res)
-	res.ConsultScopes(routeScopes...)
+	res.ConsultScopes(resultScopes...)
 	return res
 }
 
@@ -1319,6 +1323,19 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 		return res
 	}
+	res.Ingress = p.Name
+	if !p.Forwards() {
+		res.Reason = port.ReasonPortDown
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.status.down",
+			Subject: trace.Subject{Kind: "port", Key: p.Name},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
+		})
+
+		return res
+	}
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
 		res.Reason = port.ReasonPortDown
@@ -1334,14 +1351,14 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	}
 	res.Ingress = resolved.Name
 
-	if !p.Forwards() || !resolved.Forwards() {
+	if !resolved.Forwards() {
 		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   port.LayerPort,
 			Op:      trace.OpDrop,
 			RuleID:  "port.status.down",
-			Subject: trace.Subject{Kind: "port", Key: ingress},
-			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, p.Forwards(), port.ReasonPortDown), port.ForwardingFact(resolved.Name, resolved, resolved.Forwards(), port.ReasonPortDown)},
+			Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, true, ""), port.ForwardingFact(resolved.Name, resolved, false, port.ReasonPortDown)},
 		})
 
 		return res
@@ -1399,6 +1416,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		var member string
 		var selection trace.Fact
 		if cand.Kind == port.Lag {
+			res.ConsultScopes(s.aggregatorScope(cand.Name))
 			mem, ok := s.SelectMember(cand.Name, f, 0)
 			selection = s.lag.SelectionFact(cand.Name, f, 0, mem, ok)
 			if !ok {
@@ -1469,11 +1487,16 @@ func (s *Switch) forwardingDependencies(name string) forwardingDependencies {
 	}
 	path := []port.Port{p}
 	var scopes []analysis.Scope
-	if p.LagParent != "" {
+	if !p.Forwards() || p.LagParent == "" {
+		return forwardingDependencies{ports: path}
+	}
+	parent, exists := s.ports.Port(p.LagParent)
+	if !exists {
+		return forwardingDependencies{ports: path}
+	}
+	path = append(path, parent)
+	if parent.Forwards() {
 		scopes = append(scopes, s.aggregatorScope(p.LagParent))
-		if parent, exists := s.ports.Port(p.LagParent); exists {
-			path = append(path, parent)
-		}
 	}
 
 	return forwardingDependencies{ports: path, scopes: scopes}
@@ -1481,11 +1504,10 @@ func (s *Switch) forwardingDependencies(name string) forwardingDependencies {
 
 func (s *Switch) egressDependencies(name string) forwardingDependencies {
 	dependencies := s.forwardingDependencies(name)
-	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.Lag {
+	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.Lag || !dependencies.ports[0].Forwards() {
 		return dependencies
 	}
 	dependencies.ports = append(dependencies.ports, s.ports.Members(name)...)
-	dependencies.scopes = append(dependencies.scopes, s.aggregatorScope(name))
 
 	return dependencies
 }
