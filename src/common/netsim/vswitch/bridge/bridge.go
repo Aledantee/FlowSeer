@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -49,14 +50,17 @@ type semanticGroupResolver interface {
 //
 // A Bridge is not safe for concurrent use.
 type Bridge struct {
-	cfg       Config
-	ports     port.Table
-	agingTime time.Duration
-	fdb       map[fdbKey]Entry
-	gate      Gate
-	selector  Selector
-	resolver  GroupResolver
-	counters  Counters
+	cfg           Config
+	ports         port.Table
+	agingTime     time.Duration
+	fdb           map[fdbKey]Entry
+	gate          Gate
+	gateScope     analysis.Scope
+	selector      Selector
+	selectorScope analysis.Scope
+	resolver      GroupResolver
+	resolverScope analysis.Scope
+	counters      Counters
 	// dynamic counts the entries that are not static, so the bound is checked
 	// without a scan of the table.
 	dynamic int
@@ -92,21 +96,27 @@ func (b *Bridge) Validate(ports port.Table) error {
 	return b.cfg.Validate(ports)
 }
 
-// SetGate installs g as the bridge forwarding and learning gate.
-// A nil gate allows every port to learn and forward.
-func (b *Bridge) SetGate(g Gate) {
+// SetGate installs g as the bridge forwarding and learning gate. scope is the
+// protocol scope containing the per-port fields consulted by the gate. A nil
+// gate allows every port to learn and forward.
+func (b *Bridge) SetGate(g Gate, scope analysis.Scope) {
 	b.gate = g
+	b.gateScope = scope
 }
 
-// SetSelector installs sel as the member port selector for LAG egress.
-func (b *Bridge) SetSelector(sel Selector) {
+// SetSelector installs sel as the member port selector for LAG egress. scope
+// contains the selector fields consulted by bridge forwarding.
+func (b *Bridge) SetSelector(sel Selector, scope analysis.Scope) {
 	b.selector = sel
+	b.selectorScope = scope
 }
 
 // SetGroupResolver installs resolver as the bridge's group destination lookup.
-// A nil resolver leaves every group frame on the ordinary flood path.
-func (b *Bridge) SetGroupResolver(resolver GroupResolver) {
+// scope contains the membership fields consulted by bridge forwarding. A nil
+// resolver leaves every group frame on the ordinary flood path.
+func (b *Bridge) SetGroupResolver(resolver GroupResolver, scope analysis.Scope) {
 	b.resolver = resolver
+	b.resolverScope = scope
 }
 
 // FlushPorts removes dynamic forwarding database entries learned on the named ports.
@@ -309,20 +319,33 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 
 // Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
 type Ingress struct {
-	Port           string
-	FID            vlan.ID
-	PCP            vlan.PCP
-	DEI            bool
-	RemainingTags  []vlan.Tag
-	TPID           uint16
-	Steps          []trace.Step
-	consultedPorts []port.Port
+	Port            string
+	FID             vlan.ID
+	PCP             vlan.PCP
+	DEI             bool
+	RemainingTags   []vlan.Tag
+	TPID            uint16
+	Steps           []trace.Step
+	consultedPorts  []port.Port
+	consultedScopes []analysis.Scope
 }
 
 // ConsultedPorts returns independent snapshots of the port state consulted
 // before this ingress descriptor was produced.
 func (in Ingress) ConsultedPorts() []port.Port {
 	return append([]port.Port(nil), in.consultedPorts...)
+}
+
+// ConsultedScopes returns the exact analysis scopes consulted before this
+// ingress descriptor was produced, in canonical order.
+func (in Ingress) ConsultedScopes() []analysis.Scope {
+	return append([]analysis.Scope(nil), in.consultedScopes...)
+}
+
+// ConsultScopes records exact analysis scopes consulted while composing an
+// ingress descriptor outside the bridge ingress pipeline.
+func (in *Ingress) ConsultScopes(scopes ...analysis.Scope) {
+	in.consultedScopes = mergeScopes(in.consultedScopes, scopes)
 }
 
 // Ingress processes an incoming frame through port validation, IEEE reserved address checks,
@@ -370,6 +393,7 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	ingressForwards := true
 	var ingressGate trace.Fact
 	if b.gate != nil {
+		res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", res.Ingress))
 		ingressLearns = b.gate.Learns(res.Ingress)
 		ingressForwards = b.gate.Forwards(res.Ingress)
 		ingressGate = b.gateFact(res.Ingress, ingressLearns, ingressForwards)
@@ -687,14 +711,15 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	}
 
 	in := Ingress{
-		Port:           res.Ingress,
-		FID:            classifiedFID,
-		PCP:            ingressPCP,
-		DEI:            ingressDEI,
-		RemainingTags:  remainingTags,
-		TPID:           ingressTPID,
-		Steps:          res.Steps,
-		consultedPorts: res.ConsultedPorts(),
+		Port:            res.Ingress,
+		FID:             classifiedFID,
+		PCP:             ingressPCP,
+		DEI:             ingressDEI,
+		RemainingTags:   remainingTags,
+		TPID:            ingressTPID,
+		Steps:           res.Steps,
+		consultedPorts:  res.ConsultedPorts(),
+		consultedScopes: res.ConsultedScopes(),
 	}
 
 	return in, Result{}, true
@@ -711,6 +736,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 	res.Ingress = in.Port
 	res.FID = in.FID
 	res.Consult(in.consultedPorts...)
+	res.ConsultScopes(in.consultedScopes...)
 	if len(in.Steps) > 0 {
 		res.Steps = make([]trace.Step, len(in.Steps))
 		copy(res.Steps, in.Steps)
@@ -764,6 +790,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			Outputs: []trace.Fact{egressSnapshot("", "", in.FID, "group-destination", true)},
 		})
 		if b.resolver != nil {
+			res.ConsultScopes(analysis.FieldScope(b.resolverScope, "vlans", strconv.Itoa(int(in.FID))))
 			if ports, decided := b.resolver.Resolve(in.FID, f); decided {
 				var membership trace.Fact
 				if resolver, ok := b.resolver.(semanticGroupResolver); ok {
@@ -847,6 +874,9 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
+		if b.gate != nil {
+			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", destPort.Name))
+		}
 		if b.gate != nil && !b.gate.Forwards(destPort.Name) {
 			gate := b.gateFact(destPort.Name, b.gate.Learns(destPort.Name), false)
 			res.Reason = ReasonPortBlocked
@@ -960,6 +990,7 @@ func (b *Bridge) EgressTo(in Ingress, f ethernet.Frame, ports []string, emptyRea
 		FID:     in.FID,
 	}
 	res.Consult(in.consultedPorts...)
+	res.ConsultScopes(in.consultedScopes...)
 	if len(in.Steps) > 0 {
 		res.Steps = slices.Clone(in.Steps)
 	}
@@ -1046,6 +1077,9 @@ func (b *Bridge) replicate(
 	for i, candidate := range candidates {
 		txReason := txReasons[i]
 		egressFrame := egressFrames[i]
+		if b.gate != nil {
+			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", candidate.Name))
+		}
 		if b.gate != nil && !b.gate.Forwards(candidate.Name) {
 			gate := b.gateFact(candidate.Name, b.gate.Learns(candidate.Name), false)
 			res.Egress = append(res.Egress, Egress{
@@ -1170,6 +1204,7 @@ func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vl
 	}
 	var selection trace.Fact
 	if b.selector != nil {
+		res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", p.Name))
 		member, ok := b.selector.Select(p.Name, f, vid)
 		reason := trace.Reason("")
 		if !ok {

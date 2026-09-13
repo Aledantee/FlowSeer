@@ -94,7 +94,7 @@ func mustNewRouting(t *testing.T, cfg routing.Config) *routing.Layer {
 
 func mustNewRoutingWithPorts(t *testing.T, cfg routing.Config, ports port.Table) *routing.Layer {
 	t.Helper()
-	l, err := routing.New(cfg, ports)
+	l, err := routing.New(cfg, ports, "sw1")
 	if err != nil {
 		t.Fatalf("routing.New: %v", err)
 	}
@@ -1055,7 +1055,7 @@ func TestConstructorsNormalizeRoutePrefixesBeforeValidation(t *testing.T) {
 		},
 	}}
 
-	if _, err := routing.New(cfg, ports); err != nil {
+	if _, err := routing.New(cfg, ports, "sw1"); err != nil {
 		t.Errorf("routing.New: %v", err)
 	}
 	if _, err := vswitch.New(vswitch.Config{Ports: ports, Routing: &cfg}); err != nil {

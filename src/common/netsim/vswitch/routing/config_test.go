@@ -71,7 +71,7 @@ func TestNewRejectsZeroStaticNeighborMACAtNeighborField(t *testing.T) {
 	vrf.Neighbors[0].MAC = netaddr.MAC{}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
-	_, err := routing.New(cfg, newTestPortTable(t))
+	_, err := routing.New(cfg, newTestPortTable(t), "sw1")
 	if err == nil {
 		t.Fatal("routing.New accepted a zero static neighbor MAC")
 	}

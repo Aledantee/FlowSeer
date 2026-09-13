@@ -450,7 +450,8 @@ func TestLoadRejectsPresentZeroSTPBridgeTimers(t *testing.T) {
 			}
 
 			issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
-				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer && issue.Scope.Compare(analysis.NodeScope("sw1")) == 0
+				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer &&
+					issue.Scope.Compare(analysis.ProtocolScope("sw1", string(port.LayerStp), "0")) == 0
 			})
 			if issueIndex < 0 {
 				t.Fatalf("issues = %+v, want %s scoped to sw1", result.Metadata.Issues(), netmodel.IssueInvalidSTPBridgeTimer)
@@ -1067,17 +1068,17 @@ func TestLoadOrphanSTPRowsAreScopedOmissions(t *testing.T) {
 }
 
 func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
-	assertUnsupported := func(t *testing.T, result netmodel.Result, code analysis.IssueCode, portName string) {
+	assertUnsupported := func(t *testing.T, result netmodel.Result, code analysis.IssueCode, scope analysis.Scope) {
 		t.Helper()
 		if result.Readiness() != analysis.Unsupported {
 			t.Fatalf("readiness = %s, want %s; issues: %+v", result.Readiness(), analysis.Unsupported, result.Metadata.Issues())
 		}
 		issues := result.Metadata.Issues()
 		issueIndex := slices.IndexFunc(issues, func(issue analysis.Issue) bool {
-			return issue.Code == code && issue.Scope.Compare(analysis.PortScope("sw1", portName)) == 0
+			return issue.Code == code && issue.Scope.Compare(scope) == 0
 		})
 		if issueIndex < 0 {
-			t.Fatalf("issues = %+v, want %s on %s", issues, code, portName)
+			t.Fatalf("issues = %+v, want %s at %s", issues, code, scope)
 		}
 		issue := issues[issueIndex]
 		if len(issue.Evidence) == 0 {
@@ -1101,7 +1102,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			}.Build(),
 		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidFrameAdmission, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidFrameAdmission, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
 			t.Error("unknown frame admission was coerced into an executable switchport")
 		}
@@ -1120,7 +1121,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			}.Build(),
 		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidSwitchportMode, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidSwitchportMode, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Bridge.VLAN.Switchports[name]; ok {
 			t.Error("unknown switchport mode was coerced into an executable switchport")
 		}
@@ -1139,7 +1140,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				}.Build(),
 			}.Build(),
 		}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidEthernetDuplex, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidEthernetDuplex, analysis.PortScope("sw1", name))
 		if observed := result.Spec.Config.Phy.Ethernet[name].Observed; observed != nil {
 			t.Errorf("unknown duplex produced observed link state %+v", observed)
 		}
@@ -1170,7 +1171,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				phyv1.PseBudget_builder{PseGroup: &group, PowerMilliwatts: &power}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidPoePriority, analysis.PortScope("sw1", name))
 		if _, ok := result.Spec.Config.Phy.PoE.Ports[name]; ok {
 			t.Error("unknown PoE priority was coerced into an executable PSE port")
 		}
@@ -1186,7 +1187,9 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				stpv1.PortState_builder{InterfaceName: &name, PointToPoint: &unknown}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidPointToPointMode, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidPointToPointMode, analysis.FieldScope(
+			analysis.ProtocolScope("sw1", string(port.LayerStp), "0"), "ports", name,
+		))
 		if _, ok := result.Spec.Config.STP.Ports[name]; ok {
 			t.Error("unknown point-to-point mode was coerced into an executable STP row")
 		}
@@ -1201,7 +1204,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 				lacpv1.AggregatorState_builder{InterfaceName: &name, Mode: &unknown}.Build(),
 			},
 		}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidLACPMode, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidLACPMode, analysis.PortScope("sw1", name))
 	})
 
 	t.Run("bond mode", func(t *testing.T) {
@@ -1217,7 +1220,7 @@ func TestLoadUnknownEnumValuesAreScopedUnsupported(t *testing.T) {
 			}.Build(),
 		}.Build()
 		result := (loadInput{ifaces: ifaces}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
-		assertUnsupported(t, result, netmodel.IssueInvalidBondMode, name)
+		assertUnsupported(t, result, netmodel.IssueInvalidBondMode, analysis.PortScope("sw1", name))
 	})
 }
 

@@ -44,7 +44,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	if cur != nil && cur.stp != nil && next.cfg.STP != nil && len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 {
 		next.stp = cur.stp.Clone()
 		if next.bridge != nil {
-			next.bridge.SetGate(next.stp)
+			next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerStp))
 		}
 		if cur.portP2P != nil {
 			next.portP2P = make(map[string]bool, len(cur.portP2P))
@@ -71,7 +71,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if len(lag.Diff(aLAG, bLAG)) == 0 && lagMemberStatesEqual(cur.ports, next.ports) {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
-				next.bridge.SetSelector(next.lag)
+				next.bridge.SetSelector(next.lag, protocolScope(next.nodeID, port.LayerLag))
 			}
 		}
 	}

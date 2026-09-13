@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -699,7 +700,7 @@ func TestLAGMemberResolutionAndForwarding(t *testing.T) {
 	}
 
 	br := mustNewBridge(t, cfg, ports)
-	br.SetSelector(stubSelector{member: "1/1/5", ok: true})
+	br.SetSelector(stubSelector{member: "1/1/5", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))
 	frameFromMember := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -777,7 +778,7 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 
 	t.Run("selector returning second member fills Egress.Member", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.SetSelector(stubSelector{member: "1/1/6", ok: true})
+		br.SetSelector(stubSelector{member: "1/1/6", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Flooded {
 			t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
@@ -792,7 +793,7 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 
 	t.Run("selector returning false records Egress.Dropped no-member", func(t *testing.T) {
 		br := mustNewBridge(t, cfg, ports)
-		br.SetSelector(stubSelector{member: "", ok: false})
+		br.SetSelector(stubSelector{member: "", ok: false}, analysis.ProtocolScope("sw1", "lag", "0"))
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Dropped {
 			t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
@@ -1369,7 +1370,7 @@ func TestGateBlocksIngressWithoutLearning(t *testing.T) {
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
 		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1395,7 +1396,7 @@ func TestGateLearningOnlyIngressLearnsThenDrops(t *testing.T) {
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": true, "1/1/2": true},
 		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1422,7 +1423,7 @@ func TestGateBlocksEgress(t *testing.T) {
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": true, "1/1/2": true, "1/1/3": true},
 		forwards: map[string]bool{"1/1/1": true, "1/1/2": false, "1/1/3": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -2751,7 +2752,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 			"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
 		},
 	}}, ports)
-	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true})
+	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst:       netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
@@ -2778,7 +2779,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 
 func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
 	br := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
-	br.SetGroupResolver(testGroupResolver{decided: true})
+	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02},
@@ -2803,7 +2804,7 @@ func TestEgressToUsesFloodReplicationRules(t *testing.T) {
 		"1/1/1": true,
 		"1/1/2": false,
 		"1/1/3": true,
-	}})
+	}}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	res := br.EgressTo(bridge.Ingress{Port: "1/1/1", FID: 10, PCP: 5}, ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},

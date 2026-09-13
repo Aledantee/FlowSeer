@@ -403,7 +403,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	for name, h := range cloned.Hosts {
 		if h.IP != nil {
 			rtCfg, tbl := HostRoutingConfig(name, h)
-			layer, err := routing.New(rtCfg, tbl)
+			layer, err := routing.New(rtCfg, tbl, name)
 			if err != nil {
 				return nil, errs.Wrapf(err, "host %q routing", name)
 			}

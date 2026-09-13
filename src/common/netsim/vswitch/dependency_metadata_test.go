@@ -2,9 +2,11 @@ package vswitch_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -282,6 +284,126 @@ func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
 	}
 	if !foundMissingEvidence {
 		t.Errorf("missing ingress result lacks its loaded issue evidence: %+v", missing.Metadata.Issues())
+	}
+}
+
+func TestForwardingMetadataIncludesOnlyConsultedProtocolScope(t *testing.T) {
+	deviceMAC := netaddr.MAC{2, 0, 0, 0, 0, 1}
+	vid := vlan.ID(10)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "routed", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "bridged", AdminStatus: port.Up, OperStatus: port.Up}))
+	stpScope := analysis.ProtocolScope("sw1", string(port.LayerStp), "0")
+	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+		Kind:    "snapshot",
+		Origin:  "inventory",
+		Context: "the spanning tree protocol state is incomplete",
+	})
+	catalog, assumptionRef := catalog.Add(analysis.Evidence{
+		Kind:    "default",
+		Origin:  "inventory",
+		Context: "the spanning tree fallback was applied",
+	})
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			MAC:   deviceMAC,
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{vid: "bridged"},
+				Switchports: map[string]bridge.Switchport{
+					"bridged": {PVID: &vid, Untagged: []vlan.ID{vid}},
+				},
+			}},
+			STP: &stp.Config{
+				Address: deviceMAC,
+				Ports: map[string]stp.Port{
+					"bridged": {},
+				},
+			},
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+					"routed": {
+						Port:     "routed",
+						MAC:      deviceMAC,
+						Prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24")},
+					},
+				}},
+			}},
+		},
+		NodeID: "sw1",
+		Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+			Code:     "test.stp.protocol",
+			Status:   analysis.Unsupported,
+			Scope:    stpScope,
+			Message:  "the spanning tree protocol state is incomplete",
+			Evidence: []trace.EvidenceRef{ref},
+		}}, catalog, []analysis.Assumption{{
+			Scope:     stpScope,
+			Statement: "the spanning tree fallback was applied",
+			Evidence:  []trace.EvidenceRef{assumptionRef},
+		}}),
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	bridgeResult := sw.Peek(fixedTime, "bridged", ethernet.Frame{Src: macH1, Dst: macH2})
+	if bridgeResult.Metadata.Status() != analysis.Unsupported {
+		t.Fatalf("bridge status = %s, want Unsupported; issues: %+v", bridgeResult.Metadata.Status(), bridgeResult.Metadata.Issues())
+	}
+	if issues := bridgeResult.Metadata.Issues(); len(issues) != 1 || issues[0].Scope.Compare(stpScope) != 0 {
+		t.Errorf("bridge issues = %+v, want the STP protocol issue", issues)
+	}
+	if _, ok := bridgeResult.Metadata.Evidence().Lookup(ref); !ok {
+		t.Errorf("bridge evidence = %+v, want %q", bridgeResult.Metadata.Evidence().Entries(), ref)
+	}
+	if assumptions := bridgeResult.Metadata.Assumptions(); len(assumptions) != 1 || assumptions[0].Scope.Compare(stpScope) != 0 {
+		t.Errorf("bridge assumptions = %+v, want the STP-scoped assumption", assumptions)
+	}
+	if _, ok := bridgeResult.Metadata.Evidence().Lookup(assumptionRef); !ok {
+		t.Errorf("bridge evidence = %+v, want assumption reference %q", bridgeResult.Metadata.Evidence().Entries(), assumptionRef)
+	}
+	bridgeSTPField := analysis.FieldScope(stpScope, "ports", "bridged")
+	if !slices.ContainsFunc(bridgeResult.ConsultedScopes(), func(scope analysis.Scope) bool {
+		return scope.Compare(bridgeSTPField) == 0
+	}) {
+		t.Errorf("bridge consulted scopes = %v, want %s", bridgeResult.ConsultedScopes(), bridgeSTPField)
+	}
+
+	hdr := ip.Header{
+		Src:      netip.MustParseAddr("192.0.2.2"),
+		Dst:      netip.MustParseAddr("198.51.100.2"),
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}
+	payload, err := hdr.Encode([]byte("routing bypasses spanning tree"))
+	if err != nil {
+		t.Fatalf("encode packet: %v", err)
+	}
+	routedResult := sw.Peek(fixedTime, "routed", ethernet.Frame{
+		Src:       macH1,
+		Dst:       deviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   payload,
+	})
+	if routedResult.Reason != routing.ReasonNoRoute {
+		t.Fatalf("routed reason = %s, want no-route", routedResult.Reason)
+	}
+	if routedResult.Metadata.Status() != analysis.Complete || len(routedResult.Metadata.Issues()) != 0 {
+		t.Errorf("routed metadata = %s %+v, want Complete without the unconsulted STP issue", routedResult.Metadata.Status(), routedResult.Metadata.Issues())
+	}
+	if assumptions := routedResult.Metadata.Assumptions(); len(assumptions) != 0 {
+		t.Errorf("routed assumptions = %+v, want no unconsulted STP assumption", assumptions)
+	}
+	if _, ok := routedResult.Metadata.Evidence().Lookup(assumptionRef); ok {
+		t.Errorf("routed evidence retained unconsulted STP assumption reference %q", assumptionRef)
+	}
+	routingScope := analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF)
+	if !slices.ContainsFunc(routedResult.ConsultedScopes(), func(scope analysis.Scope) bool {
+		return scope.Compare(routingScope) == 0
+	}) {
+		t.Errorf("routed consulted scopes = %v, want %s", routedResult.ConsultedScopes(), routingScope)
 	}
 }
 

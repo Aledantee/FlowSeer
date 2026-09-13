@@ -1,8 +1,11 @@
 package bridge
 
 import (
+	"slices"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -59,10 +62,11 @@ type Egress struct {
 // Result embeds [trace.Trace] and includes structured bridge forwarding metadata.
 type Result struct {
 	trace.Trace
-	Ingress        string
-	FID            vlan.ID
-	Egress         []Egress
-	consultedPorts []port.Port
+	Ingress         string
+	FID             vlan.ID
+	Egress          []Egress
+	consultedPorts  []port.Port
+	consultedScopes []analysis.Scope
 }
 
 // ConsultedPorts returns independent snapshots of the port state that could
@@ -88,4 +92,22 @@ func (r *Result) Consult(ports ...port.Port) {
 			r.consultedPorts = append(r.consultedPorts, candidate)
 		}
 	}
+}
+
+// ConsultedScopes returns the exact analysis scopes whose facts could change
+// this forwarding result, in canonical order.
+func (r Result) ConsultedScopes() []analysis.Scope {
+	return append([]analysis.Scope(nil), r.consultedScopes...)
+}
+
+// ConsultScopes records exact analysis scopes whose facts could change this
+// forwarding result.
+func (r *Result) ConsultScopes(scopes ...analysis.Scope) {
+	r.consultedScopes = mergeScopes(r.consultedScopes, scopes)
+}
+
+func mergeScopes(existing, added []analysis.Scope) []analysis.Scope {
+	result := append(slices.Clone(existing), added...)
+	slices.SortFunc(result, func(a, b analysis.Scope) int { return a.Compare(b) })
+	return slices.CompactFunc(result, func(a, b analysis.Scope) bool { return a.Compare(b) == 0 })
 }

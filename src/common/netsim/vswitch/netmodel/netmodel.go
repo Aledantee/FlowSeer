@@ -184,6 +184,14 @@ func Load(
 	portScope := func(portName string) analysis.Scope {
 		return analysis.PortScope(src.DeviceID, portName)
 	}
+	protocolScope := func(layer port.Layer, instance string) analysis.Scope {
+		return analysis.ProtocolScope(src.DeviceID, string(layer), instance)
+	}
+	stpScope := protocolScope(port.LayerStp, "0")
+	routingScope := protocolScope(port.LayerRouting, routing.DefaultVRF)
+	stpPortScope := func(portName string) analysis.Scope {
+		return analysis.FieldScope(stpScope, "ports", portName)
+	}
 
 	catalog := analysis.EvidenceCatalog{}
 	var issues []analysis.Issue
@@ -219,13 +227,7 @@ func Load(
 		CapabilitySources: make(map[port.Layer]string),
 	}
 
-	addDefault := func(portName, field, value string) {
-		var scope analysis.Scope
-		if portName != "" {
-			scope = portScope(portName)
-		} else {
-			scope = rootScope
-		}
+	addDefaultAt := func(scope analysis.Scope, portName, field, value string) {
 		detail := fmt.Sprintf("default %s=%s", field, value)
 		if portName != "" {
 			detail = fmt.Sprintf("port %s default %s=%s", portName, field, value)
@@ -246,14 +248,15 @@ func Load(
 			Evidence:  []trace.EvidenceRef{ref},
 		})
 	}
-
-	addSkipped := func(portName, what, why string, status analysis.Status, code analysis.IssueCode) {
-		var scope analysis.Scope
+	addDefault := func(portName, field, value string) {
+		scope := rootScope
 		if portName != "" {
 			scope = portScope(portName)
-		} else {
-			scope = rootScope
 		}
+		addDefaultAt(scope, portName, field, value)
+	}
+
+	addSkippedAt := func(scope analysis.Scope, portName, what, why string, status analysis.Status, code analysis.IssueCode) {
 		detail := fmt.Sprintf("skipped %s: %s", what, why)
 		if portName != "" {
 			detail = fmt.Sprintf("port %s skipped %s: %s", portName, what, why)
@@ -281,6 +284,13 @@ func Load(
 				Evidence: []trace.EvidenceRef{ref},
 			})
 		}
+	}
+	addSkipped := func(portName, what, why string, status analysis.Status, code analysis.IssueCode) {
+		scope := rootScope
+		if portName != "" {
+			scope = portScope(portName)
+		}
+		addSkippedAt(scope, portName, what, why, status, code)
 	}
 
 	addConflict := func(scope analysis.Scope, what, key, detail string, code analysis.IssueCode) {
@@ -551,13 +561,13 @@ func Load(
 	stpRequestedWithoutBridge := isWanted(port.LayerStp) && bridgeState == nil
 	if bridgeState == nil && (stpRequestedWithoutBridge || len(stpPorts) > 0) {
 		if stpRequestedWithoutBridge {
-			addSkipped("", "stp_bridge", "requested STP layer has no bridge state", analysis.Incomplete, IssueMissingSTPBridgeState)
+			addSkippedAt(stpScope, "", "stp_bridge", "requested STP layer has no bridge state", analysis.Incomplete, IssueMissingSTPBridgeState)
 		}
 		for _, ps := range stpPorts {
 			if ps == nil {
 				continue
 			}
-			addSkipped(ps.GetInterfaceName(), "stp_port", "bridge state is missing", analysis.Incomplete, IssueMissingSTPBridgeState)
+			addSkippedAt(stpPortScope(ps.GetInterfaceName()), ps.GetInterfaceName(), "stp_port", "bridge state is missing", analysis.Incomplete, IssueMissingSTPBridgeState)
 		}
 		report.Capabilities = slices.DeleteFunc(report.Capabilities, func(layer port.Layer) bool {
 			return layer == port.LayerStp
@@ -608,12 +618,12 @@ func Load(
 	}
 
 	if !isWanted(port.LayerStp) && bridgeState != nil {
-		addSkipped("", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+		addSkippedAt(stpScope, "", "stp_bridge", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		for _, ps := range stpPorts {
 			if ps == nil {
 				continue
 			}
-			addSkipped(ps.GetInterfaceName(), "stp_port", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+			addSkippedAt(stpPortScope(ps.GetInterfaceName()), ps.GetInterfaceName(), "stp_port", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
@@ -627,7 +637,7 @@ func Load(
 			if addr == nil {
 				continue
 			}
-			addSkipped(addr.GetInterfaceName(), "ip_address", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+			addSkippedAt(routingScope, addr.GetInterfaceName(), "ip_address", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 		for _, n := range neighbors {
 			if n == nil {
@@ -1106,12 +1116,13 @@ func Load(
 			bridgeStatus = analysis.Unsupported
 		}
 		if bridgeWhy != "" {
-			addSkipped("", "stp_bridge", bridgeWhy, bridgeStatus, bridgeCode)
+			addSkippedAt(stpScope, "", "stp_bridge", bridgeWhy, bridgeStatus, bridgeCode)
 			for _, ps := range stpPorts {
 				if ps == nil {
 					continue
 				}
-				addSkipped(
+				addSkippedAt(
+					stpPortScope(ps.GetInterfaceName()),
 					ps.GetInterfaceName(),
 					"stp_port",
 					"spanning tree bridge configuration is unavailable",
@@ -1127,33 +1138,33 @@ func Load(
 				Ports:           make(map[string]stp.Port),
 			}
 			if !priorityPresent {
-				addDefault("", "bridge_priority", strconv.FormatUint(uint64(stp.DefaultBridgePriority), 10))
+				addDefaultAt(stpScope, "", "bridge_priority", strconv.FormatUint(uint64(stp.DefaultBridgePriority), 10))
 			}
 
 			if bridgeState.GetBridgeHelloTime() != nil {
 				stpCfg.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
 			} else {
-				addDefault("", "bridge_hello_time", stp.DefaultHelloTime.String())
+				addDefaultAt(stpScope, "", "bridge_hello_time", stp.DefaultHelloTime.String())
 			}
 			if bridgeState.GetBridgeMaxAge() != nil {
 				stpCfg.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
 			} else {
-				addDefault("", "bridge_max_age", stp.DefaultMaxAge.String())
+				addDefaultAt(stpScope, "", "bridge_max_age", stp.DefaultMaxAge.String())
 			}
 			if bridgeState.GetBridgeForwardDelay() != nil {
 				stpCfg.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
 			} else {
-				addDefault("", "bridge_forward_delay", stp.DefaultForwardDelay.String())
+				addDefaultAt(stpScope, "", "bridge_forward_delay", stp.DefaultForwardDelay.String())
 			}
 			if bridgeState.HasTxHoldCount() {
 				if v := bridgeState.GetTxHoldCount(); v < 1 || v > 10 {
-					addSkipped("", "stp_tx_hold_count", "outside 1 through 10", analysis.Unsupported, IssueInvalidTxHoldCount)
-					addDefault("", "tx_hold_count", strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10))
+					addSkippedAt(stpScope, "", "stp_tx_hold_count", "outside 1 through 10", analysis.Unsupported, IssueInvalidTxHoldCount)
+					addDefaultAt(stpScope, "", "tx_hold_count", strconv.FormatUint(uint64(stp.DefaultTxHoldCount), 10))
 				} else {
 					stpCfg.TxHoldCount = uint8(v)
 				}
 			} else {
-				addDefault("", "tx_hold_count", "6")
+				addDefaultAt(stpScope, "", "tx_hold_count", "6")
 			}
 
 			stpPortRows, stpPortConflicts := resolveFacts(stpPorts, func(ps *stpv1.PortState) (factKey, string, bool) {
@@ -1163,19 +1174,20 @@ func Load(
 				portName := ps.GetInterfaceName()
 				p, ok := ports.Port(portName)
 				if !ok {
-					addSkipped(portName, "stp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
+					addSkippedAt(stpPortScope(portName), portName, "stp_port", "absent from port table", analysis.Incomplete, IssueUnknownPort)
 					return factKey{}, "", false
 				}
 				if p.LagParent != "" {
-					addSkipped(portName, "stp_port", "port is a LAG member", analysis.Incomplete, IssueSkippedLagMember)
+					addSkippedAt(stpPortScope(portName), portName, "stp_port", "port is a LAG member", analysis.Incomplete, IssueSkippedLagMember)
 					return factKey{}, "", false
 				}
 				if ps.GetPriority() > 255 {
-					addSkipped(portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
+					addSkippedAt(stpPortScope(portName), portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
 					return factKey{}, "", false
 				}
 				if ps.HasAdminPathCost() && ps.GetAdminPathCost() > stp.MaxPathCost {
-					addSkipped(
+					addSkippedAt(
+						stpPortScope(portName),
 						portName,
 						"stp_port",
 						fmt.Sprintf("admin_path_cost exceeds maximum %d", stp.MaxPathCost),
@@ -1190,7 +1202,7 @@ func Load(
 					stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE,
 					stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_FALSE:
 				default:
-					addSkipped(portName, "stp_port", fmt.Sprintf("point_to_point has unrecognized value %d", ps.GetPointToPoint()), analysis.Unsupported, IssueInvalidPointToPointMode)
+					addSkippedAt(stpPortScope(portName), portName, "stp_port", fmt.Sprintf("point_to_point has unrecognized value %d", ps.GetPointToPoint()), analysis.Unsupported, IssueInvalidPointToPointMode)
 					return factKey{}, "", false
 				}
 				adminPathCost := "unreported"
@@ -1205,7 +1217,7 @@ func Load(
 					"priority=%s, admin_path_cost=%s, admin_edge=%t, auto_edge=%t, point_to_point=%d",
 					priority, adminPathCost, ps.GetAdminEdge(), ps.GetAutoEdge(), ps.GetPointToPoint(),
 				)
-				return factKey{id: portName, display: portName, scope: portScope(portName)}, value, true
+				return factKey{id: portName, display: portName, scope: stpPortScope(portName)}, value, true
 			})
 			for _, conflict := range stpPortConflicts {
 				addConflict(conflict.key.scope, "stp_port", conflict.key.display, conflict.detail(), IssueConflictSTPPort)
@@ -1214,21 +1226,21 @@ func Load(
 				ps := stpPortRows[portName]
 				priorityPresent := ps.HasPriority()
 				if !priorityPresent {
-					addDefault(portName, "port_priority", strconv.FormatUint(uint64(stp.DefaultPortPriority), 10))
+					addDefaultAt(stpPortScope(portName), portName, "port_priority", strconv.FormatUint(uint64(stp.DefaultPortPriority), 10))
 				}
 
 				var adminPathCost uint32
 				if ps.HasAdminPathCost() {
 					adminPathCost = ps.GetAdminPathCost()
 				} else {
-					addDefault(portName, "admin_path_cost", "0")
+					addDefaultAt(stpPortScope(portName), portName, "admin_path_cost", "0")
 				}
 
 				var p2p stp.PointToPointMode
 				switch ps.GetPointToPoint() {
 				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_UNSPECIFIED:
 					p2p = stp.PointToPointAuto
-					addDefault(portName, "point_to_point", "AUTO")
+					addDefaultAt(stpPortScope(portName), portName, "point_to_point", "AUTO")
 				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_AUTO:
 					p2p = stp.PointToPointAuto
 				case stpv1.PointToPointMode_POINT_TO_POINT_MODE_FORCE_TRUE:
@@ -1485,23 +1497,23 @@ func Load(
 			}
 			name := addr.GetInterfaceName()
 			if _, ok := vrf.Interfaces[name]; !ok {
-				addSkipped(name, "ip_address", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
+				addSkippedAt(routingScope, name, "ip_address", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
 				return factKey{}, "", false
 			}
 
 			ip, ok := parseIP(addr.GetAddress())
 			if !ok {
-				addSkipped(name, "ip_address", "address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
+				addSkippedAt(routingScope, name, "ip_address", "address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
 				return factKey{}, "", false
 			}
 			length, ok := parsePrefix(addr.GetPrefix(), ip)
 			if !ok {
-				addSkipped(name, "ip_address", "prefix is invalid, uses another family, or does not contain the address", analysis.Incomplete, IssueInvalidPrefix)
+				addSkippedAt(routingScope, name, "ip_address", "prefix is invalid, uses another family, or does not contain the address", analysis.Incomplete, IssueInvalidPrefix)
 				return factKey{}, "", false
 			}
 			key := name + "\x00" + ip.String()
 			prefix := netip.PrefixFrom(ip, length)
-			return factKey{id: key, display: name + "/" + ip.String(), scope: portScope(name)}, prefix.String(), true
+			return factKey{id: key, display: name + "/" + ip.String(), scope: routingScope}, prefix.String(), true
 		})
 		for _, conflict := range addressConflicts {
 			addConflict(conflict.key.scope, "ip_address", conflict.key.display, conflict.detail(), IssueConflictAddress)

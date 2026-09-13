@@ -71,14 +71,9 @@ func assumptionEqual(a, b analysis.Assumption) bool {
 func forwardingMetadata(
 	nodeID string,
 	loaded analysis.Metadata,
-	consulted []port.Port,
+	consulted []analysis.Scope,
 	runtimeIssues []analysis.Issue,
 ) analysis.Metadata {
-	portScopes := make([]analysis.Scope, len(consulted))
-	for i, consultedPort := range consulted {
-		portScopes[i] = analysis.PortScope(nodeID, consultedPort.Name)
-	}
-
 	issues := make([]analysis.Issue, len(runtimeIssues))
 	issueEvidence := make(map[trace.EvidenceRef]struct{})
 	catalog := analysis.EvidenceCatalog{}
@@ -94,7 +89,7 @@ func forwardingMetadata(
 		issueEvidence[ref] = struct{}{}
 	}
 	for _, issue := range loaded.Issues() {
-		if !forwardingScopeRelevant(nodeID, issue.Scope, portScopes) {
+		if !forwardingScopeRelevant(nodeID, issue.Scope, consulted) {
 			continue
 		}
 		issues = append(issues, issue)
@@ -106,7 +101,7 @@ func forwardingMetadata(
 	var assumptions []analysis.Assumption
 	evidenceRefs := issueEvidence
 	for _, assumption := range loaded.Assumptions() {
-		if !forwardingScopeRelevant(nodeID, assumption.Scope, portScopes) &&
+		if !forwardingScopeRelevant(nodeID, assumption.Scope, consulted) &&
 			!referencesAny(assumption.Evidence, issueEvidence) {
 			continue
 		}
@@ -126,14 +121,24 @@ func forwardingMetadata(
 	return analysis.NewMetadata(analysis.NodeScope(nodeID), issues, catalog, assumptions)
 }
 
-func forwardingScopeRelevant(nodeID string, scope analysis.Scope, ports []analysis.Scope) bool {
+func forwardingScopeRelevant(nodeID string, scope analysis.Scope, consulted []analysis.Scope) bool {
 	if scope.Compare(analysis.WholeScope()) == 0 {
 		return true
 	}
 	if scope.Compare(analysis.NodeScope(nodeID)) == 0 {
 		return true
 	}
-	return slices.ContainsFunc(ports, scope.Overlaps)
+	return slices.ContainsFunc(consulted, scope.Overlaps)
+}
+
+func protocolScope(nodeID string, layer port.Layer) analysis.Scope {
+	return analysis.ProtocolScope(nodeID, string(layer), "0")
+}
+
+func canonicalScopes(scopes []analysis.Scope) []analysis.Scope {
+	result := slices.Clone(scopes)
+	slices.SortFunc(result, func(a, b analysis.Scope) int { return a.Compare(b) })
+	return slices.CompactFunc(result, func(a, b analysis.Scope) bool { return a.Compare(b) == 0 })
 }
 
 func validateConstructionMetadata(nodeID string, metadata analysis.Metadata) error {

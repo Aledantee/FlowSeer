@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -36,10 +37,23 @@ const (
 // Result records the trace steps, egress interface, outcome reason, and egress frame
 // produced by layer 3 routing or packet origination.
 type Result struct {
-	Steps     []trace.Step
-	Reason    trace.Reason
-	Interface string
-	Frame     ethernet.Frame
+	Steps           []trace.Step
+	Reason          trace.Reason
+	Interface       string
+	Frame           ethernet.Frame
+	consultedScopes []analysis.Scope
+}
+
+// ConsultedScopes returns the exact analysis scopes whose facts could change
+// this routing result, in canonical order.
+func (r Result) ConsultedScopes() []analysis.Scope {
+	return slices.Clone(r.consultedScopes)
+}
+
+func (r *Result) consult(scope analysis.Scope) {
+	r.consultedScopes = append(r.consultedScopes, scope)
+	slices.SortFunc(r.consultedScopes, func(a, b analysis.Scope) int { return a.Compare(b) })
+	r.consultedScopes = slices.CompactFunc(r.consultedScopes, func(a, b analysis.Scope) bool { return a.Compare(b) == 0 })
 }
 
 type routeKind string
@@ -74,6 +88,7 @@ type vrfState struct {
 //
 // A Layer is safe for concurrent use.
 type Layer struct {
+	nodeID   string
 	byVLAN   map[vlan.ID]string
 	byPort   map[string]string
 	ifaceVRF map[string]string
@@ -89,18 +104,19 @@ type Layer struct {
 // prefix and configured static routes, sorted by prefix length descending then by prefix,
 // with connected routes listed first at equal length. Lookup selects the first match; a
 // static route on a prefix a connected route also covers wins nothing.
-func New(cfg Config, ports port.Table) (*Layer, error) {
+func New(cfg Config, ports port.Table, nodeID string) (*Layer, error) {
 	norm := cfg.Normalize()
 	if err := norm.Validate(ports); err != nil {
 		return nil, err
 	}
-	return newLayer(norm), nil
+	return newLayer(norm, nodeID), nil
 }
 
-func newLayer(cfg Config) *Layer {
+func newLayer(cfg Config, nodeID string) *Layer {
 	cloned := cfg.Clone()
 
 	l := &Layer{
+		nodeID:   nodeID,
 		byVLAN:   make(map[vlan.ID]string),
 		byPort:   make(map[string]string),
 		ifaceVRF: make(map[string]string),
@@ -193,6 +209,12 @@ func newLayer(cfg Config) *Layer {
 	return l
 }
 
+func (l *Layer) result(vrf string) Result {
+	var result Result
+	result.consult(analysis.ProtocolScope(l.nodeID, string(port.LayerRouting), vrf))
+	return result
+}
+
 // ByVLAN returns the name of the routed interface associated with the given VLAN identifier.
 func (l *Layer) ByVLAN(vid vlan.ID) (string, bool) {
 	name, ok := l.byVLAN[vid]
@@ -280,6 +302,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		})
 		return res
 	}
+	res.consult(analysis.ProtocolScope(l.nodeID, string(port.LayerRouting), vrfName))
 
 	if _, isLocal := vrf.localAddrs[hdr.Dst]; isLocal {
 		res.Reason = ReasonNotRouted
@@ -415,13 +438,13 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []byte) Result {
 	vrfState, ok := l.vrfs[vrf]
 	if !ok {
-		return Result{
-			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
-			},
-			Reason: ReasonNoRoute,
+		res := l.result(vrf)
+		res.Steps = []trace.Step{
+			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
+			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
 		}
+		res.Reason = ReasonNoRoute
+		return res
 	}
 
 	ifaceNames := make([]string, 0, len(vrfState.interfaces))
@@ -455,13 +478,13 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		srcAddr = firstAddr
 	}
 	if !srcAddr.IsValid() {
-		return Result{
-			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
-			},
-			Reason: ReasonNoRoute,
+		res := l.result(vrf)
+		res.Steps = []trace.Step{
+			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
+			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
 		}
+		res.Reason = ReasonNoRoute
+		return res
 	}
 
 	var matchedRoute *routeEntry
@@ -473,13 +496,13 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	}
 
 	if matchedRoute == nil {
-		return Result{
-			Steps: []trace.Step{
-				{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
-				{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst}, false, ReasonNoRoute)}},
-			},
-			Reason: ReasonNoRoute,
+		res := l.result(vrf)
+		res.Steps = []trace.Step{
+			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
+			{Layer: port.LayerRouting, Op: trace.OpDrop, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst}, false, ReasonNoRoute)}},
 		}
+		res.Reason = ReasonNoRoute
+		return res
 	}
 
 	var steps []trace.Step
@@ -500,18 +523,19 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	targetIface := matchedRoute.Interface
 	neighbor, ok := vrfState.neighbors[neighborKey{iface: targetIface, addr: targetAddr}]
 	if !ok {
-		return Result{
-			Steps: append(steps, trace.Step{
-				Layer:   port.LayerRouting,
-				Op:      trace.OpDrop,
-				RuleID:  trace.RuleID(ReasonNeighborMiss),
-				Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
-				Inputs:  []trace.Fact{routeSnapshot(vrf, dst, matchedRoute)},
-				Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
-			}),
-			Reason:    ReasonNeighborMiss,
-			Interface: targetIface,
-		}
+		res := l.result(vrf)
+		res.Steps = slices.Clone(steps)
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonNeighborMiss),
+			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
+			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, matchedRoute)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
+		})
+		res.Reason = ReasonNeighborMiss
+		res.Interface = targetIface
+		return res
 	}
 
 	hdr := ip.Header{
@@ -532,28 +556,29 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 
 	pktBytes, err := hdr.Encode(payload)
 	if err != nil {
-		return Result{
-			Steps: append(steps, trace.Step{
-				Layer:   port.LayerRouting,
-				Op:      trace.OpDrop,
-				RuleID:  trace.RuleID(ReasonBadHeader),
-				Subject: trace.Subject{Kind: "interface", Key: targetIface},
-				Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, neighbor, true)},
-				Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
-			}),
-			Reason: ReasonBadHeader,
-		}
+		res := l.result(vrf)
+		res.Steps = slices.Clone(steps)
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonBadHeader),
+			Subject: trace.Subject{Kind: "interface", Key: targetIface},
+			Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, neighbor, true)},
+			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
+		})
+		res.Reason = ReasonBadHeader
+		return res
 	}
 
 	egressIfaceObj := l.ifaces[targetIface]
-	return Result{
-		Steps:     steps,
-		Interface: targetIface,
-		Frame: ethernet.Frame{
-			Src:       egressIfaceObj.MAC,
-			Dst:       neighbor.MAC,
-			EtherType: etherType,
-			Payload:   pktBytes,
-		},
+	res := l.result(vrf)
+	res.Steps = steps
+	res.Interface = targetIface
+	res.Frame = ethernet.Frame{
+		Src:       egressIfaceObj.MAC,
+		Dst:       neighbor.MAC,
+		EtherType: etherType,
+		Payload:   pktBytes,
 	}
+	return res
 }

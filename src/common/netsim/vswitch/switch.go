@@ -211,7 +211,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.mcast = m
 		if sw.bridge != nil {
-			sw.bridge.SetGroupResolver(sw)
+			sw.bridge.SetGroupResolver(sw, protocolScope(nodeID, port.LayerMcast))
 		}
 	}
 
@@ -233,7 +233,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.lag = l
 		if sw.bridge != nil {
-			sw.bridge.SetSelector(sw.lag)
+			sw.bridge.SetSelector(sw.lag, protocolScope(nodeID, port.LayerLag))
 		}
 		for _, p := range norm.Ports.Ports() {
 			if p.LagParent != "" && p.Forwards() {
@@ -252,12 +252,12 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.stp = st
 		if sw.bridge != nil {
-			sw.bridge.SetGate(sw.stp)
+			sw.bridge.SetGate(sw.stp, protocolScope(nodeID, port.LayerStp))
 		}
 	}
 
 	if norm.Routing != nil {
-		rt, err := routing.New(*norm.Routing, norm.Ports)
+		rt, err := routing.New(*norm.Routing, norm.Ports, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -483,17 +483,11 @@ func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...stri
 
 func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	var issues []analysis.Issue
+	consultedScopes := res.ConsultedScopes()
 
 	for _, p := range res.ConsultedPorts() {
 		scope := analysis.PortScope(s.nodeID, p.Name)
-		if !s.metadata.Scope().Contains(scope) {
-			issues = append(issues, analysis.Issue{
-				Code:    "forwarding-dependency-outside-loaded-scope",
-				Status:  analysis.Incomplete,
-				Scope:   scope,
-				Message: fmt.Sprintf("port %q lies outside loaded analysis scope %s", p.Name, s.metadata.Scope()),
-			})
-		}
+		consultedScopes = append(consultedScopes, scope)
 		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
 			issues = append(issues, analysis.Issue{
 				Code:    "unknown-operational-status",
@@ -503,10 +497,22 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 			})
 		}
 	}
+	consultedScopes = canonicalScopes(consultedScopes)
+	for _, scope := range consultedScopes {
+		if s.metadata.Scope().Contains(scope) {
+			continue
+		}
+		issues = append(issues, analysis.Issue{
+			Code:    "forwarding-dependency-outside-loaded-scope",
+			Status:  analysis.Incomplete,
+			Scope:   scope,
+			Message: fmt.Sprintf("scope %s lies outside loaded analysis scope %s", scope, s.metadata.Scope()),
+		})
+	}
 
 	return ForwardResult{
 		Result:   res,
-		Metadata: forwardingMetadata(s.nodeID, s.metadata, res.ConsultedPorts(), issues),
+		Metadata: forwardingMetadata(s.nodeID, s.metadata, consultedScopes, issues),
 	}
 }
 
@@ -538,6 +544,9 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
 			res := s.interceptLACP(now, ingress, f, mutate)
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
+			))
 			res.Consult(s.forwardingPath(ingress)...)
 			return s.finishForward(ingress, f, res, mutate)
 		}
@@ -545,6 +554,11 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
 		res := s.interceptBPDU(now, ingress, f, mutate)
+		if res.Reason != port.ReasonPortDown {
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+			))
+		}
 		res.Consult(s.forwardingPath(ingress)...)
 		return s.finishForward(ingress, f, res, mutate)
 	}
@@ -614,9 +628,15 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			return s.finishForward(ingress, f, res, mutate)
 		}
 
-		if controlCandidate && s.mcast != nil && s.mcast.Snooped(in.FID) {
-			res := s.forwardMulticastControl(now, ingress, f, in, mutate)
-			return s.finishForward(ingress, f, res, mutate)
+		if controlCandidate && s.mcast != nil {
+			in.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerMcast),
+				"vlans", fmt.Sprint(in.FID),
+			))
+			if s.mcast.Snooped(in.FID) {
+				res := s.forwardMulticastControl(now, ingress, f, in, mutate)
+				return s.finishForward(ingress, f, res, mutate)
+			}
 		}
 
 		if s.routing != nil {
@@ -627,6 +647,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
 				res.Consult(in.ConsultedPorts()...)
+				res.ConsultScopes(in.ConsultedScopes()...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
@@ -769,6 +790,7 @@ func badMulticastControl(in bridge.Ingress) bridge.Result {
 		FID:     in.FID,
 	}
 	res.Consult(in.ConsultedPorts()...)
+	res.ConsultScopes(in.ConsultedScopes()...)
 
 	return res
 }
@@ -1055,6 +1077,7 @@ func (s *Switch) assembleRouteResult(
 	ingressSteps []trace.Step,
 	routeRes routing.Result,
 ) bridge.Result {
+	routeScopes := routeRes.ConsultedScopes()
 	if routeRes.Reason != "" {
 		outcome := trace.Dropped
 		if routeRes.Reason == routing.ReasonNotRouted {
@@ -1076,6 +1099,7 @@ func (s *Switch) assembleRouteResult(
 		if routeRes.Interface != "" {
 			res.Consult(s.routingForwardingPath(routeRes.Interface)...)
 		}
+		res.ConsultScopes(routeScopes...)
 
 		return res
 	}
@@ -1095,6 +1119,7 @@ func (s *Switch) assembleRouteResult(
 			DEI:   ingressDEI,
 			Steps: stepsSoFar,
 		}
+		bridgeIn.ConsultScopes(routeScopes...)
 		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
 		res.FID = egressIface.VLAN
 		res.Ingress = ingressPort
@@ -1135,12 +1160,17 @@ func (s *Switch) assembleRouteResult(
 			},
 		}
 		res.Consult(s.egressDependencies(egressIface.Port)...)
+		res.ConsultScopes(routeScopes...)
 		return res
 	}
 
 	p, _ := s.ports.Port(egressIface.Port)
 	var selection trace.Fact
+	resultScopes := routeScopes
 	if p.Kind == port.Lag {
+		resultScopes = append(resultScopes, analysis.FieldScope(
+			protocolScope(s.nodeID, port.LayerLag), "aggregators", egressIface.Port,
+		))
 		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
 		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
 		if !ok {
@@ -1170,6 +1200,7 @@ func (s *Switch) assembleRouteResult(
 				},
 			}
 			res.Consult(s.egressDependencies(egressIface.Port)...)
+			res.ConsultScopes(resultScopes...)
 			return res
 		}
 		member = mem
@@ -1200,6 +1231,7 @@ func (s *Switch) assembleRouteResult(
 		},
 	}
 	res.Consult(s.egressDependencies(egressIface.Port)...)
+	res.ConsultScopes(resultScopes...)
 	return res
 }
 

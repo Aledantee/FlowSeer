@@ -138,12 +138,13 @@ type ChangeExpectation struct {
 	Evidence []trace.EvidenceRef
 }
 
-// IssueExpectation binds one issue's identity, trust status, scope, and exact evidence references.
+// IssueExpectation binds one issue's semantic identity, trust status, scope,
+// and exact evidence references. Human-facing message wording is deliberately
+// absent so corpus cases survive copy edits without weakening semantic checks.
 type IssueExpectation struct {
 	Code     analysis.IssueCode
 	Status   analysis.Status
 	Scope    analysis.Scope
-	Message  string
 	Evidence []trace.EvidenceRef
 }
 
@@ -153,7 +154,6 @@ func NewIssueExpectation(issue analysis.Issue) IssueExpectation {
 		Code:     issue.Code,
 		Status:   issue.Status,
 		Scope:    issue.Scope,
-		Message:  issue.Message,
 		Evidence: canonicalEvidence(issue.Evidence),
 	}
 }
@@ -171,7 +171,6 @@ func (e IssueExpectation) Matches(issue analysis.Issue) bool {
 	return actual.Code == expected.Code &&
 		actual.Status == expected.Status &&
 		actual.Scope.Compare(expected.Scope) == 0 &&
-		actual.Message == expected.Message &&
 		slices.Equal(actual.Evidence, expected.Evidence)
 }
 
@@ -293,7 +292,7 @@ func (e MetadataExpectation) Canonical() MetadataExpectation {
 
 // Matches reports whether metadata has exactly the expected structural contents.
 func (e MetadataExpectation) Matches(metadata analysis.Metadata) bool {
-	return reflect.DeepEqual(NewMetadataExpectation(metadata), e.Canonical())
+	return reflect.DeepEqual(NewMetadataExpectation(metadata).Canonical(), e.Canonical())
 }
 
 func compareIssueExpectations(a, b IssueExpectation) int {
@@ -304,9 +303,6 @@ func compareIssueExpectations(a, b IssueExpectation) int {
 		return order
 	}
 	if order := cmp.Compare(a.Status, b.Status); order != 0 {
-		return order
-	}
-	if order := strings.Compare(a.Message, b.Message); order != 0 {
 		return order
 	}
 	return slices.Compare(a.Evidence, b.Evidence)
@@ -995,7 +991,9 @@ func assertDeterministicMetadata(t testing.TB, caseID, axis string, first, secon
 	if first.Status() != second.Status() {
 		t.Errorf("case %s non-deterministic %s metadata status across runs: %s vs %s", caseID, axis, first.Status(), second.Status())
 	}
-	if !reflect.DeepEqual(first.Issues(), second.Issues()) {
+	firstIssues := NewMetadataExpectation(first).Canonical().Issues
+	secondIssues := NewMetadataExpectation(second).Canonical().Issues
+	if !reflect.DeepEqual(firstIssues, secondIssues) {
 		t.Errorf("case %s non-deterministic %s metadata issues across runs", caseID, axis)
 	}
 	if !slices.Equal(first.Evidence().Entries(), second.Evidence().Entries()) {
@@ -1050,7 +1048,8 @@ func assertDeterministicForwardResult(t testing.TB, caseID, axis string, first, 
 		first.Ingress == second.Ingress &&
 		first.FID == second.FID &&
 		reflect.DeepEqual(first.Egress, second.Egress) &&
-		reflect.DeepEqual(first.ConsultedPorts(), second.ConsultedPorts())
+		reflect.DeepEqual(first.ConsultedPorts(), second.ConsultedPorts()) &&
+		reflect.DeepEqual(first.ConsultedScopes(), second.ConsultedScopes())
 	if !domainEqual {
 		t.Errorf("case %s non-deterministic %s domain result across runs", caseID, axis)
 	}

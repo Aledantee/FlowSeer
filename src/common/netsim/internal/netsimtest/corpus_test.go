@@ -2,6 +2,7 @@ package netsimtest_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -15,6 +16,71 @@ import (
 func TestSchemaVersion(t *testing.T) {
 	if netsimtest.SchemaVersion != "v1" {
 		t.Errorf("SchemaVersion = %q, want %q", netsimtest.SchemaVersion, "v1")
+	}
+}
+
+func TestIssueExpectationIgnoresMessageButRequiresSemanticIdentity(t *testing.T) {
+	scope := analysis.ProtocolScope("sw1", "routing", "default")
+	issue := analysis.Issue{
+		Code:     "routing.prefix.conflict",
+		Status:   analysis.Unstable,
+		Scope:    scope,
+		Message:  "the original wording",
+		Evidence: []trace.EvidenceRef{"evidence-1"},
+	}
+	expected := netsimtest.NewIssueExpectation(issue)
+
+	reworded := issue
+	reworded.Message = "wording can change without changing the issue"
+	if !expected.Matches(reworded) {
+		t.Error("IssueExpectation.Matches treated issue wording as semantic identity")
+	}
+	if !reflect.DeepEqual(expected, netsimtest.NewIssueExpectation(reworded)) {
+		t.Error("issue expectations with identical semantics differ by message wording")
+	}
+	if got := analysis.NewMetadata(scope, []analysis.Issue{reworded}, analysis.EvidenceCatalog{}, nil).Issues()[0].Message; got != reworded.Message {
+		t.Errorf("runtime issue message = %q, want %q", got, reworded.Message)
+	}
+
+	for _, test := range []struct {
+		name   string
+		mutate func(*analysis.Issue)
+	}{
+		{name: "code", mutate: func(got *analysis.Issue) { got.Code = "routing.prefix.missing" }},
+		{name: "status", mutate: func(got *analysis.Issue) { got.Status = analysis.Incomplete }},
+		{name: "scope", mutate: func(got *analysis.Issue) { got.Scope = analysis.ProtocolScope("sw1", "routing", "tenant") }},
+		{name: "evidence", mutate: func(got *analysis.Issue) { got.Evidence = []trace.EvidenceRef{"evidence-2"} }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			actual := issue
+			test.mutate(&actual)
+			if expected.Matches(actual) {
+				t.Errorf("IssueExpectation.Matches accepted changed %s", test.name)
+			}
+		})
+	}
+}
+
+func TestAssertCaseIgnoresIssueMessageWordingAcrossRuns(t *testing.T) {
+	c := netsimtest.CaseShadowingPartialUnknownPort()
+	origExecute := c.Execute
+	executions := 0
+	c.Execute = func() (netsimtest.ExecutionResult, error) {
+		res, err := origExecute()
+		if err != nil {
+			return res, err
+		}
+		executions++
+		issues := res.Metadata.Issues()
+		issues[0].Message = fmt.Sprintf("wording variant %d", executions)
+		res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
+		return res, nil
+	}
+
+	rec := &recordingTB{}
+	netsimtest.AssertCase(rec, c)
+	if len(rec.errors) != 0 {
+		t.Errorf("AssertCase rejected message-only issue changes: %v", rec.errors)
 	}
 }
 
@@ -460,13 +526,13 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	retrievedShadow.ExpectedMetadata.Assumptions[0].Statement = "mutated-assumption"
 	retrievedShadow.ExpectedMetadata.Assumptions[0].Evidence[0] = "mutated-assumption-evidence"
 	retrievedShadow.ExpectedModelMetadata.Scope = analysis.WholeScope()
-	retrievedShadow.ExpectedModelMetadata.Issues[0].Message = "mutated-model-issue"
+	retrievedShadow.ExpectedModelMetadata.Issues[0].Status = analysis.Unsupported
 	retrievedShadow.ExpectedModelMetadata.Issues[0].Evidence[0] = "mutated-model-issue-evidence"
 	retrievedShadow.ExpectedModelMetadata.Evidence[0].Evidence.Context = "mutated-model-evidence"
 	retrievedShadow.ExpectedModelMetadata.Assumptions[0].Statement = "mutated-model-assumption"
 	retrievedShadow.ExpectedModelMetadata.Assumptions[0].Evidence[0] = "mutated-model-assumption-evidence"
 	retrievedShadow.ExpectedForwardMetadata.Scope = analysis.WholeScope()
-	retrievedShadow.ExpectedForwardMetadata.Issues[0].Message = "mutated-forward-issue"
+	retrievedShadow.ExpectedForwardMetadata.Issues[0].Code = "mutated-forward-issue"
 	retrievedShadow.ExpectedForwardMetadata.Evidence[0].Evidence.Context = "mutated-forward-evidence"
 	retrievedShadow.ExpectedForwardMetadata.Assumptions[0].Statement = "mutated-forward-assumption"
 
@@ -488,7 +554,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if freshShadow.ExpectedModelMetadata.Scope == analysis.WholeScope() {
 		t.Error("registry internal ExpectedModelMetadata was mutated")
 	}
-	if freshShadow.ExpectedModelMetadata.Issues[0].Message == "mutated-model-issue" ||
+	if freshShadow.ExpectedModelMetadata.Issues[0].Status == analysis.Unsupported ||
 		freshShadow.ExpectedModelMetadata.Issues[0].Evidence[0] == "mutated-model-issue-evidence" ||
 		freshShadow.ExpectedModelMetadata.Evidence[0].Evidence.Context == "mutated-model-evidence" ||
 		freshShadow.ExpectedModelMetadata.Assumptions[0].Statement == "mutated-model-assumption" ||
@@ -498,7 +564,7 @@ func TestRegistryCopyIsolation(t *testing.T) {
 	if freshShadow.ExpectedForwardMetadata.Scope == analysis.WholeScope() {
 		t.Error("registry internal ExpectedForwardMetadata was mutated")
 	}
-	if freshShadow.ExpectedForwardMetadata.Issues[0].Message == "mutated-forward-issue" ||
+	if freshShadow.ExpectedForwardMetadata.Issues[0].Code == "mutated-forward-issue" ||
 		freshShadow.ExpectedForwardMetadata.Evidence[0].Evidence.Context == "mutated-forward-evidence" ||
 		freshShadow.ExpectedForwardMetadata.Assumptions[0].Statement == "mutated-forward-assumption" {
 		t.Error("registry internal ExpectedForwardMetadata contents were mutated")
@@ -836,7 +902,7 @@ func TestAssertCaseRequiresExactSideMetadata(t *testing.T) {
 		{
 			name: "issue",
 			mutate: func(metadata *netsimtest.MetadataExpectation) {
-				metadata.Issues[0].Message = "changed side issue"
+				metadata.Issues[0].Code = "changed.side.issue"
 			},
 		},
 		{
@@ -1116,7 +1182,7 @@ func TestAssertCaseComparesCompleteRepeatedResult(t *testing.T) {
 			caseValue: netsimtest.CaseShadowingPartialUnknownPort,
 			mutate: func(res *netsimtest.ExecutionResult) {
 				issues := res.Metadata.Issues()
-				issues[0].Message = "changed issue message"
+				issues[0].Code = "changed.issue.code"
 				res.Metadata = analysis.NewMetadata(res.Metadata.Scope(), issues, res.Metadata.Evidence(), res.Metadata.Assumptions())
 			},
 			wantError: "non-deterministic result metadata issues",

@@ -947,7 +947,7 @@ func TestStpLoadSkipsAdminPathCostAboveMaximum(t *testing.T) {
 		t.Errorf("valid sibling STP port = (%+v, present=%t), want maximum path cost", got, ok)
 	}
 
-	scope := analysis.PortScope("sw1", name)
+	scope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(port.LayerStp), "0"), "ports", name)
 	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
 		return got.Scope == scope && got.Port == name && got.What == "stp_port" && len(got.Evidence) > 0
 	}) {
@@ -997,7 +997,8 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 		t.Errorf("tx hold count = %d, want fallback %d", got, stp.DefaultTxHoldCount)
 	}
 	if !slices.ContainsFunc(result.Report.Skipped, func(got netmodel.Skipped) bool {
-		return got.Scope == analysis.NodeScope("sw1") && got.What == "stp_tx_hold_count" && len(got.Evidence) > 0
+		return got.Scope == analysis.ProtocolScope("sw1", string(port.LayerStp), "0") &&
+			got.What == "stp_tx_hold_count" && len(got.Evidence) > 0
 	}) {
 		t.Errorf("skipped = %+v, want evidenced invalid tx_hold_count", result.Report.Skipped)
 	}

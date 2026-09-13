@@ -203,7 +203,6 @@ func CaseShadowingPartialUnknownPort() Case {
 		Code:     netmodel.IssueMissingOperStatus,
 		Status:   analysis.Incomplete,
 		Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
-		Message:  `interface "1/1/2" has unspecified or missing operational status`,
 		Evidence: []trace.EvidenceRef{refOperUnknown},
 	}
 	expectedAssumption := AssumptionExpectation{
@@ -231,7 +230,6 @@ func CaseShadowingPartialUnknownPort() Case {
 		Code:     "unknown-operational-status",
 		Status:   analysis.Incomplete,
 		Scope:    analysis.PortScope("shadow-sw1", "1/1/2"),
-		Message:  `port "1/1/2" has unknown operational status`,
 		Evidence: []trace.EvidenceRef{refForwardUnknown},
 	})
 	forwardMetadata = forwardMetadata.Canonical()
