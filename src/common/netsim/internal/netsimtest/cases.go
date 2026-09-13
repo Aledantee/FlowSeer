@@ -220,7 +220,7 @@ func CaseShadowingPartialUnknownPort() Case {
 	forwardEvidence := analysis.Evidence{
 		Kind:    "vswitch.runtime",
 		Origin:  "forward",
-		Context: `port "1/1/2" has unknown operational status`,
+		Context: `code="unknown-operational-status",status="incomplete",scope="node[\"shadow-sw1\"]/port[\"1/1/2\"]",fact["port.forwarding"]="name=\"1/1/2\";present=true;kind=\"Physical\";admin=\"Up\";oper=\"Unknown\";mtu=0;lag_parent=\"\";eligible=false;reason=\"\""`,
 	}
 	var refForwardUnknown trace.EvidenceRef
 	cat, refForwardUnknown = cat.Add(forwardEvidence)
@@ -283,6 +283,7 @@ func CaseShadowingPartialUnknownPort() Case {
 			operUp := interfacev1.OperStatus_OPER_STATUS_UP
 			operUnknown := interfacev1.OperStatus_OPER_STATUS_UNKNOWN
 			pvid10 := uint32(10)
+			mtu := uint32(0)
 			frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
 			ingressFiltFalse := false
 
@@ -291,6 +292,7 @@ func CaseShadowingPartialUnknownPort() Case {
 				Name:        &p1Name,
 				AdminStatus: &adminUp,
 				OperStatus:  &operUp,
+				Mtu:         &mtu,
 				Physical: interfacev1.PhysicalInterface_builder{
 					Switchport: switchingv1.SwitchportFacet_builder{
 						Pvid:             &pvid10,
@@ -306,6 +308,7 @@ func CaseShadowingPartialUnknownPort() Case {
 				Name:        &p2Name,
 				AdminStatus: &adminUp,
 				OperStatus:  &operUnknown,
+				Mtu:         &mtu,
 				Physical: interfacev1.PhysicalInterface_builder{
 					Switchport: switchingv1.SwitchportFacet_builder{
 						Pvid:             &pvid10,

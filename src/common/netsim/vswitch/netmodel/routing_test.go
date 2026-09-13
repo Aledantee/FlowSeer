@@ -742,7 +742,9 @@ func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 	}
 	if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
 		return issue.Code == netmodel.IssueMissingNeighborMAC &&
-			issue.Scope == analysis.PortScope("sw1", outName) &&
+			issue.Scope.Compare(routing.NeighborLookupScope(
+				"sw1", routing.DefaultVRF, outName, netip.MustParseAddr("198.51.100.7"),
+			)) == 0 &&
 			len(issue.Evidence) > 0
 	}) {
 		t.Errorf("issues = %+v, want evidenced invalid neighbor issue on out", result.Metadata.Issues())
@@ -804,12 +806,13 @@ func TestNoRouteRetainsConflictingOmittedPrefixEvidence(t *testing.T) {
 	if result.Metadata.Status() != analysis.Unstable {
 		t.Fatalf("status = %s, want Unstable; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
 	}
-	routingScope := analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF)
+	routeLookupScope := routing.RouteLookupScope("sw1", routing.DefaultVRF, netip.MustParseAddr("198.51.100.130"))
 	if !slices.ContainsFunc(result.ConsultedScopes(), func(scope analysis.Scope) bool {
-		return scope.Compare(routingScope) == 0
+		return scope.Compare(routeLookupScope) == 0
 	}) {
-		t.Errorf("consulted scopes = %v, want %s", result.ConsultedScopes(), routingScope)
+		t.Errorf("consulted scopes = %v, want %s", result.ConsultedScopes(), routeLookupScope)
 	}
+	routingScope := routing.VRFScope("sw1", routing.DefaultVRF)
 	issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
 		return issue.Code == netmodel.IssueConflictAddress && issue.Scope.Compare(routingScope) == 0
 	})

@@ -47,6 +47,7 @@ const (
 	IssueInvalidAdminStatus             analysis.IssueCode = "netmodel.interface.invalid_admin_status"
 	IssueMissingOperStatus              analysis.IssueCode = "netmodel.interface.missing_oper_status"
 	IssueInvalidOperStatus              analysis.IssueCode = "netmodel.interface.invalid_oper_status"
+	IssueMissingMTU                     analysis.IssueCode = "netmodel.interface.missing_mtu"
 	IssueSkippedLayerNotWanted          analysis.IssueCode = "netmodel.skipped.layer_not_wanted"
 	IssueSkippedMissingFacet            analysis.IssueCode = "netmodel.skipped.missing_facet"
 	IssueSkippedUnsupportedFacet        analysis.IssueCode = "netmodel.skipped.unsupported_facet"
@@ -188,9 +189,18 @@ func Load(
 		return analysis.ProtocolScope(src.DeviceID, string(layer), instance)
 	}
 	stpScope := protocolScope(port.LayerStp, "0")
-	routingScope := protocolScope(port.LayerRouting, routing.DefaultVRF)
+	routingScope := routing.VRFScope(src.DeviceID, routing.DefaultVRF)
 	stpPortScope := func(portName string) analysis.Scope {
 		return analysis.FieldScope(stpScope, "ports", portName)
+	}
+	routingInterfaceLookupScope := func(iface *interfacev1.Interface) analysis.Scope {
+		if iface.GetVlan() != nil {
+			return routing.VLANLookupScope(src.DeviceID, routing.DefaultVRF, vlan.ID(iface.GetVlan().GetVlanId()))
+		}
+		if iface.GetPhysical() != nil || iface.GetLag() != nil {
+			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
+		}
+		return routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 	}
 
 	catalog := analysis.EvidenceCatalog{}
@@ -368,12 +378,17 @@ func Load(
 		}
 
 		if iface.HasMtu() {
-			if iface.GetMtu() == 0 {
-				addDefault(iface.GetName(), "mtu", "0")
-				p.MTU = 0
-			} else {
-				p.MTU = int(iface.GetMtu())
-			}
+			p.MTU = int(iface.GetMtu())
+		} else {
+			ref := addEvidence(EvidenceKindState, fmt.Sprintf("interface %s mtu unreported", iface.GetName()))
+			issues = append(issues, analysis.Issue{
+				Code:     IssueMissingMTU,
+				Status:   analysis.Incomplete,
+				Scope:    portScope(iface.GetName()),
+				Message:  fmt.Sprintf("interface %q has no reported MTU", iface.GetName()),
+				Evidence: []trace.EvidenceRef{ref},
+			})
+			addDefault(iface.GetName(), "mtu", "0")
 		}
 
 		switch {
@@ -630,7 +645,7 @@ func Load(
 	if !isWanted(port.LayerRouting) {
 		for _, iface := range ifaces {
 			if iface.GetIp() != nil {
-				addSkipped(iface.GetName(), "ip", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+				addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 			}
 		}
 		for _, addr := range addrs {
@@ -643,7 +658,11 @@ func Load(
 			if n == nil {
 				continue
 			}
-			addSkipped(n.GetInterfaceName(), "ip_neighbor", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
+			scope := routing.NeighborTableScope(src.DeviceID, routing.DefaultVRF, n.GetInterfaceName())
+			if ip, ok := parseIP(n.GetIp()); ok {
+				scope = routing.NeighborLookupScope(src.DeviceID, routing.DefaultVRF, n.GetInterfaceName(), ip)
+			}
+			addSkippedAt(scope, n.GetInterfaceName(), "ip_neighbor", "layer not wanted", analysis.Incomplete, IssueSkippedLayerNotWanted)
 		}
 	}
 
@@ -1468,20 +1487,21 @@ func Load(
 			}
 
 			if !isSupported {
-				addSkipped(iface.GetName(), "ip", "unsupported interface kind", analysis.Unsupported, IssueUnsupportedInterfaceKind)
+				addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", "unsupported interface kind", analysis.Unsupported, IssueUnsupportedInterfaceKind)
 				continue
 			}
 
+			ownershipScope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 			ifaceMAC, validIfaceMAC := parseMAC(iface.GetMac())
 			switch {
 			case iface.GetMac() == nil:
 				ifaceMAC = netaddr.MAC{}
-				addDefault(iface.GetName(), "mac", "device base address")
+				addDefaultAt(ownershipScope, iface.GetName(), "mac", "device base address")
 			case validIfaceMAC && ifaceMAC != (netaddr.MAC{}) && !ifaceMAC.IsGroup():
 			default:
 				ifaceMAC = netaddr.MAC{}
-				addSkipped(iface.GetName(), "interface_mac", "not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
-				addDefault(iface.GetName(), "mac", "device base address")
+				addSkippedAt(ownershipScope, iface.GetName(), "interface_mac", "not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+				addDefaultAt(ownershipScope, iface.GetName(), "mac", "device base address")
 			}
 
 			vrf.Interfaces[iface.GetName()] = routing.Interface{
@@ -1533,24 +1553,28 @@ func Load(
 				return factKey{}, "", false
 			}
 			name := n.GetInterfaceName()
+			ip, okIP := parseIP(n.GetIp())
+			scope := routing.NeighborTableScope(src.DeviceID, routing.DefaultVRF, name)
+			if okIP {
+				scope = routing.NeighborLookupScope(src.DeviceID, routing.DefaultVRF, name, ip)
+			}
 			mac, okMAC := parseMAC(n.GetMac())
 			if n.GetMac() == nil {
-				addSkipped(name, "ip_neighbor", "neighbor has no mac", analysis.Incomplete, IssueMissingNeighborMAC)
+				addSkippedAt(scope, name, "ip_neighbor", "neighbor has no mac", analysis.Incomplete, IssueMissingNeighborMAC)
 				return factKey{}, "", false
 			}
 			if !okMAC || mac == (netaddr.MAC{}) || mac.IsGroup() {
-				addSkipped(name, "ip_neighbor", "mac is not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+				addSkippedAt(scope, name, "ip_neighbor", "mac is not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
 				return factKey{}, "", false
 			}
 
 			if _, ok := vrf.Interfaces[name]; !ok {
-				addSkipped(name, "ip_neighbor", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
+				addSkippedAt(scope, name, "ip_neighbor", "interface carries no ip facet", analysis.Incomplete, IssueMissingIPFacet)
 				return factKey{}, "", false
 			}
 
-			ip, okIP := parseIP(n.GetIp())
 			if !okIP {
-				addSkipped(name, "ip_neighbor", "neighbor address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
+				addSkippedAt(scope, name, "ip_neighbor", "neighbor address is not a valid IPv4 or IPv6 address", analysis.Incomplete, IssueInvalidIPAddress)
 				return factKey{}, "", false
 			}
 			iface := vrf.Interfaces[name]
@@ -1558,11 +1582,11 @@ func Load(
 				return prefix.Addr().Is4() == ip.Is4()
 			})
 			if !matchingFamily {
-				addSkipped(name, "ip_neighbor", "neighbor address family has no interface prefix", analysis.Incomplete, IssueInvalidNeighborAddress)
+				addSkippedAt(scope, name, "ip_neighbor", "neighbor address family has no interface prefix", analysis.Incomplete, IssueInvalidNeighborAddress)
 				return factKey{}, "", false
 			}
 			key := name + "\x00" + ip.String()
-			return factKey{id: key, display: name + "/" + ip.String(), scope: portScope(name)}, mac.String(), true
+			return factKey{id: key, display: name + "/" + ip.String(), scope: scope}, mac.String(), true
 		})
 		for _, conflict := range neighborConflicts {
 			addConflict(conflict.key.scope, "ip_neighbor", conflict.key.display, conflict.detail(), IssueConflictNeighbor)
@@ -1647,9 +1671,13 @@ func Load(
 			return factKey{}, "", false
 		}
 
-		fdbKey := fmt.Sprintf("%d/%s", vid, mac.String())
+		fdbKey := strconv.Itoa(int(vid)) + "\x00" + mac.String()
 		value := fmt.Sprintf("port=%q, kind=%s, status=ACTIVE", entry.GetInterfaceName(), entry.GetKind())
-		return factKey{id: fdbKey, display: fdbKey, scope: rootScope}, value, true
+		return factKey{
+			id:      fdbKey,
+			display: fmt.Sprintf("%d/%s", vid, mac),
+			scope:   bridge.FDBLookupScope(src.DeviceID, vid, mac),
+		}, value, true
 	})
 	for _, conflict := range fdbConflicts {
 		addConflict(conflict.key.scope, "fdb_entry", conflict.key.display, conflict.detail(), IssueConflictFDB)

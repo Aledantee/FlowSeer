@@ -77,6 +77,8 @@ values leave no executable seed and make readiness non-Complete. The row must
 also name a logical switchport that admits its VLAN in the completed bridge
 configuration. A row that has no relay, no VLAN-aware relay, no matching VLAN,
 or no admitting switchport is omitted with a port-scoped issue.
+Conflicting executable rows are scoped to their exact FID and MAC lookup key, so
+they affect forwarding only when that unicast destination is consulted.
 
 An explicit capability request is also input to the trust decision. The loader
 deduplicates supported layers and reports duplicate requests as Incomplete.
@@ -112,8 +114,11 @@ synthesis decisions:
   and source evidence references.
 - **Defaults and assumptions**: Standards-based fallback values applied when
   optional fields are absent, including STP bridge and port priorities, hello
-  time, max age, forward delay, and transmit hold count.
+  time, max age, forward delay, transmit hold count, and the executable
+  zero/unlimited MTU fallback.
   These are recorded both in the report and as executable assumptions in metadata.
+  A missing MTU also creates an evidenced Incomplete port issue. An explicitly
+  reported MTU of zero is observed data and does not create a default or issue.
 - **Conflicts**: Distinct values for the same source key, such as one MAC and VLAN
   reported on two ports. The conflicted fact is omitted, while identical repeated
   rows collapse to one fact. Conflicts lower readiness to [analysis.Unstable] and
@@ -130,8 +135,11 @@ loading conflicts, skips, assumptions, and their evidence into later `Forward`
 results. The detailed loading report remains on `Result` because it describes the
 translation rather than runtime forwarding.
 
-A forwarding result selects metadata against the ports it actually consulted. For
-example, a conflict on `sw1:1/1/3` affects a known unicast that uses that port, but
-not a known unicast that consults only `sw1:1/1/1` and `sw1:1/1/2`. A node-scoped
-conflict affects both queries. The result's scope retains `SourceContext.DeviceID`,
-which keeps similarly named ports on different devices disjoint.
+A forwarding result selects metadata against the dependencies it actually
+consulted. Port state uses port scopes. Routing uses exact port, VLAN, ownership,
+route, local-address, and neighbor lookup scopes; neighbor scopes include the VRF,
+interface, and address, including for VLAN interfaces. Bridge forwarding uses the
+exact FID and destination MAC scope for an FDB lookup. A sibling dependency is
+excluded, while a node-scoped conflict affects every query on that node. The
+result's scope retains `SourceContext.DeviceID`, which keeps similarly named ports
+on different devices disjoint.

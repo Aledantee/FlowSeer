@@ -60,6 +60,7 @@ type Bridge struct {
 	selectorScope analysis.Scope
 	resolver      GroupResolver
 	resolverScope analysis.Scope
+	fdbScope      analysis.Scope
 	counters      Counters
 	// dynamic counts the entries that are not static, so the bound is checked
 	// without a scan of the table.
@@ -117,6 +118,12 @@ func (b *Bridge) SetSelector(sel Selector, scope analysis.Scope) {
 func (b *Bridge) SetGroupResolver(resolver GroupResolver, scope analysis.Scope) {
 	b.resolver = resolver
 	b.resolverScope = scope
+}
+
+// SetFDBScope installs the protocol scope beneath which exact forwarding
+// database lookup dependencies are recorded.
+func (b *Bridge) SetFDBScope(scope analysis.Scope) {
+	b.fdbScope = scope
 }
 
 // FlushPorts removes dynamic forwarding database entries learned on the named ports.
@@ -392,8 +399,10 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	ingressLearns := true
 	ingressForwards := true
 	var ingressGate trace.Fact
-	if b.gate != nil {
+	if b.gateScope.Compare(analysis.WholeScope()) != 0 {
 		res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", res.Ingress))
+	}
+	if b.gate != nil {
 		ingressLearns = b.gate.Learns(res.Ingress)
 		ingressForwards = b.gate.Forwards(res.Ingress)
 		ingressGate = b.gateFact(res.Ingress, ingressLearns, ingressForwards)
@@ -758,6 +767,9 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			})
 		} else {
 			dstKey := fdbKey{fid: in.FID, mac: f.Dst}
+			if b.fdbScope.Compare(analysis.WholeScope()) != 0 {
+				res.ConsultScopes(fdbLookupScope(b.fdbScope, in.FID, f.Dst))
+			}
 			if entry, exists := b.fdb[dstKey]; exists {
 				isHit = true
 				hitPort = entry.Port
@@ -874,7 +886,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		if b.gate != nil {
+		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
 			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", destPort.Name))
 		}
 		if b.gate != nil && !b.gate.Forwards(destPort.Name) {
@@ -1077,7 +1089,7 @@ func (b *Bridge) replicate(
 	for i, candidate := range candidates {
 		txReason := txReasons[i]
 		egressFrame := egressFrames[i]
-		if b.gate != nil {
+		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
 			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", candidate.Name))
 		}
 		if b.gate != nil && !b.gate.Forwards(candidate.Name) {

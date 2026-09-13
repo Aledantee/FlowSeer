@@ -144,24 +144,25 @@ type Emission struct {
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
-	cfg       Config
-	ports     port.Table
-	bridge    *bridge.Bridge
-	speeds    map[string]phy.Resolved
-	power     phy.Allocation
-	stp       *stp.Layer
-	lag       *lag.Layer
-	mcast     *mcast.Layer
-	routing   *routing.Layer
-	traffic   *traffic.Config
-	buckets   map[string]*traffic.Bucket
-	copies    []traffic.Copy
-	emissions []Emission
-	portP2P   map[string]bool
-	portSpeed map[string]uint64
-	seeds     []bridge.Seed
-	nodeID    string
-	metadata  analysis.Metadata
+	cfg        Config
+	ports      port.Table
+	bridge     *bridge.Bridge
+	speeds     map[string]phy.Resolved
+	power      phy.Allocation
+	stp        *stp.Layer
+	lag        *lag.Layer
+	mcast      *mcast.Layer
+	routing    *routing.Layer
+	traffic    *traffic.Config
+	buckets    map[string]*traffic.Bucket
+	copies     []traffic.Copy
+	emissions  []Emission
+	portP2P    map[string]bool
+	portSpeed  map[string]uint64
+	seeds      []bridge.Seed
+	nodeID     string
+	metadata   analysis.Metadata
+	missingSTP bool
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
@@ -201,6 +202,12 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		b, err := bridge.New(*norm.Bridge, norm.Ports)
 		if err != nil {
 			return nil, err
+		}
+		b.SetFDBScope(protocolScope(nodeID, port.LayerRelay))
+		stpScope := protocolScope(nodeID, port.LayerStp)
+		if norm.STP == nil && metadataHasScopedContent(metadata, stpScope) {
+			b.SetGate(nil, stpScope)
+			sw.missingSTP = true
 		}
 		sw.bridge = b
 	}
@@ -482,18 +489,21 @@ func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...stri
 }
 
 func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
-	var issues []analysis.Issue
+	var issues []runtimeIssue
 	consultedScopes := res.ConsultedScopes()
 
 	for _, p := range res.ConsultedPorts() {
 		scope := analysis.PortScope(s.nodeID, p.Name)
 		consultedScopes = append(consultedScopes, scope)
 		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
-			issues = append(issues, analysis.Issue{
-				Code:    "unknown-operational-status",
-				Status:  analysis.Incomplete,
-				Scope:   scope,
-				Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
+			issues = append(issues, runtimeIssue{
+				issue: analysis.Issue{
+					Code:    "unknown-operational-status",
+					Status:  analysis.Incomplete,
+					Scope:   scope,
+					Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
+				},
+				facts: []trace.Fact{port.ForwardingFact(p.Name, p, p.Forwards(), "")},
 			})
 		}
 	}
@@ -502,11 +512,17 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 		if s.metadata.Scope().Contains(scope) {
 			continue
 		}
-		issues = append(issues, analysis.Issue{
-			Code:    "forwarding-dependency-outside-loaded-scope",
-			Status:  analysis.Incomplete,
-			Scope:   scope,
-			Message: fmt.Sprintf("scope %s lies outside loaded analysis scope %s", scope, s.metadata.Scope()),
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    "forwarding-dependency-outside-loaded-scope",
+				Status:  analysis.Incomplete,
+				Scope:   scope,
+				Message: fmt.Sprintf("scope %s lies outside loaded analysis scope %s", scope, s.metadata.Scope()),
+			},
+			facts: []trace.Fact{runtimeFact{
+				typeID:    "analysis.loaded-scope",
+				canonical: s.metadata.Scope().String(),
+			}},
 		})
 	}
 
@@ -563,10 +579,22 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return s.finishForward(ingress, f, res, mutate)
 	}
 
+	var routingScopes []analysis.Scope
+	if s.routing == nil && metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+		resolved, ok := s.ports.Resolve(ingress)
+		name := ingress
+		if ok {
+			name = resolved.Name
+		}
+		routingScopes = append(routingScopes, routing.PortLookupScope(s.nodeID, routing.DefaultVRF, name))
+	}
+
 	if s.routing != nil {
 		receive := s.ports.Receive(ingress)
 		resolved := receive.Resolved
 		if resolved.Name != "" {
+			portLookupScopes := s.routing.PortLookupScopes(resolved.Name)
+			routingScopes = append(routingScopes, portLookupScopes...)
 			if iface, ok := s.routing.ByPort(resolved.Name); ok {
 				if receive.Reason != "" {
 					res := bridge.Result{
@@ -587,9 +615,11 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						FID:     0,
 					}
 					res.Consult(s.forwardingPath(ingress)...)
+					res.ConsultScopes(portLookupScopes...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
+				ownershipScope := s.routing.InterfaceOwnershipScope(iface)
 				if !s.routing.Owns(iface, f) {
 					res := bridge.Result{
 						Trace: trace.Trace{
@@ -609,6 +639,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						FID:     0,
 					}
 					res.Consult(s.forwardingPath(ingress)...)
+					res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
@@ -616,6 +647,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
 				res.Consult(s.forwardingPath(ingress)...)
+				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
@@ -625,8 +657,15 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		controlCandidate := multicastControlCandidate(f)
 		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate)
 		if !ok {
+			res.ConsultScopes(routingScopes...)
+			if s.missingSTP && f.Dst == stpGroupAddress {
+				res.ConsultScopes(analysis.FieldScope(
+					protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+				))
+			}
 			return s.finishForward(ingress, f, res, mutate)
 		}
+		in.ConsultScopes(routingScopes...)
 
 		if controlCandidate && s.mcast != nil {
 			in.ConsultScopes(analysis.FieldScope(
@@ -640,16 +679,23 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		}
 
 		if s.routing != nil {
-			if iface, ok := s.routing.ByVLAN(in.FID); ok && s.routing.Owns(iface, f) {
-				if controlCandidate {
-					in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+			vlanLookupScopes := s.routing.VLANLookupScopes(in.FID)
+			in.ConsultScopes(vlanLookupScopes...)
+			if iface, ok := s.routing.ByVLAN(in.FID); ok {
+				in.ConsultScopes(s.routing.InterfaceOwnershipScope(iface))
+				if s.routing.Owns(iface, f) {
+					if controlCandidate {
+						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+					}
+					routeRes := s.routing.Route(iface, f)
+					res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+					res.Consult(in.ConsultedPorts()...)
+					res.ConsultScopes(in.ConsultedScopes()...)
+					return s.finishForward(ingress, f, res, mutate)
 				}
-				routeRes := s.routing.Route(iface, f)
-				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
-				res.Consult(in.ConsultedPorts()...)
-				res.ConsultScopes(in.ConsultedScopes()...)
-				return s.finishForward(ingress, f, res, mutate)
 			}
+		} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+			in.ConsultScopes(routing.VLANLookupScope(s.nodeID, routing.DefaultVRF, in.FID))
 		}
 
 		if controlCandidate {
@@ -659,7 +705,9 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return s.finishForward(ingress, f, s.bridge.Egress(in, f), mutate)
 	}
 
-	return s.finishForward(ingress, f, s.forwardHub(ingress, f), mutate)
+	res := s.forwardHub(ingress, f)
+	res.ConsultScopes(routingScopes...)
+	return s.finishForward(ingress, f, res, mutate)
 }
 
 func multicastControlCandidate(f ethernet.Frame) bool {

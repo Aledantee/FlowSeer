@@ -31,11 +31,13 @@ func makeTestInterface(name string, operUp bool) *interfacev1.Interface {
 	frameAdmAll := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
 	ingressFiltFalse := false
 	vid10 := uint32(10)
+	mtu := uint32(0)
 
 	return interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		OperStatus:  &oper,
+		Mtu:         &mtu,
 		Physical: interfacev1.PhysicalInterface_builder{
 			Switchport: switchingv1.SwitchportFacet_builder{
 				TaggedVlanIds:    []uint32{vid10},
@@ -548,11 +550,13 @@ func TestLoad_ShuffledFdbRowsYieldEqualSpec(t *testing.T) {
 func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 	adminInvalid := interfacev1.AdminStatus(99)
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
 	p1Name := "1/1/1"
 	p1 := interfacev1.Interface_builder{
 		Name:        &p1Name,
 		AdminStatus: &adminInvalid,
 		OperStatus:  &operUp,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()
 
@@ -563,6 +567,7 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		Name:        &p2Name,
 		AdminStatus: &adminUp,
 		OperStatus:  &operInvalid,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()
 
@@ -573,6 +578,7 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		Name:        &p3Name,
 		AdminStatus: &adminDown,
 		OperStatus:  &operUp,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()
 
@@ -582,6 +588,7 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 		Name:        &p4Name,
 		AdminStatus: &adminUp,
 		OperStatus:  &operTesting,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()
 

@@ -594,6 +594,8 @@ func TestConstructionSpecValidatesMetadataScopesAgainstNode(t *testing.T) {
 		{name: "canonical zero", metadata: analysis.NewMetadata(analysis.WholeScope(), nil, analysis.EvidenceCatalog{}, nil)},
 		{name: "node", metadata: analysis.NewMetadata(nodeScope, nil, analysis.EvidenceCatalog{}, nil)},
 		{name: "child", metadata: analysis.NewMetadata(analysis.PortScope("sw1", "in"), nil, analysis.EvidenceCatalog{}, nil)},
+		{name: "routing lookup child", metadata: analysis.NewMetadata(routing.NeighborLookupScope("sw1", routing.DefaultVRF, "vlan10", netip.MustParseAddr("192.0.2.2")), nil, analysis.EvidenceCatalog{}, nil)},
+		{name: "FDB lookup child", metadata: analysis.NewMetadata(bridge.FDBLookupScope("sw1", 10, macH1), nil, analysis.EvidenceCatalog{}, nil)},
 		{name: "whole issue", metadata: analysis.NewMetadata(nodeScope, []analysis.Issue{{
 			Code: "test.global", Status: analysis.Incomplete, Scope: analysis.WholeScope(),
 		}}, analysis.EvidenceCatalog{}, nil)},

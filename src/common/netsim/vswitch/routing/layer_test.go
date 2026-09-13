@@ -2,11 +2,13 @@ package routing_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -211,6 +213,15 @@ func TestRouteNeighborMiss(t *testing.T) {
 	}
 	if len(res.Frame.Payload) != 0 {
 		t.Errorf("expected no egress frame, got payload len %d", len(res.Frame.Payload))
+	}
+	wantScope := analysis.FieldScope(
+		analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF),
+		"interfaces", "vlan20", "neighbors", "10.0.20.7",
+	)
+	if !slices.ContainsFunc(res.ConsultedScopes(), func(scope analysis.Scope) bool {
+		return scope.Compare(wantScope) == 0
+	}) {
+		t.Errorf("consulted scopes = %v, want exact neighbor lookup %s", res.ConsultedScopes(), wantScope)
 	}
 
 	expectedSteps := []trace.Step{

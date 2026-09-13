@@ -11,6 +11,7 @@ import (
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -123,18 +124,24 @@ func TestForwardExcludesUnrelatedLoadConflict(t *testing.T) {
 	}
 }
 
-func TestForwardIncludesNodeWideLoadIssue(t *testing.T) {
+func TestForwardIncludesOnlyTheConsultedFDBConflict(t *testing.T) {
 	portA := "1/1/1"
 	portB := "1/1/2"
+	portC := "1/1/3"
 	vid := uint32(10)
 	active := switchingv1.FdbEntryStatus_FDB_ENTRY_STATUS_ACTIVE
 	static := switchingv1.FdbEntryKind_FDB_ENTRY_KIND_STATIC
 	mac := []byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}
 	input := loadInput{
-		ifaces: []*interfacev1.Interface{plainPhysicalInterface(portA), plainPhysicalInterface(portB)},
+		ifaces: []*interfacev1.Interface{
+			reportedAccess(portA, vid),
+			reportedAccess(portB, vid),
+			reportedAccess(portC, vid),
+		},
+		vlans: []*switchingv1.Vlan{switchingv1.Vlan_builder{Id: &vid, Name: ptr("ten")}.Build()},
 		fdb: []*switchingv1.FdbEntry{
-			switchingv1.FdbEntry_builder{VlanId: &vid, InterfaceName: &portA, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
 			switchingv1.FdbEntry_builder{VlanId: &vid, InterfaceName: &portB, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
+			switchingv1.FdbEntry_builder{VlanId: &vid, InterfaceName: &portC, Mac: addrv1.Eui48Address_builder{Octets: mac}.Build(), Kind: &static, Status: &active}.Build(),
 		},
 	}
 	input.validate(t)
@@ -144,14 +151,38 @@ func TestForwardIncludesNodeWideLoadIssue(t *testing.T) {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	forwarded := sw.Peek(trustTestTime, portA, ethernet.Frame{
-		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
-		Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-	})
-	if forwarded.Metadata.Status() != analysis.Unstable {
-		t.Fatalf("forward status = %s, want %s; issues: %+v", forwarded.Metadata.Status(), analysis.Unstable, forwarded.Metadata.Issues())
+	source := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	for _, test := range []struct {
+		name       string
+		dst        netaddr.MAC
+		wantStatus analysis.Status
+	}{
+		{name: "matching unicast", dst: netaddr.MAC(mac), wantStatus: analysis.Unstable},
+		{name: "other unicast", dst: netaddr.MAC{0, 1, 2, 3, 4, 9}, wantStatus: analysis.Complete},
+		{name: "broadcast", dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, wantStatus: analysis.Complete},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			forwarded := sw.Peek(trustTestTime, portA, ethernet.Frame{Src: source, Dst: test.dst})
+			if forwarded.Metadata.Status() != test.wantStatus {
+				t.Fatalf("forward status = %s, want %s; issues: %+v", forwarded.Metadata.Status(), test.wantStatus, forwarded.Metadata.Issues())
+			}
+			if test.wantStatus == analysis.Unstable {
+				assertIssueEvidencePresent(t, forwarded.Metadata, netmodel.IssueConflictFDB)
+				wantScope := bridge.FDBLookupScope("sw1", vlan.ID(vid), netaddr.MAC(mac))
+				if !slices.ContainsFunc(forwarded.ConsultedScopes(), func(scope analysis.Scope) bool {
+					return scope.Compare(wantScope) == 0
+				}) {
+					t.Errorf("consulted scopes = %v, want %s", forwarded.ConsultedScopes(), wantScope)
+				}
+				return
+			}
+			if slices.ContainsFunc(forwarded.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueConflictFDB
+			}) {
+				t.Errorf("unconsulted FDB conflict reached forwarding metadata: %+v", forwarded.Metadata.Issues())
+			}
+		})
 	}
-	assertIssueEvidencePresent(t, forwarded.Metadata, netmodel.IssueConflictFDB)
 }
 
 func TestConstructionSpecMetadataIsCloneIsolatedAndDeterministic(t *testing.T) {

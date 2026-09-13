@@ -1,8 +1,10 @@
 package vswitch
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -72,18 +74,15 @@ func forwardingMetadata(
 	nodeID string,
 	loaded analysis.Metadata,
 	consulted []analysis.Scope,
-	runtimeIssues []analysis.Issue,
+	runtimeIssues []runtimeIssue,
 ) analysis.Metadata {
 	issues := make([]analysis.Issue, len(runtimeIssues))
 	issueEvidence := make(map[trace.EvidenceRef]struct{})
 	catalog := analysis.EvidenceCatalog{}
-	for i, issue := range runtimeIssues {
+	for i, runtime := range runtimeIssues {
+		issue := runtime.issue
 		var ref trace.EvidenceRef
-		catalog, ref = catalog.Add(analysis.Evidence{
-			Kind:    "vswitch.runtime",
-			Origin:  "forward",
-			Context: issue.Message,
-		})
+		catalog, ref = catalog.Add(runtimeIssueEvidence(runtime))
 		issue.Evidence = append(issue.Evidence, ref)
 		issues[i] = issue
 		issueEvidence[ref] = struct{}{}
@@ -121,6 +120,41 @@ func forwardingMetadata(
 	return analysis.NewMetadata(analysis.NodeScope(nodeID), issues, catalog, assumptions)
 }
 
+type runtimeIssue struct {
+	issue analysis.Issue
+	facts []trace.Fact
+}
+
+type runtimeFact struct {
+	typeID    string
+	canonical string
+}
+
+func (f runtimeFact) TypeID() string    { return f.typeID }
+func (f runtimeFact) Canonical() string { return f.canonical }
+
+func runtimeIssueEvidence(runtime runtimeIssue) analysis.Evidence {
+	canonical := runtime.issue.Canonical()
+	facts := slices.Clone(runtime.facts)
+	trace.SortFacts(facts)
+	var context strings.Builder
+	fmt.Fprintf(
+		&context,
+		"code=%q,status=%q,scope=%q",
+		canonical.Code.String(),
+		canonical.Status.String(),
+		canonical.Scope.String(),
+	)
+	for _, fact := range facts {
+		fmt.Fprintf(&context, ",fact[%q]=%q", fact.TypeID(), fact.Canonical())
+	}
+	return analysis.Evidence{
+		Kind:    "vswitch.runtime",
+		Origin:  "forward",
+		Context: context.String(),
+	}
+}
+
 func forwardingScopeRelevant(nodeID string, scope analysis.Scope, consulted []analysis.Scope) bool {
 	if scope.Compare(analysis.WholeScope()) == 0 {
 		return true
@@ -133,6 +167,17 @@ func forwardingScopeRelevant(nodeID string, scope analysis.Scope, consulted []an
 
 func protocolScope(nodeID string, layer port.Layer) analysis.Scope {
 	return analysis.ProtocolScope(nodeID, string(layer), "0")
+}
+
+func metadataHasScopedContent(metadata analysis.Metadata, parent analysis.Scope) bool {
+	if slices.ContainsFunc(metadata.Issues(), func(issue analysis.Issue) bool {
+		return parent.Contains(issue.Scope)
+	}) {
+		return true
+	}
+	return slices.ContainsFunc(metadata.Assumptions(), func(assumption analysis.Assumption) bool {
+		return parent.Contains(assumption.Scope)
+	})
 }
 
 func canonicalScopes(scopes []analysis.Scope) []analysis.Scope {

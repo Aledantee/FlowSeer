@@ -188,10 +188,12 @@ func TestLoadAnonymousSourceUsesAnonymousNodeScope(t *testing.T) {
 func plainPhysicalInterface(name string) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
 	return interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		OperStatus:  &oper,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 	}.Build()
 }
@@ -199,12 +201,14 @@ func plainPhysicalInterface(name string) *interfacev1.Interface {
 func switchedPhysicalInterface(name string, taggedVLANs ...uint32) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
 	admission := switchingv1.FrameAdmission_FRAME_ADMISSION_ALL
 	ingressFiltering := false
 	return interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		OperStatus:  &oper,
+		Mtu:         &mtu,
 		Physical: interfacev1.PhysicalInterface_builder{
 			Switchport: switchingv1.SwitchportFacet_builder{
 				TaggedVlanIds:    taggedVLANs,
@@ -218,10 +222,12 @@ func switchedPhysicalInterface(name string, taggedVLANs ...uint32) *interfacev1.
 func routedPhysicalInterface(name string) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
 	return interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		OperStatus:  &oper,
+		Mtu:         &mtu,
 		Physical:    interfacev1.PhysicalInterface_builder{}.Build(),
 		Ip: ipv1.IpFacet_builder{
 			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
@@ -244,10 +250,12 @@ func activeFDBRow(portName string, vid uint32) *switchingv1.FdbEntry {
 func routedVLANInterface(name string, vid uint32, mac []byte) *interfacev1.Interface {
 	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
 	oper := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu := uint32(0)
 	return interfacev1.Interface_builder{
 		Name:        &name,
 		AdminStatus: &admin,
 		OperStatus:  &oper,
+		Mtu:         &mtu,
 		Mac: addrv1.EuiAddress_builder{
 			Eui48: addrv1.Eui48Address_builder{Octets: mac}.Build(),
 		}.Build(),

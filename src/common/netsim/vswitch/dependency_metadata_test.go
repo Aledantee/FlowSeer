@@ -399,11 +399,105 @@ func TestForwardingMetadataIncludesOnlyConsultedProtocolScope(t *testing.T) {
 	if _, ok := routedResult.Metadata.Evidence().Lookup(assumptionRef); ok {
 		t.Errorf("routed evidence retained unconsulted STP assumption reference %q", assumptionRef)
 	}
-	routingScope := analysis.ProtocolScope("sw1", string(port.LayerRouting), routing.DefaultVRF)
+	routingScope := routing.RouteLookupScope("sw1", routing.DefaultVRF, netip.MustParseAddr("198.51.100.2"))
 	if !slices.ContainsFunc(routedResult.ConsultedScopes(), func(scope analysis.Scope) bool {
 		return scope.Compare(routingScope) == 0
 	}) {
 		t.Errorf("routed consulted scopes = %v, want %s", routedResult.ConsultedScopes(), routingScope)
+	}
+}
+
+func TestNegativeRoutingCapabilityLookupsRetainScopedUncertainty(t *testing.T) {
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	bridgeConfig := &bridge.Config{VLAN: &bridge.VLAN{
+		Table: map[vlan.ID]string{vid10: "ten", vid20: "twenty"},
+		Switchports: map[string]bridge.Switchport{
+			"in":  {PVID: &vid10, Untagged: []vlan.ID{vid10}},
+			"out": {PVID: &vid10, Untagged: []vlan.ID{vid10}},
+		},
+	}}
+	routingOnVLAN := func(vid vlan.ID, name string) *routing.Config {
+		return &routing.Config{VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+				name: {VLAN: vid, MAC: macRouter},
+			}},
+		}}
+	}
+
+	for _, test := range []struct {
+		name    string
+		routing *routing.Config
+		scope   analysis.Scope
+	}{
+		{
+			name:    "ByPort miss",
+			routing: routingOnVLAN(vid10, "vlan10"),
+			scope:   routing.PortLookupScope("sw1", routing.DefaultVRF, "in"),
+		},
+		{
+			name:    "ByVLAN miss",
+			routing: routingOnVLAN(vid20, "vlan20"),
+			scope:   routing.VLANLookupScope("sw1", routing.DefaultVRF, vid10),
+		},
+		{
+			name:    "Owns false",
+			routing: routingOnVLAN(vid10, "vlan10"),
+			scope:   routing.OwnershipScope("sw1", routing.DefaultVRF, "vlan10"),
+		},
+		{
+			name:  "absent routing layer",
+			scope: routing.VLANLookupScope("sw1", routing.DefaultVRF, vid10),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			catalog, relevantRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+				Kind: "snapshot", Origin: "inventory", Context: "relevant routing uncertainty",
+			})
+			catalog, siblingRef := catalog.Add(analysis.Evidence{
+				Kind: "snapshot", Origin: "inventory", Context: "unrelated routing uncertainty",
+			})
+			siblingScope := routing.VLANLookupScope("sw1", routing.DefaultVRF, 99)
+			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+				Config: vswitch.Config{Ports: ports, Bridge: bridgeConfig, Routing: test.routing},
+				NodeID: "sw1",
+				Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+					{
+						Code: "test.routing.relevant", Status: analysis.Incomplete, Scope: test.scope,
+						Message: "the consulted routing lookup is incomplete", Evidence: []trace.EvidenceRef{relevantRef},
+					},
+					{
+						Code: "test.routing.sibling", Status: analysis.Unsupported, Scope: siblingScope,
+						Message: "an unrelated routing lookup is unsupported", Evidence: []trace.EvidenceRef{siblingRef},
+					},
+				}, catalog, nil),
+			})
+			if err != nil {
+				t.Fatalf("NewWithSpec: %v", err)
+			}
+
+			result := sw.Peek(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			if result.Metadata.Status() != analysis.Incomplete {
+				t.Fatalf("status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+			}
+			if issues := result.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.routing.relevant" {
+				t.Fatalf("issues = %+v, want only the relevant routing uncertainty", issues)
+			}
+			if _, ok := result.Metadata.Evidence().Lookup(relevantRef); !ok {
+				t.Errorf("forward metadata lacks relevant evidence %q", relevantRef)
+			}
+			if _, ok := result.Metadata.Evidence().Lookup(siblingRef); ok {
+				t.Errorf("forward metadata retained unrelated evidence %q", siblingRef)
+			}
+			if !slices.ContainsFunc(result.ConsultedScopes(), func(scope analysis.Scope) bool {
+				return scope.Compare(test.scope) == 0
+			}) {
+				t.Errorf("consulted scopes = %v, want %s", result.ConsultedScopes(), test.scope)
+			}
+		})
 	}
 }
 
@@ -543,7 +637,7 @@ func assertMissingIngressDependency(t *testing.T, res vswitch.ForwardResult, loa
 				continue
 			}
 			if issue.Code != "test.missing-ingress" &&
-				(evidence.Kind != "vswitch.runtime" || evidence.Origin != "forward" || evidence.Context != issue.Message) {
+				(evidence.Kind != "vswitch.runtime" || evidence.Origin != "forward" || evidence.Context == issue.Message) {
 				t.Errorf("issue %q evidence = %+v, want stable runtime evidence", issue.Code, evidence)
 			}
 		}

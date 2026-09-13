@@ -215,7 +215,7 @@ omitted values with standard defaults and records each in the `Report`:
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
 | `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
-| `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
+| `mtu`               | unlimited (0)    | Loader fallback when MTU is absent  |
 | `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
@@ -355,18 +355,19 @@ and their FIDs must belong to that port. Duplicate FID and MAC pairs are rejecte
 [Switch.Learn] applies the same validation and leaves the switch unchanged when
 it returns an error.
 
-Forwarding combines runtime issues with construction issues on the exact ports
-the forwarding result consulted. Field scopes below those ports overlap them.
-An issue on a sibling port is left out, while node and whole-analysis issues are
-included in every result. Relevant assumptions and evidence references travel
-with the retained issues. The combined issues, assumptions, and evidence catalog
-use their canonical ordering, so repeated forwarding and cloned specifications
-produce the same metadata. An issue's message is retained for people but does
-not change construction identity; code, status, scope, and evidence carry its
-semantics. An ingress name absent from the port table remains a consulted,
-normalized port with explicit Unknown states, so its scoped construction issues
-still reach hub, bridge, routing, and protocol-interception results. Runtime
-issues carry deterministic evidence from the forwarding evaluation.
+Forwarding combines runtime issues with construction issues on the exact
+dependencies the result consulted. These include ports, spanning tree ports,
+routing lookups, and forwarding database keys. An issue on a sibling dependency
+is left out, while node and whole-analysis issues are included in every result.
+Relevant assumptions and evidence references travel with the retained issues.
+The combined issues, assumptions, and evidence catalog use their canonical
+ordering, so repeated forwarding and cloned specifications produce the same
+metadata. An issue's message is retained for people but does not change
+construction identity or generated runtime evidence; code, status, scope, and
+stable facts carry its semantics. An ingress name absent from the port table
+remains a consulted, normalized port with explicit Unknown states, so its scoped
+construction issues still reach hub, bridge, routing, and protocol-interception
+results.
 
 ## Concurrency contract
 

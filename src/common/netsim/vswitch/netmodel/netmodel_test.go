@@ -662,7 +662,7 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 		t.Errorf("expected port 1/1/1 MTU = 0, got %d", port1.MTU)
 	}
 
-	// Verify defaults in report
+	// Explicit zero is observed input, not a loader default.
 	hasMtuDefault := false
 	hasBudgetDefault := false
 	for _, d := range report.Defaults {
@@ -673,8 +673,8 @@ func TestNetmodel_DefaultsAndEdgeCases(t *testing.T) {
 			hasBudgetDefault = true
 		}
 	}
-	if !hasMtuDefault {
-		t.Errorf("expected MTU default reported, got defaults: %+v", report.Defaults)
+	if hasMtuDefault {
+		t.Errorf("explicit MTU zero reported as a default: %+v", report.Defaults)
 	}
 	if !hasBudgetDefault {
 		t.Errorf("expected power_milliwatts default reported, got defaults: %+v", report.Defaults)

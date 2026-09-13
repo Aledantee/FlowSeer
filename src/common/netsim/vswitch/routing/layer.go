@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -13,6 +14,46 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
+
+// VRFScope returns the construction metadata scope for one routing table.
+func VRFScope(nodeID, vrf string) analysis.Scope {
+	return analysis.ProtocolScope(nodeID, string(port.LayerRouting), vrf)
+}
+
+// PortLookupScope returns the exact scope for resolving a routed interface by port.
+func PortLookupScope(nodeID, vrf, name string) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "ports", name)
+}
+
+// VLANLookupScope returns the exact scope for resolving a routed interface by VLAN.
+func VLANLookupScope(nodeID, vrf string, vid vlan.ID) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "vlans", strconv.Itoa(int(vid)))
+}
+
+// OwnershipScope returns the exact scope for deciding whether an interface owns a frame.
+func OwnershipScope(nodeID, vrf, iface string) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "interfaces", iface, "ownership")
+}
+
+// RouteLookupScope returns the exact scope for a destination lookup in a VRF route table.
+func RouteLookupScope(nodeID, vrf string, dst netip.Addr) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "routes", dst.String())
+}
+
+// LocalAddressLookupScope returns the exact scope for a local-destination lookup in a VRF.
+func LocalAddressLookupScope(nodeID, vrf string, dst netip.Addr) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "local_addresses", dst.String())
+}
+
+// NeighborTableScope returns the scope for neighbor records on one routed interface.
+func NeighborTableScope(nodeID, vrf, iface string) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "interfaces", iface, "neighbors")
+}
+
+// NeighborLookupScope returns the exact scope for resolving a neighbor by interface and address.
+func NeighborLookupScope(nodeID, vrf, iface string, addr netip.Addr) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "interfaces", iface, "neighbors", addr.String())
+}
 
 const (
 	// ReasonNoRoute indicates a frame dropped because no route matches the destination address.
@@ -221,10 +262,46 @@ func (l *Layer) ByVLAN(vid vlan.ID) (string, bool) {
 	return name, ok
 }
 
+// VLANLookupScopes returns the exact VRF scopes consulted by [Layer.ByVLAN].
+func (l *Layer) VLANLookupScopes(vid vlan.ID) []analysis.Scope {
+	if iface, ok := l.byVLAN[vid]; ok {
+		return []analysis.Scope{VLANLookupScope(l.nodeID, l.ifaceVRF[iface], vid)}
+	}
+
+	vrfs := make([]string, 0, len(l.vrfs))
+	for vrf := range l.vrfs {
+		vrfs = append(vrfs, vrf)
+	}
+	slices.Sort(vrfs)
+	scopes := make([]analysis.Scope, len(vrfs))
+	for i, vrf := range vrfs {
+		scopes[i] = VLANLookupScope(l.nodeID, vrf, vid)
+	}
+	return scopes
+}
+
 // ByPort returns the name of the routed interface associated with the given port.
 func (l *Layer) ByPort(port string) (string, bool) {
 	name, ok := l.byPort[port]
 	return name, ok
+}
+
+// PortLookupScopes returns the exact VRF scopes consulted by [Layer.ByPort].
+func (l *Layer) PortLookupScopes(name string) []analysis.Scope {
+	if iface, ok := l.byPort[name]; ok {
+		return []analysis.Scope{PortLookupScope(l.nodeID, l.ifaceVRF[iface], name)}
+	}
+
+	vrfs := make([]string, 0, len(l.vrfs))
+	for vrf := range l.vrfs {
+		vrfs = append(vrfs, vrf)
+	}
+	slices.Sort(vrfs)
+	scopes := make([]analysis.Scope, len(vrfs))
+	for i, vrf := range vrfs {
+		scopes[i] = PortLookupScope(l.nodeID, vrf, name)
+	}
+	return scopes
 }
 
 // Owns reports whether f is addressed to the named interface's MAC address and carries
@@ -238,6 +315,15 @@ func (l *Layer) Owns(iface string, f ethernet.Frame) bool {
 		return false
 	}
 	return f.EtherType == ethernet.EtherTypeIPv4 || f.EtherType == ethernet.EtherTypeIPv6
+}
+
+// InterfaceOwnershipScope returns the exact scope consulted by [Layer.Owns].
+func (l *Layer) InterfaceOwnershipScope(iface string) analysis.Scope {
+	vrf, ok := l.ifaceVRF[iface]
+	if !ok {
+		return analysis.FieldScope(analysis.NodeScope(l.nodeID), "routing", "interfaces", iface, "ownership")
+	}
+	return OwnershipScope(l.nodeID, vrf, iface)
 }
 
 // Interface returns the configured interface by name.
@@ -302,7 +388,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		})
 		return res
 	}
-	res.consult(analysis.ProtocolScope(l.nodeID, string(port.LayerRouting), vrfName))
+	res.consult(LocalAddressLookupScope(l.nodeID, vrfName, hdr.Dst))
 
 	if _, isLocal := vrf.localAddrs[hdr.Dst]; isLocal {
 		res.Reason = ReasonNotRouted
@@ -329,6 +415,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		return res
 	}
 
+	res.consult(RouteLookupScope(l.nodeID, vrfName, hdr.Dst))
 	var matchedRoute *routeEntry
 	for i := range vrf.table {
 		if vrf.table[i].Prefix.Contains(hdr.Dst) {
@@ -375,6 +462,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 
 	targetIface := matchedRoute.Interface
 	res.Interface = targetIface
+	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	neighbor, ok := vrf.neighbors[neighborKey{iface: targetIface, addr: targetAddr}]
 	if !ok {
 		res.Reason = ReasonNeighborMiss
