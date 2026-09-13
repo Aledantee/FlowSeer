@@ -31,6 +31,15 @@ func lagTwoPortTable(t *testing.T) port.Table {
 	return tbl
 }
 
+func mustNewLAG(t *testing.T, cfg lag.Config, ports port.Table, systemID netaddr.MAC) *lag.Layer {
+	t.Helper()
+	l, err := lag.New(cfg, ports, systemID)
+	if err != nil {
+		t.Fatalf("lag.New: %v", err)
+	}
+	return l
+}
+
 func makeUDPFrame(t *testing.T, srcMAC, dstMAC netaddr.MAC, srcIP, dstIP string, srcPort, dstPort uint16, badChecksum bool) ethernet.Frame {
 	t.Helper()
 	udpPayload := make([]byte, 8)
@@ -117,7 +126,7 @@ func TestBalanceSLB(t *testing.T) {
 			},
 		},
 	}
-	l := lag.New(cfg, tbl, sysMAC)
+	l := mustNewLAG(t, cfg, tbl, sysMAC)
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	l.LinkChange(t0, "1/1/2", true)
@@ -173,7 +182,7 @@ func TestBalanceTCP(t *testing.T) {
 			},
 		},
 	}
-	l := lag.New(cfg, tbl, sysMAC)
+	l := mustNewLAG(t, cfg, tbl, sysMAC)
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	l.LinkChange(t0, "1/1/2", true)
@@ -231,7 +240,7 @@ func TestActiveBackup(t *testing.T) {
 			},
 		},
 	}
-	l := lag.New(cfg, tbl, sysMAC)
+	l := mustNewLAG(t, cfg, tbl, sysMAC)
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	l.LinkChange(t0, "1/1/2", true)
@@ -274,7 +283,7 @@ func TestDelays(t *testing.T) {
 			},
 		},
 	}
-	l := lag.New(cfg, tbl, sysMAC)
+	l := mustNewLAG(t, cfg, tbl, sysMAC)
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	l.LinkChange(t0, "1/1/2", true)
@@ -357,8 +366,8 @@ func TestLACPConvergence(t *testing.T) {
 		},
 	}
 
-	layerA := lag.New(cfgA, tblA, macA)
-	layerB := lag.New(cfgB, tblB, macB)
+	layerA := mustNewLAG(t, cfgA, tblA, macA)
+	layerB := mustNewLAG(t, cfgB, tblB, macB)
 
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	fxA1 := layerA.LinkChange(t0, "1/1/1", true)
@@ -403,8 +412,8 @@ func TestLACPConvergence(t *testing.T) {
 			},
 		},
 	}
-	layerA2 := lag.New(cfgA, tblA, macA)
-	layerB2 := lag.New(cfgBKey2, tblB, macB)
+	layerA2 := mustNewLAG(t, cfgA, tblA, macA)
+	layerB2 := mustNewLAG(t, cfgBKey2, tblB, macB)
 
 	fxA1 = layerA2.LinkChange(t0, "1/1/1", true)
 	fxA2 = layerA2.LinkChange(t0, "1/1/2", true)
@@ -450,7 +459,7 @@ func TestFallback(t *testing.T) {
 				},
 			},
 		}
-		l := lag.New(cfg, tblA, macA)
+		l := mustNewLAG(t, cfg, tblA, macA)
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		l.LinkChange(t0, "1/1/1", true)
 		l.LinkChange(t0, "1/1/2", true)
@@ -487,7 +496,7 @@ func TestFallback(t *testing.T) {
 				},
 			},
 		}
-		l := lag.New(cfg, tblA, macA)
+		l := mustNewLAG(t, cfg, tblA, macA)
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		l.LinkChange(t0, "1/1/1", true)
 		l.LinkChange(t0, "1/1/2", true)
@@ -523,8 +532,8 @@ func TestPassive(t *testing.T) {
 				},
 			},
 		}
-		lA := lag.New(cfgA, tblA, macA)
-		lB := lag.New(cfgB, tblB, macB)
+		lA := mustNewLAG(t, cfgA, tblA, macA)
+		lB := mustNewLAG(t, cfgB, tblB, macB)
 
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		fxA1 := lA.LinkChange(t0, "1/1/1", true)
@@ -556,8 +565,8 @@ func TestPassive(t *testing.T) {
 				},
 			},
 		}
-		lA := lag.New(cfg, tblA, macA)
-		lB := lag.New(cfg, tblB, macB)
+		lA := mustNewLAG(t, cfg, tblA, macA)
+		lB := mustNewLAG(t, cfg, tblB, macB)
 
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		fxA1 := lA.LinkChange(t0, "1/1/1", true)
@@ -599,8 +608,8 @@ func TestCounters(t *testing.T) {
 			},
 		},
 	}
-	layerA := lag.New(cfg, tblA, macA)
-	layerB := lag.New(cfg, tblB, macB)
+	layerA := mustNewLAG(t, cfg, tblA, macA)
+	layerB := mustNewLAG(t, cfg, tblB, macB)
 
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	fxA1 := layerA.LinkChange(t0, "1/1/1", true)
@@ -645,7 +654,7 @@ func TestCloneIndependence(t *testing.T) {
 			},
 		},
 	}
-	l1 := lag.New(cfg, tbl, mac)
+	l1 := mustNewLAG(t, cfg, tbl, mac)
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l1.LinkChange(t0, "1/1/1", true)
 
@@ -668,7 +677,7 @@ func TestCloneIndependence(t *testing.T) {
 func TestExpiredHoldsForThreePeriods(t *testing.T) {
 	t.Parallel()
 
-	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true}}}},
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true}}}},
 		lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
@@ -689,7 +698,7 @@ func TestExpiredHoldsForThreePeriods(t *testing.T) {
 func TestMinLinksDisablesAll(t *testing.T) {
 	t.Parallel()
 
-	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {MinLinks: 2}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {MinLinks: 2}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)
 	if _, ok := l.Select("lag1", ethernet.Frame{}, 0); ok {
@@ -713,8 +722,8 @@ func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
 	cfg := func() lag.Config {
 		return lag.Config{LAGs: map[string]lag.LAG{"lag1": {UpDelay: 2 * time.Second, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
 	}
-	a := lag.New(cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
-	b := lag.New(cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0b"))
+	a := mustNewLAG(t, cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	b := mustNewLAG(t, cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0b"))
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	fa := a.LinkChange(t0, "1/1/1", true)
 	fb := b.LinkChange(t0, "1/1/1", true)
@@ -745,7 +754,7 @@ func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
 func TestNextWakeNeverBeforeTheLastEvent(t *testing.T) {
 	t.Parallel()
 
-	l := lag.New(lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}},
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}},
 		lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	l.LinkChange(t0, "1/1/1", true)

@@ -155,15 +155,15 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	}
 
 	wantFloodSteps := []trace.Step{
-		{Layer: port.LayerVlan, Op: trace.OpClassify, Detail: "vlan 10"},
-		{Layer: port.LayerRelay, Op: trace.OpLearn, Detail: "00:11:22:33:44:11 -> 1/1/1"},
-		{Layer: port.LayerRouting, Op: trace.OpClassify, Detail: "vrf default interface vlan10"},
-		{Layer: port.LayerRouting, Op: trace.OpLookup, Detail: "10.0.20.0/24 connected vlan20"},
-		{Layer: port.LayerRouting, Op: trace.OpRewrite, Detail: "hop limit 64 to 63, src 00:00:5e:00:01:01, dst 00:11:22:33:44:77"},
-		{Layer: port.LayerRelay, Op: trace.OpLookup, Detail: "unicast miss"},
-		{Layer: port.LayerRelay, Op: trace.OpReplicate, Detail: "1 candidate ports"},
-		{Layer: port.LayerVlan, Op: trace.OpRewrite, Detail: "port 1/1/2 egress tag form"},
-		{Layer: port.LayerRelay, Op: trace.OpTransmit, Detail: "port 1/1/2"},
+		{Layer: port.LayerVlan, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
+		{Layer: port.LayerRelay, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
+		{Layer: port.LayerRouting, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "vlan10"}},
+		{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
+		{Layer: port.LayerRouting, Op: trace.OpRewrite, RuleID: "decrement-ttl", Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+		{Layer: port.LayerRelay, Op: trace.OpLookup, RuleID: "unicast-miss", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:77"}},
+		{Layer: port.LayerRelay, Op: trace.OpReplicate, RuleID: "flood", Subject: trace.Subject{Kind: "vlan", Key: "20"}},
+		{Layer: port.LayerVlan, Op: trace.OpRewrite, RuleID: "vlan-tag-form", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+		{Layer: port.LayerRelay, Op: trace.OpTransmit, RuleID: "transmit", Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 	}
 	assertSteps(t, swHop.Result.Steps, wantFloodSteps)
 
@@ -377,7 +377,7 @@ func TestFabricMACAssignment(t *testing.T) {
 		t.Errorf("explicit h2 Address = %v, want %v", filledShift.Hosts["h2"].Address, netaddr.Local(1))
 	}
 
-	fabDerived, err := fabric.Derive(fab, baseCfg())
+	fabDerived, err := fabric.Derive(fab, constructionSpec(baseCfg()))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}
@@ -563,7 +563,7 @@ func assertSteps(t *testing.T, got []trace.Step, want []trace.Step) {
 		t.Fatalf("step count mismatch: got %d, want %d\ngot:  %+v\nwant: %+v", len(got), len(want), got, want)
 	}
 	for i := range got {
-		if got[i].Layer != want[i].Layer || got[i].Op != want[i].Op || got[i].Detail != want[i].Detail {
+		if got[i].Layer != want[i].Layer || got[i].Op != want[i].Op || got[i].RuleID != want[i].RuleID || got[i].Subject != want[i].Subject {
 			t.Errorf("step %d mismatch:\ngot:  %+v\nwant: %+v", i, got[i], want[i])
 		}
 	}
@@ -599,7 +599,7 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		t.Fatalf("sw1 = %s, want %s", got, netaddr.Local(1))
 	}
 
-	next, err := fabric.Derive(cur, cfgFor(netaddr.Local(1)))
+	next, err := fabric.Derive(cur, constructionSpec(cfgFor(netaddr.Local(1))))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}

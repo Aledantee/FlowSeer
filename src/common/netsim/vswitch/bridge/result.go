@@ -1,9 +1,13 @@
 package bridge
 
 import (
+	"slices"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
 const (
@@ -28,7 +32,7 @@ const (
 	// ReasonNotMember indicates a known unicast whose destination port is not a member of the classified VLAN.
 	ReasonNotMember trace.Reason = "not-member"
 
-	// ReasonNoEgress indicates a flood with no forwarding member port other than the ingress port.
+	// ReasonNoEgress indicates replication with no forwarding logical port other than the ingress port.
 	ReasonNoEgress trace.Reason = "no-egress"
 
 	// ReasonPortBlocked indicates a frame dropped because a port is blocked from learning or forwarding.
@@ -58,7 +62,52 @@ type Egress struct {
 // Result embeds [trace.Trace] and includes structured bridge forwarding metadata.
 type Result struct {
 	trace.Trace
-	Ingress string
-	FID     vlan.ID
-	Egress  []Egress
+	Ingress         string
+	FID             vlan.ID
+	Egress          []Egress
+	consultedPorts  []port.Port
+	consultedScopes []analysis.Scope
+}
+
+// ConsultedPorts returns independent snapshots of the port state that could
+// change this forwarding result, in first-consulted order.
+func (r Result) ConsultedPorts() []port.Port {
+	return append([]port.Port(nil), r.consultedPorts...)
+}
+
+// Consult records port-state snapshots that could change this forwarding result.
+func (r *Result) Consult(ports ...port.Port) {
+	for _, candidate := range ports {
+		if candidate.Name == "" {
+			continue
+		}
+		seen := false
+		for _, existing := range r.consultedPorts {
+			if existing.Name == candidate.Name {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			r.consultedPorts = append(r.consultedPorts, candidate)
+		}
+	}
+}
+
+// ConsultedScopes returns the exact analysis scopes whose facts could change
+// this forwarding result, in canonical order.
+func (r Result) ConsultedScopes() []analysis.Scope {
+	return append([]analysis.Scope(nil), r.consultedScopes...)
+}
+
+// ConsultScopes records exact analysis scopes whose facts could change this
+// forwarding result.
+func (r *Result) ConsultScopes(scopes ...analysis.Scope) {
+	r.consultedScopes = mergeScopes(r.consultedScopes, scopes)
+}
+
+func mergeScopes(existing, added []analysis.Scope) []analysis.Scope {
+	result := append(slices.Clone(existing), added...)
+	slices.SortFunc(result, func(a, b analysis.Scope) int { return a.Compare(b) })
+	return slices.CompactFunc(result, func(a, b analysis.Scope) bool { return a.Compare(b) == 0 })
 }

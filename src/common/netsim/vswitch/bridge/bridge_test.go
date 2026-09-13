@@ -1,7 +1,6 @@
 package bridge_test
 
 import (
-	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -46,6 +46,22 @@ func buildTestPorts(t *testing.T, count int) port.Table {
 	return tbl
 }
 
+func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.Bridge {
+	t.Helper()
+	br, err := bridge.New(cfg, ports)
+	if err != nil {
+		t.Fatalf("bridge.New: %v", err)
+	}
+	return br
+}
+
+func mustLearn(t *testing.T, br *bridge.Bridge, seeds []bridge.Seed) {
+	t.Helper()
+	if err := br.Learn(seeds); err != nil {
+		t.Fatalf("Learn: %v", err)
+	}
+}
+
 func TestDropsWithoutAnEgressCarryAReason(t *testing.T) {
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
@@ -61,7 +77,7 @@ func TestDropsWithoutAnEgressCarryAReason(t *testing.T) {
 				"1/1/2": {PVID: mustVLAN(1), Tagged: []vlan.ID{20}},
 			},
 		}}
-		b := bridge.New(cfg, buildTestPorts(t, 2))
+		b := mustNewBridge(t, cfg, buildTestPorts(t, 2))
 		b.Forward(now, "1/1/2", ethernet.Frame{Dst: macA, Src: macB})
 		res := b.Forward(now, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
 		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNotMember {
@@ -83,7 +99,7 @@ func TestDropsWithoutAnEgressCarryAReason(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		res := bridge.New(bridge.Config{}, tbl).Forward(now, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+		res := mustNewBridge(t, bridge.Config{}, tbl).Forward(now, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
 		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
 			t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonNoEgress)
 		}
@@ -104,14 +120,19 @@ func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
 		t.Fatal(err)
 	}
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
-	br := bridge.New(bridge.Config{}, tbl)
-	br.Learn([]bridge.Seed{
-		{MAC: macB, Port: "1/1/6", LearnedAt: now},
-		{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now},
-	})
+	br := mustNewBridge(t, bridge.Config{}, tbl)
+	if err := br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/6", LearnedAt: now}}); err != nil {
+		t.Fatalf("Learn() error = %v", err)
+	}
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "lag1" {
-		t.Fatalf("Entries() = %+v, want one entry on lag1 and the group seed ignored", entries)
+		t.Fatalf("Entries() = %+v, want one entry on lag1", entries)
+	}
+	if err := br.Learn([]bridge.Seed{{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now}}); err == nil {
+		t.Fatal("Learn() accepted a group MAC")
+	}
+	if got := br.Entries(); len(got) != 1 || got[0] != entries[0] {
+		t.Errorf("Entries() after invalid Learn = %+v, want unchanged %+v", got, entries)
 	}
 
 	res := br.Forward(now, "1/1/5", ethernet.Frame{Dst: macB, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa}})
@@ -126,7 +147,7 @@ func TestAdmissionIsCheckedBeforeThePVID(t *testing.T) {
 		Table:       map[vlan.ID]string{20: "twenty"},
 		Switchports: map[string]bridge.Switchport{"1/1/1": {Admission: bridge.TaggedOnly, Tagged: []vlan.ID{20}}},
 	}}
-	res := bridge.New(cfg, buildTestPorts(t, 2)).Forward(now, "1/1/1", ethernet.Frame{
+	res := mustNewBridge(t, cfg, buildTestPorts(t, 2)).Forward(now, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 	if res.Reason != bridge.ReasonAdmission {
@@ -145,6 +166,18 @@ func TestDiffIgnoresSetOrderAndTheAgingDefault(t *testing.T) {
 	}}
 	if changes := bridge.Diff(a, b); len(changes) != 0 {
 		t.Errorf("Diff = %+v, want no change between configurations that build the same bridge", changes)
+	}
+}
+
+func TestDiffDistinguishesVLANAwareness(t *testing.T) {
+	t.Parallel()
+
+	changes := bridge.Diff(bridge.Config{}, bridge.Config{VLAN: &bridge.VLAN{}})
+	if len(changes) != 1 {
+		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
+	}
+	if got := changes[0]; got.Field != "vlan_awareness" || got.From != bridge.BoolFact(false) || got.To != bridge.BoolFact(true) {
+		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
 	}
 }
 
@@ -172,7 +205,7 @@ func TestUntaggedIngressClassifiesToPVIDAndLearns(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	frame := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -357,7 +390,7 @@ func TestAdmissionAndIngressFiltering(t *testing.T) {
 				},
 			}
 
-			br := bridge.New(cfg, ports)
+			br := mustNewBridge(t, cfg, ports)
 			res := br.Forward(testTime0, "1/1/1", tc.frame)
 
 			if res.Outcome != tc.wantOutcome {
@@ -394,7 +427,7 @@ func TestEgressTagForm(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	frame := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -451,7 +484,7 @@ func TestKnownUnicastForwardingAndSamePortDrop(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	initialFrame := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -506,7 +539,7 @@ func TestDownPortNeitherIngressesNorEgresses(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	frame := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -543,7 +576,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	learnFrame := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -552,7 +585,7 @@ func TestDynamicEntriesAgeAndStaticEntriesPersist(t *testing.T) {
 	}
 	br.Forward(testTime0, "1/1/1", learnFrame)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{
 			FID:       10,
 			MAC:       macC,
@@ -624,7 +657,7 @@ func TestReservedDestinationAddressesDropped(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	reservedMAC := netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 	frame := ethernet.Frame{
 		Dst:       reservedMAC,
@@ -666,8 +699,8 @@ func TestLAGMemberResolutionAndForwarding(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
-	br.SetSelector(stubSelector{member: "1/1/5", ok: true})
+	br := mustNewBridge(t, cfg, ports)
+	br.SetSelector(stubSelector{member: "1/1/5", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))
 	frameFromMember := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -744,8 +777,8 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 	}
 
 	t.Run("selector returning second member fills Egress.Member", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.SetSelector(stubSelector{member: "1/1/6", ok: true})
+		br := mustNewBridge(t, cfg, ports)
+		br.SetSelector(stubSelector{member: "1/1/6", ok: true}, analysis.ProtocolScope("sw1", "lag", "0"))
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Flooded {
 			t.Fatalf("res.Outcome = %q, want Flooded", res.Outcome)
@@ -759,8 +792,8 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 	})
 
 	t.Run("selector returning false records Egress.Dropped no-member", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.SetSelector(stubSelector{member: "", ok: false})
+		br := mustNewBridge(t, cfg, ports)
+		br.SetSelector(stubSelector{member: "", ok: false}, analysis.ProtocolScope("sw1", "lag", "0"))
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Dropped {
 			t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
@@ -777,7 +810,7 @@ func TestSelectorOnLAGEgress(t *testing.T) {
 	})
 
 	t.Run("no selector on bridge with LAG port records no-member", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
+		br := mustNewBridge(t, cfg, ports)
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Dropped {
 			t.Fatalf("res.Outcome = %q, want Dropped", res.Outcome)
@@ -798,7 +831,7 @@ func TestBridgeWithoutVLANRelaysByAddressAlone(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	cfg := bridge.Config{}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	frameTagged := ethernet.Frame{
 		Dst:       macB,
 		Src:       macA,
@@ -959,6 +992,92 @@ func TestValidationRules(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsVLANReferencesAbsentFromTable(t *testing.T) {
+	t.Parallel()
+
+	ports := buildTestPorts(t, 1)
+	missing := vlan.ID(20)
+	cases := []struct {
+		name      string
+		cfg       bridge.Config
+		wantField string
+	}{
+		{
+			name: "PVID",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &missing}},
+			}},
+			wantField: "vlan.switchports.1/1/1.pvid",
+		},
+		{
+			name: "tagged VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Tagged: []vlan.ID{missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.tagged.20",
+		},
+		{
+			name: "untagged VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Untagged: []vlan.ID{missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.untagged.20",
+		},
+		{
+			name: "tunnel VLAN",
+			cfg: bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"1/1/1": {Tunnel: &bridge.Tunnel{VID: missing}}},
+			}},
+			wantField: "vlan.switchports.1/1/1.tunnel.vid",
+		},
+		{
+			name: "flood VLAN",
+			cfg: bridge.Config{
+				FloodVLANs: []vlan.ID{missing},
+				VLAN:       &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}},
+			},
+			wantField: "flood_vlans.20",
+		},
+		{
+			name:      "flood VLAN without VLAN awareness",
+			cfg:       bridge.Config{FloodVLANs: []vlan.ID{10}},
+			wantField: "flood_vlans.10",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.cfg.Validate(ports)
+			if err == nil {
+				t.Fatal("Validate() = nil, want error")
+			}
+			if got := errs.Attributes(err)["field"]; got != tc.wantField {
+				t.Errorf("field = %v, want %q", got, tc.wantField)
+			}
+		})
+	}
+}
+
+func TestNegativeAgingTimeIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	cfg := bridge.Config{AgingTime: -time.Second}
+	if got := cfg.Normalize().AgingTime; got != -time.Second {
+		t.Errorf("Normalize().AgingTime = %s, want -1s", got)
+	}
+	err := cfg.Validate(buildTestPorts(t, 1))
+	if err == nil {
+		t.Fatal("Validate() = nil, want error")
+	}
+	if got := errs.Attributes(err)["field"]; got != "aging_time" {
+		t.Errorf("field = %v, want aging_time", got)
+	}
+}
+
 func TestOversizedFrameDropsAtEgress(t *testing.T) {
 	builder := port.NewBuilder()
 	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -980,7 +1099,7 @@ func TestOversizedFrameDropsAtEgress(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	oversizedPayload := make([]byte, 1600)
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1032,7 +1151,7 @@ func TestSTaggedFrameCarriedThroughBothEgressForms(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 	sTaggedFrame := ethernet.Frame{
 		Dst: macB,
 		Src: macA,
@@ -1103,8 +1222,8 @@ func TestFDBHitWithDownPortDropsPortDown(t *testing.T) {
 		},
 	}
 
-	br := bridge.New(cfg, ports)
-	br.Learn([]bridge.Seed{
+	br := mustNewBridge(t, cfg, ports)
+	mustLearn(t, br, []bridge.Seed{
 		{
 			FID:       10,
 			MAC:       macB,
@@ -1247,11 +1366,11 @@ func (g testGate) Forwards(p string) bool {
 
 func TestGateBlocksIngressWithoutLearning(t *testing.T) {
 	ports := buildTestPorts(t, 2)
-	br := bridge.New(bridge.Config{}, ports)
+	br := mustNewBridge(t, bridge.Config{}, ports)
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
 		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1273,11 +1392,11 @@ func TestGateBlocksIngressWithoutLearning(t *testing.T) {
 
 func TestGateLearningOnlyIngressLearnsThenDrops(t *testing.T) {
 	ports := buildTestPorts(t, 2)
-	br := bridge.New(bridge.Config{}, ports)
+	br := mustNewBridge(t, bridge.Config{}, ports)
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": true, "1/1/2": true},
 		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1300,11 +1419,11 @@ func TestGateLearningOnlyIngressLearnsThenDrops(t *testing.T) {
 
 func TestGateBlocksEgress(t *testing.T) {
 	ports := buildTestPorts(t, 3)
-	br := bridge.New(bridge.Config{}, ports)
+	br := mustNewBridge(t, bridge.Config{}, ports)
 	br.SetGate(testGate{
 		learns:   map[string]bool{"1/1/1": true, "1/1/2": true, "1/1/3": true},
 		forwards: map[string]bool{"1/1/1": true, "1/1/2": false, "1/1/3": true},
-	})
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1335,7 +1454,7 @@ func TestGateBlocksEgress(t *testing.T) {
 
 func TestFlushPorts(t *testing.T) {
 	ports := buildTestPorts(t, 3)
-	br := bridge.New(bridge.Config{}, ports)
+	br := mustNewBridge(t, bridge.Config{}, ports)
 	br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4})
 	br.Forward(testTime0, "1/1/2", ethernet.Frame{Dst: macA, Src: macB, EtherType: ethernet.EtherTypeIPv4})
 
@@ -1352,7 +1471,7 @@ func TestFlushPorts(t *testing.T) {
 
 func TestSetOperStatusRemovesPortFromFloodSet(t *testing.T) {
 	ports := buildTestPorts(t, 3)
-	br := bridge.New(bridge.Config{}, ports)
+	br := mustNewBridge(t, bridge.Config{}, ports)
 
 	frame := ethernet.Frame{
 		Dst:       macB,
@@ -1365,11 +1484,53 @@ func TestSetOperStatusRemovesPortFromFloodSet(t *testing.T) {
 		t.Fatalf("egress count before = %d, want 2", len(resBefore.Egress))
 	}
 
-	br.SetOperStatus("1/1/2", port.Down)
+	if err := br.SetOperStatus("1/1/2", port.Down); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
 
 	resAfter := br.Forward(testTime0, "1/1/1", frame)
 	if len(resAfter.Egress) != 1 || resAfter.Egress[0].Port != "1/1/3" {
 		t.Fatalf("egress after SetOperStatus = %+v, want only 1/1/3", resAfter.Egress)
+	}
+}
+
+func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+
+	for _, portName := range []string{"1/1/2", "missing"} {
+		t.Run(portName, func(t *testing.T) {
+			br := mustNewBridge(t, bridge.Config{}, ports)
+			before := br.Forward(testTime0, "1/1/1", frame)
+
+			err := br.SetOperStatus(portName, port.LinkState("invalid"))
+			if err == nil {
+				t.Fatal("SetOperStatus with invalid state succeeded, want error")
+			}
+			attrs := errs.Attributes(err)
+			if got := attrs["field"]; got != "ports."+portName+".oper_status" {
+				t.Errorf("field attribute = %v, want ports.%s.oper_status", got, portName)
+			}
+			if got := attrs["oper_status"]; got != port.LinkState("invalid") {
+				t.Errorf("oper_status attribute = %v, want invalid", got)
+			}
+
+			after := br.Forward(testTime0, "1/1/1", frame)
+			if len(after.Egress) != len(before.Egress) {
+				t.Fatalf("egress count after invalid update = %d, want unchanged %d", len(after.Egress), len(before.Egress))
+			}
+			for i := range before.Egress {
+				if after.Egress[i].Port != before.Egress[i].Port || after.Egress[i].Dropped != before.Egress[i].Dropped {
+					t.Errorf("egress after invalid update = %+v, want unchanged %+v", after.Egress, before.Egress)
+					break
+				}
+			}
+		})
 	}
 }
 
@@ -1385,8 +1546,8 @@ func TestEgressEmptyPort(t *testing.T) {
 				},
 			},
 		}
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/1", FID: 10},
 		})
 
@@ -1424,7 +1585,7 @@ func TestEgressEmptyPort(t *testing.T) {
 				},
 			},
 		}
-		br := bridge.New(cfg, ports)
+		br := mustNewBridge(t, cfg, ports)
 
 		frame := ethernet.Frame{
 			Dst:       macB,
@@ -1468,7 +1629,7 @@ func TestEgressEmptyPort(t *testing.T) {
 
 	t.Run("non-vlan flood reaches all ports with tags untouched", func(t *testing.T) {
 		ports := buildTestPorts(t, 2)
-		br := bridge.New(bridge.Config{}, ports)
+		br := mustNewBridge(t, bridge.Config{}, ports)
 
 		origTags := []vlan.Tag{{TPID: 0x8100, VID: 100, PCP: 3, DEI: true}}
 		frame := ethernet.Frame{
@@ -1515,7 +1676,7 @@ func TestBoundedTableEvictsOldestDynamicEntry(t *testing.T) {
 			},
 		},
 	}
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 
 	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	frameA := ethernet.Frame{Dst: broadcastMAC, Src: macA}
@@ -1540,16 +1701,15 @@ func TestBoundedTableEvictsOldestDynamicEntry(t *testing.T) {
 		t.Errorf("Counters() = %+v, want %+v", counters, wantCounters)
 	}
 
-	wantEvictedDetail := fmt.Sprintf("evicted %s 1/1/1", macA)
 	foundEvictedStep := false
 	for _, step := range resC.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLearn && step.Detail == wantEvictedDetail {
+		if step.Layer == port.LayerRelay && step.Op == trace.OpLearn && step.RuleID == "evict" && step.Subject.Key == macA.String() {
 			foundEvictedStep = true
 			break
 		}
 	}
 	if !foundEvictedStep {
-		t.Errorf("resC.Steps did not contain learn step with detail %q; steps = %+v", wantEvictedDetail, resC.Steps)
+		t.Errorf("resC.Steps did not contain learn step with RuleID \"evict\" for %s; steps = %+v", macA, resC.Steps)
 	}
 
 	br.Forward(testTime0.Add(3*time.Second), "1/1/2", frameB)
@@ -1575,7 +1735,7 @@ func TestMovedCounterIncrementsOnPortChange(t *testing.T) {
 			},
 		},
 	}
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 
 	broadcastMAC := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	frameA := ethernet.Frame{Dst: broadcastMAC, Src: macA}
@@ -1605,9 +1765,9 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 			},
 		},
 	}
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{FID: 10, MAC: macD, Port: "1/1/3", Static: true, LearnedAt: testTime0},
 	})
 
@@ -1690,7 +1850,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From != 0 || ch.To != 2 || ch.Layer != port.LayerRelay {
+	if ch.Field != "max_entries" || ch.From != bridge.IntFact(0) || ch.To != bridge.IntFact(2) || ch.Layer != port.LayerRelay {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -1712,7 +1872,7 @@ func TestFloodVLANFloodsWithoutLearning(t *testing.T) {
 			},
 		},
 	}
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 
 	frameA := ethernet.Frame{Dst: macB, Src: macA}
 	resA := br.Forward(testTime0, "1/1/1", frameA)
@@ -1742,13 +1902,13 @@ func TestFloodVLANFloodsWithoutLearning(t *testing.T) {
 
 	foundLookupStep := false
 	for _, step := range resB.Steps {
-		if step.Layer == port.LayerRelay && step.Op == trace.OpLookup && step.Detail == "flood vlan" {
+		if step.Layer == port.LayerRelay && step.Op == trace.OpLookup && step.RuleID == "flood-vlan" {
 			foundLookupStep = true
 			break
 		}
 	}
 	if !foundLookupStep {
-		t.Errorf("frame B steps = %+v, want lookup step with detail %q", resB.Steps, "flood vlan")
+		t.Errorf("frame B steps = %+v, want lookup step with RuleID %q", resB.Steps, "flood-vlan")
 	}
 }
 
@@ -1769,9 +1929,9 @@ func TestProtectedPortsDropTrafficBetweenProtectedPorts(t *testing.T) {
 			},
 		},
 	}
-	br := bridge.New(cfg, ports)
+	br := mustNewBridge(t, cfg, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{FID: 10, MAC: macB, Port: "1/1/2", LearnedAt: testTime0},
 		{FID: 10, MAC: macC, Port: "1/1/3", LearnedAt: testTime0},
 	})
@@ -1845,7 +2005,7 @@ func TestForwardBPDUFloodsReservedBridgeAddresses(t *testing.T) {
 				},
 			},
 		}
-		br := bridge.New(cfg, ports)
+		br := mustNewBridge(t, cfg, ports)
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonReservedAddress {
 			t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, bridge.ReasonReservedAddress)
@@ -1871,7 +2031,7 @@ func TestForwardBPDUFloodsReservedBridgeAddresses(t *testing.T) {
 				},
 			},
 		}
-		br := bridge.New(cfg, ports)
+		br := mustNewBridge(t, cfg, ports)
 		res := br.Forward(testTime0, "1/1/1", frame)
 		if res.Outcome != trace.Flooded {
 			t.Errorf("Forward = %s, want Flooded", res.Outcome)
@@ -1968,7 +2128,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []vlan.ID{10, 20}
 		wantTo := []vlan.ID{10, 30}
-		if !slices.Equal(ch.From.([]vlan.ID), wantFrom) || !slices.Equal(ch.To.([]vlan.ID), wantTo) {
+		if !trace.EqualFact(ch.From, bridge.VLANsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.VLANsFact(wantTo)) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})
@@ -1994,7 +2154,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 		}
 		wantFrom := []string{"1/1/1", "1/1/2"}
 		wantTo := []string{"1/1/1", "1/1/3"}
-		if !slices.Equal(ch.From.([]string), wantFrom) || !slices.Equal(ch.To.([]string), wantTo) {
+		if !trace.EqualFact(ch.From, bridge.StringsFact(wantFrom)) || !trace.EqualFact(ch.To, bridge.StringsFact(wantTo)) {
 			t.Errorf("From = %v, To = %v, want From = %v, To = %v", ch.From, ch.To, wantFrom, wantTo)
 		}
 	})
@@ -2007,7 +2167,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From != false || ch.To != true || ch.Layer != port.LayerRelay {
+		if ch.Field != "forward_bpdu" || ch.From != bridge.BoolFact(false) || ch.To != bridge.BoolFact(true) || ch.Layer != port.LayerRelay {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})
@@ -2036,8 +2196,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	}
 
 	t.Run("customer tagged frame to tagged port emits service tag", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2069,8 +2229,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	})
 
 	t.Run("customer tagged frame to untagged port pops service tag", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/1", FID: 10, Static: true},
 		})
 
@@ -2101,8 +2261,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	})
 
 	t.Run("customer tag outside permitted list is dropped", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2120,8 +2280,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	})
 
 	t.Run("untagged frame on tunnel port classifies to tunnel VID", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2149,8 +2309,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 	})
 
 	t.Run("tagged frame from trunk to tunnel port pops service tag", func(t *testing.T) {
-		br := bridge.New(cfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, cfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macA, Port: "1/1/4", FID: 10, Static: true},
 		})
 
@@ -2187,8 +2347,8 @@ func TestTunnelPortIngressAndEgress(t *testing.T) {
 		sw.IngressFiltering = true
 		filtCfg.VLAN.Switchports["1/1/4"] = sw
 
-		br := bridge.New(filtCfg, ports)
-		br.Learn([]bridge.Seed{
+		br := mustNewBridge(t, filtCfg, ports)
+		mustLearn(t, br, []bridge.Seed{
 			{MAC: macB, Port: "1/1/3", FID: 10, Static: true},
 		})
 
@@ -2255,8 +2415,8 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(string(tc.policy), func(t *testing.T) {
-				br := bridge.New(baseCfg(tc.policy), ports)
-				br.Learn([]bridge.Seed{
+				br := mustNewBridge(t, baseCfg(tc.policy), ports)
+				mustLearn(t, br, []bridge.Seed{
 					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
 				})
 
@@ -2312,8 +2472,8 @@ func TestPriorityTagPolicyOnUntaggedEgress(t *testing.T) {
 
 		for _, tc := range cases {
 			t.Run(string(tc.policy), func(t *testing.T) {
-				br := bridge.New(baseCfg(tc.policy), ports)
-				br.Learn([]bridge.Seed{
+				br := mustNewBridge(t, baseCfg(tc.policy), ports)
+				mustLearn(t, br, []bridge.Seed{
 					{MAC: macB, Port: "1/1/2", FID: 10, Static: true},
 				})
 
@@ -2366,9 +2526,8 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 		if ch.From != nil {
 			t.Errorf("From = %v, want nil", ch.From)
 		}
-		to, ok := ch.To.(bridge.Tunnel)
-		if !ok || to.VID != 10 || len(to.CustomerVIDs) != 0 || to.TPID != bridge.DefaultServiceTPID {
-			t.Errorf("To = %+v (%T), want Tunnel{VID: 10} with the TPID in effect", ch.To, ch.To)
+		if ch.To == nil || ch.To.TypeID() != "bridge.tunnel" || ch.To.Canonical() != "vid=10;tpid=34984;customer_vids=[]" {
+			t.Errorf("To = %+v (%T), want a complete tunnel snapshot", ch.To, ch.To)
 		}
 	})
 
@@ -2408,6 +2567,62 @@ func TestDiffTunnelAndPriorityTags(t *testing.T) {
 			t.Errorf("change = %+v, want priority_tags From: Never To: Always", ch)
 		}
 	})
+}
+
+func TestBridgeSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	taggedA := []vlan.ID{10}
+	configForSwitchport := func(tagged []vlan.ID) bridge.Config {
+		return bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{
+			"1/1/1": {Tagged: tagged},
+		}}}
+	}
+	base := bridge.Config{VLAN: &bridge.VLAN{}}
+	factA := bridge.Diff(base, configForSwitchport(taggedA))[0].To
+	factB := bridge.Diff(base, configForSwitchport([]vlan.ID{20}))[0].To
+	if factA.TypeID() != "bridge.switchport" {
+		t.Errorf("TypeID() = %q, want bridge.switchport", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different switchports share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	taggedA[0] = 30
+	if got := factA.Canonical(); got != before {
+		t.Errorf("switchport fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	customersA := []vlan.ID{100}
+	configForTunnel := func(customers []vlan.ID) bridge.Config {
+		return bridge.Config{VLAN: &bridge.VLAN{Switchports: map[string]bridge.Switchport{
+			"1/1/1": {Tunnel: &bridge.Tunnel{VID: 10, CustomerVIDs: customers}},
+		}}}
+	}
+	tunnelFactA := bridge.Diff(base, configForTunnel(customersA))[0].To
+	tunnelFactB := bridge.Diff(base, configForTunnel([]vlan.ID{200}))[0].To
+	if tunnelFactA.TypeID() != "bridge.switchport" {
+		t.Errorf("TypeID() = %q, want bridge.switchport", tunnelFactA.TypeID())
+	}
+	if tunnelFactA.Canonical() == tunnelFactB.Canonical() {
+		t.Errorf("different tunnel switchports share canonical form %q", tunnelFactA.Canonical())
+	}
+	before = tunnelFactA.Canonical()
+	customersA[0] = 300
+	if got := tunnelFactA.Canonical(); got != before {
+		t.Errorf("tunnel switchport fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	directA := configForTunnel([]vlan.ID{100})
+	directB := configForTunnel([]vlan.ID{200})
+	directFactA := bridge.Diff(directA, directB)[0].From
+	directFactB := bridge.Diff(directA, directB)[0].To
+	if directFactA.TypeID() != "bridge.tunnel" {
+		t.Errorf("TypeID() = %q, want bridge.tunnel", directFactA.TypeID())
+	}
+	if directFactA.Canonical() == directFactB.Canonical() {
+		t.Errorf("different tunnels share canonical form %q", directFactA.Canonical())
+	}
 }
 
 func TestValidateTunnelSwitchportAndPriorityTags(t *testing.T) {
@@ -2528,7 +2743,7 @@ func (r testGroupResolver) Resolve(vlan.ID, ethernet.Frame) ([]string, bool) {
 
 func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 	ports := buildTestPorts(t, 4)
-	br := bridge.New(bridge.Config{VLAN: &bridge.VLAN{
+	br := mustNewBridge(t, bridge.Config{VLAN: &bridge.VLAN{
 		Table: map[vlan.ID]string{10: "ten"},
 		Switchports: map[string]bridge.Switchport{
 			"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
@@ -2537,7 +2752,7 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 			"1/1/4": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
 		},
 	}}, ports)
-	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true})
+	br.SetGroupResolver(testGroupResolver{ports: []string{"1/1/2", "1/1/4"}, decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst:       netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
@@ -2556,15 +2771,15 @@ func TestGroupResolverSelectsReplicationPorts(t *testing.T) {
 		t.Errorf("forwarded ports = %v, want [1/1/2 1/1/4]", got)
 	}
 	if !slices.ContainsFunc(res.Steps, func(step trace.Step) bool {
-		return step.Op == trace.OpReplicate && step.Detail == "group members"
+		return step.Op == trace.OpReplicate && step.RuleID == "group-members"
 	}) {
 		t.Errorf("steps = %+v, want group members replication", res.Steps)
 	}
 }
 
 func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
-	br := bridge.New(bridge.Config{}, buildTestPorts(t, 2))
-	br.SetGroupResolver(testGroupResolver{decided: true})
+	br := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
+	br.SetGroupResolver(testGroupResolver{decided: true}, analysis.ProtocolScope("sw1", "mcast", "0"))
 
 	res := br.Forward(testTime0, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02},
@@ -2577,7 +2792,7 @@ func TestGroupResolverEmptyDecisionUsesUnregisteredReason(t *testing.T) {
 
 func TestEgressToUsesFloodReplicationRules(t *testing.T) {
 	ports := buildTestPorts(t, 3)
-	br := bridge.New(bridge.Config{VLAN: &bridge.VLAN{
+	br := mustNewBridge(t, bridge.Config{VLAN: &bridge.VLAN{
 		Table: map[vlan.ID]string{10: "ten"},
 		Switchports: map[string]bridge.Switchport{
 			"1/1/1": {PVID: mustVLAN(10), Untagged: []vlan.ID{10}},
@@ -2589,7 +2804,7 @@ func TestEgressToUsesFloodReplicationRules(t *testing.T) {
 		"1/1/1": true,
 		"1/1/2": false,
 		"1/1/3": true,
-	}})
+	}}, analysis.ProtocolScope("sw1", "stp", "0"))
 
 	res := br.EgressTo(bridge.Ingress{Port: "1/1/1", FID: 10, PCP: 5}, ethernet.Frame{
 		Dst: netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x01},
@@ -2608,9 +2823,9 @@ func TestEgressToUsesFloodReplicationRules(t *testing.T) {
 
 func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	ports := buildTestPorts(t, 4)
-	br := bridge.New(bridge.Config{MaxEntries: 2}, ports)
+	br := mustNewBridge(t, bridge.Config{MaxEntries: 2}, ports)
 
-	br.Learn([]bridge.Seed{
+	mustLearn(t, br, []bridge.Seed{
 		{MAC: macA, Port: "1/1/1", LearnedAt: testTime0},
 		{MAC: macB, Port: "1/1/2", LearnedAt: testTime0.Add(time.Second)},
 		{MAC: macC, Port: "1/1/1", LearnedAt: testTime0.Add(2 * time.Second)},
@@ -2622,7 +2837,7 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 		t.Fatalf("Entries() = %+v, want B and C with the oldest seed evicted", entries)
 	}
 
-	br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/3", LearnedAt: testTime0.Add(3 * time.Second)}})
+	mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "1/1/3", LearnedAt: testTime0.Add(3 * time.Second)}})
 	if got := br.Counters(); got.Moved != 1 || got.Learned != 3 || got.Evicted != 1 {
 		t.Fatalf("Counters() after a seed moved B = %+v, want Moved 1 and nothing else changed", got)
 	}
@@ -2631,8 +2846,89 @@ func TestLearnSeedsCountAndKeepTheBound(t *testing.T) {
 	if !br.Forget(0, macC) {
 		t.Fatal("Forget(C) = false, want true")
 	}
-	br.Learn([]bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
+	mustLearn(t, br, []bridge.Seed{{MAC: macD, Port: "1/1/4", LearnedAt: testTime0.Add(4 * time.Second)}})
 	if got := br.Counters(); got.Evicted != 1 || got.Learned != 4 {
 		t.Fatalf("Counters() after Forget then a new seed = %+v, want Learned 4, Evicted 1", got)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := bridge.Config{
+		FloodVLANs:     []vlan.ID{20, 10, 20},
+		ProtectedPorts: []string{"1/1/2", "1/1/1", "1/1/2"},
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {
+					Tagged:   []vlan.ID{30, 20, 20},
+					Untagged: []vlan.ID{10, 10},
+					Tunnel: &bridge.Tunnel{
+						VID:          100,
+						CustomerVIDs: []vlan.ID{200, 100, 200},
+					},
+				},
+			},
+		},
+	}
+
+	norm := cfg.Normalize()
+	if norm.AgingTime != bridge.DefaultAgingTime {
+		t.Errorf("AgingTime: got %v, want %v", norm.AgingTime, bridge.DefaultAgingTime)
+	}
+	wantFlood := []vlan.ID{10, 20}
+	if !slices.Equal(norm.FloodVLANs, wantFlood) {
+		t.Errorf("FloodVLANs: got %v, want %v", norm.FloodVLANs, wantFlood)
+	}
+	wantProt := []string{"1/1/1", "1/1/2"}
+	if !slices.Equal(norm.ProtectedPorts, wantProt) {
+		t.Errorf("ProtectedPorts: got %v, want %v", norm.ProtectedPorts, wantProt)
+	}
+
+	sw := norm.VLAN.Switchports["1/1/1"]
+	if sw.Admission != bridge.All {
+		t.Errorf("Admission: got %v, want %v", sw.Admission, bridge.All)
+	}
+	if sw.PriorityTags != bridge.PriorityTagsNever {
+		t.Errorf("PriorityTags: got %v, want %v", sw.PriorityTags, bridge.PriorityTagsNever)
+	}
+	wantTagged := []vlan.ID{20, 30}
+	if !slices.Equal(sw.Tagged, wantTagged) {
+		t.Errorf("Tagged: got %v, want %v", sw.Tagged, wantTagged)
+	}
+	wantUntagged := []vlan.ID{10}
+	if !slices.Equal(sw.Untagged, wantUntagged) {
+		t.Errorf("Untagged: got %v, want %v", sw.Untagged, wantUntagged)
+	}
+	if sw.Tunnel.TPID != bridge.DefaultServiceTPID {
+		t.Errorf("Tunnel TPID: got 0x%04x, want 0x%04x", sw.Tunnel.TPID, bridge.DefaultServiceTPID)
+	}
+	wantCust := []vlan.ID{100, 200}
+	if !slices.Equal(sw.Tunnel.CustomerVIDs, wantCust) {
+		t.Errorf("CustomerVIDs: got %v, want %v", sw.Tunnel.CustomerVIDs, wantCust)
+	}
+}
+
+func TestValidateEnumDomains(t *testing.T) {
+	t.Parallel()
+
+	builder := port.NewBuilder()
+	builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	cfg := bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {Admission: "InvalidAdmission"},
+			},
+		},
+	}
+	if err := cfg.Validate(ports); err == nil {
+		t.Fatal("Validate() succeeded for invalid Admission, want error")
 	}
 }

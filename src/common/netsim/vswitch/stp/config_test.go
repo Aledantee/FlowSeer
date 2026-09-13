@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -83,6 +84,15 @@ func TestValidate(t *testing.T) {
 				},
 			},
 			wantErr: false,
+		},
+		{
+			name: "group address rejected",
+			cfg: stp.Config{
+				Priority: 32768,
+				Address:  netaddr.MAC{0x01, 0, 0, 0, 0, 1},
+				Ports:    map[string]stp.Port{"1/1/1": {Priority: 128}},
+			},
+			wantErr: true,
 		},
 		{
 			name: "non-multiple of 4096 priority rejected",
@@ -183,6 +193,17 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "invalid point to point rejected",
+			cfg: stp.Config{
+				Priority: 32768,
+				Address:  validMAC,
+				Ports: map[string]stp.Port{
+					"1/1/1": {PointToPoint: "InvalidMode"},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -193,6 +214,193 @@ func TestValidate(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestNewRejectsPathCostAboveMaximum(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	cfg := stp.Config{
+		Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 200_000_001},
+		},
+	}
+	_, err = stp.New(cfg, tbl)
+	if err == nil {
+		t.Fatal("New() error = nil, want path cost rejection")
+	}
+	if got, want := errs.Attributes(err)["field"], "ports.1/1/1.path_cost"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
+	}
+
+	cfg.Ports["1/1/1"] = stp.Port{PathCost: stp.MaxPathCost}
+	if _, err := stp.New(cfg, tbl); err != nil {
+		t.Errorf("New() at maximum path cost: %v", err)
+	}
+}
+
+func TestValidateUsesEffectiveTimerRelations(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+	validMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	for _, test := range []struct {
+		name    string
+		cfg     stp.Config
+		wantErr bool
+	}{
+		{name: "all defaults", cfg: stp.Config{Address: validMAC}},
+		{
+			name: "both equality boundaries",
+			cfg:  stp.Config{Address: validMAC, HelloTime: 2 * time.Second, MaxAge: 6 * time.Second, ForwardDelay: 4 * time.Second},
+		},
+		{
+			name:    "minimum max age violated",
+			cfg:     stp.Config{Address: validMAC, HelloTime: 3 * time.Second, MaxAge: 6 * time.Second, ForwardDelay: 4 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "maximum max age violated",
+			cfg:     stp.Config{Address: validMAC, HelloTime: time.Second, MaxAge: 7 * time.Second, ForwardDelay: 4 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "explicit hello with default max age",
+			cfg:     stp.Config{Address: validMAC, HelloTime: 10 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "explicit max age with default forward delay",
+			cfg:     stp.Config{Address: validMAC, MaxAge: 40 * time.Second},
+			wantErr: true,
+		},
+		{
+			name: "explicit max and forward with default hello at equality",
+			cfg:  stp.Config{Address: validMAC, MaxAge: 20 * time.Second, ForwardDelay: 11 * time.Second},
+		},
+		{
+			name: "explicit hello and max with default forward delay at equality",
+			cfg:  stp.Config{Address: validMAC, HelloTime: 2 * time.Second, MaxAge: 6 * time.Second},
+		},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			err := test.cfg.Validate(tbl)
+			if (err != nil) != test.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %t", err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestClone(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{
+		Priority: 32768,
+		Ports: map[string]stp.Port{
+			"1/1/1": {Priority: 128},
+		},
+	}
+	cloned := cfg.Clone()
+	cloned.Ports["1/1/1"] = stp.Port{Priority: 64}
+
+	if cfg.Ports["1/1/1"].Priority != 128 {
+		t.Errorf("original port priority modified: got %d, want 128", cfg.Ports["1/1/1"].Priority)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+	}
+	norm := cfg.Normalize()
+
+	if norm.Priority != stp.DefaultBridgePriority {
+		t.Errorf("Priority: got %d, want %d", norm.Priority, stp.DefaultBridgePriority)
+	}
+	if norm.HelloTime != stp.DefaultHelloTime {
+		t.Errorf("HelloTime: got %v, want %v", norm.HelloTime, stp.DefaultHelloTime)
+	}
+	if norm.MaxAge != stp.DefaultMaxAge {
+		t.Errorf("MaxAge: got %v, want %v", norm.MaxAge, stp.DefaultMaxAge)
+	}
+	if norm.ForwardDelay != stp.DefaultForwardDelay {
+		t.Errorf("ForwardDelay: got %v, want %v", norm.ForwardDelay, stp.DefaultForwardDelay)
+	}
+	if norm.TxHoldCount != stp.DefaultTxHoldCount {
+		t.Errorf("TxHoldCount: got %d, want %d", norm.TxHoldCount, stp.DefaultTxHoldCount)
+	}
+	p := norm.Ports["1/1/1"]
+	if p.Priority != stp.DefaultPortPriority {
+		t.Errorf("port Priority: got %d, want %d", p.Priority, stp.DefaultPortPriority)
+	}
+	if p.PointToPoint != stp.PointToPointAuto {
+		t.Errorf("port PointToPoint: got %v, want %v", p.PointToPoint, stp.PointToPointAuto)
+	}
+}
+
+func TestNormalizePreservesExplicitZeroPriorities(t *testing.T) {
+	cfg := stp.Config{
+		Priority:        0,
+		PriorityPresent: true,
+		Ports: map[string]stp.Port{
+			"1/1/1": {Priority: 0, PriorityPresent: true},
+		},
+	}
+
+	norm := cfg.Normalize()
+	if norm.Priority != 0 {
+		t.Errorf("bridge priority = %d, want explicit zero", norm.Priority)
+	}
+	if got := norm.Ports["1/1/1"].Priority; got != 0 {
+		t.Errorf("port priority = %d, want explicit zero", got)
+	}
+}
+
+func TestPortFactCanonicalUsesEffectiveElectionSettings(t *testing.T) {
+	t.Parallel()
+
+	defaulted := stp.Port{}
+	explicitDefaults := stp.Port{
+		Priority:        stp.DefaultPortPriority,
+		PriorityPresent: true,
+		PointToPoint:    stp.PointToPointAuto,
+	}
+	explicitZero := stp.Port{
+		Priority:        0,
+		PriorityPresent: true,
+	}
+
+	if !trace.EqualFact(defaulted, explicitDefaults) {
+		t.Errorf("defaulted fact = %q, want effective defaults %q", defaulted.Canonical(), explicitDefaults.Canonical())
+	}
+	if trace.EqualFact(explicitZero, defaulted) {
+		t.Errorf("explicit-zero fact = %q, want distinct from omitted priority", explicitZero.Canonical())
+	}
+	if !trace.EqualFact(stp.PointToPointMode(""), stp.PointToPointAuto) {
+		t.Errorf(
+			"unspecified point-to-point fact = %q, want %q",
+			stp.PointToPointMode("").Canonical(),
+			stp.PointToPointAuto.Canonical(),
+		)
 	}
 }
 
@@ -265,42 +473,42 @@ func TestDiff(t *testing.T) {
 		return nil, nil, false
 	}
 
-	if from, to, ok := findChange("bridge", "", "priority"); !ok || from != uint16(32768) || to != uint16(4096) {
+	if from, to, ok := findChange("bridge", "", "priority"); !ok || from != stp.PriorityFact(32768) || to != stp.PriorityFact(4096) {
 		t.Errorf("priority change: got (%v, %v, %v), want (32768, 4096, true)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "hello_time"); !ok || from != 2*time.Second || to != 1*time.Second {
+	if from, to, ok := findChange("bridge", "", "hello_time"); !ok || from != stp.DurationFact(2*time.Second) || to != stp.DurationFact(1*time.Second) {
 		t.Errorf("hello_time change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "max_age"); !ok || from != 20*time.Second || to != 10*time.Second {
+	if from, to, ok := findChange("bridge", "", "max_age"); !ok || from != stp.DurationFact(20*time.Second) || to != stp.DurationFact(10*time.Second) {
 		t.Errorf("max_age change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || from != 15*time.Second || to != 7*time.Second {
+	if from, to, ok := findChange("bridge", "", "forward_delay"); !ok || from != stp.DurationFact(15*time.Second) || to != stp.DurationFact(7*time.Second) {
 		t.Errorf("forward_delay change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || from != uint8(6) || to != uint8(4) {
+	if from, to, ok := findChange("bridge", "", "tx_hold_count"); !ok || from != stp.TxHoldCountFact(6) || to != stp.TxHoldCountFact(4) {
 		t.Errorf("tx_hold_count change: got (%v, %v, %v), want (6, 4, true): the default is what an unset count means", from, to, ok)
 	}
 
 	otherMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 	moved := b
 	moved.Address = otherMAC
-	if from, to, ok := findAddress(stp.Diff(b, moved)); !ok || from != mac || to != otherMAC {
+	if from, to, ok := findAddress(stp.Diff(b, moved)); !ok || from != stp.MACFact(mac) || to != stp.MACFact(otherMAC) {
 		t.Errorf("address change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, mac, otherMAC)
 	}
 
-	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != uint8(128) || to != uint8(64) {
+	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != stp.PortPriorityFact(128) || to != stp.PortPriorityFact(64) {
 		t.Errorf("port priority change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "admin_path_cost"); !ok || from != uint32(20000) || to != uint32(2000) {
+	if from, to, ok := findChange("port", "1/1/1", "admin_path_cost"); !ok || from != stp.PathCostFact(20000) || to != stp.PathCostFact(2000) {
 		t.Errorf("port admin_path_cost change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "admin_edge"); !ok || from != false || to != true {
+	if from, to, ok := findChange("port", "1/1/1", "admin_edge"); !ok || from != stp.BoolFact(false) || to != stp.BoolFact(true) {
 		t.Errorf("port admin_edge change: got (%v, %v, %v)", from, to, ok)
 	}
 	if from, to, ok := findChange("port", "1/1/1", "admin_point_to_point"); !ok || from != stp.PointToPointAuto || to != stp.PointToPointForceTrue {
 		t.Errorf("port admin_point_to_point change: got (%v, %v, %v)", from, to, ok)
 	}
-	if from, to, ok := findChange("port", "1/1/1", "auto_edge"); !ok || from != false || to != true {
+	if from, to, ok := findChange("port", "1/1/1", "auto_edge"); !ok || from != stp.BoolFact(false) || to != stp.BoolFact(true) {
 		t.Errorf("port auto_edge change: got (%v, %v, %v)", from, to, ok)
 	}
 

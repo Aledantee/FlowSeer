@@ -9,15 +9,26 @@ value-level decisions that the switch and fabric apply.
 A mirror selects a frame when `SelectAll` is true, its ingress port is in
 `SelectSrcPorts`, or at least one successful relay egress is in
 `SelectDstPorts`. A non-empty `SelectVLANs` narrows that result to the frame
-classified VLAN. Dropped relay egresses do not count.
+classified VLAN. Dropped relay egresses do not count. Port selectors name
+logical ports: a LAG name is valid, while one of its physical members is not.
 
 `OutputPort` produces one copy of the received frame, including every tag.
 `OutputVLAN` produces one copy for each switchport that carries that VLAN,
 apart from the ingress port. A tagged switchport receives a C-tag whose VID is
 the output VLAN. It keeps PCP and DEI from an outer received C-tag. An untagged
 switchport or a tunnel for that VID receives the remaining tag stack without
-the outer tag. VLAN-unaware bridges cannot resolve an output VLAN, and reserved
-bridge-group destinations are never copied to a VLAN.
+the outer tag. `OutputVLAN` and each `SelectVLANs` entry require a VLAN-aware
+bridge and must name an entry in its VLAN table. Reserved bridge-group
+destinations are never copied to a VLAN.
+
+`Copies` produces candidate copies from these selection and tag rules. Each
+VLAN-output copy keeps that configured logical VLAN separately from the emitted
+tag stack. The switch uses the logical VLAN for LAG member selection even when
+an untagged or tunnel output removed its outer tag. The switch then checks each
+candidate's output state before exposing it. A physical output must be known up.
+A logical LAG output also needs an enabled, known-up member. Unknown state
+suppresses the copy and marks the forwarding result incomplete; known-down
+state is a definite copy drop with complete readiness.
 
 For example, suppose VLAN 99 is tagged on `1/1/24`, untagged on `1/1/4`, and
 the frame's ingress is `1/1/1`. A received C-tag with VID 10 and PCP 5 becomes a

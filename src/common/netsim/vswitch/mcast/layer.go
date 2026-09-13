@@ -69,10 +69,17 @@ type Layer struct {
 }
 
 // New builds an empty snooping layer and installs valid static router ports from cfg.
-func New(cfg Config, ports port.Table) *Layer {
-	cfg = cfg.Clone()
+// It returns an error if the configuration is invalid against the ports.
+func New(cfg Config, ports port.Table) (*Layer, error) {
+	if err := cfg.Validate(ports); err != nil {
+		return nil, err
+	}
+	return newLayer(cfg.Normalize(), ports), nil
+}
+
+func newLayer(cfg Config, ports port.Table) *Layer {
 	l := &Layer{
-		cfg:    cfg,
+		cfg:    cfg.Clone(),
 		ports:  ports.Clone(),
 		byVLAN: make(map[vlan.ID]*vlanState, len(cfg.VLANs)),
 	}

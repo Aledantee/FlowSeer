@@ -746,7 +746,7 @@ func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 
 	cfg := fab.Config()
 	cfg.Start = before.Clock
-	next, err := fabric.Derive(fab, cfg)
+	next, err := fabric.Derive(fab, constructionSpec(cfg))
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}

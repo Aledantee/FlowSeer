@@ -30,6 +30,15 @@ func mcastPortTable(t *testing.T) port.Table {
 	return ports
 }
 
+func mustNewMcast(t *testing.T, cfg mcast.Config, ports port.Table) *mcast.Layer {
+	t.Helper()
+	m, err := mcast.New(cfg, ports)
+	if err != nil {
+		t.Fatalf("mcast.New: %v", err)
+	}
+	return m
+}
+
 func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 	t.Parallel()
 
@@ -37,7 +46,7 @@ func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 
 	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
 	now := time.Unix(1_000, 0)
 	layer.Learn(now, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{
 		Type:  igmp.ReportV2,
@@ -85,7 +94,7 @@ func TestRouterPortLearningRequiresProtocolSource(t *testing.T) {
 	t.Parallel()
 
 	const vid vlan.ID = 10
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 	now := time.Unix(2_000, 0)
 
 	layer.Learn(now, vid, "1/1/1", netip.IPv4Unspecified(), igmp.Message{Type: igmp.Query})
@@ -116,7 +125,7 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	t.Parallel()
 
 	const vid vlan.ID = 10
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		vid: {RouterPorts: []string{"1/1/4"}},
 	}}, mcastPortTable(t))
 	layer.Age(time.Unix(1_000_000, 0))
@@ -132,7 +141,7 @@ func TestLearningIgnoresUnsnoopedVLANsAndPhysicalLAGMembers(t *testing.T) {
 
 	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 	now := time.Unix(3_000, 0)
 
 	layer.Learn(now, 20, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
@@ -156,7 +165,7 @@ func TestLegacyReportsLearnMembership(t *testing.T) {
 
 	const vid vlan.ID = 10
 	ports := mcastPortTable(t)
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
 	now := time.Unix(4_000, 0)
 
 	layer.Learn(now, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{
@@ -208,7 +217,7 @@ func TestIGMPv3RecordRules(t *testing.T) {
 			const vid vlan.ID = 10
 			group := netip.MustParseAddr("239.1.1.1")
 			t0 := time.Unix(5_000, 0)
-			layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 				vid: {FastLeave: true},
 			}}, mcastPortTable(t))
 			layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
@@ -260,7 +269,7 @@ func TestMLDv2RecordRules(t *testing.T) {
 			const vid vlan.ID = 10
 			group := netip.MustParseAddr("ff05::1")
 			t0 := time.Unix(6_000, 0)
-			layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 				vid: {FastLeave: true},
 			}}, mcastPortTable(t))
 			layer.LearnMLD(t0, vid, "1/1/1", netip.MustParseAddr("fe80::1"), mld.Message{Type: mld.ReportV1, Group: group})
@@ -328,7 +337,7 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 			if tt.mld {
 				group = netip.MustParseAddr("ff05::1")
 			}
-			layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 				vid: {FastLeave: tt.fast},
 			}}, mcastPortTable(t))
 			now := time.Unix(7_000, 0)
@@ -361,7 +370,7 @@ func TestAgeDefaultAndConfiguredIntervals(t *testing.T) {
 		const vid vlan.ID = 10
 		group := netip.MustParseAddr("239.1.1.1")
 		t0 := time.Unix(8_000, 0)
-		layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+		layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 		layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 		layer.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
 
@@ -382,7 +391,7 @@ func TestAgeDefaultAndConfiguredIntervals(t *testing.T) {
 		const vid vlan.ID = 10
 		group := netip.MustParseAddr("239.1.1.1")
 		t0 := time.Unix(9_000, 0)
-		layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+		layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 			vid: {MembershipInterval: 10 * time.Second, RouterPortInterval: 20 * time.Second},
 		}}, mcastPortTable(t))
 		layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
@@ -407,7 +416,7 @@ func TestRetainDropsDepartedPortsAndPreservesExpiries(t *testing.T) {
 	group := netip.MustParseAddr("239.1.1.1")
 	t0 := time.Unix(10_000, 0)
 	ports := mcastPortTable(t)
-	layer := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
+	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
 	for _, name := range []string{"1/1/1", "1/1/2"} {
 		layer.Learn(t0, vid, name, netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 	}
@@ -431,7 +440,7 @@ func TestLayerCloneIsIndependent(t *testing.T) {
 	group := netip.MustParseAddr("239.1.1.1")
 	t0 := time.Unix(11_000, 0)
 	ports := mcastPortTable(t)
-	original := mcast.New(mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
+	original := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
 	original.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 	original.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
 

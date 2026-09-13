@@ -33,6 +33,15 @@ func mustMAC(t *testing.T, s string) netaddr.MAC {
 	return m
 }
 
+func mustNewSTP(t *testing.T, cfg stp.Config, ports port.Table) *stp.Layer {
+	t.Helper()
+	l, err := stp.New(cfg, ports)
+	if err != nil {
+		t.Fatalf("stp.New: %v", err)
+	}
+	return l
+}
+
 func TestTwoBridgesExchange(t *testing.T) {
 	t.Parallel()
 
@@ -59,8 +68,8 @@ func TestTwoBridgesExchange(t *testing.T) {
 		},
 	}
 
-	sw1 := stp.New(cfg1, tbl1)
-	sw2 := stp.New(cfg2, tbl2)
+	sw1 := mustNewSTP(t, cfg1, tbl1)
+	sw2 := mustNewSTP(t, cfg2, tbl2)
 
 	// Link up on both
 	fx1 := sw1.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
@@ -111,6 +120,53 @@ func TestTwoBridgesExchange(t *testing.T) {
 	}
 }
 
+func TestExplicitZeroPrioritiesParticipateInElections(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	localMAC := mustMAC(t, "00:11:22:33:44:02")
+	rootMAC := mustMAC(t, "00:11:22:33:44:01")
+	l := mustNewSTP(t, stp.Config{
+		Priority:        0,
+		PriorityPresent: true,
+		Address:         localMAC,
+		Ports: map[string]stp.Port{
+			"preferred": {Priority: 0, PriorityPresent: true},
+			"defaulted": {},
+		},
+	}, mustPortTable(t, "preferred", "defaulted"))
+
+	if got := l.BridgeID().Priority; got != 0 {
+		t.Fatalf("bridge election priority = %d, want explicit zero", got)
+	}
+
+	l.LinkChange(now, "preferred", true, true, 1_000_000_000)
+	l.LinkChange(now, "defaulted", true, true, 1_000_000_000)
+	bpdu := stp.BPDU{
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		RootID:       stp.BridgeID{Priority: 0, Address: rootMAC},
+		BridgeID:     stp.BridgeID{Priority: 0, Address: rootMAC},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	bpdu.SetRole(stp.RoleDesignated)
+	l.Receive(now, "defaulted", bpdu)
+	l.Receive(now, "preferred", bpdu)
+
+	if _, _, rootPort := l.Root(); rootPort != "preferred" {
+		t.Errorf("root port = %q, want explicit-priority-zero port", rootPort)
+	}
+	if got := l.PortInfo("preferred").Priority; got != 0 {
+		t.Errorf("preferred port election priority = %d, want explicit zero", got)
+	}
+	if got := l.PortInfo("defaulted").Priority; got != stp.DefaultPortPriority {
+		t.Errorf("defaulted port election priority = %d, want %d", got, stp.DefaultPortPriority)
+	}
+}
+
 func TestThreeBridgeRingConvergence(t *testing.T) {
 	t.Parallel()
 
@@ -125,7 +181,7 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	tbl2 := mustPortTable(t, "p1", "p2")
 	tbl3 := mustPortTable(t, "p1", "p2")
 
-	sw1 := stp.New(stp.Config{
+	sw1 := mustNewSTP(t, stp.Config{
 		Priority: 4096,
 		Address:  mac1,
 		Ports: map[string]stp.Port{
@@ -134,7 +190,7 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 		},
 	}, tbl1)
 
-	sw2 := stp.New(stp.Config{
+	sw2 := mustNewSTP(t, stp.Config{
 		Priority: 8192,
 		Address:  mac2,
 		Ports: map[string]stp.Port{
@@ -143,7 +199,7 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 		},
 	}, tbl2)
 
-	sw3 := stp.New(stp.Config{
+	sw3 := mustNewSTP(t, stp.Config{
 		Priority: 12288,
 		Address:  mac3,
 		Ports: map[string]stp.Port{
@@ -341,7 +397,7 @@ func TestSharedPortForwardDelay(t *testing.T) {
 
 	mac := mustMAC(t, "00:11:22:33:44:01")
 	tbl := mustPortTable(t, "1/1/1")
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mac,
 		Ports: map[string]stp.Port{
@@ -394,7 +450,7 @@ func TestEdgePortForwardingAtOnce(t *testing.T) {
 
 	mac := mustMAC(t, "00:11:22:33:44:01")
 	tbl := mustPortTable(t, "1/1/1")
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mac,
 		Ports: map[string]stp.Port{
@@ -426,7 +482,7 @@ func TestInformationAging(t *testing.T) {
 	mac2 := mustMAC(t, "00:11:22:33:44:02")
 	tbl := mustPortTable(t, "1/1/1")
 
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mac2,
 		Ports: map[string]stp.Port{
@@ -484,7 +540,7 @@ func TestCloneIndependence(t *testing.T) {
 	mac := mustMAC(t, "00:11:22:33:44:01")
 	tbl := mustPortTable(t, "1/1/1", "1/1/2")
 
-	l1 := stp.New(stp.Config{
+	l1 := mustNewSTP(t, stp.Config{
 		Priority: 4096,
 		Address:  mac,
 		Ports: map[string]stp.Port{
@@ -521,7 +577,7 @@ func TestUntrackedPortLearnsAndForwards(t *testing.T) {
 	mac := mustMAC(t, "00:11:22:33:44:01")
 	tbl := mustPortTable(t, "1/1/1")
 
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mac,
 		Ports: map[string]stp.Port{
@@ -546,7 +602,7 @@ func TestDesignatedPointToPointForwardsWithoutAgreement(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "00:11:22:33:44:01"),
 		Ports:    map[string]stp.Port{"1/1/1": {}},
@@ -578,7 +634,7 @@ func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "00:11:22:33:44:01"),
 		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
@@ -612,7 +668,7 @@ func TestTimesInForceFollowTheRoot(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "00:11:22:33:44:02"),
 		Ports:    map[string]stp.Port{"1/1/1": {}},
@@ -650,7 +706,7 @@ func TestCompatibilityOnLegacyBPDU(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports: map[string]stp.Port{
@@ -782,7 +838,7 @@ func TestProtocolMigrationReturnToRSTP(t *testing.T) {
 	t.Run("mcheck", func(t *testing.T) {
 		t.Parallel()
 		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-		l := stp.New(stp.Config{
+		l := mustNewSTP(t, stp.Config{
 			Priority: 32768,
 			Address:  mustMAC(t, "02:00:00:00:00:02"),
 			Ports: map[string]stp.Port{
@@ -822,7 +878,7 @@ func TestProtocolMigrationReturnToRSTP(t *testing.T) {
 	t.Run("received rst bpdu", func(t *testing.T) {
 		t.Parallel()
 		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-		l := stp.New(stp.Config{
+		l := mustNewSTP(t, stp.Config{
 			Priority: 32768,
 			Address:  mustMAC(t, "02:00:00:00:00:02"),
 			Ports: map[string]stp.Port{
@@ -872,7 +928,7 @@ func TestSuperiorBPDUInsideMigrationDelay(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports: map[string]stp.Port{
@@ -914,7 +970,7 @@ func TestAutoEdgeDetection(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports: map[string]stp.Port{
@@ -970,7 +1026,7 @@ func TestTransmitHoldCountGating(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority:    32768,
 		Address:     mustMAC(t, "02:00:00:00:00:02"),
 		TxHoldCount: 2,
@@ -1049,7 +1105,7 @@ func TestMigratedRootPortClimbsTheLadder(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports:    map[string]stp.Port{"1/1/1": {}},
@@ -1087,7 +1143,7 @@ func TestMigratedPortAgreesWithoutTheAgreementBit(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports:    map[string]stp.Port{"1/1/1": {}},
@@ -1128,7 +1184,7 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
@@ -1156,7 +1212,7 @@ func TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	l := stp.New(stp.Config{
+	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
 		Address:  mustMAC(t, "02:00:00:00:00:02"),
 		Ports:    map[string]stp.Port{"1/1/1": {AutoEdge: true}},

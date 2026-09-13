@@ -136,14 +136,18 @@ func main() {
 
 ## Traversal journey
 
-Calling `Report()` returns the journey recorded for each frame id. The entries
-record the progression across devices and cables:
+Calling `Report()` returns an independent copy of the journey recorded for each
+frame id. Mutating frames, packets, step input, output, or evidence lists, or
+egress data in that copy does not change later reports. The entries record the
+progression across devices and cables:
 
 - `Injection`: Introduces the frame at `h1` at `t0`.
 - `Crossing`: Host leg transmission across the 0-meter cable to `sw1:1/1/1`
   (serialization 672 ns at 1 Gbit/s for the 84 wire octets of a 60-octet frame,
   wait 0, latency 0 on a 0 m cable).
-- `Hop`: Evaluates forwarding on `sw1:1/1/1` at `t0 + 672ns`. Because `macH2` is
+- `Hop`: Evaluates forwarding on `sw1:1/1/1` at `t0 + 672ns`. The entry's
+  `Result` retains the switch's `*vswitch.ForwardResult`, preserving domain
+  bridge outcomes and analysis readiness metadata. Because `macH2` is
   unknown, the bridge floods VLAN 10 out `1/1/24` with a C-TAG of VID 10.
 - `Crossing`: Transmits the copy across the 300-meter trunk cable to
   `sw2:1/1/24` (704 ns serialization for 88 wire octets with the C-tag, 1494 ns
@@ -168,6 +172,12 @@ Mirror copies have journeys of their own. `Journey.Mirror` names the mirror
 configuration that made the copy, and `Journey.Parent` identifies the original
 frame's journey. The copy's injection origin is the switch and mirror output
 port, followed by its own crossings, delivery, or drop.
+
+An ingress policer rejection happens before the forwarding pipeline and remains an
+`EntryDrop`. Its `Result` records a traffic-layer drop step with a typed
+`traffic.PolicerDecisionFact`, including the configured rate and burst, the frame's
+wire octets, and the refusal. This keeps the pre-forward decision available to the
+same semantic trace consumers as ordinary switch hops.
 
 ## Egress queues
 
@@ -209,8 +219,8 @@ the second PCP 0 frame.
 
 Each cable specifies a transmission medium (`TwistedPair`, `MultimodeFiber`,
 `SinglemodeFiber`, or `Twinax`). An empty medium defaults to `TwistedPair`. The
-medium defines the signal velocity factor and the maximum reach per link
-speed:
+length must be finite and non-negative. The medium defines the signal velocity
+factor and the maximum reach per link speed:
 
 | Medium            | Factor | 10 Mbps | 100 Mbps | 1 Gbps | 10 Gbps |
 | ----------------- | ------ | ------- | -------- | ------ | ------- |
@@ -346,6 +356,12 @@ Cables support deterministic defect configurations:
 | `LoseEveryNth`    | Drops every Nth frame crossing the cable         |
 | `LoseSequence`    | Drops frames matching 1-based crossing positions |
 | `CorruptEveryNth` | Marks every Nth crossing damaged; recipient drop |
+
+`N` is active only for the two every-Nth kinds and must be greater than zero.
+`Sequence` is active only for `LoseSequence`; it must be non-empty and every
+position must be at least one. Validation rejects parameters on other variants.
+Normalization clears inactive parameters and sorts and deduplicates an active
+sequence.
 
 `SetFault(a, b Endpoint, fault Fault) error` alters a cable defect mid-run at
 the current clock. The fabric re-resolves the link, updates each endpoint's

@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
@@ -38,6 +39,97 @@ var (
 	allNodesAddress = netip.MustParseAddr("ff02::1")
 )
 
+// ConstructionSpec holds the normalized configuration, preloaded FDB seeds,
+// stable node identity, and construction trust metadata needed to reproduce a
+// [Switch]. NodeID keys node and port scopes; an empty value identifies an
+// anonymous standalone switch. ConstructionSpec is safe for concurrent reads
+// when its exported fields are not mutated.
+type ConstructionSpec struct {
+	Config   Config
+	Seeds    []bridge.Seed
+	NodeID   string
+	Metadata analysis.Metadata
+}
+
+// Normalize validates and returns an independent construction specification
+// with normalized configuration and forwarding database seeds. Seed timestamps
+// are canonical UTC wall-clock instants without monotonic readings.
+func (s ConstructionSpec) Normalize() (ConstructionSpec, error) {
+	owned := s.Clone()
+	// Traffic field paths name submitted slice positions, which sorting and
+	// compaction would otherwise replace with normalized positions.
+	if owned.Config.Traffic != nil {
+		if err := owned.Config.Traffic.Validate(owned.Config.Ports.Normalize()); err != nil {
+			return ConstructionSpec{}, err
+		}
+		if err := owned.Config.validateTrafficVLANs(); err != nil {
+			return ConstructionSpec{}, err
+		}
+	}
+	owned.Config = owned.Config.Normalize()
+	if err := owned.Config.Validate(); err != nil {
+		return ConstructionSpec{}, err
+	}
+	if len(owned.Seeds) > 0 && owned.Config.Bridge == nil {
+		return ConstructionSpec{}, errs.New().
+			Attr("field", "seeds").
+			Msg("forwarding database seeds require bridge configuration")
+	}
+	if owned.Config.Bridge != nil {
+		seeds, err := bridge.NormalizeSeeds(*owned.Config.Bridge, owned.Config.Ports, owned.Seeds)
+		if err != nil {
+			return ConstructionSpec{}, err
+		}
+		for i := range seeds {
+			seeds[i].LearnedAt = seeds[i].LearnedAt.Round(0).UTC()
+		}
+		owned.Seeds = seeds
+	}
+	if err := validateConstructionMetadata(owned.NodeID, owned.Metadata); err != nil {
+		return ConstructionSpec{}, err
+	}
+
+	return owned, nil
+}
+
+// Clone returns an independent deep copy of the construction specification.
+func (s ConstructionSpec) Clone() ConstructionSpec {
+	cp := ConstructionSpec{
+		Config:   s.Config.Clone(),
+		NodeID:   s.NodeID,
+		Metadata: cloneMetadata(s.Metadata),
+	}
+	if len(s.Seeds) > 0 {
+		cp.Seeds = slices.Clone(s.Seeds)
+	}
+	return cp
+}
+
+// Equal reports whether two construction specifications carry the same fields,
+// treating seed timestamps at the same instant as equal.
+func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
+	if s.NodeID != other.NodeID || !s.Config.Equal(other.Config) || !metadataEqual(s.Metadata, other.Metadata) {
+		return false
+	}
+	if len(s.Seeds) != len(other.Seeds) {
+		return false
+	}
+	for i := range s.Seeds {
+		a, b := s.Seeds[i], other.Seeds[i]
+		if a.FID != b.FID || a.MAC != b.MAC || a.Port != b.Port || a.Static != b.Static || !a.LearnedAt.Equal(b.LearnedAt) {
+			return false
+		}
+	}
+	return true
+}
+
+// ForwardResult combines the Ethernet bridge forwarding outcome with analysis
+// trust metadata recording status, issues, evidence, and assumptions.
+type ForwardResult struct {
+	bridge.Result
+	Metadata analysis.Metadata
+}
+
 // Emission describes an Ethernet frame to transmit out a port or member port.
 type Emission struct {
 	Port  string
@@ -52,90 +144,86 @@ type Emission struct {
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
-	cfg       Config
-	ports     port.Table
-	bridge    *bridge.Bridge
-	speeds    map[string]phy.Resolved
-	power     phy.Allocation
-	stp       *stp.Layer
-	lag       *lag.Layer
-	mcast     *mcast.Layer
-	routing   *routing.Layer
-	traffic   *traffic.Config
-	buckets   map[string]*traffic.Bucket
-	copies    []traffic.Copy
-	emissions []Emission
-	portP2P   map[string]bool
-	portSpeed map[string]uint64
+	cfg        Config
+	ports      port.Table
+	bridge     *bridge.Bridge
+	speeds     map[string]phy.Resolved
+	power      phy.Allocation
+	stp        *stp.Layer
+	lag        *lag.Layer
+	mcast      *mcast.Layer
+	routing    *routing.Layer
+	traffic    *traffic.Config
+	buckets    map[string]*traffic.Bucket
+	copies     []traffic.Copy
+	emissions  []Emission
+	portP2P    map[string]bool
+	portSpeed  map[string]uint64
+	seeds      []bridge.Seed
+	nodeID     string
+	metadata   analysis.Metadata
+	missingSTP bool
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
-// assigning missing MAC addresses, and initializing each present subsystem. When the base
-// MAC is zero, New selects the first unused local MAC address; two standalone switches
-// may pick the same address. A fabric assigns unique addresses across nodes.
-func New(cfg Config) *Switch {
-	cloned := cfg.Clone()
+// assigning missing MAC addresses, validating subsystem configurations, and initializing
+// each present subsystem. When the base MAC is zero, New selects the first unused local MAC
+// address; two standalone switches may pick the same address. A fabric assigns unique
+// addresses across nodes. It returns an error if configuration validation fails.
+func New(cfg Config) (*Switch, error) {
+	return NewWithSpec(ConstructionSpec{Config: cfg})
+}
 
-	if cloned.MAC == (netaddr.MAC{}) {
-		explicit := make(map[netaddr.MAC]struct{})
-		if cloned.STP != nil && cloned.STP.Address != (netaddr.MAC{}) {
-			explicit[cloned.STP.Address] = struct{}{}
-		}
-		if cloned.Routing != nil {
-			for _, vrf := range cloned.Routing.VRFs {
-				for _, iface := range vrf.Interfaces {
-					if iface.MAC != (netaddr.MAC{}) {
-						explicit[iface.MAC] = struct{}{}
-					}
-				}
-			}
-		}
-		for n := uint32(1); ; n++ {
-			cand := netaddr.Local(n)
-			if _, ok := explicit[cand]; !ok {
-				cloned.MAC = cand
-				break
-			}
-		}
+// NewWithSpec constructs a [Switch] from an immutable deep clone of spec,
+// restoring preloaded forwarding database seeds and construction trust metadata.
+func NewWithSpec(spec ConstructionSpec) (*Switch, error) {
+	norm, err := spec.Normalize()
+	if err != nil {
+		return nil, err
 	}
+	return newSwitch(norm.Config, norm.Seeds, norm.NodeID, norm.Metadata)
+}
 
-	if cloned.STP != nil && cloned.STP.Address == (netaddr.MAC{}) {
-		cloned.STP.Address = cloned.MAC
-	}
-	if cloned.Routing != nil {
-		for vrfName, vrf := range cloned.Routing.VRFs {
-			for ifaceName, iface := range vrf.Interfaces {
-				if iface.MAC == (netaddr.MAC{}) {
-					iface.MAC = cloned.MAC
-					vrf.Interfaces[ifaceName] = iface
-				}
-			}
-			cloned.Routing.VRFs[vrfName] = vrf
-		}
-	}
-
+func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysis.Metadata) (*Switch, error) {
 	sw := &Switch{
-		cfg:   cloned,
-		ports: cloned.Ports.Clone(),
+		cfg:      norm,
+		ports:    norm.Ports.Clone(),
+		seeds:    slices.Clone(seeds),
+		nodeID:   nodeID,
+		metadata: cloneMetadata(metadata),
 	}
 
-	if cloned.Phy != nil {
-		sw.speeds = cloned.Phy.Resolve()
-		sw.power = cloned.Phy.Allocate()
+	if norm.Phy != nil {
+		sw.speeds = norm.Phy.Resolve()
+		sw.power = norm.Phy.Allocate()
 	}
 
-	if cloned.Bridge != nil {
-		sw.bridge = bridge.New(*cloned.Bridge, cloned.Ports)
+	if norm.Bridge != nil {
+		b, err := bridge.New(*norm.Bridge, norm.Ports)
+		if err != nil {
+			return nil, err
+		}
+		b.SetFDBScope(protocolScope(nodeID, port.LayerRelay))
+		stpScope := protocolScope(nodeID, port.LayerStp)
+		if norm.STP == nil && metadataHasScopedContent(metadata, stpScope) {
+			b.SetGate(nil, stpScope)
+			sw.missingSTP = true
+		}
+		sw.bridge = b
 	}
-	if cloned.Mcast != nil {
-		sw.mcast = mcast.New(*cloned.Mcast, cloned.Ports)
+	if norm.Mcast != nil {
+		m, err := mcast.New(*norm.Mcast, norm.Ports)
+		if err != nil {
+			return nil, err
+		}
+		sw.mcast = m
 		if sw.bridge != nil {
-			sw.bridge.SetGroupResolver(sw)
+			sw.bridge.SetGroupResolver(sw, protocolScope(nodeID, port.LayerMcast))
 		}
 	}
 
 	var hasLag bool
-	for _, p := range cloned.Ports.Ports() {
+	for _, p := range norm.Ports.Ports() {
 		if p.Kind == port.Lag {
 			hasLag = true
 			break
@@ -143,14 +231,18 @@ func New(cfg Config) *Switch {
 	}
 	if hasLag {
 		lagCfg := lag.Config{}
-		if cloned.LAG != nil {
-			lagCfg = *cloned.LAG
+		if norm.LAG != nil {
+			lagCfg = *norm.LAG
 		}
-		sw.lag = lag.New(lagCfg, cloned.Ports, cloned.MAC)
+		l, err := lag.New(lagCfg, norm.Ports, norm.MAC)
+		if err != nil {
+			return nil, err
+		}
+		sw.lag = l
 		if sw.bridge != nil {
-			sw.bridge.SetSelector(sw.lag)
+			sw.bridge.SetSelector(sw.lag, protocolScope(nodeID, port.LayerLag))
 		}
-		for _, p := range cloned.Ports.Ports() {
+		for _, p := range norm.Ports.Ports() {
 			if p.LagParent != "" && p.Forwards() {
 				lCfg := lagCfg.LAGs[p.LagParent]
 				if lCfg.LACP.Mode == lag.Off && lCfg.UpDelay == 0 {
@@ -160,25 +252,58 @@ func New(cfg Config) *Switch {
 		}
 	}
 
-	if cloned.STP != nil {
-		sw.stp = stp.New(*cloned.STP, cloned.Ports)
+	if norm.STP != nil {
+		st, err := stp.New(*norm.STP, norm.Ports)
+		if err != nil {
+			return nil, err
+		}
+		sw.stp = st
 		if sw.bridge != nil {
-			sw.bridge.SetGate(sw.stp)
+			sw.bridge.SetGate(sw.stp, protocolScope(nodeID, port.LayerStp))
 		}
 	}
 
-	if cloned.Routing != nil {
-		sw.routing = routing.New(*cloned.Routing)
+	if norm.Routing != nil {
+		rt, err := routing.New(*norm.Routing, norm.Ports, nodeID)
+		if err != nil {
+			return nil, err
+		}
+		sw.routing = rt
 	}
-	if cloned.Traffic != nil {
-		sw.traffic = cloned.Traffic
-		sw.buckets = make(map[string]*traffic.Bucket, len(cloned.Traffic.Policers))
-		for name, policer := range cloned.Traffic.Policers {
-			sw.buckets[name] = traffic.NewBucket(policer)
+	if norm.Traffic != nil {
+		sw.traffic = norm.Traffic
+		sw.buckets = make(map[string]*traffic.Bucket, len(norm.Traffic.Policers))
+		for name, policer := range norm.Traffic.Policers {
+			bucket, err := traffic.NewBucket(policer)
+			if err != nil {
+				return nil, fmt.Errorf("create policer bucket for %q: %w", name, err)
+			}
+			sw.buckets[name] = bucket
 		}
 	}
 
-	return sw
+	if len(seeds) > 0 && sw.bridge != nil {
+		if err := sw.bridge.Learn(seeds); err != nil {
+			return nil, err
+		}
+	}
+
+	return sw, nil
+}
+
+// Spec returns an independent [ConstructionSpec] capturing every construction
+// input needed to reproduce this switch, including its node identity and trust
+// metadata.
+func (s *Switch) Spec() ConstructionSpec {
+	spec := ConstructionSpec{
+		Config:   s.cfg.Clone(),
+		NodeID:   s.nodeID,
+		Metadata: cloneMetadata(s.metadata),
+	}
+	if len(s.seeds) > 0 {
+		spec.Seeds = slices.Clone(s.seeds)
+	}
+	return spec
 }
 
 // Config returns an independent deep copy of the switch configuration.
@@ -186,8 +311,9 @@ func (s *Switch) Config() Config {
 	return s.cfg.Clone()
 }
 
-// Copies returns and clears mirror copies produced by the most recent call to
-// [Switch.Forward]. Calls to [Switch.Peek] leave pending copies unchanged.
+// Copies returns and clears mirror copies admitted to a forwarding output by the
+// most recent call to [Switch.Forward]. Calls to [Switch.Peek] leave pending copies
+// unchanged.
 func (s *Switch) Copies() []traffic.Copy {
 	copies := s.copies
 	s.copies = nil
@@ -248,13 +374,30 @@ func (s *Switch) RouterPorts(vid vlan.ID) []mcast.RouterPort {
 	return s.mcast.RouterPorts(vid)
 }
 
-// Learn preloads the switch's bridge forwarding database with the provided seeds.
-// It is a no-op when the switch has no bridge relay.
-func (s *Switch) Learn(seeds []bridge.Seed) {
-	if s.bridge == nil {
-		return
+// Learn validates and preloads the switch's bridge forwarding database with the
+// provided seeds. It records normalized seeds in the construction specification.
+// Invalid or duplicate seeds leave the switch unchanged.
+func (s *Switch) Learn(seeds []bridge.Seed) error {
+	if len(seeds) == 0 {
+		return nil
 	}
-	s.bridge.Learn(seeds)
+	if s.bridge == nil || s.cfg.Bridge == nil {
+		return errs.New().
+			Attr("field", "seeds").
+			Msg("forwarding database seeds require bridge configuration")
+	}
+
+	combined := append(slices.Clone(s.seeds), seeds...)
+	normalized, err := bridge.NormalizeSeeds(*s.cfg.Bridge, s.ports, combined)
+	if err != nil {
+		return err
+	}
+	if err := s.bridge.Learn(seeds); err != nil {
+		return err
+	}
+	s.seeds = normalized
+
+	return nil
 }
 
 // Forget removes a forwarding database entry with the given FID and MAC address from
@@ -312,15 +455,71 @@ func (s *Switch) Power() phy.Allocation {
 }
 
 // Forward processes an arrival on an ingress port at the given time, updating
-// the forwarding database if a bridge relay is present, and returns the processing trace.
-func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) bridge.Result {
-	return s.forward(now, ingress, f, true)
+// the forwarding database if a bridge relay is present, and returns the forwarding result
+// with analysis metadata.
+func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
+	return s.wrapResult(s.forward(now, ingress, f, true))
 }
 
 // Peek processes an arrival on an ingress port at the given time without mutating
-// the forwarding database and returns the processing trace.
-func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) bridge.Result {
-	return s.forward(now, ingress, f, false)
+// the forwarding database and returns the forwarding result with analysis metadata.
+func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
+	return s.wrapResult(s.forward(now, ingress, f, false))
+}
+
+// ComposeForwardResult attaches switch-owned trust metadata to a forwarding result
+// produced before the bridge pipeline. dependencyPorts names the port state that
+// could have changed the result; a member port also depends on its logical LAG.
+func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...string) ForwardResult {
+	for _, name := range dependencyPorts {
+		s.forwardingDependencies(name).consult(&res)
+	}
+
+	return s.wrapResult(res)
+}
+
+func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
+	var issues []runtimeIssue
+	consultedScopes := res.ConsultedScopes()
+
+	for _, p := range res.ConsultedPorts() {
+		scope := analysis.PortScope(s.nodeID, p.Name)
+		consultedScopes = append(consultedScopes, scope)
+		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
+			issues = append(issues, runtimeIssue{
+				issue: analysis.Issue{
+					Code:    "unknown-operational-status",
+					Status:  analysis.Incomplete,
+					Scope:   scope,
+					Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
+				},
+				facts: []trace.Fact{port.ForwardingFact(p.Name, p, p.Forwards(), "")},
+			})
+		}
+	}
+	consultedScopes = canonicalScopes(consultedScopes)
+	for _, scope := range consultedScopes {
+		if s.metadata.Scope().Contains(scope) {
+			continue
+		}
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    "forwarding-dependency-outside-loaded-scope",
+				Status:  analysis.Incomplete,
+				Scope:   scope,
+				Message: fmt.Sprintf("scope %s lies outside loaded analysis scope %s", scope, s.metadata.Scope()),
+			},
+			facts: []trace.Fact{runtimeFact{
+				typeID:    "analysis.loaded-scope",
+				canonical: s.metadata.Scope().String(),
+			}},
+		})
+	}
+
+	return ForwardResult{
+		Result:   res,
+		Metadata: forwardingMetadata(s.nodeID, s.metadata, consultedScopes, issues),
+	}
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
@@ -328,54 +527,90 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		s.copies = nil
 	}
 	if s.isMirrorOutputPort(ingress) {
-		return bridge.Result{
+		mirror := s.mirrorForOutput(ingress)
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
 				Reason:  traffic.ReasonMirrorOutput,
 				Steps: []trace.Step{{
-					Layer:  port.LayerTraffic,
-					Op:     trace.OpDrop,
-					Detail: "mirror-output",
+					Layer:   port.LayerTraffic,
+					Op:      trace.OpDrop,
+					RuleID:  "traffic.mirror.output_drop",
+					Subject: trace.Subject{Kind: "port", Key: ingress},
+					Inputs:  []trace.Fact{traffic.MirrorDecisionFact(mirror, ingress, frameOctets(f), traffic.ReasonMirrorOutput)},
 				}},
 			},
 			Ingress: ingress,
 		}
+		s.forwardingDependencies(ingress).consult(&res)
+		return res
 	}
 
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
-			return s.finishForward(ingress, f, s.interceptLACP(now, ingress, f, mutate), mutate)
+			res := s.interceptLACP(now, ingress, f, mutate)
+			res.ConsultScopes(s.aggregatorScope(p.LagParent))
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
+			))
+			s.forwardingDependencies(ingress).consult(&res)
+			return s.finishForward(ingress, f, res, mutate)
 		}
 	}
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
-		return s.finishForward(ingress, f, s.interceptBPDU(now, ingress, f, mutate), mutate)
+		res := s.interceptBPDU(now, ingress, f, mutate)
+		if res.Reason != port.ReasonPortDown {
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+			))
+		}
+		s.forwardingDependencies(ingress).consult(&res)
+		return s.finishForward(ingress, f, res, mutate)
+	}
+
+	var routingScopes []analysis.Scope
+	if s.routing == nil && metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+		resolved, ok := s.ports.Resolve(ingress)
+		name := ingress
+		if ok {
+			name = resolved.Name
+		}
+		routingScopes = append(routingScopes, routing.PortLookupScope(s.nodeID, routing.DefaultVRF, name))
 	}
 
 	if s.routing != nil {
-		resolved, reason := s.ports.Receive(ingress)
+		receive := s.ports.Receive(ingress)
+		resolved := receive.Resolved
 		if resolved.Name != "" {
+			portLookupScopes := s.routing.PortLookupScopes(resolved.Name)
+			routingScopes = append(routingScopes, portLookupScopes...)
 			if iface, ok := s.routing.ByPort(resolved.Name); ok {
-				if reason != "" {
+				if receive.Reason != "" {
 					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
 							Reason:  port.ReasonPortDown,
 							Steps: []trace.Step{
 								{
-									Layer:  port.LayerRouting,
-									Op:     trace.OpDrop,
-									Detail: string(port.ReasonPortDown),
+									Layer:   port.LayerRouting,
+									Op:      trace.OpDrop,
+									RuleID:  "port.status.down",
+									Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+									Inputs:  receive.ForwardingFacts(),
 								},
 							},
 						},
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					s.forwardingDependencies(ingress).consult(&res)
+					res.ConsultScopes(portLookupScopes...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
+				ownershipScope := s.routing.InterfaceOwnershipScope(iface)
 				if !s.routing.Owns(iface, f) {
 					res := bridge.Result{
 						Trace: trace.Trace{
@@ -383,21 +618,27 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 							Reason:  routing.ReasonNotBridged,
 							Steps: []trace.Step{
 								{
-									Layer:  port.LayerRouting,
-									Op:     trace.OpDrop,
-									Detail: string(routing.ReasonNotBridged),
+									Layer:   port.LayerRouting,
+									Op:      trace.OpDrop,
+									RuleID:  "routing.not_bridged",
+									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+									Inputs:  []trace.Fact{port.ForwardingFact(resolved.Name, resolved, true, routing.ReasonNotBridged)},
 								},
 							},
 						},
 						Ingress: resolved.Name,
 						FID:     0,
 					}
+					s.forwardingDependencies(ingress).consult(&res)
+					res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
 
 				pcp, dei := framePriority(f)
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
+				s.forwardingDependencies(ingress).consult(&res)
+				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
 		}
@@ -407,23 +648,45 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		controlCandidate := multicastControlCandidate(f)
 		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate)
 		if !ok {
+			res.ConsultScopes(routingScopes...)
+			if s.missingSTP && f.Dst == stpGroupAddress {
+				res.ConsultScopes(analysis.FieldScope(
+					protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+				))
+			}
 			return s.finishForward(ingress, f, res, mutate)
 		}
+		in.ConsultScopes(routingScopes...)
 
-		if controlCandidate && s.mcast != nil && s.mcast.Snooped(in.FID) {
-			res := s.forwardMulticastControl(now, ingress, f, in, mutate)
-			return s.finishForward(ingress, f, res, mutate)
+		if controlCandidate && s.mcast != nil {
+			in.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerMcast),
+				"vlans", fmt.Sprint(in.FID),
+			))
+			if s.mcast.Snooped(in.FID) {
+				res := s.forwardMulticastControl(now, ingress, f, in, mutate)
+				return s.finishForward(ingress, f, res, mutate)
+			}
 		}
 
 		if s.routing != nil {
-			if iface, ok := s.routing.ByVLAN(in.FID); ok && s.routing.Owns(iface, f) {
-				if controlCandidate {
-					in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+			vlanLookupScopes := s.routing.VLANLookupScopes(in.FID)
+			in.ConsultScopes(vlanLookupScopes...)
+			if iface, ok := s.routing.ByVLAN(in.FID); ok {
+				in.ConsultScopes(s.routing.InterfaceOwnershipScope(iface))
+				if s.routing.Owns(iface, f) {
+					if controlCandidate {
+						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+					}
+					routeRes := s.routing.Route(iface, f)
+					res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+					res.Consult(in.ConsultedPorts()...)
+					res.ConsultScopes(in.ConsultedScopes()...)
+					return s.finishForward(ingress, f, res, mutate)
 				}
-				routeRes := s.routing.Route(iface, f)
-				res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
-				return s.finishForward(ingress, f, res, mutate)
 			}
+		} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+			in.ConsultScopes(routing.VLANLookupScope(s.nodeID, routing.DefaultVRF, in.FID))
 		}
 
 		if controlCandidate {
@@ -433,7 +696,9 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return s.finishForward(ingress, f, s.bridge.Egress(in, f), mutate)
 	}
 
-	return s.finishForward(ingress, f, s.forwardHub(ingress, f), mutate)
+	res := s.forwardHub(ingress, f)
+	res.ConsultScopes(routingScopes...)
+	return s.finishForward(ingress, f, res, mutate)
 }
 
 func multicastControlCandidate(f ethernet.Frame) bool {
@@ -460,10 +725,14 @@ func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.
 	}
 
 	learned, _, ok := s.bridge.Ingress(now, ingress, f, true)
-	if !ok || len(learned.Steps) <= len(in.Steps) {
+	if !ok {
 		return in
 	}
-	in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
+	in.Consult(learned.ConsultedPorts()...)
+	in.ConsultScopes(learned.ConsultedScopes()...)
+	if len(learned.Steps) > len(in.Steps) {
+		in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
+	}
 
 	return in
 }
@@ -488,7 +757,7 @@ func (s *Switch) forwardMulticastControl(
 		if err != nil {
 			if errors.Is(err, igmp.ErrUnsupported) {
 				in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-				in.Steps = append(in.Steps, multicastControlStep("unsupported IGMP control"))
+				in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "igmp", false, "unsupported", nil))
 				return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 			}
 
@@ -496,7 +765,9 @@ func (s *Switch) forwardMulticastControl(
 		}
 
 		in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-		in.Steps = append(in.Steps, multicastControlStep("IGMP control"))
+		in.Steps = append(in.Steps, multicastControlStep(
+			"mcast.control.admit", "igmp", true, "", mcast.IGMPControlMessageFact(hdr.Src, message),
+		))
 		if mutate {
 			s.mcast.Learn(now, in.FID, in.Port, hdr.Src, message)
 		}
@@ -514,7 +785,7 @@ func (s *Switch) forwardMulticastControl(
 	if err != nil {
 		if errors.Is(err, mld.ErrUnsupported) {
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-			in.Steps = append(in.Steps, multicastControlStep("unsupported MLD control"))
+			in.Steps = append(in.Steps, multicastControlStep("mcast.control.unsupported", "mld", false, "unsupported", nil))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
@@ -522,7 +793,9 @@ func (s *Switch) forwardMulticastControl(
 	}
 
 	in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-	in.Steps = append(in.Steps, multicastControlStep("MLD control"))
+	in.Steps = append(in.Steps, multicastControlStep(
+		"mcast.control.admit", "mld", true, "", mcast.MLDControlMessageFact(hdr.Src, message),
+	))
 	if mutate {
 		s.mcast.LearnMLD(now, in.FID, in.Port, hdr.Src, message)
 	}
@@ -533,19 +806,36 @@ func (s *Switch) forwardMulticastControl(
 	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
 }
 
-func multicastControlStep(detail string) trace.Step {
-	return trace.Step{Layer: port.LayerMcast, Op: trace.OpClassify, Detail: detail}
+func multicastControlStep(ruleID trace.RuleID, proto string, admitted bool, reason trace.Reason, message trace.Fact) trace.Step {
+	return trace.Step{
+		Layer:   port.LayerMcast,
+		Op:      trace.OpClassify,
+		RuleID:  ruleID,
+		Subject: trace.Subject{Kind: "protocol", Key: proto},
+		Inputs:  traceFacts(message),
+		Outputs: []trace.Fact{mcast.ControlDecisionFact(proto, admitted, reason)},
+	}
 }
 
 func badMulticastControl(in bridge.Ingress) bridge.Result {
 	steps := slices.Clone(in.Steps)
-	steps = append(steps, trace.Step{Layer: port.LayerMcast, Op: trace.OpDrop, Detail: string(mcast.ReasonBadControl)})
+	steps = append(steps, trace.Step{
+		Layer:   port.LayerMcast,
+		Op:      trace.OpDrop,
+		RuleID:  "mcast.control.bad",
+		Subject: trace.Subject{Kind: "port", Key: in.Port},
+		Outputs: []trace.Fact{mcast.ControlDecisionFact("", false, mcast.ReasonBadControl)},
+	})
 
-	return bridge.Result{
+	res := bridge.Result{
 		Trace:   trace.Trace{Outcome: trace.Dropped, Reason: mcast.ReasonBadControl, Steps: steps},
 		Ingress: in.Port,
 		FID:     in.FID,
 	}
+	res.Consult(in.ConsultedPorts()...)
+	res.ConsultScopes(in.ConsultedScopes()...)
+
+	return res
 }
 
 func hasRouterAlert(payload []byte) bool {
@@ -646,6 +936,20 @@ func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 	return ports, true
 }
 
+// MembershipFact records the multicast membership lookup used by bridge replication.
+func (s *Switch) MembershipFact(vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
+	if s.mcast == nil {
+		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+	}
+	hdr, _, err := ip.Decode(f.Payload)
+	if err != nil {
+		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+	}
+	_, registered := s.mcast.Resolve(vid, hdr.Dst)
+
+	return mcast.MembershipDecisionFact(vid, hdr.Dst, ports, registered, decided)
+}
+
 func (s *Switch) finishForward(ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
 	if s.traffic == nil {
 		return res
@@ -669,9 +973,11 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 			Dropped: traffic.ReasonMirrorOutput,
 		}
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerTraffic,
-			Op:     trace.OpDrop,
-			Detail: fmt.Sprintf("port %s: mirror-output", egress.Port),
+			Layer:   port.LayerTraffic,
+			Op:      trace.OpDrop,
+			RuleID:  "traffic.mirror.egress_drop",
+			Subject: trace.Subject{Kind: "port", Key: egress.Port},
+			Inputs:  []trace.Fact{traffic.MirrorDecisionFact(s.mirrorForOutput(egress.Port), egress.Port, frameOctets(egress.Frame), traffic.ReasonMirrorOutput)},
 		})
 	}
 	if reserved && !transmitted {
@@ -679,19 +985,79 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 		res.Reason = traffic.ReasonMirrorOutput
 	}
 
+	var vlans *bridge.VLAN
+	if s.cfg.Bridge != nil {
+		vlans = s.cfg.Bridge.VLAN
+	}
+	resolvedIngress := res.Ingress
+	if resolvedIngress == "" {
+		resolvedIngress = ingress
+	}
+	copies := traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
+	copies = s.readyMirrorCopies(&res, copies)
 	if mutate {
-		var vlans *bridge.VLAN
-		if s.cfg.Bridge != nil {
-			vlans = s.cfg.Bridge.VLAN
-		}
-		resolvedIngress := res.Ingress
-		if resolvedIngress == "" {
-			resolvedIngress = ingress
-		}
-		s.copies = traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
+		s.copies = copies
 	}
 
 	return res
+}
+
+func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []traffic.Copy {
+	ready := copies[:0]
+	for _, copy := range copies {
+		output, ok := s.ports.Port(copy.Port)
+		if !ok {
+			continue
+		}
+		s.egressDependencies(copy.Port).consult(res)
+
+		reason := trace.Reason("")
+		var selection trace.Fact
+		if !output.Forwards() {
+			reason = port.ReasonPortDown
+		} else if output.Kind == port.Lag {
+			res.ConsultScopes(s.aggregatorScope(copy.Port))
+			member, selected := s.SelectMember(copy.Port, copy.Frame, copy.VLAN)
+			selection = s.lag.SelectionFact(copy.Port, copy.Frame, copy.VLAN, member, selected)
+			if !selected {
+				reason = bridge.ReasonNoMember
+			} else if memberPort, exists := s.ports.Port(member); !exists || !memberPort.Forwards() {
+				reason = port.ReasonPortDown
+			} else {
+				copy.Member = member
+			}
+		}
+
+		decision := traffic.MirrorDecisionFact(copy.Mirror, copy.Port, frameOctets(copy.Frame), reason)
+		inputs := traceFacts(selection)
+		if reason != "" {
+			inputs = append(inputs,
+				port.ForwardingFact(copy.Port, output, false, reason),
+				decision,
+			)
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:   port.LayerTraffic,
+				Op:      trace.OpDrop,
+				RuleID:  traffic.RuleMirrorCopyDrop,
+				Subject: trace.Subject{Kind: "port", Key: copy.Port},
+				Inputs:  inputs,
+			})
+
+			continue
+		}
+
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerTraffic,
+			Op:      trace.OpReplicate,
+			RuleID:  traffic.RuleMirrorCopy,
+			Subject: trace.Subject{Kind: "port", Key: copy.Port},
+			Inputs:  inputs,
+			Outputs: []trace.Fact{decision},
+		})
+		ready = append(ready, copy)
+	}
+
+	return ready
 }
 
 func (s *Switch) isMirrorOutputPort(name string) bool {
@@ -705,6 +1071,34 @@ func (s *Switch) isMirrorOutputPort(name string) bool {
 	}
 
 	return false
+}
+
+func (s *Switch) mirrorForOutput(name string) string {
+	if s.traffic == nil {
+		return ""
+	}
+	for _, mirror := range s.traffic.Mirrors {
+		if mirror.OutputPort == name {
+			return mirror.Name
+		}
+	}
+
+	return ""
+}
+
+func frameOctets(f ethernet.Frame) int {
+	return 14 + len(f.Payload) + 4*len(f.Tags)
+}
+
+func traceFacts(values ...trace.Fact) []trace.Fact {
+	result := make([]trace.Fact, 0, len(values))
+	for _, value := range values {
+		if value != nil {
+			result = append(result, value)
+		}
+	}
+
+	return result
 }
 
 func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
@@ -727,6 +1121,7 @@ func (s *Switch) assembleRouteResult(
 	ingressSteps []trace.Step,
 	routeRes routing.Result,
 ) bridge.Result {
+	routeScopes := routeRes.ConsultedScopes()
 	if routeRes.Reason != "" {
 		outcome := trace.Dropped
 		if routeRes.Reason == routing.ReasonNotRouted {
@@ -736,7 +1131,7 @@ func (s *Switch) assembleRouteResult(
 		steps = append(steps, ingressSteps...)
 		steps = append(steps, routeRes.Steps...)
 
-		return bridge.Result{
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: outcome,
 				Reason:  routeRes.Reason,
@@ -745,6 +1140,12 @@ func (s *Switch) assembleRouteResult(
 			Ingress: ingressPort,
 			FID:     ingressFID,
 		}
+		if routeRes.Interface != "" {
+			s.routingForwardingDependencies(routeRes.Interface).consult(&res)
+		}
+		res.ConsultScopes(routeScopes...)
+
+		return res
 	}
 
 	// Route names only an interface of its own table, so the lookup cannot miss.
@@ -762,6 +1163,7 @@ func (s *Switch) assembleRouteResult(
 			DEI:   ingressDEI,
 			Steps: stepsSoFar,
 		}
+		bridgeIn.ConsultScopes(routeScopes...)
 		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
 		res.FID = egressIface.VLAN
 		res.Ingress = ingressPort
@@ -774,12 +1176,16 @@ func (s *Switch) assembleRouteResult(
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
 	if txReason != "" {
+		egressPort, _ := s.ports.Port(egressIface.Port)
 		steps = append(steps, trace.Step{
-			Layer:  port.LayerRouting,
-			Op:     trace.OpDrop,
-			Detail: fmt.Sprintf("port %s: %s", egressIface.Port, txReason),
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID("port.status." + string(txReason)),
+			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+			Inputs:  []trace.Fact{port.ForwardingFact(egressIface.Port, egressPort, false, txReason)},
+			Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, member, txReason)},
 		})
-		return bridge.Result{
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
 				Reason:  txReason,
@@ -797,18 +1203,28 @@ func (s *Switch) assembleRouteResult(
 				},
 			},
 		}
+		s.egressDependencies(egressIface.Port).consult(&res)
+		res.ConsultScopes(routeScopes...)
+		return res
 	}
 
 	p, _ := s.ports.Port(egressIface.Port)
+	var selection trace.Fact
+	resultScopes := routeScopes
 	if p.Kind == port.Lag {
+		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
 		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
+		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
 		if !ok {
 			steps = append(steps, trace.Step{
-				Layer:  port.LayerRouting,
-				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s: no-member", egressIface.Port),
+				Layer:   port.LayerRouting,
+				Op:      trace.OpDrop,
+				RuleID:  "lag.egress.no_member",
+				Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+				Inputs:  []trace.Fact{selection},
+				Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, "", bridge.ReasonNoMember)},
 			})
-			return bridge.Result{
+			res := bridge.Result{
 				Trace: trace.Trace{
 					Outcome: trace.Dropped,
 					Reason:  bridge.ReasonNoMember,
@@ -825,16 +1241,22 @@ func (s *Switch) assembleRouteResult(
 					},
 				},
 			}
+			s.egressDependencies(egressIface.Port).consult(&res)
+			res.ConsultScopes(resultScopes...)
+			return res
 		}
 		member = mem
 	}
 
 	steps = append(steps, trace.Step{
-		Layer:  port.LayerRouting,
-		Op:     trace.OpTransmit,
-		Detail: fmt.Sprintf("port %s", egressIface.Port),
+		Layer:   port.LayerRouting,
+		Op:      trace.OpTransmit,
+		RuleID:  "routing.transmit",
+		Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+		Inputs:  traceFacts(selection),
+		Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, member, "")},
 	})
-	return bridge.Result{
+	res := bridge.Result{
 		Trace: trace.Trace{
 			Outcome: trace.Forwarded,
 			Steps:   steps,
@@ -850,6 +1272,24 @@ func (s *Switch) assembleRouteResult(
 			},
 		},
 	}
+	s.egressDependencies(egressIface.Port).consult(&res)
+	res.ConsultScopes(resultScopes...)
+	return res
+}
+
+func (s *Switch) routingForwardingDependencies(name string) forwardingDependencies {
+	iface, ok := s.routing.Interface(name)
+	if !ok {
+		return forwardingDependencies{}
+	}
+	if iface.Port != "" {
+		return s.forwardingDependencies(iface.Port)
+	}
+	if _, ok := s.ports.Port(name); !ok {
+		return forwardingDependencies{}
+	}
+
+	return s.forwardingDependencies(name)
 }
 
 // Age removes dynamic forwarding database entries older than the configured
@@ -867,53 +1307,89 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
+	s.forwardingDependencies(ingress).consult(&res)
 	pcp, _ := framePriority(f)
 
 	p, ok := s.ports.Port(ingress)
 	if !ok {
 		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerPort,
-			Op:     trace.OpDrop,
-			Detail: "ingress port not found",
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.status.not_found",
+			Subject: trace.Subject{Kind: "port", Key: ingress},
+			Outputs: []trace.Fact{port.ForwardingFact(ingress, port.Port{}, false, port.ReasonPortDown)},
 		})
 
 		return res
 	}
+	res.Ingress = p.Name
+	if !p.Forwards() {
+		res.Reason = port.ReasonPortDown
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.status.down",
+			Subject: trace.Subject{Kind: "port", Key: p.Name},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
+		})
 
+		return res
+	}
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
 		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerPort,
-			Op:     trace.OpDrop,
-			Detail: "ingress LAG parent not found",
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.lag.parent_not_found",
+			Subject: trace.Subject{Kind: "port", Key: ingress},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
 		})
 
 		return res
 	}
 	res.Ingress = resolved.Name
 
-	if !p.Forwards() || !resolved.Forwards() {
+	if !resolved.Forwards() {
 		res.Reason = port.ReasonPortDown
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerPort,
-			Op:     trace.OpDrop,
-			Detail: "ingress port down",
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.status.down",
+			Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, true, ""), port.ForwardingFact(resolved.Name, resolved, false, port.ReasonPortDown)},
 		})
 
 		return res
 	}
 
 	var candidates []port.Port
+	var eligible int
+	var unavailable []trace.Fact
 	for _, cand := range s.ports.Ports() {
-		if cand.LagParent != "" || cand.Name == res.Ingress || !cand.Forwards() {
+		if cand.LagParent != "" || cand.Name == res.Ingress {
+			continue
+		}
+		eligible++
+		s.egressDependencies(cand.Name).consult(&res)
+		if !cand.Forwards() {
+			unavailable = append(unavailable, port.ForwardingFact(cand.Name, cand, false, port.ReasonPortDown))
 			continue
 		}
 		candidates = append(candidates, cand)
 	}
 
 	if len(candidates) == 0 {
+		res.Reason = bridge.ReasonNoEgress
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerPort,
+			Op:      trace.OpDrop,
+			RuleID:  "port.hub.no_egress",
+			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+			Inputs:  unavailable,
+			Outputs: []trace.Fact{port.HubEgressFact(eligible, 0, bridge.ReasonNoEgress)},
+		})
 		return res
 	}
 
@@ -927,17 +1403,22 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 				Dropped: port.ReasonMTUExceeded,
 			})
 			res.Steps = append(res.Steps, trace.Step{
-				Layer:  port.LayerPort,
-				Op:     trace.OpDrop,
-				Detail: fmt.Sprintf("port %s: mtu-exceeded", cand.Name),
+				Layer:   port.LayerPort,
+				Op:      trace.OpDrop,
+				RuleID:  "port.status.mtu-exceeded",
+				Subject: trace.Subject{Kind: "port", Key: cand.Name},
+				Inputs:  []trace.Fact{port.ForwardingFact(cand.Name, cand, false, port.ReasonMTUExceeded)},
 			})
 
 			continue
 		}
 
 		var member string
+		var selection trace.Fact
 		if cand.Kind == port.Lag {
+			res.ConsultScopes(s.aggregatorScope(cand.Name))
 			mem, ok := s.SelectMember(cand.Name, f, 0)
+			selection = s.lag.SelectionFact(cand.Name, f, 0, mem, ok)
 			if !ok {
 				res.Egress = append(res.Egress, bridge.Egress{
 					Port:    cand.Name,
@@ -946,9 +1427,11 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 					Dropped: bridge.ReasonNoMember,
 				})
 				res.Steps = append(res.Steps, trace.Step{
-					Layer:  port.LayerPort,
-					Op:     trace.OpDrop,
-					Detail: fmt.Sprintf("port %s: no-member", cand.Name),
+					Layer:   port.LayerPort,
+					Op:      trace.OpDrop,
+					RuleID:  "lag.egress.no_member",
+					Subject: trace.Subject{Kind: "port", Key: cand.Name},
+					Inputs:  []trace.Fact{selection},
 				})
 
 				continue
@@ -957,9 +1440,12 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		}
 
 		res.Steps = append(res.Steps, trace.Step{
-			Layer:  port.LayerPort,
-			Op:     trace.OpReplicate,
-			Detail: fmt.Sprintf("port %s", cand.Name),
+			Layer:   port.LayerPort,
+			Op:      trace.OpReplicate,
+			RuleID:  "port.hub.replicate",
+			Subject: trace.Subject{Kind: "port", Key: cand.Name},
+			Inputs:  traceFacts(selection),
+			Outputs: []trace.Fact{port.ForwardingFact(cand.Name, cand, true, "")},
 		})
 		res.Egress = append(res.Egress, bridge.Egress{
 			Port:   cand.Name,
@@ -984,12 +1470,60 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	return res
 }
 
+type forwardingDependencies struct {
+	ports  []port.Port
+	scopes []analysis.Scope
+}
+
+func (dependencies forwardingDependencies) consult(res *bridge.Result) {
+	res.Consult(dependencies.ports...)
+	res.ConsultScopes(dependencies.scopes...)
+}
+
+func (s *Switch) forwardingDependencies(name string) forwardingDependencies {
+	p, ok := s.ports.Port(name)
+	if !ok {
+		return forwardingDependencies{ports: []port.Port{(port.Port{Name: name}).Normalize()}}
+	}
+	path := []port.Port{p}
+	var scopes []analysis.Scope
+	if !p.Forwards() || p.LagParent == "" {
+		return forwardingDependencies{ports: path}
+	}
+	parent, exists := s.ports.Port(p.LagParent)
+	if !exists {
+		return forwardingDependencies{ports: path}
+	}
+	path = append(path, parent)
+	if parent.Forwards() {
+		scopes = append(scopes, s.aggregatorScope(p.LagParent))
+	}
+
+	return forwardingDependencies{ports: path, scopes: scopes}
+}
+
+func (s *Switch) egressDependencies(name string) forwardingDependencies {
+	dependencies := s.forwardingDependencies(name)
+	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.Lag || !dependencies.ports[0].Forwards() {
+		return dependencies
+	}
+	dependencies.ports = append(dependencies.ports, s.ports.Members(name)...)
+
+	return dependencies
+}
+
+func (s *Switch) aggregatorScope(name string) analysis.Scope {
+	return analysis.FieldScope(protocolScope(s.nodeID, port.LayerLag), "aggregators", name)
+}
+
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	before := s.lag.PortInfo(ingress)
 	pdu, err := lacp.Decode(f)
 	if err != nil {
 		if mutate {
 			s.lag.BadLACPDU(ingress)
 		}
+		after := s.lag.PortInfo(ingress)
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -997,9 +1531,12 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 				Reason:  lag.ReasonUnsupportedLACPDU,
 				Steps: []trace.Step{
 					{
-						Layer:  port.LayerLag,
-						Op:     trace.OpDrop,
-						Detail: string(lag.ReasonUnsupportedLACPDU),
+						Layer:   port.LayerLag,
+						Op:      trace.OpDrop,
+						RuleID:  "lag.lacpdu.unsupported",
+						Subject: trace.Subject{Kind: "port", Key: ingress},
+						Inputs:  []trace.Fact{lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)},
+						Outputs: []trace.Fact{lag.MemberTransitionFact(ingress, "bad-lacpdu", before, after)},
 					},
 				},
 			},
@@ -1011,15 +1548,19 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 		fx := s.lag.Receive(now, ingress, pdu)
 		s.applyLAGEffects(now, fx)
 	}
+	after := s.lag.PortInfo(ingress)
 
 	return bridge.Result{
 		Trace: trace.Trace{
 			Outcome: trace.Consumed,
 			Steps: []trace.Step{
 				{
-					Layer:  port.LayerLag,
-					Op:     trace.OpClassify,
-					Detail: "lacp",
+					Layer:   port.LayerLag,
+					Op:      trace.OpClassify,
+					RuleID:  "lag.lacpdu.admit",
+					Subject: trace.Subject{Kind: "port", Key: ingress},
+					Inputs:  []trace.Fact{lag.LACPDecodeFact(f, true, "")},
+					Outputs: []trace.Fact{lag.LACPDecisionFact(pdu, before, after)},
 				},
 			},
 		},
@@ -1031,24 +1572,32 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	// The relay's first checks apply to a BPDU too: a dead or unknown port
 	// received nothing, and a trace saying Consumed there would hide a BPDU
 	// that died on a cut cable.
-	resolved, reason := s.ports.Receive(ingress)
-	if reason != "" {
+	receive := s.ports.Receive(ingress)
+	if receive.Reason != "" {
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
 				Reason:  port.ReasonPortDown,
-				Steps:   []trace.Step{{Layer: port.LayerStp, Op: trace.OpDrop, Detail: "ingress port down"}},
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  "port.status.down",
+					Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+					Inputs:  receive.ForwardingFacts(),
+				}},
 			},
-			Ingress: resolved.Name,
+			Ingress: receive.Resolved.Name,
 		}
 	}
-	resolvedPort := resolved.Name
+	resolvedPort := receive.Resolved.Name
+	before := s.stp.PortInfo(resolvedPort)
 
 	bpdu, err := stp.Decode(f)
 	if err != nil {
 		if mutate {
 			s.stp.BadBPDU(resolvedPort)
 		}
+		after := s.stp.PortInfo(resolvedPort)
 
 		reason := stp.ReasonUnsupportedBPDU
 		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
@@ -1061,9 +1610,12 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 				Reason:  reason,
 				Steps: []trace.Step{
 					{
-						Layer:  port.LayerStp,
-						Op:     trace.OpDrop,
-						Detail: string(reason),
+						Layer:   port.LayerStp,
+						Op:      trace.OpDrop,
+						RuleID:  trace.RuleID("stp.bpdu." + string(reason)),
+						Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+						Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, false, reason)},
+						Outputs: []trace.Fact{stp.PortTransitionFact(resolvedPort, "bad-bpdu", before, after)},
 					},
 				},
 			},
@@ -1075,15 +1627,19 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 		fx := s.stp.Receive(now, resolvedPort, bpdu)
 		s.applySTPEffects(fx)
 	}
+	after := s.stp.PortInfo(resolvedPort)
 
 	return bridge.Result{
 		Trace: trace.Trace{
 			Outcome: trace.Consumed,
 			Steps: []trace.Step{
 				{
-					Layer:  port.LayerStp,
-					Op:     trace.OpClassify,
-					Detail: "stp",
+					Layer:   port.LayerStp,
+					Op:      trace.OpClassify,
+					RuleID:  "stp.bpdu.admit",
+					Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+					Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, true, "")},
+					Outputs: []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)},
 				},
 			},
 		},
@@ -1112,7 +1668,11 @@ func (s *Switch) Start(now time.Time) {
 				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
 				s.applyLAGEffects(now, fx)
 			}
-			s.updateLagState(now, p.LagParent)
+		}
+	}
+	for _, p := range s.ports.Ports() {
+		if p.Kind == port.Lag {
+			s.updateLagState(now, p.Name)
 		}
 	}
 
@@ -1178,18 +1738,8 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	// The row follows the members' own rows, not the layer's delayed
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
-	anyUp := false
-	for _, m := range s.ports.Members(lagName) {
-		if m.OperStatus != port.Down {
-			anyUp = true
-			break
-		}
-	}
-	lagOper := port.Down
-	if anyUp {
-		lagOper = port.Up
-	}
-	s.SetOperStatus(lagName, lagOper)
+	lagOper := aggregateOperStatus(s.ports.Members(lagName))
+	s.mustSetOperStatus(lagName, lagOper)
 
 	if s.stp != nil {
 		var enabledMembers []string
@@ -1228,6 +1778,23 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 		fxSTP := s.stp.LinkChange(now, lagName, lagUp, lagP2P, highestSpeed)
 		s.applySTPEffects(fxSTP)
 	}
+}
+
+func aggregateOperStatus(members []port.Port) port.LinkState {
+	possible := false
+	for _, member := range members {
+		if member.AdminStatus == port.Up && member.OperStatus == port.Up {
+			return port.Up
+		}
+		if member.AdminStatus != port.Down && member.OperStatus != port.Down {
+			possible = true
+		}
+	}
+	if possible {
+		return port.Unknown
+	}
+
+	return port.Down
 }
 
 // Drain returns and clears pending frame emissions produced by the protocol layers.
@@ -1369,7 +1936,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint boo
 		if up {
 			oper = port.Up
 		}
-		s.SetOperStatus(portName, oper)
+		s.mustSetOperStatus(portName, oper)
 
 		if s.lag != nil {
 			fx := s.lag.LinkChange(now, portName, up)
@@ -1390,7 +1957,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, up, pointToPoint boo
 	if up {
 		oper = port.Up
 	}
-	s.SetOperStatus(resolvedPort, oper)
+	s.mustSetOperStatus(resolvedPort, oper)
 
 	if s.stp != nil {
 		fx := s.stp.LinkChange(now, resolvedPort, up, pointToPoint, speed)
@@ -1432,7 +1999,13 @@ func (s *Switch) MemberInfo(member string) lag.MemberInfo {
 // switch's port table and the relay's. It tells the spanning tree layer
 // nothing: only the caller knows whether a member's change moves its LAG or
 // what the link's speed and kind are, so the caller follows with LinkChange.
-func (s *Switch) SetOperStatus(portName string, state port.LinkState) {
+// SetOperStatus returns a structured validation error when state is outside
+// the [port.LinkState] domain and leaves both tables unchanged.
+func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
+	if err := validateOperStatus(portName, state); err != nil {
+		return err
+	}
+
 	builder := port.NewBuilder()
 	for _, p := range s.ports.Ports() {
 		if p.Name == portName {
@@ -1440,13 +2013,36 @@ func (s *Switch) SetOperStatus(portName string, state port.LinkState) {
 		}
 		builder.Add(p)
 	}
-	// Only OperStatus changed on a table that already validated, so the
-	// rebuild cannot fail.
-	if tbl, err := builder.Build(); err == nil {
-		s.ports = tbl
+	tbl, err := builder.Build()
+	if err != nil {
+		return err
 	}
 
 	if s.bridge != nil {
-		s.bridge.SetOperStatus(portName, state)
+		if err := s.bridge.SetOperStatus(portName, state); err != nil {
+			return err
+		}
+	}
+	s.ports = tbl
+
+	return nil
+}
+
+func (s *Switch) mustSetOperStatus(portName string, state port.LinkState) {
+	if err := s.SetOperStatus(portName, state); err != nil {
+		panic(err)
+	}
+}
+
+func validateOperStatus(portName string, state port.LinkState) error {
+	switch state {
+	case "", port.Unknown, port.Up, port.Down:
+		return nil
+	default:
+		return errs.New().
+			Attr("field", "ports."+portName+".oper_status").
+			Attr("name", portName).
+			Attr("oper_status", state).
+			Msgf("port %q has invalid oper status %q", portName, state)
 	}
 }

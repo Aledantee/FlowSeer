@@ -143,7 +143,7 @@ func TestBalanceSLB(t *testing.T) {
 
 			var crossed string
 			for _, e := range j.Entries {
-				if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+				if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 					crossed = e.Cable.A.Port
 					break
 				}
@@ -234,7 +234,7 @@ func TestBalanceTCP(t *testing.T) {
 
 			var crossed string
 			for _, e := range j.Entries {
-				if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+				if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 					crossed = e.Cable.A.Port
 					break
 				}
@@ -286,7 +286,7 @@ func TestActiveBackupFailover(t *testing.T) {
 	}
 	var crossed1 string
 	for _, entry := range j1.Entries {
-		if entry.Kind == fabric.EntryCrossing && entry.Cable != nil && entry.Cable.A.Node == "A" {
+		if entry.Kind == fabric.EntryCrossing && entry.Cable != nil && entry.Cable.A.Node == "A" && entry.Cable.B.Node == "B" {
 			crossed1 = entry.Cable.A.Port
 		}
 	}
@@ -335,7 +335,7 @@ func TestActiveBackupFailover(t *testing.T) {
 
 	var crossed2 string
 	for _, entry := range j2.Entries {
-		if entry.Kind == fabric.EntryCrossing && entry.Cable != nil && entry.Cable.A.Node == "A" {
+		if entry.Kind == fabric.EntryCrossing && entry.Cable != nil && entry.Cable.A.Node == "A" && entry.Cable.B.Node == "B" {
 			crossed2 = entry.Cable.A.Port
 		}
 	}
@@ -448,7 +448,7 @@ func TestDelays(t *testing.T) {
 	}
 	var crossed string
 	for _, e := range jCross2.Entries {
-		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 			crossed = e.Cable.A.Port
 			break
 		}
@@ -490,7 +490,7 @@ func TestDelays(t *testing.T) {
 	}
 	crossed = ""
 	for _, e := range jStill2.Entries {
-		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 			crossed = e.Cable.A.Port
 			break
 		}
@@ -522,7 +522,7 @@ func TestDelays(t *testing.T) {
 	}
 	crossed = ""
 	for _, e := range jPrimary.Entries {
-		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 			crossed = e.Cable.A.Port
 			break
 		}
@@ -712,7 +712,7 @@ func TestFallback(t *testing.T) {
 	}
 	var crossed string
 	for _, e := range jWith.Entries {
-		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" {
+		if e.Kind == fabric.EntryCrossing && e.Cable != nil && e.Cable.A.Node == "A" && e.Cable.B.Node == "B" {
 			crossed = e.Cable.A.Port
 			break
 		}

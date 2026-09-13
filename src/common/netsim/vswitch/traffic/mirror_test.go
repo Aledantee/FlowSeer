@@ -37,6 +37,9 @@ func TestCopiesToPortSelectsIngressAndTruncates(t *testing.T) {
 	if copies[0].Mirror != "m1" || copies[0].Port != "1/1/4" {
 		t.Errorf("copy destination = %q/%q, want %q/%q", copies[0].Mirror, copies[0].Port, "m1", "1/1/4")
 	}
+	if copies[0].VLAN != 0 {
+		t.Errorf("direct-output copy VLAN = %d, want zero", copies[0].VLAN)
+	}
 	encoded, err := copies[0].Frame.Encode()
 	if err != nil {
 		t.Fatalf("encode copied frame: %v", err)
@@ -145,6 +148,11 @@ func TestCopiesToVLANUsesEachSwitchportTagForm(t *testing.T) {
 	if got := []string{copies[0].Port, copies[1].Port}; !slices.Equal(got, []string{"1/1/24", "1/1/4"}) {
 		t.Fatalf("copy ports = %v, want [1/1/24 1/1/4]", got)
 	}
+	for _, copy := range copies {
+		if copy.VLAN != outputVLAN {
+			t.Errorf("copy on %s VLAN = %d, want %d", copy.Port, copy.VLAN, outputVLAN)
+		}
+	}
 	tagged := copies[0].Frame.Tags
 	if len(tagged) != 1 {
 		t.Fatalf("tagged copy has %d tags, want 1", len(tagged))
@@ -185,6 +193,9 @@ func TestCopiesToVLANUsesTunnelAndKeepsInnerTags(t *testing.T) {
 	copies := traffic.Copies(cfg, vlans, "1/1/1", vlan.ID(10), received, nil)
 	if len(copies) != 1 {
 		t.Fatalf("Copies returned %d copies, want 1", len(copies))
+	}
+	if copies[0].VLAN != outputVLAN {
+		t.Errorf("tunnel copy VLAN = %d, want %d", copies[0].VLAN, outputVLAN)
 	}
 	if !slices.Equal(copies[0].Frame.Tags, []vlan.Tag{inner}) {
 		t.Errorf("tunnel copy tags = %+v, want inner tag %+v", copies[0].Frame.Tags, inner)

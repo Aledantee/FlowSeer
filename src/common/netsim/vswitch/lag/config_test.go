@@ -1,10 +1,13 @@
 package lag_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -171,6 +174,23 @@ func TestValidate(t *testing.T) {
 			t.Fatal("Validate succeeded with unknown LACP mode, want error")
 		}
 	})
+
+	t.Run("refuses group LACP system ID", func(t *testing.T) {
+		t.Parallel()
+		cfg := lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode: lag.ActiveBackup,
+				LACP: lag.LACPConfig{Mode: lag.Off, SystemID: netaddr.MAC{0x01, 0, 0, 0, 0, 1}},
+			},
+		}}
+		err := cfg.Validate(tbl)
+		if err == nil {
+			t.Fatal("Validate() = nil, want error")
+		}
+		if got := errs.Attributes(err)["field"]; got != "lags.lag1.lacp.system_id" {
+			t.Errorf("field = %v, want lags.lag1.lacp.system_id", got)
+		}
+	})
 }
 
 func TestDefaults(t *testing.T) {
@@ -263,7 +283,89 @@ func TestDiff(t *testing.T) {
 		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
 	}
 
-	if from, to, ok := findChange("port", "1/1/1", "priority"); !ok || from != lag.DefaultPortPriority || to != uint16(100) {
+	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
+	if from, to, ok := findChange("port", memberKey, "priority"); !ok || from != lag.PortPriorityFact(lag.DefaultPortPriority) || to != lag.PortPriorityFact(100) {
 		t.Errorf("priority change: got (%v, %v, %v), want (%d, 100, true)", from, to, ok, lag.DefaultPortPriority)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	cfg := lag.Config{
+		LAGs: map[string]lag.LAG{
+			"lag1": {
+				Members: map[string]lag.Member{
+					"1/1/1": {},
+				},
+			},
+		},
+	}
+	norm := cfg.Normalize(lagPortTable(t), mustMAC(t, "02:00:00:00:00:aa"))
+	l := norm.LAGs["lag1"]
+	if l.Mode != lag.ActiveBackup {
+		t.Errorf("Mode: got %v, want %v", l.Mode, lag.ActiveBackup)
+	}
+	if l.LACP.Mode != lag.Off {
+		t.Errorf("LACP.Mode: got %v, want %v", l.LACP.Mode, lag.Off)
+	}
+	if l.LACP.SystemPriority != lag.DefaultSystemPriority {
+		t.Errorf("LACP.SystemPriority: got %d, want %d", l.LACP.SystemPriority, lag.DefaultSystemPriority)
+	}
+	m := l.Members["1/1/1"]
+	if m.Priority != lag.DefaultPortPriority {
+		t.Errorf("Member Priority: got %d, want %d", m.Priority, lag.DefaultPortPriority)
+	}
+}
+
+func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
+	t.Parallel()
+
+	ports := lagPortTable(t)
+	systemID := mustMAC(t, "02:00:00:00:00:aa")
+	omitted := vswitch.Config{MAC: systemID, Ports: ports}
+	effectiveLAG := lag.Config{}.Defaults(ports, systemID)
+	explicit := vswitch.Config{MAC: systemID, Ports: ports, LAG: &effectiveLAG}
+
+	omittedNorm := omitted.Normalize()
+	if omittedNorm.LAG == nil {
+		t.Fatal("Normalize().LAG = nil, want effective LAG configuration")
+	}
+	if changes := vswitch.Diff(omittedNorm, explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(omitted, explicit) = %+v, want no changes", changes)
+	}
+
+	sw, err := vswitch.New(omitted)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
+	if changes := vswitch.Diff(sw.Config(), explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(Switch.Config(), explicit) = %+v, want no changes", changes)
+	}
+	if changes := vswitch.Diff(sw.Spec().Config, explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(Switch.Spec().Config, explicit) = %+v, want no changes", changes)
+	}
+}
+
+func TestLAGSnapshotFactIsLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	membersA := map[string]lag.Member{"1/1/1": {Priority: 1}}
+	membersB := map[string]lag.Member{"1/1/2": {Priority: 1}}
+	a := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup, LACP: lag.LACPConfig{Mode: lag.Off}, Members: membersA}}}
+	b := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup, LACP: lag.LACPConfig{Mode: lag.Off}, Members: membersB}}}
+
+	factA := lag.Diff(lag.Config{}, a)[0].To
+	factB := lag.Diff(lag.Config{}, b)[0].To
+	if factA.TypeID() != "lag.lag" {
+		t.Errorf("TypeID() = %q, want lag.lag", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different LAGs share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	membersA["1/1/3"] = lag.Member{Priority: 1}
+	if got := factA.Canonical(); got != before {
+		t.Errorf("fact changed after source mutation: got %q, want %q", got, before)
 	}
 }

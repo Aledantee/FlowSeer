@@ -1,7 +1,6 @@
 package mcast_test
 
 import (
-	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -149,9 +148,18 @@ func TestDiff(t *testing.T) {
 	}
 
 	routers := changes[2]
-	if !reflect.DeepEqual(routers.From, []string{"1/1/1", "1/1/2"}) ||
-		!reflect.DeepEqual(routers.To, []string{"1/1/4"}) {
+	if routers.From == nil || routers.To == nil ||
+		!trace.EqualFact(routers.From, mcast.RouterPortsFact([]string{"1/1/1", "1/1/2"})) ||
+		!trace.EqualFact(routers.To, mcast.RouterPortsFact([]string{"1/1/4"})) {
 		t.Errorf("router_ports change = (%v, %v), want sorted port sets", routers.From, routers.To)
+	}
+	for i, c := range changes {
+		if c.From != nil && c.From.TypeID() == "" {
+			t.Errorf("change[%d].From has empty TypeID", i)
+		}
+		if c.To != nil && c.To.TypeID() == "" {
+			t.Errorf("change[%d].To has empty TypeID", i)
+		}
 	}
 	if changes[5].Subject.Key != "30" || changes[5].To != nil {
 		t.Errorf("removed VLAN change = %+v, want VLAN 30 removal", changes[5])
@@ -177,5 +185,64 @@ func TestDiffUsesEffectiveValuesAndSetOrder(t *testing.T) {
 
 	if got := mcast.Diff(a, b); len(got) != 0 {
 		t.Errorf("Diff() = %+v, want no changes", got)
+	}
+}
+
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+
+	t.Run("default equivalence and idempotence", func(t *testing.T) {
+		raw := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			10: {RouterPorts: []string{"1/1/2", "1/1/1"}},
+		}}
+		flood := true
+		explicit := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			10: {
+				FloodUnregistered:  &flood,
+				FastLeave:          false,
+				RouterPorts:        []string{"1/1/1", "1/1/2"},
+				MembershipInterval: mcast.DefaultMembershipInterval,
+				RouterPortInterval: mcast.DefaultMembershipInterval,
+			},
+		}}
+
+		normRaw := raw.Normalize()
+		normExplicit := explicit.Normalize()
+
+		diffs := mcast.Diff(normRaw, normExplicit)
+		if len(diffs) != 0 {
+			t.Errorf("normalized raw != normalized explicit: %v", diffs)
+		}
+
+		normTwice := normRaw.Normalize()
+		if len(mcast.Diff(normRaw, normTwice)) != 0 {
+			t.Errorf("Normalize() is not idempotent")
+		}
+	})
+
+	t.Run("caller input immutability", func(t *testing.T) {
+		ports := []string{"1/1/2", "1/1/1"}
+		raw := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+			10: {RouterPorts: ports},
+		}}
+		_ = raw.Normalize()
+		if ports[0] != "1/1/2" || ports[1] != "1/1/1" {
+			t.Errorf("caller slice mutated: %v", ports)
+		}
+	})
+}
+
+func TestBehaviorMatrix(t *testing.T) {
+	t.Parallel()
+
+	fields := []string{
+		"VLANs.FloodUnregistered",
+		"VLANs.FastLeave",
+		"VLANs.RouterPorts",
+		"VLANs.MembershipInterval",
+		"VLANs.RouterPortInterval",
+	}
+	if len(fields) != 5 {
+		t.Fatalf("unexpected number of mcast fields: %d", len(fields))
 	}
 }

@@ -1,8 +1,11 @@
 package fabric
 
 import (
+	"cmp"
+	"math"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -97,6 +100,20 @@ type Endpoint struct {
 	Port string
 }
 
+// TypeID returns the fact type identifier for Endpoint.
+func (e Endpoint) TypeID() string {
+	return "fabric.endpoint"
+}
+
+// Canonical returns the canonical representation of the endpoint.
+func (e Endpoint) Canonical() string {
+	return encodeEndpointPart(e.Node) + ":" + encodeEndpointPart(e.Port)
+}
+
+func encodeEndpointPart(value string) string {
+	return strings.NewReplacer("%", "%25", ":", "%3A", "-", "%2D").Replace(value)
+}
+
 // HostIP configures the layer 3 addressing, default gateway, and static link-layer neighbors
 // for a simulated host.
 type HostIP struct {
@@ -137,6 +154,36 @@ func (h Host) Clone() Host {
 	}
 
 	return cp
+}
+
+// Equal reports whether two host configurations are identical.
+func (h Host) Equal(other Host) bool {
+	if h.Address != other.Address {
+		return false
+	}
+	if (h.VLAN == nil) != (other.VLAN == nil) {
+		return false
+	}
+	if h.VLAN != nil && *h.VLAN != *other.VLAN {
+		return false
+	}
+	if (h.IP == nil) != (other.IP == nil) {
+		return false
+	}
+	if h.IP != nil {
+		if !slices.Equal(h.IP.Addresses, other.IP.Addresses) || h.IP.Gateway != other.IP.Gateway {
+			return false
+		}
+		if len(h.IP.Neighbors) != len(other.IP.Neighbors) {
+			return false
+		}
+		for k, v := range h.IP.Neighbors {
+			if other.IP.Neighbors[k] != v {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // HostRoutingConfig translates a host's IP configuration into a virtual switch routing configuration
@@ -233,6 +280,27 @@ func (c Cable) Clone() Cable {
 	return cp
 }
 
+// Equal reports whether two cable configurations are semantically equal.
+func (c Cable) Equal(other Cable) bool {
+	if c.A != other.A || c.B != other.B || !sameLengthMeters(c.LengthMeters, other.LengthMeters) || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
+		return false
+	}
+	if (c.Delay == nil) != (other.Delay == nil) {
+		return false
+	}
+	if c.Delay != nil && *c.Delay != *other.Delay {
+		return false
+	}
+	if c.Fault.Kind != other.Fault.Kind || c.Fault.N != other.Fault.N || !slices.Equal(c.Fault.Sequence, other.Fault.Sequence) {
+		return false
+	}
+	return true
+}
+
+func sameLengthMeters(a, b float64) bool {
+	return cmp.Compare(a, b) == 0
+}
+
 // Config declares the full static topology of a simulated network fabric.
 type Config struct {
 	Start    time.Time
@@ -266,6 +334,168 @@ func (c Config) Clone() Config {
 	}
 
 	return cp
+}
+
+// Equal reports whether two fabric configurations are identical.
+func (c Config) Equal(other Config) bool {
+	return equalNormalizedConfigs(c.Normalize(), other.Normalize())
+}
+
+func equalNormalizedConfigs(c, other Config) bool {
+	if !c.Start.Equal(other.Start) {
+		return false
+	}
+	if len(c.Switches) != len(other.Switches) || len(c.Hosts) != len(other.Hosts) || len(c.Cables) != len(other.Cables) {
+		return false
+	}
+	for k, sw := range c.Switches {
+		otherSW, ok := other.Switches[k]
+		if !ok || !sw.Equal(otherSW) {
+			return false
+		}
+	}
+	for k, h := range c.Hosts {
+		otherH, ok := other.Hosts[k]
+		if !ok || !h.Equal(otherH) {
+			return false
+		}
+	}
+	for i := range c.Cables {
+		if !c.Cables[i].Equal(other.Cables[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Normalize returns a normalized copy of the fabric configuration with assigned
+// hardware addresses across all switches and hosts, normalized switch configurations,
+// and deterministically ordered cables.
+func (c Config) Normalize() Config {
+	cloned := c.Clone()
+
+	usedMACs := make(map[netaddr.MAC]struct{})
+	for _, swCfg := range cloned.Switches {
+		if swCfg.MAC != (netaddr.MAC{}) {
+			usedMACs[swCfg.MAC] = struct{}{}
+		}
+		if swCfg.STP != nil && swCfg.STP.Address != (netaddr.MAC{}) {
+			usedMACs[swCfg.STP.Address] = struct{}{}
+		}
+		if swCfg.Routing != nil {
+			for _, vrf := range swCfg.Routing.VRFs {
+				for _, iface := range vrf.Interfaces {
+					if iface.MAC != (netaddr.MAC{}) {
+						usedMACs[iface.MAC] = struct{}{}
+					}
+				}
+			}
+		}
+	}
+	for _, h := range cloned.Hosts {
+		if h.Address != (netaddr.MAC{}) {
+			usedMACs[h.Address] = struct{}{}
+		}
+	}
+
+	assignLocal := func() netaddr.MAC {
+		for n := uint32(1); ; n++ {
+			cand := netaddr.Local(n)
+			if _, ok := usedMACs[cand]; !ok {
+				usedMACs[cand] = struct{}{}
+				return cand
+			}
+		}
+	}
+
+	swNames := make([]string, 0, len(cloned.Switches))
+	for name := range cloned.Switches {
+		swNames = append(swNames, name)
+	}
+	slices.Sort(swNames)
+	for _, name := range swNames {
+		swCfg := cloned.Switches[name]
+		if swCfg.MAC == (netaddr.MAC{}) {
+			swCfg.MAC = assignLocal()
+		}
+		cloned.Switches[name] = swCfg.Normalize()
+	}
+
+	hNames := make([]string, 0, len(cloned.Hosts))
+	for name := range cloned.Hosts {
+		hNames = append(hNames, name)
+	}
+	slices.Sort(hNames)
+	for _, name := range hNames {
+		h := cloned.Hosts[name]
+		if h.Address == (netaddr.MAC{}) {
+			h.Address = assignLocal()
+		}
+		if h.IP != nil && len(h.IP.Addresses) > 0 {
+			slices.SortFunc(h.IP.Addresses, comparePrefix)
+			h.IP.Addresses = slices.Compact(h.IP.Addresses)
+		}
+		cloned.Hosts[name] = h
+	}
+
+	for i := range cloned.Cables {
+		cable := cloned.Cables[i]
+		if cable.LengthMeters == 0 {
+			cable.LengthMeters = 0
+		}
+		cable.Medium = normalizedMedium(cable.Medium)
+		cable.Fault = normalizedFault(cable.Fault)
+		cloned.Cables[i] = canonicalCableOrientation(cable)
+	}
+
+	// Sort cables by endpoint names to ensure stable ordering.
+	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
+		if r := cmp.Compare(i.A.Node, j.A.Node); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(i.A.Port, j.A.Port); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(i.B.Node, j.B.Node); r != 0 {
+			return r
+		}
+
+		return cmp.Compare(i.B.Port, j.B.Port)
+	})
+
+	return cloned
+}
+
+func canonicalCableOrientation(c Cable) Cable {
+	if compareEndpoint(c.A, c.B) <= 0 {
+		return c
+	}
+
+	c.A, c.B = c.B, c.A
+	switch c.Fault.Kind {
+	case FaultDeadAToB:
+		c.Fault.Kind = FaultDeadBToA
+	case FaultDeadBToA:
+		c.Fault.Kind = FaultDeadAToB
+	}
+
+	return c
+}
+
+func compareEndpoint(a, b Endpoint) int {
+	if order := cmp.Compare(a.Node, b.Node); order != 0 {
+		return order
+	}
+
+	return cmp.Compare(a.Port, b.Port)
+}
+
+func comparePrefix(a, b netip.Prefix) int {
+	if order := a.Addr().Compare(b.Addr()); order != 0 {
+		return order
+	}
+
+	return cmp.Compare(a.Bits(), b.Bits())
 }
 
 // Validate verifies structural and topological invariants of the configuration:
@@ -373,11 +603,11 @@ func (c Config) Validate() error {
 	portCables := make(map[Endpoint]int)
 
 	for i, cable := range c.Cables {
-		if cable.LengthMeters < 0 {
+		if math.IsNaN(cable.LengthMeters) || math.IsInf(cable.LengthMeters, 0) || cable.LengthMeters < 0 {
 			return errs.New().
 				Attr("cable", i).
 				Attr("length", cable.LengthMeters).
-				Msg("cable length cannot be negative")
+				Msg("cable length must be finite and non-negative")
 		}
 
 		if cable.Delay != nil && *cable.Delay < 0 {
@@ -476,16 +706,32 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 func validateFault(f Fault) error {
 	switch f.Kind {
 	case "", FaultNone, FaultCut, FaultDeadAToB, FaultDeadBToA:
+		if f.N != 0 || len(f.Sequence) != 0 {
+			return errs.New().
+				Attr("kind", f.Kind).
+				Msg("fault parameters are set for a kind that does not use them")
+		}
 		return nil
 	case FaultLoseEveryNth, FaultCorruptEveryNth:
 		if f.N == 0 {
 			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N must be greater than zero")
 		}
+		if len(f.Sequence) != 0 {
+			return errs.New().Attr("kind", f.Kind).Msg("fault sequence is set for an every-Nth kind")
+		}
 
 		return nil
 	case FaultLoseSequence:
+		if f.N != 0 {
+			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N is set for a sequence kind")
+		}
 		if len(f.Sequence) == 0 {
 			return errs.New().Attr("kind", f.Kind).Msg("fault sequence cannot be empty")
+		}
+		for _, position := range f.Sequence {
+			if position == 0 {
+				return errs.New().Attr("kind", f.Kind).Msg("fault sequence positions must be greater than zero")
+			}
 		}
 
 		return nil

@@ -119,9 +119,16 @@ type Layer struct {
 }
 
 // New constructs a link aggregation layer from the given configuration, port table, and switch system ID.
-func New(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
-	cfg = cfg.Defaults(ports, systemID)
+// It returns an error if the configuration is invalid against the ports.
+func New(cfg Config, ports port.Table, systemID netaddr.MAC) (*Layer, error) {
+	norm := cfg.Normalize(ports, systemID)
+	if err := norm.Validate(ports); err != nil {
+		return nil, err
+	}
+	return newLayer(norm, ports, systemID), nil
+}
 
+func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 	layer := &Layer{
 		cfg:      cfg,
 		ports:    ports.Clone(),

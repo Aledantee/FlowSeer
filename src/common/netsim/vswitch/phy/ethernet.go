@@ -1,7 +1,10 @@
 package phy
 
 import (
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 )
 
 // Duplex is the duplex mode of an Ethernet link.
@@ -18,6 +21,16 @@ const (
 	Unknown Duplex = "Unknown"
 )
 
+// TypeID returns the stable identifier for Duplex facts.
+func (d Duplex) TypeID() string {
+	return "phy.duplex"
+}
+
+// Canonical returns the string value of the duplex.
+func (d Duplex) Canonical() string {
+	return string(d)
+}
+
 // Setting is the requested link configuration of one port. With
 // AutoNegotiation on, the port negotiates over its supported speeds; with it
 // off, SpeedBPS and Duplex are the requested fixed link.
@@ -27,10 +40,30 @@ type Setting struct {
 	AutoNegotiation bool
 }
 
+// Clone returns an independent copy of the setting, or nil if s is nil.
+func (s *Setting) Clone() *Setting {
+	if s == nil {
+		return nil
+	}
+	cp := *s
+
+	return &cp
+}
+
 // Observed is the active speed and duplex a source reported for a link.
 type Observed struct {
 	SpeedBPS uint64
 	Duplex   Duplex
+}
+
+// Clone returns an independent copy of the observed link state, or nil if o is nil.
+func (o *Observed) Clone() *Observed {
+	if o == nil {
+		return nil
+	}
+	cp := *o
+
+	return &cp
 }
 
 // Ethernet describes one port's physical link: the speeds it supports,
@@ -41,6 +74,37 @@ type Ethernet struct {
 	AutoNegotiationSupported bool
 	Setting                  *Setting
 	Observed                 *Observed
+}
+
+// Clone returns an independent deep copy of the Ethernet configuration.
+func (e Ethernet) Clone() Ethernet {
+	return Ethernet{
+		SupportedSpeedsBPS:       slices.Clone(e.SupportedSpeedsBPS),
+		AutoNegotiationSupported: e.AutoNegotiationSupported,
+		Setting:                  e.Setting.Clone(),
+		Observed:                 e.Observed.Clone(),
+	}
+}
+
+// Canonical returns a deterministic representation of the Ethernet configuration.
+func (e Ethernet) Canonical() string {
+	speeds := slices.Clone(e.SupportedSpeedsBPS)
+	slices.Sort(speeds)
+	var speedStrs []string
+	for _, s := range speeds {
+		speedStrs = append(speedStrs, strconv.FormatUint(s, 10))
+	}
+	settingStr := "<nil>"
+	if e.Setting != nil {
+		settingStr = fmt.Sprintf("speed=%d,duplex=%q,autoneg=%t", e.Setting.SpeedBPS, string(e.Setting.Duplex), e.Setting.AutoNegotiation)
+	}
+	obsStr := "<nil>"
+	if e.Observed != nil {
+		obsStr = fmt.Sprintf("speed=%d,duplex=%q", e.Observed.SpeedBPS, string(e.Observed.Duplex))
+	}
+
+	return fmt.Sprintf("speeds=[%s],autoneg_sup=%t,setting={%s},observed={%s}",
+		strings.Join(speedStrs, ","), e.AutoNegotiationSupported, settingStr, obsStr)
 }
 
 // Source identifies which fact resolved a port's active speed.

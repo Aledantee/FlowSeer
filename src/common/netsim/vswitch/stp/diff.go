@@ -1,73 +1,85 @@
 package stp
 
 import (
+	"strconv"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-func effectivePriority(p uint16) uint16 {
-	if p == 0 {
-		return DefaultBridgePriority
-	}
+// MACFact wraps a netaddr.MAC as a trace.Fact.
+type MACFact netaddr.MAC
 
-	return p
-}
+// TypeID returns the fact type identifier for MACFact.
+func (f MACFact) TypeID() string { return "stp.mac" }
 
-func effectiveHelloTime(d time.Duration) time.Duration {
-	if d == 0 {
-		return DefaultHelloTime
-	}
+// Canonical returns the formatted MAC string.
+func (f MACFact) Canonical() string { return netaddr.MAC(f).String() }
 
-	return d
-}
+// PriorityFact wraps a bridge priority as a trace.Fact.
+type PriorityFact uint16
 
-func effectiveMaxAge(d time.Duration) time.Duration {
-	if d == 0 {
-		return DefaultMaxAge
-	}
+// TypeID returns the fact type identifier for PriorityFact.
+func (f PriorityFact) TypeID() string { return "stp.priority" }
 
-	return d
-}
+// Canonical returns the decimal string of the priority.
+func (f PriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-func effectiveForwardDelay(d time.Duration) time.Duration {
-	if d == 0 {
-		return DefaultForwardDelay
-	}
+// DurationFact wraps a time.Duration as a trace.Fact.
+type DurationFact time.Duration
 
-	return d
-}
+// TypeID returns the fact type identifier for DurationFact.
+func (f DurationFact) TypeID() string { return "stp.duration" }
 
-func effectiveTxHoldCount(c uint8) uint8 {
-	if c == 0 {
-		return DefaultTxHoldCount
-	}
+// Canonical returns the formatted duration string.
+func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 
-	return c
-}
+// TxHoldCountFact wraps a tx hold count as a trace.Fact.
+type TxHoldCountFact uint8
 
-func effectivePortPriority(p uint8) uint8 {
-	if p == 0 {
-		return DefaultPortPriority
-	}
+// TypeID returns the fact type identifier for TxHoldCountFact.
+func (f TxHoldCountFact) TypeID() string { return "stp.tx_hold_count" }
 
-	return p
-}
+// Canonical returns the decimal string of the tx hold count.
+func (f TxHoldCountFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-func effectivePointToPoint(m PointToPointMode) PointToPointMode {
-	if m == "" {
-		return PointToPointAuto
-	}
+// PortPriorityFact wraps a port priority as a trace.Fact.
+type PortPriorityFact uint8
 
-	return m
-}
+// TypeID returns the fact type identifier for PortPriorityFact.
+func (f PortPriorityFact) TypeID() string { return "stp.port_priority" }
+
+// Canonical returns the decimal string of the port priority.
+func (f PortPriorityFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// PathCostFact wraps an admin path cost as a trace.Fact.
+type PathCostFact uint32
+
+// TypeID returns the fact type identifier for PathCostFact.
+func (f PathCostFact) TypeID() string { return "stp.path_cost" }
+
+// Canonical returns the decimal string of the path cost.
+func (f PathCostFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// BoolFact wraps a boolean value as a trace.Fact.
+type BoolFact bool
+
+// TypeID returns the fact type identifier for BoolFact.
+func (f BoolFact) TypeID() string { return "stp.bool" }
+
+// Canonical returns "true" or "false".
+func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 
 // Diff computes the difference between two spanning tree configurations,
 // reporting changes to bridge priority, hello time, max age, forward delay,
 // tx hold count, and per-port priority, admin path cost, admin edge,
 // point-to-point mode, and auto edge.
 func Diff(a, b Config) []trace.Change {
+	a = a.Normalize()
+	b = b.Normalize()
+
 	var changes []trace.Change
 
 	layer := port.LayerStp
@@ -77,63 +89,58 @@ func Diff(a, b Config) []trace.Change {
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "address",
-			From:    a.Address,
-			To:      b.Address,
+			From:    MACFact(a.Address),
+			To:      MACFact(b.Address),
 		})
 	}
 
-	aPrio, bPrio := effectivePriority(a.Priority), effectivePriority(b.Priority)
-	if aPrio != bPrio {
+	if a.Priority != b.Priority {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "priority",
-			From:    aPrio,
-			To:      bPrio,
+			From:    PriorityFact(a.Priority),
+			To:      PriorityFact(b.Priority),
 		})
 	}
 
-	aHello, bHello := effectiveHelloTime(a.HelloTime), effectiveHelloTime(b.HelloTime)
-	if aHello != bHello {
+	if a.HelloTime != b.HelloTime {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "hello_time",
-			From:    aHello,
-			To:      bHello,
+			From:    DurationFact(a.HelloTime),
+			To:      DurationFact(b.HelloTime),
 		})
 	}
 
-	aMax, bMax := effectiveMaxAge(a.MaxAge), effectiveMaxAge(b.MaxAge)
-	if aMax != bMax {
+	if a.MaxAge != b.MaxAge {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "max_age",
-			From:    aMax,
-			To:      bMax,
+			From:    DurationFact(a.MaxAge),
+			To:      DurationFact(b.MaxAge),
 		})
 	}
 
-	aFwd, bFwd := effectiveForwardDelay(a.ForwardDelay), effectiveForwardDelay(b.ForwardDelay)
-	if aFwd != bFwd {
+	if a.ForwardDelay != b.ForwardDelay {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "forward_delay",
-			From:    aFwd,
-			To:      bFwd,
+			From:    DurationFact(a.ForwardDelay),
+			To:      DurationFact(b.ForwardDelay),
 		})
 	}
 
-	aHold, bHold := effectiveTxHoldCount(a.TxHoldCount), effectiveTxHoldCount(b.TxHoldCount)
-	if aHold != bHold {
+	if a.TxHoldCount != b.TxHoldCount {
 		changes = append(changes, trace.Change{
 			Layer:   layer,
 			Subject: trace.Subject{Kind: "bridge", Key: ""},
 			Field:   "tx_hold_count",
-			From:    aHold,
-			To:      bHold,
+			From:    TxHoldCountFact(a.TxHoldCount),
+			To:      TxHoldCountFact(b.TxHoldCount),
 		})
 	}
 
@@ -152,13 +159,13 @@ func Diff(a, b Config) []trace.Change {
 			continue
 		}
 
-		if from, to := effectivePortPriority(ap.Priority), effectivePortPriority(bp.Priority); from != to {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "priority",
-				From:    from,
-				To:      to,
+				From:    PortPriorityFact(ap.Priority),
+				To:      PortPriorityFact(bp.Priority),
 			})
 		}
 
@@ -167,8 +174,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_path_cost",
-				From:    ap.PathCost,
-				To:      bp.PathCost,
+				From:    PathCostFact(ap.PathCost),
+				To:      PathCostFact(bp.PathCost),
 			})
 		}
 
@@ -177,18 +184,18 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_edge",
-				From:    ap.AdminEdge,
-				To:      bp.AdminEdge,
+				From:    BoolFact(ap.AdminEdge),
+				To:      BoolFact(bp.AdminEdge),
 			})
 		}
 
-		if from, to := effectivePointToPoint(ap.PointToPoint), effectivePointToPoint(bp.PointToPoint); from != to {
+		if ap.PointToPoint != bp.PointToPoint {
 			changes = append(changes, trace.Change{
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "admin_point_to_point",
-				From:    from,
-				To:      to,
+				From:    ap.PointToPoint,
+				To:      bp.PointToPoint,
 			})
 		}
 
@@ -197,8 +204,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "auto_edge",
-				From:    ap.AutoEdge,
-				To:      bp.AutoEdge,
+				From:    BoolFact(ap.AutoEdge),
+				To:      BoolFact(bp.AutoEdge),
 			})
 		}
 	}

@@ -24,6 +24,16 @@ const (
 	Twinax Medium = "Twinax"
 )
 
+// TypeID returns the fact type identifier for Medium.
+func (m Medium) TypeID() string {
+	return "fabric.medium"
+}
+
+// Canonical returns the string value of the medium.
+func (m Medium) Canonical() string {
+	return string(m)
+}
+
 // VelocityFactor returns the ratio of propagation speed through the medium
 // relative to the speed of light in vacuum. An empty medium is [TwistedPair];
 // so is any value Validate refuses.

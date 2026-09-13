@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -44,22 +45,26 @@ func TestConfigValidate(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		cfg  traffic.Config
+		name      string
+		cfg       traffic.Config
+		wantField string
 	}{
 		{
 			name: "both mirror outputs",
 			cfg: traffic.Config{Mirrors: []traffic.Mirror{{
 				Name: "m1", OutputPort: "1/1/4", OutputVLAN: vlanPtr(99),
 			}}},
+			wantField: "mirrors.0.output",
 		},
 		{
-			name: "neither mirror output",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1"}}},
+			name:      "neither mirror output",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1"}}},
+			wantField: "mirrors.0.output",
 		},
 		{
-			name: "empty mirror name",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{OutputPort: "1/1/4"}}},
+			name:      "empty mirror name",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{OutputPort: "1/1/4"}}},
+			wantField: "mirrors.0.name",
 		},
 		{
 			name: "duplicate mirror name",
@@ -67,24 +72,36 @@ func TestConfigValidate(t *testing.T) {
 				{Name: "m1", OutputPort: "1/1/4"},
 				{Name: "m1", OutputVLAN: vlanPtr(99)},
 			}},
+			wantField: "mirrors.1.name",
 		},
 		{
 			name: "unknown selector port",
 			cfg: traffic.Config{Mirrors: []traffic.Mirror{{
 				Name: "m1", SelectSrcPorts: []string{"missing"}, OutputPort: "1/1/4",
 			}}},
+			wantField: "mirrors.0.select_src_ports.0",
 		},
 		{
-			name: "unknown output port",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "missing"}}},
+			name: "unknown destination selector port",
+			cfg: traffic.Config{Mirrors: []traffic.Mirror{{
+				Name: "m1", SelectDstPorts: []string{"missing"}, OutputPort: "1/1/4",
+			}}},
+			wantField: "mirrors.0.select_dst_ports.0",
 		},
 		{
-			name: "LAG output port",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "lag1"}}},
+			name:      "unknown output port",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "missing"}}},
+			wantField: "mirrors.0.output_port",
 		},
 		{
-			name: "LAG member output port",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/2"}}},
+			name:      "LAG output port",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "lag1"}}},
+			wantField: "mirrors.0.output_port",
+		},
+		{
+			name:      "LAG member output port",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/2"}}},
+			wantField: "mirrors.0.output_port",
 		},
 		{
 			name: "output port selected by another mirror",
@@ -92,55 +109,77 @@ func TestConfigValidate(t *testing.T) {
 				{Name: "m1", OutputPort: "1/1/4"},
 				{Name: "m2", SelectSrcPorts: []string{"1/1/4"}, OutputVLAN: vlanPtr(99)},
 			}},
+			wantField: "mirrors.1.select_src_ports.0",
+		},
+		{
+			name: "output port selected as destination by another mirror",
+			cfg: traffic.Config{Mirrors: []traffic.Mirror{
+				{Name: "m1", OutputPort: "1/1/4"},
+				{Name: "m2", SelectDstPorts: []string{"1/1/4"}, OutputVLAN: vlanPtr(99)},
+			}},
+			wantField: "mirrors.1.select_dst_ports.0",
 		},
 		{
 			name: "invalid selected VLAN",
 			cfg: traffic.Config{Mirrors: []traffic.Mirror{{
 				Name: "m1", SelectVLANs: []vlan.ID{4095}, OutputPort: "1/1/4",
 			}}},
+			wantField: "mirrors.0.select_vlans.0",
 		},
 		{
-			name: "invalid output VLAN",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputVLAN: vlanPtr(0)}}},
+			name:      "invalid output VLAN",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputVLAN: vlanPtr(0)}}},
+			wantField: "mirrors.0.output_vlan",
 		},
 		{
-			name: "negative snap length",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: -1}}},
+			name:      "negative snap length",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: -1}}},
+			wantField: "mirrors.0.snap_len",
 		},
 		{
-			name: "snap length below tagged header",
-			cfg:  traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: 17}}},
+			name:      "snap length below tagged header",
+			cfg:       traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/4", SnapLen: 17}}},
+			wantField: "mirrors.0.snap_len",
 		},
 		{
-			name: "unknown policer port",
-			cfg:  traffic.Config{Policers: map[string]traffic.Policer{"missing": {}}},
+			name:      "unknown policer port",
+			cfg:       traffic.Config{Policers: map[string]traffic.Policer{"missing": {}}},
+			wantField: "policers.missing",
 		},
 		{
-			name: "rate without burst",
-			cfg:  traffic.Config{Policers: map[string]traffic.Policer{"1/1/1": {RateBPS: 1_000_000}}},
+			name:      "rate without burst",
+			cfg:       traffic.Config{Policers: map[string]traffic.Policer{"1/1/1": {RateBPS: 1_000_000}}},
+			wantField: "policers.1/1/1.burst_octets",
 		},
 		{
-			name: "unknown queue port",
-			cfg:  traffic.Config{Queues: map[string]traffic.PortQueues{"missing": {}}},
+			name:      "unknown queue port",
+			cfg:       traffic.Config{Queues: map[string]traffic.PortQueues{"missing": {}}},
+			wantField: "queues.missing",
 		},
 		{
 			name: "zero queue max rate",
 			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
 				"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 0}},
 			}},
+			wantField: "queues.1/1/24.max_rate_bps.0",
 		},
 		{
 			name: "invalid queue PCP",
 			cfg: traffic.Config{Queues: map[string]traffic.PortQueues{
 				"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{8: 1}},
 			}},
+			wantField: "queues.1/1/24.max_rate_bps.8",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if err := tt.cfg.Validate(ports); err == nil {
+			err := tt.cfg.Validate(ports)
+			if err == nil {
 				t.Fatal("Validate succeeded, want error")
+			}
+			if got := errs.Attributes(err)["field"]; got != tt.wantField {
+				t.Errorf("field = %v, want %q", got, tt.wantField)
 			}
 		})
 	}
@@ -229,14 +268,36 @@ func TestDiffReportsFieldsAndIgnoresSetOrder(t *testing.T) {
 	if len(changes) != 2 {
 		t.Fatalf("Diff returned %d changes, want 2: %+v", len(changes), changes)
 	}
-	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", 64, 128)
-	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", uint64(1_000_000), uint64(2_000_000))
+	assertChange(t, changes, trace.Subject{Kind: "mirror", Key: "m1"}, "snap_len", traffic.SnapLenFact(64), traffic.SnapLenFact(128))
+	assertChange(t, changes, trace.Subject{Kind: "port", Key: "1/1/1"}, "rate", traffic.RateFact(1_000_000), traffic.RateFact(2_000_000))
 }
 
-func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to any) {
+func TestMirrorSnapshotFactIsLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	sourcePortsA := []string{"1/1/1"}
+	a := traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", SelectSrcPorts: sourcePortsA, OutputPort: "1/1/4"}}}
+	b := traffic.Config{Mirrors: []traffic.Mirror{{Name: "m1", SelectSrcPorts: []string{"1/1/24"}, OutputPort: "1/1/4"}}}
+
+	factA := traffic.Diff(traffic.Config{}, a)[0].To
+	factB := traffic.Diff(traffic.Config{}, b)[0].To
+	if factA.TypeID() != "traffic.mirror" {
+		t.Errorf("TypeID() = %q, want traffic.mirror", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different mirrors share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	sourcePortsA[0] = "1/1/2"
+	if got := factA.Canonical(); got != before {
+		t.Errorf("fact changed after source mutation: got %q, want %q", got, before)
+	}
+}
+
+func assertChange(t *testing.T, changes []trace.Change, subject trace.Subject, field string, from, to trace.Fact) {
 	t.Helper()
 	for _, change := range changes {
-		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && change.From == from && change.To == to {
+		if change.Layer == traffic.Layer && change.Subject == subject && change.Field == field && trace.CompareFact(change.From, from) == 0 && trace.CompareFact(change.To, to) == 0 {
 			return
 		}
 	}

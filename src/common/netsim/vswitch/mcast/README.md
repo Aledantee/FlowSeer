@@ -4,6 +4,11 @@ This package keeps one multicast group table and one router-port set for each
 configured VLAN. It consumes decoded IGMP and MLD messages; the caller supplies
 the IP source address and the logical ingress port selected by the bridge.
 Physical LAG members are ignored because forwarding uses their logical parent.
+An admitted control trace carries an immutable fact with the decoded protocol
+type, sender, group, source set, and group-record transitions. Source sets use
+canonical order. Group records retain their decoded order because learning
+applies them in sequence, and two records for the same group can produce a
+different final membership when reversed.
 
 For example, an IGMPv2 report for `239.1.1.1` on `1/1/1`, followed by a query
 from a non-zero source on `1/1/4`, makes `Resolve(10, 239.1.1.1)` return

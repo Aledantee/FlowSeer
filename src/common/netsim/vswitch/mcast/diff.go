@@ -3,6 +3,8 @@ package mcast
 import (
 	"slices"
 	"strconv"
+	"strings"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -10,50 +12,115 @@ import (
 
 const layer trace.Layer = "mcast"
 
+// BoolFact represents a boolean multicast snooping setting.
+type BoolFact bool
+
+// TypeID returns the stable identifier for BoolFact.
+func (f BoolFact) TypeID() string { return "mcast.bool" }
+
+// Canonical returns "true" or "false".
+func (f BoolFact) Canonical() string {
+	if f {
+		return "true"
+	}
+
+	return "false"
+}
+
+// String returns "true" or "false".
+func (f BoolFact) String() string {
+	if f {
+		return "true"
+	}
+
+	return "false"
+}
+
+// DurationFact represents a duration interval in multicast snooping.
+type DurationFact time.Duration
+
+// TypeID returns the stable identifier for DurationFact.
+func (f DurationFact) TypeID() string { return "mcast.duration" }
+
+// Canonical returns the string representation of the duration.
+func (f DurationFact) Canonical() string { return time.Duration(f).String() }
+
+// String returns the string representation of the duration.
+func (f DurationFact) String() string { return time.Duration(f).String() }
+
+type routerPortsFact string
+
+func (f routerPortsFact) TypeID() string    { return "mcast.router_ports" }
+func (f routerPortsFact) Canonical() string { return string(f) }
+
+// RouterPortsFact returns an immutable, injective snapshot of sorted router-port names.
+func RouterPortsFact(ports []string) trace.Fact {
+	cp := slices.Clone(ports)
+	slices.Sort(cp)
+	var out strings.Builder
+	for i, portName := range cp {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(portName))
+	}
+
+	return routerPortsFact(out.String())
+}
+
+type vlanSnoopingSnapshotFact string
+
+func (f vlanSnoopingSnapshotFact) TypeID() string    { return "mcast.vlan_snooping" }
+func (f vlanSnoopingSnapshotFact) Canonical() string { return string(f) }
+
+func snapshotVLANSnooping(snooping VLANSnooping) trace.Fact {
+	return vlanSnoopingSnapshotFact(snooping.Canonical())
+}
+
 // Diff returns deterministic per-VLAN changes between a and b.
 // Defaulted intervals and router-port order do not create changes.
 func Diff(a, b Config) []trace.Change {
+	na := a.Normalize()
+	nb := b.Normalize()
 	var changes []trace.Change
 
-	for _, vid := range sortedVLANIDs(a.VLANs) {
-		aCfg := a.VLANs[vid]
-		bCfg, ok := b.VLANs[vid]
+	for _, vid := range sortedVLANIDs(na.VLANs) {
+		aCfg := na.VLANs[vid]
+		bCfg, ok := nb.VLANs[vid]
 		if !ok {
-			changes = append(changes, vlanChange(vid, "", aCfg, nil))
+			changes = append(changes, vlanChange(vid, "", snapshotVLANSnooping(aCfg), nil))
 
 			continue
 		}
 
 		if from, to := a.Floods(vid), b.Floods(vid); from != to {
-			changes = append(changes, vlanChange(vid, "flood_unregistered", from, to))
+			changes = append(changes, vlanChange(vid, "flood_unregistered", BoolFact(from), BoolFact(to)))
 		}
 		if aCfg.FastLeave != bCfg.FastLeave {
-			changes = append(changes, vlanChange(vid, "fast_leave", aCfg.FastLeave, bCfg.FastLeave))
+			changes = append(changes, vlanChange(vid, "fast_leave", BoolFact(aCfg.FastLeave), BoolFact(bCfg.FastLeave)))
 		}
 
-		aRouters := sortedRouterPorts(aCfg.RouterPorts)
-		bRouters := sortedRouterPorts(bCfg.RouterPorts)
-		if !slices.Equal(aRouters, bRouters) {
-			changes = append(changes, vlanChange(vid, "router_ports", aRouters, bRouters))
+		if !slices.Equal(aCfg.RouterPorts, bCfg.RouterPorts) {
+			changes = append(changes, vlanChange(vid, "router_ports", RouterPortsFact(aCfg.RouterPorts), RouterPortsFact(bCfg.RouterPorts)))
 		}
-		if from, to := aCfg.membershipInterval(), bCfg.membershipInterval(); from != to {
-			changes = append(changes, vlanChange(vid, "membership_interval", from, to))
+		if aCfg.MembershipInterval != bCfg.MembershipInterval {
+			changes = append(changes, vlanChange(vid, "membership_interval", DurationFact(aCfg.MembershipInterval), DurationFact(bCfg.MembershipInterval)))
 		}
-		if from, to := aCfg.routerPortInterval(), bCfg.routerPortInterval(); from != to {
-			changes = append(changes, vlanChange(vid, "router_port_interval", from, to))
+		if aCfg.RouterPortInterval != bCfg.RouterPortInterval {
+			changes = append(changes, vlanChange(vid, "router_port_interval", DurationFact(aCfg.RouterPortInterval), DurationFact(bCfg.RouterPortInterval)))
 		}
 	}
 
-	for _, vid := range sortedVLANIDs(b.VLANs) {
-		if _, ok := a.VLANs[vid]; !ok {
-			changes = append(changes, vlanChange(vid, "", nil, b.VLANs[vid]))
+	for _, vid := range sortedVLANIDs(nb.VLANs) {
+		if _, ok := na.VLANs[vid]; !ok {
+			changes = append(changes, vlanChange(vid, "", nil, snapshotVLANSnooping(nb.VLANs[vid])))
 		}
 	}
 
 	return changes
 }
 
-func vlanChange(vid vlan.ID, field string, from, to any) trace.Change {
+func vlanChange(vid vlan.ID, field string, from, to trace.Fact) trace.Change {
 	return trace.Change{
 		Layer:   layer,
 		Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(vid))},
@@ -61,11 +128,4 @@ func vlanChange(vid vlan.ID, field string, from, to any) trace.Change {
 		From:    from,
 		To:      to,
 	}
-}
-
-func sortedRouterPorts(ports []string) []string {
-	ports = slices.Clone(ports)
-	slices.Sort(ports)
-
-	return ports
 }

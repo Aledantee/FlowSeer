@@ -1,11 +1,15 @@
 package routing_test
 
 import (
+	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -56,6 +60,23 @@ func validBaseConfig() routing.Config {
 				},
 			},
 		},
+	}
+}
+
+func TestNewRejectsZeroStaticNeighborMACAtNeighborField(t *testing.T) {
+	t.Parallel()
+
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Neighbors[0].MAC = netaddr.MAC{}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	_, err := routing.New(cfg, newTestPortTable(t), "sw1")
+	if err == nil {
+		t.Fatal("routing.New accepted a zero static neighbor MAC")
+	}
+	if got, want := errs.Attributes(err)["field"], "vrfs.default.neighbors.vlan10/10.0.10.7.mac"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
 	}
 }
 
@@ -225,7 +246,7 @@ func TestValidate(t *testing.T) {
 				vrf.Interfaces["vlan10"] = iface
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "route naming neither next hop nor interface",
@@ -401,6 +422,80 @@ func TestClone(t *testing.T) {
 	}
 }
 
+func TestNormalize(t *testing.T) {
+	t.Parallel()
+	cfg := routing.Config{
+		VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"vlan10": {
+						VLAN: 10,
+						Prefixes: []netip.Prefix{
+							netip.MustParsePrefix("10.0.20.1/24"),
+							netip.MustParsePrefix("10.0.10.1/24"),
+						},
+					},
+				},
+				Routes: []routing.Route{
+					{
+						Prefix:    netip.MustParsePrefix("10.0.30.5/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.254"),
+						Interface: "vlan10",
+					},
+					{
+						Prefix:    netip.MustParsePrefix("10.0.10.0/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.1"),
+						Interface: "vlan10",
+					},
+				},
+				Neighbors: []routing.Neighbor{
+					{
+						Interface: "vlan10",
+						Addr:      netip.MustParseAddr("10.0.10.9"),
+						MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99},
+					},
+					{
+						Interface: "vlan10",
+						Addr:      netip.MustParseAddr("10.0.10.7"),
+						MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77},
+					},
+				},
+			},
+		},
+	}
+
+	norm := cfg.Normalize()
+	vrf := norm.VRFs[routing.DefaultVRF]
+
+	// Check interface prefixes sorted
+	iface := vrf.Interfaces["vlan10"]
+	if len(iface.Prefixes) != 2 || iface.Prefixes[0].String() != "10.0.10.1/24" || iface.Prefixes[1].String() != "10.0.20.1/24" {
+		t.Fatalf("prefixes not sorted: %v", iface.Prefixes)
+	}
+
+	// Check route prefix masked and routes sorted
+	if len(vrf.Routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(vrf.Routes))
+	}
+	if vrf.Routes[0].Prefix.String() != "10.0.10.0/24" {
+		t.Errorf("route 0 prefix: got %s, want 10.0.10.0/24", vrf.Routes[0].Prefix)
+	}
+	if vrf.Routes[1].Prefix.String() != "10.0.30.0/24" {
+		t.Errorf("route 1 prefix not masked or sorted: got %s, want 10.0.30.0/24", vrf.Routes[1].Prefix)
+	}
+
+	// Check neighbors sorted
+	if len(vrf.Neighbors) != 2 {
+		t.Fatalf("expected 2 neighbors, got %d", len(vrf.Neighbors))
+	}
+	if vrf.Neighbors[0].Addr.String() != "10.0.10.7" {
+		t.Errorf("neighbor 0: got %s, want 10.0.10.7", vrf.Neighbors[0].Addr)
+	}
+	if vrf.Neighbors[1].Addr.String() != "10.0.10.9" {
+		t.Errorf("neighbor 1: got %s, want 10.0.10.9", vrf.Neighbors[1].Addr)
+	}
+}
+
 func TestDiff(t *testing.T) {
 	t.Parallel()
 
@@ -466,10 +561,10 @@ func TestDiff(t *testing.T) {
 		if len(changes) != 2 {
 			t.Fatalf("expected 2 changes, got %d: %+v", len(changes), changes)
 		}
-		if changes[0].Field != "vlan" || changes[0].From != vlan.ID(10) || changes[0].To != vlan.ID(0) {
+		if changes[0].Field != "vlan" || changes[0].From != routing.VLANFact(10) || changes[0].To != routing.VLANFact(0) {
 			t.Errorf("expected vlan change, got %+v", changes[0])
 		}
-		if changes[1].Field != "port" || changes[1].From != "" || changes[1].To != "1/1/1" {
+		if changes[1].Field != "port" || changes[1].From != routing.PortFact("") || changes[1].To != routing.PortFact("1/1/1") {
 			t.Errorf("expected port change, got %+v", changes[1])
 		}
 	})
@@ -549,6 +644,157 @@ func TestDiff(t *testing.T) {
 			if changes[i].Layer != port.LayerRouting {
 				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, port.LayerRouting)
 			}
+			if changes[i].Field == "interface" {
+				if changes[i].From.TypeID() != "routing.route.interface" {
+					t.Errorf("route interface change From.TypeID() = %q, want routing.route.interface", changes[i].From.TypeID())
+				}
+				if changes[i].To.TypeID() != "routing.route.interface" {
+					t.Errorf("route interface change To.TypeID() = %q, want routing.route.interface", changes[i].To.TypeID())
+				}
+			}
 		}
 	})
+}
+
+func TestDiffCompositeSubjectKeysAreInjective(t *testing.T) {
+	t.Parallel()
+
+	pairs := []struct {
+		vrf   string
+		iface string
+	}{
+		{vrf: "blue/a", iface: `b/"edge\one`},
+		{vrf: "blue", iface: `a/b/"edge\one`},
+	}
+	assertKeys := func(t *testing.T, changes []trace.Change, want []string) {
+		t.Helper()
+		if len(changes) != len(want) {
+			t.Fatalf("changes = %+v, want %d", changes, len(want))
+		}
+		got := make(map[string]struct{}, len(changes))
+		for _, change := range changes {
+			got[change.Subject.Key] = struct{}{}
+		}
+		if len(got) != len(want) {
+			t.Fatalf("subject keys = %v, want %d unique keys", got, len(want))
+		}
+		for _, key := range want {
+			if _, ok := got[key]; !ok {
+				t.Errorf("subject keys = %v, want %q", got, key)
+			}
+		}
+	}
+
+	t.Run("interfaces", func(t *testing.T) {
+		a := routing.Config{VRFs: make(map[string]routing.VRF)}
+		b := routing.Config{VRFs: make(map[string]routing.VRF)}
+		var want []string
+		for i, pair := range pairs {
+			a.VRFs[pair.vrf] = routing.VRF{Interfaces: map[string]routing.Interface{
+				pair.iface: {VLAN: vlan.ID(10 + i)},
+			}}
+			b.VRFs[pair.vrf] = routing.VRF{Interfaces: map[string]routing.Interface{
+				pair.iface: {VLAN: vlan.ID(20 + i)},
+			}}
+			want = append(want, fmt.Sprintf("%q/%q", pair.vrf, pair.iface))
+		}
+		assertKeys(t, routing.Diff(a, b), want)
+	})
+
+	t.Run("neighbors", func(t *testing.T) {
+		addr := netip.MustParseAddr("10.0.0.7")
+		a := routing.Config{VRFs: make(map[string]routing.VRF)}
+		b := routing.Config{VRFs: make(map[string]routing.VRF)}
+		var want []string
+		for _, pair := range pairs {
+			a.VRFs[pair.vrf] = routing.VRF{Neighbors: []routing.Neighbor{{
+				Interface: pair.iface, Addr: addr, MAC: netaddr.MAC{2},
+			}}}
+			b.VRFs[pair.vrf] = routing.VRF{Neighbors: []routing.Neighbor{{
+				Interface: pair.iface, Addr: addr, MAC: netaddr.MAC{4},
+			}}}
+			want = append(want, fmt.Sprintf("%q/%q/%q", pair.vrf, pair.iface, addr.String()))
+		}
+		assertKeys(t, routing.Diff(a, b), want)
+	})
+
+	t.Run("routes", func(t *testing.T) {
+		vrfName := `blue/"west\core`
+		prefix := netip.MustParsePrefix("10.0.0.0/24")
+		a := routing.Config{VRFs: map[string]routing.VRF{
+			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.1")}}},
+		}}
+		b := routing.Config{VRFs: map[string]routing.VRF{
+			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.2")}}},
+		}}
+		assertKeys(t, routing.Diff(a, b), []string{fmt.Sprintf("%q/%q", vrfName, prefix.String())})
+	})
+}
+
+func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
+	t.Parallel()
+
+	prefixesA := []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}
+	prefixesB := []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}
+	configFor := func(prefixes []netip.Prefix) routing.Config {
+		return routing.Config{VRFs: map[string]routing.VRF{
+			"default": {Interfaces: map[string]routing.Interface{
+				"vlan10": {VLAN: 10, Prefixes: prefixes},
+			}},
+		}}
+	}
+
+	factA := routing.Diff(routing.Config{}, configFor(prefixesA))[0].To
+	factB := routing.Diff(routing.Config{}, configFor(prefixesB))[0].To
+	if factA.TypeID() != "routing.vrf" {
+		t.Errorf("TypeID() = %q, want routing.vrf", factA.TypeID())
+	}
+	if factA.Canonical() == factB.Canonical() {
+		t.Errorf("different VRFs share canonical form %q", factA.Canonical())
+	}
+	before := factA.Canonical()
+	prefixesA[0] = netip.MustParsePrefix("192.0.2.1/24")
+	if got := factA.Canonical(); got != before {
+		t.Errorf("VRF fact changed after source mutation: got %q, want %q", got, before)
+	}
+
+	base := routing.Config{VRFs: map[string]routing.VRF{"default": {Interfaces: map[string]routing.Interface{}}}}
+	interfaceFactA := routing.Diff(base, configFor([]netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}))[0].To
+	interfaceFactB := routing.Diff(base, configFor([]netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}))[0].To
+	if interfaceFactA.TypeID() != "routing.interface" {
+		t.Errorf("TypeID() = %q, want routing.interface", interfaceFactA.TypeID())
+	}
+	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
+		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
+	}
+}
+
+func TestFactTypeIDsUnique(t *testing.T) {
+	t.Parallel()
+
+	facts := []trace.Fact{
+		routing.Route{},
+		routing.Neighbor{},
+		routing.VLANFact(0),
+		routing.PortFact(""),
+		routing.MACFact{},
+		routing.PrefixesFact(nil),
+		routing.AddrFact{},
+		routing.RouteInterfaceFact(""),
+	}
+
+	seen := make(map[string]string)
+	for _, f := range facts {
+		tid := f.TypeID()
+		if tid == "" {
+			t.Errorf("fact %T has empty TypeID", f)
+		}
+		if !strings.HasPrefix(tid, "routing.") {
+			t.Errorf("fact %T TypeID %q must be prefixed with 'routing.'", f, tid)
+		}
+		if prev, ok := seen[tid]; ok {
+			t.Errorf("duplicate TypeID %q shared by %s and %T", tid, prev, f)
+		}
+		seen[tid] = fmt.Sprintf("%T", f)
+	}
 }

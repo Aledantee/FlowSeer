@@ -53,7 +53,10 @@ func main() {
 	}
 
 	now := time.Unix(1700000000, 0)
-	sw := vswitch.New(swCfg)
+	sw, err := vswitch.New(swCfg)
+	if err != nil {
+		panic(err)
+	}
 
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -63,7 +66,7 @@ func main() {
 	}
 
 	res := sw.Forward(now, "1/1/1", frame)
-	fmt.Printf("Outcome: %s, Egress count: %d\n", res.Outcome, len(res.Egress))
+	fmt.Printf("Outcome: %s, Egress count: %d, Status: %s\n", res.Outcome, len(res.Egress), res.Metadata.Status())
 
 	nextCfg := swCfg.Clone()
 	b := port.NewBuilder()
@@ -78,7 +81,9 @@ func main() {
 		panic(err)
 	}
 
-	nextSw, err := vswitch.Derive(sw, nextCfg)
+	nextSpec := sw.Spec()
+	nextSpec.Config = nextCfg
+	nextSw, err := vswitch.Derive(sw, nextSpec)
 	if err != nil {
 		panic(err)
 	}
@@ -143,8 +148,11 @@ The virtual switch uses a ladder of architectural layers:
   the port layer (for a routed port).
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
-  copies after bridge, hub, or routed forwarding. `Copies` returns and clears
-  those copies so the fabric can enqueue them as separate transmissions.
+  copies after bridge, hub, or routed forwarding. A copy is exposed only when
+  its output port and any selected LAG member are known up. Unknown output state
+  suppresses the copy and makes the forwarding result incomplete; known-down
+  state suppresses it with complete readiness. `Copies` returns and clears the
+  admitted copies so the fabric can enqueue them as separate transmissions.
   `Police` applies the switch-owned token bucket when the fabric checks a frame
   at arrival, while `QueueMaxRate` gives the fabric scheduler the maximum rate
   for an egress port and PCP.
@@ -207,7 +215,7 @@ omitted values with standard defaults and records each in the `Report`:
 | `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
 | `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
 | `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
-| `mtu`               | unlimited (0)    | Interface reporting an MTU of 0     |
+| `mtu`               | unlimited (0)    | Loader fallback when MTU is absent  |
 | `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
 | `max_class`         | 8                | No net/phy message carries one      |
 | `priority`          | none (last)      | PoeSettings without a priority      |
@@ -262,6 +270,8 @@ background timers. The host drives them through explicit calls:
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
   relay's tables and tells the protocol layers nothing, since only the caller
   knows whether a member's change moves its LAG; it follows with `LinkChange`.
+  An invalid link state returns a structured error without changing either
+  table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `Wake(now)` fires due timers across spanning tree and link aggregation,
   flushing bridge entries and triggering periodic transmissions.
@@ -304,6 +314,62 @@ for a device, which fits a port that would be powered when capacity returns;
 a port whose delivery is disabled is `DISABLED`; a device of a class the
 port cannot source is `FAULT`. A port with no attached device exports no
 `power_class` and draws nothing from the budget.
+
+## Construction specifications and trust metadata
+
+Exported constructors validate and normalize configurations:
+
+- [New] normalizes and validates the input configuration, returning an error
+  if port tables or subsystem invariants fail.
+- [NewWithSpec] constructs a switch from a [ConstructionSpec], restoring preloaded
+  forwarding database seeds and construction trust metadata alongside normalized
+  configuration. [Switch.Spec] extracts an independent deep copy of this
+  specification for exact reproducibility.
+- [Derive] takes the target [ConstructionSpec]. Static forwarding entries, node
+  identity, and trust metadata come only from that target; they are not copied
+  from the current switch. A target dynamic seed yields to the current switch's
+  learned entry for the same FID and MAC, while a target static seed remains
+  authoritative. Seed timestamps normalize to their UTC wall-clock instant.
+  LAG runtime state is retained only while every member's administrative and
+  operational state matches the target. To retain existing target trust while
+  changing its configuration, start with [Switch.Spec] and replace its `Config`
+  field.
+- [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
+  [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
+  readiness, and evidence. A port with unknown operational status never forwards
+  and attaches an Incomplete issue scoped to that port, while known-down ports
+  drop traffic authoritatively with Complete readiness.
+
+`ConstructionSpec.NodeID` is the stable node key used to construct node and port
+scopes. An empty key identifies an anonymous standalone switch and uses the
+anonymous node scope. Non-empty construction metadata must evaluate the named or
+anonymous node, or one of its children. Issue and assumption scopes may also be
+whole-analysis scopes because they affect every node. Canonical zero metadata
+remains valid. Every evidence reference on an issue or assumption must resolve
+in the metadata's evidence catalog. A fabric uses its switch map key as the node
+identity. `netmodel.Load` uses `SourceContext.DeviceID`.
+
+Forwarding database seeds require a bridge relay. Their MAC addresses must be
+usable unicast addresses, their ports must resolve to an admitted logical port,
+and their FIDs must belong to that port. Duplicate FID and MAC pairs are rejected.
+[Switch.Learn] applies the same validation and leaves the switch unchanged when
+it returns an error.
+
+Forwarding combines runtime issues with construction issues on the exact
+dependencies the result consulted. These include ports, spanning tree ports,
+routing lookups, forwarding database source-learning and destination-lookup
+keys, and LAG aggregators used by member processing or egress selection. An
+issue on a sibling dependency is left out, while node and whole-analysis issues
+are included in every result.
+Relevant assumptions and evidence references travel with the retained issues.
+The combined issues, assumptions, and evidence catalog use their canonical
+ordering, so repeated forwarding and cloned specifications produce the same
+metadata. An issue's message is retained for people but does not change
+construction identity or generated runtime evidence; code, status, scope, and
+stable facts carry its semantics. An ingress name absent from the port table
+remains a consulted, normalized port with explicit Unknown states, so its scoped
+construction issues still reach hub, bridge, routing, and protocol-interception
+results.
 
 ## Concurrency contract
 

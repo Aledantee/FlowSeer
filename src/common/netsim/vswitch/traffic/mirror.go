@@ -8,11 +8,15 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 )
 
-// Copy is one mirrored frame and its output port. Mirror identifies the
-// configuration entry that produced it. Copy is not safe for concurrent use.
+// Copy is one mirrored frame and its output. Mirror identifies the configuration
+// entry that produced it. VLAN is the configured logical output VLAN, or zero
+// for a direct port output. Member is the LAG member selected for transmission,
+// or empty for a non-LAG output. Copy is not safe for concurrent use.
 type Copy struct {
 	Mirror string
 	Port   string
+	Member string
+	VLAN   vlan.ID
 	Frame  ethernet.Frame
 }
 
@@ -46,6 +50,7 @@ func Copies(cfg Config, vlans *bridge.VLAN, ingress string, vid vlan.ID, receive
 			copies = append(copies, Copy{
 				Mirror: mirror.Name,
 				Port:   name,
+				VLAN:   *mirror.OutputVLAN,
 				Frame:  truncateFrame(frame, mirror.SnapLen),
 			})
 		}

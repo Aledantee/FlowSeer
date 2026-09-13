@@ -23,13 +23,24 @@ forwarding question is answered.
 
 ## Decision
 
-`src/common/netsim` is the home of network simulation. Its first simulator,
-`vswitch`, builds a switch from a port table and the capabilities its caller
-chooses, evaluates the standard's forwarding rules over it, and answers a
-frame query as a trace. Its second, `fabric`, composes switches and hosts
-over cables and runs frames through the network one step at a time, so a
-run can be halted, inspected, and reported. What every simulator shares,
-the trace package first, sits at the `netsim` level.
+`src/common/netsim` is the home of network simulation. The library divides
+ownership across specialized packages:
+- `trace` is an import leaf defining typed execution steps, configuration diff
+  changes, producer-owned rule IDs, and semantic facts.
+- `analysis` defines the trust contract: analysis readiness status, scoped
+  issues, evidence catalogs, and assumptions.
+- `vswitch` composes capabilities over a port table, validates and normalizes
+  configurations, and returns forwarding results combining domain outcomes with
+  analysis trust metadata.
+- Capability packages under `vswitch/` (`port`, `phy`, `bridge`, `lag`, `stp`,
+  `mcast`, `routing`, `traffic`) own their respective configurations, validation,
+  normalization, cloning, diffs, and rule identifiers.
+- `vswitch/netmodel` translates FlowSeer network model messages into virtual
+  switch construction specifications, loading reports, and readiness metadata.
+- `fabric` composes switches, hosts, and cables into a stepped network simulation
+  recording traversal journeys.
+- `internal/netsimtest` maintains an admitted, versioned analysis conformance
+  corpus.
 
 - The device is sized by its caller. A port table with caller-chosen names
   is the one place a port exists; every layer keys its attributes by port
@@ -122,6 +133,88 @@ the trace package first, sits at the `netsim` level.
   `generated/`; `netmodel` is the documented exception, because a
   simulator nobody can load from the network model is a test fixture.
 
+### Result contract axes
+
+Every analysis evaluation separates four orthogonal axes:
+
+1. **Input validity**: Whether caller inputs satisfy structural and invariant
+   checks. Invalid inputs (such as non-existent port references or malformed
+   VLAN IDs) are rejected with a Go `error` before simulation begins.
+2. **Domain outcome**: What the simulated dataplane did with the frame:
+   `Forwarded`, `Flooded`, `Dropped`, or `Consumed`, along with a domain reason
+   (such as `ingress-filter`, `port-down`, or `unicast-hit`).
+3. **Analysis readiness**: The trust placed in the answer: `Complete`,
+   `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, derived from an
+   untruncated collection of scoped issues.
+4. **Semantic trace**: The sequence of capability-owned operations (`Step`) and
+   configuration transitions (`Change`) recording producer rule IDs, affected
+   subjects, typed facts, and opaque evidence references.
+
+None of these axes may be inferred from another:
+- An input can be valid while yielding an `Incomplete` analysis if live state
+  was unobserved.
+- A frame drop in the domain (for instance, an ingress filter drop or a known-down
+  port) is an authoritative, fully trusted answer (`Complete`), not an analysis
+  failure.
+- A frame forwarded in the domain can rely on assumed fallback defaults,
+  rendering the answer `Incomplete`.
+- An execution stop reason or human prose string cannot substitute for typed
+  rule IDs or semantic facts in traces.
+
+### Construction specifications and singular normalization
+
+Every capability package exposes one normalization function (`Normalize`).
+Public constructors validate only after normalization.
+
+To reproduce simulations without drift, `vswitch.ConstructionSpec` and
+`fabric.ConstructionSpec` pair normalized configuration with non-configuration
+seeds (such as preloaded forwarding database entries). Re-running a simulation
+from its construction specification yields identical state and trace records.
+
+### Uncertainty localization and model loading
+
+`netmodel.Load` translates network model records into virtual switch construction
+specifications:
+- Errors are reserved for unconstructible inputs, such as empty interface lists
+  or duplicate port names.
+- Partial, unobserved, or conflicting data produces a constructible `Result`
+  with non-Complete readiness metadata and detailed loading reports.
+- Port operational status distinguishes `Up`, `Down`, and `Unknown`. Zero values
+  normalize to `Unknown`. A port with `Unknown` operational status never forwards
+  traffic (`port.Forwards() == false`) and reduces readiness to `Incomplete`
+  strictly for its own scope.
+- A port known to be `Down` is an authoritative domain drop with `Complete`
+  readiness.
+- Sibling scopes remain independent. An unobserved port on a switch does not
+  degrade the `Complete` readiness of an unrelated known-up port on the same
+  switch.
+- Standard defaults (such as aging time or unconfigured VLAN priority tags) are
+  recorded as explicit `Assumption` values linked to evidence in the catalog.
+
+### Semantic traces and producer-owned facts
+
+Prose strings are rejected as trace comparison keys. Capabilities define typed
+value types implementing `trace.Fact` (`TypeID()` and `Canonical()`). Diff
+records (`trace.Change`) carry typed `From` and `To` facts. Rule identifiers
+(`trace.RuleID`) are owned by capability producers without central registry or
+capability enums. Tooling compares traces and diffs using typed equality.
+
+### Conformance corpus admission
+
+The test corpus under `src/common/netsim/internal/netsimtest` locks simulation
+contracts through executable cases rather than golden-file snapshots. Every
+admitted case must define:
+- Stable case identifier.
+- Use-case class (`planning`, `topology-shadowing`, or `troubleshooting`).
+- Evaluated question.
+- False answer prevented by the case.
+- Current result description.
+- Expected analysis status and domain outcome.
+- Decisive trace rules, subjects, and semantic facts.
+- Expected issue codes, scopes, evidence references, and assumptions when
+  readiness is non-Complete.
+- Deterministic reproducibility invariants.
+
 ## Alternatives
 
 - Open vSwitch or a kernel bridge in a namespace. They answer for their own
@@ -148,11 +241,13 @@ the trace package first, sits at the `netsim` level.
 
 - `src/common/net/netaddr`, `src/common/net/vlan`, and `src/common/net/ethernet` hold
   the value types and the codec; `src/common/netsim/trace` holds the step,
-  trace, and change records; `src/common/netsim/vswitch`
+  trace, and change records; `src/common/netsim/analysis` holds the trust
+  metadata, issue scopes, and evidence catalog; `src/common/netsim/vswitch`
   holds `port`, `phy`, `bridge`, `stp`, `netmodel`, and the switch itself;
   `src/common/netsim/fabric` holds switches, hosts, cables, the run,
-  journeys, snapshots, comparison, diff, and derivation. A
-  `service.Module` leaf is written with the first host.
+  journeys, snapshots, comparison, diff, and derivation;
+  `src/common/netsim/internal/netsimtest` holds the versioned conformance
+  corpus. A `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with
   `net/protocol/stp` as the first protocol layer, multicast filtering
   with its table, routing with `net/interface`'s VLAN interfaces and
@@ -171,3 +266,26 @@ the trace package first, sits at the `netsim` level.
 - The typed effects in `flowseer.device.access.v1` are applied to the
   expected `Config` by an adapter that lands when the first switching intent
   does.
+
+### Remaining capability gaps
+
+The following areas remain outside the foundation established here:
+
+- **Physical media, autonegotiation, and PoE correctness**: transceiver-dependent
+  speed resolution, link downshift behavior, and PoE transient allocation
+  dynamics.
+- **Topology identity and adjacency ambiguity**: resolving links from noisy,
+  conflicting, or unmanaged LLDP and CDP neighbor records.
+- **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
+  MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election and
+  fast leave, dynamic IP routing (BGP and OSPF), and transport protocol behavior.
+- **Scenario overlays and search**: high-level scenario injection DSLs, packet
+  generation search spaces, and multi-journey exploration budgets.
+- **Convergence guarantees**: automated loop detection and settling criteria
+  across active fabric runs.
+- **Comparison, fingerprints, failure cones, and blame**: dependency graphs,
+  blast-radius cones, configuration change fingerprints, and automated blame
+  attribution for forwarding regressions.
+- **System boundaries**: control-plane service wiring, OpenTelemetry span and
+  metric instrumentation, persistent run storage, and user interfaces remain
+  out of scope.

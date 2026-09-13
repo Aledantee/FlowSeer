@@ -3,6 +3,7 @@ package netmodel_test
 import (
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
@@ -31,6 +34,21 @@ func protoIPv4Prefix(masked [4]byte, length uint32) *addrv1.IpPrefix {
 	return addrv1.IpPrefix_builder{
 		V4: addrv1.Ipv4Prefix_builder{
 			Address: addrv1.Ipv4Address_builder{Octets: masked[:]}.Build(),
+			Length:  &length,
+		}.Build(),
+	}.Build()
+}
+
+func protoIPv6Addr(octets [16]byte) *addrv1.IpAddress {
+	return addrv1.IpAddress_builder{
+		V6: addrv1.Ipv6Address_builder{Octets: octets[:]}.Build(),
+	}.Build()
+}
+
+func protoIPv6Prefix(masked [16]byte, length uint32) *addrv1.IpPrefix {
+	return addrv1.IpPrefix_builder{
+		V6: addrv1.Ipv6Prefix_builder{
+			Address: addrv1.Ipv6Address_builder{Octets: masked[:]}.Build(),
 			Length:  &length,
 		}.Build(),
 	}.Build()
@@ -172,10 +190,12 @@ func TestLoad_VlanInterfacesRouting(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if !slices.Contains(report.Capabilities, port.LayerRouting) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
@@ -282,10 +302,12 @@ func TestLoad_PhysicalRoutedPort(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if !slices.Contains(report.Capabilities, port.LayerRouting) {
 		t.Errorf("expected routing capability in %v", report.Capabilities)
@@ -351,15 +373,17 @@ func TestLoad_VlanInterfaceDefaultMAC(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
 	iface := vrf.Interfaces["vlan10"]
-	if iface.MAC != (netaddr.MAC{}) {
-		t.Errorf("vlan10 MAC = %s, want zero MAC", iface.MAC)
+	if iface.MAC != cfg.MAC || iface.MAC == (netaddr.MAC{}) {
+		t.Errorf("vlan10 MAC = %s, want normalized switch MAC %s", iface.MAC, cfg.MAC)
 	}
 
 	hasIfaceMACDefault := false
@@ -403,10 +427,12 @@ func TestLoad_LoopbackUnsupported(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, nil, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -467,10 +493,12 @@ func TestLoad_RoutedPortSwitchportSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, nil, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -552,10 +580,12 @@ func TestLoad_AddressWithoutIPFacetSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -626,10 +656,12 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, neighbors, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	foundSkipped := false
 	for _, s := range report.Skipped {
@@ -649,6 +681,154 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("cfg.Validate failed: %v", err)
+	}
+}
+
+func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
+	inName := "in"
+	outName := "out"
+	input := loadInput{
+		ifaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
+		addrs: []*ipv1.InterfaceAddress{
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &inName,
+				Address:       protoIPv4Addr([4]byte{192, 0, 2, 1}),
+				Prefix:        protoIPv4Prefix([4]byte{192, 0, 2, 0}, 24),
+			}.Build(),
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &outName,
+				Address:       protoIPv4Addr([4]byte{198, 51, 100, 1}),
+				Prefix:        protoIPv4Prefix([4]byte{198, 51, 100, 0}, 24),
+			}.Build(),
+		},
+		neighbors: []*ipv1.NeighborEntry{
+			ipv1.NeighborEntry_builder{
+				InterfaceName: &outName,
+				Ip:            protoIPv4Addr([4]byte{198, 51, 100, 7}),
+			}.Build(),
+		},
+	}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-neighbor-mac"})
+	sw, err := vswitch.NewWithSpec(loaded.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	hdr := ip.Header{
+		Src:      netip.MustParseAddr("192.0.2.7"),
+		Dst:      netip.MustParseAddr("198.51.100.7"),
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}
+	payload, err := hdr.Encode([]byte("neighbor evidence"))
+	if err != nil {
+		t.Fatalf("encode packet: %v", err)
+	}
+	iface := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[inName]
+	result := sw.Forward(trustTestTime, inName, ethernet.Frame{
+		Src:       netaddr.MAC{2, 0, 0, 0, 0, 2},
+		Dst:       iface.MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   payload,
+	})
+
+	if result.Reason != routing.ReasonNeighborMiss {
+		t.Fatalf("reason = %s, want neighbor-miss", result.Reason)
+	}
+	if result.Metadata.Status() != analysis.Incomplete {
+		t.Fatalf("status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+		return issue.Code == netmodel.IssueMissingNeighborMAC &&
+			issue.Scope.Compare(routing.NeighborLookupScope(
+				"sw1", routing.DefaultVRF, outName, netip.MustParseAddr("198.51.100.7"),
+			)) == 0 &&
+			len(issue.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced invalid neighbor issue on out", result.Metadata.Issues())
+	}
+}
+
+func TestNoRouteRetainsConflictingOmittedPrefixEvidence(t *testing.T) {
+	inName := "in"
+	outName := "out"
+	input := loadInput{
+		ifaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
+		addrs: []*ipv1.InterfaceAddress{
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &inName,
+				Address:       protoIPv4Addr([4]byte{192, 0, 2, 1}),
+				Prefix:        protoIPv4Prefix([4]byte{192, 0, 2, 0}, 24),
+			}.Build(),
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &outName,
+				Address:       protoIPv4Addr([4]byte{198, 51, 100, 129}),
+				Prefix:        protoIPv4Prefix([4]byte{198, 51, 100, 0}, 24),
+			}.Build(),
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &outName,
+				Address:       protoIPv4Addr([4]byte{198, 51, 100, 129}),
+				Prefix:        protoIPv4Prefix([4]byte{198, 51, 100, 128}, 25),
+			}.Build(),
+		},
+	}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "conflicting-prefixes"})
+	sw, err := vswitch.NewWithSpec(loaded.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	hdr := ip.Header{
+		Src:      netip.MustParseAddr("192.0.2.7"),
+		Dst:      netip.MustParseAddr("198.51.100.130"),
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}
+	payload, err := hdr.Encode([]byte("conflicting prefix evidence"))
+	if err != nil {
+		t.Fatalf("encode packet: %v", err)
+	}
+	iface := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[inName]
+	result := sw.Forward(trustTestTime, inName, ethernet.Frame{
+		Src:       netaddr.MAC{2, 0, 0, 0, 0, 2},
+		Dst:       iface.MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   payload,
+	})
+
+	if result.Reason != routing.ReasonNoRoute {
+		t.Fatalf("reason = %s, want no-route", result.Reason)
+	}
+	if result.Metadata.Status() != analysis.Unstable {
+		t.Fatalf("status = %s, want Unstable; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	routeLookupScope := routing.RouteLookupScope("sw1", routing.DefaultVRF, netip.MustParseAddr("198.51.100.130"))
+	if !slices.ContainsFunc(result.ConsultedScopes(), func(scope analysis.Scope) bool {
+		return scope.Compare(routeLookupScope) == 0
+	}) {
+		t.Errorf("consulted scopes = %v, want %s", result.ConsultedScopes(), routeLookupScope)
+	}
+	routingScope := routing.VRFScope("sw1", routing.DefaultVRF)
+	issueIndex := slices.IndexFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+		return issue.Code == netmodel.IssueConflictAddress && issue.Scope.Compare(routingScope) == 0
+	})
+	if issueIndex < 0 {
+		t.Fatalf("issues = %+v, want address conflict at %s", result.Metadata.Issues(), routingScope)
+	}
+	issue := result.Metadata.Issues()[issueIndex]
+	if len(issue.Evidence) != 1 {
+		t.Fatalf("issue evidence = %+v, want one original reference", issue.Evidence)
+	}
+	evidence, ok := result.Metadata.Evidence().Lookup(issue.Evidence[0])
+	if !ok {
+		t.Fatalf("issue evidence %q is absent from forwarding catalog", issue.Evidence[0])
+	}
+	if evidence.Origin != "snapshot" || !strings.Contains(evidence.Context, "conflict in ip_address for out/198.51.100.129") {
+		t.Errorf("evidence = %+v, want original address conflict provenance", evidence)
 	}
 }
 
@@ -706,10 +886,12 @@ func TestLoad_UnwantedRoutingSkipsIP(t *testing.T) {
 
 	want := []port.Layer{port.LayerRelay}
 	validateFixtures(t, ifaces, nil, addrs, neighbors)
-	cfg, _, report, err := netmodel.Load(now, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, want)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, nil, nil, nil, nil, nil, addrs, neighbors, want)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
+	report := res.Report
 
 	if cfg.Routing != nil {
 		t.Errorf("expected Routing configuration to be nil when routing not in want, got %+v", cfg.Routing)
@@ -807,10 +989,11 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 	}
 
 	validateFixtures(t, ifaces, vlans, addrs, nil)
-	cfg, _, _, err := netmodel.Load(now, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
+	res, err := netmodel.Load(now, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, vlans, nil, nil, nil, nil, nil, nil, addrs, nil, nil)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
+	cfg := res.Spec.Config
 
 	p, ok := cfg.Ports.Port("vlan10")
 	if !ok {
@@ -820,7 +1003,10 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		t.Errorf("vlan10 port kind = %v, want port.Other", p.Kind)
 	}
 
-	sw := vswitch.New(cfg)
+	sw, err := vswitch.New(cfg)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
 
 	broadcastFrame := ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
@@ -829,20 +1015,70 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		Payload:   []byte("test broadcast payload"),
 	}
 
-	res := sw.Forward(now, "1/1/1", broadcastFrame)
-	if res.Outcome != trace.Flooded {
-		t.Fatalf("forward outcome = %v, want Flooded", res.Outcome)
+	fwdRes := sw.Forward(now, "1/1/1", broadcastFrame)
+	if fwdRes.Outcome != trace.Flooded {
+		t.Fatalf("forward outcome = %v, want Flooded", fwdRes.Outcome)
 	}
 
-	if len(res.Egress) != 1 {
-		t.Fatalf("egress count = %d, want 1", len(res.Egress))
+	if len(fwdRes.Egress) != 1 {
+		t.Fatalf("egress count = %d, want 1", len(fwdRes.Egress))
 	}
-	if res.Egress[0].Port != "1/1/2" {
-		t.Errorf("egress port = %q, want 1/1/2", res.Egress[0].Port)
+	if fwdRes.Egress[0].Port != "1/1/2" {
+		t.Errorf("egress port = %q, want 1/1/2", fwdRes.Egress[0].Port)
 	}
-	for _, eg := range res.Egress {
+	for _, eg := range fwdRes.Egress {
 		if eg.Port == "vlan10" {
 			t.Errorf("vlan10 should not receive flooded broadcast frame")
 		}
+	}
+}
+
+func TestLoadRoutingAcceptsZeroLengthPrefixes(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		iface   *interfacev1.Interface
+		address *addrv1.IpAddress
+		prefix  *addrv1.IpPrefix
+		want    string
+	}{
+		{
+			name:    "IPv4",
+			iface:   routedVLANInterface("vlan10", 10, []byte{0, 1, 2, 3, 4, 5}),
+			address: protoIPv4Addr([4]byte{203, 0, 113, 7}),
+			prefix:  protoIPv4Prefix([4]byte{}, 0),
+			want:    "203.0.113.7/0",
+		},
+		{
+			name: "IPv6",
+			iface: func() *interfacev1.Interface {
+				name := "vlan10"
+				vid := uint32(10)
+				admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+				oper := interfacev1.OperStatus_OPER_STATUS_UP
+				return interfacev1.Interface_builder{
+					Name: &name, AdminStatus: &admin, OperStatus: &oper,
+					Vlan: interfacev1.VlanInterface_builder{VlanId: &vid}.Build(),
+					Ip:   ipv1.IpFacet_builder{Ipv6: ipv1.Ipv6Facet_builder{}.Build()}.Build(),
+				}.Build()
+			}(),
+			address: protoIPv6Addr([16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x07}),
+			prefix:  protoIPv6Prefix([16]byte{}, 0),
+			want:    "2001:db8::7/0",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			name := test.iface.GetName()
+			result := (loadInput{
+				ifaces: []*interfacev1.Interface{test.iface},
+				addrs: []*ipv1.InterfaceAddress{
+					ipv1.InterfaceAddress_builder{InterfaceName: &name, Address: test.address, Prefix: test.prefix}.Build(),
+				},
+			}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			prefixes := result.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[name].Prefixes
+			if len(prefixes) != 1 || prefixes[0].String() != test.want {
+				t.Errorf("prefixes = %v, want [%s]", prefixes, test.want)
+			}
+		})
 	}
 }

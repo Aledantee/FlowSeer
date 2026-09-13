@@ -3,13 +3,16 @@ package fabric_test
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
+	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
@@ -368,11 +371,164 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}
 }
 
+func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
+	t0 := time.Date(2026, 9, 13, 9, 0, 0, 0, time.UTC)
+	const (
+		inputVLAN  vlan.ID = 10
+		outputVLAN vlan.ID = 99
+	)
+
+	for _, test := range []struct {
+		name       string
+		switchport bridge.Switchport
+	}{
+		{name: "untagged", switchport: bridge.Switchport{Untagged: []vlan.ID{outputVLAN}}},
+		{name: "tunnel", switchport: bridge.Switchport{Tunnel: &bridge.Tunnel{VID: outputVLAN}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			builder := port.NewBuilder()
+			for _, p := range []port.Port{
+				{Name: "in", AdminStatus: port.Up, OperStatus: port.Up},
+				{Name: "ordinary", AdminStatus: port.Up, OperStatus: port.Up},
+				{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up},
+				{Name: "member-a", LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up},
+				{Name: "member-b", LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up},
+			} {
+				builder.Add(p)
+			}
+			ports, err := builder.Build()
+			if err != nil {
+				t.Fatalf("build ports: %v", err)
+			}
+
+			macSource := netaddr.MAC{2, 0, 0, 0, 0, 1}
+			macDestination := netaddr.MAC{2, 0, 0, 0, 0, 2}
+			frame := ethernet.Frame{Src: macSource, Dst: macDestination, Payload: []byte("mirror member")}
+			fab, err := fabric.New(fabric.Config{
+				Start: t0,
+				Switches: map[string]vswitch.Config{
+					"sw1": {
+						Ports: ports,
+						Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+							Table: map[vlan.ID]string{inputVLAN: "input", outputVLAN: "mirror"},
+							Switchports: map[string]bridge.Switchport{
+								"in":       {PVID: new(inputVLAN), Untagged: []vlan.ID{inputVLAN}},
+								"ordinary": {PVID: new(inputVLAN), Untagged: []vlan.ID{inputVLAN}},
+								"lag1":     test.switchport,
+							},
+						}},
+						LAG: &lag.Config{LAGs: map[string]lag.LAG{
+							"lag1": {Mode: lag.BalanceSLB},
+						}},
+						Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{
+							Name: "span", SelectAll: true, OutputVLAN: new(outputVLAN),
+						}}},
+					},
+				},
+				Hosts: map[string]fabric.Host{
+					"source":      {Address: macSource},
+					"destination": {Address: macDestination},
+					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}},
+					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}},
+				},
+				Cables: []fabric.Cable{
+					{A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "sw1", Port: "in"}},
+					{A: fabric.Endpoint{Node: "destination"}, B: fabric.Endpoint{Node: "sw1", Port: "ordinary"}},
+					{A: fabric.Endpoint{Node: "sink-a"}, B: fabric.Endpoint{Node: "sw1", Port: "member-a"}},
+					{A: fabric.Endpoint{Node: "sink-b"}, B: fabric.Endpoint{Node: "sw1", Port: "member-b"}},
+				},
+			})
+			if err != nil {
+				t.Fatalf("fabric.New: %v", err)
+			}
+
+			wantMember, ok := fab.Switch("sw1").SelectMember("lag1", frame, outputVLAN)
+			if !ok {
+				t.Fatal("mirror output has no selected member")
+			}
+			frameID, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "source"}, Frame: frame})
+			if err != nil {
+				t.Fatalf("Inject: %v", err)
+			}
+			fab.Run(100)
+
+			var tracedMember string
+			var copyJourney *fabric.Journey
+			for _, journey := range fab.Report() {
+				if journey.Parent == frameID && journey.Mirror == "span" {
+					journey := journey
+					copyJourney = &journey
+				}
+				if journey.FrameID != frameID {
+					continue
+				}
+				for _, entry := range journey.Entries {
+					if entry.Result == nil {
+						continue
+					}
+					for _, step := range entry.Result.Steps {
+						if step.RuleID != traffic.RuleMirrorCopy {
+							continue
+						}
+						for _, fact := range step.Inputs {
+							if fact.TypeID() == "lag.selection" && strings.Contains(fact.Canonical(), `;member="`+wantMember+`";`) {
+								tracedMember = wantMember
+							}
+						}
+					}
+				}
+			}
+			if tracedMember != wantMember {
+				t.Errorf("traced member = %q, want %q", tracedMember, wantMember)
+			}
+			if copyJourney == nil {
+				t.Fatal("mirror copy journey is absent")
+			}
+			wantHost := map[string]string{"member-a": "sink-a", "member-b": "sink-b"}[wantMember]
+			if len(copyJourney.Deliveries) != 1 || copyJourney.Deliveries[0].Host != wantHost {
+				t.Errorf("mirror deliveries = %+v, want selected-member host %q", copyJourney.Deliveries, wantHost)
+			}
+		})
+	}
+}
+
 func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	fab, macs := newTrafficTopology(t, &traffic.Config{Policers: map[string]traffic.Policer{
 		"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
 	}})
+	spec := fab.Spec()
+	catalog := analysis.EvidenceCatalog{}
+	issues := make([]analysis.Issue, 0, 3)
+	for _, scoped := range []struct {
+		code  analysis.IssueCode
+		scope analysis.Scope
+	}{
+		{code: "test.node-conflict", scope: analysis.NodeScope("sw1")},
+		{code: "test.ingress-conflict", scope: analysis.PortScope("sw1", "1/1/1")},
+		{code: "test.unrelated-conflict", scope: analysis.PortScope("sw1", "1/1/2")},
+	} {
+		var ref trace.EvidenceRef
+		catalog, ref = catalog.Add(analysis.Evidence{
+			Kind:    "snapshot",
+			Origin:  scoped.code.String(),
+			Context: "conflicting loaded state",
+		})
+		issues = append(issues, analysis.Issue{
+			Code:     scoped.code,
+			Status:   analysis.Unstable,
+			Scope:    scoped.scope,
+			Message:  "loaded state conflicts",
+			Evidence: []trace.EvidenceRef{ref},
+		})
+	}
+	sw1Spec := spec.Switches["sw1"]
+	sw1Spec.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), issues, catalog, nil)
+	spec.Switches["sw1"] = sw1Spec
+	fab, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
 	var ids []fabric.FrameID
 	for i := 0; i < 10; i++ {
 		fid, err := fab.Inject(fabric.Injection{
@@ -408,6 +564,42 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	}
 	if len(tenth.Entries) == 0 || tenth.Entries[len(tenth.Entries)-1].Reason != traffic.ReasonPoliced {
 		t.Errorf("tenth journey = %+v, want final policed drop", tenth.Entries)
+	}
+	policed := tenth.Entries[len(tenth.Entries)-1]
+	if policed.Result == nil {
+		t.Fatal("policed drop has no forwarding result")
+	}
+	wantStep := trace.Step{
+		Layer:   traffic.Layer,
+		Op:      trace.OpDrop,
+		RuleID:  traffic.RulePolicerRefuse,
+		Subject: trace.Subject{Kind: "port", Key: "1/1/1"},
+		Outputs: []trace.Fact{traffic.PolicerDecisionFact(1_000_000, 10_000, 1038, false)},
+	}
+	if len(policed.Result.Steps) != 1 || !policed.Result.Steps[0].Equal(wantStep) {
+		t.Errorf("policed trace steps = %+v, want %+v", policed.Result.Steps, []trace.Step{wantStep})
+	}
+	if policed.Result.Metadata.Status() != analysis.Unstable {
+		t.Errorf("policed metadata status = %s, want Unstable", policed.Result.Metadata.Status())
+	}
+	wantIssues := map[analysis.IssueCode]bool{
+		"test.node-conflict":    false,
+		"test.ingress-conflict": false,
+	}
+	for _, issue := range policed.Result.Metadata.Issues() {
+		if _, ok := wantIssues[issue.Code]; !ok {
+			t.Errorf("policed metadata contains unrelated issue %q", issue.Code)
+			continue
+		}
+		wantIssues[issue.Code] = true
+		if len(issue.Evidence) != 1 {
+			t.Errorf("policed issue %q evidence = %+v, want one reference", issue.Code, issue.Evidence)
+		}
+	}
+	for code, found := range wantIssues {
+		if !found {
+			t.Errorf("policed metadata missing issue %q", code)
+		}
 	}
 	counters := fab.Snapshot().Devices["sw1"].Counters["1/1/1"]
 	if counters.InDiscards != 1 || counters.Discards[traffic.ReasonPoliced] != 1 {

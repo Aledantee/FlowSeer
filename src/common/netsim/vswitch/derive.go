@@ -1,6 +1,7 @@
 package vswitch
 
 import (
+	"maps"
 	"net/netip"
 	"slices"
 
@@ -15,23 +16,21 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
-// Derive builds a new [Switch] from the target configuration, seeding it with every
+// Derive builds a new [Switch] from the target construction specification, seeding it with every
 // dynamic forwarding database entry from the current switch that the new configuration
 // still admits. Reseeded dynamic entries count as learned and are bounded by the new
-// configuration's MaxEntries, evicting from the oldest; static entries are not reseeded.
+// configuration's MaxEntries, evicting from the oldest. Static entries and construction
+// trust come only from target.
 // A derived standalone switch keeps spanning tree roles and eligible multicast
 // memberships and learned router ports when their layer configuration is unchanged.
-// It returns an error if the new configuration fails validation.
-func Derive(cur *Switch, cfg Config) (*Switch, error) {
-	if cur != nil && cfg.MAC == (netaddr.MAC{}) {
-		cfg.MAC = cur.cfg.MAC
-	}
-
-	if err := cfg.Validate(); err != nil {
+// It keeps LAG runtime state only while every member's administrative and operational
+// state also matches the target.
+// It returns an error if the target specification fails validation.
+func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
+	next, err := NewWithSpec(target)
+	if err != nil {
 		return nil, err
 	}
-
-	next := New(cfg)
 	if cur != nil && cur.traffic != nil && next.traffic != nil {
 		for name, policer := range next.traffic.Policers {
 			if current, ok := cur.traffic.Policers[name]; ok && current == policer {
@@ -45,7 +44,7 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	if cur != nil && cur.stp != nil && next.cfg.STP != nil && len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 {
 		next.stp = cur.stp.Clone()
 		if next.bridge != nil {
-			next.bridge.SetGate(next.stp)
+			next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerStp))
 		}
 		if cur.portP2P != nil {
 			next.portP2P = make(map[string]bool, len(cur.portP2P))
@@ -69,10 +68,10 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 		if next.cfg.LAG != nil {
 			bLAG = *next.cfg.LAG
 		}
-		if len(lag.Diff(aLAG, bLAG)) == 0 {
+		if len(lag.Diff(aLAG, bLAG)) == 0 && lagMemberStatesEqual(cur.ports, next.ports) {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
-				next.bridge.SetSelector(next.lag)
+				next.bridge.SetSelector(next.lag, protocolScope(next.nodeID, port.LayerLag))
 			}
 		}
 	}
@@ -103,24 +102,34 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	curVLAN := cur.cfg.Bridge != nil && cur.cfg.Bridge.VLAN != nil
-	nextVLAN := cfg.Bridge != nil && cfg.Bridge.VLAN != nil
+	nextVLAN := next.cfg.Bridge != nil && next.cfg.Bridge.VLAN != nil
+	targetSeeds := make(map[bridgeSeedKey]struct{}, len(next.seeds))
+	for _, seed := range next.seeds {
+		if !seed.Static {
+			continue
+		}
+		targetSeeds[bridgeSeedKey{fid: seed.FID, mac: seed.MAC}] = struct{}{}
+	}
 
 	var seeds []bridge.Seed
 	for _, entry := range cur.Entries() {
 		if entry.Static {
 			continue
 		}
+		if _, configured := targetSeeds[bridgeSeedKey{fid: entry.FID, mac: entry.MAC}]; configured {
+			continue
+		}
 
-		p, ok := cfg.Ports.Port(entry.Port)
+		p, ok := next.cfg.Ports.Port(entry.Port)
 		if !ok {
 			continue
 		}
-		if p.Kind == port.Lag && len(cfg.Ports.Members(entry.Port)) == 0 {
+		if p.Kind == port.Lag && len(next.cfg.Ports.Members(entry.Port)) == 0 {
 			continue
 		}
 
 		if nextVLAN {
-			sw, ok := cfg.Bridge.VLAN.Switchports[entry.Port]
+			sw, ok := next.cfg.Bridge.VLAN.Switchports[entry.Port]
 			if !ok {
 				continue
 			}
@@ -149,10 +158,43 @@ func Derive(cur *Switch, cfg Config) (*Switch, error) {
 	}
 
 	if len(seeds) > 0 {
-		next.bridge.Learn(seeds)
+		if err := next.bridge.Learn(seeds); err != nil {
+			return nil, err
+		}
 	}
 
 	return next, nil
+}
+
+type lagMemberDependency struct {
+	parent string
+	admin  port.LinkState
+	oper   port.LinkState
+}
+
+func lagMemberStatesEqual(a, b port.Table) bool {
+	return maps.Equal(lagMemberStates(a), lagMemberStates(b))
+}
+
+func lagMemberStates(ports port.Table) map[string]lagMemberDependency {
+	members := make(map[string]lagMemberDependency)
+	for _, member := range ports.Ports() {
+		if member.LagParent == "" {
+			continue
+		}
+		members[member.Name] = lagMemberDependency{
+			parent: member.LagParent,
+			admin:  member.AdminStatus,
+			oper:   member.OperStatus,
+		}
+	}
+
+	return members
+}
+
+type bridgeSeedKey struct {
+	fid vlan.ID
+	mac netaddr.MAC
 }
 
 // restoreMulticastState replays retained dynamic records into the new layer so

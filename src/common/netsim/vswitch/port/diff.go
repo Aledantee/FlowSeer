@@ -5,12 +5,14 @@ import (
 )
 
 // Diff computes the difference between two port tables, reporting added and removed
-// ports as well as changes to admin_status, mtu, and lag_parent.
+// ports as well as changes to ifindex, kind, admin_status, oper_status, mtu, and lag_parent.
 func Diff(a, b Table) []trace.Change {
+	na := a.Normalize()
+	nb := b.Normalize()
 	var changes []trace.Change
 
-	for _, ap := range a.ports {
-		bp, exists := b.Port(ap.Name)
+	for _, ap := range na.ports {
+		bp, exists := nb.Port(ap.Name)
 		if !exists {
 			changes = append(changes, trace.Change{
 				Layer: LayerPort,
@@ -26,6 +28,32 @@ func Diff(a, b Table) []trace.Change {
 			continue
 		}
 
+		if ap.IfIndex != bp.IfIndex {
+			changes = append(changes, trace.Change{
+				Layer: LayerPort,
+				Subject: trace.Subject{
+					Kind: "port",
+					Key:  ap.Name,
+				},
+				Field: "ifindex",
+				From:  IfIndexFact(ap.IfIndex),
+				To:    IfIndexFact(bp.IfIndex),
+			})
+		}
+
+		if ap.Kind != bp.Kind {
+			changes = append(changes, trace.Change{
+				Layer: LayerPort,
+				Subject: trace.Subject{
+					Kind: "port",
+					Key:  ap.Name,
+				},
+				Field: "kind",
+				From:  ap.Kind,
+				To:    bp.Kind,
+			})
+		}
+
 		if ap.AdminStatus != bp.AdminStatus {
 			changes = append(changes, trace.Change{
 				Layer: LayerPort,
@@ -39,6 +67,19 @@ func Diff(a, b Table) []trace.Change {
 			})
 		}
 
+		if ap.OperStatus != bp.OperStatus {
+			changes = append(changes, trace.Change{
+				Layer: LayerPort,
+				Subject: trace.Subject{
+					Kind: "port",
+					Key:  ap.Name,
+				},
+				Field: "oper_status",
+				From:  ap.OperStatus,
+				To:    bp.OperStatus,
+			})
+		}
+
 		if ap.MTU != bp.MTU {
 			changes = append(changes, trace.Change{
 				Layer: LayerPort,
@@ -47,8 +88,8 @@ func Diff(a, b Table) []trace.Change {
 					Key:  ap.Name,
 				},
 				Field: "mtu",
-				From:  ap.MTU,
-				To:    bp.MTU,
+				From:  MTUFact(ap.MTU),
+				To:    MTUFact(bp.MTU),
 			})
 		}
 
@@ -60,14 +101,14 @@ func Diff(a, b Table) []trace.Change {
 					Key:  ap.Name,
 				},
 				Field: "lag_parent",
-				From:  ap.LagParent,
-				To:    bp.LagParent,
+				From:  LagParentFact(ap.LagParent),
+				To:    LagParentFact(bp.LagParent),
 			})
 		}
 	}
 
-	for _, bp := range b.ports {
-		if _, exists := a.Port(bp.Name); !exists {
+	for _, bp := range nb.ports {
+		if _, exists := na.Port(bp.Name); !exists {
 			changes = append(changes, trace.Change{
 				Layer: LayerPort,
 				Subject: trace.Subject{

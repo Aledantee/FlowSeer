@@ -574,7 +574,7 @@ func TestStableCableOrderingInFabricLinks(t *testing.T) {
 		{Node: "h1"},
 		{Node: "h2"},
 		{Node: "sw1", Port: "1/1/2"},
-		{Node: "sw2", Port: "1/1/3"},
+		{Node: "sw1", Port: "1/1/3"},
 	}
 
 	for i, want := range wantOrder {
