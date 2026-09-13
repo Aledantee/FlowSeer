@@ -343,6 +343,14 @@ func (in Ingress) ConsultedPorts() []port.Port {
 	return append([]port.Port(nil), in.consultedPorts...)
 }
 
+// Consult records port-state snapshots consulted while composing an ingress
+// descriptor outside the bridge ingress pipeline.
+func (in *Ingress) Consult(ports ...port.Port) {
+	result := Result{consultedPorts: in.consultedPorts}
+	result.Consult(ports...)
+	in.consultedPorts = result.consultedPorts
+}
+
 // ConsultedScopes returns the exact analysis scopes consulted before this
 // ingress descriptor was produced, in canonical order.
 func (in Ingress) ConsultedScopes() []analysis.Scope {
@@ -362,7 +370,7 @@ func (in *Ingress) ConsultScopes(scopes ...analysis.Scope) {
 func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn bool) (Ingress, Result, bool) {
 	var res Result
 	res.Outcome = trace.Dropped
-	res.Consult(b.forwardingPath(ingress)...)
+	b.consultForwardingPath(&res, ingress)
 
 	receive := b.ports.Receive(ingress)
 	res.Consult(receive.ConsultedPorts()...)
@@ -649,6 +657,9 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 
 	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) {
 		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
+		if b.fdbScope.Compare(analysis.WholeScope()) != 0 {
+			res.ConsultScopes(fdbLookupScope(b.fdbScope, classifiedFID, f.Src))
+		}
 		existing, exists := b.fdb[srcKey]
 		if !exists {
 			var (
@@ -1261,6 +1272,15 @@ func (b *Bridge) forwardingPath(name string) []port.Port {
 	}
 
 	return path
+}
+
+func (b *Bridge) consultForwardingPath(res *Result, name string) {
+	path := b.forwardingPath(name)
+	res.Consult(path...)
+	if len(path) == 0 || path[0].LagParent == "" || b.selector == nil {
+		return
+	}
+	res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", path[0].LagParent))
 }
 
 func (b *Bridge) egressDependencies(p port.Port) []port.Port {

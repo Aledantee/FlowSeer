@@ -472,17 +472,7 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardRe
 // could have changed the result; a member port also depends on its logical LAG.
 func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...string) ForwardResult {
 	for _, name := range dependencyPorts {
-		p, ok := s.ports.Port(name)
-		if !ok {
-			p = (port.Port{Name: name}).Normalize()
-		}
-		res.Consult(p)
-		if p.LagParent == "" {
-			continue
-		}
-		if parent, ok := s.ports.Port(p.LagParent); ok {
-			res.Consult(parent)
-		}
+		s.forwardingDependencies(name).consult(&res)
 	}
 
 	return s.wrapResult(res)
@@ -552,7 +542,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			},
 			Ingress: ingress,
 		}
-		res.Consult(s.forwardingPath(ingress)...)
+		s.forwardingDependencies(ingress).consult(&res)
 		return res
 	}
 
@@ -563,7 +553,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			res.ConsultScopes(analysis.FieldScope(
 				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
 			))
-			res.Consult(s.forwardingPath(ingress)...)
+			s.forwardingDependencies(ingress).consult(&res)
 			return s.finishForward(ingress, f, res, mutate)
 		}
 	}
@@ -575,7 +565,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
 			))
 		}
-		res.Consult(s.forwardingPath(ingress)...)
+		s.forwardingDependencies(ingress).consult(&res)
 		return s.finishForward(ingress, f, res, mutate)
 	}
 
@@ -614,7 +604,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						Ingress: resolved.Name,
 						FID:     0,
 					}
-					res.Consult(s.forwardingPath(ingress)...)
+					s.forwardingDependencies(ingress).consult(&res)
 					res.ConsultScopes(portLookupScopes...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
@@ -638,7 +628,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						Ingress: resolved.Name,
 						FID:     0,
 					}
-					res.Consult(s.forwardingPath(ingress)...)
+					s.forwardingDependencies(ingress).consult(&res)
 					res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 					return s.finishForward(ingress, f, res, mutate)
 				}
@@ -646,7 +636,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				pcp, dei := framePriority(f)
 				routeRes := s.routing.Route(iface, f)
 				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
-				res.Consult(s.forwardingPath(ingress)...)
+				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
 				return s.finishForward(ingress, f, res, mutate)
 			}
@@ -734,10 +724,14 @@ func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.
 	}
 
 	learned, _, ok := s.bridge.Ingress(now, ingress, f, true)
-	if !ok || len(learned.Steps) <= len(in.Steps) {
+	if !ok {
 		return in
 	}
-	in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
+	in.Consult(learned.ConsultedPorts()...)
+	in.ConsultScopes(learned.ConsultedScopes()...)
+	if len(learned.Steps) > len(in.Steps) {
+		in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
+	}
 
 	return in
 }
@@ -1014,7 +1008,7 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 		if !ok {
 			continue
 		}
-		res.Consult(s.egressDependencies(copy.Port)...)
+		s.egressDependencies(copy.Port).consult(res)
 
 		reason := trace.Reason("")
 		var selection trace.Fact
@@ -1145,7 +1139,7 @@ func (s *Switch) assembleRouteResult(
 			FID:     ingressFID,
 		}
 		if routeRes.Interface != "" {
-			res.Consult(s.routingForwardingPath(routeRes.Interface)...)
+			s.routingForwardingDependencies(routeRes.Interface).consult(&res)
 		}
 		res.ConsultScopes(routeScopes...)
 
@@ -1207,18 +1201,14 @@ func (s *Switch) assembleRouteResult(
 				},
 			},
 		}
-		res.Consult(s.egressDependencies(egressIface.Port)...)
+		s.egressDependencies(egressIface.Port).consult(&res)
 		res.ConsultScopes(routeScopes...)
 		return res
 	}
 
 	p, _ := s.ports.Port(egressIface.Port)
 	var selection trace.Fact
-	resultScopes := routeScopes
 	if p.Kind == port.Lag {
-		resultScopes = append(resultScopes, analysis.FieldScope(
-			protocolScope(s.nodeID, port.LayerLag), "aggregators", egressIface.Port,
-		))
 		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
 		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
 		if !ok {
@@ -1247,8 +1237,8 @@ func (s *Switch) assembleRouteResult(
 					},
 				},
 			}
-			res.Consult(s.egressDependencies(egressIface.Port)...)
-			res.ConsultScopes(resultScopes...)
+			s.egressDependencies(egressIface.Port).consult(&res)
+			res.ConsultScopes(routeScopes...)
 			return res
 		}
 		member = mem
@@ -1278,24 +1268,24 @@ func (s *Switch) assembleRouteResult(
 			},
 		},
 	}
-	res.Consult(s.egressDependencies(egressIface.Port)...)
-	res.ConsultScopes(resultScopes...)
+	s.egressDependencies(egressIface.Port).consult(&res)
+	res.ConsultScopes(routeScopes...)
 	return res
 }
 
-func (s *Switch) routingForwardingPath(name string) []port.Port {
+func (s *Switch) routingForwardingDependencies(name string) forwardingDependencies {
 	iface, ok := s.routing.Interface(name)
 	if !ok {
-		return nil
+		return forwardingDependencies{}
 	}
 	if iface.Port != "" {
-		return s.forwardingPath(iface.Port)
+		return s.forwardingDependencies(iface.Port)
 	}
 	if _, ok := s.ports.Port(name); !ok {
-		return nil
+		return forwardingDependencies{}
 	}
 
-	return s.forwardingPath(name)
+	return s.forwardingDependencies(name)
 }
 
 // Age removes dynamic forwarding database entries older than the configured
@@ -1313,7 +1303,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
-	res.Consult(s.forwardingPath(ingress)...)
+	s.forwardingDependencies(ingress).consult(&res)
 	pcp, _ := framePriority(f)
 
 	p, ok := s.ports.Port(ingress)
@@ -1365,7 +1355,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 			continue
 		}
 		eligible++
-		res.Consult(s.egressDependencies(cand.Name)...)
+		s.egressDependencies(cand.Name).consult(&res)
 		if !cand.Forwards() {
 			unavailable = append(unavailable, port.ForwardingFact(cand.Name, cand, false, port.ReasonPortDown))
 			continue
@@ -1462,28 +1452,46 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 	return res
 }
 
-func (s *Switch) forwardingPath(name string) []port.Port {
+type forwardingDependencies struct {
+	ports  []port.Port
+	scopes []analysis.Scope
+}
+
+func (dependencies forwardingDependencies) consult(res *bridge.Result) {
+	res.Consult(dependencies.ports...)
+	res.ConsultScopes(dependencies.scopes...)
+}
+
+func (s *Switch) forwardingDependencies(name string) forwardingDependencies {
 	p, ok := s.ports.Port(name)
 	if !ok {
-		return []port.Port{(port.Port{Name: name}).Normalize()}
+		return forwardingDependencies{ports: []port.Port{(port.Port{Name: name}).Normalize()}}
 	}
 	path := []port.Port{p}
+	var scopes []analysis.Scope
 	if p.LagParent != "" {
+		scopes = append(scopes, s.aggregatorScope(p.LagParent))
 		if parent, exists := s.ports.Port(p.LagParent); exists {
 			path = append(path, parent)
 		}
 	}
 
-	return path
+	return forwardingDependencies{ports: path, scopes: scopes}
 }
 
-func (s *Switch) egressDependencies(name string) []port.Port {
-	path := s.forwardingPath(name)
-	if len(path) != 1 || path[0].Kind != port.Lag {
-		return path
+func (s *Switch) egressDependencies(name string) forwardingDependencies {
+	dependencies := s.forwardingDependencies(name)
+	if len(dependencies.ports) != 1 || dependencies.ports[0].Kind != port.Lag {
+		return dependencies
 	}
+	dependencies.ports = append(dependencies.ports, s.ports.Members(name)...)
+	dependencies.scopes = append(dependencies.scopes, s.aggregatorScope(name))
 
-	return append(path, s.ports.Members(name)...)
+	return dependencies
+}
+
+func (s *Switch) aggregatorScope(name string) analysis.Scope {
+	return analysis.FieldScope(protocolScope(s.nodeID, port.LayerLag), "aggregators", name)
 }
 
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {

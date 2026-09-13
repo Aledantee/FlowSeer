@@ -357,8 +357,10 @@ it returns an error.
 
 Forwarding combines runtime issues with construction issues on the exact
 dependencies the result consulted. These include ports, spanning tree ports,
-routing lookups, and forwarding database keys. An issue on a sibling dependency
-is left out, while node and whole-analysis issues are included in every result.
+routing lookups, forwarding database source-learning and destination-lookup
+keys, and LAG aggregators used by member processing or egress selection. An
+issue on a sibling dependency is left out, while node and whole-analysis issues
+are included in every result.
 Relevant assumptions and evidence references travel with the retained issues.
 The combined issues, assumptions, and evidence catalog use their canonical
 ordering, so repeated forwarding and cloned specifications produce the same
