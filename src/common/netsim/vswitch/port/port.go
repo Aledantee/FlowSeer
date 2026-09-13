@@ -3,7 +3,9 @@
 package port
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -184,7 +186,7 @@ func (p Port) Forwards() bool {
 	return p.AdminStatus == Up && p.OperStatus == Up
 }
 
-// Table is an ordered collection of ports keyed by port name.
+// Table is a collection of ports keyed by port name and ordered by name.
 //
 // Lookups by name run in O(1) time. The zero value is an empty table ready for use.
 // Table is safe for concurrent read access.
@@ -200,7 +202,7 @@ func (t Table) Port(name string) (Port, bool) {
 	return p, ok
 }
 
-// Ports returns a slice of all ports in insertion order.
+// Ports returns all ports in name order.
 func (t Table) Ports() []Port {
 	if len(t.ports) == 0 {
 		return nil
@@ -216,7 +218,7 @@ func (t Table) Len() int {
 	return len(t.ports)
 }
 
-// Members returns the member ports of the named LAG in table insertion order.
+// Members returns the member ports of the named LAG in name order.
 // If lagName does not name a LAG in the table, or the LAG has no member ports,
 // Members returns nil.
 func (t Table) Members(lagName string) []Port {
@@ -253,32 +255,97 @@ func (t Table) Resolve(name string) (Port, bool) {
 	return parent, true
 }
 
-// Receive evaluates whether a frame can arrive on the named port. If the port is
-// a member of a LAG, Receive resolves it to its parent LAG port. It returns
-// [ReasonPortDown] when the port is unknown, its LAG parent does not exist, or
-// either the port or its resolved parent does not forward. An empty reason
-// indicates the port can receive traffic.
-func (t Table) Receive(name string) (Port, trace.Reason) {
+// ReceiveResult records the physical ingress, its resolved logical interface,
+// and the port whose state refused the frame. Resolved equals Physical for an
+// independent port. Decisive is empty when the frame is admitted.
+type ReceiveResult struct {
+	Ingress  string
+	Physical Port
+	Resolved Port
+	Decisive string
+	Reason   trace.Reason
+}
+
+// ConsultedPorts returns the present port-state snapshots used by the receive decision.
+func (r ReceiveResult) ConsultedPorts() []Port {
+	if r.Physical.Name == "" {
+		return nil
+	}
+	if r.Resolved.Name == "" || r.Resolved.Name == r.Physical.Name {
+		return []Port{r.Physical}
+	}
+
+	return []Port{r.Physical, r.Resolved}
+}
+
+// ForwardingFacts returns one fact for every physical or logical port state
+// used by the receive decision, including a missing ingress or LAG parent.
+func (r ReceiveResult) ForwardingFacts() []trace.Fact {
+	physicalReason := trace.Reason("")
+	if r.Physical.Name == "" || !r.Physical.Forwards() {
+		physicalReason = r.Reason
+	}
+	facts := []trace.Fact{ForwardingFact(r.Ingress, r.Physical, r.Physical.Forwards(), physicalReason)}
+
+	resolvedName := r.Resolved.Name
+	if resolvedName == "" && r.Physical.LagParent != "" {
+		resolvedName = r.Physical.LagParent
+	}
+	if resolvedName == "" || resolvedName == r.Ingress {
+		return facts
+	}
+	resolvedReason := trace.Reason("")
+	if r.Resolved.Name == "" || !r.Resolved.Forwards() {
+		resolvedReason = r.Reason
+	}
+
+	return append(facts, ForwardingFact(resolvedName, r.Resolved, r.Resolved.Forwards(), resolvedReason))
+}
+
+// Receive evaluates whether a frame can arrive on the named physical port. A
+// member resolves to its parent LAG, while the result retains both snapshots.
+// It reports [ReasonPortDown] and the decisive port name when either state does
+// not forward. An empty reason indicates the port can receive traffic.
+func (t Table) Receive(name string) ReceiveResult {
+	result := ReceiveResult{Ingress: name}
 	p, ok := t.Port(name)
 	if !ok {
-		return Port{}, ReasonPortDown
+		result.Decisive = name
+		result.Reason = ReasonPortDown
+
+		return result
 	}
+	result.Physical = p
+	result.Resolved = p
 	if p.LagParent == "" {
 		if !p.Forwards() {
-			return p, ReasonPortDown
+			result.Decisive = p.Name
+			result.Reason = ReasonPortDown
 		}
 
-		return p, ""
+		return result
 	}
 	parent, ok := t.Port(p.LagParent)
 	if !ok {
-		return Port{}, ReasonPortDown
+		result.Resolved = Port{}
+		result.Decisive = p.LagParent
+		result.Reason = ReasonPortDown
+
+		return result
 	}
-	if !p.Forwards() || !parent.Forwards() {
-		return parent, ReasonPortDown
+	result.Resolved = parent
+	if !p.Forwards() {
+		result.Decisive = p.Name
+		result.Reason = ReasonPortDown
+
+		return result
+	}
+	if !parent.Forwards() {
+		result.Decisive = parent.Name
+		result.Reason = ReasonPortDown
 	}
 
-	return parent, ""
+	return result
 }
 
 // Transmit evaluates whether a frame of payloadLen can egress through the named port.
@@ -312,7 +379,8 @@ func (t Table) Transmit(name string, payloadLen int) (string, trace.Reason) {
 	return "", ""
 }
 
-// Normalize returns an independent copy of the table with standard port defaults applied.
+// Normalize returns an independent copy of the table with standard port defaults
+// applied and ports sorted by name.
 func (t Table) Normalize() Table {
 	if len(t.ports) == 0 {
 		return Table{}
@@ -326,6 +394,9 @@ func (t Table) Normalize() Table {
 		norm.ports[i] = np
 		norm.byName[np.Name] = np
 	}
+	slices.SortFunc(norm.ports, func(a, b Port) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
 
 	return norm
 }

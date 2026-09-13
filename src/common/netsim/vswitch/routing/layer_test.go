@@ -206,6 +206,9 @@ func TestRouteNeighborMiss(t *testing.T) {
 	if res.Reason != routing.ReasonNeighborMiss {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborMiss)
 	}
+	if res.Interface != "vlan20" {
+		t.Errorf("interface = %q, want matched target vlan20", res.Interface)
+	}
 	if len(res.Frame.Payload) != 0 {
 		t.Errorf("expected no egress frame, got payload len %d", len(res.Frame.Payload))
 	}
@@ -939,6 +942,9 @@ func TestOriginate(t *testing.T) {
 		resMiss := l.Originate(routing.DefaultVRF, netip.MustParseAddr("10.0.20.7"), 17, []byte("data"))
 		if resMiss.Reason != routing.ReasonNeighborMiss {
 			t.Fatalf("reason = %q, want %q", resMiss.Reason, routing.ReasonNeighborMiss)
+		}
+		if resMiss.Interface != "vlan20" {
+			t.Errorf("interface = %q, want matched target vlan20", resMiss.Interface)
 		}
 
 		// No route in unknown VRF or family with no route.

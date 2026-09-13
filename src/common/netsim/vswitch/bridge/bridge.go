@@ -334,20 +334,22 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 	res.Outcome = trace.Dropped
 	res.Consult(b.forwardingPath(ingress)...)
 
-	inPort, reason := b.ports.Receive(ingress)
-	if reason != "" {
-		res.Reason = reason
-		res.Ingress = inPort.Name
+	receive := b.ports.Receive(ingress)
+	res.Consult(receive.ConsultedPorts()...)
+	if receive.Reason != "" {
+		res.Reason = receive.Reason
+		res.Ingress = receive.Resolved.Name
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   port.LayerRelay,
 			Op:      trace.OpDrop,
 			RuleID:  trace.RuleID("ingress-port-down"),
-			Subject: trace.Subject{Kind: "port", Key: inPort.Name},
-			Outputs: []trace.Fact{port.ForwardingFact(ingress, inPort, false, reason)},
+			Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+			Outputs: receive.ForwardingFacts(),
 		})
 
 		return Ingress{}, res, false
 	}
+	inPort := receive.Resolved
 	res.Ingress = inPort.Name
 
 	if !b.cfg.ForwardBPDU && ethernet.IsReserved(f.Dst) {

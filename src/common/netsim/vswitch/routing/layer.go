@@ -351,6 +351,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	}
 
 	targetIface := matchedRoute.Interface
+	res.Interface = targetIface
 	neighbor, ok := vrf.neighbors[neighborKey{iface: targetIface, addr: targetAddr}]
 	if !ok {
 		res.Reason = ReasonNeighborMiss
@@ -508,7 +509,8 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 				Inputs:  []trace.Fact{routeSnapshot(vrf, dst, matchedRoute)},
 				Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
 			}),
-			Reason: ReasonNeighborMiss,
+			Reason:    ReasonNeighborMiss,
+			Interface: targetIface,
 		}
 	}
 

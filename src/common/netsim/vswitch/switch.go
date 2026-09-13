@@ -550,10 +550,11 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	}
 
 	if s.routing != nil {
-		resolved, reason := s.ports.Receive(ingress)
+		receive := s.ports.Receive(ingress)
+		resolved := receive.Resolved
 		if resolved.Name != "" {
 			if iface, ok := s.routing.ByPort(resolved.Name); ok {
-				if reason != "" {
+				if receive.Reason != "" {
 					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
@@ -563,8 +564,8 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 									Layer:   port.LayerRouting,
 									Op:      trace.OpDrop,
 									RuleID:  "port.status.down",
-									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
-									Inputs:  []trace.Fact{port.ForwardingFact(resolved.Name, resolved, false, port.ReasonPortDown)},
+									Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+									Inputs:  receive.ForwardingFacts(),
 								},
 							},
 						},
@@ -956,6 +957,8 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 				reason = bridge.ReasonNoMember
 			} else if memberPort, exists := s.ports.Port(member); !exists || !memberPort.Forwards() {
 				reason = port.ReasonPortDown
+			} else {
+				copy.Member = member
 			}
 		}
 
@@ -1061,7 +1064,7 @@ func (s *Switch) assembleRouteResult(
 		steps = append(steps, ingressSteps...)
 		steps = append(steps, routeRes.Steps...)
 
-		return bridge.Result{
+		res := bridge.Result{
 			Trace: trace.Trace{
 				Outcome: outcome,
 				Reason:  routeRes.Reason,
@@ -1070,6 +1073,11 @@ func (s *Switch) assembleRouteResult(
 			Ingress: ingressPort,
 			FID:     ingressFID,
 		}
+		if routeRes.Interface != "" {
+			res.Consult(s.routingForwardingPath(routeRes.Interface)...)
+		}
+
+		return res
 	}
 
 	// Route names only an interface of its own table, so the lookup cannot miss.
@@ -1193,6 +1201,21 @@ func (s *Switch) assembleRouteResult(
 	}
 	res.Consult(s.egressDependencies(egressIface.Port)...)
 	return res
+}
+
+func (s *Switch) routingForwardingPath(name string) []port.Port {
+	iface, ok := s.routing.Interface(name)
+	if !ok {
+		return nil
+	}
+	if iface.Port != "" {
+		return s.forwardingPath(iface.Port)
+	}
+	if _, ok := s.ports.Port(name); !ok {
+		return nil
+	}
+
+	return s.forwardingPath(name)
 }
 
 // Age removes dynamic forwarding database entries older than the configured
@@ -1439,9 +1462,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	// The relay's first checks apply to a BPDU too: a dead or unknown port
 	// received nothing, and a trace saying Consumed there would hide a BPDU
 	// that died on a cut cable.
-	resolved, reason := s.ports.Receive(ingress)
-	if reason != "" {
-		physical, _ := s.ports.Port(ingress)
+	receive := s.ports.Receive(ingress)
+	if receive.Reason != "" {
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
@@ -1450,14 +1472,14 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 					Layer:   port.LayerStp,
 					Op:      trace.OpDrop,
 					RuleID:  "port.status.down",
-					Subject: trace.Subject{Kind: "port", Key: resolved.Name},
-					Inputs:  []trace.Fact{port.ForwardingFact(ingress, physical, false, port.ReasonPortDown)},
+					Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+					Inputs:  receive.ForwardingFacts(),
 				}},
 			},
-			Ingress: resolved.Name,
+			Ingress: receive.Resolved.Name,
 		}
 	}
-	resolvedPort := resolved.Name
+	resolvedPort := receive.Resolved.Name
 	before := s.stp.PortInfo(resolvedPort)
 
 	bpdu, err := stp.Decode(f)

@@ -70,6 +70,30 @@ func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
 	}
 }
 
+func TestNewRejectsZeroStaticNeighborMACAtRoutingField(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "routed", AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"routed": {Port: "routed", Prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24")}},
+				},
+				Neighbors: []routing.Neighbor{{Interface: "routed", Addr: netip.MustParseAddr("192.0.2.2")}},
+			},
+		}},
+	}
+
+	_, err := vswitch.New(cfg)
+	if err == nil {
+		t.Fatal("vswitch.New accepted a zero static neighbor MAC")
+	}
+	if got, want := errs.Attributes(err)["field"], "vrfs.default.neighbors.routed/192.0.2.2.mac"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
+	}
+}
+
 func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 	tests := []struct {
 		name        string

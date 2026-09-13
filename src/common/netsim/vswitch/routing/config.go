@@ -354,13 +354,13 @@ func (c Config) Validate(ports port.Table) error {
 					Msgf("neighbor %s names interface %q outside VRF %q", n.Addr, n.Interface, vrfName)
 			}
 
-			if n.MAC.IsGroup() {
+			if n.MAC == (netaddr.MAC{}) || n.MAC.IsGroup() {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("neighbor", n.Addr).
 					Attr("mac", n.MAC).
 					Attr("field", "vrfs."+vrfName+".neighbors."+n.Interface+"/"+n.Addr.String()+".mac").
-					Msgf("neighbor %s MAC %s cannot be a group MAC", n.Addr, n.MAC)
+					Msgf("neighbor %s MAC %s must be a non-zero individual MAC", n.Addr, n.MAC)
 			}
 			if n.Addr.Is4In6() {
 				return errs.New().

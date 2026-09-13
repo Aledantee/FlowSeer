@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"buf.build/go/protovalidate"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -1014,5 +1015,69 @@ func TestStpLoadRecordsFallbackForInvalidTxHoldCount(t *testing.T) {
 		return got.Statement == "default value applied for tx_hold_count: 6" && len(got.Evidence) > 0
 	}) {
 		t.Errorf("assumptions = %+v, want evidenced tx_hold_count fallback", result.Metadata.Assumptions())
+	}
+}
+
+func TestStpLoadClassifiesInvalidEffectiveTimerRelations(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name         string
+		helloTime    time.Duration
+		maxAge       time.Duration
+		forwardDelay time.Duration
+	}{
+		{name: "explicit minimum violation", helloTime: 3 * time.Second, maxAge: 6 * time.Second, forwardDelay: 4 * time.Second},
+		{name: "explicit maximum violation", helloTime: time.Second, maxAge: 7 * time.Second, forwardDelay: 4 * time.Second},
+		{name: "explicit hello against default max", helloTime: 10 * time.Second},
+		{name: "explicit max against default forward", maxAge: 40 * time.Second},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			protocol := stpv1.ProtocolVersion_PROTOCOL_VERSION_RSTP
+			priority := uint32(32768)
+			builder := stpv1.BridgeState_builder{
+				ProtocolVersion: &protocol,
+				BridgeId: stpv1.BridgeId_builder{
+					Priority: &priority,
+					Address:  addrv1.Eui48Address_builder{Octets: []byte{0, 1, 2, 3, 4, 5}}.Build(),
+				}.Build(),
+			}
+			if test.helloTime != 0 {
+				builder.BridgeHelloTime = durationpb.New(test.helloTime)
+			}
+			if test.maxAge != 0 {
+				builder.BridgeMaxAge = durationpb.New(test.maxAge)
+			}
+			if test.forwardDelay != 0 {
+				builder.BridgeForwardDelay = durationpb.New(test.forwardDelay)
+			}
+			input := loadInput{
+				ifaces:      []*interfacev1.Interface{plainPhysicalInterface("1/1/1")},
+				bridgeState: builder.Build(),
+			}
+			input.validate(t)
+			result := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: test.name})
+
+			if result.Spec.Config.STP != nil {
+				t.Errorf("STP config = %+v, want invalid layer omitted", result.Spec.Config.STP)
+			}
+			if slices.Contains(result.Report.Capabilities, port.LayerStp) {
+				t.Errorf("capabilities = %v, want STP omitted", result.Report.Capabilities)
+			}
+			if !slices.ContainsFunc(result.Report.Skipped, func(skipped netmodel.Skipped) bool {
+				return skipped.What == "stp_bridge" && len(skipped.Evidence) > 0
+			}) {
+				t.Errorf("skipped = %+v, want evidenced STP bridge input", result.Report.Skipped)
+			}
+			if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidSTPBridgeTimer &&
+					issue.Status == analysis.Unsupported && len(issue.Evidence) > 0
+			}) {
+				t.Errorf("issues = %+v, want evidenced Unsupported timer relation", result.Metadata.Issues())
+			}
+		})
 	}
 }

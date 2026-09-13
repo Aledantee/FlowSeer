@@ -247,6 +247,65 @@ func TestNewRejectsPathCostAboveMaximum(t *testing.T) {
 	}
 }
 
+func TestValidateUsesEffectiveTimerRelations(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+	validMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	for _, test := range []struct {
+		name    string
+		cfg     stp.Config
+		wantErr bool
+	}{
+		{name: "all defaults", cfg: stp.Config{Address: validMAC}},
+		{
+			name: "both equality boundaries",
+			cfg:  stp.Config{Address: validMAC, HelloTime: 2 * time.Second, MaxAge: 6 * time.Second, ForwardDelay: 4 * time.Second},
+		},
+		{
+			name:    "minimum max age violated",
+			cfg:     stp.Config{Address: validMAC, HelloTime: 3 * time.Second, MaxAge: 6 * time.Second, ForwardDelay: 4 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "maximum max age violated",
+			cfg:     stp.Config{Address: validMAC, HelloTime: time.Second, MaxAge: 7 * time.Second, ForwardDelay: 4 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "explicit hello with default max age",
+			cfg:     stp.Config{Address: validMAC, HelloTime: 10 * time.Second},
+			wantErr: true,
+		},
+		{
+			name:    "explicit max age with default forward delay",
+			cfg:     stp.Config{Address: validMAC, MaxAge: 40 * time.Second},
+			wantErr: true,
+		},
+		{
+			name: "explicit max and forward with default hello at equality",
+			cfg:  stp.Config{Address: validMAC, MaxAge: 20 * time.Second, ForwardDelay: 11 * time.Second},
+		},
+		{
+			name: "explicit hello and max with default forward delay at equality",
+			cfg:  stp.Config{Address: validMAC, HelloTime: 2 * time.Second, MaxAge: 6 * time.Second},
+		},
+	} {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			err := test.cfg.Validate(tbl)
+			if (err != nil) != test.wantErr {
+				t.Errorf("Validate() error = %v, wantErr %t", err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestClone(t *testing.T) {
 	t.Parallel()
 

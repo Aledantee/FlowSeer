@@ -13,7 +13,9 @@ import (
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
@@ -678,6 +680,71 @@ func TestLoad_NeighborWithoutMACSkipped(t *testing.T) {
 
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("cfg.Validate failed: %v", err)
+	}
+}
+
+func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
+	inName := "in"
+	outName := "out"
+	input := loadInput{
+		ifaces: []*interfacev1.Interface{routedPhysicalInterface(inName), routedPhysicalInterface(outName)},
+		addrs: []*ipv1.InterfaceAddress{
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &inName,
+				Address:       protoIPv4Addr([4]byte{192, 0, 2, 1}),
+				Prefix:        protoIPv4Prefix([4]byte{192, 0, 2, 0}, 24),
+			}.Build(),
+			ipv1.InterfaceAddress_builder{
+				InterfaceName: &outName,
+				Address:       protoIPv4Addr([4]byte{198, 51, 100, 1}),
+				Prefix:        protoIPv4Prefix([4]byte{198, 51, 100, 0}, 24),
+			}.Build(),
+		},
+		neighbors: []*ipv1.NeighborEntry{
+			ipv1.NeighborEntry_builder{
+				InterfaceName: &outName,
+				Ip:            protoIPv4Addr([4]byte{198, 51, 100, 7}),
+			}.Build(),
+		},
+	}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1", Origin: "snapshot", Context: "missing-neighbor-mac"})
+	sw, err := vswitch.NewWithSpec(loaded.Spec)
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	hdr := ip.Header{
+		Src:      netip.MustParseAddr("192.0.2.7"),
+		Dst:      netip.MustParseAddr("198.51.100.7"),
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}
+	payload, err := hdr.Encode([]byte("neighbor evidence"))
+	if err != nil {
+		t.Fatalf("encode packet: %v", err)
+	}
+	iface := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[inName]
+	result := sw.Forward(trustTestTime, inName, ethernet.Frame{
+		Src:       netaddr.MAC{2, 0, 0, 0, 0, 2},
+		Dst:       iface.MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   payload,
+	})
+
+	if result.Reason != routing.ReasonNeighborMiss {
+		t.Fatalf("reason = %s, want neighbor-miss", result.Reason)
+	}
+	if result.Metadata.Status() != analysis.Incomplete {
+		t.Fatalf("status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	if !slices.ContainsFunc(result.Metadata.Issues(), func(issue analysis.Issue) bool {
+		return issue.Code == netmodel.IssueMissingNeighborMAC &&
+			issue.Scope == analysis.PortScope("sw1", outName) &&
+			len(issue.Evidence) > 0
+	}) {
+		t.Errorf("issues = %+v, want evidenced invalid neighbor issue on out", result.Metadata.Issues())
 	}
 }
 

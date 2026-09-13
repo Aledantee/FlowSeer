@@ -1054,6 +1054,21 @@ func Load(
 				break
 			}
 		}
+		if timerWhy == "" {
+			timers := stp.Config{}
+			if bridgeState.GetBridgeHelloTime() != nil {
+				timers.HelloTime = bridgeState.GetBridgeHelloTime().AsDuration()
+			}
+			if bridgeState.GetBridgeMaxAge() != nil {
+				timers.MaxAge = bridgeState.GetBridgeMaxAge().AsDuration()
+			}
+			if bridgeState.GetBridgeForwardDelay() != nil {
+				timers.ForwardDelay = bridgeState.GetBridgeForwardDelay().AsDuration()
+			}
+			if err := timers.ValidateTimers(); err != nil {
+				timerWhy = err.Error()
+			}
+		}
 
 		var (
 			bridgeWhy    string

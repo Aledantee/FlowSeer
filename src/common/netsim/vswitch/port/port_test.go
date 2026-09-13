@@ -2,6 +2,7 @@ package port_test
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -9,7 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-func TestTableBuiltUnderCallerNaming(t *testing.T) {
+func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
 	b := port.NewBuilder()
 	b.Range("1/1/%d", 1, 24, port.Port{Kind: port.Physical})
 	b.Range("1/3/%d", 1, 4, port.Port{Kind: port.Physical})
@@ -29,29 +30,23 @@ func TestTableBuiltUnderCallerNaming(t *testing.T) {
 		t.Fatalf("len(tbl.Ports()) = %d, want %d", got, want)
 	}
 
+	wantNames := make([]string, 0, 29)
 	for i := 1; i <= 24; i++ {
-		wantName := fmt.Sprintf("1/1/%d", i)
-		if gotName := ports[i-1].Name; gotName != wantName {
-			t.Errorf("ports[%d].Name = %q, want %q", i-1, gotName, wantName)
-		}
-		if gotKind := ports[i-1].Kind; gotKind != port.Physical {
-			t.Errorf("ports[%d].Kind = %q, want %q", i-1, gotKind, port.Physical)
-		}
+		wantNames = append(wantNames, fmt.Sprintf("1/1/%d", i))
 	}
-
 	for i := 1; i <= 4; i++ {
-		wantName := fmt.Sprintf("1/3/%d", i)
-		idx := 24 + i - 1
-		if gotName := ports[idx].Name; gotName != wantName {
-			t.Errorf("ports[%d].Name = %q, want %q", idx, gotName, wantName)
-		}
-		if gotKind := ports[idx].Kind; gotKind != port.Physical {
-			t.Errorf("ports[%d].Kind = %q, want %q", idx, gotKind, port.Physical)
-		}
+		wantNames = append(wantNames, fmt.Sprintf("1/3/%d", i))
 	}
+	wantNames = append(wantNames, "mgmt")
+	slices.Sort(wantNames)
 
-	if gotName := ports[28].Name; gotName != "mgmt" {
-		t.Errorf("ports[28].Name = %q, want %q", gotName, "mgmt")
+	for i, got := range ports {
+		if got.Name != wantNames[i] {
+			t.Errorf("ports[%d].Name = %q, want %q", i, got.Name, wantNames[i])
+		}
+		if got.Kind != port.Physical {
+			t.Errorf("ports[%d].Kind = %q, want %q", i, got.Kind, port.Physical)
+		}
 	}
 
 	// Second Add of 1/1/1 fails with the duplicate name as an attribute.
@@ -565,6 +560,26 @@ func TestTableValidate(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
+	t.Run("sorts ports and LAG members by name", func(t *testing.T) {
+		tbl, err := port.NewBuilder().
+			Add(port.Port{Name: "member-z", LagParent: "lag1"}).
+			Add(port.Port{Name: "lag1", Kind: port.Lag}).
+			Add(port.Port{Name: "member-a", LagParent: "lag1"}).
+			Build()
+		if err != nil {
+			t.Fatalf("Build: %v", err)
+		}
+
+		ports := tbl.Ports()
+		if got := []string{ports[0].Name, ports[1].Name, ports[2].Name}; !slices.Equal(got, []string{"lag1", "member-a", "member-z"}) {
+			t.Errorf("Ports() names = %v, want name order", got)
+		}
+		members := tbl.Members("lag1")
+		if got := []string{members[0].Name, members[1].Name}; !slices.Equal(got, []string{"member-a", "member-z"}) {
+			t.Errorf("Members(lag1) names = %v, want name order", got)
+		}
+	})
+
 	t.Run("default equivalence and idempotence", func(t *testing.T) {
 		raw := port.Port{Name: "1/1/1"}
 		explicit := port.Port{
@@ -661,52 +676,52 @@ func TestTableReceive(t *testing.T) {
 	}
 
 	t.Run("up port", func(t *testing.T) {
-		p, reason := tbl.Receive("1/1/1")
-		if reason != "" {
-			t.Errorf("Receive(\"1/1/1\") reason = %q, want empty", reason)
+		got := tbl.Receive("1/1/1")
+		if got.Reason != "" {
+			t.Errorf("Receive(\"1/1/1\") reason = %q, want empty", got.Reason)
 		}
-		if p.Name != "1/1/1" {
-			t.Errorf("Receive(\"1/1/1\") port = %q, want \"1/1/1\"", p.Name)
+		if got.Resolved.Name != "1/1/1" {
+			t.Errorf("Receive(\"1/1/1\") port = %q, want \"1/1/1\"", got.Resolved.Name)
 		}
 	})
 
 	t.Run("unknown name", func(t *testing.T) {
-		p, reason := tbl.Receive("unknown")
-		if reason != port.ReasonPortDown {
-			t.Errorf("Receive(\"unknown\") reason = %q, want %q", reason, port.ReasonPortDown)
+		got := tbl.Receive("unknown")
+		if got.Reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"unknown\") reason = %q, want %q", got.Reason, port.ReasonPortDown)
 		}
-		if p != (port.Port{}) {
-			t.Errorf("Receive(\"unknown\") port = %+v, want zero", p)
+		if got.Resolved != (port.Port{}) || got.Decisive != "unknown" {
+			t.Errorf("Receive(\"unknown\") = %+v, want missing decisive port", got)
 		}
 	})
 
 	t.Run("down port", func(t *testing.T) {
-		p, reason := tbl.Receive("1/1/2")
-		if reason != port.ReasonPortDown {
-			t.Errorf("Receive(\"1/1/2\") reason = %q, want %q", reason, port.ReasonPortDown)
+		got := tbl.Receive("1/1/2")
+		if got.Reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"1/1/2\") reason = %q, want %q", got.Reason, port.ReasonPortDown)
 		}
-		if p.Name != "1/1/2" {
-			t.Errorf("Receive(\"1/1/2\") port = %q, want \"1/1/2\"", p.Name)
+		if got.Resolved.Name != "1/1/2" || got.Decisive != "1/1/2" {
+			t.Errorf("Receive(\"1/1/2\") = %+v, want decisive port 1/1/2", got)
 		}
 	})
 
 	t.Run("member of down lag", func(t *testing.T) {
-		p, reason := tbl.Receive("1/1/4")
-		if reason != port.ReasonPortDown {
-			t.Errorf("Receive(\"1/1/4\") reason = %q, want %q", reason, port.ReasonPortDown)
+		got := tbl.Receive("1/1/4")
+		if got.Reason != port.ReasonPortDown {
+			t.Errorf("Receive(\"1/1/4\") reason = %q, want %q", got.Reason, port.ReasonPortDown)
 		}
-		if p.Name != "lag-down" {
-			t.Errorf("Receive(\"1/1/4\") port = %q, want \"lag-down\"", p.Name)
+		if got.Resolved.Name != "lag-down" || got.Decisive != "lag-down" {
+			t.Errorf("Receive(\"1/1/4\") = %+v, want resolved and decisive lag-down", got)
 		}
 	})
 
 	t.Run("member resolving to parent", func(t *testing.T) {
-		p, reason := tbl.Receive("1/1/3")
-		if reason != "" {
-			t.Errorf("Receive(\"1/1/3\") reason = %q, want empty", reason)
+		got := tbl.Receive("1/1/3")
+		if got.Reason != "" {
+			t.Errorf("Receive(\"1/1/3\") reason = %q, want empty", got.Reason)
 		}
-		if p.Name != "lag1" {
-			t.Errorf("Receive(\"1/1/3\") port = %q, want \"lag1\"", p.Name)
+		if got.Resolved.Name != "lag1" || got.Physical.Name != "1/1/3" {
+			t.Errorf("Receive(\"1/1/3\") = %+v, want member resolved to lag1", got)
 		}
 	})
 }

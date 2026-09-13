@@ -194,9 +194,54 @@ func DefaultPathCost(speedBPS uint64) uint32 {
 	}
 }
 
+// ValidateTimers checks the individual and relational IEEE bounds after applying
+// standard defaults to omitted timer values.
+func (c Config) ValidateTimers() error {
+	helloTime := effectiveHelloTime(c.HelloTime)
+	maxAge := effectiveMaxAge(c.MaxAge)
+	forwardDelay := effectiveForwardDelay(c.ForwardDelay)
+
+	// The BPDU carries each timer in 1/256 s in 16 bits and 802.1D-2004
+	// clause 17.14 bounds them; a value outside would encode as another.
+	for _, t := range []struct {
+		name    string
+		value   time.Duration
+		low, hi time.Duration
+	}{
+		{"hello_time", helloTime, time.Second, 10 * time.Second},
+		{"max_age", maxAge, 6 * time.Second, 40 * time.Second},
+		{"forward_delay", forwardDelay, 4 * time.Second, 30 * time.Second},
+	} {
+		if t.value < t.low || t.value > t.hi {
+			return errs.New().
+				Attr("field", t.name).
+				Attr("value", t.value).
+				Msgf("%s %s is outside %s through %s", t.name, t.value, t.low, t.hi)
+		}
+	}
+	minimumMaxAge := 2 * (helloTime + time.Second)
+	if maxAge < minimumMaxAge {
+		return errs.New().
+			Attr("field", "max_age").
+			Attr("hello_time", helloTime).
+			Attr("max_age", maxAge).
+			Msgf("max_age %s must satisfy max_age >= 2 * (hello_time + 1s) (%s)", maxAge, minimumMaxAge)
+	}
+	maximumMaxAge := 2 * (forwardDelay - time.Second)
+	if maxAge > maximumMaxAge {
+		return errs.New().
+			Attr("field", "max_age").
+			Attr("max_age", maxAge).
+			Attr("forward_delay", forwardDelay).
+			Msgf("max_age %s must satisfy max_age <= 2 * (forward_delay - 1s) (%s)", maxAge, maximumMaxAge)
+	}
+
+	return nil
+}
+
 // Validate checks the configuration against the port table: bridge priority must
-// be a multiple of 4096, every configured port must exist in the port table,
-// and no configured port may be a LAG member.
+// be a multiple of 4096, effective timers must satisfy IEEE bounds, every configured
+// port must exist in the port table, and no configured port may be a LAG member.
 func (c Config) Validate(ports port.Table) error {
 	if c.Priority%4096 != 0 {
 		return errs.New().
@@ -210,23 +255,8 @@ func (c Config) Validate(ports port.Table) error {
 			Attr("address", c.Address).
 			Msgf("spanning tree address %s cannot be a group MAC", c.Address)
 	}
-	// The BPDU carries each timer in 1/256 s in 16 bits and 802.1D-2004
-	// clause 17.14 bounds them; a value outside would encode as another.
-	for _, t := range []struct {
-		name    string
-		value   time.Duration
-		low, hi time.Duration
-	}{
-		{"hello_time", c.HelloTime, time.Second, 10 * time.Second},
-		{"max_age", c.MaxAge, 6 * time.Second, 40 * time.Second},
-		{"forward_delay", c.ForwardDelay, 4 * time.Second, 30 * time.Second},
-	} {
-		if t.value != 0 && (t.value < t.low || t.value > t.hi) {
-			return errs.New().
-				Attr("field", t.name).
-				Attr("value", t.value).
-				Msgf("%s %s is outside %s through %s", t.name, t.value, t.low, t.hi)
-		}
+	if err := c.ValidateTimers(); err != nil {
+		return err
 	}
 	if c.TxHoldCount > 10 {
 		return errs.New().

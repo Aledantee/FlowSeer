@@ -512,7 +512,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			}},
 		}
 		f.journeys[fid] = copyJourney
-		f.transmit(arr.At, arr.Device, copy.Port, "", copy.Frame, seq, fid, copyJourney, framePCP(copy.Frame), copy.Mirror)
+		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, framePCP(copy.Frame), copy.Mirror)
 	}
 
 	return hopEntry, true

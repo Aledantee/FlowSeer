@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -59,6 +60,23 @@ func validBaseConfig() routing.Config {
 				},
 			},
 		},
+	}
+}
+
+func TestNewRejectsZeroStaticNeighborMACAtNeighborField(t *testing.T) {
+	t.Parallel()
+
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Neighbors[0].MAC = netaddr.MAC{}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	_, err := routing.New(cfg, newTestPortTable(t))
+	if err == nil {
+		t.Fatal("routing.New accepted a zero static neighbor MAC")
+	}
+	if got, want := errs.Attributes(err)["field"], "vrfs.default.neighbors.vlan10/10.0.10.7.mac"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
 	}
 }
 
