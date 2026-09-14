@@ -133,9 +133,9 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 			status = phyv1.PoeStatus_POE_STATUS_DISABLED
 		case pa.State == phy.PowerNoDevice || pa.State == phy.PowerDenied:
 			status = phyv1.PoeStatus_POE_STATUS_SEARCHING
-		case pa.State == phy.PowerUnknown:
-			status = phyv1.PoeStatus_POE_STATUS_UNSPECIFIED
 		default:
+			// PowerUnknown, and a port Allocate did not report, carry the
+			// explicit unknown status rather than a guess.
 			status = phyv1.PoeStatus_POE_STATUS_UNSPECIFIED
 		}
 
