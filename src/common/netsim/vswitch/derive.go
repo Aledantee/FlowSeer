@@ -47,7 +47,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 			next.bridge.SetGate(next.stp, protocolScope(next.nodeID, port.LayerStp))
 		}
 		if cur.portP2P != nil {
-			next.portP2P = make(map[string]bool, len(cur.portP2P))
+			next.portP2P = make(map[string]PointToPoint, len(cur.portP2P))
 			for k, v := range cur.portP2P {
 				next.portP2P[k] = v
 			}
@@ -75,6 +75,9 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 			}
 		}
 	}
+	// Retained point-to-point reports change which spanning tree inputs are
+	// unknown, so the issues New computed from an empty report set are stale.
+	next.recomputeProtocolLinkIssues()
 
 	if cur != nil && cur.mcast != nil && next.mcast != nil {
 		retained := cur.mcast.Clone()

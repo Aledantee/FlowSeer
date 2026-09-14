@@ -336,3 +336,119 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Errorf("status with forced point-to-point = %v, want %v", got, analysis.Complete)
 	}
 }
+
+// newAutoSTPSwitch builds a three-port bridge whose spanning tree carries the
+// given per-port configuration; ports it leaves out run on defaults.
+func newAutoSTPSwitch(t *testing.T, stpPorts map[string]stp.Port) *vswitch.Switch {
+	t.Helper()
+
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	sw, err := vswitch.New(vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports:    stpPorts,
+		},
+	})
+	if err != nil {
+		t.Fatalf("new switch: %v", err)
+	}
+
+	return sw
+}
+
+// allAutoSTPPorts configures every port of newAutoSTPSwitch with automatic
+// point-to-point detection.
+func allAutoSTPPorts() map[string]stp.Port {
+	return map[string]stp.Port{
+		"1/1/1": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+		"1/1/2": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+		"1/1/3": {PathCost: 20000, PointToPoint: stp.PointToPointAuto},
+	}
+}
+
+func hasProtocolLinkIssue(res vswitch.ForwardResult) bool {
+	return slices.ContainsFunc(res.Metadata.Issues(), func(iss analysis.Issue) bool {
+		return iss.Code == vswitch.IssueProtocolLinkUnknown
+	})
+}
+
+// Spanning tree computes roles on every non-member port, so an unknown link on
+// a port without explicit spanning tree configuration still makes results
+// through the others incomplete.
+func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
+	t.Parallel()
+
+	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {PathCost: 20000}})
+	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0)
+
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	res := sw.Forward(t0.Add(time.Second), "1/1/3", frame)
+	if !hasProtocolLinkIssue(res) {
+		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+}
+
+// An unset point-to-point report says nothing about the link, so it must count
+// as unknown on a port whose spanning tree point-to-point mode is automatic.
+func TestLinkChangeUnsetPointToPointIsUnknown(t *testing.T) {
+	t.Parallel()
+
+	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
+	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.LinkChange(t0, "1/1/2", port.Up, "", 1_000_000_000)
+
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	res := sw.Forward(t0.Add(time.Second), "1/1/1", frame)
+	if !hasProtocolLinkIssue(res) {
+		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+}
+
+// Derive retains spanning tree state together with its point-to-point
+// reports, so an unknown duplex heard before derivation stays visible after it.
+func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
+	t.Parallel()
+
+	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
+	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointUnknown, 1_000_000_000)
+
+	frame := ethernet.Frame{
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	if !hasProtocolLinkIssue(sw.Peek(t0.Add(time.Second), "1/1/1", frame)) {
+		t.Fatalf("precondition: current switch carries no %q issue", vswitch.IssueProtocolLinkUnknown)
+	}
+
+	next, err := vswitch.Derive(sw, sw.Spec())
+	if err != nil {
+		t.Fatalf("derive: %v", err)
+	}
+	res := next.Forward(t0.Add(time.Second), "1/1/1", frame)
+	if !hasProtocolLinkIssue(res) {
+		t.Errorf("derived issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+}

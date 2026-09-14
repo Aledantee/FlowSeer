@@ -151,21 +151,20 @@ type Emission struct {
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
-	cfg        Config
-	ports      port.Table
-	bridge     *bridge.Bridge
-	speeds     map[string]phy.Resolved
-	power      phy.Allocation
-	stp        *stp.Layer
-	lag        *lag.Layer
-	mcast      *mcast.Layer
-	routing    *routing.Layer
-	traffic    *traffic.Config
-	buckets    map[string]*traffic.Bucket
+	cfg            Config
+	ports          port.Table
+	bridge         *bridge.Bridge
+	speeds         map[string]phy.Resolved
+	power          phy.Allocation
+	stp            *stp.Layer
+	lag            *lag.Layer
+	mcast          *mcast.Layer
+	routing        *routing.Layer
+	traffic        *traffic.Config
+	buckets        map[string]*traffic.Bucket
 	copies         []traffic.Copy
 	emissions      []Emission
-	portP2P        map[string]bool
-	portP2PState   map[string]PointToPoint
+	portP2P        map[string]PointToPoint
 	portSpeed      map[string]uint64
 	protocolIssues map[string]analysis.Issue
 	seeds          []bridge.Seed
@@ -1713,10 +1712,7 @@ func (s *Switch) Start(now time.Time) {
 		return
 	}
 	if s.portP2P == nil {
-		s.portP2P = make(map[string]bool)
-	}
-	if s.portP2PState == nil {
-		s.portP2PState = make(map[string]PointToPoint)
+		s.portP2P = make(map[string]PointToPoint)
 	}
 	if s.portSpeed == nil {
 		s.portSpeed = make(map[string]uint64)
@@ -1725,9 +1721,7 @@ func (s *Switch) Start(now time.Time) {
 	for _, p := range s.ports.Ports() {
 		if p.LagParent != "" {
 			speed := s.linkSpeed(p)
-			p2p := true
-			s.portP2P[p.Name] = p2p
-			s.portP2PState[p.Name] = PointToPointTrue
+			s.portP2P[p.Name] = PointToPointTrue
 			s.portSpeed[p.Name] = speed
 			if s.lag != nil {
 				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
@@ -1746,18 +1740,18 @@ func (s *Switch) Start(now time.Time) {
 			continue
 		}
 		p2p := true
-		p2pState := PointToPointTrue
 		if s.cfg.STP != nil {
 			if pCfg, ok := s.cfg.STP.Ports[p.Name]; ok {
 				if pCfg.PointToPoint == stp.PointToPointForceFalse {
 					p2p = false
-					p2pState = PointToPointFalse
 				}
 			}
 		}
 		speed := s.linkSpeed(p)
-		s.portP2P[p.Name] = p2p
-		s.portP2PState[p.Name] = p2pState
+		s.portP2P[p.Name] = PointToPointFalse
+		if p2p {
+			s.portP2P[p.Name] = PointToPointTrue
+		}
 		s.portSpeed[p.Name] = speed
 
 		if s.stp != nil {
@@ -1827,11 +1821,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 			}
 			highestSpeed = max(highestSpeed, memSpeed)
 
-			memP2P := true
-			if p2p, ok := s.portP2P[memName]; ok {
-				memP2P = p2p
-			}
-			if !memP2P {
+			if p2p, ok := s.portP2P[memName]; ok && p2p != PointToPointTrue {
 				lagP2P = false
 			}
 		}
@@ -1841,15 +1831,11 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 			}
 		}
 		if s.portP2P != nil {
-			s.portP2P[lagName] = lagP2P
-			s.portSpeed[lagName] = highestSpeed
-		}
-		if s.portP2PState != nil {
+			s.portP2P[lagName] = PointToPointFalse
 			if lagP2P {
-				s.portP2PState[lagName] = PointToPointTrue
-			} else {
-				s.portP2PState[lagName] = PointToPointFalse
+				s.portP2P[lagName] = PointToPointTrue
 			}
+			s.portSpeed[lagName] = highestSpeed
 		}
 		fxSTP := s.stp.LinkChange(now, lagName, lagUp, lagP2P, highestSpeed)
 		s.applySTPEffects(fxSTP)
@@ -2016,13 +2002,15 @@ const IssueProtocolLinkUnknown analysis.IssueCode = "protocol-link-unknown"
 // LinkChange notifies the protocol layers of a link transition on the named port.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
 	if s.portP2P == nil {
-		s.portP2P = make(map[string]bool)
-	}
-	if s.portP2PState == nil {
-		s.portP2PState = make(map[string]PointToPoint)
+		s.portP2P = make(map[string]PointToPoint)
 	}
 	if s.portSpeed == nil {
 		s.portSpeed = make(map[string]uint64)
+	}
+	// An unset value is a report that says nothing about the link, so it is
+	// unknown rather than shared media.
+	if pointToPoint == "" {
+		pointToPoint = PointToPointUnknown
 	}
 
 	up := state == port.Up
@@ -2030,8 +2018,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 
 	p, ok := s.ports.Port(portName)
 	if ok && p.LagParent != "" {
-		s.portP2P[portName] = p2p
-		s.portP2PState[portName] = pointToPoint
+		s.portP2P[portName] = pointToPoint
 		s.portSpeed[portName] = speed
 
 		s.mustSetOperStatus(portName, state)
@@ -2049,8 +2036,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	if p, ok := s.ports.Resolve(portName); ok {
 		resolvedPort = p.Name
 	}
-	s.portP2P[resolvedPort] = p2p
-	s.portP2PState[resolvedPort] = pointToPoint
+	s.portP2P[resolvedPort] = pointToPoint
 	s.portSpeed[resolvedPort] = speed
 
 	s.mustSetOperStatus(resolvedPort, state)
@@ -2181,30 +2167,41 @@ func (s *Switch) recomputeProtocolLinkIssues() {
 		}
 	}
 
-	if s.stp != nil && s.cfg.STP != nil && len(s.cfg.STP.Ports) > 0 {
-		stpAffected := false
-		for stpPortName, pCfg := range s.cfg.STP.Ports {
-			p, ok := s.ports.Port(stpPortName)
-			if ok && p.OperStatus == port.Unknown {
-				stpAffected = true
-				break
-			}
-			p2pState := s.portP2PState[stpPortName]
-			isAuto := pCfg.PointToPoint == "" || pCfg.PointToPoint == stp.PointToPointAuto
-			if ok && p.OperStatus == port.Up && isAuto && p2pState == PointToPointUnknown {
-				stpAffected = true
-				break
+	if s.stp == nil {
+		return
+	}
+	// Spanning tree runs on every port that is not a LAG member, configured
+	// or not, so one unknown input among them can change any of their roles.
+	var stpPorts []string
+	stpAffected := false
+	for _, p := range s.ports.Ports() {
+		if p.LagParent != "" {
+			continue
+		}
+		stpPorts = append(stpPorts, p.Name)
+		if p.OperStatus == port.Unknown {
+			stpAffected = true
+			continue
+		}
+		forced := false
+		if s.cfg.STP != nil {
+			if pCfg, ok := s.cfg.STP.Ports[p.Name]; ok {
+				forced = pCfg.PointToPoint == stp.PointToPointForceTrue || pCfg.PointToPoint == stp.PointToPointForceFalse
 			}
 		}
-		if stpAffected {
-			for stpPortName := range s.cfg.STP.Ports {
-				s.protocolIssues[stpPortName] = analysis.Issue{
-					Code:    IssueProtocolLinkUnknown,
-					Status:  analysis.Incomplete,
-					Scope:   analysis.PortScope(s.nodeID, stpPortName),
-					Message: fmt.Sprintf("protocol layer computed spanning tree port %q with unknown link state or duplex", stpPortName),
-				}
-			}
+		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == PointToPointUnknown {
+			stpAffected = true
+		}
+	}
+	if !stpAffected {
+		return
+	}
+	for _, name := range stpPorts {
+		s.protocolIssues[name] = analysis.Issue{
+			Code:    IssueProtocolLinkUnknown,
+			Status:  analysis.Incomplete,
+			Scope:   analysis.PortScope(s.nodeID, name),
+			Message: fmt.Sprintf("protocol layer computed spanning tree port %q with unknown link state or duplex", name),
 		}
 	}
 }
