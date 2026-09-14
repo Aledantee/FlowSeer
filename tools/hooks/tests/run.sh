@@ -605,6 +605,7 @@ scan_error_bin=$fixture_parent/scan-error-bin
 mkdir -p "$wrapper_tmp" "$wrapper_bin" "$scan_error_bin"
 
 printf '%s\n' '#!/usr/bin/env bash' \
+  "sleep \"\${FLOWSEER_FAKE_DOCKER_SLEEP:-0}\"" \
   "exit \"\${FLOWSEER_FAKE_DOCKER_RC:-0}\"" >"$wrapper_bin/docker"
 printf '%s\n' '#!/usr/bin/env bash' \
   'while IFS="=" read -r name _; do' \
@@ -652,6 +653,17 @@ set -e
 [[ $wrapper_output == 'Docker is installed but its daemon is unavailable.' ]]
 [[ ! -e $daemon_go_marker ]]
 ok "service OpenTelemetry wrapper stops before Go when the Docker daemon is unavailable"
+
+hang_go_marker=$fixture_parent/hang-go-called
+set +e
+wrapper_output=$(PATH="$wrapper_bin:$PATH" FLOWSEER_FAKE_DOCKER_SLEEP=5 \
+  FLOWSEER_DOCKER_PROBE_TIMEOUT=1 FLOWSEER_FAKE_GO_CALLED="$hang_go_marker" "$otel_wrapper" 2>&1)
+wrapper_rc=$?
+set -e
+[[ $wrapper_rc -eq 1 ]]
+[[ $wrapper_output == "Docker daemon did not answer 'docker info' within 1s." ]]
+[[ ! -e $hang_go_marker ]]
+ok "service OpenTelemetry wrapper gives up on a Docker daemon that does not answer"
 
 success_capture=$fixture_parent/success-artifact-path
 success_args=$fixture_parent/success-go-args

@@ -29,7 +29,7 @@ alive() { herdr agent list >/dev/null 2>&1; }
 cmd=${1:-}; shift || true
 case "$cmd" in
   start)
-    lane= cli= model= effort= agent= brief= base=HEAD repo= root=
+    lane='' cli='' model='' effort='' agent='' brief='' base=HEAD repo='' root=''
     while (($#)); do
       case "$1" in
         --lane) lane=$2; shift 2 ;;
@@ -89,21 +89,29 @@ case "$cmd" in
     # Codex startup dialogs: its update offer (Herdr reports blocked) and the
     # hooks review for a repository with .codex/hooks.json (Herdr reports
     # idle, and a prompt sent into it is lost). Both are answered here;
-    # anything else on screen stops the start.
+    # anything else on screen stops the start. The update offer is matched
+    # on its "Skip until next version" option, not on "Update available":
+    # Codex keeps an "Update available!" banner on screen after the dialog
+    # is answered, so the banner text would read as a dialog still open.
+    # Option 3 skips the version, so the offer does not come back on the
+    # next lane; option 2 only postpones it.
     if [[ $cli == codex ]]; then
       for _ in 1 2 3 4; do
         sleep 2
         screen=$(herdr agent read "$lane" --source visible --lines 40 2>/dev/null)
-        if grep -q 'Update available' <<<"$screen"; then
-          herdr agent send-keys "$lane" 2 >/dev/null; sleep 0.5; herdr agent send-keys "$lane" enter >/dev/null
+        if grep -q 'Skip until next version' <<<"$screen"; then
+          herdr agent send-keys "$lane" 3 >/dev/null; sleep 0.5; herdr agent send-keys "$lane" enter >/dev/null
         elif grep -q 'hook needs review' <<<"$screen"; then
           herdr agent send-keys "$lane" t >/dev/null; sleep 1; herdr agent send-keys "$lane" esc >/dev/null
         else
           break
         fi
       done
+      # Only the hooks review is checked by text here: Herdr reports it as
+      # idle, so the status check below cannot see it. An unanswered update
+      # offer is reported as blocked and caught there.
       screen=$(herdr agent read "$lane" --source visible --lines 40 2>/dev/null)
-      grep -q -E 'Update available|hook needs review' <<<"$screen" && undo "$lane still shows a startup dialog after four rounds"
+      grep -q 'hook needs review' <<<"$screen" && undo "$lane still shows the hooks review after four rounds"
     fi
     [[ $(agent_status "$lane") == blocked ]] && undo "$lane is blocked on a startup dialog this script does not know; read it with: herdr agent read $lane --source visible"
 
@@ -129,7 +137,7 @@ case "$cmd" in
     name=${1:-}; shift || true; timeout=
     [[ $# -ge 2 && $1 == --timeout ]] && timeout=$2
     [[ -n $name ]] || die "wait SLUG"
-    out=$(herdr agent wait "$name" --until done --until idle --until blocked ${timeout:+--timeout "$timeout"} 2>&1)
+    out=$(herdr agent wait "$name" --until 'done' --until idle --until blocked ${timeout:+--timeout "$timeout"} 2>&1)
     status=$(printf '%s' "$out" | json 'd.get("result",{}).get("agent",{}).get("agent_status") or d.get("error",{}).get("code")')
     [[ -n $status ]] || die "wait returned nothing readable: $out"
     echo "$status"

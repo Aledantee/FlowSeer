@@ -220,7 +220,11 @@ rather than in prose, since a rule that was read and broken wants
 enforcement: a directory expands to its files, a no-gate run exits non-zero
 before touching the receipt, the corpus tier carries `-count=1`,
 `buf breaking` targets only files master holds, and the last line of every
-run names the verdict. The two invariant packages (`src/common/errs`,
+run names the verdict. A sixth entry, on 2026-09-11, had a `--full` run
+block forever on a Docker daemon that had stopped answering, and the
+verdict line, once the probe was killed by hand, did not say which gate
+had failed; the wrapper now bounds its `docker info` probe, and the
+verdict line names the gate that was running. The two invariant packages (`src/common/errs`,
 `test/conformance/proto`) run on every targeted root-module run for the
 same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that had already failed

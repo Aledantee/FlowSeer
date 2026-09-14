@@ -36,11 +36,13 @@ status` first; it prints `no live agents` when a restart is safe.
   refuses a linked worktree as its source (`linked_worktree_source`). The
   checkout lives at `<repo parent>/worktrees/<repo>/<slug>`.
 - Starts the agent with the model on its launch line, then, for Codex,
-  answers two startup dialogs: the update offer (key `2`, then enter) and
-  the hooks review for a repository with `.codex/hooks.json` (`t`, then
-  `esc`). Herdr reports the second as `idle`, and a prompt sent into it is
-  lost, so the screen is read again afterwards and the start fails if a
-  dialog remains.
+  answers two startup dialogs: the update offer (key `3`, skip until next
+  version, then enter) and the hooks review for a repository with
+  `.codex/hooks.json` (`t`, then `esc`). The update offer is recognized by
+  its "Skip until next version" option, since Codex keeps an "Update
+  available!" banner on screen after the dialog is answered. Herdr reports
+  the second as `idle`, and a prompt sent into it is lost, so the screen is
+  read again afterwards and the start fails if a dialog remains.
 - Submits the brief text as one prompt. `agy` drops a first submission
   now and then (`agent_prompt_stalled`, input line empty); the script
   sends it once more, then fails the start.

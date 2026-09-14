@@ -8,7 +8,35 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required for the service OpenTelemetry integration tier." >&2
   exit 1
 fi
-if ! docker info >/dev/null 2>&1; then
+# A daemon that stops answering leaves `docker info` blocked forever, and
+# the verifier's --full run with it; macOS has no `timeout`, so the probe is
+# bounded by hand. The knob exists so the hook tests can hit the bound in
+# under a second.
+docker_probe_timeout=${FLOWSEER_DOCKER_PROBE_TIMEOUT:-20}
+if [[ ! $docker_probe_timeout =~ ^[0-9]+$ ]]; then
+  echo "FLOWSEER_DOCKER_PROBE_TIMEOUT must be a whole number of seconds." >&2
+  exit 1
+fi
+docker info >/dev/null 2>&1 &
+docker_probe=$!
+for ((tick = 0; tick < docker_probe_timeout * 10; tick++)); do
+  kill -0 "$docker_probe" 2>/dev/null || break
+  sleep 0.1
+done
+if kill -0 "$docker_probe" 2>/dev/null; then
+  # The wait after the kill must not become the hang it replaces, so a
+  # probe that ignores TERM for a second is killed outright.
+  kill "$docker_probe" 2>/dev/null
+  for ((tick = 0; tick < 10; tick++)); do
+    kill -0 "$docker_probe" 2>/dev/null || break
+    sleep 0.1
+  done
+  kill -9 "$docker_probe" 2>/dev/null
+  wait "$docker_probe" 2>/dev/null || true
+  echo "Docker daemon did not answer 'docker info' within ${docker_probe_timeout}s." >&2
+  exit 1
+fi
+if ! wait "$docker_probe"; then
   echo "Docker is installed but its daemon is unavailable." >&2
   exit 1
 fi
@@ -24,7 +52,7 @@ set +e
   done < <(env)
   export FLOWSEER_OTEL_TEST_ARTIFACT_DIR=$artifact_dir
   cd "$repo_root"
-  GOFLAGS= go test -race -count=1 -short=false -tags=service_otel_integration \
+  GOFLAGS='' go test -race -count=1 -short=false -tags=service_otel_integration \
     ./src/common/service/test/integration/...
 )
 test_rc=$?
