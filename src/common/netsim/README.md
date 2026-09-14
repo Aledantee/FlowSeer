@@ -23,3 +23,15 @@ goroutines or wall-clock dependencies.
 
 A run is a function of the configuration, the frame, and the time the caller
 passes; nothing here reads a clock.
+
+## Conformance corpus
+
+`internal/netsimtest` holds a versioned corpus of executable conformance
+cases. It locks behavioral contracts across these packages: planning
+comparisons, topology-shadowing constructions with partial or uncertain
+physical and topology facts, and troubleshooting traces. Each case pairs an
+evaluated question and the false answer it prevents with an exact,
+structured expectation of trust metadata, decisive trace steps, and
+configuration diffs. It is internal and imported only by this tree's own
+external test packages (`vswitch_test`, `netmodel_test`); see
+`internal/netsimtest/README.md` for the admitted cases and admission bar.

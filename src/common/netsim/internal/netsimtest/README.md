@@ -18,10 +18,47 @@ established across the library:
   unknown operational port via [netmodel.Load]. Proves that the construction
   specification remains usable, readiness is Incomplete strictly for the
   affected port, and sibling known-up ports retain Complete readiness.
+- `topology-shadowing/unresolved-transceiver`: A [fabric.Fabric] journey crosses
+  a cable with no stated medium. Both ends still agree on an observed speed, so
+  the frame is delivered, but the journey is Incomplete with
+  `propagation-unknown`: its timing rests on an unidentified transceiver. One
+  [Case] asserts one journey, so the sibling delivery the acceptance example
+  describes is a second, registered case,
+  `topology-shadowing/unresolved-transceiver-known-delivery`, sharing the same
+  fixture. It sends between two fully resolved hosts on the same switch and
+  stays Complete.
+- `topology-shadowing/uncabled-port-definite-drop`: A switch port named in
+  `Config.Uncabled` drops a known-unicast frame Complete with `port-down`.
+  `Fabric.Metadata` also carries `adjacency-unresolved` for a sibling port
+  that is merely omitted; the journey never depends on that port, and its own
+  metadata stays clear of it.
+- `topology-shadowing/unreported-negotiation`: A host reports no Ethernet facts
+  at all, so its link stays Unknown with `capability-unknown` instead of the
+  false answer of an assumed 1 Gb/s full-duplex default. A known-unicast frame
+  toward it drops Incomplete.
+- `topology-shadowing/unknown-uplink-stp`: A redundant uplink between two
+  spanning-tree switches is Unknown because one end reports no Ethernet facts.
+  A journey forwarded over the other uplink stays Incomplete. It carries
+  `protocol-link-unknown` for every STP port its hops consulted, even the ones
+  the unknown link never touches.
+- `troubleshooting/host-rejects-foreign-unicast`: A fully resolved, Complete
+  network path carries a known-unicast frame onto a host's port for a MAC
+  that is not the host's own address. The host refuses it under
+  `host.mac.unicast_not_addressed`: a rejection decision, isolated from any
+  topology uncertainty.
 - `troubleshooting/unicast-fdb-forwarding`: Evaluates an access-to-trunk frame
   traversal. Asserts that the decisive lookup rule (`unicast-hit`), VLAN
   classification, egress tag rewrite, and Complete readiness are exposed in
   the trace.
+
+The five `fabric`-based cases execute a [fabric.Fabric] and populate
+[ExecutionResult.Journey] and [ExecutionResult.FabricMetadata] alongside the
+admitted primary metadata. Journey is the recorded traversal; its own
+`Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
+[fabric.Fabric.Metadata], scoped over the whole topology, so it can carry an
+issue a given journey never depended on. Both fields are informational: only
+[AssertCase]'s determinism check covers them, not admission's exact-match
+expectations.
 
 ## Admission bar
 

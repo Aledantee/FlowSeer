@@ -191,6 +191,48 @@ specifications:
 - Standard defaults (such as aging time or unconfigured VLAN priority tags) are
   recorded as explicit `Assumption` values linked to evidence in the catalog.
 
+### Fabric link and port state, host acceptance, and journey metadata
+
+The readiness rules above extend from one device to the fabric connecting
+them.
+
+- **Effective link and port state.** Every non-LAG switch port is cabled,
+  listed in `Config.Uncabled`, or unresolved. A cabled port's link decides
+  its state; `Uncabled` is `Down` with `no-cable`, a stated absence; neither
+  is `Unknown` with `adjacency-unresolved`, since nothing says what, if
+  anything, is attached. A configured `OperStatus` that disagrees with the
+  derived state is kept for the reader (`Config()`, `Spec()`), but the
+  derived state executes, and the disagreement adds an `oper-status-conflict`
+  issue instead of the derived value silently overwriting it.
+- **`Config.PhyAssumption`.** An opt-in medium and Ethernet profile that
+  fills only what an end or cable leaves unreported: empty speeds, an
+  unknown capability, a nil setting, or an unspecified medium. Filled values
+  appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
+  knob itself, and each link it fills carries one `Assumption` naming the
+  facts, so a standards default runs only on the record.
+- **Protocol link-state input.** STP and LAG take `port.LinkState`, not a
+  boolean, so an `Unknown` link leaves the port `Unknown` instead of being
+  coerced to `Down`. Both protocols raise `protocol-link-unknown` on every
+  port whose role or membership they compute once one input is unknown; a
+  later `Up` report clears it. Without this, an unknown redundant uplink
+  would silently re-elect a spanning tree root with every dependent journey
+  reading `Complete`.
+- **Host acceptance.** A frame the pipeline delivers to a host is not
+  necessarily one the host keeps. A fourth stage after arrival checks VLAN
+  form, destination MAC, and, for a host with an IP stack, the IP
+  destination, each under a named clause (own address, broadcast,
+  solicited-node group, promiscuous mode). `Journey.Deliveries` holds only
+  frames a host accepted; a rejection or an undecodable header is a
+  recorded outcome of its own.
+- **Journey dependency metadata.** `Journey.Metadata` is captured per entry
+  at record time, not read live from `Fabric.Metadata()`. Each entry folds
+  in the issues and assumptions of its own dependencies: its endpoint, its
+  cable, and, for a hop, the ports and scopes its forwarding result
+  consulted. A later `SetFault` changes `Fabric.Metadata()` but leaves an
+  already-recorded journey's trust as it was. A flood that skips an
+  `Unknown` port still consulted it and still carries that port's issue,
+  because the flood could have reached one more host had the port resolved.
+
 ### Semantic traces and producer-owned facts
 
 Prose strings are rejected as trace comparison keys. Capabilities define typed
@@ -271,9 +313,10 @@ admitted case must define:
 
 The following areas remain outside the foundation established here:
 
-- **Physical media, autonegotiation, and PoE correctness**: transceiver-dependent
-  speed resolution, link downshift behavior, and PoE transient allocation
-  dynamics.
+- **Physical media fidelity and PoE dynamics**: transceiver-dependent speed
+  resolution, link downshift behavior, and PoE transient allocation
+  dynamics. Reported-fact autonegotiation, reach, and PoE allocation follow
+  their truth tables as of this phase.
 - **Topology identity and adjacency ambiguity**: resolving links from noisy,
   conflicting, or unmanaged LLDP and CDP neighbor records.
 - **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
