@@ -66,6 +66,10 @@ func gigabitCopper() *fabric.PhyAssumption {
 // an Uncabled entry for every non-LAG switch port no cable names. A fixture
 // written before unreported facts became unknown keeps the links it was
 // written against. A test of unknown facts builds its configuration without it.
+//
+// An added Uncabled port's configured operational status is cleared, since the
+// fixture observed nothing about it; left Up, it would conflict with the Down
+// its entry derives and put that conflict into every journey consulting it.
 func statedPhysical(cfg fabric.Config) fabric.Config {
 	cfg = cfg.Clone()
 	if cfg.PhyAssumption == nil {
@@ -82,13 +86,19 @@ func statedPhysical(cfg fabric.Config) fabric.Config {
 	}
 	switchNames := slices.Sorted(maps.Keys(cfg.Switches))
 	for _, name := range switchNames {
-		for _, p := range cfg.Switches[name].Ports.Ports() {
+		swCfg := cfg.Switches[name]
+		b := port.NewBuilder()
+		for _, p := range swCfg.Ports.Ports() {
 			ep := fabric.Endpoint{Node: name, Port: p.Name}
-			if p.Kind == port.Lag || named[ep] {
-				continue
+			if p.Kind != port.Lag && !named[ep] {
+				cfg.Uncabled = append(cfg.Uncabled, fabric.Uncabled{Endpoint: ep})
+				p.OperStatus = ""
 			}
-			cfg.Uncabled = append(cfg.Uncabled, fabric.Uncabled{Endpoint: ep})
+			b.Add(p)
 		}
+		// The table already built from these ports, so it builds again.
+		swCfg.Ports, _ = b.Build()
+		cfg.Switches[name] = swCfg
 	}
 
 	return cfg

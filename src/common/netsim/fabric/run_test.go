@@ -265,6 +265,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		fabric.EntryHop,
 		fabric.EntryCrossing,
 		fabric.EntryHop,
+		fabric.EntryArrival,
 		fabric.EntryDelivery,
 	}
 	if len(j1.Entries) != len(expectedKinds) {
@@ -301,8 +302,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	if j1.Entries[4].Result.Outcome != trace.Flooded {
 		t.Errorf("sw2 outcome = %v, want Flooded", j1.Entries[4].Result.Outcome)
 	}
-	if j1.Entries[5].Device != "h2" {
-		t.Errorf("delivery device = %q, want h2", j1.Entries[5].Device)
+	if j1.Entries[5].Device != "h2" || j1.Entries[6].Device != "h2" {
+		t.Errorf("arrival and delivery devices = %q, %q, want h2", j1.Entries[5].Device, j1.Entries[6].Device)
 	}
 
 	if len(j1.Deliveries) != 1 {
@@ -1716,8 +1717,8 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 	}
 
 	j := journeys[0]
-	if len(j.Entries) != 6 {
-		t.Fatalf("len(j.Entries) = %d, want 6", len(j.Entries))
+	if len(j.Entries) != 7 {
+		t.Fatalf("len(j.Entries) = %d, want 7", len(j.Entries))
 	}
 
 	e1 := j.Entries[1]
@@ -1756,8 +1757,12 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 	}
 
 	e5 := j.Entries[5]
-	if e5.Kind != fabric.EntryDelivery || e5.Device != "h2" || !e5.At.Equal(t0.Add(3542*time.Nanosecond)) {
-		t.Errorf("e5 = %+v, want delivery to h2 at t0+3542ns", e5)
+	if e5.Kind != fabric.EntryArrival || e5.Device != "h2" || !e5.At.Equal(t0.Add(3542*time.Nanosecond)) {
+		t.Errorf("e5 = %+v, want arrival at h2 at t0+3542ns", e5)
+	}
+	e6 := j.Entries[6]
+	if e6.Kind != fabric.EntryDelivery || e6.Device != "h2" || !e6.At.Equal(t0.Add(3542*time.Nanosecond)) {
+		t.Errorf("e6 = %+v, want delivery to h2 at t0+3542ns", e6)
 	}
 
 	if len(j.Deliveries) != 1 {

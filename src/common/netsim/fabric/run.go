@@ -130,6 +130,18 @@ func framePCP(frame ethernet.Frame) vlan.PCP {
 	return outer.PCP
 }
 
+// portCable returns a copy of the cable at an endpoint, or nil for a port
+// without one.
+func (f *Fabric) portCable(node, portName string) *Cable {
+	ref, ok := f.linkEnd(node, portName)
+	if !ok {
+		return nil
+	}
+	cable := ref.link.Clone()
+
+	return &cable
+}
+
 func (f *Fabric) runStarted() bool {
 	return f.stepped && !f.clock.IsZero()
 }
@@ -247,19 +259,15 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	seq := f.nextSeq
 	f.nextSeq++
 
-	journey := &Journey{
-		FrameID:   fid,
-		Injection: inj,
-		Entries: []Entry{
-			{
-				At:     inj.At,
-				Kind:   EntryInjection,
-				Device: inj.Origin.Node,
-				Port:   inj.Origin.Port,
-			},
-		},
-	}
+	journey := &Journey{FrameID: fid, Injection: inj}
 	f.journeys[fid] = journey
+	f.record(journey, Entry{
+		At:     inj.At,
+		Kind:   EntryInjection,
+		Device: inj.Origin.Node,
+		Port:   inj.Origin.Port,
+		Cable:  f.portCable(inj.Origin.Node, inj.Origin.Port),
+	})
 
 	switch {
 	case hostRef != nil && hostRef.end.Oper != port.Up:
@@ -268,7 +276,7 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 			kind = EntryUnresolved
 		}
 		cable := hostRef.link.Clone()
-		journey.Entries = append(journey.Entries, Entry{
+		f.record(journey, Entry{
 			At:     inj.At,
 			Kind:   kind,
 			Device: inj.Origin.Node,
@@ -357,7 +365,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Device: arr.Device,
 			Port:   arr.Port,
 		}
-		journey.Entries = append(journey.Entries, loopEntry)
+		f.record(journey, loopEntry)
 	}
 	f.entered[arr.FrameID][ep] = true
 
@@ -385,7 +393,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Port:   arr.Port,
 			Reason: ReasonBadFrame,
 		}
-		journey.Entries = append(journey.Entries, dropEntry)
+		f.record(journey, dropEntry)
 
 		return dropEntry, true
 	}
@@ -428,7 +436,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Result: &result,
 			Reason: traffic.ReasonPoliced,
 		}
-		journey.Entries = append(journey.Entries, dropEntry)
+		f.record(journey, dropEntry)
 
 		return dropEntry, true
 	}
@@ -448,7 +456,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		Port:   arr.Port,
 		Result: cloneResult(res),
 	}
-	journey.Entries = append(journey.Entries, hopEntry)
+	f.record(journey, hopEntry)
 
 	if res.Outcome == trace.Dropped {
 		for _, p := range inPorts {
@@ -462,7 +470,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Port:   arr.Port,
 			Reason: res.Reason,
 		}
-		journey.Entries = append(journey.Entries, dropEntry)
+		f.record(journey, dropEntry)
 	}
 
 	for _, eg := range res.Egress {
@@ -476,7 +484,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			for _, p := range outPorts {
 				f.countEgressDrop(arr.Device, p, eg.Dropped)
 			}
-			journey.Entries = append(journey.Entries, Entry{
+			f.record(journey, Entry{
 				At:     arr.At,
 				Kind:   EntryDrop,
 				Device: arr.Device,
@@ -511,14 +519,15 @@ func (f *Fabric) Step() (Entry, bool) {
 			Mirror:    copy.Mirror,
 			Parent:    arr.FrameID,
 			Injection: inj,
-			Entries: []Entry{{
-				At:     arr.At,
-				Kind:   EntryInjection,
-				Device: arr.Device,
-				Port:   copy.Port,
-			}},
 		}
 		f.journeys[fid] = copyJourney
+		f.record(copyJourney, Entry{
+			At:     arr.At,
+			Kind:   EntryInjection,
+			Device: arr.Device,
+			Port:   copy.Port,
+			Cable:  f.portCable(arr.Device, copy.Port),
+		})
 		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, framePCP(copy.Frame), copy.Mirror)
 	}
 
@@ -544,7 +553,7 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 				// last enabled member, so a protocol frame reaches here only
 				// if that invariant breaks; the drop names it rather than
 				// losing the frame in silence.
-				journey.Entries = append(journey.Entries, Entry{
+				f.record(journey, Entry{
 					At:     now,
 					Kind:   EntryDrop,
 					Device: device,
@@ -579,13 +588,12 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 
 	if ref.end.Speed.SpeedBPS == 0 {
 		cableCopy := ref.link.Clone()
-		lossEntry := Entry{
+		f.record(journey, Entry{
 			At:     now,
 			Kind:   EntryLoss,
 			Cable:  &cableCopy,
 			Reason: ReasonCableLoss,
-		}
-		journey.Entries = append(journey.Entries, lossEntry)
+		})
 
 		return
 	}
@@ -689,7 +697,7 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 		}
 		if ref.end.Speed.SpeedBPS == 0 {
 			cableCopy := ref.link.Clone()
-			item.journey.Entries = append(item.journey.Entries, Entry{
+			f.record(item.journey, Entry{
 				At:     now,
 				Kind:   EntryLoss,
 				Cable:  &cableCopy,
@@ -795,13 +803,12 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	cableCopy := cable.Clone()
 
 	if lost {
-		lossEntry := Entry{
+		f.record(item.journey, Entry{
 			At:     start,
 			Kind:   EntryLoss,
 			Cable:  &cableCopy,
 			Reason: ReasonCableLoss,
-		}
-		item.journey.Entries = append(item.journey.Entries, lossEntry)
+		})
 
 		return end
 	}
@@ -809,7 +816,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	farEnd := ref.peer.Endpoint
 	if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
 		if corrupt {
-			item.journey.Entries = append(item.journey.Entries, Entry{
+			f.record(item.journey, Entry{
 				At:     deliveryAt,
 				Kind:   EntryDrop,
 				Device: farEnd.Node,
@@ -819,19 +826,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 
 			return end
 		}
-		del := Delivery{
-			Host:  farEnd.Node,
-			At:    deliveryAt,
-			Frame: cloneFrame(item.frame),
-		}
-		item.journey.Deliveries = append(item.journey.Deliveries, del)
-
-		delEntry := Entry{
-			At:     deliveryAt,
-			Kind:   EntryDelivery,
-			Device: farEnd.Node,
-		}
-		item.journey.Entries = append(item.journey.Entries, delEntry)
+		f.arrive(item.journey, farEnd.Node, cable, item.frame, deliveryAt)
 
 		return end
 	}
@@ -847,7 +842,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 		Wait:          start.Sub(item.enqueued),
 		PCP:           item.pcp,
 	}
-	item.journey.Entries = append(item.journey.Entries, crossingEntry)
+	f.record(item.journey, crossingEntry)
 
 	f.enqueue(Arrival{
 		At:      deliveryAt,
@@ -882,16 +877,15 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 		FrameID:   fid,
 		Protocol:  true,
 		Injection: inj,
-		Entries: []Entry{
-			{
-				At:     now,
-				Kind:   EntryInjection,
-				Device: device,
-				Port:   em.Port,
-			},
-		},
 	}
 	f.journeys[fid] = journey
+	f.record(journey, Entry{
+		At:     now,
+		Kind:   EntryInjection,
+		Device: device,
+		Port:   em.Port,
+		Cable:  f.portCable(device, em.Port),
+	})
 
 	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, framePCP(em.Frame), "")
 }

@@ -166,8 +166,10 @@ progression across devices and cables:
   propagation over 300 m at velocity factor 0.67).
 - `Hop`: Evaluates forwarding on `sw2:1/1/24` at `t0 + 2870ns`. Flooding VLAN 10
   selects access port `1/1/1` and strips the C-TAG.
-- `Delivery`: Records arrival at destination host `h2` at `t0 + 3542ns`
-  (672 ns more on the 0 m host leg).
+- `Arrival`: Records the frame reaching destination host `h2` at
+  `t0 + 3542ns` (672 ns more on the 0 m host leg).
+- `Delivery`: Records `h2` accepting the frame, since it is addressed to
+  `macH2`. See [Host acceptance](#host-acceptance).
 
 Time on a cable is two terms: serialization and propagation. Wire octets are
 computed as `max(encoded, 60 + 4 per tag) + 24` (4 octets of FCS, 8 of
@@ -177,8 +179,13 @@ nanosecond. Propagation is `length / (velocity factor × 299,792,458 m/s)`
 rounded to the nanosecond. `Delay`, when set, replaces the propagation term and
 nothing else.
 
-A delivery to a destination host is recorded at the arrival time, and a host's
-cable end is charged on the busy clock like any port.
+A host's decision is recorded at the arrival time, and a host's cable end is
+charged on the busy clock like any port.
+
+Each entry names the endpoint it happened at in `Device` and `Port`; a host's
+`Port` is empty, since a host has one unnamed port. `Cable` is the cable the
+entry rests on. An injection carries its origin's cable, and a host's arrival
+and decision carry the cable the frame came over.
 
 Mirror copies have journeys of their own. `Journey.Mirror` names the mirror
 configuration that made the copy, and `Journey.Parent` identifies the original
@@ -277,6 +284,63 @@ speeds when an end forces one, otherwise the speeds both ends report.
 An unspecified medium has no velocity factor, so a link that runs over one on
 observations alone propagates in zero time unless the cable states `Delay`.
 `Fabric.Metadata` reports that link with `propagation-unknown`.
+
+## Host acceptance
+
+A frame that reaches a host appends `Arrival`, and the host then decides. If
+it accepts, the journey appends `Delivery` and the frame joins
+`Journey.Deliveries`. Otherwise the journey appends `Rejection` with a reason,
+and `Deliveries` never holds the frame. Each decision entry carries a
+`trace.Step` on layer `host` with op `filter`. The host is its subject, its
+rule names the check and clause that decided, and its inputs are the facts
+read up to that point.
+
+The checks run in this order, and the first one that decides ends the run:
+
+1. VLAN form (`host.vlan.form`). A host with no `VLAN` takes untagged frames
+   and a single VID 0 priority C-TAG. A host with a `VLAN` takes only a single
+   C-TAG with that VID. Any other stack is refused with
+   `host-vlan-not-accepted`.
+2. Destination MAC. The host takes its own address and broadcast. It takes a
+   group address when `Accept.AllMulticast` is set or `Accept.Multicast` lists
+   it. A host with an IPv4 address also takes `01:00:5e:00:00:01`, the MAC of
+   224.0.0.1 ([RFC 1112](https://www.rfc-editor.org/rfc/rfc1112.html) §6.4,
+   §7.2). A host with an IPv6 address also takes `33:33:00:00:00:01` for
+   ff02::1, and `33:33:ff` followed by the low 24 bits of each own address,
+   the MAC of its solicited-node group
+   ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.html) §2.7.1, §2.8;
+   [RFC 2464](https://www.rfc-editor.org/rfc/rfc2464.html) §7). Anything else
+   is refused with `host-unicast-not-addressed` or
+   `host-multicast-not-accepted`. `Accept.Promiscuous` takes any MAC and skips
+   step 3.
+3. IP destination. This step runs only for a host with an IP stack and a frame
+   with an IPv4 or IPv6 EtherType; any other EtherType was taken at step 2.
+   The packet is taken when it is addressed to an own address, to
+   255.255.255.255 or the directed broadcast of an own IPv4 prefix, or to a
+   group whose MAC step 2 takes. A /31 or /32 prefix has no directed broadcast
+   ([RFC 3021](https://www.rfc-editor.org/rfc/rfc3021.html) §2.2). Anything
+   else is refused with `host-ip-not-addressed`.
+
+A header that does not decode, or whose version differs from the EtherType,
+leaves acceptance unknown. The journey ends `Unresolved` with
+`host-ip-header-undecodable`, delivers nothing, and carries an `Incomplete`
+issue on its `analysis.JourneyScope`.
+
+For example, a unicast frame to `02:00:00:00:00:09` that floods to `h2`, whose
+address is `02:00:00:00:00:02`, ends in `Rejection` with
+`host-unicast-not-addressed` under rule `host.mac.unicast_not_addressed`, and
+`Deliveries` stays empty. With `Accept: fabric.HostAccept{Promiscuous: true}`
+on `h2`, the same frame ends in `Delivery` under `host.mac.promiscuous`.
+
+A group frame whose MAC step 2 takes can still be refused at step 3. A packet
+to 224.0.0.5 in a frame to `01:00:5e:00:00:01` passes the MAC check on the
+all-hosts clause. But 224.0.0.5 maps to `01:00:5e:00:00:05`, which the host
+does not take, so the packet is refused.
+
+`Diff` reports `accept.promiscuous` and `accept.all_multicast` as host fields,
+and each multicast MAC added or removed as `accept.multicast.<mac>`.
+Validation refuses a unicast entry in `Accept.Multicast`, naming its submitted
+position, such as `hosts.h1.accept.multicast.0`.
 
 ## Hosts with an IP stack and address assignment
 
@@ -423,6 +487,33 @@ A valid host injection onto a link that is not `Up` is not an error. On a
 `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and transmit
 nothing.
 
+## Journey metadata
+
+`Journey.Metadata` is evaluated over the whole analysis, but it holds only what
+the journey depended on. `Fabric.Metadata` describes every link and port,
+while a journey's metadata describes the path its frame took.
+
+Each entry is captured when it is recorded. Its dependencies are its endpoint
+(a host's node scope, a switch's port scope), its cable, and, for a hop, the
+ports and scopes its forwarding result consulted, together with the link of
+each such port. The journey keeps these:
+
+- every issue and assumption of each hop result;
+- every `Fabric.Metadata` issue and assumption whose scope overlaps a
+  dependency;
+- the `host-ip-header-undecodable` issue of an acceptance a host could not
+  decide.
+
+A consulted port counts even when nothing egresses it. A flood that skips an
+`Unknown` port still consulted that port, so the journey carries the port's
+link issue: the flood could have reached one more host. A known-unicast frame
+consults only its ingress and egress ports and carries none of the issues of
+the links it neither crossed nor consulted.
+
+The metadata is fixed once the entry is recorded. A `SetFault` that later cuts
+a link whose `propagation-unknown` issue a journey picked up leaves that
+journey's metadata as it was, while `Fabric.Metadata` drops the issue.
+
 ## Fault kinds
 
 Cables support deterministic defect configurations:
@@ -476,6 +567,11 @@ The package declares reasons for link failures and frame discards:
 | `reach-exceeded` | Cable length exceeds medium reach for speed        |
 | `cable-loss`     | Configured cable fault dropped frame in transit   |
 | `bad-frame`      | Frame was corrupted during cable transit          |
+| `host-vlan-not-accepted` | Host does not accept the frame's tag stack |
+| `host-unicast-not-addressed` | Unicast frame is addressed to another MAC |
+| `host-multicast-not-accepted` | Host does not accept the group MAC |
+| `host-ip-not-addressed` | Packet is not addressed to the host |
+| `host-ip-header-undecodable` | Host cannot decode the IP header it must check |
 | `policed`        | Ingress frame exceeded the port's token bucket     |
 
 ## Concurrency contract

@@ -73,7 +73,9 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 		Hosts: map[string]fabric.Host{
 			"h1": {Address: macs["h1"]},
 			"h2": {Address: macs["h2"]},
-			"h3": {Address: macs["h3"]},
+			// h3 sits on the mirror output port and, like an analyzer, takes
+			// copies addressed to other hosts.
+			"h3": {Address: macs["h3"], Accept: fabric.HostAccept{Promiscuous: true}},
 			"h4": {Address: macs["h4"], VLAN: &vid10},
 		},
 		Cables: []fabric.Cable{
@@ -428,8 +430,8 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 				Hosts: map[string]fabric.Host{
 					"source":      {Address: macSource},
 					"destination": {Address: macDestination},
-					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}},
-					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}},
+					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, Accept: fabric.HostAccept{Promiscuous: true}},
+					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}, Accept: fabric.HostAccept{Promiscuous: true}},
 				},
 				Cables: []fabric.Cable{
 					{A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "sw1", Port: "in"}},

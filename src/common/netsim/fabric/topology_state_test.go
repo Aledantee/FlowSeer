@@ -315,7 +315,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 	fid, err := fab.Inject(fabric.Injection{
 		At:     fixedTime,
 		Origin: fabric.Endpoint{Node: "h2"},
-		Frame:  ethernet.Frame{Dst: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55}, Src: macH2, EtherType: ethernet.EtherTypeIPv4},
+		Frame:  ethernet.Frame{Dst: macH3, Src: macH2, EtherType: ethernet.EtherTypeIPv4},
 	})
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
@@ -449,7 +449,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 		t.Errorf("port 4 issues = %+v, want one Incomplete adjacency-unresolved", unresolved)
 	}
 
-	hopTo := func(dst netaddr.MAC) *vswitch.ForwardResult {
+	hopTo := func(dst netaddr.MAC) (*vswitch.ForwardResult, fabric.Journey) {
 		t.Helper()
 		fid, err := fab.Inject(fabric.Injection{
 			At:     fab.Snapshot().Clock,
@@ -460,31 +460,41 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 		fab.Run(10)
-		for _, entry := range fab.Report()[fid-1].Entries {
+		journey := fab.Report()[fid-1]
+		for _, entry := range journey.Entries {
 			if entry.Kind == fabric.EntryHop {
-				return entry.Result
+				return entry.Result, journey
 			}
 		}
 		t.Fatalf("frame %d has no hop", fid)
 
-		return nil
+		return nil, fabric.Journey{}
 	}
 
-	out3 := hopTo(behind3)
+	out3, journey3 := hopTo(behind3)
 	if out3.Outcome != trace.Dropped || out3.Reason != port.ReasonPortDown {
 		t.Errorf("hop out 3 = %s %q, want dropped with port-down", out3.Outcome, out3.Reason)
 	}
 	if got := out3.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("hop out 3 status = %s, want complete; issues %+v", got, out3.Metadata.Issues())
 	}
+	if got := journey3.Metadata.Status(); got != analysis.Complete {
+		t.Errorf("journey out 3 status = %s, want complete; issues %+v", got, journey3.Metadata.Issues())
+	}
 
-	out4 := hopTo(behind4)
+	out4, journey4 := hopTo(behind4)
 	consulted4 := slices.ContainsFunc(out4.ConsultedPorts(), func(p port.Port) bool { return p.Name == "4" })
 	if !consulted4 {
 		t.Errorf("hop out 4 consulted %+v, want port 4", out4.ConsultedPorts())
 	}
 	if got := out4.Metadata.Status(); got != analysis.Incomplete {
 		t.Errorf("hop out 4 status = %s, want incomplete", got)
+	}
+	if got := journey4.Metadata.Status(); got != analysis.Incomplete {
+		t.Errorf("journey out 4 status = %s, want incomplete", got)
+	}
+	if !hasIssue(journey4.Metadata.IssuesFor(analysis.PortScope("sw1", "4")), analysis.IssueCode(fabric.ReasonAdjacencyUnresolved)) {
+		t.Errorf("journey out 4 issues = %+v, want adjacency-unresolved on sw1 port 4", journey4.Metadata.Issues())
 	}
 }
 
@@ -584,6 +594,9 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	if len(journey.Deliveries) != 1 || journey.Deliveries[0].Host != "h3" {
 		t.Errorf("deliveries = %+v, want h3", journey.Deliveries)
 	}
+	if got := journey.Metadata.Status(); got != analysis.Complete {
+		t.Errorf("known-unicast journey status = %s, issues %+v; want complete", got, journey.Metadata.Issues())
+	}
 }
 
 func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
@@ -649,7 +662,11 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 	fab.Run(50)
-	for _, entry := range fab.Report()[fid-1].Entries {
+	journey := fab.Report()[fid-1]
+	if got := journey.Metadata.Status(); got != analysis.Incomplete || !hasIssue(journey.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown) {
+		t.Errorf("journey status = %s, issues %+v; want incomplete with protocol-link-unknown", got, journey.Metadata.Issues())
+	}
+	for _, entry := range journey.Entries {
 		if entry.Kind != fabric.EntryHop || entry.Device != "sw1" {
 			continue
 		}

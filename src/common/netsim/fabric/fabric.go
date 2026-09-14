@@ -4,6 +4,7 @@ package fabric
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -265,8 +266,8 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 	}
 
 	cfg := owned.Config()
-	// Uncabled field paths name submitted positions, which normalization's
-	// sort would otherwise replace.
+	// Uncabled and accepted multicast field paths name submitted positions,
+	// which normalization's sort would otherwise replace.
 	cabled := make(map[Endpoint]int, len(cfg.Cables)*2)
 	for _, cable := range cfg.Cables {
 		cabled[cable.A]++
@@ -274,6 +275,11 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 	}
 	if err := cfg.validateUncabled(cabled); err != nil {
 		return ConstructionSpec{}, err
+	}
+	for _, name := range slices.Sorted(maps.Keys(cfg.Hosts)) {
+		if err := cfg.Hosts[name].Accept.validate("hosts." + name + ".accept"); err != nil {
+			return ConstructionSpec{}, err
+		}
 	}
 	if cur != nil {
 		usedMACs := configuredMACs(cfg)
@@ -924,6 +930,11 @@ func endpointLabel(ep Endpoint) string {
 	}
 
 	return strconv.Quote(ep.Node) + ":" + strconv.Quote(ep.Port)
+}
+
+// cableScope is the link scope of a cable, keyed by its Diff subject key.
+func cableScope(c Cable) analysis.Scope {
+	return analysis.LinkScope(cableEndpointsFor(c).Canonical())
 }
 
 // endpointScope is a switch end's port scope, or a host's node scope, since a

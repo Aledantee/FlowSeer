@@ -80,6 +80,15 @@ func PrefixesFact(prefixes []string) trace.Fact {
 	return prefixesFact(out.String())
 }
 
+// BoolFact wraps a boolean as a trace.Fact.
+type BoolFact bool
+
+// TypeID returns the fact type identifier for BoolFact.
+func (f BoolFact) TypeID() string { return "fabric.bool" }
+
+// Canonical returns "true" or "false".
+func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+
 // GatewayFact wraps a netip.Addr as a trace.Fact.
 type GatewayFact netip.Addr
 
@@ -188,7 +197,8 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 }
 
 // Diff computes the differences between two fabric configurations, reporting switch differences,
-// cable additions, removals, and modifications, host additions, removals, moves, and field changes,
+// cable additions, removals, and modifications, host additions, removals, moves, and field changes
+// (an accepted multicast MAC added or removed is one change under "accept.multicast.<mac>"),
 // Uncabled entries added or removed, and a change of the physical assumption as one fabric field.
 // Evidence references produce no change.
 func Diff(a, b Config) []trace.Change {
@@ -433,6 +443,7 @@ func Diff(a, b Config) []trace.Change {
 			}
 			diffHostIP(&changes, name, hA.IP, hB.IP)
 			diffHostEthernet(&changes, name, hA.Ethernet, hB.Ethernet)
+			diffHostAccept(&changes, name, hA.Accept, hB.Accept)
 		}
 	}
 
@@ -479,6 +490,26 @@ func diffHostEthernet(changes *[]trace.Change, name string, a, b phy.Ethernet) {
 		ch.Subject = trace.Subject{Kind: "host", Key: name}
 		ch.Field = "ethernet." + ch.Field
 		*changes = append(*changes, ch)
+	}
+}
+
+func diffHostAccept(changes *[]trace.Change, name string, a, b HostAccept) {
+	subject := trace.Subject{Kind: "host", Key: name}
+	if a.Promiscuous != b.Promiscuous {
+		*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.promiscuous", From: BoolFact(a.Promiscuous), To: BoolFact(b.Promiscuous)})
+	}
+	if a.AllMulticast != b.AllMulticast {
+		*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.all_multicast", From: BoolFact(a.AllMulticast), To: BoolFact(b.AllMulticast)})
+	}
+	for _, mac := range a.Multicast {
+		if !slices.Contains(b.Multicast, mac) {
+			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.multicast." + mac.String(), From: MACFact(mac)})
+		}
+	}
+	for _, mac := range b.Multicast {
+		if !slices.Contains(a.Multicast, mac) {
+			*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.multicast." + mac.String(), To: MACFact(mac)})
+		}
 	}
 }
 
@@ -814,6 +845,16 @@ func hostSnapshot(h Host) hostSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "address", h.Address.String())
 	writeStringField(&out, "ethernet", h.Ethernet.Canonical())
+	writeStringField(&out, "accept.promiscuous", strconv.FormatBool(h.Accept.Promiscuous))
+	writeStringField(&out, "accept.all_multicast", strconv.FormatBool(h.Accept.AllMulticast))
+	out.WriteString("accept.multicast=[")
+	for i, mac := range h.Accept.Multicast {
+		if i > 0 {
+			out.WriteByte(',')
+		}
+		out.WriteString(strconv.Quote(mac.String()))
+	}
+	out.WriteString("];")
 	if h.VLAN == nil {
 		out.WriteString("vlan=nil;")
 	} else {

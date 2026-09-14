@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"bytes"
 	"cmp"
 	"math"
 	"net/netip"
@@ -57,7 +58,27 @@ const (
 
 	// ReasonReachExceeded records that a link cannot operate because the cable length exceeds the medium reach for every candidate speed.
 	ReasonReachExceeded trace.Reason = "reach-exceeded"
+
+	// ReasonHostVLANNotAccepted records a host refusing a frame whose tag form its VLAN does not accept.
+	ReasonHostVLANNotAccepted trace.Reason = "host-vlan-not-accepted"
+
+	// ReasonHostUnicastNotAddressed records a host refusing a unicast frame addressed to another MAC.
+	ReasonHostUnicastNotAddressed trace.Reason = "host-unicast-not-addressed"
+
+	// ReasonHostMulticastNotAccepted records a host refusing a frame to a group MAC it does not accept.
+	ReasonHostMulticastNotAccepted trace.Reason = "host-multicast-not-accepted"
+
+	// ReasonHostIPNotAddressed records a host refusing an IP packet addressed to none of its addresses,
+	// broadcasts, or accepted groups.
+	ReasonHostIPNotAddressed trace.Reason = "host-ip-not-addressed"
+
+	// ReasonHostIPHeaderUndecodable records a host that cannot decide on a frame because its IP header
+	// does not decode.
+	ReasonHostIPHeaderUndecodable trace.Reason = "host-ip-header-undecodable"
 )
+
+// HostLayer is the trace layer of a host's acceptance decisions.
+const HostLayer trace.Layer = "host"
 
 const (
 	// IssueOperStatusConflict marks a switch port whose configured operational status, Up or Down,
@@ -149,8 +170,10 @@ type HostIP struct {
 
 // Host is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
 //
-// A nil VLAN emits and accepts untagged frames, while a non-nil VLAN restricts the host to C-TAG frames
-// with that VID. An optional IP stack enables packet origination through routing and neighbor lookup.
+// A nil VLAN emits untagged frames and accepts untagged and VID 0 priority-tagged ones, while a non-nil VLAN
+// restricts the host to C-TAG frames with that VID. An optional IP stack enables packet origination through
+// routing and neighbor lookup, and makes the host accept only IP packets addressed to it. Accept widens which
+// destinations the host takes; the fabric delivers a frame only when the host accepts it.
 // Ethernet holds the physical facts of the host's one port under the rules a switch port's facts follow;
 // the zero value reports none, so the host's link is Unknown unless [Config.PhyAssumption] fills them.
 type Host struct {
@@ -158,12 +181,24 @@ type Host struct {
 	VLAN     *vlan.ID
 	IP       *HostIP
 	Ethernet phy.Ethernet
+	Accept   HostAccept
+}
+
+// HostAccept widens which frames a host accepts beyond its own address, broadcast, and the groups its IP
+// stack joins. Promiscuous accepts every destination MAC and skips the IP check, AllMulticast accepts every
+// group MAC, and Multicast lists further group MACs; a unicast entry is invalid. The zero value accepts
+// nothing more.
+type HostAccept struct {
+	Promiscuous  bool
+	AllMulticast bool
+	Multicast    []netaddr.MAC
 }
 
 // Clone returns an independent deep copy of the host configuration.
 func (h Host) Clone() Host {
 	cp := h
 	cp.Ethernet = h.Ethernet.Clone()
+	cp.Accept.Multicast = slices.Clone(h.Accept.Multicast)
 	if h.VLAN != nil {
 		v := *h.VLAN
 		cp.VLAN = &v
@@ -197,6 +232,10 @@ func (h Host) Equal(other Host) bool {
 		return false
 	}
 	if h.Ethernet.Canonical() != other.Ethernet.Canonical() {
+		return false
+	}
+	if h.Accept.Promiscuous != other.Accept.Promiscuous || h.Accept.AllMulticast != other.Accept.AllMulticast ||
+		!slices.Equal(h.Accept.Multicast, other.Accept.Multicast) {
 		return false
 	}
 	if (h.IP == nil) != (other.IP == nil) {
@@ -543,6 +582,10 @@ func (c Config) Normalize() Config {
 			h.IP.Addresses = slices.Compact(h.IP.Addresses)
 		}
 		h.Ethernet = normalizedEthernet(h.Ethernet)
+		if len(h.Accept.Multicast) > 0 {
+			slices.SortFunc(h.Accept.Multicast, compareMAC)
+			h.Accept.Multicast = slices.Compact(h.Accept.Multicast)
+		}
 		cloned.Hosts[name] = h
 	}
 
@@ -624,6 +667,10 @@ func compareEndpoint(a, b Endpoint) int {
 	return cmp.Compare(a.Port, b.Port)
 }
 
+func compareMAC(a, b netaddr.MAC) int {
+	return bytes.Compare(a[:], b[:])
+}
+
 func comparePrefix(a, b netip.Prefix) int {
 	if order := a.Addr().Compare(b.Addr()); order != 0 {
 		return order
@@ -636,10 +683,11 @@ func comparePrefix(a, b netip.Prefix) int {
 // switch configurations must pass their own validation, endpoints must reference existing
 // nodes and ports, cable attachments cannot target LAGs or duplicate existing links,
 // hosts must attach to exactly one cable with an empty port name, host and assumed
-// Ethernet facts must pass a switch port's physical validation, and every Uncabled
-// entry must name an existing non-LAG switch port that no cable and no other entry names.
-// Errors about host facts, Uncabled entries, and the assumption carry a "field" path
-// attribute such as "uncabled.1" or "hosts.h1.ethernet.duplex".
+// Ethernet facts must pass a switch port's physical validation, a host's accepted multicast
+// entries must be group addresses, and every Uncabled entry must name an existing non-LAG
+// switch port that no cable and no other entry names. Errors about host facts, Uncabled
+// entries, and the assumption carry a "field" path attribute such as "uncabled.1",
+// "hosts.h1.ethernet.duplex", or "hosts.h1.accept.multicast.0".
 func (c Config) Validate() error {
 	swNames := make([]string, 0, len(c.Switches))
 	for name := range c.Switches {
@@ -726,6 +774,9 @@ func (c Config) Validate() error {
 		}
 		if err := validateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
 			return errs.Wrapf(err, "host %q", name)
+		}
+		if err := h.Accept.validate("hosts." + name + ".accept"); err != nil {
+			return err
 		}
 		if h.IP != nil {
 			if len(h.IP.Addresses) == 0 {
@@ -817,6 +868,19 @@ func (c Config) validateUncabled(portCables map[Endpoint]int) error {
 				Msgf("uncabled entry names port %q on switch %q twice", ep.Port, ep.Node)
 		}
 		listed[ep] = i
+	}
+
+	return nil
+}
+
+func (a HostAccept) validate(field string) error {
+	for i, mac := range a.Multicast {
+		if !mac.IsGroup() {
+			return errs.New().
+				Attr("field", field+".multicast."+strconv.Itoa(i)).
+				Attr("mac", mac).
+				Msgf("accepted multicast entry %s is not a group address", mac)
+		}
 	}
 
 	return nil

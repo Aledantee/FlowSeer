@@ -63,11 +63,13 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 				}},
 			},
 		},
+		// The hosts accept every group MAC, so a delivery shows what the
+		// snooping switch sent out a port rather than what a host joined.
 		Hosts: map[string]fabric.Host{
-			"h1": {Address: mcastFabricMACs["h1"]},
-			"h2": {Address: mcastFabricMACs["h2"]},
-			"h3": {Address: mcastFabricMACs["h3"]},
-			"h4": {Address: mcastFabricMACs["h4"]},
+			"h1": {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
+			"h2": {Address: mcastFabricMACs["h2"], Accept: fabric.HostAccept{AllMulticast: true}},
+			"h3": {Address: mcastFabricMACs["h3"], Accept: fabric.HostAccept{AllMulticast: true}},
+			"h4": {Address: mcastFabricMACs["h4"], Accept: fabric.HostAccept{AllMulticast: true}},
 		},
 		Cables: cables,
 	}))
