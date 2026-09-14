@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-13
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 2: Physical and topology uncertainty - Plan
+
+> Implemented.
 
 ## Goal
 
@@ -130,6 +132,14 @@ This phase claims parent R8 and R10-R13 and extends R2, R7, R9, and R39.
     assumptions show in `Links()`.
   - A construction spec rejects cable or `Uncabled` evidence references that
     its catalog lacks, as `vswitch` does. A bare `Config` has no catalog.
+  - Host entries keep `Port` empty and carry `Cable`, because a host has no
+    ports; a host's dependency is its node scope.
+  - An undecodable IP header ends in `EntryUnresolved` with an `Incomplete`
+    issue on the journey scope, with no separate entry kind.
+  - Each acceptance clause has its own rule ID, and a 31- or 32-bit prefix has
+    no directed broadcast ([RFC 3021 §2.2](https://www.rfc-editor.org/rfc/rfc3021.html)).
+  - A corpus case asserts one journey, so the unresolved-transceiver workflow
+    is two cases over one fixture.
 - **No new physical models.** No downshift, optical budget, or transceiver
   model. An unspecified medium is the unresolved-transceiver case. The
   existing reach rows are kept (`src/common/netsim/fabric/medium.go:54`); a
@@ -489,6 +499,13 @@ go vet ./src/common/net/... ./src/common/netsim/...
       `Landed:` line filled; no plan labels in code.
 
 ## Open questions
+
+- Fabric-raised issues with no caller evidence, `adjacency-unresolved` above
+  all, carry no evidence reference. The corpus requires evidence on every
+  non-`Complete` issue it admits, so those issues are asserted only through
+  plain tests. Recommended: `fabric` adds its own evidence entry naming the
+  absent topology fact. That work belongs to whichever phase next touches
+  fabric construction.
 
 - Unconfirmed: `SEARCHING` imports as an assumed `PDAbsent`, not `PDUnknown`.
   Recommended because the other choice makes every idle PoE port on a loaded

@@ -466,7 +466,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase2-plan.md`
 - **After:** U1
-- **Landed:**
+- **Landed:** `8d2624be..01da6561`
 - **Change:** Correct media reach, negotiation, PoE, host attachment, and topology
   uncertainty semantics, including parent R8.
 - **Tests:** Physical, host, and topology truth-table tests plus cross-package
