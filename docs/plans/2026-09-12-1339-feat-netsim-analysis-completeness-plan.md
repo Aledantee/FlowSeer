@@ -74,6 +74,16 @@ Before phases 3 or 4 add protocol depth, their re-plan must extend this table wi
 the concrete question, current false answer, minimum semantics, unsupported
 boundary, and golden case for each protocol addition.
 
+| Protocol addition | Question | Current false answer | Minimum semantics | Unsupported boundary | Golden case |
+| --- | --- | --- | --- | --- | --- |
+| LAG buckets (phase 3) | Which flows move when a member fails? | Every flow remaps (`enabled[hash%len]`). | OVS 3.3 bucket table, sticky active member, balance-tcp needs LACP. | Load-based rebalancing, reported as `lag-rebalance-unmodeled`. | `planning/lag-member-fault-keeps-surviving-flows`, `troubleshooting/active-backup-no-failback` |
+| Source-specific multicast (phase 3) | Does source S reach a receiver that joined `(S1,G)`? | Any source reaches a group member. | RFC 3376 §6.2-§6.5 router state per port. | Querier election and query emission. | `troubleshooting/ssm-rejects-unjoined-source` |
+| Last-member query (phase 3) | When does forwarding stop after a leave? | Only at membership expiry, or never while reports refresh. | Timers lowered to LMQT by an observed specific query. | A leave with a router port and no observed query, reported as `mcast-query-unobserved`. | `troubleshooting/leave-last-member-query` |
+| MSTP (phase 3b) | Which link does each VLAN block, within and across regions? | One tree for every VLAN. | 802.1Q clause 13 CIST and MSTIs, region digest, boundary roles, hop aging. | SPT/SPB, L2GP, PVST simulation (`stp-pvst-boundary`). | `planning/mstp-vlan-instances-diverge`, `topology-shadowing/mst-region-boundary` |
+| RSTP per VLAN (phase 3b) | Which root and blocked trunk does each VLAN have? | One root for every VLAN. | One RSTP tree per listed VLAN in SSTP encapsulation. | 802.1D STP per VLAN, PVST simulation. | `planning/pvst-per-vlan-root` |
+| Message age and guards (phase 3b) | Does stale information or a guard keep a port blocked or open? | A vanished root holds a port blocked; a guarded edge port keeps forwarding; a port whose BPDUs stop opens a loop. | `MessageAge + 1 <= MaxAge`, `remainingHops`, BPDU guard, restricted role and TCN, netsim's loop guard, the PVID check. | Automatic BPDU-guard recovery. | `troubleshooting/stale-root-ages-out`, `troubleshooting/bpdu-guard-disables-edge`, `troubleshooting/loop-guard-unidirectional-link` |
+| Loop protection (phase 3c) | Does an accidental loop between access ports get contained without STP? | The broadcast loops without bound. | Own probe frames; a returned probe blocks, stops learning on, or disables the sending port; recovery timers. | Vendor probe formats, traps. | `troubleshooting/loop-protect-contains-access-loop` |
+
 ## Decisions
 
 - Limit this plan to the Go library under `src/common/netsim`, narrowly required
@@ -147,7 +157,14 @@ boundary, and golden case for each protocol addition.
 - Extend STP, LAG, multicast, static routing, and neighbor resolution only far
   enough to remove false confidence in supported scenarios. Vendor protocols,
   routing daemons, full host stacks, and unbounded protocol emulation remain out
-  of scope.
+  of scope. Exceptions, user-directed on 2026-09-14:
+  - Spanning tree supports MSTP across multiple regions and RSTP per VLAN
+    (PVST in its per-VLAN RSTP sense, with SSTP encapsulation).
+  - LAG balance modes follow the Open vSwitch 3.3 bucket semantics that the
+    `lag` package already names as its source.
+  - Switches support primitive loop protection outside spanning tree. It is
+    netsim's own probe mechanism, modeled on H3C, Aruba, and Huawei loop
+    detection, and parses no vendor frame format.
 - Admit protocol depth through the versioned analysis corpus. Each addition must
   name the planning or troubleshooting question, today's false answer, the
   minimum needed semantics, the unsupported boundary, and an end-to-end case.
@@ -238,12 +255,14 @@ or search features.
 ```mermaid
 flowchart TD
     P1[1. Trust contract and trace] --> P2[2. Physical and topology uncertainty]
-    P1 --> P3[3. STP, LAG, and multicast]
+    P1 --> P3[3. LAG and multicast]
     P2 --> P3
+    P3 --> P3b[3b. STP instances and guards]
+    P3b --> P3c[3c. Loop protection]
     P1 --> P4[4. Routing and neighbors]
     P2 --> P4
     P2 --> P5[5. State ownership and derivation]
-    P3 --> P5
+    P3c --> P5
     P4 --> P5
     P5 --> P6[6. Scenarios, replay, and run lifecycle]
     P6 --> P7[7. Exact comparison and bounded search]
@@ -311,10 +330,10 @@ flowchart TD
 
 ### Protocol behavior
 
-14. **R14:** STP state is scoped by explicit instance and VLAN binding, with a
-    single common instance as the simple case. **Acceptance example:** VLAN 10
-    and VLAN 20 may select different forwarding links without vendor-specific
-    PVST simulation.
+14. **R14:** STP state is scoped by tree: one RSTP tree, MSTP's CIST and MSTIs
+    across one or more regions, or one RSTP tree per VLAN. **Acceptance
+    example:** VLAN 10 and VLAN 20 select different forwarding links under
+    MSTP and under RSTP per VLAN, without Cisco PVST simulation.
 15. **R15:** STP handles message age, stale superior information, and configured
     edge, BPDU guard, root guard, and loop guard outcomes. **Acceptance example:**
     expired superior information cannot keep a port blocked indefinitely.
@@ -429,6 +448,11 @@ flowchart TD
     resource contract before phase 5 implementation. **Acceptance example:**
     benchmarks at the chosen topology, event, and search sizes enforce allocation
     and runtime budgets; discarded search candidates do not retain full traces.
+41. **R41:** A switch with loop protection detects a loop that no spanning
+    tree breaks by hearing its own probe return. It applies the configured
+    port action and recovers on a timer. **Acceptance example:** two access
+    ports joined through a switch without loop protection block one port
+    after one probe interval, and a later broadcast is delivered once.
 
 ## Out of scope
 
@@ -436,8 +460,9 @@ flowchart TD
   or HTTP APIs, event ingestion, telemetry exporters, dashboards, and UI.
 - Network namespaces, TAP/TUN devices, kernel datapaths, containers, VMs, or
   production traffic forwarding.
-- OpenFlow/OVSDB parity, vendor CLI emulation, vendor-specific spanning-tree
-  protocols, or running vendor images.
+- OpenFlow/OVSDB parity, vendor CLI emulation, or running vendor images.
+  Spanning-tree dialects beyond RSTP per VLAN, such as PVST simulation and
+  802.1D STP per VLAN, are also out of scope.
 - Dynamic routing protocols, a complete ARP/ND host stack, SLAAC, DAD, full IPv6
   NUD, DHCP, NAT, ACL/firewall policy, QoS scheduling, or wireless simulation.
 - Packet-capture file readers and live packet collection. The library accepts
@@ -473,17 +498,41 @@ flowchart TD
   incomplete-status propagation.
 - **Verify:** Re-plan the phase against the landed tree before implementation.
 
-### U3: Close supported STP, LAG, and multicast correctness gaps
+### U3: Close supported LAG and multicast correctness gaps
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3-plan.md`
 - **After:** U1, U2
 - **Landed:**
-- **Change:** Add explicit STP instances and guards, dependency-aware LAG state,
-  source-filtered multicast, and last-member timing.
-- **Tests:** Deterministic protocol transition, timer, fault, field-matrix, and
-  identical-event-sequence tests tied to corpus questions.
-- **Verify:** Re-plan the phase against the landed tree before implementation.
+- **Change:** OVS bucket-table LAG selection with a sticky active member,
+  source-filtered multicast, and last-member query timing.
+- **Tests:** Bucket, failover, and RFC 3376 state-table tests, plus corpus
+  cases.
+- **Verify:** Follow the phase plan.
+
+### U3b: Add spanning-tree instances and guards
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3b-plan.md`
+- **After:** U3
+- **Landed:**
+- **Change:** MSTP across regions, RSTP per VLAN, message-age and hop aging,
+  and BPDU, root, TCN, and loop guards.
+- **Tests:** Codec vectors, multi-tree fabrics, aging rings, guards, and corpus
+  cases.
+- **Verify:** Follow the phase plan.
+
+### U3c: Add loop protection outside spanning tree
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3c-plan.md`
+- **After:** U3b
+- **Landed:**
+- **Change:** Probe-based loop detection with block, no-learning, and
+  disable actions and recovery timers.
+- **Tests:** Codec, timer, fabric containment, and STP interaction tests,
+  plus a corpus case.
+- **Verify:** Follow the phase plan.
 
 ### U4: Make routing and neighbor resolution planning-safe
 
@@ -501,7 +550,7 @@ flowchart TD
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
-- **After:** U2, U3, U4
+- **After:** U2, U3c, U4
 - **Landed:**
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make
