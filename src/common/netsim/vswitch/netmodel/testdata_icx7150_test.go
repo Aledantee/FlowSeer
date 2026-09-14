@@ -14,6 +14,7 @@ import (
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
@@ -422,8 +423,17 @@ func TestICX7150Load(t *testing.T) {
 		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370000 mW", g)
 	}
 	for name, pa := range alloc.Ports {
-		if pa.MinMilliwatts != 0 || pa.Denial != "" {
-			t.Errorf("port %s allocation = %+v, want no power and no denial", name, pa)
+		if pa.State != phy.PowerNoDevice || pa.MinMilliwatts != 0 || pa.Denial != "" {
+			t.Errorf("port %s allocation = %+v, want PowerNoDevice, no power, and no denial", name, pa)
 		}
+	}
+	searchingAssumptions := 0
+	for _, a := range res.Metadata.Assumptions() {
+		if a.Statement == "absence is inferred from the searching status" {
+			searchingAssumptions++
+		}
+	}
+	if searchingAssumptions != 24 {
+		t.Errorf("searching assumptions count = %d, want 24", searchingAssumptions)
 	}
 }

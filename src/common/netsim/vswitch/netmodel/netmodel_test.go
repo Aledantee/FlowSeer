@@ -425,6 +425,9 @@ func TestFdbAndPoeExport(t *testing.T) {
 	if f3.HasAllocatedPowerMilliwatts() {
 		t.Errorf("1/1/3 allocated should be unset, got %d", f3.GetAllocatedPowerMilliwatts())
 	}
+	if f3.HasPowerClass() {
+		t.Errorf("1/1/3 power_class should be unset, got %d", f3.GetPowerClass())
+	}
 	if f3.GetStatus() != phyv1.PoeStatus_POE_STATUS_SEARCHING {
 		t.Errorf("1/1/3 status = %v, want SEARCHING", f3.GetStatus())
 	}
@@ -734,7 +737,7 @@ func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
 	}
 	want := map[string]phyv1.PoeStatus{
 		"1/1/1": phyv1.PoeStatus_POE_STATUS_DISABLED,
-		"1/1/2": phyv1.PoeStatus_POE_STATUS_FAULT,
+		"1/1/2": phyv1.PoeStatus_POE_STATUS_SEARCHING,
 		"1/1/3": phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER,
 		"1/1/4": phyv1.PoeStatus_POE_STATUS_SEARCHING,
 		"1/1/5": phyv1.PoeStatus_POE_STATUS_SEARCHING,
@@ -747,8 +750,13 @@ func TestPoeExportStatusFollowsTheDenial(t *testing.T) {
 			t.Errorf("facets[%q] fails validation: %v", name, err)
 		}
 	}
-	if facets["1/1/5"].HasPowerClass() {
-		t.Error("a port with no attached device exported a power_class")
+	for _, name := range []string{"1/1/1", "1/1/2", "1/1/4", "1/1/5"} {
+		if facets[name].HasPowerClass() {
+			t.Errorf("facets[%q] exported a power_class when not delivering power", name)
+		}
+	}
+	if !facets["1/1/3"].HasPowerClass() || facets["1/1/3"].GetPowerClass() != 4 {
+		t.Errorf("facets[1/1/3] power_class = %v, want 4", facets["1/1/3"].GetPowerClass())
 	}
 }
 
@@ -910,3 +918,254 @@ func TestDot1qTunnelSwitchport(t *testing.T) {
 		t.Errorf("expected 1/1/3 untagged_vlan_ids to be skipped with 'tunnel port', got skipped: %+v", report.Skipped)
 	}
 }
+
+func TestPoeExportAndLoadRoundTrip(t *testing.T) {
+	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	operUp := interfacev1.OperStatus_OPER_STATUS_UP
+	mtu0 := uint32(0)
+	grp := uint32(1)
+
+	loadExported := func(t *testing.T, phyCfg phy.Config, alloc phy.Allocation) netmodel.Result {
+		t.Helper()
+		budgets, facets, err := netmodel.Poe(phyCfg, alloc)
+		if err != nil {
+			t.Fatalf("Poe export failed: %v", err)
+		}
+		for _, b := range budgets {
+			if err := protovalidate.Validate(b); err != nil {
+				t.Fatalf("budget protovalidate failed: %v", err)
+			}
+		}
+		for name, f := range facets {
+			if err := protovalidate.Validate(f); err != nil {
+				t.Fatalf("facet %s protovalidate failed: %v", name, err)
+			}
+		}
+
+		names := make([]string, 0, len(facets))
+		for name := range facets {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		ifaces := make([]*interfacev1.Interface, 0, len(facets))
+		for _, name := range names {
+			pName := name
+			iface := interfacev1.Interface_builder{
+				Name:        &pName,
+				AdminStatus: &adminUp,
+				OperStatus:  &operUp,
+				Mtu:         &mtu0,
+				Physical: interfacev1.PhysicalInterface_builder{
+					Ethernet: phyv1.EthernetFacet_builder{
+						Copper: phyv1.CopperFacet_builder{
+							Poe: facets[pName],
+							PoeDetail: phyv1.PoePortDetail_builder{
+								PseGroup: &grp,
+								PsePort:  ptr(uint32(1)),
+							}.Build(),
+						}.Build(),
+					}.Build(),
+				}.Build(),
+			}.Build()
+			if err := protovalidate.Validate(iface); err != nil {
+				t.Fatalf("iface %s protovalidate failed: %v", pName, err)
+			}
+			ifaces = append(ifaces, iface)
+		}
+
+		res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, ifaces, nil, nil, budgets, nil, nil, nil, nil, nil, nil, []port.Layer{port.LayerPoe})
+		if err != nil {
+			t.Fatalf("netmodel.Load failed: %v", err)
+		}
+		return res
+	}
+
+	t.Run("delivered", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 100_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDelivered {
+			t.Fatalf("expected PowerDelivered, got %v", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAttached {
+			t.Errorf("PD = %v, want Attached", p.PD)
+		}
+		if p.PDClass == nil || *p.PDClass != 2 {
+			t.Errorf("PDClass = %v, want 2", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 100_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: false, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(2)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonDisabled {
+			t.Fatalf("expected PowerDenied(disabled), got %+v", alloc.Ports["1/1/1"])
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("no device", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 100_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAbsent},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerNoDevice {
+			t.Fatalf("expected PowerNoDevice, got %v", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+
+	t.Run("unknown", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 100_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDUnknown},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerUnknown {
+			t.Fatalf("expected PowerUnknown, got %v", alloc.Ports["1/1/1"].State)
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDUnknown {
+			t.Errorf("PD = %v, want Unknown", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Statement == "absence is inferred from the searching status" {
+				t.Errorf("unexpected searching assumption: %+v", a)
+			}
+		}
+	})
+
+	t.Run("budget denial", func(t *testing.T) {
+		phyCfg := phy.Config{
+			PoE: &phy.PoE{
+				Groups: map[string]phy.Group{
+					"1": {PowerMilliwatts: 10_000},
+				},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", MaxClass: 8, Enabled: true, Priority: phy.PriorityCritical, PD: phy.PDAttached, PDClass: phy.Class(4)},
+				},
+			},
+		}
+		alloc := phyCfg.Allocate()
+		if alloc.Ports["1/1/1"].State != phy.PowerDenied || alloc.Ports["1/1/1"].Denial != phy.ReasonBudget {
+			t.Fatalf("expected PowerDenied(budget), got %+v", alloc.Ports["1/1/1"])
+		}
+
+		res := loadExported(t, phyCfg, alloc)
+		p, ok := res.Spec.Config.Phy.PoE.Ports["1/1/1"]
+		if !ok {
+			t.Fatal("port 1/1/1 missing from loaded config")
+		}
+		if p.PD != phy.PDAbsent {
+			t.Errorf("PD = %v, want Absent", p.PD)
+		}
+		if p.PDClass != nil {
+			t.Errorf("PDClass = %v, want nil", p.PDClass)
+		}
+
+		portScope := analysis.PortScope("sw1", "1/1/1")
+		var portAssumptions []analysis.Assumption
+		for _, a := range res.Metadata.Assumptions() {
+			if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
+				portAssumptions = append(portAssumptions, a)
+			}
+		}
+		if len(portAssumptions) != 1 {
+			t.Fatalf("port assumptions count = %d, want 1", len(portAssumptions))
+		}
+		if portAssumptions[0].Statement != "absence is inferred from the searching status" {
+			t.Errorf("statement = %q, want %q", portAssumptions[0].Statement, "absence is inferred from the searching status")
+		}
+	})
+}
+

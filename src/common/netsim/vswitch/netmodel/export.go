@@ -74,14 +74,14 @@ func FdbEntries(entries []bridge.Entry) ([]*switchingv1.FdbEntry, error) {
 // Poe converts physical PoE configurations and allocation results into typed network model
 // [phyv1.PseBudget] messages and per-port [phyv1.PoeFacet] messages.
 //
-// Each exported facet indicates supported PSE role and attached powered-device class.
-// A port granted power carries [phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER] and its
-// allocated milliwatts; a port with no attached device, or one denied for budget or
-// limit, is [phyv1.PoeStatus_POE_STATUS_SEARCHING], since the PSE keeps probing and
-// would power it when capacity returns; a port whose delivery is disabled is
-// [phyv1.PoeStatus_POE_STATUS_DISABLED]; a device of a class the port cannot source is
-// [phyv1.PoeStatus_POE_STATUS_FAULT]. The message keys a PSE group by a positive
-// integer, so a group key that is not one is an error.
+// Each exported facet indicates supported PSE role and delivery status.
+// A port granted power carries [phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER], its
+// power class, and its allocated milliwatts. A port denied power due to administrative
+// disablement carries [phyv1.PoeStatus_POE_STATUS_DISABLED]. A port with no attached
+// powered device, or denied power for budget, limit, or unsupported class, carries
+// [phyv1.PoeStatus_POE_STATUS_SEARCHING] without a power class. An uncertain power
+// allocation carries [phyv1.PoeStatus_POE_STATUS_UNSPECIFIED]. The message keys a PSE
+// group by a positive integer, so a group key that is not one is an error.
 func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*phyv1.PoeFacet, error) {
 	if cfg.PoE == nil {
 		return nil, nil, nil
@@ -123,19 +123,20 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 		supported := true
 		role := phyv1.PoeRole_POE_ROLE_PSE
 
-		pa, ok := alloc.Ports[portName]
-		isAllocated := ok && pa.Denial == "" && pa.State == phy.PowerDelivered
+		pa := alloc.Ports[portName]
 
 		var status phyv1.PoeStatus
 		switch {
-		case isAllocated:
+		case pa.State == phy.PowerDelivered:
 			status = phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER
-		case pa.Denial == phy.ReasonDisabled:
+		case pa.State == phy.PowerDenied && pa.Denial == phy.ReasonDisabled:
 			status = phyv1.PoeStatus_POE_STATUS_DISABLED
-		case pa.Denial == phy.ReasonClassUnsupported:
-			status = phyv1.PoeStatus_POE_STATUS_FAULT
-		default:
+		case pa.State == phy.PowerNoDevice || pa.State == phy.PowerDenied:
 			status = phyv1.PoeStatus_POE_STATUS_SEARCHING
+		case pa.State == phy.PowerUnknown:
+			status = phyv1.PoeStatus_POE_STATUS_UNSPECIFIED
+		default:
+			status = phyv1.PoeStatus_POE_STATUS_UNSPECIFIED
 		}
 
 		fb := phyv1.PoeFacet_builder{
@@ -143,11 +144,11 @@ func Poe(cfg phy.Config, alloc phy.Allocation) ([]*phyv1.PseBudget, map[string]*
 			Role:      &role,
 			Status:    &status,
 		}
-		if p.PDClass != nil {
-			powerClass := uint32(*p.PDClass)
-			fb.PowerClass = &powerClass
-		}
-		if isAllocated {
+		if status == phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER {
+			if p.PDClass != nil {
+				powerClass := uint32(*p.PDClass)
+				fb.PowerClass = &powerClass
+			}
 			allocMW := pa.MaxMilliwatts
 			fb.AllocatedPowerMilliwatts = &allocMW
 		}

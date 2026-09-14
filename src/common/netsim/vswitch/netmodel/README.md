@@ -103,6 +103,21 @@ the affected port:
 - Sibling uncertainty is localized. An unknown port on a switch does not taint
   independent known-up ports on the same switch.
 
+## Physical fact mapping and Power over Ethernet
+
+Physical layer attributes translate directly into tri-state physical facts in [phy.Config]:
+
+- Ethernet capabilities: absent `auto_negotiation_supported` maps to [phy.CapabilityUnknown].
+- Power over Ethernet delivery status:
+  - `DELIVERING_POWER` maps to [phy.PDAttached] alongside its power class when reported. A power class reported without `DELIVERING_POWER` is omitted with an Incomplete finding, as classification is valid only while power is delivered (RFC 3621).
+  - `SEARCHING` maps to [phy.PDAbsent] with an assumption recorded that absence is inferred from the searching status (RFC 3621 treats non-delivering PSE states as searching).
+  - `DISABLED`, `TEST`, `FAULT`, `OTHER_FAULT`, `UNSPECIFIED`, unrecognized values, and absent status map to [phy.PDUnknown].
+- PoE export ([Poe]):
+  - [phy.PowerDelivered] exports as `DELIVERING_POWER` with its allocated milliwatts and power class.
+  - [phy.PowerDenied] with reason `disabled` exports as `DISABLED`.
+  - [phy.PowerNoDevice] and non-administrative denials (budget, limit, unsupported class) export as `SEARCHING` without a power class.
+  - [phy.PowerUnknown] exports as `UNSPECIFIED`.
+
 ## Report collections and metadata
 
 The returned [Report] and [analysis.Metadata] expose fine-grained tracking for

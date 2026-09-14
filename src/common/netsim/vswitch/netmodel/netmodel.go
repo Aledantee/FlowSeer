@@ -54,6 +54,7 @@ const (
 	IssueSkippedLagMember               analysis.IssueCode = "netmodel.switchport.lag_member"
 	IssueSkippedInterfaceRouted         analysis.IssueCode = "netmodel.switchport.interface_routed"
 	IssueUnsupportedPowerClass          analysis.IssueCode = "netmodel.poe.unsupported_power_class"
+	IssuePowerClassWithoutDelivery      analysis.IssueCode = "netmodel.poe.power_class_without_delivery"
 	IssueTunnelWithoutPvid              analysis.IssueCode = "netmodel.switchport.tunnel_without_pvid"
 	IssueInvalidBridgePriority          analysis.IssueCode = "netmodel.stp.invalid_bridge_priority"
 	IssueInvalidSTPBridgeTimer          analysis.IssueCode = "netmodel.stp.invalid_bridge_timer"
@@ -264,6 +265,26 @@ func Load(
 			scope = portScope(portName)
 		}
 		addDefaultAt(scope, portName, field, value)
+	}
+
+	addAssumptionAt := func(scope analysis.Scope, portName, statement, detail string) trace.EvidenceRef {
+		if detail != "" && portName != "" && !strings.HasPrefix(detail, "port ") {
+			detail = fmt.Sprintf("port %s %s", portName, detail)
+		}
+		ref := addEvidence(EvidenceKindState, detail)
+		assumptions = append(assumptions, analysis.Assumption{
+			Scope:     scope,
+			Statement: statement,
+			Evidence:  []trace.EvidenceRef{ref},
+		})
+		return ref
+	}
+	addAssumption := func(portName, statement, detail string) trace.EvidenceRef {
+		scope := rootScope
+		if portName != "" {
+			scope = portScope(portName)
+		}
+		return addAssumptionAt(scope, portName, statement, detail)
 	}
 
 	addSkippedAt := func(scope analysis.Scope, portName, what, why string, status analysis.Status, code analysis.IssueCode) {
@@ -704,6 +725,8 @@ func Load(
 						} else {
 							eth.AutoNegotiationSupported = phy.CapabilityUnsupported
 						}
+					} else {
+						eth.AutoNegotiationSupported = phy.CapabilityUnknown
 					}
 				}
 				if ef.HasAppliedAutoNegotiation() && ef.GetAppliedAutoNegotiation() != nil {
@@ -836,11 +859,34 @@ func Load(
 					continue
 				}
 				if poeFacet := copper.GetPoe(); poeFacet != nil {
+					isDelivering := false
+					if poeFacet.HasStatus() {
+						switch poeFacet.GetStatus() {
+						case phyv1.PoeStatus_POE_STATUS_DELIVERING_POWER:
+							psePort.PD = phy.PDAttached
+							isDelivering = true
+						case phyv1.PoeStatus_POE_STATUS_SEARCHING:
+							psePort.PD = phy.PDAbsent
+							addAssumption(iface.GetName(), "absence is inferred from the searching status", fmt.Sprintf("port %s poe status searching", iface.GetName()))
+						case phyv1.PoeStatus_POE_STATUS_DISABLED,
+							phyv1.PoeStatus_POE_STATUS_TEST,
+							phyv1.PoeStatus_POE_STATUS_FAULT,
+							phyv1.PoeStatus_POE_STATUS_OTHER_FAULT,
+							phyv1.PoeStatus_POE_STATUS_UNSPECIFIED:
+							psePort.PD = phy.PDUnknown
+						default:
+							psePort.PD = phy.PDUnknown
+						}
+					} else {
+						psePort.PD = phy.PDUnknown
+					}
+
 					if poeFacet.HasPowerClass() {
-						if class := poeFacet.GetPowerClass(); class > 8 {
+						if !isDelivering {
+							addSkipped(iface.GetName(), "power_class", "class valid only while delivering power", analysis.Incomplete, IssuePowerClassWithoutDelivery)
+						} else if class := poeFacet.GetPowerClass(); class > 8 {
 							addSkipped(iface.GetName(), "power_class", "class above 8", analysis.Unsupported, IssueUnsupportedPowerClass)
 						} else {
-							psePort.PD = phy.PDAttached
 							psePort.PDClass = phy.Class(uint8(class))
 						}
 					}
