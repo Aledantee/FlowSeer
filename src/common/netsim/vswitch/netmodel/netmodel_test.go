@@ -1168,4 +1168,3 @@ func TestPoeExportAndLoadRoundTrip(t *testing.T) {
 		}
 	})
 }
-
