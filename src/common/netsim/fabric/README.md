@@ -9,8 +9,11 @@ destination switch, and queues copies onto connected cables.
 
 The example builds two switches joined by a 300-meter cable with hosts `h1`
 and `h2` in VLAN 10. The trunk uses multimode fiber because 300 m of twisted
-pair is past reach. A frame injected at `h1` traverses `sw1`, crosses
-the cable, traverses `sw2`, and delivers to `h2`.
+pair is past reach. No port or host states its Ethernet facts and the host
+cables state no medium, so the configuration assumes gigabit copper for them;
+without that assumption every link would be `Unknown` and nothing would move.
+A frame injected at `h1` traverses `sw1`, crosses the cable, traverses `sw2`,
+and delivers to `h2`.
 
 ```go
 package main
@@ -25,6 +28,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
@@ -105,6 +109,14 @@ func main() {
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 				B: fabric.Endpoint{Node: "h2"},
+			},
+		},
+		PhyAssumption: &fabric.PhyAssumption{
+			Medium: fabric.TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
 			},
 		},
 	}
@@ -217,10 +229,11 @@ the second PCP 0 frame.
 
 ## Media and reach
 
-Each cable specifies a transmission medium (`TwistedPair`, `MultimodeFiber`,
-`SinglemodeFiber`, or `Twinax`). An empty medium defaults to `TwistedPair`. The
-length must be finite and non-negative. The medium defines the signal velocity
-factor and the maximum reach per link speed:
+Each cable states a transmission medium (`TwistedPair`, `MultimodeFiber`,
+`SinglemodeFiber`, or `Twinax`) or leaves it `MediumUnspecified`, the zero
+value and the case of an unresolved transceiver. The length must be finite and
+non-negative, and a length of 0 is a stated 0 m cable. The medium defines the
+signal velocity factor and the maximum reach per link speed:
 
 | Medium            | Factor | 10 Mbps | 100 Mbps | 1 Gbps | 10 Gbps |
 | ----------------- | ------ | ------- | -------- | ------ | ------- |
@@ -236,23 +249,34 @@ factor is a coaxial proxy (generic RG-8 foamed-dielectric coaxial pair) because
 direct-attach cabling data was not found. Reach rows derive from
 https://en.wikipedia.org/wiki/Gigabit_Ethernet,
 https://en.wikipedia.org/wiki/10_Gigabit_Ethernet, and
-https://en.wikipedia.org/wiki/Twinaxial_cabling: twisted pair reaches 100 m at
-10 Mbps, 100 Mbps, 1 Gbps, and 10 Gbps; multimode fiber reaches 550 m at 1 Gbps
-and 300 m at 10 Gbps; singlemode fiber reaches 5 km at 1 Gbps and 10 km at
-10 Gbps; twinax reaches 15 m at 10 Gbps. No row exists above 10 Gbps on any
-medium.
+https://en.wikipedia.org/wiki/Twinaxial_cabling. No row exists above 10 Gbps
+on any medium.
 
-Before link negotiation runs, the fabric evaluates reach across candidate
-speeds: each endpoint's supported speeds, forced speed settings, the cable's top
-speed limit, or 1 Gbit/s when neither endpoint declares supported speeds. A
-speed reaches the cable when `length <= reach`. A length of 0 reaches every
-speed.
+`Medium.Reach(length, speed)` gives `ReachInRange` when the length is at or
+below the row, `ReachExceeded` above it, and `ReachUnknown` when the medium is
+unspecified or has no row for the speed. A missing row is unknown, not zero:
+100 m of multimode fiber at 100 Mbps is `ReachUnknown`.
 
-Link resolution caps negotiation at the highest candidate speed reaching the
-cable length. When no candidate reaches, both endpoints transition to `Down`
-with reason `reach-exceeded` without running negotiation. A forced endpoint
-whose speed exceeds the medium's reach is `reach-exceeded` rather than
-`speed-mismatch`.
+Link resolution checks reach before negotiation. The candidates are the speeds
+negotiation could select, at or below the cable's `TopSpeedBPS`: the forced
+speeds when an end forces one, otherwise the speeds both ends report.
+
+- A forced speed, or every candidate, `ReachExceeded` leaves both ends `Down`
+  with `reach-exceeded`.
+- An exceeded candidate is removed, and negotiation is capped at the highest
+  remaining one. 400 m of multimode fiber between two 1 and 10 Gbps ends
+  negotiates 1 Gbps.
+- When the speed negotiation picks, or a higher remaining candidate, is
+  `ReachUnknown`, both ends are `Unknown` with `reach-unknown`. A 2 m cable of
+  unspecified medium between two gigabit ends is `Unknown`, never
+  `reach-exceeded`.
+- When both ends report the same nonzero observed speed, the observed rule in
+  `phy` resolves the link anyway. `Delay` sets timing only and never resolves
+  reach.
+
+An unspecified medium has no velocity factor, so a link that runs over one on
+observations alone propagates in zero time unless the cable states `Delay`.
+`Fabric.Metadata` reports that link with `propagation-unknown`.
 
 ## Hosts with an IP stack and address assignment
 
@@ -326,22 +350,78 @@ and forwarding states across all ports.
 
 ## Link operational state rule
 
-Switch port operational states derive from connected cables during `New`,
-replacing values provided in the input configurations:
+Switch port operational states derive from the topology during `New`. The
+configured `OperStatus` is kept: `Config()` and `Spec()` return it, and the
+derived state is in `Switch(name).Ports()` and `Links()`.
 
-- A port without a cable is `Down`; it has no link, so `Unlinked` lists it
-  with reason `no-cable`.
-- When either end is administratively disabled both are `Down`: the disabled
-  end reads `admin-down`, the other `peer-down`.
-- A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
-- Unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both ends
-  `Down` with `dead-direction` unless both ends disable auto-negotiation.
-- Cable length exceeding the medium's reach for all candidate speeds, or past
-  a forced speed, leaves both ends `Down` with `reach-exceeded`.
-- Operational cables run two-ended negotiation (`phy.Negotiate`). If speeds
-  disagree, ports transition to `Down` with `speed-mismatch`.
-- For a Link Aggregation Group (LAG), the switch's aggregation layer decides
-  the member and the LAG's state, and the fabric reports member links to it.
+Every non-LAG switch port falls into one of three cases:
+
+- Cabled: the link below decides the state.
+- Listed in `Config.Uncabled`: `Down`, and `Unlinked` lists it with `no-cable`.
+  An entry must name an existing non-LAG switch port that no cable and no
+  other entry names.
+- Neither: `Unknown`, since nothing says what is attached. `Unlinked` lists it
+  with `adjacency-unresolved`.
+
+A cabled link resolves in this order:
+
+1. A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
+2. A unidirectional failure (`FaultDeadAToB` or `FaultDeadBToA`) leaves both
+   ends `Down` with `dead-direction` when either end auto-negotiates. When both
+   force their setting the link resolves on; when a mode is unreported it is
+   `Unknown`.
+3. When either end is administratively disabled both are `Down`: the disabled
+   end reads `admin-down`, the other `peer-down`.
+4. Reach, as in [Media and reach](#media-and-reach).
+5. Two-ended negotiation (`phy.Negotiate`) over each end's `phy.Ethernet`: a
+   switch port's from its `Phy` configuration, a host's from `Host.Ethernet`.
+   `LinkFailed` is `Down` with its reason (`speed-mismatch`), `LinkUnknown` is
+   `Unknown` (`capability-unknown`), and `LinkUnsupported` is `Unknown` with
+   `forced-against-auto-unmodeled`. A duplex mismatch stays on the link's
+   `Speed.Reason`.
+
+For a Link Aggregation Group (LAG), the switch's aggregation layer decides the
+member and the LAG's state, and the fabric reports member links to it.
+
+Unreported facts stay unknown unless the configuration opts into
+`Config.PhyAssumption`. It holds a medium and an Ethernet profile. It fills
+only what an end or cable leaves unreported: empty supported speeds, an unknown
+auto-negotiation capability, a nil `Setting`, or an unspecified medium. The
+filled values appear in `Links()` (the link's `Cable` and each end's
+`Ethernet`), while `Config()`, `Spec()`, and `Diff` show only the
+`PhyAssumption` field. The assumption is a standards default, so it runs only
+on the record: every link it filled carries one assumption naming the facts.
+
+## Topology metadata
+
+`Fabric.Metadata()` returns trust metadata over the whole analysis for the
+links as they stand, so a later `SetFault` changes it:
+
+| Code                              | Scope | Status      | Raised when                                        |
+| --------------------------------- | ----- | ----------- | -------------------------------------------------- |
+| the link's reason                 | link  | Incomplete  | the link is `Unknown`                               |
+| `forced-against-auto-unmodeled`   | link  | Unsupported | negotiation of the two modes is unmodeled          |
+| `propagation-unknown`             | link  | Incomplete  | an `Up` link has no medium and no `Delay`          |
+| `adjacency-unresolved`            | port  | Incomplete  | no cable and no `Uncabled` entry names the port     |
+| `oper-status-conflict`            | port  | Incomplete  | a configured `Up` or `Down` differs from a derived `Up` or `Down` |
+| `observed-speed-conflict`         | port  | Incomplete  | an end observed a speed its negotiated link lacks  |
+
+A link's scope is `analysis.LinkScope` keyed by its cable's `Diff` subject key,
+such as `h1:-sw1:1/1/1`. A host end's port scope is its node scope. An unset or
+`Unknown` status observes nothing and never conflicts, and neither does a
+derived `Unknown`. The configured value is kept for the reader, but the
+derived one executes.
+
+`ConstructionSpec.Evidence` is the catalog that `Cable.Evidence` and
+`Uncabled.Evidence` references resolve in; a reference outside it is invalid.
+Issues cite the references of the cable or entry they rest on. Evidence is not
+behavior, so `Diff` and `DiffSpecs` report no change for it, while `Equal`
+compares it.
+
+A valid host injection onto a link that is not `Up` is not an error. On a
+`Down` link the journey records an `EntryDrop` with the link's reason; on an
+`Unknown` link, an `EntryUnresolved`. Both carry the host's cable and transmit
+nothing.
 
 ## Fault kinds
 
@@ -389,7 +469,9 @@ The package declares reasons for link failures and frame discards:
 | `cut`            | Cable is physically severed                       |
 | `peer-down`      | Peer interface is administratively disabled       |
 | `admin-down`     | This interface is administratively disabled       |
-| `no-cable`       | Switch port has no connected cable                |
+| `no-cable`       | Switch port is listed as uncabled                 |
+| `adjacency-unresolved` | Switch port has no cable and no uncabled entry |
+| `reach-unknown`  | Medium reach is unknown at a candidate speed      |
 | `dead-direction` | Defect in one direction prevents auto-negotiation |
 | `reach-exceeded` | Cable length exceeds medium reach for speed        |
 | `cable-loss`     | Configured cable fault dropped frame in transit   |

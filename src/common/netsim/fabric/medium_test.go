@@ -14,7 +14,7 @@ func TestMediumVelocityFactor(t *testing.T) {
 		want   float64
 	}{
 		{name: "twisted pair", medium: fabric.TwistedPair, want: 0.64},
-		{name: "empty medium defaults to twisted pair", medium: "", want: 0.64},
+		{name: "unspecified medium has no factor", medium: fabric.MediumUnspecified, want: 0},
 		{name: "multimode fiber", medium: fabric.MultimodeFiber, want: 0.67},
 		{name: "singlemode fiber", medium: fabric.SinglemodeFiber, want: 0.67},
 		{name: "twinax", medium: fabric.Twinax, want: 0.77},
@@ -32,54 +32,45 @@ func TestMediumVelocityFactor(t *testing.T) {
 
 func TestMediumReach(t *testing.T) {
 	tests := []struct {
-		name     string
-		medium   fabric.Medium
-		speedBPS uint64
-		want     float64
+		name       string
+		medium     fabric.Medium
+		length     float64
+		speedBPS   uint64
+		wantState  fabric.ReachState
+		wantMeters float64
 	}{
-		// Twisted pair rows: 100 m at 10 M, 100 M, 1 G, 10 G; 0 above 10 G.
-		{name: "twisted pair 10 Mbps", medium: fabric.TwistedPair, speedBPS: 10_000_000, want: 100},
-		{name: "twisted pair 100 Mbps", medium: fabric.TwistedPair, speedBPS: 100_000_000, want: 100},
-		{name: "twisted pair 1 Gbps", medium: fabric.TwistedPair, speedBPS: 1_000_000_000, want: 100},
-		{name: "twisted pair 10 Gbps", medium: fabric.TwistedPair, speedBPS: 10_000_000_000, want: 100},
-		{name: "twisted pair 25 Gbps no row", medium: fabric.TwistedPair, speedBPS: 25_000_000_000, want: 0},
-		{name: "twisted pair 40 Gbps no row", medium: fabric.TwistedPair, speedBPS: 40_000_000_000, want: 0},
+		{name: "twisted pair 10 Mbps in range", medium: fabric.TwistedPair, length: 100, speedBPS: 10_000_000, wantState: fabric.ReachInRange, wantMeters: 100},
+		{name: "twisted pair 100 Mbps in range", medium: fabric.TwistedPair, length: 2, speedBPS: 100_000_000, wantState: fabric.ReachInRange, wantMeters: 100},
+		{name: "twisted pair 1 Gbps exceeded", medium: fabric.TwistedPair, length: 100.5, speedBPS: 1_000_000_000, wantState: fabric.ReachExceeded, wantMeters: 100},
+		{name: "twisted pair 10 Gbps in range", medium: fabric.TwistedPair, length: 0, speedBPS: 10_000_000_000, wantState: fabric.ReachInRange, wantMeters: 100},
+		{name: "twisted pair 25 Gbps has no row", medium: fabric.TwistedPair, length: 1, speedBPS: 25_000_000_000, wantState: fabric.ReachUnknown},
+		{name: "twisted pair 40 Gbps has no row even at 0 m", medium: fabric.TwistedPair, length: 0, speedBPS: 40_000_000_000, wantState: fabric.ReachUnknown},
 
-		// Empty medium behaving as twisted pair.
-		{name: "empty medium 10 Mbps", medium: "", speedBPS: 10_000_000, want: 100},
-		{name: "empty medium 100 Mbps", medium: "", speedBPS: 100_000_000, want: 100},
-		{name: "empty medium 1 Gbps", medium: "", speedBPS: 1_000_000_000, want: 100},
-		{name: "empty medium 10 Gbps", medium: "", speedBPS: 10_000_000_000, want: 100},
-		{name: "empty medium 25 Gbps no row", medium: "", speedBPS: 25_000_000_000, want: 0},
+		{name: "unspecified medium 1 Gbps", medium: fabric.MediumUnspecified, length: 2, speedBPS: 1_000_000_000, wantState: fabric.ReachUnknown},
+		{name: "unspecified medium 0 m", medium: fabric.MediumUnspecified, length: 0, speedBPS: 10_000_000, wantState: fabric.ReachUnknown},
 
-		// Multimode fiber rows: 550 m at 1 G, 300 m at 10 G; 0 at other speeds.
-		{name: "multimode fiber 10 Mbps no row", medium: fabric.MultimodeFiber, speedBPS: 10_000_000, want: 0},
-		{name: "multimode fiber 100 Mbps no row", medium: fabric.MultimodeFiber, speedBPS: 100_000_000, want: 0},
-		{name: "multimode fiber 1 Gbps", medium: fabric.MultimodeFiber, speedBPS: 1_000_000_000, want: 550},
-		{name: "multimode fiber 10 Gbps", medium: fabric.MultimodeFiber, speedBPS: 10_000_000_000, want: 300},
-		{name: "multimode fiber 25 Gbps no row", medium: fabric.MultimodeFiber, speedBPS: 25_000_000_000, want: 0},
+		{name: "multimode fiber 10 Mbps has no row", medium: fabric.MultimodeFiber, length: 1, speedBPS: 10_000_000, wantState: fabric.ReachUnknown},
+		{name: "multimode fiber 100 Mbps has no row", medium: fabric.MultimodeFiber, length: 1, speedBPS: 100_000_000, wantState: fabric.ReachUnknown},
+		{name: "multimode fiber 1 Gbps in range", medium: fabric.MultimodeFiber, length: 550, speedBPS: 1_000_000_000, wantState: fabric.ReachInRange, wantMeters: 550},
+		{name: "multimode fiber 10 Gbps exceeded", medium: fabric.MultimodeFiber, length: 400, speedBPS: 10_000_000_000, wantState: fabric.ReachExceeded, wantMeters: 300},
+		{name: "multimode fiber 25 Gbps has no row", medium: fabric.MultimodeFiber, length: 1, speedBPS: 25_000_000_000, wantState: fabric.ReachUnknown},
 
-		// Singlemode fiber rows: 5000 m at 1 G, 10000 m at 10 G; 0 at other speeds.
-		{name: "singlemode fiber 10 Mbps no row", medium: fabric.SinglemodeFiber, speedBPS: 10_000_000, want: 0},
-		{name: "singlemode fiber 100 Mbps no row", medium: fabric.SinglemodeFiber, speedBPS: 100_000_000, want: 0},
-		{name: "singlemode fiber 1 Gbps", medium: fabric.SinglemodeFiber, speedBPS: 1_000_000_000, want: 5000},
-		{name: "singlemode fiber 10 Gbps", medium: fabric.SinglemodeFiber, speedBPS: 10_000_000_000, want: 10000},
-		{name: "singlemode fiber 40 Gbps no row", medium: fabric.SinglemodeFiber, speedBPS: 40_000_000_000, want: 0},
+		{name: "singlemode fiber 100 Mbps has no row", medium: fabric.SinglemodeFiber, length: 1, speedBPS: 100_000_000, wantState: fabric.ReachUnknown},
+		{name: "singlemode fiber 1 Gbps exceeded", medium: fabric.SinglemodeFiber, length: 7000, speedBPS: 1_000_000_000, wantState: fabric.ReachExceeded, wantMeters: 5000},
+		{name: "singlemode fiber 10 Gbps in range", medium: fabric.SinglemodeFiber, length: 7000, speedBPS: 10_000_000_000, wantState: fabric.ReachInRange, wantMeters: 10000},
+		{name: "singlemode fiber 40 Gbps has no row", medium: fabric.SinglemodeFiber, length: 1, speedBPS: 40_000_000_000, wantState: fabric.ReachUnknown},
 
-		// Twinax rows: 15 m at 10 G; 0 at other speeds.
-		{name: "twinax 10 Mbps no row", medium: fabric.Twinax, speedBPS: 10_000_000, want: 0},
-		{name: "twinax 100 Mbps no row", medium: fabric.Twinax, speedBPS: 100_000_000, want: 0},
-		{name: "twinax 1 Gbps no row", medium: fabric.Twinax, speedBPS: 1_000_000_000, want: 0},
-		{name: "twinax 10 Gbps", medium: fabric.Twinax, speedBPS: 10_000_000_000, want: 15},
-		{name: "twinax 25 Gbps no row", medium: fabric.Twinax, speedBPS: 25_000_000_000, want: 0},
-		{name: "twinax 100 Gbps no row", medium: fabric.Twinax, speedBPS: 100_000_000_000, want: 0},
+		{name: "twinax 1 Gbps has no row", medium: fabric.Twinax, length: 1, speedBPS: 1_000_000_000, wantState: fabric.ReachUnknown},
+		{name: "twinax 10 Gbps in range", medium: fabric.Twinax, length: 15, speedBPS: 10_000_000_000, wantState: fabric.ReachInRange, wantMeters: 15},
+		{name: "twinax 10 Gbps exceeded", medium: fabric.Twinax, length: 16, speedBPS: 10_000_000_000, wantState: fabric.ReachExceeded, wantMeters: 15},
+		{name: "twinax 100 Gbps has no row", medium: fabric.Twinax, length: 1, speedBPS: 100_000_000_000, wantState: fabric.ReachUnknown},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := tc.medium.Reach(tc.speedBPS)
-			if got != tc.want {
-				t.Errorf("%q.Reach(%d) = %v, want %v", tc.medium, tc.speedBPS, got, tc.want)
+			state, meters := tc.medium.Reach(tc.length, tc.speedBPS)
+			if state != tc.wantState || meters != tc.wantMeters {
+				t.Errorf("%q.Reach(%v, %d) = %v, %v; want %v, %v", tc.medium, tc.length, tc.speedBPS, state, meters, tc.wantState, tc.wantMeters)
 			}
 		})
 	}
@@ -126,6 +117,12 @@ func TestPropagation(t *testing.T) {
 			name:         "0 m length is zero duration",
 			lengthMeters: 0,
 			medium:       fabric.TwistedPair,
+			want:         0,
+		},
+		{
+			name:         "unspecified medium is zero duration",
+			lengthMeters: 100,
+			medium:       fabric.MediumUnspecified,
 			want:         0,
 		},
 		{

@@ -41,8 +41,12 @@ const (
 	// EntryDelivery records successful frame arrival at a destination host.
 	EntryDelivery EntryKind = "Delivery"
 
-	// EntryDrop records whole-frame discard by a switch or due to corrupted arrival.
+	// EntryDrop records whole-frame discard by a switch, due to corrupted arrival, or at a host whose link is Down.
 	EntryDrop EntryKind = "Drop"
+
+	// EntryUnresolved records a frame whose fate cannot be decided because the link it needs is Unknown; its
+	// Reason is the link's.
+	EntryUnresolved EntryKind = "Unresolved"
 
 	// EntryLoop records frame re-entry at a device port already visited by the same frame.
 	EntryLoop EntryKind = "Loop"

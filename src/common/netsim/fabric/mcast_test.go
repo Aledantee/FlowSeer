@@ -50,7 +50,7 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 			B: fabric.Endpoint{Node: "sw1", Port: portNames[i]},
 		})
 	}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports,
@@ -70,7 +70,7 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 			"h4": {Address: mcastFabricMACs["h4"]},
 		},
 		Cables: cables,
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

@@ -141,11 +141,12 @@ func (f *Fabric) runStarted() bool {
 // is charged, and the arrival at the connected switch port is the transmission end plus the cable's propagation.
 // When Packet is set, the frame is originated by the host's IP stack and Frame must have no field set. For a device
 // port origin, the frame is queued directly as given at At.
+// A host whose link is not Up transmits nothing, and the injection is still valid: the journey records a drop with
+// the link's reason at At when the link is Down, and an [EntryUnresolved] with the link's reason when it is Unknown.
 // Inject returns an error if the origin names an unknown host, an unknown switch port, a host without a connected cable,
-// a host whose link has no negotiated speed (naming the link's reason), a switch origin with Packet set, a host without
-// an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port for host packet
-// injection, if packet origination fails, or if At precedes the fabric clock
-// after a nonzero-time step has run.
+// a switch origin with Packet set, a host without an IP stack when Packet is set, a Packet injection specifying Frame
+// fields, a non-empty origin port for host packet injection, if packet origination fails, or if At precedes the fabric
+// clock after a nonzero-time step has run.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	f.initRunState()
 
@@ -205,13 +206,6 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 			frame.Tags = nil
 		}
 
-		if ref.end.Speed.SpeedBPS == 0 {
-			return 0, errs.New().
-				Attr("host", inj.Origin.Node).
-				Attr("reason", ref.end.Reason).
-				Msgf("host %q link is down: %s", inj.Origin.Node, ref.end.Reason)
-		}
-
 		hostRef = &ref
 	} else if swCfg, isSwitch := f.cfg.Switches[inj.Origin.Node]; isSwitch {
 		if inj.Packet != nil {
@@ -267,9 +261,23 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	}
 	f.journeys[fid] = journey
 
-	if hostRef != nil {
+	switch {
+	case hostRef != nil && hostRef.end.Oper != port.Up:
+		kind := EntryDrop
+		if hostRef.end.Oper == port.Unknown {
+			kind = EntryUnresolved
+		}
+		cable := hostRef.link.Clone()
+		journey.Entries = append(journey.Entries, Entry{
+			At:     inj.At,
+			Kind:   kind,
+			Device: inj.Origin.Node,
+			Cable:  &cable,
+			Reason: hostRef.end.Reason,
+		})
+	case hostRef != nil:
 		f.enqueueEgress(inj.At, hostRef.end.Endpoint, hostRef.end.Port, frame, seq, fid, journey, framePCP(frame), "")
-	} else {
+	default:
 		arr := Arrival{
 			At:      inj.At,
 			Kind:    ArrivalFrame,

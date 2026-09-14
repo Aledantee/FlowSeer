@@ -53,7 +53,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	sw1 := cfg.Switches["sw1"]
 	sw1.Bridge = &bridge.Config{}
 	cfg.Switches["sw1"] = sw1
-	spec := constructionSpec(cfg)
+	spec := constructionSpec(statedPhysical(cfg))
 	seed := bridge.Seed{
 		MAC:    netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
 		Port:   "1/1/1",
@@ -214,7 +214,7 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 }
 
 func TestFabricDiffSpecsIgnoresConstructionIssueMessages(t *testing.T) {
-	a := constructionSpec(twoSwitchBaseConfig(t))
+	a := constructionSpec(statedPhysical(twoSwitchBaseConfig(t)))
 	catalog, firstRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "snapshot", Origin: "first"})
 	catalog, secondRef := catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "second"})
 	issue := func(message string, ref trace.EvidenceRef) analysis.Issue {
@@ -271,14 +271,14 @@ func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 		{
 			name: "NewConstructionSpec",
 			new: func(cfg fabric.Config) error {
-				_, err := fabric.NewConstructionSpec(cfg)
+				_, err := fabric.NewConstructionSpec(statedPhysical(cfg))
 				return err
 			},
 		},
 		{
 			name: "New",
 			new: func(cfg fabric.Config) error {
-				_, err := fabric.New(cfg)
+				_, err := fabric.New(statedPhysical(cfg))
 				return err
 			},
 		},
@@ -301,7 +301,7 @@ func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 	t.Parallel()
 
-	a := constructionSpec(twoSwitchBaseConfig(t))
+	a := constructionSpec(statedPhysical(twoSwitchBaseConfig(t)))
 	a.Start = time.Date(2026, 9, 12, 10, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
 	b := a.Clone()
 	b.Start = a.Start.Add(time.Second)
@@ -351,7 +351,7 @@ func TestFabricDiffSpecsReportsStartChange(t *testing.T) {
 }
 
 func TestFabricConstructionSpecNormalizesSeedInstantsToUTC(t *testing.T) {
-	a := constructionSpec(twoSwitchBaseConfig(t))
+	a := constructionSpec(statedPhysical(twoSwitchBaseConfig(t)))
 	switchSpec := a.Switches["sw1"]
 	switchSpec.Config.Bridge = &bridge.Config{}
 	instant := time.Date(2026, 9, 12, 10, 0, 0, 123, time.FixedZone("UTC+2", 2*60*60))
@@ -447,7 +447,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}

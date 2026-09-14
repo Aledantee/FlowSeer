@@ -3,7 +3,6 @@ package fabric_test
 import (
 	"net/netip"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -97,7 +96,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -117,14 +116,14 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	}
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 0x01}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 0x02}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
 		Hosts:    map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -153,14 +152,14 @@ func TestVlanHostReplacesTheCallersTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	vid10 := vlan.ID(10)
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
 		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -188,7 +187,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 
 		return tbl
 	}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: table()}, "sw2": {Ports: table()}, "sw3": {Ports: table()},
 		},
@@ -198,7 +197,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}, LengthMeters: 10},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 10},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -670,7 +669,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -770,7 +769,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := fabric.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -832,7 +831,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := fabric.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -904,7 +903,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1021,7 +1020,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1036,7 +1035,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 				},
 			},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -1090,7 +1089,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1106,7 +1105,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 				},
 			},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -1333,7 +1332,7 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -1434,7 +1433,7 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -1583,7 +1582,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1827,7 +1826,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := fabric.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -1932,7 +1931,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2058,13 +2057,13 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 	}
 }
 
-func TestInjectFromHostWithReachExceededCableReturnsError(t *testing.T) {
+func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	pTable, _ := b.Build()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	cfg := fabric.Config{
+	cfg := statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
@@ -2079,7 +2078,7 @@ func TestInjectFromHostWithReachExceededCableReturnsError(t *testing.T) {
 				Medium:       fabric.TwistedPair,
 			},
 		},
-	}
+	})
 
 	fab, err := fabric.New(cfg)
 	if err != nil {
@@ -2087,7 +2086,7 @@ func TestInjectFromHostWithReachExceededCableReturnsError(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	_, err = fab.Inject(fabric.Injection{
+	fid, err := fab.Inject(fabric.Injection{
 		At:     t0,
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame: ethernet.Frame{
@@ -2096,14 +2095,77 @@ func TestInjectFromHostWithReachExceededCableReturnsError(t *testing.T) {
 			Payload: make([]byte, 46),
 		},
 	})
-	if err == nil {
-		t.Fatal("Inject from reach-exceeded host: got err == nil, want error")
-	}
-	if !strings.Contains(err.Error(), "reach-exceeded") {
-		t.Errorf("error = %q, want it to contain %q", err.Error(), "reach-exceeded")
+	if err != nil {
+		t.Fatalf("Inject from a host on a Down link: %v", err)
 	}
 	if len(fab.Snapshot().Queue) != 0 {
 		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
+	}
+
+	journeys := fab.Report()
+	if len(journeys) != 1 || journeys[0].FrameID != fid {
+		t.Fatalf("Report() = %+v, want one journey for frame %d", journeys, fid)
+	}
+	entries := journeys[0].Entries
+	if len(entries) != 2 || entries[0].Kind != fabric.EntryInjection {
+		t.Fatalf("journey entries = %+v, want injection then drop", entries)
+	}
+	drop := entries[1]
+	if drop.Kind != fabric.EntryDrop || drop.Reason != fabric.ReasonReachExceeded || drop.Device != "h1" || !drop.At.Equal(t0) {
+		t.Errorf("second entry = %+v, want drop at h1 at t0 with reason reach-exceeded", drop)
+	}
+	if drop.Cable == nil || drop.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
+		t.Errorf("drop cable = %+v, want the host's cable", drop.Cable)
+	}
+}
+
+func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	pTable, _ := b.Build()
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	fab, err := fabric.New(fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: pTable},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: macH1},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	fid, err := fab.Inject(fabric.Injection{
+		At:     t0,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Frame:  ethernet.Frame{Src: macH1, Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
+	})
+	if err != nil {
+		t.Fatalf("Inject from a host on an Unknown link: %v", err)
+	}
+	if len(fab.Snapshot().Queue) != 0 {
+		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
+	}
+
+	journeys := fab.Report()
+	if len(journeys) != 1 || journeys[0].FrameID != fid {
+		t.Fatalf("Report() = %+v, want one journey for frame %d", journeys, fid)
+	}
+	entries := journeys[0].Entries
+	if len(entries) != 2 {
+		t.Fatalf("journey entries = %+v, want injection then unresolved", entries)
+	}
+	if got := entries[1]; got.Kind != fabric.EntryUnresolved || got.Reason != phy.ReasonCapabilityUnknown || got.Device != "h1" || got.Cable == nil {
+		t.Errorf("second entry = %+v, want unresolved at h1 with reason capability-unknown and the cable", got)
+	}
+	if len(journeys[0].Deliveries) != 0 {
+		t.Errorf("deliveries = %+v, want none", journeys[0].Deliveries)
 	}
 }
 
@@ -2124,7 +2186,7 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 	}
 
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -2151,7 +2213,7 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 				Medium:       fabric.TwistedPair,
 			},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2237,7 +2299,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}

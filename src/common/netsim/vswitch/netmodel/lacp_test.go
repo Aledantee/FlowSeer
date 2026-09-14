@@ -76,6 +76,13 @@ func newLacpFabric(t *testing.T, start time.Time, macA, macB netaddr.MAC, lagA, 
 			{A: fabric.Endpoint{Node: "A", Port: "1/1/1"}, B: fabric.Endpoint{Node: "B", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "A", Port: "1/1/2"}, B: fabric.Endpoint{Node: "B", Port: "1/1/2"}},
 		},
+		Uncabled: []fabric.Uncabled{
+			{Endpoint: fabric.Endpoint{Node: "A", Port: "1/1/3"}},
+			{Endpoint: fabric.Endpoint{Node: "A", Port: "1/1/4"}},
+			{Endpoint: fabric.Endpoint{Node: "B", Port: "1/1/3"}},
+			{Endpoint: fabric.Endpoint{Node: "B", Port: "1/1/4"}},
+		},
+		PhyAssumption: gigabitCopper(),
 	}
 
 	fab, err := fabric.New(cfg)

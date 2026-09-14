@@ -116,7 +116,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		},
 	}
 
-	fabDrop, err := fabric.New(cfgDrop)
+	fabDrop, err := fabric.New(statedPhysical(cfgDrop))
 	if err != nil {
 		t.Fatalf("New drop fabric: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -341,7 +341,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -470,7 +470,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -529,7 +529,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 100, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
 		},
 	}
-	fabCorrupt, err := fabric.New(cfgCorrupt)
+	fabCorrupt, err := fabric.New(statedPhysical(cfgCorrupt))
 	if err != nil {
 		t.Fatalf("New corrupt fabric: %v", err)
 	}
@@ -595,7 +595,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -690,7 +690,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

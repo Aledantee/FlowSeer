@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	"maps"
 	"math"
 	"net/netip"
 	"slices"
@@ -12,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -36,11 +38,60 @@ func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
 	}
 
 	return fabric.ConstructionSpec{
-		Start:    cfg.Start,
-		Switches: switches,
-		Hosts:    cfg.Hosts,
-		Cables:   cfg.Cables,
+		Start:         cfg.Start,
+		Switches:      switches,
+		Hosts:         cfg.Hosts,
+		Cables:        cfg.Cables,
+		Uncabled:      cfg.Uncabled,
+		PhyAssumption: cfg.PhyAssumption,
 	}
+}
+
+// gigabitCopper is the profile a fixture assumes when its test is not about
+// negotiation: auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair, so two
+// ends with no facts of their own resolve 1 Gb/s full duplex.
+func gigabitCopper() *fabric.PhyAssumption {
+	return &fabric.PhyAssumption{
+		Medium: fabric.TwistedPair,
+		Ethernet: phy.Ethernet{
+			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+			AutoNegotiationSupported: phy.CapabilitySupported,
+			Setting:                  &phy.Setting{AutoNegotiation: true},
+		},
+	}
+}
+
+// statedPhysical returns a copy of cfg that states what its fixture leaves
+// unreported: the gigabit copper profile for every missing physical fact, and
+// an Uncabled entry for every non-LAG switch port no cable names. A fixture
+// written before unreported facts became unknown keeps the links it was
+// written against. A test of unknown facts builds its configuration without it.
+func statedPhysical(cfg fabric.Config) fabric.Config {
+	cfg = cfg.Clone()
+	if cfg.PhyAssumption == nil {
+		cfg.PhyAssumption = gigabitCopper()
+	}
+
+	named := make(map[fabric.Endpoint]bool)
+	for _, cable := range cfg.Cables {
+		named[cable.A] = true
+		named[cable.B] = true
+	}
+	for _, entry := range cfg.Uncabled {
+		named[entry.Endpoint] = true
+	}
+	switchNames := slices.Sorted(maps.Keys(cfg.Switches))
+	for _, name := range switchNames {
+		for _, p := range cfg.Switches[name].Ports.Ports() {
+			ep := fabric.Endpoint{Node: name, Port: p.Name}
+			if p.Kind == port.Lag || named[ep] {
+				continue
+			}
+			cfg.Uncabled = append(cfg.Uncabled, fabric.Uncabled{Endpoint: ep})
+		}
+	}
+
+	return cfg
 }
 
 func twoSwitchBaseConfig(t *testing.T) fabric.Config {
@@ -635,9 +686,7 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	cfgA := twoSwitchBaseConfig(t)
 	cfgB := cfgA.Clone()
 
-	cfgA.Cables[0].Medium = ""
 	cfgA.Cables[0].Fault = fabric.Fault{}
-	cfgB.Cables[0].Medium = fabric.TwistedPair
 	cfgB.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultNone}
 
 	cfgA.Cables[1].Fault = fabric.Fault{
@@ -661,9 +710,6 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	cfgB.Hosts["h1"] = hostB
 
 	norm := cfgA.Normalize()
-	if got := norm.Cables[0].Medium; got != fabric.TwistedPair {
-		t.Errorf("normalized medium = %q, want %q", got, fabric.TwistedPair)
-	}
 	if got := norm.Cables[0].Fault.Kind; got != fabric.FaultNone {
 		t.Errorf("normalized fault kind = %q, want %q", got, fabric.FaultNone)
 	}
@@ -685,6 +731,20 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	}
 	if changes := fabric.Diff(cfgA, cfgB); len(changes) != 0 {
 		t.Errorf("Diff returned %d changes for behaviorally equivalent configurations: %v", len(changes), changes)
+	}
+}
+
+func TestConfigNormalizeKeepsAnUnspecifiedMedium(t *testing.T) {
+	unspecified := twoSwitchBaseConfig(t)
+	unspecified.Cables[0].Medium = fabric.MediumUnspecified
+	twistedPair := unspecified.Clone()
+	twistedPair.Cables[0].Medium = fabric.TwistedPair
+
+	if got := unspecified.Normalize().Cables[0].Medium; got != fabric.MediumUnspecified {
+		t.Errorf("normalized medium = %q, want unspecified", got)
+	}
+	if unspecified.Equal(twistedPair) {
+		t.Error("Config.Equal reports an unspecified medium equal to twisted pair")
 	}
 }
 

@@ -37,7 +37,9 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
-		next.cfg.Switches[name] = derived.Config()
+		derivedCfg := derived.Config()
+		derivedCfg.Ports = next.cfg.Switches[name].Ports
+		next.cfg.Switches[name] = derivedCfg
 	}
 	next.startLayers(next.switchNames())
 

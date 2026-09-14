@@ -18,9 +18,24 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
+
+// gigabitCopper is the physical profile these fabric fixtures assume, since
+// they exercise protocol export and loading rather than link negotiation:
+// auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair.
+func gigabitCopper() *fabric.PhyAssumption {
+	return &fabric.PhyAssumption{
+		Medium: fabric.TwistedPair,
+		Ethernet: phy.Ethernet{
+			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+			AutoNegotiationSupported: phy.CapabilitySupported,
+			Setting:                  &phy.Setting{AutoNegotiation: true},
+		},
+	}
+}
 
 func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netaddr.MAC) {
 	t.Helper()
@@ -102,6 +117,12 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 				LengthMeters: 1.0,
 			},
 		},
+		Uncabled: []fabric.Uncabled{
+			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Endpoint: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{Endpoint: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}},
+		},
+		PhyAssumption: gigabitCopper(),
 	}
 
 	fab, err := fabric.New(cfg)

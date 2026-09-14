@@ -79,7 +79,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -870,12 +870,12 @@ func TestMemberlessLagIsDown(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Start:    t0,
 		Switches: map[string]vswitch.Config{"A": {Ports: tbl, Bridge: &bridge.Config{}}},
 		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
 		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "A", Port: "1/1/1"}}},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}

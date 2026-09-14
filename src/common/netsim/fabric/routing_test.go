@@ -109,7 +109,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestFabricMACAssignment(t *testing.T) {
 	}
 
 	cfg := baseCfg()
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -359,7 +359,7 @@ func TestFabricMACAssignment(t *testing.T) {
 	h2Shift.Address = netaddr.Local(1)
 	cfgShift.Hosts["h2"] = h2Shift
 
-	fabShift, err := fabric.New(cfgShift)
+	fabShift, err := fabric.New(statedPhysical(cfgShift))
 	if err != nil {
 		t.Fatalf("fabric.New with explicit h2 MAC: %v", err)
 	}
@@ -377,7 +377,7 @@ func TestFabricMACAssignment(t *testing.T) {
 		t.Errorf("explicit h2 Address = %v, want %v", filledShift.Hosts["h2"].Address, netaddr.Local(1))
 	}
 
-	fabDerived, err := fabric.Derive(fab, constructionSpec(baseCfg()))
+	fabDerived, err := fabric.Derive(fab, constructionSpec(statedPhysical(baseCfg())))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}
@@ -506,7 +506,7 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -591,7 +591,7 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		}
 	}
 
-	cur, err := fabric.New(cfgFor(netaddr.MAC{}))
+	cur, err := fabric.New(statedPhysical(cfgFor(netaddr.MAC{})))
 	if err != nil {
 		t.Fatalf("fabric.New: %v", err)
 	}
@@ -599,7 +599,7 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		t.Fatalf("sw1 = %s, want %s", got, netaddr.Local(1))
 	}
 
-	next, err := fabric.Derive(cur, constructionSpec(cfgFor(netaddr.Local(1))))
+	next, err := fabric.Derive(cur, constructionSpec(statedPhysical(cfgFor(netaddr.Local(1)))))
 	if err != nil {
 		t.Fatalf("fabric.Derive: %v", err)
 	}

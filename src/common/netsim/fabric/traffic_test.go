@@ -44,7 +44,7 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 		"h3": {0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
 		"h4": {0x00, 0x11, 0x22, 0x33, 0x44, 0x04},
 	}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports("1/1/1", "1/1/2", "1/1/4", "1/1/24"),
@@ -83,7 +83,7 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h3"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h4"}},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -404,7 +404,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 			macSource := netaddr.MAC{2, 0, 0, 0, 0, 1}
 			macDestination := netaddr.MAC{2, 0, 0, 0, 0, 2}
 			frame := ethernet.Frame{Src: macSource, Dst: macDestination, Payload: []byte("mirror member")}
-			fab, err := fabric.New(fabric.Config{
+			fab, err := fabric.New(statedPhysical(fabric.Config{
 				Start: t0,
 				Switches: map[string]vswitch.Config{
 					"sw1": {
@@ -437,7 +437,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 					{A: fabric.Endpoint{Node: "sink-a"}, B: fabric.Endpoint{Node: "sw1", Port: "member-a"}},
 					{A: fabric.Endpoint{Node: "sink-b"}, B: fabric.Endpoint{Node: "sw1", Port: "member-b"}},
 				},
-			})
+			}))
 			if err != nil {
 				t.Fatalf("fabric.New: %v", err)
 			}
@@ -732,7 +732,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 	vid99 := vlan.ID(99)
 	macH1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0x02, 0, 0, 0, 0, 2}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports("1/1/1", "1/1/24"),
@@ -774,7 +774,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h3"}},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -812,7 +812,7 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 	}})
 	cfg := base.Config()
 	cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -857,7 +857,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 		return table
 	}
 	macH1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: buildPorts(),
@@ -873,7 +873,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
 		},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -912,7 +912,7 @@ func TestLogicalLAGQueueRateUsesPhysicalMemberClock(t *testing.T) {
 		"lag1": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
 	}}
 	cfg.Switches["A"] = swA
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

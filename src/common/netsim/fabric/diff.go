@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 )
 
 // LengthFact wraps a cable length in meters as a trace.Fact.
@@ -106,6 +107,12 @@ func (f cableSnapshotFact) TypeID() string { return "fabric.cable" }
 
 func (f cableSnapshotFact) Canonical() string { return string(f) }
 
+type phyAssumptionSnapshotFact string
+
+func (f phyAssumptionSnapshotFact) TypeID() string { return "fabric.phy_assumption" }
+
+func (f phyAssumptionSnapshotFact) Canonical() string { return string(f) }
+
 type constructionInputsFact string
 
 func (f constructionInputsFact) TypeID() string { return "fabric.switch_construction_inputs" }
@@ -124,6 +131,7 @@ func newStartFact(start time.Time) startFact {
 
 // DiffSpecs computes the differences between two construction specifications. It reports
 // switch configuration and construction-input differences, cable changes, and host changes.
+// Evidence catalogs and references are not behavior and produce no change.
 func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 	a, err := a.Normalize()
 	if err != nil {
@@ -180,7 +188,9 @@ func DiffSpecs(a, b ConstructionSpec) ([]trace.Change, error) {
 }
 
 // Diff computes the differences between two fabric configurations, reporting switch differences,
-// cable additions, removals, and modifications, and host additions, removals, and moves.
+// cable additions, removals, and modifications, host additions, removals, moves, and field changes,
+// Uncabled entries added or removed, and a change of the physical assumption as one fabric field.
+// Evidence references produce no change.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()
@@ -195,6 +205,16 @@ func Diff(a, b Config) []trace.Change {
 			To:      newStartFact(b.Start),
 		})
 	}
+	if !a.PhyAssumption.Equal(b.PhyAssumption) {
+		changes = append(changes, trace.Change{
+			Layer:   Layer,
+			Subject: trace.Subject{Kind: "fabric"},
+			Field:   "phy_assumption",
+			From:    phyAssumptionSnapshot(a.PhyAssumption),
+			To:      phyAssumptionSnapshot(b.PhyAssumption),
+		})
+	}
+	changes = append(changes, diffUncabled(a.Uncabled, b.Uncabled)...)
 
 	swNames := make(map[string]struct{})
 	for name := range a.Switches {
@@ -412,10 +432,54 @@ func Diff(a, b Config) []trace.Change {
 				})
 			}
 			diffHostIP(&changes, name, hA.IP, hB.IP)
+			diffHostEthernet(&changes, name, hA.Ethernet, hB.Ethernet)
 		}
 	}
 
 	return changes
+}
+
+func diffUncabled(a, b []Uncabled) []trace.Change {
+	inA := make(map[Endpoint]bool, len(a))
+	for _, entry := range a {
+		inA[entry.Endpoint] = true
+	}
+	inB := make(map[Endpoint]bool, len(b))
+	for _, entry := range b {
+		inB[entry.Endpoint] = true
+	}
+
+	var changes []trace.Change
+	for _, entry := range a {
+		if !inB[entry.Endpoint] {
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "uncabled", Key: entry.Endpoint.Canonical()},
+				From:    entry.Endpoint,
+			})
+		}
+	}
+	for _, entry := range b {
+		if !inA[entry.Endpoint] {
+			changes = append(changes, trace.Change{
+				Layer:   Layer,
+				Subject: trace.Subject{Kind: "uncabled", Key: entry.Endpoint.Canonical()},
+				To:      entry.Endpoint,
+			})
+		}
+	}
+
+	return changes
+}
+
+// diffHostEthernet reports a host's Ethernet facts with phy's own field names,
+// prefixed with "ethernet.", under the host subject.
+func diffHostEthernet(changes *[]trace.Change, name string, a, b phy.Ethernet) {
+	for _, ch := range phy.Diff(phy.Config{Ethernet: map[string]phy.Ethernet{name: a}}, phy.Config{Ethernet: map[string]phy.Ethernet{name: b}}) {
+		ch.Subject = trace.Subject{Kind: "host", Key: name}
+		ch.Field = "ethernet." + ch.Field
+		*changes = append(*changes, ch)
+	}
 }
 
 func switchConstructionInputs(spec vswitch.ConstructionSpec) constructionInputsFact {
@@ -699,16 +763,6 @@ func sameFault(a, b Fault) bool {
 	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
-// normalizedMedium reads an unset medium as TwistedPair, so a change reports
-// the medium a reader compares against.
-func normalizedMedium(m Medium) Medium {
-	if m == "" {
-		return TwistedPair
-	}
-
-	return m
-}
-
 func samePtr[T comparable](a, b *T) bool {
 	if (a == nil) != (b == nil) {
 		return false
@@ -745,9 +799,21 @@ func faultSnapshot(f Fault) faultSnapshotFact {
 	return faultSnapshotFact(out.String())
 }
 
+func phyAssumptionSnapshot(a *PhyAssumption) trace.Fact {
+	if a == nil {
+		return nil
+	}
+	var out strings.Builder
+	writeStringField(&out, "medium", string(a.Medium))
+	writeStringField(&out, "ethernet", a.Ethernet.Canonical())
+
+	return phyAssumptionSnapshotFact(out.String())
+}
+
 func hostSnapshot(h Host) hostSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "address", h.Address.String())
+	writeStringField(&out, "ethernet", h.Ethernet.Canonical())
 	if h.VLAN == nil {
 		out.WriteString("vlan=nil;")
 	} else {

@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -13,7 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-func TestPortWithNoCableIsOperDownAndAbsentFromFloodSets(t *testing.T) {
+func TestOmittedPortIsUnknownAndAbsentFromFloodSets(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -39,6 +40,7 @@ func TestPortWithNoCableIsOperDownAndAbsentFromFloodSets(t *testing.T) {
 		},
 	}
 
+	cfg.PhyAssumption = gigabitCopper()
 	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
@@ -49,13 +51,13 @@ func TestPortWithNoCableIsOperDownAndAbsentFromFloodSets(t *testing.T) {
 	if !ok {
 		t.Fatal("port 1/1/3 not found")
 	}
-	if p3.OperStatus != port.Down {
-		t.Errorf("port 1/1/3 OperStatus = %v, want Down", p3.OperStatus)
+	if p3.OperStatus != port.Unknown {
+		t.Errorf("port 1/1/3 OperStatus = %v, want Unknown", p3.OperStatus)
 	}
 
 	unlinked := fab.Unlinked("sw1")
-	if len(unlinked) != 1 || unlinked[0].Port != "1/1/3" || unlinked[0].Oper != port.Down || unlinked[0].Reason != fabric.ReasonNoCable {
-		t.Errorf("Unlinked(sw1) = %+v, want 1/1/3 Down with reason no-cable", unlinked)
+	if len(unlinked) != 1 || unlinked[0].Port != "1/1/3" || unlinked[0].Oper != port.Unknown || unlinked[0].Reason != fabric.ReasonAdjacencyUnresolved {
+		t.Errorf("Unlinked(sw1) = %+v, want 1/1/3 Unknown with reason adjacency-unresolved", unlinked)
 	}
 
 	unknownDst := netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55}
@@ -94,7 +96,7 @@ func TestPortWhosePeerIsAdminDownIsOperDown(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -148,7 +150,7 @@ func TestCutCableBringsBothEndsDownWithReasonCut(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -246,7 +248,7 @@ func TestDeadDirectionCableLeavesBothEndsDownWhenEitherEndAutoNegotiates(t *test
 				},
 			}
 
-			fab, err := fabric.New(cfg)
+			fab, err := fabric.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
@@ -317,7 +319,7 @@ func TestDeadDirectionCableLeavesBothEndsUpWhenBothAreForced(t *testing.T) {
 				},
 			}
 
-			fab, err := fabric.New(cfg)
+			fab, err := fabric.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
@@ -345,7 +347,7 @@ func TestDeadDirectionCableLeavesBothEndsUpWhenBothAreForced(t *testing.T) {
 	}
 }
 
-func TestSpecPortOperUpWithNoCableBuildsWithPortDown(t *testing.T) {
+func TestSpecPortOperUpWithNoCableBuildsUnresolved(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 
@@ -365,8 +367,15 @@ func TestSpecPortOperUpWithNoCableBuildsWithPortDown(t *testing.T) {
 	if !ok {
 		t.Fatal("port 1/1/1 not found")
 	}
-	if p.OperStatus != port.Down {
-		t.Errorf("port 1/1/1 OperStatus = %v, want Down", p.OperStatus)
+	if p.OperStatus != port.Unknown {
+		t.Errorf("port 1/1/1 OperStatus = %v, want Unknown", p.OperStatus)
+	}
+	if configured, _ := fab.Config().Switches["sw1"].Ports.Port("1/1/1"); configured.OperStatus != port.Up {
+		t.Errorf("Config() port 1/1/1 OperStatus = %v, want the configured Up", configured.OperStatus)
+	}
+	issues := fab.Metadata().IssuesFor(analysis.PortScope("sw1", "1/1/1"))
+	if len(issues) != 1 || issues[0].Code != analysis.IssueCode(fabric.ReasonAdjacencyUnresolved) {
+		t.Errorf("port issues = %+v, want adjacency-unresolved alone", issues)
 	}
 }
 
@@ -393,7 +402,7 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := fabric.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -437,7 +446,7 @@ func TestLagWithOneMemberCabledIsUp(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := fabric.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -480,7 +489,7 @@ func TestHostAgainstPortForcedTo10ResolvesTo10(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -515,7 +524,7 @@ func TestTwoHostsOnOneCableResolveTo1000(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -560,7 +569,7 @@ func TestStableCableOrderingInFabricLinks(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -688,15 +697,15 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 			wantReason:   fabric.ReasonReachExceeded,
 		},
 		{
-			name:         "forced 1G against auto 1G and 10G on 400m multimode resolves Up at 1G",
+			name:         "forced 1G against auto 1G and 10G on 400m multimode is unmodeled",
 			ethA:         &forced1G,
 			ethB:         &eth1G10G,
 			nodeA:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			nodeB:        fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			medium:       fabric.MultimodeFiber,
 			lengthMeters: 400,
-			wantOper:     port.Up,
-			wantSpeedBPS: 1_000_000_000,
+			wantOper:     port.Unknown,
+			wantReason:   phy.ReasonForcedAgainstAutoUnmodeled,
 		},
 		{
 			name:         "forced 10G against auto 1G and 10G on 400m multimode is reach exceeded",
@@ -743,7 +752,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 				cfg.Switches[tc.nodeB.Node] = sw
 			}
 
-			fab, err := fabric.New(cfg)
+			fab, err := fabric.New(statedPhysical(cfg))
 			if err != nil {
 				t.Fatalf("New fabric: %v", err)
 			}
@@ -757,7 +766,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 			if l.A.Oper != tc.wantOper || l.B.Oper != tc.wantOper {
 				t.Fatalf("link oper status A=%v B=%v, want %v", l.A.Oper, l.B.Oper, tc.wantOper)
 			}
-			if tc.wantOper == port.Down {
+			if tc.wantOper != port.Up {
 				if l.A.Reason != tc.wantReason || l.B.Reason != tc.wantReason {
 					t.Errorf("link reasons A=%q B=%q, want %q", l.A.Reason, l.B.Reason, tc.wantReason)
 				}

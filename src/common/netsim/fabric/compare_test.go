@@ -100,11 +100,11 @@ func TestCompareEqualFabricsReturnsSameTrue(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(cfgA)
+	fabA, err := fabric.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(cfgB)
+	fabB, err := fabric.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -153,11 +153,11 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 		Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4",
 	}}}
 	expectedCfg.Switches["sw1"] = sw1
-	current, err := fabric.New(currentCfg)
+	current, err := fabric.New(statedPhysical(currentCfg))
 	if err != nil {
 		t.Fatalf("New current: %v", err)
 	}
-	expected, err := fabric.New(expectedCfg)
+	expected, err := fabric.New(statedPhysical(expectedCfg))
 	if err != nil {
 		t.Fatalf("New expected: %v", err)
 	}
@@ -199,11 +199,11 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		}
 	}
 
-	curFab, err := fabric.New(curCfg)
+	curFab, err := fabric.New(statedPhysical(curCfg))
 	if err != nil {
 		t.Fatalf("New curFab: %v", err)
 	}
-	expFab, err := fabric.New(expCfg)
+	expFab, err := fabric.New(statedPhysical(expCfg))
 	if err != nil {
 		t.Fatalf("New expFab: %v", err)
 	}
@@ -322,7 +322,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 		},
 	}
 
-	curFab, err := fabric.New(curCfg)
+	curFab, err := fabric.New(statedPhysical(curCfg))
 	if err != nil {
 		t.Fatalf("New curFab: %v", err)
 	}
@@ -374,7 +374,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 	}
 	expCfg.Switches["sw1"] = expSw
 
-	derivedFab, err := fabric.Derive(curFab, constructionSpec(expCfg))
+	derivedFab, err := fabric.Derive(curFab, constructionSpec(statedPhysical(expCfg)))
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -390,7 +390,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 
 func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 	curCfg, _, _ := makeTwoSwitchConfigs(t)
-	curFab, err := fabric.New(curCfg)
+	curFab, err := fabric.New(statedPhysical(curCfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 		B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 	})
 
-	derived, err := fabric.Derive(curFab, constructionSpec(expCfg))
+	derived, err := fabric.Derive(curFab, constructionSpec(statedPhysical(expCfg)))
 	if err != nil {
 		t.Fatalf("Derive with new switch: %v", err)
 	}
@@ -430,7 +430,7 @@ func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 	}
 
 	// From nil cur
-	fromNil, err := fabric.Derive(nil, constructionSpec(expCfg))
+	fromNil, err := fabric.Derive(nil, constructionSpec(statedPhysical(expCfg)))
 	if err != nil {
 		t.Fatalf("Derive from nil: %v", err)
 	}
@@ -472,17 +472,16 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		}
 	})
 
-	t.Run("unset medium diffs as twisted pair", func(t *testing.T) {
+	t.Run("unspecified medium diffs against twisted pair", func(t *testing.T) {
 		cfgA := curCfg.Clone()
-		cfgA.Cables[0].Medium = ""
+		cfgA.Cables[0].Medium = fabric.MediumUnspecified
 
 		cfgB := cfgA.Clone()
 		cfgB.Cables[0].Medium = fabric.TwistedPair
 
-		for _, ch := range fabric.Diff(cfgA, cfgB) {
-			if ch.Subject.Kind == "cable" && ch.Field == "medium" {
-				t.Errorf("Diff reported medium %v -> %v for two cables that mean twisted pair", ch.From, ch.To)
-			}
+		from, to := changedFieldFacts(t, "medium", cfgA, cfgB)
+		if from != fabric.MediumUnspecified || to != fabric.TwistedPair {
+			t.Errorf("medium change = %v -> %v, want Unspecified -> TwistedPair", from, to)
 		}
 	})
 

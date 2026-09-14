@@ -57,6 +57,8 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
+		Uncabled:      []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}}},
+		PhyAssumption: gigabitCopper(),
 	})
 	if err != nil {
 		t.Fatalf("fabric.NewWithSpec: %v", err)

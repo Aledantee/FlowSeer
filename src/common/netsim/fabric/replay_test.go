@@ -70,7 +70,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 		Cables: cables,
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New replay fabric: %v", err)
 	}
@@ -273,8 +273,9 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 	macB := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 
-	// 1. Host on down link cannot inject; frame replayed at switch port 1/1/3 drops with ReasonPortDown.
-	if _, err := fab.Inject(fabric.Injection{
+	// 1. A host on a down link transmits nothing and its journey records the
+	// link's reason; a frame replayed at switch port 1/1/3 drops with ReasonPortDown.
+	hostFrame, err := fab.Inject(fabric.Injection{
 		At:     now,
 		Origin: fabric.Endpoint{Node: "h3"},
 		Frame: ethernet.Frame{
@@ -283,8 +284,12 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("test"),
 		},
-	}); err == nil {
-		t.Fatal("Inject on host with down link: got err == nil, want error")
+	})
+	if err != nil {
+		t.Fatalf("Inject on host with down link: %v", err)
+	}
+	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != fabric.ReasonPeerDown {
+		t.Errorf("host journey entries = %+v, want injection then a peer-down drop", entries)
 	}
 
 	_, err = fab.Inject(fabric.Injection{
