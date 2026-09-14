@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/internal/netsimtest"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
@@ -575,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 3 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 3", len(allCases))
+	if len(allCases) != 9 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 9", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -590,14 +591,36 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		t.Errorf("ByUseCase(Planning) returned %v", planningCases)
 	}
 
+	wantShadowing := []string{
+		"topology-shadowing/partial-model-unknown-port",
+		"topology-shadowing/uncabled-port-definite-drop",
+		"topology-shadowing/unknown-uplink-stp",
+		"topology-shadowing/unreported-negotiation",
+		"topology-shadowing/unresolved-transceiver",
+		"topology-shadowing/unresolved-transceiver-known-delivery",
+	}
 	shadowingCases := r.ByUseCase(netsimtest.UseCaseTopologyShadowing)
-	if len(shadowingCases) != 1 || shadowingCases[0].ID != "topology-shadowing/partial-model-unknown-port" {
-		t.Errorf("ByUseCase(TopologyShadowing) returned %v", shadowingCases)
+	if len(shadowingCases) != len(wantShadowing) {
+		t.Fatalf("ByUseCase(TopologyShadowing) returned %d cases, want %d: %v", len(shadowingCases), len(wantShadowing), shadowingCases)
+	}
+	for i, want := range wantShadowing {
+		if shadowingCases[i].ID != want {
+			t.Errorf("ByUseCase(TopologyShadowing)[%d].ID = %q, want %q", i, shadowingCases[i].ID, want)
+		}
 	}
 
+	wantTroubleshooting := []string{
+		"troubleshooting/host-rejects-foreign-unicast",
+		"troubleshooting/unicast-fdb-forwarding",
+	}
 	troubleshootingCases := r.ByUseCase(netsimtest.UseCaseTroubleshooting)
-	if len(troubleshootingCases) != 1 || troubleshootingCases[0].ID != "troubleshooting/unicast-fdb-forwarding" {
-		t.Errorf("ByUseCase(Troubleshooting) returned %v", troubleshootingCases)
+	if len(troubleshootingCases) != len(wantTroubleshooting) {
+		t.Fatalf("ByUseCase(Troubleshooting) returned %d cases, want %d: %v", len(troubleshootingCases), len(wantTroubleshooting), troubleshootingCases)
+	}
+	for i, want := range wantTroubleshooting {
+		if troubleshootingCases[i].ID != want {
+			t.Errorf("ByUseCase(Troubleshooting)[%d].ID = %q, want %q", i, troubleshootingCases[i].ID, want)
+		}
 	}
 }
 
@@ -707,6 +730,86 @@ func TestExecuteTroubleshootingCase(t *testing.T) {
 	}
 	if !decisiveFound {
 		t.Error("trace steps missing decisive unicast-hit lookup step")
+	}
+}
+
+func TestCorpusAdmitsAndExecutesEveryCaseDeterministically(t *testing.T) {
+	for _, c := range netsimtest.DefaultRegistry().All() {
+		t.Run(c.ID, func(t *testing.T) {
+			netsimtest.AssertCase(t, c)
+		})
+	}
+}
+
+func TestUnresolvedTransceiverCasesShareOneFabricButDivergeInTrust(t *testing.T) {
+	incomplete := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnresolvedTransceiver())
+	if incomplete.Journey == nil {
+		t.Fatal("res.Journey is nil")
+	}
+	if len(incomplete.Journey.Deliveries) != 1 || incomplete.Journey.Deliveries[0].Host != "h2" {
+		t.Errorf("deliveries = %+v, want one to h2", incomplete.Journey.Deliveries)
+	}
+	if incomplete.FabricMetadata == nil {
+		t.Fatal("res.FabricMetadata is nil")
+	}
+	if got := incomplete.FabricMetadata.IssuesFor(analysis.LinkScope("h2:-sw1:1/1/2")); len(got) == 0 {
+		t.Errorf("fabric metadata link issues = %+v, want propagation-unknown", got)
+	}
+
+	complete := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnresolvedTransceiverKnownDelivery())
+	if complete.Journey == nil || len(complete.Journey.Deliveries) != 1 || complete.Journey.Deliveries[0].Host != "h3" {
+		t.Errorf("deliveries = %+v, want one to h3", complete.Journey.Deliveries)
+	}
+	if complete.Status() != analysis.Complete {
+		t.Errorf("status = %s, want Complete beside the sibling Incomplete delivery", complete.Status())
+	}
+}
+
+func TestUncabledPortDefiniteDropLocalizesAwayFromTheOmittedPort(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUncabledPortDefiniteDrop())
+	if res.FabricMetadata == nil {
+		t.Fatal("res.FabricMetadata is nil")
+	}
+	unresolved := res.FabricMetadata.IssuesFor(analysis.PortScope("sw1", "4"))
+	if len(unresolved) != 1 || unresolved[0].Code != analysis.IssueCode(fabric.ReasonAdjacencyUnresolved) {
+		t.Errorf("fabric metadata port 4 issues = %+v, want one adjacency-unresolved", unresolved)
+	}
+	if res.Status() != analysis.Complete {
+		t.Errorf("journey status = %s, want Complete: it never depended on the omitted port", res.Status())
+	}
+}
+
+func TestUnreportedNegotiationDropsWithoutDeliveringToTheUnknownPort(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnreportedNegotiation())
+	if res.Journey == nil || len(res.Journey.Deliveries) != 0 {
+		t.Errorf("deliveries = %+v, want none: h2's link never resolved", res.Journey.Deliveries)
+	}
+}
+
+func TestUnknownUplinkSTPCarriesProtocolIssuesOnTheKnownPath(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTopologyShadowingUnknownUplinkSTP())
+	if res.Journey == nil || len(res.Journey.Deliveries) != 1 || res.Journey.Deliveries[0].Host != "h2" {
+		t.Errorf("deliveries = %+v, want one to h2 over the known uplink", res.Journey.Deliveries)
+	}
+	if res.FabricMetadata == nil {
+		t.Fatal("res.FabricMetadata is nil")
+	}
+	if got := res.FabricMetadata.IssuesFor(analysis.LinkScope("sw1:1/1/2-sw2:1/1/2")); len(got) == 0 {
+		t.Errorf("fabric metadata redundant uplink issues = %+v, want capability-unknown", got)
+	}
+}
+
+func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
+	res := netsimtest.AssertCase(t, netsimtest.CaseTroubleshootingHostRejectsForeignUnicast())
+	if res.Journey == nil {
+		t.Fatal("res.Journey is nil")
+	}
+	if len(res.Journey.Deliveries) != 0 {
+		t.Errorf("deliveries = %+v, want none: h2 refused the foreign unicast", res.Journey.Deliveries)
+	}
+	last := res.Journey.Entries[len(res.Journey.Entries)-1]
+	if last.Kind != fabric.EntryRejection || last.Reason != fabric.ReasonHostUnicastNotAddressed {
+		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
@@ -36,16 +37,24 @@ const (
 
 // ExecutionResult captures the artifacts and outcomes produced by executing a corpus case.
 // Metadata is the sole readiness authority; callers access the derived readiness status via Status().
+//
+// Journey and FabricMetadata are populated by a case built on a [fabric.Fabric]. Journey is the
+// frame's recorded traversal, whose own Metadata is scoped to what that journey depended on.
+// FabricMetadata is [fabric.Fabric.Metadata], scoped over the whole topology; it can carry issues
+// a given journey never depended on, such as a sibling port's unresolved adjacency, so it is
+// informational rather than part of the admitted exact-match contract.
 type ExecutionResult struct {
-	Outcome     trace.Outcome
-	Reason      trace.Reason
-	Steps       []trace.Step
-	Changes     []trace.Change
-	Metadata    analysis.Metadata
-	Switch      *vswitch.Switch
-	ModelResult *netmodel.Result
-	Comparison  *vswitch.Comparison
-	Forward     *vswitch.ForwardResult
+	Outcome        trace.Outcome
+	Reason         trace.Reason
+	Steps          []trace.Step
+	Changes        []trace.Change
+	Metadata       analysis.Metadata
+	Switch         *vswitch.Switch
+	ModelResult    *netmodel.Result
+	Comparison     *vswitch.Comparison
+	Forward        *vswitch.ForwardResult
+	Journey        *fabric.Journey
+	FabricMetadata *analysis.Metadata
 }
 
 // Status returns the analysis readiness status derived from Metadata.
@@ -955,6 +964,58 @@ func assertDeterministicExecution(t testing.TB, caseID string, first, second Exe
 	assertDeterministicComparison(t, caseID, first.Comparison, second.Comparison)
 	assertDeterministicModelResult(t, caseID, first.ModelResult, second.ModelResult)
 	assertDeterministicForwardResult(t, caseID, "forward", first.Forward, second.Forward)
+	assertDeterministicJourney(t, caseID, first.Journey, second.Journey)
+	assertDeterministicOptionalMetadata(t, caseID, "fabric", first.FabricMetadata, second.FabricMetadata)
+}
+
+func assertDeterministicOptionalMetadata(t testing.TB, caseID, axis string, first, second *analysis.Metadata) {
+	t.Helper()
+	if first == nil || second == nil {
+		if first != nil || second != nil {
+			t.Errorf("case %s non-deterministic %s metadata presence across runs", caseID, axis)
+		}
+		return
+	}
+	assertDeterministicMetadata(t, caseID, axis, *first, *second)
+}
+
+func assertDeterministicJourney(t testing.TB, caseID string, first, second *fabric.Journey) {
+	t.Helper()
+	if first == nil || second == nil {
+		if first != nil || second != nil {
+			t.Errorf("case %s non-deterministic journey presence across runs", caseID)
+		}
+		return
+	}
+	if first.FrameID != second.FrameID || first.Protocol != second.Protocol ||
+		first.Mirror != second.Mirror || first.Parent != second.Parent {
+		t.Errorf("case %s non-deterministic journey identity across runs", caseID)
+	}
+	if !reflect.DeepEqual(first.Deliveries, second.Deliveries) {
+		t.Errorf("case %s non-deterministic journey deliveries across runs", caseID)
+	}
+	if len(first.Entries) != len(second.Entries) {
+		t.Errorf("case %s non-deterministic journey entry count across runs: %d vs %d", caseID, len(first.Entries), len(second.Entries))
+	} else {
+		for i := range first.Entries {
+			assertDeterministicJourneyEntry(t, caseID, i, first.Entries[i], second.Entries[i])
+		}
+	}
+	assertDeterministicMetadata(t, caseID, "journey", first.Metadata, second.Metadata)
+}
+
+func assertDeterministicJourneyEntry(t testing.TB, caseID string, index int, first, second fabric.Entry) {
+	t.Helper()
+	if first.Kind != second.Kind || first.Device != second.Device || first.Port != second.Port || first.Reason != second.Reason {
+		t.Errorf("case %s non-deterministic journey entry %d across runs", caseID, index)
+	}
+	if (first.Cable == nil) != (second.Cable == nil) || (first.Cable != nil && !first.Cable.Equal(*second.Cable)) {
+		t.Errorf("case %s non-deterministic journey entry %d cable across runs", caseID, index)
+	}
+	if (first.Step == nil) != (second.Step == nil) || (first.Step != nil && !first.Step.Equal(*second.Step)) {
+		t.Errorf("case %s non-deterministic journey entry %d host step across runs", caseID, index)
+	}
+	assertDeterministicForwardResult(t, caseID, fmt.Sprintf("journey entry %d", index), first.Result, second.Result)
 }
 
 func assertDeterministicSteps(t testing.TB, caseID, axis string, first, second []trace.Step) {
