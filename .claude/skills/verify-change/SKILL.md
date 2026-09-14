@@ -44,7 +44,10 @@ longer exists, and `close` compares the receipt's `verified_at` with the
 last commit.
 
 The last line is the verdict: `FlowSeer verification passed.` or
-`FlowSeer verification FAILED (exit N).` Quote it rather than summarize it.
+`FlowSeer verification FAILED (exit N) in gate: <command>`. A failure
+outside any gate (a bad argument, a missing formatter, no gate selected)
+prints `FlowSeer verification FAILED (exit N).` with no gate name, and the
+reason is the line above it. Quote the last line rather than summarize it.
 When the script runs in the background, it is the last command of its
 invocation: a trailing `tail` or `echo` reports its own exit code as the
 gate's, and a session has announced a green verifier that way over a log
