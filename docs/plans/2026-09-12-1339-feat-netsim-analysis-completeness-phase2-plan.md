@@ -117,6 +117,19 @@ This phase claims parent R8 and R10-R13 and extends R2, R7, R9, and R39.
   types feed `vswitch` and `netmodel`, and both feed `fabric`. The truth
   tables are what stretch the length, and they are the decisions an
   implementer would otherwise re-derive.
+- **Shapes that changed while landing.** The code settled five points the plan
+  left open or had wrong.
+  - `Medium.Reach(lengthMeters, speedBPS)` returns the state and meters,
+    because a state cannot say in range or exceeded without a length.
+  - A resolved link with an unspecified medium, no `Delay`, and a nonzero
+    length adds `Incomplete` `propagation-unknown`, because its timing has no
+    velocity factor.
+  - A dead-direction fault with an end whose negotiation mode is unreported is
+    `Unknown`, because such an end may be forced.
+  - `LinkEnd` carries the `Ethernet` facts the link resolved from, so filled
+    assumptions show in `Links()`.
+  - A construction spec rejects cable or `Uncabled` evidence references that
+    its catalog lacks, as `vswitch` does. A bare `Config` has no catalog.
 - **No new physical models.** No downshift, optical budget, or transceiver
   model. An unspecified medium is the unresolved-transceiver case. The
   existing reach rows are kept (`src/common/netsim/fabric/medium.go:54`); a

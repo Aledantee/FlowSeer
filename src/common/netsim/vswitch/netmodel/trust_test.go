@@ -1451,10 +1451,8 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 				} else if _, found := res.Metadata.Evidence().Lookup(a.Evidence[0]); !found {
 					t.Error("assumption evidence not in catalog")
 				}
-			} else {
-				if len(searchingAssumptions) != 0 {
-					t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
-				}
+			} else if len(searchingAssumptions) != 0 {
+				t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
 			}
 		})
 	}
@@ -1580,10 +1578,8 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 				if searchingAssumptions[0].Statement != "absence is inferred from the searching status" {
 					t.Errorf("assumption statement = %q, want %q", searchingAssumptions[0].Statement, "absence is inferred from the searching status")
 				}
-			} else {
-				if len(searchingAssumptions) != 0 {
-					t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
-				}
+			} else if len(searchingAssumptions) != 0 {
+				t.Errorf("unexpected searching assumptions on port: %+v", searchingAssumptions)
 			}
 		})
 	}
