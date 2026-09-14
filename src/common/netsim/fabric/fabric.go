@@ -387,10 +387,9 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 			}
 			ep := Endpoint{Node: name, Port: p.Name}
 			if ref, ok := byEnd[ep]; ok {
-				up := ref.end.Oper == port.Up
 				p2p := portPointToPoint(cloned, name, p.Name, *ref.end, ref.peer.Endpoint)
 				speed := ref.end.Speed.SpeedBPS
-				sw.LinkChange(cloned.Start, p.Name, up, p2p, speed)
+				sw.LinkChange(cloned.Start, p.Name, ref.end.Oper, p2p, speed)
 			}
 		}
 
@@ -470,13 +469,16 @@ func (f *Fabric) startLayers(names []string) {
 
 			ep := Endpoint{Node: name, Port: p.Name}
 			if ref, ok := f.byEnd[ep]; ok {
-				up := ref.end.Oper == port.Up
 				p2p := f.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
 				speed := ref.end.Speed.SpeedBPS
-				sw.LinkChange(f.clock, p.Name, up, p2p, speed)
+				sw.LinkChange(f.clock, p.Name, ref.end.Oper, p2p, speed)
 			} else {
 				p2p := f.uncabledPointToPoint(name, p.Name)
-				sw.LinkChange(f.clock, p.Name, false, p2p, 0)
+				oper := port.Down
+				if p.OperStatus == port.Unknown {
+					oper = port.Unknown
+				}
+				sw.LinkChange(f.clock, p.Name, oper, p2p, 0)
 			}
 		}
 
@@ -788,10 +790,9 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 		if err := sw.SetOperStatus(info.end.Port, info.end.Oper); err != nil {
 			return errs.Wrapf(err, "update operational status for %s", info.end.Port)
 		}
-		up := info.end.Oper == port.Up
 		p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
 		speed := info.end.Speed.SpeedBPS
-		sw.LinkChange(f.clock, info.end.Port, up, p2p, speed)
+		sw.LinkChange(f.clock, info.end.Port, info.end.Oper, p2p, speed)
 
 		for _, em := range sw.Drain() {
 			f.injectEmission(f.clock, info.end.Node, em)
@@ -802,48 +803,53 @@ func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
 	return nil
 }
 
-func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) bool {
+func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) vswitch.PointToPoint {
 	return portPointToPoint(f.cfg, node, portName, end, peer)
 }
 
-func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) bool {
+func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) vswitch.PointToPoint {
 	swCfg := cfg.Switches[node]
 	if swCfg.STP != nil {
 		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
 			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return true
+				return vswitch.PointToPointTrue
 			}
 			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return false
+				return vswitch.PointToPointFalse
 			}
 		}
 	}
 
+	if end.Speed.DuplexA == "" || end.Speed.DuplexA == phy.Unknown {
+		return vswitch.PointToPointUnknown
+	}
 	if end.Speed.DuplexA != phy.Full {
-		return false
+		return vswitch.PointToPointFalse
 	}
 	if _, isHost := cfg.Hosts[peer.Node]; isHost {
-		return true
+		return vswitch.PointToPointTrue
 	}
 	if peerSw, isSw := cfg.Switches[peer.Node]; isSw {
-		return peerSw.Bridge != nil
+		if peerSw.Bridge != nil {
+			return vswitch.PointToPointTrue
+		}
 	}
 
-	return false
+	return vswitch.PointToPointFalse
 }
 
-func (f *Fabric) uncabledPointToPoint(node, portName string) bool {
+func (f *Fabric) uncabledPointToPoint(node, portName string) vswitch.PointToPoint {
 	swCfg := f.cfg.Switches[node]
 	if swCfg.STP != nil {
 		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
 			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return true
+				return vswitch.PointToPointTrue
 			}
 			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return false
+				return vswitch.PointToPointFalse
 			}
 		}
 	}
 
-	return false
+	return vswitch.PointToPointFalse
 }

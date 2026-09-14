@@ -263,10 +263,13 @@ The spanning tree and link aggregation layers operate deterministically without
 background timers. The host drives them through explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
-- `LinkChange(now, port, up, pointToPoint, speed)` tells the protocol layers
-  one link moved; for a LAG member, it notifies the aggregation layer, updates
-  the LAG port's operational state, and informs spanning tree of the LAG's
-  link and speed from the enabled members.
+- `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
+  one link moved; `state` ([port.LinkState]) preserves unknown operational state
+  while informing protocol layers that the link is non-operational. `pointToPoint`
+  ([PointToPoint]) conveys operational point-to-point duplex status. For a LAG
+  member, it notifies the aggregation layer, updates the LAG port's operational
+  state, and informs spanning tree of the LAG's link and speed from the enabled
+  members.
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
   relay's tables and tells the protocol layers nothing, since only the caller
   knows whether a member's change moves its LAG; it follows with `LinkChange`.
@@ -344,6 +347,12 @@ Exported constructors validate and normalize configurations:
   (`poe-demand-unknown`) for each port whose power demand is uncertain,
   keeping PoE uncertainty scoped to the port's PoE field and out of forwarding
   metadata.
+- Protocol layers maintain `protocol-link-unknown` Incomplete issues. When
+  spanning tree computes topology while any STP port's operational state or
+  point-to-point duplex status is unknown, every STP port on the switch receives
+  an issue. When a LAG computes membership or operational state with an unknown
+  member, the LAG and all its member ports receive an issue. Results that consult
+  those ports attach these issues to their forwarding metadata.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
 scopes. An empty key identifies an anonymous standalone switch and uses the

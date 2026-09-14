@@ -153,12 +153,12 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 	sw.Start(fixedTime)
-	sw.LinkChange(fixedTime.Add(time.Second), "member", true, true, 1_000_000_000)
+	sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
 	lagPort, _ := sw.Ports().Port("lag1")
 	if got := lagPort.OperStatus; got != port.Up {
 		t.Fatalf("oper status after link up = %s, want %s", got, port.Up)
 	}
-	sw.LinkChange(fixedTime.Add(2*time.Second), "member", false, true, 1_000_000_000)
+	sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
 	lagPort, _ = sw.Ports().Port("lag1")
 	if got := lagPort.OperStatus; got != port.Down {
 		t.Fatalf("oper status after link down = %s, want %s", got, port.Down)
@@ -4300,7 +4300,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	}
 
 	// Member 1/1/1 goes down through LinkChange
-	sw.LinkChange(now, "1/1/1", false, true, 10_000_000_000)
+	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000)
 
 	mem, ok = sw.SelectMember("lag1", dummyFrame, 10)
 	if !ok || mem != "1/1/2" {
@@ -4313,7 +4313,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	}
 
 	// Both members down: lag1 has no enabled member
-	sw.LinkChange(now, "1/1/2", false, true, 1_000_000_000)
+	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
 	mem, ok = sw.SelectMember("lag1", dummyFrame, 10)
 	if ok {
 		t.Fatalf("after all links down, SelectMember returned %q, want false", mem)
@@ -4342,7 +4342,7 @@ func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
 		t.Fatalf("SetOperStatus: %v", err)
 	}
-	sw.LinkChange(t0.Add(time.Second), "1/1/1", false, true, 1_000_000_000)
+	sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
 	p, _ := sw.Ports().Port("lag1")
 	if p.OperStatus != port.Down {
 		t.Fatalf("lag1 OperStatus = %v, want Down as soon as its member row is down", p.OperStatus)
