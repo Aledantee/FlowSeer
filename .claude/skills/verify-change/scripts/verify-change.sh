@@ -6,13 +6,25 @@ set -euo pipefail
 # tail cannot be mistaken: a session that wrapped the script in
 # `...; echo "exit=$?"; tail log` saw the wrapper's exit code, not the
 # gate's, and reported a failed run as green. Installed before any exit
-# path, the usage and bad-ref ones included.
+# path, the usage and bad-ref ones included. The line also names the gate
+# that was running, so a --full log of several hundred lines does not have
+# to be read backwards to learn which one failed.
 build_dir=""
+# The running gate's name lives in a file, not a variable: the Go module
+# gates run in a subshell, and an assignment there never reaches this trap.
+gate_file=$(mktemp "${TMPDIR:-/tmp}/flowseer-verify-gate.XXXXXX")
 finish() {
   local status=$?
+  local gate=""
+  [[ -s $gate_file ]] && gate=$(<"$gate_file")
+  rm -f "$gate_file"
   [[ -n $build_dir ]] && rm -rf "$build_dir"
   if ((status != 0)); then
-    echo "FlowSeer verification FAILED (exit $status)." >&2
+    if [[ -n $gate ]]; then
+      echo "FlowSeer verification FAILED (exit $status) in gate: $gate" >&2
+    else
+      echo "FlowSeer verification FAILED (exit $status)." >&2
+    fi
   fi
 }
 trap finish EXIT
@@ -152,7 +164,23 @@ run() {
   printf '+ '
   printf '%q ' "$@"
   printf '\n'
+  # The label is the command plus its first non-flag argument: a targeted
+  # `go test` lists every affected package, which is not a line to quote.
+  # Left in place on failure so the exit trap can name the gate.
+  gate_label "$@" >"$gate_file"
   "$@"
+  : >"$gate_file"
+}
+
+gate_label() {
+  local label=$1 arg
+  shift
+  for arg in "$@"; do
+    [[ $arg == -* ]] && continue
+    label="$label $arg"
+    break
+  done
+  printf '%s' "$label"
 }
 
 contains_path() {
@@ -242,7 +270,7 @@ else
           fi
         fi
         ;;
-      .claude/*|.codex/*|tools/hooks/*)
+      .claude/*|.codex/*|tools/hooks/*|tools/test/*)
         hook_tooling=true
         ;;
     esac
@@ -553,7 +581,7 @@ if [[ $hook_tooling == true ]]; then
   need_tool shellcheck
   run jq empty .claude/settings.json
   run jq empty .codex/hooks.json
-  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh .claude/skills/verify-change/scripts/*.sh)
+  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/verify-change/scripts/*.sh .claude/skills/delegate/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
   if [[ -x tools/hooks/tests/run.sh ]]; then
     run tools/hooks/tests/run.sh
