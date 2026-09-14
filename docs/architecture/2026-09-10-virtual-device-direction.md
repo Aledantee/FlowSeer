@@ -210,15 +210,16 @@ them.
   appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
   knob itself, and each link it fills carries one `Assumption` naming the
   facts, so a standards default runs only on the record.
-- **Protocol link-state input.** STP and LAG take `port.LinkState`, not a
-  boolean, so an `Unknown` link leaves the port `Unknown` instead of being
-  coerced to `Down`. Both protocols raise `protocol-link-unknown` on every
-  port whose role or membership they compute once one input is unknown; a
+- **Protocol link-state input.** `Switch.LinkChange` takes `port.LinkState`,
+  not a boolean, so an `Unknown` link leaves the port `Unknown` instead of
+  being coerced to `Down`; STP and LAG still hear it as not operational. The
+  switch raises `protocol-link-unknown` on every port whose role or
+  membership those protocols compute once one of their inputs is unknown; a
   later `Up` report clears it. Without this, an unknown redundant uplink
   would silently re-elect a spanning tree root with every dependent journey
   reading `Complete`.
 - **Host acceptance.** A frame the pipeline delivers to a host is not
-  necessarily one the host keeps. A fourth stage after arrival checks VLAN
+  necessarily one the host keeps. After arrival, the host checks VLAN
   form, destination MAC, and, for a host with an IP stack, the IP
   destination, each under a named clause (own address, broadcast,
   solicited-node group, promiscuous mode). `Journey.Deliveries` holds only
@@ -315,8 +316,8 @@ The following areas remain outside the foundation established here:
 
 - **Physical media fidelity and PoE dynamics**: transceiver-dependent speed
   resolution, link downshift behavior, and PoE transient allocation
-  dynamics. Reported-fact autonegotiation, reach, and PoE allocation follow
-  their truth tables as of this phase.
+  dynamics. Autonegotiation, reach, and PoE allocation over reported facts
+  are modeled, and unreported facts stay unknown.
 - **Topology identity and adjacency ambiguity**: resolving links from noisy,
   conflicting, or unmanaged LLDP and CDP neighbor records.
 - **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
