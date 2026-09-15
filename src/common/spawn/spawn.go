@@ -15,7 +15,8 @@ import (
 )
 
 // panicAttrKey is the stable key under which the recovered panic value is
-// attached to the reported error and to the span event's attributes.
+// attached to the reported error. The span event does not carry it: a panic
+// value is unbounded, and a span attribute is not the place for it.
 const panicAttrKey = "panic"
 
 // labelAttrKey is the log attribute carrying the caller-supplied label.

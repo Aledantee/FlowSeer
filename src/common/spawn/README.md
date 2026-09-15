@@ -54,8 +54,9 @@ attrs["panic"] // the recovered value
 `spawn.Go` logs through `slog`'s package-level default (`slog.ErrorContext`),
 not a context-carried logger. The repository has no logger helper outside
 `src/common/service`, and importing that package here would invert the
-layer order `AGENTS.md` sets out: `service` is a control-plane concern,
-`spawn` is a foundation most of `src/protocol` and `src/modules` spawns
-outside any module attempt. `slog.Default()` is process-wide and callers that
-want scoped output can replace it during startup the way `slog` already
+layer order `AGENTS.md` sets out: `service` is a control-plane concern, and
+most callers here — `src/protocol`, `src/modules` — spawn outside any module
+attempt, so routing their reports through `service` would mean a foundation
+package importing the control plane. `slog.Default()` is process-wide, and a
+caller that wants scoped output replaces it at startup the way `slog` already
 supports.
