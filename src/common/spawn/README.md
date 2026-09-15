@@ -12,9 +12,7 @@ wg.Add(1)
 spawn.Go(ctx, "device poll", func() {
     defer wg.Done()
     poll(ctx, device)
-}, spawn.ReportTo(func(err error) {
-    p.Fail(err)
-}))
+})
 ...
 wg.Wait()
 ```
@@ -30,6 +28,43 @@ for why the package sits here, beside `errs`, `pump`, and `service`, rather
 than inside any of them: it needs `errs` and a logger, which rules out
 `pump`, and most of its callers spawn outside any `service` module attempt,
 which rules out routing through `service.Go`.
+
+## What the panic path skips
+
+The example above joins with a `WaitGroup` and takes no sink, which is the one
+combination that needs no further thought. Everything else does, because a
+panic skips whatever `fn` had left to do and `spawn.Go`'s recover runs *after*
+every deferred call `fn` registered.
+
+A completion deferred inside `fn` — `wg.Done`, `close(ch)`, `pump.Done` —
+therefore runs before the sink. A caller that learns from that completion
+learns it before the error is recorded, so a consumer that drains to a closed
+channel and then reads `Err()` sees `nil`, which it cannot tell from a clean
+finish. Put the completion on `fn`'s normal path and in the sink, so exactly
+one of them reaches it:
+
+```go
+spawn.Go(ctx, "table walk", func() {
+    walk(ctx, w)
+    w.pump.Done()                 // normal path only
+}, spawn.ReportTo(w.pump.Fail))   // panic path: records, then closes
+```
+
+Where the joiner consumes what the sink produces, a `WaitGroup` cannot express
+this at all — `wg.Wait` returns as soon as `fn`'s deferred `Done` runs, which
+is before the sink. Join by counted receive instead, one value per goroutine
+from either the normal path or the sink.
+
+A lock is the same rule with a worse failure. `fn` must release it from a
+`defer`; an explicit `Unlock` on the normal path is skipped by the panic and
+the mutex stays held for the life of the process. That is a hang where the
+unrecovered panic was a crash, and a hang has no signal but a log line.
+
+A sink is called with the goroutine already unwound. It must not block — no
+further report follows it. A panic inside a sink is recovered and reported
+under the label `"<label> sink"`, because a helper whose whole purpose is that
+a panic costs one unit of work cannot let its own reporting path take the
+process down; the error that sink was handed does not reach its destination.
 
 A recovered panic is always reported: one `error`-level log record, per
 [the observability conventions](../../../docs/conventions/observability.md),

@@ -10,7 +10,6 @@ import (
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	"go.opentelemetry.io/otel/trace"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -92,16 +91,11 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 }
 
-// TestGoRecoversAndReportsPanic is evidence for requirement 1 and 2: the
-// process survives a panicking fn, and the reported error carries the
-// recovered value, the label, and a stack.
-//
-// Watched failing first: with the recover removed from spawn.Go (deferred
-// recover() call deleted), this test's goroutine's panic crashed the test
-// binary outright — `go test` printed "panic: boom [recovered]" followed
-// by the goroutine's stack trace and exited nonzero, rather than reporting
-// t.Fatal from a failed assertion. That is the failure this test is
-// evidence against: a bare panic takes the whole process down.
+// TestGoRecoversAndReportsPanic pins that a panicking fn costs its own
+// goroutine and nothing else: the process survives, and the reported error
+// carries the recovered value, the label, and a stack. Without the recover,
+// a panic on a spawned goroutine takes the whole process down whatever the
+// spawning frame does, so the assertions below never run at all.
 func TestGoRecoversAndReportsPanic(t *testing.T) {
 	withRecordingLogger(t)
 
@@ -138,7 +132,7 @@ func TestGoRecoversAndReportsPanic(t *testing.T) {
 	}
 }
 
-// TestGoWrapsAnErrorPanicValue is evidence for requirement 2's error branch:
+// TestGoWrapsAnErrorPanicValue pins the error branch of the reported value:
 // a panic carrying an error is wrapped, not stringified, so errors.Is and
 // errors.As still reach the original error.
 func TestGoWrapsAnErrorPanicValue(t *testing.T) {
@@ -178,9 +172,9 @@ func TestGoWrapsAnErrorPanicValue(t *testing.T) {
 	}
 }
 
-// TestGoAttachesAStack is evidence for requirement 2's stack clause: the
-// reported error carries a captured stack, which errs only omits for a
-// sentinel built with Msg/Msgf rather than the builder Go uses.
+// TestGoAttachesAStack pins that the reported error carries a captured stack,
+// which errs only omits for a sentinel built with Msg/Msgf rather than the
+// builder Go uses.
 func TestGoAttachesAStack(t *testing.T) {
 	withRecordingLogger(t)
 
@@ -232,9 +226,8 @@ func logAttrValue(t *testing.T, err error) (slog.Value, bool) {
 	return valuer.LogValue(), true
 }
 
-// TestReportToReceivesTheError is evidence for requirement 3: a site that
-// supplies ReportTo observes the panic through its own sink, exactly as
-// spawn.Go(ctx, "x", fn, spawn.ReportTo(p.Fail)) is specified to behave.
+// TestReportToReceivesTheError pins that a site supplying ReportTo observes
+// the panic through its own sink, so an existing failure path keeps working.
 func TestReportToReceivesTheError(t *testing.T) {
 	withRecordingLogger(t)
 
@@ -247,6 +240,36 @@ func TestReportToReceivesTheError(t *testing.T) {
 
 	if p.Err() == nil {
 		t.Fatal("p.Err() is nil, want the recovered panic")
+	}
+}
+
+// TestGoRecoversAPanicRaisedInsideTheSink pins that a sink which panics costs
+// the report rather than the process. Several call sites hand Go a sink that
+// re-enters the component that just panicked, so a panic there is reachable
+// and lands inside Go's own deferred recover, where a second panic would be
+// unrecoverable. The surviving signal is a log record naming the sink.
+func TestGoRecoversAPanicRaisedInsideTheSink(t *testing.T) {
+	logs := withRecordingLogger(t)
+
+	Go(context.Background(), "unit-under-test", func() {
+		panic("boom")
+	}, ReportTo(func(error) {
+		panic("the sink itself failed")
+	}))
+
+	sawSink := func() bool {
+		for _, record := range logs.all() {
+			value, found := recordAttr(t, record, labelAttrKey)
+			if found && value.String() == "unit-under-test sink" {
+				return true
+			}
+		}
+		return false
+	}
+	waitFor(t, sawSink)
+
+	if !sawSink() {
+		t.Fatalf("no log record named the panicking sink; got %d records", len(logs.all()))
 	}
 }
 
@@ -271,16 +294,11 @@ func (p *sinkPump) Err() error {
 	return p.err
 }
 
-// TestGoReportsWithNoSink is evidence for requirement 4's floor: a site
-// with no ReportTo still gets one error-level log record, per
-// docs/conventions/observability.md's severity table (the owned operation
-// failed and was abandoned).
-//
-// Watched failing first: with the report() call removed from spawn.Go's
-// recover branch, sink.all() stayed empty past the deadline and waitFor's
-// t.Fatal fired with "condition not met before deadline" — proving the log
-// record is not a side effect of something else in the test, but of the
-// call this test deletes to check.
+// TestGoReportsWithNoSink pins the reporting floor: a site with no ReportTo
+// still gets one error-level log record, per docs/conventions/observability.md's
+// severity table (the owned operation failed and was abandoned). The sites
+// with no sink are the fire-and-forget loops and watchdogs, where this record
+// is the only signal a panic happened at all.
 func TestGoReportsWithNoSink(t *testing.T) {
 	sink := withRecordingLogger(t)
 
@@ -309,8 +327,8 @@ func TestGoReportsWithNoSink(t *testing.T) {
 	}
 }
 
-// TestGoAddsASpanEventWhenRecording is evidence for requirement 4's
-// conditional half: a recording span in ctx gets one span event.
+// TestGoAddsASpanEventWhenRecording pins the conditional half of reporting:
+// a recording span in ctx gets one span event.
 func TestGoAddsASpanEventWhenRecording(t *testing.T) {
 	withRecordingLogger(t)
 
@@ -345,36 +363,47 @@ func TestGoAddsASpanEventWhenRecording(t *testing.T) {
 	}
 }
 
-// TestGoAddsNoSpanEventWhenNotRecording is evidence for requirement 4's
-// other conditional branch: a context with no recording span gets no event
-// (and, since a non-recording span cannot be inspected for events after the
-// fact, this test's real assertion is that spawn.Go does not panic or block
-// when trace.SpanFromContext returns the no-op span).
+// TestGoAddsNoSpanEventWhenNotRecording pins the other conditional branch:
+// a context whose span is not recording gets no event.
+//
+// The span is a real SDK span that has already ended, which is what makes
+// this an assertion about spawn rather than about OTel. A no-op span records
+// nothing either way, so a test using context.Background() passes whether or
+// not Go consults IsRecording; an ended SDK span is still inspectable through
+// the recorder, so an unguarded AddEvent would show up here.
 func TestGoAddsNoSpanEventWhenNotRecording(t *testing.T) {
 	withRecordingLogger(t)
 
+	recorder := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	ctx, span := provider.Tracer("spawn_test").Start(context.Background(), "ended")
+	span.End()
+
+	if span.IsRecording() {
+		t.Fatal("span still recording after End; the test cannot prove the guard")
+	}
+
 	done := make(chan struct{})
-	Go(context.Background(), "unit-under-test", func() {
+	Go(ctx, "unit-under-test", func() {
 		panic("boom")
 	}, ReportTo(func(error) { close(done) }))
 	<-done
 
-	span := trace.SpanFromContext(context.Background())
-	if span.IsRecording() {
-		t.Fatal("background context unexpectedly carries a recording span")
+	ended := recorder.Ended()
+	if len(ended) != 1 {
+		t.Fatalf("got %d ended spans, want 1", len(ended))
+	}
+	if events := ended[0].Events(); len(events) != 0 {
+		t.Errorf("got %d span events on an ended span, want 0", len(events))
 	}
 }
 
-// TestGoDoesNotJoin is evidence for requirement 5: Go returns before fn
-// completes, and a call site's own WaitGroup — not the helper — governs the
-// join.
+// TestGoDoesNotJoin pins that Go returns before fn completes, and that a call
+// site's own WaitGroup — not the helper — governs the join.
 //
-// Watched failing first: with spawn.Go changed to call fn synchronously
-// before returning (dropping the `go` keyword), this test deadlocked — `go
-// test -race` printed "panic: test timed out after 30s" with this test's
-// goroutine parked on <-release, because Go no longer returned until fn (and
-// therefore the block on release) had finished. That is the deadlock this
-// test is written to catch: a helper that joined would hang here forever.
+// It is written so that a helper which joined would deadlock rather than fail
+// an assertion: fn blocks on release, which only closes after started proves
+// Go has already returned. A joining Go never reaches that line.
 func TestGoDoesNotJoin(t *testing.T) {
 	withRecordingLogger(t)
 

@@ -43,14 +43,38 @@ func ReportTo(sink func(error)) Option {
 // structured error labeled by the unit of work fn performs.
 //
 // Go returns as soon as the goroutine is started; it does not join fn. A
-// caller that needs to wait for fn keeps its own sync.WaitGroup, with
-// wg.Add(1) before this call and wg.Done() deferred inside fn — Go does not
+// caller that needs to wait for fn keeps its own sync.WaitGroup — Go does not
 // restart, back off, or cancel siblings either, since that policy belongs to
 // whatever owns the unit of work.
 //
 // A recovered panic is always reported through a log record at error level,
 // and through a span event when ctx carries a recording span. When opts
 // includes [ReportTo], the same error also reaches sink.
+//
+// # What fn owes its caller on the panic path
+//
+// A panic skips everything fn had left to do, and Go's recover runs after
+// every deferred call fn registered. Two consequences bind every call site,
+// and both have produced real defects here:
+//
+//   - A completion deferred inside fn — wg.Done, close(ch), [pump.Pump.Done]
+//     — runs during the unwind, before the sink. Whatever the caller learns
+//     from that completion, it learns before the error is recorded, so a
+//     consumer that drains to a closed channel and then reads an error sees
+//     none. Put the completion on fn's normal path and in the sink, so
+//     exactly one of them reaches it, or join by counted receive rather than
+//     by a WaitGroup whose Done fn defers.
+//   - A lock fn holds is released only by a deferred Unlock. An explicit
+//     Unlock on fn's normal path is skipped by the panic, and the mutex stays
+//     held for the life of the process — a hang where the unrecovered panic
+//     was a crash, which is worse.
+//
+// sink is called with the goroutine already unwound. It must not block: no
+// further report follows it, so a sink parked on a channel strands the
+// goroutine silently. A panic inside sink is recovered and reported on its
+// own, because a helper whose purpose is that a panic costs one unit of work
+// cannot let a reporting path take the process down — but the error the sink
+// was handed does not reach wherever sink was taking it.
 func Go(ctx context.Context, label string, fn func(), opts ...Option) {
 	var o options
 	for _, opt := range opts {
@@ -68,12 +92,29 @@ func Go(ctx context.Context, label string, fn func(), opts ...Option) {
 			report(ctx, label, err)
 
 			if o.sink != nil {
-				o.sink(err)
+				reportSinkPanic(ctx, label, o.sink, err)
 			}
 		}()
 
 		fn()
 	}()
+}
+
+// reportSinkPanic calls sink and recovers a panic raised inside it. Several
+// sinks re-enter the component that has just panicked, so this is a reachable
+// path, not defense in depth: without it the recovery itself would take the
+// process down, which is the outcome Go exists to prevent.
+func reportSinkPanic(ctx context.Context, label string, sink func(error), err error) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+
+		report(ctx, label+" sink", panicError(label+" sink", recovered))
+	}()
+
+	sink(err)
 }
 
 // panicError builds the structured error for a recovered panic value. A

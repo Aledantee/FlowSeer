@@ -3,11 +3,16 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-fixture_parent=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks.XXXXXX")
+# The hook resolves its target through pwd -P, so it answers with a physical
+# path. TMPDIR is a symlink on macOS — /tmp is /private/tmp — so a fixture root
+# taken straight from mktemp builds expectations that differ from the hook's
+# answer by that prefix alone, and every path comparison below fails for a
+# reason that has nothing to do with the hook. Resolve the roots once, here.
+fixture_parent=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks.XXXXXX")" && pwd -P)
 fixture="$fixture_parent/repository with spaces"
 project_dir_with_spaces="$fixture_parent/project root with spaces"
-linked_worktree=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks-worktree.XXXXXX")
-external_worktree_root=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-external-worktrees.XXXXXX")
+linked_worktree=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks-worktree.XXXXXX")" && pwd -P)
+external_worktree_root=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/flowseer-external-worktrees.XXXXXX")" && pwd -P)
 rmdir "$linked_worktree"
 rmdir "$external_worktree_root"
 trap 'rm -rf "$fixture_parent" "$linked_worktree" "$external_worktree_root"' EXIT
