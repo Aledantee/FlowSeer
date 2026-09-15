@@ -479,9 +479,10 @@ PY
   # uniqueness in src/common/errs, and under test/conformance/ the schema
   # layering and message rules, the panic placement and goroutine
   # boundary over every first-party file under src/, and the forbidden
-  # module imports over every go.mod and .go file. A change that violates
-  # one of those touches none of the packages, so the importer fixpoint
-  # never selects them and a targeted run passes what --full refuses.
+  # module imports over the root and snmp bench go.mod files and every
+  # non-test .go file. A change that violates one of those touches none
+  # of the packages, so the importer fixpoint never selects them and a
+  # targeted run passes what --full refuses.
   # They live in the root module and walk the tree by path, nested
   # modules included, so a change in a nested module needs them just as
   # much; run them once per targeted run from the root, whichever modules
