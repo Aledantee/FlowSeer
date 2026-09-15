@@ -44,6 +44,14 @@
 
 set -eu
 
+# The verdict below converts benchstat's delta string to a number in awk, whose
+# string-to-number conversion honours LC_NUMERIC. Under a comma-decimal locale
+# "+0.10%" converts to 0 while "+50.00%" converts to 50, so every sub-1% delta
+# collapses to zero and MIN_DELTA below 1 can never fire. Pin the numeric locale
+# so the gate compares the same way wherever it runs.
+LC_ALL=C
+export LC_ALL
+
 COUNT="${COUNT:-10}"
 BENCH="${BENCH:-.}"
 GATE_NS="${GATE_NS:-0}"
