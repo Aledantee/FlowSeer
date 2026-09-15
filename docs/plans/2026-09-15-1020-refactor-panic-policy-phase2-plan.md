@@ -4,12 +4,23 @@ type: refactor
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-15-1020-refactor-panic-policy-plan.md
 ---
 
 # Panic Policy Phase 2 - The smi Parser's Unwinding - Plan
+
+> Implemented. The parser unwinds by `p.fatal`; no `panic`/`recover` remains in
+> `src/protocol/smi/internal/parse`. `benchstat` over `BenchmarkRecovery`,
+> `BenchmarkParseFile` and `BenchmarkParseDecl` (count 6) showed no regression —
+> a small improvement everywhere (ParseDecl −2% to −7%, Recovery −9%,
+> allocations unchanged), from dropping the per-declaration
+> `defer p.recoverBailout()`. The `&& !p.fatal` loop-gating in the draft
+> deadlocked (typeSpan relies on group consuming its opener); the landed shape
+> lets `group` run to completion and guards only the `nameList`/`members`
+> appends. `p.fatal` was kept (not renamed to `p.limited`) so `recover_test.go`
+> keeps its field reads.
 
 ## Goal
 
@@ -64,16 +75,25 @@ happens.
   The panic is what makes today's code correct on both counts; `p.fatal` is what
   replaces it.
 
-- **The three bounded loops stop on `p.fatal`.** `group` (`clause.go:570`),
-  `nameList` (`clause.go:614`) and `reader.members` (`subtype.go:363`) each loop
-  over tokens and call `limit` when a count is exceeded (`clause.go:596,631`,
-  `subtype.go:379`; `group` also via `enter` at `clause.go:588`). Their loop
-  conditions gain `&& !p.fatal` (`&& !r.p.fatal` for `members`). Why the loop
-  and not just `raise`: these are the loops the resource cap exists to bound. If
-  they kept running after the cap, `nameList` and `members` would keep appending
-  to their slices and `group` would keep scanning — the unbounded growth the
-  limit was added to stop. Silencing `raise` fixes the diagnostics; stopping the
-  loops preserves the memory bound.
+- **The bounded loops keep advancing after a limit but stop growing.**
+  `group` (`clause.go:570`), `nameList` (`clause.go:614`) and `reader.members`
+  (`subtype.go:363`) call `limit` when a count is exceeded (`clause.go:596,631`,
+  `subtype.go:379`; `group` also via `enter` at `clause.go:588`). They must not
+  simply gate their loop on `!p.fatal`: an earlier draft did, and it deadlocked.
+  `typeSpan` (`clause.go:553`) calls `group` and `continue`s **without advancing
+  itself**, relying on `group` to consume the bracket group; a `group` that
+  returned early on `p.fatal` consumed nothing, so `typeSpan` spun on the same
+  opener forever. The panic was load-bearing for forward progress, not only for
+  diagnostics. So:
+  - `group` runs its loop to completion (no `p.fatal` gate). It grows nothing —
+    it returns a span — so running on only consumes tokens, which is exactly the
+    forward progress its callers need. It always advances, so it terminates.
+  - `nameList` and `reader.members` keep their loops running (advancing) but
+    guard the *append*: once `p.fatal` is set they stop growing their slices.
+    That is what preserves the memory bound the cap exists for, while the loop
+    still consumes to the closing brace so the caller makes progress.
+  Silencing `raise` keeps the diagnostics correct; this keeps the parse both
+  terminating and bounded.
 
 - **Removing the unwind cannot overflow the stack.** `p.enter`
   (`recover.go:190`), the only depth-capped construct, is called from exactly one
@@ -146,29 +166,33 @@ Files: `src/protocol/smi/internal/parse/recover.go`,
 After: none
 Change: `raise` returns early when `p.fatal` is set. `limit` returns early when
 `p.fatal` is set, and otherwise appends its one diagnostic, sets `p.fatal`, and
-returns without `panic(bailout{})`. `group`, `nameList` and `reader.members`
-gain `!p.fatal` (`!r.p.fatal`) in their loop conditions. `recoverBailout`,
-`guarded` and the `bailout` type are deleted; `parse.go:161` calls
-`p.grade(&m)` directly and `declaration` drops its `defer p.recoverBailout()`.
-The doc comments on `declaration` (`parse.go:207-213`) and the grade call
-(`parse.go:155-160`) are rewritten from "the bail-out is recovered here" to the
-flag. `diag.Raise` calls are left unchanged. The parser continues its descent
-after a limit; the output is discarded by the existing `r.Modules = nil` and no
-diagnostic is appended after the limit because `raise` is silenced.
+returns without `panic(bailout{})`. `group` runs its loop to completion (no
+`p.fatal` gate — see the Decision on forward progress); `nameList` and
+`reader.members` keep their loops running but guard the append that grows their
+slice with `!p.fatal` / `!r.p.fatal`. `recoverBailout`, `guarded` and the
+`bailout` type are deleted; `parse.go` calls `p.grade(&m)` directly and
+`declaration` drops its `defer p.recoverBailout()`. The doc comments on
+`declaration` and the grade call are rewritten from "the bail-out is recovered
+here" to the flag. `diag.Raise` calls are left unchanged. The parser continues
+its descent after a limit; the output is discarded by the existing
+`r.Modules = nil` and no diagnostic is appended after the limit because `raise`
+is silenced.
 Tests: the existing `recover_test.go` cases pass with no changed expectations —
 `TestDiagnosticLimitStopsTheFile`, `TestEnumerationMemberLimit`,
 `TestNestingBeyondCapIsFatal`, `TestGradeAtTheDiagnosticLimitDoesNotEscape`,
-`TestNoPanicEscapesTheFrame`, and the ordinary-recovery cases. These are the
-change's evidence, not new tests: they are watched failing against a deliberately
-incomplete conversion first — remove the `p.fatal` guard from `raise` and
-`TestDiagnosticLimitStopsTheFile`/`TestEnumerationMemberLimit` fail on a trailing
-ordinary diagnostic; remove it from `limit` and `TestDiagnosticLimitStopsTheFile`
-fails on a second limit diagnostic — undoing from a copy taken first, not with
-`git restore`. The stale comment at `recover_test.go:504`
-("pins the recover the grade pass needs") is corrected to name the flag; that is
-a comment, not a changed expectation. A new `parse`-package guard test scans the
-package source and asserts no `panic(`/`recover()` outside `_test.go`, so
-requirement 4 is proven on every `go test` rather than by a one-time grep.
+`TestNoPanicEscapesTheFrame`, and the ordinary-recovery cases. Two tests are
+added, each watched failing against the defect first (undoing from a copy, not
+`git restore`):
+`TestRaiseAndLimitAreNoOpsOnceFatal` sets `p.fatal` on a fresh parser and
+asserts `raise` and `limit` append nothing — it fails with a diagnostic
+appended when either guard is removed. (This is white-box because `typeSpan`
+absorbs non-clause tokens, so a source that reliably reaches a post-limit
+`raise` is fragile; the guards are proven at the unit level instead.)
+`TestNoPanicOrRecoverInPackage` walks the non-test package source by AST and
+fails on any `panic`/`recover` call, proving requirement 4 on every `go test`.
+The stale comment at `TestGradeAtTheDiagnosticLimitDoesNotEscape` ("pins the
+recover the grade pass needs") is corrected to name the flag; a comment is not a
+changed expectation.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/smi/internal/parse`
 
 ## Verification
@@ -230,8 +254,8 @@ cost is optimized, not avoided.
 
 ## Open questions
 
-- Whether `p.fatal` deserves a clearer name (say `p.limited`) once it is the
-  parser's only unwinding mechanism rather than a flag the panic set on its way
-  out. Recommendation: rename in the same unit — `fatal` described the panic;
-  `limited` describes what the flag now means. Left to the implementer since it
-  touches only unexported reads within one package.
+- Whether `p.fatal` deserves a clearer name (say `p.limited`). Decided during
+  implementation to keep `p.fatal`: `recover_test.go` reads the field white-box
+  (`TestNestingBeyondCapIsFatal`), and renaming it would edit that test, which
+  Requirement 1 asks to leave unchanged. A rename can be its own small change
+  later if wanted.

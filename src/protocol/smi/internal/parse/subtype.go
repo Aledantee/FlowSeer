@@ -374,9 +374,14 @@ func (r *reader) members() []Member {
 				continue
 			}
 
-			out = append(out, m)
-			if len(out) > MaxMembers {
-				r.p.limit("enumeration members", MaxMembers, m.Span.Start)
+			// Keep consuming to the closing brace after a limit, but stop
+			// growing out: forward progress for the caller, memory bound
+			// from the cap.
+			if !r.p.fatal {
+				out = append(out, m)
+				if len(out) > MaxMembers {
+					r.p.limit("enumeration members", MaxMembers, m.Span.Start)
+				}
 			}
 		default:
 			r.next()

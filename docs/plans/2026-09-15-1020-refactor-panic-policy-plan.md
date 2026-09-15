@@ -231,7 +231,9 @@ Landed:
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase2-plan.md`
 After: U1
 Change: the parser unwinds by flag-checked return rather than by panic.
-Landed:
+Landed: Yes. `panic(bailout{})` and its recover are gone; the parser unwinds by
+the `p.fatal` flag. `benchstat` showed no regression (a small improvement from
+dropping the per-declaration recover-defer). See the phase-2 plan.
 
 ### U4. Phase 3 - enforcement
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase3-plan.md`

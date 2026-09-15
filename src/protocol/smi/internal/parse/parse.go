@@ -155,10 +155,9 @@ func Parse(f *frame.File) *Result {
 
 		if !p.fatal {
 			// The grade pass raises diagnostics of its own, so it can be
-			// the call that reaches the diagnostic limit and unwinds. It
-			// runs outside any declaration, so it needs the same recover
-			// the frame boundary installs.
-			p.guarded(func() { p.grade(&m) })
+			// the call that reaches the diagnostic limit. That sets p.fatal
+			// and silences later raises; the module is discarded below.
+			p.grade(&m)
 		}
 
 		r.Modules = append(r.Modules, m)
@@ -175,43 +174,16 @@ func Parse(f *frame.File) *Result {
 	return r
 }
 
-// recoverBailout absorbs the panic a limit unwinds with. It has to be
-// deferred directly, since that is the only place recover reports
-// anything.
-//
-// A recovered value that is not the sentinel is re-panicked, because
-// swallowing it would turn a parser bug into silently missing output.
-func (p *parser) recoverBailout() {
-	rec := recover()
-	if rec == nil {
-		return
-	}
-	if _, isBailout := rec.(bailout); !isBailout {
-		panic(rec)
-	}
-}
-
-// guarded runs fn under that same recover, for a pass that raises
-// diagnostics outside any declaration and so has no frame boundary of
-// its own to unwind to.
-func (p *parser) guarded(fn func()) {
-	defer p.recoverBailout()
-
-	fn()
-}
-
 // declaration parses one frame into m.
 //
-// This is the frame boundary in both senses: the scanner is reset to
-// this frame's tokens, so no reader can reach past them, and the
-// bail-out a limit raises is recovered here, whoever the caller is.
+// This is the frame boundary: the scanner is reset to this frame's tokens, so
+// no reader can reach past them. A resource limit sets p.fatal rather than
+// unwinding, so the driver loop above ends the file after this returns.
 func (p *parser) declaration(m *Module, fr frame.Frame) {
 	kind, ok := declKindOf(fr)
 	if !ok {
 		return
 	}
-
-	defer p.recoverBailout()
 
 	p.toks = fr.Tokens
 	p.pos = 0
