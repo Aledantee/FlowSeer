@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -342,6 +343,55 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	}
 	if info.BlockReason != "" {
 		t.Errorf("unguarded port block reason = %q, want none", info.BlockReason)
+	}
+}
+
+// TestBPDUGuardHoldsAnMSTIOutOfForwarding pins that BPDU guard, like the
+// internal/external classification it rides beside, is a bridge-global
+// property of the port: tripping it must hold every MST instance's own role
+// and state out of the active topology, not just the CIST's. Before the fix,
+// recompute read the guard flag from the per-tree port instead of the CIST's,
+// so an MSTI never saw the guard trip and kept forwarding.
+func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:11"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {BPDUGuard: true},
+			"1/1/2": {},
+		},
+		MST: &stp.MST{
+			Name: "region-1",
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+			},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	// Two forward delays carry both the CIST's and MSTI 1's copy of the port
+	// to Forwarding, so the BPDU below takes a forwarding port out of the
+	// topology rather than finding it already discarding.
+	l.Wake(t0.Add(16 * time.Second))
+	l.Wake(t0.Add(32 * time.Second))
+	if !l.Forwards("1/1/1", 10) {
+		t.Fatalf("MSTI 1 does not forward VLAN 10 before the guard trips")
+	}
+
+	l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
+
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDisabled {
+		t.Fatalf("CIST role = %v, want Disabled once BPDU guard trips", info.Role)
+	}
+	if l.Forwards("1/1/1", 10) {
+		t.Error("BPDU guard tripped on the CIST but MSTI 1 still forwards VLAN 10")
+	}
+	if info := l.InstancePortInfo(1, "1/1/1"); info.State == stp.StateForwarding {
+		t.Errorf("MSTI 1 port state = %v, want not Forwarding once BPDU guard trips", info.State)
 	}
 }
 
