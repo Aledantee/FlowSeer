@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
 
@@ -35,8 +36,9 @@ func BPDUDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fac
 
 // ForwardingFact returns an immutable snapshot of the spanning-tree state used
 // to gate bridge learning and forwarding.
-func (l *Layer) ForwardingFact(port string, learns, forwards bool) trace.Fact {
+func (l *Layer) ForwardingFact(port string, vid vlan.ID, learns, forwards bool) trace.Fact {
 	return forwardingDecisionFact("port=" + strconv.Quote(port) +
+		";vid=" + strconv.FormatUint(uint64(vid), 10) +
 		";state=" + portInfoSnapshot(l.PortInfo(port)) +
 		";learns=" + strconv.FormatBool(learns) +
 		";forwards=" + strconv.FormatBool(forwards))

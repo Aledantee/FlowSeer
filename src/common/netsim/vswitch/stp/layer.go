@@ -294,10 +294,12 @@ func (l *Layer) Clone() *Layer {
 	return cp
 }
 
-// Learns reports whether the named port learns MAC addresses into the filtering database.
-// An untracked port always learns.
-func (l *Layer) Learns(port string) bool {
-	p, ok := l.cist().ports[port]
+// Learns reports whether the named port learns MAC addresses into the filtering
+// database for the given VLAN. An untracked port always learns. While the bridge
+// runs one tree every VLAN answers alike; the parameter is what lets that stop
+// being true without moving the seam again.
+func (l *Layer) Learns(port string, vid vlan.ID) bool {
+	p, ok := l.treeFor(vid).ports[port]
 	if !ok {
 		return true
 	}
@@ -305,9 +307,10 @@ func (l *Layer) Learns(port string) bool {
 	return p.state == StateLearning || p.state == StateForwarding
 }
 
-// Forwards reports whether the named port forwards traffic. An untracked port always forwards.
-func (l *Layer) Forwards(port string) bool {
-	p, ok := l.cist().ports[port]
+// Forwards reports whether the named port forwards traffic carrying the given
+// VLAN. An untracked port always forwards.
+func (l *Layer) Forwards(port string, vid vlan.ID) bool {
+	p, ok := l.treeFor(vid).ports[port]
 	if !ok {
 		return true
 	}

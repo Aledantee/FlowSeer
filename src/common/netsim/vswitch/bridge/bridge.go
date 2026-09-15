@@ -17,14 +17,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
-// Gate decides whether a port learns addresses and forwards frames.
+// Gate decides whether a port learns addresses and forwards frames carrying a
+// given VLAN. The VLAN is part of the question because a port's forwarding state
+// belongs to a spanning tree, and more than one tree can run over one port.
 type Gate interface {
-	Learns(port string) bool
-	Forwards(port string) bool
+	Learns(port string, vid vlan.ID) bool
+	Forwards(port string, vid vlan.ID) bool
 }
 
 type semanticGate interface {
-	ForwardingFact(port string, learns, forwards bool) trace.Fact
+	ForwardingFact(port string, vid vlan.ID, learns, forwards bool) trace.Fact
 }
 
 // Selection is a bridge-level snapshot of a link aggregation member choice. It
@@ -440,32 +442,6 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 		return Ingress{}, res, false
 	}
 
-	ingressLearns := true
-	ingressForwards := true
-	var ingressGate trace.Fact
-	if b.gateScope.Compare(analysis.WholeScope()) != 0 {
-		res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", res.Ingress))
-	}
-	if b.gate != nil {
-		ingressLearns = b.gate.Learns(res.Ingress)
-		ingressForwards = b.gate.Forwards(res.Ingress)
-		ingressGate = b.gateFact(res.Ingress, ingressLearns, ingressForwards)
-	}
-
-	if !ingressLearns && !ingressForwards {
-		res.Reason = ReasonPortBlocked
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   port.LayerRelay,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID("port-blocked"),
-			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-			Inputs:  facts(ingressGate),
-			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", 0, ReasonPortBlocked, false)},
-		})
-
-		return Ingress{}, res, false
-	}
-
 	var (
 		classifiedFID    vlan.ID
 		ingressPCP       vlan.PCP
@@ -689,6 +665,36 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 				return Ingress{}, res, false
 			}
 		}
+	}
+
+	// The gate runs after classification, so it is asked about the VLAN the
+	// frame was classified into rather than about the port alone. A frame that
+	// never passed classification is not a spanning-tree question, which is why
+	// the scope is consulted here and not ahead of the classification drops.
+	ingressLearns := true
+	ingressForwards := true
+	var ingressGate trace.Fact
+	if b.gateScope.Compare(analysis.WholeScope()) != 0 {
+		res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", res.Ingress))
+	}
+	if b.gate != nil {
+		ingressLearns = b.gate.Learns(res.Ingress, classifiedFID)
+		ingressForwards = b.gate.Forwards(res.Ingress, classifiedFID)
+		ingressGate = b.gateFact(res.Ingress, classifiedFID, ingressLearns, ingressForwards)
+	}
+
+	if !ingressLearns && !ingressForwards {
+		res.Reason = ReasonPortBlocked
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRelay,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID("port-blocked"),
+			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+			Inputs:  facts(ingressGate),
+			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonPortBlocked, false)},
+		})
+
+		return Ingress{}, res, false
 	}
 
 	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) {
@@ -941,8 +947,8 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
 			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", destPort.Name))
 		}
-		if b.gate != nil && !b.gate.Forwards(destPort.Name) {
-			gate := b.gateFact(destPort.Name, b.gate.Learns(destPort.Name), false)
+		if b.gate != nil && !b.gate.Forwards(destPort.Name, in.FID) {
+			gate := b.gateFact(destPort.Name, in.FID, b.gate.Learns(destPort.Name, in.FID), false)
 			res.Reason = ReasonPortBlocked
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
@@ -1144,8 +1150,8 @@ func (b *Bridge) replicate(
 		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
 			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", candidate.Name))
 		}
-		if b.gate != nil && !b.gate.Forwards(candidate.Name) {
-			gate := b.gateFact(candidate.Name, b.gate.Learns(candidate.Name), false)
+		if b.gate != nil && !b.gate.Forwards(candidate.Name, in.FID) {
+			gate := b.gateFact(candidate.Name, in.FID, b.gate.Learns(candidate.Name, in.FID), false)
 			res.Egress = append(res.Egress, Egress{
 				Port:    candidate.Name,
 				Frame:   egressFrame,
@@ -1247,13 +1253,13 @@ func (b *Bridge) replicate(
 	return res
 }
 
-func (b *Bridge) gateFact(name string, learns, forwards bool) trace.Fact {
+func (b *Bridge) gateFact(name string, vid vlan.ID, learns, forwards bool) trace.Fact {
 	gate, ok := b.gate.(semanticGate)
 	if !ok {
 		return nil
 	}
 
-	return gate.ForwardingFact(name, learns, forwards)
+	return gate.ForwardingFact(name, vid, learns, forwards)
 }
 
 // selectMember asks the selector which member carries a frame out of a LAG

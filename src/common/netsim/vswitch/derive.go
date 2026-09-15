@@ -95,7 +95,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 				return false
 			}
 
-			return next.stp == nil || next.stp.Forwards(name)
+			return next.stp == nil || next.stp.Forwards(name, vid)
 		})
 		restoreMulticastState(next, retained)
 	}

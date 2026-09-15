@@ -586,10 +586,10 @@ func TestUntrackedPortLearnsAndForwards(t *testing.T) {
 	}, tbl)
 
 	// Port 1/1/99 is untracked by STP
-	if !l.Learns("1/1/99") {
+	if !l.Learns("1/1/99", 0) {
 		t.Error("Learns(\"1/1/99\") = false, want true for untracked port")
 	}
-	if !l.Forwards("1/1/99") {
+	if !l.Forwards("1/1/99", 0) {
 		t.Error("Forwards(\"1/1/99\") = false, want true for untracked port")
 	}
 }

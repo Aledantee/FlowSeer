@@ -1348,7 +1348,7 @@ type testGate struct {
 	forwards map[string]bool
 }
 
-func (g testGate) Learns(p string) bool {
+func (g testGate) Learns(p string, _ vlan.ID) bool {
 	if g.learns == nil {
 		return true
 	}
@@ -1356,12 +1356,108 @@ func (g testGate) Learns(p string) bool {
 	return g.learns[p]
 }
 
-func (g testGate) Forwards(p string) bool {
+func (g testGate) Forwards(p string, _ vlan.ID) bool {
 	if g.forwards == nil {
 		return true
 	}
 
 	return g.forwards[p]
+}
+
+// gateVLANConfig is a two-port bridge where 1/1/1 admits VLAN 10 untagged and
+// filters everything else, which is what lets one frame fail classification and
+// another pass it on the same blocked port.
+func gateVLANConfig() bridge.Config {
+	return bridge.Config{
+		VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {
+					PVID:             mustVLAN(10),
+					Untagged:         []vlan.ID{10},
+					IngressFiltering: true,
+					Admission:        bridge.All,
+				},
+				"1/1/2": {
+					PVID:     mustVLAN(10),
+					Untagged: []vlan.ID{10},
+					Tagged:   []vlan.ID{20},
+				},
+			},
+		},
+	}
+}
+
+// TestGateBlockedFrameCarriesItsClassifiedFID is evidence for Rgate: the gate
+// now runs after classification, so the drop names the VLAN the frame was
+// classified into rather than a zero standing in for "not classified yet".
+func TestGateBlockedFrameCarriesItsClassifiedFID(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, gateVLANConfig(), ports)
+	br.SetGate(testGate{
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
+
+	// An untagged frame classifies cleanly into the port's PVID.
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test"),
+	}
+	res := br.Forward(testTime0, "1/1/1", frame)
+
+	if res.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortBlocked)
+	}
+	if res.FID != 10 {
+		t.Errorf("res.FID = %d, want 10: the frame was classified before the gate ran", res.FID)
+	}
+
+	// The classification step precedes the gate's drop, which is the order the
+	// FID above depends on.
+	classifyAt, blockAt := -1, -1
+	for i, step := range res.Steps {
+		if step.Op == trace.OpClassify && classifyAt < 0 {
+			classifyAt = i
+		}
+		if step.RuleID == trace.RuleID("port-blocked") && blockAt < 0 {
+			blockAt = i
+		}
+	}
+	if classifyAt < 0 || blockAt < 0 {
+		t.Fatalf("steps = %+v, want both a classify step and a port-blocked drop", res.Steps)
+	}
+	if classifyAt > blockAt {
+		t.Errorf("classify step at %d, port-blocked at %d: want classification first", classifyAt, blockAt)
+	}
+}
+
+// TestClassificationFailureOutranksPortBlocked is evidence for Rgate. A frame
+// the port would never have admitted is not a spanning-tree question, so the
+// classification reason is the useful answer even though the port is blocked.
+func TestClassificationFailureOutranksPortBlocked(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, gateVLANConfig(), ports)
+	br.SetGate(testGate{
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
+
+	// VLAN 20 is not a member of 1/1/1 and the port filters on ingress.
+	frame := ethernet.Frame{
+		Dst:       macB,
+		Src:       macA,
+		Tags:      []vlan.Tag{{TPID: 0x8100, VID: 20}},
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("data"),
+	}
+	res := br.Forward(testTime0, "1/1/1", frame)
+
+	if res.Reason != bridge.ReasonIngressFilter {
+		t.Errorf("res.Reason = %q, want %q: classification runs ahead of the gate", res.Reason, bridge.ReasonIngressFilter)
+	}
 }
 
 func TestGateBlocksIngressWithoutLearning(t *testing.T) {

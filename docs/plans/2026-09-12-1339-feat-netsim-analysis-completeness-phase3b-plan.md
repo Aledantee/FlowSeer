@@ -221,6 +221,15 @@ A port state an operator can see beats an issue code they have to look for.
   translation from a bridge-level VLAN to a protocol-level tree belongs to the
   switch that owns both, and the adapter is where phase 3e's per-VLAN mapping
   will live.
+- Ruled: no `stpGate` adapter this phase; `*stp.Layer` stays installed as the
+  gate directly and its `Learns` and `Forwards` take the VID, resolving it to a
+  tree through `treeFor`. Why: the mapping the adapter was to hold lives in the
+  layer, which owns the trees, so an adapter here would be a pass-through with
+  one caller, which `docs/code-style.md` refuses. The adapter earns its place in
+  phase 3e, where the switch holds a per-VLAN mapping the layer does not own.
+  Cost if wrong: phase 3e adds the adapter and changes the two installation
+  sites, `src/common/netsim/vswitch/switch.go:285` and
+  `src/common/netsim/vswitch/derive.go:47`.
 - **The gate stays pure and keeps no commit flag.** Why: it is a query over
   state the receive path already settled, and the landed peek discipline
   (`src/common/netsim/vswitch/switch.go:690`) threads `mutate` to the receive

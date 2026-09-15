@@ -107,6 +107,37 @@ func TestMessageAgeBoundUsesTheReceivedMaxAge(t *testing.T) {
 	}
 }
 
+// TestGateAnswersAlikeForEveryVLAN is evidence for Rgate. One tree answers every
+// VLAN in this phase, so the two VLANs agree; the test exists to pin that the
+// parameter is carried and resolved rather than ignored, and it is the test that
+// starts failing when phase 3d gives the VLANs different trees.
+func TestGateAnswersAlikeForEveryVLAN(t *testing.T) {
+	t.Parallel()
+
+	l, t0 := guardLayer(t, map[string]stp.Port{"1/1/1": {}, "1/1/2": {}})
+
+	// A blocked port and a forwarding one, so the assertion is not vacuous on a
+	// bridge whose every port answers the same way.
+	l.Receive(t0.Add(time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
+	l.Receive(t0.Add(time.Second), "1/1/2", superiorBPDU(0, 20*time.Second))
+
+	for _, name := range []string{"1/1/1", "1/1/2"} {
+		if l.Forwards(name, 10) != l.Forwards(name, 20) {
+			t.Errorf("port %q forwards VLAN 10 as %v and VLAN 20 as %v, want one tree to answer both",
+				name, l.Forwards(name, 10), l.Forwards(name, 20))
+		}
+		if l.Learns(name, 10) != l.Learns(name, 20) {
+			t.Errorf("port %q learns VLAN 10 as %v and VLAN 20 as %v, want one tree to answer both",
+				name, l.Learns(name, 10), l.Learns(name, 20))
+		}
+	}
+
+	// An untracked port answers alike too, and permissively.
+	if !l.Forwards("1/1/99", 10) || !l.Learns("1/1/99", 4094) {
+		t.Error("an untracked port did not answer permissively for every VLAN")
+	}
+}
+
 // TestBPDUGuardDisablesPortUntilLinkBounce is evidence for R15b and R15e.
 func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	t.Parallel()
@@ -129,7 +160,7 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	if info.BlockReason != stp.BlockReasonBPDUGuard {
 		t.Errorf("block reason = %q, want %q", info.BlockReason, stp.BlockReasonBPDUGuard)
 	}
-	if l.Forwards("1/1/1") || l.Learns("1/1/1") {
+	if l.Forwards("1/1/1", 0) || l.Learns("1/1/1", 0) {
 		t.Error("guarded port still forwards or learns")
 	}
 	// The unexpected bridge must not have become this bridge's root.
@@ -241,7 +272,7 @@ func TestLoopGuardHoldsPortDiscardingWhenBPDUsStop(t *testing.T) {
 	if info.BlockReason != stp.BlockReasonLoopInconsistent {
 		t.Errorf("block reason = %q, want %q", info.BlockReason, stp.BlockReasonLoopInconsistent)
 	}
-	if l.Forwards("1/1/1") {
+	if l.Forwards("1/1/1", 0) {
 		t.Error("loop-inconsistent port forwards, which is the loop the guard exists to prevent")
 	}
 

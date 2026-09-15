@@ -126,7 +126,11 @@ The virtual switch uses a ladder of architectural layers:
 - **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
   `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
   bridge and compute loop-free port states. Implements the bridge gate to
-  block traffic on Discarding ports while learning on Learning ports.
+  block traffic on Discarding ports while learning on Learning ports. The gate
+  is asked about a port and a VLAN, and the bridge asks it after classifying
+  the frame, so a drop names the VLAN it was classified into and a frame the
+  port would never have admitted reports the classification reason rather than
+  `port-blocked`. One tree carries every VLAN today, so the two answers agree.
 - **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
   `mcast.Config`. IGMP and MLD reports register group members, while queries
   identify router ports. `Switch.Resolve` filters admitted member ports by
