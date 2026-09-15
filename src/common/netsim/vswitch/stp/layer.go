@@ -236,14 +236,17 @@ func (p *portState) loopGuardWatches() bool {
 }
 
 // priorityVector is the six-component spanning tree priority vector IEEE
-// 802.1Q compares to elect roots and designated ports. An RSTP tree sets
-// regionalRootID from rootID and leaves externalRootPathCost at zero, which
-// collapses the comparison to the four-component RSTP order (root, cost,
-// bridge, port) with the cost living in the external slot. An MSTI sets
-// rootID from regionalRootID and leaves the external cost at zero, which
-// collapses it to clause 13.11's four-component MSTI order instead. Neither
-// case needs a branch here: the constant components are lexicographically
-// neutral.
+// 802.1Q compares to elect roots and designated ports. An RSTP tree, and the
+// CIST on a boundary port, set regionalRootID from rootID and leave
+// externalRootPathCost at zero, which collapses the comparison to the
+// four-component RSTP order (root, cost, bridge, port) with the cost living
+// in the external slot. The CIST on an internal port populates all six
+// components instead, comparing regional root and internal cost ahead of
+// bridge and port the way clause 13.11 requires within a region. An MSTI
+// sets rootID from regionalRootID and leaves the external cost at zero,
+// which collapses it to clause 13.11's four-component MSTI order. None of
+// this needs a branch in compareVectors itself: the constant or shared
+// leading components are lexicographically neutral.
 type priorityVector struct {
 	rootID               BridgeID
 	externalRootPathCost uint32
@@ -924,7 +927,7 @@ func (l *Layer) instanceRemainingHops(t *tree) uint8 {
 // while building the CIST's own BPDU: an MST bridge always emits its MSTI
 // records alongside the CIST, on every up port, boundary ports included,
 // because a port is classified internal or external only on reception.
-func (l *Layer) gatherMSTIRecords(p *portState) []MSTIRecord {
+func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []MSTIRecord {
 	var recs []MSTIRecord
 
 	for _, id := range l.treeOrder {
@@ -939,15 +942,20 @@ func (l *Layer) gatherMSTIRecords(p *portState) []MSTIRecord {
 		}
 
 		// Flags reuses the CIST's own role/learning/forwarding bit layout
-		// (SetRole/SetLearning/SetForwarding), applied to this instance
-		// port's role and state rather than the CIST's, so the record says
-		// what the sender's per-instance port is doing. A zero-value BPDU
-		// used only to borrow its bit-setting methods never gets encoded
-		// itself.
+		// (SetRole/SetLearning/SetForwarding/SetTopologyChange), applied to
+		// this instance port's role and state and this instance's own
+		// topology change timer rather than the CIST's, so the record says
+		// what the sender's per-instance port is doing and lets a peer
+		// reconverge that instance without waiting on its filtering database
+		// to age out. A zero-value BPDU used only to borrow its bit-setting
+		// methods never gets encoded itself.
 		var flags BPDU
 		flags.SetRole(mp.role)
 		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
 		flags.SetForwarding(mp.state == StateForwarding)
+		if !mt.topologyChangeTimer.IsZero() && mt.topologyChangeTimer.After(now) {
+			flags.SetTopologyChange(true)
+		}
 
 		recs = append(recs, MSTIRecord{
 			MSTID:                mstid,
@@ -965,13 +973,17 @@ func (l *Layer) gatherMSTIRecords(p *portState) []MSTIRecord {
 
 // receiveMSTIs stores the MSTI records an internal BPDU carries into each
 // named instance's port state, one instance at a time by the same
-// same-source-or-superior rule the CIST uses. A record for an instance this
-// bridge does not configure is ignored: the fabric's bridges are not required
-// to share the same instance set. The designated bridge and port a record
-// implies reuse the sending bridge's own address and the CIST port
-// identifier's index half, since MSTI bridge and port identifiers differ from
-// the CIST's only in their priority nibble (clause 13.7).
-func (l *Layer) receiveMSTIs(now time.Time, port string, b BPDU) {
+// same-source-or-superior rule the CIST uses, and carries each record's own
+// topology change bit into that instance the way Receive carries the CIST's:
+// unconditionally, not gated on superiority, since a change notification is
+// evidence about the fabric rather than a claim this port might reject. A
+// record for an instance this bridge does not configure is ignored: the
+// fabric's bridges are not required to share the same instance set. The
+// designated bridge and port a record implies reuse the sending bridge's own
+// address and the CIST port identifier's index half, since MSTI bridge and
+// port identifiers differ from the CIST's only in their priority nibble
+// (clause 13.7).
+func (l *Layer) receiveMSTIs(now time.Time, port string, b BPDU, flushes *[]FlushTarget) {
 	for _, rec := range b.MSTIs {
 		mt, ok := l.trees[treeID(rec.MSTID)]
 		if !ok {
@@ -980,6 +992,16 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b BPDU) {
 		mp, ok := mt.ports[port]
 		if !ok {
 			continue
+		}
+
+		if (BPDU{Flags: rec.Flags}).TopologyChange() && !mp.cfg.RestrictedTCN {
+			mt.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+			fids := l.treeVLANs[mt.id]
+			for _, name := range l.portNames {
+				if name != port {
+					mergeFlushTarget(flushes, name, fids)
+				}
+			}
 		}
 
 		recBridgeID := BridgeID{
@@ -1072,7 +1094,7 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) BP
 		b.RegionalRootID = t.regionalRootID
 		b.InternalRootPathCost = t.internalRootPathCost
 		b.RemainingHops = l.instanceRemainingHops(t)
-		b.MSTIs = l.gatherMSTIRecords(p)
+		b.MSTIs = l.gatherMSTIRecords(now, p)
 	}
 
 	return b
@@ -1106,8 +1128,12 @@ func candidateVector(t *tree, p *portState) priorityVector {
 
 	switch {
 	case t.id == cistID && p.external:
+		// A bridge whose CIST root port is a boundary port terminates the
+		// region for this vector: it IS the CIST regional root here, not a
+		// name borrowed from the peer's region, so the regional root mirrors
+		// this tree's own bridge identifier and the internal cost stays zero.
 		cand.externalRootPathCost = p.rcvRootPathCost + p.pathCost
-		cand.regionalRootID = p.rcvRootID
+		cand.regionalRootID = t.bridgeID
 	case t.id == cistID:
 		cand.externalRootPathCost = p.rcvRootPathCost
 		cand.regionalRootID = p.rcvRegionalRootID
@@ -1134,7 +1160,8 @@ func rawVector(t *tree, p *portState) priorityVector {
 		}
 	case t.id == cistID:
 		return priorityVector{
-			rootID: p.rcvRootID, regionalRootID: p.rcvRegionalRootID, internalRootPathCost: p.rcvInternalRootPathCost,
+			rootID: p.rcvRootID, externalRootPathCost: p.rcvRootPathCost,
+			regionalRootID: p.rcvRegionalRootID, internalRootPathCost: p.rcvInternalRootPathCost,
 			bridgeID: p.rcvBridgeID, portID: p.rcvPortID,
 		}
 	default:
@@ -1262,11 +1289,18 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 			continue
 		}
 
+		// bpduGuardDisabled and loopInconsistent are bridge-global properties
+		// of the port, like the internal/external classification: only the
+		// CIST's copy is ever written (Receive's guard branch, and Wake's
+		// loop-guard arm), so an MSTI reads them from the CIST's port state
+		// the way it already reaches across for l.boundary.
+		cistP := l.cist().ports[name]
+
 		oldRole := p.role
 		switch {
-		case !p.up || p.bpduGuardDisabled:
+		case !p.up || cistP.bpduGuardDisabled:
 			p.role = RoleDisabled
-		case p.loopInconsistent:
+		case cistP.loopInconsistent:
 			// A loop-inconsistent port is Alternate and never Designated: a
 			// port that stopped hearing its designated peer is the one that
 			// would open a loop by claiming the segment.
@@ -1300,6 +1334,13 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 		if t.id != cistID && l.boundary(name) {
 			cistP := l.cist().ports[name]
 			p.state = cistP.state
+			// A port that just flipped internal to boundary may still carry
+			// a live timer from its internal role and state ladder; a
+			// boundary port never drives its own state, so nothing else
+			// clears it. Left set, the next Wake would advance the port on
+			// a timer behind a state this branch already mirrored, raising
+			// a topology change with nothing behind it.
+			p.fwdDelayTimer = time.Time{}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
 			}
@@ -1570,6 +1611,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		p.state = StateDiscarding
 		p.fwdDelayTimer = time.Time{}
 		p.proposing = p.pointToPoint && p.sendRSTP
+		// edge is a bridge-global link property (see syncInstancePorts): a
+		// port losing auto-edge status must clear it on every instance too,
+		// or an MSTI keeps treating the port as an edge after the CIST no
+		// longer does.
+		l.syncInstancePorts(port, p)
 	}
 
 	if b.Type == BPDUTypeTopologyChangeNotification {
@@ -1599,7 +1645,6 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	// external. The classification lives on the CIST port state because it
 	// is a property of the link, not of a tree running over it.
 	internal := l.mst != nil && b.ConfigID != nil && *b.ConfigID == *l.configID
-	p.external = !internal
 
 	if internal {
 		// Internal information ages by hop count, re-originated one hop
@@ -1608,6 +1653,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.
 		if b.RemainingHops <= 1 {
+			p.external = !internal
 			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 			return Effects{
@@ -1624,6 +1670,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		// longer exists stops refreshing the timer on every hop and the
 		// port's own information ages out.
 		if b.MessageAge+time.Second > b.MaxAge {
+			p.external = !internal
 			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 			return Effects{
@@ -1657,6 +1704,14 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		}
 	}
 
+	// The classification updates only now, after the stored vector above was
+	// built against what the port currently holds under its old
+	// classification. Assigning it earlier would compare that stored
+	// information as though it already carried this BPDU's classification,
+	// which can invert the superiority verdict for the one BPDU that flips
+	// internal to external or back.
+	p.external = !internal
+
 	if sameSource || isSuperior {
 		p.rcvInfoValid = true
 		p.rcvRootID = b.RootID
@@ -1672,11 +1727,20 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			p.rcvRegionalRootID = b.RegionalRootID
 			p.rcvInternalRootPathCost = b.InternalRootPathCost
 			p.rcvRemainingHops = b.RemainingHops
+		} else {
+			// A port classified external carries no internal-only state: a
+			// stale regional root, internal cost, or hop count left over from
+			// an earlier internal BPDU would otherwise survive the flip and
+			// this bridge would re-originate a decreasing hop count instead
+			// of MaxHops.
+			p.rcvRegionalRootID = BridgeID{}
+			p.rcvInternalRootPathCost = 0
+			p.rcvRemainingHops = 0
 		}
 	}
 
 	if internal {
-		l.receiveMSTIs(now, port, b)
+		l.receiveMSTIs(now, port, b, &flushes)
 	}
 
 	if p.role == RoleDesignated && b.Agreement() {
@@ -1752,6 +1816,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 	var flushes []FlushTarget
 	var emissions []Emission
 
+	autoEdgeFired := false
 	for _, name := range l.portNames {
 		p := t.ports[name]
 		if p.cfg.AutoEdge && p.sendRSTP && p.up && p.role == RoleDesignated &&
@@ -1763,6 +1828,12 @@ func (l *Layer) Wake(now time.Time) Effects {
 			p.fwdDelayTimer = time.Time{}
 			p.proposing = false
 			p.forwardTransitions++
+			// edge is a bridge-global link property (see syncInstancePorts):
+			// an MSTI port must reach Forwarding at the same wake as the
+			// CIST's, or it raises a topology change of its own for a flush
+			// auto-edge exists to prevent.
+			l.syncInstancePorts(name, p)
+			autoEdgeFired = true
 		}
 	}
 
@@ -1866,7 +1937,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 	}
 
-	if agedOut || stateChanged {
+	if agedOut || stateChanged || autoEdgeFired {
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 	}
 

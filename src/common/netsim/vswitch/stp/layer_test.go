@@ -1766,3 +1766,131 @@ func TestMSTIRecordFlagsCarryThePerInstancePortRole(t *testing.T) {
 		t.Errorf("MSTI record role = %v, want it to match InstancePortInfo's %v", decoded.Role(), instanceInfo.Role)
 	}
 }
+
+// TestInferiorExternalBPDUKeepsStoredInternalInformation is evidence that a
+// port's classification is assigned only after the BPDU it just received is
+// compared against what the port already stores. Before the fix, the port's
+// external flag flipped first, so the stored (internal) information was
+// read back in the external vector shape for that one comparison, dropping
+// its regional root and letting a clearly inferior external BPDU read as
+// superior.
+func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	region := stp.MST{Name: "region-1"}
+	cid := region.ConfigID()
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:30"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST:      &region,
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	oldRoot := stp.BridgeID{Priority: 100}
+	oldBridge := stp.BridgeID{Priority: 900}
+
+	internalBPDU := stp.BPDU{
+		RootID:               oldRoot,
+		RootPathCost:         500,
+		BridgeID:             oldBridge,
+		PortID:               0x9001,
+		HelloTime:            2 * time.Second,
+		MaxAge:               20 * time.Second,
+		ForwardDelay:         15 * time.Second,
+		ConfigID:             &cid,
+		RegionalRootID:       stp.BridgeID{Priority: 50},
+		InternalRootPathCost: 300,
+		RemainingHops:        20,
+	}
+	internalBPDU.SetRole(stp.RoleDesignated)
+
+	l.Receive(t0.Add(time.Second), "1/1/1", internalBPDU)
+
+	before := l.PortInfo("1/1/1")
+	if before.Role != stp.RoleRoot {
+		t.Fatalf("role after the internal BPDU = %v, want Root", before.Role)
+	}
+	if before.Designated != oldBridge {
+		t.Fatalf("designated bridge after the internal BPDU = %v, want %v", before.Designated, oldBridge)
+	}
+
+	// A foreign-region BPDU from a different bridge: the same root and root
+	// path cost (so the comparison falls through to the designated bridge),
+	// but a lower-priority (better-looking) bridge identifier than the
+	// stored one. Correctly compared, this loses on the region's own
+	// internal cost and regional root before the bridge identifier is ever
+	// reached; only the classification-order bug lets it win there instead.
+	foreignRegion := stp.MST{Name: "region-2"}
+	foreignConfigID := foreignRegion.ConfigID()
+	newBridge := stp.BridgeID{Priority: 50}
+	externalBPDU := stp.BPDU{
+		RootID:       oldRoot,
+		RootPathCost: 500,
+		BridgeID:     newBridge,
+		PortID:       0x5001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     &foreignConfigID,
+	}
+	externalBPDU.SetRole(stp.RoleDesignated)
+
+	l.Receive(t0.Add(2*time.Second), "1/1/1", externalBPDU)
+
+	after := l.PortInfo("1/1/1")
+	if after.Designated != oldBridge {
+		t.Errorf("designated bridge after the inferior external BPDU = %v, want the stored %v kept", after.Designated, oldBridge)
+	}
+	if after.DesignatedPort != 0x9001 {
+		t.Errorf("designated port after the inferior external BPDU = 0x%04x, want the stored 0x9001 kept", after.DesignatedPort)
+	}
+}
+
+// TestAutoEdgeReachesAnMSTIAtTheSameWake is evidence that auto-edge detection
+// mirrors onto every MST instance's own port at the same wake the CIST's
+// fires, rather than waiting for a later LinkChange to carry it across.
+// Before the fix, an instance stayed dark two forward delays longer than the
+// CIST and then raised a topology change of its own on becoming an edge,
+// which is exactly the flush auto-edge exists to prevent.
+func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:31"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {AutoEdge: true},
+			"1/1/2": {},
+		},
+		MST: &stp.MST{
+			Name: "region-1",
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+			},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	// MigrateTime (3s) is the auto-edge delay on a point-to-point link.
+	fx := l.Wake(t0.Add(3 * time.Second))
+
+	if info := l.PortInfo("1/1/1"); !info.Edge || info.State != stp.StateForwarding {
+		t.Fatalf("CIST 1/1/1 = edge %v state %v, want edge and forwarding at this wake", info.Edge, info.State)
+	}
+	if !l.Forwards("1/1/1", 10) {
+		t.Error("MSTI 1 does not forward VLAN 10 at the same wake the CIST's auto-edge fires")
+	}
+	if info := l.InstancePortInfo(1, "1/1/1"); !info.Edge {
+		t.Errorf("MSTI 1 port edge = %v, want true, mirrored from the CIST's auto-edge decision", info.Edge)
+	}
+
+	if _, ok := flushTarget(fx.Flush, "1/1/2"); ok {
+		t.Errorf("Flush = %v, want none: an edge transition raises no topology change", fx.Flush)
+	}
+}
