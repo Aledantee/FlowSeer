@@ -219,10 +219,12 @@ type Diagnostic struct {
 // disagrees with the row's arity. Both are programming errors in the
 // parser rather than anything a MIB can provoke, and both would otherwise
 // surface as a mangled message far from the call that caused them. The
-// invariant is proven: the arity scan in arity_scan_test.go resolves
-// every first-party call reaching here to a catalog row and fails on a
-// code it cannot resolve, so neither panic is reachable from committed
-// source.
+// invariant is proven in two halves: the arity scan in
+// arity_scan_test.go resolves every first-party call reaching here to a
+// catalog row and fails on a code it cannot resolve, and each variadic
+// forwarder the scan looks through is executed by its own package's
+// TestRaiseForwardsCodeAndArgsUnchanged to show it hands code and args
+// on unchanged. So neither panic is reachable from committed source.
 func MustRaise(pos Position, code errs.Code, args ...Arg) Diagnostic {
 	row, ok := lookup(code)
 	if !ok {
