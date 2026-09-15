@@ -363,6 +363,36 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 	}
 }
 
+// TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
+// between the region configuration and the wire: Encode refuses to build an
+// MST BPDU whose version 3 length would not fit 16 bits, so a region that
+// validates must not be able to reach that count.
+func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	// 4091 records is the most the version 3 length field can name; the MSTID
+	// space runs to 4094, so a region can ask for more than the wire allows.
+	instances := make(map[stp.MSTID]stp.Instance, 4092)
+	for id := stp.MSTID(1); id <= 4092; id++ {
+		instances[id] = stp.Instance{Priority: 4096}
+	}
+
+	m := stp.MST{Name: "region-1", Instances: instances}
+	err = m.Validate(tbl, nil)
+	if err == nil {
+		t.Fatal("Validate() = nil, want rejection of a region no BPDU can carry")
+	}
+
+	if got := errs.Attributes(err)["field"]; got != "mst.instances" {
+		t.Errorf("field = %v, want mst.instances", got)
+	}
+}
+
 // TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority guards the
 // instance-port priority override signal. Normalize must leave an instance
 // port that never set a priority with PriorityPresent false, so the layer's
