@@ -769,7 +769,15 @@ func (r *Registry) Register(c Case) error {
 	return nil
 }
 
-// MustRegister admits a case into the registry and panics if validation fails.
+// MustRegister admits a case into the registry and panics if [Registry.Register]
+// rejects the case — a case that fails admission validation or duplicates an
+// already-registered ID.
+//
+// The panic is clause 2's init-time answer over static fixtures: every caller
+// (RegisterBaselineCases and its siblings) registers Cases built by this
+// package's own Case constructors from fixed corpus data, so a rejection is a
+// corpus-authoring bug that fails the first test to load the registry, not a
+// runtime condition any input can reach.
 func (r *Registry) MustRegister(c Case) {
 	if err := r.Register(c); err != nil {
 		panic(err)

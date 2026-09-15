@@ -4,12 +4,19 @@ type: refactor
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: partially-implemented
 execution: mixed
 parent: docs/plans/2026-09-15-1020-refactor-panic-policy-plan.md
 ---
 
 # Panic Policy Phase 1 - The Rule and the Decided Conversions - Plan
+
+> Partially implemented: U1, U2, U4, U5, U6, U7, U8, U9, U10, U11 landed. U3
+> (diag.Raise → MustRaise) is blocked and needs a re-plan — it reaches the
+> public smi.Raise the unit did not name, and its static arity-scan proof is
+> infeasible against the variadic forwarders that pass a runtime code/args. See
+> the BLOCKED note under U3. No unsanctioned panic remains under src/ outside
+> diag.Raise (the blocked unit) and src/protocol/smi/internal/parse (phase 2).
 
 ## Goal
 

@@ -212,7 +212,13 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase1-plan.md`
 After: none
 Change: `docs/code-style.md` carries the rule; `errs`, `diag`, `catalog`,
 `ssh`, `mibgen`, `fabric`, `vswitch` and the harvest scripts satisfy it.
-Landed:
+Landed: Partially. The rule and every conversion landed except `diag.Raise` →
+`MustRaise` (phase-1 U3), which is blocked pending a re-plan: it reaches the
+public `smi.Raise` and its static arity-scan proof cannot resolve the variadic
+forwarders. `errs`, `catalog`, `ssh`, `mibgen` (decoder-variant and OID
+pre-pass), `fabric`, `vswitch` and the four harvest scripts all satisfy the
+rule; the surviving `Must` functions cite their clause-2 answers. See the
+phase-1 plan.
 
 ### U2. Phase 4 - the goroutine helper and the 64-site audit
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`
