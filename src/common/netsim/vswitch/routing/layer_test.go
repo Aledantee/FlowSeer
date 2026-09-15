@@ -1,6 +1,7 @@
 package routing_test
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 	"testing"
@@ -1076,4 +1077,182 @@ func TestConstructorsNormalizeRoutePrefixesBeforeValidation(t *testing.T) {
 
 func sameStepIdentity(got, want trace.Step) bool {
 	return got.Layer == want.Layer && got.Op == want.Op && got.RuleID == want.RuleID && got.Subject == want.Subject
+}
+
+var (
+	selectionDeviceMAC = netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	gatewayA           = netip.MustParseAddr("10.0.10.254") // on vlan10
+	gatewayB           = netip.MustParseAddr("10.0.20.254") // on vlan20
+	gatewayC           = netip.MustParseAddr("10.0.30.254") // on vlan30
+)
+
+// selectionConfig builds a three-interface VRF whose gateways all resolve, so a forwarding
+// result names the interface of the route that won.
+func selectionConfig(routes ...routing.Route) routing.Config {
+	neighborMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
+	return routing.Config{
+		VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"vlan10": {VLAN: 10, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					"vlan20": {VLAN: 20, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					"vlan30": {VLAN: 30, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+				},
+				Routes: routes,
+				Neighbors: []routing.Neighbor{
+					{Interface: "vlan10", Addr: gatewayA, MAC: neighborMAC},
+					{Interface: "vlan20", Addr: gatewayB, MAC: neighborMAC},
+					{Interface: "vlan30", Addr: gatewayC, MAC: neighborMAC},
+					{Interface: "vlan10", Addr: netip.MustParseAddr("10.0.10.7"), MAC: neighborMAC},
+				},
+			},
+		},
+	}
+}
+
+func routeFromVLAN10(t *testing.T, l *routing.Layer, dst netip.Addr) routing.Result {
+	t.Helper()
+	return l.Route("vlan10", ethernet.Frame{
+		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), dst, 64, []byte("data")),
+	})
+}
+
+func TestRouteSelectionOrder(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		routes        []routing.Route
+		wantInterface string
+	}{
+		{
+			name: "longer prefix wins over lower preference",
+			routes: []routing.Route{
+				{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayA, Preference: 1},
+				{Prefix: netip.MustParsePrefix("10.0.0.0/16"), NextHop: gatewayB, Preference: 250},
+			},
+			wantInterface: "vlan20",
+		},
+		{
+			name: "lower preference wins at equal prefix length",
+			routes: []routing.Route{
+				{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayA, Preference: 1},
+				{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayB, Preference: 250},
+			},
+			wantInterface: "vlan10",
+		},
+		{
+			name: "lower metric wins at equal preference",
+			routes: []routing.Route{
+				{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayA, Preference: 1, Metric: 20},
+				{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayB, Preference: 1, Metric: 10},
+			},
+			wantInterface: "vlan20",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			l := mustNewRouting(t, selectionConfig(tc.routes...))
+			res := routeFromVLAN10(t, l, netip.MustParseAddr("10.0.1.1"))
+			if res.Reason != "" {
+				t.Fatalf("reason = %q, want empty", res.Reason)
+			}
+			if res.Interface != tc.wantInterface {
+				t.Errorf("interface = %q, want %q", res.Interface, tc.wantInterface)
+			}
+		})
+	}
+}
+
+func TestRouteCandidateSet(t *testing.T) {
+	t.Parallel()
+
+	t.Run("every equal-cost route is a candidate in canonical order", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, selectionConfig(
+			routing.Route{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayC, Preference: 1, Metric: 10},
+			routing.Route{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayA, Preference: 1, Metric: 10},
+			routing.Route{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayB, Preference: 1, Metric: 10},
+		))
+
+		res := routeFromVLAN10(t, l, netip.MustParseAddr("10.0.1.1"))
+		wantNextHops := []netip.Addr{gatewayA, gatewayB, gatewayC}
+		if len(res.Candidates) != len(wantNextHops) {
+			t.Fatalf("candidates = %+v, want %d", res.Candidates, len(wantNextHops))
+		}
+		for i, want := range wantNextHops {
+			if res.Candidates[i].NextHop != want {
+				t.Errorf("candidate %d next hop = %s, want %s", i, res.Candidates[i].NextHop, want)
+			}
+		}
+		if res.Interface != "vlan10" {
+			t.Errorf("interface = %q, want vlan10, the first candidate in canonical order", res.Interface)
+		}
+	})
+
+	t.Run("equal-length prefix not containing the destination is no candidate", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, selectionConfig(
+			routing.Route{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayA, Preference: 1, Metric: 10},
+			routing.Route{Prefix: netip.MustParsePrefix("11.0.0.0/8"), NextHop: gatewayB, Preference: 1, Metric: 10},
+		))
+
+		res := routeFromVLAN10(t, l, netip.MustParseAddr("10.0.1.1"))
+		if len(res.Candidates) != 1 || res.Candidates[0].NextHop != gatewayA {
+			t.Fatalf("candidates = %+v, want the 10.0.0.0/8 route alone", res.Candidates)
+		}
+	})
+
+	t.Run("single candidate keeps the plain route shape", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, selectionConfig(
+			routing.Route{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: gatewayB, Preference: 1, Metric: 10},
+		))
+
+		res := routeFromVLAN10(t, l, netip.MustParseAddr("10.0.1.1"))
+		want := routing.Candidate{
+			Prefix:     netip.MustParsePrefix("10.0.0.0/8"),
+			NextHop:    gatewayB,
+			Interface:  "vlan20",
+			Preference: 1,
+			Metric:     10,
+		}
+		if len(res.Candidates) != 1 || res.Candidates[0] != want {
+			t.Fatalf("candidates = %+v, want [%+v]", res.Candidates, want)
+		}
+		if res.Interface != "vlan20" {
+			t.Errorf("interface = %q, want vlan20", res.Interface)
+		}
+	})
+}
+
+func TestConnectedRouteWinsThroughPreference(t *testing.T) {
+	t.Parallel()
+
+	for _, preference := range []uint8{0, 1} {
+		t.Run(fmt.Sprintf("static route at preference %d", preference), func(t *testing.T) {
+			t.Parallel()
+			l := mustNewRouting(t, selectionConfig(routing.Route{
+				Prefix:     netip.MustParsePrefix("10.0.10.0/24"),
+				NextHop:    gatewayB,
+				Preference: preference,
+			}))
+
+			res := routeFromVLAN10(t, l, netip.MustParseAddr("10.0.10.7"))
+			if res.Reason != "" {
+				t.Fatalf("reason = %q, want empty", res.Reason)
+			}
+			if len(res.Candidates) != 1 {
+				t.Fatalf("candidates = %+v, want the connected route alone", res.Candidates)
+			}
+			if res.Candidates[0].Preference != 0 || res.Candidates[0].Interface != "vlan10" {
+				t.Errorf("candidate = %+v, want the connected route on vlan10 at preference 0", res.Candidates[0])
+			}
+		})
+	}
 }

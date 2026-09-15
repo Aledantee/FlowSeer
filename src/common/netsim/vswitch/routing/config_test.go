@@ -337,7 +337,7 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "duplicate route prefix within VRF",
+			name: "second route on a prefix, differing in next hop",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
 				vrf.Routes = append(vrf.Routes, routing.Route{
@@ -345,6 +345,15 @@ func TestValidate(t *testing.T) {
 					NextHop:   netip.MustParseAddr("10.0.10.253"),
 					Interface: "vlan10",
 				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
+		{
+			name: "route repeated in every field within VRF",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, vrf.Routes[0])
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
 			wantErr: true,
@@ -441,6 +450,25 @@ func TestNormalize(t *testing.T) {
 						Prefix:    netip.MustParsePrefix("10.0.30.5/24"),
 						NextHop:   netip.MustParseAddr("10.0.10.254"),
 						Interface: "vlan10",
+						Metric:    20,
+					},
+					{
+						Prefix:    netip.MustParsePrefix("10.0.30.0/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.253"),
+						Interface: "vlan10",
+						Metric:    20,
+					},
+					{
+						Prefix:     netip.MustParsePrefix("10.0.30.0/24"),
+						NextHop:    netip.MustParseAddr("10.0.10.252"),
+						Interface:  "vlan10",
+						Preference: 5,
+					},
+					{
+						Prefix:    netip.MustParsePrefix("10.0.30.0/24"),
+						NextHop:   netip.MustParseAddr("10.0.10.251"),
+						Interface: "vlan10",
+						Metric:    10,
 					},
 					{
 						Prefix:    netip.MustParsePrefix("10.0.10.0/24"),
@@ -473,15 +501,21 @@ func TestNormalize(t *testing.T) {
 		t.Fatalf("prefixes not sorted: %v", iface.Prefixes)
 	}
 
-	// Check route prefix masked and routes sorted
-	if len(vrf.Routes) != 2 {
-		t.Fatalf("expected 2 routes, got %d", len(vrf.Routes))
+	// Check route prefixes masked, preferences floored, and routes sorted by the total order.
+	wantRoutes := []routing.Route{
+		{Prefix: netip.MustParsePrefix("10.0.10.0/24"), NextHop: netip.MustParseAddr("10.0.10.1"), Interface: "vlan10", Preference: 1},
+		{Prefix: netip.MustParsePrefix("10.0.30.0/24"), NextHop: netip.MustParseAddr("10.0.10.251"), Interface: "vlan10", Preference: 1, Metric: 10},
+		{Prefix: netip.MustParsePrefix("10.0.30.0/24"), NextHop: netip.MustParseAddr("10.0.10.253"), Interface: "vlan10", Preference: 1, Metric: 20},
+		{Prefix: netip.MustParsePrefix("10.0.30.0/24"), NextHop: netip.MustParseAddr("10.0.10.254"), Interface: "vlan10", Preference: 1, Metric: 20},
+		{Prefix: netip.MustParsePrefix("10.0.30.0/24"), NextHop: netip.MustParseAddr("10.0.10.252"), Interface: "vlan10", Preference: 5},
 	}
-	if vrf.Routes[0].Prefix.String() != "10.0.10.0/24" {
-		t.Errorf("route 0 prefix: got %s, want 10.0.10.0/24", vrf.Routes[0].Prefix)
+	if len(vrf.Routes) != len(wantRoutes) {
+		t.Fatalf("expected %d routes, got %d", len(wantRoutes), len(vrf.Routes))
 	}
-	if vrf.Routes[1].Prefix.String() != "10.0.30.0/24" {
-		t.Errorf("route 1 prefix not masked or sorted: got %s, want 10.0.30.0/24", vrf.Routes[1].Prefix)
+	for i, want := range wantRoutes {
+		if vrf.Routes[i] != want {
+			t.Errorf("route %d = %+v, want %+v", i, vrf.Routes[i], want)
+		}
 	}
 
 	// Check neighbors sorted
@@ -616,9 +650,11 @@ func TestDiff(t *testing.T) {
 					},
 					Routes: []routing.Route{
 						{
-							Prefix:    netip.MustParsePrefix("10.0.30.0/24"),
-							NextHop:   netip.MustParseAddr("10.0.10.253"),
-							Interface: "if2",
+							Prefix:     netip.MustParsePrefix("10.0.30.0/24"),
+							NextHop:    netip.MustParseAddr("10.0.10.254"),
+							Interface:  "if1",
+							Preference: 20,
+							Metric:     5,
 						},
 					},
 					Neighbors: []routing.Neighbor{
@@ -633,7 +669,11 @@ func TestDiff(t *testing.T) {
 		}
 
 		changes := routing.Diff(a, b)
-		expectedFields := []string{"vlan", "mac", "prefixes", "next_hop", "interface", "mac"}
+		expectedFields := []string{"vlan", "mac", "prefixes", "preference", "metric", "mac"}
+		wantTypeIDs := map[string]string{
+			"preference": "routing.route.preference",
+			"metric":     "routing.route.metric",
+		}
 		if len(changes) != len(expectedFields) {
 			t.Fatalf("expected %d changes, got %d: %+v", len(expectedFields), len(changes), changes)
 		}
@@ -644,16 +684,92 @@ func TestDiff(t *testing.T) {
 			if changes[i].Layer != port.LayerRouting {
 				t.Errorf("change %d layer: got %q, want %q", i, changes[i].Layer, port.LayerRouting)
 			}
-			if changes[i].Field == "interface" {
-				if changes[i].From.TypeID() != "routing.route.interface" {
-					t.Errorf("route interface change From.TypeID() = %q, want routing.route.interface", changes[i].From.TypeID())
-				}
-				if changes[i].To.TypeID() != "routing.route.interface" {
-					t.Errorf("route interface change To.TypeID() = %q, want routing.route.interface", changes[i].To.TypeID())
-				}
+			wantTypeID, ok := wantTypeIDs[changes[i].Field]
+			if !ok {
+				continue
+			}
+			if changes[i].From.TypeID() != wantTypeID {
+				t.Errorf("%s change From.TypeID() = %q, want %q", changes[i].Field, changes[i].From.TypeID(), wantTypeID)
+			}
+			if changes[i].To.TypeID() != wantTypeID {
+				t.Errorf("%s change To.TypeID() = %q, want %q", changes[i].Field, changes[i].To.TypeID(), wantTypeID)
 			}
 		}
 	})
+
+	t.Run("preference and metric are field changes and an added next hop is an added route", func(t *testing.T) {
+		t.Parallel()
+		prefix := netip.MustParsePrefix("10.0.30.0/24")
+		configWith := func(routes ...routing.Route) routing.Config {
+			return routing.Config{VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{"if1": {VLAN: 10}},
+					Routes:     routes,
+				},
+			}}
+		}
+		base := routing.Route{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.10.254"), Interface: "if1", Preference: 1, Metric: 10}
+		second := routing.Route{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.10.253"), Interface: "if1", Preference: 1, Metric: 10}
+
+		retunedMetric := base
+		retunedMetric.Metric = 20
+		retunedPreference := base
+		retunedPreference.Preference = 250
+		unsetPreference := base
+		unsetPreference.Preference = 0
+
+		cases := []struct {
+			name      string
+			a, b      routing.Config
+			wantField string
+		}{
+			{name: "metric retuned", a: configWith(base), b: configWith(retunedMetric), wantField: "metric"},
+			{name: "preference retuned", a: configWith(base), b: configWith(retunedPreference), wantField: "preference"},
+			{name: "second next hop added", a: configWith(base), b: configWith(base, second), wantField: ""},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+				changes := routing.Diff(tc.a, tc.b)
+				if len(changes) != 1 {
+					t.Fatalf("changes = %+v, want exactly one", changes)
+				}
+				if changes[0].Field != tc.wantField {
+					t.Errorf("field = %q, want %q", changes[0].Field, tc.wantField)
+				}
+				if tc.wantField == "" && (changes[0].From != nil || changes[0].To == nil) {
+					t.Errorf("change = %+v, want an added route", changes[0])
+				}
+			})
+		}
+
+		// Go cannot tell an unset Preference from an explicit 0, and normalization raises both
+		// to 1, so neither reads as a change against a route configured at 1.
+		t.Run("preference 0 against an explicit 1", func(t *testing.T) {
+			t.Parallel()
+			if changes := routing.Diff(configWith(unsetPreference), configWith(base)); len(changes) != 0 {
+				t.Errorf("changes = %+v, want none", changes)
+			}
+		})
+	})
+}
+
+func TestRouteCanonicalDistinguishesPreference(t *testing.T) {
+	t.Parallel()
+
+	prefix := netip.MustParsePrefix("10.0.30.0/24")
+	nextHop := netip.MustParseAddr("10.0.10.254")
+	a := routing.Route{Prefix: prefix, NextHop: nextHop, Interface: "if1", Preference: 1}
+	b := routing.Route{Prefix: prefix, NextHop: nextHop, Interface: "if1", Preference: 250}
+	if a.Canonical() == b.Canonical() {
+		t.Errorf("routes differing only in preference share canonical form %q", a.Canonical())
+	}
+
+	c := a
+	c.Metric = 10
+	if a.Canonical() == c.Canonical() {
+		t.Errorf("routes differing only in metric share canonical form %q", a.Canonical())
+	}
 }
 
 func TestDiffCompositeSubjectKeysAreInjective(t *testing.T) {
@@ -719,15 +835,21 @@ func TestDiffCompositeSubjectKeysAreInjective(t *testing.T) {
 	})
 
 	t.Run("routes", func(t *testing.T) {
-		vrfName := `blue/"west\core`
 		prefix := netip.MustParsePrefix("10.0.0.0/24")
-		a := routing.Config{VRFs: map[string]routing.VRF{
-			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.1")}}},
-		}}
-		b := routing.Config{VRFs: map[string]routing.VRF{
-			vrfName: {Routes: []routing.Route{{Prefix: prefix, NextHop: netip.MustParseAddr("10.0.0.2")}}},
-		}}
-		assertKeys(t, routing.Diff(a, b), []string{fmt.Sprintf("%q/%q", vrfName, prefix.String())})
+		nextHop := netip.MustParseAddr("10.0.0.1")
+		a := routing.Config{VRFs: make(map[string]routing.VRF)}
+		b := routing.Config{VRFs: make(map[string]routing.VRF)}
+		var want []string
+		for _, pair := range pairs {
+			a.VRFs[pair.vrf] = routing.VRF{Routes: []routing.Route{{
+				Prefix: prefix, NextHop: nextHop, Interface: pair.iface, Metric: 10,
+			}}}
+			b.VRFs[pair.vrf] = routing.VRF{Routes: []routing.Route{{
+				Prefix: prefix, NextHop: nextHop, Interface: pair.iface, Metric: 20,
+			}}}
+			want = append(want, fmt.Sprintf("%q/%q/%q/%q", pair.vrf, prefix.String(), nextHop.String(), pair.iface))
+		}
+		assertKeys(t, routing.Diff(a, b), want)
 	})
 }
 
@@ -781,6 +903,8 @@ func TestFactTypeIDsUnique(t *testing.T) {
 		routing.PrefixesFact(nil),
 		routing.AddrFact{},
 		routing.RouteInterfaceFact(""),
+		routing.RoutePreferenceFact(0),
+		routing.RouteMetricFact(0),
 	}
 
 	seen := make(map[string]string)

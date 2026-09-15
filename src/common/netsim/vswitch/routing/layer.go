@@ -75,14 +75,28 @@ const (
 	ReasonNotBridged trace.Reason = "not-bridged"
 )
 
-// Result records the trace steps, egress interface, outcome reason, and egress frame
-// produced by layer 3 routing or packet origination.
+// Result records the trace steps, egress interface, outcome reason, egress frame, and
+// equal-cost candidate set produced by layer 3 routing or packet origination.
 type Result struct {
 	Steps           []trace.Step
 	Reason          trace.Reason
 	Interface       string
+	Candidates      []Candidate
 	Frame           ethernet.Frame
 	consultedScopes []analysis.Scope
+}
+
+// Candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
+// contains the destination and which tie the winner on prefix length, preference, and metric.
+// A lookup reports them in canonical order, by next hop then egress interface, and forwards
+// on the first. Interface is the egress the route resolved to, which for a route configured
+// with a next hop alone is the interface whose prefix contains that next hop.
+type Candidate struct {
+	Prefix     netip.Prefix
+	NextHop    netip.Addr
+	Interface  string
+	Preference uint8
+	Metric     uint32
 }
 
 // ConsultedScopes returns the exact analysis scopes whose facts could change
@@ -105,10 +119,12 @@ const (
 )
 
 type routeEntry struct {
-	Prefix    netip.Prefix
-	NextHop   netip.Addr
-	Interface string
-	kind      routeKind
+	Prefix     netip.Prefix
+	NextHop    netip.Addr
+	Interface  string
+	Preference uint8
+	Metric     uint32
+	kind       routeKind
 }
 
 type neighborKey struct {
@@ -141,10 +157,11 @@ type Layer struct {
 // port table. It returns an error if the normalized configuration is invalid
 // against the ports.
 //
-// Per VRF the forwarding table contains connected routes derived from each interface
-// prefix and configured static routes, sorted by prefix length descending then by prefix,
-// with connected routes listed first at equal length. Lookup selects the first match; a
-// static route on a prefix a connected route also covers wins nothing.
+// Per VRF the forwarding table contains connected routes derived from each interface prefix,
+// at preference 0 and metric 0, and the configured static routes. A lookup takes the longest
+// matching prefix, then the lowest preference, then the lowest metric; every route tying on
+// all three is an equal-cost candidate, and the candidates are ordered by next hop then
+// egress interface. The lookup forwards on the first of them.
 func New(cfg Config, ports port.Table, nodeID string) (*Layer, error) {
 	norm := cfg.Normalize()
 	if err := norm.Validate(ports); err != nil {
@@ -217,10 +234,12 @@ func newLayer(cfg Config, nodeID string) *Layer {
 				}
 			}
 			vs.table = append(vs.table, routeEntry{
-				Prefix:    r.Prefix,
-				NextHop:   r.NextHop,
-				Interface: egressIface,
-				kind:      routeStatic,
+				Prefix:     r.Prefix,
+				NextHop:    r.NextHop,
+				Interface:  egressIface,
+				Preference: r.Preference,
+				Metric:     r.Metric,
+				kind:       routeStatic,
 			})
 		}
 
@@ -231,11 +250,14 @@ func newLayer(cfg Config, nodeID string) *Layer {
 			if c := a.Prefix.Addr().Compare(b.Prefix.Addr()); c != 0 {
 				return c
 			}
-			if a.kind != b.kind {
-				if a.kind == routeConnected {
-					return -1
-				}
-				return 1
+			if c := cmp.Compare(a.Preference, b.Preference); c != 0 {
+				return c
+			}
+			if c := cmp.Compare(a.Metric, b.Metric); c != 0 {
+				return c
+			}
+			if c := a.NextHop.Compare(b.NextHop); c != 0 {
+				return c
 			}
 			return cmp.Compare(a.Interface, b.Interface)
 		})
@@ -248,6 +270,42 @@ func newLayer(cfg Config, nodeID string) *Layer {
 	}
 
 	return l
+}
+
+// lookup returns the equal-cost candidates for dst in canonical order, or nil when no route
+// covers it. The table is sorted so that the entries sharing the winner's prefix, preference,
+// and metric follow it directly; an equal-length prefix that does not contain dst is a
+// different prefix and so never joins the set.
+func (vs *vrfState) lookup(dst netip.Addr) []routeEntry {
+	for i := range vs.table {
+		if !vs.table[i].Prefix.Contains(dst) {
+			continue
+		}
+		best := vs.table[i]
+		end := i + 1
+		for end < len(vs.table) &&
+			vs.table[end].Prefix == best.Prefix &&
+			vs.table[end].Preference == best.Preference &&
+			vs.table[end].Metric == best.Metric {
+			end++
+		}
+		return vs.table[i:end]
+	}
+	return nil
+}
+
+func candidateSet(entries []routeEntry) []Candidate {
+	set := make([]Candidate, len(entries))
+	for i, e := range entries {
+		set[i] = Candidate{
+			Prefix:     e.Prefix,
+			NextHop:    e.NextHop,
+			Interface:  e.Interface,
+			Preference: e.Preference,
+			Metric:     e.Metric,
+		}
+	}
+	return set
 }
 
 func (l *Layer) result(vrf string) Result {
@@ -416,12 +474,11 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	}
 
 	res.consult(RouteLookupScope(l.nodeID, vrfName, hdr.Dst))
+	candidates := vrf.lookup(hdr.Dst)
 	var matchedRoute *routeEntry
-	for i := range vrf.table {
-		if vrf.table[i].Prefix.Contains(hdr.Dst) {
-			matchedRoute = &vrf.table[i]
-			break
-		}
+	if len(candidates) > 0 {
+		res.Candidates = candidateSet(candidates)
+		matchedRoute = &candidates[0]
 	}
 
 	if matchedRoute == nil {
@@ -575,12 +632,10 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		return res
 	}
 
+	candidates := vrfState.lookup(dst)
 	var matchedRoute *routeEntry
-	for i := range vrfState.table {
-		if vrfState.table[i].Prefix.Contains(dst) {
-			matchedRoute = &vrfState.table[i]
-			break
-		}
+	if len(candidates) > 0 {
+		matchedRoute = &candidates[0]
 	}
 
 	if matchedRoute == nil {
@@ -623,6 +678,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		})
 		res.Reason = ReasonNeighborMiss
 		res.Interface = targetIface
+		res.Candidates = candidateSet(candidates)
 		return res
 	}
 
@@ -655,6 +711,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
 		})
 		res.Reason = ReasonBadHeader
+		res.Candidates = candidateSet(candidates)
 		return res
 	}
 
@@ -662,6 +719,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	res := l.result(vrf)
 	res.Steps = steps
 	res.Interface = targetIface
+	res.Candidates = candidateSet(candidates)
 	res.Frame = ethernet.Frame{
 		Src:       egressIfaceObj.MAC,
 		Dst:       neighbor.MAC,
