@@ -386,10 +386,22 @@ way this phase does harm.
   this phase did not want and did not add. Recommendation: leave it, and let
   whoever next needs a fault seam in `smi` add the test with it.
 - The ordering rule the Decisions state for `snmp/watcher.go` applies to every
-  site whose `fn` defers a channel close and passes a sink, not just that one.
-  It was found again in `pump.Merge` (fixed, the forwarder reported `nil` on a
-  panic and the coordinator read that as a clean source) and again at four sites
-  in `gnmi` and `yang`, where `defer pump.Done()`/`CloseData()` inside `fn` runs
-  before the recover and the pump closes with `Err() == nil`. The rule belongs in
-  `docs/code-style.md` beside the spawn rule, or in `spawn`'s README, so the next
-  caller does not rediscover it. Phase 4 should decide whether it is checkable.
+  site whose `fn` defers a completion and passes a sink, not just that one. It
+  was found again in `pump.Merge` (the forwarder reported `nil` on a panic and
+  the coordinator read that as a clean source), at four sites in `gnmi` and
+  `yang`, and at both `snmp` walkers — whose doc comments asserted the sink
+  already prevented it. Five packages, three of them commented wrong. The rule
+  belongs in `docs/code-style.md` beside the spawn rule, or in `spawn`'s README,
+  so the next caller does not rediscover it. Phase 4 should decide whether it is
+  checkable; "a reviewer notices" has now failed more often than it has held.
+
+  A `sync.WaitGroup` join is not the exemption it looks like. `wg.Done` as
+  `fn`'s defer runs before the recover, so a joiner that does `wg.Wait()` and
+  then reads what the sink writes reads it too early: `src/edge/agent/host`
+  returned `nil` for a panicking loop, and `dispatch.Demux` could drop a
+  refusal report at shutdown. Worse, in `capture/rawsocket`'s mirror source the
+  joiner closes the channel the sink sends on, and a send on a closed channel
+  panics inside the recover where nothing catches it — the conversion turned a
+  recovered panic into a process crash. Where the joiner consumes what the sink
+  produces, the join has to be a counted receive rather than a `WaitGroup`, or
+  the site must not report in band at all.
