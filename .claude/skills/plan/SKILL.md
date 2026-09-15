@@ -29,6 +29,15 @@ message with a recommended answer each. When the user cannot answer, take the
 recommendation, mark the decision "unconfirmed", and repeat it under Open
 questions. Every decision carries its reason.
 
+Re-planning a phase starts from a tree that holds the phases before it:
+for each phase the parent's `After:` names, the last commit of its
+`Landed:` line passes `git merge-base --is-ancestor <sha> HEAD`, and the
+parent on `main` shows this phase's own `Landed:` still empty. A worktree
+forked before the previous phase merged fails the first test, and a
+re-plan from it re-derives that phase as new units; a phase already
+landed on `main` fails the second, and a re-plan from it lands the phase
+twice. Either way, stop and say which, rather than plan.
+
 ### Promote a decision to a direction record
 
 A plan goes stale once the work lands. A decision that outlives the task
@@ -126,9 +135,19 @@ Rules:
 
 - Follow `docs/doc-style.md`. Cite files as repository-relative paths and
   sources with a URL or document section.
-- `After: none` means the unit can land with every other unit absent, so
-  `implement` may run it in parallel. Two units that touch the same file are
-  never both `none`.
+- `After:` names only the units whose landed code this unit imports,
+  edits, or tests against; a preferred order, a shared convention, or
+  "it reads better" is not an `After`. `implement` runs every unit whose
+  prerequisites have landed at once, up to three, so each `After` edge
+  that is not a real dependency serializes work that could run in
+  parallel. Two units that touch the same file are never independent.
+  After the Units, write the waves the graph yields, as
+  `Waves: U1 U2 | U3 | U4 U5`, and re-cut units whose graph is a chain
+  when the files allow a wider one.
+- A Change or Tests line names no placeholder: "TBD", "add error
+  handling", "implement later", "tests as appropriate" are decisions the
+  implementer will make in the plan's name. Write the shape, or write
+  that it is decided in a named later unit.
 - Requirement and unit labels (R1, U2) stay in the plan and never enter code,
   comments, or commit messages.
 - A requirement phrased as what a component knows, sees, or is told is a
@@ -166,6 +185,9 @@ the findings that hold.
 Run the verifier on the plan and any direction record it added. In Orca, set
 the worktree comment to the plan path and its readiness. Report the path, the
 readiness, any proposed direction record awaiting acceptance, the open
-questions, and the decision you are least sure of. Do not start implementing
-unless asked. A correction to this procedure is logged as `compound`, Observe
-describes.
+questions, the waves, and the decision you are least sure of. Do not start
+implementing unless asked, and say that a plan of more than one wave is
+implemented in a fresh session from the plan file: this session's context
+holds the research and the rejected alternatives, and after a compaction
+the summary of that is what the implementer would work from. A
+correction to this procedure is logged as `compound`, Observe describes.

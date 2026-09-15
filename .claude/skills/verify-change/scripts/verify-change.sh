@@ -310,6 +310,21 @@ fi
 need_tool python3
 run python3 "$script_dir/check-plan-status.py"
 
+# Reported, not failed: deleting a test, skipping it, or rewriting a golden
+# file is sometimes right in a repository that breaks APIs on purpose, and
+# sometimes the way a suite stops proving anything. The list goes into
+# the implementer's report with a reason per line, and the reviewer reads
+# the reasons.
+if [[ $full == true ]]; then
+  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base")
+else
+  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base" -- "${paths[@]}")
+fi
+if [[ -n $test_changes ]]; then
+  echo "Test changes to account for:"
+  printf '  %s\n' "${test_changes//$'\n'/$'\n'  }"
+fi
+
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 
 if ((${#markdown_files[@]})); then
@@ -507,26 +522,39 @@ if [[ $proto == true ]]; then
   fi
   run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
   run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
-  if git show-ref --verify --quiet refs/heads/master; then
-    # --path names files in the against-ref. A file the branch added is
-    # absent there, so targeting it yields "no .proto files were targeted",
-    # which buf reports as a failure rather than a vacuous pass. Compare
-    # only the changed files master holds; a branch whose changed schema
-    # files are all new has nothing to break yet, and says so.
-    breaking_path_args=()
-    for proto_file in "${proto_files[@]:-}"; do
-      [[ -n $proto_file ]] || continue
-      if git cat-file -e "master:$proto_file" 2>/dev/null; then
-        breaking_path_args+=(--path "$proto_file")
-      fi
-    done
-    if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
-      run buf breaking --against '.git#branch=master'
-    elif ((${#breaking_path_args[@]})); then
-      run buf breaking --against '.git#branch=master' "${breaking_path_args[@]}"
-    else
-      echo "buf breaking skipped: every changed .proto file is new on this branch."
+  # The integration branch is main; master is accepted for a checkout that
+  # still carries the old name. Neither resolving is a failed gate: this
+  # block once looked for master alone and fell through in silence, so
+  # every schema change passed with no breaking comparison at all.
+  integration_branch=""
+  for candidate in main master; do
+    if git show-ref --verify --quiet "refs/heads/$candidate"; then
+      integration_branch=$candidate
+      break
     fi
+  done
+  if [[ -z $integration_branch ]]; then
+    echo "buf breaking needs a main (or master) branch to compare against, and neither exists." >&2
+    exit 1
+  fi
+  # --path names files in the against-ref. A file the branch added is
+  # absent there, so targeting it yields "no .proto files were targeted",
+  # which buf reports as a failure rather than a vacuous pass. Compare
+  # only the changed files the integration branch holds; a branch whose
+  # changed schema files are all new has nothing to break yet, and says so.
+  breaking_path_args=()
+  for proto_file in "${proto_files[@]:-}"; do
+    [[ -n $proto_file ]] || continue
+    if git cat-file -e "$integration_branch:$proto_file" 2>/dev/null; then
+      breaking_path_args+=(--path "$proto_file")
+    fi
+  done
+  if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
+    run buf breaking --against ".git#branch=$integration_branch"
+  elif ((${#breaking_path_args[@]})); then
+    run buf breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
+  else
+    echo "buf breaking skipped: every changed .proto file is new on this branch."
   fi
   generated_dir=$build_dir/generated
   run buf generate -o "$generated_dir"

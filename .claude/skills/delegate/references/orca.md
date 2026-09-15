@@ -21,8 +21,8 @@ orca orchestration worker-release --dispatch <dispatch_id> --json
   state collides in a shared checkout; `--worktree current` for workers
   that edit disjoint documentation files.
 - `--base-branch` names the coordinator's own branch; without it the child
-  starts from `master`, and merging it then also merges whatever landed on
-  `master` since.
+  starts from `main`, and merging it then also merges whatever landed on
+  `main` since.
 - `--setup skip`: this repository configures no Orca setup script, and an
   empty script is reported as a failed setup.
 - `--model` pins Claude, Codex, and Cursor ids only; an `agy` or

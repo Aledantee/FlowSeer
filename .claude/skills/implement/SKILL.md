@@ -21,6 +21,11 @@ skill. Check the plan's `status` and the current tree: a plan may be
 partly landed, and the tree wins over the plan about what exists. Record
 such a mismatch in the plan's Open questions before touching code.
 
+After a context compaction, or when this session resumes one that planned,
+re-read the plan and the ledger before trusting the summary: a summary
+that reads well still drops the unit that was in flight and the ruling it
+rested on.
+
 ### Resume from the ledger
 
 The ledger at `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
@@ -42,17 +47,24 @@ no ledger.
 
 Read the `docs/architecture/` record for the area, the `CONCEPTS.md` entries
 the plan uses, and the conventions for the files you will touch:
-`docs/code-style.md` for Go, `docs/code-style-proto.md` and
+`docs/code-style.md` for Go and its Testing section for every test, `docs/code-style-proto.md` and
 `docs/conventions/protobuf.md` for schema, `docs/conventions/observability.md`
 for instrumentation, `docs/doc-style.md` for prose.
 
 Record `git status --porcelain` before the first edit. Changes outside the
 task stay as they are; at Finish, report anything that appeared since.
 
-## 2. Work each unit
+## 2. Work the units
 
-Take the units in the plan's order, or in parallel where `After` allows and
-the user asked for it (see Units in workers). For each:
+Group the units into waves from their `After` lines: a wave is every unit
+whose prerequisites have landed. A wave of two or more units runs in
+workers, up to three at once, as `references/workers.md` describes; load
+it before the first such wave, and for any plan with a `parent:` field.
+A wave of one unit runs here. Serial execution of independent units is
+the slow path and needs a reason in the report, such as no pool with
+headroom.
+
+For each unit:
 
 1. Re-read the unit, set it `in_progress` in the ledger, then inspect the
    current source and tests for its files.
@@ -61,42 +73,24 @@ the user asked for it (see Units in workers). For each:
    a heredoc, `gofumpt -w`, `buf generate`, `go mod tidy`) marks the tree
    `<Bash mutation; verify with --full>` and turns Finish into a full
    module race run. Search for an existing helper first; no abstraction
-   with a single caller. Before calling a third-party
-   API the tree does not already use, check its signature: `go doc` for Go,
-   Context7 (`mcp__context7__query-docs` or the `ctx7` CLI) for the rest.
-   Where the plan and the working code disagree about a shape, the code
-   wins: leave the member out and edit the plan in the same commit, with
-   the reason, because a plan left contradicting its code is read as the
-   specification by the next session. A branch that degrades on error
-   makes the degraded state visible from outside (a span attribute, a
-   counter, a log line), or the feature behind it can be dead with every
-   test passing; a swallow that is safe only because the callee cannot
-   fail says so at the call site.
-3. Write or extend the tests the unit names. When the unit changes behavior,
-   write the failing test first and watch it fail. A test for a
-   concurrency, ordering, or security property is evidence only once it
-   has been watched failing against the defect: revert the fix or feed a
-   wrong implementation, and undo from a copy taken first
+   with a single caller. Before calling a third-party API the tree does
+   not already use, check its signature: `go doc` for Go, Context7
+   (`mcp__context7__query-docs` or the `ctx7` CLI) for the rest. Where
+   the plan and the working code disagree about a shape, the code wins:
+   leave the member out and edit the plan in the same commit, with the
+   reason, because a plan left contradicting its code is read as the
+   specification by the next session.
+3. Write or extend the tests the unit names, under the Testing rules of
+   `docs/code-style.md`. When the unit changes behavior, write the failing
+   test first and watch it fail. A test for a concurrency, ordering, or
+   security property counts as evidence only once it has been watched
+   failing against the defect: revert the fix or feed a wrong
+   implementation, and undo from a copy taken first
    (`cp <path> "$TMPDIR/<name>.orig"`), never with `git checkout` or
    `git restore`, which on an unfinished unit discard everything since the
-   last commit. Assert what the fix causes, not what it prevents: an
-   absence has more than one source, and a cancelled context supplies it
-   as readily as the fix. When the test depends on the system being in a
-   state, assert the state before the outcome. Say per test whether it is
-   evidence for this change or a guard for later code. A self-authored
-   fake peer produces only the sequence the client was coded to expect:
-   seed it with leftover state ahead of the call under test (a banner, a
-   retained buffer, an out-of-order message). A fixture that builds a wire
-   message passes `protovalidate.Validate` in the test, so a message the
-   wire would refuse fails where it is written. The exported `Config` of a
-   module under `src/modules/` (say `src/modules/localnet/access`) gets one
-   test in a package outside that directory: only that
-   package shows a host can name every field's type and construct or
-   implement a value. When correctness rests on an invariant another
-   component holds, the comment and a test go on the holding side, at the
-   branch that carries it, proved by the same reversal: revert each
-   candidate and keep the one a test notices. A unit without a test needs
-   a stated reason in the plan.
+   last commit. Say per test whether it is evidence for this change or a
+   guard for later code. A unit without a test needs a stated reason in
+   the plan.
 4. Update the package README, convention doc, solution citations, and any
    test or benchmark name the unit made false, in the same unit.
 5. Run the focused checks (`go test -race ./<pkg>/...`, `buf lint`). A test
@@ -122,26 +116,30 @@ the user asked for it (see Units in workers). For each:
    into the report verbatim, write the unit `passed` in the ledger with
    `git rev-parse HEAD` and that run's `verified_at` from the receipt,
    move `resume` to the next unit, and fill `note` only when the unit
-   produced a decision or pitfall the next unit needs, in one line. A unit
-   that cannot land is `blocked` with the reason in `note`. In Orca, set
-   the worktree comment to the unit that landed.
+   produced a decision or pitfall the next unit needs, in one line. In
+   Orca, set the worktree comment to the unit that landed.
+
+A unit still red after three verifier rounds is `blocked` in the ledger
+with the reason in `note`, and the work goes back to `plan`: a fourth
+patch on the same failure optimizes the test that is visible, not the
+requirement behind it, and the plan is where the requirement lives.
 
 Plan labels stay in the plan: never write `U2`, `R4`, or a plan filename into
 code, comments, or commit messages.
 
-When a unit needs a decision the plan does not make, write the question and
-your recommended answer into the plan's Open questions. Ask the user when the
-answer changes other units; otherwise take the recommendation, record it in
-Decisions, and continue.
+### Rulings
+
+A unit that needs a decision the plan does not make gets one of two
+treatments. When the answer changes other units, the wire, or an accepted
+record, ask the user and wait. Otherwise rule and continue: append to the
+plan's Decisions, at the moment of the call, one line of the form
+`Ruled: <what>. Why: <reason>. Cost if wrong: <what a reversal touches>.`
+Open questions holds only what is still open; a decision filed there
+after the fact reads as unresolved to the reviewer and as settled to the
+next implementer. Rulings are the first item of the Finish report.
 
 Delegate a bounded read-only question as `delegate` describes when it would
 cost more than a few file reads.
-
-### Units in workers
-
-A phase plan (one with a `parent:` field), or a request to run units in
-parallel, dispatches units to workers: load `references/workers.md` before
-the first such unit.
 
 ## 3. Finish
 
@@ -150,25 +148,47 @@ into the last unit's commit, rewrite that unit's `commit` in the ledger
 with the new hash, and only then run the verifier, as the last action of
 the task, sandbox disabled. A run before the last edit is evidence about a
 tree that no longer exists, and `close` refuses a receipt older than the
-last commit. Pass the task's paths explicitly when the worktree holds
-unrelated changes; otherwise use `--base master`, or `--base HEAD` for
-uncommitted work. When
+last commit. Run it as `--base main -- <paths>`, the task's paths
+explicit when the worktree holds unrelated changes, and `--base main`
+alone otherwise; a run against `HEAD` after the commit sees an empty
+diff, so the test-change list below would come out empty for a branch
+that deleted a test three units ago. When
 `$(git rev-parse --git-dir)/flowseer-verification-dirty` holds the
 `<Bash mutation; verify with --full>` line, run `--full` instead; nothing
 else clears it. Quote the run's last line into the report; a line other
 than `FlowSeer verification passed.` blocks the report.
 
+Read the deviations off the tree, not from memory: a session's account of
+what it changed covers a fraction of what it did and drifts toward the
+plan it was given.
+
+```bash
+.claude/skills/implement/scripts/plan-deviations.py <plan> main -- <paths>
+```
+
+Every path under "Changed, named by no unit" and every entry under "Named
+by a unit, unchanged" goes into the report with its reason. The verifier's
+`Test changes to account for:` block, when it prints one, is quoted the
+same way, one reason per line: a deleted or skipped test and a rewritten
+golden file are the recorded ways a passing suite stops proving anything.
+
 Recording the outcome in the plan, read from the ledger, in the same commit
 as the last unit leaves the ledger in place for `close` to gate on. Set
 `status: implemented` and add `> Implemented.` under the title when every
 unit landed; otherwise `status: partially-implemented` and
-`> Partially implemented: <units>.` with the reason. When the plan carries
-a `parent:` field, fill this phase's `Landed:` line in the parent, and set
-the parent to `implemented` when this was its last phase, in the same
-commit. A request that skipped the plan has nowhere to record this. In Orca the card entry below is then
-the only implementation signal `close` reads, so write it even for a small
-change; outside Orca the commit message carries the outcome and `close`
-asks the user.
+`> Partially implemented: <units>.` with the reason. The note carries the
+unit count and the span of the ledger's `verified_at` values, as
+`> Implemented. 6 units, 2026-09-11T10:02Z to 2026-09-11T16:40Z.`, so
+`steer` can tune the phase size from data. When the plan carries a
+`parent:` field, fill this phase's `Landed:` line in the parent with the
+commit range in backticks, as `` `601e6e03..7cdc35dd` ``, first commit to
+last: the ledger check reads the last commit of that range to prove a
+later phase's worktree holds this one, and a `Landed:` written as prose
+fails it. Set the parent to `implemented` when this was its last phase,
+in the same commit. A request that skipped the plan has nowhere to record this. In
+Orca the card entry below is then the only implementation signal `close`
+reads, so write it even for a small change; outside Orca the commit
+message carries the outcome and `close` asks the user.
 
 In Orca, mark the card for `close`, naming the plan path, or the request in
 a few words when there is no plan:
@@ -189,6 +209,7 @@ In Orca, no child worktree this task created remains: `orca worktree list
 --json` lists none whose `parentWorktreeId` is this worktree, other than
 the ones the report names with the reason they stayed.
 
-Report, outcome first: units done, commands run with results, deviations from
-the plan, residual risk. Do not run a review; the user asks for `review`. A
+Report, outcome first: rulings, units done with the waves they ran in,
+commands run with results, the deviation and test-change lists with their
+reasons, residual risk. Do not run a review; the user asks for `review`. A
 correction to this procedure is logged as `compound`, Observe describes.

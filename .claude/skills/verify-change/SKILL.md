@@ -25,7 +25,7 @@ and the telemetry tier starts Docker, and the sandbox denies both.
 
 | Scope | Command |
 | --- | --- |
-| every change on the branch, committed included | `verify-change.sh --base master` |
+| every change on the branch, committed included | `verify-change.sh --base main` |
 | named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
 | all Go modules, protobuf sources, and Claude configuration | `verify-change.sh --full` |
 
@@ -75,7 +75,7 @@ compile-time question only; a change reaches a test without appearing in
 its imports through a shared port, a testdata directory, or an environment
 variable.
 
-`buf breaking` compares only the changed `.proto` files master already
+`buf breaking` compares only the changed `.proto` files main already
 holds, and prints that it skipped when every changed schema file is new on
 the branch: `--path` naming a file absent from the baseline targets nothing,
 which buf reports as a failure carrying no signal about the change. The
@@ -126,3 +126,20 @@ none is in progress, and is empty once every unit is `passed`. `note` is
 one line, only for a decision or pitfall the next unit needs. Unit ids are
 unique. `plan` resolves against the tree root and must exist. `close` gates the merge on
 every unit being `passed` and removes the ledger after the merge.
+
+When the plan carries a `parent:` field, the check also proves the phase
+belongs in this tree: every phase the parent's `After:` names has a
+`Landed:` line whose last commit is an ancestor of `HEAD`, and the
+parent on `main` shows this phase's own `Landed:` empty. A worktree
+forked before the previous phase merged fails the first, a phase being
+implemented a second time fails the second, and the message says which.
+
+## Test changes
+
+Before the gates, the run lists changes that weaken what the suite
+proves, from `scripts/check-test-integrity.py` against the base: a
+deleted `_test.go` file, a removed `Test`, `Benchmark`, `Fuzz`, or
+`Example` function, an added `t.Skip`, and a modified or deleted file
+under `testdata/`. The list is printed under `Test changes to account
+for:` and does not fail the run; `implement` quotes it in its report with
+a reason per line, and `review` reads the reasons.

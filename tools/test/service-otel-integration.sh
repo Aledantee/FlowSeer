@@ -31,7 +31,9 @@ if kill -0 "$docker_probe" 2>/dev/null; then
     kill -0 "$docker_probe" 2>/dev/null || break
     sleep 0.1
   done
-  kill -9 "$docker_probe" 2>/dev/null
+  # A probe that honoured TERM is already gone, and a kill of a dead pid
+  # fails; under set -e that exit would replace the message below.
+  kill -9 "$docker_probe" 2>/dev/null || true
   wait "$docker_probe" 2>/dev/null || true
   echo "Docker daemon did not answer 'docker info' within ${docker_probe_timeout}s." >&2
   exit 1
