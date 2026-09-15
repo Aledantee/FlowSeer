@@ -171,6 +171,12 @@ type Switch struct {
 	nodeID         string
 	metadata       analysis.Metadata
 	missingSTP     bool
+
+	// operErr is the first oper-status fault [Switch.setOperStatus]
+	// recorded. It is sticky: [Switch.Err] reports it, and it is set from
+	// the forward-path callers ([Switch.LinkChange], [Switch.updateLagState])
+	// that cannot return an error of their own.
+	operErr error
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
@@ -1802,7 +1808,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
 	lagOper := aggregateOperStatus(s.ports.Members(lagName))
-	s.mustSetOperStatus(lagName, lagOper)
+	s.setOperStatus(lagName, lagOper)
 
 	if s.stp != nil {
 		var enabledMembers []string
@@ -2000,6 +2006,9 @@ const (
 const IssueProtocolLinkUnknown analysis.IssueCode = "protocol-link-unknown"
 
 // LinkChange notifies the protocol layers of a link transition on the named port.
+//
+// An invalid operational state records a fault on the switch, readable through
+// [Switch.Err]; LinkChange returns nothing, so that is the only channel for it.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]PointToPoint)
@@ -2021,7 +2030,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 		s.portP2P[portName] = pointToPoint
 		s.portSpeed[portName] = speed
 
-		s.mustSetOperStatus(portName, state)
+		s.setOperStatus(portName, state)
 
 		if s.lag != nil {
 			fx := s.lag.LinkChange(now, portName, up)
@@ -2039,7 +2048,7 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	s.portP2P[resolvedPort] = pointToPoint
 	s.portSpeed[resolvedPort] = speed
 
-	s.mustSetOperStatus(resolvedPort, state)
+	s.setOperStatus(resolvedPort, state)
 
 	if s.stp != nil {
 		fx := s.stp.LinkChange(now, resolvedPort, up, p2p, speed)
@@ -2112,10 +2121,32 @@ func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
 	return nil
 }
 
-func (s *Switch) mustSetOperStatus(portName string, state port.LinkState) {
+// setOperStatus applies an oper-status change on the forward path and records
+// the first failure on the sticky [Switch.operErr] instead of panicking. Its
+// callers — updateLagState and LinkChange — run under the switch's core
+// forwarding API (Forward, Peek), which returns no error, so a rejected oper
+// status (a caller bug, not a state a topology can express) is surfaced through
+// [Switch.Err] rather than taking the process down.
+func (s *Switch) setOperStatus(portName string, state port.LinkState) {
 	if err := s.SetOperStatus(portName, state); err != nil {
-		panic(err)
+		s.recordOperFault(err)
 	}
+}
+
+// recordOperFault keeps the first oper-status fault. Later faults are dropped
+// so [Switch.Err] reports the one that started the trouble.
+func (s *Switch) recordOperFault(err error) {
+	if s.operErr == nil {
+		s.operErr = err
+	}
+}
+
+// Err reports the first oper-status fault [Switch.LinkChange] or
+// [Switch.updateLagState] recorded, or nil if none occurred. A caller that
+// drives link transitions reads it to learn that a transition named an invalid
+// operational state, which those methods cannot return directly.
+func (s *Switch) Err() error {
+	return s.operErr
 }
 
 func validateOperStatus(portName string, state port.LinkState) error {
