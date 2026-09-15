@@ -363,6 +363,18 @@ them.
   role MIB tables list exactly Root, Alternate, Designated, and Backup, so a
   boundary port's MSTI mirrors the CIST's Root under the label the MIB can
   express, the same forwarding answer under a different name.
+- **A topology change flushes by tree, and the CIST flushes everything.**
+  `Effects.Flush` pairs a port with the FIDs stale on it, so a change on an
+  instance discards what the bridge learned about that instance's VLANs and
+  leaves the other instances' entries alone. An empty FID set means every FID,
+  which a link down, a BPDU-guard disable, and every CIST-raised change
+  produce. The CIST case is a deliberate over-flush: the CIST carries every
+  VLAN no instance claims, a set the layer cannot enumerate, so it names no
+  FIDs. On a boundary port that is correct, since a CIST change there reaches
+  every tree; on an internal port it costs a round of flooding to relearn
+  entries that were not stale. The alternative is a target that can express
+  "every FID except these", which is a wider contract than one over-flush
+  justifies.
 
 ### Route selection and recursive next hops
 

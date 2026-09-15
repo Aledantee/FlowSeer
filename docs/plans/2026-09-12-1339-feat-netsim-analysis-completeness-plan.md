@@ -552,7 +552,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3d-plan.md`
 - **After:** U3b
-- **Landed:**
+- **Landed:** `5628bf4b..ca47a59d`
 - **Change:** MST codec and region digest, CIST and MSTI vectors, boundary
   roles, hop-count aging, and per-tree topology change and flushing.
 - **Tests:** Digest vectors, codec round-trip, multi-instance and

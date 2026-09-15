@@ -233,6 +233,28 @@ same forwarding answer under a different name.
 See "How long received information lives" above for hop aging, which applies
 to internal information on both the CIST and every MSTI.
 
+## What a topology change flushes
+
+`Effects.Flush` is a list of `FlushTarget{Port, FIDs}`, and the bridge's
+`Flush` deletes a learned entry only when its port matches a target and that
+target either names the entry's FID or names none at all. An empty `FIDs` means
+every FID on the port.
+
+A topology change on an instance flushes, on the bridge's other ports, only the
+VLANs that instance carries. That is the point of the pair: moving VLAN 10's
+tree must not discard what the bridge learned about VLAN 20, which did not move.
+
+Three cases flush every FID instead. A link going down and a BPDU-guard disable
+both leave every entry on that port stale whatever tree it belonged to. The
+third is a topology change raised from the CIST, and it is worth being plain
+about: the CIST carries every VLAN no instance claims, which is not a set this
+layer can enumerate, so a CIST change names no FIDs and the bridge flushes the
+port across all of them. On a boundary port that is what the standard wants
+anyway, since a CIST change there reaches every tree. On an internal port it
+discards more than it strictly must, costing a round of flooding to relearn
+entries that were never stale. Narrowing it would need a target that can say
+"every FID except these", which `FlushTarget` deliberately cannot.
+
 ## Not modeled
 
 - Per-VLAN RSTP: the SSTP encapsulation, per-VLAN trees, and the PVID
