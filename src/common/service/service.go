@@ -144,7 +144,7 @@ func runWithOptionsAndTelemetryFactories(
 		schedulingFailed = true
 	}
 	if schedulingFailed {
-		// A run that ended before it signalled start never reached Running,
+		// A run that ended before it signaled start never reached Running,
 		// and a startup span saying otherwise hides the degraded branch from
 		// outside the process.
 		endLifecycleSpan(startupSpan, lifecycleOutcomeError, schedulingErr)
