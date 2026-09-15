@@ -884,6 +884,200 @@ func TestMSTBPDUDecodeTruncatedBodyFallsBackToRST(t *testing.T) {
 	}
 }
 
+// TestMSTBPDUEncodePlacesBridgeAndRegionalRootSeparately is a golden test for
+// the MST body layout: the CIST bridge identifier belongs at payload octets
+// [96:104] and the CIST regional root identifier at [20:28] (the slot the
+// RST shape uses for its bridge identifier). A uniform swap of the two
+// fields would still pass every round-trip and re-encode assertion, so this
+// test pins each field's octets against literal expected bytes instead of
+// deriving them from the same encoder logic under test.
+func TestMSTBPDUEncodePlacesBridgeAndRegionalRootSeparately(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	bridgeID := stp.BridgeID{
+		Priority: 0x9005,
+		Address:  netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff},
+	}
+	regionalRootID := stp.BridgeID{
+		Priority: 0x1234,
+		Address:  netaddr.MAC{0x11, 0x22, 0x33, 0x44, 0x55, 0x66},
+	}
+
+	b := stp.BPDU{
+		RootID:         stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:       bridgeID,
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		ConfigID:       &stp.ConfigID{Name: "region-a"},
+		RegionalRootID: regionalRootID,
+		RemainingHops:  20,
+	}
+
+	frame := stp.Encode(b, mac)
+
+	wantCISTRegionalRootOctets := []byte{0x12, 0x34, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
+	if got := frame.Payload[20:28]; !bytes.Equal(got, wantCISTRegionalRootOctets) {
+		t.Errorf("payload[20:28] = % x, want % x (CIST regional root identifier)", got, wantCISTRegionalRootOctets)
+	}
+
+	wantCISTBridgeOctets := []byte{0x90, 0x05, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+	if got := frame.Payload[96:104]; !bytes.Equal(got, wantCISTBridgeOctets) {
+		t.Errorf("payload[96:104] = % x, want % x (CIST bridge identifier)", got, wantCISTBridgeOctets)
+	}
+
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+	if decoded.BridgeID != bridgeID {
+		t.Errorf("decoded BridgeID = %v, want %v", decoded.BridgeID, bridgeID)
+	}
+	if decoded.RegionalRootID != regionalRootID {
+		t.Errorf("decoded RegionalRootID = %v, want %v", decoded.RegionalRootID, regionalRootID)
+	}
+}
+
+// TestMSTBPDUDecodeRefusesOverlongPayload guards against a payload carrying
+// more octets than its own version 3 length names: silently accepting the
+// extra octets would decode a longer capture as an MST BPDU with fewer (or
+// no) records, aging out information the sender actually refreshed.
+func TestMSTBPDUDecodeRefusesOverlongPayload(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     &stp.ConfigID{Name: "region-a"},
+	}
+	frame := stp.Encode(b, mac)
+
+	// Append a whole trailing MSTI record's worth of octets without updating
+	// the version 3 length field, as ten records appended past the length
+	// the field names would look on the wire.
+	frame.Payload = append(frame.Payload, make([]byte, 16)...)
+
+	_, err := stp.Decode(frame)
+	if err == nil {
+		t.Fatal("Decode unexpectedly succeeded on a payload longer than its version 3 length names")
+	}
+
+	attrs := errs.Attributes(err)
+	if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+		t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+	}
+}
+
+// TestMSTBPDUEncodeRecordCountBoundary guards the version 3 length field
+// against wrapping a uint16: at 4092 MSTI records the naive computation
+// (64 + 16*n) wraps to 0, and Encode must refuse before that point rather
+// than emit a length that decodes wrong.
+func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	baseBPDU := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     &stp.ConfigID{Name: "region-a"},
+	}
+
+	makeMSTIs := func(n int) []stp.MSTIRecord {
+		mstis := make([]stp.MSTIRecord, n)
+		for i := range mstis {
+			mstis[i] = stp.MSTIRecord{
+				MSTID:          stp.MSTID(1 + i%4094),
+				RegionalRootID: stp.BridgeID{Priority: 32768, Address: mac},
+			}
+		}
+		return mstis
+	}
+
+	const maxRecords = (65535 - 64) / 16 // mirrors stp's own maxMSTIRecords bound
+
+	t.Run("at the maximum record count", func(t *testing.T) {
+		t.Parallel()
+
+		b := baseBPDU
+		b.MSTIs = makeMSTIs(maxRecords)
+
+		frame := stp.Encode(b, mac)
+		if len(frame.Payload) == 0 {
+			t.Fatal("Encode returned a zero Frame at the maximum record count")
+		}
+
+		decoded, err := stp.Decode(frame)
+		if err != nil {
+			t.Fatalf("stp.Decode: %v", err)
+		}
+		if len(decoded.MSTIs) != maxRecords {
+			t.Errorf("len(MSTIs) = %d, want %d", len(decoded.MSTIs), maxRecords)
+		}
+	})
+
+	t.Run("one past the maximum record count", func(t *testing.T) {
+		t.Parallel()
+
+		b := baseBPDU
+		b.MSTIs = makeMSTIs(maxRecords + 1)
+
+		frame := stp.Encode(b, mac)
+		if len(frame.Payload) != 0 {
+			t.Errorf("payload len = %d, want 0 (Encode should refuse to encode)", len(frame.Payload))
+		}
+	})
+}
+
+// TestMSTIRecordPriorityLowBitsFollowMSTID pins the documented relationship
+// between MSTIRecord.MSTID and RegionalRootID.Priority: Encode replaces
+// Priority's low 12 bits with MSTID, and Decode re-derives both from those
+// same low 12 bits, so the pair round-trips only on Priority's top 4 bits.
+func TestMSTIRecordPriorityLowBitsFollowMSTID(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     &stp.ConfigID{Name: "region-a"},
+		MSTIs: []stp.MSTIRecord{
+			{MSTID: 7, RegionalRootID: stp.BridgeID{Priority: 0x8005, Address: mac}},
+		},
+	}
+
+	frame := stp.Encode(b, mac)
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+
+	if len(decoded.MSTIs) != 1 {
+		t.Fatalf("len(MSTIs) = %d, want 1", len(decoded.MSTIs))
+	}
+	const wantPriority = 0x8007 // top 4 bits (0x8) kept, low 12 bits replaced by MSTID 7
+	if got := decoded.MSTIs[0].RegionalRootID.Priority; got != wantPriority {
+		t.Errorf("decoded RegionalRootID.Priority = 0x%04x, want 0x%04x", got, wantPriority)
+	}
+	if decoded.MSTIs[0].MSTID != 7 {
+		t.Errorf("decoded MSTID = %d, want 7", decoded.MSTIs[0].MSTID)
+	}
+}
+
 func TestHelloTimeValidationPerType(t *testing.T) {
 	t.Parallel()
 
