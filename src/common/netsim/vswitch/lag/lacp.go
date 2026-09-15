@@ -94,8 +94,42 @@ func comparePartner(a, b lacp.Info) int {
 	return cmp.Compare(a.PortID, b.PortID)
 }
 
+// updateEnabledOrder reconciles the OVS-style enabled-member list against a
+// freshly computed target set. A member leaving the target is removed,
+// leaving the relative order of the rest untouched (the positions bucket
+// selection rotated stay valid). A member newly in the target joins the back;
+// several joining in one call join in name order
+// (bond_enable_member: ovs_list_insert before the list head, called once per
+// member in iteration order, so a name-ordered batch ends in name order at
+// the tail).
+func updateEnabledOrder(order, target []string) []string {
+	targetSet := make(map[string]struct{}, len(target))
+	for _, name := range target {
+		targetSet[name] = struct{}{}
+	}
+
+	inOrder := make(map[string]struct{}, len(order))
+	kept := make([]string, 0, len(order))
+	for _, name := range order {
+		inOrder[name] = struct{}{}
+		if _, ok := targetSet[name]; ok {
+			kept = append(kept, name)
+		}
+	}
+
+	var added []string
+	for _, name := range target {
+		if _, ok := inOrder[name]; !ok {
+			added = append(added, name)
+		}
+	}
+	slices.Sort(added)
+
+	return append(kept, added...)
+}
+
 func (l *Layer) updateLag(lag *lagState) bool {
-	oldEnabled := slices.Clone(lag.enabledMembers)
+	oldEnabled := slices.Clone(lag.enabledOrder)
 
 	if lag.cfg.LACP.Mode == Off {
 		var enabled []string
@@ -110,13 +144,13 @@ func (l *Layer) updateLag(lag *lagState) bool {
 
 		enabled = l.applyMinLinks(lag, enabled)
 
-		lag.enabledMembers = enabled
+		lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
 		lag.attachedMembers = nil
 		lag.partnerSysID = netaddr.MAC{}
 		lag.partnerSysPrio = 0
 		lag.partnerKey = 0
 
-		return !slices.Equal(oldEnabled, lag.enabledMembers)
+		return !slices.Equal(oldEnabled, lag.enabledOrder)
 	}
 
 	var lead *memberState
@@ -180,13 +214,13 @@ func (l *Layer) updateLag(lag *lagState) bool {
 
 		enabled = l.applyMinLinks(lag, enabled)
 
-		lag.enabledMembers = enabled
+		lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
 
 		for _, name := range lag.memberNames {
 			l.members[name].updateActorInfo(lag)
 		}
 
-		return !slices.Equal(oldEnabled, lag.enabledMembers)
+		return !slices.Equal(oldEnabled, lag.enabledOrder)
 	}
 
 	leadPartner := lead.partner
@@ -218,13 +252,13 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	enabled = l.applyMinLinks(lag, enabled)
 
 	lag.attachedMembers = attached
-	lag.enabledMembers = enabled
+	lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
 
 	for _, name := range lag.memberNames {
 		l.members[name].updateActorInfo(lag)
 	}
 
-	return !slices.Equal(oldEnabled, lag.enabledMembers)
+	return !slices.Equal(oldEnabled, lag.enabledOrder)
 }
 
 // applyMinLinks disables every enabled member when fewer than the minimum

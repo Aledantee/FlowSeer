@@ -7,7 +7,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -150,6 +149,23 @@ func TestValidate(t *testing.T) {
 		}
 	})
 
+	t.Run("refuses negative rebalance interval", func(t *testing.T) {
+		t.Parallel()
+		interval := -1 * time.Second
+		cfg := lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {RebalanceInterval: &interval},
+			},
+		}
+		err := cfg.Validate(tbl)
+		if err == nil {
+			t.Fatal("Validate succeeded with negative RebalanceInterval, want error")
+		}
+		if got := errs.Attributes(err)["field"]; got != "lags.lag1.rebalance_interval" {
+			t.Errorf("field = %v, want lags.lag1.rebalance_interval", got)
+		}
+	})
+
 	t.Run("refuses unknown modes", func(t *testing.T) {
 		t.Parallel()
 		cfg := lag.Config{
@@ -216,8 +232,13 @@ func TestDefaults(t *testing.T) {
 	if l1.LACP.Key != 1 {
 		t.Errorf("lag1 key = %d, want 1", l1.LACP.Key)
 	}
-	if l1.Primary != "1/1/1" {
-		t.Errorf("lag1 primary = %q, want %q", l1.Primary, "1/1/1")
+	// Normalize no longer invents a Primary: active-backup without one keeps
+	// the last active member instead of failing back to a guessed one.
+	if l1.Primary != "" {
+		t.Errorf("lag1 primary = %q, want unset", l1.Primary)
+	}
+	if l1.RebalanceInterval == nil || *l1.RebalanceInterval != lag.DefaultRebalanceInterval {
+		t.Errorf("lag1 rebalance interval = %v, want %v", l1.RebalanceInterval, lag.DefaultRebalanceInterval)
 	}
 	if l1.LACP.SystemPriority != lag.DefaultSystemPriority {
 		t.Errorf("lag1 system priority = %d, want %d", l1.LACP.SystemPriority, lag.DefaultSystemPriority)
@@ -318,32 +339,71 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
-func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
+// TestRebalanceIntervalNormalization is evidence for the four normalization
+// cases named in the decisions: nil fills the default, zero disables the
+// signal and stays zero, a value under one second is raised to it, and a
+// value at or above one second is kept.
+func TestRebalanceIntervalNormalization(t *testing.T) {
 	t.Parallel()
 
-	ports := lagPortTable(t)
-	systemID := mustMAC(t, "02:00:00:00:00:aa")
-	omitted := vswitch.Config{MAC: systemID, Ports: ports}
-	effectiveLAG := lag.Config{}.Defaults(ports, systemID)
-	explicit := vswitch.Config{MAC: systemID, Ports: ports, LAG: &effectiveLAG}
+	tbl := lagPortTable(t)
+	mac := mustMAC(t, "02:00:00:00:00:aa")
 
-	omittedNorm := omitted.Normalize()
-	if omittedNorm.LAG == nil {
-		t.Fatal("Normalize().LAG = nil, want effective LAG configuration")
-	}
-	if changes := vswitch.Diff(omittedNorm, explicit.Normalize()); len(changes) != 0 {
-		t.Errorf("Diff(omitted, explicit) = %+v, want no changes", changes)
+	normalize := func(interval *time.Duration) *time.Duration {
+		cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {RebalanceInterval: interval}}}
+		return cfg.Normalize(tbl, mac).LAGs["lag1"].RebalanceInterval
 	}
 
-	sw, err := vswitch.New(omitted)
-	if err != nil {
-		t.Fatalf("vswitch.New: %v", err)
+	zero := time.Duration(0)
+	below := 500 * time.Millisecond
+	above := 20 * time.Second
+
+	cases := []struct {
+		name string
+		in   *time.Duration
+		want time.Duration
+	}{
+		{name: "nil fills the default", in: nil, want: lag.DefaultRebalanceInterval},
+		{name: "zero disables and stays zero", in: &zero, want: 0},
+		{name: "below the minimum is raised to it", in: &below, want: lag.MinRebalanceInterval},
+		{name: "at or above the minimum is kept", in: &above, want: above},
 	}
-	if changes := vswitch.Diff(sw.Config(), explicit.Normalize()); len(changes) != 0 {
-		t.Errorf("Diff(Switch.Config(), explicit) = %+v, want no changes", changes)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := normalize(tc.in)
+			if got == nil || *got != tc.want {
+				t.Errorf("RebalanceInterval = %v, want %v", got, tc.want)
+			}
+		})
 	}
-	if changes := vswitch.Diff(sw.Spec().Config, explicit.Normalize()); len(changes) != 0 {
-		t.Errorf("Diff(Switch.Spec().Config, explicit) = %+v, want no changes", changes)
+}
+
+func TestDiffCoversRebalanceInterval(t *testing.T) {
+	t.Parallel()
+
+	zero := time.Duration(0)
+	five := 5 * time.Second
+
+	// Nil and an explicit zero are both "unset or disabled" in Canonical form
+	// but distinguished as Set/unset; only a differing explicit value changes.
+	unset := lag.Config{LAGs: map[string]lag.LAG{"lag1": {}}}
+	explicitZero := lag.Config{LAGs: map[string]lag.LAG{"lag1": {RebalanceInterval: &zero}}}
+	explicitFive := lag.Config{LAGs: map[string]lag.LAG{"lag1": {RebalanceInterval: &five}}}
+
+	if changes := lag.Diff(explicitZero, explicitZero); len(changes) != 0 {
+		t.Errorf("Diff(explicitZero, explicitZero) = %+v, want no changes", changes)
+	}
+
+	changes := lag.Diff(unset, explicitFive)
+	found := false
+	for _, c := range changes {
+		if c.Subject.Kind == "lag" && c.Subject.Key == "lag1" && c.Field == "rebalance_interval" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("Diff(unset, explicitFive) = %+v, want a rebalance_interval change", changes)
 	}
 }
 

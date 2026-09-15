@@ -1,7 +1,6 @@
 package lag
 
 import (
-	"maps"
 	"slices"
 	"time"
 
@@ -37,6 +36,12 @@ type Info struct {
 	PartnerSystemPriority uint16
 	PartnerKey            uint16
 	Up                    bool
+
+	// Pending names member ports that may still change state on their own
+	// (a running link delay, an Expired partner, or an attached partner
+	// without synchronization) and when. A pending member changes no other
+	// field of Info; the answer above is definite as of now.
+	Pending []Pending
 }
 
 // MemberInfo summarizes the runtime status of one member port in a link aggregation group.
@@ -52,22 +57,65 @@ type MemberInfo struct {
 	BadLACPDUs uint64
 }
 
+// PendingCause identifies why a member port may still change state.
+type PendingCause string
+
+const (
+	// PendingLinkDelay marks a member whose up or down delay timer is running.
+	PendingLinkDelay PendingCause = "link-delay"
+
+	// PendingPartnerExpired marks a member whose partner information is Expired
+	// and will move to Defaulted when its receive timer elapses.
+	PendingPartnerExpired PendingCause = "partner-expired"
+
+	// PendingUnsynchronized marks a member attached to the lead partner that has
+	// not yet advertised synchronization.
+	PendingUnsynchronized PendingCause = "unsynchronized"
+)
+
+// Pending names one member port that may still change state on its own, and
+// the time at which that is currently scheduled to happen.
+type Pending struct {
+	Member string
+	Cause  PendingCause
+	At     time.Time
+}
+
+// bucketEntry is the runtime state of one of a LAG's 256 hash buckets: the
+// member last assigned to carry it, and when that assignment was made.
+type bucketEntry struct {
+	member     string
+	assignedAt time.Time
+	assigned   bool
+}
+
 type lagState struct {
-	name            string
-	cfg             LAG
-	memberNames     []string
-	enabledMembers  []string
+	name        string
+	cfg         LAG
+	memberNames []string
+
+	// enabledOrder is the OVS-style list of enabled members: bucket lookup
+	// rotates a chosen member to the back, and a newly enabled member joins
+	// the back, so order here is not alphabetical.
+	enabledOrder    []string
 	attachedMembers []string
 	partnerSysID    netaddr.MAC
 	partnerSysPrio  uint16
 	partnerKey      uint16
+
+	// lastActive is the active-backup member last chosen on a committing
+	// call, kept so active-backup does not fail back once its member
+	// recovers.
+	lastActive string
+
+	buckets [256]bucketEntry
 }
 
 func (l *lagState) clone() *lagState {
 	cp := *l
-	cp.cfg.Members = maps.Clone(l.cfg.Members)
+	cp.cfg = l.cfg.Clone()
 	cp.memberNames = slices.Clone(l.memberNames)
-	cp.enabledMembers = slices.Clone(l.enabledMembers)
+	cp.enabledOrder = slices.Clone(l.enabledOrder)
 	cp.attachedMembers = slices.Clone(l.attachedMembers)
 
 	return &cp
@@ -201,36 +249,183 @@ func (l *Layer) Clone() *Layer {
 	return cp
 }
 
-// Select chooses an enabled member of the named LAG to carry the given frame.
+// SelectionCause identifies why Select or Peek chose a member.
+type SelectionCause string
+
+const (
+	// CauseKept means the bucket already had an enabled member and kept it.
+	CauseKept SelectionCause = "kept"
+
+	// CauseFirstUse means the bucket had never been assigned.
+	CauseFirstUse SelectionCause = "first-use"
+
+	// CauseReassigned means the bucket's member was disabled, so a different
+	// member was assigned.
+	CauseReassigned SelectionCause = "reassigned"
+
+	// CausePrimary means active-backup chose the configured Primary.
+	CausePrimary SelectionCause = "primary"
+
+	// CauseLastActive means active-backup kept the member last active rather
+	// than failing back.
+	CauseLastActive SelectionCause = "last-active"
+
+	// CauseFirstEnabled means active-backup had neither a Primary nor a
+	// surviving last-active member and fell back to the lowest-named enabled
+	// member.
+	CauseFirstEnabled SelectionCause = "first-enabled"
+)
+
+// Selection is the outcome of choosing a member to carry a frame.
+type Selection struct {
+	Member string
+	OK     bool
+
+	// Bucket and Prior describe a balanced-mode decision; Prior is the
+	// bucket's occupant before this call ("" on CauseFirstUse). Both are
+	// zero for an ActiveBackup decision.
+	Bucket uint8
+	Prior  string
+
+	Cause SelectionCause
+
+	// RebalanceUnmodeled reports that this is a balanced-mode selection whose
+	// bucket was assigned at least one rebalance interval ago, with two or
+	// more enabled members: OVS would have considered moving it by measured
+	// load, which netsim does not model. The caller decides what to do with
+	// that, such as raising an Incomplete issue.
+	RebalanceUnmodeled bool
+}
+
+// Select chooses an enabled member of the named LAG to carry the given frame
+// and commits that choice: a balanced bucket's assignment and its move to the
+// back of the enabled list, or active-backup's last-active memory.
 // It applies the configured bond mode (ActiveBackup, BalanceSLB, or BalanceTCP).
-// If no member is enabled, Select returns false.
-func (l *Layer) Select(lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+func (l *Layer) Select(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) Selection {
+	return l.selectMember(now, lagName, f, vid, true)
+}
+
+// Peek computes the same choice Select would make, without committing it: no
+// bucket assignment, no enabled-list rotation, and no last-active memory
+// change.
+func (l *Layer) Peek(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) Selection {
+	return l.selectMember(now, lagName, f, vid, false)
+}
+
+func (l *Layer) selectMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID, commit bool) Selection {
 	lag, ok := l.lags[lagName]
-	if !ok || len(lag.enabledMembers) == 0 {
-		return "", false
+	if !ok {
+		return Selection{}
 	}
 
-	enabled := lag.enabledMembers
 	switch lag.cfg.Mode {
 	case BalanceSLB:
-		h := hashSLB(lag.cfg.HashBasis, f.Src, vid)
-		bucket := h & 0xff
-
-		return enabled[int(bucket)%len(enabled)], true
+		return l.balancedSelect(lag, now, hashSLB(lag.cfg.HashBasis, f.Src, vid), commit)
 
 	case BalanceTCP:
-		h := hashTCP(lag.cfg.HashBasis, f)
-		bucket := h & 0xff
+		// Balance-tcp requires negotiated LACP: with LACP off, or with no
+		// member attached to a partner, it carries nothing unless Fallback
+		// applies, and Fallback selects as active-backup
+		// (ofproto/bond.c choose_output_member, BM_TCP and LACP_CONFIGURED).
+		if lag.cfg.LACP.Mode == Off || len(lag.attachedMembers) == 0 {
+			if !lag.cfg.LACP.Fallback {
+				return Selection{}
+			}
 
-		return enabled[int(bucket)%len(enabled)], true
-
-	default: // ActiveBackup
-		if lag.cfg.Primary != "" && slices.Contains(enabled, lag.cfg.Primary) {
-			return lag.cfg.Primary, true
+			return l.activeBackupSelect(lag, now, commit)
 		}
 
-		return enabled[0], true
+		return l.balancedSelect(lag, now, hashTCP(lag.cfg.HashBasis, f), commit)
+
+	default: // ActiveBackup
+		return l.activeBackupSelect(lag, now, commit)
 	}
+}
+
+// balancedSelect implements OVS's choose_output_member / get_enabled_member
+// (ofproto/bond.c, branch-3.3 73e38c8d): a bucket keeps its member while that
+// member stays enabled; otherwise it takes the member at the front of the
+// enabled list and that member moves to the back.
+func (l *Layer) balancedSelect(lag *lagState, now time.Time, hash uint32, commit bool) Selection {
+	if len(lag.enabledOrder) == 0 {
+		return Selection{}
+	}
+
+	bucket := uint8(hash & 0xff)
+	entry := lag.buckets[bucket]
+
+	if entry.assigned && slices.Contains(lag.enabledOrder, entry.member) {
+		return Selection{
+			Member:             entry.member,
+			OK:                 true,
+			Bucket:             bucket,
+			Prior:              entry.member,
+			Cause:              CauseKept,
+			RebalanceUnmodeled: l.rebalanceUnmodeled(lag, entry.assignedAt, now),
+		}
+	}
+
+	cause := CauseFirstUse
+	prior := ""
+	if entry.assigned {
+		cause = CauseReassigned
+		prior = entry.member
+	}
+
+	front := lag.enabledOrder[0]
+	if commit {
+		lag.enabledOrder = append(lag.enabledOrder[1:], front)
+		lag.buckets[bucket] = bucketEntry{member: front, assignedAt: now, assigned: true}
+	}
+
+	return Selection{Member: front, OK: true, Bucket: bucket, Prior: prior, Cause: cause}
+}
+
+// rebalanceUnmodeled reports whether a kept bucket is old enough, and the LAG
+// has enough enabled members, that OVS would have considered rebalancing it
+// by measured load (a signal netsim does not model and so reports instead).
+func (l *Layer) rebalanceUnmodeled(lag *lagState, assignedAt, now time.Time) bool {
+	interval := lag.cfg.RebalanceInterval
+	if interval == nil || *interval <= 0 || assignedAt.IsZero() {
+		return false
+	}
+	if len(lag.enabledOrder) < 2 {
+		return false
+	}
+
+	return !now.Before(assignedAt.Add(*interval))
+}
+
+// activeBackupSelect implements OVS's bond_choose_member: the configured
+// Primary if enabled, else the member last active if it is still enabled,
+// else the lowest-named enabled member. OVS walks a hash map at that last
+// step; the lowest name is netsim's deterministic stand-in for that walk.
+func (l *Layer) activeBackupSelect(lag *lagState, _ time.Time, commit bool) Selection {
+	if len(lag.enabledOrder) == 0 {
+		return Selection{}
+	}
+
+	var member string
+	var cause SelectionCause
+
+	switch {
+	case lag.cfg.Primary != "" && slices.Contains(lag.enabledOrder, lag.cfg.Primary):
+		member = lag.cfg.Primary
+		cause = CausePrimary
+	case lag.lastActive != "" && slices.Contains(lag.enabledOrder, lag.lastActive):
+		member = lag.lastActive
+		cause = CauseLastActive
+	default:
+		member = slices.Min(lag.enabledOrder)
+		cause = CauseFirstEnabled
+	}
+
+	prior := lag.lastActive
+	if commit {
+		lag.lastActive = member
+	}
+
+	return Selection{Member: member, OK: true, Prior: prior, Cause: cause}
 }
 
 func (l *Layer) emitLACPDU(m *memberState) Emission {
@@ -567,14 +762,39 @@ func (l *Layer) Info(lagName string) Info {
 		return Info{}
 	}
 
+	var pending []Pending
+	for _, name := range lag.memberNames {
+		if p, ok := pendingEntry(l.members[name]); ok {
+			pending = append(pending, p)
+		}
+	}
+
 	return Info{
 		Mode:                  lag.cfg.Mode,
-		Enabled:               slices.Clone(lag.enabledMembers),
+		Enabled:               slices.Clone(lag.enabledOrder),
 		Attached:              slices.Clone(lag.attachedMembers),
 		PartnerSystemID:       lag.partnerSysID,
 		PartnerSystemPriority: lag.partnerSysPrio,
 		PartnerKey:            lag.partnerKey,
-		Up:                    len(lag.enabledMembers) > 0,
+		Up:                    len(lag.enabledOrder) > 0,
+		Pending:               pending,
+	}
+}
+
+// pendingEntry reports the single reason, if any, that a member port may
+// still change state on its own. A member matching more than one condition
+// reports the one checked first below, since Info carries one entry per
+// member.
+func pendingEntry(m *memberState) (Pending, bool) {
+	switch {
+	case m.hasPendingLink:
+		return Pending{Member: m.name, Cause: PendingLinkDelay, At: m.linkDelayTimer}, true
+	case m.status == Expired:
+		return Pending{Member: m.name, Cause: PendingPartnerExpired, At: m.rxTimer}, true
+	case m.attached && m.partner.State&lacp.StateSynchronization == 0:
+		return Pending{Member: m.name, Cause: PendingUnsynchronized, At: m.rxTimer}, true
+	default:
+		return Pending{}, false
 	}
 }
 

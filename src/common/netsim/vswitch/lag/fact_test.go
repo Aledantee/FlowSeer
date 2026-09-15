@@ -71,11 +71,12 @@ func TestSelectionFactCapturesConsumedHashTuple(t *testing.T) {
 			t.Parallel()
 
 			layer := selectionFactLayer(t, tc.mode, 0x10203040)
-			member, selected := layer.Select("lag1", tc.frame, tc.vid)
-			if !selected {
+			now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+			sel := layer.Select(now, "lag1", tc.frame, tc.vid)
+			if !sel.OK {
 				t.Fatal("Select() selected = false, want true")
 			}
-			canonical := layer.SelectionFact("lag1", tc.frame, tc.vid, member, selected).Canonical()
+			canonical := layer.SelectionFact("lag1", tc.frame, tc.vid, sel).Canonical()
 			for _, field := range tc.wantFields {
 				if !strings.Contains(canonical, ";"+field+";") {
 					t.Errorf("SelectionFact() = %q, want field %q", canonical, field)
@@ -128,26 +129,43 @@ func TestSelectionFactDistinguishesL3AndTransportInputsOnSameMember(t *testing.T
 		makeUDPFrame(t, srcMAC, dstMAC, "10.0.0.1", "10.0.0.4", 40000, 5000, false),
 		makeUDPFrame(t, srcMAC, dstMAC, "10.0.0.1", "10.0.0.2", 40000, 5001, false),
 	}
+	now := time.Date(2026, 9, 13, 12, 0, 2, 0, time.UTC)
 	facts := make(map[string]struct{}, len(frames))
 	for _, frame := range frames {
-		member, selected := layer.Select("lag1", frame, 0)
-		if !selected || member != "1/1/1" {
-			t.Fatalf("Select() = (%q, %t), want (1/1/1, true)", member, selected)
+		sel := layer.Select(now, "lag1", frame, 0)
+		if !sel.OK || sel.Member != "1/1/1" {
+			t.Fatalf("Select() = (%q, %t), want (1/1/1, true)", sel.Member, sel.OK)
 		}
-		facts[layer.SelectionFact("lag1", frame, 0, member, selected).Canonical()] = struct{}{}
+		facts[layer.SelectionFact("lag1", frame, 0, sel).Canonical()] = struct{}{}
 	}
 	if len(facts) != len(frames) {
 		t.Errorf("L3 and transport variants produced %d facts, want %d", len(facts), len(frames))
 	}
 }
 
+// selectionFactLayer builds a two-member lag1 in the given mode, ready for
+// Select. BalanceTCP requires negotiated LACP, so for that mode it peers the
+// layer with a second one and converges LACP before returning; the peer is
+// discarded since these tests only exercise the fact snapshot, not LACP
+// evidence.
 func selectionFactLayer(t *testing.T, mode lag.Mode, hashBasis uint32) *lag.Layer {
 	t.Helper()
 
-	layer := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{
-		"lag1": {Mode: mode, HashBasis: hashBasis},
-	}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:10"))
+	lagCfg := lag.LAG{Mode: mode, HashBasis: hashBasis}
+	if mode == lag.BalanceTCP {
+		lagCfg.LACP = lag.LACPConfig{Mode: lag.Active, Fast: true}
+	}
+
+	layer := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": lagCfg}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:10"))
 	now := time.Date(2026, 9, 13, 12, 0, 0, 0, time.UTC)
+
+	if mode == lag.BalanceTCP {
+		peer := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": lagCfg}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:11"))
+		convergeLACP(t, layer, peer, now)
+
+		return layer
+	}
+
 	layer.LinkChange(now, "1/1/1", true)
 	layer.LinkChange(now, "1/1/2", true)
 
@@ -157,15 +175,16 @@ func selectionFactLayer(t *testing.T, mode lag.Mode, hashBasis uint32) *lag.Laye
 func assertCollisionFactDiffers(t *testing.T, layer *lag.Layer, frame ethernet.Frame, vid vlan.ID, factsByMember map[string]string) {
 	t.Helper()
 
-	member, selected := layer.Select("lag1", frame, vid)
-	if !selected {
+	now := time.Date(2026, 9, 13, 12, 0, 1, 0, time.UTC)
+	sel := layer.Select(now, "lag1", frame, vid)
+	if !sel.OK {
 		t.Fatal("Select() selected = false, want true")
 	}
-	canonical := layer.SelectionFact("lag1", frame, vid, member, selected).Canonical()
-	if previous, collision := factsByMember[member]; collision && previous == canonical {
-		t.Errorf("different consumed inputs selecting %q produced equal facts %q", member, canonical)
+	canonical := layer.SelectionFact("lag1", frame, vid, sel).Canonical()
+	if previous, collision := factsByMember[sel.Member]; collision && previous == canonical {
+		t.Errorf("different consumed inputs selecting %q produced equal facts %q", sel.Member, canonical)
 	}
-	factsByMember[member] = canonical
+	factsByMember[sel.Member] = canonical
 
 	if len(factsByMember) > 2 {
 		t.Fatalf("selection used more than two members: %v", factsByMember)
