@@ -346,9 +346,16 @@ the existing link-transition cases still pass.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/netsim/vswitch`
 
 ### U11. mibgen validates every OID in a pre-pass
-Files: `src/protocol/snmp/cmd/mibgen/emit.go`, the resolve stage that builds
-the tree the emitters read, and a new artifact-scan test
+Files: `src/protocol/snmp/cmd/mibgen/emit.go`, `emit_oid_scan_test.go` (new)
 After: none
+
+Open question settled: the stage that owns the whole tree the emitters read is
+`renderModule` (`emit.go`), which already runs a per-module pre-pass
+(`discoverIndicators`) after `checkSourceNames` and before any emitter. The OID
+pre-pass goes there, iterating `mod.Nodes`. Because `Emit` runs every module's
+`renderModule` before `emitIdentity`, and the identity entries are a subset of
+those same module nodes, the per-module pass also covers the identity package —
+no separate identity pre-pass is needed.
 Change: every OID is validated with `snmp.NewOID` once, before any emitter
 runs, and generation fails with that error. `newOIDCall` (`emit.go:298-325`)
 keeps its `*jen.Statement` signature and gains a doc sentence citing where
@@ -405,7 +412,5 @@ and `src/protocol/ssh/README.md` are prose and are not findings.
 
 ## Open questions
 
-- U11 names "the resolve stage that builds the tree the emitters read" without
-  naming the file, because which stage owns the whole resolved tree is a
-  question for whoever opens `mibgen` next. Settle it before starting the unit,
-  not during.
+- U11's "resolve stage that builds the tree the emitters read" was settled
+  during implementation: it is `renderModule` in `emit.go`. See U11.
