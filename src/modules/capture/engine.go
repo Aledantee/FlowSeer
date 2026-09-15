@@ -12,6 +12,7 @@ import (
 	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/capture/filter"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 )
@@ -145,7 +146,13 @@ func (e *Engine) Run(ctx context.Context) (*pump.Pump[Batch], error) {
 	e.mu.Unlock()
 
 	p := pump.New[Batch](ctx, pumpBuffer)
-	go e.run(p)
+	// run's own normal exit already calls p.Fail or p.Done as its last
+	// step; ReportTo covers the panic path the same way, so a panic partway
+	// through still closes p.Data() with an error recorded rather than
+	// leaving a consumer ranging over it blocked forever.
+	spawn.Go(ctx, "capture.Engine.run", func() {
+		e.run(p)
+	}, spawn.ReportTo(p.Fail))
 	return p, nil
 }
 

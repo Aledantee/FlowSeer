@@ -15,6 +15,7 @@ import (
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/capture/mirror"
 )
 
@@ -281,35 +282,46 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 	var wg sync.WaitGroup
 
+	// Each loop's own exits already call sendTerminal before returning; the
+	// sink here covers only the case where the loop panics before reaching
+	// one of them. It cannot race the close below: frames closes only after
+	// every loop (this one included, via wg) has finished.
 	if s.rawV4 != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV4", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV4, decodeV4, frames)
-		}()
+		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
 	}
 	if s.rawV6 != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV6", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV6, mirror.Decode, frames)
-		}()
+		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
 	}
 	if s.udp != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.udp", func() {
 			defer wg.Done()
 			decodeUDP := func(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
 				return mirror.DecodeUDP(payload, src, dst, s.candidates)
 			}
 			s.runMirrorLoop(ctx, s.udp, decodeUDP, frames)
-		}()
+		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
 	}
 
-	go func() {
+	// wg.Wait blocking forever needs every loop above to actually finish,
+	// which they now do even on a panic (wg.Done is their first defer); the
+	// only way this goroutine itself fails to close frames is a panic in
+	// Wait or close, which the sink covers so frames is never left open
+	// with nothing left running that could ever close it.
+	spawn.Go(ctx, "rawsocket.linuxMirrorSource.awaitReceiveClose", func() {
 		wg.Wait()
 		close(frames)
-	}()
+	}, spawn.ReportTo(func(err error) {
+		close(frames)
+	}))
 
 	return frames
 }

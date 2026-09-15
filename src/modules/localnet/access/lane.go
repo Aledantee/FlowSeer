@@ -13,6 +13,7 @@ import (
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
@@ -1010,12 +1011,19 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// is done, releasing the timer promptly rather than waiting out the
 	// full OperationTimeout on every ordinary completion.
 	done := make(chan submissionOutcome, 1)
-	go func() {
+	spawn.Go(workCtx, "access.Lane.submitAndCoalesce.await", func() {
 		defer cancel()
 		outcome := <-sub.result
 		finish(outcome.result, outcome.err)
 		done <- outcome
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// finish and the send on done are this goroutine's rendezvous with
+		// every joiner waiting on the Coalescer ticket and with the select
+		// below; a panic before either runs must still reach both; done is
+		// buffered, so the send never blocks.
+		finish(nil, err)
+		done <- submissionOutcome{err: err}
+	}))
 
 	select {
 	case outcome := <-done:
@@ -1056,40 +1064,63 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 // purpose. A rule that requires each acquirer to know about the others is
 // also the rule that breaks when a third one is added.
 func (l *Lane) drain(ds *deviceState) {
-	go func() {
+	// drain is detached from any single caller: the goroutine below outlives
+	// whichever Submit admitted the item that woke it, and several callers'
+	// items may be drained in one run, so no one caller's context is the
+	// right one to trace it under.
+	spawn.Go(context.Background(), "access.Lane.drain", func() {
 		for {
-			if !ds.draining.TryLock() {
+			acquired := l.drainOnce(ds)
+			if !acquired {
 				return
 			}
-			for {
-				item, ok := ds.queue.Next()
-				if !ok {
-					break
-				}
-				sub := item.Payload.(*submission)
-				// Each item is processed under its own submitter's
-				// context, never the context of whichever goroutine
-				// happened to become the drainer: this device may drain
-				// several callers' items in one loop, and one caller's
-				// cancellation or deadline must never spuriously fail
-				// another caller's still-live item queued behind it.
-				//
-				// process answers the submission itself rather than
-				// returning an outcome to send here, because a mutation
-				// that enters recovery has no outcome yet: process
-				// returns, this loop moves on, and the poll timer or
-				// central's acknowledgement answers the caller later.
-				l.process(sub.ctx, ds, sub)
-			}
-			ds.draining.Unlock()
 			if ds.queue.Len() == 0 {
 				return
 			}
 			// Something was admitted in the gap between the last empty
-			// Next() and the Unlock above; loop back and try to become
+			// Next() and drainOnce's release; loop back and try to become
 			// the drainer again rather than leaving it stranded.
 		}
-	}()
+	})
+}
+
+// drainOnce becomes the drainer if no other goroutine currently is, drains
+// every item currently queued, then releases the lock. It reports false when
+// another goroutine is already draining.
+//
+// ds.draining is released through defer rather than an explicit call at the
+// end of the loop, so a panic partway through l.process leaves the lock
+// released too: the release rule that every acquirer drains on release
+// depends on the lock actually being free afterward, and a panic that left
+// it held would strand every future admission on this device behind a lock
+// nothing can ever take back.
+func (l *Lane) drainOnce(ds *deviceState) bool {
+	if !ds.draining.TryLock() {
+		return false
+	}
+	defer ds.draining.Unlock()
+
+	for {
+		item, ok := ds.queue.Next()
+		if !ok {
+			break
+		}
+		sub := item.Payload.(*submission)
+		// Each item is processed under its own submitter's context, never
+		// the context of whichever goroutine happened to become the
+		// drainer: this device may drain several callers' items in one
+		// loop, and one caller's cancellation or deadline must never
+		// spuriously fail another caller's still-live item queued behind
+		// it.
+		//
+		// process answers the submission itself rather than returning an
+		// outcome to send here, because a mutation that enters recovery
+		// has no outcome yet: process returns, this loop moves on, and the
+		// poll timer or central's acknowledgement answers the caller
+		// later.
+		l.process(sub.ctx, ds, sub)
+	}
+	return true
 }
 
 // HandleCheckpoint delivers central's CheckpointRequest to the device's
@@ -1753,7 +1784,7 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 
 	runner := recovery.New(open.machine, l.cfg.Fenced, effect, minGap, l.cfg.Clock, &ds.hold)
 
-	go func() {
+	spawn.Go(pollCtx, "access.Lane.startRecoveryPoll", func() {
 		defer cancel()
 		for {
 			if !l.cfg.Wait(pollCtx, interval) {
@@ -1772,7 +1803,13 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 				return
 			}
 		}
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// endRecoveryPoll is this poll's single exit, per its own doc
+		// comment: every path out must answer the caller. open.answered is
+		// a sync.Once, so calling it here even after pollOnce already
+		// answered through another path is harmless.
+		l.endRecoveryPoll(pollCtx, ds, open)
+	}))
 }
 
 // pollOnce runs one recovery attempt under the device's drain lock and
