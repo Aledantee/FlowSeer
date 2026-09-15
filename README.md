@@ -70,9 +70,10 @@ code, and architecture documents.
 
 ## Contributing
 
-Read [`AGENTS.md`](AGENTS.md) before changing the repository. Despite its name,
-the linked engineering and documentation conventions bind human contributors as
-well as coding agents. In particular:
+[`CONTRIBUTING.md`](CONTRIBUTING.md) covers setup, the conventions to read, the
+checks a change has to pass, and the boundaries hooks enforce. The binding rules
+themselves live in [`AGENTS.md`](AGENTS.md); despite its name, it applies to
+human contributors as much as to coding agents. The parts that catch people out:
 
 - edit schemas and generator inputs instead of files under `generated/`;
 - keep protocol libraries free of FlowSeer protobuf domain types;

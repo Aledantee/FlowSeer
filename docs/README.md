@@ -1,7 +1,9 @@
 # FlowSeer documentation
 
-The root [`README.md`](../README.md) is the human entry point. This page maps the
-longer-lived material that contributors need after the quick start.
+The root [`README.md`](../README.md) is the human entry point and
+[`CONTRIBUTING.md`](../CONTRIBUTING.md) is the workflow for changing the
+repository. This page maps the longer-lived material that contributors need
+after those two.
 
 Read [`CONCEPTS.md`](../CONCEPTS.md) first when a domain term is unfamiliar. For
 work on the device service, inventory, discovery, or ingestion planes, read the
