@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -105,7 +106,10 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 		buf = defaultEventBuffer
 	}
 	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf), stream: stream}
-	go w.run(stream, desc)
+	// run's own defers close the pump and the stream unconditionally, but
+	// only its explicit calls set an error; ReportTo gives a panic the
+	// pump.Fail a silent CloseData would otherwise skip.
+	spawn.Go(ctx, "gnmi watch", func() { w.run(stream, desc) }, spawn.ReportTo(w.pump.Fail))
 	return w, nil
 }
 

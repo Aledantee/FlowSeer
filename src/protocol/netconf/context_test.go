@@ -48,7 +48,7 @@ func TestRPCTimeoutBoundsCallerDeadline(t *testing.T) {
 				}
 				return nil
 			}
-			s := netconf.NewSession(f, netconf.Options{RPCTimeout: time.Hour})
+			s := netconf.NewSession(ctx, f, netconf.Options{RPCTimeout: time.Hour})
 			t.Cleanup(func() {
 				if err := s.Close(context.Background()); err != nil {
 					t.Error(err)
@@ -87,7 +87,7 @@ func TestApplyCancellationStillCleansUp(t *testing.T) {
 				}
 				return f.fakeTransport.Exec(ctx, op, reply)
 			}
-			s := netconf.NewSession(f, netconf.Options{})
+			s := netconf.NewSession(ctx, f, netconf.Options{})
 			t.Cleanup(func() {
 				if err := s.Close(context.Background()); err != nil {
 					t.Error(err)
