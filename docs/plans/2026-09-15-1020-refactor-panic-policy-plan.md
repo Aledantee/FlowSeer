@@ -250,7 +250,16 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase3-plan.md`
 After: U1, U2
 Change: a supervised-spawn package lands at `src/common/spawn`, and all 65
 spawn sites in non-test `src/` run through it.
-Landed:
+Landed: Yes. `src/common/spawn` holds the only `go` statement in non-test
+`src/`, and no `sync.WaitGroup.Go` remains. The conversion's real cost was not
+the 65 sites but one ordering property nobody had stated: a deferred completion
+inside the spawned function runs before the helper's recover, so a site that
+closed its channel in a defer and reported through a sink closed it with no
+error recorded. That was wrong in five packages, three of which carried a
+comment asserting it was handled, and in `capture/rawsocket` it turned a
+recovered panic into a process crash — the joiner closed the channel the sink
+then sent on. The phase-3 plan's Open questions carry the rule for phase 4 to
+rule on.
 
 ### U4. Phase 4 - enforcement
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`

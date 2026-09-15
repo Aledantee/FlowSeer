@@ -4,12 +4,19 @@ type: refactor
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-15-1020-refactor-panic-policy-plan.md
 ---
 
 # Panic Policy Phase 3 - The Goroutine Boundary - Plan
+
+> Implemented. `src/common/spawn` is the only `go` statement in non-test
+> `src/`, and no `sync.WaitGroup.Go` remains. Two claims in this plan were
+> wrong against the tree and are corrected in place: `load.go` had no
+> existing per-file panic test, and the ordering rule stated for
+> `snmp/watcher.go` governs every site that defers a completion and passes
+> a sink, a `sync.WaitGroup` join included. See Open questions.
 
 ## Goal
 
