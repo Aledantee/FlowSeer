@@ -31,7 +31,11 @@ if kill -0 "$docker_probe" 2>/dev/null; then
     kill -0 "$docker_probe" 2>/dev/null || break
     sleep 0.1
   done
-  kill -9 "$docker_probe" 2>/dev/null
+  # The probe has usually died from the TERM above by now, which is what ended
+  # the wait loop, so this kill reports "no such process" and returns non-zero.
+  # Under set -e that ends the script here, before the diagnosis below — the
+  # timeout's own message was unreachable in exactly the case it describes.
+  kill -9 "$docker_probe" 2>/dev/null || true
   wait "$docker_probe" 2>/dev/null || true
   echo "Docker daemon did not answer 'docker info' within ${docker_probe_timeout}s." >&2
   exit 1
