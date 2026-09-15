@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // rawwalk.go — the raw varbind fast path consumed by mibgen-generated
@@ -251,12 +252,15 @@ func NewRawWalker(ctx context.Context, bufferSize int) *RawWalker {
 // Pump runs fn in a new goroutine with the same contract as
 // [Walker.Pump]: fn produces items via Send, calls Fail on terminal
 // errors, and returns on natural completion; a deferred Done closes the
-// channel exactly once.
+// channel exactly once. A panic in fn is recovered by [spawn.Go] and
+// reported through [spawn.ReportTo](w.Fail); without that sink a
+// panicking fn would close the channel via the deferred Done with
+// Err() still nil.
 func (w *RawWalker) Pump(fn func(ctx context.Context)) {
-	go func() {
+	spawn.Go(w.pump.Context(), "RawWalker.Pump", func() {
 		defer w.Done()
 		fn(w.pump.Context())
-	}()
+	}, spawn.ReportTo(w.Fail))
 }
 
 // Send delivers one raw varbind to the consumer; false means the
