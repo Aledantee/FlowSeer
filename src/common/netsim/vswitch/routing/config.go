@@ -156,7 +156,8 @@ func comparePrefix(a, b netip.Prefix) int {
 // It refuses empty VRF or interface names, VRFs with no interfaces, interfaces with both or
 // neither VLAN and Port, duplicate VLAN or port assignments across VRFs, unknown ports,
 // LAG members configured as routed ports, group MAC addresses, unmasked route prefixes,
-// routes with neither next hop nor interface,
+// routes with neither next hop nor interface, next hops whose address family differs from
+// their route's prefix, unspecified or multicast next hops,
 // routes or neighbors referencing interfaces outside their VRF, neighbor address families
 // mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
 //
@@ -337,6 +338,25 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("prefix", r.Prefix).
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s must name at least one of next hop or interface", r.Prefix)
+			}
+
+			if r.NextHop.IsValid() {
+				if r.NextHop.Is4() != r.Prefix.Addr().Is4() {
+					return errs.New().
+						Attr("vrf", vrfName).
+						Attr("prefix", r.Prefix).
+						Attr("next_hop", r.NextHop).
+						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".next_hop").
+						Msgf("route %s next hop %s belongs to a different address family than the prefix", r.Prefix, r.NextHop)
+				}
+				if r.NextHop.IsUnspecified() || r.NextHop.IsMulticast() {
+					return errs.New().
+						Attr("vrf", vrfName).
+						Attr("prefix", r.Prefix).
+						Attr("next_hop", r.NextHop).
+						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".next_hop").
+						Msgf("route %s next hop %s must be a unicast address", r.Prefix, r.NextHop)
+				}
 			}
 
 			if r.Interface != "" {
