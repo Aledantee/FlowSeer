@@ -129,6 +129,40 @@ type BPDU struct {
 	MaxAge       time.Duration
 	HelloTime    time.Duration
 	ForwardDelay time.Duration
+
+	// ConfigID, when non-nil, marks b as an IEEE 802.1Q MST BPDU (protocol
+	// version 3) and carries the transmitting region's MST configuration
+	// identifier. It stays nil for every other shape.
+	ConfigID *ConfigID
+
+	// RegionalRootID, InternalRootPathCost, and RemainingHops are the CIST
+	// fields an MST BPDU carries in addition to the RST prefix above: the
+	// root of the MST region (as opposed to RootID, the CIST root of the
+	// whole bridged network), the path cost to that regional root, and the
+	// hop count remaining before the BPDU is aged out within the region.
+	RegionalRootID       BridgeID
+	InternalRootPathCost uint32
+	RemainingHops        uint8
+
+	// MSTIs holds one record per MST Instance the transmitting bridge maps a
+	// VLAN into.
+	MSTIs []MSTIRecord
+}
+
+// MSTIRecord is one IEEE 802.1Q MST Instance record carried within an MST
+// BPDU (protocol version 3).
+type MSTIRecord struct {
+	// MSTID identifies the instance. It has no octets of its own on the
+	// wire: it rides in the low 12 bits of RegionalRootID.Priority (the
+	// system ID extension), and [Encode] and [Decode] handle that encoding.
+	MSTID MSTID
+
+	Flags                uint8
+	RegionalRootID       BridgeID
+	InternalRootPathCost uint32
+	BridgePriority       uint8
+	PortPriority         uint8
+	RemainingHops        uint8
 }
 
 // Role returns the port role carried in the BPDU flags.
@@ -277,6 +311,27 @@ const (
 	// minDataLength pads the frame to the 802.3 minimum of 60 octets before
 	// the check sequence, as a capture would show it.
 	minDataLength = 46
+
+	// mstProtocolVersion is the IEEE 802.1Q protocol version identifier
+	// (payload octet 5) that marks an MST BPDU.
+	mstProtocolVersion = 3
+
+	// mstBodyLength is the MST BPDU body length in octets, counted from the
+	// protocol version identifier through the CIST remaining hops (payload
+	// octets 5-104), before any MSTI records: the 35-octet CIST prefix (the
+	// RST body [Encode] and [Decode] already share via putBody/readBody),
+	// the version 1 and version 3 length fields, the 51-octet MST
+	// configuration identifier, the CIST internal root path cost, the CIST
+	// bridge identifier, and the CIST remaining hops.
+	mstBodyLength = 102
+
+	// mstiRecordLength is the octet length of one MSTI record.
+	mstiRecordLength = 16
+
+	// minMSTPayloadLength is the minimum LLC payload length, LLC header
+	// included, that can hold an MST BPDU body with no MSTI records
+	// (3 + mstBodyLength).
+	minMSTPayloadLength = 105
 )
 
 // Encode serializes b into an untagged IEEE 802.3 LLC frame addressed to the
@@ -290,7 +345,18 @@ const (
 //     Topology Change (bit 0) and Topology Change Acknowledgment (bit 7).
 //   - [BPDUTypeTopologyChangeNotification] writes a Topology Change Notification BPDU
 //     (clause 9.3.2) with version 0, wire type 0x80, LLC length 7, and no body fields.
+//
+// When b.ConfigID is set, Encode instead writes an IEEE 802.1Q MST BPDU (protocol
+// version 3): the RST prefix above, followed by the MST body (configuration
+// identifier, CIST internal root path cost, CIST bridge identifier, CIST remaining
+// hops, and one 16-octet record per entry in b.MSTIs). An MST body is longer than
+// the 802.3 minimum even with no MSTI records, so the payload is sized to the body
+// rather than padded to minDataLength.
 func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
+	if b.ConfigID != nil {
+		return encodeMST(b, src)
+	}
+
 	payload := make([]byte, minDataLength)
 	payload[0] = 0x42
 	payload[1] = 0x42
@@ -346,6 +412,66 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 	}
 }
 
+// encodeMST writes b as an IEEE 802.1Q MST BPDU (protocol version 3). See
+// [Encode] for the shape.
+func encodeMST(b BPDU, src netaddr.MAC) ethernet.Frame {
+	contentLen := 3 + mstBodyLength + mstiRecordLength*len(b.MSTIs)
+
+	payload := make([]byte, contentLen)
+	payload[0] = 0x42
+	payload[1] = 0x42
+	payload[2] = 0x03
+	binary.BigEndian.PutUint16(payload[3:5], 0x0000)
+	payload[5] = mstProtocolVersion
+	payload[6] = bpduTypeWireRST
+	payload[7] = b.Flags
+	putBody(payload, b)
+	payload[38] = 0
+	putMSTBody(payload, b)
+
+	return ethernet.Frame{
+		Dst:       stpGroupAddress,
+		Src:       src,
+		EtherType: ethernet.EtherType(contentLen),
+		Payload:   payload,
+	}
+}
+
+// putMSTBody writes the MST body that follows the RST prefix putBody
+// writes: the version 3 length at [39:41], the 51-octet MST configuration
+// identifier at [41:92], the CIST internal root path cost at [92:96], the
+// CIST bridge identifier at [96:104], the CIST remaining hops at [104], and
+// one 16-octet record per entry in b.MSTIs starting at [105]. payload must
+// already be sized for len(b.MSTIs) records.
+func putMSTBody(payload []byte, b BPDU) {
+	n := len(b.MSTIs)
+	binary.BigEndian.PutUint16(payload[39:41], uint16(64+mstiRecordLength*n))
+
+	payload[41] = b.ConfigID.Selector
+	copy(payload[42:74], b.ConfigID.Name)
+	binary.BigEndian.PutUint16(payload[74:76], b.ConfigID.Revision)
+	copy(payload[76:92], b.ConfigID.Digest[:])
+
+	binary.BigEndian.PutUint32(payload[92:96], b.InternalRootPathCost)
+	binary.BigEndian.PutUint16(payload[96:98], b.RegionalRootID.Priority)
+	copy(payload[98:104], b.RegionalRootID.Address[:])
+	payload[104] = b.RemainingHops
+
+	for i, rec := range b.MSTIs {
+		off := minMSTPayloadLength + mstiRecordLength*i
+		payload[off] = rec.Flags
+		// The MSTID has no octets of its own: it rides in the low 12 bits of
+		// the regional root priority (the system ID extension).
+		priority := (rec.RegionalRootID.Priority & 0xF000) | (uint16(rec.MSTID) & 0x0FFF)
+		binary.BigEndian.PutUint16(payload[off+1:off+3], priority)
+		copy(payload[off+3:off+9], rec.RegionalRootID.Address[:])
+		binary.BigEndian.PutUint32(payload[off+9:off+13], rec.InternalRootPathCost)
+		payload[off+13] = rec.BridgePriority
+		payload[off+14] = rec.PortPriority
+		payload[off+15] = rec.RemainingHops
+	}
+}
+
 // Decode deserializes an IEEE 802.1D Spanning Tree BPDU from the payload of an
 // Ethernet frame.
 //
@@ -358,9 +484,17 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 //   - Rapid Spanning Tree BPDUs (clause 9.3.3): version 2 or greater, wire type 0x02,
 //     requiring at least 39 payload octets.
 //
+// A version 3 RST-shaped BPDU whose payload holds at least minMSTPayloadLength octets
+// is read as an IEEE 802.1Q MST BPDU: [BPDU.ConfigID], [BPDU.RegionalRootID],
+// [BPDU.InternalRootPathCost], [BPDU.RemainingHops], and [BPDU.MSTIs] are filled from
+// the MST body that follows the RST prefix. A version 3 payload too short for that
+// body still decodes as its RST prefix, with ConfigID nil and no records, matching a
+// truncated capture or an RSTP peer; versions above 3 always decode this way.
+//
 // Decode rejects frames with truncated payloads, unexpected LLC headers, protocol
-// identifiers other than 0, unsupported version and type combinations, or zero hello
-// time (on Configuration and RST shapes) with [ReasonUnsupportedBPDU].
+// identifiers other than 0, unsupported version and type combinations, zero hello
+// time (on Configuration and RST shapes), or an MST version 3 length that disagrees
+// with the payload or names a partial trailing record, with [ReasonUnsupportedBPDU].
 func Decode(f ethernet.Frame) (BPDU, error) {
 	if len(f.Payload) < 7 {
 		return BPDU{}, errs.New().
@@ -450,6 +584,12 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 		b.Type = BPDUTypeRapid
 		b.Flags = f.Payload[7]
 
+		if version == mstProtocolVersion && len(f.Payload) >= minMSTPayloadLength {
+			if err := readMSTBody(f.Payload, &b); err != nil {
+				return BPDU{}, err
+			}
+		}
+
 		return b, nil
 
 	default:
@@ -512,6 +652,73 @@ func readBody(payload []byte) (BPDU, error) {
 		HelloTime:    decodeDuration(binary.BigEndian.Uint16(payload[34:36])),
 		ForwardDelay: decodeDuration(binary.BigEndian.Uint16(payload[36:38])),
 	}, nil
+}
+
+// readMSTBody reads the MST body [putMSTBody] writes and fills in b's MST
+// fields. The caller has already checked that payload holds at least
+// minMSTPayloadLength octets.
+func readMSTBody(payload []byte, b *BPDU) error {
+	v3Len := binary.BigEndian.Uint16(payload[39:41])
+	if v3Len < 64 || (v3Len-64)%mstiRecordLength != 0 {
+		return errs.New().
+			Attr("reason", ReasonUnsupportedBPDU).
+			Attr("version3_length", v3Len).
+			Msgf("MST BPDU version 3 length %d is not 64 plus a multiple of %d", v3Len, mstiRecordLength)
+	}
+
+	n := int(v3Len-64) / mstiRecordLength
+	want := minMSTPayloadLength + mstiRecordLength*n
+	if len(payload) < want {
+		return errs.New().
+			Attr("reason", ReasonUnsupportedBPDU).
+			Attr("have", len(payload)).
+			Attr("want", want).
+			Msgf("MST BPDU payload length %d cannot hold %d MSTI record(s)", len(payload), n)
+	}
+
+	var digest [16]byte
+	copy(digest[:], payload[76:92])
+
+	var regionalRootAddr netaddr.MAC
+	copy(regionalRootAddr[:], payload[98:104])
+
+	b.ConfigID = &ConfigID{
+		Selector: payload[41],
+		Name:     string(bytes.TrimRight(payload[42:74], "\x00")),
+		Revision: binary.BigEndian.Uint16(payload[74:76]),
+		Digest:   digest,
+	}
+	b.InternalRootPathCost = binary.BigEndian.Uint32(payload[92:96])
+	b.RegionalRootID = BridgeID{
+		Priority: binary.BigEndian.Uint16(payload[96:98]),
+		Address:  regionalRootAddr,
+	}
+	b.RemainingHops = payload[104]
+
+	if n == 0 {
+		return nil
+	}
+
+	b.MSTIs = make([]MSTIRecord, n)
+	for i := range b.MSTIs {
+		off := minMSTPayloadLength + mstiRecordLength*i
+
+		priority := binary.BigEndian.Uint16(payload[off+1 : off+3])
+		var addr netaddr.MAC
+		copy(addr[:], payload[off+3:off+9])
+
+		b.MSTIs[i] = MSTIRecord{
+			MSTID:                MSTID(priority & 0x0FFF),
+			Flags:                payload[off],
+			RegionalRootID:       BridgeID{Priority: priority, Address: addr},
+			InternalRootPathCost: binary.BigEndian.Uint32(payload[off+9 : off+13]),
+			BridgePriority:       payload[off+13],
+			PortPriority:         payload[off+14],
+			RemainingHops:        payload[off+15],
+		}
+	}
+
+	return nil
 }
 
 func encodeDuration(d time.Duration) uint16 {

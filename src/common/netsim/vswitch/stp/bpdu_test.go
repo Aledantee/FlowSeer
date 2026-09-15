@@ -675,6 +675,215 @@ func TestBPDUVersionAndTypeCombinations(t *testing.T) {
 	})
 }
 
+func TestMSTBPDUCodecRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	regionalRoot := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0c}
+	root := stp.BridgeID{Priority: 4096, Address: mac}
+
+	configID := &stp.ConfigID{
+		Selector: 0,
+		Name:     "region-a",
+		Revision: 3,
+		Digest:   [16]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10},
+	}
+
+	tests := []struct {
+		name  string
+		mstis []stp.MSTIRecord
+	}{
+		{name: "zero records", mstis: nil},
+		{
+			name: "one record",
+			mstis: []stp.MSTIRecord{
+				{
+					MSTID:                1,
+					Flags:                0x01,
+					RegionalRootID:       stp.BridgeID{Priority: 8192 + 1, Address: regionalRoot},
+					InternalRootPathCost: 100,
+					BridgePriority:       0x20,
+					PortPriority:         0x80,
+					RemainingHops:        19,
+				},
+			},
+		},
+		{
+			name: "two records",
+			mstis: []stp.MSTIRecord{
+				{
+					MSTID:                1,
+					Flags:                0x01,
+					RegionalRootID:       stp.BridgeID{Priority: 8192 + 1, Address: regionalRoot},
+					InternalRootPathCost: 100,
+					BridgePriority:       0x20,
+					PortPriority:         0x80,
+					RemainingHops:        19,
+				},
+				{
+					MSTID:                2,
+					Flags:                0x02,
+					RegionalRootID:       stp.BridgeID{Priority: 4096 + 2, Address: mac},
+					InternalRootPathCost: 200,
+					BridgePriority:       0x40,
+					PortPriority:         0x90,
+					RemainingHops:        18,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			b := stp.BPDU{
+				RootID:               root,
+				BridgeID:             root,
+				PortID:               0x8001,
+				HelloTime:            2 * time.Second,
+				MaxAge:               20 * time.Second,
+				ForwardDelay:         15 * time.Second,
+				ConfigID:             configID,
+				RegionalRootID:       stp.BridgeID{Priority: 32768, Address: regionalRoot},
+				InternalRootPathCost: 50,
+				RemainingHops:        20,
+				MSTIs:                tc.mstis,
+			}
+
+			frame := stp.Encode(b, mac)
+
+			wantPayloadLen := 3 + 102 + 16*len(tc.mstis)
+			if len(frame.Payload) != wantPayloadLen {
+				t.Fatalf("payload len = %d, want %d", len(frame.Payload), wantPayloadLen)
+			}
+			if frame.EtherType != ethernet.EtherType(wantPayloadLen) {
+				t.Errorf("EtherType = %v, want %d", frame.EtherType, wantPayloadLen)
+			}
+
+			decoded, err := stp.Decode(frame)
+			if err != nil {
+				t.Fatalf("stp.Decode: %v", err)
+			}
+
+			if decoded.Version != 3 {
+				t.Errorf("Version = %d, want 3", decoded.Version)
+			}
+			if decoded.Type != stp.BPDUTypeRapid {
+				t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeRapid)
+			}
+			if decoded.ConfigID == nil {
+				t.Fatal("ConfigID = nil, want non-nil")
+			}
+			if *decoded.ConfigID != *configID {
+				t.Errorf("ConfigID = %+v, want %+v", *decoded.ConfigID, *configID)
+			}
+			if decoded.RegionalRootID != b.RegionalRootID {
+				t.Errorf("RegionalRootID = %v, want %v", decoded.RegionalRootID, b.RegionalRootID)
+			}
+			if decoded.InternalRootPathCost != b.InternalRootPathCost {
+				t.Errorf("InternalRootPathCost = %d, want %d", decoded.InternalRootPathCost, b.InternalRootPathCost)
+			}
+			if decoded.RemainingHops != b.RemainingHops {
+				t.Errorf("RemainingHops = %d, want %d", decoded.RemainingHops, b.RemainingHops)
+			}
+			if len(decoded.MSTIs) != len(tc.mstis) {
+				t.Fatalf("len(MSTIs) = %d, want %d", len(decoded.MSTIs), len(tc.mstis))
+			}
+			for i, want := range tc.mstis {
+				if decoded.MSTIs[i] != want {
+					t.Errorf("MSTIs[%d] = %+v, want %+v", i, decoded.MSTIs[i], want)
+				}
+			}
+
+			// Re-encode and verify identical wire bytes.
+			wire, err := frame.Encode()
+			if err != nil {
+				t.Fatalf("frame.Encode: %v", err)
+			}
+			reEncodedFrame := stp.Encode(decoded, mac)
+			reEncodedWire, err := reEncodedFrame.Encode()
+			if err != nil {
+				t.Fatalf("re-encode: %v", err)
+			}
+			if string(reEncodedWire) != string(wire) {
+				t.Error("re-encoded wire bytes do not match original")
+			}
+		})
+	}
+}
+
+func TestMSTBPDUDecodeRefusesPartialRecord(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     &stp.ConfigID{Name: "region-a"},
+		MSTIs: []stp.MSTIRecord{
+			{MSTID: 1, RegionalRootID: stp.BridgeID{Priority: 8192, Address: mac}},
+		},
+	}
+	frame := stp.Encode(b, mac)
+
+	// Truncate the single MSTI record so the payload no longer holds a whole
+	// one, while the version 3 length field still claims it does.
+	frame.Payload = frame.Payload[:len(frame.Payload)-1]
+
+	_, err := stp.Decode(frame)
+	if err == nil {
+		t.Fatal("Decode unexpectedly succeeded on a partial trailing MSTI record")
+	}
+
+	attrs := errs.Attributes(err)
+	if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+		t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+	}
+}
+
+func TestMSTBPDUDecodeTruncatedBodyFallsBackToRST(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	frame := stp.Encode(b, mac)
+	frame.Payload[5] = 3 // Mark the RST BPDU as version 3 without an MST body.
+
+	if len(frame.Payload) >= 105 {
+		t.Fatalf("test setup: payload len = %d, want < 105 to exercise the fallback", len(frame.Payload))
+	}
+
+	decoded, err := stp.Decode(frame)
+	if err != nil {
+		t.Fatalf("stp.Decode: %v", err)
+	}
+
+	if decoded.Version != 3 {
+		t.Errorf("Version = %d, want 3", decoded.Version)
+	}
+	if decoded.Type != stp.BPDUTypeRapid {
+		t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeRapid)
+	}
+	if decoded.ConfigID != nil {
+		t.Errorf("ConfigID = %+v, want nil", decoded.ConfigID)
+	}
+	if len(decoded.MSTIs) != 0 {
+		t.Errorf("len(MSTIs) = %d, want 0", len(decoded.MSTIs))
+	}
+}
+
 func TestHelloTimeValidationPerType(t *testing.T) {
 	t.Parallel()
 
