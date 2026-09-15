@@ -1,11 +1,13 @@
 package stp_test
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -696,4 +698,120 @@ func TestDiffReportsOneChangePerGuardField(t *testing.T) {
 	if fields["loop_guard"] {
 		t.Error("Diff() reported a loop_guard change where neither side sets it")
 	}
+}
+
+func TestNormalizeLeavesConfigWithoutMSTUnchanged(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{
+		Priority:        32768,
+		PriorityPresent: true,
+		HelloTime:       stp.DefaultHelloTime,
+		MaxAge:          stp.DefaultMaxAge,
+		ForwardDelay:    stp.DefaultForwardDelay,
+		TxHoldCount:     stp.DefaultTxHoldCount,
+		Ports: map[string]stp.Port{
+			"1/1/1": {Priority: stp.DefaultPortPriority, PriorityPresent: true, PointToPoint: stp.PointToPointAuto},
+		},
+	}
+
+	norm := cfg.Normalize()
+	if norm.MST != nil {
+		t.Fatalf("MST = %+v, want nil", norm.MST)
+	}
+	if !reflect.DeepEqual(cfg, norm) {
+		t.Errorf("Normalize() changed a config that already held effective defaults: got %+v, want %+v", norm, cfg)
+	}
+}
+
+func TestDiffMSTRegionRevision(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{MST: &stp.MST{Name: "region-1", Revision: 1}}
+	b := stp.Config{MST: &stp.MST{Name: "region-1", Revision: 2}}
+
+	changes := stp.Diff(a, b)
+
+	var found int
+	for _, c := range changes {
+		if c.Field == "mst.revision" {
+			found++
+			if c.From != stp.MSTRevisionFact(1) || c.To != stp.MSTRevisionFact(2) {
+				t.Errorf("mst.revision change = (%v, %v), want (1, 2)", c.From, c.To)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("Diff() reported %d changes on mst.revision, want exactly 1: %+v", found, changes)
+	}
+}
+
+func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{
+		MST: &stp.MST{
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+				2: {VLANs: []vlan.ID{20}},
+			},
+		},
+	}
+	b := stp.Config{
+		MST: &stp.MST{
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10, 20}},
+				2: {VLANs: []vlan.ID{}},
+			},
+		},
+	}
+
+	changes := stp.Diff(a, b)
+
+	vlanFields := map[string]int{}
+	for _, c := range changes {
+		if c.Field == "vlans" {
+			vlanFields[c.Subject.Key]++
+		}
+	}
+	if vlanFields["1"] != 1 {
+		t.Errorf("instance 1 vlans changes = %d, want 1", vlanFields["1"])
+	}
+	if vlanFields["2"] != 1 {
+		t.Errorf("instance 2 vlans changes = %d, want 1", vlanFields["2"])
+	}
+}
+
+func TestDiffMSTInstancePortCost(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{
+		MST: &stp.MST{
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+			},
+		},
+	}
+	b := stp.Config{
+		MST: &stp.MST{
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200}}},
+			},
+		},
+	}
+
+	changes := stp.Diff(a, b)
+
+	for _, c := range changes {
+		if c.Subject.Kind == "mst_instance_port" && c.Field == "path_cost" {
+			if c.From != stp.PathCostFact(100) || c.To != stp.PathCostFact(200) {
+				t.Errorf("path_cost change = (%v, %v), want (100, 200)", c.From, c.To)
+			}
+			if !trace.EqualFact(c.From, stp.PathCostFact(100)) || trace.EqualFact(c.From, c.To) {
+				t.Errorf("canonical facts did not change: from %q, to %q", c.From.Canonical(), c.To.Canonical())
+			}
+			return
+		}
+	}
+	t.Fatalf("Diff() reported no mst_instance_port path_cost change: %+v", changes)
 }

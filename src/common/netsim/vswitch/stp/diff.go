@@ -1,10 +1,13 @@
 package stp
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -71,6 +74,52 @@ func (f BoolFact) TypeID() string { return "stp.bool" }
 
 // Canonical returns "true" or "false".
 func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
+
+// MSTNameFact wraps an MST region name as a trace.Fact.
+type MSTNameFact string
+
+// TypeID returns the fact type identifier for MSTNameFact.
+func (f MSTNameFact) TypeID() string { return "stp.mst.name" }
+
+// Canonical returns the region name.
+func (f MSTNameFact) Canonical() string { return string(f) }
+
+// MSTRevisionFact wraps an MST region revision as a trace.Fact.
+type MSTRevisionFact uint16
+
+// TypeID returns the fact type identifier for MSTRevisionFact.
+func (f MSTRevisionFact) TypeID() string { return "stp.mst.revision" }
+
+// Canonical returns the decimal string of the revision.
+func (f MSTRevisionFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// MaxHopsFact wraps an MST region maximum hop count as a trace.Fact.
+type MaxHopsFact uint8
+
+// TypeID returns the fact type identifier for MaxHopsFact.
+func (f MaxHopsFact) TypeID() string { return "stp.mst.max_hops" }
+
+// Canonical returns the decimal string of the maximum hop count.
+func (f MaxHopsFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// VLANListFact wraps a set of VLAN identifiers as a trace.Fact.
+type VLANListFact []vlan.ID
+
+// TypeID returns the fact type identifier for VLANListFact.
+func (f VLANListFact) TypeID() string { return "stp.mst.vlans" }
+
+// Canonical returns the VLAN identifiers sorted and joined with commas.
+func (f VLANListFact) Canonical() string {
+	sorted := slices.Clone(f)
+	slices.Sort(sorted)
+
+	ids := make([]string, len(sorted))
+	for i, vid := range sorted {
+		ids[i] = strconv.FormatUint(uint64(vid), 10)
+	}
+
+	return strings.Join(ids, ",")
+}
 
 // Diff computes the difference between two spanning tree configurations,
 // reporting changes to bridge priority, hello time, max age, forward delay,
@@ -237,6 +286,144 @@ func Diff(a, b Config) []trace.Change {
 			changes = append(changes, trace.Change{
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "port", Key: name},
+				Field:   "",
+				From:    nil,
+				To:      b.Ports[name],
+			})
+		}
+	}
+
+	if a.MST != nil || b.MST != nil {
+		if (a.MST == nil) != (b.MST == nil) {
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "bridge", Key: ""},
+				Field:   "mst",
+				From:    BoolFact(a.MST != nil),
+				To:      BoolFact(b.MST != nil),
+			})
+		}
+		if a.MST != nil && b.MST != nil {
+			changes = append(changes, diffMST(*a.MST, *b.MST, layer)...)
+		}
+	}
+
+	return changes
+}
+
+// diffMST computes the differences between two normalized MST region
+// configurations: name, revision, and maximum hop count at the region level,
+// then each instance's priority, VLAN membership, and per-port settings.
+func diffMST(a, b MST, layer port.Layer) []trace.Change {
+	var changes []trace.Change
+
+	bridge := trace.Subject{Kind: "bridge", Key: ""}
+
+	if a.Name != b.Name {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: bridge, Field: "mst.name",
+			From: MSTNameFact(a.Name), To: MSTNameFact(b.Name),
+		})
+	}
+	if a.Revision != b.Revision {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: bridge, Field: "mst.revision",
+			From: MSTRevisionFact(a.Revision), To: MSTRevisionFact(b.Revision),
+		})
+	}
+	if a.MaxHops != b.MaxHops {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: bridge, Field: "mst.max_hops",
+			From: MaxHopsFact(a.MaxHops), To: MaxHopsFact(b.MaxHops),
+		})
+	}
+
+	for _, id := range sortedMSTIDs(a.Instances) {
+		ai := a.Instances[id]
+		key := strconv.FormatUint(uint64(id), 10)
+		bi, exists := b.Instances[id]
+		if !exists {
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "mst_instance", Key: key},
+				Field:   "",
+				From:    ai,
+				To:      nil,
+			})
+
+			continue
+		}
+		changes = append(changes, diffMSTInstance(ai, bi, key, layer)...)
+	}
+
+	for _, id := range sortedMSTIDs(b.Instances) {
+		if _, exists := a.Instances[id]; !exists {
+			key := strconv.FormatUint(uint64(id), 10)
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "mst_instance", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      b.Instances[id],
+			})
+		}
+	}
+
+	return changes
+}
+
+// diffMSTInstance computes the differences between two normalized MST
+// instances identified by key (the MSTID as a decimal string).
+func diffMSTInstance(a, b Instance, key string, layer port.Layer) []trace.Change {
+	var changes []trace.Change
+
+	subject := trace.Subject{Kind: "mst_instance", Key: key}
+
+	if a.Priority != b.Priority {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: subject, Field: "priority",
+			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
+		})
+	}
+	if !slices.Equal(a.VLANs, b.VLANs) {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: subject, Field: "vlans",
+			From: VLANListFact(a.VLANs), To: VLANListFact(b.VLANs),
+		})
+	}
+
+	for _, name := range sortedKeys(a.Ports) {
+		ap := a.Ports[name]
+		portKey := key + "/" + name
+		portSubject := trace.Subject{Kind: "mst_instance_port", Key: portKey}
+		bp, exists := b.Ports[name]
+		if !exists {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "", From: ap, To: nil,
+			})
+
+			continue
+		}
+		if ap.Priority != bp.Priority {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "priority",
+				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
+			})
+		}
+		if ap.PathCost != bp.PathCost {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "path_cost",
+				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
+			})
+		}
+	}
+
+	for _, name := range sortedKeys(b.Ports) {
+		if _, exists := a.Ports[name]; !exists {
+			portKey := key + "/" + name
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "mst_instance_port", Key: portKey},
 				Field:   "",
 				From:    nil,
 				To:      b.Ports[name],

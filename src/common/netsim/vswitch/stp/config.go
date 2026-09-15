@@ -37,6 +37,9 @@ const (
 
 	// MigrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
 	MigrateTime time.Duration = 3 * time.Second
+
+	// DefaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
+	DefaultMaxHops uint8 = 20
 )
 
 // PointToPointMode controls whether a port operates as a point-to-point link.
@@ -103,7 +106,9 @@ func (m PointToPointMode) TypeID() string { return "stp.point_to_point" }
 // Canonical returns the string representation of the mode.
 func (m PointToPointMode) Canonical() string { return string(effectivePointToPoint(m)) }
 
-// Config defines the spanning tree configuration of a virtual switch.
+// Config defines the spanning tree configuration of a virtual switch. A
+// non-nil MST selects the Multiple Spanning Tree Protocol region it names;
+// a nil MST leaves the bridge running plain Rapid Spanning Tree.
 type Config struct {
 	Priority        uint16
 	PriorityPresent bool
@@ -113,6 +118,7 @@ type Config struct {
 	ForwardDelay    time.Duration
 	TxHoldCount     uint8
 	Ports           map[string]Port
+	MST             *MST
 }
 
 // Clone returns a deep copy of the spanning tree configuration.
@@ -123,6 +129,10 @@ func (c Config) Clone() Config {
 		for k, v := range c.Ports {
 			cloned.Ports[k] = v
 		}
+	}
+	if c.MST != nil {
+		mst := c.MST.Clone()
+		cloned.MST = &mst
 	}
 	return cloned
 }
@@ -191,6 +201,10 @@ func (c Config) Normalize() Config {
 		p.PriorityPresent = true
 		p.PointToPoint = effectivePointToPoint(p.PointToPoint)
 		cloned.Ports[name] = p
+	}
+	if cloned.MST != nil {
+		normalized := cloned.MST.Normalize()
+		cloned.MST = &normalized
 	}
 	return cloned
 }
@@ -340,6 +354,12 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("field", "ports."+name+".loop_guard").
 				Attr("port", name).
 				Msgf("loop guard on port %q conflicts with admin edge", name)
+		}
+	}
+
+	if c.MST != nil {
+		if err := c.MST.Validate(ports); err != nil {
+			return err
 		}
 	}
 
