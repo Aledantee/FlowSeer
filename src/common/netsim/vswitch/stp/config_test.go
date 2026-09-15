@@ -530,3 +530,170 @@ func findAddress(changes []trace.Change) (any, any, bool) {
 	}
 	return nil, nil, false
 }
+
+func TestValidateRefusesContradictoryGuardCombinations(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	tests := []struct {
+		name string
+		p    stp.Port
+	}{
+		{name: "loop guard with restricted role", p: stp.Port{LoopGuard: true, RestrictedRole: true}},
+		{name: "loop guard with admin edge", p: stp.Port{LoopGuard: true, AdminEdge: true}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := stp.Config{
+				Priority: 32768,
+				Ports:    map[string]stp.Port{"1/1/1": tc.p},
+			}
+			err := cfg.Validate(tbl)
+			if err == nil {
+				t.Fatalf("Validate() = nil, want a rejection")
+			}
+			if got, want := errs.Attributes(err)["field"], "ports.1/1/1.loop_guard"; got != want {
+				t.Errorf("field attribute = %v, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestValidateAcceptsEachGuardAlone(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	guards := map[string]stp.Port{
+		"bpdu guard":      {BPDUGuard: true},
+		"restricted role": {RestrictedRole: true},
+		"restricted tcn":  {RestrictedTCN: true},
+		"loop guard":      {LoopGuard: true},
+	}
+
+	for name, p := range guards {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := stp.Config{
+				Priority: 32768,
+				Ports:    map[string]stp.Port{"1/1/1": p},
+			}
+			if err := cfg.Validate(tbl); err != nil {
+				t.Errorf("Validate() = %v, want acceptance", err)
+			}
+		})
+	}
+}
+
+func TestNormalizeLeavesGuardsUntouched(t *testing.T) {
+	t.Parallel()
+
+	// Every guard defaults to off, so an unset guard has nothing to fill in and
+	// a set one has nothing to override.
+	cfg := stp.Config{
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {BPDUGuard: true, RestrictedRole: true, RestrictedTCN: true},
+		},
+	}
+
+	norm := cfg.Normalize()
+
+	if p := norm.Ports["1/1/1"]; p.BPDUGuard || p.RestrictedRole || p.RestrictedTCN || p.LoopGuard {
+		t.Errorf("unset guards normalized to %+v, want all off", p)
+	}
+	if p := norm.Ports["1/1/2"]; !p.BPDUGuard || !p.RestrictedRole || !p.RestrictedTCN || p.LoopGuard {
+		t.Errorf("set guards normalized to %+v, want the three set ones kept and loop guard off", p)
+	}
+}
+
+func TestCloneCopiesGuards(t *testing.T) {
+	t.Parallel()
+
+	cfg := stp.Config{
+		Ports: map[string]stp.Port{"1/1/1": {LoopGuard: true}},
+	}
+	cloned := cfg.Clone()
+	cloned.Ports["1/1/1"] = stp.Port{}
+
+	if !cfg.Ports["1/1/1"].LoopGuard {
+		t.Error("original loop guard cleared through the clone")
+	}
+}
+
+func TestPortFactCanonicalDistinguishesGuards(t *testing.T) {
+	t.Parallel()
+
+	plain := stp.Port{}
+	guards := map[string]stp.Port{
+		"bpdu guard":      {BPDUGuard: true},
+		"restricted role": {RestrictedRole: true},
+		"restricted tcn":  {RestrictedTCN: true},
+		"loop guard":      {LoopGuard: true},
+	}
+
+	for name, p := range guards {
+		if trace.EqualFact(p, plain) {
+			t.Errorf("%s fact = %q, want distinct from an unguarded port", name, p.Canonical())
+		}
+	}
+}
+
+func TestDiffReportsOneChangePerGuardField(t *testing.T) {
+	t.Parallel()
+
+	base := stp.Config{
+		Priority: 32768,
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+	}
+	guarded := stp.Config{
+		Priority: 32768,
+		Ports:    map[string]stp.Port{"1/1/1": {LoopGuard: true}},
+	}
+
+	changes := stp.Diff(base, guarded)
+	if len(changes) != 1 {
+		t.Fatalf("Diff() = %d changes, want exactly one: %+v", len(changes), changes)
+	}
+	c := changes[0]
+	if c.Subject.Kind != "port" || c.Subject.Key != "1/1/1" || c.Field != "loop_guard" {
+		t.Errorf("change subject/field = %v/%q, want port/1/1/1 loop_guard", c.Subject, c.Field)
+	}
+	if c.From != stp.BoolFact(false) || c.To != stp.BoolFact(true) {
+		t.Errorf("change = (%v, %v), want (false, true)", c.From, c.To)
+	}
+
+	all := stp.Config{
+		Priority: 32768,
+		Ports: map[string]stp.Port{
+			"1/1/1": {BPDUGuard: true, RestrictedRole: true, RestrictedTCN: true},
+		},
+	}
+	fields := map[string]bool{}
+	for _, c := range stp.Diff(base, all) {
+		fields[c.Field] = true
+	}
+	for _, want := range []string{"bpdu_guard", "restricted_role", "restricted_tcn"} {
+		if !fields[want] {
+			t.Errorf("Diff() reported no change on field %q", want)
+		}
+	}
+	if fields["loop_guard"] {
+		t.Error("Diff() reported a loop_guard change where neither side sets it")
+	}
+}

@@ -75,7 +75,7 @@ func (f BoolFact) Canonical() string { return strconv.FormatBool(bool(f)) }
 // Diff computes the difference between two spanning tree configurations,
 // reporting changes to bridge priority, hello time, max age, forward delay,
 // tx hold count, and per-port priority, admin path cost, admin edge,
-// point-to-point mode, and auto edge.
+// point-to-point mode, auto edge, and the four guards.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()
@@ -206,6 +206,28 @@ func Diff(a, b Config) []trace.Change {
 				Field:   "auto_edge",
 				From:    BoolFact(ap.AutoEdge),
 				To:      BoolFact(bp.AutoEdge),
+			})
+		}
+
+		for _, guard := range []struct {
+			field string
+			from  bool
+			to    bool
+		}{
+			{"bpdu_guard", ap.BPDUGuard, bp.BPDUGuard},
+			{"restricted_role", ap.RestrictedRole, bp.RestrictedRole},
+			{"restricted_tcn", ap.RestrictedTCN, bp.RestrictedTCN},
+			{"loop_guard", ap.LoopGuard, bp.LoopGuard},
+		} {
+			if guard.from == guard.to {
+				continue
+			}
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "port", Key: name},
+				Field:   guard.field,
+				From:    BoolFact(guard.from),
+				To:      BoolFact(guard.to),
 			})
 		}
 	}

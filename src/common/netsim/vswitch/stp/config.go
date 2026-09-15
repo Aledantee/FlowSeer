@@ -61,6 +61,21 @@ type Port struct {
 	AdminEdge       bool
 	AutoEdge        bool
 	PointToPoint    PointToPointMode
+
+	// BPDUGuard disables the port for spanning tree when a BPDU arrives on it.
+	BPDUGuard bool
+
+	// RestrictedRole keeps the port from ever being selected as the root port,
+	// which IEEE 802.1Q calls restricted role and vendors call root guard.
+	RestrictedRole bool
+
+	// RestrictedTCN keeps a topology change received on the port from
+	// propagating to the other ports.
+	RestrictedTCN bool
+
+	// LoopGuard holds a port whose received information expired in a
+	// discarding role rather than letting it become designated.
+	LoopGuard bool
 }
 
 // TypeID returns the fact type identifier for Port.
@@ -68,12 +83,18 @@ func (p Port) TypeID() string { return "stp.port" }
 
 // Canonical returns the canonical string representation of the Port fact.
 func (p Port) Canonical() string {
-	return fmt.Sprintf("priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%q",
+	return fmt.Sprintf(
+		"priority=%d,path_cost=%d,admin_edge=%t,auto_edge=%t,point_to_point=%q,"+
+			"bpdu_guard=%t,restricted_role=%t,restricted_tcn=%t,loop_guard=%t",
 		effectivePortPriority(p.Priority, p.PriorityPresent),
 		p.PathCost,
 		p.AdminEdge,
 		p.AutoEdge,
-		effectivePointToPoint(p.PointToPoint))
+		effectivePointToPoint(p.PointToPoint),
+		p.BPDUGuard,
+		p.RestrictedRole,
+		p.RestrictedTCN,
+		p.LoopGuard)
 }
 
 // TypeID returns the fact type identifier for PointToPointMode.
@@ -303,6 +324,22 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("port", name).
 				Attr("mode", cfgPort.PointToPoint).
 				Msgf("unknown point to point mode %q on port %q", cfgPort.PointToPoint, name)
+		}
+		// Loop guard watches a port that holds received information. Restricted
+		// role denies it the one role it guards against losing, and an edge port
+		// is defined never to hold that information, so neither pairing has a
+		// correct answer to simulate.
+		if cfgPort.LoopGuard && cfgPort.RestrictedRole {
+			return errs.New().
+				Attr("field", "ports."+name+".loop_guard").
+				Attr("port", name).
+				Msgf("loop guard on port %q conflicts with restricted role", name)
+		}
+		if cfgPort.LoopGuard && cfgPort.AdminEdge {
+			return errs.New().
+				Attr("field", "ports."+name+".loop_guard").
+				Attr("port", name).
+				Msgf("loop guard on port %q conflicts with admin edge", name)
 		}
 	}
 
