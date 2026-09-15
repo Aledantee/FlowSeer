@@ -233,6 +233,14 @@ consequences this unit owns: `Step`'s doc comment (`run.go:305-310`) ends "Step
 returns false when the arrival queue is empty" and becomes wrong; and
 `Run(n int) int` (`run.go:926`) drives `Step` in a loop and would otherwise
 return a short count with no signal, so it reports the fault too.
+
+`Run` keeps its `int` signature rather than becoming `(int, error)`. Widening
+it would touch ~85 `fab.Run(N)` call sites across a dozen fabric test files the
+unit does not name — the propagation this phase's Goal says to stop at. Instead
+`Run`'s and `Step`'s doc comments direct the caller to `Err()`, and the
+caller-side assertion is a white-box test in `run_internal_test.go` (not the
+black-box `run_test.go`, which cannot reach `scheduleDequeue`) that records a
+fault and reads it back through `Err()`.
 Per the parent's remedy rule the caller-side assertion lands here: a fault
 recorded and never read is a test failure, because `errcheck` cannot see a
 sticky field.
