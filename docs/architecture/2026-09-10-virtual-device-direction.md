@@ -300,13 +300,15 @@ them.
   expired in silence while it was Root, Alternate, or Backup in a discarding
   Alternate role with reason `loop-inconsistent` until any BPDU arrives, one
   the message-age bound discards included, so a peer sending only stale
-  information is not covered. Loop guard is
-  netsim's own design drawn from Cisco, Juniper, and Arista, and is inactive
-  on an operationally edge port and on a shared link, where a port that stops
-  hearing BPDUs is not evidence of a link broken in one direction. `LoopGuard`
-  beside `RestrictedRole` or beside `AdminEdge` is refused at construction:
-  a configuration whose halves contradict each other has no correct simulated
-  answer.
+  information is not covered. Both BPDU guard and loop guard hold a guarded
+  port out of every tree, not only the CIST: the outcome is bridge-global, so
+  an MSTI's own port is Disabled or Alternate right alongside the CIST's.
+  Loop guard is netsim's own design drawn from Cisco, Juniper, and Arista, and
+  is inactive on an operationally edge port and on a shared link, where a port
+  that stops hearing BPDUs is not evidence of a link broken in one direction.
+  `LoopGuard` beside `RestrictedRole` or beside `AdminEdge` is refused at
+  construction: a configuration whose halves contradict each other has no
+  correct simulated answer.
 - **The layer keys its state by tree and the gate answers per VLAN.** A port's
   forwarding state belongs to a spanning tree, and more than one tree can run
   over one port, so `Learns` and `Forwards` take a port and a VLAN and the
@@ -328,53 +330,70 @@ them.
 - **`Decode` reads a version 3 BPDU's MST body, and falls back to its RST
   prefix only when the payload is too short for one.** The configuration
   identifier, internal root path cost, remaining hops, and MSTI records come
-  back filled whenever the payload holds enough octets; a truncated capture
-  or an RSTP peer's 39-octet version 3 BPDU still decodes as its RST prefix
-  rather than being refused. UNH-IOL's MSTP suite states that a compliant
-  device must not validate a BPDU on its protocol version identifier (Test
-  MSTP.op.1.3, citing IEEE Std 802.1Q-2011 sub-clause 14.4), which is why the
-  fallback exists at all: refusing a short version 3 payload would leave a
-  netsim bridge facing that peer with both ends Designated and Forwarding, an
-  unbroken loop and a worse answer than the RST-prefix approximation.
+  back filled whenever the payload holds enough octets; an RSTP peer's
+  39-octet version 3 BPDU, a capture truncated before the MST body starts, and
+  every version above 3 all still decode as the RST prefix rather than being
+  refused. A payload long enough for the MST body but truncated inside the
+  MSTI records is refused outright, not fallen back. UNH-IOL's MSTP suite
+  states that a compliant device must not validate a BPDU on its protocol
+  version identifier (Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011
+  sub-clause 14.4), which is why the fallback exists at all: refusing a short
+  version 3 payload would leave a netsim bridge facing that peer with both
+  ends Designated and Forwarding, an unbroken loop and a worse answer than the
+  RST-prefix approximation.
 - **A region is a name, a revision, and a digest over the VID-to-MSTID
   table, carried as a 51-octet configuration identifier.** The digest is
   HMAC-MD5 over the 4096-entry table, two big-endian octets per VID, keyed
-  with a constant that appears in no other file in this repository; the
-  all-zero table digests to `ac36177f50283cd4b83821d8ab26de62` and VID 10 on
-  MSTID 1 with VID 20 on MSTID 2 to `9357ebb7a8d74dd5fef4f2bab50531aa`, which
-  is what proves the construction matches the standard rather than some other
-  one. A port is internal when the BPDU it last received carries this
-  bridge's own configuration identifier, and a boundary port otherwise; an
-  RST or Configuration BPDU is always external.
+  with a fixed constant; the all-zero table digests to
+  `ac36177f50283cd4b83821d8ab26de62` and VID 10 on MSTID 1 with VID 20 on
+  MSTID 2 to `9357ebb7a8d74dd5fef4f2bab50531aa`, which is what proves the
+  construction matches the standard rather than some other one. A port that
+  has received nothing is treated as internal, since the field marking a
+  boundary port is set only on `Receive`; once a BPDU has arrived, a port is
+  internal when it carried this bridge's own configuration identifier, and a
+  boundary port otherwise, with an RST or Configuration BPDU always external.
 - **One priority vector type serves the CIST and every MSTI.** Its six
   components compare in order: root, external root path cost, regional root,
-  internal root path cost, designated bridge, designated port. An RSTP or
-  CIST vector takes its regional root from its root and leaves the internal
-  cost zero, collapsing to the landed four-component RSTP order; an MSTI
-  vector takes its root from its regional root and leaves the external cost
-  zero, collapsing to clause 13.11's MSTI order. Neither needs a branch,
-  because a constant leading component drops out of a lexicographic
-  comparison, so a second vector type would only duplicate the comparator.
+  internal root path cost, designated bridge, designated port. An RSTP tree,
+  and the CIST on a boundary port, set the regional root from the root and
+  leave the internal cost zero, collapsing to the four-component
+  root/cost/bridge/port order with the cost in the external slot; an MSTI
+  does the same the other way round, taking its root from its regional root
+  and leaving the external cost zero. The CIST on an internal port populates
+  all six components, comparing regional root and internal cost ahead of
+  bridge and port so a region settles its own internal topology before
+  comparing outward. None of this needs a branch, because a constant or
+  shared leading component drops out of a lexicographic comparison, so a
+  second vector type would only duplicate the comparator.
 - **Only the CIST computes a boundary port's role; every MSTI takes the
   CIST's role there outright.** Electing an independent role from information
   a different region sent would let an MSTI disagree with the CIST about
   which link is blocked, which is the boundary a region name and revision
-  exist to detect. netsim also reports no Master role: both the CIST and MSTI
-  role MIB tables list exactly Root, Alternate, Designated, and Backup, so a
-  boundary port's MSTI mirrors the CIST's Root under the label the MIB can
-  express, the same forwarding answer under a different name.
+  exist to detect. A bridge whose CIST root port is itself a boundary port
+  names its own bridge identifier the CIST's regional root and originates the
+  region's full hop count, rather than naming the peer's root: crossing the
+  boundary is what starts the region. netsim also reports no Master role:
+  both the CIST and MSTI role MIB tables (`ieee8021MstpCistPortRole`,
+  `ieee8021MstpPortRole`) list exactly Root, Alternate, Designated, and
+  Backup, so a boundary port's MSTI mirrors the CIST's Root under the label
+  the MIB can express, the same forwarding answer under a different name.
 - **A topology change flushes by tree, and the CIST flushes everything.**
   `Effects.Flush` pairs a port with the FIDs stale on it, so a change on an
   instance discards what the bridge learned about that instance's VLANs and
-  leaves the other instances' entries alone. An empty FID set means every FID,
-  which a link down, a BPDU-guard disable, and every CIST-raised change
-  produce. The CIST case is a deliberate over-flush: the CIST carries every
-  VLAN no instance claims, a set the layer cannot enumerate, so it names no
-  FIDs. On a boundary port that is correct, since a CIST change there reaches
-  every tree; on an internal port it costs a round of flooding to relearn
-  entries that were not stale. The alternative is a target that can express
-  "every FID except these", which is a wider contract than one over-flush
-  justifies.
+  leaves the other instances' entries alone. A per-instance change also
+  propagates across the fabric: each MSTI record on an MST BPDU carries its
+  own instance's topology-change bit, and a receiving bridge flushes that
+  instance's VLANs on its other ports the same way a locally raised change
+  would. An empty FID set means every FID, which a link down, a BPDU-guard
+  disable, a received topology change notification, a received BPDU with the
+  CIST topology-change flag set, and a topology change this bridge's own CIST
+  raises all produce. The CIST case is a deliberate over-flush: the CIST
+  carries every VLAN no instance claims, a set the layer cannot enumerate, so
+  it names no FIDs. On a boundary port that is correct, since a CIST change
+  there reaches every tree; on an internal port it costs a round of flooding
+  to relearn entries that were not stale. The alternative is a target that
+  can express "every FID except these", which is a wider contract than one
+  over-flush justifies.
 
 ### Route selection and recursive next hops
 

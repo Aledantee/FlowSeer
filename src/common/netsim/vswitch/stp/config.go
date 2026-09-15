@@ -1,6 +1,8 @@
-// Package stp implements the Rapid Spanning Tree Protocol (IEEE 802.1D-2004)
-// for the virtual switch, providing loop-free topology calculation, root election,
-// and state transitions.
+// Package stp implements the Rapid Spanning Tree Protocol and Multiple
+// Spanning Tree Protocol (IEEE 802.1D-2004, carried into 802.1Q clause 13)
+// for the virtual switch, providing loop-free topology calculation, root
+// election, and state transitions. A nil MST configuration leaves the
+// bridge on plain RSTP with the CIST as its only tree.
 package stp
 
 import (
