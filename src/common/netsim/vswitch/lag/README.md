@@ -50,46 +50,98 @@ func main() {
 		},
 	}
 
-	layer := lag.New(cfg, ports, sysMAC)
+	layer, err := lag.New(cfg, ports, sysMAC)
+	if err != nil {
+		panic(err)
+	}
 
 	t0 := time.Unix(1700000000, 0)
 	layer.LinkChange(t0, "1/1/1", true)
 	layer.LinkChange(t0, "1/1/2", true)
 
 	frame := ethernet.Frame{}
-	member, ok := layer.Select("lag1", frame, 0)
-	fmt.Printf("Selected member: %s (ok=%t)\n", member, ok)
+	sel := layer.Select(t0, "lag1", frame, 0)
+	fmt.Printf("Selected member: %s (ok=%t)\n", sel.Member, sel.OK)
 
 	t1 := t0.Add(time.Second)
 	fx := layer.LinkChange(t1, "1/1/1", false)
 	fmt.Printf("Changed LAGs: %v\n", fx.Changed)
 
-	member2, ok2 := layer.Select("lag1", frame, 0)
-	fmt.Printf("Selected member after failover: %s (ok=%t)\n", member2, ok2)
+	sel2 := layer.Select(t1, "lag1", frame, 0)
+	fmt.Printf("Selected member after failover: %s (ok=%t)\n", sel2.Member, sel2.OK)
 }
 ```
 
-## Bond modes and hashing
+## Bond modes and the bucket table
 
 The layer exposes three bond modes via `Mode`:
 
-- `ActiveBackup` (""): Transmits through `Primary` if that member is enabled.
-  If the primary is disabled or unspecified, transmits through the enabled member
-  with the alphabetically lowest name.
+- `ActiveBackup` (""): see "Active-backup selection" below.
 - `BalanceSLB` ("BalanceSLB"): Balances outbound frames using source MAC and
   VLAN identifier.
 - `BalanceTCP` ("BalanceTCP"): Balances TCP and UDP traffic across member links
-  using layer 2 through layer 4 header fields.
+  using layer 2 through layer 4 header fields, and requires negotiated LACP
+  (see "Balance-tcp and LACP" below).
 
-Both balancing modes compute a 32-bit hash value with FNV-1a (`hash/fnv`), extract
-the low 8 bits (`bucket = hash & 0xff`), and select an enabled member by index:
+`Select` commits its choice; `Peek` computes the identical choice and mutates
+nothing. Both take the current time, since a selection can be stale enough to
+report the rebalance-unmodeled signal below.
 
-```
-member = enabled[bucket % len(enabled)]
-```
+### Bucket assignment
 
-Here `enabled` contains the currently enabled member names sorted in alphabetical
-order.
+Both balancing modes compute a 32-bit hash value with FNV-1a (`hash/fnv`) and
+extract the low 8 bits: `bucket = hash & 0xff`, one of 256. Each LAG holds a
+256-entry bucket table as runtime state; a bucket's member and the time it was
+assigned are not derived from configuration, matching Open vSwitch's
+`ofproto/bond.c` `choose_output_member` and `get_enabled_member`
+(`branch-3.3`, commit `73e38c8d`):
+
+- If the bucket already has a member and that member is still enabled, the
+  lookup keeps it (`Selection.Cause` is `kept`). A member fault therefore
+  moves only the buckets that were on it; buckets on surviving members are
+  untouched.
+- Otherwise the bucket takes the member at the front of the enabled list
+  (`first-use` if the bucket had never been assigned, `reassigned` if its
+  member was disabled), and that member moves to the back of the list.
+
+The enabled list itself is not the sorted member list; it is an
+OVS-style runtime list that the step above rotates. A member that becomes
+newly enabled joins the **back** of the list
+(`bond_enable_member`: `ovs_list_insert` before the list head), and several
+members enabled together in one call join in name order.
+
+### Rebalancing is not modeled
+
+OVS periodically moves a bucket to a less-loaded member by measured traffic;
+netsim does not measure load, so it does not move buckets on its own. Instead,
+`LAG.RebalanceInterval` (a `*time.Duration`; nil normalizes to 10s, zero
+disables the signal, and a nonzero value under 1s normalizes to 1s — see
+`vswitchd/bridge.c`'s `bond-rebalance-interval`, default 10000) governs a
+signal: once a balanced selection's bucket was assigned at least one interval
+ago and the LAG has two or more enabled members, `Selection.RebalanceUnmodeled`
+is true. The caller decides what to do with that (the switch layer raises an
+`Incomplete` issue from it); this package only reports it.
+
+### Active-backup selection
+
+Active-backup picks a member the way OVS's `bond_choose_member` does:
+
+1. The configured `Primary`, if it is enabled (`Selection.Cause` is `primary`).
+2. Otherwise the member that was last active, if it is still enabled
+   (`last-active`) — active-backup does not fail back to a guessed primary
+   once the member it was using recovers.
+3. Otherwise the lowest-named enabled member (`first-enabled`). OVS walks a
+   hash map at this step; the lowest name is netsim's deterministic stand-in
+   for that walk.
+
+A committing call records its choice as the new last-active member.
+
+### Balance-tcp and LACP
+
+`BalanceTCP` requires negotiated LACP: with `LACP.Mode` `Off`, or with no
+member attached to a partner, it selects nothing, unless `Fallback` applies —
+and `Fallback` then selects as active-backup
+(`choose_output_member`'s `BM_TCP` and `LACP_CONFIGURED` branches).
 
 ## Configuration comparison
 
@@ -195,6 +247,21 @@ To determine attached members:
 When `Fallback` is enabled and every member port in the LAG has defaulted, the layer
 enables active-backup forwarding over whichever members have carrier up. This allows
 traffic to pass to non-LACP endpoints before aggregation negotiation completes.
+
+## Convergence evidence: Pending
+
+`Info.Pending` lists member ports that may still change state on their own,
+each with the time that is currently scheduled to happen. A pending member
+does not downgrade `Info`'s other fields or a `Select` result: the answer as
+of now is definite, and a caller that wants to know whether it could still
+change consults `Pending` separately. A member reports at most one cause —
+the first one that applies:
+
+1. `link-delay`: its up or down delay timer is running (`At` is when it fires).
+2. `partner-expired`: its partner information is `Expired` (`At` is when the
+   receive timer elapses, moving it to `Defaulted`).
+3. `unsynchronized`: it is attached to the lead partner but that partner has
+   not advertised `StateSynchronization` (`At` is its next receive timeout).
 
 ## Sources
 

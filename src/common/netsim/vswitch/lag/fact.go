@@ -22,7 +22,7 @@ func (f lacpDecisionFact) TypeID() string    { return "lag.lacp_decision" }
 func (f lacpDecisionFact) Canonical() string { return string(f) }
 
 // SelectionFact returns an immutable snapshot of a LAG member-selection decision.
-func (l *Layer) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, member string, selected bool) trace.Fact {
+func (l *Layer) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, sel Selection) trace.Fact {
 	lagState, ok := l.lags[lagName]
 	if !ok {
 		return selectionFact("lag=" + strconv.Quote(lagName) + ";present=false;selected=false")
@@ -81,11 +81,19 @@ func (l *Layer) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, mem
 	}
 
 	b.WriteString("enabled=")
-	b.WriteString(quotedStrings(lagState.enabledMembers))
+	b.WriteString(quotedStrings(lagState.enabledOrder))
 	b.WriteString(";member=")
-	b.WriteString(strconv.Quote(member))
+	b.WriteString(strconv.Quote(sel.Member))
 	b.WriteString(";selected=")
-	b.WriteString(strconv.FormatBool(selected))
+	b.WriteString(strconv.FormatBool(sel.OK))
+	b.WriteString(";bucket=")
+	b.WriteString(strconv.FormatUint(uint64(sel.Bucket), 10))
+	b.WriteString(";prior=")
+	b.WriteString(strconv.Quote(sel.Prior))
+	b.WriteString(";cause=")
+	b.WriteString(strconv.Quote(string(sel.Cause)))
+	b.WriteString(";rebalance_unmodeled=")
+	b.WriteString(strconv.FormatBool(sel.RebalanceUnmodeled))
 	b.WriteByte(';')
 
 	return selectionFact(b.String())

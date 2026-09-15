@@ -27,6 +27,15 @@ const (
 
 	// TimeoutMultiplier is the multiplier applied to the transmission period to compute receive timeouts (3).
 	TimeoutMultiplier = 3
+
+	// DefaultRebalanceInterval is the rebalance interval Normalize fills in when
+	// RebalanceInterval is nil (OVS `vswitchd/bridge.c` `bond-rebalance-interval`
+	// default 10000 ms).
+	DefaultRebalanceInterval time.Duration = 10 * time.Second
+
+	// MinRebalanceInterval is the smallest nonzero rebalance interval Normalize
+	// accepts; a configured nonzero value below it is raised to it.
+	MinRebalanceInterval time.Duration = time.Second
 )
 
 // Mode defines the frame distribution policy across aggregated links.
@@ -111,8 +120,32 @@ type LAG struct {
 	DownDelay time.Duration
 	HashBasis uint32
 	MinLinks  int
-	LACP      LACPConfig
-	Members   map[string]Member
+
+	// RebalanceInterval governs the rebalance-unmodeled signal: a balanced
+	// selection is reported once its bucket is at least this old. Nil
+	// normalizes to DefaultRebalanceInterval, zero disables the signal, and a
+	// nonzero value below MinRebalanceInterval is raised to it.
+	RebalanceInterval *time.Duration
+
+	LACP    LACPConfig
+	Members map[string]Member
+}
+
+// Clone returns an independent deep copy of the LAG, including its
+// RebalanceInterval pointer and Members map.
+func (l LAG) Clone() LAG {
+	cp := l
+	if l.RebalanceInterval != nil {
+		cp.RebalanceInterval = new(*l.RebalanceInterval)
+	}
+	if l.Members != nil {
+		cp.Members = make(map[string]Member, len(l.Members))
+		for k, v := range l.Members {
+			cp.Members[k] = v
+		}
+	}
+
+	return cp
 }
 
 // Config defines the link aggregation configuration for a virtual switch.
@@ -129,14 +162,7 @@ func (c Config) Clone() Config {
 		LAGs: make(map[string]LAG, len(c.LAGs)),
 	}
 	for k, v := range c.LAGs {
-		lagCp := v
-		if v.Members != nil {
-			lagCp.Members = make(map[string]Member, len(v.Members))
-			for mk, mv := range v.Members {
-				lagCp.Members[mk] = mv
-			}
-		}
-		cp.LAGs[k] = lagCp
+		cp.LAGs[k] = v.Clone()
 	}
 
 	return cp
@@ -191,10 +217,14 @@ func (c Config) Normalize(ports port.Table, systemID netaddr.MAC) Config {
 			lag.LACP.Key = lagKeys[lagName]
 		}
 
-		members, knownLAG := lagMembers[lagName]
-		if lag.Primary == "" && len(members) > 0 {
-			lag.Primary = members[0]
+		switch {
+		case lag.RebalanceInterval == nil:
+			lag.RebalanceInterval = new(DefaultRebalanceInterval)
+		case *lag.RebalanceInterval > 0 && *lag.RebalanceInterval < MinRebalanceInterval:
+			lag.RebalanceInterval = new(MinRebalanceInterval)
 		}
+
+		members, knownLAG := lagMembers[lagName]
 		if knownLAG && lag.Members == nil {
 			lag.Members = make(map[string]Member, len(members))
 		}
@@ -280,6 +310,13 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("lag", lagName).
 				Attr("down_delay", lagCfg.DownDelay).
 				Msg("down delay cannot be negative")
+		}
+		if lagCfg.RebalanceInterval != nil && *lagCfg.RebalanceInterval < 0 {
+			return errs.New().
+				Attr("field", "lags."+lagName+".rebalance_interval").
+				Attr("lag", lagName).
+				Attr("rebalance_interval", *lagCfg.RebalanceInterval).
+				Msg("rebalance interval cannot be negative")
 		}
 
 		members := ports.Members(lagName)

@@ -28,6 +28,33 @@ func (f DurationFact) TypeID() string { return "lag.duration" }
 // Canonical returns the duration string.
 func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 
+// RebalanceIntervalFact wraps an optional rebalance interval as a trace.Fact,
+// distinguishing an unset (nil) interval from an explicit zero one.
+type RebalanceIntervalFact struct {
+	Set   bool
+	Value time.Duration
+}
+
+// TypeID returns the fact type identifier for RebalanceIntervalFact.
+func (f RebalanceIntervalFact) TypeID() string { return "lag.rebalance_interval" }
+
+// Canonical returns "unset" or the duration string.
+func (f RebalanceIntervalFact) Canonical() string {
+	if !f.Set {
+		return "unset"
+	}
+
+	return f.Value.String()
+}
+
+func snapshotRebalanceInterval(interval *time.Duration) RebalanceIntervalFact {
+	if interval == nil {
+		return RebalanceIntervalFact{}
+	}
+
+	return RebalanceIntervalFact{Set: true, Value: *interval}
+}
+
 // HashBasisFact wraps a hash basis as a trace.Fact.
 type HashBasisFact uint32
 
@@ -101,6 +128,8 @@ func snapshotLAG(l LAG) lagSnapshotFact {
 	b.WriteString(strconv.FormatUint(uint64(l.HashBasis), 10))
 	b.WriteString(";min_links=")
 	b.WriteString(strconv.Itoa(l.MinLinks))
+	b.WriteString(";rebalance_interval=")
+	b.WriteString(snapshotRebalanceInterval(l.RebalanceInterval).Canonical())
 	b.WriteString(";lacp={mode=")
 	b.WriteString(strconv.Quote(string(l.LACP.Mode)))
 	b.WriteString(";fast=")
@@ -211,6 +240,18 @@ func Diff(a, b Config) []trace.Change {
 				Field:   "min_links",
 				From:    MinLinksFact(aLag.MinLinks),
 				To:      MinLinksFact(bLag.MinLinks),
+			})
+		}
+
+		aRebalance := snapshotRebalanceInterval(aLag.RebalanceInterval)
+		bRebalance := snapshotRebalanceInterval(bLag.RebalanceInterval)
+		if aRebalance != bRebalance {
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "lag", Key: lagName},
+				Field:   "rebalance_interval",
+				From:    aRebalance,
+				To:      bRebalance,
 			})
 		}
 
