@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 9 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 9", len(allCases))
+	if len(allCases) != 13 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 13", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -586,9 +586,18 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		}
 	}
 
+	wantPlanning := []string{
+		"planning/lag-member-fault-keeps-surviving-flows",
+		"planning/port-vlan-change",
+	}
 	planningCases := r.ByUseCase(netsimtest.UseCasePlanning)
-	if len(planningCases) != 1 || planningCases[0].ID != "planning/port-vlan-change" {
-		t.Errorf("ByUseCase(Planning) returned %v", planningCases)
+	if len(planningCases) != len(wantPlanning) {
+		t.Fatalf("ByUseCase(Planning) returned %d cases, want %d: %v", len(planningCases), len(wantPlanning), planningCases)
+	}
+	for i, want := range wantPlanning {
+		if planningCases[i].ID != want {
+			t.Errorf("ByUseCase(Planning)[%d].ID = %q, want %q", i, planningCases[i].ID, want)
+		}
 	}
 
 	wantShadowing := []string{
@@ -610,7 +619,10 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	}
 
 	wantTroubleshooting := []string{
+		"troubleshooting/active-backup-no-failback",
 		"troubleshooting/host-rejects-foreign-unicast",
+		"troubleshooting/leave-last-member-query",
+		"troubleshooting/ssm-rejects-unjoined-source",
 		"troubleshooting/unicast-fdb-forwarding",
 	}
 	troubleshootingCases := r.ByUseCase(netsimtest.UseCaseTroubleshooting)
