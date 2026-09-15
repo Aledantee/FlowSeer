@@ -324,7 +324,11 @@ plus amended parent requirement 6.
 - Wiring the gate into the Stop hook (`tools/hooks/stop-check.sh`,
   `.claude/settings.json`, `.codex/hooks.json`). Those are policy surfaces under
   AGENTS.md; the merge-gate Go test is the authority, and fast-feedback wiring
-  is a separate guardrail-reviewed diff.
+  is a separate guardrail-reviewed diff. It was asked for after the phase
+  landed and is in `tools/hooks/stop-check.sh`: the hook's single layout call
+  became a list of gate packages, and `.claude/settings.json` and
+  `.codex/hooks.json` needed no change, because both already register the
+  script. AGENTS.md's Enforced-rules paragraph names the gate.
 - Clause 2 handling and clause 3 caller documentation, and the
   deferred-completion ordering rule — all review-enforced, per the Decisions.
 - A test for `readGuarded` (`src/protocol/smi/load.go:297`). Phase 3 left it

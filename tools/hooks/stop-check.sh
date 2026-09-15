@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stop gate: the repository layout policy must hold, and unverified source
-# edits are reported (not blocked) so the handoff names them.
+# Stop gate: the repository conformance gates must hold, and unverified
+# source edits are reported (not blocked) so the handoff names them.
 
 set -uo pipefail
 
@@ -23,17 +23,27 @@ if [ -n "$git_dir" ] && [ -s "$git_dir/flowseer-verification-dirty" ]; then
   unverified=$(sort -u "$git_dir/flowseer-verification-dirty" | head -20 | paste -sd ' ' -)
 fi
 
-output=""
-layout_ok=true
-if [ -d "$root/test/conformance/proto" ]; then
-  # The layout test is the fast slice of the conformance package; the rest of
-  # the package compiles alongside it and runs in the verifier.
-  if ! output=$(cd "$root" && go test -run 'TestProtoSourceTreeLayout|TestProtoPathPolicy' ./test/conformance/proto 2>&1); then
-    layout_ok=false
-  fi
-fi
+# The gates cheap enough to run at every Stop, each named with the fast
+# slice of its package; the rest of each package compiles alongside and
+# runs in the verifier. A package the checkout does not have is skipped,
+# so a fixture or an older tree still stops cleanly.
+#
+# This is fast feedback, not the authority. `go test -race ./...` runs the
+# same tests at the merge gate, and that is what AGENTS.md points at.
+gates="test/conformance/proto:TestProtoSourceTreeLayout|TestProtoPathPolicy
+test/conformance/panic:TestPanicPolicy|TestPanicPlacementPolicy|TestGoStatementPolicy"
 
-if [ "$layout_ok" = true ]; then
+output=""
+gates_ok=true
+while IFS=: read -r package tests; do
+  [ -d "$root/$package" ] || continue
+  if ! output=$(cd "$root" && go test -run "$tests" "./$package" 2>&1); then
+    gates_ok=false
+    break
+  fi
+done <<<"$gates"
+
+if [ "$gates_ok" = true ]; then
   if [ -n "$unverified" ]; then
     jq -n --arg message "Edited but not verified: $unverified. Run .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths> before handoff." \
       '{systemMessage:$message}'
@@ -43,7 +53,7 @@ if [ "$layout_ok" = true ]; then
   exit 0
 fi
 
-reason="Repository layout policy failed. Fix the violations before stopping:"$'\n'"$output"
+reason="A repository conformance gate failed. Fix the violations before stopping:"$'\n'"$output"
 if [ "$(jq -r '.stop_hook_active // false' <<<"$input")" = true ]; then
   jq -n --arg message "$reason" '{systemMessage:$message}'
 else

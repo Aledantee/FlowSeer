@@ -472,6 +472,36 @@ stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
 [[ $stop_output == '{}' ]]
 ok "Stop reports unverified edits without blocking and passes a clean tree"
 
+# The panic gate is the second entry in stop-check's gate list, and a list
+# whose loop stops after the first entry would still pass every test above.
+# This fixture has no test/conformance/proto, so only the panic gate runs.
+gate_fixture="$fixture_parent/gate fixture"
+mkdir -p "$gate_fixture/test/conformance/panic"
+git -C "$gate_fixture" init -q
+printf 'module example.invalid/gate\n\ngo 1.27\n' >"$gate_fixture/go.mod"
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {
+	t.Error("fixture violation")
+}
+GATE
+gate_input=$(jq -n --arg cwd "$gate_fixture" '{cwd:$cwd,hook_event_name:"Stop"}')
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("fixture violation"))' <<<"$gate_output" >/dev/null
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+[[ $gate_output == '{}' ]]
+ok "Stop blocks on a failing panic gate and passes when it holds"
+
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q
