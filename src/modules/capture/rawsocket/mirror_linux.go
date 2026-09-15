@@ -286,19 +286,27 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 	// sink here covers only the case where the loop panics before reaching
 	// one of them. It cannot race the close below: frames closes only after
 	// every loop (this one included, via wg) has finished.
+	// None of these loops reports through frames on the panic path, and they
+	// must not: wg.Done is the goroutine's own defer, so it runs during the
+	// panic unwind, before the helper's recover. The awaiting goroutine below
+	// can therefore observe wg.Wait return and close frames before a sink
+	// would run, and a send on a closed channel panics even from a select
+	// with a default — inside the recover, where nothing catches it. A
+	// recovered panic would become a process crash. The helper's log record
+	// carries the diagnosis instead.
 	if s.rawV4 != nil {
 		wg.Add(1)
 		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV4", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV4, decodeV4, frames)
-		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
+		})
 	}
 	if s.rawV6 != nil {
 		wg.Add(1)
 		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV6", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV6, mirror.Decode, frames)
-		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
+		})
 	}
 	if s.udp != nil {
 		wg.Add(1)
@@ -308,7 +316,7 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 				return mirror.DecodeUDP(payload, src, dst, s.candidates)
 			}
 			s.runMirrorLoop(ctx, s.udp, decodeUDP, frames)
-		}, spawn.ReportTo(func(err error) { sendTerminal(frames, Frame{Err: err}) }))
+		})
 	}
 
 	// wg.Wait blocking forever needs every loop above to actually finish,
