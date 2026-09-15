@@ -441,14 +441,16 @@ print("\n".join(sorted(affected)))
 PY
 )
         echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
-        # Two packages hold checks over repository-wide namespaces: error
-        # code uniqueness in src/common/errs, and the schema layering and
-        # message rules in test/conformance/proto. A change that violates
-        # one of those touches neither package, so the importer fixpoint
-        # never selects them and the targeted run passes what --full
-        # refuses. Together they take a few seconds; always run them.
+        # Three packages hold checks over repository-wide namespaces: error
+        # code uniqueness in src/common/errs, the schema layering and
+        # message rules in test/conformance/proto, and the panic placement
+        # and goroutine boundary over every first-party file under src/ in
+        # test/conformance/panic. A change that violates one of those
+        # touches none of the packages, so the importer fixpoint never
+        # selects them and the targeted run passes what --full refuses.
+        # Together they take a few seconds; always run them.
         if [[ $module == . ]]; then
-          targets+=(./src/common/errs ./test/conformance/proto)
+          targets+=(./src/common/errs ./test/conformance/proto ./test/conformance/panic)
         fi
       fi
       run go vet "${targets[@]}"
