@@ -122,7 +122,7 @@ After: none
 Change: `flowseer/net/capture/v1` and `flowseer/api/capture/v1` exist with their
 values, entity family, refs, and streaming service contracts; the network model
 structure record's tree and import order name them.
-Landed: 2026-09-09, `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase1-plan.md`.
+Landed: 2026-09-09, `f99c7e4d..dc4762f1`.
 
 ### U2. Capture engine module
 
@@ -131,7 +131,7 @@ After: U1
 Change: `src/modules/capture/` captures on a local interface, compiles a
 `CaptureFilter` to cBPF, terminates the mirror encapsulations, enforces budgets,
 accounts for every drop, and renders pcapng.
-Landed: 2026-09-09, `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase2-plan.md`.
+Landed: 2026-09-09, `a116ad70..f49f944e`.
 
 ### U3. Edge host wiring and lab validation
 

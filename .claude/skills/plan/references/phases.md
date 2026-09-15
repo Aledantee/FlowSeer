@@ -26,9 +26,17 @@ cluster, in dependency order:
 - The parent keeps the Goal, Decisions, and Requirements for the whole
   change. Its Units are the phases, each with `Files:` naming the phase
   plan path, `After:` naming the earlier phases, and a `Landed:` line that
-  stays empty until the phase's plan reads `implemented`. The parent's
-  `status` is `planned` until the last phase lands, then `implemented`;
-  it never reads `partially-implemented`, since that means units landed.
+  stays empty until the phase's plan reads `implemented` and then carries
+  the commit range, as `` `601e6e03..7cdc35dd` ``: the ledger check the
+  verifier runs reads the last commit of that line to prove a later
+  phase's worktree holds it, and a `Landed:` written as prose fails that
+  check. The parent's `status` is `planned` until the last phase lands,
+  then `implemented`; it never reads `partially-implemented`, since that
+  means units landed.
+- `After:` between phases names real dependencies only, like `After:`
+  between units. Phases whose packages are disjoint run at once in
+  separate worktrees, one session each, and the parent's `Landed:` lines
+  are the only thing they share.
 - Each phase plan is a full plan at
   `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md` with a `parent:`
   frontmatter field naming the parent path. Its Decisions cite the

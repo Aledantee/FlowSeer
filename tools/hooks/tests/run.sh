@@ -3,11 +3,20 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-fixture_parent=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks.XXXXXX")
+# Canonical from the start: the hooks print resolved paths, and on macOS the
+# temp directory sits behind a symlink (/var -> /private/var, /tmp ->
+# /private/tmp), so a fixture path taken from mktemp as-is never equals the
+# path a hook reports for it.
+canonical_tmp() {
+  local made
+  made=$(mktemp -d "$1")
+  (cd "$made" && pwd -P)
+}
+fixture_parent=$(canonical_tmp "${TMPDIR:-/tmp}/flowseer-hooks.XXXXXX")
 fixture="$fixture_parent/repository with spaces"
 project_dir_with_spaces="$fixture_parent/project root with spaces"
-linked_worktree=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-hooks-worktree.XXXXXX")
-external_worktree_root=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-external-worktrees.XXXXXX")
+linked_worktree=$(canonical_tmp "${TMPDIR:-/tmp}/flowseer-hooks-worktree.XXXXXX")
+external_worktree_root=$(canonical_tmp "${TMPDIR:-/tmp}/flowseer-external-worktrees.XXXXXX")
 rmdir "$linked_worktree"
 rmdir "$external_worktree_root"
 trap 'rm -rf "$fixture_parent" "$linked_worktree" "$external_worktree_root"' EXIT
@@ -597,6 +606,141 @@ set -e
 [[ $ledger_output == *'units must not repeat an id'* ]]
 rm -f "$ledger"
 ok "plan status check resolves the plan from a subdirectory and rejects repeated ids"
+
+phase_fixture=$fixture_parent/phase-fixture
+mkdir -p "$phase_fixture/docs/plans"
+git -C "$phase_fixture" init -q -b main
+printf -- '---\nparent: docs/plans/parent-plan.md\n---\n# Phase 2\n' >"$phase_fixture/docs/plans/phase2-plan.md"
+write_parent() {
+  cat >"$phase_fixture/docs/plans/parent-plan.md" <<MD
+# Parent
+
+### U1: First phase
+
+- **Files:** \`docs/plans/phase1-plan.md\`
+- **After:** none
+- **Landed:** $1
+
+### U2: Second phase
+
+- **Files:**
+  \`docs/plans/phase2-plan.md\`
+- **After:** U1
+- **Landed:** $2
+MD
+}
+write_parent '' ''
+git -C "$phase_fixture" add docs
+git -C "$phase_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm plans
+phase_head=$(git -C "$phase_fixture" rev-parse --short HEAD)
+phase_ledger=$phase_fixture/.git/flowseer-plan-status.json
+cat >"$phase_ledger" <<JSON
+{"contract": "flowseer-plan-status/v1", "plan": "docs/plans/phase2-plan.md", "resume": ["U1"],
+ "units": [{"id": "U1", "status": "pending", "commit": null, "verified_at": null, "note": null}]}
+JSON
+check_phase() {
+  (cd "$phase_fixture" && python3 "$ledger_script" 2>&1)
+}
+
+set +e
+phase_output=$(check_phase)
+phase_rc=$?
+set -e
+[[ $phase_rc -eq 1 ]]
+[[ $phase_output == *'phase U1 has not landed'* ]]
+ok "plan status check refuses a phase whose prerequisite has not landed"
+
+write_parent "\`0000000..1111111\`" ''
+set +e
+phase_output=$(check_phase)
+phase_rc=$?
+set -e
+[[ $phase_rc -eq 1 ]]
+[[ $phase_output == *'landed at 1111111, which is not in this tree'* ]]
+ok "plan status check refuses a phase whose prerequisite is not an ancestor"
+
+write_parent "2026-09-11 on a branch, commits $phase_head through the fix" ''
+set +e
+phase_output=$(check_phase)
+phase_rc=$?
+set -e
+[[ $phase_rc -eq 1 ]]
+[[ $phase_output == *'must carry its commit range'* ]]
+ok "plan status check refuses a Landed line written as prose"
+
+write_parent "\`$phase_head..$phase_head\`" ''
+[[ -z $(check_phase) ]]
+ok "plan status check accepts a phase whose prerequisite is in the tree"
+
+write_parent "\`$phase_head..$phase_head\`" "\`$phase_head..$phase_head\`"
+git -C "$phase_fixture" add docs
+git -C "$phase_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm landed
+set +e
+phase_output=$(check_phase)
+phase_rc=$?
+set -e
+[[ $phase_rc -eq 1 ]]
+[[ $phase_output == *'already landed on'* ]]
+rm -f "$phase_ledger"
+ok "plan status check refuses a phase the integration branch already shows landed"
+
+integrity_script=$repo_root/.claude/skills/verify-change/scripts/check-test-integrity.py
+integrity_fixture=$fixture_parent/integrity-fixture
+mkdir -p "$integrity_fixture/pkg/testdata"
+git -C "$integrity_fixture" init -q
+printf 'package pkg\n\nimport "testing"\n\nfunc TestKeep(t *testing.T) {}\n\nfunc TestGone(t *testing.T) {}\n' >"$integrity_fixture/pkg/a_test.go"
+printf 'package pkg\n' >"$integrity_fixture/pkg/b_test.go"
+printf 'golden\n' >"$integrity_fixture/pkg/testdata/out.golden"
+git -C "$integrity_fixture" add pkg
+git -C "$integrity_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm base
+[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD) ]]
+printf 'package pkg\n\nimport "testing"\n\nfunc TestKeep(t *testing.T) {\n\tt.Skip("flaky")\n}\n' >"$integrity_fixture/pkg/a_test.go"
+printf 'changed\n' >"$integrity_fixture/pkg/testdata/out.golden"
+printf 'new\n' >"$integrity_fixture/pkg/testdata/new.golden"
+rm "$integrity_fixture/pkg/b_test.go"
+integrity_output=$(cd "$integrity_fixture" && python3 "$integrity_script" HEAD)
+[[ $integrity_output == *'deleted test file: pkg/b_test.go'* ]]
+[[ $integrity_output == *'modified existing testdata: pkg/testdata/out.golden'* ]]
+[[ $integrity_output == *'skip added: pkg/a_test.go: t.Skip("flaky")'* ]]
+[[ $integrity_output == *'removed test: pkg/a_test.go: TestGone'* ]]
+[[ $integrity_output != *'TestKeep'* ]]
+[[ $integrity_output != *'new.golden'* ]]
+[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD -- pkg/testdata/new.golden) ]]
+ok "test integrity check names deleted, skipped, and removed tests and rewritten testdata"
+
+deviations_script=$repo_root/.claude/skills/implement/scripts/plan-deviations.py
+deviations_fixture=$fixture_parent/deviations-fixture
+mkdir -p "$deviations_fixture/docs/plans" "$deviations_fixture/pkg/a" "$deviations_fixture/pkg/b"
+git -C "$deviations_fixture" init -q -b main
+printf 'package a\n' >"$deviations_fixture/pkg/a/a.go"
+printf 'package b\n' >"$deviations_fixture/pkg/b/b.go"
+cat >"$deviations_fixture/docs/plans/dot-plan.md" <<'MD'
+### U1. Dotted heading with an inline Files line
+
+Files: `pkg/a/a.go`, `a_test.go`, `pkg/b/{b.go,b_test.go}` (`Symbol` aside)
+After: none
+MD
+cat >"$deviations_fixture/docs/plans/colon-plan.md" <<'MD'
+### U1: Colon heading with a bullet Files field
+
+- **Files:**
+  `pkg/a/`
+- **After:** none
+MD
+git -C "$deviations_fixture" add .
+git -C "$deviations_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm base
+printf 'package a // changed\n' >"$deviations_fixture/pkg/a/a.go"
+printf 'package c\n' >"$deviations_fixture/pkg/c.go"
+deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/dot-plan.md HEAD)
+[[ $deviations_output == *'Changed, named by no unit:'*'  pkg/c.go'* ]]
+[[ $deviations_output == *'  U1: pkg/a/a_test.go'* ]]
+[[ $deviations_output == *'  U1: pkg/b/b.go'* ]]
+[[ $deviations_output == *'  U1: pkg/b/b_test.go'* ]]
+[[ $deviations_output != *'Symbol'* && $deviations_output != *'U1: pkg/a/a.go'* ]]
+deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/colon-plan.md HEAD)
+[[ $deviations_output == *'  pkg/c.go'* ]]
+[[ $deviations_output == *'Named by a unit, unchanged:'*'  none' ]]
+ok "plan deviations script reads both unit formats, braces, untracked files, and directory entries"
 
 otel_wrapper=$repo_root/tools/test/service-otel-integration.sh
 wrapper_tmp=$fixture_parent/wrapper-tmp

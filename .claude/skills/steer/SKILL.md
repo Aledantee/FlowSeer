@@ -98,8 +98,19 @@ Run this at the end of every pass and on `audit`:
    `tools/hooks/tests/run.sh` that pins it. A script registered in one
    runtime only is a finding unless the other runtime has no such event.
 3. Run `tools/hooks/tests/run.sh` and `shellcheck` over the hook scripts.
+4. Read the phase size off the plans: every outcome note `implement`
+   wrote since the last change to the six-unit trigger in `plan` carries
+   a unit count and a `verified_at` span. A phase that ran past one
+   session, or a run of phases with one or two units, is the data the
+   trigger is tuned on; change the number in `plan` and the reason in
+   `docs/agent-steering.md` together, or record that the data does not
+   yet say.
 
-Report findings; fix them through step 4, which stages them.
+   ```bash
+   grep -h '^> Implemented\. [0-9]* units' docs/plans/*-plan.md
+   ```
+
+Report findings; fix them through "Apply or stage", which stages them.
 
 ## 6. Close the entries and report
 

@@ -308,6 +308,28 @@ spec/          # protobuf, MIB, and YANG sources of truth
   in the test that builds it. A fixture is a claim that the system could
   receive that message; a package once had twenty tests exercising a request
   the wire would have refused, found only when a fix added a loud failure.
+- A test asserts what the fix causes, not what it prevents: an absence has
+  more than one source, and a cancelled context supplies it as readily as
+  the fix. When the test depends on the system being in a state, assert the
+  state before the outcome. Three tests in one plan read as proof and
+  asserted nothing, each found only by reverting the fix.
+- A self-authored fake peer produces only the sequence the client was coded
+  to expect. Seed it with leftover state ahead of the call under test: a
+  banner, a retained buffer, an out-of-order message.
+- The exported `Config` of a module under `src/modules/` gets one test in a
+  package outside that directory. Only that package shows a host can name
+  every field's type and construct or implement a value; three fields of one
+  module's `Config` were unusable from outside and every internal test passed.
+- When correctness rests on an invariant another component holds, the comment
+  and a test go on the holding side, at the branch that carries it, and the
+  test's name says whose recovery it protects. The depending side is read by
+  the person who already knows; the holding side by the person about to break
+  it.
+- A branch that degrades on error makes the degraded state visible from
+  outside, as [`conventions/observability.md`](conventions/observability.md)
+  requires, or the feature behind it can be dead with every test passing. A
+  swallow that is safe only because the callee cannot fail says so at the
+  call site.
 - [Test layout](conventions/testing.md) defines ownership, shared helper placement,
   and commands for running the suites.
 

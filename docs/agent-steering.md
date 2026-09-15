@@ -149,8 +149,10 @@ always-on index did. The planning skill this repository used before was
 skills aim at about 150 lines each and contain only the procedure, the
 file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
-After the 2026-09-10 steering pass the workflow skills sit between 125 and
-190 lines, and `delegate` at about 240: its runtime lanes and quota rules are each
+After the 2026-09-15 pass the workflow skills sit between 125 and 215
+lines, `implement` the longest because its Finish step now names the
+scripts that read deviations and test changes off the tree, and `delegate`
+at about 240: its runtime lanes and quota rules are each
 conditional on the host rather than on the task, and a coordinator that
 loads the skill needs all of them in the same turn; the Orca procedures
 moved to `references/orca.md` on 2026-09-10.
@@ -392,6 +394,97 @@ runtime's registrations but cannot say whether a rule in `AGENTS.md` has
 an enforcer at all, or whether a hook added for Claude was also registered
 for Codex.
 
+Ask before ruling on what other units depend on; rule and record the rest.
+HiL-Bench measured the gap that matters here: given full information,
+models pass 64 to 88% of software tasks, and when they must decide
+whether to ask first, success falls to 12%, with Claude's recall of real
+blockers on software tasks at 35%. This repository's plans show the
+local shape of it: four landed plans filed decisions taken without the
+user under Open questions after the fact, where a reviewer reads them as
+unresolved and the next implementer as settled. `implement` keeps the
+stop rule (ask when the answer changes other units, the wire, or an
+accepted record) and otherwise writes a `Ruled:` line into Decisions at
+the moment of the call, with the reason and the cost if wrong, the shape
+the superpowers `subagent-driven-development` skill uses, and leads its
+report with them.
+
+Read deviations off the tree. A study of 5,851 real agent sessions found
+a completion report references about one action in eleven and drifts
+toward the plan it was given exactly when execution diverged from it;
+`delegate` already has the coordinator check a worker's tree before its
+report, and the same applies to the coordinator's own report. `implement`
+runs `scripts/plan-deviations.py`, which lists the changed paths no unit
+names and the unit files that did not change, and the report carries a
+reason per line.
+
+Report test changes, do not block them. SpecBench measured agents
+passing the tests they can see at near 100% while held-out pass rates
+fell with codebase size, a gap of about 27 points per tenfold increase in
+lines, and more refinement widened it; the reward-hacking benchmarks list
+deleting a test, skipping it, and rewriting the expected output as the
+usual moves. Anthropic's long-running-agent harness forbids editing a
+test outright. FlowSeer breaks APIs on purpose, so a removed test is
+sometimes right, and a gate that cannot tell a decision from a mistake
+reports: the verifier prints `Test changes to account for:` from
+`check-test-integrity.py`, `implement` quotes it with a reason per line,
+and `review` reads the reasons. Only an oracle-exact check blocks; a
+pre-action verification study got 100% recall at zero false positives on
+exact checks and recommends demoting the rest to warnings.
+
+Stop a red unit after three verifier rounds. The seven-rounds-of-patching
+observation and SpecBench's finding that extra refinement optimizes the
+visible test agree on the mechanism; superpowers caps the fix loop at
+five rounds and escalates. `implement` marks the unit `blocked` and sends
+the work back to `plan`, where the requirement lives.
+
+Run independent units at once by default. Until 2026-09-15 a wave ran in
+parallel only when the user asked, and most plans ran serially; the
+parent plans' phases ran one at a time even where their packages were
+disjoint. Co-Coder measured cohesion-aware partitioning at 1.8 to 2.1
+times faster with 11 to 14 points more passes than sequential, and naive
+file-level splitting at 60% more cost for 3 points; uncoordinated
+parallel agents were fastest and worst. So `implement` groups units into
+waves from their `After` lines and dispatches a wave of two or more to
+workers, three at once, through a coordinator that merges and verifies;
+`plan` writes `After` for real dependencies only, lists the waves, and
+lets disjoint phases run in separate worktrees. The cap of three stays,
+for the budget reason above.
+
+Prove a phase's prerequisites are in the tree. On 2026-09-14 phase 2 of
+the analysis-completeness plan was implemented twice, in two worktrees
+forked from different points of `main`, each session re-planning "against
+the landed tree" and finding the phase absent; one landing merged, the
+other sits on `worktree-netsim-phase2-replan` with six units passed.
+`check-plan-status.py` now fails a ledger naming a phase plan when a
+phase its parent's `After:` names has no `Landed:` commit that is an
+ancestor of `HEAD`, or when the parent on `main` already shows this
+phase landed. The `Landed:` line therefore carries the commit range.
+
+Keep test conventions in the convention doc. The instruction-position
+studies measured 30 to 50% lower compliance for a rule in the middle of a
+prompt than at its start or end, and `implement`'s test step had grown
+into one 30-line paragraph of rules the observation queue added one at a
+time. The rules about what a test asserts, fake peers, host contracts,
+holding-side tests, and degraded paths moved to the Testing section of
+`docs/code-style.md`, which `review` reads as well; the skill keeps the
+procedure and the reversal rule.
+
+Hand a multi-wave plan to a fresh session and re-ground after
+compaction. Claude Code issue #24686, a plan denied after compaction
+while its file sits on disk, was closed as not planned, and users of the
+compound-engineering and GSD workflows clear context between planning
+and execution by hand. `plan` says so at handoff and `implement` re-reads
+the plan and the ledger before trusting a summary.
+
+Tune the phase size from data. The six-unit trigger came from community
+reports; each outcome note `implement` writes now carries the unit count
+and the span of the ledger's `verified_at` values, and `steer`'s audit
+reads them before the trigger changes.
+
+The integration branch is `main`. The skills named `master` until
+2026-09-15, so `--base master` and `master..HEAD` failed in this
+repository, and sessions passed explicit paths instead.
+
 Report outcome first. Each skill's report step leads with the verdict or
 result and keeps the rest to a short ordered list, which is what readers of
 agent output ask for and what the `i-have-adhd` skill codifies.
@@ -604,6 +697,39 @@ Sources checked on 2026-09-06 for phase plans and the status ledger:
 - [Claude Code issue #29890](https://github.com/anthropics/claude-code/issues/29890):
   after compaction the session retries rejected approaches and forgets
   the tracker files it wrote to survive compaction.
+
+Sources checked on 2026-09-15 for the `plan` and `implement` pass:
+
+- [HiL-Bench](https://arxiv.org/abs/2604.09408): full-information pass
+  rates of 64 to 88% on software tasks fall to 12% when the agent must
+  decide whether to ask; Claude's blocker recall on software tasks 35%.
+- ["Plans They Abandon, Reports They Author"](https://arxiv.org/abs/2609.12205):
+  5,851 sessions; a completion report references about one action in
+  eleven and drifts toward the stated plan as execution diverges.
+- [SpecBench](https://arxiv.org/abs/2605.21384): visible-test pass rates
+  saturate while held-out rates fall about 27 points per tenfold
+  increase in codebase size; more refinement widens the gap.
+- ["Look Before You Leap"](https://arxiv.org/abs/2609.11957): oracle-exact
+  blocking checks at 100% recall and no false positives; softer checks
+  demoted to warnings.
+- [Co-Coder](https://arxiv.org/abs/2606.00953): cohesion-aware
+  partitioning 1.8 to 2.1 times faster and 11 to 14 points better than
+  sequential; naive file-level parallelism 60% costlier for 3 points.
+- ["The Instruction Gap"](https://arxiv.org/abs/2601.03269): rules in the
+  middle of a prompt lose 30 to 50% compliance against start or end.
+- [Agentic Context Management](https://arxiv.org/abs/2607.23809) and
+  [Self-Compacting Agents](https://arxiv.org/abs/2606.23525):
+  agent-triggered or rubric-triggered compaction beats a fixed schedule.
+- [Skill presentation granularity](https://arxiv.org/abs/2605.31408):
+  focused two-to-three-module skills beat comprehensive documentation.
+- [TDD-Agent](https://arxiv.org/abs/2608.16742): tests written first and
+  refined with the code beat tests written once and frozen.
+- [Claude Code issue #24686](https://github.com/anthropics/claude-code/issues/24686):
+  a plan denied after compaction while its file exists; closed as not
+  planned.
+- [superpowers, subagent-driven-development](https://github.com/obra/superpowers/blob/main/skills/subagent-driven-development/SKILL.md):
+  rulings logged as what, why, and cost if wrong; a five-round fix cap
+  with escalation.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only
