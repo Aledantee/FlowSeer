@@ -399,6 +399,83 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "IPv6 next hop on an IPv4 prefix",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:  netip.MustParsePrefix("10.0.40.0/24"),
+					NextHop: netip.MustParseAddr("2001:db8::1"),
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "IPv4 next hop on an IPv6 prefix",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:  netip.MustParsePrefix("2001:db8:1::/48"),
+					NextHop: netip.MustParseAddr("10.0.10.254"),
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "unspecified next hop",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:  netip.MustParsePrefix("10.0.40.0/24"),
+					NextHop: netip.MustParseAddr("0.0.0.0"),
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "multicast next hop",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:  netip.MustParsePrefix("10.0.40.0/24"),
+					NextHop: netip.MustParseAddr("224.0.0.5"),
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			// The families compared are the route's own, not those the egress interface carries.
+			name: "IPv6 route on an interface that also carries IPv4",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				iface := vrf.Interfaces["vlan10"]
+				iface.Prefixes = append(iface.Prefixes, netip.MustParsePrefix("2001:db8::1/64"))
+				vrf.Interfaces["vlan10"] = iface
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:    netip.MustParsePrefix("2001:db8:1::/48"),
+					NextHop:   netip.MustParseAddr("2001:db8::254"),
+					Interface: "vlan10",
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
+		{
+			name: "route with no next hop naming an interface in the VRF",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Routes = append(vrf.Routes, routing.Route{
+					Prefix:    netip.MustParsePrefix("10.0.40.0/24"),
+					Interface: "vlan10",
+				})
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -411,6 +488,26 @@ func TestValidate(t *testing.T) {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateRejectsCrossFamilyNextHopAtNextHopField(t *testing.T) {
+	t.Parallel()
+
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Routes = append(vrf.Routes, routing.Route{
+		Prefix:  netip.MustParsePrefix("10.0.0.0/8"),
+		NextHop: netip.MustParseAddr("2001:db8::1"),
+	})
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	err := cfg.Validate(newTestPortTable(t))
+	if err == nil {
+		t.Fatal("Validate accepted an IPv6 next hop on an IPv4 prefix")
+	}
+	if got, want := errs.Attributes(err)["field"], "vrfs.default.routes.10.0.0.0/8.next_hop"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
 	}
 }
 
