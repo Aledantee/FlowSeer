@@ -147,6 +147,32 @@ fails the scan; one with an uncataloged code fails; the real tree passes.
 a five-argument call renders rather than indexing out of range.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/smi`
 
+> BLOCKED — needs re-plan (found during implementation). Two facts the unit did
+> not account for, both of the kind the parent's Goal says to stop on rather
+> than widen:
+>
+> 1. **Scope reaches a public API.** `Raise` is not confined to
+>    `internal/parse`. There is a public `smi.Raise`
+>    (`src/protocol/smi/diagnostic.go:93`) wrapping `diag.Raise`, called from
+>    `smi/resolve.go:602` and `smi/codes_test.go:109`; `diag.Raise` itself is
+>    called from `internal/lex/lex.go:576,587`, `internal/frame/frame.go:173,652,670`
+>    and `internal/parse/recover.go:169,176`. The rename is a public-API change
+>    (sanctioned pre-1.0, but not what the unit named — it named "8 direct call
+>    sites in `parse/`", of which there are 2).
+> 2. **The proof as specified is infeasible.** Several of those call sites are
+>    variadic forwarders — `diag.Raise(pos, code, args...)` (`lex.go:587`),
+>    `diag.Raise(..., code, args...)` (`recover.go:169`) — passing a runtime
+>    `errs.Code` parameter and a spread `args...`. A static AST scan cannot
+>    resolve the code to a catalog row or count the args at those sites, so
+>    "walks non-test source, finds every `MustRaise` call, resolves its
+>    `errs.Code` argument" does not hold. A workable proof must either scan only
+>    direct constant-code sites (leaving the forwarders proven elsewhere) or use
+>    `go/types` and still cannot count a spread `args...`.
+>
+> The rename itself is safe; the re-plan is about naming the full call-site set
+> (lex, frame, parse, smi public wrapper, resolve) and a proof mechanism that
+> holds against variadic forwarders. Not landed by this pass.
+
 ### U4. catalog.Register returns an error
 Files: `src/edge/netpen/catalog/catalog.go`,
 `src/edge/netpen/catalog/registrations.go`,
@@ -288,6 +314,28 @@ Tests: none — `//go:build ignore` scripts that no test binary builds. The chec
 is that each regenerates its fixtures byte-identically.
 Verify: from each script's directory,
 `go run harvest_l2.go && git diff --stat -- ../testdata/`
+
+Landed shape (two deviations):
+1. **Sticky error, not per-builder returns.** The builders feed their bytes to
+   `writePcap` in-line (`writePcap(path, dtpFrame(0x03), dtpFrame(0x81))`), and
+   several builders delegate to a shared `craft`/`dot3SNAP` serializer. Threading
+   `([]byte, error)` through every builder would cascade the return change across
+   dozens of inline call sites — the widening the parent's Goal says to stop at.
+   Instead each script gains a package-level `genErr` and a `fail` recorder: a
+   serialize failure records into `genErr` and returns nil, `writePcap` short-
+   circuits once `genErr` is set, and `run` returns `genErr`. This is the
+   sticky-fault shape U7 and U10 use, with `run` as the caller-side read. Builder
+   signatures are untouched. `harvest_routing.go`'s `panicErr` helper is removed;
+   `mustMAC` keeps its own inline init-time panic.
+2. **Byte-identical regeneration is not achievable and was not asserted.** Every
+   `writePcap` stamps each packet with a wall-clock timestamp (`time.Now()` in
+   ip6/routing; the zero-time path in l2/fh still varies), so two runs of the
+   same script differ at the pcap timestamp offsets. This predates the change —
+   the fixtures were never reproducible — so the regenerated pcaps are not
+   committed. The check that landed is that each script compiles, runs, exits 0,
+   and prints its OK line; the success path is byte-for-byte the pre-change logic
+   (only the error path changed), so the fixtures' non-timestamp content is
+   unchanged.
 
 ### U9. Document the surviving panics and their callers
 Files: `src/protocol/snmp/oid.go`, `src/protocol/snmp/watch.go`,
