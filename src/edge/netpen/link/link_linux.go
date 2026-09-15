@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/bpf"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // pollTimeout is the per-poll wait. It bounds how long a blocked Receive
@@ -110,9 +111,13 @@ func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 
-	go func() {
-		defer close(frames)
-
+	// receive owns no terminal close of its own: every exit path below
+	// already calls sendTerminal before returning, and spawn.Go's fn
+	// closes frames once receive returns. The panic path closes through
+	// the ReportTo sink instead, sending the recovered panic as the
+	// terminal frame first, so a consumer draining frames until close
+	// still learns why the receiver stopped.
+	receive := func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -158,7 +163,15 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 				return
 			}
 		}
-	}()
+	}
+
+	spawn.Go(ctx, "netpen link receive", func() {
+		receive()
+		close(frames)
+	}, spawn.ReportTo(func(err error) {
+		sendTerminal(frames, Frame{Err: err})
+		close(frames)
+	}))
 
 	return frames
 }

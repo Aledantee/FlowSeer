@@ -30,6 +30,41 @@ func (*fakePacketSocket) SetBPF([]bpf.RawInstruction) error { return nil }
 
 func (s *fakePacketSocket) Close() { s.closes++ }
 
+// panicPacketSocket panics on every read, standing in for a driver bug in
+// the receive loop [linuxLeg.Receive] spawns.
+type panicPacketSocket struct{}
+
+func (panicPacketSocket) ReadPacketData() ([]byte, gopacket.CaptureInfo, error) {
+	panic("boom")
+}
+
+func (panicPacketSocket) WritePacketData([]byte) error { return nil }
+
+func (panicPacketSocket) SetBPF([]bpf.RawInstruction) error { return nil }
+
+func (panicPacketSocket) Close() {}
+
+// TestLinuxReceivePanicReportsTerminalFrameBeforeClose proves the goroutine
+// spawn.Go starts for Receive reports a panic as a terminal Frame before
+// frames closes, not merely eventually: a consumer draining frames must see
+// the error, not a channel that closed with no explanation.
+func TestLinuxReceivePanicReportsTerminalFrameBeforeClose(t *testing.T) {
+	leg := &linuxLeg{tp: panicPacketSocket{}, done: make(chan struct{})}
+	frames := leg.Receive(context.Background())
+
+	frame, ok := <-frames
+	if !ok {
+		t.Fatal("frames closed with no terminal frame; the panic must be reported before close")
+	}
+	if frame.Err == nil {
+		t.Fatal("terminal frame carries no error; the recovered panic was not attached")
+	}
+
+	if _, stillOpen := <-frames; stillOpen {
+		t.Fatal("frames stayed open after the terminal frame")
+	}
+}
+
 func TestLinuxReceiveShutdownWithFullChannel(t *testing.T) {
 	for _, shutdown := range []string{"close", "cancel"} {
 		t.Run(shutdown, func(t *testing.T) {

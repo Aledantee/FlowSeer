@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/output"
 )
@@ -57,11 +58,13 @@ func streamJSON(stdout, stderr io.Writer, ch <-chan findings.Record, meta findin
 // streamTUI drains the producer even when the user quits or the terminal fails.
 // On terminal failure cancel stops the run before this function waits for
 // cleanup records. The caller reports the returned terminal error.
-func streamTUI(ch <-chan findings.Record, meta findings.Meta, cancel context.CancelFunc) error {
+func streamTUI(ctx context.Context, ch <-chan findings.Record, meta findings.Meta, cancel context.CancelFunc) error {
 	m := output.NewModel(true, 80, 24)
 	p := tea.NewProgram(m)
 	done := make(chan struct{})
-	go func() {
+	// close(done) is fn's own deferred call, so it still runs on a panic
+	// unwind: the <-done wait below never hangs on a feed that panics.
+	spawn.Go(ctx, "netpen stream TUI feed", func() {
 		defer close(done)
 		metaRec := findings.NewRecord(findings.KindMeta)
 		metaRec.Time = meta.Started
@@ -72,7 +75,7 @@ func streamTUI(ch <-chan findings.Record, meta findings.Meta, cancel context.Can
 			p.Send(rec)
 		}
 		p.Quit()
-	}()
+	})
 
 	_, err := p.Run()
 	if err != nil {
