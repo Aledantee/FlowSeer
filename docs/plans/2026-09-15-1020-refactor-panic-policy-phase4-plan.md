@@ -46,6 +46,13 @@ converts, and the only `go` statement in non-test `src/` is
 
 The parent's Decisions govern. This phase makes these:
 
+Ruled: the parent's `Landed:` lines for phases 1, 2 and 3 are rewritten to
+carry their commit ranges. Why: the ledger gate reads the range to prove a
+phase's prerequisites are in the tree, and prose without one fails it, so
+phase 4 cannot verify against a parent the earlier phases left in the old
+shape. Cost if wrong: three prose lines in the parent plan; the ranges are
+read off this branch's history and nothing depends on them but the gate.
+
 ### The tree, measured
 
 The earlier draft asked for these to be re-checked. They were, on the current

@@ -234,7 +234,7 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase1-plan.md`
 After: none
 Change: `docs/code-style.md` carries the rule; `errs`, `diag`, `catalog`,
 `ssh`, `mibgen`, `fabric`, `vswitch` and the harvest scripts satisfy it.
-Landed: Partially. The rule and every conversion landed except `diag.Raise` →
+Landed: Partially. `1e44c6f0..747efc53`. The rule and every conversion landed except `diag.Raise` →
 `MustRaise` (phase-1 U3), which was blocked: it reaches the public `smi.Raise`
 and its static arity-scan proof cannot resolve the variadic forwarders. That
 unit is withdrawn from phase 1 and re-planned as phase 4's U1, because the
@@ -248,7 +248,7 @@ phase-1 plan.
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase2-plan.md`
 After: U1
 Change: the parser unwinds by flag-checked return rather than by panic.
-Landed: Yes. `panic(bailout{})` and its recover are gone; the parser unwinds by
+Landed: Yes. `55b49ea5..aa5a5150`. `panic(bailout{})` and its recover are gone; the parser unwinds by
 the `p.fatal` flag. `benchstat` showed no regression (a small improvement from
 dropping the per-declaration recover-defer). See the phase-2 plan.
 
@@ -257,7 +257,7 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase3-plan.md`
 After: U1, U2
 Change: a supervised-spawn package lands at `src/common/spawn`, and all 65
 spawn sites in non-test `src/` run through it.
-Landed: Yes. `src/common/spawn` holds the only `go` statement in non-test
+Landed: Yes. `fa6b2957..138b700a`. `src/common/spawn` holds the only `go` statement in non-test
 `src/`, and no `sync.WaitGroup.Go` remains. The conversion's real cost was not
 the 65 sites but one ordering property nobody had stated: a deferred completion
 inside the spawned function runs before the helper's recover, so a site that
@@ -273,7 +273,7 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`
 After: U1, U2, U3
 Change: `diag.Raise` becomes `MustRaise` with a proof that runs, and a
 conformance test flags a new placement or goroutine violation.
-Landed: Yes. `d390e205..94483e65`. `diag.Raise` and `smi.Raise` are
+Landed: Yes. `d390e205..9ae86a47`. `diag.Raise` and `smi.Raise` are
 `MustRaise`, the arity scan resolves every first-party call that reaches
 them, and `test/conformance/panic` reports zero findings on the tree.
 
