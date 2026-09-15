@@ -1803,11 +1803,13 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 				return
 			}
 		}
-	}, spawn.ReportTo(func(err error) {
+	}, spawn.ReportTo(func(error) {
 		// endRecoveryPoll is this poll's single exit, per its own doc
 		// comment: every path out must answer the caller. open.answered is
 		// a sync.Once, so calling it here even after pollOnce already
-		// answered through another path is harmless.
+		// answered through another path is harmless. The panic itself is
+		// not threaded through: endRecoveryPoll answers with the poll's own
+		// outcome, and the helper's log record carries the diagnosis.
 		l.endRecoveryPoll(pollCtx, ds, open)
 	}))
 }

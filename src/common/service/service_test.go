@@ -267,7 +267,7 @@ func TestRunReturnsInsteadOfBlockingOnPanicBeforeStarted(t *testing.T) {
 		}},
 	}
 	options := immediateSupervisorOptions()
-	options.transition = func(supervisorPath, operation, modulePath string) {
+	options.transition = func(_, operation, _ string) {
 		if operation == "setup" {
 			panic(typedPanic("scheduling panic"))
 		}
