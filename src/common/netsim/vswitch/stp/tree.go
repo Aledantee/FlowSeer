@@ -33,6 +33,15 @@ type tree struct {
 	rootPathCost uint32
 	rootPort     string
 
+	// regionalRootID and internalRootPathCost are the CIST's region-internal
+	// components: the regional root within this bridge's MST region and the
+	// internal cost to reach it. An MSTI tree leaves them zero, since its own
+	// rootID and rootPathCost already carry the regional root and the cost to
+	// it (clause 13.11's MSTI vector has no external component to keep them
+	// apart from).
+	regionalRootID       BridgeID
+	internalRootPathCost uint32
+
 	helloTimer time.Time
 
 	topologyChangeCount uint64

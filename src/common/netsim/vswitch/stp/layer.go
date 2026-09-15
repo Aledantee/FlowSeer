@@ -41,6 +41,10 @@ const (
 
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
+	// MSTID names the tree this snapshot belongs to: 0 for the CIST, the
+	// instance identifier for an MSTI. It rides here so a trace fact can name
+	// the blocking instance rather than leaving a reader to infer it.
+	MSTID              MSTID
 	Role               Role
 	State              State
 	BlockReason        BlockReason
@@ -81,11 +85,26 @@ type Layer struct {
 	trees     map[treeID]*tree
 	vidToTree map[vlan.ID]treeID
 
+	// treeOrder lists the trees in the deterministic order every walk visits
+	// them: the CIST first, then MSTIDs ascending. A map range would let
+	// Effects order vary between runs of the same input, which the corpus's
+	// deterministic-re-execution test would catch.
+	treeOrder []treeID
+
 	// portTx holds the transmit budget for every port, keyed by port name. It
 	// is bridge-global rather than per-tree for the same reason portNames is:
 	// the budget IEEE 802.1Q meters belongs to the port, not to a tree running
 	// on it.
 	portTx map[string]*portTx
+
+	// mst is the region configuration when this bridge runs MSTP, and nil
+	// when it runs plain RSTP with the CIST as its only tree.
+	mst *MST
+
+	// configID is this bridge's own MST configuration identifier, computed
+	// once from mst at construction. A received MST BPDU is internal when its
+	// ConfigID equals this one.
+	configID *ConfigID
 }
 
 type portState struct {
@@ -97,6 +116,28 @@ type portState struct {
 	edge         bool
 	pointToPoint bool
 	up           bool
+
+	// pathCostFixed marks an MSTI port whose path cost was configured
+	// explicitly on the instance (InstancePort.PathCost nonzero). A fixed
+	// cost stays put across a link change; an unfixed one tracks the CIST
+	// port's cost, which link speed and admin configuration otherwise drive.
+	pathCostFixed bool
+
+	// external marks a boundary port: one whose most recently received BPDU
+	// carried no MST configuration identifier, or one from a different
+	// region. It lives on the CIST port state because classification is a
+	// property of the link, not of a tree running over it; every other tree
+	// consults it through Layer.boundary.
+	external bool
+
+	// rcvRegionalRootID and rcvInternalRootPathCost hold the CIST's
+	// region-internal received information, filled only when a BPDU arrived
+	// internal (external is false). rcvRemainingHops holds the hop count an
+	// internal BPDU (CIST or MSTI) carried, which internal information ages
+	// by instead of message age.
+	rcvRegionalRootID       BridgeID
+	rcvInternalRootPathCost uint32
+	rcvRemainingHops        uint8
 
 	role  Role
 	state State
@@ -272,7 +313,14 @@ func newLayer(cfg Config) *Layer {
 		portNames:    sortedNames,
 		trees:        map[treeID]*tree{cistID: cist},
 		vidToTree:    make(map[vlan.ID]treeID),
+		treeOrder:    []treeID{cistID},
 		portTx:       make(map[string]*portTx, len(sortedNames)),
+		mst:          cfg.MST,
+	}
+
+	if cfg.MST != nil {
+		cid := cfg.MST.ConfigID()
+		l.configID = &cid
 	}
 
 	for _, name := range sortedNames {
@@ -304,7 +352,75 @@ func newLayer(cfg Config) *Layer {
 		}
 	}
 
+	if cfg.MST != nil {
+		for _, mstid := range sortedMSTIDs(cfg.MST.Instances) {
+			inst := cfg.MST.Instances[mstid]
+			l.addInstanceTree(mstid, inst, sortedNames)
+			l.treeOrder = append(l.treeOrder, treeID(mstid))
+			for _, vid := range inst.VLANs {
+				l.vidToTree[vid] = treeID(mstid)
+			}
+		}
+	}
+
 	return l
+}
+
+// addInstanceTree builds and registers the tree for one MST instance. Its
+// bridge identifier carries the instance priority in the most significant 4
+// bits and the MSTID in the low 12 bits of the system-ID extension (MSTP
+// clause 13.7). Each port's identifier reuses the CIST's index half so it
+// stays bridge-global; only its priority half, and its path cost, can differ
+// per instance.
+func (l *Layer) addInstanceTree(mstid MSTID, inst Instance, sortedNames []string) {
+	mstiBridgeID := BridgeID{
+		Priority: (inst.Priority & 0xF000) | uint16(mstid),
+		Address:  l.address,
+	}
+
+	t := &tree{
+		id:           treeID(mstid),
+		bridgeID:     mstiBridgeID,
+		rootID:       mstiBridgeID,
+		rootPathCost: 0,
+		rootPort:     "",
+		ports:        make(map[string]*portState, len(sortedNames)),
+	}
+
+	for i, name := range sortedNames {
+		pCfg := l.cfg.Ports[name]
+		instPort, hasInstPort := inst.Ports[name]
+
+		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
+		if hasInstPort && instPort.PriorityPresent {
+			portPrio = instPort.Priority
+		}
+		portID := (uint16(portPrio) << 8) | uint16(i+1)
+
+		cost := DefaultPathCost(0)
+		fixed := false
+		if hasInstPort && instPort.PathCost != 0 {
+			cost = instPort.PathCost
+			fixed = true
+		}
+
+		t.ports[name] = &portState{
+			name:          name,
+			cfg:           pCfg,
+			portID:        portID,
+			pathCost:      cost,
+			pathCostFixed: fixed,
+			adminEdge:     pCfg.AdminEdge,
+			edge:          pCfg.AdminEdge,
+			pointToPoint:  false,
+			up:            false,
+			role:          RoleDisabled,
+			state:         StateDiscarding,
+			sendRSTP:      true,
+		}
+	}
+
+	l.trees[treeID(mstid)] = t
 }
 
 // Clone creates an independent deep copy of the spanning tree layer, preserving
@@ -322,12 +438,22 @@ func (l *Layer) Clone() *Layer {
 		portNames:    slices.Clone(l.portNames),
 		trees:        make(map[treeID]*tree, len(l.trees)),
 		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
+		treeOrder:    slices.Clone(l.treeOrder),
 		portTx:       make(map[string]*portTx, len(l.portTx)),
 	}
 
 	cp.cfg.Ports = make(map[string]Port, len(l.cfg.Ports))
 	for k, v := range l.cfg.Ports {
 		cp.cfg.Ports[k] = v
+	}
+	if l.mst != nil {
+		mst := l.mst.Clone()
+		cp.mst = &mst
+		cp.cfg.MST = &mst
+	}
+	if l.configID != nil {
+		cid := *l.configID
+		cp.configID = &cid
 	}
 	for id, t := range l.trees {
 		cp.trees[id] = t.clone()
@@ -408,7 +534,27 @@ func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
 // PortInfo returns runtime spanning tree information for the named port. If the
 // port is not tracked by the layer, PortInfo returns a zero value.
 func (l *Layer) PortInfo(port string) PortInfo {
-	t := l.cist()
+	return l.portInfo(l.cist(), port)
+}
+
+// InstancePortInfo returns runtime spanning tree information for the named
+// port within the given MST instance. It returns a zero value when the
+// instance or the port is not tracked by the layer, which is also what a
+// plain RSTP bridge (no MST configured) answers for any nonzero MSTID.
+func (l *Layer) InstancePortInfo(mstid MSTID, port string) PortInfo {
+	t, ok := l.trees[treeID(mstid)]
+	if !ok {
+		return PortInfo{}
+	}
+
+	return l.portInfo(t, port)
+}
+
+// portInfo renders a PortInfo snapshot for one port within one tree. The
+// designated fields resolve against that tree's own bridge and root, so an
+// MSTI's designated cost reads as its internal cost to the regional root
+// rather than the CIST's external cost.
+func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	p, ok := t.ports[port]
 	if !ok {
 		return PortInfo{}
@@ -421,7 +567,7 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	switch p.role {
 	case RoleDesignated:
 		desigRoot = t.rootID
-		desig = l.bridgeID
+		desig = t.bridgeID
 		desigPort = p.portID
 		desigCost = t.rootPathCost
 	case RoleRoot, RoleAlternate, RoleBackup:
@@ -435,6 +581,7 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	}
 
 	return PortInfo{
+		MSTID:              MSTID(t.id),
 		Role:               p.role,
 		State:              p.state,
 		BlockReason:        p.blockReason(),
@@ -454,15 +601,16 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	}
 }
 
-// BadBPDU records that a frame received on the named port could not be decoded as a BPDU.
-// An untracked port is ignored.
+// BadBPDU records that a frame received on the named port could not be
+// decoded as a BPDU. It is recorded against every tree running on the port,
+// since a frame that fails to decode is bad evidence for every instance
+// alike. An untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
-	p, ok := l.cist().ports[port]
-	if !ok {
-		return
+	for _, id := range l.treeOrder {
+		if p, ok := l.trees[id].ports[port]; ok {
+			p.badBPDUs++
+		}
 	}
-
-	p.badBPDUs++
 }
 
 // Mcheck triggers protocol migration checking on the named port, forcing it
@@ -479,10 +627,8 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 	p.mdelayWhile = now.Add(MigrateTime)
 
 	var flushes []string
-	var emissions []Emission
 
-	subEmissions := l.recompute(t, now, &flushes)
-	emissions = append(emissions, subEmissions...)
+	emissions := l.recomputeAll(now, &flushes)
 
 	if p.role == RoleDesignated && p.up {
 		alreadyEmitted := false
@@ -631,6 +777,177 @@ func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, f
 	}
 }
 
+// boundary reports whether the named port is a boundary port: the CIST's most
+// recently received BPDU on it carried no MST configuration identifier, or
+// one from a different region. It answers false for a port the CIST does not
+// track, which for a plain RSTP bridge with no MSTI trees is moot since this
+// is only ever consulted from one.
+func (l *Layer) boundary(name string) bool {
+	p, ok := l.cist().ports[name]
+	if !ok {
+		return false
+	}
+
+	return p.external
+}
+
+// syncInstancePorts carries a physical link property change on the CIST's
+// port cistP onto every MSTI's port state of the same name: up, point to
+// point, and, for an instance that left its path cost unconfigured, the
+// path cost too. These are link properties, not per-instance ones, so an
+// MSTI only tracks its own copy to give recompute one shape of portState to
+// read regardless of tree; instanceRemainingHops and the boundary role rule
+// are what actually let instances diverge.
+func (l *Layer) syncInstancePorts(name string, cistP *portState) {
+	for _, id := range l.treeOrder {
+		if id == cistID {
+			continue
+		}
+		mp, ok := l.trees[id].ports[name]
+		if !ok {
+			continue
+		}
+
+		mp.up = cistP.up
+		mp.pointToPoint = cistP.pointToPoint
+		mp.edge = cistP.edge
+		if !mp.pathCostFixed {
+			mp.pathCost = cistP.pathCost
+		}
+		if !cistP.up {
+			mp.role = RoleDisabled
+			mp.state = StateDiscarding
+			mp.rcvInfoValid = false
+		}
+	}
+}
+
+// recomputeAll runs recompute for every tree in deterministic order, the CIST
+// first and then MSTIDs ascending, and aggregates the emissions. Only the
+// CIST emits: an MSTI's recompute is told not to, so the per-port transmit
+// budget is spent once per port rather than once per instance.
+func (l *Layer) recomputeAll(now time.Time, flushes *[]string) []Emission {
+	var emissions []Emission
+
+	for _, id := range l.treeOrder {
+		emissions = append(emissions, l.recompute(l.trees[id], now, flushes, id == cistID)...)
+	}
+
+	return emissions
+}
+
+// instanceRemainingHops computes the hop count an MSTI tree originates with:
+// the region's MaxHops when this bridge is the instance's own regional root,
+// and otherwise one fewer than its root port received.
+func (l *Layer) instanceRemainingHops(t *tree) uint8 {
+	maxHops := effectiveMaxHops(l.mst.MaxHops)
+
+	isRegionalRoot := t.rootID == t.bridgeID
+	if t.id == cistID {
+		isRegionalRoot = t.regionalRootID == t.bridgeID
+	}
+	if isRegionalRoot {
+		return maxHops
+	}
+
+	rp, ok := t.ports[t.rootPort]
+	if !ok || rp.rcvRemainingHops == 0 {
+		return maxHops
+	}
+
+	return rp.rcvRemainingHops - 1
+}
+
+// gatherMSTIRecords builds one MSTI record per configured instance for
+// transmission on port p, carrying that instance's current regional root,
+// internal cost, and per-instance bridge and port priority. It is called only
+// while building the CIST's own BPDU: an MST bridge always emits its MSTI
+// records alongside the CIST, on every up port, boundary ports included,
+// because a port is classified internal or external only on reception.
+func (l *Layer) gatherMSTIRecords(p *portState) []MSTIRecord {
+	var recs []MSTIRecord
+
+	for _, id := range l.treeOrder {
+		if id == cistID {
+			continue
+		}
+		mstid := MSTID(id)
+		mt := l.trees[id]
+		mp, ok := mt.ports[p.name]
+		if !ok {
+			continue
+		}
+
+		recs = append(recs, MSTIRecord{
+			MSTID:                mstid,
+			RegionalRootID:       mt.rootID,
+			InternalRootPathCost: mt.rootPathCost,
+			BridgePriority:       uint8(mt.bridgeID.Priority >> 12),
+			PortPriority:         uint8(mp.portID >> 8),
+			RemainingHops:        l.instanceRemainingHops(mt),
+		})
+	}
+
+	return recs
+}
+
+// receiveMSTIs stores the MSTI records an internal BPDU carries into each
+// named instance's port state, one instance at a time by the same
+// same-source-or-superior rule the CIST uses. A record for an instance this
+// bridge does not configure is ignored: the fabric's bridges are not required
+// to share the same instance set. The designated bridge and port a record
+// implies reuse the sending bridge's own address and the CIST port
+// identifier's index half, since MSTI bridge and port identifiers differ from
+// the CIST's only in their priority nibble (clause 13.7).
+func (l *Layer) receiveMSTIs(now time.Time, port string, b BPDU) {
+	for _, rec := range b.MSTIs {
+		mt, ok := l.trees[treeID(rec.MSTID)]
+		if !ok {
+			continue
+		}
+		mp, ok := mt.ports[port]
+		if !ok {
+			continue
+		}
+
+		recBridgeID := BridgeID{
+			Priority: (uint16(rec.BridgePriority) << 12) | uint16(rec.MSTID),
+			Address:  b.BridgeID.Address,
+		}
+		recPortID := (uint16(rec.PortPriority) << 8) | (b.PortID & 0x00FF)
+
+		incoming := priorityVector{
+			rootID: rec.RegionalRootID, regionalRootID: rec.RegionalRootID,
+			internalRootPathCost: rec.InternalRootPathCost, bridgeID: recBridgeID, portID: recPortID,
+		}
+
+		sameSource := mp.rcvInfoValid && mp.rcvBridgeID == recBridgeID && mp.rcvPortID == recPortID
+		isSuperior := !mp.rcvInfoValid
+		if mp.rcvInfoValid {
+			stored := rawVector(mt, mp)
+			if compareVectors(incoming, stored) < 0 {
+				isSuperior = true
+			}
+		}
+		if !sameSource && !isSuperior {
+			continue
+		}
+
+		if rec.RemainingHops <= 1 {
+			continue
+		}
+
+		mp.rcvInfoValid = true
+		mp.rcvRootID = rec.RegionalRootID
+		mp.rcvRootPathCost = rec.InternalRootPathCost
+		mp.rcvBridgeID = recBridgeID
+		mp.rcvPortID = recPortID
+		mp.rcvRemainingHops = rec.RemainingHops
+		mp.rcvHelloTime = b.HelloTime
+		mp.rcvTime = now
+	}
+}
+
 func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) BPDU {
 	var msgAge time.Duration
 	maxAge, hello, fwdDelay := l.times(t)
@@ -669,6 +986,18 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) BP
 		b.SetTopologyChange(true)
 	}
 
+	// Only the CIST drives emission (see recomputeAll), so this is also the
+	// one place that attaches the region's configuration identifier and every
+	// instance's MSTI record. t is always the CIST here.
+	if l.mst != nil {
+		cid := *l.configID
+		b.ConfigID = &cid
+		b.RegionalRootID = t.regionalRootID
+		b.InternalRootPathCost = t.internalRootPathCost
+		b.RemainingHops = l.instanceRemainingHops(t)
+		b.MSTIs = l.gatherMSTIRecords(p)
+	}
+
 	return b
 }
 
@@ -685,7 +1014,92 @@ func (l *Layer) makeAgreementBPDU(t *tree, p *portState, now time.Time) BPDU {
 	return b
 }
 
-func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission {
+// candidateVector builds the priority vector port p offers tree t towards
+// root election, from its received information and its own path cost. A CIST
+// port adds the cost to the external or the internal slot depending on
+// whether it is a boundary port; an MSTI port always adds it to the internal
+// slot and mirrors rootID from regionalRootID, which is clause 13.11's MSTI
+// vector order (see priorityVector).
+func candidateVector(t *tree, p *portState) priorityVector {
+	cand := priorityVector{
+		rootID:   p.rcvRootID,
+		bridgeID: p.rcvBridgeID,
+		portID:   p.rcvPortID,
+	}
+
+	switch {
+	case t.id == cistID && p.external:
+		cand.externalRootPathCost = p.rcvRootPathCost + p.pathCost
+		cand.regionalRootID = p.rcvRootID
+	case t.id == cistID:
+		cand.externalRootPathCost = p.rcvRootPathCost
+		cand.regionalRootID = p.rcvRegionalRootID
+		cand.internalRootPathCost = p.rcvInternalRootPathCost + p.pathCost
+	default:
+		cand.regionalRootID = p.rcvRootID
+		cand.internalRootPathCost = p.rcvRootPathCost + p.pathCost
+	}
+
+	return cand
+}
+
+// rawVector builds the priority vector port p received, in the same shape as
+// candidateVector but without adding p's own path cost: designatedOrBlocked
+// compares what the peer is claiming for the segment against what this
+// bridge would claim, and neither side's own link cost belongs in that
+// comparison.
+func rawVector(t *tree, p *portState) priorityVector {
+	switch {
+	case t.id == cistID && p.external:
+		return priorityVector{
+			rootID: p.rcvRootID, externalRootPathCost: p.rcvRootPathCost,
+			regionalRootID: p.rcvRootID, bridgeID: p.rcvBridgeID, portID: p.rcvPortID,
+		}
+	case t.id == cistID:
+		return priorityVector{
+			rootID: p.rcvRootID, regionalRootID: p.rcvRegionalRootID, internalRootPathCost: p.rcvInternalRootPathCost,
+			bridgeID: p.rcvBridgeID, portID: p.rcvPortID,
+		}
+	default:
+		return priorityVector{
+			rootID: p.rcvRootID, regionalRootID: p.rcvRootID, internalRootPathCost: p.rcvRootPathCost,
+			bridgeID: p.rcvBridgeID, portID: p.rcvPortID,
+		}
+	}
+}
+
+// designatedVector builds the priority vector tree t itself offers on port p
+// once its root is elected, in the same shape rawVector gives a received one,
+// so the two compare directly.
+func designatedVector(t *tree, p *portState) priorityVector {
+	switch {
+	case t.id == cistID && p.external:
+		return priorityVector{
+			rootID: t.rootID, externalRootPathCost: t.rootPathCost,
+			regionalRootID: t.rootID, bridgeID: t.bridgeID, portID: p.portID,
+		}
+	case t.id == cistID:
+		return priorityVector{
+			rootID: t.rootID, externalRootPathCost: t.rootPathCost,
+			regionalRootID: t.regionalRootID, internalRootPathCost: t.internalRootPathCost,
+			bridgeID: t.bridgeID, portID: p.portID,
+		}
+	default:
+		return priorityVector{
+			rootID: t.rootID, regionalRootID: t.rootID, internalRootPathCost: t.rootPathCost,
+			bridgeID: t.bridgeID, portID: p.portID,
+		}
+	}
+}
+
+// recompute runs one tree's root election and role and state assignment. On
+// a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
+// and state outright rather than computing its own, which is the boundary
+// role rule (netsim reports the CIST's Root where the standard would say
+// Master; no separate Role value exists for it). emit gates the proposal
+// emissions a root change triggers: only the CIST emits, so an MSTI's caller
+// passes false and recompute returns no emissions for it.
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string, emit bool) []Emission {
 	var emissions []Emission
 
 	oldRootID := t.rootID
@@ -693,16 +1107,16 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 	oldRootPort := t.rootPort
 
 	bestVector := priorityVector{
-		rootID:         l.bridgeID,
-		regionalRootID: l.bridgeID,
-		bridgeID:       l.bridgeID,
+		rootID:         t.bridgeID,
+		regionalRootID: t.bridgeID,
+		bridgeID:       t.bridgeID,
 	}
 	bestPort := ""
 	bestRcvPortID := uint16(0)
 
 	for _, name := range l.portNames {
-		p := t.ports[name]
-		if !p.up || p.bpduGuardDisabled || !p.rcvInfoValid {
+		p, ok := t.ports[name]
+		if !ok || !p.up || p.bpduGuardDisabled || !p.rcvInfoValid {
 			continue
 		}
 		// Restricted role denies the port the root role, and loop guard holds a
@@ -715,13 +1129,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 			continue
 		}
 
-		cand := priorityVector{
-			rootID:               p.rcvRootID,
-			externalRootPathCost: p.rcvRootPathCost + p.pathCost,
-			regionalRootID:       p.rcvRootID,
-			bridgeID:             p.rcvBridgeID,
-			portID:               p.rcvPortID,
-		}
+		cand := candidateVector(t, p)
 
 		if bestPort == "" {
 			if compareVectors(cand, bestVector) < 0 {
@@ -740,17 +1148,43 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 	}
 
 	if bestPort == "" {
-		t.rootID = l.bridgeID
+		t.rootID = t.bridgeID
 		t.rootPathCost = 0
 		t.rootPort = ""
+		if t.id == cistID {
+			t.regionalRootID = t.bridgeID
+			t.internalRootPathCost = 0
+		}
 	} else {
-		t.rootID = bestVector.rootID
-		t.rootPathCost = bestVector.externalRootPathCost
 		t.rootPort = bestPort
+		if t.id == cistID {
+			t.rootID = bestVector.rootID
+			t.rootPathCost = bestVector.externalRootPathCost
+			t.regionalRootID = bestVector.regionalRootID
+			t.internalRootPathCost = bestVector.internalRootPathCost
+		} else {
+			t.rootID = bestVector.regionalRootID
+			t.rootPathCost = bestVector.internalRootPathCost
+		}
 	}
 
 	for _, name := range l.portNames {
-		p := t.ports[name]
+		p, ok := t.ports[name]
+		if !ok {
+			continue
+		}
+
+		if t.id != cistID && l.boundary(name) {
+			cistP := l.cist().ports[name]
+			oldRole := p.role
+			p.role = cistP.role
+			if p.role != oldRole && p.role != RoleDesignated {
+				p.agreed = false
+			}
+
+			continue
+		}
+
 		oldRole := p.role
 		switch {
 		case !p.up || p.bpduGuardDisabled:
@@ -780,8 +1214,21 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 	}
 
 	for _, name := range l.portNames {
-		p := t.ports[name]
+		p, ok := t.ports[name]
+		if !ok {
+			continue
+		}
 		oldState := p.state
+
+		if t.id != cistID && l.boundary(name) {
+			cistP := l.cist().ports[name]
+			p.state = cistP.state
+			if oldState != StateForwarding && p.state == StateForwarding {
+				p.forwardTransitions++
+			}
+
+			continue
+		}
 
 		switch p.role {
 		case RoleDisabled, RoleAlternate, RoleBackup:
@@ -826,7 +1273,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 		}
 	}
 
-	if t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort {
+	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
 		for _, name := range l.portNames {
 			p := t.ports[name]
 			if p.up && p.role == RoleDesignated && p.pointToPoint && p.state == StateDiscarding && !p.agreed {
@@ -843,20 +1290,8 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 // when that bridge is this one through another port, else Designated.
 func (l *Layer) designatedOrBlocked(t *tree, p *portState, now time.Time) Role {
 	if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-		desig := priorityVector{
-			rootID:               t.rootID,
-			externalRootPathCost: t.rootPathCost,
-			regionalRootID:       t.rootID,
-			bridgeID:             t.bridgeID,
-			portID:               p.portID,
-		}
-		rcv := priorityVector{
-			rootID:               p.rcvRootID,
-			externalRootPathCost: p.rcvRootPathCost,
-			regionalRootID:       p.rcvRootID,
-			bridgeID:             p.rcvBridgeID,
-			portID:               p.rcvPortID,
-		}
+		desig := designatedVector(t, p)
+		rcv := rawVector(t, p)
 		if compareVectors(rcv, desig) < 0 {
 			if p.rcvBridgeID == t.bridgeID {
 				return RoleBackup
@@ -914,8 +1349,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			l.raiseTopologyChange(t, p.name, now, &flushes)
 		}
 
-		subEmissions := l.recompute(t, now, &flushes)
-		emissions = append(emissions, subEmissions...)
+		l.syncInstancePorts(port, p)
+
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 		return Effects{
 			Emissions: emissions,
@@ -965,8 +1401,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 	}
 
-	subEmissions := l.recompute(t, now, &flushes)
-	emissions = append(emissions, subEmissions...)
+	l.syncInstancePorts(port, p)
+
+	emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 	if p.pointToPoint && !p.edge && p.role == RoleDesignated && p.state == StateDiscarding {
 		alreadyEmitted := false
@@ -1023,7 +1460,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		// as well would count one event twice.
 		flushes = append(flushes, p.name)
 
-		emissions = append(emissions, l.recompute(t, now, &flushes)...)
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 		return Effects{Emissions: emissions, Flush: flushes}
 	}
@@ -1069,8 +1506,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			}
 		}
 
-		subEmissions := l.recompute(t, now, &flushes)
-		emissions = append(emissions, subEmissions...)
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 		return Effects{
 			Emissions: emissions,
@@ -1078,28 +1514,57 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		}
 	}
 
-	// IEEE 802.1Q treats message age as a hop count bounded by the max age the
-	// BPDU itself carries, not by this bridge's configured one: the received
-	// value is the root's, and the fabric builds bridges with differing timers.
-	// Information that has reached the bound is discarded rather than stored,
-	// so a BPDU naming a root that no longer exists stops refreshing the timer
-	// on every hop and the port's own information ages out.
-	if b.MessageAge+time.Second > b.MaxAge {
-		subEmissions := l.recompute(t, now, &flushes)
-		emissions = append(emissions, subEmissions...)
+	// A BPDU is internal when it names this bridge's own region: an MST BPDU
+	// (ConfigID set) whose configuration identifier equals this bridge's. An
+	// RST or Configuration BPDU, and an MST BPDU from a different region, are
+	// external. The classification lives on the CIST port state because it
+	// is a property of the link, not of a tree running over it.
+	internal := l.mst != nil && b.ConfigID != nil && *b.ConfigID == *l.configID
+	p.external = !internal
 
-		return Effects{
-			Emissions: emissions,
-			Flush:     flushes,
+	if internal {
+		// Internal information ages by hop count, re-originated one hop
+		// short of what was received; a record that has already reached the
+		// bound is discarded rather than stored, so a BPDU naming a regional
+		// root that no longer exists stops refreshing on every hop and the
+		// port's own information ages out.
+		if b.RemainingHops <= 1 {
+			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+
+			return Effects{
+				Emissions: emissions,
+				Flush:     flushes,
+			}
+		}
+	} else {
+		// IEEE 802.1Q treats message age as a hop count bounded by the max age
+		// the BPDU itself carries, not by this bridge's configured one: the
+		// received value is the root's, and the fabric builds bridges with
+		// differing timers. Information that has reached the bound is
+		// discarded rather than stored, so a BPDU naming a root that no
+		// longer exists stops refreshing the timer on every hop and the
+		// port's own information ages out.
+		if b.MessageAge+time.Second > b.MaxAge {
+			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+
+			return Effects{
+				Emissions: emissions,
+				Flush:     flushes,
+			}
 		}
 	}
 
 	incoming := priorityVector{
 		rootID:               b.RootID,
 		externalRootPathCost: b.RootPathCost,
-		regionalRootID:       b.RootID,
 		bridgeID:             b.BridgeID,
 		portID:               b.PortID,
+	}
+	if internal {
+		incoming.regionalRootID = b.RegionalRootID
+		incoming.internalRootPathCost = b.InternalRootPathCost
+	} else {
+		incoming.regionalRootID = b.RootID
 	}
 
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
@@ -1107,13 +1572,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	if !p.rcvInfoValid {
 		isSuperior = true
 	} else {
-		stored := priorityVector{
-			rootID:               p.rcvRootID,
-			externalRootPathCost: p.rcvRootPathCost,
-			regionalRootID:       p.rcvRootID,
-			bridgeID:             p.rcvBridgeID,
-			portID:               p.rcvPortID,
-		}
+		stored := rawVector(t, p)
 		if compareVectors(incoming, stored) < 0 {
 			isSuperior = true
 		}
@@ -1130,6 +1589,15 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		p.rcvHelloTime = b.HelloTime
 		p.rcvForwardDelay = b.ForwardDelay
 		p.rcvTime = now
+		if internal {
+			p.rcvRegionalRootID = b.RegionalRootID
+			p.rcvInternalRootPathCost = b.InternalRootPathCost
+			p.rcvRemainingHops = b.RemainingHops
+		}
+	}
+
+	if internal {
+		l.receiveMSTIs(now, port, b)
 	}
 
 	if p.role == RoleDesignated && b.Agreement() {
@@ -1153,8 +1621,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		}
 	}
 
-	subEmissions := l.recompute(t, now, &flushes)
-	emissions = append(emissions, subEmissions...)
+	emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
 	if b.Proposal() && (p.role == RoleRoot || p.role == RoleAlternate) {
 		for _, otherName := range l.portNames {
@@ -1187,14 +1654,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 
 		l.emit(t, p, now, emissionAgreement, &emissions)
 	} else if p.role == RoleDesignated && !b.Agreement() {
-		desig := priorityVector{
-			rootID:               t.rootID,
-			externalRootPathCost: t.rootPathCost,
-			regionalRootID:       t.rootID,
-			bridgeID:             t.bridgeID,
-			portID:               p.portID,
-		}
-		if compareVectors(incoming, desig) > 0 {
+		if compareVectors(incoming, designatedVector(t, p)) > 0 {
 			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
@@ -1260,13 +1720,22 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 	}
 
+	// The forward delay ladder runs per tree, since role and state are per
+	// tree: an MSTI's own internal ports climb it independently of the CIST's.
+	// A boundary port never sets fwdDelayTimer for a non-CIST tree (recompute
+	// mirrors its state from the CIST outright), so this never double-drives
+	// one.
 	stateChanged := false
-	for _, name := range l.portNames {
-		p := t.ports[name]
-		if !p.fwdDelayTimer.IsZero() && !p.fwdDelayTimer.After(now) {
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok || p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now) {
+				continue
+			}
 			p.fwdDelayTimer = time.Time{}
 			switch p.role {
-			case RoleDesignated:
+			case RoleDesignated, RoleRoot:
 				switch p.state {
 				case StateDiscarding:
 					p.state = StateLearning
@@ -1276,21 +1745,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 					p.forwardTransitions++
 					stateChanged = true
 					if !p.edge {
-						l.raiseTopologyChange(t, p.name, now, &flushes)
-					}
-				case StateForwarding:
-				}
-			case RoleRoot:
-				switch p.state {
-				case StateDiscarding:
-					p.state = StateLearning
-					p.fwdDelayTimer = now.Add(l.forwardDelay)
-				case StateLearning:
-					p.state = StateForwarding
-					p.forwardTransitions++
-					stateChanged = true
-					if !p.edge {
-						l.raiseTopologyChange(t, p.name, now, &flushes)
+						l.raiseTopologyChange(mt, p.name, now, &flushes)
 					}
 				case StateForwarding:
 				}
@@ -1299,15 +1754,21 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 	}
 
+	// Every tree's received information keeps the landed 3xHelloTime silence
+	// bound regardless of internal or external classification; only the test
+	// for accepting new information at Receive differs by hop count or
+	// message age. Loop guard is a CIST-only concept: an MSTI's own role on
+	// an internal port never gets to hold a segment open past its peer, and
+	// on a boundary port it mirrors the CIST outright.
 	agedOut := false
-	for _, name := range l.portNames {
-		p := t.ports[name]
-		if p.rcvInfoValid && !p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-			// Loop guard triggers on silence: the port held a non-designated
-			// role and heard nothing for three hello times. A port whose peer
-			// keeps sending BPDUs too old to store is not covered, because any
-			// received BPDU clears the state before this runs again.
-			if p.loopGuardWatches() &&
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
+				continue
+			}
+			if id == cistID && p.loopGuardWatches() &&
 				(p.role == RoleRoot || p.role == RoleAlternate || p.role == RoleBackup) {
 				p.loopInconsistent = true
 			}
@@ -1316,13 +1777,18 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 	}
 
-	if !t.topologyChangeTimer.IsZero() && !t.topologyChangeTimer.After(now) {
-		t.topologyChangeTimer = time.Time{}
+	// Every tree's topology change timer clears on its own schedule: an
+	// MSTI's forward-delay ladder above can raise one independently of the
+	// CIST's.
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		if !mt.topologyChangeTimer.IsZero() && !mt.topologyChangeTimer.After(now) {
+			mt.topologyChangeTimer = time.Time{}
+		}
 	}
 
 	if agedOut || stateChanged {
-		subEmissions := l.recompute(t, now, &flushes)
-		emissions = append(emissions, subEmissions...)
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 	}
 
 	return Effects{

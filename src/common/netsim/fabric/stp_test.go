@@ -1215,3 +1215,336 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 		t.Error("Mcheck on a host returned no error")
 	}
 }
+
+// crossedLink reports whether the journey has a crossing entry over the cable
+// directly joining the two named devices, in either direction.
+func crossedLink(j fabric.Journey, devA, devB string) bool {
+	for _, e := range j.Entries {
+		if e.Kind != fabric.EntryCrossing || e.Cable == nil {
+			continue
+		}
+		if (e.Cable.A.Node == devA && e.Cable.B.Node == devB) ||
+			(e.Cable.A.Node == devB && e.Cable.B.Node == devA) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Journey {
+	t.Helper()
+	for _, j := range fab.Report() {
+		if j.FrameID == fid {
+			return j
+		}
+	}
+	t.Fatalf("journey for frame %d not found", fid)
+
+	return fabric.Journey{}
+}
+
+// newTwoSwitchTrunkTopology returns two switches in one MST region joined by
+// two trunk links, L1 and L2, each carrying VLAN 10 and VLAN 20 to a pair of
+// access hosts on either side. The caller supplies each switch's MST region so
+// R14a (one region, independent instances) and R14b (two regions, a boundary)
+// can share this topology.
+func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, instPorts2 map[stp.MSTID]map[string]stp.InstancePort) *fabric.Fabric {
+	t.Helper()
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	newPorts := func() port.Table {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "l1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "l2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "v10", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "v20", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+
+		return tbl
+	}
+
+	vid10 := vlan.ID(10)
+	vid20 := vlan.ID(20)
+	newBridgeCfg := func() *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "VLAN10", 20: "VLAN20"},
+				Switchports: map[string]bridge.Switchport{
+					"l1":  {Tagged: []vlan.ID{10, 20}},
+					"l2":  {Tagged: []vlan.ID{10, 20}},
+					"v10": {PVID: &vid10, Untagged: []vlan.ID{10}},
+					"v20": {PVID: &vid20, Untagged: []vlan.ID{20}},
+				},
+			},
+		}
+	}
+
+	macs := map[string]netaddr.MAC{
+		"sw1":    {0, 0, 0, 0, 1, 1},
+		"sw2":    {0, 0, 0, 0, 1, 2},
+		"h1-v10": {0, 0, 0, 0, 2, 1},
+		"h1-v20": {0, 0, 0, 0, 2, 2},
+		"h2-v10": {0, 0, 0, 0, 2, 3},
+		"h2-v20": {0, 0, 0, 0, 2, 4},
+	}
+
+	stpPorts := func(overrides map[stp.MSTID]map[string]stp.InstancePort, mst *stp.MST) *stp.MST {
+		if mst == nil {
+			return nil
+		}
+		region := mst.Clone()
+		for mstid, ports := range overrides {
+			inst := region.Instances[mstid]
+			if inst.Ports == nil {
+				inst.Ports = make(map[string]stp.InstancePort, len(ports))
+			}
+			for name, ip := range ports {
+				inst.Ports[name] = ip
+			}
+			region.Instances[mstid] = inst
+		}
+
+		return &region
+	}
+
+	cfg := fabric.Config{
+		Start: t0,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				Ports:  newPorts(),
+				Bridge: newBridgeCfg(),
+				STP: &stp.Config{
+					Priority: 4096,
+					Address:  macs["sw1"],
+					Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+					MST:      stpPorts(instPorts1, mst1),
+				},
+			},
+			"sw2": {
+				Ports:  newPorts(),
+				Bridge: newBridgeCfg(),
+				STP: &stp.Config{
+					Priority: 32768,
+					Address:  macs["sw2"],
+					Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+					MST:      stpPorts(instPorts2, mst2),
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1-v10": {Address: macs["h1-v10"]},
+			"h1-v20": {Address: macs["h1-v20"]},
+			"h2-v10": {Address: macs["h2-v10"]},
+			"h2-v20": {Address: macs["h2-v20"]},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "h1-v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "h1-v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "h2-v10"}, B: fabric.Endpoint{Node: "sw2", Port: "v10"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "h2-v20"}, B: fabric.Endpoint{Node: "sw2", Port: "v20"}, LengthMeters: 1.0},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	return fab
+}
+
+// TestMSTInstancesForwardOnIndependentLinks is the fabric-level evidence for
+// R14a: two switches in one region, VLAN 10 on MSTI 1 and VLAN 20 on MSTI 2,
+// with the non-root switch's path cost inflated on L1 for MSTI 1 and on L2
+// for MSTI 2. A VLAN 10 frame must cross L2, and a VLAN 20 frame must cross
+// L1, the instances having picked opposite links to block.
+func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
+	region := &stp.MST{
+		Name:     "region-1",
+		Revision: 1,
+		Instances: map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+			2: {VLANs: []vlan.ID{20}},
+		},
+	}
+
+	fab := newTwoSwitchTrunkTopology(t, region, region, nil, map[stp.MSTID]map[string]stp.InstancePort{
+		1: {"l1": {PathCost: 200_000}},
+		2: {"l2": {PathCost: 200_000}},
+	})
+
+	fab.Run(1000)
+
+	fid10, err := fab.Inject(fabric.Injection{
+		At:     fab.Snapshot().Clock,
+		Origin: fabric.Endpoint{Node: "h1-v10"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
+			Dst:     netaddr.MAC{0, 0, 0, 0, 2, 3},
+			Payload: []byte("vlan10"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject VLAN 10: %v", err)
+	}
+	fab.Run(50)
+
+	j10 := findJourney(t, fab, fid10)
+	if len(j10.Deliveries) != 1 || j10.Deliveries[0].Host != "h2-v10" {
+		for _, e := range j10.Entries {
+			t.Logf("Entry: Kind=%v At=%v Device=%v Port=%v Reason=%v", e.Kind, e.At, e.Device, e.Port, e.Reason)
+		}
+		t.Fatalf("VLAN 10 deliveries = %+v, want one delivery to h2-v10", j10.Deliveries)
+	}
+	// sw1 floods the frame onto both trunk ports (it has nothing to block for
+	// any tree, being the root of each); the evidence that MSTI 1 chose L2 is
+	// that sw2 drops its own copy of the flood arriving on L1 as blocked,
+	// while the L2 copy reaches h2-v10.
+	if !droppedAtPort(j10, "sw2", "l1") {
+		t.Errorf("VLAN 10 frame was not dropped as port-blocked at sw2 l1, want MSTI 1's cost override to block it")
+	}
+	if droppedAtPort(j10, "sw2", "l2") {
+		t.Errorf("VLAN 10 frame was dropped as port-blocked at sw2 l2, want it forwarded")
+	}
+
+	fid20, err := fab.Inject(fabric.Injection{
+		At:     fab.Snapshot().Clock,
+		Origin: fabric.Endpoint{Node: "h1-v20"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},
+			Dst:     netaddr.MAC{0, 0, 0, 0, 2, 4},
+			Payload: []byte("vlan20"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject VLAN 20: %v", err)
+	}
+	fab.Run(50)
+
+	j20 := findJourney(t, fab, fid20)
+	if len(j20.Deliveries) != 1 || j20.Deliveries[0].Host != "h2-v20" {
+		t.Fatalf("VLAN 20 deliveries = %+v, want one delivery to h2-v20", j20.Deliveries)
+	}
+	if !droppedAtPort(j20, "sw2", "l2") {
+		t.Errorf("VLAN 20 frame was not dropped as port-blocked at sw2 l2, want MSTI 2's cost override to block it")
+	}
+	if droppedAtPort(j20, "sw2", "l1") {
+		t.Errorf("VLAN 20 frame was dropped as port-blocked at sw2 l1, want it forwarded")
+	}
+}
+
+// droppedAtPort reports whether the journey records a port-blocked drop on
+// the named device and port. Flooding sends a copy toward every trunk port
+// regardless of which tree blocks it, so a crossed cable is not evidence of
+// forwarding; only the ingress-side drop (or its absence) says whether a
+// port actually held the frame back.
+func droppedAtPort(j fabric.Journey, device, port string) bool {
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryDrop && e.Device == device && e.Port == port {
+			return true
+		}
+	}
+
+	return false
+}
+
+// TestMSTRegionBoundaryFollowsCIST is the fabric-level evidence for R14b:
+// switch sw1 in region R1 and switch sw2 in region R2 (same name, different
+// revision), joined by two links. Every port between them is a boundary port,
+// so both MSTIs must block the same link the CIST blocks and forward on the
+// same link the CIST forwards on, rather than computing an independent
+// answer of their own.
+func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
+	instances := map[stp.MSTID]stp.Instance{
+		1: {VLANs: []vlan.ID{10}},
+		2: {VLANs: []vlan.ID{20}},
+	}
+	region1 := &stp.MST{Name: "region-1", Revision: 1, Instances: instances}
+	region2 := &stp.MST{Name: "region-1", Revision: 2, Instances: instances}
+
+	fab := newTwoSwitchTrunkTopology(t, region1, region2, nil, nil)
+
+	fab.Run(1000)
+
+	snap := fab.Snapshot()
+
+	// The redundant link's blocking side holds Alternate or Backup for the
+	// CIST; the drop lands wherever that role sits, sw1 or sw2, and its
+	// counterpart link forwards.
+	blockedDevice, blockedPort := "", ""
+	for _, dev := range []string{"sw1", "sw2"} {
+		for _, p := range []string{"l1", "l2"} {
+			role := snap.Devices[dev].Roles[p].Role
+			if role == stp.RoleAlternate || role == stp.RoleBackup {
+				blockedDevice, blockedPort = dev, p
+			}
+		}
+	}
+	if blockedDevice == "" {
+		t.Fatalf("no port holds Alternate or Backup on either switch: sw1=%v sw2=%v",
+			snap.Devices["sw1"].Roles, snap.Devices["sw2"].Roles)
+	}
+	forwardingPort := "l1"
+	if blockedPort == "l1" {
+		forwardingPort = "l2"
+	}
+
+	fid10, err := fab.Inject(fabric.Injection{
+		At:     fab.Snapshot().Clock,
+		Origin: fabric.Endpoint{Node: "h1-v10"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
+			Dst:     netaddr.MAC{0, 0, 0, 0, 2, 3},
+			Payload: []byte("vlan10"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject VLAN 10: %v", err)
+	}
+	fab.Run(50)
+
+	j10 := findJourney(t, fab, fid10)
+	if len(j10.Deliveries) != 1 {
+		t.Fatalf("VLAN 10 deliveries = %+v, want exactly one", j10.Deliveries)
+	}
+	if !droppedAtPort(j10, blockedDevice, blockedPort) {
+		t.Errorf("VLAN 10 frame was not dropped as port-blocked at %s %s, want MSTI 1 to follow the CIST's block on a boundary port",
+			blockedDevice, blockedPort)
+	}
+	if droppedAtPort(j10, blockedDevice, forwardingPort) {
+		t.Errorf("VLAN 10 frame was dropped as port-blocked at %s %s, want it forwarded", blockedDevice, forwardingPort)
+	}
+
+	fid20, err := fab.Inject(fabric.Injection{
+		At:     fab.Snapshot().Clock,
+		Origin: fabric.Endpoint{Node: "h1-v20"},
+		Frame: ethernet.Frame{
+			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},
+			Dst:     netaddr.MAC{0, 0, 0, 0, 2, 4},
+			Payload: []byte("vlan20"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject VLAN 20: %v", err)
+	}
+	fab.Run(50)
+
+	j20 := findJourney(t, fab, fid20)
+	if len(j20.Deliveries) != 1 {
+		t.Fatalf("VLAN 20 deliveries = %+v, want exactly one", j20.Deliveries)
+	}
+	if !droppedAtPort(j20, blockedDevice, blockedPort) {
+		t.Errorf("VLAN 20 frame was not dropped as port-blocked at %s %s, want MSTI 2 to follow the CIST's block on a boundary port",
+			blockedDevice, blockedPort)
+	}
+	if droppedAtPort(j20, blockedDevice, forwardingPort) {
+		t.Errorf("VLAN 20 frame was dropped as port-blocked at %s %s, want it forwarded", blockedDevice, forwardingPort)
+	}
+}

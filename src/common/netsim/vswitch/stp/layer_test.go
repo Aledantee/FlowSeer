@@ -1,12 +1,15 @@
 package stp_test
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -1268,5 +1271,297 @@ func TestAutoEdgeTimerRestartsWhenAPortBecomesDesignatedAgain(t *testing.T) {
 	next, ok := l.NextWake()
 	if !ok || next.Before(now) {
 		t.Fatalf("NextWake = (%v, %v), want a time not before %v", next, ok, now)
+	}
+}
+
+// TestInternalBPDUDiscardedAtOneRemainingHopStoredAtTwo is evidence that
+// internal information ages by remaining hops rather than message age: a
+// record naming one hop left is one hop too few to accept, and one naming two
+// is stored and elects the root it carries.
+func TestInternalBPDUDiscardedAtOneRemainingHopStoredAtTwo(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	localMAC := mustMAC(t, "00:11:22:33:44:02")
+	peerMAC := mustMAC(t, "00:11:22:33:44:01")
+
+	region := stp.MST{Name: "region-1", Revision: 1}
+	cid := region.ConfigID()
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  localMAC,
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST:      &region,
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	internalBPDU := func(remainingHops uint8) stp.BPDU {
+		return stp.BPDU{
+			RootID:               stp.BridgeID{Priority: 4096, Address: peerMAC},
+			BridgeID:             stp.BridgeID{Priority: 4096, Address: peerMAC},
+			PortID:               0x8001,
+			HelloTime:            2 * time.Second,
+			MaxAge:               20 * time.Second,
+			ForwardDelay:         15 * time.Second,
+			ConfigID:             &cid,
+			RegionalRootID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
+			InternalRootPathCost: 0,
+			RemainingHops:        remainingHops,
+		}
+	}
+
+	l.Receive(now, "1/1/1", internalBPDU(1))
+	if rootID, _, rootPort := l.Root(); rootPort != "" || rootID != l.BridgeID() {
+		t.Fatalf("Root after RemainingHops=1 = (%v, %q), want this bridge's own with no root port", rootID, rootPort)
+	}
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDesignated {
+		t.Errorf("role after RemainingHops=1 = %v, want Designated (discarded)", info.Role)
+	}
+
+	l.Receive(now, "1/1/1", internalBPDU(2))
+	rootID, _, rootPort := l.Root()
+	if rootPort != "1/1/1" || rootID.Priority != 4096 {
+		t.Fatalf("Root after RemainingHops=2 = (%v, %q), want (4096/.., \"1/1/1\")", rootID, rootPort)
+	}
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleRoot {
+		t.Errorf("role after RemainingHops=2 = %v, want Root (stored)", info.Role)
+	}
+}
+
+// TestForeignRegionRevisionMarksPortExternalAndMSTIFollowsCIST is evidence
+// that an MST BPDU whose configuration identifier names a different region
+// (here, a differing revision) is classified external rather than internal,
+// and that the boundary port's MSTI role follows the CIST's role verbatim
+// rather than computing one of its own.
+func TestForeignRegionRevisionMarksPortExternalAndMSTIFollowsCIST(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	localMAC := mustMAC(t, "00:11:22:33:44:02")
+	peerMAC := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  localMAC,
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST: &stp.MST{
+			Name:      "region-1",
+			Revision:  1,
+			Instances: map[stp.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
+		},
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	// The peer names the same region by name but a different revision, so it
+	// belongs to a different region even though both sides run MSTP.
+	foreignRegion := stp.MST{Name: "region-1", Revision: 2}
+	foreignConfigID := foreignRegion.ConfigID()
+	b := stp.BPDU{
+		RootID:         stp.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		ConfigID:       &foreignConfigID,
+		RegionalRootID: stp.BridgeID{Priority: 4096, Address: peerMAC},
+		RemainingHops:  20,
+	}
+	l.Receive(now, "1/1/1", b)
+
+	cistInfo := l.PortInfo("1/1/1")
+	if cistInfo.Role != stp.RoleRoot {
+		t.Fatalf("CIST role = %v, want Root (a foreign-region BPDU is still evaluated on the CIST)", cistInfo.Role)
+	}
+
+	mstiInfo := l.InstancePortInfo(1, "1/1/1")
+	if mstiInfo.Role != cistInfo.Role || mstiInfo.State != cistInfo.State {
+		t.Errorf("MSTI 1 (role, state) = (%v, %v), want the CIST's boundary values (%v, %v)",
+			mstiInfo.Role, mstiInfo.State, cistInfo.Role, cistInfo.State)
+	}
+}
+
+// cableLink names a link between two switches in a convergence test.
+type cableLink struct {
+	swA, swB     int
+	portA, portB string
+}
+
+// convergeLayers drives LinkChange on every cabled port, then alternates
+// draining the BPDU queue and advancing every layer's earliest NextWake until
+// two consecutive rounds report the same snapshot with an empty queue. snapshot
+// renders whatever a test needs to see stabilize; the scheduler does not look
+// inside it.
+func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables []cableLink, snapshot func() string) time.Time {
+	t.Helper()
+
+	now := start
+
+	findPeer := func(srcSw int, srcPort string) (int, string, bool) {
+		for _, c := range cables {
+			if c.swA == srcSw && c.portA == srcPort {
+				return c.swB, c.portB, true
+			}
+			if c.swB == srcSw && c.portB == srcPort {
+				return c.swA, c.portA, true
+			}
+		}
+		return 0, "", false
+	}
+
+	type packet struct {
+		targetSw   int
+		targetPort string
+		frame      ethernet.Frame
+	}
+
+	var queue []packet
+	linkUp := func(sw int, port string) {
+		fx := layers[sw].LinkChange(now, port, true, true, 1_000_000_000)
+		for _, em := range fx.Emissions {
+			if peerSw, peerPort, ok := findPeer(sw, em.Port); ok {
+				queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
+			}
+		}
+	}
+	for _, c := range cables {
+		linkUp(c.swA, c.portA)
+		linkUp(c.swB, c.portB)
+	}
+
+	var prevSnapshot string
+	stableRounds := 0
+
+	for round := 0; round < 400; round++ {
+		current := snapshot()
+		if current == prevSnapshot {
+			stableRounds++
+			if stableRounds >= 2 && len(queue) == 0 {
+				break
+			}
+		} else {
+			stableRounds = 0
+			prevSnapshot = current
+		}
+
+		if len(queue) > 0 {
+			batch := queue
+			queue = nil
+			for _, pkt := range batch {
+				bpdu, err := stp.Decode(pkt.frame)
+				if err != nil {
+					t.Fatalf("decode packet for sw%d %s: %v", pkt.targetSw, pkt.targetPort, err)
+				}
+				fx := layers[pkt.targetSw].Receive(now, pkt.targetPort, bpdu)
+				for _, em := range fx.Emissions {
+					if peerSw, peerPort, ok := findPeer(pkt.targetSw, em.Port); ok {
+						queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
+					}
+				}
+			}
+
+			continue
+		}
+
+		var earliestWake time.Time
+		hasWake := false
+		for _, l := range layers {
+			if w, ok := l.NextWake(); ok {
+				if !hasWake || w.Before(earliestWake) {
+					earliestWake = w
+					hasWake = true
+				}
+			}
+		}
+		if !hasWake {
+			break
+		}
+
+		now = earliestWake
+		for i, l := range layers {
+			fx := l.Wake(now)
+			for _, em := range fx.Emissions {
+				if peerSw, peerPort, ok := findPeer(i, em.Port); ok {
+					queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
+				}
+			}
+		}
+	}
+
+	return now
+}
+
+// TestMSTInstancesSelectIndependentRoots is evidence that each MST instance
+// runs its own root election: with the non-root bridge's path cost inflated
+// on L1 for MSTI 1 and on L2 for MSTI 2, MSTI 1 roots across L2 and MSTI 2
+// roots across L1, the opposite of each other and of the CIST (which sees no
+// per-instance cost override and roots across whichever link converges
+// first).
+func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac1 := mustMAC(t, "00:11:22:33:44:01")
+	mac2 := mustMAC(t, "00:11:22:33:44:02")
+
+	region := func(instances map[stp.MSTID]stp.Instance) *stp.MST {
+		return &stp.MST{Name: "region-1", Revision: 1, Instances: instances}
+	}
+
+	sw1 := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mac1,
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		MST: region(map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+			2: {VLANs: []vlan.ID{20}},
+		}),
+	}, mustPortTable(t, "l1", "l2"))
+
+	sw2 := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac2,
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		MST: region(map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}, Ports: map[string]stp.InstancePort{"l1": {PathCost: 200_000}}},
+			2: {VLANs: []vlan.ID{20}, Ports: map[string]stp.InstancePort{"l2": {PathCost: 200_000}}},
+		}),
+	}, mustPortTable(t, "l1", "l2"))
+
+	layers := []*stp.Layer{sw1, sw2}
+	cables := []cableLink{
+		{swA: 0, portA: "l1", swB: 1, portB: "l1"},
+		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
+	}
+
+	snapshot := func() string {
+		var b strings.Builder
+		for _, l := range layers {
+			for _, port := range []string{"l1", "l2"} {
+				fmt.Fprintf(&b, "%v/%v/%v/%v;",
+					l.PortInfo(port).Role, l.InstancePortInfo(1, port).Role, l.InstancePortInfo(2, port).Role,
+					l.PortInfo(port).State)
+			}
+		}
+		return b.String()
+	}
+
+	convergeLayers(t, start, layers, cables, snapshot)
+
+	msti1 := sw2.InstancePortInfo(1, "l2")
+	if msti1.Role != stp.RoleRoot {
+		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
+	}
+	if got := sw2.InstancePortInfo(1, "l1").Role; got != stp.RoleAlternate && got != stp.RoleDesignated {
+		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
+	}
+
+	msti2 := sw2.InstancePortInfo(2, "l1")
+	if msti2.Role != stp.RoleRoot {
+		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
+	}
+	if got := sw2.InstancePortInfo(2, "l2").Role; got != stp.RoleAlternate && got != stp.RoleDesignated {
+		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
 	}
 }

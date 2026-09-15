@@ -35,11 +35,17 @@ func BPDUDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fac
 }
 
 // ForwardingFact returns an immutable snapshot of the spanning-tree state used
-// to gate bridge learning and forwarding.
+// to gate bridge learning and forwarding. The state resolves against the tree
+// carrying vid rather than the CIST, because Learns and Forwards already
+// answered from that tree: rendering the CIST's role and state beside a
+// forwards=false the gate took from an MSTI would put a fact and its own
+// decision in the same step contradicting each other.
 func (l *Layer) ForwardingFact(port string, vid vlan.ID, learns, forwards bool) trace.Fact {
+	t := l.treeFor(vid)
+
 	return forwardingDecisionFact("port=" + strconv.Quote(port) +
 		";vid=" + strconv.FormatUint(uint64(vid), 10) +
-		";state=" + portInfoSnapshot(l.PortInfo(port)) +
+		";state=" + portInfoSnapshot(l.portInfo(t, port)) +
 		";learns=" + strconv.FormatBool(learns) +
 		";forwards=" + strconv.FormatBool(forwards))
 }
@@ -67,7 +73,8 @@ func bpduSnapshot(bpdu BPDU) string {
 }
 
 func portInfoSnapshot(info PortInfo) string {
-	return "{role=" + strconv.Quote(string(info.Role)) +
+	return "{mstid=" + strconv.FormatUint(uint64(info.MSTID), 10) +
+		";role=" + strconv.Quote(string(info.Role)) +
 		";state=" + strconv.Quote(string(info.State)) +
 		";block_reason=" + strconv.Quote(string(info.BlockReason)) +
 		";priority=" + strconv.FormatUint(uint64(info.Priority), 10) +

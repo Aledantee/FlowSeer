@@ -288,7 +288,7 @@ func CaseTroubleshootingBPDUGuardDisablesEdge() Case {
 // and Discarding, with the reason naming the guard rather than leaving a reader
 // to infer it from a role that says only "not participating".
 var stpCaseBPDUGuardGate = stpCaseGateFact(
-	`{role="Disabled";state="Discarding";block_reason="bpdu-guard";priority=128;path_cost=20000;` +
+	`{mstid=0;role="Disabled";state="Discarding";block_reason="bpdu-guard";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
 		`designated_cost=0;point_to_point=true;edge=true;forward_transitions=1;tx_bpdus=0;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
@@ -355,7 +355,7 @@ func CaseTroubleshootingLoopGuardUnidirectionalLink() Case {
 // and Discarding rather than the Designated and Forwarding it would reach
 // without the guard, which on a link broken in one direction is a loop.
 var stpCaseLoopGuardGate = stpCaseGateFact(
-	`{role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
+	`{mstid=0;role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
 		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=1;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
