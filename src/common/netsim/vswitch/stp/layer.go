@@ -24,10 +24,26 @@ type Effects struct {
 	Flush     []string
 }
 
+// BlockReason names the guard holding a port out of the active topology. The
+// empty value means no guard is holding the port, whatever its role and state.
+type BlockReason string
+
+const (
+	// BlockReasonBPDUGuard marks a port BPDU guard disabled because a BPDU
+	// arrived on it. Only a link down and up clears it.
+	BlockReasonBPDUGuard BlockReason = "bpdu-guard"
+
+	// BlockReasonLoopInconsistent marks a port whose received information
+	// expired while it held a non-designated role, which loop guard keeps
+	// discarding rather than letting it open a loop. The next BPDU clears it.
+	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
+)
+
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
 	Role               Role
 	State              State
+	BlockReason        BlockReason
 	Priority           uint8
 	PathCost           uint32
 	DesignatedRoot     BridgeID
@@ -79,6 +95,12 @@ type portState struct {
 	role  Role
 	state State
 
+	// bpduGuardDisabled and loopInconsistent are the two guard outcomes that
+	// hold a port out of the active topology. They are separate fields rather
+	// than one reason because they clear on different events.
+	bpduGuardDisabled bool
+	loopInconsistent  bool
+
 	proposing bool
 	agreed    bool
 
@@ -115,6 +137,27 @@ func (p *portState) clone() *portState {
 	cp := *p
 
 	return &cp
+}
+
+// blockReason names the guard holding the port out of the active topology.
+// BPDU guard outranks loop guard: it disables the port outright, where loop
+// guard only denies it a forwarding role.
+func (p *portState) blockReason() BlockReason {
+	switch {
+	case p.bpduGuardDisabled:
+		return BlockReasonBPDUGuard
+	case p.loopInconsistent:
+		return BlockReasonLoopInconsistent
+	default:
+		return ""
+	}
+}
+
+// loopGuardWatches reports whether loop guard applies to the port. Cisco and
+// Arista both rule the guard out on an edge port and on a shared link, where a
+// port that stops hearing BPDUs is not evidence of a unidirectional link.
+func (p *portState) loopGuardWatches() bool {
+	return p.cfg.LoopGuard && p.up && !p.edge && p.pointToPoint
 }
 
 type priorityVector struct {
@@ -343,6 +386,7 @@ func (l *Layer) PortInfo(port string) PortInfo {
 	return PortInfo{
 		Role:               p.role,
 		State:              p.state,
+		BlockReason:        p.blockReason(),
 		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
 		DesignatedRoot:     desigRoot,
@@ -605,7 +649,13 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 
 	for _, name := range l.portNames {
 		p := t.ports[name]
-		if !p.up || !p.rcvInfoValid {
+		if !p.up || p.bpduGuardDisabled || !p.rcvInfoValid {
+			continue
+		}
+		// Restricted role denies the port the root role, and loop guard holds a
+		// port whose information expired out of the tree so it reconverges
+		// around it. Neither may contribute the bridge's root vector.
+		if p.cfg.RestrictedRole || p.loopInconsistent {
 			continue
 		}
 		if !p.rcvTime.Add(3 * p.rcvHelloTime).After(now) {
@@ -649,8 +699,13 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 		p := t.ports[name]
 		oldRole := p.role
 		switch {
-		case !p.up:
+		case !p.up || p.bpduGuardDisabled:
 			p.role = RoleDisabled
+		case p.loopInconsistent:
+			// A loop-inconsistent port is Alternate and never Designated: a
+			// port that stopped hearing its designated peer is the one that
+			// would open a loop by claiming the segment.
+			p.role = RoleAlternate
 		case name == t.rootPort:
 			p.role = RoleRoot
 		default:
@@ -790,6 +845,11 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		p.pendingDesignated = false
 		p.pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
+		// Both guard states clear here, which is what makes a link down and up
+		// the recovery for BPDU guard. A port that comes back up holds no
+		// expired information, so loop guard has nothing to trigger on either.
+		p.bpduGuardDisabled = false
+		p.loopInconsistent = false
 
 		// The entries learned on the dead port are the ones certainly stale;
 		// the topology change below flushes every other port.
@@ -889,6 +949,36 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	var flushes []string
 	var emissions []Emission
 
+	// BPDU guard exists to keep an unexpected bridge on an access port out of
+	// the topology, so the frame that proves one is there disables the port
+	// before anything reads the BPDU. Only a link down and up brings it back.
+	if p.cfg.BPDUGuard && !p.bpduGuardDisabled {
+		p.bpduGuardDisabled = true
+		p.rcvInfoValid = false
+		p.agreed = false
+		p.proposing = false
+		p.pendingDesignated = false
+		p.pendingAgreement = false
+		p.fwdDelayTimer = time.Time{}
+
+		wasForwarding := p.state == StateForwarding
+		flushes = append(flushes, p.name)
+		if wasForwarding && !p.edge {
+			l.raiseTopologyChange(t, p.name, now, &flushes)
+		}
+
+		emissions = append(emissions, l.recompute(t, now, &flushes)...)
+
+		return Effects{Emissions: emissions, Flush: flushes}
+	}
+	if p.bpduGuardDisabled {
+		return Effects{}
+	}
+
+	// Any BPDU on the port is evidence the link carries traffic both ways,
+	// which is the condition loop guard was waiting to see restored.
+	p.loopInconsistent = false
+
 	if (b.Type == BPDUTypeConfiguration || b.Type == BPDUTypeTopologyChangeNotification) && p.sendRSTP && !p.mdelayWhile.After(now) {
 		p.sendRSTP = false
 		p.mdelayWhile = now.Add(MigrateTime)
@@ -911,13 +1001,34 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	}
 
 	if b.Type == BPDUTypeTopologyChangeNotification {
-		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range l.portNames {
-			if name != port && !slices.Contains(flushes, name) {
-				flushes = append(flushes, name)
+		// Restricted TCN stops the change here. Setting the timer would carry
+		// the flag out on this bridge's own BPDUs, which is the propagation the
+		// guard denies, so neither the timer nor the flush runs.
+		if !p.cfg.RestrictedTCN {
+			t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+			for _, name := range l.portNames {
+				if name != port && !slices.Contains(flushes, name) {
+					flushes = append(flushes, name)
+				}
 			}
 		}
 
+		subEmissions := l.recompute(t, now, &flushes)
+		emissions = append(emissions, subEmissions...)
+
+		return Effects{
+			Emissions: emissions,
+			Flush:     flushes,
+		}
+	}
+
+	// IEEE 802.1Q treats message age as a hop count bounded by the max age the
+	// BPDU itself carries, not by this bridge's configured one: the received
+	// value is the root's, and the fabric builds bridges with differing timers.
+	// Information that has reached the bound is discarded rather than stored,
+	// so a BPDU naming a root that no longer exists stops refreshing the timer
+	// on every hop and the port's own information ages out.
+	if b.MessageAge+time.Second > b.MaxAge {
 		subEmissions := l.recompute(t, now, &flushes)
 		emissions = append(emissions, subEmissions...)
 
@@ -975,7 +1086,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		}
 	}
 
-	if b.TopologyChange() {
+	if b.TopologyChange() && !p.cfg.RestrictedTCN {
 		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 		for _, name := range l.portNames {
 			if name != port && !slices.Contains(flushes, name) {
@@ -1132,6 +1243,14 @@ func (l *Layer) Wake(now time.Time) Effects {
 	for _, name := range l.portNames {
 		p := t.ports[name]
 		if p.rcvInfoValid && !p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
+			// Loop guard triggers here, on the one event that means the same
+			// thing for both of its causes: the port held a non-designated
+			// role and its information ran out, whether because the peer went
+			// quiet or because everything it sent was too old to store.
+			if p.loopGuardWatches() &&
+				(p.role == RoleRoot || p.role == RoleAlternate || p.role == RoleBackup) {
+				p.loopInconsistent = true
+			}
 			p.rcvInfoValid = false
 			agedOut = true
 		}

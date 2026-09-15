@@ -67,6 +67,7 @@ func bpduSnapshot(bpdu BPDU) string {
 func portInfoSnapshot(info PortInfo) string {
 	return "{role=" + strconv.Quote(string(info.Role)) +
 		";state=" + strconv.Quote(string(info.State)) +
+		";block_reason=" + strconv.Quote(string(info.BlockReason)) +
 		";priority=" + strconv.FormatUint(uint64(info.Priority), 10) +
 		";path_cost=" + strconv.FormatUint(uint64(info.PathCost), 10) +
 		";designated_root=" + strconv.Quote(info.DesignatedRoot.String()) +
