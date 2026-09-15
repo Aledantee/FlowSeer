@@ -89,8 +89,9 @@ type Result struct {
 // Candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
 // contains the destination and which tie the winner on prefix length, preference, and metric.
 // A lookup reports them in canonical order, by next hop then egress interface, and forwards
-// on the first. Interface is the egress the route resolved to, which for a route configured
-// with a next hop alone is the interface whose prefix contains that next hop.
+// on the first. NextHop is the configured next hop; Interface is the egress the route
+// resolved to, which for a route configured with a next hop alone is the interface the next
+// hop is on-link on, whether directly or at the end of a chain of routes.
 type Candidate struct {
 	Prefix     netip.Prefix
 	NextHop    netip.Addr
@@ -118,14 +119,63 @@ const (
 	routeStatic    routeKind = "static"
 )
 
+// routeEntry is one installed forwarding entry. NextHop is the configured next hop, which
+// the facts and the candidate set report; resolvedNextHop is the on-link address the frame
+// is actually built for, which for a recursive route is a different address entirely and for
+// a route reaching its destination directly is not set at all. source indexes the configured
+// route the entry came from, and is -1 for a connected route.
 type routeEntry struct {
-	Prefix     netip.Prefix
-	NextHop    netip.Addr
-	Interface  string
-	Preference uint8
-	Metric     uint32
-	kind       routeKind
+	Prefix          netip.Prefix
+	NextHop         netip.Addr
+	Interface       string
+	Preference      uint8
+	Metric          uint32
+	resolvedNextHop netip.Addr
+	source          int
+	kind            routeKind
 }
+
+// WithdrawalReason names why a configured static route is absent from the forwarding table.
+type WithdrawalReason string
+
+const (
+	// WithdrawnSelfRecursive indicates resolution reached the route being resolved.
+	WithdrawnSelfRecursive WithdrawalReason = "self-recursive"
+
+	// WithdrawnDepthExceeded indicates resolution walked more routes than [maxRecursionDepth].
+	WithdrawnDepthExceeded WithdrawalReason = "depth-exceeded"
+
+	// WithdrawnUnresolved indicates the next hop matched no route, or only a default route.
+	WithdrawnUnresolved WithdrawalReason = "unresolved"
+
+	// WithdrawnMaxPaths indicates the route resolved past the equal-cost cap of [maxCandidatePaths].
+	WithdrawnMaxPaths WithdrawalReason = "max-paths"
+)
+
+// WithdrawnRoute records a configured static route the forwarding table does not hold,
+// with the prefixes resolution walked before it gave up. Prefix, NextHop, and Interface
+// are the configured values; Chain begins with Prefix and names each route resolution
+// entered, ending at the one it could not leave.
+type WithdrawnRoute struct {
+	Prefix    netip.Prefix
+	NextHop   netip.Addr
+	Interface string
+	Reason    WithdrawalReason
+	Chain     []netip.Prefix
+}
+
+const (
+	// maxRecursionDepth bounds how many static routes one next-hop resolution walks.
+	// Vendors name a maximum forwarding recursion depth without publishing a value, and
+	// BIRD allows a single level; eight is netsim's own number, high enough that an
+	// ordinary two-step chain resolves and low enough to catch a configuration mistake.
+	maxRecursionDepth = 8
+
+	// maxCandidatePaths bounds how many equal-cost next hops one configured route installs.
+	// FRR compiles a 64-way limit and netsim follows it rather than installing a set no
+	// router would carry.
+	maxCandidatePaths = 64
+)
 
 type neighborKey struct {
 	iface string
@@ -135,6 +185,7 @@ type neighborKey struct {
 type vrfState struct {
 	name       string
 	table      []routeEntry
+	withdrawn  []WithdrawnRoute
 	localAddrs map[netip.Addr]struct{}
 	neighbors  map[neighborKey]Neighbor
 	interfaces map[string]Interface
@@ -162,6 +213,11 @@ type Layer struct {
 // matching prefix, then the lowest preference, then the lowest metric; every route tying on
 // all three is an equal-cost candidate, and the candidates are ordered by next hop then
 // egress interface. The lookup forwards on the first of them.
+//
+// A static route whose next hop is not on-link resolves against its own VRF's table as the
+// table is built, and installs carrying the on-link next hop and interface it reached. One
+// that resolves to nothing is withdrawn rather than rejected, so forwarding answers from the
+// routes that remain; [Layer.WithdrawnRoutes] reports why.
 func New(cfg Config, ports port.Table, nodeID string) (*Layer, error) {
 	norm := cfg.Normalize()
 	if err := norm.Validate(ports); err != nil {
@@ -212,55 +268,13 @@ func newLayer(cfg Config, nodeID string) *Layer {
 				vs.table = append(vs.table, routeEntry{
 					Prefix:    p.Masked(),
 					Interface: name,
+					source:    -1,
 					kind:      routeConnected,
 				})
 			}
 		}
 
-		for _, r := range vrf.Routes {
-			egressIface := r.Interface
-			if egressIface == "" {
-				for _, name := range ifaceNames {
-					iface := vrf.Interfaces[name]
-					for _, p := range iface.Prefixes {
-						if p.Contains(r.NextHop) {
-							egressIface = name
-							break
-						}
-					}
-					if egressIface != "" {
-						break
-					}
-				}
-			}
-			vs.table = append(vs.table, routeEntry{
-				Prefix:     r.Prefix,
-				NextHop:    r.NextHop,
-				Interface:  egressIface,
-				Preference: r.Preference,
-				Metric:     r.Metric,
-				kind:       routeStatic,
-			})
-		}
-
-		slices.SortFunc(vs.table, func(a, b routeEntry) int {
-			if a.Prefix.Bits() != b.Prefix.Bits() {
-				return cmp.Compare(b.Prefix.Bits(), a.Prefix.Bits())
-			}
-			if c := a.Prefix.Addr().Compare(b.Prefix.Addr()); c != 0 {
-				return c
-			}
-			if c := cmp.Compare(a.Preference, b.Preference); c != 0 {
-				return c
-			}
-			if c := cmp.Compare(a.Metric, b.Metric); c != 0 {
-				return c
-			}
-			if c := a.NextHop.Compare(b.NextHop); c != 0 {
-				return c
-			}
-			return cmp.Compare(a.Interface, b.Interface)
-		})
+		vs.installRoutes(vrf.Routes)
 
 		for _, n := range vrf.Neighbors {
 			vs.neighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
@@ -272,26 +286,211 @@ func newLayer(cfg Config, nodeID string) *Layer {
 	return l
 }
 
-// lookup returns the equal-cost candidates for dst in canonical order, or nil when no route
-// covers it. The table is sorted so that the entries sharing the winner's prefix, preference,
-// and metric follow it directly; an equal-length prefix that does not contain dst is a
-// different prefix and so never joins the set.
-func (vs *vrfState) lookup(dst netip.Addr) []routeEntry {
-	for i := range vs.table {
-		if !vs.table[i].Prefix.Contains(dst) {
+// compareRouteEntries orders a forwarding table: longest prefix first, then by prefix
+// address, preference, metric, configured next hop, egress interface, and finally the
+// resolved next hop, which is the only field two inherited equal-cost members can differ in.
+func compareRouteEntries(a, b routeEntry) int {
+	if a.Prefix.Bits() != b.Prefix.Bits() {
+		return cmp.Compare(b.Prefix.Bits(), a.Prefix.Bits())
+	}
+	if c := a.Prefix.Addr().Compare(b.Prefix.Addr()); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Preference, b.Preference); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Metric, b.Metric); c != 0 {
+		return c
+	}
+	if c := a.NextHop.Compare(b.NextHop); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Interface, b.Interface); c != 0 {
+		return c
+	}
+	return a.resolvedNextHop.Compare(b.resolvedNextHop)
+}
+
+// lookupIn returns the equal-cost candidates for dst in canonical order, or nil when no route
+// in the sorted table covers it. The table is sorted so that the entries sharing the winner's
+// prefix, preference, and metric follow it directly; an equal-length prefix that does not
+// contain dst is a different prefix and so never joins the set.
+func lookupIn(table []routeEntry, dst netip.Addr) []routeEntry {
+	for i := range table {
+		if !table[i].Prefix.Contains(dst) {
 			continue
 		}
-		best := vs.table[i]
+		best := table[i]
 		end := i + 1
-		for end < len(vs.table) &&
-			vs.table[end].Prefix == best.Prefix &&
-			vs.table[end].Preference == best.Preference &&
-			vs.table[end].Metric == best.Metric {
+		for end < len(table) &&
+			table[end].Prefix == best.Prefix &&
+			table[end].Preference == best.Preference &&
+			table[end].Metric == best.Metric {
 			end++
 		}
-		return vs.table[i:end]
+		return table[i:end]
 	}
 	return nil
+}
+
+func (vs *vrfState) lookup(dst netip.Addr) []routeEntry {
+	return lookupIn(vs.table, dst)
+}
+
+// resolvedHop is an on-link forwarding pair: the address a neighbor entry is looked up for,
+// and the interface the frame leaves by.
+type resolvedHop struct {
+	nextHop netip.Addr
+	iface   string
+}
+
+// installRoutes resolves the configured static routes against the VRF's own table and
+// installs those reaching an on-link next hop, recording the rest as withdrawals. Resolution
+// walks a table holding every configured route beside the connected ones, so a chain resolves
+// whatever order its routes were configured in.
+func (vs *vrfState) installRoutes(routes []Route) {
+	resolution := slices.Clone(vs.table)
+	for i, r := range routes {
+		resolution = append(resolution, routeEntry{
+			Prefix:     r.Prefix,
+			NextHop:    r.NextHop,
+			Interface:  r.Interface,
+			Preference: r.Preference,
+			Metric:     r.Metric,
+			source:     i,
+			kind:       routeStatic,
+		})
+	}
+	slices.SortFunc(resolution, compareRouteEntries)
+
+	for i, r := range routes {
+		hops, chain, reason := resolveRoute(resolution, i, r)
+		if reason != "" {
+			vs.withdrawn = append(vs.withdrawn, WithdrawnRoute{
+				Prefix:    r.Prefix,
+				NextHop:   r.NextHop,
+				Interface: r.Interface,
+				Reason:    reason,
+				Chain:     chain,
+			})
+			continue
+		}
+		for j, hop := range hops {
+			if j >= maxCandidatePaths {
+				vs.withdrawn = append(vs.withdrawn, WithdrawnRoute{
+					Prefix:    r.Prefix,
+					NextHop:   r.NextHop,
+					Interface: hop.iface,
+					Reason:    WithdrawnMaxPaths,
+				})
+				continue
+			}
+			vs.table = append(vs.table, routeEntry{
+				Prefix:          r.Prefix,
+				NextHop:         r.NextHop,
+				Interface:       hop.iface,
+				Preference:      r.Preference,
+				Metric:          r.Metric,
+				resolvedNextHop: hop.nextHop,
+				source:          i,
+				kind:            routeStatic,
+			})
+		}
+	}
+
+	slices.SortFunc(vs.table, compareRouteEntries)
+	slices.SortFunc(vs.withdrawn, func(a, b WithdrawnRoute) int {
+		if c := comparePrefix(a.Prefix, b.Prefix); c != 0 {
+			return c
+		}
+		if c := a.NextHop.Compare(b.NextHop); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Interface, b.Interface)
+	})
+}
+
+// resolveRoute returns the on-link hops the configured route at index reaches, or the reason
+// it reaches none and the prefixes resolution walked.
+func resolveRoute(table []routeEntry, index int, r Route) ([]resolvedHop, []netip.Prefix, WithdrawalReason) {
+	if r.Interface != "" {
+		// A route naming its egress is directly attached, so there is nothing to resolve.
+		return []resolvedHop{{nextHop: r.NextHop, iface: r.Interface}}, nil, ""
+	}
+	return resolveNextHop(table, r.NextHop, map[int]bool{index: true}, []netip.Prefix{r.Prefix}, 1)
+}
+
+// resolveNextHop walks table for addr until it reaches interfaces addr is on-link on,
+// returning one hop per equal-cost path. visited holds the configured routes already on the
+// chain, so a walk returning to one of them is self-recursive rather than endless. A next hop
+// matching only a default route does not resolve, which follows FRR's behavior of not
+// resolving next hops via the default route.
+func resolveNextHop(table []routeEntry, addr netip.Addr, visited map[int]bool, chain []netip.Prefix, depth int) ([]resolvedHop, []netip.Prefix, WithdrawalReason) {
+	matches := lookupIn(table, addr)
+	if len(matches) == 0 {
+		return nil, chain, WithdrawnUnresolved
+	}
+	if matches[0].Prefix.Bits() == 0 {
+		return nil, append(slices.Clone(chain), matches[0].Prefix), WithdrawnUnresolved
+	}
+
+	var (
+		hops       []resolvedHop
+		failChain  []netip.Prefix
+		failReason WithdrawalReason
+	)
+	fail := func(reason WithdrawalReason, c []netip.Prefix) {
+		if failReason == "" {
+			failReason, failChain = reason, c
+		}
+	}
+
+	for _, m := range matches {
+		next := append(slices.Clone(chain), m.Prefix)
+		switch {
+		case !m.NextHop.IsValid():
+			// A connected route, or a static route naming only an egress: addr is on-link there.
+			hops = append(hops, resolvedHop{nextHop: addr, iface: m.Interface})
+		case m.Interface != "":
+			hops = append(hops, resolvedHop{nextHop: m.NextHop, iface: m.Interface})
+		case visited[m.source]:
+			fail(WithdrawnSelfRecursive, next)
+		case depth+1 > maxRecursionDepth:
+			fail(WithdrawnDepthExceeded, next)
+		default:
+			visited[m.source] = true
+			deeper, c, reason := resolveNextHop(table, m.NextHop, visited, next, depth+1)
+			delete(visited, m.source)
+			if reason != "" {
+				fail(reason, c)
+				continue
+			}
+			hops = append(hops, deeper...)
+		}
+	}
+
+	if len(hops) == 0 {
+		fail(WithdrawnUnresolved, chain)
+		return nil, failChain, failReason
+	}
+	return hops, nil, ""
+}
+
+// WithdrawnRoutes returns the configured static routes of the named VRF that the forwarding
+// table does not hold, sorted by prefix then next hop. A withdrawn route is valid
+// configuration whose next hop no chain of routes in its own VRF reaches; it is a different
+// failure from [ReasonNeighborMiss], which is a next hop the table reaches and no neighbor
+// entry resolves.
+func (l *Layer) WithdrawnRoutes(vrf string) []WithdrawnRoute {
+	vs, ok := l.vrfs[vrf]
+	if !ok {
+		return nil
+	}
+	out := slices.Clone(vs.withdrawn)
+	for i := range out {
+		out[i].Chain = slices.Clone(out[i].Chain)
+	}
+	return out
 }
 
 func candidateSet(entries []routeEntry) []Candidate {
@@ -513,8 +712,8 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	})
 
 	targetAddr := hdr.Dst
-	if matchedRoute.NextHop.IsValid() {
-		targetAddr = matchedRoute.NextHop
+	if matchedRoute.resolvedNextHop.IsValid() {
+		targetAddr = matchedRoute.resolvedNextHop
 	}
 
 	targetIface := matchedRoute.Interface
@@ -659,8 +858,8 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	})
 
 	targetAddr := dst
-	if matchedRoute.NextHop.IsValid() {
-		targetAddr = matchedRoute.NextHop
+	if matchedRoute.resolvedNextHop.IsValid() {
+		targetAddr = matchedRoute.resolvedNextHop
 	}
 
 	targetIface := matchedRoute.Interface

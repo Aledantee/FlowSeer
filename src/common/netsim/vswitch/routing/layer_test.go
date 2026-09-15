@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -697,8 +699,9 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 	t.Parallel()
 	ports := newTestPortTable(t)
 
-	// Route naming next hop that only another VRF holds is rejected by Validate.
-	invalidCfg := routing.Config{
+	// A next hop only another VRF can reach is valid configuration whose route is
+	// withdrawn at build, because resolution walks its own VRF's table alone.
+	isolatedCfg := routing.Config{
 		VRFs: map[string]routing.VRF{
 			"vrf1": {
 				Interfaces: map[string]routing.Interface{
@@ -724,8 +727,13 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 			},
 		},
 	}
-	if err := invalidCfg.Validate(ports); err == nil {
-		t.Fatalf("expected error for next hop reachable only in another VRF, got nil")
+	isolated := mustNewRoutingWithPorts(t, isolatedCfg, ports)
+	withdrawn := isolated.WithdrawnRoutes("vrf1")
+	if len(withdrawn) != 1 || withdrawn[0].Reason != routing.WithdrawnUnresolved {
+		t.Fatalf("vrf1 withdrawals = %+v, want the route to 192.168.1.0/24 as %q", withdrawn, routing.WithdrawnUnresolved)
+	}
+	if got := isolated.WithdrawnRoutes("vrf2"); len(got) != 0 {
+		t.Errorf("vrf2 withdrawals = %+v, want none", got)
 	}
 
 	// When route explicitly names interface, Validate accepts it and neighbor resolution
@@ -1084,12 +1092,17 @@ var (
 	gatewayA           = netip.MustParseAddr("10.0.10.254") // on vlan10
 	gatewayB           = netip.MustParseAddr("10.0.20.254") // on vlan20
 	gatewayC           = netip.MustParseAddr("10.0.30.254") // on vlan30
+
+	// Each gateway carries its own MAC, so an egress frame names the next hop it
+	// was actually built for and not merely the interface it left by.
+	gatewayMACA = netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x0a}
+	gatewayMACB = netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x0b}
+	gatewayMACC = netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x0c}
 )
 
 // selectionConfig builds a three-interface VRF whose gateways all resolve, so a forwarding
 // result names the interface of the route that won.
 func selectionConfig(routes ...routing.Route) routing.Config {
-	neighborMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
 	return routing.Config{
 		VRFs: map[string]routing.VRF{
 			routing.DefaultVRF: {
@@ -1100,10 +1113,10 @@ func selectionConfig(routes ...routing.Route) routing.Config {
 				},
 				Routes: routes,
 				Neighbors: []routing.Neighbor{
-					{Interface: "vlan10", Addr: gatewayA, MAC: neighborMAC},
-					{Interface: "vlan20", Addr: gatewayB, MAC: neighborMAC},
-					{Interface: "vlan30", Addr: gatewayC, MAC: neighborMAC},
-					{Interface: "vlan10", Addr: netip.MustParseAddr("10.0.10.7"), MAC: neighborMAC},
+					{Interface: "vlan10", Addr: gatewayA, MAC: gatewayMACA},
+					{Interface: "vlan20", Addr: gatewayB, MAC: gatewayMACB},
+					{Interface: "vlan30", Addr: gatewayC, MAC: gatewayMACC},
+					{Interface: "vlan10", Addr: netip.MustParseAddr("10.0.10.7"), MAC: gatewayMACA},
 				},
 			},
 		},
@@ -1255,4 +1268,325 @@ func TestConnectedRouteWinsThroughPreference(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The recursion tests chain through addresses that lie in no connected prefix of
+// selectionConfig, so each one needs a route of its own to resolve.
+var (
+	recursiveDst  = netip.MustParseAddr("10.1.1.1")
+	recursivePfx  = netip.MustParsePrefix("10.0.0.0/8")
+	viaPrefix     = netip.MustParsePrefix("192.0.2.0/24")
+	viaAddr       = netip.MustParseAddr("192.0.2.1")
+	defaultPrefix = netip.MustParsePrefix("0.0.0.0/0")
+)
+
+func TestRecursiveRouteResolvesForwardingNextHop(t *testing.T) {
+	t.Parallel()
+
+	cfg := selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: viaAddr},
+		routing.Route{Prefix: viaPrefix, NextHop: gatewayC},
+	)
+	if err := cfg.Normalize().Validate(port.Table{}); err != nil {
+		t.Fatalf("Validate rejected an off-link next hop that resolves: %v", err)
+	}
+
+	res := routeFromVLAN10(t, mustNewRouting(t, cfg), recursiveDst)
+	if res.Reason != "" {
+		t.Fatalf("reason = %q, want empty", res.Reason)
+	}
+	if res.Interface != "vlan30" {
+		t.Errorf("interface = %q, want vlan30", res.Interface)
+	}
+	if res.Frame.Dst != gatewayMACC {
+		t.Errorf("destination MAC = %s, want %s, the neighbor of the resolved next hop %s", res.Frame.Dst, gatewayMACC, gatewayC)
+	}
+}
+
+func TestRecursiveRouteNextHopInsideOwnPrefix(t *testing.T) {
+	t.Parallel()
+
+	// gatewayA lies inside 10.0.0.0/8, but resolution leaves the route through the
+	// connected 10.0.10.0/24 rather than returning to it.
+	res := routeFromVLAN10(t, mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: gatewayA},
+	)), recursiveDst)
+	if res.Reason != "" {
+		t.Fatalf("reason = %q, want empty", res.Reason)
+	}
+	if res.Interface != "vlan10" || res.Frame.Dst != gatewayMACA {
+		t.Errorf("egress = %q via %s, want vlan10 via %s", res.Interface, res.Frame.Dst, gatewayMACA)
+	}
+}
+
+func TestSelfRecursiveRouteIsWithdrawn(t *testing.T) {
+	t.Parallel()
+
+	selfHop := netip.MustParseAddr("10.0.0.1")
+	l := mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: selfHop},
+		routing.Route{Prefix: defaultPrefix, NextHop: gatewayA},
+	))
+
+	res := routeFromVLAN10(t, l, recursiveDst)
+	if res.Reason != "" {
+		t.Fatalf("reason = %q, want the packet to fall through to the default route", res.Reason)
+	}
+	if res.Interface != "vlan10" || res.Frame.Dst != gatewayMACA {
+		t.Errorf("egress = %q via %s, want the default route on vlan10 via %s", res.Interface, res.Frame.Dst, gatewayMACA)
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 {
+		t.Fatalf("withdrawn = %+v, want exactly the self-recursive route", withdrawn)
+	}
+	if withdrawn[0].Prefix != recursivePfx || withdrawn[0].NextHop != selfHop {
+		t.Errorf("withdrawn route = %+v, want %s via %s", withdrawn[0], recursivePfx, selfHop)
+	}
+	if withdrawn[0].Reason != routing.WithdrawnSelfRecursive {
+		t.Errorf("reason = %q, want %q", withdrawn[0].Reason, routing.WithdrawnSelfRecursive)
+	}
+	if !slices.Equal(withdrawn[0].Chain, []netip.Prefix{recursivePfx, recursivePfx}) {
+		t.Errorf("chain = %v, want the route reached from itself", withdrawn[0].Chain)
+	}
+}
+
+func TestMutuallyRecursiveRoutesAreBothWithdrawn(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: viaAddr},
+		routing.Route{Prefix: viaPrefix, NextHop: netip.MustParseAddr("10.0.0.1")},
+	))
+
+	if res := routeFromVLAN10(t, l, recursiveDst); res.Reason != routing.ReasonNoRoute {
+		t.Errorf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 2 {
+		t.Fatalf("withdrawn = %+v, want both routes of the cycle", withdrawn)
+	}
+	if withdrawn[0].Prefix != recursivePfx || withdrawn[1].Prefix != viaPrefix {
+		t.Errorf("withdrawn = %+v, want %s before %s", withdrawn, recursivePfx, viaPrefix)
+	}
+	for _, w := range withdrawn {
+		if w.Reason != routing.WithdrawnSelfRecursive {
+			t.Errorf("reason for %s = %q, want %q", w.Prefix, w.Reason, routing.WithdrawnSelfRecursive)
+		}
+	}
+	if !slices.Equal(withdrawn[0].Chain, []netip.Prefix{recursivePfx, viaPrefix, recursivePfx}) {
+		t.Errorf("chain = %v, want the walk back to %s", withdrawn[0].Chain, recursivePfx)
+	}
+}
+
+// chainRoutes builds length static routes where each one resolves through the previous,
+// and the first through the connected prefix holding gatewayA.
+func chainRoutes(length int) []routing.Route {
+	routes := make([]routing.Route, 0, length)
+	for i := 1; i <= length; i++ {
+		hop := gatewayA
+		if i > 1 {
+			hop = netip.MustParseAddr(fmt.Sprintf("172.16.%d.9", i-1))
+		}
+		routes = append(routes, routing.Route{
+			Prefix:  netip.MustParsePrefix(fmt.Sprintf("172.16.%d.0/24", i)),
+			NextHop: hop,
+		})
+	}
+	return routes
+}
+
+func TestRecursionDepthBound(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewRouting(t, selectionConfig(chainRoutes(9)...))
+
+	res := routeFromVLAN10(t, l, netip.MustParseAddr("172.16.8.1"))
+	if res.Reason != "" || res.Interface != "vlan10" || res.Frame.Dst != gatewayMACA {
+		t.Errorf("chain of 8: reason %q egress %q via %s, want a forward on vlan10 via %s", res.Reason, res.Interface, res.Frame.Dst, gatewayMACA)
+	}
+
+	if res := routeFromVLAN10(t, l, netip.MustParseAddr("172.16.9.1")); res.Reason != routing.ReasonNoRoute {
+		t.Errorf("chain of 9: reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 {
+		t.Fatalf("withdrawn = %+v, want only the chain of 9", withdrawn)
+	}
+	if withdrawn[0].Prefix != netip.MustParsePrefix("172.16.9.0/24") || withdrawn[0].Reason != routing.WithdrawnDepthExceeded {
+		t.Errorf("withdrawn = %+v, want 172.16.9.0/24 as %q", withdrawn[0], routing.WithdrawnDepthExceeded)
+	}
+	if len(withdrawn[0].Chain) != 9 {
+		t.Errorf("chain = %v, want the nine prefixes walked", withdrawn[0].Chain)
+	}
+}
+
+func TestRecursiveRouteInheritsCandidateSet(t *testing.T) {
+	t.Parallel()
+
+	res := routeFromVLAN10(t, mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: viaAddr},
+		routing.Route{Prefix: viaPrefix, NextHop: gatewayB},
+		routing.Route{Prefix: viaPrefix, NextHop: gatewayC},
+	)), recursiveDst)
+
+	if len(res.Candidates) != 2 {
+		t.Fatalf("candidates = %+v, want both members of the resolving set", res.Candidates)
+	}
+	for _, c := range res.Candidates {
+		if c.Prefix != recursivePfx || c.NextHop != viaAddr {
+			t.Errorf("candidate = %+v, want the configured %s via %s", c, recursivePfx, viaAddr)
+		}
+	}
+	if res.Candidates[0].Interface != "vlan20" || res.Candidates[1].Interface != "vlan30" {
+		t.Errorf("candidate egresses = %q and %q, want vlan20 and vlan30", res.Candidates[0].Interface, res.Candidates[1].Interface)
+	}
+	if res.Interface != "vlan20" || res.Frame.Dst != gatewayMACB {
+		t.Errorf("egress = %q via %s, want the first candidate on vlan20 via %s", res.Interface, res.Frame.Dst, gatewayMACB)
+	}
+}
+
+func TestNextHopDoesNotResolveThroughDefaultRoute(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: defaultPrefix, NextHop: gatewayA},
+		routing.Route{Prefix: recursivePfx, NextHop: viaAddr},
+	))
+
+	res := routeFromVLAN10(t, l, recursiveDst)
+	if res.Reason != "" || res.Interface != "vlan10" {
+		t.Errorf("reason = %q on %q, want the default route on vlan10", res.Reason, res.Interface)
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 {
+		t.Fatalf("withdrawn = %+v, want the route whose next hop matches only the default route", withdrawn)
+	}
+	if withdrawn[0].Prefix != recursivePfx || withdrawn[0].Reason != routing.WithdrawnUnresolved {
+		t.Errorf("withdrawn = %+v, want %s as %q", withdrawn[0], recursivePfx, routing.WithdrawnUnresolved)
+	}
+}
+
+func TestWithdrawnRoutesSortByPrefixThenNextHop(t *testing.T) {
+	t.Parallel()
+
+	lowHop := netip.MustParseAddr("192.0.2.1")
+	highHop := netip.MustParseAddr("192.0.2.2")
+	l := mustNewRouting(t, selectionConfig(
+		routing.Route{Prefix: netip.MustParsePrefix("172.16.0.0/16"), NextHop: highHop},
+		routing.Route{Prefix: recursivePfx, NextHop: highHop},
+		routing.Route{Prefix: recursivePfx, NextHop: lowHop},
+	))
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	want := []struct {
+		prefix  netip.Prefix
+		nextHop netip.Addr
+	}{
+		{recursivePfx, lowHop},
+		{recursivePfx, highHop},
+		{netip.MustParsePrefix("172.16.0.0/16"), highHop},
+	}
+	if len(withdrawn) != len(want) {
+		t.Fatalf("withdrawn = %+v, want %d entries", withdrawn, len(want))
+	}
+	for i, w := range want {
+		if withdrawn[i].Prefix != w.prefix || withdrawn[i].NextHop != w.nextHop {
+			t.Errorf("withdrawal %d = %s via %s, want %s via %s", i, withdrawn[i].Prefix, withdrawn[i].NextHop, w.prefix, w.nextHop)
+		}
+		if withdrawn[i].Reason != routing.WithdrawnUnresolved {
+			t.Errorf("withdrawal %d reason = %q, want %q", i, withdrawn[i].Reason, routing.WithdrawnUnresolved)
+		}
+	}
+}
+
+func TestRoutingTableBuildIsDeterministic(t *testing.T) {
+	t.Parallel()
+
+	cfg := selectionConfig(
+		routing.Route{Prefix: recursivePfx, NextHop: gatewayC, Preference: 1, Metric: 10},
+		routing.Route{Prefix: recursivePfx, NextHop: gatewayA, Preference: 1, Metric: 10},
+		routing.Route{Prefix: recursivePfx, NextHop: gatewayB, Preference: 1, Metric: 10},
+		routing.Route{Prefix: netip.MustParsePrefix("172.16.0.0/16"), NextHop: viaAddr},
+	)
+
+	var wantWithdrawn, wantFacts string
+	for i := range 10 {
+		l := mustNewRouting(t, cfg)
+		gotWithdrawn := fmt.Sprintf("%+v", l.WithdrawnRoutes(routing.DefaultVRF))
+		gotFacts := stepFacts(routeFromVLAN10(t, l, recursiveDst))
+		if i == 0 {
+			wantWithdrawn, wantFacts = gotWithdrawn, gotFacts
+			continue
+		}
+		if gotWithdrawn != wantWithdrawn {
+			t.Fatalf("construction %d withdrawals = %s, want %s", i, gotWithdrawn, wantWithdrawn)
+		}
+		if gotFacts != wantFacts {
+			t.Fatalf("construction %d facts = %s, want %s", i, gotFacts, wantFacts)
+		}
+	}
+}
+
+func TestRecursiveRouteCapsInheritedCandidates(t *testing.T) {
+	t.Parallel()
+
+	const paths = 65
+	ifaces := make(map[string]routing.Interface, paths)
+	neighbors := make([]routing.Neighbor, 0, paths)
+	routes := []routing.Route{{Prefix: recursivePfx, NextHop: viaAddr}}
+	for i := 1; i <= paths; i++ {
+		name := fmt.Sprintf("vlan%d", i)
+		hop := netip.MustParseAddr(fmt.Sprintf("10.%d.0.254", i))
+		ifaces[name] = routing.Interface{
+			VLAN:     vlan.ID(i),
+			MAC:      selectionDeviceMAC,
+			Prefixes: []netip.Prefix{netip.MustParsePrefix(fmt.Sprintf("10.%d.0.1/24", i))},
+		}
+		neighbors = append(neighbors, routing.Neighbor{Interface: name, Addr: hop, MAC: gatewayMACA})
+		routes = append(routes, routing.Route{Prefix: viaPrefix, NextHop: hop})
+	}
+
+	l := mustNewRouting(t, routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {Interfaces: ifaces, Routes: routes, Neighbors: neighbors},
+	}})
+
+	res := l.Route("vlan1", ethernet.Frame{
+		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.1.0.7"), netip.MustParseAddr("10.200.1.1"), 64, []byte("data")),
+	})
+	if len(res.Candidates) != 64 {
+		t.Fatalf("candidates = %d, want the cap of 64", len(res.Candidates))
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 {
+		t.Fatalf("withdrawn = %+v, want the one path past the cap", withdrawn)
+	}
+	if withdrawn[0].Prefix != recursivePfx || withdrawn[0].Reason != routing.WithdrawnMaxPaths {
+		t.Errorf("withdrawn = %+v, want %s as %q", withdrawn[0], recursivePfx, routing.WithdrawnMaxPaths)
+	}
+	if withdrawn[0].Interface != fmt.Sprintf("vlan%d", paths) {
+		t.Errorf("withdrawn egress = %q, want the last path in canonical order", withdrawn[0].Interface)
+	}
+}
+
+func stepFacts(res routing.Result) string {
+	var b strings.Builder
+	for _, step := range res.Steps {
+		fmt.Fprintf(&b, "%s/%s/%s/%s|", step.Layer, step.Op, step.RuleID, step.Subject.Key)
+		for _, f := range slices.Concat(step.Inputs, step.Outputs) {
+			fmt.Fprintf(&b, "%s=%s;", f.TypeID(), f.Canonical())
+		}
+		b.WriteString("\n")
+	}
+	for _, c := range res.Candidates {
+		fmt.Fprintf(&b, "candidate %+v\n", c)
+	}
+	return b.String()
 }
