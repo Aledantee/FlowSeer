@@ -259,11 +259,12 @@ flowchart TD
     P2 --> P3
     P3 --> P3b[3b. STP instances and guards]
     P3b --> P3c[3c. Loop protection]
-    P1 --> P4[4. Routing and neighbors]
+    P1 --> P4[4. Route selection and recursion]
     P2 --> P4
+    P4 --> P4b[4b. Neighbor lifecycle and resolution]
     P2 --> P5[5. State ownership and derivation]
     P3c --> P5
-    P4 --> P5
+    P4b --> P5
     P5 --> P6[6. Scenarios, replay, and run lifecycle]
     P6 --> P7[7. Exact comparison and bounded search]
 ```
@@ -534,23 +535,37 @@ flowchart TD
   plus a corpus case.
 - **Verify:** Follow the phase plan.
 
-### U4: Make routing and neighbor resolution planning-safe
+### U4: Make route selection planning-safe
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4-plan.md`
 - **After:** U1, U2
 - **Landed:**
-- **Change:** Add route candidate semantics, bounded recursion, explicit neighbor
-  lifecycle, and explicit injected ARP/ND transitions.
-- **Tests:** Route selection, recursion, family validation, neighbor lifecycle,
-  and queued-frame tests.
+- **Change:** Order routes by prefix length, preference, and metric; keep the
+  equal-cost candidate set; pick one by flow hash; resolve recursion when the
+  table is built and withdraw a route that cannot resolve; reject a
+  cross-family next hop.
+- **Tests:** Ordering, candidate set, hash stability, recursion and withdrawal,
+  family validation, plus corpus cases.
+- **Verify:** Follow the phase plan.
+
+### U4b: Make neighbor resolution planning-safe
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4b-plan.md`
+- **After:** U4
+- **Landed:**
+- **Change:** Add an explicit neighbor lifecycle, ARP and Neighbor Discovery
+  codecs, and injected logical-time transitions with held frames.
+- **Tests:** Codec vectors, state transitions, held-frame release and timeout,
+  and a corpus case.
 - **Verify:** Re-plan the phase against the landed tree before implementation.
 
 ### U5: Define state ownership, derivation invalidation, and fork isolation
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
-- **After:** U2, U3c, U4
+- **After:** U2, U3c, U4, U4b
 - **Landed:**
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make
