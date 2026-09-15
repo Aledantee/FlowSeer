@@ -539,7 +539,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3b-plan.md`
 - **After:** U3
-- **Landed:**
+- **Landed:** `a0068198..10b696a1`
 - **Change:** Message-age aging, the BPDU, root, TCN, and loop guards, a
   layer whose state is keyed by tree with one tree in it, a gate that takes a
   VLAN. A version 3 BPDU keeps decoding as its RST prefix until phase 3d.
