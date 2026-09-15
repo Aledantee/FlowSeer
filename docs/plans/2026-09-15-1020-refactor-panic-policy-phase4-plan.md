@@ -4,12 +4,18 @@ type: refactor
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-15-1020-refactor-panic-policy-plan.md
 ---
 
 # Panic Policy Phase 4 - Enforcement - Plan
+
+> Implemented. 3 units, verified together on 2026-09-15. The gate reports
+> zero findings on the tree, and each acceptance example produces a finding
+> naming its file and line when added: a `panic` in a plain function, a `go`
+> statement outside the helper, and neither for the same `panic` in a `must`
+> function, a `_test.go` file, or a `testdata` fixture.
 
 > Re-planned against the post-phase-3 tree. The earlier draft's inventories were
 > written before phase 3 landed and marked `needs-decisions`; every one of them

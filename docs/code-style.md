@@ -334,7 +334,10 @@ deferred call the function registered, so:
   then reads `Err()` sees `nil`, which it cannot tell from a clean finish. Put
   the completion on the normal path and in the sink, so exactly one of them
   reaches it. Where the joiner consumes what the sink produces, join by counted
-  receive rather than by a `WaitGroup`.
+  receive rather than by a `WaitGroup`. No gate catches this one, because what
+  separates a defect from a correct site is not in the spawn call at all — it is
+  what the joiner reads. Ask that question in review instead of looking for a
+  deferred `Done`.
 - A lock must be released from a `defer`. An explicit `Unlock` the panic skips
   leaves the mutex held for the life of the process — a hang where the
   unrecovered panic was a crash, and a hang has no signal but a log line.
@@ -345,6 +348,27 @@ now and everything it still owed is never delivered".
 [Supervised Goroutine Spawn](architecture/2026-09-15-supervised-goroutine-spawn-direction.md)
 records why the package sits beside `errs`, `pump` and `service` rather than
 inside one of them.
+
+### What is gated, and what a reviewer has to catch
+
+Two halves of the rule are decidable from the syntax, and the conformance test in
+`test/conformance/panic` decides them on every `go test -race ./...`: a `panic`
+whose nearest enclosing function declaration is not `Must`- or `must`-prefixed,
+and a `go` statement in any package but `src/common/spawn`. It reads first-party
+source under `src/` by path rather than importing it, so the nested modules are
+checked too, and it skips `_test.go` files and `testdata` fixtures.
+
+It sees the `go` keyword and nothing else. `sync.WaitGroup.Go` is an ordinary
+call with no keyword to match — `pump/merge.go` held one until it was converted,
+and the gate would not have found it. The next one is a review catch.
+
+Everything else is review, because a cheap approximation of it is worse than
+none. Which recover handles a panic is a property of a repository-wide call
+graph, and `callOwned` takes a `Runner` interface, so it is not settled until run
+time. Whether a caller documents an inherited panic is a judgment about prose,
+and a check for the word "panic" is gameable. The benchmark exemption to the
+placement rule is granted in review for the same reason; no site claims it today,
+so the gate enforces the prefix outright.
 
 ### Remedies
 

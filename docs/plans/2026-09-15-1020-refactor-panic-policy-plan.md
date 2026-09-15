@@ -4,11 +4,18 @@ type: refactor
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Panics Named, Handled, and Documented - Plan
+
+> Implemented across four phases. Every panic in non-test `src/` sits in a
+> `Must` or `must` function, every goroutine starts in `src/common/spawn`,
+> and `test/conformance/panic` decides both on every `go test -race ./...`.
+> The clauses a gate cannot decide — which recover handles a panic, whether
+> a caller documents one it inherits, and what a joiner reads on the panic
+> path — stay review rules, and `docs/code-style.md` says which is which.
 
 ## Goal
 
@@ -232,7 +239,7 @@ Landed: Partially. The rule and every conversion landed except `diag.Raise` →
 and its static arity-scan proof cannot resolve the variadic forwarders. That
 unit is withdrawn from phase 1 and re-planned as phase 4's U1, because the
 placement gate cannot be green without it and a phase may not depend on an
-earlier one reopening. `errs`, `catalog`, `ssh`, `mibgen` (decoder-variant and
+earlier one reopening; it landed there. `errs`, `catalog`, `ssh`, `mibgen` (decoder-variant and
 OID pre-pass), `fabric`, `vswitch` and the four harvest scripts all satisfy the
 rule; the surviving `Must` functions cite their clause-2 answers. See the
 phase-1 plan.
@@ -266,7 +273,9 @@ Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`
 After: U1, U2, U3
 Change: `diag.Raise` becomes `MustRaise` with a proof that runs, and a
 conformance test flags a new placement or goroutine violation.
-Landed:
+Landed: Yes. `d390e205..94483e65`. `diag.Raise` and `smi.Raise` are
+`MustRaise`, the arity scan resolves every first-party call that reaches
+them, and `test/conformance/panic` reports zero findings on the tree.
 
 ## Verification
 
