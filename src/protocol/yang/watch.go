@@ -208,8 +208,6 @@ func NewTickWatcher[Row any, Key comparable](ctx context.Context, codec RowCodec
 		pump:  pump.New[WatchEvent[Row, Key]](ctx, cfg.Buffer),
 		codec: codec,
 	}
-	// run's own CloseData defer is unconditional; ReportTo gives a panic
-	// the pump.Fail that CloseData alone would otherwise skip.
 	// CloseData sits here rather than in a defer inside run: fn's defers run
 	// before the recover, so a deferred close would close the data channel
 	// before the sink recorded the panic, and a consumer draining to the

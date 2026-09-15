@@ -400,8 +400,8 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 		s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
 		done := slot.done
 		spawn.Go(childCtx, "supervisorState.start.leaf", func() {
-			defer close(done)
 			s.publishLeafResult(childCtx, index, generation, module, telemetry, attemptSpan)
+			close(done)
 		}, spawn.ReportTo(func(err error) {
 			// runChild already recovers a Setup or Runner panic and returns a
 			// normal childResult, so this only fires for a panic in the
@@ -409,7 +409,13 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 			// Publish a fatal result ourselves, or the supervisor's run loop
 			// — which learns of every generation's end only through
 			// s.results — never observes this slot finish.
+			//
+			// The publish precedes the close because done is what wait joins
+			// on: closing first lets wait return, and stopAll then reports a
+			// clean run while the fatal result sits unread in the buffer, or
+			// a restart bumps the generation and s.current drops it.
 			s.results <- childResult{index: index, generation: generation, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+			close(done)
 		}))
 		s.transition("start", module.path)
 		return
@@ -417,10 +423,15 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 	s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
 	done := slot.done
 	spawn.Go(childCtx, "supervisorState.start.supervisor", func() {
-		defer close(done)
-		s.publishChildResult(childCtx, index, generation, module, telemetry)
+		result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
+		s.results <- result
+		close(done)
 	}, spawn.ReportTo(func(err error) {
+		// Publish before closing: done is what wait joins on, so a close that
+		// preceded the publish would let the run loop declare this generation
+		// finished with the fatal result still in flight.
 		s.results <- childResult{index: index, generation: generation, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+		close(done)
 	}))
 	s.transition("start", module.path)
 }
@@ -440,19 +451,6 @@ func (s *supervisorState) publishLeafResult(
 	result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 	result.span = attemptSpan.SpanContext()
 	endLifecycleSpan(attemptSpan, result.outcome, result.err)
-	s.results <- result
-}
-
-// publishChildResult runs one nested-supervisor generation and publishes its
-// result. It is the body spawn.Go runs for a non-leaf slot.
-func (s *supervisorState) publishChildResult(
-	childCtx context.Context,
-	index int,
-	generation uint64,
-	module plannedModule,
-	telemetry telemetryView,
-) {
-	result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 	s.results <- result
 }
 

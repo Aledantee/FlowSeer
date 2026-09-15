@@ -136,14 +136,21 @@ func runWithOptionsAndTelemetryFactories(
 	select {
 	case <-started:
 	case schedulingErr = <-done:
-		// The supervisor never reached close(started): either its own
-		// runWithStarted returned before scheduling anything, or the panic
-		// path above delivered its error here first. Either way, done
-		// already carries the run's terminal error, and nothing else will
-		// ever send to it again.
+		// done carries the run's terminal error and nothing will send to it
+		// again, so the select below must not wait on it a second time. This
+		// case also wins when the whole run finished before this select was
+		// reached and both channels were ready, which is why it does not
+		// claim started was never closed.
 		schedulingFailed = true
 	}
-	endLifecycleSpan(startupSpan, lifecycleOutcomeRunning, nil)
+	if schedulingFailed {
+		// A run that ended before it signalled start never reached Running,
+		// and a startup span saying otherwise hides the degraded branch from
+		// outside the process.
+		endLifecycleSpan(startupSpan, lifecycleOutcomeError, schedulingErr)
+	} else {
+		endLifecycleSpan(startupSpan, lifecycleOutcomeRunning, nil)
+	}
 
 	var failures <-chan error
 	if bus != nil {

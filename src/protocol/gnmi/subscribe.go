@@ -111,8 +111,9 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 	// A blocked Recv only returns when the stream context dies, so
 	// Close (which signals the pump) must also cancel sctx. cancel is
 	// deferred rather than called only on the Stopped branch: a panic
-	// here must still cancel sctx, or the receive goroutine's blocked
-	// Recv never returns and Close hangs waiting for it.
+	// here must still cancel sctx, or the receive goroutine stays parked
+	// in Recv for the life of the process. Close itself does not join it,
+	// so the cost is a leaked goroutine rather than a hang.
 	spawn.Go(sctx, "gnmi subscribe cancel watcher", func() {
 		defer cancel()
 		select {

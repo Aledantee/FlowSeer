@@ -1002,14 +1002,16 @@ func TestGoRejectsUnmanagedAndCanceledContexts(t *testing.T) {
 	}
 }
 
-// TestSupervisorLeafPanicPublishesFatalResultAndClosesDone is evidence for
-// this change: it proves that a panic escaping the wrapper spawn.Go runs
-// around a leaf generation — the span bookkeeping and results send after
-// runChild returns, which runChild's own recover does not cover — still
-// lets the supervisor make progress. Without the ReportTo sink publishing a
-// fatal childResult, the only certainty on this path was close(done); this
-// forces the panic and checks the run loop's other input, s.results, too.
-func TestSupervisorLeafPanicPublishesFatalResultAndClosesDone(t *testing.T) {
+// TestSupervisorLeafPanicPublishesFatalResultBeforeClosingDone pins the order
+// of the two things a panicking leaf generation owes the run loop.
+//
+// done is what wait joins on, and s.results is the only way the loop learns a
+// generation ended. A close that reached the loop before the result would let
+// stopAll return a clean run with the fatal result still in the buffer, and
+// let a restart bump the generation so s.current drops it. So the result is
+// read without blocking the instant done is observed closed: waiting for it
+// would pass against either order and prove nothing.
+func TestSupervisorLeafPanicPublishesFatalResultBeforeClosingDone(t *testing.T) {
 	s := &supervisorState{
 		results: make(chan childResult, 1),
 		runtime: supervisorRuntime{options: supervisorOptions{}.withDefaults()},
@@ -1017,14 +1019,15 @@ func TestSupervisorLeafPanicPublishesFatalResultAndClosesDone(t *testing.T) {
 	module := plannedModule{path: "worker"}
 	done := make(chan struct{})
 
+	// Mirrors the order start uses for a leaf slot. A nil attemptSpan forces
+	// the panic at result.span = attemptSpan.SpanContext(), the statement
+	// after runChild returns that its own recover cannot reach.
 	spawn.Go(context.Background(), "test.leaf", func() {
-		defer close(done)
-		// A nil attemptSpan forces the panic at result.span =
-		// attemptSpan.SpanContext(), the statement after runChild returns
-		// that its own recover cannot reach.
 		s.publishLeafResult(context.Background(), 0, 1, module, telemetryView{}, nil)
+		close(done)
 	}, spawn.ReportTo(func(err error) {
 		s.results <- childResult{index: 0, generation: 1, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+		close(done)
 	}))
 
 	select {
@@ -1041,12 +1044,8 @@ func TestSupervisorLeafPanicPublishesFatalResultAndClosesDone(t *testing.T) {
 		if result.err == nil {
 			t.Fatal("published result carries no error")
 		}
-	case <-time.After(2 * time.Second):
-		// done closing (fn's own defer) races the outer spawn.Go recover
-		// that runs the ReportTo sink, so the result can still be in
-		// flight when <-done above unblocks; wait for it instead of
-		// checking immediately.
-		t.Fatal("no childResult was published on the panic path")
+	default:
+		t.Fatal("done closed before the fatal result was published; the run loop can join this slot and never see the panic")
 	}
 }
 

@@ -266,9 +266,14 @@ func TestWalkerFetchPanicLatches(t *testing.T) {
 	}
 }
 
-// TestTickWatcherFetchPanicLatches is TestWalkerFetchPanicLatches' analog
-// for run's CloseData-only defer: the same silent-success risk applies to
-// the tick loop's pump.
+// TestTickWatcherFetchPanicLatches is TestWalkerFetchPanicLatches' analog for
+// the tick loop: the same silent-success risk applies to its pump.
+//
+// Err() is read once, at the moment the event channel closes. The watcher's
+// terminal call on the panic path is Fail, which records before it closes, so
+// a consumer that drains to the close can never see a nil error for a watch
+// that panicked. Polling would pass against a watcher that closed first and
+// latched afterwards, which is the state this asserts against.
 func TestTickWatcherFetchPanicLatches(t *testing.T) {
 	fetch := &scriptedFetch{payloads: []any{42}}
 	codec := serverCodec()
@@ -276,12 +281,10 @@ func TestTickWatcherFetchPanicLatches(t *testing.T) {
 		yang.WatchConfig{Interval: 15 * time.Millisecond})
 	defer func() { _ = w.Close() }()
 
-	deadline := time.After(5 * time.Second)
-	for w.Err() == nil {
-		select {
-		case <-deadline:
-			t.Fatal("watcher never latched after a panicking fetch")
-		case <-time.After(10 * time.Millisecond):
-		}
+	for range w.Iter() {
+	}
+
+	if err := w.Err(); err == nil {
+		t.Fatal("Err() is nil when the watcher's event channel closed after a panicking fetch")
 	}
 }

@@ -186,9 +186,9 @@ func (w *Walker) Fail(err error) { w.pump.Fail(err) }
 // returns promptly if it is still in a Send. Idempotent and safe to
 // call after [Walker.Fail]; subsequent calls are no-ops.
 //
-// [Walker.Pump] installs Done as a deferred call so it runs even when
-// the pump function panics. Backends that drive the Walker without
-// Pump must call Done themselves on natural completion.
+// [Walker.Pump] calls Done when its pump function returns normally; a panic
+// closes through [Walker.Fail] instead. Backends that drive the Walker
+// without Pump must call Done themselves on natural completion.
 func (w *Walker) Done() { w.pump.Done() }
 
 // Err returns the first terminal error recorded via [Walker.Fail], or

@@ -314,10 +314,11 @@ func readWave(wave []string, workers int) ([]source, error) {
 //
 // The parser re-panics anything that is not its own bail-out sentinel,
 // which is the right call there: swallowing it would hide a parser bug.
-// But this is a goroutine, and a panic here takes the process down
-// without naming the file that caused it. The property a load owes its
-// caller is that a malformed declaration costs that declaration, so the
-// panic is attributed to its file and reported as a read failure.
+// The recover is here rather than at the goroutine above because the grain
+// is the file, not the worker: the property a load owes its caller is that
+// a malformed declaration costs that declaration, so the panic is attributed
+// to its file and reported as a read failure, and the worker goes on to the
+// next job it was given.
 func readGuarded(path string) (s source, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {

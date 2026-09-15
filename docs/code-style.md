@@ -308,9 +308,8 @@ argument is closed at the call site, so the invariant never travels.
 
 A panic inside a spawned goroutine is unhandled by definition, whatever recover
 its spawner sits under, because Go does not propagate it to the spawning frame.
-`src/protocol/smi/load.go` states the consequence in its own comment: "this is a
-goroutine, and a panic here takes the process down without naming the file that
-caused it."
+A recover in the spawning call chain catches nothing: the goroutine unwinds its
+own stack and takes the process with it.
 
 Every goroutine running first-party work is launched through
 `spawn.Go` (`src/common/spawn`), which recovers and reports the panic as a
@@ -324,6 +323,25 @@ back off, or cancel siblings. A caller that must wait keeps its own
 `sync.WaitGroup`, and restart policy stays with the supervisor that owns the
 work, so that a panic at one of sixty-odd call sites cannot quietly become a
 retry loop nobody chose.
+
+What the spawned function owes its caller on the panic path is the part that
+has gone wrong repeatedly, in a dozen call sites across five packages, three of
+them carrying a comment claiming it was handled. The recover runs *after* every
+deferred call the function registered, so:
+
+- A completion deferred inside it — `wg.Done`, `close(ch)`, `pump.Done` — runs
+  before the error is recorded. A consumer that drains to a closed channel and
+  then reads `Err()` sees `nil`, which it cannot tell from a clean finish. Put
+  the completion on the normal path and in the sink, so exactly one of them
+  reaches it. Where the joiner consumes what the sink produces, join by counted
+  receive rather than by a `WaitGroup`.
+- A lock must be released from a `defer`. An explicit `Unlock` the panic skips
+  leaves the mutex held for the life of the process — a hang where the
+  unrecovered panic was a crash, and a hang has no signal but a log line.
+
+The same reasoning applies to anything else the function was going to do after
+the point it panicked: a recovery converts "this stops now" into "this stops
+now and everything it still owed is never delivered".
 [Supervised Goroutine Spawn](architecture/2026-09-15-supervised-goroutine-spawn-direction.md)
 records why the package sits beside `errs`, `pump` and `service` rather than
 inside one of them.

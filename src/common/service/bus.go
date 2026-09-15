@@ -331,7 +331,12 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 	bus.monitorCancel = cancel
 	// monitor's own defer close(b.monitorDone) is a proper Go defer inside
 	// its body, so it fires on a recovered panic without help from here.
-	spawn.Go(monitorCtx, "localBus.monitor", func() { bus.monitor(monitorCtx) })
+	//
+	// The sink is monitor's own failure path. Without it a panic here leaves
+	// the service running with nothing watching the bus: close joins cleanly,
+	// failures() stays silent, and the only sign that bus health stopped
+	// being monitored is one log record.
+	spawn.Go(monitorCtx, "localBus.monitor", func() { bus.monitor(monitorCtx) }, spawn.ReportTo(bus.reportFailure))
 	return bus, nil
 }
 
