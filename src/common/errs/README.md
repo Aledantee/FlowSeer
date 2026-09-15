@@ -38,11 +38,12 @@ error. A partially built `Builder` is reusable as the base of several errors.
 Attribute values and causes are retained by reference, so concurrent use of
 the builder or error requires them to be safe for concurrent reads.
 
-**Codes** (`code.go`) — `NewCode("<package>/<name>")` registers a `Code` and
-panics on a duplicate or malformed name; `Codes()` enumerates the registry;
-`CodeOf(err)` finds the outermost code in a chain. Equal codes match under
-`errors.Is` without shared identity, which is how a decoded peer error matches
-a local sentinel.
+**Codes** (`code.go`) — `NewCode("<package>/<name>")` registers a `Code`;
+`Codes()` enumerates the registry; `CodeOf(err)` finds the outermost code in a
+chain. Equal codes match under `errors.Is` without shared identity, which is
+how a decoded peer error matches a local sentinel. `NewCode` does not itself
+reject a duplicate or malformed name — the repo-wide scan in `code_test.go`
+does, at `go test` time, over every declaration in the tree.
 
 **Extraction** (`attr.go`) — `Attributes(err)` merges the chain's attributes
 outermost-first, joined branches left to right, first value winning;

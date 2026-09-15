@@ -78,10 +78,11 @@ func TestGeneratedCodesDriftIsDetected(t *testing.T) {
 	}
 }
 
-// errs.NewCode panics on a malformed or duplicate name, so every code
-// reaching the process registry is proof the generated literal was
-// accepted. The registry is the check; this test only proves the smi
-// namespace is fully present in it.
+// errs.NewCode no longer rejects a malformed or duplicate name itself —
+// errs's own repo-wide scan does, at go test time, over every declaration in
+// the tree. The registry only reflects what a running binary links, so this
+// test proves the smi namespace is fully present in it, not that any code in
+// it was validated.
 func TestEveryCatalogCodeIsRegistered(t *testing.T) {
 	registered := errs.Codes()
 

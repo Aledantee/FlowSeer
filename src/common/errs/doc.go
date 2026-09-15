@@ -66,12 +66,12 @@
 //
 //	var ErrCodePrivDecrypt = errs.NewCode("snmp/priv-decrypt")
 //
-// [NewCode] panics on a malformed or already-registered name, so a
-// collision fails the first run of any binary linking both declarations.
-// Because that registry only sees linked packages, the repo-wide gate is a
-// source scan in this package's tests, which reads every NewCode string
-// literal in non-test code and asserts global uniqueness and format —
-// declare codes with a literal argument, or the gate cannot check them.
+// [NewCode] itself does not reject a malformed or already-registered name.
+// The repo-wide gate is a source scan in this package's tests, which reads
+// every NewCode string literal in the tree and asserts global uniqueness and
+// format at go test time — a check that catches a collision across every
+// declaration rather than only the ones a running binary happens to link.
+// Declare codes with a literal argument, or the gate cannot check them.
 //
 // # User messages and hints
 //
