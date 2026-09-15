@@ -170,7 +170,7 @@ type Options struct {
 func Cut(src []byte, opts Options) *File {
 	if len(src) > MaxSourceBytes {
 		f := &File{Name: opts.File, src: src, Source: lex.Lex(nil, lex.Options{File: opts.File})}
-		f.Diagnostics = append(f.Diagnostics, diag.Raise(
+		f.Diagnostics = append(f.Diagnostics, diag.MustRaise(
 			diag.Position{File: opts.File},
 			diag.ErrCodeLimitExceeded,
 			diag.ArgString("source bytes"), diag.ArgInt(MaxSourceBytes),
@@ -649,7 +649,7 @@ func (c *cutter) step(depth, i int) int {
 }
 
 func (c *cutter) limit(what string, bound, offset int) {
-	c.out.Diagnostics = append(c.out.Diagnostics, diag.Raise(
+	c.out.Diagnostics = append(c.out.Diagnostics, diag.MustRaise(
 		diag.Position{File: c.file, Offset: offset},
 		diag.ErrCodeLimitExceeded,
 		diag.ArgString(what), diag.ArgInt(bound),
@@ -657,6 +657,12 @@ func (c *cutter) limit(what string, bound, offset int) {
 	c.stopped = true
 }
 
+// raise records a condition at offset, up to the diagnostic cap.
+//
+// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
+// argument count the code's catalog row does not declare. code and args
+// come from the cutter's own call sites, so the invariant is proven by
+// the arity scan in internal/diag, not left to the caller.
 func (c *cutter) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(c.out.Diagnostics) >= MaxDiagnostics {
 		if len(c.out.Diagnostics) == MaxDiagnostics {
@@ -667,7 +673,7 @@ func (c *cutter) raise(offset int, code errs.Code, args ...diag.Arg) {
 		return
 	}
 
-	c.out.Diagnostics = append(c.out.Diagnostics, diag.Raise(diag.Position{File: c.file, Offset: offset}, code, args...))
+	c.out.Diagnostics = append(c.out.Diagnostics, diag.MustRaise(diag.Position{File: c.file, Offset: offset}, code, args...))
 }
 
 // MaxObservedDepth returns the deepest bracket nesting the last cut of

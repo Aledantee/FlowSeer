@@ -120,7 +120,7 @@ func TestLineTableLargeOffsets(t *testing.T) {
 // Rendering must survive a caller that has no table for the file, since
 // a diagnostic nobody can print is worse than one printed on line 1.
 func TestRenderWithoutATable(t *testing.T) {
-	d := diag.Raise(diag.Position{File: "X.mib", Offset: 40}, diag.ErrCodeUnterminatedString)
+	d := diag.MustRaise(diag.Position{File: "X.mib", Offset: 40}, diag.ErrCodeUnterminatedString)
 
 	got := d.Render(nil)
 	if got.Line != 1 || got.Column != 41 {
@@ -150,7 +150,7 @@ func TestRender(t *testing.T) {
 	src := []byte("FOO-MIB DEFINITIONS ::= BEGIN\nfoo OBJECT-TYPE\n")
 	table := diag.NewLineTable(src)
 
-	d := diag.Raise(
+	d := diag.MustRaise(
 		diag.Position{File: "FOO-MIB.mib", Offset: 30},
 		diag.ErrCodeUnrecognizedDeclaration,
 		diag.ArgString("foo"),
@@ -177,7 +177,7 @@ func TestRender(t *testing.T) {
 }
 
 func TestRenderMultipleArguments(t *testing.T) {
-	d := diag.Raise(
+	d := diag.MustRaise(
 		diag.Position{File: "BIG-MIB.mib", Offset: 0},
 		diag.ErrCodeLimitExceeded,
 		diag.ArgString("declarations per file"),
@@ -190,8 +190,8 @@ func TestRenderMultipleArguments(t *testing.T) {
 	}
 }
 
-func TestRaiseCarriesTheCatalogedSeverity(t *testing.T) {
-	d := diag.Raise(diag.Position{File: "X.mib"}, diag.ErrCodeHyphenSeparator, diag.ArgInt(5))
+func TestMustRaiseCarriesTheCatalogedSeverity(t *testing.T) {
+	d := diag.MustRaise(diag.Position{File: "X.mib"}, diag.ErrCodeHyphenSeparator, diag.ArgInt(5))
 
 	if got := d.Severity(); got != diag.SeverityWarning {
 		t.Errorf("Severity() = %v, want %v", got, diag.SeverityWarning)
@@ -204,9 +204,9 @@ func TestRaiseCarriesTheCatalogedSeverity(t *testing.T) {
 	}
 }
 
-// Raise panics on a caller bug rather than producing a diagnostic that
+// MustRaise panics on a caller bug rather than producing a diagnostic that
 // renders as %!d(MISSING) somewhere far from the mistake.
-func TestRaisePanics(t *testing.T) {
+func TestMustRaisePanics(t *testing.T) {
 	tests := []struct {
 		name string
 		call func()
@@ -214,18 +214,18 @@ func TestRaisePanics(t *testing.T) {
 	}{
 		{
 			name: "uncataloged code",
-			call: func() { diag.Raise(diag.Position{}, "smi/no-such-thing") },
+			call: func() { diag.MustRaise(diag.Position{}, "smi/no-such-thing") },
 			want: "not a cataloged diagnostic code",
 		},
 		{
 			name: "too few arguments",
-			call: func() { diag.Raise(diag.Position{}, diag.ErrCodeLimitExceeded, diag.ArgInt(1)) },
+			call: func() { diag.MustRaise(diag.Position{}, diag.ErrCodeLimitExceeded, diag.ArgInt(1)) },
 			want: "takes 2 arguments, given 1",
 		},
 		{
 			name: "too many arguments",
 			call: func() {
-				diag.Raise(diag.Position{}, diag.ErrCodeUnterminatedString, diag.ArgInt(1))
+				diag.MustRaise(diag.Position{}, diag.ErrCodeUnterminatedString, diag.ArgInt(1))
 			},
 			want: "takes 0 arguments, given 1",
 		},
@@ -236,7 +236,7 @@ func TestRaisePanics(t *testing.T) {
 			defer func() {
 				r := recover()
 				if r == nil {
-					t.Fatalf("Raise did not panic on %s", tc.name)
+					t.Fatalf("MustRaise did not panic on %s", tc.name)
 				}
 				if msg, _ := r.(string); !strings.Contains(msg, tc.want) {
 					t.Errorf("panic = %v, want it to mention %q", r, tc.want)
@@ -250,15 +250,15 @@ func TestRaisePanics(t *testing.T) {
 
 // A vendor corpus raises far more diagnostics than it renders, so the
 // raise path is required to cost nothing beyond the returned value.
-func TestRaiseAllocatesNothing(t *testing.T) {
+func TestMustRaiseAllocatesNothing(t *testing.T) {
 	pos := diag.Position{File: "BIG-MIB.mib", Offset: 4096}
 	limit := "declarations per file"
 
 	allocs := testing.AllocsPerRun(200, func() {
-		sink = diag.Raise(pos, diag.ErrCodeLimitExceeded, diag.ArgString(limit), diag.ArgInt(65536))
+		sink = diag.MustRaise(pos, diag.ErrCodeLimitExceeded, diag.ArgString(limit), diag.ArgInt(65536))
 	})
 	if allocs != 0 {
-		t.Errorf("Raise allocated %.1f times per call, want 0", allocs)
+		t.Errorf("MustRaise allocated %.1f times per call, want 0", allocs)
 	}
 }
 

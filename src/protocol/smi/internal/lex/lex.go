@@ -570,10 +570,15 @@ func (l *lexer) emit(start int, t Token) bool {
 // stream — so the cap only closes the diagnostic list. A file that
 // reaches it gets one [diag.ErrCodeLimitExceeded] saying so and nothing
 // after, which is the same shape the other two passes produce.
+//
+// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
+// argument count the code's catalog row does not declare. code and args
+// come from the lexer's own call sites, so the invariant is proven by the
+// arity scan in internal/diag, not left to the caller.
 func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(l.out.Diagnostics) >= diag.MaxDiagnostics {
 		if len(l.out.Diagnostics) == diag.MaxDiagnostics {
-			l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(
+			l.out.Diagnostics = append(l.out.Diagnostics, diag.MustRaise(
 				diag.Position{File: l.file, Offset: offset},
 				diag.ErrCodeLimitExceeded,
 				diag.ArgString("diagnostics"), diag.ArgInt(diag.MaxDiagnostics),
@@ -584,7 +589,7 @@ func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
 	}
 
 	pos := diag.Position{File: l.file, Offset: offset}
-	l.out.Diagnostics = append(l.out.Diagnostics, diag.Raise(pos, code, args...))
+	l.out.Diagnostics = append(l.out.Diagnostics, diag.MustRaise(pos, code, args...))
 }
 
 // The Windows-1252 curly quotation marks, which a word processor

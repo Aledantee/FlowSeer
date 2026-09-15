@@ -517,7 +517,7 @@ o OBJECT-TYPE SYNTAX INTEGER ACCESS write-only STATUS current DESCRIPTION "d" ::
 	// Seed the file at the cap, which the parser clones as its starting
 	// diagnostic list, so the grade pass is the call that trips it.
 	for range diag.MaxDiagnostics {
-		f.Diagnostics = append(f.Diagnostics, diag.Raise(
+		f.Diagnostics = append(f.Diagnostics, diag.MustRaise(
 			diag.Position{File: testFile},
 			diag.ErrCodeLimitExceeded,
 			diag.ArgString("diagnostics"), diag.ArgInt(diag.MaxDiagnostics),
@@ -548,8 +548,8 @@ func TestRaiseAndLimitAreNoOpsOnceFatal(t *testing.T) {
 	p := newParser(res, testFile)
 	p.fatal = true
 
-	// A cataloged code with the arity its call sites use, so diag.Raise does
-	// not object; the point is that raise never reaches it.
+	// A cataloged code with the arity its call sites use, so diag.MustRaise
+	// does not object; the point is that raise never reaches it.
 	p.raise(0, diag.ErrCodeUnexpectedToken, diag.ArgString("x"), diag.ArgString("a name"))
 	p.limit("enumeration members", MaxMembers, 0)
 

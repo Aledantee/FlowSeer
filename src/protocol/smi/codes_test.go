@@ -106,7 +106,7 @@ func TestEveryCatalogRowRaisesAndRenders(t *testing.T) {
 				args[i] = smi.ArgString("x")
 			}
 
-			d := smi.Raise(smi.Position{File: "T.mib", Offset: 6}, errs.Code(row.Code), args...)
+			d := smi.MustRaise(smi.Position{File: "T.mib", Offset: 6}, errs.Code(row.Code), args...)
 
 			if got := d.Severity(); !got.Valid() {
 				t.Errorf("severity %v is off the scale", got)

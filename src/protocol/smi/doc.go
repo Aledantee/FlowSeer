@@ -130,7 +130,7 @@
 //
 // # Conventions this package holds itself to
 //
-// Nothing on the raise path formats a string. [Raise] copies a fixed-size
+// Nothing on the raise path formats a string. [MustRaise] copies a fixed-size
 // array of [Arg] values into the diagnostic and returns; the catalog's
 // format string is applied by [Diagnostic.Render], which runs once per
 // diagnostic somebody actually reads. A corpus run raises far more

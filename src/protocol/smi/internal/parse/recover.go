@@ -147,6 +147,11 @@ func (p *parser) text() string {
 // the rest would drown the ones that matter. What the parser knows is
 // not lost by the throttle — a declaration's missing clauses are on the
 // node whether or not each one drew a diagnostic.
+//
+// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
+// argument count the code's catalog row does not declare. code and args
+// come from the parser's own call sites, so the invariant is proven by
+// the arity scan in internal/diag, not left to the caller.
 func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 	// Once a limit is fatal, later clause readers keep running over discarded
 	// output; staying silent here is what keeps the limit diagnostic last.
@@ -166,7 +171,7 @@ func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 		return
 	}
 
-	p.diags = append(p.diags, diag.Raise(diag.Position{File: p.file, Offset: int(offset)}, code, args...))
+	p.diags = append(p.diags, diag.MustRaise(diag.Position{File: p.file, Offset: int(offset)}, code, args...))
 }
 
 // limit reports a resource bound being reached and marks the parse fatal. It
@@ -183,7 +188,7 @@ func (p *parser) limit(what string, bound int, offset int32) {
 		return
 	}
 
-	p.diags = append(p.diags, diag.Raise(
+	p.diags = append(p.diags, diag.MustRaise(
 		diag.Position{File: p.file, Offset: int(offset)},
 		diag.ErrCodeLimitExceeded,
 		diag.ArgString(what), diag.ArgInt(bound),
