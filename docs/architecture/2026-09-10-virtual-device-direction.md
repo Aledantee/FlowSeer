@@ -270,6 +270,56 @@ them.
   there is no querier to have sent one, so the full membership interval is
   the real behavior and the result stays Complete.
 
+### Spanning-tree information lifetime, guards, and the gate
+
+- **Received information is bounded twice, and the hop count uses the BPDU's
+  own max age.** A BPDU is accepted only while `MessageAge + 1 <= MaxAge`
+  against the `MaxAge` the BPDU carries, not this bridge's configured one,
+  because the received value is the root's and a fabric holds bridges with
+  differing timers. A BPDU that fails the test is discarded rather than
+  stored, so a BPDU naming a root that no longer exists stops refreshing the
+  port's timer on every hop; the port's own information then expires on the
+  `3 × HelloTime` silence bound and the roles are recomputed. UNH-IOL's RSTP
+  conformance suite states the rule as a hop count with max age as its
+  maximum, citing IEEE Std 802.1Q-2011 sub-clauses 13.23.6, 13.27.30, and
+  13.28.
+- **A guard's outcome is a port state, not an issue code.** A port state an
+  operator can see beats an issue code they have to look for, so BPDU guard
+  disables the port with reason `bpdu-guard` until a link bounce, restricted
+  role keeps a port out of root selection, restricted TCN stops a received
+  change from propagating, and loop guard holds a port whose information
+  expired while it was Root, Alternate, or Backup in a discarding Alternate
+  role with reason `loop-inconsistent` until the next BPDU. Loop guard is
+  netsim's own design drawn from Cisco, Juniper, and Arista, and is inactive
+  on an operationally edge port and on a shared link, where a port that stops
+  hearing BPDUs is not evidence of a link broken in one direction. `LoopGuard`
+  beside `RestrictedRole` or beside `AdminEdge` is refused at construction:
+  a configuration whose halves contradict each other has no correct simulated
+  answer.
+- **The layer keys its state by tree and the gate answers per VLAN.** A port's
+  forwarding state belongs to a spanning tree, and more than one tree can run
+  over one port, so `Learns` and `Forwards` take a port and a VLAN and the
+  layer maps the VLAN to a tree. One tree, the CIST, carries every VLAN today,
+  so the answers agree; the keying and the signature are what let that stop
+  being true without moving the seam again. The port identifier and the port
+  key set stay bridge-global: the identifier appears on the wire, and the key
+  set's order reaches the caller as the order of `Effects.Flush`.
+- **Classification precedes the ingress gate.** Active topology enforcement
+  belongs to the forwarding process that follows ingress classification, so
+  the bridge classifies first and asks the gate with the classified VLAN. A
+  gate-blocked frame therefore names the VLAN it was classified into, and a
+  frame that fails classification reports the classification reason rather
+  than `port-blocked`, because a frame the port would never have admitted is
+  not a spanning-tree question. A frame dropped in classification consults no
+  spanning-tree scope, since no tree state could have changed its outcome.
+- **A version 3 BPDU is read as its RST prefix rather than refused.** An MST
+  BPDU's CIST prefix is how an RSTP bridge peers with an MST region at all,
+  and UNH-IOL's MSTP suite states that a compliant device must not validate an
+  MST BPDU on its protocol version identifier (Test MSTP.op.1.3, citing IEEE
+  Std 802.1Q-2011 sub-clause 14.4). Refusing it would leave a netsim RSTP
+  bridge facing an MSTP neighbour with both ends Designated and Forwarding,
+  which is an unbroken loop and a worse answer than the approximation.
+
 ### Route selection and recursive next hops
 
 - **A lookup yields a candidate set, not a single winner.** Routes are ordered

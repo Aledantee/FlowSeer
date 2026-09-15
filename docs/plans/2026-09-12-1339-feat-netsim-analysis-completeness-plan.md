@@ -340,9 +340,27 @@ flowchart TD
     across one or more regions, or one RSTP tree per VLAN. **Acceptance
     example:** VLAN 10 and VLAN 20 select different forwarding links under
     MSTP and under RSTP per VLAN, without Cisco PVST simulation.
+    - **R14a:** MST BPDU encoding and decoding, the region configuration
+      digest, and CIST and MSTI priority vectors. Phase 3d.
+    - **R14b:** Boundary roles and hop-count aging across a region boundary.
+      Phase 3d.
+    - **R14c:** One rapid spanning tree per VLAN in the SSTP encapsulation,
+      each electing its own root and blocking its own trunk. Phase 3e.
+    - **R14d:** The PVID consistency check and the unsupported PVST boundary.
+      Phase 3e.
+    - **R14e:** Per-tree topology change and per-instance flushing, which the
+      one-tree layer does not distinguish. Phase 3d.
 15. **R15:** STP handles message age, stale superior information, and configured
     edge, BPDU guard, root guard, and loop guard outcomes. **Acceptance example:**
     expired superior information cannot keep a port blocked indefinitely.
+    - **R15a:** Information whose message age has reached the max age its own
+      BPDU carries is discarded rather than stored. Phase 3b.
+    - **R15b:** Each of the four guards produces its port outcome. Phase 3b.
+    - **R15c:** The two contradictory guard combinations are refused at
+      construction. Phase 3b.
+    - **R15d:** Loop guard is inactive on an operationally edge port and on a
+      port that is not point-to-point. Phase 3b.
+    - **R15e:** The blocking reason reaches the trace. Phase 3b.
 16. **R16:** LAG selection and operational state expose dependency and convergence
     evidence. **Acceptance example:** a member link change invalidates only the
     affected aggregation state and yields the same selection after replay.

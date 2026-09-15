@@ -1,0 +1,188 @@
+# stp
+
+Package `stp` implements the Rapid Spanning Tree Protocol (IEEE 802.1D-2004,
+carried into 802.1Q clause 13) for the virtual switch. It elects a root bridge,
+assigns port roles and states, and answers the bridge's forwarding gate.
+
+The layer runs deterministically in memory without background goroutines or wall
+clocks. Time advances through explicit, time-stamped calls to `LinkChange`,
+`Receive`, `Wake`, and `Mcheck`.
+
+## Example
+
+Two bridges come up on a point-to-point link, exchange a proposal and an
+agreement, and settle into Designated and Root.
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
+)
+
+func main() {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		panic(err)
+	}
+
+	newBridge := func(priority uint16, mac string) *stp.Layer {
+		address, err := netaddr.Parse(mac)
+		if err != nil {
+			panic(err)
+		}
+		layer, err := stp.New(stp.Config{
+			Priority: priority,
+			Address:  address,
+			Ports:    map[string]stp.Port{"1/1/1": {}},
+		}, ports)
+		if err != nil {
+			panic(err)
+		}
+
+		return layer
+	}
+
+	root := newBridge(4096, "00:11:22:33:44:01")
+	leaf := newBridge(32768, "00:11:22:33:44:02")
+
+	t0 := time.Unix(1700000000, 0)
+	fx := root.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	leaf.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	// The root's proposal reaches the leaf, which agrees.
+	proposal, err := stp.Decode(fx.Emissions[0].Frame)
+	if err != nil {
+		panic(err)
+	}
+	agreement := leaf.Receive(t0, "1/1/1", proposal)
+	fmt.Printf("leaf: %s/%s\n", leaf.PortInfo("1/1/1").Role, leaf.PortInfo("1/1/1").State)
+
+	reply, err := stp.Decode(agreement.Emissions[0].Frame)
+	if err != nil {
+		panic(err)
+	}
+	root.Receive(t0, "1/1/1", reply)
+	fmt.Printf("root: %s/%s\n", root.PortInfo("1/1/1").Role, root.PortInfo("1/1/1").State)
+}
+```
+
+## How long received information lives
+
+Information a port receives is bounded twice, and both bounds must hold.
+
+The first is a hop count. A BPDU is accepted only while
+`MessageAge + 1 <= MaxAge`, taking `MaxAge` from the BPDU being processed rather
+than from this bridge's configuration: the received value is the root's, and a
+fabric can hold bridges with differing timers. A BPDU that fails the test is
+discarded rather than stored, which is what stops a BPDU naming a root that no
+longer exists from refreshing the timer on every hop and holding a port blocked
+forever. `makeBPDU` adds the second on origination, off the root port.
+
+The UNH-IOL RSTP conformance suite states the rule: "RSTP treats the Message Age
+parameter in received BPDUs as an incrementing hop count with Max Age as its
+maximum value. Message Age is incremented after being received on the Root Port.
+If Message Age is greater than Max Age, the BPDU is discarded"
+([RSTP_conformance_Q.pdf][unh-rstp], citing IEEE Std 802.1Q-2011 sub-clauses
+13.23.6, 13.27.30, and 13.28).
+
+The second bound is silence. Accepted information lives for `3 × HelloTime` from
+the moment it arrived, after which `Wake` expires it and the roles are recomputed.
+
+MSTP's `remainingHops`, which is the same idea carried inside a region, is not
+here; it arrives with the MSTI vectors.
+
+[unh-rstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/RSTP_conformance_Q.pdf
+
+## Guards
+
+Each guard is a per-port administrative flag on `Port`, and each produces a port
+state rather than an issue code, because a state an operator can see beats an
+issue code they have to look for. `PortInfo.BlockReason` names the guard holding
+a port, and the trace carries it.
+
+| Guard | What it does | What clears it |
+| --- | --- | --- |
+| `BPDUGuard` | A BPDU on the port disables it for spanning tree: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
+| `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
+| `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
+| `LoopGuard` | A port whose information expires while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. | A BPDU received on the port, or a link down. |
+
+Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
+all apply loop protection only to ports that were receiving BPDUs and recover on
+the next BPDU. It is inactive on a port that is operationally edge and on one
+that is not point-to-point, which is where [Cisco][cisco-loop] and
+[Arista][arista-stp] rule it out: on a shared link a port that stops hearing
+BPDUs is not evidence of a link broken in one direction.
+
+Two combinations are refused at construction, with the field path
+`ports.<name>.loop_guard`:
+
+- `LoopGuard` with `RestrictedRole`, which Cisco and [Juniper][juniper-loop] make
+  mutually exclusive. Restricted role denies the port the role loop guard exists
+  to protect.
+- `LoopGuard` with `AdminEdge`, which asks the guard to watch a port it is
+  defined not to watch.
+
+A configuration whose two halves contradict each other has no correct simulated
+answer, so refusing it names the conflict where the operator can see it.
+
+[cisco-loop]: https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html
+[juniper-loop]: https://www.juniper.net/documentation/us/en/software/junos/stp-l2/topics/topic-map/spanning-tree-loop-protection.html
+[arista-stp]: https://www.arista.com/en/um-eos/eos-spanning-tree-protocol
+
+## The gate answers per VLAN
+
+`Learns` and `Forwards` take a port and a VLAN, because a port's forwarding
+state belongs to a spanning tree and more than one tree can run over one port.
+The layer keys its state by tree and maps the VLAN to one.
+
+Today there is exactly one tree, the CIST, and every VLAN maps to it, so the two
+answers always agree. The signature is what lets that stop being true without
+moving the seam through the bridge and switch a second time.
+
+The bridge consults the gate after classifying the frame, so a gate-blocked
+frame names the VLAN it was classified into, and a frame that fails
+classification reports the classification reason instead: a frame the port would
+never have admitted is not a spanning-tree question.
+
+Two things stay bridge-global rather than moving onto the tree. The port
+identifier, derived from the index in the sorted port names, appears on the wire
+and in `PortInfo`. The port key set and its iteration order reach the caller as
+the order of `Effects.Flush`.
+
+## Decoding a version 3 BPDU
+
+`Decode` accepts any BPDU with `version >= 2` and type `0x02` and reads the CIST
+prefix, so an MST BPDU is read as the RST BPDU its prefix encodes. This is
+deliberate. The UNH-IOL MSTP conformance suite states that "A compliant device
+must not validate an MST BPDU based on the value encoded in the Protocol Version
+Identifier field. This allows future versions of the Spanning Tree Protocol to
+use this field while providing support for legacy versions"
+([MSTP_conformance.pdf][unh-mstp], Test MSTP.op.1.3, citing IEEE Std
+802.1Q-2011 sub-clause 14.4).
+
+Reading the prefix is how an RSTP bridge peers with an MST region at all.
+Refusing it would leave a netsim RSTP bridge facing an MSTP neighbour with both
+ends Designated and Forwarding, which is an unbroken loop and a worse answer than
+the approximation. Real MST decoding replaces the prefix reading later.
+
+[unh-mstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/MSTP_conformance.pdf
+
+## Not modeled
+
+- MSTP: regions, the configuration digest, CIST and MSTI priority vectors,
+  boundary roles, hop-count aging, and per-instance topology change.
+- Per-VLAN RSTP: the SSTP encapsulation, per-VLAN trees, and the PVID
+  consistency check.
+- Per-VLAN or per-instance flushing. `Effects.Flush` is a port list, and the
+  bridge flushes a port across every FID.
+- Tagged BPDU emission. `Encode` emits untagged LLC frames.
+- Automatic BPDU-guard recovery timers, and BPDU filter.

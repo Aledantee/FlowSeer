@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 3b: Information lifetime, guards, and the VLAN-aware gate - Plan
+
+> Implemented. 5 units, 2026-09-15T14:52Z to 2026-09-15T16:45Z.
 
 ## Goal
 

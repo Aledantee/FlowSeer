@@ -17,7 +17,7 @@ goroutines or wall-clock dependencies.
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging         |
 | `vswitch/mcast`    | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `vswitch/routing`  | Routed interfaces, per-VRF tables, equal-cost selection, recursive next hops |
-| `vswitch/stp`      | Rapid Spanning Tree Protocol state machine and BPDUs         |
+| `vswitch/stp`      | Rapid Spanning Tree Protocol state machine, BPDUs, and port guards |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos       |
 | `fabric`           | Switched topology, timed cables, stepped execution, journeys |
 

@@ -2180,6 +2180,7 @@ func DefaultRegistry() *Registry {
 	RegisterBaselineCases(r)
 	RegisterPhysicalTopologyCases(r)
 	RegisterLAGMulticastCases(r)
+	RegisterSTPCases(r)
 	RegisterRoutingCases(r)
 	return r
 }
