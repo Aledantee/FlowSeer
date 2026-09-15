@@ -25,13 +25,12 @@ func (panicOnAcceptListener) Accept() (net.Conn, error) {
 	panic("simulated accept panic")
 }
 
-// TestReceiverServePanicRecordsErrAndClosesDone is evidence for this
-// change: it forces a real panic on the goroutine startServing starts (the
-// listener's Accept, not a manufactured error), then reads r.err only after
-// <-r.done — the ordering the production code's own comment says is what
-// makes the unsynchronized field safe. Before the conversion, this panic
-// took the whole process down; recorded instead, Close must report it
-// rather than leaving the caller believing the receiver stopped cleanly.
+// TestReceiverServePanicRecordsErrAndClosesDone forces a real panic on the
+// goroutine startServing starts (the listener's Accept, not a manufactured
+// error), then reads r.err only after <-r.done — the ordering the production
+// code's own comment says is what makes the unsynchronized field safe. Close
+// must report the panic rather than leave the caller believing the receiver
+// stopped cleanly.
 func TestReceiverServePanicRecordsErrAndClosesDone(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

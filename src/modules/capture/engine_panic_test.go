@@ -19,14 +19,12 @@ func (panicSource) Stats() (uint64, uint64, error) { return 0, 0, nil }
 
 func (panicSource) Close() error { return nil }
 
-// TestEngineRunPanicRecordsErrorAndClosesPump is evidence for this change:
-// it forces a real panic on the goroutine Run starts (Source.Receive, not a
-// manufactured error), then asserts p.Err() is already set at the moment
-// p.Data() is observed closed — not merely eventually, since p.Fail records
-// the error before it closes the channel. Before the conversion, this panic
-// took the whole process down; recovered instead, a consumer ranging over
-// Data() must see a reported failure rather than what looks like a clean,
-// empty finish.
+// TestEngineRunPanicRecordsErrorAndClosesPump forces a real panic on the
+// goroutine Run starts (Source.Receive, not a manufactured error), then
+// asserts p.Err() is already set at the moment p.Data() is observed closed —
+// not merely eventually, since p.Fail records the error before it closes the
+// channel. A consumer ranging over Data() must be able to tell a panicking
+// capture from a clean, empty finish.
 func TestEngineRunPanicRecordsErrorAndClosesPump(t *testing.T) {
 	e := newEngine(panicSource{}, testBudget(10), false)
 	p, err := e.Run(context.Background())

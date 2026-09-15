@@ -348,10 +348,8 @@ func TestALaneRefusalDoesNotLeaveTheOperationInFlight(t *testing.T) {
 // converted goroutine in execute: it forces a real panic out of Submit and
 // checks that the process survives, that central is told the dispatch was
 // refused rather than hearing nothing, and that the sequence is admittable
-// again rather than stuck "in flight" forever. Before the sink was wired,
-// a panic here left the registry entry admitted with nothing to clear it —
-// worse than the crash it replaced, because a crash at least drops the
-// connection central notices.
+// again rather than stuck "in flight" forever. A registry entry left admitted
+// with nothing to clear it is silent, where a dropped connection is not.
 func TestASubmitPanicDoesNotLeaveTheOperationInFlight(t *testing.T) {
 	lane := &laneFake{submitPanic: "the lane fell over"}
 	out := &outboundFake{}

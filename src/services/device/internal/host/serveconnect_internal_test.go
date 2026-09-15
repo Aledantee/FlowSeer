@@ -9,13 +9,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// TestAServeConnectPanicIsTheAttemptsError is evidence for the converted
-// goroutine in serveConnect: it forces a real panic out of serve and checks
-// that the Runner returns that panic as its error rather than hanging or
-// letting the process die. Before the sink was wired, a panic in this
-// goroutine would have taken the whole process down with it — the errCh
-// send never happened, so neither select branch in serveConnect could ever
-// have returned.
+// TestAServeConnectPanicIsTheAttemptsError forces a real panic out of serve
+// and checks that the Runner returns that panic as its error rather than
+// hanging. The errCh send is serveConnect's only way to learn the server
+// stopped, so a panic that skipped it would leave both select branches
+// waiting on a channel nothing will ever write to.
 func TestAServeConnectPanicIsTheAttemptsError(t *testing.T) {
 	server := &http.Server{}
 	t.Cleanup(func() { _ = server.Close() })
