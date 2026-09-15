@@ -1,6 +1,8 @@
 package netsimtest
 
 import (
+	"maps"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -78,10 +80,11 @@ func stpCaseCompleteMetadata() *MetadataExpectation {
 // the host-facing access port every case injects on, and p1 is the port under
 // test, which the seeded forwarding entry sends the frame out of.
 func stpCaseSwitch(stpPorts map[string]stp.Port) (*vswitch.Switch, error) {
-	tbl, err := port.NewBuilder().
-		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Build()
+	builder := port.NewBuilder()
+	for _, name := range slices.Sorted(maps.Keys(stpPorts)) {
+		builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	}
+	tbl, err := builder.Build()
 	if err != nil {
 		return nil, err
 	}
@@ -107,15 +110,22 @@ func stpCaseSwitch(stpPorts map[string]stp.Port) (*vswitch.Switch, error) {
 	return sw, nil
 }
 
-// stpCaseSuperiorBPDU encodes an RST BPDU from a bridge better than the one
-// stpCaseSwitch builds, carrying the given message age against a 20s max age.
+// stpCaseSuperiorBPDU encodes an RST BPDU from the root bridge itself, better
+// than the one stpCaseSwitch builds, carrying the given message age against a
+// 20s max age.
 func stpCaseSuperiorBPDU(messageAge time.Duration) ethernet.Frame {
+	return stpCaseBPDU(4096, 10, messageAge)
+}
+
+// stpCaseBPDU encodes an RST BPDU from bridge `sender` claiming root 4096 at
+// `cost`, so a case can place one bridge's claim against another's.
+func stpCaseBPDU(sender uint16, cost uint32, messageAge time.Duration) ethernet.Frame {
 	b := stp.BPDU{
 		Version:      2,
 		Type:         stp.BPDUTypeRapid,
 		RootID:       stp.BridgeID{Priority: 4096},
-		RootPathCost: 10,
-		BridgeID:     stp.BridgeID{Priority: 4096},
+		RootPathCost: cost,
+		BridgeID:     stp.BridgeID{Priority: sender},
 		PortID:       0x8001,
 		MessageAge:   messageAge,
 		MaxAge:       20 * time.Second,
@@ -157,25 +167,30 @@ func CaseTroubleshootingStaleRootAgesOut() Case {
 		Execute: func() (ExecutionResult, error) {
 			sw, err := stpCaseSwitch(map[string]stp.Port{
 				"p1": {},
+				"p2": {},
 				"p9": {AdminEdge: true},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
-			// Two forward delays carry p1 through Learning to Forwarding, one
-			// rung per timer, which is the state the stale information would
-			// take away.
+			// Two forward delays carry both uplinks through Learning to
+			// Forwarding, one rung per timer.
 			sw.Wake(stpCaseStart.Add(16 * time.Second))
 			sw.Wake(stpCaseStart.Add(32 * time.Second))
 
-			// A BPDU naming a root that no longer exists arrives with its
-			// message age already at the max age it carries. Storing it would
-			// make p1 Alternate and blocked, and every circulating copy would
-			// refresh the timer that holds it there.
-			sw.Forward(stpCaseStart.Add(33*time.Second), "p1", stpCaseSuperiorBPDU(20*time.Second))
+			// p2 hears the root bridge itself and becomes the root port, which
+			// fixes this bridge's own path cost to the root.
+			sw.Forward(stpCaseStart.Add(33*time.Second), "p2", stpCaseBPDU(4096, 0, 0))
 
-			fwd := sw.Forward(stpCaseStart.Add(34*time.Second), "p9", stpCaseDataFrame())
+			// A second bridge claims the same root on p1 at a cost that beats
+			// this bridge's own, so storing the claim would make p1 Alternate
+			// and blocked. Its message age has already reached the max age it
+			// carries, and every circulating copy would refresh the timer that
+			// holds the port there.
+			sw.Forward(stpCaseStart.Add(34*time.Second), "p1", stpCaseBPDU(8192, 100, 20*time.Second))
+
+			fwd := sw.Forward(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -193,8 +208,8 @@ func CaseTroubleshootingStaleRootAgesOut() Case {
 		FalseAnswer: "The port stays blocked forever, because every circulating copy refreshes the " +
 			"information timer regardless of how many hops the message has already taken",
 		CurrentResult: "Information whose message age has reached the max age its own BPDU carries is " +
-			"discarded rather than stored, so p1 keeps its Designated and Forwarding state and the " +
-			"frame is delivered",
+			"discarded rather than stored, so p1 stays Designated and Forwarding instead of becoming " +
+			"Alternate, and the frame is delivered over it",
 		ExpectedMetadata: stpCaseCompleteMetadata(),
 		ExpectedOutcome:  trace.Forwarded,
 		ExpectedRules: []trace.RuleID{

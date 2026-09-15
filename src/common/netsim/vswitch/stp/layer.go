@@ -964,11 +964,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		p.pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
 
-		wasForwarding := p.state == StateForwarding
+		// The entries learned on the port are the ones certainly stale. The
+		// topology change itself is left to recompute, which raises it from the
+		// same transition with the same origin and timestamp; raising it here
+		// as well would count one event twice.
 		flushes = append(flushes, p.name)
-		if wasForwarding && !p.edge {
-			l.raiseTopologyChange(t, p.name, now, &flushes)
-		}
 
 		emissions = append(emissions, l.recompute(t, now, &flushes)...)
 
@@ -1246,10 +1246,10 @@ func (l *Layer) Wake(now time.Time) Effects {
 	for _, name := range l.portNames {
 		p := t.ports[name]
 		if p.rcvInfoValid && !p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-			// Loop guard triggers here, on the one event that means the same
-			// thing for both of its causes: the port held a non-designated
-			// role and its information ran out, whether because the peer went
-			// quiet or because everything it sent was too old to store.
+			// Loop guard triggers on silence: the port held a non-designated
+			// role and heard nothing for three hello times. A port whose peer
+			// keeps sending BPDUs too old to store is not covered, because any
+			// received BPDU clears the state before this runs again.
 			if p.loopGuardWatches() &&
 				(p.role == RoleRoot || p.role == RoleAlternate || p.role == RoleBackup) {
 				p.loopInconsistent = true

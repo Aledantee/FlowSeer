@@ -113,11 +113,13 @@ a port, and the trace carries it.
 | `BPDUGuard` | A BPDU on the port disables it for spanning tree: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
 | `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
 | `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
-| `LoopGuard` | A port whose information expires while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. | A BPDU received on the port, or a link down. |
+| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. | Any BPDU received on the port, or a link down. |
 
 Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
 all apply loop protection only to ports that were receiving BPDUs and recover on
-the next BPDU. It is inactive on a port that is operationally edge and on one
+the next BPDU. Because any received BPDU clears the state, including one the
+message-age bound discards, a peer that keeps sending information too old to
+store is not covered: the guard clears on each such BPDU and never re-arms. It is inactive on a port that is operationally edge and on one
 that is not point-to-point, which is where [Cisco][cisco-loop] and
 [Arista][arista-stp] rule it out: on a shared link a port that stops hearing
 BPDUs is not evidence of a link broken in one direction.

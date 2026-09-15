@@ -288,8 +288,10 @@ them.
   disables the port with reason `bpdu-guard` until a link bounce, restricted
   role keeps a port out of root selection, restricted TCN stops a received
   change from propagating, and loop guard holds a port whose information
-  expired while it was Root, Alternate, or Backup in a discarding Alternate
-  role with reason `loop-inconsistent` until the next BPDU. Loop guard is
+  expired in silence while it was Root, Alternate, or Backup in a discarding
+  Alternate role with reason `loop-inconsistent` until any BPDU arrives, one
+  the message-age bound discards included, so a peer sending only stale
+  information is not covered. Loop guard is
   netsim's own design drawn from Cisco, Juniper, and Arista, and is inactive
   on an operationally edge port and on a shared link, where a port that stops
   hearing BPDUs is not evidence of a link broken in one direction. `LoopGuard`

@@ -50,7 +50,7 @@ func guardLayer(t *testing.T, ports map[string]stp.Port) (*stp.Layer, time.Time)
 	return l, t0
 }
 
-// TestMessageAgeAtMaxAgeIsDiscarded is evidence for R15a. The counterfactual
+// TestMessageAgeAtMaxAgeIsDiscarded pins the hop-count bound. The counterfactual
 // belongs here rather than to a fabric run: makeBPDU always increments the age,
 // so a fabric has no hook to hold it at a chosen value.
 func TestMessageAgeAtMaxAgeIsDiscarded(t *testing.T) {
@@ -107,10 +107,9 @@ func TestMessageAgeBoundUsesTheReceivedMaxAge(t *testing.T) {
 	}
 }
 
-// TestGateAnswersAlikeForEveryVLAN is evidence for Rgate. One tree answers every
-// VLAN in this phase, so the two VLANs agree; the test exists to pin that the
-// parameter is carried and resolved rather than ignored, and it is the test that
-// starts failing when phase 3d gives the VLANs different trees.
+// TestGateAnswersAlikeForEveryVLAN pins that the gate resolves the VLAN it is
+// given rather than ignoring it. One tree answers every VLAN today, so the two
+// agree; this is the test that starts failing once VLANs map to different trees.
 func TestGateAnswersAlikeForEveryVLAN(t *testing.T) {
 	t.Parallel()
 
@@ -138,7 +137,8 @@ func TestGateAnswersAlikeForEveryVLAN(t *testing.T) {
 	}
 }
 
-// TestBPDUGuardDisablesPortUntilLinkBounce is evidence for R15b and R15e.
+// TestBPDUGuardDisablesPortUntilLinkBounce pins the guard's outcome and the
+// blocking reason it puts in the trace.
 func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	t.Parallel()
 
@@ -192,7 +192,41 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	}
 }
 
-// TestRestrictedRoleKeepsPortOutOfRootSelection is evidence for R15b.
+// TestBPDUGuardCountsOneTopologyChange pins that disabling a forwarding port
+// raises the change once. The guard block leaves the raise to recompute, which
+// sees the same Forwarding-to-Discarding transition; doing both counted one
+// event twice, and the count is exported through the switch.
+func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	l, t0 := guardLayer(t, map[string]stp.Port{
+		"1/1/1": {BPDUGuard: true},
+		"1/1/2": {},
+	})
+
+	// Two forward delays carry the guarded port to Forwarding, so the BPDU
+	// below takes it out of the active topology rather than finding it already
+	// discarding.
+	l.Wake(t0.Add(16 * time.Second))
+	l.Wake(t0.Add(32 * time.Second))
+	if got := l.PortInfo("1/1/1").State; got != stp.StateForwarding {
+		t.Fatalf("port state = %v, want Forwarding before the guard trips", got)
+	}
+
+	before, _ := l.TopologyChanges()
+	l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
+	after, _ := l.TopologyChanges()
+
+	if got := after - before; got != 1 {
+		t.Errorf("topology changes raised = %d, want 1 for one port leaving the topology", got)
+	}
+	if reason := l.PortInfo("1/1/1").BlockReason; reason != stp.BlockReasonBPDUGuard {
+		t.Errorf("block reason = %q, want %q", reason, stp.BlockReasonBPDUGuard)
+	}
+}
+
+// TestRestrictedRoleKeepsPortOutOfRootSelection pins that superior information
+// on a restricted port blocks the port without moving the bridge's root.
 func TestRestrictedRoleKeepsPortOutOfRootSelection(t *testing.T) {
 	t.Parallel()
 
@@ -218,7 +252,8 @@ func TestRestrictedRoleKeepsPortOutOfRootSelection(t *testing.T) {
 	}
 }
 
-// TestRestrictedTCNDoesNotPropagate is evidence for R15b.
+// TestRestrictedTCNDoesNotPropagate pins that a change received on a restricted
+// port reaches no other port.
 func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 	t.Parallel()
 
@@ -245,7 +280,7 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 	}
 }
 
-// TestLoopGuardHoldsPortDiscardingWhenBPDUsStop is evidence for R15b: the port
+// TestLoopGuardHoldsPortDiscardingWhenBPDUsStop pins the guard's outcome: the port
 // whose designated peer went quiet stays out of the topology instead of
 // claiming the segment and opening a loop.
 func TestLoopGuardHoldsPortDiscardingWhenBPDUsStop(t *testing.T) {
@@ -309,7 +344,7 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	}
 }
 
-// TestLoopGuardIsInactiveWhereVendorsExcludeIt is evidence for R15d.
+// TestLoopGuardIsInactiveWhereVendorsExcludeIt pins the shared-link exclusion.
 func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 	t.Parallel()
 
@@ -334,26 +369,8 @@ func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 		t.Errorf("shared-link port block reason = %q, want none: loop guard does not watch it", got)
 	}
 
-	// An operationally edge port, reached through auto edge rather than through
-	// AdminEdge, which validation refuses beside the guard.
-	edge := mustNewSTP(t, stp.Config{
-		Priority: 32768,
-		Address:  mustMAC(t, "02:00:00:00:00:11"),
-		Ports: map[string]stp.Port{
-			"1/1/1": {LoopGuard: true, AutoEdge: true},
-			"1/1/2": {},
-		},
-	}, mustPortTable(t, "1/1/1", "1/1/2"))
-	edge.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
-	edge.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
-
-	// No BPDU ever arrives, so the edge delay makes the port an edge.
-	edge.Wake(t0.Add(stp.MigrateTime + time.Second))
-	if !edge.PortInfo("1/1/1").Edge {
-		t.Fatal("port did not become an operational edge; the case under test was not reached")
-	}
-	edge.Wake(t0.Add(30 * time.Second))
-	if got := edge.PortInfo("1/1/1").BlockReason; got != "" {
-		t.Errorf("edge port block reason = %q, want none: loop guard does not watch an edge", got)
-	}
+	// Removing p.pointToPoint from loopGuardWatches makes this fail, which is
+	// what makes it evidence about the guard rather than about the fabric. The
+	// edge half of the exclusion cannot be reached from here and is pinned by
+	// TestLoopGuardIgnoresAnEdgePort instead.
 }

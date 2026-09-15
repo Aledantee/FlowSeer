@@ -1388,7 +1388,7 @@ func gateVLANConfig() bridge.Config {
 	}
 }
 
-// TestGateBlockedFrameCarriesItsClassifiedFID is evidence for Rgate: the gate
+// TestGateBlockedFrameCarriesItsClassifiedFID pins the reorder's first effect: the gate
 // now runs after classification, so the drop names the VLAN the frame was
 // classified into rather than a zero standing in for "not classified yet".
 func TestGateBlockedFrameCarriesItsClassifiedFID(t *testing.T) {
@@ -1434,7 +1434,7 @@ func TestGateBlockedFrameCarriesItsClassifiedFID(t *testing.T) {
 	}
 }
 
-// TestClassificationFailureOutranksPortBlocked is evidence for Rgate. A frame
+// TestClassificationFailureOutranksPortBlocked pins the reason precedence. A frame
 // the port would never have admitted is not a spanning-tree question, so the
 // classification reason is the useful answer even though the port is blocked.
 func TestClassificationFailureOutranksPortBlocked(t *testing.T) {

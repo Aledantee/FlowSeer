@@ -71,11 +71,13 @@ established across the library:
   the last member query time, two seconds after the leave, well short of the
   260 s membership interval a full run would use, disproving the false
   answer that forwarding continues for the full interval regardless.
-- `troubleshooting/stale-root-ages-out`: A BPDU naming a root that no longer
-  exists arrives with its message age already at the max age it carries. It is
-  discarded rather than stored, so the port keeps its Designated and Forwarding
-  state and the frame is delivered, disproving the false answer that every
-  circulating copy refreshes the timer and holds the port blocked forever.
+- `troubleshooting/stale-root-ages-out`: One uplink hears the root bridge
+  directly; a second bridge claims the same root on the other uplink at a
+  better cost, in a BPDU whose message age has already reached the max age it
+  carries. Storing that claim would make the second uplink Alternate and block
+  the frame; discarding it leaves the uplink Designated and Forwarding and the
+  frame is delivered, disproving the false answer that every circulating copy
+  refreshes the timer and holds the port blocked forever.
 - `troubleshooting/bpdu-guard-disables-edge`: An unexpected bridge announces
   itself on an access port configured with BPDU guard. The port is disabled for
   spanning tree with reason `bpdu-guard` and the frame drops `port-blocked`,

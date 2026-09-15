@@ -393,9 +393,9 @@ and `b.gateFact` (`bridge.go:1251`) taking the VID with them. VLAN
 classification moves ahead of the ingress gate in `Bridge.Ingress`, with the
 reserved-address drop still ahead of both, so a classification failure now
 outranks `port-blocked` and a gate-blocked frame carries its classified FID.
-An `stpGate` adapter in `vswitch` resolves the VID to a tree and calls the
-layer, replacing the direct installation at `switch.go:285` and
-`derive.go:47`, in the shape `lagSelector` already uses. The multicast
+`*stp.Layer` stays installed as the gate directly, and its `Learns` and
+`Forwards` resolve the VID to a tree through `treeFor`, per the ruling in
+Decisions. The multicast
 retention predicate at `derive.go:98` passes the `vid` it already has. The
 egress call sites pass the FID they already hold (`bridge.go:944`, `:1147`).
 Tests: the Rgate example, including the step order, the FID, and the reason
@@ -407,7 +407,8 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 
 ### U5. Corpus and documentation
 
-Files: `src/common/netsim/internal/netsimtest/cases.go`, `corpus_test.go`,
+Files: `src/common/netsim/internal/netsimtest/stp_cases.go` (new), `cases.go`,
+`corpus_test.go`,
 `README.md`, `src/common/netsim/vswitch/stp/README.md` (new),
 `src/common/netsim/README.md`,
 `docs/architecture/2026-09-10-virtual-device-direction.md`,
@@ -454,5 +455,16 @@ go vet ./src/common/netsim/...
 
 ## Open questions
 
-Empty. The reorder's three consequences are decided above, and the one that
-could still block the phase is the stop condition rather than a question.
+- **Loop guard covers silence but not the message-age cause, and the two
+  Decisions above conflict.** The trigger names both causes; the recovery
+  clause, "a BPDU received on the port clears the state", is unqualified. A
+  peer that keeps sending BPDUs too old to store therefore clears the guard on
+  every one, and after the first expiry the port returns to Designated and
+  forwards on information it never stored, which is the outcome the guard
+  exists to remove. It never re-arms, because the trigger fires only where
+  stored information expires. Landed as the unqualified recovery, so the code
+  follows the plan's letter and the silence cause is what the tests and the
+  corpus case cover. Deciding whether a discarded BPDU should count as
+  recovery is a `plan` question, not an edit: refusing it there would also stop
+  a topology change notification from clearing the state, which departs from
+  the same clause.

@@ -7,8 +7,8 @@ import (
 )
 
 // treeID identifies one spanning tree within the bridge. Rapid spanning tree
-// has a single tree, so CIST is the only value this phase constructs; MSTP adds
-// the instance identifiers.
+// has a single tree, so CIST is the only value constructed; MSTP is what gives
+// the identifier more than one value.
 type treeID uint16
 
 // cistID is the Common and Internal Spanning Tree, the tree every VLAN maps to
@@ -54,8 +54,8 @@ func (l *Layer) cist() *tree {
 }
 
 // treeFor returns the tree that carries the given VLAN. Every VLAN maps to the
-// CIST while the bridge runs one tree; the mapping becomes configurable when
-// MSTP introduces instances.
+// CIST while the bridge runs one tree, so the map is empty and the fallback
+// answers; MSTP is what fills it.
 func (l *Layer) treeFor(vid vlan.ID) *tree {
 	if id, ok := l.vidToTree[vid]; ok {
 		return l.trees[id]
