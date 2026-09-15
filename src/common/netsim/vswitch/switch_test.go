@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -5267,6 +5268,181 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 		}
 		if res.Metadata.Status() != analysis.Complete {
 			t.Errorf("status at t+3s = %v, want Complete", res.Metadata.Status())
+		}
+	})
+}
+
+// routeLookupFact returns the canonical route-lookup fact carried by a forwarding
+// result, which is where the equal-cost candidate set reaches a journey.
+func routeLookupFact(t *testing.T, res vswitch.ForwardResult) string {
+	t.Helper()
+	for _, step := range res.Steps {
+		if step.Layer != port.LayerRouting || step.Op != trace.OpLookup {
+			continue
+		}
+		for _, f := range step.Outputs {
+			if f.TypeID() == "routing.lookup_decision" && strings.Contains(f.Canonical(), ";matched=true;") {
+				return f.Canonical()
+			}
+		}
+	}
+	t.Fatalf("no matched route lookup fact in steps: %+v", res.Steps)
+	return ""
+}
+
+// routeCandidates splits the candidate list out of a route-lookup fact, each member
+// rendered as "configured next hop|interface|forwarding next hop".
+func routeCandidates(t *testing.T, fact string) (candidates []string, chosen int) {
+	t.Helper()
+	open := strings.Index(fact, ";candidates=[")
+	if open < 0 || !strings.HasSuffix(fact, "]") {
+		t.Fatalf("route fact carries no candidate set: %s", fact)
+	}
+	list := fact[open+len(";candidates=[") : len(fact)-1]
+	if list != "" {
+		candidates = strings.Split(list, ",")
+	}
+
+	chosenAt := strings.Index(fact, ";chosen=")
+	if chosenAt < 0 {
+		t.Fatalf("route fact names no chosen candidate: %s", fact)
+	}
+	rest := fact[chosenAt+len(";chosen="):]
+	if end := strings.Index(rest, ";"); end >= 0 {
+		rest = rest[:end]
+	}
+	chosen, err := strconv.Atoi(rest)
+	if err != nil {
+		t.Fatalf("chosen index %q: %v", rest, err)
+	}
+	if chosen < 0 || chosen >= len(candidates) {
+		t.Fatalf("chosen index %d out of range for %v", chosen, candidates)
+	}
+
+	return candidates, chosen
+}
+
+func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
+	macH3 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
+	nextHopA := netip.MustParseAddr("10.0.20.7")
+	nextHopB := netip.MustParseAddr("10.0.30.7")
+	dst := netip.MustParseAddr("10.0.99.5")
+
+	routes := []routing.Route{
+		{Prefix: netip.MustParsePrefix("10.0.99.0/24"), NextHop: nextHopA, Preference: 1, Metric: 10},
+		{Prefix: netip.MustParsePrefix("10.0.99.0/24"), NextHop: nextHopB, Preference: 1, Metric: 10},
+	}
+	candidateSet := func(ifaceA, ifaceB string) []string {
+		return []string{
+			nextHopA.String() + "|" + ifaceA + "|" + nextHopA.String(),
+			nextHopB.String() + "|" + ifaceB + "|" + nextHopB.String(),
+		}
+	}
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	frame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       macRouter,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   makeIPv4Packet(t, ipH1, dst, 64, []byte("ecmp")),
+	}
+
+	t.Run("routed port", func(t *testing.T) {
+		sw := mustSwitch(t, vswitch.Config{
+			Ports: ports,
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"1/1/1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"1/1/2": {Port: "1/1/2", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"1/1/3": {Port: "1/1/3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+					Routes: routes,
+					Neighbors: []routing.Neighbor{
+						{Interface: "1/1/2", Addr: nextHopA, MAC: macH2},
+						{Interface: "1/1/3", Addr: nextHopB, MAC: macH3},
+					},
+				},
+			}},
+		})
+
+		res := sw.Forward(fixedTime, "1/1/1", frame)
+		if res.Outcome != trace.Forwarded {
+			t.Fatalf("outcome = %v, want %v", res.Outcome, trace.Forwarded)
+		}
+
+		got, chosen := routeCandidates(t, routeLookupFact(t, res))
+		if want := candidateSet("1/1/2", "1/1/3"); !slices.Equal(got, want) {
+			t.Fatalf("candidates = %v, want %v", got, want)
+		}
+
+		wantPort := []string{"1/1/2", "1/1/3"}[chosen]
+		wantMAC := []netaddr.MAC{macH2, macH3}[chosen]
+		if len(res.Egress) != 1 || res.Egress[0].Port != wantPort {
+			t.Fatalf("egress = %+v, want one on %s", res.Egress, wantPort)
+		}
+		if res.Egress[0].Frame.Dst != wantMAC {
+			t.Errorf("egress destination MAC = %s, want %s for candidate %d", res.Egress[0].Frame.Dst, wantMAC, chosen)
+		}
+	})
+
+	t.Run("VLAN interface", func(t *testing.T) {
+		p10, p20, p30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
+		sw := mustSwitch(t, vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20", 30: "vlan30"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &p20, Untagged: []vlan.ID{20}},
+					"1/1/3": {PVID: &p30, Untagged: []vlan.ID{30}},
+				},
+			}},
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"vlan30": {VLAN: 30, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+					Routes: routes,
+					Neighbors: []routing.Neighbor{
+						{Interface: "vlan20", Addr: nextHopA, MAC: macH2},
+						{Interface: "vlan30", Addr: nextHopB, MAC: macH3},
+					},
+				},
+			}},
+		})
+		mustSwitchLearn(t, sw, []bridge.Seed{
+			{FID: 20, MAC: macH2, Port: "1/1/2", Static: true},
+			{FID: 30, MAC: macH3, Port: "1/1/3", Static: true},
+		})
+
+		res := sw.Forward(fixedTime, "1/1/1", frame)
+		if res.Outcome != trace.Forwarded {
+			t.Fatalf("outcome = %v, want %v", res.Outcome, trace.Forwarded)
+		}
+
+		got, chosen := routeCandidates(t, routeLookupFact(t, res))
+		if want := candidateSet("vlan20", "vlan30"); !slices.Equal(got, want) {
+			t.Fatalf("candidates = %v, want %v", got, want)
+		}
+
+		wantFID := []vlan.ID{20, 30}[chosen]
+		wantPort := []string{"1/1/2", "1/1/3"}[chosen]
+		wantMAC := []netaddr.MAC{macH2, macH3}[chosen]
+		if res.FID != wantFID {
+			t.Errorf("FID = %d, want %d for candidate %d", res.FID, wantFID, chosen)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != wantPort {
+			t.Fatalf("egress = %+v, want one on %s", res.Egress, wantPort)
+		}
+		if res.Egress[0].Frame.Dst != wantMAC {
+			t.Errorf("egress destination MAC = %s, want %s for candidate %d", res.Egress[0].Frame.Dst, wantMAC, chosen)
 		}
 	})
 }

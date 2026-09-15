@@ -22,6 +22,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/netmodel"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -1883,6 +1884,261 @@ func expectedChange(
 	}.Canonical()
 }
 
+func routedECMPPorts() (port.Table, error) {
+	return port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out-b", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+}
+
+// CasePlanningECMPCandidatesRecorded returns the case evaluating whether a lookup
+// over two equal-cost static routes records the path the packet did not take.
+func CasePlanningECMPCandidatesRecorded() Case {
+	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
+	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
+	nextHopMACA := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
+	nextHopMACB := netaddr.MAC{0x02, 0, 0, 0, 0, 0xb1}
+	nextHopA := netip.MustParseAddr("10.0.20.7")
+	nextHopB := netip.MustParseAddr("10.0.30.7")
+	source := netip.MustParseAddr("10.0.10.7")
+	destination := netip.MustParseAddr("10.0.99.5")
+
+	packetIn := expectedFact("routing.packet_decision",
+		`interface="in";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=64;valid=true;reason=""`)
+	lookup := expectedFact("routing.lookup_decision",
+		`vrf="default";destination="10.0.99.5";matched=true;prefix="10.0.99.0/24";next_hop="10.0.20.7";`+
+			`interface="out-a";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
+			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out-a|10.0.20.7,10.0.30.7|out-b|10.0.30.7]`)
+	neighbor := expectedFact("routing.neighbor_decision",
+		`interface="out-a";address="10.0.20.7";present=true;mac="02:00:00:00:00:a1"`)
+	packetOut := expectedFact("routing.packet_decision",
+		`interface="out-a";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
+
+	return Case{
+		ID:      "planning/ecmp-candidates-recorded",
+		UseCase: UseCasePlanning,
+		Question: "Two equal-cost static routes reach one prefix. Does the trace record both, " +
+			"so a reader can tell which path the flow would move to if one failed?",
+		FalseAnswer: "One route wins and the alternatives are invisible",
+		CurrentResult: "The lookup fact names both next hops in canonical order and the index of " +
+			"the one the flow hash chose, so the unused path is visible beside the used one",
+		ExpectedMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
+		ExpectedOutcome: trace.Forwarded,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("classify"),
+			trace.RuleID("static"),
+			trace.RuleID("decrement-ttl"),
+			trace.RuleID("routing.transmit"),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "interface", Key: "in"},
+			{Kind: "prefix", Key: "10.0.99.0/24"},
+			{Kind: "interface", Key: "out-a"},
+			{Kind: "port", Key: "out-a"},
+		},
+		ExpectedFacts: []FactExpectation{lookup},
+		ExpectedSteps: []StepExpectation{
+			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+				[]FactExpectation{packetIn},
+				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
+			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.99.0/24"},
+				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
+			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out-a"},
+				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
+			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out-a"},
+				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out-a";port="out-a";member="";reason=""`)}),
+		},
+		ExpectedForwardMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
+		Execute: func() (ExecutionResult, error) {
+			ports, err := routedECMPPorts()
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			spec := vswitch.ConstructionSpec{
+				Config: vswitch.Config{
+					Ports: ports,
+					Routing: &routing.Config{VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"in":    {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+								"out-a": {Port: "out-a", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+								"out-b": {Port: "out-b", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+							},
+							Routes: []routing.Route{
+								{Prefix: netip.MustParsePrefix("10.0.99.0/24"), NextHop: nextHopA, Preference: 1, Metric: 10},
+								{Prefix: netip.MustParsePrefix("10.0.99.0/24"), NextHop: nextHopB, Preference: 1, Metric: 10},
+							},
+							Neighbors: []routing.Neighbor{
+								{Interface: "out-a", Addr: nextHopA, MAC: nextHopMACA},
+								{Interface: "out-b", Addr: nextHopB, MAC: nextHopMACB},
+							},
+						},
+					}},
+				},
+			}
+
+			sw, err := vswitch.NewWithSpec(spec)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			hdr := ip.Header{Src: source, Dst: destination, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
+			pkt, err := hdr.Encode([]byte("flow"))
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			fwd := sw.Forward(time.Unix(1700000000, 0), "in", ethernet.Frame{
+				Dst:       routerMAC,
+				Src:       hostMAC,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   pkt,
+			})
+
+			return ExecutionResult{
+				Outcome:  fwd.Outcome,
+				Reason:   fwd.Reason,
+				Steps:    fwd.Steps,
+				Metadata: fwd.Metadata,
+				Switch:   sw,
+				Forward:  &fwd,
+			}, nil
+		},
+	}
+}
+
+// CaseTroubleshootingRecursiveRouteNotInstalled returns the case evaluating what a
+// static route whose next hop resolves to nothing does to the packets it would match.
+func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
+	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
+	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
+	nextHopMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
+	nextHop := netip.MustParseAddr("10.0.20.7")
+	unresolvable := netip.MustParseAddr("192.0.2.1")
+	source := netip.MustParseAddr("10.0.10.7")
+	destination := netip.MustParseAddr("10.0.99.5")
+
+	packetIn := expectedFact("routing.packet_decision",
+		`interface="in";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=64;valid=true;reason=""`)
+	lookup := expectedFact("routing.lookup_decision",
+		`vrf="default";destination="10.0.99.5";matched=true;prefix="10.0.0.0/8";next_hop="10.0.20.7";`+
+			`interface="out";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
+			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out|10.0.20.7]`)
+	neighbor := expectedFact("routing.neighbor_decision",
+		`interface="out";address="10.0.20.7";present=true;mac="02:00:00:00:00:a1"`)
+	packetOut := expectedFact("routing.packet_decision",
+		`interface="out";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
+
+	return Case{
+		ID:      "troubleshooting/recursive-route-not-installed",
+		UseCase: UseCaseTroubleshooting,
+		Question: "A more specific static route names a next hop that no other route reaches. " +
+			"What carries a packet the route would have matched?",
+		FalseAnswer: "A broken recursive route silently forwards, or fails construction, " +
+			"instead of leaving the table",
+		CurrentResult: "The device constructs, the unresolvable /24 is withdrawn rather than " +
+			"installed, and the packet takes the less specific /8 with a Complete result",
+		ExpectedMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
+		ExpectedOutcome: trace.Forwarded,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("classify"),
+			trace.RuleID("static"),
+			trace.RuleID("decrement-ttl"),
+			trace.RuleID("routing.transmit"),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "interface", Key: "in"},
+			{Kind: "prefix", Key: "10.0.0.0/8"},
+			{Kind: "interface", Key: "out"},
+			{Kind: "port", Key: "out"},
+		},
+		ExpectedFacts: []FactExpectation{lookup},
+		ExpectedSteps: []StepExpectation{
+			expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+				[]FactExpectation{packetIn},
+				[]FactExpectation{expectedFact("routing.route.interface", "in")}),
+			expectedStep(port.LayerRouting, trace.OpLookup, "static", trace.Subject{Kind: "prefix", Key: "10.0.0.0/8"},
+				[]FactExpectation{packetIn}, []FactExpectation{lookup}),
+			expectedStep(port.LayerRouting, trace.OpRewrite, "decrement-ttl", trace.Subject{Kind: "interface", Key: "out"},
+				[]FactExpectation{neighbor, packetIn}, []FactExpectation{packetOut}),
+			expectedStep(port.LayerRouting, trace.OpTransmit, "routing.transmit", trace.Subject{Kind: "port", Key: "out"},
+				nil, []FactExpectation{expectedFact("routing.lookup_decision", `interface="out";port="out";member="";reason=""`)}),
+		},
+		ExpectedForwardMetadata: &MetadataExpectation{
+			Status: analysis.Complete,
+			Scope:  analysis.NodeScope(""),
+		},
+		Execute: func() (ExecutionResult, error) {
+			ports, err := port.NewBuilder().
+				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Build()
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			spec := vswitch.ConstructionSpec{
+				Config: vswitch.Config{
+					Ports: ports,
+					Routing: &routing.Config{VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+								"out": {Port: "out", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+							},
+							Routes: []routing.Route{
+								{Prefix: netip.MustParsePrefix("10.0.99.0/24"), NextHop: unresolvable},
+								{Prefix: netip.MustParsePrefix("10.0.0.0/8"), NextHop: nextHop},
+							},
+							Neighbors: []routing.Neighbor{
+								{Interface: "out", Addr: nextHop, MAC: nextHopMAC},
+							},
+						},
+					}},
+				},
+			}
+
+			sw, err := vswitch.NewWithSpec(spec)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			hdr := ip.Header{Src: source, Dst: destination, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
+			pkt, err := hdr.Encode([]byte("flow"))
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			fwd := sw.Forward(time.Unix(1700000000, 0), "in", ethernet.Frame{
+				Dst:       routerMAC,
+				Src:       hostMAC,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   pkt,
+			})
+
+			return ExecutionResult{
+				Outcome:  fwd.Outcome,
+				Reason:   fwd.Reason,
+				Steps:    fwd.Steps,
+				Metadata: fwd.Metadata,
+				Switch:   sw,
+				Forward:  &fwd,
+			}, nil
+		},
+	}
+}
+
 // RegisterBaselineCases populates registry with the three initial baseline cases.
 func RegisterBaselineCases(registry *Registry) {
 	registry.MustRegister(CasePlanningPortVLANChange())
@@ -1911,11 +2167,19 @@ func RegisterLAGMulticastCases(registry *Registry) {
 	registry.MustRegister(CaseTroubleshootingLeaveLastMemberQuery())
 }
 
+// RegisterRoutingCases populates registry with the cases covering the equal-cost
+// candidate set a lookup records and the withdrawal of an unresolvable static route.
+func RegisterRoutingCases(registry *Registry) {
+	registry.MustRegister(CasePlanningECMPCandidatesRecorded())
+	registry.MustRegister(CaseTroubleshootingRecursiveRouteNotInstalled())
+}
+
 // DefaultRegistry returns a newly allocated registry containing every admitted case.
 func DefaultRegistry() *Registry {
 	r := NewRegistry()
 	RegisterBaselineCases(r)
 	RegisterPhysicalTopologyCases(r)
 	RegisterLAGMulticastCases(r)
+	RegisterRoutingCases(r)
 	return r
 }

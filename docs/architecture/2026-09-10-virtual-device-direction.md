@@ -270,6 +270,42 @@ them.
   there is no querier to have sent one, so the full membership interval is
   the real behavior and the result stays Complete.
 
+### Route selection and recursive next hops
+
+- **A lookup yields a candidate set, not a single winner.** Routes are ordered
+  by prefix length, then by preference (the Cisco administrative distance,
+  lower wins, with 0 reserved for connected routes so a static route floors at
+  1), then by metric within one preference. Everything that matches the
+  destination and ties on all three is kept, ordered by next hop and then
+  egress interface, and recorded in the lookup fact beside the member that
+  carried the packet. A lookup that kept only the winner could not answer
+  "what else would have carried this", which is the planning question a
+  failure analysis starts from. The set is capped at 64, FRR's limit; the
+  rest are withdrawn as `max-paths`.
+- **One member of the set carries the flow, chosen by a layer-3 hash.** An
+  FNV-1a hash over the source address, the destination address, and for IPv6
+  the flow label — no protocol octet, no ports — is reduced by RFC 2992
+  hash-threshold. That is what an unconfigured router does, and netsim has no
+  field saying someone configured it otherwise. Hash-threshold rather than
+  modulo-N because a withdrawn or added path must move as few flows as
+  possible: "which flows move when this path fails" is answered wrongly by an
+  algorithm that moves nearly all of them. The hash is a pure function of the
+  packet, so `Peek` and `Forward` agree and neither commits anything.
+- **Recursion resolves when the table is built, and a route that cannot
+  resolve is withdrawn rather than left to fail per packet.** A static route
+  whose next hop is not on-link is resolved against its own VRF's table, to a
+  depth of 8, and installs carrying the on-link pair resolution reached while
+  `Route.NextHop` keeps the configured value for the fact and the diff. A
+  route that self-recurses, exceeds the depth, resolves to nothing, or
+  resolves only through a default route is not installed, and its packets fall
+  through to whatever else matches with a Complete result: the configuration
+  stays valid on real gear, so this is neither a construction error nor
+  `Incomplete`, which is reserved for an input netsim does not have.
+  `Layer.WithdrawnRoutes` reports each withdrawal with its reason and the
+  chain of prefixes walked, because "why is my static route not being used" is
+  the question this decision creates. A withdrawn route and a `neighbor-miss`
+  stay separate failures.
+
 ### Semantic traces and producer-owned facts
 
 Prose strings are rejected as trace comparison keys. Capabilities define typed
