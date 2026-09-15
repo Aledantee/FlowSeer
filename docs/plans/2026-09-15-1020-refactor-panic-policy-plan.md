@@ -97,21 +97,23 @@ A panic must be handled, and only these three answers count:
 - A `go` statement resets handling. A panic inside a spawned goroutine is
   unhandled by definition, whatever recover its spawner sits under, because Go
   does not propagate it to the spawning frame. Why this is not a technicality:
-  there are 64 `go` statements in non-test `src/` against roughly eight
+  there are 65 spawn sites in non-test `src/` against roughly eight
   recovers, including `services/device/internal/{host,dispatchapi,deviceapi}`.
-  `src/protocol/smi/load.go:305` states the reason in its own comment — "this
-  is a goroutine, and a panic here takes the process down".
+  `src/protocol/smi/load.go:301-304` states the reason in its own comment —
+  "this is a goroutine, and a panic here takes the process down".
 - Every goroutine running first-party work is launched through one supervised
   helper under `src/common/`, which recovers and reports the panic as a
-  structured error for that unit of work. Why a helper rather than 64 inline
-  recovers: one reviewed implementation instead of 64 decisions about what
+  structured error for that unit of work. Why a helper rather than 65 inline
+  recovers: one reviewed implementation instead of 65 decisions about what
   reporting means, and an enforcement check can test for the helper instead of
-  pattern-matching recover shapes. `src/protocol/snmp/watcher.go:632` and
-  `src/protocol/smi/load.go:305` are what it generalizes.
-- `readGuarded` (`src/protocol/smi/load.go:305`) is sanctioned, and it is the
+  pattern-matching recover shapes. `src/protocol/snmp/watcher.go:622-641` and
+  `src/protocol/smi/load.go:297-314` are what it generalizes. Phase 3 settles the
+  package and its signature; the reasoning that outlives the phase is in
+  [Supervised Goroutine Spawn](../architecture/2026-09-15-supervised-goroutine-spawn-direction.md).
+- `readGuarded` (`src/protocol/smi/load.go:297`) is sanctioned, and it is the
   goroutine clause working before the clause existed. It does not license the
   parser bailout it catches: that is first-party code naming a boundary as its
-  handler, which clause 2 refuses, so phase 3 still converts it.
+  handler, which clause 2 refuses. Phase 2 converted it.
 
 ### Remedies
 
@@ -130,9 +132,9 @@ A panic must be handled, and only these three answers count:
 
 ### What this retires
 
-- "A panic that crosses a package boundary is a bug"
-  (`docs/code-style.md:147-148`) is retired deliberately, not dropped in an
-  edit. Why: `snmp.MustOID` panics into every generated MIB package and
+- "A panic that crosses a package boundary is a bug" is retired deliberately,
+  not dropped in an edit. Phase 1 landed the retirement; `docs/code-style.md`
+  records it under "What this retired". Why: `snmp.MustOID` panics into every generated MIB package and
   `catalog.MustRegister` into `registrations.go`, both by design. The successor
   ban is on *unnamed* panics crossing a package boundary.
 
@@ -157,9 +159,11 @@ A panic must be handled, and only these three answers count:
    violation even though `callHandler` (`src/common/service/delivery.go:509`)
    catches it.
 3. Every goroutine running first-party work is launched through the supervised
-   helper. Acceptance: a bare `go func() { … }()` in non-test `src/` is a
-   violation; `src/protocol/snmp/watcher.go:632` and
-   `src/protocol/smi/load.go:305` are the behavior it generalizes.
+   helper at `src/common/spawn`. Acceptance: a bare `go func() { … }()` in
+   non-test `src/` is a violation, and so is a `sync.WaitGroup.Go`;
+   `src/protocol/snmp/watcher.go:622-641` and `src/protocol/smi/load.go:297-314`
+   are the behavior it generalizes. The population is 65: 64 `go` statements
+   plus `src/common/pump/merge.go:26`, which spawns without a `go` keyword.
 4. Every surviving panic satisfies all three clauses, and each documents which
    clause-2 answer it relies on. Acceptance: `MustOID` in generated MIB code
    cites the proof; `catalog.MustRegister` cites init-time evaluation.
@@ -167,10 +171,15 @@ A panic must be handled, and only these three answers count:
    repo-wide scan gains the coverage the panic held. Acceptance:
    `NewCode("bad name!")` returns the code without panicking, and the scan
    fails on that literal.
-6. `diag.Raise` keeps its panic as `diag.MustRaise` and gains a proof.
-   Acceptance: a source-scan test reads every `MustRaise` call site, checks the
-   argument count against the catalog row's arity, and fails on a mismatch —
-   so the panic is unreachable by clause 2's proven answer.
+6. `diag.Raise` and the public `smi.Raise` keep the panic as `MustRaise` and
+   gain a proof. Acceptance: a source-scan test resolves every first-party call
+   that reaches `MustRaise` — through the five variadic forwarders as well as
+   the direct sites — to a catalog row, checks the argument count against the
+   row's arity, and fails on a mismatch or on a call it cannot resolve, so the
+   panic is unreachable by clause 2's proven answer. Amended from "reads every
+   `MustRaise` call site": five of the nine sites pass a runtime `errs.Code` and
+   a spread `args...`, which no AST pass can read, so the scan reaches the 53
+   constant-code callers behind them instead. Phase 4 has the mechanism.
 7. `catalog.Register` returns an error and `catalog.MustRegister` is the
    init-time companion. Acceptance: `Register` with an empty `Name` returns a
    non-nil error and the catalog is unchanged.
@@ -192,9 +201,15 @@ A panic must be handled, and only these three answers count:
     one error line and exits non-zero without a stack trace.
 13. The `smi` parser's bailout is converted; `readGuarded` stays. Acceptance:
     no `panic` or `recover` remains in `src/protocol/smi/internal/parse`.
-14. A check enforces clauses 1 and 2 and the goroutine boundary, and says in
+14. A check enforces clause 1 and the goroutine boundary, and says in
     `docs/code-style.md` whichever part it cannot cover. Acceptance: a bare
-    `go func()` and a first-party panic under a service boundary both fail it.
+    `go func()` outside `src/common/spawn` and a `panic` in a non-`Must`
+    function both fail it. Amended from "clauses 1 and 2": clause 2 needs a
+    repo-wide call graph, and whether a function runs under a recover is a
+    runtime property — `callOwned` takes a `Runner` interface. Phase 4 moves it
+    to review and records that in the style guide rather than shipping a check
+    that claims more than it holds, which is the narrowing this plan's Goal
+    says to prefer over codifying an unenforceable clause.
 
 ## Out of scope
 
@@ -213,21 +228,16 @@ After: none
 Change: `docs/code-style.md` carries the rule; `errs`, `diag`, `catalog`,
 `ssh`, `mibgen`, `fabric`, `vswitch` and the harvest scripts satisfy it.
 Landed: Partially. The rule and every conversion landed except `diag.Raise` →
-`MustRaise` (phase-1 U3), which is blocked pending a re-plan: it reaches the
-public `smi.Raise` and its static arity-scan proof cannot resolve the variadic
-forwarders. `errs`, `catalog`, `ssh`, `mibgen` (decoder-variant and OID
-pre-pass), `fabric`, `vswitch` and the four harvest scripts all satisfy the
+`MustRaise` (phase-1 U3), which was blocked: it reaches the public `smi.Raise`
+and its static arity-scan proof cannot resolve the variadic forwarders. That
+unit is withdrawn from phase 1 and re-planned as phase 4's U1, because the
+placement gate cannot be green without it and a phase may not depend on an
+earlier one reopening. `errs`, `catalog`, `ssh`, `mibgen` (decoder-variant and
+OID pre-pass), `fabric`, `vswitch` and the four harvest scripts all satisfy the
 rule; the surviving `Must` functions cite their clause-2 answers. See the
 phase-1 plan.
 
-### U2. Phase 4 - the goroutine helper and the 64-site audit
-Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`
-After: U1
-Change: a supervised-spawn helper lands under `src/common/`, and every
-goroutine in non-test `src/` runs through it.
-Landed:
-
-### U3. Phase 2 - the smi parser's unwinding
+### U2. Phase 2 - the smi parser's unwinding
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase2-plan.md`
 After: U1
 Change: the parser unwinds by flag-checked return rather than by panic.
@@ -235,11 +245,18 @@ Landed: Yes. `panic(bailout{})` and its recover are gone; the parser unwinds by
 the `p.fatal` flag. `benchstat` showed no regression (a small improvement from
 dropping the per-declaration recover-defer). See the phase-2 plan.
 
-### U4. Phase 3 - enforcement
+### U3. Phase 3 - the goroutine boundary
 Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase3-plan.md`
+After: U1, U2
+Change: a supervised-spawn package lands at `src/common/spawn`, and all 65
+spawn sites in non-test `src/` run through it.
+Landed:
+
+### U4. Phase 4 - enforcement
+Files: `docs/plans/2026-09-15-1020-refactor-panic-policy-phase4-plan.md`
 After: U1, U2, U3
-Change: a repository check flags a new violation. Staged for guardrail review,
-not landed by an agent.
+Change: `diag.Raise` becomes `MustRaise` with a proof that runs, and a
+conformance test flags a new placement or goroutine violation.
 Landed:
 
 ## Verification
@@ -250,10 +267,10 @@ go test -race ./...
 go test -run '^$' -bench 'BenchmarkRecovery|BenchmarkParseFile' ./src/protocol/smi/bench/
 ```
 
-The repo-wide check that the rule holds, once phase 3 lands:
+The repo-wide check that the rule holds, once phase 4 lands:
 
 ```bash
-tools/hooks/panic-policy.sh
+go test -race ./test/conformance/panic/
 ```
 
 ## Definition of done
@@ -261,12 +278,13 @@ tools/hooks/panic-policy.sh
 - [ ] Verifier green for every changed path in every phase, run per module —
       `src/edge/netpen`, `src/protocol/smi/bench`, `src/protocol/snmp/bench`,
       `src/protocol/smi/differential` and `src/protocol/syslog/bench` do not
-      build from the root, so a root `go test ./...` does not reach U4 or U8.
+      build from the root, so a root `go test ./...` does not reach the
+      conversions in them.
 - [ ] `docs/code-style.md` updated in the same change as the first conversion.
 - [ ] Every phase plan reads `implemented`, and its `Landed:` line here is
       filled.
-- [ ] `tools/hooks/panic-policy.sh` staged with a diff for guardrail review,
-      not committed by an agent.
+- [ ] The handoff notes that the Stop-hook fast-feedback wiring is available
+      and out of scope, so a person can stage it under guardrail review.
 - [ ] This plan's `status` set with an outcome note under its title.
 - [ ] No plan labels (U1, R3) in code, comments, or commit messages.
 
@@ -275,6 +293,8 @@ tools/hooks/panic-policy.sh
 - Whether any site survives as a measured hot-path exemption. The plan assumes
   none does outside the `smi` parser, and phase 2 is the only place the
   question is asked with a benchmark rather than an opinion.
-- Whether the enforcement check belongs in `tools/hooks/` as a Stop hook or in
-  `verify-change.sh` as a diff-aware gate. Phase 3 decides; the Stop hook is
-  the recommendation because the rule is repo-wide rather than diff-local.
+- Settled: the enforcement check is a Go conformance test under
+  `test/conformance/panic`, not a `tools/hooks/` Stop hook. Phase 4 decided it
+  against this plan's earlier recommendation, because `go test -race ./...` is
+  the merge-gate authority AGENTS.md names and a Go test needs no
+  policy-surface review to land.

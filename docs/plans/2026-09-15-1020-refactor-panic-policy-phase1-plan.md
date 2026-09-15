@@ -12,11 +12,13 @@ parent: docs/plans/2026-09-15-1020-refactor-panic-policy-plan.md
 # Panic Policy Phase 1 - The Rule and the Decided Conversions - Plan
 
 > Partially implemented: U1, U2, U4, U5, U6, U7, U8, U9, U10, U11 landed. U3
-> (diag.Raise → MustRaise) is blocked and needs a re-plan — it reaches the
-> public smi.Raise the unit did not name, and its static arity-scan proof is
-> infeasible against the variadic forwarders that pass a runtime code/args. See
-> the BLOCKED note under U3. No unsanctioned panic remains under src/ outside
-> diag.Raise (the blocked unit) and src/protocol/smi/internal/parse (phase 2).
+> (diag.Raise → MustRaise) is withdrawn from this phase and re-planned as
+> phase 4's U1 — it reaches the public smi.Raise the unit did not name, and its
+> static arity-scan proof is infeasible against the variadic forwarders that
+> pass a runtime code/args. Do not implement it from here; the BLOCKED note
+> under U3 records what it ran into. No unsanctioned panic remains under src/
+> outside diag.Raise (now phase 4's) and src/protocol/smi/internal/parse
+> (converted by phase 2).
 
 ## Goal
 
@@ -154,7 +156,7 @@ fails the scan; one with an uncataloged code fails; the real tree passes.
 a five-argument call renders rather than indexing out of range.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/smi`
 
-> BLOCKED — needs re-plan (found during implementation). Two facts the unit did
+> WITHDRAWN — re-planned as phase 4's U1. Two facts the unit did
 > not account for, both of the kind the parent's Goal says to stop on rather
 > than widen:
 >
