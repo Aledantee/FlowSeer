@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -14,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -1203,8 +1205,8 @@ func TestRouteCandidateSet(t *testing.T) {
 				t.Errorf("candidate %d next hop = %s, want %s", i, res.Candidates[i].NextHop, want)
 			}
 		}
-		if res.Interface != "vlan10" {
-			t.Errorf("interface = %q, want vlan10, the first candidate in canonical order", res.Interface)
+		if res.Interface != "vlan20" {
+			t.Errorf("interface = %q, want vlan20, the candidate this flow's hash lands on", res.Interface)
 		}
 	})
 
@@ -1564,15 +1566,22 @@ func TestRecursiveRouteCapsInheritedCandidates(t *testing.T) {
 		t.Fatalf("candidates = %d, want the cap of 64", len(res.Candidates))
 	}
 
+	// Both caps fire on this configuration: the recursive route inherits 65 paths, and the
+	// 65 routes resolving them are themselves equal-cost on one prefix.
 	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
-	if len(withdrawn) != 1 {
-		t.Fatalf("withdrawn = %+v, want the one path past the cap", withdrawn)
+	if len(withdrawn) != 2 {
+		t.Fatalf("withdrawn = %+v, want the inherited path and the equal route past the cap", withdrawn)
 	}
 	if withdrawn[0].Prefix != recursivePfx || withdrawn[0].Reason != routing.WithdrawnMaxPaths {
 		t.Errorf("withdrawn = %+v, want %s as %q", withdrawn[0], recursivePfx, routing.WithdrawnMaxPaths)
 	}
-	if withdrawn[0].Interface != fmt.Sprintf("vlan%d", paths) {
-		t.Errorf("withdrawn egress = %q, want the last path in canonical order", withdrawn[0].Interface)
+	if withdrawn[1].Prefix != viaPrefix || withdrawn[1].Reason != routing.WithdrawnMaxPaths {
+		t.Errorf("withdrawn = %+v, want %s as %q", withdrawn[1], viaPrefix, routing.WithdrawnMaxPaths)
+	}
+	for _, w := range withdrawn {
+		if w.Interface != fmt.Sprintf("vlan%d", paths) {
+			t.Errorf("withdrawn egress = %q, want the last path in canonical order", w.Interface)
+		}
 	}
 }
 
@@ -1590,3 +1599,373 @@ func stepFacts(res routing.Result) string {
 	}
 	return b.String()
 }
+
+// ecmpConfig builds the three-candidate set the flow-hash tests select over: one prefix
+// reachable through all three gateways at the same preference and metric.
+func ecmpConfig(gateways ...netip.Addr) routing.Config {
+	routes := make([]routing.Route, 0, len(gateways))
+	for _, gw := range gateways {
+		routes = append(routes, routing.Route{Prefix: ecmpPrefix, NextHop: gw, Preference: 1, Metric: 10})
+	}
+	return selectionConfig(routes...)
+}
+
+// routeFlow forwards one IPv4 flow in at vlan10 and returns the routing result.
+func routeFlow(t *testing.T, l *routing.Layer, src, dst netip.Addr, payload []byte) routing.Result {
+	t.Helper()
+	return l.Route("vlan10", ethernet.Frame{
+		Src:       hostMAC,
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   encodeIPv4Packet(t, src, dst, 64, payload),
+	})
+}
+
+// flowSpread returns a source and destination pair per flow, wide enough to reach every
+// region of a three-candidate set.
+func flowSpread() [][2]netip.Addr {
+	var out [][2]netip.Addr
+	for host := 1; host <= 40; host++ {
+		for dst := 1; dst <= 10; dst++ {
+			out = append(out, [2]netip.Addr{
+				netip.MustParseAddr(fmt.Sprintf("10.0.10.%d", host)),
+				netip.MustParseAddr(fmt.Sprintf("10.200.0.%d", dst)),
+			})
+		}
+	}
+	return out
+}
+
+func TestFlowHashReachesEveryCandidate(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+
+	reached := make(map[string]int)
+	for _, flow := range flowSpread() {
+		res := routeFlow(t, l, flow[0], flow[1], []byte("data"))
+		if res.Reason != "" {
+			t.Fatalf("reason = %q for %s -> %s, want empty", res.Reason, flow[0], flow[1])
+		}
+		reached[res.Interface]++
+	}
+	for _, iface := range []string{"vlan10", "vlan20", "vlan30"} {
+		if reached[iface] == 0 {
+			t.Errorf("no flow of %d reached %s; reached = %v", len(flowSpread()), iface, reached)
+		}
+	}
+}
+
+func TestFlowHashIgnoresTransportPorts(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+
+	src := netip.MustParseAddr("10.0.10.7")
+	dst := netip.MustParseAddr("10.200.0.1")
+	low := routeFlow(t, l, src, dst, []byte{0x04, 0x01, 0x00, 0x35, 'd'})
+	high := routeFlow(t, l, src, dst, []byte{0xc3, 0x50, 0x00, 0x35, 'd'})
+	if len(low.Candidates) != 3 {
+		t.Fatalf("candidates = %d, want 3; a single candidate proves nothing here", len(low.Candidates))
+	}
+	if low.Interface != high.Interface {
+		t.Errorf("source port 1025 left by %s and 50000 by %s; ports do not enter the hash", low.Interface, high.Interface)
+	}
+}
+
+func routeFragment(t *testing.T, l *routing.Layer, src, dst netip.Addr, v4 *ip.V4) routing.Result {
+	t.Helper()
+	hdr := ip.Header{Src: src, Dst: dst, HopLimit: 64, Protocol: 17, V4: v4}
+	pkt, err := hdr.Encode([]byte("payload"))
+	if err != nil {
+		t.Fatalf("encode fragment: %v", err)
+	}
+	return l.Route("vlan10", ethernet.Frame{
+		Src:       hostMAC,
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	})
+}
+
+func TestFragmentsOfOneDatagramShareANextHop(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+
+	src := netip.MustParseAddr("10.0.10.7")
+	dst := netip.MustParseAddr("10.200.0.1")
+	first := routeFragment(t, l, src, dst, &ip.V4{ID: 7, Flags: 0x1})
+	later := routeFragment(t, l, src, dst, &ip.V4{ID: 7, FragmentOffset: 185})
+	if len(first.Candidates) != 3 {
+		t.Fatalf("candidates = %d, want 3", len(first.Candidates))
+	}
+	if first.Interface != later.Interface {
+		t.Errorf("first fragment left by %s and a later one by %s", first.Interface, later.Interface)
+	}
+}
+
+func TestFlowSelectionRepeatsItself(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+
+	src := netip.MustParseAddr("10.0.10.7")
+	dst := netip.MustParseAddr("10.200.0.1")
+	first := routeFlow(t, l, src, dst, []byte("data"))
+	if len(first.Candidates) != 3 {
+		t.Fatalf("candidates = %d, want 3", len(first.Candidates))
+	}
+	for i := range 10 {
+		again := routeFlow(t, l, src, dst, []byte("data"))
+		if again.Interface != first.Interface || again.Frame.Dst != first.Frame.Dst {
+			t.Fatalf("repetition %d left by %s towards %s, want %s towards %s", i, again.Interface, again.Frame.Dst, first.Interface, first.Frame.Dst)
+		}
+	}
+}
+
+// TestRemovedCandidateLeavesTheOthersInPlace is the property the RFC 2992 reduction buys:
+// a flow only ever slides down into the region below it, so the whole first region keeps
+// its next hop when a candidate goes. Modulo-N would scatter it.
+func TestRemovedCandidateLeavesTheOthersInPlace(t *testing.T) {
+	t.Parallel()
+
+	three := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+	two := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB))
+
+	var onA, heldByB int
+	for _, flow := range flowSpread() {
+		before := routeFlow(t, three, flow[0], flow[1], []byte("data")).Interface
+		after := routeFlow(t, two, flow[0], flow[1], []byte("data")).Interface
+		switch before {
+		case "vlan10":
+			onA++
+			if after != "vlan10" {
+				t.Errorf("%s -> %s was on vlan10 and moved to %s when vlan30 went away", flow[0], flow[1], after)
+			}
+		case "vlan20":
+			if after == "vlan20" {
+				heldByB++
+			}
+		}
+	}
+	if onA == 0 || heldByB == 0 {
+		t.Fatalf("flows on vlan10 = %d, flows held by vlan20 = %d; the spread proves nothing", onA, heldByB)
+	}
+}
+
+func TestOriginateSelectsOverTheCandidateSet(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
+
+	// The originated source address is the same for every destination here, so the
+	// destinations differ in an octet the hash mixes rather than in the last one, which a
+	// run of consecutive values would move by too little to leave one region.
+	reached := make(map[string]int)
+	for i := 1; i <= 40; i++ {
+		dst := netip.MustParseAddr(fmt.Sprintf("10.200.%d.1", i))
+		first := l.Originate(routing.DefaultVRF, dst, 17, []byte("data"))
+		if first.Reason != "" {
+			t.Fatalf("reason = %q for %s, want empty", first.Reason, dst)
+		}
+		if len(first.Candidates) != 3 {
+			t.Fatalf("candidates = %d for %s, want 3", len(first.Candidates), dst)
+		}
+		reached[first.Interface]++
+		for range 10 {
+			again := l.Originate(routing.DefaultVRF, dst, 17, []byte("data"))
+			if again.Interface != first.Interface || again.Frame.Dst != first.Frame.Dst {
+				t.Fatalf("%s left by %s towards %s, want %s towards %s", dst, again.Interface, again.Frame.Dst, first.Interface, first.Frame.Dst)
+			}
+		}
+	}
+	if len(reached) < 2 {
+		t.Errorf("originated flows reached %v, want more than one candidate", reached)
+	}
+}
+
+// selectionConfigV6 mirrors selectionConfig on IPv6, so a flow label has somewhere to
+// change the answer.
+func selectionConfigV6() routing.Config {
+	return routing.Config{
+		VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"vlan10": {VLAN: 10, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("2001:db8:10::1/64")}},
+					"vlan20": {VLAN: 20, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("2001:db8:20::1/64")}},
+					"vlan30": {VLAN: 30, MAC: selectionDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("2001:db8:30::1/64")}},
+				},
+				Routes: []routing.Route{
+					{Prefix: ecmpPrefixV6, NextHop: gatewayA6, Preference: 1, Metric: 10},
+					{Prefix: ecmpPrefixV6, NextHop: gatewayB6, Preference: 1, Metric: 10},
+					{Prefix: ecmpPrefixV6, NextHop: gatewayC6, Preference: 1, Metric: 10},
+				},
+				Neighbors: []routing.Neighbor{
+					{Interface: "vlan10", Addr: gatewayA6, MAC: gatewayMACA},
+					{Interface: "vlan20", Addr: gatewayB6, MAC: gatewayMACB},
+					{Interface: "vlan30", Addr: gatewayC6, MAC: gatewayMACC},
+				},
+			},
+		},
+	}
+}
+
+func routeFlow6(t *testing.T, l *routing.Layer, src, dst netip.Addr, flowLabel uint32, protocol uint8) routing.Result {
+	t.Helper()
+	hdr := ip.Header{Src: src, Dst: dst, HopLimit: 64, Protocol: protocol, V6: &ip.V6{FlowLabel: flowLabel}}
+	pkt, err := hdr.Encode([]byte("payload"))
+	if err != nil {
+		t.Fatalf("encode IPv6 packet: %v", err)
+	}
+	return l.Route("vlan10", ethernet.Frame{
+		Src:       hostMAC,
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv6,
+		Payload:   pkt,
+	})
+}
+
+func TestFlowLabelSeparatesIPv6Flows(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, selectionConfigV6())
+
+	src := netip.MustParseAddr("2001:db8:10::7")
+	dst := netip.MustParseAddr("2001:db8:200::1")
+	reached := make(map[string]uint32)
+	for label := range uint32(64) {
+		res := routeFlow6(t, l, src, dst, label, 17)
+		if res.Reason != "" {
+			t.Fatalf("reason = %q at flow label %d, want empty", res.Reason, label)
+		}
+		if _, seen := reached[res.Interface]; !seen {
+			reached[res.Interface] = label
+		}
+	}
+	if len(reached) < 2 {
+		t.Fatalf("flows differing only in flow label reached %v, want two next hops", reached)
+	}
+}
+
+// TestIPv6ExtensionHeaderKeepsTheNextHop holds because the protocol octet stays out of the
+// hash. ip.Decode does not walk the extension header chain, so for a segment behind one the
+// octet names the first extension header rather than the transport protocol, and hashing it
+// would split a flow on the headers its packets happen to carry.
+func TestIPv6ExtensionHeaderKeepsTheNextHop(t *testing.T) {
+	t.Parallel()
+	l := mustNewRouting(t, selectionConfigV6())
+
+	src := netip.MustParseAddr("2001:db8:10::7")
+	dst := netip.MustParseAddr("2001:db8:200::1")
+	plain := routeFlow6(t, l, src, dst, 0, 6)     // TCP directly after the fixed header.
+	extended := routeFlow6(t, l, src, dst, 0, 43) // TCP behind a routing header.
+	if len(plain.Candidates) != 3 {
+		t.Fatalf("candidates = %d, want 3", len(plain.Candidates))
+	}
+	if plain.Interface != extended.Interface {
+		t.Errorf("bare TCP left by %s and TCP behind a routing header by %s", plain.Interface, extended.Interface)
+	}
+}
+
+func TestEqualCostRoutesOnOnePrefixAreCapped(t *testing.T) {
+	t.Parallel()
+
+	const paths = 65
+	ifaces := make(map[string]routing.Interface, paths)
+	neighbors := make([]routing.Neighbor, 0, paths)
+	routes := make([]routing.Route, 0, paths)
+	for i := 1; i <= paths; i++ {
+		name := fmt.Sprintf("vlan%d", i)
+		hop := netip.MustParseAddr(fmt.Sprintf("172.%d.0.254", i))
+		ifaces[name] = routing.Interface{
+			VLAN:     vlan.ID(i),
+			MAC:      selectionDeviceMAC,
+			Prefixes: []netip.Prefix{netip.MustParsePrefix(fmt.Sprintf("172.%d.0.1/24", i))},
+		}
+		neighbors = append(neighbors, routing.Neighbor{Interface: name, Addr: hop, MAC: gatewayMACA})
+		routes = append(routes, routing.Route{Prefix: ecmpPrefix, NextHop: hop, Preference: 1, Metric: 10})
+	}
+
+	l := mustNewRouting(t, routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {Interfaces: ifaces, Routes: routes, Neighbors: neighbors},
+	}})
+
+	res := l.Route("vlan1", ethernet.Frame{
+		Src:       hostMAC,
+		Dst:       selectionDeviceMAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("172.1.0.7"), netip.MustParseAddr("10.200.0.1"), 64, []byte("data")),
+	})
+	if len(res.Candidates) != 64 {
+		t.Fatalf("candidates = %d, want the cap of 64", len(res.Candidates))
+	}
+
+	withdrawn := l.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 {
+		t.Fatalf("withdrawn = %+v, want the one route past the cap", withdrawn)
+	}
+	if withdrawn[0].Reason != routing.WithdrawnMaxPaths || withdrawn[0].Prefix != ecmpPrefix {
+		t.Errorf("withdrawn = %+v, want %s as %q", withdrawn[0], ecmpPrefix, routing.WithdrawnMaxPaths)
+	}
+}
+
+// TestSwitchPeekAndForwardAgree holds because the selection reads the packet and nothing
+// else: no bucket table remembers where a flow went, so looking cannot move it.
+func TestSwitchPeekAndForwardAgree(t *testing.T) {
+	t.Parallel()
+
+	builder := port.NewBuilder()
+	for _, name := range []string{"1/1/1", "1/1/2", "1/1/3"} {
+		builder = builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	}
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	p10, p20, p30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
+	routingCfg := ecmpConfig(gatewayA, gatewayB, gatewayC)
+	sw, err := vswitch.New(vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20", 30: "vlan30"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &p20, Untagged: []vlan.ID{20}},
+				"1/1/3": {PVID: &p30, Untagged: []vlan.ID{30}},
+			},
+		}},
+		Routing: &routingCfg,
+	})
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
+
+	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+	nextHopMAC := func(t *testing.T, res vswitch.ForwardResult) netaddr.MAC {
+		t.Helper()
+		if len(res.Egress) != 1 {
+			t.Fatalf("egress = %+v, want one routed copy", res.Egress)
+		}
+		return res.Egress[0].Frame.Dst
+	}
+
+	for _, flow := range flowSpread()[:20] {
+		frame := ethernet.Frame{
+			Src:       hostMAC,
+			Dst:       selectionDeviceMAC,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   encodeIPv4Packet(t, flow[0], flow[1], 64, []byte("data")),
+		}
+		first := nextHopMAC(t, sw.Peek(now, "1/1/1", frame))
+		second := nextHopMAC(t, sw.Peek(now, "1/1/1", frame))
+		forwarded := nextHopMAC(t, sw.Forward(now, "1/1/1", frame))
+		if first != second || first != forwarded {
+			t.Fatalf("%s -> %s: peeks chose %s and %s, forward chose %s", flow[0], flow[1], first, second, forwarded)
+		}
+	}
+}
+
+var (
+	hostMAC      = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	ecmpPrefix   = netip.MustParsePrefix("10.0.0.0/8")
+	ecmpPrefixV6 = netip.MustParsePrefix("2001:db8:200::/48")
+	gatewayA6    = netip.MustParseAddr("2001:db8:10::fe")
+	gatewayB6    = netip.MustParseAddr("2001:db8:20::fe")
+	gatewayC6    = netip.MustParseAddr("2001:db8:30::fe")
+)

@@ -150,6 +150,13 @@ lifecycle and ARP/ND (R20, R21) moved to
   algorithm covers both selections; the input differs, not the function. The
   bond hash additionally folds in both MAC addresses and the EtherType, so it
   answers a different question and is not reused.
+- **FNV-1a clusters addresses that differ only in the last octet.** The last
+  bytes written pass through one multiplication, so a change of 1 in the final
+  octet moves the hash by about 2^24, a 256th of the space: with a fixed
+  source, roughly 85 consecutive destinations fall in one region of a
+  three-candidate set. The README says so, because a reader spreading
+  synthetic load across a candidate set needs to vary more than the last
+  octet to see a spread.
 - **The flow label enters the IPv6 hash; the extension header chain does not.**
   `ip.Decode` does not walk the chain (`src/common/net/ip/ip.go:182`), so
   `Header.Protocol` is the fixed header's first Next Header — which is why the
@@ -222,7 +229,7 @@ lifecycle and ARP/ND (R20, R21) moved to
   recursive static route is by definition one whose next hop is not on-link, so
   that check and this phase are mutually exclusive. It becomes the resolver's
   `unresolved` withdrawal reason. The check already applies only to a route
-  that names no `Interface` — the explicit-interface branch at `config.go:313`
+  that names no `Interface` — the explicit-interface branch at `config.go:369`
   skips it — so what the phase removes is narrower than the file reads,
   and the interface-outside-VRF rejection beside it is untouched.
 - **An unreachable host gateway in `fabric` becomes a withdrawn default route.**
@@ -328,7 +335,7 @@ lifecycle and ARP/ND (R20, R21) moved to
 
 - **Validation rejects a cross-family next hop and an unusable egress.** Why:
   parent R22, and today `Validate` checks neither
-  (`src/common/netsim/vswitch/routing/config.go:142`).
+  (`src/common/netsim/vswitch/routing/config.go:170`).
 
 ## Requirements
 
@@ -351,8 +358,11 @@ lifecycle and ARP/ND (R20, R21) moved to
    because ports do not enter the hash; one flow repeated ten times takes the
    same next hop every time; `Peek` and `Forward` agree, and two `Peek` calls
    before a `Forward` do not change it. Removing one candidate from a
-   three-candidate set leaves every flow that was not on the removed candidate
-   where it was, which modulo-N would not.
+   three-candidate set moves a flow at most one place down: a flow on the first
+   candidate stays, and no flow moves up or onto a candidate it was neither on
+   nor below. That is the bound hash-threshold actually gives — the regions
+   widen from a third to a half, so flows between the old and new boundary
+   slide down one — and it is the assertion modulo-N fails.
 4. **R19d:** Recursion resolves at table build, bounded at 8, and a failure
    withdraws the route rather than dropping the packet.
    **Acceptance example:** `10.0.0.0/8 via 192.0.2.1`, where `192.0.2.0/24 via
@@ -505,7 +515,7 @@ Change: `Validate` rejects a route whose next hop family differs from its
 prefix family, and a next hop that is unspecified or multicast. Each error
 carries the field path and structured attributes, in the style of the errors
 already in the file. The existing interface-outside-VRF rejection at
-`config.go:313` stays.
+`config.go:369` stays.
 Tests: the R22 example, one case per rejection; an IPv6 route on an interface
 that also carries IPv4 is accepted, so the check is on the route, not the
 interface.
@@ -537,7 +547,8 @@ Tests: the R19c example; a three-candidate set over a spread of addresses
 reaches every candidate; two flows differing only in port land together, and
 two IPv6 flows differing only in flow label separate; the disruption property,
 where removing one candidate of three leaves the other two candidates' flows in
-place, which modulo-N would not; a first and a non-first fragment of one
+place except for a slide of one position at the widened region boundary,
+which modulo-N would not; a first and a non-first fragment of one
 datagram take the same next hop with no fragment test in the code; a TCP
 segment behind an IPv6 extension header hashes the same as one without, since
 the protocol octet does not enter; `Originate` over a candidate set is stable.
