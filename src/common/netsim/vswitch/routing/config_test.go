@@ -285,6 +285,7 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			// The route is withdrawn when the table is built; the configuration stays valid.
 			name: "route with next hop unreachable by any interface prefix in VRF",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
@@ -294,7 +295,7 @@ func TestValidate(t *testing.T) {
 				})
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "neighbor address family mismatching all interface prefixes",

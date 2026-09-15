@@ -157,12 +157,15 @@ func comparePrefix(a, b netip.Prefix) int {
 // neither VLAN and Port, duplicate VLAN or port assignments across VRFs, unknown ports,
 // LAG members configured as routed ports, group MAC addresses, unmasked route prefixes,
 // routes with neither next hop nor interface,
-// routes or neighbors referencing interfaces outside their VRF, next hops unreachable by
-// any interface prefix in the VRF when the route omits an interface, neighbor address families
+// routes or neighbors referencing interfaces outside their VRF, neighbor address families
 // mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
 //
 // A prefix may carry several routes, which is how an equal-cost set is configured. Two routes
 // collide only when they agree on prefix, preference, metric, next hop, and interface alike.
+//
+// A next hop that is not on-link is valid configuration: [New] resolves it against the VRF's
+// own table and withdraws the route from the forwarding table when it cannot, which is where
+// the reason for an unusable next hop is reported. See [Layer.WithdrawnRoutes].
 func (c Config) Validate(ports port.Table) error {
 	vrfNames := make([]string, 0, len(c.VRFs))
 	for name := range c.VRFs {
@@ -344,27 +347,6 @@ func (c Config) Validate(ports port.Table) error {
 						Attr("interface", r.Interface).
 						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".interface").
 						Msgf("route %s names interface %q outside VRF %q", r.Prefix, r.Interface, vrfName)
-				}
-			} else {
-				found := false
-				for _, iface := range vrf.Interfaces {
-					for _, p := range iface.Prefixes {
-						if p.Contains(r.NextHop) {
-							found = true
-							break
-						}
-					}
-					if found {
-						break
-					}
-				}
-				if !found {
-					return errs.New().
-						Attr("vrf", vrfName).
-						Attr("route", r.Prefix).
-						Attr("next_hop", r.NextHop).
-						Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()+".next_hop").
-						Msgf("route %s next hop %s not contained in any interface prefix in VRF %q", r.Prefix, r.NextHop, vrfName)
 				}
 			}
 		}

@@ -193,9 +193,11 @@ lifecycle and ARP/ND (R20, R21) moved to
   set. It hashes the chosen source address and the destination, which is the
   whole input, so it needs nothing from the caller's payload. Why: one
   selection rule per package.
-- **The candidate set is capped at 64.** A prefix with more than 64 equal
-  routes installs the first 64 in canonical order and the rest are withdrawn
-  with reason `max-paths`. Why: real gear caps multipath — FRR "is generally
+- **The candidate set is capped at 64,** both the paths one recursive route
+  inherits and the equal routes a prefix carries. A set above the cap keeps the
+  first 64 in canonical order and the rest are withdrawn with reason
+  `max-paths`. The inherited case lands with resolution, the per-prefix case
+  with selection. Why: real gear caps multipath — FRR "is generally
   compiled with a limit of 64 way ECMP"
   (<https://docs.frrouting.org/en/latest/zebra.html>) — and an uncapped set
   would be netsim inventing the one behavior no router has. 64 is FRR's number
@@ -286,6 +288,20 @@ lifecycle and ARP/ND (R20, R21) moved to
   recursive route carries all of them, each with its own resolved on-link pair.
   Why: this is why a BGP next hop spreads over an ECMP IGP path, and collapsing
   to one would invent an order.
+- **`Chain` starts at the route's own prefix and ends where resolution stopped.**
+  A self-recursive route reads `[10.0.0.0/8, 10.0.0.0/8]` and an `A via B`,
+  `B via A` cycle reads `[A, B, A]`. Why: the operator question is which
+  lookups led back, and the repeated prefix is the answer.
+- **A route naming an `Interface` is directly attached and is not resolved.**
+  It installs with its own next hop and interface. Why: the on-link
+  requirement that moves into the resolver only ever applied to a route that
+  names no interface (`src/common/netsim/vswitch/routing/config.go:348`), so
+  resolving an explicit-interface route would change a rule this phase does
+  not touch.
+- **A route installs when any of its candidates resolves, and the first
+  failure in canonical order is the reason when none does.** Why: a partially
+  resolvable equal-cost route is a working route with fewer paths, and
+  reporting one reason per route keeps `WithdrawnRoute` one entry per route.
 - **A next hop does not resolve through the default route.** A route whose next
   hop matches only `0.0.0.0/0` or `::/0` is withdrawn as `unresolved`. Why: FRR
   states "Nexthop tracking doesn't resolve nexthops via the default route by

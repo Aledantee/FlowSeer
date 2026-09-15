@@ -590,6 +590,8 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			wantError: true,
 		},
 		{
+			// The host constructs and its default route is withdrawn; see
+			// TestHostWithOffLinkGatewayHasNoDefaultRoute.
 			name: "host with IP stack gateway unreachable",
 			mutate: func(c *fabric.Config) {
 				h1 := c.Hosts["h1"]
@@ -599,7 +601,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 				}
 				c.Hosts["h1"] = h1
 			},
-			wantError: true,
+			wantError: false,
 		},
 		{
 			name: "host with IP stack prefix length 0",
@@ -907,5 +909,36 @@ func TestNestedSwitchDiffKeysAreInjective(t *testing.T) {
 		if _, ok := keys[key]; !ok {
 			t.Errorf("nested switch diff keys = %v, want injective key %q", keys, key)
 		}
+	}
+}
+
+func TestHostWithOffLinkGatewayHasNoDefaultRoute(t *testing.T) {
+	t.Parallel()
+
+	h := fabric.Host{
+		Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
+		IP: &fabric.HostIP{
+			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+			Gateway:   netip.MustParseAddr("10.0.20.1"),
+		},
+	}
+
+	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
+	stack, err := routing.New(rtCfg, tbl, "h1")
+	if err != nil {
+		t.Fatalf("routing.New for a host with an off-link gateway: %v", err)
+	}
+
+	withdrawn := stack.WithdrawnRoutes(routing.DefaultVRF)
+	if len(withdrawn) != 1 || withdrawn[0].Prefix != netip.MustParsePrefix("0.0.0.0/0") {
+		t.Fatalf("withdrawn = %+v, want the default route alone", withdrawn)
+	}
+	if withdrawn[0].Reason != routing.WithdrawnUnresolved {
+		t.Errorf("reason = %q, want %q", withdrawn[0].Reason, routing.WithdrawnUnresolved)
+	}
+
+	res := stack.Originate(routing.DefaultVRF, netip.MustParseAddr("192.0.2.9"), 17, []byte("payload"))
+	if res.Reason != routing.ReasonNoRoute {
+		t.Errorf("off-link send reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 	}
 }
