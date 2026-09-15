@@ -571,10 +571,11 @@ func (l *lexer) emit(start int, t Token) bool {
 // reaches it gets one [diag.ErrCodeLimitExceeded] saying so and nothing
 // after, which is the same shape the other two passes produce.
 //
-// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
-// argument count the code's catalog row does not declare. code and args
-// come from the lexer's own call sites, so the invariant is proven by the
-// arity scan in internal/diag, not left to the caller.
+// Below the cap, code and args go to [diag.MustRaise] exactly as handed;
+// the lexer reads neither. It therefore inherits MustRaise's panic on an
+// uncataloged code or an argument count the code's catalog row does not
+// declare, and the arity scan in internal/diag checks each of the lexer's
+// call sites against its row.
 func (l *lexer) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(l.out.Diagnostics) >= diag.MaxDiagnostics {
 		if len(l.out.Diagnostics) == diag.MaxDiagnostics {

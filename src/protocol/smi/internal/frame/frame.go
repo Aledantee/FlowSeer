@@ -659,10 +659,11 @@ func (c *cutter) limit(what string, bound, offset int) {
 
 // raise records a condition at offset, up to the diagnostic cap.
 //
-// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
-// argument count the code's catalog row does not declare. code and args
-// come from the cutter's own call sites, so the invariant is proven by
-// the arity scan in internal/diag, not left to the caller.
+// Below the cap, code and args pass to [diag.MustRaise] unchanged. At the
+// cap the cutter drops the pair, raises its own limit diagnostic once,
+// and stops cutting. It inherits MustRaise's panic on an uncataloged code
+// or an argument count the code's catalog row does not declare, and the
+// arity scan in internal/diag resolves every cutter call site to its row.
 func (c *cutter) raise(offset int, code errs.Code, args ...diag.Arg) {
 	if len(c.out.Diagnostics) >= MaxDiagnostics {
 		if len(c.out.Diagnostics) == MaxDiagnostics {

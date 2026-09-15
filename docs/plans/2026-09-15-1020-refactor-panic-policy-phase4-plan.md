@@ -65,10 +65,15 @@ The earlier draft asked for these to be re-checked. They were, on the current
 - One `go` statement in non-test `src/`: `src/common/spawn/spawn.go:84`. No
   `sync.WaitGroup.Go` survives; the 65 spawn sites all call `spawn.Go`.
 - Five variadic forwarders reach `diag.Raise`, with 53 callers behind them —
-  `(*lexer).raise` 8, `(*parser).raise` 32, `(*cutter).raise` 4,
-  `(*resolver).raise` 9, and the public `smi.Raise`, which `(*resolver).raise`
-  is the only non-test caller of. Every one of the 53 passes a constant
-  `ErrCode*` identifier as its code argument. Four direct call sites pass a
+  `(*lexer).raise` 8, `(*parser).raise` 32 (24 through a plain `p` receiver
+  and 8 through `r.p` from the subtype and value readers), `(*cutter).raise`
+  4, `(*resolver).raise` 9, and the public `smi.Raise`, which
+  `(*resolver).raise` is the only non-test caller of. Every one of the 53
+  passes a constant `ErrCode*` identifier as its code argument. These figures
+  were re-measured by AST walk after review found the scan's first matcher
+  dropped any call whose receiver was a selector chain, so the eight `r.p`
+  calls were unscanned until that fix even though the count above included
+  them. Four direct call sites pass a
   constant code and a fixed-length argument list: `lex.go:576`,
   `recover.go:186`, `frame.go:173`, `frame.go:652`.
 

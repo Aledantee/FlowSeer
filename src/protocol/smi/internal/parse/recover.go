@@ -148,10 +148,13 @@ func (p *parser) text() string {
 // not lost by the throttle — a declaration's missing clauses are on the
 // node whether or not each one drew a diagnostic.
 //
-// It inherits [diag.MustRaise]'s panic on an uncataloged code or an
-// argument count the code's catalog row does not declare. code and args
-// come from the parser's own call sites, so the invariant is proven by
-// the arity scan in internal/diag, not left to the caller.
+// The throttle decides whether a report is made and leaves its content
+// alone: on a line that still reports, code and args reach
+// [diag.MustRaise] as handed. So the parser inherits MustRaise's panic on
+// an uncataloged code or an argument count the code's catalog row does
+// not declare, and the arity scan in internal/diag resolves each parser
+// call site to its row, including the ones the value reader makes
+// through its parser field.
 func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 	// Once a limit is fatal, later clause readers keep running over discarded
 	// output; staying silent here is what keeps the limit diagnostic last.

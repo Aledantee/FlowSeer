@@ -165,6 +165,81 @@ func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 }`,
 		},
 		{
+			name: "registered forwarder spreads a constant code",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
+	diag.MustRaise(diag.Position{}, diag.ErrCodeLimitExceeded, args...)
+}`,
+			want: `does not hand MustRaise its own code and args`,
+		},
+		{
+			name: "registered forwarder spreads a rebuilt argument list",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
+	diag.MustRaise(diag.Position{}, code, append(args, diag.ArgInt(1))...)
+}`,
+			want: `does not hand MustRaise its own code and args`,
+		},
+		{
+			name: "registered forwarder spreads a second list beside its pass-through",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
+	diag.MustRaise(diag.Position{}, code, args...)
+	extra := []diag.Arg{diag.ArgInt(1)}
+	diag.MustRaise(diag.Position{}, code, extra...)
+}`,
+			want: `does not hand MustRaise its own code and args`,
+		},
+		{
+			name: "registered forwarder whose parameters sit elsewhere than the registry says",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) raise(code errs.Code, offset int32, args ...diag.Arg) {
+	diag.MustRaise(diag.Position{}, code, args...)
+}`,
+			want: `registered with its code at parameter 1`,
+		},
+		{
+			name: "arity mismatch through a forwarder reached by a selector chain",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (r *reader) grade() {
+	r.p.raise(0, diag.ErrCodeHyphenSeparator, diag.ArgInt(1), diag.ArgInt(2))
+}`,
+			want: `takes 1 argument`,
+		},
+		{
+			name: "method value the scan cannot follow",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) grade() {
+	f := p.raise
+	f(0, diag.ErrCodeHyphenSeparator)
+}`,
+			want: `used as a value`,
+		},
+		{
+			name: "method expression passes the receiver as an argument",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func grade(p *parser) {
+	(*parser).raise(p, 0, diag.ErrCodeHyphenSeparator, diag.ArgInt(1))
+}`,
+			want: `code argument is not a generated ErrCode constant`,
+		},
+		{
+			name: "parenthesized callee",
+			dir:  "src/protocol/smi/internal/parse",
+			src: parseHead + `
+func (p *parser) grade() {
+	(diag.MustRaise)(diag.Position{}, diag.ErrCodeLimitExceeded, diag.ArgInt(1))
+}`,
+			want: `takes 2 arguments`,
+		},
+		{
 			name: "cross-package call through the import path",
 			dir:  "src/services/mibs",
 			src: `package mibs
@@ -173,6 +248,31 @@ import "go.aledante.io/FlowSeer/src/protocol/smi"
 
 func report() {
 	smi.MustRaise(smi.Position{}, smi.ErrCodeLimitExceeded, smi.ArgInt(1))
+}`,
+			want: `takes 2 arguments`,
+		},
+		{
+			name: "function value the scan cannot follow",
+			dir:  "src/services/mibs",
+			src: `package mibs
+
+import "go.aledante.io/FlowSeer/src/protocol/smi"
+
+func report() {
+	f := smi.MustRaise
+	_ = f
+}`,
+			want: `used as a value`,
+		},
+		{
+			name: "dot import reaches MustRaise unqualified",
+			dir:  "src/services/mibs",
+			src: `package mibs
+
+import . "go.aledante.io/FlowSeer/src/protocol/smi"
+
+func report() {
+	MustRaise(Position{}, ErrCodeLimitExceeded, ArgInt(1))
 }`,
 			want: `takes 2 arguments`,
 		},
@@ -236,19 +336,34 @@ func scanCalls(sources []source, codes map[string]string, arity map[string]int) 
 		// and no AST pass can read that. The scan resolves such a
 		// forwarder's callers instead, so a spread anywhere else is an
 		// unregistered forwarder.
+		//
+		// A raiser named anywhere but as a call's callee is a value the
+		// scan cannot follow to its eventual call, so it is a finding. The
+		// walk visits a call before its callee and a selector before its
+		// field name, which is what lets both be recognised when reached.
 		for _, decl := range s.file.Decls {
 			enclosing, _ := decl.(*ast.FuncDecl)
+			callees := make(map[ast.Expr]bool)
+			skip := make(map[*ast.Ident]bool)
+			if enclosing != nil {
+				skip[enclosing.Name] = true
+			}
 			ast.Inspect(decl, func(n ast.Node) bool {
-				call, ok := n.(*ast.CallExpr)
-				if !ok {
-					return true
+				switch n := n.(type) {
+				case *ast.CallExpr:
+					fun := ast.Unparen(n.Fun)
+					callees[fun] = true
+					if r, ok := calledRaiser(fun, s.dir, qualifiers); ok {
+						findings = append(findings, callFinding(s, n, r, enclosing, qualifiers, codes, arity)...)
+					}
+				case *ast.SelectorExpr:
+					skip[n.Sel] = true
+					findings = append(findings, valueFinding(s, n, callees, qualifiers)...)
+				case *ast.Ident:
+					if !skip[n] {
+						findings = append(findings, valueFinding(s, n, callees, qualifiers)...)
+					}
 				}
-				r, ok := calledRaiser(call, s.dir, qualifiers)
-				if !ok {
-					return true
-				}
-
-				findings = append(findings, callFinding(s, call, r, enclosing, qualifiers, codes, arity)...)
 
 				return true
 			})
@@ -256,6 +371,20 @@ func scanCalls(sources []source, codes map[string]string, arity map[string]int) 
 	}
 
 	return findings
+}
+
+// valueFinding reports expr when it names a raiser without calling it.
+func valueFinding(s source, expr ast.Expr, callees map[ast.Expr]bool, qualifiers map[string]string) []string {
+	if callees[expr] {
+		return nil
+	}
+	r, ok := calledRaiser(expr, s.dir, qualifiers)
+	if !ok {
+		return nil
+	}
+
+	return []string{s.path + ":" + strconv.Itoa(s.fset.Position(expr.Pos()).Line) + ": " +
+		r.name + " is used as a value; the scan cannot follow it to the call it eventually makes"}
 }
 
 // callFinding reports how one call to a raiser fails to resolve, if it
@@ -273,12 +402,7 @@ func callFinding(
 	finding := func(text string) []string { return []string{where + ": " + text} }
 
 	if call.Ellipsis != token.NoPos {
-		if enclosing != nil && declaredRaiser(enclosing, s.dir) >= 0 {
-			return nil
-		}
-
-		return finding(funcName(enclosing) + " spreads a variadic into " + r.name +
-			", so no scan can read the argument count; register it as a forwarder or pass a fixed list")
+		return spreadFinding(finding, call, r, enclosing, s.dir)
 	}
 	if len(call.Args) <= r.codeArg {
 		return finding("call to " + r.name + " has no code argument")
@@ -302,6 +426,74 @@ func callFinding(
 	}
 
 	return nil
+}
+
+// spreadFinding reports a call that spreads a variadic into r. The one
+// spread the scan accepts is a registered forwarder handing its own code
+// and variadic parameters through untouched, because that is the shape
+// whose callers the scan resolves in the forwarder's place. Any other
+// spread in a forwarder's body reaches r with a code or a list its
+// callers never see, so the check would be made against the wrong row.
+func spreadFinding(finding func(string) []string, call *ast.CallExpr, r raiser, enclosing *ast.FuncDecl, dir string) []string {
+	if enclosing == nil {
+		return finding("package-level code spreads a variadic into " + r.name +
+			", so no scan can read the argument count; register it as a forwarder or pass a fixed list")
+	}
+	own := declaredRaiser(enclosing, dir)
+	if own < 0 {
+		return finding(enclosing.Name.Name + " spreads a variadic into " + r.name +
+			", so no scan can read the argument count; register it as a forwarder or pass a fixed list")
+	}
+
+	codeName, argsName, ok := forwardedParams(enclosing, raisers[own])
+	if !ok {
+		return finding(enclosing.Name.Name + " is registered with its code at parameter " +
+			strconv.Itoa(raisers[own].codeArg) + " and its variadic at parameter " +
+			strconv.Itoa(raisers[own].variadic) + ", but its declaration has no errs.Code and ... there")
+	}
+	if len(call.Args) != r.variadic+1 ||
+		!isIdent(call.Args[r.codeArg], codeName) || !isIdent(call.Args[r.variadic], argsName) {
+		return finding(enclosing.Name.Name + " is a registered forwarder, but this spread does not hand " +
+			r.name + " its own " + codeName + " and " + argsName + " parameters untouched, so no scan can read it")
+	}
+
+	return nil
+}
+
+// forwardedParams returns the names of fn's code and variadic parameters
+// at the indices the registry records for r, or false when the
+// declaration has no errs.Code and no `...` at those indices. This is the
+// one place the registry's indices meet the real declaration.
+func forwardedParams(fn *ast.FuncDecl, r raiser) (codeName, argsName string, ok bool) {
+	var names []*ast.Ident
+	var types []ast.Expr
+	for _, field := range fn.Type.Params.List {
+		if len(field.Names) == 0 {
+			names = append(names, nil)
+			types = append(types, field.Type)
+		}
+		for _, name := range field.Names {
+			names = append(names, name)
+			types = append(types, field.Type)
+		}
+	}
+	if r.codeArg >= len(names) || r.variadic >= len(names) || names[r.codeArg] == nil || names[r.variadic] == nil {
+		return "", "", false
+	}
+	if sel, ok := types[r.codeArg].(*ast.SelectorExpr); !ok || !isIdent(sel.X, "errs") || sel.Sel.Name != "Code" {
+		return "", "", false
+	}
+	if _, ok := types[r.variadic].(*ast.Ellipsis); !ok {
+		return "", "", false
+	}
+
+	return names[r.codeArg].Name, names[r.variadic].Name, true
+}
+
+func isIdent(expr ast.Expr, name string) bool {
+	ident, ok := expr.(*ast.Ident)
+
+	return ok && ident.Name == name
 }
 
 // scanCoverage reports what the walk never opened. Resolution failing
@@ -336,24 +528,31 @@ func scanCoverage(sources []source) []string {
 	return findings
 }
 
-// calledRaiser reports which raiser call invokes, if any. A method is
-// matched by name within its own package's directory, because the
-// receiver's type is not in reach of an AST pass; over-matching there
-// would make the scan stricter, never laxer.
-func calledRaiser(call *ast.CallExpr, dir string, qualifiers map[string]string) (raiser, bool) {
-	switch fun := call.Fun.(type) {
+// calledRaiser reports which raiser expr names, if any. A bare identifier
+// is the package's own function, or a dot-imported one. A selector is
+// either a qualified package function, when its left side is an import
+// qualifier, or a method. A method is matched by name within its own
+// package's directory whatever its receiver expression looks like,
+// because the receiver's type is not in reach of an AST pass and a
+// selector chain such as r.p.raise is as much a call as p.raise;
+// over-matching there makes the scan stricter, never laxer.
+func calledRaiser(expr ast.Expr, dir string, qualifiers map[string]string) (raiser, bool) {
+	switch fun := expr.(type) {
 	case *ast.Ident:
 		for _, r := range raisers {
-			if !r.method && r.dir == dir && r.name == fun.Name {
+			if r.method || r.name != fun.Name {
+				continue
+			}
+			if r.dir == dir || qualifiers["."] == r.pkgPath {
 				return r, true
 			}
 		}
 	case *ast.SelectorExpr:
-		x, ok := fun.X.(*ast.Ident)
-		if !ok {
-			return raiser{}, false
+		var path string
+		imported := false
+		if x, ok := fun.X.(*ast.Ident); ok {
+			path, imported = qualifiers[x.Name]
 		}
-		path, imported := qualifiers[x.Name]
 
 		for _, r := range raisers {
 			if r.name != fun.Sel.Name {
@@ -387,15 +586,19 @@ func declaredRaiser(fn *ast.FuncDecl, dir string) int {
 
 // codeIdent returns the name of the ErrCode constant expr names. A
 // selector resolves only through a qualifier for package diag or package
-// smi, so another package's same-named constant is not mistaken for one.
+// smi, so another package's same-named constant is not mistaken for one;
+// a bare identifier resolves inside those two packages and behind a dot
+// import of either.
 func codeIdent(expr ast.Expr, dir string, qualifiers map[string]string) (string, bool) {
 	switch e := expr.(type) {
 	case *ast.Ident:
-		if dir != diagDir && dir != smiDir {
-			return "", false
+		switch {
+		case dir == diagDir, dir == smiDir,
+			qualifiers["."] == modulePath+"/"+diagDir, qualifiers["."] == modulePath+"/"+smiDir:
+			return e.Name, strings.HasPrefix(e.Name, "ErrCode")
 		}
 
-		return e.Name, strings.HasPrefix(e.Name, "ErrCode")
+		return "", false
 	case *ast.SelectorExpr:
 		x, ok := e.X.(*ast.Ident)
 		if !ok {
