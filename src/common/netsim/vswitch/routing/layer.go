@@ -89,9 +89,10 @@ type Result struct {
 // Candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
 // contains the destination and which tie the winner on prefix length, preference, and metric.
 // A lookup reports them in canonical order, by next hop then egress interface, and forwards
-// on the first. NextHop is the configured next hop; Interface is the egress the route
-// resolved to, which for a route configured with a next hop alone is the interface the next
-// hop is on-link on, whether directly or at the end of a chain of routes.
+// on the one the packet's flow hash lands on. NextHop is the configured next hop; Interface
+// is the egress the route resolved to, which for a route configured with a next hop alone is
+// the interface the next hop is on-link on, whether directly or at the end of a chain of
+// routes.
 type Candidate struct {
 	Prefix     netip.Prefix
 	NextHop    netip.Addr
@@ -212,7 +213,9 @@ type Layer struct {
 // at preference 0 and metric 0, and the configured static routes. A lookup takes the longest
 // matching prefix, then the lowest preference, then the lowest metric; every route tying on
 // all three is an equal-cost candidate, and the candidates are ordered by next hop then
-// egress interface. The lookup forwards on the first of them.
+// egress interface, at most [maxCandidatePaths] of them. The packet takes the candidate
+// whose RFC 2992 hash-threshold region holds its layer-3 flow hash, so one flow keeps one
+// next hop and a path that goes moves as few of the others as the reduction allows.
 //
 // A static route whose next hop is not on-link resolves against its own VRF's table as the
 // table is built, and installs carrying the on-link next hop and interface it reached. One
@@ -399,6 +402,36 @@ func (vs *vrfState) installRoutes(routes []Route) {
 	}
 
 	slices.SortFunc(vs.table, compareRouteEntries)
+
+	// One prefix carries at most maxCandidatePaths equal-cost routes, the first of them in
+	// canonical order; the rest are withdrawn. The cap on the paths one recursive route
+	// inherits, applied above, does not see the equal routes another configured route adds
+	// to the same prefix.
+	kept := make([]routeEntry, 0, len(vs.table))
+	for start := 0; start < len(vs.table); {
+		end := start + 1
+		for end < len(vs.table) &&
+			vs.table[end].Prefix == vs.table[start].Prefix &&
+			vs.table[end].Preference == vs.table[start].Preference &&
+			vs.table[end].Metric == vs.table[start].Metric {
+			end++
+		}
+		for i := start; i < end; i++ {
+			if i-start < maxCandidatePaths {
+				kept = append(kept, vs.table[i])
+				continue
+			}
+			vs.withdrawn = append(vs.withdrawn, WithdrawnRoute{
+				Prefix:    vs.table[i].Prefix,
+				NextHop:   vs.table[i].NextHop,
+				Interface: vs.table[i].Interface,
+				Reason:    WithdrawnMaxPaths,
+			})
+		}
+		start = end
+	}
+	vs.table = kept
+
 	slices.SortFunc(vs.withdrawn, func(a, b WithdrawnRoute) int {
 		if c := comparePrefix(a.Prefix, b.Prefix); c != 0 {
 			return c
@@ -673,14 +706,12 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	}
 
 	res.consult(RouteLookupScope(l.nodeID, vrfName, hdr.Dst))
-	candidates := vrf.lookup(hdr.Dst)
-	var matchedRoute *routeEntry
-	if len(candidates) > 0 {
-		res.Candidates = candidateSet(candidates)
-		matchedRoute = &candidates[0]
+	var flowLabel uint32
+	if hdr.V6 != nil {
+		flowLabel = hdr.V6.FlowLabel
 	}
-
-	if matchedRoute == nil {
+	sel := selectRoute(vrf.lookup(hdr.Dst), hdr.Src, hdr.Dst, flowLabel)
+	if sel == nil {
 		res.Reason = ReasonNoRoute
 		res.Steps = append(res.Steps,
 			trace.Step{
@@ -702,13 +733,15 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		return res
 	}
 
+	res.Candidates = candidateSet(sel.candidates)
+	matchedRoute := sel.route()
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   port.LayerRouting,
 		Op:      trace.OpLookup,
 		RuleID:  trace.RuleID(matchedRoute.kind),
 		Subject: trace.Subject{Kind: "prefix", Key: matchedRoute.Prefix.String()},
 		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, "")},
-		Outputs: []trace.Fact{routeSnapshot(vrfName, hdr.Dst, matchedRoute)},
+		Outputs: []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
 	})
 
 	targetAddr := hdr.Dst
@@ -727,7 +760,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 			Op:      trace.OpDrop,
 			RuleID:  trace.RuleID(ReasonNeighborMiss),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
-			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, matchedRoute)},
+			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
 			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
 		})
 		return res
@@ -831,13 +864,10 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		return res
 	}
 
-	candidates := vrfState.lookup(dst)
-	var matchedRoute *routeEntry
-	if len(candidates) > 0 {
-		matchedRoute = &candidates[0]
-	}
-
-	if matchedRoute == nil {
+	// An originated datagram carries no flow label, so the address pair is the whole hash
+	// input and nothing is read from the caller's payload.
+	sel := selectRoute(vrfState.lookup(dst), srcAddr, dst, 0)
+	if sel == nil {
 		res := l.result(vrf)
 		res.Steps = []trace.Step{
 			{Layer: port.LayerRouting, Op: trace.OpLookup, RuleID: trace.RuleID("no-route"), Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
@@ -847,6 +877,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		return res
 	}
 
+	matchedRoute := sel.route()
 	var steps []trace.Step
 	steps = append(steps, trace.Step{
 		Layer:   port.LayerRouting,
@@ -854,7 +885,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		RuleID:  trace.RuleID(matchedRoute.kind),
 		Subject: trace.Subject{Kind: "prefix", Key: matchedRoute.Prefix.String()},
 		Inputs:  []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst, HopLimit: 64}, true, "")},
-		Outputs: []trace.Fact{routeSnapshot(vrf, dst, matchedRoute)},
+		Outputs: []trace.Fact{routeSnapshot(vrf, dst, sel)},
 	})
 
 	targetAddr := dst
@@ -872,12 +903,12 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 			Op:      trace.OpDrop,
 			RuleID:  trace.RuleID(ReasonNeighborMiss),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
-			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, matchedRoute)},
+			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
 			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
 		})
 		res.Reason = ReasonNeighborMiss
 		res.Interface = targetIface
-		res.Candidates = candidateSet(candidates)
+		res.Candidates = candidateSet(sel.candidates)
 		return res
 	}
 
@@ -910,7 +941,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
 		})
 		res.Reason = ReasonBadHeader
-		res.Candidates = candidateSet(candidates)
+		res.Candidates = candidateSet(sel.candidates)
 		return res
 	}
 
@@ -918,7 +949,7 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	res := l.result(vrf)
 	res.Steps = steps
 	res.Interface = targetIface
-	res.Candidates = candidateSet(candidates)
+	res.Candidates = candidateSet(sel.candidates)
 	res.Frame = ethernet.Frame{
 		Src:       egressIfaceObj.MAC,
 		Dst:       neighbor.MAC,
