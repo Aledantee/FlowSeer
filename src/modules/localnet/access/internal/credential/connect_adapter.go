@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ErrCodeStream identifies a malformed or prematurely closed submission
@@ -78,7 +79,18 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 		authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
 		stream:    stream,
 	}
-	go h.relay(ctx, stream)
+	spawn.Go(ctx, "credential.submissionHandle.relay", func() {
+		h.relay(ctx, stream)
+	}, spawn.ReportTo(func(err error) {
+		// relay's own normal exit always ends by recording why the stream
+		// ended under h.mu, so a caller polling Err()/Authority() can tell
+		// the handle stopped updating. A panic partway through must reach
+		// the same field, or the handle would look merely stale — still
+		// reporting its last authority as current — rather than ended.
+		h.mu.Lock()
+		h.err = err
+		h.mu.Unlock()
+	}))
 
 	return h, nil
 }

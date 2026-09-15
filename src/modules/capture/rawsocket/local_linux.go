@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // pollTimeout is the per-poll wait. It bounds how long a blocked Receive
@@ -166,69 +167,89 @@ func newLinuxLocalSource(sock packetSocket) *linuxLocalSource {
 func (s *linuxLocalSource) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 
-	go func() {
-		defer close(frames)
-
-		buf := make([]byte, maxFrameLen)
-		for {
-			select {
-			case <-ctx.Done():
-				sendTerminal(frames, Frame{Err: ctx.Err()})
-				return
-			case <-s.done:
-				return
-			default:
-			}
-
-			s.mu.Lock()
-			if s.closed {
-				s.mu.Unlock()
-				// Close always closes done before releasing this lock, so
-				// reaching here means the <-s.done case above lost this
-				// iteration's select race, not that anything failed: a
-				// clean shutdown, no terminal error frame.
-				return
-			}
-			n, err := s.sock.recvfrom(buf, unix.MSG_TRUNC)
-			s.mu.Unlock()
-
-			if err != nil {
-				if isRetryable(err) {
-					select {
-					case <-ctx.Done():
-						sendTerminal(frames, Frame{Err: ctx.Err()})
-						return
-					default:
-						continue
-					}
-				}
-				sendTerminal(frames, Frame{Err: errs.From(err).
-					Code(ErrCodeSourceOpen).
-					Msg("recvfrom")})
-				return
-			}
-
-			captured := n
-			if captured > len(buf) {
-				// MSG_TRUNC: the wire frame was longer than the buffer.
-				captured = len(buf)
-			}
-			data := make([]byte, captured)
-			copy(data, buf[:captured])
-
-			f := Frame{Data: data, OriginalLength: uint32(n), CapturedAt: time.Now()}
-			select {
-			case frames <- f:
-			case <-ctx.Done():
-				sendTerminal(frames, Frame{Err: ctx.Err()})
-				return
-			case <-s.done:
-				return
-			}
-		}
-	}()
+	// frames is closed exactly once, from whichever of these two paths
+	// reaches it first: recvLoop's own return (fn's literal statement,
+	// after recvLoop is done sending), or the panic sink. Neither is a
+	// deferred close inside recvLoop itself — a deferred close there would
+	// already have run, during the panic's own unwind, by the time the sink
+	// fires, and closing frames twice panics.
+	spawn.Go(ctx, "rawsocket.linuxLocalSource.Receive", func() {
+		s.recvLoop(ctx, frames)
+		close(frames)
+	}, spawn.ReportTo(func(err error) {
+		// A terminal Frame here is best effort, same as every other exit
+		// from recvLoop; the caller does not depend on it, since an
+		// unattributed close it did not itself request already reads as an
+		// error (Engine.run: "source closed its frame channel
+		// unexpectedly").
+		sendTerminal(frames, Frame{Err: err})
+		close(frames)
+	}))
 
 	return frames
+}
+
+// recvLoop is Receive's goroutine body, factored out so Receive can close
+// frames itself after recvLoop returns rather than deferring the close
+// inside it. See the ordering comment at the call site.
+func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
+	buf := make([]byte, maxFrameLen)
+	for {
+		select {
+		case <-ctx.Done():
+			sendTerminal(frames, Frame{Err: ctx.Err()})
+			return
+		case <-s.done:
+			return
+		default:
+		}
+
+		s.mu.Lock()
+		if s.closed {
+			s.mu.Unlock()
+			// Close always closes done before releasing this lock, so
+			// reaching here means the <-s.done case above lost this
+			// iteration's select race, not that anything failed: a
+			// clean shutdown, no terminal error frame.
+			return
+		}
+		n, err := s.sock.recvfrom(buf, unix.MSG_TRUNC)
+		s.mu.Unlock()
+
+		if err != nil {
+			if isRetryable(err) {
+				select {
+				case <-ctx.Done():
+					sendTerminal(frames, Frame{Err: ctx.Err()})
+					return
+				default:
+					continue
+				}
+			}
+			sendTerminal(frames, Frame{Err: errs.From(err).
+				Code(ErrCodeSourceOpen).
+				Msg("recvfrom")})
+			return
+		}
+
+		captured := n
+		if captured > len(buf) {
+			// MSG_TRUNC: the wire frame was longer than the buffer.
+			captured = len(buf)
+		}
+		data := make([]byte, captured)
+		copy(data, buf[:captured])
+
+		f := Frame{Data: data, OriginalLength: uint32(n), CapturedAt: time.Now()}
+		select {
+		case frames <- f:
+		case <-ctx.Done():
+			sendTerminal(frames, Frame{Err: ctx.Err()})
+			return
+		case <-s.done:
+			return
+		}
+	}
 }
 
 // Stats reports counts since the last call. PACKET_STATISTICS resets the

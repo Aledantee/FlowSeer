@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/telemetry"
 )
 
@@ -148,10 +149,16 @@ func (g *Gate) Freeze(ctx context.Context) error {
 	// is still set, so nothing can enter behind the release, and there is no
 	// reason to hold a lock across a call into a host's telemetry.
 	acquired := make(chan struct{})
-	go func() {
+	// No ReportTo: g.barrier.Lock has nothing that can panic under correct
+	// use (it never returns an error and cannot observe a caller's ctx), so
+	// there is no failure for a sink to report. If it somehow did panic,
+	// closing acquired here would be wrong anyway — the select below
+	// unconditionally calls g.barrier.Unlock() on that branch, which would
+	// itself panic on a lock this goroutine never actually took.
+	spawn.Go(ctx, "access.freeze.Gate.Freeze.acquireBarrier", func() {
 		g.barrier.Lock()
 		close(acquired)
-	}()
+	})
 
 	select {
 	case <-acquired:
@@ -180,10 +187,13 @@ func (g *Gate) Freeze(ctx context.Context) error {
 		// lock, or may acquire it after this call has already returned;
 		// release it whenever that happens so a later Freeze or Enter on
 		// this Gate never deadlocks on this abandoned attempt.
-		go func() {
+		// No consumer waits on this one either: it only ever unblocks a
+		// future Enter or Freeze parked on the barrier, never a channel or
+		// return value this call itself hands back.
+		spawn.Go(ctx, "access.freeze.Gate.Freeze.releaseAbandoned", func() {
 			<-acquired
 			g.barrier.Unlock()
-		}()
+		})
 		return ctx.Err()
 	}
 }
