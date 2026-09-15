@@ -116,13 +116,15 @@ lifecycle and ARP/ND (R20, R21) moved to
   stay field changes.** `diff.go:272` builds `map[netip.Prefix]Route`, which
   silently drops all but one route per prefix. The key gains the next hop and
   the interface so an added or removed ECMP member is visible, and the
-  per-field arms at `diff.go:316` gain `preference` and `metric` beside the
-  existing `next_hop` and `interface`. Why: keying on the whole tuple including
-  preference and metric would make a metric change a key change, so the
-  `rInA && !rInB` and `!rInA && rInB` arms at `diff.go:299` would fire and one
-  edit would read as a removal plus an addition. R9 requires one change, and
-  the two fields an operator most often retunes are exactly the two that would
-  lose their field arm.
+  per-field arms at `diff.go:316` become `preference` and `metric`. Why: keying
+  on the whole tuple including preference and metric would make a metric change
+  a key change, so the `rInA && !rInB` and `!rInA && rInB` arms at `diff.go:299`
+  would fire and one edit would read as a removal plus an addition. R9 requires
+  one change, and the two fields an operator most often retunes are exactly the
+  two that would lose their field arm. The `next_hop` and `interface` arms go
+  with the same reasoning applied the other way: once the key holds both, that
+  arm only ever compares two routes agreeing on them, so retuning either reads
+  as a removal plus an addition — which is what changing an ECMP member is.
 - **`Route.Canonical` and the VRF snapshot carry the new fields.** `Route` is
   itself a `trace.Fact` (`config.go:112`), and `snapshotVRF` (`diff.go:116`)
   encodes a whole VRF. Why: two routes differing only in preference would
@@ -366,8 +368,9 @@ lifecycle and ARP/ND (R20, R21) moved to
 8. **R9:** `Preference` and `Metric` extend normalization, `Clone`, `Canonical`,
    and `Diff`. **Acceptance example:** one static route whose `Metric` changes
    from 10 to 20 gives exactly one `Diff` change, on field `metric`; the same
-   for `preference`; an unset `Preference` and an explicit 1 on a static route
-   give none, and an explicit 0 normalizes to 1 and also gives none; adding a
+   for `preference`; a `Preference` of 0 on a static route normalizes to 1 and
+   gives none against an explicit 1, which is one test and not two, because a
+   `uint8` cannot distinguish unset from an explicit 0; adding a
    second next hop on a prefix that already has one gives one added-route
    change, not a modification of the first.
 9. **R37:** Identical input gives an identical table, selection, and trace.
@@ -434,8 +437,9 @@ route that contains the destination and equals the winner on prefix length,
 preference and metric, in canonical order, and takes the first until U4 adds
 the hash. `Route.Canonical` and `snapshotVRF` (`diff.go:99`, routes loop at
 `:116`) encode the two new fields. `Diff` keys its route maps on (prefix, next
-hop, interface) and gains `preference` and `metric` field arms beside the
-existing ones at `diff.go:316`. The `New` doc comment at `layer.go:143` states
+hop, interface), and its field arms at `diff.go:316` become `preference` and
+`metric`, the `next_hop` and `interface` arms being unreachable under that
+key. The `New` doc comment at `layer.go:143` states
 the new order; its three current clauses about connected routes listed first
 and a static route winning nothing all become false.
 Tests: the R19a and R19b examples; connected beats static through preference,

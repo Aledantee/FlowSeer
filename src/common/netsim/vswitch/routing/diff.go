@@ -79,6 +79,24 @@ func (f RouteInterfaceFact) TypeID() string { return "routing.route.interface" }
 // Canonical returns the interface name string.
 func (f RouteInterfaceFact) Canonical() string { return string(f) }
 
+// RoutePreferenceFact wraps a route preference as a trace.Fact.
+type RoutePreferenceFact uint8
+
+// TypeID returns the fact type identifier for RoutePreferenceFact.
+func (f RoutePreferenceFact) TypeID() string { return "routing.route.preference" }
+
+// Canonical returns the decimal preference string.
+func (f RoutePreferenceFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+// RouteMetricFact wraps a route metric as a trace.Fact.
+type RouteMetricFact uint32
+
+// TypeID returns the fact type identifier for RouteMetricFact.
+func (f RouteMetricFact) TypeID() string { return "routing.route.metric" }
+
+// Canonical returns the decimal metric string.
+func (f RouteMetricFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
 type interfaceSnapshotFact string
 
 func (f interfaceSnapshotFact) TypeID() string    { return "routing.interface" }
@@ -119,6 +137,10 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 		}
 		b.WriteString("{prefix=")
 		b.WriteString(strconv.Quote(route.Prefix.String()))
+		b.WriteString(";preference=")
+		b.WriteString(strconv.FormatUint(uint64(route.Preference), 10))
+		b.WriteString(";metric=")
+		b.WriteString(strconv.FormatUint(uint64(route.Metric), 10))
 		b.WriteString(";next_hop=")
 		b.WriteString(strconv.Quote(route.NextHop.String()))
 		b.WriteString(";interface=")
@@ -143,10 +165,23 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 	return vrfSnapshotFact(b.String())
 }
 
+// routeKey identifies a route within a VRF. Preference and metric stay out of it so that
+// retuning either reads as one field change rather than a removal and an addition, while a
+// second next hop on a prefix that already has one reads as the added route it is.
+type routeKey struct {
+	prefix  netip.Prefix
+	nextHop netip.Addr
+	iface   string
+}
+
+func keyOfRoute(r Route) routeKey {
+	return routeKey{prefix: r.Prefix, nextHop: r.NextHop, iface: r.Interface}
+}
+
 // Diff computes the difference between two routing configurations, reporting
 // added or removed VRFs, interface changes (vlan, port, mac, prefixes), route
-// changes (next_hop, interface keyed by prefix), and neighbor changes (mac
-// keyed by interface and address).
+// changes (preference, metric keyed by prefix, next hop, and interface), and
+// neighbor changes (mac keyed by interface and address).
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()
@@ -269,31 +304,39 @@ func Diff(a, b Config) []trace.Change {
 				}
 			}
 
-			aRoutes := make(map[netip.Prefix]Route, len(aVRF.Routes))
+			aRoutes := make(map[routeKey]Route, len(aVRF.Routes))
 			for _, r := range aVRF.Routes {
-				aRoutes[r.Prefix] = r
+				aRoutes[keyOfRoute(r)] = r
 			}
-			bRoutes := make(map[netip.Prefix]Route, len(bVRF.Routes))
+			bRoutes := make(map[routeKey]Route, len(bVRF.Routes))
 			for _, r := range bVRF.Routes {
-				bRoutes[r.Prefix] = r
+				bRoutes[keyOfRoute(r)] = r
 			}
-			prefixSet := make(map[netip.Prefix]struct{})
-			for p := range aRoutes {
-				prefixSet[p] = struct{}{}
+			routeSet := make(map[routeKey]struct{})
+			for k := range aRoutes {
+				routeSet[k] = struct{}{}
 			}
-			for p := range bRoutes {
-				prefixSet[p] = struct{}{}
+			for k := range bRoutes {
+				routeSet[k] = struct{}{}
 			}
-			sortedPrefixes := make([]netip.Prefix, 0, len(prefixSet))
-			for p := range prefixSet {
-				sortedPrefixes = append(sortedPrefixes, p)
+			sortedRoutes := make([]routeKey, 0, len(routeSet))
+			for k := range routeSet {
+				sortedRoutes = append(sortedRoutes, k)
 			}
-			slices.SortFunc(sortedPrefixes, comparePrefix)
+			slices.SortFunc(sortedRoutes, func(x, y routeKey) int {
+				if c := comparePrefix(x.prefix, y.prefix); c != 0 {
+					return c
+				}
+				if c := x.nextHop.Compare(y.nextHop); c != 0 {
+					return c
+				}
+				return cmp.Compare(x.iface, y.iface)
+			})
 
-			for _, p := range sortedPrefixes {
-				rA, rInA := aRoutes[p]
-				rB, rInB := bRoutes[p]
-				key := compositeSubjectKey(vrfName, p.String())
+			for _, k := range sortedRoutes {
+				rA, rInA := aRoutes[k]
+				rB, rInB := bRoutes[k]
+				key := compositeSubjectKey(vrfName, k.prefix.String(), k.nextHop.String(), k.iface)
 
 				switch {
 				case rInA && !rInB:
@@ -313,22 +356,22 @@ func Diff(a, b Config) []trace.Change {
 						To:      rB,
 					})
 				case rInA && rInB:
-					if rA.NextHop != rB.NextHop {
+					if rA.Preference != rB.Preference {
 						changes = append(changes, trace.Change{
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "route", Key: key},
-							Field:   "next_hop",
-							From:    AddrFact(rA.NextHop),
-							To:      AddrFact(rB.NextHop),
+							Field:   "preference",
+							From:    RoutePreferenceFact(rA.Preference),
+							To:      RoutePreferenceFact(rB.Preference),
 						})
 					}
-					if rA.Interface != rB.Interface {
+					if rA.Metric != rB.Metric {
 						changes = append(changes, trace.Change{
 							Layer:   port.LayerRouting,
 							Subject: trace.Subject{Kind: "route", Key: key},
-							Field:   "interface",
-							From:    RouteInterfaceFact(rA.Interface),
-							To:      RouteInterfaceFact(rB.Interface),
+							Field:   "metric",
+							From:    RouteMetricFact(rA.Metric),
+							To:      RouteMetricFact(rB.Metric),
 						})
 					}
 				}

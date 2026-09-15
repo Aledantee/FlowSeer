@@ -27,11 +27,15 @@ type Interface struct {
 }
 
 // Route defines a static forwarding entry mapping an IP prefix to a next-hop IP address,
-// an egress interface, or both.
+// an egress interface, or both. Preference is the administrative distance and Metric the
+// tie-break within one preference; the lower value wins for both. Preference 0 belongs to
+// connected routes, so a static route left at 0 normalizes to 1 and never reaches that tier.
 type Route struct {
-	Prefix    netip.Prefix
-	NextHop   netip.Addr
-	Interface string
+	Prefix     netip.Prefix
+	NextHop    netip.Addr
+	Interface  string
+	Preference uint8
+	Metric     uint32
 }
 
 // Neighbor defines a static link-layer address binding mapping an IP address on an interface
@@ -80,8 +84,9 @@ func (c Config) Clone() Config {
 	return cloned
 }
 
-// Normalize returns a normalized copy of the configuration, sorting routes by prefix,
-// neighbors by (interface, addr), interface prefixes, and masking route prefixes.
+// Normalize returns a normalized copy of the configuration, masking route prefixes, raising
+// a static route's reserved preference 0 to 1, sorting routes by prefix, preference, metric,
+// next hop, and interface, neighbors by (interface, addr), and interface prefixes.
 func (c Config) Normalize() Config {
 	cloned := c.Clone()
 	for vrfName, vrf := range cloned.VRFs {
@@ -93,9 +98,24 @@ func (c Config) Normalize() Config {
 			if vrf.Routes[i].Prefix.IsValid() {
 				vrf.Routes[i].Prefix = vrf.Routes[i].Prefix.Masked()
 			}
+			if vrf.Routes[i].Preference == 0 {
+				vrf.Routes[i].Preference = 1
+			}
 		}
 		slices.SortFunc(vrf.Routes, func(a, b Route) int {
-			return comparePrefix(a.Prefix, b.Prefix)
+			if c := comparePrefix(a.Prefix, b.Prefix); c != 0 {
+				return c
+			}
+			if c := cmp.Compare(a.Preference, b.Preference); c != 0 {
+				return c
+			}
+			if c := cmp.Compare(a.Metric, b.Metric); c != 0 {
+				return c
+			}
+			if c := a.NextHop.Compare(b.NextHop); c != 0 {
+				return c
+			}
+			return cmp.Compare(a.Interface, b.Interface)
 		})
 		slices.SortFunc(vrf.Neighbors, func(x, y Neighbor) int {
 			if c := cmp.Compare(x.Interface, y.Interface); c != 0 {
@@ -113,7 +133,8 @@ func (r Route) TypeID() string { return "routing.route" }
 
 // Canonical returns the canonical string representation of the Route fact.
 func (r Route) Canonical() string {
-	return fmt.Sprintf("prefix=%q,next_hop=%q,interface=%q", r.Prefix.String(), r.NextHop.String(), r.Interface)
+	return fmt.Sprintf("prefix=%q,preference=%d,metric=%d,next_hop=%q,interface=%q",
+		r.Prefix.String(), r.Preference, r.Metric, r.NextHop.String(), r.Interface)
 }
 
 // TypeID returns the fact type identifier for Neighbor.
@@ -139,6 +160,9 @@ func comparePrefix(a, b netip.Prefix) int {
 // routes or neighbors referencing interfaces outside their VRF, next hops unreachable by
 // any interface prefix in the VRF when the route omits an interface, neighbor address families
 // mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
+//
+// A prefix may carry several routes, which is how an equal-cost set is configured. Two routes
+// collide only when they agree on prefix, preference, metric, next hop, and interface alike.
 func (c Config) Validate(ports port.Table) error {
 	vrfNames := make([]string, 0, len(c.VRFs))
 	for name := range c.VRFs {
@@ -274,8 +298,7 @@ func (c Config) Validate(ports port.Table) error {
 			}
 		}
 
-		// The table holds one route per prefix.
-		seenPrefixes := make(map[netip.Prefix]struct{}, len(vrf.Routes))
+		seenRoutes := make(map[Route]struct{}, len(vrf.Routes))
 		for _, r := range vrf.Routes {
 			if !r.Prefix.IsValid() || r.Prefix != r.Prefix.Masked() {
 				return errs.New().
@@ -292,14 +315,18 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", r.Prefix)
 			}
-			if _, dup := seenPrefixes[r.Prefix]; dup {
+			if _, dup := seenRoutes[r]; dup {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
+					Attr("preference", r.Preference).
+					Attr("metric", r.Metric).
+					Attr("next_hop", r.NextHop).
+					Attr("interface", r.Interface).
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
-					Msgf("route prefix %s appears twice in VRF %q", r.Prefix, vrfName)
+					Msgf("route %s appears twice in VRF %q with the same preference, metric, next hop, and interface", r.Prefix, vrfName)
 			}
-			seenPrefixes[r.Prefix] = struct{}{}
+			seenRoutes[r] = struct{}{}
 
 			if !r.NextHop.IsValid() && r.Interface == "" {
 				return errs.New().
