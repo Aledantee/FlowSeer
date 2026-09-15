@@ -214,6 +214,21 @@ unaffected.
 Tests: `emit_resolve_test.go` — resolving an unregistered variant returns an
 error naming it; a generation run over a TC with an unresolvable variant fails
 without writing output; a run over the golden corpus is byte-identical.
+
+Landed shape (deviation from the threading design above): every `resolved` an
+emitter reads reaches it through `resolveType`, and every non-`tcDelegate`
+`resolved`'s `Variant` field equals the variant it passes to the decode
+helpers. So the check is one call — `validateDecoderVariant(r.Variant)` — at the
+`resolveType` entry point, before any emitter touches the resolved. That covers
+every emitted `DecodeFunc` without threading an error return through
+`enumResolved`, `numericResolved`, `applicationType`, `resolveBase`,
+`resolvedBytes` and `keyedResolved`, all of which pass compile-time-constant
+variants that cannot be unregistered — an error return there would handle an
+error that cannot occur, which `docs/code-style.md` bans. The emission helpers
+are renamed `mustDecodeNatural`/`mustDecodeIntCast`/`mustDecodeCast`; their
+panic is now the clause-2 proven guard the pre-pass and
+`TestValidateDecoderVariant` make unreachable. `naturalResolved` keeps its
+`resolved` return, so `emit_resolve_test.go:61,127` are untouched.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/snmp/cmd/mibgen`
 
 ### U7. fabric records a scheduling fault
