@@ -13,6 +13,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
+// Every scenario in this file snoops one VLAN and watches one member port; the
+// second and third ports exist to show a decision is not port-wide.
+const (
+	vid        vlan.ID = 10
+	memberPort         = "1/1/1"
+)
+
 func mcastPortTable(t *testing.T) port.Table {
 	t.Helper()
 
@@ -40,20 +47,20 @@ func mustNewMcast(t *testing.T, cfg mcast.Config, ports port.Table) *mcast.Layer
 	return m
 }
 
-func mustEntry(t *testing.T, entries []mcast.Entry, portName string) mcast.Entry {
+func mustEntry(t *testing.T, entries []mcast.Entry) mcast.Entry {
 	t.Helper()
 	for _, e := range entries {
-		if e.Port == portName {
+		if e.Port == memberPort {
 			return e
 		}
 	}
-	t.Fatalf("no entry for port %q in %+v", portName, entries)
+	t.Fatalf("no entry for port %q in %+v", memberPort, entries)
 	return mcast.Entry{}
 }
 
-func entryExists(entries []mcast.Entry, portName string) bool {
+func entryExists(entries []mcast.Entry) bool {
 	for _, e := range entries {
-		if e.Port == portName {
+		if e.Port == memberPort {
 			return true
 		}
 	}
@@ -70,8 +77,10 @@ func sourceExpiry(t *testing.T, e mcast.Entry, addr netip.Addr) (time.Time, bool
 	return time.Time{}, false
 }
 
-func igmpRecord(now time.Time, layer *mcast.Layer, vid vlan.ID, portName string, kind igmp.RecordType, group netip.Addr, sources []netip.Addr) {
-	layer.Learn(now, vid, portName, netip.MustParseAddr("10.0.0.1"), igmp.Message{
+// igmpRecord drives one IGMPv3 group record at the watched member port, the
+// shape every RFC 3376 section 6.4 table row is exercised with.
+func igmpRecord(now time.Time, layer *mcast.Layer, kind igmp.RecordType, group netip.Addr, sources []netip.Addr) {
+	layer.Learn(now, vid, memberPort, netip.MustParseAddr("10.0.0.1"), igmp.Message{
 		Type:    igmp.ReportV3,
 		Records: []igmp.GroupRecord{{Type: kind, Group: group, Sources: sources}},
 	})
@@ -82,7 +91,6 @@ func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 
 	ports := mcastPortTable(t)
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	source := netip.MustParseAddr("10.1.1.1")
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
@@ -132,7 +140,6 @@ func TestReasons(t *testing.T) {
 func TestRouterPortLearningRequiresProtocolSource(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 	now := time.Unix(2_000, 0)
 
@@ -163,7 +170,6 @@ func TestRouterPortLearningRequiresProtocolSource(t *testing.T) {
 func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		vid: {RouterPorts: []string{"1/1/4"}},
 	}}, mcastPortTable(t))
@@ -178,7 +184,6 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 func TestLearningIgnoresUnsnoopedVLANsAndPhysicalLAGMembers(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 	now := time.Unix(3_000, 0)
@@ -202,7 +207,6 @@ func TestLearningIgnoresUnsnoopedVLANsAndPhysicalLAGMembers(t *testing.T) {
 func TestLegacyReportsLearnMembership(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	ports := mcastPortTable(t)
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
 	now := time.Unix(4_000, 0)
@@ -249,7 +253,6 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			const vid vlan.ID = 10
 			group := netip.MustParseAddr("239.1.1.1")
 			if tt.mld {
 				group = netip.MustParseAddr("ff05::1")
@@ -281,7 +284,6 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 func TestRetainDropsDepartedPortsAndPreservesExpiries(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	t0 := time.Unix(10_000, 0)
 	ports := mcastPortTable(t)
@@ -305,7 +307,6 @@ func TestRetainDropsDepartedPortsAndPreservesExpiries(t *testing.T) {
 func TestLayerCloneIsIndependent(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	other := netip.MustParseAddr("10.9.9.9")
 	t0 := time.Unix(11_000, 0)
@@ -329,12 +330,11 @@ func TestLayerCloneIsIndependent(t *testing.T) {
 func TestLayerCloneDeepCopiesSourceRecords(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	t0 := time.Unix(11_500, 0)
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
-	igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+	igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 
 	clone := layer.Clone()
 	clone.Learn(t0.Add(time.Second), vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{
@@ -344,10 +344,10 @@ func TestLayerCloneDeepCopiesSourceRecords(t *testing.T) {
 		}},
 	})
 
-	if got := mustEntry(t, layer.Groups(vid), "1/1/1"); len(got.Sources) != 1 {
+	if got := mustEntry(t, layer.Groups(vid)); len(got.Sources) != 1 {
 		t.Errorf("original Sources = %+v, want unaffected by clone mutation", got.Sources)
 	}
-	if got := mustEntry(t, clone.Groups(vid), "1/1/1"); len(got.Sources) != 2 {
+	if got := mustEntry(t, clone.Groups(vid)); len(got.Sources) != 2 {
 		t.Errorf("clone Sources = %+v, want the new source added", got.Sources)
 	}
 }
@@ -357,7 +357,6 @@ func TestLayerCloneDeepCopiesSourceRecords(t *testing.T) {
 func TestCurrentStateRecordRules(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	s2 := netip.MustParseAddr("10.1.1.2")
@@ -376,10 +375,10 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(20_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsInclude, group, []netip.Addr{s2})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -396,10 +395,10 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(21_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer t1+GMI", e)
 		}
@@ -420,12 +419,12 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		t0 := time.Unix(22_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1}) // X seed
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1}) // X seed
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// state: EXCLUDE(X={s1: t0+GMI}, Y={s2: 0}), group timer t1+GMI
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s2, s3})
+		igmpRecord(t2, layer, igmp.ModeIsInclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer unchanged at t1+GMI", e)
 		}
@@ -446,12 +445,12 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		t0 := time.Unix(23_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// state: EXCLUDE(X={s1: t0+GMI}, Y={s2: 0}), group timer t1+GMI
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
+		igmpRecord(t2, layer, igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t2.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer refreshed to t2+GMI", e)
 		}
@@ -472,7 +471,6 @@ func TestCurrentStateRecordRules(t *testing.T) {
 func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	s2 := netip.MustParseAddr("10.1.1.2")
@@ -497,10 +495,10 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(30_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.AllowNewSources, group, []netip.Addr{s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.AllowNewSources, group, []netip.Addr{s2})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -520,10 +518,10 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(31_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.BlockOldSources, group, []netip.Addr{s2, s3})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t1, layer, igmp.BlockOldSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE unchanged", e.Mode)
 		}
@@ -543,10 +541,10 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(32_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t1, layer, igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer t1+GMI", e)
 		}
@@ -569,10 +567,10 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		layer := newLayer(t)
 		t0 := time.Unix(33_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t1, layer, igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -596,11 +594,11 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		t0 := time.Unix(34_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.AllowNewSources, group, []netip.Addr{s2, s3})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t2, layer, igmp.AllowNewSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer unchanged at t1+GMI", e)
 		}
@@ -621,12 +619,12 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		t0 := time.Unix(35_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.BlockOldSources, group, []netip.Addr{s2, s3})
+		igmpRecord(t2, layer, igmp.BlockOldSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer untouched at t1+GMI", e)
 		}
@@ -647,12 +645,12 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		t0 := time.Unix(36_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
+		igmpRecord(t2, layer, igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t2.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer refreshed to t2+GMI", e)
 		}
@@ -676,12 +674,12 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		t0 := time.Unix(37_000, 0)
 		t1 := t0.Add(time.Second)
 		t2 := t1.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
-		igmpRecord(t2, layer, vid, "1/1/1", igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
+		igmpRecord(t2, layer, igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer untouched at t1+GMI", e)
 		}
@@ -705,7 +703,6 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	s2 := netip.MustParseAddr("10.1.1.2")
@@ -718,14 +715,14 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 		}}, mcastPortTable(t))
 		t0 := time.Unix(40_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s2})
+		igmpRecord(t0, layer, igmp.ModeIsExclude, group, []netip.Addr{s2})
 		// EXCLUDE(X={}, Y={s2: 0}), group timer t0+gmi
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 		// EXCLUDE(X={s1: t1+gmi}, Y={s2: 0}), group timer still t0+gmi (t1+gmi outlives it)
 
 		layer.Age(t0.Add(gmi))
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE after group timer expiry", e.Mode)
 		}
@@ -748,7 +745,7 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 
 		layer.Age(t0.Add(gmi))
 
-		if entries := layer.Groups(vid); entryExists(entries, "1/1/1") {
+		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -757,7 +754,6 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 func TestSourceTimerExpiry(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	gmi := 10 * time.Second
@@ -768,11 +764,11 @@ func TestSourceTimerExpiry(t *testing.T) {
 			vid: {MembershipInterval: gmi},
 		}}, mcastPortTable(t))
 		t0 := time.Unix(42_000, 0)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 
 		layer.Age(t0.Add(gmi))
 
-		if entries := layer.Groups(vid); entryExists(entries, "1/1/1") {
+		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -785,13 +781,13 @@ func TestSourceTimerExpiry(t *testing.T) {
 		}}, mcastPortTable(t))
 		t0 := time.Unix(43_000, 0)
 		t1 := t0.Add(time.Second)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t1, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		// EXCLUDE(X={s1: t0+1000s}, Y={s2: 0}), group timer far in the future
 
 		layer.Age(t0.Add(1000 * time.Second))
 
-		e := mustEntry(t, layer.Groups(vid), "1/1/1")
+		e := mustEntry(t, layer.Groups(vid))
 		if e.Mode != mcast.Exclude {
 			t.Fatalf("mode = %v, want EXCLUDE unchanged", e.Mode)
 		}
@@ -807,7 +803,6 @@ func TestSourceTimerExpiry(t *testing.T) {
 func TestForwardingTable(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	s2 := netip.MustParseAddr("10.1.1.2")
@@ -822,7 +817,7 @@ func TestForwardingTable(t *testing.T) {
 		{
 			name: "INCLUDE, source timer running, forward",
 			setup: func(layer *mcast.Layer, t0 time.Time) {
-				igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+				igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 			},
 			query:   s1,
 			forward: true,
@@ -830,7 +825,7 @@ func TestForwardingTable(t *testing.T) {
 		{
 			name: "INCLUDE, no record, do not forward",
 			setup: func(layer *mcast.Layer, t0 time.Time) {
-				igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+				igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 			},
 			query:   s2,
 			forward: false,
@@ -838,8 +833,8 @@ func TestForwardingTable(t *testing.T) {
 		{
 			name: "EXCLUDE, source timer running, forward",
 			setup: func(layer *mcast.Layer, t0 time.Time) {
-				igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-				igmpRecord(t0.Add(time.Second), layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s1})
+				igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+				igmpRecord(t0.Add(time.Second), layer, igmp.ModeIsExclude, group, []netip.Addr{s1})
 			},
 			query:   s1,
 			forward: true,
@@ -847,7 +842,7 @@ func TestForwardingTable(t *testing.T) {
 		{
 			name: "EXCLUDE, source timer zero, do not forward",
 			setup: func(layer *mcast.Layer, t0 time.Time) {
-				igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s2})
+				igmpRecord(t0, layer, igmp.ModeIsExclude, group, []netip.Addr{s2})
 			},
 			query:   s2,
 			forward: false,
@@ -855,7 +850,7 @@ func TestForwardingTable(t *testing.T) {
 		{
 			name: "EXCLUDE, no record, forward",
 			setup: func(layer *mcast.Layer, t0 time.Time) {
-				igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsExclude, group, nil)
+				igmpRecord(t0, layer, igmp.ModeIsExclude, group, nil)
 			},
 			query:   s1,
 			forward: true,
@@ -885,7 +880,6 @@ func TestForwardingTable(t *testing.T) {
 func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	gmi := 100 * time.Second
 	lmqt := 2 * time.Second
@@ -915,7 +909,7 @@ func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 				layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: g})
 			}
 
-			e := mustEntry(t, layer.Groups(vid), "1/1/1")
+			e := mustEntry(t, layer.Groups(vid))
 			if e.Mode != mcast.Exclude || len(e.Sources) != 0 || !e.GroupExpires.Equal(t0.Add(gmi)) {
 				t.Fatalf("join state = %+v, want EXCLUDE({},{}) per IS_EX({})", e)
 			}
@@ -926,7 +920,7 @@ func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 				layer.Learn(t1, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.Leave, Group: g})
 			}
 
-			e = mustEntry(t, layer.Groups(vid), "1/1/1")
+			e = mustEntry(t, layer.Groups(vid))
 			if e.Mode != mcast.Exclude || len(e.Sources) != 0 {
 				t.Fatalf("leave state = %+v, want EXCLUDE({},{}) per TO_IN({})", e)
 			}
@@ -940,7 +934,6 @@ func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 func TestOlderVersionHostBlockIgnoredUntilTimerExpires(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	gmi := 10 * time.Second
@@ -952,14 +945,14 @@ func TestOlderVersionHostBlockIgnoredUntilTimerExpires(t *testing.T) {
 	// IGMPv2 join starts the older-version-host timer until t0+gmi.
 	layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 
-	igmpRecord(t0, layer, vid, "1/1/1", igmp.BlockOldSources, group, []netip.Addr{s1})
-	if e := mustEntry(t, layer.Groups(vid), "1/1/1"); len(e.Sources) != 0 {
+	igmpRecord(t0, layer, igmp.BlockOldSources, group, []netip.Addr{s1})
+	if e := mustEntry(t, layer.Groups(vid)); len(e.Sources) != 0 {
 		t.Errorf("sources after BLOCK during older-host timer = %+v, want ignored", e.Sources)
 	}
 
 	after := t0.Add(gmi).Add(time.Second)
-	igmpRecord(after, layer, vid, "1/1/1", igmp.BlockOldSources, group, []netip.Addr{s1})
-	e := mustEntry(t, layer.Groups(vid), "1/1/1")
+	igmpRecord(after, layer, igmp.BlockOldSources, group, []netip.Addr{s1})
+	e := mustEntry(t, layer.Groups(vid))
 	if exp, ok := sourceExpiry(t, e, s1); !ok || !exp.Equal(t0.Add(gmi)) {
 		t.Errorf("s1 expiry after the timer expired = (%v, %v), want the current group timer t0+GMI", exp, ok)
 	}
@@ -970,14 +963,13 @@ func TestOlderVersionHostBlockIgnoredUntilTimerExpires(t *testing.T) {
 func TestSourceFiltering(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 	s2 := netip.MustParseAddr("10.1.1.2")
 	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
 	t0 := time.Unix(80_000, 0)
 
-	igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
+	igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 
 	if ports, _, _ := layer.Resolve(vid, group, s1, t0); !slices.Contains(ports, "1/1/1") {
 		t.Errorf("Resolve(s1) does not admit 1/1/1, want admitted")
@@ -986,7 +978,7 @@ func TestSourceFiltering(t *testing.T) {
 		t.Errorf("Resolve(s2) admits 1/1/1, want not admitted")
 	}
 
-	igmpRecord(t0.Add(time.Second), layer, vid, "1/1/1", igmp.ModeIsExclude, group, []netip.Addr{s2})
+	igmpRecord(t0.Add(time.Second), layer, igmp.ModeIsExclude, group, []netip.Addr{s2})
 
 	if ports, _, _ := layer.Resolve(vid, group, s1, t0.Add(2*time.Second)); !slices.Contains(ports, "1/1/1") {
 		t.Errorf("Resolve(s1) after IS_EX({s2}) does not admit 1/1/1, want admitted (no record in EXCLUDE forwards)")
@@ -1001,7 +993,6 @@ func TestSourceFiltering(t *testing.T) {
 func TestLeaveTimingFollowsObservedQueries(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 
 	build := func(t *testing.T, withRouter bool) *mcast.Layer {
@@ -1076,7 +1067,6 @@ func TestLeaveTimingFollowsObservedQueries(t *testing.T) {
 func TestFastLeave(t *testing.T) {
 	t.Parallel()
 
-	const vid vlan.ID = 10
 	group := netip.MustParseAddr("239.1.1.1")
 	s1 := netip.MustParseAddr("10.1.1.1")
 
@@ -1089,7 +1079,7 @@ func TestFastLeave(t *testing.T) {
 		layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 		layer.Learn(t0.Add(time.Second), vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.Leave, Group: group})
 
-		if entries := layer.Groups(vid); entryExists(entries, "1/1/1") {
+		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -1100,10 +1090,10 @@ func TestFastLeave(t *testing.T) {
 			vid: {FastLeave: true},
 		}}, mcastPortTable(t))
 		t0 := time.Unix(101_000, 0)
-		igmpRecord(t0, layer, vid, "1/1/1", igmp.ModeIsInclude, group, []netip.Addr{s1})
-		igmpRecord(t0.Add(time.Second), layer, vid, "1/1/1", igmp.ModeIsInclude, group, nil)
+		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
+		igmpRecord(t0.Add(time.Second), layer, igmp.ModeIsInclude, group, nil)
 
-		if entries := layer.Groups(vid); entryExists(entries, "1/1/1") {
+		if entries := layer.Groups(vid); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
