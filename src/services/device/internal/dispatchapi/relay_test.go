@@ -264,6 +264,35 @@ func TestOnboardedResumeCarriesAdmissionTime(t *testing.T) {
 	}
 }
 
+// panicKeyLister stands in for the lane bucket, panicking wherever the
+// bucket would ordinarily be listed.
+type panicKeyLister struct{}
+
+func (panicKeyLister) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	panic("sweeper key list exploded")
+}
+
+// TestARunningSweeperPanicClosesDoneRatherThanHanging is evidence for the
+// converted goroutine in RunSweeper: it forces sweepAll into a real panic
+// and checks that the done channel this returns still closes. RunSweeper
+// has no failure sink of its own — relay.go's own log record at :216/:222
+// stays, and the recovered panic reaches only the observability floor — so
+// the one thing a caller can still rely on is the plain rendezvous: done
+// must close on the panic path or a caller waiting on it (the host, and
+// this test) hangs forever with nothing but a log line to show for it.
+func TestARunningSweeperPanicClosesDoneRatherThanHanging(t *testing.T) {
+	svc, _, _ := newFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	done := svc.RunSweeper(ctx, panicKeyLister{})
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("RunSweeper's done channel never closed after sweepAll panicked")
+	}
+}
+
 func TestRunningSweeperClosesAnExpiredRead(t *testing.T) {
 	svc, j, kv := newFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())
