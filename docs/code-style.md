@@ -312,11 +312,21 @@ its spawner sits under, because Go does not propagate it to the spawning frame.
 goroutine, and a panic here takes the process down without naming the file that
 caused it."
 
-Every goroutine running first-party work is launched through the supervised spawn
-helper in `src/common`, which recovers and reports the panic as a structured
-error for that unit of work. One reviewed implementation is the point — the
-alternative is an inline recover at every `go` statement in the repository, and
-sixty-odd separate decisions about what reporting means.
+Every goroutine running first-party work is launched through
+`spawn.Go` (`src/common/spawn`), which recovers and reports the panic as a
+structured error for that unit of work — a log record always, and a
+caller-supplied sink where one exists. One reviewed implementation is the point —
+the alternative is an inline recover at every `go` statement in the repository,
+and sixty-odd separate decisions about what reporting means.
+
+The helper recovers and reports; it does nothing else. It does not join, restart,
+back off, or cancel siblings. A caller that must wait keeps its own
+`sync.WaitGroup`, and restart policy stays with the supervisor that owns the
+work, so that a panic at one of sixty-odd call sites cannot quietly become a
+retry loop nobody chose.
+[Supervised Goroutine Spawn](architecture/2026-09-15-supervised-goroutine-spawn-direction.md)
+records why the package sits beside `errs`, `pump` and `service` rather than
+inside one of them.
 
 ### Remedies
 
