@@ -1178,6 +1178,39 @@ func TestMigratedPortAgreesWithoutTheAgreementBit(t *testing.T) {
 	}
 }
 
+// TestTopologyChangeFlushKeepsBridgeGlobalPortOrder guards the seam that keying
+// the layer's state by tree could have broken. Effects.Flush reaches the caller
+// in the order the emit loops walk the ports, so that order belongs to the
+// bridge; a per-tree port map iterated on its own would reorder the list with no
+// behavior change to point at.
+func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	names := []string{"1/1/1", "1/1/2", "1/1/3", "1/1/4", "1/1/5"}
+	ports := map[string]stp.Port{}
+	for _, name := range names {
+		ports[name] = stp.Port{}
+	}
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:02"),
+		Ports:    ports,
+	}, mustPortTable(t, names...))
+	for _, name := range names {
+		l.LinkChange(t0, name, true, true, 1_000_000_000)
+	}
+
+	// A TCN on the first port flushes every other port, which is the widest
+	// flush list one call produces.
+	fx := l.Receive(t0.Add(4*time.Second), names[0], stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
+
+	want := names[1:]
+	if !slices.Equal(fx.Flush, want) {
+		t.Errorf("Flush = %v, want %v in sorted bridge-global port order", fx.Flush, want)
+	}
+}
+
 // TestTCNReceiveRaisesTopologyChange is evidence that a legacy Topology
 // Change Notification flushes the other ports and migrates the port.
 func TestTCNReceiveRaisesTopologyChange(t *testing.T) {

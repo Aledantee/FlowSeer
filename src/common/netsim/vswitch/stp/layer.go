@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
@@ -56,17 +57,13 @@ type Layer struct {
 	forwardDelay time.Duration
 	txHoldCount  uint8
 
-	ports map[string]*portState
+	// portNames is the bridge-global port key set in the order every emit and
+	// flush loop walks. A per-tree map iterated separately would reorder
+	// Effects.Flush with no behavior change to point at.
+	portNames []string
 
-	helloTimer time.Time
-
-	rootID       BridgeID
-	rootPathCost uint32
-	rootPort     string
-
-	topologyChangeCount uint64
-	lastTopologyChange  time.Time
-	topologyChangeTimer time.Time
+	trees     map[treeID]*tree
+	vidToTree map[vlan.ID]treeID
 }
 
 type portState struct {
@@ -169,6 +166,18 @@ func newLayer(cfg Config) *Layer {
 		holdCount = DefaultTxHoldCount
 	}
 
+	// The port identifier is bridge-global: it is derived from the index in the
+	// sorted port names, appears on the wire, and must not vary by tree.
+	sortedNames := sortedKeys(cfg.Ports)
+
+	cist := &tree{
+		id:           cistID,
+		rootID:       bridgeID,
+		rootPathCost: 0,
+		rootPort:     "",
+		ports:        make(map[string]*portState, len(cfg.Ports)),
+	}
+
 	l := &Layer{
 		cfg:          cfg,
 		priority:     prio,
@@ -178,13 +187,11 @@ func newLayer(cfg Config) *Layer {
 		maxAge:       maxAge,
 		forwardDelay: fwdDelay,
 		txHoldCount:  holdCount,
-		ports:        make(map[string]*portState, len(cfg.Ports)),
-		rootID:       bridgeID,
-		rootPathCost: 0,
-		rootPort:     "",
+		portNames:    sortedNames,
+		trees:        map[treeID]*tree{cistID: cist},
+		vidToTree:    make(map[vlan.ID]treeID),
 	}
 
-	sortedNames := sortedKeys(cfg.Ports)
 	for i, name := range sortedNames {
 		pCfg := cfg.Ports[name]
 		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
@@ -195,7 +202,7 @@ func newLayer(cfg Config) *Layer {
 			cost = DefaultPathCost(0)
 		}
 
-		l.ports[name] = &portState{
+		cist.ports[name] = &portState{
 			name:         name,
 			cfg:          pCfg,
 			portID:       portID,
@@ -217,30 +224,28 @@ func newLayer(cfg Config) *Layer {
 // all ports, timers, and elected roles.
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
-		cfg:                 l.cfg,
-		priority:            l.priority,
-		address:             l.address,
-		bridgeID:            l.bridgeID,
-		helloTime:           l.helloTime,
-		maxAge:              l.maxAge,
-		forwardDelay:        l.forwardDelay,
-		txHoldCount:         l.txHoldCount,
-		ports:               make(map[string]*portState, len(l.ports)),
-		helloTimer:          l.helloTimer,
-		rootID:              l.rootID,
-		rootPathCost:        l.rootPathCost,
-		rootPort:            l.rootPort,
-		topologyChangeCount: l.topologyChangeCount,
-		lastTopologyChange:  l.lastTopologyChange,
-		topologyChangeTimer: l.topologyChangeTimer,
+		cfg:          l.cfg,
+		priority:     l.priority,
+		address:      l.address,
+		bridgeID:     l.bridgeID,
+		helloTime:    l.helloTime,
+		maxAge:       l.maxAge,
+		forwardDelay: l.forwardDelay,
+		txHoldCount:  l.txHoldCount,
+		portNames:    slices.Clone(l.portNames),
+		trees:        make(map[treeID]*tree, len(l.trees)),
+		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
 	}
 
 	cp.cfg.Ports = make(map[string]Port, len(l.cfg.Ports))
 	for k, v := range l.cfg.Ports {
 		cp.cfg.Ports[k] = v
 	}
-	for k, v := range l.ports {
-		cp.ports[k] = v.clone()
+	for id, t := range l.trees {
+		cp.trees[id] = t.clone()
+	}
+	for vid, id := range l.vidToTree {
+		cp.vidToTree[vid] = id
 	}
 
 	return cp
@@ -249,7 +254,7 @@ func (l *Layer) Clone() *Layer {
 // Learns reports whether the named port learns MAC addresses into the filtering database.
 // An untracked port always learns.
 func (l *Layer) Learns(port string) bool {
-	p, ok := l.ports[port]
+	p, ok := l.cist().ports[port]
 	if !ok {
 		return true
 	}
@@ -259,7 +264,7 @@ func (l *Layer) Learns(port string) bool {
 
 // Forwards reports whether the named port forwards traffic. An untracked port always forwards.
 func (l *Layer) Forwards(port string) bool {
-	p, ok := l.ports[port]
+	p, ok := l.cist().ports[port]
 	if !ok {
 		return true
 	}
@@ -271,13 +276,17 @@ func (l *Layer) Forwards(port string) bool {
 // and the interface name of the root port. When this bridge is root, the root
 // port name is empty.
 func (l *Layer) Root() (BridgeID, uint32, string) {
-	return l.rootID, l.rootPathCost, l.rootPort
+	t := l.cist()
+
+	return t.rootID, t.rootPathCost, t.rootPort
 }
 
 // TopologyChanges returns the total number of detected topology changes and the
 // timestamp of the most recent change.
 func (l *Layer) TopologyChanges() (uint64, time.Time) {
-	return l.topologyChangeCount, l.lastTopologyChange
+	t := l.cist()
+
+	return t.topologyChangeCount, t.lastTopologyChange
 }
 
 // BridgeID returns this bridge's identifier with the priority in effect.
@@ -288,8 +297,13 @@ func (l *Layer) BridgeID() BridgeID {
 // Times returns the max age, hello time, and forward delay in force: the root's
 // values as received on the root port, or this bridge's own while it is root.
 func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
-	if l.rootPort != "" {
-		if rp, ok := l.ports[l.rootPort]; ok && rp.rcvInfoValid {
+	return l.times(l.cist())
+}
+
+// times returns the timers in force for one tree.
+func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
+	if t.rootPort != "" {
+		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
 			return rp.rcvMaxAge, rp.rcvHelloTime, rp.rcvForwardDelay
 		}
 	}
@@ -300,7 +314,8 @@ func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 // PortInfo returns runtime spanning tree information for the named port. If the
 // port is not tracked by the layer, PortInfo returns a zero value.
 func (l *Layer) PortInfo(port string) PortInfo {
-	p, ok := l.ports[port]
+	t := l.cist()
+	p, ok := t.ports[port]
 	if !ok {
 		return PortInfo{}
 	}
@@ -311,10 +326,10 @@ func (l *Layer) PortInfo(port string) PortInfo {
 
 	switch p.role {
 	case RoleDesignated:
-		desigRoot = l.rootID
+		desigRoot = t.rootID
 		desig = l.bridgeID
 		desigPort = p.portID
-		desigCost = l.rootPathCost
+		desigCost = t.rootPathCost
 	case RoleRoot, RoleAlternate, RoleBackup:
 		if p.rcvInfoValid {
 			desigRoot = p.rcvRootID
@@ -347,7 +362,7 @@ func (l *Layer) PortInfo(port string) PortInfo {
 // BadBPDU records that a frame received on the named port could not be decoded as a BPDU.
 // An untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
-	p, ok := l.ports[port]
+	p, ok := l.cist().ports[port]
 	if !ok {
 		return
 	}
@@ -359,7 +374,8 @@ func (l *Layer) BadBPDU(port string) {
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) Effects {
-	p, ok := l.ports[port]
+	t := l.cist()
+	p, ok := t.ports[port]
 	if !ok || !p.up {
 		return Effects{}
 	}
@@ -370,7 +386,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 	var flushes []string
 	var emissions []Emission
 
-	subEmissions := l.recompute(now, &flushes)
+	subEmissions := l.recompute(t, now, &flushes)
 	emissions = append(emissions, subEmissions...)
 
 	if p.role == RoleDesignated && p.up {
@@ -382,7 +398,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 			}
 		}
 		if !alreadyEmitted && !p.pendingDesignated {
-			l.emit(p, now, emissionDesignated, &emissions)
+			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
 
@@ -398,32 +414,34 @@ func (l *Layer) NextWake() (time.Time, bool) {
 	var next time.Time
 	hasTimer := false
 
-	update := func(t time.Time) {
-		if t.IsZero() {
+	update := func(at time.Time) {
+		if at.IsZero() {
 			return
 		}
-		if !hasTimer || t.Before(next) {
-			next = t
+		if !hasTimer || at.Before(next) {
+			next = at
 			hasTimer = true
 		}
 	}
 
-	update(l.helloTimer)
-	update(l.topologyChangeTimer)
+	for _, t := range l.trees {
+		update(t.helloTimer)
+		update(t.topologyChangeTimer)
 
-	for _, p := range l.ports {
-		update(p.fwdDelayTimer)
-		if p.rcvInfoValid {
-			update(p.rcvTime.Add(3 * p.rcvHelloTime))
-		}
-		// The edge delay is due only on a port that can still become an
-		// edge, or a wake would be scheduled that changes nothing.
-		if p.cfg.AutoEdge && !p.edge && p.up && p.sendRSTP && p.role == RoleDesignated &&
-			p.state == StateDiscarding && p.pointToPoint && p.proposing {
-			update(p.edgeDelayWhile)
-		}
-		if (p.pendingAgreement || p.pendingDesignated) && !p.txTick.IsZero() {
-			update(p.txTick)
+		for _, p := range t.ports {
+			update(p.fwdDelayTimer)
+			if p.rcvInfoValid {
+				update(p.rcvTime.Add(3 * p.rcvHelloTime))
+			}
+			// The edge delay is due only on a port that can still become an
+			// edge, or a wake would be scheduled that changes nothing.
+			if p.cfg.AutoEdge && !p.edge && p.up && p.sendRSTP && p.role == RoleDesignated &&
+				p.state == StateDiscarding && p.pointToPoint && p.proposing {
+				update(p.edgeDelayWhile)
+			}
+			if (p.pendingAgreement || p.pendingDesignated) && !p.txTick.IsZero() {
+				update(p.txTick)
+			}
 		}
 	}
 
@@ -437,7 +455,7 @@ const (
 	emissionAgreement
 )
 
-func (l *Layer) emit(p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
+func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
 	for p.txCount > 0 && !p.txTick.After(now) {
 		p.txCount--
 		p.txTick = p.txTick.Add(time.Second)
@@ -451,9 +469,9 @@ func (l *Layer) emit(p *portState, now time.Time, kind emissionKind, emissions *
 		switch kind {
 		case emissionDesignated:
 			proposal := p.pointToPoint && p.state == StateDiscarding && !p.agreed && p.sendRSTP
-			bpdu = l.makeBPDU(p, now, proposal)
+			bpdu = l.makeBPDU(t, p, now, proposal)
 		case emissionAgreement:
-			bpdu = l.makeAgreementBPDU(p, now)
+			bpdu = l.makeAgreementBPDU(t, p, now)
 		}
 
 		*emissions = append(*emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
@@ -476,17 +494,17 @@ func (l *Layer) emit(p *portState, now time.Time, kind emissionKind, emissions *
 // edgeDelay is the time without a BPDU after which a port may be detected as
 // an edge: MigrateTime on a point-to-point link, the max age in force on a
 // shared one.
-func (l *Layer) edgeDelay(p *portState) time.Duration {
+func (l *Layer) edgeDelay(t *tree, p *portState) time.Duration {
 	if p.pointToPoint {
 		return MigrateTime
 	}
-	maxAge, _, _ := l.Times()
+	maxAge, _, _ := l.times(t)
 
 	return maxAge
 }
 
-func (l *Layer) isSynced(rootPort string) bool {
-	for name, p := range l.ports {
+func (l *Layer) isSynced(t *tree, rootPort string) bool {
+	for name, p := range t.ports {
 		if name == rootPort {
 			continue
 		}
@@ -500,12 +518,12 @@ func (l *Layer) isSynced(rootPort string) bool {
 	return true
 }
 
-func (l *Layer) raiseTopologyChange(originPort string, now time.Time, flushes *[]string) {
-	l.topologyChangeCount++
-	l.lastTopologyChange = now
-	l.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]string) {
+	t.topologyChangeCount++
+	t.lastTopologyChange = now
+	t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 
-	for _, name := range sortedKeys(l.ports) {
+	for _, name := range l.portNames {
 		if name == originPort {
 			continue
 		}
@@ -515,19 +533,19 @@ func (l *Layer) raiseTopologyChange(originPort string, now time.Time, flushes *[
 	}
 }
 
-func (l *Layer) makeBPDU(p *portState, now time.Time, proposal bool) BPDU {
+func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) BPDU {
 	var msgAge time.Duration
-	maxAge, hello, fwdDelay := l.Times()
+	maxAge, hello, fwdDelay := l.times(t)
 
-	if l.rootPort != "" {
-		if rp, ok := l.ports[l.rootPort]; ok && rp.rcvInfoValid {
+	if t.rootPort != "" {
+		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
 			msgAge = rp.rcvMessageAge + time.Second
 		}
 	}
 
 	b := BPDU{
-		RootID:       l.rootID,
-		RootPathCost: l.rootPathCost,
+		RootID:       t.rootID,
+		RootPathCost: t.rootPathCost,
 		BridgeID:     l.bridgeID,
 		PortID:       p.portID,
 		MessageAge:   msgAge,
@@ -549,15 +567,15 @@ func (l *Layer) makeBPDU(p *portState, now time.Time, proposal bool) BPDU {
 	b.SetProposal(proposal)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
-	if !l.topologyChangeTimer.IsZero() && l.topologyChangeTimer.After(now) {
+	if !t.topologyChangeTimer.IsZero() && t.topologyChangeTimer.After(now) {
 		b.SetTopologyChange(true)
 	}
 
 	return b
 }
 
-func (l *Layer) makeAgreementBPDU(p *portState, now time.Time) BPDU {
-	b := l.makeBPDU(p, now, false)
+func (l *Layer) makeAgreementBPDU(t *tree, p *portState, now time.Time) BPDU {
+	b := l.makeBPDU(t, p, now, false)
 	b.SetRole(p.role)
 	if p.sendRSTP {
 		b.SetAgreement(true)
@@ -569,12 +587,12 @@ func (l *Layer) makeAgreementBPDU(p *portState, now time.Time) BPDU {
 	return b
 }
 
-func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission {
 	var emissions []Emission
 
-	oldRootID := l.rootID
-	oldRootCost := l.rootPathCost
-	oldRootPort := l.rootPort
+	oldRootID := t.rootID
+	oldRootCost := t.rootPathCost
+	oldRootPort := t.rootPort
 
 	bestVector := priorityVector{
 		rootID:       l.bridgeID,
@@ -585,8 +603,8 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 	bestPort := ""
 	bestRcvPortID := uint16(0)
 
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		if !p.up || !p.rcvInfoValid {
 			continue
 		}
@@ -618,25 +636,25 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 	}
 
 	if bestPort == "" {
-		l.rootID = l.bridgeID
-		l.rootPathCost = 0
-		l.rootPort = ""
+		t.rootID = l.bridgeID
+		t.rootPathCost = 0
+		t.rootPort = ""
 	} else {
-		l.rootID = bestVector.rootID
-		l.rootPathCost = bestVector.rootPathCost
-		l.rootPort = bestPort
+		t.rootID = bestVector.rootID
+		t.rootPathCost = bestVector.rootPathCost
+		t.rootPort = bestPort
 	}
 
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		oldRole := p.role
 		switch {
 		case !p.up:
 			p.role = RoleDisabled
-		case name == l.rootPort:
+		case name == t.rootPort:
 			p.role = RoleRoot
 		default:
-			p.role = l.designatedOrBlocked(p, now)
+			p.role = l.designatedOrBlocked(t, p, now)
 		}
 		// An agreement belongs to the Designated role that earned it; a port
 		// that leaves the role and comes back must propose again, or it would
@@ -648,12 +666,12 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 		// edge; a port that returns to Designated with the timer long past
 		// would otherwise report a wake in the past.
 		if p.role == RoleDesignated && oldRole != RoleDesignated && p.cfg.AutoEdge {
-			p.edgeDelayWhile = now.Add(l.edgeDelay(p))
+			p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
 		}
 	}
 
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		oldState := p.state
 
 		switch p.role {
@@ -661,7 +679,7 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 			p.state = StateDiscarding
 			p.fwdDelayTimer = time.Time{}
 		case RoleRoot:
-			if p.pointToPoint && l.isSynced(p.name) && p.sendRSTP {
+			if p.pointToPoint && l.isSynced(t, p.name) && p.sendRSTP {
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
 			} else if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
@@ -690,20 +708,20 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
 			if !p.edge {
-				l.raiseTopologyChange(p.name, now, flushes)
+				l.raiseTopologyChange(t, p.name, now, flushes)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
 			if !p.edge {
-				l.raiseTopologyChange(p.name, now, flushes)
+				l.raiseTopologyChange(t, p.name, now, flushes)
 			}
 		}
 	}
 
-	if l.rootID != oldRootID || l.rootPathCost != oldRootCost || l.rootPort != oldRootPort {
-		for _, name := range sortedKeys(l.ports) {
-			p := l.ports[name]
+	if t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort {
+		for _, name := range l.portNames {
+			p := t.ports[name]
 			if p.up && p.role == RoleDesignated && p.pointToPoint && p.state == StateDiscarding && !p.agreed {
-				l.emit(p, now, emissionDesignated, &emissions)
+				l.emit(t, p, now, emissionDesignated, &emissions)
 			}
 		}
 	}
@@ -714,11 +732,11 @@ func (l *Layer) recompute(now time.Time, flushes *[]string) []Emission {
 // designatedOrBlocked decides the role of a port that is up and not the root
 // port: Alternate when a better bridge is designated on its segment, Backup
 // when that bridge is this one through another port, else Designated.
-func (l *Layer) designatedOrBlocked(p *portState, now time.Time) Role {
+func (l *Layer) designatedOrBlocked(t *tree, p *portState, now time.Time) Role {
 	if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
 		desig := priorityVector{
-			rootID:       l.rootID,
-			rootPathCost: l.rootPathCost,
+			rootID:       t.rootID,
+			rootPathCost: t.rootPathCost,
 			bridgeID:     l.bridgeID,
 			portID:       p.portID,
 		}
@@ -745,7 +763,8 @@ func (l *Layer) designatedOrBlocked(p *portState, now time.Time) Role {
 // returned emissions. A link down clears received information and moves the
 // port to Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) Effects {
-	p, ok := l.ports[port]
+	t := l.cist()
+	p, ok := t.ports[port]
 	if !ok {
 		return Effects{}
 	}
@@ -753,8 +772,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	var flushes []string
 	var emissions []Emission
 
-	if l.helloTimer.IsZero() {
-		l.helloTimer = now.Add(l.helloTime)
+	if t.helloTimer.IsZero() {
+		t.helloTimer = now.Add(l.helloTime)
 	}
 
 	if !up {
@@ -776,10 +795,10 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		// the topology change below flushes every other port.
 		flushes = append(flushes, p.name)
 		if oldState == StateForwarding && !p.edge {
-			l.raiseTopologyChange(p.name, now, &flushes)
+			l.raiseTopologyChange(t, p.name, now, &flushes)
 		}
 
-		subEmissions := l.recompute(now, &flushes)
+		subEmissions := l.recompute(t, now, &flushes)
 		emissions = append(emissions, subEmissions...)
 
 		return Effects{
@@ -816,7 +835,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	p.mdelayWhile = now.Add(MigrateTime)
 
 	p.edge = p.adminEdge
-	p.edgeDelayWhile = now.Add(l.edgeDelay(p))
+	p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
 
 	p.proposing = p.pointToPoint && !p.edge && p.sendRSTP
 
@@ -830,7 +849,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 	}
 
-	subEmissions := l.recompute(now, &flushes)
+	subEmissions := l.recompute(t, now, &flushes)
 	emissions = append(emissions, subEmissions...)
 
 	if p.pointToPoint && !p.edge && p.role == RoleDesignated && p.state == StateDiscarding {
@@ -843,7 +862,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			}
 		}
 		if !alreadyEmitted && !p.pendingDesignated {
-			l.emit(p, now, emissionDesignated, &emissions)
+			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
 
@@ -855,15 +874,16 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 // Receive processes an incoming BPDU received on a port.
 func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
-	p, ok := l.ports[port]
+	t := l.cist()
+	p, ok := t.ports[port]
 	if !ok || !p.up {
 		return Effects{}
 	}
 
 	p.rxBPDUs++
 
-	if l.helloTimer.IsZero() {
-		l.helloTimer = now.Add(l.helloTime)
+	if t.helloTimer.IsZero() {
+		t.helloTimer = now.Add(l.helloTime)
 	}
 
 	var flushes []string
@@ -879,11 +899,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 
 	wasAutoEdge := p.edge && !p.adminEdge
 	p.edge = p.adminEdge
-	p.edgeDelayWhile = now.Add(l.edgeDelay(p))
+	p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
 
 	if wasAutoEdge {
 		if p.state == StateForwarding {
-			l.raiseTopologyChange(p.name, now, &flushes)
+			l.raiseTopologyChange(t, p.name, now, &flushes)
 		}
 		p.state = StateDiscarding
 		p.fwdDelayTimer = time.Time{}
@@ -891,14 +911,14 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	}
 
 	if b.Type == BPDUTypeTopologyChangeNotification {
-		l.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range sortedKeys(l.ports) {
+		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+		for _, name := range l.portNames {
 			if name != port && !slices.Contains(flushes, name) {
 				flushes = append(flushes, name)
 			}
 		}
 
-		subEmissions := l.recompute(now, &flushes)
+		subEmissions := l.recompute(t, now, &flushes)
 		emissions = append(emissions, subEmissions...)
 
 		return Effects{
@@ -950,29 +970,29 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			p.state = StateForwarding
 			p.forwardTransitions++
 			if !p.edge {
-				l.raiseTopologyChange(p.name, now, &flushes)
+				l.raiseTopologyChange(t, p.name, now, &flushes)
 			}
 		}
 	}
 
 	if b.TopologyChange() {
-		l.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range sortedKeys(l.ports) {
+		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+		for _, name := range l.portNames {
 			if name != port && !slices.Contains(flushes, name) {
 				flushes = append(flushes, name)
 			}
 		}
 	}
 
-	subEmissions := l.recompute(now, &flushes)
+	subEmissions := l.recompute(t, now, &flushes)
 	emissions = append(emissions, subEmissions...)
 
 	if b.Proposal() && (p.role == RoleRoot || p.role == RoleAlternate) {
-		for _, otherName := range sortedKeys(l.ports) {
+		for _, otherName := range l.portNames {
 			if otherName == port {
 				continue
 			}
-			otherP := l.ports[otherName]
+			otherP := t.ports[otherName]
 			if otherP.role == RoleDesignated && !otherP.edge {
 				otherP.agreed = false
 				otherP.proposing = otherP.pointToPoint && otherP.sendRSTP
@@ -980,32 +1000,32 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 					wasFwd := otherP.state == StateForwarding
 					otherP.state = StateDiscarding
 					if wasFwd {
-						l.raiseTopologyChange(otherP.name, now, &flushes)
+						l.raiseTopologyChange(t, otherP.name, now, &flushes)
 					}
 				}
 			}
 		}
 
-		if p.role == RoleRoot && p.pointToPoint && l.isSynced(p.name) && p.sendRSTP {
+		if p.role == RoleRoot && p.pointToPoint && l.isSynced(t, p.name) && p.sendRSTP {
 			if p.state != StateForwarding {
 				p.state = StateForwarding
 				p.forwardTransitions++
 				if !p.edge {
-					l.raiseTopologyChange(p.name, now, &flushes)
+					l.raiseTopologyChange(t, p.name, now, &flushes)
 				}
 			}
 		}
 
-		l.emit(p, now, emissionAgreement, &emissions)
+		l.emit(t, p, now, emissionAgreement, &emissions)
 	} else if p.role == RoleDesignated && !b.Agreement() {
 		desig := priorityVector{
-			rootID:       l.rootID,
-			rootPathCost: l.rootPathCost,
+			rootID:       t.rootID,
+			rootPathCost: t.rootPathCost,
 			bridgeID:     l.bridgeID,
 			portID:       p.portID,
 		}
 		if compareVectors(incoming, desig) > 0 {
-			l.emit(p, now, emissionDesignated, &emissions)
+			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
 
@@ -1018,11 +1038,13 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 // Wake advances timer-driven state to now, firing due hellos, forward delays,
 // topology change timers, and information age-outs.
 func (l *Layer) Wake(now time.Time) Effects {
+	t := l.cist()
+
 	var flushes []string
 	var emissions []Emission
 
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		if p.cfg.AutoEdge && p.sendRSTP && p.up && p.role == RoleDesignated &&
 			p.state == StateDiscarding && p.pointToPoint && p.proposing &&
 			!p.edgeDelayWhile.IsZero() && !p.edgeDelayWhile.After(now) {
@@ -1035,8 +1057,8 @@ func (l *Layer) Wake(now time.Time) Effects {
 		}
 	}
 
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		if !p.up || p.txTick.IsZero() || p.txTick.After(now) {
 			continue
 		}
@@ -1046,30 +1068,30 @@ func (l *Layer) Wake(now time.Time) Effects {
 		if p.pendingAgreement {
 			p.pendingAgreement = false
 			if p.role == RoleRoot || p.role == RoleAlternate {
-				l.emit(p, now, emissionAgreement, &emissions)
+				l.emit(t, p, now, emissionAgreement, &emissions)
 			}
 		}
 		if p.pendingDesignated {
 			p.pendingDesignated = false
 			if p.role == RoleDesignated {
-				l.emit(p, now, emissionDesignated, &emissions)
+				l.emit(t, p, now, emissionDesignated, &emissions)
 			}
 		}
 	}
 
-	if !l.helloTimer.IsZero() && !l.helloTimer.After(now) {
-		l.helloTimer = now.Add(l.helloTime)
-		for _, name := range sortedKeys(l.ports) {
-			p := l.ports[name]
+	if !t.helloTimer.IsZero() && !t.helloTimer.After(now) {
+		t.helloTimer = now.Add(l.helloTime)
+		for _, name := range l.portNames {
+			p := t.ports[name]
 			if p.up && p.role == RoleDesignated {
-				l.emit(p, now, emissionDesignated, &emissions)
+				l.emit(t, p, now, emissionDesignated, &emissions)
 			}
 		}
 	}
 
 	stateChanged := false
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		if !p.fwdDelayTimer.IsZero() && !p.fwdDelayTimer.After(now) {
 			p.fwdDelayTimer = time.Time{}
 			switch p.role {
@@ -1083,7 +1105,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 					p.forwardTransitions++
 					stateChanged = true
 					if !p.edge {
-						l.raiseTopologyChange(p.name, now, &flushes)
+						l.raiseTopologyChange(t, p.name, now, &flushes)
 					}
 				case StateForwarding:
 				}
@@ -1097,7 +1119,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 					p.forwardTransitions++
 					stateChanged = true
 					if !p.edge {
-						l.raiseTopologyChange(p.name, now, &flushes)
+						l.raiseTopologyChange(t, p.name, now, &flushes)
 					}
 				case StateForwarding:
 				}
@@ -1107,20 +1129,20 @@ func (l *Layer) Wake(now time.Time) Effects {
 	}
 
 	agedOut := false
-	for _, name := range sortedKeys(l.ports) {
-		p := l.ports[name]
+	for _, name := range l.portNames {
+		p := t.ports[name]
 		if p.rcvInfoValid && !p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
 			p.rcvInfoValid = false
 			agedOut = true
 		}
 	}
 
-	if !l.topologyChangeTimer.IsZero() && !l.topologyChangeTimer.After(now) {
-		l.topologyChangeTimer = time.Time{}
+	if !t.topologyChangeTimer.IsZero() && !t.topologyChangeTimer.After(now) {
+		t.topologyChangeTimer = time.Time{}
 	}
 
 	if agedOut || stateChanged {
-		subEmissions := l.recompute(now, &flushes)
+		subEmissions := l.recompute(t, now, &flushes)
 		emissions = append(emissions, subEmissions...)
 	}
 
