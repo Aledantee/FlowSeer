@@ -1,38 +1,61 @@
 package smi
 
-import "testing"
+import (
+	"testing"
 
-// The arity scan in internal/diag checks each caller of a forwarder
-// against the catalog row of the code that caller passes, on the
-// assumption that the forwarder hands diag.MustRaise the same code and
-// the same argument list. A forwarder that rebound the code or appended
-// to args would make every caller pass the scan while MustRaise panicked
-// at run time; these two tests pin the assumption for this package's
-// forwarders by executing them.
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/protocol/smi/internal/catalog"
+	"go.aledante.io/FlowSeer/src/protocol/smi/internal/diag"
+)
+
+// TestRaiseForwardsCodeAndArgsUnchanged and
+// TestMustRaiseForwardsCodeAndArgsUnchanged are the executed half of the
+// proof described at spreadFinding in internal/diag's arity scan, one per
+// forwarder this package declares: every catalog row goes through the
+// forwarder and comes out as the diagnostic diag.MustRaise builds from
+// the same position, code and arguments.
 func TestRaiseForwardsCodeAndArgsUnchanged(t *testing.T) {
-	r := &resolver{}
+	forEachRow(t, func(t *testing.T, code errs.Code, args []Arg) {
+		r := &resolver{}
+		r.raise("test.mib", 3, code, args...)
 
-	r.raise("test.mib", 3, ErrCodeLimitExceeded, ArgString("frames"), ArgInt(7))
-
-	if got := len(r.diags); got != 1 {
-		t.Fatalf("got %d diagnostics, want 1", got)
-	}
-	wantForwarded(t, r.diags[0])
+		if got := len(r.diags); got != 1 {
+			t.Fatalf("got %d diagnostics, want 1", got)
+		}
+		wantForwarded(t, r.diags[0], code, args)
+	})
 }
 
 func TestMustRaiseForwardsCodeAndArgsUnchanged(t *testing.T) {
-	d := MustRaise(Position{File: "test.mib", Offset: 3}, ErrCodeLimitExceeded, ArgString("frames"), ArgInt(7))
-
-	wantForwarded(t, d)
+	forEachRow(t, func(t *testing.T, code errs.Code, args []Arg) {
+		wantForwarded(t, MustRaise(Position{File: "test.mib", Offset: 3}, code, args...), code, args)
+	})
 }
 
-func wantForwarded(t *testing.T, d Diagnostic) {
+// forEachRow runs check once per catalog row with that row's code and
+// its arity's worth of distinct arguments.
+func forEachRow(t *testing.T, check func(t *testing.T, code errs.Code, args []Arg)) {
 	t.Helper()
 
-	if got, want := d.Code(), ErrCodeLimitExceeded; got != want {
-		t.Errorf("code = %q, want %q", got, want)
+	for _, row := range catalog.Entries() {
+		t.Run(row.Code, func(t *testing.T) {
+			args := make([]Arg, row.Arity)
+			for i := range args {
+				args[i] = ArgInt(i + 1)
+			}
+
+			check(t, errs.Code(row.Code), args)
+		})
 	}
-	if got, want := d.Message(), "frames limit of 7 exceeded"; got != want {
-		t.Errorf("message = %q, want %q", got, want)
+}
+
+func wantForwarded(t *testing.T, d Diagnostic, code errs.Code, args []Arg) {
+	t.Helper()
+
+	if got := d.Code(); got != code {
+		t.Errorf("code = %q, want %q", got, code)
+	}
+	if want := diag.MustRaise(diag.Position{File: "test.mib", Offset: 3}, code, args...); d != want {
+		t.Errorf("diagnostic = %+v, want %+v", d, want)
 	}
 }

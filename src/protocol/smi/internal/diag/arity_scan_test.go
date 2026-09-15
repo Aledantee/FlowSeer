@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -40,17 +41,23 @@ type raiser struct {
 	pkgPath  string // import path, empty for an unexported method
 	name     string
 	method   bool
-	codeArg  int // index into the call's arguments, receiver excluded
-	variadic int // index of the first variadic argument
+	codeArg  int    // index into the call's arguments, receiver excluded
+	variadic int    // index of the first variadic argument
+	proof    string // name of the forwarding test in dir; empty for diag.MustRaise, which forwards nothing
 }
+
+const (
+	raiseProof     = "TestRaiseForwardsCodeAndArgsUnchanged"
+	mustRaiseProof = "TestMustRaiseForwardsCodeAndArgsUnchanged"
+)
 
 var raisers = []raiser{
 	{dir: diagDir, pkgPath: modulePath + "/" + diagDir, name: "MustRaise", codeArg: 1, variadic: 2},
-	{dir: smiDir, pkgPath: modulePath + "/" + smiDir, name: "MustRaise", codeArg: 1, variadic: 2},
-	{dir: "src/protocol/smi/internal/lex", name: "raise", method: true, codeArg: 1, variadic: 2},
-	{dir: "src/protocol/smi/internal/parse", name: "raise", method: true, codeArg: 1, variadic: 2},
-	{dir: "src/protocol/smi/internal/frame", name: "raise", method: true, codeArg: 1, variadic: 2},
-	{dir: smiDir, name: "raise", method: true, codeArg: 2, variadic: 3},
+	{dir: smiDir, pkgPath: modulePath + "/" + smiDir, name: "MustRaise", codeArg: 1, variadic: 2, proof: mustRaiseProof},
+	{dir: "src/protocol/smi/internal/lex", name: "raise", method: true, codeArg: 1, variadic: 2, proof: raiseProof},
+	{dir: "src/protocol/smi/internal/parse", name: "raise", method: true, codeArg: 1, variadic: 2, proof: raiseProof},
+	{dir: "src/protocol/smi/internal/frame", name: "raise", method: true, codeArg: 1, variadic: 2, proof: raiseProof},
+	{dir: smiDir, name: "raise", method: true, codeArg: 2, variadic: 3, proof: raiseProof},
 }
 
 // source is one parsed file the scan reasons about.
@@ -74,13 +81,14 @@ type source struct {
 func TestMustRaiseCallsResolveToTheirCatalogRow(t *testing.T) {
 	root := repoRoot(t)
 	sources := parseTree(t, root)
+	tests := parseForwarderTests(t, root)
 	codes := generatedCodes(t, root)
 	arity := catalogArity()
 
 	for _, finding := range scanCalls(sources, codes, arity) {
 		t.Error(finding)
 	}
-	for _, finding := range scanCoverage(sources) {
+	for _, finding := range scanCoverage(sources, tests) {
 		t.Error(finding)
 	}
 }
@@ -271,27 +279,120 @@ func report() {
 	}
 }
 
-// TestScanCoverageReportsWhatItNeverSaw pins the two ways a clean run can
-// mean nothing: a walk that opened no file, and one that opened files but
-// never reached a package holding a forwarder, whose callers are then
-// unscanned.
+// TestScanCoverageReportsWhatItNeverSaw pins the ways a clean run can mean
+// nothing: a walk that opened no file, one that opened files but never
+// reached a package holding a forwarder, whose callers are then
+// unscanned, and one whose forwarders are all declared but whose spread
+// exemption rests on a forwarding test nobody wrote.
 func TestScanCoverageReportsWhatItNeverSaw(t *testing.T) {
-	if findings := scanCoverage(nil); len(findings) == 0 {
-		t.Error("an empty scan reported no finding; the gate would check nothing")
+	declared := declaredRaiserFixtures(t)
+	proofs := forwardingTestFixtures(t)
+
+	tests := []struct {
+		name    string
+		sources []source
+		tests   []source
+		want    []string // each must appear in some finding; empty means no finding at all
+		wantOne bool     // exactly one finding, so a missing test is not buried under others
+	}{
+		{
+			name: "no sources",
+			want: []string{"checked nothing"},
+		},
+		{
+			name:    "one forwarder declared, five raisers unseen",
+			sources: declared[3:4],
+			tests:   proofs,
+			want:    []string{diagDir, smiDir, "internal/lex", "internal/frame"},
+		},
+		{
+			name:    "every raiser declared and every forwarding test present",
+			sources: declared,
+			tests:   proofs,
+		},
+		{
+			name:    "every raiser declared, one forwarding test missing",
+			sources: declared,
+			tests:   slices.Concat(proofs[:2], proofs[3:]),
+			want:    []string{"internal/parse's " + raiseProof, "spread exemption for raise is unproven"},
+			wantOne: true,
+		},
+		{
+			name:    "forwarding test named in the wrong package",
+			sources: declared,
+			tests:   slices.Concat(proofs[:2], proofs[3:], []source{parseSource(t, "src/protocol/smi/internal/lex", "package lex\nfunc "+raiseProof+"(t *testing.T) {}\n")}),
+			want:    []string{"internal/parse's " + raiseProof},
+		},
 	}
 
-	partial := []source{parseSource(t, "src/protocol/smi/internal/parse", `package parse
-func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {}`)}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			findings := scanCoverage(tc.sources, tc.tests)
 
-	findings := scanCoverage(partial)
-	if len(findings) == 0 {
-		t.Fatal("a scan missing five of the six raisers reported no finding")
+			if len(tc.want) == 0 {
+				if len(findings) != 0 {
+					t.Fatalf("got findings %v, want none", findings)
+				}
+
+				return
+			}
+			if len(findings) == 0 {
+				t.Fatalf("got no findings, want ones mentioning %q", tc.want)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(strings.Join(findings, "\n"), want) {
+					t.Errorf("findings %v do not mention %q", findings, want)
+				}
+			}
+			if tc.wantOne && len(findings) != 1 {
+				t.Errorf("got %d findings %v, want exactly one", len(findings), findings)
+			}
+		})
 	}
-	for _, want := range []string{diagDir, smiDir, "internal/lex", "internal/frame"} {
-		if !strings.Contains(strings.Join(findings, "\n"), want) {
-			t.Errorf("findings %v do not name the unseen %s", findings, want)
+}
+
+// declaredRaiserFixtures returns one fixture per registered raiser, in
+// registry order, declaring it with the parameters the registry records.
+func declaredRaiserFixtures(t *testing.T) []source {
+	t.Helper()
+
+	sources := make([]source, 0, len(raisers))
+	for _, r := range raisers {
+		pkg := r.dir[strings.LastIndex(r.dir, "/")+1:]
+		recv := ""
+		if r.method {
+			recv = "(x *receiver) "
 		}
+		params := make([]string, r.variadic+1)
+		for i := range params {
+			params[i] = "p" + strconv.Itoa(i) + " int"
+		}
+		params[r.codeArg] = "code errs.Code"
+		params[r.variadic] = "args ...diag.Arg"
+
+		sources = append(sources, parseSource(t, r.dir, "package "+pkg+"\nfunc "+recv+r.name+"("+strings.Join(params, ", ")+") {}\n"))
 	}
+
+	return sources
+}
+
+// forwardingTestFixtures returns one fixture per registered forwarder, in
+// registry order with diag.MustRaise's slot left out, declaring the
+// forwarding test the registry names for it.
+func forwardingTestFixtures(t *testing.T) []source {
+	t.Helper()
+
+	var sources []source
+	for _, r := range raisers {
+		if r.proof == "" {
+			continue
+		}
+		pkg := r.dir[strings.LastIndex(r.dir, "/")+1:]
+
+		sources = append(sources, parseSource(t, r.dir, "package "+pkg+"\nfunc "+r.proof+"(t *testing.T) {}\n"))
+	}
+
+	return sources
 }
 
 // scanCalls reports every call reaching a raiser that it cannot resolve
@@ -406,15 +507,14 @@ func callFinding(
 // forwarder passes them through: it cannot, and two syntactic
 // approximations of the property have already been wrong. Each
 // forwarder's own package proves it by execution instead, calling the
-// forwarder with a cataloged code and its arity's worth of arguments and
-// asserting the diagnostic that comes out carries both unchanged:
-// TestRaiseForwardsCodeAndArgsUnchanged in internal/lex, internal/parse,
-// internal/frame and package smi, and
-// TestMustRaiseForwardsCodeAndArgsUnchanged in package smi. What this
-// scan can still decide about a forwarder is whether the registry's
-// parameter indices match its declaration, which forwardedParams checks,
-// since a caller resolved at the wrong index is checked against the
-// wrong row and no runtime test would notice.
+// forwarder once per catalog row with that row's code and its arity's
+// worth of arguments and asserting the diagnostic that comes out is the
+// one MustRaise builds from them: the test each registry entry names in
+// its proof field, which scanCoverage requires to be declared in that
+// package. What this scan can still decide about a forwarder is whether
+// the registry's parameter indices match its declaration, which
+// forwardedParams checks, since a caller resolved at the wrong index is
+// checked against the wrong row and no runtime test would notice.
 func spreadFinding(finding func(string) []string, r raiser, enclosing *ast.FuncDecl, dir string) []string {
 	if enclosing == nil {
 		return finding("package-level code spreads a variadic into " + r.name +
@@ -464,7 +564,14 @@ func isIdent(expr ast.Expr, name string) bool {
 // scanCoverage reports what the walk never opened. Resolution failing
 // closed covers calls the scan read; this covers the ones it did not,
 // since a file nobody parses raises no finding of any kind.
-func scanCoverage(sources []source) []string {
+//
+// It also requires each forwarder's forwarding test to be declared in
+// tests, the parsed test files of the forwarders' packages, because the
+// spread exemption in spreadFinding rests on that test running: delete
+// or rename it and nothing else would notice. The check is by name
+// only. A test whose body no longer proves anything passes it, and
+// stays a review catch.
+func scanCoverage(sources, tests []source) []string {
 	if len(sources) == 0 {
 		return []string{"scanned no source files; the gate checked nothing"}
 	}
@@ -482,11 +589,30 @@ func scanCoverage(sources []source) []string {
 		}
 	}
 
+	proven := make([]bool, len(raisers))
+	for _, s := range tests {
+		for _, decl := range s.file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv != nil {
+				continue
+			}
+			for i, r := range raisers {
+				if r.proof != "" && r.dir == s.dir && r.proof == fn.Name.Name {
+					proven[i] = true
+				}
+			}
+		}
+	}
+
 	var findings []string
-	for i, ok := range seen {
-		if !ok {
-			findings = append(findings, "never saw "+raisers[i].dir+"."+raisers[i].name+
+	for i, r := range raisers {
+		if !seen[i] {
+			findings = append(findings, "never saw "+r.dir+"."+r.name+
 				" declared, so its callers went unscanned")
+		}
+		if r.proof != "" && !proven[i] {
+			findings = append(findings, "never saw "+r.dir+"'s "+r.proof+
+				", so the spread exemption for "+r.name+" is unproven")
 		}
 	}
 
@@ -713,23 +839,11 @@ func parseTree(t *testing.T, root string) []source {
 			return nil
 		}
 
-		rel, err := filepath.Rel(root, path)
+		s, err := parseFile(root, path)
 		if err != nil {
 			return err
 		}
-
-		fset := token.NewFileSet()
-		file, err := goparser.ParseFile(fset, path, nil, 0)
-		if err != nil {
-			return err
-		}
-
-		sources = append(sources, source{
-			path: filepath.ToSlash(rel),
-			dir:  filepath.ToSlash(filepath.Dir(rel)),
-			fset: fset,
-			file: file,
-		})
+		sources = append(sources, s)
 
 		return nil
 	})
@@ -738,6 +852,58 @@ func parseTree(t *testing.T, root string) []source {
 	}
 
 	return sources
+}
+
+// parseForwarderTests parses the test files of every package that
+// declares a forwarder, which is where scanCoverage looks for each
+// forwarding test.
+func parseForwarderTests(t *testing.T, root string) []source {
+	t.Helper()
+
+	var sources []source
+	dirs := make(map[string]bool)
+	for _, r := range raisers {
+		if r.proof == "" || dirs[r.dir] {
+			continue
+		}
+		dirs[r.dir] = true
+
+		paths, err := filepath.Glob(filepath.Join(root, r.dir, "*_test.go"))
+		if err != nil {
+			t.Fatalf("listing tests in %s: %v", r.dir, err)
+		}
+		for _, path := range paths {
+			s, err := parseFile(root, path)
+			if err != nil {
+				t.Fatalf("parsing %s: %v", path, err)
+			}
+			sources = append(sources, s)
+		}
+	}
+
+	return sources
+}
+
+// parseFile parses one Go file into a source keyed by its path relative
+// to root.
+func parseFile(root, path string) (source, error) {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return source{}, err
+	}
+
+	fset := token.NewFileSet()
+	file, err := goparser.ParseFile(fset, path, nil, 0)
+	if err != nil {
+		return source{}, err
+	}
+
+	return source{
+		path: filepath.ToSlash(rel),
+		dir:  filepath.ToSlash(filepath.Dir(rel)),
+		fset: fset,
+		file: file,
+	}, nil
 }
 
 // parseSource builds one source from a fixture string, standing in for a

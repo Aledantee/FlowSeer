@@ -3,29 +3,41 @@ package parse
 import (
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/protocol/smi/internal/catalog"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/diag"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/lex"
 )
 
-// The arity scan in internal/diag checks each caller of raise against
-// the catalog row of the code that caller passes, on the assumption
-// that raise hands MustRaise the same code and the same argument list.
-// A raise that rebound the code or appended to args would make every
-// caller pass the scan while MustRaise panicked at run time; this pins
-// the assumption by executing it.
+// TestRaiseForwardsCodeAndArgsUnchanged is the executed half of the
+// proof described at spreadFinding in internal/diag's arity scan: every
+// catalog row goes through raise and comes out as the diagnostic
+// MustRaise builds from the same position, code and arguments.
 func TestRaiseForwardsCodeAndArgsUnchanged(t *testing.T) {
-	p := newParser(&lex.Result{}, testFile)
+	for _, row := range catalog.Entries() {
+		t.Run(row.Code, func(t *testing.T) {
+			code := errs.Code(row.Code)
+			args := make([]diag.Arg, row.Arity)
+			for i := range args {
+				args[i] = diag.ArgInt(i + 1)
+			}
 
-	p.raise(3, diag.ErrCodeLimitExceeded, diag.ArgString("frames"), diag.ArgInt(7))
+			// A fresh parser per row keeps the one-per-line throttle and the
+			// fatal flag from swallowing a later row, which the count check
+			// below would otherwise miss.
+			p := newParser(&lex.Result{}, testFile)
+			p.raise(3, code, args...)
 
-	if got := len(p.diags); got != 1 {
-		t.Fatalf("got %d diagnostics, want 1", got)
-	}
-	d := p.diags[0]
-	if got, want := d.Code(), diag.ErrCodeLimitExceeded; got != want {
-		t.Errorf("code = %q, want %q", got, want)
-	}
-	if got, want := d.Message(), "frames limit of 7 exceeded"; got != want {
-		t.Errorf("message = %q, want %q", got, want)
+			if got := len(p.diags); got != 1 {
+				t.Fatalf("got %d diagnostics, want 1", got)
+			}
+			d := p.diags[0]
+			if got := d.Code(); got != code {
+				t.Errorf("code = %q, want %q", got, code)
+			}
+			if want := diag.MustRaise(diag.Position{File: testFile, Offset: 3}, code, args...); d != want {
+				t.Errorf("diagnostic = %+v, want %+v", d, want)
+			}
+		})
 	}
 }
