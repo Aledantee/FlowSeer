@@ -1,6 +1,6 @@
 ---
 name: Code & Comment Style
-last_updated: 2026-08-29
+last_updated: 2026-09-15
 ---
 
 # FlowSeer — Code & Comment Style
@@ -25,7 +25,8 @@ conflicts with older advice found online, this document wins.
 
 1. **Idiomatic Go over imported habits.** No Java-style class hierarchies, no
    exception-shaped panic flows, no dependency-injection frameworks. Write the code a
-   longtime Go reader expects.
+   longtime Go reader expects. [Panics](#panics) says what the few sanctioned
+   panics look like and what a reader may assume about them.
 2. **Doc comments are mandatory on the exported surface.** Every exported name states
    its *contract* — what it promises, what it requires, what errors it returns,
    whether it is safe for concurrent use. Never restate the signature.
@@ -44,7 +45,9 @@ conflicts with older advice found online, this document wins.
 **Every exported name — package, type, function, method, constant, variable — has a
 doc comment.** Unexported names are exempt; name them well instead, and document them
 only when the contract is genuinely non-obvious (a background goroutine's lifecycle, a
-struct that guards an invariant).
+struct that guards an invariant, a panic the function inherits from something it
+calls). An inherited panic is the case an unexported name cannot carry on its own,
+so [Panics](#panics) makes the comment mandatory there.
 
 Form follows [go.dev/doc/comment][doc-comments]:
 
@@ -144,8 +147,8 @@ a comment on every line is the most-cited sign of unreviewed machine output.
   own function. No more than one consecutive blank line (gofumpt enforces this).
 - Group related constants and variables in `const (…)` / `var (…)` blocks; one block
   per concern, not one block for the whole file.
-- No naked returns outside trivial few-line functions. No `panic` for ordinary
-  errors — a panic that crosses a package boundary is a bug.
+- No naked returns outside trivial few-line functions. `panic` is not error
+  handling; [Panics](#panics) has the rule.
 - Match the style of the surrounding code exactly, even where it differs from your
   preference.
 
@@ -248,6 +251,97 @@ func (s *Session) walk(ctx context.Context, root OID) ([]VarBind, error) {
   compose into larger messages.
 - Context cancellation surfaces as the unwrapped `ctx.Err()`, not a look-alike
   timeout error, so `errors.Is(err, context.Canceled)` works end to end.
+
+## Panics
+
+A panic is not a way to report an error, and no panic in a running service is an
+outcome this codebase plans for — the restart that follows is the last resort.
+Three clauses must all hold for every `panic` in non-test code under `src/`. A
+panic that satisfies two of them is still a bug.
+
+**Named.** A panic appears only inside a function whose name begins with `Must`
+or `must`, exported or not. The prefix is what a reader sees at the call site,
+which is the only place the risk is actionable: `snmp.MustOID`,
+`snmp.MustChangeIndicator` and `catalog.MustRegister` already read that way. One
+exemption exists, for a site whose comment cites a committed benchmark measuring
+what the error return costs. Cite it as a repository-relative path and a function
+name, never as "a benchmark in this module" — benchmarks live in separate modules
+on purpose, so their dependencies stay out of the main graph, and a same-module
+requirement would make the exemption unreachable where it is most likely earned.
+
+**Handled.** Three answers count, and the panicking site names the one it relies
+on.
+
+- *Init-time.* The panic is evaluated during package initialization and depends
+  only on values fixed at compile time. That is worded by behavior rather than by
+  position in the file for a reason.
+  `var x = sync.OnceValue(func() … MustCompile(cfg.Pattern))` sits in a `var`
+  block and panics at first use inside a serving process, and
+  `var x = MustLoad(os.Getenv("…"))` fails only in the deployment whose
+  environment is wrong — every replica of a rolling deploy at once, which is an
+  outage. A closure stored at init and invoked later is a runtime panic.
+- *Proven.* An earlier stage established the invariant with a check that runs on
+  every `go test`, cited at the panicking site. The check has to run, not merely
+  exist: a validation a generator performed does not re-verify the committed
+  artifact another package reads, so that proof decays to "a check that ran
+  once". Write the proof as a test over the artifacts the panic reads, not over
+  the generator that wrote them.
+- *Foreign-code boundary.* A recover stands between the panic and the process
+  top, and the panicking code is code that boundary does not own: a
+  caller-supplied handler, a gate probe, a third-party library. First-party code
+  inside a boundary may not name that boundary as its handler. The recover sites
+  in `src/common/service` cover every module and service in the repository, so
+  the other reading would let a `mustDecodeField` helper panic inside a NATS
+  handler, be caught by `callHandler`, and pass the rule — while what landed is a
+  throw/catch flow over a half-processed message. Those boundaries exist to
+  contain other people's bugs, not ours.
+
+**Documented.** The function that can panic states the panic, the invariant
+behind it, and which of the three answers above it relies on. So does every
+caller, up to the first one that fixes the invariant. The obligation stops at a
+caller supplying literal or compile-time constant arguments, and a panic proven
+unreachable carries no caller obligation at all. That bound is why
+`regexp.MustCompile`'s callers document nothing and are not being lax: the
+argument is closed at the call site, so the invariant never travels.
+
+### A `go` statement resets handling
+
+A panic inside a spawned goroutine is unhandled by definition, whatever recover
+its spawner sits under, because Go does not propagate it to the spawning frame.
+`src/protocol/smi/load.go` states the consequence in its own comment: "this is a
+goroutine, and a panic here takes the process down without naming the file that
+caused it."
+
+Every goroutine running first-party work is launched through the supervised spawn
+helper in `src/common`, which recovers and reports the panic as a structured
+error for that unit of work. One reviewed implementation is the point — the
+alternative is an inline recover at every `go` statement in the repository, and
+sixty-odd separate decisions about what reporting means.
+
+### Remedies
+
+An error return, deleting a branch the caller's contract makes unreachable, and
+hoisting the evaluation to init time. Adding a new recover boundary is not a
+remedy.
+
+Deletion is held to the same standard as the proven answer above: the reason no
+caller can reach the branch has to be checkable, and Principle 5 is what licenses
+it. `newRing`'s non-positive limit was an error no caller could supply, and an
+error return there would have added a shell-channel leak path on a branch that
+never executes.
+
+A conversion that replaces a panic with a status the caller must ask for — a
+sticky `Err()` field, say — carries the caller-side assertion in the same change,
+because `errcheck` cannot see it. A caller that never asks sees a run that ended
+exactly like a run that finished.
+
+### What this retired
+
+"A panic that crosses a package boundary is a bug" used to sit in Readability &
+spacing. It is retired rather than quietly dropped: `snmp.MustOID` panics into
+every generated MIB package and `catalog.MustRegister` into `registrations.go`,
+both by design. The successor ban is on *unnamed* panics crossing a package
+boundary, which the named clause above already carries.
 
 ## Concurrency
 
