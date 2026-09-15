@@ -71,6 +71,15 @@ established across the library:
   the last member query time, two seconds after the leave, well short of the
   260 s membership interval a full run would use, disproving the false
   answer that forwarding continues for the full interval regardless.
+- `planning/ecmp-candidates-recorded`: Two equal-cost static routes reach one
+  prefix. The lookup fact names both next hops in canonical order and the index
+  of the one the flow hash chose, disproving the false answer that one route
+  wins and the alternatives are invisible.
+- `troubleshooting/recursive-route-not-installed`: A `/24` static route names a
+  next hop no other route reaches. The device still constructs, the `/24` is
+  withdrawn instead of installed, and the packet takes the less specific `/8`
+  with a Complete result, disproving the false answer that a broken recursive
+  route silently forwards or fails construction.
 
 The five `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey] and [ExecutionResult.FabricMetadata] alongside the

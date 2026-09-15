@@ -145,8 +145,18 @@ The virtual switch uses a ladder of architectural layers:
   entirely; frames arriving on it must be addressed to the interface MAC or drop
   with `not-bridged`. For frames arriving on a VLAN or routed port, routing
   evaluates interface ownership (`Owns`), classification, local destination
-  consumption (`not-routed`), hop limit verification, longest-prefix route lookup,
-  and neighbor resolution. The hop limit is decremented by one and packets reaching
+  consumption (`not-routed`), hop limit verification, route lookup, and neighbor
+  resolution. A lookup takes the longest matching prefix, then the lowest
+  preference, then the lowest metric; whatever ties on all three is a candidate
+  set an RFC 2992 hash-threshold over a layer-3 flow hash picks from, and the
+  trace fact names every candidate beside the chosen one, so a reader can see the
+  path a flow would move to. A static route whose next hop is not on-link is
+  resolved against the table when the table is built; one that self-recurses,
+  exceeds the recursion bound, or reaches no connected interface is withdrawn
+  rather than installed, so its packets fall through to whatever else matches
+  and `routing.Layer.WithdrawnRoutes` names the route, the reason, and the chain
+  walked. `routing/README.md` gives the rules in full. The hop limit is
+  decremented by one and packets reaching
   zero drop without forwarding per RFC 1812 section 5.3.1. Routed packets are
   re-encapsulated with the egress interface source MAC and next-hop neighbor
   destination MAC with no tags, handing off to the relay (for VLAN egress) or

@@ -83,6 +83,8 @@ boundary, and golden case for each protocol addition.
 | RSTP per VLAN (phase 3b) | Which root and blocked trunk does each VLAN have? | One root for every VLAN. | One RSTP tree per listed VLAN in SSTP encapsulation. | 802.1D STP per VLAN, PVST simulation. | `planning/pvst-per-vlan-root` |
 | Message age and guards (phase 3b) | Does stale information or a guard keep a port blocked or open? | A vanished root holds a port blocked; a guarded edge port keeps forwarding; a port whose BPDUs stop opens a loop. | `MessageAge + 1 <= MaxAge`, `remainingHops`, BPDU guard, restricted role and TCN, netsim's loop guard, the PVID check. | Automatic BPDU-guard recovery. | `troubleshooting/stale-root-ages-out`, `troubleshooting/bpdu-guard-disables-edge`, `troubleshooting/loop-guard-unidirectional-link` |
 | Loop protection (phase 3c) | Does an accidental loop between access ports get contained without STP? | The broadcast loops without bound. | Own probe frames; a returned probe blocks, stops learning on, or disables the sending port; recovery timers. | Vendor probe formats, traps. | `troubleshooting/loop-protect-contains-access-loop` |
+| Route selection (phase 4) | Which next hop carries this flow, and what would carry it if that next hop went away? | One route wins on an invented `kind`-then-interface tie-break and the alternatives are invisible. | Order by prefix length, then preference (0 reserved for connected), then metric; the ties form a candidate set of at most 64 that an FNV-1a layer-3 hash reduced by RFC 2992 hash-threshold picks from; the fact names every member. | Weighted ECMP, per-packet spreading, resilient hashing, and a configurable hash input (Cisco `ip cef load-sharing full`, Linux `fib_multipath_hash_policy`). | `planning/ecmp-candidates-recorded` |
+| Recursive next hops (phase 4) | Why is this static route not carrying anything? | An off-link next hop fails construction, so the configuration real gear accepts cannot be expressed at all. | Resolve each static route against its own VRF's table when the table is built, to depth 8; install with the on-link pair reached; withdraw a route that self-recurses, exceeds the depth, resolves to nothing, or resolves only through a default route, and report it through `WithdrawnRoutes` with its reason and chain. | `resolve-via-default` as a field, FRR's selected-route and recursion-enabled gates, and re-resolution outside a `Derive` rebuild. | `troubleshooting/recursive-route-not-installed` |
 
 ## Decisions
 
@@ -540,7 +542,8 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4-plan.md`
 - **After:** U1, U2
-- **Landed:**
+- **Landed:** 2026-09-15, commits 847b503a, c7823299, 164b7a90, 17a12620, and
+  the journey and corpus commit that closes the phase.
 - **Change:** Order routes by prefix length, preference, and metric; keep the
   equal-cost candidate set; pick one by flow hash; resolve recursion when the
   table is built and withdraw a route that cannot resolve; reject a

@@ -4,13 +4,22 @@ type: feat
 date: 2026-09-15
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 4: Route selection and recursion - Plan
+
+> Implemented. Route ordering, the equal-cost candidate set, hash-threshold
+> selection, build-time recursion with withdrawal, and next-hop validation all
+> landed, with the two corpus cases and the direction record. Three decisions
+> the plan got wrong were corrected as the units landed: the `next_hop` and
+> `interface` diff arms are unreachable once the key holds both, R19c asked for
+> a disruption property hash-threshold cannot give, and `fabric`'s host gateway
+> validation was a dependent the plan had not found until the on-link check
+> came out.
 
 ## Goal
 
