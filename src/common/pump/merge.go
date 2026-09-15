@@ -3,6 +3,8 @@ package pump
 import (
 	"context"
 	"sync"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Merge forwards every value of each source into the returned pump. It
@@ -23,7 +25,9 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 	stopForwarders := make(chan struct{})
 	var forwarders sync.WaitGroup
 	for _, source := range sources {
-		forwarders.Go(func() {
+		forwarders.Add(1)
+		spawn.Go(ctx, "Merge.forward", func() {
+			defer forwarders.Done()
 			var result error
 			defer func() { results <- result }()
 
@@ -55,7 +59,7 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 		})
 	}
 
-	go func() {
+	spawn.Go(ctx, "Merge.coordinate", func() {
 		var stopSourcesOnce sync.Once
 		stopSources := func() {
 			stopSourcesOnce.Do(func() {
@@ -123,7 +127,12 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 			return
 		}
 		merged.Done()
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// merged.Fail closes Data() and records the terminal error; without
+		// this, a panic anywhere above would leave every consumer's range
+		// over merged.Data() blocked forever.
+		merged.Fail(err)
+	}))
 
 	return merged
 }

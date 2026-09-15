@@ -8,6 +8,8 @@ import (
 	"syscall"
 
 	"go.opentelemetry.io/otel/attribute"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Run validates config and runs its enabled modules until they all stop, root
@@ -25,13 +27,13 @@ func Run(ctx context.Context, config Config) error {
 func runWithSignalChannel(ctx context.Context, config Config, signals <-chan os.Signal) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go func() {
+	spawn.Go(ctx, "runWithSignalChannel.signal", func() {
 		select {
 		case <-signals:
 			cancel()
 		case <-ctx.Done():
 		}
-	}()
+	})
 
 	return run(ctx, config)
 }
@@ -114,8 +116,33 @@ func runWithOptionsAndTelemetryFactories(
 	defer cancel(context.Cause(ctx))
 	done := make(chan error, 1)
 	started := make(chan struct{})
-	go func() { done <- supervisor.runWithStarted(runCtx, started) }()
-	<-started
+	spawn.Go(runCtx, "runWithOptionsAndTelemetryFactories.supervisor", func() {
+		done <- supervisor.runWithStarted(runCtx, started)
+	}, spawn.ReportTo(func(err error) {
+		// runWithStarted schedules every active slot before it closes
+		// started; a panic recovered during scheduling never reaches that
+		// close, so <-started below would otherwise block forever. Publish
+		// the error to done instead and let the select observe whichever of
+		// the two the supervisor actually reached.
+		select {
+		case done <- err:
+		default:
+		}
+	}))
+	var (
+		schedulingErr    error
+		schedulingFailed bool
+	)
+	select {
+	case <-started:
+	case schedulingErr = <-done:
+		// The supervisor never reached close(started): either its own
+		// runWithStarted returned before scheduling anything, or the panic
+		// path above delivered its error here first. Either way, done
+		// already carries the run's terminal error, and nothing else will
+		// ever send to it again.
+		schedulingFailed = true
+	}
 	endLifecycleSpan(startupSpan, lifecycleOutcomeRunning, nil)
 
 	var failures <-chan error
@@ -125,8 +152,8 @@ func runWithOptionsAndTelemetryFactories(
 	shutdownOutcome := lifecycleOutcomeNormal
 	var shutdownCause error
 	supervisorDone := false
-	select {
-	case runErr = <-done:
+	if schedulingFailed {
+		runErr = schedulingErr
 		supervisorDone = true
 		shutdownCause = runErr
 		if runErr != nil {
@@ -135,13 +162,25 @@ func runWithOptionsAndTelemetryFactories(
 			shutdownCause = context.Cause(ctx)
 			shutdownOutcome = lifecycleOutcomeCanceled
 		}
-	case err = <-failures:
-		busHealthy = false
-		shutdownCause = err
-		shutdownOutcome = lifecycleOutcomeError
-	case <-ctx.Done():
-		shutdownCause = context.Cause(ctx)
-		shutdownOutcome = lifecycleOutcomeCanceled
+	} else {
+		select {
+		case runErr = <-done:
+			supervisorDone = true
+			shutdownCause = runErr
+			if runErr != nil {
+				shutdownOutcome = lifecycleOutcomeError
+			} else if ctx.Err() != nil {
+				shutdownCause = context.Cause(ctx)
+				shutdownOutcome = lifecycleOutcomeCanceled
+			}
+		case err = <-failures:
+			busHealthy = false
+			shutdownCause = err
+			shutdownOutcome = lifecycleOutcomeError
+		case <-ctx.Done():
+			shutdownCause = context.Cause(ctx)
+			shutdownOutcome = lifecycleOutcomeCanceled
+		}
 	}
 	admission.setPhase(admissionShuttingDown)
 	_, shutdownSpan := startLifecycleSpan(

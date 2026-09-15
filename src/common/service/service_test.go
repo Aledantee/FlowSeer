@@ -245,6 +245,49 @@ func TestRunStartsExplicitModulesConcurrently(t *testing.T) {
 	}
 }
 
+// TestRunReturnsInsteadOfBlockingOnPanicBeforeStarted is evidence for this
+// change: runWithStarted schedules every active slot before it closes
+// started, so a panic recovered mid-scheduling never reaches that close.
+// Watched against a conversion missing the started/done select, this test
+// hung until its own timeout instead of returning — see the report for that
+// run's output. options.transition runs synchronously inside the scheduling
+// loop, before started can close, so panicking there reproduces the case
+// without depending on any particular module's Setup or Runner.
+func TestRunReturnsInsteadOfBlockingOnPanicBeforeStarted(t *testing.T) {
+	cfg := Config{
+		Identity: testIdentity(),
+		Modules: []Module{{
+			Name: "worker",
+			Leaf: &Leaf{Setup: func(context.Context) (Attempt, error) {
+				return Attempt{Runner: func(ctx context.Context) error {
+					<-ctx.Done()
+					return ctx.Err()
+				}}, nil
+			}},
+		}},
+	}
+	options := immediateSupervisorOptions()
+	options.transition = func(supervisorPath, operation, modulePath string) {
+		if operation == "setup" {
+			panic(typedPanic("scheduling panic"))
+		}
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- runWithOptionsAndTelemetryFactories(context.Background(), cfg, options, defaultTelemetryFactories)
+	}()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("runWithOptionsAndTelemetryFactories() = nil, want the recovered scheduling panic")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("runWithOptionsAndTelemetryFactories() blocked on <-started instead of returning")
+	}
+}
+
 func TestRunReturnsSetupAndShutdownErrors(t *testing.T) {
 	errSetup := errors.New("setup failed")
 	errShutdown := errors.New("shutdown failed")

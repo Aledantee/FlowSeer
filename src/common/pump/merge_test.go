@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 	"testing/synctest"
+	"time"
 )
 
 func TestMergeZeroSourcesCompletesImmediately(t *testing.T) {
@@ -284,6 +285,46 @@ func TestMergeContextCancellationPrecedesSourceError(t *testing.T) {
 			t.Errorf("Err() = %v, want %v", err, context.Canceled)
 		}
 	})
+}
+
+// TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources is
+// evidence for this change: it forces a real panic in the converted forward
+// goroutine — a nil *Pump[int] source panics on its first field access
+// inside Data() — and checks that the process survives and the merge still
+// completes for the other source, rather than crashing (the pre-conversion
+// behavior) or hanging (the failure mode a converted site without its own
+// "results <- result" defer would have introduced; that defer already
+// existed before this conversion and is unchanged here).
+func TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources(t *testing.T) {
+	t.Parallel()
+	var nilSource *Pump[int]
+	good := New[int](context.Background(), 1)
+	t.Cleanup(good.Cancel)
+	if !good.Send(1) {
+		t.Fatal("good source Send failed")
+	}
+	good.Done()
+
+	merged := Merge(context.Background(), 1, nilSource, good)
+	t.Cleanup(merged.Cancel)
+
+	var got []int
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for value := range merged.Data() {
+			got = append(got, value)
+		}
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("merged.Data() never closed after the forwarder panicked")
+	}
+
+	if !slices.Equal(got, []int{1}) {
+		t.Errorf("merged values = %v, want [1]", got)
+	}
 }
 
 func TestMergeFirstSourceErrorWins(t *testing.T) {
