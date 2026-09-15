@@ -1343,6 +1343,18 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 		endSpan(&err, classifyError)
 		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
 	}()
+	// Registered last so it unwinds first, ahead of the span and the answer
+	// above. Without it a panic here reaches the answering defer with err
+	// still nil and the submitter is told the work succeeded with no result,
+	// which central then reports as a completed mutation. The recover is
+	// per item rather than per goroutine on purpose: this runs inside the
+	// drain loop, and one device's bad read must not abandon the rest of
+	// that device's queue.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errs.New().Attr("panic", recovered).Msg("device work panicked")
+		}
+	}()
 
 	// Re-checked here, not only at admission. Submit's own check happens
 	// when the item is queued; the hold can be engaged by the item ahead of
@@ -1803,14 +1815,22 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 				return
 			}
 		}
-	}, spawn.ReportTo(func(error) {
-		// endRecoveryPoll is this poll's single exit, per its own doc
-		// comment: every path out must answer the caller. open.answered is
-		// a sync.Once, so calling it here even after pollOnce already
-		// answered through another path is harmless. The panic itself is
-		// not threaded through: endRecoveryPoll answers with the poll's own
-		// outcome, and the helper's log record carries the diagnosis.
+	}, spawn.ReportTo(func(err error) {
+		// A panic answers the submitter directly rather than through
+		// endRecoveryPoll alone. open.answered is a sync.Once, and Once
+		// counts a panicking body as having run, so a panic raised inside
+		// the Once — in reportAuditGap, hold.Resolve or report — consumes
+		// it before the answering send, and endRecoveryPoll would then do
+		// nothing at all. The send is non-blocking on a buffered channel,
+		// so it lands only when the Once's own send never happened.
+		select {
+		case open.sub.result <- submissionOutcome{err: err}:
+		default:
+		}
 		l.endRecoveryPoll(pollCtx, ds, open)
+		// The poll held ds.draining when it panicked, so it owes the queue
+		// the drain its normal exit performs.
+		l.drain(ds)
 	}))
 }
 
@@ -1823,50 +1843,22 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 // attempt itself, so reads admitted meanwhile are served between polls
 // rather than waiting out the horizon.
 func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation, runner *recovery.Runner, since time.Time, baseline *accessv1.InterfaceObservation) bool {
-	ds.draining.Lock()
+	step := l.pollUnderLock(ctx, ds, open, runner, since, baseline)
 
-	// Checked after acquiring, before any step. A poll parked in Lock when
-	// Close canceled it must release without running: by the time it wins
-	// the lock the lane may be shutting down, and the check it made before
-	// blocking says nothing about now.
-	l.mu.Lock()
-	closed := l.closed
-	l.mu.Unlock()
-	if closed || ctx.Err() != nil || open.machine.IsTerminal() {
-		ds.draining.Unlock()
-		l.drain(ds)
-		l.endRecoveryPoll(ctx, ds, open)
-		return true
-	}
-
-	if open.machine.Verified() {
-		// Verified and waiting on central's acknowledgement. Attempt would
-		// call Observe, which refuses from VERIFIED — a permanent refusal
-		// this loop cannot tell from a transient step failure, so it would
-		// go on reading the device every interval for the rest of the
-		// budget and treating each refusal as retryable. Nothing here is
-		// retryable: the answer is known and the acknowledgement is the
-		// only thing outstanding.
-		ds.draining.Unlock()
-		l.drain(ds)
-		return false
-	}
-
-	outcome, _, err := runner.Attempt(ctx, since, baseline)
-	if err == nil && outcome == recovery.OutcomeRetry {
-		// The retry runs under the same lock: it is the same device's
-		// single ordered piece of work, and releasing between the decision
-		// and the command would let a read interleave with a resubmission.
-		err = l.retryUnderLock(ctx, open)
-	}
-
-	ds.draining.Unlock()
 	// The release rule, stated on drain: an acquirer drains on release, and
 	// never on the assumption that another acquirer will. A submitter whose
 	// TryLock lost while this poll held the lock exited at once and will not
 	// come back for its own item.
 	l.drain(ds)
 
+	if step.stop {
+		if step.ended {
+			l.endRecoveryPoll(ctx, ds, open)
+		}
+		return step.ended
+	}
+
+	outcome, err := step.outcome, step.err
 	if err != nil {
 		// A failed step — a fence that errored, an abandonment whose audit
 		// delivery failed — keeps the poll and retries the same step next
@@ -1887,6 +1879,68 @@ func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation
 	default:
 		return false
 	}
+}
+
+// pollStep is what one locked poll step decided, read after ds.draining is
+// released. stop ends the poll; ended additionally means the caller is owed
+// its answer.
+type pollStep struct {
+	outcome recovery.Outcome
+	err     error
+	stop    bool
+	ended   bool
+}
+
+// pollUnderLock runs one step of a recovery poll under ds.draining.
+//
+// The release is deferred rather than written at each exit, because this runs
+// on a supervised goroutine: a panic in a step is recovered, so an explicit
+// release the panic skipped would leave ds.draining held for the life of the
+// process. Every later drain would lose its TryLock and silently do nothing,
+// every later poll would park in Lock, and the device's queue would stop
+// moving with a log record as the only sign — a worse outcome than the crash
+// the recovery replaced.
+func (l *Lane) pollUnderLock(
+	ctx context.Context,
+	ds *deviceState,
+	open *openMutation,
+	runner *recovery.Runner,
+	since time.Time,
+	baseline *accessv1.InterfaceObservation,
+) pollStep {
+	ds.draining.Lock()
+	defer ds.draining.Unlock()
+
+	// Checked after acquiring, before any step. A poll parked in Lock when
+	// Close canceled it must release without running: by the time it wins
+	// the lock the lane may be shutting down, and the check it made before
+	// blocking says nothing about now.
+	l.mu.Lock()
+	closed := l.closed
+	l.mu.Unlock()
+	if closed || ctx.Err() != nil || open.machine.IsTerminal() {
+		return pollStep{stop: true, ended: true}
+	}
+
+	if open.machine.Verified() {
+		// Verified and waiting on central's acknowledgement. Attempt would
+		// call Observe, which refuses from VERIFIED — a permanent refusal
+		// this loop cannot tell from a transient step failure, so it would
+		// go on reading the device every interval for the rest of the
+		// budget and treating each refusal as retryable. Nothing here is
+		// retryable: the answer is known and the acknowledgement is the
+		// only thing outstanding.
+		return pollStep{stop: true}
+	}
+
+	outcome, _, err := runner.Attempt(ctx, since, baseline)
+	if err == nil && outcome == recovery.OutcomeRetry {
+		// The retry runs under the same lock: it is the same device's
+		// single ordered piece of work, and releasing between the decision
+		// and the command would let a read interleave with a resubmission.
+		err = l.retryUnderLock(ctx, open)
+	}
+	return pollStep{outcome: outcome, err: err}
 }
 
 // retryUnderLock resends the command for a mutation recovery authorized a

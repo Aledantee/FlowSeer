@@ -30,22 +30,18 @@ func (s *panicFirstReadSession) GetBulk(ctx context.Context, nonRepeaters, maxRe
 	return s.walkingSession.GetBulk(ctx, nonRepeaters, maxRepetitions, oids, opts...)
 }
 
-// TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds is evidence
-// for this change. drain's TryLock/Unlock loop used to call Unlock
-// explicitly, reached only by l.process's normal return, so a panic while
-// process ran left ds.draining held forever: every later drain for that
-// device would TryLock, lose, and silently do nothing, stranding whatever
-// it had just queued behind a lock nothing would ever release. drainOnce
-// releases the lock from a defer instead, so release does not depend on
-// process returning normally.
+// TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds pins two
+// properties of a device read that panics on drain's own goroutine.
 //
-// The panicking read's own outcome is deliberately not asserted: l.process
-// answers sub.result from its own defer regardless of whether it panicked,
-// which is existing behavior this unit did not touch and is not what this
-// test is evidence for. What the fix causes is that a second, independent
-// read for the same device completes at all rather than blocking until its
-// own context's timeout — proof that drain became this device's drainer
-// again instead of finding the lock already, and permanently, taken.
+// The submitter is told the read failed. A panic unwinds past every
+// assignment to the result, so an answer that reported whatever the result
+// variable happened to hold would tell the caller the work succeeded and
+// produced nothing — which central records as a completed mutation.
+//
+// The device keeps working. ds.draining is released whatever way process
+// leaves, so the next drain wins its TryLock; a release that only the normal
+// return performed would leave the lock held for the life of the process,
+// and every later read for that device would queue behind it forever.
 func TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds(t *testing.T) {
 	l := newTestLane(t)
 	session := &panicFirstReadSession{walkingSession: &walkingSession{vbs: interfaceRows("ethernet 1/1/1", snmpDescription, true)}}
@@ -60,11 +56,14 @@ func TestLaneDrainReleasesItsLockAfterAPanicSoALaterDrainProceeds(t *testing.T) 
 
 	// Panics on drain's own goroutine, inside l.process, while drainOnce
 	// holds ds.draining.
-	_, _ = l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()})
+	result, err := l.Submit(context.Background(), access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()})
+	if err == nil {
+		t.Fatalf("Submit() over a panicking read returned no error; got result %v", result)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	result, err := l.Submit(ctx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()})
+	result, err = l.Submit(ctx, access.SubmitOptions{DeviceKey: "dev-1", Request: readRequest()})
 	if err != nil {
 		t.Fatalf("second Submit() after a panicking first read: %v (drain's lock was not released)", err)
 	}
