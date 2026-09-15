@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"os"
-	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/metric"
@@ -17,6 +16,7 @@ import (
 	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/busattach"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/dispatch"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
@@ -370,31 +370,33 @@ func edgeRefOf(edgeID string) *edgev1.EdgeGlobalRef {
 // on lost contact, and a dispatch loop that stopped would leave a queue
 // re-sending reports for operations nothing is dispatching. A supervisor
 // rebuilding all three together is the only shape that keeps them consistent.
+//
+// The join is a channel each goroutine sends its own result to exactly once,
+// not a sync.WaitGroup: a WaitGroup's Done only proves the goroutine's own
+// deferred calls ran, and on the panic path those run before the recovered
+// panic reaches results, so waiting on Done and then peeking the channel
+// could read it before that send lands. Receiving len(loops) times waits on
+// the channel itself, which a send always precedes.
 func runAll(ctx context.Context, loops ...func(context.Context) error) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	failures := make(chan error, len(loops))
-	var running sync.WaitGroup
+	results := make(chan error, len(loops))
 	for _, loop := range loops {
-		running.Add(1)
-		go func() {
-			defer running.Done()
+		spawn.Go(ctx, "runAll loop", func() {
 			// Canceled on the way out, so the first loop to return stops the
 			// others rather than leaving them running under a module attempt
 			// that has already ended.
 			defer cancel()
-			if err := loop(ctx); err != nil {
-				failures <- err
-			}
-		}()
+			results <- loop(ctx)
+		}, spawn.ReportTo(func(err error) { results <- err }))
 	}
-	running.Wait()
 
-	select {
-	case err := <-failures:
-		return err
-	default:
-		return nil
+	var firstErr error
+	for range loops {
+		if err := <-results; err != nil && firstErr == nil {
+			firstErr = err
+		}
 	}
+	return firstErr
 }

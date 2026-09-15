@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/nats-io/nats.go/jetstream"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // KVWatcher wakes a waiting read from the lane bucket's own key watch, so a
@@ -30,7 +32,7 @@ func (w *KVWatcher) Watch(ctx context.Context, deviceID string) (<-chan struct{}
 
 	changed := make(chan struct{}, 1)
 	done := make(chan struct{})
-	go func() {
+	spawn.Go(ctx, "KVWatcher.Watch", func() {
 		updates := watcher.Updates()
 		for {
 			select {
@@ -49,7 +51,7 @@ func (w *KVWatcher) Watch(ctx context.Context, deviceID string) (<-chan struct{}
 				}
 			}
 		}
-	}()
+	})
 
 	stop := func() {
 		close(done)

@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/centralaudit"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
@@ -418,42 +419,52 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 	}
 
 	return service.Attempt{Runner: func(ctx context.Context) error {
-		errCh := make(chan error, 1)
-		go func() {
+		return serveConnect(ctx, server, bound, func() error {
 			// The certificate and key are already in TLSConfig; ServeTLS
 			// takes them from there when both paths are empty. It closes
 			// the listener on return, including the ErrServerClosed return
 			// from Shutdown below, so nothing else has to.
-			errCh <- server.ServeTLS(listener, "", "")
-		}()
+			return server.ServeTLS(listener, "", "")
+		})
+	}}, nil
+}
 
-		select {
-		case err := <-errCh:
-			if errors.Is(err, http.ErrServerClosed) {
-				return nil
-			}
-			return errs.From(err).Code(ErrCodeStart).Attr("address", bound).Msg("serve the device api")
-		case <-ctx.Done():
-			shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
-			defer cancel()
-			// Shutdown never cuts an active connection: it closes the
-			// listeners, closes idle connections, and returns the
-			// context's error once the grace passes, leaving in-flight
-			// handlers running. An edge holds a dispatch stream open
-			// indefinitely, so that error is the ordinary case here, not
-			// an anomaly — and discarding it returned from Run with those
-			// handler goroutines still looping against a bus their module
-			// had already closed.
-			//
-			// In production the process exits and takes them with it. In
-			// an in-process host, which the end-to-end test needs so it
-			// can start and stop central repeatedly, they survive the test
-			// that created them.
-			if err := server.Shutdown(shutdown); err != nil {
-				_ = server.Close()
-			}
-			<-errCh
+// serveConnect runs serve under the supervised spawn helper until it returns
+// or ctx ends, translating a non-clean exit into this attempt's error. serve
+// is a parameter rather than a direct call to server.ServeTLS so a panic in
+// it — the case this function exists to cover — can be forced from a test
+// without a real TLS handshake.
+func serveConnect(ctx context.Context, server *http.Server, bound string, serve func() error) error {
+	errCh := make(chan error, 1)
+	spawn.Go(ctx, "device api ServeTLS", func() {
+		errCh <- serve()
+	}, spawn.ReportTo(func(err error) { errCh <- err }))
+
+	select {
+	case err := <-errCh:
+		if errors.Is(err, http.ErrServerClosed) {
 			return nil
 		}
-	}}, nil
+		return errs.From(err).Code(ErrCodeStart).Attr("address", bound).Msg("serve the device api")
+	case <-ctx.Done():
+		shutdown, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownGrace)
+		defer cancel()
+		// Shutdown never cuts an active connection: it closes the
+		// listeners, closes idle connections, and returns the context's
+		// error once the grace passes, leaving in-flight handlers
+		// running. An edge holds a dispatch stream open indefinitely, so
+		// that error is the ordinary case here, not an anomaly — and
+		// discarding it returned from Run with those handler goroutines
+		// still looping against a bus their module had already closed.
+		//
+		// In production the process exits and takes them with it. In an
+		// in-process host, which the end-to-end test needs so it can
+		// start and stop central repeatedly, they survive the test that
+		// created them.
+		if err := server.Shutdown(shutdown); err != nil {
+			_ = server.Close()
+		}
+		<-errCh
+		return nil
+	}
 }
