@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // defaultWatchEventBuffer is the buffer size [NewWatcher] uses for its
@@ -351,7 +352,7 @@ func NewWatcher[Row any](
 	}
 	w.partitionCols()
 
-	go w.run()
+	spawn.Go(w.pump.Context(), "Watcher.run", w.run, spawn.ReportTo(w.pump.Fail))
 	return w, nil
 }
 
@@ -619,34 +620,31 @@ func (w *Watcher[Row]) TableRoot() OID {
 // run is the tick goroutine's entry point. It performs the
 // cold-start full walk, then enters the steady-state
 // indicator-gated scheduler loop.
+// run is spawned by [NewWatcher] via [spawn.Go], which recovers a
+// panic at the goroutine's outermost frame and reports it through
+// spawn.ReportTo(w.pump.Fail) — [pump.Pump.Fail] records the error
+// before it closes the data channel, so a consumer whose Recv returns
+// false already sees [Watcher.Err] set.
+//
+// run itself never defers [pump.Pump.CloseData]: a deferred call
+// inside this frame would run during a panic's stack unwind, before
+// spawn.Go's own recover has a chance to report the panic, which
+// would close the channel with Err() still nil. Instead each normal
+// (non-panic) return calls CloseData explicitly, after any terminal
+// error coldStart/steadyState already latched via Fail — CloseData is
+// idempotent (pump's chOnce guard), so that is a no-op when Fail ran
+// first, and the backstop for the "stop signaled, no error" exits
+// that never call Fail at all.
 func (w *Watcher[Row]) run() {
-	// closeData on goroutine exit guarantees the event channel is
-	// closed exactly once, even if the cold-start path bails early
-	// or the steady-state loop panics. The fail path in [pump.Pump.Fail]
-	// also closes the channel under the same chOnce guard, so this
-	// is safe-by-construction.
-	defer w.pump.CloseData()
-	// Latch any panic as a terminal error so a misbehaving
-	// session/decode path cannot tear down the host process.
-	defer func() {
-		if r := recover(); r != nil {
-			var err error
-			if e, ok := r.(error); ok {
-				err = errs.Wrap(e, "Watcher.run panicked")
-			} else {
-				err = errs.New().Attr("panic", r).Msg("Watcher.run panicked")
-			}
-			w.pump.Fail(err)
-		}
-	}()
-
 	if !w.coldStart() {
 		// coldStart returned false → terminal error already latched
 		// via [pump.Pump.Fail], or context was canceled. Either way, exit.
+		w.pump.CloseData()
 		return
 	}
 
 	w.steadyState()
+	w.pump.CloseData()
 }
 
 // coldStart performs the first-tick full walk over tableRoot, decodes

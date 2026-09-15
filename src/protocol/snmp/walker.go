@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ErrSessionClosed is the canonical "session is closed" sentinel,
@@ -136,14 +137,19 @@ func NewWalker(ctx context.Context, bufferSize int) *Walker {
 // Pump may only be called once per Walker; calling it twice produces
 // two pump goroutines racing on the same channel, which is a
 // programming error.
+//
+// A panic in fn is recovered by [spawn.Go] and reported through
+// [spawn.ReportTo](w.Fail): without that sink, a panicking fn would
+// close the channel via the deferred Done below with Err() still
+// nil, which a consumer cannot tell from a walk that finished.
 func (w *Walker) Pump(fn func(ctx context.Context)) {
-	go func() {
+	spawn.Go(w.pump.Context(), "Walker.Pump", func() {
 		// Close the data channel exactly once when the pump returns,
 		// regardless of whether it returned normally, was canceled,
 		// or panicked. Done is idempotent with Fail.
 		defer w.Done()
 		fn(w.pump.Context())
-	}()
+	}, spawn.ReportTo(w.Fail))
 }
 
 // Send delivers one item to the consumer. Returns false when the

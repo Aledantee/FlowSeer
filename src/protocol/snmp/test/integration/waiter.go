@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
@@ -40,7 +41,7 @@ func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap)
 	hits := make(chan snmp.Trap, 1)
 	done := make(chan struct{})
 
-	go func() {
+	spawn.Go(ctx, "WaitForTrap.match", func() {
 		defer close(done)
 		for ts.Next() {
 			trap := ts.Current()
@@ -53,7 +54,7 @@ func WaitForTrap(ctx context.Context, ts *snmp.TrapStream, match func(snmp.Trap)
 			}
 			return
 		}
-	}()
+	})
 	defer func() { <-done }()
 
 	timer := time.NewTimer(timeout)

@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // trap_listen.go is the v1/v2c/v3 trap listener. It owns the UDP
@@ -151,9 +152,16 @@ type listener struct {
 	loopDone  chan struct{}
 }
 
+// start spawns the listener's two goroutines under l.logCtx: start
+// itself takes no context (it is called from [ListenTraps] after the
+// listener is fully built), and logCtx is the right stand-in — it is
+// the dial-time context with cancellation stripped, already used for
+// this listener's other background logging, so the goroutines keep
+// the caller's log/trace attributes without inheriting a cancellation
+// that would race listener teardown.
 func (l *listener) start() {
-	go l.listenLoop()
-	go l.watchStop()
+	spawn.Go(l.logCtx, "listener.listenLoop", l.listenLoop, spawn.ReportTo(l.ts.pump.Fail))
+	spawn.Go(l.logCtx, "listener.watchStop", l.watchStop)
 }
 
 // watchStop tears the listener down when the TrapStream terminates (Close

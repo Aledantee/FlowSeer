@@ -180,6 +180,37 @@ func TestWalker_TerminalError(t *testing.T) {
 	}
 }
 
+// TestWalker_PumpPanicLeavesErrNonNil is evidence for the spawn.Go
+// conversion of [Walker.Pump]: a panicking fn must not silently
+// present as a completed walk. Unlike Watcher, Walker's contract only
+// requires Err() to eventually become non-nil, not that it precede
+// the channel close — [Walker.Pump]'s own deferred Done closes the
+// channel before the panic reaches spawn.Go's recover, so the two
+// goroutines race and the assertion polls briefly instead of assuming
+// either order.
+func TestWalker_PumpPanicLeavesErrNonNil(t *testing.T) {
+	w := NewWalker(context.Background(), 0)
+	w.Pump(func(_ context.Context) {
+		panic("pump exploded")
+	})
+
+	count := 0
+	for range w.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("yielded %d items after panic, want 0", count)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for w.Err() == nil && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if err := w.Err(); err == nil {
+		t.Error("Err() is nil after a panicking Pump fn, want non-nil")
+	}
+}
+
 // TestWalker_ContextCancel: caller cancels ctx; pump's next Send
 // returns false; pump exits within a bounded time.
 func TestWalker_ContextCancel(t *testing.T) {
