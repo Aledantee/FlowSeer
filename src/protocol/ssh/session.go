@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Session is one interactive SSH shell. Construct via [Dial]. Safe
@@ -57,14 +58,16 @@ func Dial(ctx context.Context, addr string, opts Options) (*Session, error) {
 
 	// NewClientConn has no context parameter; watch dialCtx and close
 	// the raw connection to unblock the handshake if it fires first.
+	// Nothing joins this goroutine: closing done merely stops it early,
+	// and a panic here costs only that optimization, not a hang.
 	done := make(chan struct{})
-	go func() {
+	spawn.Go(dialCtx, "ssh dial cancellation watcher", func() {
 		select {
 		case <-dialCtx.Done():
 			_ = conn.Close()
 		case <-done:
 		}
-	}()
+	})
 
 	sshConn, chans, reqs, err := ssh.NewClientConn(conn, addr, cfg)
 	close(done)
@@ -84,7 +87,7 @@ func Dial(ctx context.Context, addr string, opts Options) (*Session, error) {
 	}
 	client := ssh.NewClient(sshConn, chans, reqs)
 
-	sess, err := newSession(client, opts)
+	sess, err := newSession(ctx, client, opts)
 	if err != nil {
 		_ = client.Close()
 		return nil, err
@@ -93,8 +96,10 @@ func Dial(ctx context.Context, addr string, opts Options) (*Session, error) {
 }
 
 // newSession opens the one shell channel on an established client and
-// starts draining it.
-func newSession(client *ssh.Client, opts Options) (*Session, error) {
+// starts draining it. ctx is used only to label the drain goroutines'
+// panic reports; Dial's ctx is the closest thing this package has to a
+// Session-scoped context, since Session carries none of its own.
+func newSession(ctx context.Context, client *ssh.Client, opts Options) (*Session, error) {
 	sh, err := client.NewSession()
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeShell).Msg("open shell channel")
@@ -132,9 +137,13 @@ func newSession(client *ssh.Client, opts Options) (*Session, error) {
 		stderr: newRing(opts.StderrBufferBytes),
 		opts:   opts,
 	}
+	// ReportTo closes each ring with the panic if drain never reaches its
+	// own closeWithErr call: a caller blocked in ring.waitFor with no
+	// deadline would otherwise wait forever for a stream that already
+	// died.
 	s.wg.Add(2)
-	go s.drain(stdout, s.stdout)
-	go s.drain(stderr, s.stderr)
+	spawn.Go(ctx, "ssh session stdout drain", func() { s.drain(stdout, s.stdout) }, spawn.ReportTo(s.stdout.closeWithErr))
+	spawn.Go(ctx, "ssh session stderr drain", func() { s.drain(stderr, s.stderr) }, spawn.ReportTo(s.stderr.closeWithErr))
 	return s, nil
 }
 

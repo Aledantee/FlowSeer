@@ -241,3 +241,50 @@ func TestWalkerFetchFailureLatches(t *testing.T) {
 		t.Fatal("fetch failure not latched")
 	}
 }
+
+// TestWalkerFetchPanicLatches proves a panic in the traversal goroutine
+// reaches Err() rather than leaving the walk look like a clean, empty
+// completion: NewRowWalker's own defer w.pump.Done() is unconditional, so
+// without the panic also reaching pump.Fail (via spawn.ReportTo), Err()
+// would stay nil after a panic exactly as it does after success.
+func TestWalkerFetchPanicLatches(t *testing.T) {
+	fetch := &scriptedFetch{payloads: []any{42}} // an unscripted type panics inside fetch itself.
+	codec := serverCodec()
+	w := yang.NewWalker(context.Background(), fetch.fetch, codec.DecodeXML, 0)
+	for range w.Iter() {
+		t.Fatal("rows yielded despite a panicking fetch")
+	}
+
+	// The data channel closes (via the unconditional deferred pump.Done)
+	// before the recovered panic reaches pump.Fail, so Err() is only
+	// eventually consistent with the channel's closure, not the instant
+	// Iter's loop returns.
+	deadline := time.After(5 * time.Second)
+	for w.Err() == nil {
+		select {
+		case <-deadline:
+			t.Fatal("fetch panic not latched")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+// TestTickWatcherFetchPanicLatches is TestWalkerFetchPanicLatches' analog
+// for run's CloseData-only defer: the same silent-success risk applies to
+// the tick loop's pump.
+func TestTickWatcherFetchPanicLatches(t *testing.T) {
+	fetch := &scriptedFetch{payloads: []any{42}}
+	codec := serverCodec()
+	w := yang.NewTickWatcher(context.Background(), codec, fetch.fetch, codec.DecodeXML,
+		yang.WatchConfig{Interval: 15 * time.Millisecond})
+	defer func() { _ = w.Close() }()
+
+	deadline := time.After(5 * time.Second)
+	for w.Err() == nil {
+		select {
+		case <-deadline:
+			t.Fatal("watcher never latched after a panicking fetch")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}

@@ -20,6 +20,7 @@ import (
 	ncssh "nemith.io/netconf/transport/ssh"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -78,7 +79,7 @@ func Dial(ctx context.Context, addr string, opts Options) (*Session, error) {
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeTransport).Msgf("establish NETCONF session with %s", addr)
 	}
-	return NewSession(&nemithTransport{s: inner}, opts), nil
+	return NewSession(ctx, &nemithTransport{s: inner}, opts), nil
 }
 
 // sshConfig builds the SSH client configuration from the options.
@@ -173,7 +174,10 @@ func (t *nemithTransport) Close(ctx context.Context) error {
 // NewSession takes ownership of an established, non-nil transport:
 // it parses the capability set and starts the keepalive guard when
 // configured. Call [Session.Close] to release the transport and guard.
-func NewSession(t Transport, opts Options) *Session {
+// ctx labels the keepalive guard's panic reports; it is not retained
+// beyond that, since Session already carries no context of its own and
+// callers other than [Dial] have none to hand it either.
+func NewSession(ctx context.Context, t Transport, opts Options) *Session {
 	opts = opts.withDefaults()
 	tp := opts.TracerProvider
 	if tp == nil {
@@ -188,7 +192,7 @@ func NewSession(t Transport, opts Options) *Session {
 	}
 	if opts.KeepaliveInterval > 0 {
 		s.wg.Add(1)
-		go s.keepalive()
+		spawn.Go(ctx, "netconf keepalive", s.keepalive, spawn.ReportTo(s.latch))
 	}
 	return s
 }

@@ -3,6 +3,7 @@ package smi
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"sync"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/frame"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/lex"
 	"go.aledante.io/FlowSeer/src/protocol/smi/internal/parse"
@@ -258,12 +260,26 @@ func readWave(wave []string, workers int) ([]source, error) {
 	var wg sync.WaitGroup
 	for range workers {
 		wg.Add(1)
-		go func() {
+		// readGuarded recovers per file, at the granularity that keeps
+		// this worker moving to its next job after a malformed
+		// declaration; this spawn only backstops the worker's own
+		// frame, in case something outside readGuarded panics. It must
+		// not be dropped as redundant with readGuarded: this worker's
+		// unbuffered jobs producer never closes from the consumer side,
+		// so a panic that skipped readGuarded and stopped the worker
+		// here would abandon jobs already sent to it and leave the
+		// producer (below) blocked forever instead of crashing.
+		//
+		// context.Background() is the fallback here because threading a
+		// context down to readWave would mean adding one to readAll,
+		// LoadFiles, and Load — every exported entry point of this
+		// package, none of which takes one today.
+		spawn.Go(context.Background(), "smi wave read worker", func() {
 			defer wg.Done()
 			for i := range jobs {
 				results[i], failures[i] = readGuarded(order[i])
 			}
-		}()
+		})
 	}
 	for i := range order {
 		jobs <- i

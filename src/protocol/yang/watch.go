@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // watch.go is the shared row plumbing under the protocol libraries'
@@ -113,7 +114,9 @@ func NewRowWalker[Row any](ctx context.Context, produce func(ctx context.Context
 		buffer = 64
 	}
 	w := &Walker[Row]{pump: pump.New[Row](ctx, buffer)}
-	go func() {
+	// ReportTo gives a panic the pump.Fail a silent, deferred pump.Done
+	// would otherwise skip.
+	spawn.Go(ctx, "yang row walker traversal", func() {
 		defer w.pump.Done()
 		rows, err := produce(w.pump.Context())
 		if err != nil {
@@ -125,7 +128,7 @@ func NewRowWalker[Row any](ctx context.Context, produce func(ctx context.Context
 				return
 			}
 		}
-	}()
+	}, spawn.ReportTo(w.pump.Fail))
 	return w
 }
 
@@ -195,7 +198,9 @@ func NewTickWatcher[Row any, Key comparable](ctx context.Context, codec RowCodec
 		pump:  pump.New[WatchEvent[Row, Key]](ctx, cfg.Buffer),
 		codec: codec,
 	}
-	go w.run(fetch, decode, cfg)
+	// run's own CloseData defer is unconditional; ReportTo gives a panic
+	// the pump.Fail that CloseData alone would otherwise skip.
+	spawn.Go(ctx, "yang tick watcher", func() { w.run(fetch, decode, cfg) }, spawn.ReportTo(w.pump.Fail))
 	return w
 }
 

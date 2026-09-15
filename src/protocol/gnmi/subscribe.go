@@ -11,6 +11,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -108,16 +109,21 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 	}
 
 	// A blocked Recv only returns when the stream context dies, so
-	// Close (which signals the pump) must also cancel sctx.
-	go func() {
+	// Close (which signals the pump) must also cancel sctx. cancel is
+	// deferred rather than called only on the Stopped branch: a panic
+	// here must still cancel sctx, or the receive goroutine's blocked
+	// Recv never returns and Close hangs waiting for it.
+	spawn.Go(sctx, "gnmi subscribe cancel watcher", func() {
+		defer cancel()
 		select {
 		case <-st.pump.Stopped():
-			cancel()
 		case <-sctx.Done():
 		}
-	}()
+	})
 
-	go func() {
+	// pump.Fail on a panic gives Err() the failure a silent pump.Done
+	// (deferred below, unconditional) would otherwise hide.
+	spawn.Go(sctx, "gnmi subscribe receive", func() {
 		defer cancel()
 		defer st.pump.Done()
 		for {
@@ -153,7 +159,7 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 				return
 			}
 		}
-	}()
+	}, spawn.ReportTo(st.pump.Fail))
 	return st, nil
 }
 
