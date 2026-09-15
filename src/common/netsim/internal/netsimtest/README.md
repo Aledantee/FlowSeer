@@ -71,6 +71,20 @@ established across the library:
   the last member query time, two seconds after the leave, well short of the
   260 s membership interval a full run would use, disproving the false
   answer that forwarding continues for the full interval regardless.
+- `troubleshooting/stale-root-ages-out`: A BPDU naming a root that no longer
+  exists arrives with its message age already at the max age it carries. It is
+  discarded rather than stored, so the port keeps its Designated and Forwarding
+  state and the frame is delivered, disproving the false answer that every
+  circulating copy refreshes the timer and holds the port blocked forever.
+- `troubleshooting/bpdu-guard-disables-edge`: An unexpected bridge announces
+  itself on an access port configured with BPDU guard. The port is disabled for
+  spanning tree with reason `bpdu-guard` and the frame drops `port-blocked`,
+  disproving the false answer that an edge port is not part of the tree and so
+  keeps forwarding.
+- `troubleshooting/loop-guard-unidirectional-link`: The port that became root
+  stops receiving BPDUs. Loop guard holds it Alternate and Discarding with
+  reason `loop-inconsistent`, disproving the false answer that it becomes
+  Designated and forwards, which on a link broken in one direction is a loop.
 - `planning/ecmp-candidates-recorded`: Two equal-cost static routes reach one
   prefix. The lookup fact names both next hops in canonical order and the index
   of the one the flow hash chose, disproving the false answer that one route
