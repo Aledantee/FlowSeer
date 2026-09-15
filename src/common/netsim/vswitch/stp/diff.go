@@ -404,7 +404,7 @@ func diffMSTInstance(a, b Instance, key string, layer port.Layer) []trace.Change
 
 			continue
 		}
-		if ap.Priority != bp.Priority {
+		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
 			changes = append(changes, trace.Change{
 				Layer: layer, Subject: portSubject, Field: "priority",
 				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),

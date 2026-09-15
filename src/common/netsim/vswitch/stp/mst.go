@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -50,21 +51,30 @@ func (p InstancePort) Canonical() string {
 // its bridge priority within the instance, the VLANs it carries, and its
 // per-port settings.
 type Instance struct {
-	Priority uint16
-	VLANs    []vlan.ID
-	Ports    map[string]InstancePort
+	Priority        uint16
+	PriorityPresent bool
+	VLANs           []vlan.ID
+	Ports           map[string]InstancePort
 }
 
 // TypeID returns the fact type identifier for Instance.
 func (i Instance) TypeID() string { return "stp.mst.instance" }
 
 // Canonical returns the canonical string representation of the Instance
-// fact: its priority followed by its sorted VLAN list.
+// fact: its effective priority, its sorted VLAN list, and its sorted
+// per-port settings.
 func (i Instance) Canonical() string {
 	vlans := slices.Clone(i.VLANs)
 	slices.Sort(vlans)
 
-	return fmt.Sprintf("priority=%d,vlans=%v", i.Priority, vlans)
+	names := sortedKeys(i.Ports)
+	ports := make([]string, len(names))
+	for idx, name := range names {
+		ports[idx] = fmt.Sprintf("%s:{%s}", name, i.Ports[name].Canonical())
+	}
+
+	return fmt.Sprintf("priority=%d,vlans=%v,ports=%v",
+		effectiveInstancePriority(i.Priority, i.PriorityPresent), vlans, ports)
 }
 
 // ConfigID is the IEEE 802.1Q MST configuration identifier, the 51-octet
@@ -96,19 +106,31 @@ type MST struct {
 // TypeID returns the fact type identifier for MST.
 func (m MST) TypeID() string { return "stp.mst" }
 
-// Canonical returns the canonical string representation of the MST fact.
+// Canonical returns the canonical string representation of the MST fact:
+// name, revision, maximum hop count, and the sorted list of instances.
 func (m MST) Canonical() string {
-	return fmt.Sprintf("name=%q,revision=%d,max_hops=%d", m.Name, m.Revision, effectiveMaxHops(m.MaxHops))
+	ids := sortedMSTIDs(m.Instances)
+	instances := make([]string, len(ids))
+	for idx, id := range ids {
+		instances[idx] = fmt.Sprintf("%d:{%s}", id, m.Instances[id].Canonical())
+	}
+
+	return fmt.Sprintf("name=%q,revision=%d,max_hops=%d,instances=%v",
+		m.Name, m.Revision, effectiveMaxHops(m.MaxHops), instances)
 }
 
 // ConfigID computes the IEEE 802.1Q MST configuration identifier for the
 // region: the name and revision as configured, and the digest of the
 // VID-to-MSTID table built from every instance's VLAN membership. A VID no
-// instance claims maps to MSTID 0 (the CIST).
+// instance claims maps to MSTID 0 (the CIST). Instances are visited in
+// sorted order so the digest never depends on map iteration order.
 func (m MST) ConfigID() ConfigID {
 	var table [4096]uint16
-	for id, inst := range m.Instances {
+	for _, id := range sortedMSTIDs(m.Instances) {
+		inst := m.Instances[id]
 		for _, vid := range inst.VLANs {
+			// Validate refuses an out-of-range VID before an instance
+			// reaches here; the bound stays as defense in depth.
 			if int(vid) < len(table) {
 				table[vid] = uint16(id)
 			}
@@ -166,8 +188,8 @@ func effectiveMaxHops(h uint8) uint8 {
 	return h
 }
 
-func effectiveInstancePriority(p uint16) uint16 {
-	if p == 0 {
+func effectiveInstancePriority(p uint16, present bool) uint16 {
+	if p == 0 && !present {
 		return DefaultBridgePriority
 	}
 	return p
@@ -175,19 +197,18 @@ func effectiveInstancePriority(p uint16) uint16 {
 
 // Normalize returns a normalized copy of the MST region configuration,
 // filling MaxHops with 20, each instance's priority with the default bridge
-// priority, and sorting each instance's VLANs.
+// priority, and sorting each instance's VLANs. An instance port's priority is
+// left untouched: whether it overrides the CIST port priority is a fact the
+// layer reads from PriorityPresent, and normalization must not manufacture
+// an override no one configured.
 func (m MST) Normalize() MST {
 	cloned := m.Clone()
 	cloned.MaxHops = effectiveMaxHops(cloned.MaxHops)
 	for id, inst := range cloned.Instances {
-		inst.Priority = effectiveInstancePriority(inst.Priority)
+		inst.Priority = effectiveInstancePriority(inst.Priority, inst.PriorityPresent)
+		inst.PriorityPresent = true
 		if inst.VLANs != nil {
 			slices.Sort(inst.VLANs)
-		}
-		for name, p := range inst.Ports {
-			p.Priority = effectivePortPriority(p.Priority, p.PriorityPresent)
-			p.PriorityPresent = true
-			inst.Ports[name] = p
 		}
 		cloned.Instances[id] = inst
 	}
@@ -196,15 +217,24 @@ func (m MST) Normalize() MST {
 
 // Validate checks the MST region configuration: every MSTID must fall in
 // 1..4094, MaxHops must fall in 6..40, each instance priority must be a
-// multiple of 4096, the name must be at most 32 octets, no VLAN may be
-// claimed by more than one instance, and every instance port must exist in
-// the port table.
-func (m MST) Validate(ports port.Table) error {
+// multiple of 4096, the name must be at most 32 octets and free of NUL, no
+// VLAN may be claimed by more than one instance and every claimed VLAN must
+// be a valid assigned VID, and every instance port must be a spanning tree
+// port with an admin path cost within bounds. stpPorts is the STP port set
+// (Config.Ports): the layer only ever looks up an instance port there, so a
+// name absent from it is refused even when the port table itself holds it.
+func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 	if len(m.Name) > 32 {
 		return errs.New().
 			Attr("field", "mst.name").
 			Attr("name", m.Name).
 			Msgf("MST region name %q exceeds 32 octets", m.Name)
+	}
+	if strings.ContainsRune(m.Name, 0) {
+		return errs.New().
+			Attr("field", "mst.name").
+			Attr("name", m.Name).
+			Msgf("MST region name %q contains a NUL byte", m.Name)
 	}
 
 	maxHops := effectiveMaxHops(m.MaxHops)
@@ -225,7 +255,7 @@ func (m MST) Validate(ports port.Table) error {
 		}
 
 		inst := m.Instances[id]
-		priority := effectiveInstancePriority(inst.Priority)
+		priority := effectiveInstancePriority(inst.Priority, inst.PriorityPresent)
 		if priority%4096 != 0 {
 			return errs.New().
 				Attr("field", fmt.Sprintf("mst.instances.%d.priority", id)).
@@ -235,6 +265,13 @@ func (m MST) Validate(ports port.Table) error {
 		}
 
 		for _, vid := range inst.VLANs {
+			if !vid.Valid() {
+				return errs.New().
+					Attr("field", fmt.Sprintf("mst.instances.%d.vlans", id)).
+					Attr("mstid", id).
+					Attr("vid", vid).
+					Msgf("MST instance %d VLAN %d is outside %d through %d", id, vid, vlan.MinID, vlan.MaxID)
+			}
 			if owner, ok := claimed[vid]; ok {
 				return errs.New().
 					Attr("field", fmt.Sprintf("mst.instances.%d.vlans", id)).
@@ -252,6 +289,23 @@ func (m MST) Validate(ports port.Table) error {
 					Attr("mstid", id).
 					Attr("port", name).
 					Msgf("MST instance %d port %q absent from port table", id, name)
+			}
+			if _, ok := stpPorts[name]; !ok {
+				return errs.New().
+					Attr("field", fmt.Sprintf("mst.instances.%d.ports.%s", id, name)).
+					Attr("mstid", id).
+					Attr("port", name).
+					Msgf("MST instance %d port %q is not a spanning tree port", id, name)
+			}
+
+			instPort := inst.Ports[name]
+			if instPort.PathCost > MaxPathCost {
+				return errs.New().
+					Attr("field", fmt.Sprintf("mst.instances.%d.ports.%s.path_cost", id, name)).
+					Attr("mstid", id).
+					Attr("port", name).
+					Attr("path_cost", instPort.PathCost).
+					Msgf("MST instance %d port %q path cost %d exceeds maximum %d", id, name, instPort.PathCost, MaxPathCost)
 			}
 		}
 	}

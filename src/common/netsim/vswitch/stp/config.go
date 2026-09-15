@@ -358,7 +358,7 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	if c.MST != nil {
-		if err := c.MST.Validate(ports); err != nil {
+		if err := c.MST.Validate(ports, c.Ports); err != nil {
 			return err
 		}
 	}
