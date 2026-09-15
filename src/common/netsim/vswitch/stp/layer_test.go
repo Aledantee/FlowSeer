@@ -45,6 +45,27 @@ func mustNewSTP(t *testing.T, cfg stp.Config, ports port.Table) *stp.Layer {
 	return l
 }
 
+// flushPorts extracts the port names named by a flush list, in order, for
+// tests that only care which ports were named and not their FIDs.
+func flushPorts(targets []stp.FlushTarget) []string {
+	names := make([]string, len(targets))
+	for i, target := range targets {
+		names[i] = target.Port
+	}
+	return names
+}
+
+// flushTarget returns the flush target for the named port and whether one
+// exists.
+func flushTarget(targets []stp.FlushTarget, port string) (stp.FlushTarget, bool) {
+	for _, target := range targets {
+		if target.Port == port {
+			return target, true
+		}
+	}
+	return stp.FlushTarget{}, false
+}
+
 func TestTwoBridgesExchange(t *testing.T) {
 	t.Parallel()
 
@@ -387,7 +408,7 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	if infoP2.Role != stp.RoleRoot || infoP2.State != stp.StateForwarding {
 		t.Errorf("sw3 p2 after failover: got role %v, state %v; want Root Forwarding", infoP2.Role, infoP2.State)
 	}
-	if !slices.Contains(fxDown.Flush, "p2") {
+	if !slices.Contains(flushPorts(fxDown.Flush), "p2") {
 		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p2\"", fxDown.Flush)
 	}
 }
@@ -631,8 +652,10 @@ func TestDesignatedPointToPointForwardsWithoutAgreement(t *testing.T) {
 }
 
 // TestLinkDownFlushesPortAndRepeatIsSilent is evidence that a link going
-// down names the port for a flush, and that reporting a link state the layer
-// already holds produces no effect.
+// down names the port for a flush with no FIDs, meaning every FID on it,
+// since the entries stale a dead link leaves behind belong to whatever tree
+// was using it. Reporting a link state the layer already holds produces no
+// effect.
 func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
 	t.Parallel()
 
@@ -653,8 +676,12 @@ func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
 	}
 
 	down := l.LinkChange(now.Add(time.Second), "1/1/1", false, true, 0)
-	if !slices.Contains(down.Flush, "1/1/1") {
+	target, ok := flushTarget(down.Flush, "1/1/1")
+	if !ok {
 		t.Fatalf("link down flushes %v, want 1/1/1 among them", down.Flush)
+	}
+	if len(target.FIDs) != 0 {
+		t.Errorf("link down flush target FIDs = %v, want none: a dead port flushes every FID", target.FIDs)
 	}
 	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleDisabled {
 		t.Errorf("after link down: role %v, want Disabled", info.Role)
@@ -1209,7 +1236,7 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 	fx := l.Receive(t0.Add(4*time.Second), names[0], stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
 
 	want := names[1:]
-	if !slices.Equal(fx.Flush, want) {
+	if !slices.Equal(flushPorts(fx.Flush), want) {
 		t.Errorf("Flush = %v, want %v in sorted bridge-global port order", fx.Flush, want)
 	}
 }
@@ -1229,7 +1256,8 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
 	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
-	if !slices.Contains(fx.Flush, "1/1/2") || slices.Contains(fx.Flush, "1/1/1") {
+	got := flushPorts(fx.Flush)
+	if !slices.Contains(got, "1/1/2") || slices.Contains(got, "1/1/1") {
 		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
 	}
 	if l.PortInfo("1/1/1").SendRSTP {
@@ -1379,6 +1407,66 @@ func TestForeignRegionRevisionMarksPortExternalAndMSTIFollowsCIST(t *testing.T) 
 	if mstiInfo.Role != cistInfo.Role || mstiInfo.State != cistInfo.State {
 		t.Errorf("MSTI 1 (role, state) = (%v, %v), want the CIST's boundary values (%v, %v)",
 			mstiInfo.Role, mstiInfo.State, cistInfo.Role, cistInfo.State)
+	}
+}
+
+// TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance is evidence for
+// this unit's rule that a topology change raised from the CIST always flushes
+// every FID rather than a derived list, which is what makes a CIST change on
+// a boundary port reach both instances: the boundary port carries traffic no
+// single MSTI claims, so nothing narrower than "every FID" would be correct
+// there either.
+func TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	localMAC := mustMAC(t, "00:11:22:33:44:02")
+	peerMAC := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  localMAC,
+		Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		MST: &stp.MST{
+			Name:     "region-1",
+			Revision: 1,
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+				2: {VLANs: []vlan.ID{20}},
+			},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+
+	// A foreign-region BPDU marks 1/1/1 a boundary port and, being superior,
+	// elects it Root; point-to-point and synced, it forwards in this same
+	// call, raising the topology change under test.
+	foreignRegion := stp.MST{Name: "region-1", Revision: 2}
+	foreignConfigID := foreignRegion.ConfigID()
+	b := stp.BPDU{
+		RootID:         stp.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		ConfigID:       &foreignConfigID,
+		RegionalRootID: stp.BridgeID{Priority: 4096, Address: peerMAC},
+		RemainingHops:  20,
+	}
+	fx := l.Receive(now, "1/1/1", b)
+
+	if info := l.PortInfo("1/1/1"); info.Role != stp.RoleRoot || info.State != stp.StateForwarding {
+		t.Fatalf("boundary port after the superior BPDU: role %v, state %v; want Root Forwarding", info.Role, info.State)
+	}
+
+	target, ok := flushTarget(fx.Flush, "1/1/2")
+	if !ok {
+		t.Fatalf("Flush = %v, want a target for \"1/1/2\"", fx.Flush)
+	}
+	if len(target.FIDs) != 0 {
+		t.Errorf("boundary-port topology change flush target FIDs = %v, want none: it reaches every instance, VLAN 10 and VLAN 20 alike", target.FIDs)
 	}
 }
 

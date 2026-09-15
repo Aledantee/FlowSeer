@@ -275,7 +275,8 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 		"1/1/3": {},
 	})
 	fx = plain.Receive(t0.Add(4*time.Second), "1/1/1", stp.BPDU{Type: stp.BPDUTypeTopologyChangeNotification})
-	if !slices.Contains(fx.Flush, "1/1/2") || !slices.Contains(fx.Flush, "1/1/3") {
+	got := flushPorts(fx.Flush)
+	if !slices.Contains(got, "1/1/2") || !slices.Contains(got, "1/1/3") {
 		t.Errorf("Flush = %v, want the other two ports without the guard", fx.Flush)
 	}
 }

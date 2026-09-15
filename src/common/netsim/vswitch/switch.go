@@ -1900,7 +1900,11 @@ func (s *Switch) linkSpeed(p port.Port) uint64 {
 
 func (s *Switch) applySTPEffects(fx stp.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
-		s.bridge.FlushPorts(fx.Flush)
+		targets := make([]bridge.FlushTarget, len(fx.Flush))
+		for i, t := range fx.Flush {
+			targets[i] = bridge.FlushTarget{Port: t.Port, FIDs: t.FIDs}
+		}
+		s.bridge.Flush(targets)
 	}
 	for _, em := range fx.Emissions {
 		s.emissions = append(s.emissions, Emission(em))

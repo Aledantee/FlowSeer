@@ -5446,3 +5446,212 @@ func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
 		}
 	})
 }
+
+// switchCable names a link between two switches in a convergence test.
+type switchCable struct {
+	swA, swB     int
+	portA, portB string
+}
+
+// convergeSwitches starts every switch, then alternates delivering the BPDU
+// frames each emits to its cabled peer and advancing every switch's earliest
+// NextWake, until two consecutive rounds report the same snapshot with an
+// empty delivery queue. snapshot renders whatever a test needs to see
+// stabilize; the scheduler does not look inside it. It mirrors stp's own
+// convergeLayers, driving the same state machine one layer further out
+// through vswitch.Switch's BPDU framing and port table.
+func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch, cables []switchCable, snapshot func() string) time.Time {
+	t.Helper()
+
+	now := start
+
+	findPeer := func(srcSw int, srcPort string) (int, string, bool) {
+		for _, c := range cables {
+			if c.swA == srcSw && c.portA == srcPort {
+				return c.swB, c.portB, true
+			}
+			if c.swB == srcSw && c.portB == srcPort {
+				return c.swA, c.portA, true
+			}
+		}
+		return 0, "", false
+	}
+
+	type packet struct {
+		targetSw   int
+		targetPort string
+		frame      ethernet.Frame
+	}
+
+	var queue []packet
+	drain := func(srcSw int) {
+		for _, em := range switches[srcSw].Drain() {
+			if peerSw, peerPort, ok := findPeer(srcSw, em.Port); ok {
+				queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
+			}
+		}
+	}
+
+	for i, sw := range switches {
+		sw.Start(now)
+		drain(i)
+	}
+
+	var prevSnapshot string
+	stableRounds := 0
+
+	for round := 0; round < 400; round++ {
+		current := snapshot()
+		if current == prevSnapshot {
+			stableRounds++
+			if stableRounds >= 2 && len(queue) == 0 {
+				break
+			}
+		} else {
+			stableRounds = 0
+			prevSnapshot = current
+		}
+
+		if len(queue) > 0 {
+			batch := queue
+			queue = nil
+			for _, pkt := range batch {
+				switches[pkt.targetSw].Forward(now, pkt.targetPort, pkt.frame)
+				drain(pkt.targetSw)
+			}
+
+			continue
+		}
+
+		var earliestWake time.Time
+		hasWake := false
+		for _, sw := range switches {
+			if w, ok := sw.NextWake(); ok {
+				if !hasWake || w.Before(earliestWake) {
+					earliestWake = w
+					hasWake = true
+				}
+			}
+		}
+		if !hasWake {
+			break
+		}
+
+		now = earliestWake
+		for i, sw := range switches {
+			sw.Wake(now)
+			drain(i)
+		}
+	}
+
+	return now
+}
+
+// TestMSTITopologyChangeFlushesOnlyItsOwnVLAN is end-to-end evidence for this
+// unit: a topology change confined to one MST instance flushes, on the
+// switch's other ports, only the FIDs of the VLANs that instance carries,
+// leaving a different VLAN's entries on the same port untouched. It runs
+// through vswitch.Switch rather than stp.Layer directly, so it exercises the
+// stp.FlushTarget-to-bridge.FlushTarget translation in applySTPEffects and
+// the FID filtering in Bridge.Flush, not just the layer's own Effects.
+//
+// sw2's MSTI 1 carries an inflated path cost on l1 (its own instance
+// override, same shape as stp's TestMSTInstancesSelectIndependentRoots), so
+// once the two switches converge, MSTI 1's root port is l2 while the CIST
+// and MSTI 2 both keep l1 (equal cost on both links resolves to the lower
+// port ID). Failing l2 then raises a topology change on MSTI 1 alone: the
+// CIST and MSTI 2 were never forwarding on l2, so neither transitions.
+func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+	region := func(instances map[stp.MSTID]stp.Instance) *stp.MST {
+		return &stp.MST{Name: "region-1", Revision: 1, Instances: instances}
+	}
+	pvid := vlan.ID(10)
+	trunk := bridge.Switchport{PVID: &pvid, Tagged: []vlan.ID{10, 20}}
+	vlanTable := map[vlan.ID]string{10: "ten", 20: "twenty"}
+
+	sw1 := mustSwitch(t, vswitch.Config{
+		Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "l1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "l2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		MAC: mac1,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table:       vlanTable,
+			Switchports: map[string]bridge.Switchport{"l1": trunk, "l2": trunk},
+		}},
+		STP: &stp.Config{
+			Priority: 4096,
+			Address:  mac1,
+			Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+			MST: region(map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+				2: {VLANs: []vlan.ID{20}},
+			}),
+		},
+	})
+
+	sw2 := mustSwitch(t, vswitch.Config{
+		Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "l1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "l2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "p3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		MAC: mac2,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table:       vlanTable,
+			Switchports: map[string]bridge.Switchport{"l1": trunk, "l2": trunk, "p3": trunk},
+		}},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  mac2,
+			Ports:    map[string]stp.Port{"l1": {}, "l2": {}, "p3": {}},
+			MST: region(map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}, Ports: map[string]stp.InstancePort{"l1": {PathCost: 200_000}}},
+				2: {VLANs: []vlan.ID{20}},
+			}),
+		},
+	})
+
+	switches := []*vswitch.Switch{sw1, sw2}
+	cables := []switchCable{
+		{swA: 0, portA: "l1", swB: 1, portB: "l1"},
+		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
+	}
+
+	snapshot := func() string {
+		var b strings.Builder
+		for _, sw := range switches {
+			roles := sw.Roles()
+			for _, name := range []string{"l1", "l2"} {
+				fmt.Fprintf(&b, "%v/%v;", roles[name].Role, roles[name].State)
+			}
+		}
+		return b.String()
+	}
+
+	now := convergeSwitches(t, start, switches, cables, snapshot)
+
+	// vswitch.Switch exposes only the CIST's roles; MSTI 1's own root port
+	// landing on l2 instead of l1 is confirmed indirectly below, by which
+	// FDB entry the flush after l2 fails leaves behind.
+	cist := sw2.Roles()["l1"]
+	if cist.Role != stp.RoleRoot || cist.State != stp.StateForwarding {
+		t.Fatalf("sw2 CIST on l1 = role %v state %v, want Root Forwarding", cist.Role, cist.State)
+	}
+
+	macVLAN10 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
+	macVLAN20 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x20}
+	mustSwitchLearn(t, sw2, []bridge.Seed{
+		{FID: 10, MAC: macVLAN10, Port: "p3", LearnedAt: now},
+		{FID: 20, MAC: macVLAN20, Port: "p3", LearnedAt: now},
+	})
+
+	sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+
+	entries := sw2.Entries()
+	if len(entries) != 1 || entries[0].FID != 20 || entries[0].Port != "p3" {
+		t.Fatalf("after MSTI 1's topology change, Entries() = %+v, want only the VLAN 20 entry on p3 kept", entries)
+	}
+}

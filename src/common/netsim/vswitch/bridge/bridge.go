@@ -154,21 +154,51 @@ func (b *Bridge) SetFDBScope(scope analysis.Scope) {
 	b.fdbScope = scope
 }
 
-// FlushPorts removes dynamic forwarding database entries learned on the named ports.
-func (b *Bridge) FlushPorts(ports []string) {
-	if len(ports) == 0 {
+// FlushTarget names a port whose learned forwarding database entries must be
+// flushed, and which FIDs on it are stale. An empty FIDs flushes every FID on
+// the port.
+type FlushTarget struct {
+	Port string
+	FIDs []vlan.ID
+}
+
+// Flush removes dynamic forwarding database entries matching the given
+// targets: a target's Port must match the entry's port, and either its FIDs
+// is empty or contains the entry's FID.
+func (b *Bridge) Flush(targets []FlushTarget) {
+	if len(targets) == 0 {
 		return
 	}
-	portSet := make(map[string]struct{}, len(ports))
-	for _, p := range ports {
-		portSet[p] = struct{}{}
+	// Two targets may name the same port. Their FID sets are unioned rather
+	// than one replacing the other, and an empty set on either side widens
+	// the port to every FID, so a caller that builds its targets tree by tree
+	// does not silently lose the earlier tree's flush.
+	byPort := make(map[string][]vlan.ID, len(targets))
+	for _, target := range targets {
+		fids, seen := byPort[target.Port]
+		switch {
+		case !seen:
+			byPort[target.Port] = target.FIDs
+		case len(fids) == 0 || len(target.FIDs) == 0:
+			byPort[target.Port] = nil
+		default:
+			merged := make([]vlan.ID, 0, len(fids)+len(target.FIDs))
+			merged = append(merged, fids...)
+			merged = append(merged, target.FIDs...)
+			byPort[target.Port] = merged
+		}
 	}
 	for key, e := range b.fdb {
-		if !e.Static {
-			if _, ok := portSet[e.Port]; ok {
-				delete(b.fdb, key)
-				b.dynamic--
-			}
+		if e.Static {
+			continue
+		}
+		fids, ok := byPort[e.Port]
+		if !ok {
+			continue
+		}
+		if len(fids) == 0 || slices.Contains(fids, key.fid) {
+			delete(b.fdb, key)
+			b.dynamic--
 		}
 	}
 }

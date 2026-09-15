@@ -1548,7 +1548,10 @@ func TestGateBlocksEgress(t *testing.T) {
 	}
 }
 
-func TestFlushPorts(t *testing.T) {
+// TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort is evidence that a
+// [bridge.FlushTarget] with no FIDs, the shape a link down or a CIST-wide
+// change produces, removes every dynamic entry on its port regardless of FID.
+func TestFlushWithEmptyFIDsRemovesEveryFIDOnThePort(t *testing.T) {
 	ports := buildTestPorts(t, 3)
 	br := mustNewBridge(t, bridge.Config{}, ports)
 	br.Forward(testTime0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4})
@@ -1558,11 +1561,106 @@ func TestFlushPorts(t *testing.T) {
 		t.Fatalf("initial entries count = %d, want 2", len(br.Entries()))
 	}
 
-	br.FlushPorts([]string{"1/1/1"})
+	br.Flush([]bridge.FlushTarget{{Port: "1/1/1"}})
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "1/1/2" {
-		t.Fatalf("after FlushPorts Entries() = %+v, want 1 entry on 1/1/2", entries)
+		t.Fatalf("after Flush Entries() = %+v, want 1 entry on 1/1/2", entries)
 	}
+}
+
+// TestFlushWithFIDsFiltersToTheNamedFIDs is evidence that a [bridge.FlushTarget]
+// naming FIDs removes only entries on that port carrying one of them, which is
+// the shape a per-tree topology change produces: the other FIDs on the same
+// port survive.
+func TestFlushWithFIDsFiltersToTheNamedFIDs(t *testing.T) {
+	ports := buildTestPorts(t, 3)
+	trunk := bridge.Switchport{PVID: mustVLAN(10), Tagged: []vlan.ID{10, 20}}
+	br := mustNewBridge(t, bridge.Config{VLAN: &bridge.VLAN{
+		Table: map[vlan.ID]string{10: "ten", 20: "twenty"},
+		Switchports: map[string]bridge.Switchport{
+			"1/1/1": trunk,
+			"1/1/2": trunk,
+			"1/1/3": trunk,
+		},
+	}}, ports)
+	now := testTime0
+	mustLearn(t, br, []bridge.Seed{
+		{FID: 10, MAC: macA, Port: "1/1/1", LearnedAt: now},
+		{FID: 20, MAC: macB, Port: "1/1/1", LearnedAt: now},
+		{FID: 10, MAC: macC, Port: "1/1/2", LearnedAt: now},
+	})
+
+	br.Flush([]bridge.FlushTarget{{Port: "1/1/1", FIDs: []vlan.ID{10}}})
+
+	entries := br.Entries()
+	if len(entries) != 2 {
+		t.Fatalf("after Flush Entries() = %+v, want 2 entries (VLAN 20 on 1/1/1 and VLAN 10 on 1/1/2 kept)", entries)
+	}
+	for _, e := range entries {
+		if e.Port == "1/1/1" && e.FID != 20 {
+			t.Errorf("entry kept on 1/1/1 = %+v, want only the FID 20 entry", e)
+		}
+		if e.Port == "1/1/2" && e.FID != 10 {
+			t.Errorf("entry kept on 1/1/2 = %+v, want the untouched FID 10 entry", e)
+		}
+	}
+}
+
+// TestFlushUnionsTargetsNamingTheSamePort is a guard for a caller that builds
+// its targets one tree at a time and so can name a port twice. The two FID sets
+// are unioned, and an empty set on either side widens the port to every FID; a
+// later target replacing an earlier one would silently drop the first tree's
+// flush and leave entries the topology change made stale.
+func TestFlushUnionsTargetsNamingTheSamePort(t *testing.T) {
+	trunk := bridge.Switchport{PVID: mustVLAN(10), Tagged: []vlan.ID{10, 20, 30}}
+	vlanCfg := func() *bridge.VLAN {
+		return &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "ten", 20: "twenty", 30: "thirty"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": trunk,
+				"1/1/2": trunk,
+				"1/1/3": trunk,
+			},
+		}
+	}
+	seeds := func() []bridge.Seed {
+		return []bridge.Seed{
+			{FID: 10, MAC: macA, Port: "1/1/1", LearnedAt: testTime0},
+			{FID: 20, MAC: macB, Port: "1/1/1", LearnedAt: testTime0},
+			{FID: 30, MAC: macC, Port: "1/1/1", LearnedAt: testTime0},
+		}
+	}
+
+	t.Run("two FID sets union", func(t *testing.T) {
+		br := mustNewBridge(t, bridge.Config{VLAN: vlanCfg()}, buildTestPorts(t, 3))
+		mustLearn(t, br, seeds())
+
+		br.Flush([]bridge.FlushTarget{
+			{Port: "1/1/1", FIDs: []vlan.ID{10}},
+			{Port: "1/1/1", FIDs: []vlan.ID{20}},
+		})
+
+		entries := br.Entries()
+		if len(entries) != 1 || entries[0].FID != 30 {
+			t.Fatalf("after Flush Entries() = %+v, want only the FID 30 entry left", entries)
+		}
+	})
+
+	t.Run("an empty set widens to every FID", func(t *testing.T) {
+		br := mustNewBridge(t, bridge.Config{VLAN: vlanCfg()}, buildTestPorts(t, 3))
+		mustLearn(t, br, seeds())
+
+		// The empty target comes first, so a later target replacing an earlier
+		// one would narrow the flush to FID 10 rather than widening it.
+		br.Flush([]bridge.FlushTarget{
+			{Port: "1/1/1"},
+			{Port: "1/1/1", FIDs: []vlan.ID{10}},
+		})
+
+		if entries := br.Entries(); len(entries) != 0 {
+			t.Fatalf("after Flush Entries() = %+v, want every entry on the port gone", entries)
+		}
+	})
 }
 
 func TestSetOperStatusRemovesPortFromFloodSet(t *testing.T) {

@@ -21,7 +21,17 @@ type Emission struct {
 // must be flushed as a result of a spanning tree transition.
 type Effects struct {
 	Emissions []Emission
-	Flush     []string
+	Flush     []FlushTarget
+}
+
+// FlushTarget names a port whose learned forwarding table entries must be
+// flushed, and which FIDs on it are stale. An empty FIDs means every FID: a
+// link going down leaves every entry on it stale regardless of tree, and a
+// topology change raised from the CIST reaches VLANs no MSTI claims, a set
+// this layer never enumerates.
+type FlushTarget struct {
+	Port string
+	FIDs []vlan.ID
 }
 
 // BlockReason names the guard holding a port out of the active topology. The
@@ -84,6 +94,12 @@ type Layer struct {
 
 	trees     map[treeID]*tree
 	vidToTree map[vlan.ID]treeID
+
+	// treeVLANs lists, sorted and deduplicated, the VLANs each MSTI carries.
+	// It has no entry for the CIST: the CIST forwards every VLAN no MSTI
+	// claims, a set this layer never enumerates, so a CIST-raised flush
+	// always carries every FID instead of a derived list.
+	treeVLANs map[treeID][]vlan.ID
 
 	// treeOrder lists the trees in the deterministic order every walk visits
 	// them: the CIST first, then MSTIDs ascending. A map range would let
@@ -313,6 +329,7 @@ func newLayer(cfg Config) *Layer {
 		portNames:    sortedNames,
 		trees:        map[treeID]*tree{cistID: cist},
 		vidToTree:    make(map[vlan.ID]treeID),
+		treeVLANs:    make(map[treeID][]vlan.ID),
 		treeOrder:    []treeID{cistID},
 		portTx:       make(map[string]*portTx, len(sortedNames)),
 		mst:          cfg.MST,
@@ -357,6 +374,9 @@ func newLayer(cfg Config) *Layer {
 			inst := cfg.MST.Instances[mstid]
 			l.addInstanceTree(mstid, inst, sortedNames)
 			l.treeOrder = append(l.treeOrder, treeID(mstid))
+			vids := slices.Clone(inst.VLANs)
+			slices.Sort(vids)
+			l.treeVLANs[treeID(mstid)] = slices.Compact(vids)
 			for _, vid := range inst.VLANs {
 				l.vidToTree[vid] = treeID(mstid)
 			}
@@ -438,6 +458,7 @@ func (l *Layer) Clone() *Layer {
 		portNames:    slices.Clone(l.portNames),
 		trees:        make(map[treeID]*tree, len(l.trees)),
 		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
+		treeVLANs:    make(map[treeID][]vlan.ID, len(l.treeVLANs)),
 		treeOrder:    slices.Clone(l.treeOrder),
 		portTx:       make(map[string]*portTx, len(l.portTx)),
 	}
@@ -460,6 +481,9 @@ func (l *Layer) Clone() *Layer {
 	}
 	for vid, id := range l.vidToTree {
 		cp.vidToTree[vid] = id
+	}
+	for id, vids := range l.treeVLANs {
+		cp.treeVLANs[id] = slices.Clone(vids)
 	}
 	for name, tx := range l.portTx {
 		cp.portTx[name] = tx.clone()
@@ -626,7 +650,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 	p.sendRSTP = true
 	p.mdelayWhile = now.Add(MigrateTime)
 
-	var flushes []string
+	var flushes []FlushTarget
 
 	emissions := l.recomputeAll(now, &flushes)
 
@@ -762,19 +786,55 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 	return true
 }
 
-func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]string) {
+func (l *Layer) raiseTopologyChange(t *tree, originPort string, now time.Time, flushes *[]FlushTarget) {
 	t.topologyChangeCount++
 	t.lastTopologyChange = now
 	t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+
+	fids := l.treeVLANs[t.id]
 
 	for _, name := range l.portNames {
 		if name == originPort {
 			continue
 		}
-		if !slices.Contains(*flushes, name) {
-			*flushes = append(*flushes, name)
-		}
+		mergeFlushTarget(flushes, name, fids)
 	}
+}
+
+// mergeFlushTarget records that port needs its fids flushed, merging into an
+// existing target for the same port rather than appending a second one. The
+// merge always widens toward "every FID": an existing empty FIDs absorbs a
+// narrower fids unchanged, and a narrower existing FIDs is widened to empty
+// when fids itself is empty. The result stays sorted and free of duplicates
+// so Effects.Flush is deterministic.
+func mergeFlushTarget(flushes *[]FlushTarget, port string, fids []vlan.ID) {
+	for i := range *flushes {
+		target := &(*flushes)[i]
+		if target.Port != port {
+			continue
+		}
+		if len(target.FIDs) == 0 {
+			return
+		}
+		if len(fids) == 0 {
+			target.FIDs = nil
+
+			return
+		}
+		merged := make([]vlan.ID, 0, len(target.FIDs)+len(fids))
+		merged = append(merged, target.FIDs...)
+		merged = append(merged, fids...)
+		slices.Sort(merged)
+		target.FIDs = slices.Compact(merged)
+
+		return
+	}
+
+	var vids []vlan.ID
+	if len(fids) > 0 {
+		vids = slices.Clone(fids)
+	}
+	*flushes = append(*flushes, FlushTarget{Port: port, FIDs: vids})
 }
 
 // boundary reports whether the named port is a boundary port: the CIST's most
@@ -826,7 +886,7 @@ func (l *Layer) syncInstancePorts(name string, cistP *portState) {
 // first and then MSTIDs ascending, and aggregates the emissions. Only the
 // CIST emits: an MSTI's recompute is told not to, so the per-port transmit
 // budget is spent once per port rather than once per instance.
-func (l *Layer) recomputeAll(now time.Time, flushes *[]string) []Emission {
+func (l *Layer) recomputeAll(now time.Time, flushes *[]FlushTarget) []Emission {
 	var emissions []Emission
 
 	for _, id := range l.treeOrder {
@@ -1116,7 +1176,7 @@ func designatedVector(t *tree, p *portState) priorityVector {
 // Master; no separate Role value exists for it). emit gates the proposal
 // emissions a root change triggers: only the CIST emits, so an MSTI's caller
 // passes false and recompute returns no emissions for it.
-func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string, emit bool) []Emission {
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit bool) []Emission {
 	var emissions []Emission
 
 	oldRootID := t.rootID
@@ -1332,7 +1392,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		return Effects{}
 	}
 
-	var flushes []string
+	var flushes []FlushTarget
 	var emissions []Emission
 
 	if t.helloTimer.IsZero() {
@@ -1359,9 +1419,10 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		p.bpduGuardDisabled = false
 		p.loopInconsistent = false
 
-		// The entries learned on the dead port are the ones certainly stale;
-		// the topology change below flushes every other port.
-		flushes = append(flushes, p.name)
+		// The entries learned on the dead port are the ones certainly stale
+		// whatever tree they belong to; the topology change below flushes
+		// every other port by its own tree's VLANs.
+		flushes = append(flushes, FlushTarget{Port: p.name})
 		if oldState == StateForwarding && !p.edge {
 			l.raiseTopologyChange(t, p.name, now, &flushes)
 		}
@@ -1456,7 +1517,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		t.helloTimer = now.Add(l.helloTime)
 	}
 
-	var flushes []string
+	var flushes []FlushTarget
 	var emissions []Emission
 
 	// BPDU guard exists to keep an unexpected bridge on an access port out of
@@ -1471,11 +1532,12 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		l.portTx[p.name].pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
 
-		// The entries learned on the port are the ones certainly stale. The
-		// topology change itself is left to recompute, which raises it from the
-		// same transition with the same origin and timestamp; raising it here
-		// as well would count one event twice.
-		flushes = append(flushes, p.name)
+		// The entries learned on the port are the ones certainly stale,
+		// whatever tree they belong to. The topology change itself is left
+		// to recompute, which raises it from the same transition with the
+		// same origin and timestamp; raising it here as well would count one
+		// event twice.
+		flushes = append(flushes, FlushTarget{Port: p.name})
 
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
@@ -1517,8 +1579,8 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		if !p.cfg.RestrictedTCN {
 			t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 			for _, name := range l.portNames {
-				if name != port && !slices.Contains(flushes, name) {
-					flushes = append(flushes, name)
+				if name != port {
+					mergeFlushTarget(&flushes, name, nil)
 				}
 			}
 		}
@@ -1632,8 +1694,8 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	if b.TopologyChange() && !p.cfg.RestrictedTCN {
 		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 		for _, name := range l.portNames {
-			if name != port && !slices.Contains(flushes, name) {
-				flushes = append(flushes, name)
+			if name != port {
+				mergeFlushTarget(&flushes, name, nil)
 			}
 		}
 	}
@@ -1687,7 +1749,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 func (l *Layer) Wake(now time.Time) Effects {
 	t := l.cist()
 
-	var flushes []string
+	var flushes []FlushTarget
 	var emissions []Emission
 
 	for _, name := range l.portNames {
