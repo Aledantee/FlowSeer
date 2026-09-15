@@ -26,11 +26,10 @@ type ring struct {
 }
 
 // newRing constructs a ring bounded to limit bytes of retained tail.
-// A non-positive limit panics: callers always default it first.
+// limit must be positive; the only callers (session.go) pass a value
+// already defaulted by [Options.withDefaults], so a non-positive limit
+// cannot arise and is not guarded here.
 func newRing(limit int) *ring {
-	if limit <= 0 {
-		panic("ssh: ring limit must be positive")
-	}
 	r := &ring{limit: limit}
 	r.cond = sync.NewCond(&r.mu)
 	return r

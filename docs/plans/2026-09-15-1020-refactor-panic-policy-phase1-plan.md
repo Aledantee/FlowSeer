@@ -181,7 +181,9 @@ that cannot occur. The doc comment states the contract instead of the panic.
 Nothing is added at `session.go`, so the shell-channel leak an error return
 would have introduced does not arise.
 Tests: `buffer_test.go` — `newRing` with the defaulted limit behaves as before.
-The deleted branch takes its test with it.
+The deleted branch had no test of its own to remove: no `buffer_test.go`
+existed and no test constructed a `ring`, so `buffer_test.go` is added new with
+one constructor test rather than losing a panic case.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/ssh`
 
 ### U6. mibgen resolves the decoder variant before emission
