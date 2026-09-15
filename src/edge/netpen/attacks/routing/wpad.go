@@ -18,6 +18,7 @@ import (
 	"github.com/gopacket/gopacket/layers"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/attacks/internal/craft"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
@@ -59,7 +60,7 @@ func RunWPAD(ctx context.Context, deps runner.Deps) error {
 	qname := "wpad"
 	answerIP := attackerIP
 
-	state, err := startWPADProxy()
+	state, err := startWPADProxy(ctx)
 	if err != nil {
 		// Port collision: named coded error, not a crash.
 		return errs.New().
@@ -111,7 +112,10 @@ func RunWPAD(ctx context.Context, deps runner.Deps) error {
 
 // startWPADProxy starts an embedded HTTP server on a free port serving a
 // TTL-bound PAC response. The PAC redirects all traffic to the attacker.
-func startWPADProxy() (*wpadState, error) {
+// ctx bounds only the goroutine that serves the listener, so a panic there
+// is reported with the caller's trace correlation; the server itself is
+// stopped by closing state.server and state.listener, not by ctx.
+func startWPADProxy(ctx context.Context) (*wpadState, error) {
 	// Bind on a free port (port 0 = OS-chosen).
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -138,7 +142,9 @@ func startWPADProxy() (*wpadState, error) {
 		IdleTimeout:  30 * time.Second,
 	}
 
-	go func() { _ = srv.Serve(ln) }() //nolint:errcheck // shutdown via Close
+	spawn.Go(ctx, "netpen wpad proxy serve", func() {
+		_ = srv.Serve(ln) //nolint:errcheck // shutdown via Close
+	})
 
 	return &wpadState{listener: ln, port: port, server: srv}, nil
 }
