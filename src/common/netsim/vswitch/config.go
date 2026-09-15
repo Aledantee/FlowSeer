@@ -440,13 +440,7 @@ func (c Config) Clone() Config {
 		cp.LAG = &lagCfg
 	}
 	if c.STP != nil {
-		stpCfg := *c.STP
-		if c.STP.Ports != nil {
-			stpCfg.Ports = make(map[string]stp.Port, len(c.STP.Ports))
-			for k, v := range c.STP.Ports {
-				stpCfg.Ports[k] = v
-			}
-		}
+		stpCfg := c.STP.Clone()
 		cp.STP = &stpCfg
 	}
 	if c.Mcast != nil {

@@ -164,15 +164,15 @@ type FlushTarget struct {
 
 // Flush removes dynamic forwarding database entries matching the given
 // targets: a target's Port must match the entry's port, and either its FIDs
-// is empty or contains the entry's FID.
+// is empty or contains the entry's FID. Two targets may name the same port;
+// their FID sets are unioned rather than one replacing the other, and an
+// empty set on either side widens the port to every FID, so a caller that
+// builds its targets tree by tree does not silently lose the earlier tree's
+// flush.
 func (b *Bridge) Flush(targets []FlushTarget) {
 	if len(targets) == 0 {
 		return
 	}
-	// Two targets may name the same port. Their FID sets are unioned rather
-	// than one replacing the other, and an empty set on either side widens
-	// the port to every FID, so a caller that builds its targets tree by tree
-	// does not silently lose the earlier tree's flush.
 	byPort := make(map[string][]vlan.ID, len(targets))
 	for _, target := range targets {
 		fids, seen := byPort[target.Port]

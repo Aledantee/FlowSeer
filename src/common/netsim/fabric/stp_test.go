@@ -1432,7 +1432,8 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 // port actually held the frame back.
 func droppedAtPort(j fabric.Journey, device, port string) bool {
 	for _, e := range j.Entries {
-		if e.Kind == fabric.EntryDrop && e.Device == device && e.Port == port {
+		if e.Kind == fabric.EntryDrop && e.Device == device && e.Port == port &&
+			e.Reason == bridge.ReasonPortBlocked {
 			return true
 		}
 	}
@@ -1623,18 +1624,17 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 	return fab
 }
 
-// TestMSTRingRootRemovalExpiresByRemainingHops is the fabric-level evidence
-// that hop aging terminates a claim circulating inside a region. Every port in
-// this ring is internal, since the whole ring shares one region, so the claim
-// naming the cut-out root is aged by RemainingHops and the message-age test
-// never runs on it. What this proves is termination: the remaining three
-// switches converge on a new regional root among themselves rather than
-// relaying the unreachable one forever. That the bound is the hop count rather
-// than the message age is proved at the unit level by
-// TestInternalBPDUDiscardedAtOneRemainingHopStoredAtTwo; the elapsed time here
-// is dominated by ordinary proposal, agreement, and forward delay across three
-// hops, so it is asserted only loosely, as a stall detector.
-func TestMSTRingRootRemovalExpiresByRemainingHops(t *testing.T) {
+// TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority is the
+// fabric-level evidence that cutting out the regional root does not leave a
+// stale claim about it circulating: the remaining three switches converge on
+// a new regional root among themselves, the lowest priority left, rather than
+// relaying the unreachable one forever. This scenario does not exercise hop
+// aging: cutting both of sw1's cables brings each adjacent port down, and the
+// link-down path clears that port's stored information outright, so neither
+// adjacent port nor the bridge beyond it ever holds a claim about sw1 that
+// needs to age out by RemainingHops. The hop-count expiry mechanism is proved
+// at the unit level by TestInternalBPDUDiscardedAtOneRemainingHopStoredAtTwo.
+func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 	fab := newFourSwitchMSTRing(t)
 
 	fab.Run(400)
@@ -1666,17 +1666,7 @@ func TestMSTRingRootRemovalExpiresByRemainingHops(t *testing.T) {
 		t.Fatalf("SetFault sw4-sw1: %v", err)
 	}
 
-	beforeRemoval := fab.Snapshot().Clock
 	fab.Run(200)
-	afterConvergence := fab.Snapshot().Clock
-
-	// A generous bound that only rules out a genuine stall. Convergence here
-	// runs past a single MaxAge on forward delay alone, so a tighter bound
-	// would fail for a reason that has nothing to do with how the stale claim
-	// expired.
-	if elapsed := afterConvergence.Sub(beforeRemoval); elapsed >= 3*stp.DefaultMaxAge {
-		t.Errorf("reconvergence took %v after the root's removal, want well under %v", elapsed, 3*stp.DefaultMaxAge)
-	}
 
 	snap = fab.Snapshot()
 	var newRootPriority uint16
