@@ -25,6 +25,10 @@ const cistID treeID = 0
 type tree struct {
 	id treeID
 
+	// bridgeID is this bridge's identifier for the tree. The CIST's is the
+	// layer's own bridgeID; an MSTI can carry a different one.
+	bridgeID BridgeID
+
 	rootID       BridgeID
 	rootPathCost uint32
 	rootPort     string

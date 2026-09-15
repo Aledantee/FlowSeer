@@ -80,6 +80,12 @@ type Layer struct {
 
 	trees     map[treeID]*tree
 	vidToTree map[vlan.ID]treeID
+
+	// portTx holds the transmit budget for every port, keyed by port name. It
+	// is bridge-global rather than per-tree for the same reason portNames is:
+	// the budget IEEE 802.1Q meters belongs to the port, not to a tree running
+	// on it.
+	portTx map[string]*portTx
 }
 
 type portState struct {
@@ -123,11 +129,6 @@ type portState struct {
 	mdelayWhile    time.Time
 	edgeDelayWhile time.Time
 
-	txCount           int
-	txTick            time.Time
-	pendingDesignated bool
-	pendingAgreement  bool
-
 	txBPDUs  uint64
 	rxBPDUs  uint64
 	badBPDUs uint64
@@ -135,6 +136,23 @@ type portState struct {
 
 func (p *portState) clone() *portState {
 	cp := *p
+
+	return &cp
+}
+
+// portTx holds the BPDU transmit budget for one port. IEEE 802.1Q meters
+// transmission per port, not per spanning tree instance, so this lives on
+// Layer keyed by port name rather than inside a tree's per-port state: every
+// tree running on the port shares one budget.
+type portTx struct {
+	count             int
+	tick              time.Time
+	pendingDesignated bool
+	pendingAgreement  bool
+}
+
+func (tx *portTx) clone() *portTx {
+	cp := *tx
 
 	return &cp
 }
@@ -160,11 +178,22 @@ func (p *portState) loopGuardWatches() bool {
 	return p.cfg.LoopGuard && p.up && !p.edge && p.pointToPoint
 }
 
+// priorityVector is the six-component spanning tree priority vector IEEE
+// 802.1Q compares to elect roots and designated ports. An RSTP tree sets
+// regionalRootID from rootID and leaves externalRootPathCost at zero, which
+// collapses the comparison to the four-component RSTP order (root, cost,
+// bridge, port) with the cost living in the external slot. An MSTI sets
+// rootID from regionalRootID and leaves the external cost at zero, which
+// collapses it to clause 13.11's four-component MSTI order instead. Neither
+// case needs a branch here: the constant components are lexicographically
+// neutral.
 type priorityVector struct {
-	rootID       BridgeID
-	rootPathCost uint32
-	bridgeID     BridgeID
-	portID       uint16
+	rootID               BridgeID
+	externalRootPathCost uint32
+	regionalRootID       BridgeID
+	internalRootPathCost uint32
+	bridgeID             BridgeID
+	portID               uint16
 }
 
 func compareVectors(a, b priorityVector) int {
@@ -174,8 +203,17 @@ func compareVectors(a, b priorityVector) int {
 	if b.rootID.Less(a.rootID) {
 		return 1
 	}
-	if a.rootPathCost != b.rootPathCost {
-		return cmp.Compare(a.rootPathCost, b.rootPathCost)
+	if a.externalRootPathCost != b.externalRootPathCost {
+		return cmp.Compare(a.externalRootPathCost, b.externalRootPathCost)
+	}
+	if a.regionalRootID.Less(b.regionalRootID) {
+		return -1
+	}
+	if b.regionalRootID.Less(a.regionalRootID) {
+		return 1
+	}
+	if a.internalRootPathCost != b.internalRootPathCost {
+		return cmp.Compare(a.internalRootPathCost, b.internalRootPathCost)
 	}
 	if a.bridgeID.Less(b.bridgeID) {
 		return -1
@@ -215,6 +253,7 @@ func newLayer(cfg Config) *Layer {
 
 	cist := &tree{
 		id:           cistID,
+		bridgeID:     bridgeID,
 		rootID:       bridgeID,
 		rootPathCost: 0,
 		rootPort:     "",
@@ -233,6 +272,11 @@ func newLayer(cfg Config) *Layer {
 		portNames:    sortedNames,
 		trees:        map[treeID]*tree{cistID: cist},
 		vidToTree:    make(map[vlan.ID]treeID),
+		portTx:       make(map[string]*portTx, len(sortedNames)),
+	}
+
+	for _, name := range sortedNames {
+		l.portTx[name] = &portTx{}
 	}
 
 	for i, name := range sortedNames {
@@ -278,6 +322,7 @@ func (l *Layer) Clone() *Layer {
 		portNames:    slices.Clone(l.portNames),
 		trees:        make(map[treeID]*tree, len(l.trees)),
 		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
+		portTx:       make(map[string]*portTx, len(l.portTx)),
 	}
 
 	cp.cfg.Ports = make(map[string]Port, len(l.cfg.Ports))
@@ -289,6 +334,9 @@ func (l *Layer) Clone() *Layer {
 	}
 	for vid, id := range l.vidToTree {
 		cp.vidToTree[vid] = id
+	}
+	for name, tx := range l.portTx {
+		cp.portTx[name] = tx.clone()
 	}
 
 	return cp
@@ -444,7 +492,7 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 				break
 			}
 		}
-		if !alreadyEmitted && !p.pendingDesignated {
+		if !alreadyEmitted && !l.portTx[p.name].pendingDesignated {
 			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
@@ -486,8 +534,9 @@ func (l *Layer) NextWake() (time.Time, bool) {
 				p.state == StateDiscarding && p.pointToPoint && p.proposing {
 				update(p.edgeDelayWhile)
 			}
-			if (p.pendingAgreement || p.pendingDesignated) && !p.txTick.IsZero() {
-				update(p.txTick)
+			tx := l.portTx[p.name]
+			if (tx.pendingAgreement || tx.pendingDesignated) && !tx.tick.IsZero() {
+				update(tx.tick)
 			}
 		}
 	}
@@ -503,15 +552,17 @@ const (
 )
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
-	for p.txCount > 0 && !p.txTick.After(now) {
-		p.txCount--
-		p.txTick = p.txTick.Add(time.Second)
+	tx := l.portTx[p.name]
+
+	for tx.count > 0 && !tx.tick.After(now) {
+		tx.count--
+		tx.tick = tx.tick.Add(time.Second)
 	}
-	if p.txCount == 0 {
-		p.txTick = time.Time{}
+	if tx.count == 0 {
+		tx.tick = time.Time{}
 	}
 
-	if p.txCount < int(l.txHoldCount) {
+	if tx.count < int(l.txHoldCount) {
 		var bpdu BPDU
 		switch kind {
 		case emissionDesignated:
@@ -523,17 +574,17 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 
 		*emissions = append(*emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
 		p.txBPDUs++
-		wasZero := p.txCount == 0
-		p.txCount++
+		wasZero := tx.count == 0
+		tx.count++
 		if wasZero {
-			p.txTick = now.Add(time.Second)
+			tx.tick = now.Add(time.Second)
 		}
 	} else {
 		switch kind {
 		case emissionDesignated:
-			p.pendingDesignated = true
+			tx.pendingDesignated = true
 		case emissionAgreement:
-			p.pendingAgreement = true
+			tx.pendingAgreement = true
 		}
 	}
 }
@@ -642,10 +693,9 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 	oldRootPort := t.rootPort
 
 	bestVector := priorityVector{
-		rootID:       l.bridgeID,
-		rootPathCost: 0,
-		bridgeID:     l.bridgeID,
-		portID:       0,
+		rootID:         l.bridgeID,
+		regionalRootID: l.bridgeID,
+		bridgeID:       l.bridgeID,
 	}
 	bestPort := ""
 	bestRcvPortID := uint16(0)
@@ -666,10 +716,11 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 		}
 
 		cand := priorityVector{
-			rootID:       p.rcvRootID,
-			rootPathCost: p.rcvRootPathCost + p.pathCost,
-			bridgeID:     p.rcvBridgeID,
-			portID:       p.rcvPortID,
+			rootID:               p.rcvRootID,
+			externalRootPathCost: p.rcvRootPathCost + p.pathCost,
+			regionalRootID:       p.rcvRootID,
+			bridgeID:             p.rcvBridgeID,
+			portID:               p.rcvPortID,
 		}
 
 		if bestPort == "" {
@@ -694,7 +745,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 		t.rootPort = ""
 	} else {
 		t.rootID = bestVector.rootID
-		t.rootPathCost = bestVector.rootPathCost
+		t.rootPathCost = bestVector.externalRootPathCost
 		t.rootPort = bestPort
 	}
 
@@ -793,19 +844,21 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]string) []Emission 
 func (l *Layer) designatedOrBlocked(t *tree, p *portState, now time.Time) Role {
 	if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
 		desig := priorityVector{
-			rootID:       t.rootID,
-			rootPathCost: t.rootPathCost,
-			bridgeID:     l.bridgeID,
-			portID:       p.portID,
+			rootID:               t.rootID,
+			externalRootPathCost: t.rootPathCost,
+			regionalRootID:       t.rootID,
+			bridgeID:             t.bridgeID,
+			portID:               p.portID,
 		}
 		rcv := priorityVector{
-			rootID:       p.rcvRootID,
-			rootPathCost: p.rcvRootPathCost,
-			bridgeID:     p.rcvBridgeID,
-			portID:       p.rcvPortID,
+			rootID:               p.rcvRootID,
+			externalRootPathCost: p.rcvRootPathCost,
+			regionalRootID:       p.rcvRootID,
+			bridgeID:             p.rcvBridgeID,
+			portID:               p.rcvPortID,
 		}
 		if compareVectors(rcv, desig) < 0 {
-			if p.rcvBridgeID == l.bridgeID {
+			if p.rcvBridgeID == t.bridgeID {
 				return RoleBackup
 			}
 
@@ -845,8 +898,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		p.rcvInfoValid = false
 		p.agreed = false
 		p.proposing = false
-		p.pendingDesignated = false
-		p.pendingAgreement = false
+		l.portTx[p.name].pendingDesignated = false
+		l.portTx[p.name].pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
 		// Both guard states clear here, which is what makes a link down and up
 		// the recovery for BPDU guard. A port that comes back up holds no
@@ -924,7 +977,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 				break
 			}
 		}
-		if !alreadyEmitted && !p.pendingDesignated {
+		if !alreadyEmitted && !l.portTx[p.name].pendingDesignated {
 			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
@@ -960,8 +1013,8 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		p.rcvInfoValid = false
 		p.agreed = false
 		p.proposing = false
-		p.pendingDesignated = false
-		p.pendingAgreement = false
+		l.portTx[p.name].pendingDesignated = false
+		l.portTx[p.name].pendingAgreement = false
 		p.fwdDelayTimer = time.Time{}
 
 		// The entries learned on the port are the ones certainly stale. The
@@ -1042,10 +1095,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	}
 
 	incoming := priorityVector{
-		rootID:       b.RootID,
-		rootPathCost: b.RootPathCost,
-		bridgeID:     b.BridgeID,
-		portID:       b.PortID,
+		rootID:               b.RootID,
+		externalRootPathCost: b.RootPathCost,
+		regionalRootID:       b.RootID,
+		bridgeID:             b.BridgeID,
+		portID:               b.PortID,
 	}
 
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
@@ -1054,10 +1108,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		isSuperior = true
 	} else {
 		stored := priorityVector{
-			rootID:       p.rcvRootID,
-			rootPathCost: p.rcvRootPathCost,
-			bridgeID:     p.rcvBridgeID,
-			portID:       p.rcvPortID,
+			rootID:               p.rcvRootID,
+			externalRootPathCost: p.rcvRootPathCost,
+			regionalRootID:       p.rcvRootID,
+			bridgeID:             p.rcvBridgeID,
+			portID:               p.rcvPortID,
 		}
 		if compareVectors(incoming, stored) < 0 {
 			isSuperior = true
@@ -1133,10 +1188,11 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 		l.emit(t, p, now, emissionAgreement, &emissions)
 	} else if p.role == RoleDesignated && !b.Agreement() {
 		desig := priorityVector{
-			rootID:       t.rootID,
-			rootPathCost: t.rootPathCost,
-			bridgeID:     l.bridgeID,
-			portID:       p.portID,
+			rootID:               t.rootID,
+			externalRootPathCost: t.rootPathCost,
+			regionalRootID:       t.rootID,
+			bridgeID:             t.bridgeID,
+			portID:               p.portID,
 		}
 		if compareVectors(incoming, desig) > 0 {
 			l.emit(t, p, now, emissionDesignated, &emissions)
@@ -1173,20 +1229,21 @@ func (l *Layer) Wake(now time.Time) Effects {
 
 	for _, name := range l.portNames {
 		p := t.ports[name]
-		if !p.up || p.txTick.IsZero() || p.txTick.After(now) {
+		tx := l.portTx[name]
+		if !p.up || tx.tick.IsZero() || tx.tick.After(now) {
 			continue
 		}
 		// A held kind belongs to the role that requested it; released under
 		// another role it would be an agreement from a designated port or a
 		// designated claim from a blocked one.
-		if p.pendingAgreement {
-			p.pendingAgreement = false
+		if tx.pendingAgreement {
+			tx.pendingAgreement = false
 			if p.role == RoleRoot || p.role == RoleAlternate {
 				l.emit(t, p, now, emissionAgreement, &emissions)
 			}
 		}
-		if p.pendingDesignated {
-			p.pendingDesignated = false
+		if tx.pendingDesignated {
+			tx.pendingDesignated = false
 			if p.role == RoleDesignated {
 				l.emit(t, p, now, emissionDesignated, &emissions)
 			}

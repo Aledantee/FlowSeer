@@ -89,6 +89,152 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	}
 }
 
+// TestCompareVectorsReproducesLandedOrders pins the two four-component orders
+// the six-component vector must collapse to when two of its components hold
+// equal (RSTP) or zero (both cases). With the regional root equal and the
+// internal cost zero, the comparison must reproduce the landed RSTP order:
+// root, then external cost, then designated bridge, then designated port.
+// With the root equal and the external cost zero, it must reproduce IEEE
+// 802.1Q clause 13.11's MSTI order: regional root, then internal cost, then
+// designated bridge, then designated port.
+func TestCompareVectorsReproducesLandedOrders(t *testing.T) {
+	t.Parallel()
+
+	lowBridge, highBridge := BridgeID{Priority: 10}, BridgeID{Priority: 20}
+	lowRoot, highRoot := BridgeID{Priority: 100}, BridgeID{Priority: 200}
+	sharedRegional := BridgeID{Priority: 1}
+
+	tests := []struct {
+		name string
+		a, b priorityVector
+		want int
+	}{
+		// RSTP order: regionalRootID equal, internalRootPathCost zero for both.
+		{
+			name: "rstp: lower root wins regardless of a higher cost, bridge, and port",
+			a: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 100,
+				regionalRootID: sharedRegional, bridgeID: highBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: highRoot, externalRootPathCost: 1,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "rstp: equal root falls through to external cost",
+			a: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 1,
+				regionalRootID: sharedRegional, bridgeID: highBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 100,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "rstp: equal root and cost fall through to designated bridge",
+			a: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: highBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "rstp: equal root, cost, and bridge fall through to designated port",
+			a: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 1,
+			},
+			b: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 2,
+			},
+			want: -1,
+		},
+		{
+			name: "rstp: every component equal compares equal",
+			a: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 1,
+			},
+			b: priorityVector{
+				rootID: lowRoot, externalRootPathCost: 5,
+				regionalRootID: sharedRegional, bridgeID: lowBridge, portID: 1,
+			},
+			want: 0,
+		},
+		// Clause 13.11 MSTI order: rootID equal, externalRootPathCost zero for both.
+		{
+			name: "msti: lower regional root wins regardless of a higher cost, bridge, and port",
+			a: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 100,
+				bridgeID: highBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: sharedRegional, regionalRootID: highRoot, internalRootPathCost: 1,
+				bridgeID: lowBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "msti: equal regional root falls through to internal cost",
+			a: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 1,
+				bridgeID: highBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 100,
+				bridgeID: lowBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "msti: equal regional root and cost fall through to designated bridge",
+			a: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 5,
+				bridgeID: lowBridge, portID: 20,
+			},
+			b: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 5,
+				bridgeID: highBridge, portID: 1,
+			},
+			want: -1,
+		},
+		{
+			name: "msti: equal regional root, cost, and bridge fall through to designated port",
+			a: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 5,
+				bridgeID: lowBridge, portID: 1,
+			},
+			b: priorityVector{
+				rootID: sharedRegional, regionalRootID: lowRoot, internalRootPathCost: 5,
+				bridgeID: lowBridge, portID: 2,
+			},
+			want: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := compareVectors(tt.a, tt.b); got != tt.want {
+				t.Errorf("compareVectors(a, b) = %d, want %d", got, tt.want)
+			}
+			if got := compareVectors(tt.b, tt.a); got != -tt.want {
+				t.Errorf("compareVectors(b, a) = %d, want %d", got, -tt.want)
+			}
+		})
+	}
+}
+
 // TestPortNamesStayBridgeGlobal guards the seam the tree keying could have
 // broken: the identifier and the iteration order belong to the bridge, not to a
 // tree, so a second tree cannot renumber a port or reorder a flush list.
