@@ -79,9 +79,9 @@ boundary, and golden case for each protocol addition.
 | LAG buckets (phase 3) | Which flows move when a member fails? | Every flow remaps (`enabled[hash%len]`). | OVS 3.3 bucket table, sticky active member, balance-tcp needs LACP. | Load-based rebalancing, reported as `lag-rebalance-unmodeled`. | `planning/lag-member-fault-keeps-surviving-flows`, `troubleshooting/active-backup-no-failback` |
 | Source-specific multicast (phase 3) | Does source S reach a receiver that joined `(S1,G)`? | Any source reaches a group member. | RFC 3376 §6.2-§6.5 router state per port. | Querier election and query emission. | `troubleshooting/ssm-rejects-unjoined-source` |
 | Last-member query (phase 3) | When does forwarding stop after a leave? | Only at membership expiry, or never while reports refresh. | Timers lowered to LMQT by an observed specific query. | A leave with a router port and no observed query, reported as `mcast-query-unobserved`. | `troubleshooting/leave-last-member-query` |
-| MSTP (phase 3b) | Which link does each VLAN block, within and across regions? | One tree for every VLAN. | 802.1Q clause 13 CIST and MSTIs, region digest, boundary roles, hop aging. | SPT/SPB, L2GP, PVST simulation (`stp-pvst-boundary`). | `planning/mstp-vlan-instances-diverge`, `topology-shadowing/mst-region-boundary` |
-| RSTP per VLAN (phase 3b) | Which root and blocked trunk does each VLAN have? | One root for every VLAN. | One RSTP tree per listed VLAN in SSTP encapsulation. | 802.1D STP per VLAN, PVST simulation. | `planning/pvst-per-vlan-root` |
-| Message age and guards (phase 3b) | Does stale information or a guard keep a port blocked or open? | A vanished root holds a port blocked; a guarded edge port keeps forwarding; a port whose BPDUs stop opens a loop. | `MessageAge + 1 <= MaxAge`, `remainingHops`, BPDU guard, restricted role and TCN, netsim's loop guard, the PVID check. | Automatic BPDU-guard recovery. | `troubleshooting/stale-root-ages-out`, `troubleshooting/bpdu-guard-disables-edge`, `troubleshooting/loop-guard-unidirectional-link` |
+| MSTP (phase 3d) | Which link does each VLAN block, within and across regions? | One tree for every VLAN. | 802.1Q clause 13 CIST and MSTIs, region digest, boundary roles, hop aging. | SPT/SPB, L2GP, PVST simulation (`stp-pvst-boundary`). | `planning/mstp-vlan-instances-diverge`, `topology-shadowing/mst-region-boundary` |
+| RSTP per VLAN (phase 3e) | Which root and blocked trunk does each VLAN have? | One root for every VLAN. | One RSTP tree per listed VLAN in SSTP encapsulation. | 802.1D STP per VLAN, PVST simulation. | `planning/pvst-per-vlan-root` |
+| Message age and guards (phase 3b) | Does stale information or a guard keep a port blocked or open? | A vanished root holds a port blocked; a guarded edge port keeps forwarding; a port whose BPDUs stop opens a loop. | `MessageAge + 1 <= MaxAge` with information valid for `3 x HelloTime`, BPDU guard, restricted role and TCN, netsim's loop guard. | Automatic BPDU-guard recovery, BPDU filter; `remainingHops` is phase 3d and the PVID check phase 3e. | `troubleshooting/stale-root-ages-out`, `troubleshooting/bpdu-guard-disables-edge`, `troubleshooting/loop-guard-unidirectional-link` |
 | Loop protection (phase 3c) | Does an accidental loop between access ports get contained without STP? | The broadcast loops without bound. | Own probe frames; a returned probe blocks, stops learning on, or disables the sending port; recovery timers. | Vendor probe formats, traps. | `troubleshooting/loop-protect-contains-access-loop` |
 | Route selection (phase 4) | Which next hop carries this flow, and what would carry it if that next hop went away? | One route wins on an invented `kind`-then-interface tie-break and the alternatives are invisible. | Order by prefix length, then preference (0 reserved for connected), then metric; the ties form a candidate set of at most 64 that an FNV-1a layer-3 hash reduced by RFC 2992 hash-threshold picks from; the fact names every member. | Weighted ECMP, per-packet spreading, resilient hashing, and a configurable hash input (Cisco `ip cef load-sharing full`, Linux `fib_multipath_hash_policy`). | `planning/ecmp-candidates-recorded` |
 | Recursive next hops (phase 4) | Why is this static route not carrying anything? | An off-link next hop fails construction, so the configuration real gear accepts cannot be expressed at all. | Resolve each static route against its own VRF's table when the table is built, to depth 8; install with the on-link pair reached; withdraw a route that self-recurses, exceeds the depth, resolves to nothing, or resolves only through a default route, and report it through `WithdrawnRoutes` with its reason and chain. | `resolve-via-default` as a field, FRR's selected-route and recursion-enabled gates, and re-resolution outside a `Derive` rebuild. | `troubleshooting/recursive-route-not-installed` |
@@ -259,13 +259,16 @@ flowchart TD
     P1[1. Trust contract and trace] --> P2[2. Physical and topology uncertainty]
     P1 --> P3[3. LAG and multicast]
     P2 --> P3
-    P3 --> P3b[3b. STP instances and guards]
+    P3 --> P3b[3b. STP lifetime, guards, VLAN-aware gate]
     P3b --> P3c[3c. Loop protection]
+    P3b --> P3d[3d. Multiple spanning tree instances]
+    P3d --> P3e[3e. Rapid spanning tree per VLAN]
     P1 --> P4[4. Route selection and recursion]
     P2 --> P4
     P4 --> P4b[4b. Neighbor lifecycle and resolution]
     P2 --> P5[5. State ownership and derivation]
     P3c --> P5
+    P3e --> P5
     P4b --> P5
     P5 --> P6[6. Scenarios, replay, and run lifecycle]
     P6 --> P7[7. Exact comparison and bounded search]
@@ -513,17 +516,42 @@ flowchart TD
   cases.
 - **Verify:** Follow the phase plan.
 
-### U3b: Add spanning-tree instances and guards
+### U3b: Age spanning-tree information out, apply guards, make the gate VLAN-aware
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3b-plan.md`
 - **After:** U3
 - **Landed:**
-- **Change:** MSTP across regions, RSTP per VLAN, message-age and hop aging,
-  and BPDU, root, TCN, and loop guards.
-- **Tests:** Codec vectors, multi-tree fabrics, aging rings, guards, and corpus
-  cases.
+- **Change:** Message-age aging, the BPDU, root, TCN, and loop guards, a
+  layer whose state is keyed by tree with one tree in it, a gate that takes a
+  VLAN. A version 3 BPDU keeps decoding as its RST prefix until phase 3d.
+- **Tests:** Aging rings, each guard and what clears it, the gate signature
+  across bridge and switch, and corpus cases.
 - **Verify:** Follow the phase plan.
+
+### U3d: Add multiple spanning tree instances
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3d-plan.md`
+- **After:** U3b
+- **Landed:**
+- **Change:** MST codec and region digest, CIST and MSTI vectors, boundary
+  roles, hop-count aging, and per-tree topology change and flushing.
+- **Tests:** Digest vectors, codec round-trip, multi-instance and
+  cross-region fabrics, and corpus cases.
+- **Verify:** Re-plan the phase against the landed tree before implementation.
+
+### U3e: Add rapid spanning tree per VLAN
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3e-plan.md`
+- **After:** U3d
+- **Landed:**
+- **Change:** SSTP encapsulation and tagged emission, one tree per VLAN, the
+  PVID check, and the unsupported PVST boundary.
+- **Tests:** SSTP codec vectors, per-VLAN root fabrics, the PVID check, and a
+  corpus case.
+- **Verify:** Re-plan the phase against the landed tree before implementation.
 
 ### U3c: Add loop protection outside spanning tree
 
@@ -542,8 +570,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4-plan.md`
 - **After:** U1, U2
-- **Landed:** 2026-09-15, commits 847b503a, c7823299, 164b7a90, 17a12620, and
-  the journey and corpus commit that closes the phase.
+- **Landed:** `847b503a..0dd267d7`
 - **Change:** Order routes by prefix length, preference, and metric; keep the
   equal-cost candidate set; pick one by flow hash; resolve recursion when the
   table is built and withdraw a route that cannot resolve; reject a
@@ -568,7 +595,7 @@ flowchart TD
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
-- **After:** U2, U3c, U4, U4b
+- **After:** U2, U3c, U3e, U4, U4b
 - **Landed:**
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make
