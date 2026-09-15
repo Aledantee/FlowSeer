@@ -225,7 +225,7 @@ type Diagnostic struct {
 // forwarder the scan looks through is executed by its own package's
 // forwarding test, which the scan requires to exist, once per catalog
 // row to show it hands code and args on unchanged. So neither panic is
-// reachable from committed source.
+// reachable from committed non-test source.
 func MustRaise(pos Position, code errs.Code, args ...Arg) Diagnostic {
 	row, ok := lookup(code)
 	if !ok {

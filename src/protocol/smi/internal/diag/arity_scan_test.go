@@ -2,6 +2,7 @@ package diag_test
 
 import (
 	"go/ast"
+	"go/build"
 	goparser "go/parser"
 	"go/token"
 	"io/fs"
@@ -568,9 +569,11 @@ func isIdent(expr ast.Expr, name string) bool {
 // It also requires each forwarder's forwarding test to be declared in
 // tests, the parsed test files of the forwarders' packages, because the
 // spread exemption in spreadFinding rests on that test running: delete
-// or rename it and nothing else would notice. The check is by name
-// only. A test whose body no longer proves anything passes it, and
-// stays a review catch.
+// or rename it, or constrain its file out of the build, and nothing
+// else would notice. The check is by name only, over files the build
+// includes. What it cannot see is a declared test that runs but proves
+// nothing: an emptied body, a t.Skip, an early return under
+// testing.Short(). Those stay a review catch.
 func scanCoverage(sources, tests []source) []string {
 	if len(sources) == 0 {
 		return []string{"scanned no source files; the gate checked nothing"}
@@ -857,6 +860,14 @@ func parseTree(t *testing.T, root string) []source {
 // parseForwarderTests parses the test files of every package that
 // declares a forwarder, which is where scanCoverage looks for each
 // forwarding test.
+//
+// It skips files the default build context excludes, because
+// goparser.ParseFile reads a constrained-out file like any other. A
+// proof file under `//go:build ignore` never runs, and the parser would
+// still find its declaration by name and call the forwarder proven; the
+// walk has to honor what `go test` honors. A file MatchFile cannot judge
+// is treated as excluded, so an unreadable proof file surfaces as a
+// missing one rather than passing.
 func parseForwarderTests(t *testing.T, root string) []source {
 	t.Helper()
 
@@ -873,6 +884,9 @@ func parseForwarderTests(t *testing.T, root string) []source {
 			t.Fatalf("listing tests in %s: %v", r.dir, err)
 		}
 		for _, path := range paths {
+			if included, err := build.Default.MatchFile(filepath.Dir(path), filepath.Base(path)); err != nil || !included {
+				continue
+			}
 			s, err := parseFile(root, path)
 			if err != nil {
 				t.Fatalf("parsing %s: %v", path, err)
