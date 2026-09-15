@@ -878,8 +878,20 @@ func (l *Layer) gatherMSTIRecords(p *portState) []MSTIRecord {
 			continue
 		}
 
+		// Flags reuses the CIST's own role/learning/forwarding bit layout
+		// (SetRole/SetLearning/SetForwarding), applied to this instance
+		// port's role and state rather than the CIST's, so the record says
+		// what the sender's per-instance port is doing. A zero-value BPDU
+		// used only to borrow its bit-setting methods never gets encoded
+		// itself.
+		var flags BPDU
+		flags.SetRole(mp.role)
+		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
+		flags.SetForwarding(mp.state == StateForwarding)
+
 		recs = append(recs, MSTIRecord{
 			MSTID:                mstid,
+			Flags:                flags.Flags,
 			RegionalRootID:       mt.rootID,
 			InternalRootPathCost: mt.rootPathCost,
 			BridgePriority:       uint8(mt.bridgeID.Priority >> 12),
@@ -988,8 +1000,13 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) BP
 
 	// Only the CIST drives emission (see recomputeAll), so this is also the
 	// one place that attaches the region's configuration identifier and every
-	// instance's MSTI record. t is always the CIST here.
-	if l.mst != nil {
+	// instance's MSTI record. t is always the CIST here. The MST shape is
+	// version 3, so it is withheld on a port that has migrated to legacy STP
+	// (sendRSTP false, which already forced Version 0 and Configuration
+	// above): Encode picks the MST shape whenever ConfigID is set regardless
+	// of Version and Type, and a legacy peer needs a Configuration BPDU, not
+	// version 3.
+	if l.mst != nil && p.sendRSTP {
 		cid := *l.configID
 		b.ConfigID = &cid
 		b.RegionalRootID = t.regionalRootID

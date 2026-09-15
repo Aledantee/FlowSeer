@@ -1216,22 +1216,6 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	}
 }
 
-// crossedLink reports whether the journey has a crossing entry over the cable
-// directly joining the two named devices, in either direction.
-func crossedLink(j fabric.Journey, devA, devB string) bool {
-	for _, e := range j.Entries {
-		if e.Kind != fabric.EntryCrossing || e.Cable == nil {
-			continue
-		}
-		if (e.Cable.A.Node == devA && e.Cable.B.Node == devB) ||
-			(e.Cable.A.Node == devB && e.Cable.B.Node == devA) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Journey {
 	t.Helper()
 	for _, j := range fab.Report() {
@@ -1246,9 +1230,9 @@ func findJourney(t *testing.T, fab *fabric.Fabric, fid fabric.FrameID) fabric.Jo
 
 // newTwoSwitchTrunkTopology returns two switches in one MST region joined by
 // two trunk links, L1 and L2, each carrying VLAN 10 and VLAN 20 to a pair of
-// access hosts on either side. The caller supplies each switch's MST region so
-// R14a (one region, independent instances) and R14b (two regions, a boundary)
-// can share this topology.
+// access hosts on either side. The caller supplies each switch's MST region, so
+// the one-region case, where the instances diverge, and the two-region case,
+// where a boundary holds them together, share this topology.
 func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, instPorts2 map[stp.MSTID]map[string]stp.InstancePort) *fabric.Fabric {
 	t.Helper()
 
@@ -1360,8 +1344,9 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 	return fab
 }
 
-// TestMSTInstancesForwardOnIndependentLinks is the fabric-level evidence for
-// R14a: two switches in one region, VLAN 10 on MSTI 1 and VLAN 20 on MSTI 2,
+// TestMSTInstancesForwardOnIndependentLinks is the fabric-level evidence that
+// instances select independent trees: two switches in one region, VLAN 10 on
+// MSTI 1 and VLAN 20 on MSTI 2,
 // with the non-root switch's path cost inflated on L1 for MSTI 1 and on L2
 // for MSTI 2. A VLAN 10 frame must cross L2, and a VLAN 20 frame must cross
 // L1, the instances having picked opposite links to block.
@@ -1455,7 +1440,8 @@ func droppedAtPort(j fabric.Journey, device, port string) bool {
 	return false
 }
 
-// TestMSTRegionBoundaryFollowsCIST is the fabric-level evidence for R14b:
+// TestMSTRegionBoundaryFollowsCIST is the fabric-level evidence that a region
+// boundary holds the instances to the CIST's answer:
 // switch sw1 in region R1 and switch sw2 in region R2 (same name, different
 // revision), joined by two links. Every port between them is a boundary port,
 // so both MSTIs must block the same link the CIST blocks and forward on the
@@ -1546,5 +1532,175 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	}
 	if droppedAtPort(j20, blockedDevice, forwardingPort) {
 		t.Errorf("VLAN 20 frame was dropped as port-blocked at %s %s, want it forwarded", blockedDevice, forwardingPort)
+	}
+}
+
+// newFourSwitchMSTRing returns four switches in one MST region wired
+// sw1-sw2-sw3-sw4-sw1, with sw1 the lowest-priority bridge (the root, and the
+// region's regional root, since every port here is internal). Every bridge
+// carries an MSTI mapping VLAN 10, so the ring exercises the CIST's and the
+// instance's internal aging alike.
+func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
+	t.Helper()
+
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+
+	newPorts := func() port.Table {
+		b := port.NewBuilder()
+		b.Add(port.Port{Name: "a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		b.Add(port.Port{Name: "b", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		tbl, err := b.Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+
+		return tbl
+	}
+
+	region := func() *stp.MST {
+		return &stp.MST{
+			Name:      "region-1",
+			Revision:  1,
+			Instances: map[stp.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
+		}
+	}
+
+	newBridgeCfg := func() *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "VLAN10"},
+				Switchports: map[string]bridge.Switchport{
+					"a": {Tagged: []vlan.ID{10}},
+					"b": {Tagged: []vlan.ID{10}},
+				},
+			},
+		}
+	}
+
+	macs := map[string]netaddr.MAC{
+		"sw1": {0, 0, 0, 0, 1, 1},
+		"sw2": {0, 0, 0, 0, 1, 2},
+		"sw3": {0, 0, 0, 0, 1, 3},
+		"sw4": {0, 0, 0, 0, 1, 4},
+	}
+	priorities := map[string]uint16{
+		"sw1": 4096,
+		"sw2": 8192,
+		"sw3": 12288,
+		"sw4": 16384,
+	}
+
+	switches := make(map[string]vswitch.Config, 4)
+	for _, name := range []string{"sw1", "sw2", "sw3", "sw4"} {
+		switches[name] = vswitch.Config{
+			Ports:  newPorts(),
+			Bridge: newBridgeCfg(),
+			STP: &stp.Config{
+				Priority: priorities[name],
+				Address:  macs[name],
+				Ports:    map[string]stp.Port{"a": {}, "b": {}},
+				MST:      region(),
+			},
+		}
+	}
+
+	cfg := fabric.Config{
+		Start:    t0,
+		Switches: switches,
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "a"}, B: fabric.Endpoint{Node: "sw2", Port: "a"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "sw2", Port: "b"}, B: fabric.Endpoint{Node: "sw3", Port: "a"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "sw3", Port: "b"}, B: fabric.Endpoint{Node: "sw4", Port: "a"}, LengthMeters: 1.0},
+			{A: fabric.Endpoint{Node: "sw4", Port: "b"}, B: fabric.Endpoint{Node: "sw1", Port: "b"}, LengthMeters: 1.0},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	return fab
+}
+
+// TestMSTRingRootRemovalExpiresByRemainingHops is the fabric-level evidence
+// that hop aging terminates a claim circulating inside a region. Every port in
+// this ring is internal, since the whole ring shares one region, so the claim
+// naming the cut-out root is aged by RemainingHops and the message-age test
+// never runs on it. What this proves is termination: the remaining three
+// switches converge on a new regional root among themselves rather than
+// relaying the unreachable one forever. That the bound is the hop count rather
+// than the message age is proved at the unit level by
+// TestInternalBPDUDiscardedAtOneRemainingHopStoredAtTwo; the elapsed time here
+// is dominated by ordinary proposal, agreement, and forward delay across three
+// hops, so it is asserted only loosely, as a stall detector.
+func TestMSTRingRootRemovalExpiresByRemainingHops(t *testing.T) {
+	fab := newFourSwitchMSTRing(t)
+
+	fab.Run(400)
+
+	snap := fab.Snapshot()
+	for _, dev := range []string{"sw2", "sw3", "sw4"} {
+		for _, p := range []string{"a", "b"} {
+			if info := snap.Devices[dev].Roles[p]; info.DesignatedRoot.Priority != 4096 {
+				t.Fatalf("%s %s DesignatedRoot before removal = %v, want sw1's priority 4096", dev, p, info.DesignatedRoot)
+			}
+		}
+	}
+
+	// Remove the root by cutting both of its cables: sw1 is no longer
+	// reachable, but neither of its former neighbors' links reports a
+	// physical fault on its own side other than the cut, so any claim about
+	// sw1 still cached elsewhere in the ring must age out on its own rather
+	// than being corrected by a fresh superior BPDU from sw1 itself.
+	if err := fab.SetFault(
+		fabric.Endpoint{Node: "sw1", Port: "a"}, fabric.Endpoint{Node: "sw2", Port: "a"},
+		fabric.Fault{Kind: fabric.FaultCut},
+	); err != nil {
+		t.Fatalf("SetFault sw1-sw2: %v", err)
+	}
+	if err := fab.SetFault(
+		fabric.Endpoint{Node: "sw4", Port: "b"}, fabric.Endpoint{Node: "sw1", Port: "b"},
+		fabric.Fault{Kind: fabric.FaultCut},
+	); err != nil {
+		t.Fatalf("SetFault sw4-sw1: %v", err)
+	}
+
+	beforeRemoval := fab.Snapshot().Clock
+	fab.Run(200)
+	afterConvergence := fab.Snapshot().Clock
+
+	// A generous bound that only rules out a genuine stall. Convergence here
+	// runs past a single MaxAge on forward delay alone, so a tighter bound
+	// would fail for a reason that has nothing to do with how the stale claim
+	// expired.
+	if elapsed := afterConvergence.Sub(beforeRemoval); elapsed >= 3*stp.DefaultMaxAge {
+		t.Errorf("reconvergence took %v after the root's removal, want well under %v", elapsed, 3*stp.DefaultMaxAge)
+	}
+
+	snap = fab.Snapshot()
+	var newRootPriority uint16
+	haveRoot := false
+	for _, dev := range []string{"sw2", "sw3", "sw4"} {
+		for _, p := range []string{"a", "b"} {
+			info := snap.Devices[dev].Roles[p]
+			if info.DesignatedRoot.Priority == 4096 {
+				t.Errorf("%s %s still names the removed root 4096 as designated root after convergence", dev, p)
+			}
+			if info.Role == stp.RoleRoot {
+				if haveRoot && newRootPriority != info.DesignatedRoot.Priority {
+					t.Errorf("%s %s names a different new root (%v) than another root port already found (%d)",
+						dev, p, info.DesignatedRoot, newRootPriority)
+				}
+				newRootPriority = info.DesignatedRoot.Priority
+				haveRoot = true
+			}
+		}
+	}
+	if !haveRoot {
+		t.Fatalf("no port among the surviving switches holds the Root role after sw1's removal")
+	}
+	if newRootPriority != 8192 {
+		t.Errorf("new regional root priority = %d, want 8192 (sw2, the lowest priority left)", newRootPriority)
 	}
 }

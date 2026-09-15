@@ -1565,3 +1565,116 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
 	}
 }
+
+// TestMSTBridgeMigratedPortEmitsPlainConfigurationBPDU is evidence that a
+// port an MST bridge has migrated to legacy STP emits a Configuration BPDU a
+// legacy peer can read, not a version 3 MST BPDU: Encode picks the MST shape
+// whenever ConfigID is set regardless of Version and Type, so attaching the
+// region's configuration identifier on a migrated port would silently
+// mislabel the frame it just downgraded.
+func TestMSTBridgeMigratedPortEmitsPlainConfigurationBPDU(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST:      &stp.MST{Name: "region-1", Revision: 1},
+	}, mustPortTable(t, "1/1/1"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	legacyPeer := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:0c")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	legacyPeer.SetRole(stp.RoleDesignated)
+
+	// Past the migration delay, receiving a legacy BPDU migrates the port.
+	l.Receive(t0.Add(4*time.Second), "1/1/1", legacyPeer)
+	if l.PortInfo("1/1/1").SendRSTP {
+		t.Fatal("port did not migrate to legacy STP")
+	}
+
+	w := l.Wake(t0.Add(6 * time.Second))
+	var emitted *stp.BPDU
+	for _, em := range w.Emissions {
+		if em.Port != "1/1/1" {
+			continue
+		}
+		b, err := stp.Decode(em.Frame)
+		if err != nil {
+			t.Fatalf("decode emission: %v", err)
+		}
+		emitted = &b
+	}
+	if emitted == nil {
+		t.Fatal("no hello emitted on the migrated port")
+	}
+	if emitted.Version != 0 || emitted.Type != stp.BPDUTypeConfiguration {
+		t.Errorf("emitted version = %d type = %v, want 0 and Configuration", emitted.Version, emitted.Type)
+	}
+	if emitted.ConfigID != nil {
+		t.Errorf("emitted ConfigID = %+v, want nil on a migrated port", emitted.ConfigID)
+	}
+}
+
+// TestMSTIRecordFlagsCarryThePerInstancePortRole is evidence that an MSTI
+// record's Flags octet reports the sending bridge's own role, learning, and
+// forwarding bits for that instance's port, using the same bit layout the
+// CIST's BPDU flags use (BPDU.Role, BPDU.Learning, BPDU.Forwarding decode
+// both alike), rather than being left an unused zero.
+func TestMSTIRecordFlagsCarryThePerInstancePortRole(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST: &stp.MST{
+			Name:     "region-1",
+			Revision: 1,
+			Instances: map[stp.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+			},
+		},
+	}, mustPortTable(t, "1/1/1"))
+
+	fx := l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	if len(fx.Emissions) != 1 {
+		t.Fatalf("emissions count = %d, want 1", len(fx.Emissions))
+	}
+
+	b, err := stp.Decode(fx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(b.MSTIs) != 1 {
+		t.Fatalf("MSTIs count = %d, want 1", len(b.MSTIs))
+	}
+
+	// The port has just come up on a bridge that is its own root for the
+	// instance: Designated for the CIST and for MSTI 1 alike, but not yet
+	// Learning or Forwarding since no agreement has run.
+	rec := b.MSTIs[0]
+	decoded := stp.BPDU{Flags: rec.Flags}
+	if decoded.Role() != stp.RoleDesignated {
+		t.Errorf("MSTI record role = %v, want Designated", decoded.Role())
+	}
+	if decoded.Learning() || decoded.Forwarding() {
+		t.Errorf("MSTI record learning=%t forwarding=%t, want both false before any agreement", decoded.Learning(), decoded.Forwarding())
+	}
+
+	instanceInfo := l.InstancePortInfo(1, "1/1/1")
+	if decoded.Role() != instanceInfo.Role {
+		t.Errorf("MSTI record role = %v, want it to match InstancePortInfo's %v", decoded.Role(), instanceInfo.Role)
+	}
+}
