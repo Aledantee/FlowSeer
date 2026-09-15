@@ -15,6 +15,13 @@ import (
 // DefaultMembershipInterval is the membership and router-port lifetime used when an interval is unset.
 const DefaultMembershipInterval = 260 * time.Second
 
+// DefaultLastMemberQueryInterval is the last-member query interval used when unset (RFC 3376 §8.8, RFC 3810 §9.8).
+const DefaultLastMemberQueryInterval = time.Second
+
+// DefaultLastMemberQueryCount is the robustness variable used when LastMemberQueryCount is unset
+// (RFC 3376 §8.1, §8.9).
+const DefaultLastMemberQueryCount = 2
+
 // Config selects the VLANs whose multicast membership is snooped.
 type Config struct {
 	VLANs map[vlan.ID]VLANSnooping
@@ -43,6 +50,12 @@ func (c Config) Normalize() Config {
 		if cfg.RouterPortInterval == 0 {
 			cfg.RouterPortInterval = DefaultMembershipInterval
 		}
+		if cfg.LastMemberQueryInterval == 0 {
+			cfg.LastMemberQueryInterval = DefaultLastMemberQueryInterval
+		}
+		if cfg.LastMemberQueryCount == 0 {
+			cfg.LastMemberQueryCount = DefaultLastMemberQueryCount
+		}
 
 		if len(cfg.RouterPorts) > 0 {
 			rports := slices.Clone(cfg.RouterPorts)
@@ -66,6 +79,15 @@ type VLANSnooping struct {
 	RouterPorts        []string
 	MembershipInterval time.Duration
 	RouterPortInterval time.Duration
+
+	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses
+	// [DefaultLastMemberQueryInterval].
+	LastMemberQueryInterval time.Duration
+
+	// LastMemberQueryCount is the robustness variable: how many last-member queries a
+	// querier sends before concluding a group or source has no more listeners. Zero uses
+	// [DefaultLastMemberQueryCount].
+	LastMemberQueryCount int
 }
 
 // Canonical returns a deterministic representation of the VLAN snooping configuration.
@@ -84,8 +106,9 @@ func (v VLANSnooping) Canonical() string {
 		encodedPorts.WriteString(strconv.Quote(portName))
 	}
 
-	return fmt.Sprintf("flood=%t,fast_leave=%t,router_ports=[%s],mem_int=%s,rtr_int=%s",
-		flood, v.FastLeave, encodedPorts.String(), v.membershipInterval(), v.routerPortInterval())
+	return fmt.Sprintf("flood=%t,fast_leave=%t,router_ports=[%s],mem_int=%s,rtr_int=%s,lmqi=%s,lmqc=%d",
+		flood, v.FastLeave, encodedPorts.String(), v.membershipInterval(), v.routerPortInterval(),
+		v.lastMemberQueryInterval(), v.lastMemberQueryCount())
 }
 
 // Validate rejects invalid VLANs, physical LAG members used as router ports,
@@ -112,6 +135,20 @@ func (c Config) Validate(ports port.Table) error {
 				Attr("vlan", vid).
 				Attr("router_port_interval", cfg.RouterPortInterval).
 				Msg("router port interval cannot be negative")
+		}
+		if cfg.LastMemberQueryInterval < 0 {
+			return errs.New().
+				Attr("field", fmt.Sprintf("vlans.%d.last_member_query_interval", vid)).
+				Attr("vlan", vid).
+				Attr("last_member_query_interval", cfg.LastMemberQueryInterval).
+				Msg("last member query interval cannot be negative")
+		}
+		if cfg.LastMemberQueryCount < 0 {
+			return errs.New().
+				Attr("field", fmt.Sprintf("vlans.%d.last_member_query_count", vid)).
+				Attr("vlan", vid).
+				Attr("last_member_query_count", cfg.LastMemberQueryCount).
+				Msg("last member query count cannot be negative")
 		}
 
 		for _, name := range cfg.RouterPorts {
@@ -187,6 +224,22 @@ func (v VLANSnooping) routerPortInterval() time.Duration {
 	}
 
 	return v.RouterPortInterval
+}
+
+func (v VLANSnooping) lastMemberQueryInterval() time.Duration {
+	if v.LastMemberQueryInterval == 0 {
+		return DefaultLastMemberQueryInterval
+	}
+
+	return v.LastMemberQueryInterval
+}
+
+func (v VLANSnooping) lastMemberQueryCount() int {
+	if v.LastMemberQueryCount == 0 {
+		return DefaultLastMemberQueryCount
+	}
+
+	return v.LastMemberQueryCount
 }
 
 func sortedVLANIDs[V any](values map[vlan.ID]V) []vlan.ID {
