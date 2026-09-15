@@ -63,18 +63,25 @@ func StartReceiver(leaf *Leaf) (*Receiver, error) {
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      30 * time.Second,
 	}
-	// r.err is written before close(r.done) on both paths below, never
-	// after: Close's <-r.done, then its read of r.err, is what makes the
-	// unsynchronized field safe, per the Go memory model's guarantee that a
-	// channel close happens before the receive that observes it. Neither
-	// path defers the close, so a panic mid-Serve cannot run it ahead of
-	// the write the way a defer inside fn would.
-	//
 	// StartReceiver takes no context and starting one here would mean
 	// threading it through every caller; context.Background() is the
 	// fallback, so this goroutine's log record carries no request
 	// correlation.
-	spawn.Go(context.Background(), "edgebus.Receiver.serve", func() {
+	r.startServing(context.Background(), listener)
+	return r, nil
+}
+
+// startServing runs the accept loop under a supervised goroutine, split out
+// of StartReceiver so a test can supply a listener whose Accept panics.
+//
+// r.err is written before close(r.done) on both paths below, never after:
+// Close's <-r.done, then its read of r.err, is what makes the unsynchronized
+// field safe, per the Go memory model's guarantee that a channel close
+// happens before the receive that observes it. Neither path defers the
+// close, so a panic mid-Serve cannot run it ahead of the write the way a
+// defer inside fn would.
+func (r *Receiver) startServing(ctx context.Context, listener net.Listener) {
+	spawn.Go(ctx, "edgebus.Receiver.serve", func() {
 		if err := r.server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			r.err = err
 		}
@@ -83,7 +90,6 @@ func StartReceiver(leaf *Leaf) (*Receiver, error) {
 		r.err = err
 		close(r.done)
 	}))
-	return r, nil
 }
 
 // Endpoint is the URL the edge hands its runtime as the OTLP endpoint; the
