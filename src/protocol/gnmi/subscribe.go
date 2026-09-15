@@ -121,11 +121,13 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 		}
 	})
 
-	// pump.Fail on a panic gives Err() the failure a silent pump.Done
-	// (deferred below, unconditional) would otherwise hide.
-	spawn.Go(sctx, "gnmi subscribe receive", func() {
-		defer cancel()
-		defer st.pump.Done()
+	// receive returns when the stream is finished; the caller below makes the
+	// single terminal pump call. Done is not deferred inside fn: fn's defers
+	// run before the recover, so a deferred Done would close the data channel
+	// before the sink recorded the panic, and a consumer draining to the close
+	// would read a nil Err() for a subscription that panicked. On the panic
+	// path Fail is the terminal call, and it records before it closes.
+	receive := func() {
 		for {
 			select {
 			case <-st.pump.Stopped():
@@ -159,6 +161,11 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 				return
 			}
 		}
+	}
+	spawn.Go(sctx, "gnmi subscribe receive", func() {
+		defer cancel()
+		receive()
+		st.pump.Done()
 	}, spawn.ReportTo(st.pump.Fail))
 	return st, nil
 }

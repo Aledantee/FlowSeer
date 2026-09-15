@@ -280,8 +280,15 @@ is the `go` statement at `:261`; its comment gains a line saying the helper
 covers the worker and `readGuarded` covers each file, so the next reader does not
 delete one as redundant with the other.
 `netconf/session.go:191` is one of the four sites with no context in scope.
-Tests: the package suites; `load.go`'s existing coverage that a panic reading one
-file costs that file and not the wave, which must still pass unchanged.
+Tests: the package suites. This unit's plan claimed `load.go` had existing
+coverage that a panic reading one file costs that file and not the wave, and
+that it must still pass unchanged. It does not exist: no test in `src/protocol/smi`
+drives a panic through `readGuarded`'s recover. `corpus_test.go:657-670` recovers
+in the test body, which is the corpus runner protecting itself, not coverage of
+`readGuarded`. Phase 2 removed the parser's `panic(bailout{})`, so no reachable
+input panics there any more and a test would need an injected fault. `readGuarded`
+is therefore unproven, not proven — recorded in Open questions rather than papered
+over with a synthetic test that would prove only that `recover` recovers.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/syslog src/protocol/ssh src/protocol/gnmi src/protocol/yang src/protocol/netconf src/protocol/smi`
 
 ### U5. `src/modules`
@@ -372,3 +379,17 @@ way this phase does harm.
   at all, or keep an inline recover and be exempted by the phase-4 gate.
   Recommendation: depend on it — netpen already imports `src/common`, and an
   exemption is a hole in the only mechanically checkable half of the rule.
+- `readGuarded` (`src/protocol/smi/load.go:297`) has no test. This plan assumed
+  one existed; it does not, and phase 2 removed the only input that reached it.
+  The Decisions here rest on its recover being the right grain, so the claim is
+  currently unproven. Proving it needs an injected fault in `readOne` — a seam
+  this phase did not want and did not add. Recommendation: leave it, and let
+  whoever next needs a fault seam in `smi` add the test with it.
+- The ordering rule the Decisions state for `snmp/watcher.go` applies to every
+  site whose `fn` defers a channel close and passes a sink, not just that one.
+  It was found again in `pump.Merge` (fixed, the forwarder reported `nil` on a
+  panic and the coordinator read that as a clean source) and again at four sites
+  in `gnmi` and `yang`, where `defer pump.Done()`/`CloseData()` inside `fn` runs
+  before the recover and the pump closes with `Err() == nil`. The rule belongs in
+  `docs/code-style.md` beside the spawn rule, or in `spawn`'s README, so the next
+  caller does not rediscover it. Phase 4 should decide whether it is checkable.

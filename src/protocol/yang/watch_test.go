@@ -243,10 +243,16 @@ func TestWalkerFetchFailureLatches(t *testing.T) {
 }
 
 // TestWalkerFetchPanicLatches proves a panic in the traversal goroutine
-// reaches Err() rather than leaving the walk look like a clean, empty
-// completion: NewRowWalker's own defer w.pump.Done() is unconditional, so
-// without the panic also reaching pump.Fail (via spawn.ReportTo), Err()
-// would stay nil after a panic exactly as it does after success.
+// reaches Err() rather than making the walk look like a clean, empty
+// completion.
+//
+// Err() is read once, the instant Iter's loop returns, and that is the point
+// of the test. The walk's terminal call is Fail on the panic path, and Fail
+// records the error before it closes the data channel, so a consumer that
+// drains to the close can never observe a nil Err() for a walk that panicked.
+// Polling here instead would pass against a traversal that closed the channel
+// first and latched the error afterwards — the silent completion this asserts
+// against.
 func TestWalkerFetchPanicLatches(t *testing.T) {
 	fetch := &scriptedFetch{payloads: []any{42}} // an unscripted type panics inside fetch itself.
 	codec := serverCodec()
@@ -255,17 +261,8 @@ func TestWalkerFetchPanicLatches(t *testing.T) {
 		t.Fatal("rows yielded despite a panicking fetch")
 	}
 
-	// The data channel closes (via the unconditional deferred pump.Done)
-	// before the recovered panic reaches pump.Fail, so Err() is only
-	// eventually consistent with the channel's closure, not the instant
-	// Iter's loop returns.
-	deadline := time.After(5 * time.Second)
-	for w.Err() == nil {
-		select {
-		case <-deadline:
-			t.Fatal("fetch panic not latched")
-		case <-time.After(10 * time.Millisecond):
-		}
+	if err := w.Err(); err == nil {
+		t.Fatal("Err() is nil when the walk's data channel closed after a panicking fetch")
 	}
 }
 
