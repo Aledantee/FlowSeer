@@ -329,15 +329,15 @@ has gone wrong repeatedly, in a dozen call sites across five packages, three of
 them carrying a comment claiming it was handled. The recover runs *after* every
 deferred call the function registered, so:
 
-- A completion deferred inside it — `wg.Done`, `close(ch)`, `pump.Done` — runs
+- A completion deferred inside it (`wg.Done`, `close(ch)`, `pump.Done`) runs
   before the error is recorded. A consumer that drains to a closed channel and
   then reads `Err()` sees `nil`, which it cannot tell from a clean finish. Put
   the completion on the normal path and in the sink, so exactly one of them
   reaches it. Where the joiner consumes what the sink produces, join by counted
-  receive rather than by a `WaitGroup`. No gate catches this one, because what
-  separates a defect from a correct site is not in the spawn call at all — it is
-  what the joiner reads. Ask that question in review instead of looking for a
-  deferred `Done`.
+  receive rather than by a `WaitGroup`. No gate catches this one. What
+  separates a defect from a correct site is what the joiner reads, and the
+  spawn call does not show that. Ask that question in review instead of
+  looking for a deferred `Done`.
 - A lock must be released from a `defer`. An explicit `Unlock` the panic skips
   leaves the mutex held for the life of the process — a hang where the
   unrecovered panic was a crash, and a hang has no signal but a log line.

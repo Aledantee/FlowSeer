@@ -30,9 +30,11 @@ const spawnDir = "src/common/spawn"
 // outside the supervised helper.
 //
 // It parses files by path rather than importing them, so one test in the
-// root module inspects the nested modules too — src/edge/netpen and the
-// bench modules hold sanctioned panics and goroutines of their own, and a
-// root `go test ./...` never builds them.
+// root module inspects the nested modules too (src/edge/netpen, the bench
+// and differential modules), which a root `go test ./...` never builds.
+// Today the only sanctioned panics down there are netpen's mustMAC
+// helpers and catalog.MustRegister; netpen spawns through spawn.Go, which
+// this gate does not see, and the bench modules hold neither.
 func TestPanicPolicy(t *testing.T) {
 	root := repoRoot(t)
 	srcRoot := filepath.Join(root, "src")
