@@ -12,6 +12,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 func TestRunCrossesOutcomesAndActions(t *testing.T) {
@@ -997,6 +999,54 @@ func TestGoRejectsUnmanagedAndCanceledContexts(t *testing.T) {
 	}
 	if err := <-checked; err == nil {
 		t.Fatal("Go() after cancellation succeeded")
+	}
+}
+
+// TestSupervisorLeafPanicPublishesFatalResultAndClosesDone is evidence for
+// this change: it proves that a panic escaping the wrapper spawn.Go runs
+// around a leaf generation — the span bookkeeping and results send after
+// runChild returns, which runChild's own recover does not cover — still
+// lets the supervisor make progress. Without the ReportTo sink publishing a
+// fatal childResult, the only certainty on this path was close(done); this
+// forces the panic and checks the run loop's other input, s.results, too.
+func TestSupervisorLeafPanicPublishesFatalResultAndClosesDone(t *testing.T) {
+	s := &supervisorState{
+		results: make(chan childResult, 1),
+		runtime: supervisorRuntime{options: supervisorOptions{}.withDefaults()},
+	}
+	module := plannedModule{path: "worker"}
+	done := make(chan struct{})
+
+	spawn.Go(context.Background(), "test.leaf", func() {
+		defer close(done)
+		// A nil attemptSpan forces the panic at result.span =
+		// attemptSpan.SpanContext(), the statement after runChild returns
+		// that its own recover cannot reach.
+		s.publishLeafResult(context.Background(), 0, 1, module, telemetryView{}, nil)
+	}, spawn.ReportTo(func(err error) {
+		s.results <- childResult{index: 0, generation: 1, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+	}))
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("done was not closed after the panic")
+	}
+
+	select {
+	case result := <-s.results:
+		if !result.fatal || result.outcome != lifecycleOutcomePanic {
+			t.Fatalf("published result = %+v, want a fatal panic outcome", result)
+		}
+		if result.err == nil {
+			t.Fatal("published result carries no error")
+		}
+	case <-time.After(2 * time.Second):
+		// done closing (fn's own defer) races the outer spawn.Go recover
+		// that runs the ReportTo sink, so the result can still be in
+		// flight when <-done above unblocks; wait for it instead of
+		// checking immediately.
+		t.Fatal("no childResult was published on the panic path")
 	}
 }
 
