@@ -27,11 +27,21 @@ const (
 	ReasonBadControl trace.Reason = "bad-control"
 )
 
-// Entry is one learned group membership. Expires is the instant at which [Layer.Age] removes it.
-type Entry struct {
-	Group   netip.Addr
-	Port    string
+// SourceEntry is one source record's timer. A zero Expires is a real state — the source's
+// timer has run to zero without the record being deleted — not an absent record.
+type SourceEntry struct {
+	Address netip.Addr
 	Expires time.Time
+}
+
+// Entry is one learned (VLAN, group, port) router state.
+// GroupExpires is meaningful only when Mode is Exclude. Sources is in address order.
+type Entry struct {
+	Group        netip.Addr
+	Port         string
+	Mode         FilterMode
+	GroupExpires time.Time
+	Sources      []SourceEntry
 }
 
 // RouterPort is one static or learned multicast-router port.
@@ -56,7 +66,8 @@ type vlanState struct {
 	fastLeave          bool
 	membershipInterval time.Duration
 	routerPortInterval time.Duration
-	groups             map[groupKey]time.Time
+	lmqt               time.Duration
+	groups             map[groupKey]*groupPortState
 	routers            map[string]routerPortState
 }
 
@@ -89,7 +100,8 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 			fastLeave:          vlanCfg.FastLeave,
 			membershipInterval: vlanCfg.membershipInterval(),
 			routerPortInterval: vlanCfg.routerPortInterval(),
-			groups:             make(map[groupKey]time.Time),
+			lmqt:               vlanCfg.lastMemberQueryInterval() * time.Duration(vlanCfg.lastMemberQueryCount()),
+			groups:             make(map[groupKey]*groupPortState),
 			routers:            make(map[string]routerPortState, len(vlanCfg.RouterPorts)),
 		}
 		for _, name := range vlanCfg.RouterPorts {
@@ -103,7 +115,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 	return l
 }
 
-// Clone returns an independent snapshot with all configuration, ports, entries, and expiries preserved.
+// Clone returns an independent snapshot with all configuration, ports, entries, and timers preserved.
 func (l *Layer) Clone() *Layer {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -118,10 +130,13 @@ func (l *Layer) Clone() *Layer {
 			fastLeave:          state.fastLeave,
 			membershipInterval: state.membershipInterval,
 			routerPortInterval: state.routerPortInterval,
-			groups:             make(map[groupKey]time.Time, len(state.groups)),
+			lmqt:               state.lmqt,
+			groups:             make(map[groupKey]*groupPortState, len(state.groups)),
 			routers:            make(map[string]routerPortState, len(state.routers)),
 		}
-		maps.Copy(stateCopy.groups, state.groups)
+		for key, gps := range state.groups {
+			stateCopy.groups[key] = cloneGroupPortState(gps)
+		}
 		maps.Copy(stateCopy.routers, state.routers)
 		cp.byVLAN[vid] = stateCopy
 	}
@@ -155,13 +170,14 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 		if source.Is4() && !source.IsUnspecified() {
 			learnRouter(now, portName, state)
 		}
+		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
 	case igmp.ReportV1, igmp.ReportV2:
-		join(now, message.Group, portName, state)
+		learnLegacyJoin(now, message.Group, portName, state)
 	case igmp.Leave:
-		leave(message.Group, portName, state)
+		learnLeave(now, message.Group, portName, state)
 	case igmp.ReportV3:
 		for _, record := range message.Records {
-			learnIGMPRecord(now, portName, record, state)
+			learnGroupRecord(now, portName, recordKind(record.Type), record.Group, record.Sources, state)
 		}
 	}
 }
@@ -182,25 +198,29 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 		if source.Is6() && source.IsLinkLocalUnicast() {
 			learnRouter(now, portName, state)
 		}
+		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
 	case mld.ReportV1:
-		join(now, message.Group, portName, state)
+		learnLegacyJoin(now, message.Group, portName, state)
 	case mld.Done:
-		leave(message.Group, portName, state)
+		learnLeave(now, message.Group, portName, state)
 	case mld.ReportV2:
 		for _, record := range message.Records {
-			learnMLDRecord(now, portName, record, state)
+			learnGroupRecord(now, portName, recordKind(record.Type), record.Group, record.Sources, state)
 		}
 	}
 }
 
-// Age removes memberships and learned router ports whose expiry is not after now.
+// Age applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
+// expiry is not after now. It is the only place aging mutates stored state; Resolve computes
+// the same rules lazily against the now it is given, so a caller need not call Age first.
 func (l *Layer) Age(now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	for _, state := range l.byVLAN {
-		for key, expires := range state.groups {
-			if !expires.After(now) {
+		for key, gps := range state.groups {
+			ageGroupPortState(gps, now)
+			if gps.isEmptyInclude() {
 				delete(state.groups, key)
 			}
 		}
@@ -212,40 +232,79 @@ func (l *Layer) Age(now time.Time) {
 	}
 }
 
-// Resolve returns the sorted union of members of group and all router ports on vid.
-// registered is true only when at least one membership entry names group.
-func (l *Layer) Resolve(vid vlan.ID, group netip.Addr) ([]string, bool) {
+func ageGroupPortState(gps *groupPortState, now time.Time) {
+	if gps.mode == Include {
+		for addr, expires := range gps.sources {
+			if !expires.After(now) {
+				delete(gps.sources, addr)
+			}
+		}
+
+		return
+	}
+
+	if gps.groupExpires.After(now) {
+		for addr, expires := range gps.sources {
+			if !expires.IsZero() && !expires.After(now) {
+				gps.sources[addr] = time.Time{}
+			}
+		}
+
+		return
+	}
+
+	gps.mode = Include
+	gps.groupExpires = time.Time{}
+	for addr, expires := range gps.sources {
+		if expires.IsZero() || !expires.After(now) {
+			delete(gps.sources, addr)
+		}
+	}
+}
+
+// Resolve returns the sorted union of admitted member ports and router ports on vid, applying
+// the §6.3 forwarding table for source against each port's router state as of now. registered
+// is true only when at least one port holds a router-state record for group, regardless of
+// whether source is admitted on it. pending is true when a "Send Q" action has gone more than
+// LMQT without a matching observed query, which only happens when vid has a router port.
+func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now time.Time) (ports []string, registered, pending bool) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
 	state, ok := l.byVLAN[vid]
 	if !ok {
-		return nil, false
+		return nil, false, false
 	}
 
-	ports := make(map[string]struct{}, len(state.routers))
+	admitted := make(map[string]struct{}, len(state.routers))
 	for name := range state.routers {
-		ports[name] = struct{}{}
+		admitted[name] = struct{}{}
 	}
 
-	registered := false
-	for key := range state.groups {
-		if key.group == group {
-			registered = true
-			ports[key.port] = struct{}{}
+	hasRouter := len(state.routers) > 0
+	for key, gps := range state.groups {
+		if key.group != group {
+			continue
+		}
+		registered = true
+		if admits(gps, source, now) {
+			admitted[key.port] = struct{}{}
+		}
+		if hasRouter && obligationPending(gps, state.lmqt, now) {
+			pending = true
 		}
 	}
 
-	resolved := make([]string, 0, len(ports))
-	for name := range ports {
+	resolved := make([]string, 0, len(admitted))
+	for name := range admitted {
 		resolved = append(resolved, name)
 	}
 	slices.Sort(resolved)
 
-	return resolved, registered
+	return resolved, registered, pending
 }
 
-// Groups returns a deterministic snapshot of memberships on vid.
+// Groups returns a deterministic snapshot of router state on vid.
 func (l *Layer) Groups(vid vlan.ID) []Entry {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
@@ -256,8 +315,20 @@ func (l *Layer) Groups(vid vlan.ID) []Entry {
 	}
 
 	entries := make([]Entry, 0, len(state.groups))
-	for key, expires := range state.groups {
-		entries = append(entries, Entry{Group: key.group, Port: key.port, Expires: expires})
+	for key, gps := range state.groups {
+		sources := make([]SourceEntry, 0, len(gps.sources))
+		for addr, expires := range gps.sources {
+			sources = append(sources, SourceEntry{Address: addr, Expires: expires})
+		}
+		slices.SortFunc(sources, func(a, b SourceEntry) int { return a.Address.Compare(b.Address) })
+
+		entries = append(entries, Entry{
+			Group:        key.group,
+			Port:         key.port,
+			Mode:         gps.mode,
+			GroupExpires: gps.groupExpires,
+			Sources:      sources,
+		})
 	}
 	slices.SortFunc(entries, func(a, b Entry) int {
 		if cmp := a.Group.Compare(b.Group); cmp != 0 {
@@ -292,7 +363,7 @@ func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
 }
 
 // Retain replaces the port table and drops entries for which keep reports false.
-// Expiries of retained entries are preserved.
+// Timers of retained entries are preserved.
 func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -312,41 +383,50 @@ func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) boo
 	}
 }
 
-func learnIGMPRecord(now time.Time, portName string, record igmp.GroupRecord, state *vlanState) {
-	switch record.Type {
-	case igmp.ModeIsExclude, igmp.ChangeToExcludeMode:
-		join(now, record.Group, portName, state)
-	case igmp.ModeIsInclude, igmp.ChangeToIncludeMode:
-		if len(record.Sources) == 0 {
-			leave(record.Group, portName, state)
-		} else {
-			join(now, record.Group, portName, state)
-		}
-	case igmp.AllowNewSources:
-		if len(record.Sources) > 0 {
-			join(now, record.Group, portName, state)
-		}
-	case igmp.BlockOldSources:
-		return
-	}
+// learnLegacyJoin applies an IGMPv1/v2 or MLDv1 report, which RFC 3810 §8.3.2 maps to
+// IS_EX({}), and (re)starts the older-version-host timer for the group on the port.
+func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState) {
+	applyToPort(now, group, portName, state, recIsExclude, nil, true)
 }
 
-func learnMLDRecord(now time.Time, portName string, record mld.AddressRecord, state *vlanState) {
-	switch record.Type {
-	case mld.ModeIsExclude, mld.ChangeToExcludeMode:
-		join(now, record.Group, portName, state)
-	case mld.ModeIsInclude, mld.ChangeToIncludeMode:
-		if len(record.Sources) == 0 {
-			leave(record.Group, portName, state)
-		} else {
-			join(now, record.Group, portName, state)
-		}
-	case mld.AllowNewSources:
-		if len(record.Sources) > 0 {
-			join(now, record.Group, portName, state)
-		}
-	case mld.BlockOldSources:
+// learnLeave applies an IGMPv2 leave or MLDv1 done message, which maps to TO_IN({}) and
+// (re)starts the older-version-host timer. Fast leave bypasses the table and deletes the
+// port's group state outright, since that is the state the table would reach once the
+// source and group timers expired.
+func learnLeave(now time.Time, group netip.Addr, portName string, state *vlanState) {
+	if state.fastLeave {
+		delete(state.groups, groupKey{group: group, port: portName})
+
 		return
+	}
+	applyToPort(now, group, portName, state, recToInclude, nil, true)
+}
+
+// learnGroupRecord applies one IGMPv3 group record or MLDv2 address record. A record that
+// is shaped like a leave — a MODE_IS_INCLUDE or CHANGE_TO_INCLUDE_MODE carrying no sources —
+// gets the same fast-leave shortcut as a legacy leave.
+func learnGroupRecord(now time.Time, portName string, kind recordKind, group netip.Addr, sources []netip.Addr, state *vlanState) {
+	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
+		delete(state.groups, groupKey{group: group, port: portName})
+
+		return
+	}
+	applyToPort(now, group, portName, state, kind, sources, false)
+}
+
+func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, startsOlderHost bool) {
+	key := groupKey{group: group, port: portName}
+	gps := state.groups[key]
+	if gps == nil {
+		gps = newGroupPortState()
+	}
+
+	applyRecord(now, state.membershipInterval, gps, kind, sources, startsOlderHost)
+
+	if gps.isEmptyInclude() {
+		delete(state.groups, key)
+	} else {
+		state.groups[key] = gps
 	}
 }
 
@@ -354,16 +434,6 @@ func logicalPort(ports port.Table, name string) bool {
 	p, ok := ports.Port(name)
 
 	return ok && p.LagParent == ""
-}
-
-func join(now time.Time, group netip.Addr, portName string, state *vlanState) {
-	state.groups[groupKey{group: group, port: portName}] = now.Add(state.membershipInterval)
-}
-
-func leave(group netip.Addr, portName string, state *vlanState) {
-	if state.fastLeave {
-		delete(state.groups, groupKey{group: group, port: portName})
-	}
 }
 
 func learnRouter(now time.Time, portName string, state *vlanState) {

@@ -48,6 +48,18 @@ func (f DurationFact) Canonical() string { return time.Duration(f).String() }
 // String returns the string representation of the duration.
 func (f DurationFact) String() string { return time.Duration(f).String() }
 
+// IntFact represents an integer multicast snooping setting, such as the robustness variable.
+type IntFact int
+
+// TypeID returns the stable identifier for IntFact.
+func (f IntFact) TypeID() string { return "mcast.int" }
+
+// Canonical returns the decimal string representation of the value.
+func (f IntFact) Canonical() string { return strconv.Itoa(int(f)) }
+
+// String returns the decimal string representation of the value.
+func (f IntFact) String() string { return strconv.Itoa(int(f)) }
+
 type routerPortsFact string
 
 func (f routerPortsFact) TypeID() string    { return "mcast.router_ports" }
@@ -108,6 +120,14 @@ func Diff(a, b Config) []trace.Change {
 		}
 		if aCfg.RouterPortInterval != bCfg.RouterPortInterval {
 			changes = append(changes, vlanChange(vid, "router_port_interval", DurationFact(aCfg.RouterPortInterval), DurationFact(bCfg.RouterPortInterval)))
+		}
+		if aCfg.LastMemberQueryInterval != bCfg.LastMemberQueryInterval {
+			changes = append(changes, vlanChange(vid, "last_member_query_interval",
+				DurationFact(aCfg.LastMemberQueryInterval), DurationFact(bCfg.LastMemberQueryInterval)))
+		}
+		if aCfg.LastMemberQueryCount != bCfg.LastMemberQueryCount {
+			changes = append(changes, vlanChange(vid, "last_member_query_count",
+				IntFact(aCfg.LastMemberQueryCount), IntFact(bCfg.LastMemberQueryCount)))
 		}
 	}
 

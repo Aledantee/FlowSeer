@@ -63,6 +63,20 @@ func TestConfigValidate(t *testing.T) {
 			}},
 			wantErr: true,
 		},
+		{
+			name: "negative last member query interval",
+			cfg: mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+				10: {LastMemberQueryInterval: -time.Second},
+			}},
+			wantErr: true,
+		},
+		{
+			name: "negative last member query count",
+			cfg: mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+				10: {LastMemberQueryCount: -1},
+			}},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -117,11 +131,13 @@ func TestDiff(t *testing.T) {
 	}}
 	b := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 		10: {
-			FloodUnregistered:  &flood,
-			FastLeave:          true,
-			RouterPorts:        []string{"1/1/4"},
-			MembershipInterval: time.Minute,
-			RouterPortInterval: 2 * time.Minute,
+			FloodUnregistered:       &flood,
+			FastLeave:               true,
+			RouterPorts:             []string{"1/1/4"},
+			MembershipInterval:      time.Minute,
+			RouterPortInterval:      2 * time.Minute,
+			LastMemberQueryInterval: 2 * time.Second,
+			LastMemberQueryCount:    3,
 		},
 		20: {},
 	}}
@@ -133,6 +149,8 @@ func TestDiff(t *testing.T) {
 		"router_ports",
 		"membership_interval",
 		"router_port_interval",
+		"last_member_query_interval",
+		"last_member_query_count",
 		"",
 		"",
 	}
@@ -161,11 +179,11 @@ func TestDiff(t *testing.T) {
 			t.Errorf("change[%d].To has empty TypeID", i)
 		}
 	}
-	if changes[5].Subject.Key != "30" || changes[5].To != nil {
-		t.Errorf("removed VLAN change = %+v, want VLAN 30 removal", changes[5])
+	if changes[7].Subject.Key != "30" || changes[7].To != nil {
+		t.Errorf("removed VLAN change = %+v, want VLAN 30 removal", changes[7])
 	}
-	if changes[6].Subject.Key != "20" || changes[6].From != nil {
-		t.Errorf("added VLAN change = %+v, want VLAN 20 addition", changes[6])
+	if changes[8].Subject.Key != "20" || changes[8].From != nil {
+		t.Errorf("added VLAN change = %+v, want VLAN 20 addition", changes[8])
 	}
 }
 
@@ -198,11 +216,13 @@ func TestNormalize(t *testing.T) {
 		flood := true
 		explicit := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
 			10: {
-				FloodUnregistered:  &flood,
-				FastLeave:          false,
-				RouterPorts:        []string{"1/1/1", "1/1/2"},
-				MembershipInterval: mcast.DefaultMembershipInterval,
-				RouterPortInterval: mcast.DefaultMembershipInterval,
+				FloodUnregistered:       &flood,
+				FastLeave:               false,
+				RouterPorts:             []string{"1/1/1", "1/1/2"},
+				MembershipInterval:      mcast.DefaultMembershipInterval,
+				RouterPortInterval:      mcast.DefaultMembershipInterval,
+				LastMemberQueryInterval: mcast.DefaultLastMemberQueryInterval,
+				LastMemberQueryCount:    mcast.DefaultLastMemberQueryCount,
 			},
 		}}
 
@@ -232,6 +252,25 @@ func TestNormalize(t *testing.T) {
 	})
 }
 
+func TestLastMemberQueryCountDiffUsesEffectiveValue(t *testing.T) {
+	t.Parallel()
+
+	zero := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}}
+	explicitDefault := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+		10: {LastMemberQueryCount: mcast.DefaultLastMemberQueryCount},
+	}}
+	changedTo3 := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+		10: {LastMemberQueryCount: 3},
+	}}
+
+	if got := mcast.Diff(zero, explicitDefault); len(got) != 0 {
+		t.Errorf("Diff(zero, explicit default) = %+v, want no changes", got)
+	}
+	if got := mcast.Diff(zero, changedTo3); len(got) != 1 || got[0].Field != "last_member_query_count" {
+		t.Errorf("Diff(zero, 3) = %+v, want one last_member_query_count change", got)
+	}
+}
+
 func TestBehaviorMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -241,8 +280,10 @@ func TestBehaviorMatrix(t *testing.T) {
 		"VLANs.RouterPorts",
 		"VLANs.MembershipInterval",
 		"VLANs.RouterPortInterval",
+		"VLANs.LastMemberQueryInterval",
+		"VLANs.LastMemberQueryCount",
 	}
-	if len(fields) != 5 {
+	if len(fields) != 7 {
 		t.Fatalf("unexpected number of mcast fields: %d", len(fields))
 	}
 }

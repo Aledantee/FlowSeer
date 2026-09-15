@@ -1,56 +1,135 @@
 # Multicast snooping
 
-This package keeps one multicast group table and one router-port set for each
-configured VLAN. It consumes decoded IGMP and MLD messages; the caller supplies
-the IP source address and the logical ingress port selected by the bridge.
-Physical LAG members are ignored because forwarding uses their logical parent.
-An admitted control trace carries an immutable fact with the decoded protocol
-type, sender, group, source set, and group-record transitions. Source sets use
-canonical order. Group records retain their decoded order because learning
-applies them in sequence, and two records for the same group can produce a
-different final membership when reversed.
+This package keeps RFC 3376 §6.4 router state for each configured VLAN, multicast
+group, and logical ingress port. It consumes decoded IGMP and MLD messages; the
+caller supplies the IP source address and the logical ingress port selected by
+the bridge. Physical LAG members are ignored because forwarding uses their
+logical parent. An admitted control trace carries an immutable fact with the
+decoded protocol type, sender, group, source set, and group-record transitions.
+Source sets use canonical order. Group records retain their decoded order
+because learning applies them in sequence, and two records for the same group
+can produce a different final state when reversed.
 
-For example, an IGMPv2 report for `239.1.1.1` on `1/1/1`, followed by a query
-from a non-zero source on `1/1/4`, makes `Resolve(10, 239.1.1.1)` return
-`[1/1/1 1/1/4], true`. The boolean is membership-only registration. A learned
-router port still appears in the returned ports for an unregistered group, but
-does not change the boolean to true.
+## Router state
 
-## Group records
+For each (VLAN, group, port), the package holds a filter mode, a group timer,
+and a set of source records, each an address with its own timer. A timer of
+zero is a real state — the source's timer has run to zero without the record
+being deleted — not an absent record. Following RFC 3376 §6.4's notation,
+`INCLUDE (A)` is an include-mode port with source set `A`, and `EXCLUDE (X,Y)`
+is an exclude-mode port where `X` holds sources with a running timer and `Y`
+holds sources whose timer has reached zero. A port with no router state is
+`INCLUDE ({})`.
 
-IGMPv1 and IGMPv2 reports and MLDv1 reports add or refresh membership. Leaves
-and Done messages remove the matching entry only when `FastLeave` is enabled;
-otherwise its existing timer continues.
+`GMI`, the group membership interval, is the VLAN's `MembershipInterval`
+(default 260 seconds, RFC 2236 §8.4 and RFC 2710 §7.4). `LMQT`, the last member
+query time, is `LastMemberQueryInterval * LastMemberQueryCount` (defaults 1
+second and 2, the robustness variable, RFC 3376 §8.1, §8.8, §8.9, and RFC 3810
+§9.8).
 
-IGMPv3 and MLDv2 records use the following group-only approximation. Sources
-decide whether a record means join or leave, but are not stored.
+### Current-state records (§6.4.1)
 
-| Record type | With sources | Without sources |
+| Router state | Report | New state | Actions |
+| --- | --- | --- | --- |
+| `INCLUDE (A)` | `IS_IN (B)` | `INCLUDE (A+B)` | `(B)=GMI` |
+| `INCLUDE (A)` | `IS_EX (B)` | `EXCLUDE (A*B, B-A)` | `(B-A)=0`, delete `(A-B)`, group timer `=GMI` |
+| `EXCLUDE (X,Y)` | `IS_IN (A)` | `EXCLUDE (X+A, Y-A)` | `(A)=GMI` |
+| `EXCLUDE (X,Y)` | `IS_EX (A)` | `EXCLUDE (A-Y, Y*A)` | `(A-X-Y)=GMI`, delete `(X-A)`, delete `(Y-A)`, group timer `=GMI` |
+
+### Filter-mode-change and source-list-change records (§6.4.2)
+
+| Router state | Report | New state | Actions |
+| --- | --- | --- | --- |
+| `INCLUDE (A)` | `ALLOW (B)` | `INCLUDE (A+B)` | `(B)=GMI` |
+| `INCLUDE (A)` | `BLOCK (B)` | `INCLUDE (A)` | Send Q(G, `A*B`) |
+| `INCLUDE (A)` | `TO_EX (B)` | `EXCLUDE (A*B, B-A)` | `(B-A)=0`, delete `(A-B)`, Send Q(G, `A*B`), group timer `=GMI` |
+| `INCLUDE (A)` | `TO_IN (B)` | `INCLUDE (A+B)` | `(B)=GMI`, Send Q(G, `A-B`) |
+| `EXCLUDE (X,Y)` | `ALLOW (A)` | `EXCLUDE (X+A, Y-A)` | `(A)=GMI` |
+| `EXCLUDE (X,Y)` | `BLOCK (A)` | `EXCLUDE (X+(A-Y), Y)` | `(A-X-Y)=` group timer, Send Q(G, `A-Y`) |
+| `EXCLUDE (X,Y)` | `TO_EX (A)` | `EXCLUDE (A-Y, Y*A)` | `(A-X-Y)=` group timer, delete `(X-A)`, delete `(Y-A)`, Send Q(G, `A-Y`), group timer `=GMI` |
+| `EXCLUDE (X,Y)` | `TO_IN (A)` | `EXCLUDE (X+A, Y-A)` | `(A)=GMI`, Send Q(G, `X-A`), Send Q(G) |
+
+IGMPv1, IGMPv2, and MLDv1 reports map to `IS_EX ({})`; an IGMPv2 leave or an
+MLDv1 done message maps to `TO_IN ({})` (RFC 3810 §8.3.2). Either mapping
+(re)starts an older-version-host timer for that group and port, lasting one
+GMI. While it runs, a `BLOCK` record is ignored outright and a `TO_EX (x)`
+record is treated as `TO_EX ({})`. MLDv2 uses the same tables as IGMPv3 (RFC
+3810 §7.4-§7.6).
+
+Fast leave keeps its own shortcut, independent of the tables above: a message
+or record shaped like a leave — an IGMPv2 leave, an MLDv1 done, or a
+`MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources —
+deletes the port's router state outright instead of going through `TO_IN`.
+
+### Timer expiry (§6.5)
+
+`Age(now)` applies the expiry rules lazily relative to `now`:
+
+- A group timer expiring while the port is in `EXCLUDE` moves it to `INCLUDE`.
+  Sources with a running timer are kept with their timer; sources at a zero
+  timer are deleted. If nothing is left, the port's router state for that
+  group is deleted too.
+- A source timer expiring while the port is in `INCLUDE` deletes that source
+  record; deleting the last one deletes the port's router state.
+- A source timer expiring while the port is in `EXCLUDE` moves that source
+  from `X` to `Y`; the record stays, now at a zero timer.
+
+`Resolve` computes the same rules against the `now` it is given without
+requiring a prior `Age` call, so a caller's aging cadence does not change the
+forwarding answer.
+
+### Forwarding (§6.3)
+
+| Filter mode | Source timer | Action |
 | --- | --- | --- |
-| `MODE_IS_INCLUDE` | Add or refresh | Leave behavior |
-| `MODE_IS_EXCLUDE` | Add or refresh | Add or refresh |
-| `CHANGE_TO_INCLUDE_MODE` | Add or refresh | Leave behavior |
-| `CHANGE_TO_EXCLUDE_MODE` | Add or refresh | Add or refresh |
-| `ALLOW_NEW_SOURCES` | Add or refresh | No change |
-| `BLOCK_OLD_SOURCES` | No change | No change |
+| `INCLUDE` | running | forward |
+| `INCLUDE` | no record | do not forward |
+| `EXCLUDE` | running | forward |
+| `EXCLUDE` | zero | do not forward |
+| `EXCLUDE` | no record | forward |
+
+`Resolve(vid, group, source, now)` applies this table per source and returns
+the union of admitted member ports and router ports. `registered` is true when
+any port holds router state for the group, regardless of whether the queried
+source is admitted on it — a learned router port appears in the returned
+ports without setting `registered`.
+
+## Queries and the unobserved-query issue
+
+This package never emits a query; "Send Q" in the tables above only records
+that the router state expects one. `Resolve` tracks whether that expectation
+was met:
+
+- An observed group-specific query (`Group` set, no `Sources`, `Suppress`
+  clear) lowers the matching group timers to `LMQT`, never raising them.
+- An observed group-and-source-specific query (`Group` set, `Sources`
+  non-empty, `Suppress` clear) lowers the named sources' timers to `LMQT`,
+  and only those.
+- `LMQT` always comes from configuration, never from a query's `MaxResp` or
+  `QRV`. A capture may omit the query entirely.
+- When a table row fires a "Send Q" action, the VLAN has at least one router
+  port, and no matching query arrives within `LMQT` of that row firing,
+  `Resolve` reports the group's forwarding as pending a query, until the
+  state changes again.
+- With no router port on the VLAN, there is no querier to expect a query
+  from: the full timers are the real behavior, and `Resolve` never reports a
+  pending query.
+
+## Router ports
 
 An IGMP query learns its ingress as a router port when its IPv4 source is not
-`0.0.0.0`. An MLD query requires an IPv6 link-local source. Static router ports
-come from configuration and never expire.
+`0.0.0.0`. An MLD query requires an IPv6 link-local source. Static router
+ports come from configuration and never expire.
 
 ## Aging and snapshots
 
-Membership and learned router-port entries expire after their configured
-interval. An unset interval uses 260 seconds. `Age(now)` removes entries whose
-expiry is at or before `now`; it does not touch static router ports. `Groups`
-and `RouterPorts` return sorted snapshots, and `Clone` preserves the timers in
-an independent layer.
+Learned router-port entries expire after their configured interval (default
+260 seconds, same as `MembershipInterval`). `Age(now)` removes them, and the
+group timer and source timer expiry above, in one pass; it does not touch
+static router ports. `Groups` and `RouterPorts` return sorted snapshots, and
+`Clone` preserves every timer in an independent layer.
 
-`Resolve` is intentionally narrower than a bridge forwarding policy. It returns
-the membership/router union and membership registration state. The caller
-decides whether an unregistered group floods or uses the returned router ports.
-
-The learning rules follow RFC 4541 sections 2.1.1 and 2.1.2. The 260-second
-default comes from RFC 2236 section 8.4 and RFC 2710 section 7.4. Record layouts
-and source lists are defined by RFC 3376 section 4.2.12 and RFC 3810 section
-5.2.12.
+`Resolve` is intentionally narrower than a bridge forwarding policy. It
+returns the admitted port union, membership registration, and the pending-
+query signal. The caller decides whether an unregistered group floods or uses
+the returned router ports, and how a pending query surfaces as an issue.
