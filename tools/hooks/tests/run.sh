@@ -502,6 +502,47 @@ gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 [[ $gate_output == '{}' ]]
 ok "Stop blocks on a failing panic gate and passes when it holds"
 
+# A gate package whose test is not called what the fixture above calls it.
+# `go test -run` with a pattern that matches nothing exits 0, so a gate run
+# by test name would pass here without running anything; the gate has to
+# run the package.
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestRenamedGate(t *testing.T) {
+	t.Error("renamed fixture violation")
+}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
+ok "Stop runs a gate package whatever its tests are named"
+
+# A gate whose test binary reads stdin must not eat the entries after it.
+# The proto entry precedes the panic entry, so a proto fixture that drains
+# stdin and passes would leave a loop fed through stdin with nothing left
+# for the panic gate, which then never runs.
+mkdir -p "$gate_fixture/test/conformance/proto"
+cat >"$gate_fixture/test/conformance/proto/drain_test.go" <<'GATE'
+package conformance
+
+import (
+	"io"
+	"os"
+	"testing"
+)
+
+func TestDrainsStdin(t *testing.T) {
+	if _, err := io.ReadAll(os.Stdin); err != nil {
+		t.Fatal(err)
+	}
+}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
+ok "Stop still runs the gates after one whose test binary drains stdin"
+
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q
