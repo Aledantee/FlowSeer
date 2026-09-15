@@ -157,41 +157,12 @@ func (p *parser) note(code errs.Code, args ...diag.Arg) {
 			want: `spreads a variadic`,
 		},
 		{
-			name: "registered forwarder may spread its own arguments",
+			name: "registered forwarder may spread; its package's runtime test proves the pass-through",
 			dir:  "src/protocol/smi/internal/parse",
 			src: parseHead + `
 func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 	diag.MustRaise(diag.Position{}, code, args...)
 }`,
-		},
-		{
-			name: "registered forwarder spreads a constant code",
-			dir:  "src/protocol/smi/internal/parse",
-			src: parseHead + `
-func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
-	diag.MustRaise(diag.Position{}, diag.ErrCodeLimitExceeded, args...)
-}`,
-			want: `does not hand MustRaise its own code and args`,
-		},
-		{
-			name: "registered forwarder spreads a rebuilt argument list",
-			dir:  "src/protocol/smi/internal/parse",
-			src: parseHead + `
-func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
-	diag.MustRaise(diag.Position{}, code, append(args, diag.ArgInt(1))...)
-}`,
-			want: `does not hand MustRaise its own code and args`,
-		},
-		{
-			name: "registered forwarder spreads a second list beside its pass-through",
-			dir:  "src/protocol/smi/internal/parse",
-			src: parseHead + `
-func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
-	diag.MustRaise(diag.Position{}, code, args...)
-	extra := []diag.Arg{diag.ArgInt(1)}
-	diag.MustRaise(diag.Position{}, code, extra...)
-}`,
-			want: `does not hand MustRaise its own code and args`,
 		},
 		{
 			name: "registered forwarder whose parameters sit elsewhere than the registry says",
@@ -340,7 +311,7 @@ func scanCalls(sources []source, codes map[string]string, arity map[string]int) 
 		// A raiser named anywhere but as a call's callee is a value the
 		// scan cannot follow to its eventual call, so it is a finding. The
 		// walk visits a call before its callee and a selector before its
-		// field name, which is what lets both be recognised when reached.
+		// field name, which is what lets both be recognized when reached.
 		for _, decl := range s.file.Decls {
 			enclosing, _ := decl.(*ast.FuncDecl)
 			callees := make(map[ast.Expr]bool)
@@ -402,7 +373,7 @@ func callFinding(
 	finding := func(text string) []string { return []string{where + ": " + text} }
 
 	if call.Ellipsis != token.NoPos {
-		return spreadFinding(finding, call, r, enclosing, s.dir)
+		return spreadFinding(finding, r, enclosing, s.dir)
 	}
 	if len(call.Args) <= r.codeArg {
 		return finding("call to " + r.name + " has no code argument")
@@ -428,13 +399,23 @@ func callFinding(
 	return nil
 }
 
-// spreadFinding reports a call that spreads a variadic into r. The one
-// spread the scan accepts is a registered forwarder handing its own code
-// and variadic parameters through untouched, because that is the shape
-// whose callers the scan resolves in the forwarder's place. Any other
-// spread in a forwarder's body reaches r with a code or a list its
-// callers never see, so the check would be made against the wrong row.
-func spreadFinding(finding func(string) []string, call *ast.CallExpr, r raiser, enclosing *ast.FuncDecl, dir string) []string {
+// spreadFinding reports a call that spreads a variadic into r from
+// anywhere but the body of a registered forwarder. A spread inside a
+// registered forwarder is exempt whatever the body does with code and
+// args before the spread, because this scan does not decide that the
+// forwarder passes them through: it cannot, and two syntactic
+// approximations of the property have already been wrong. Each
+// forwarder's own package proves it by execution instead, calling the
+// forwarder with a cataloged code and its arity's worth of arguments and
+// asserting the diagnostic that comes out carries both unchanged:
+// TestRaiseForwardsCodeAndArgsUnchanged in internal/lex, internal/parse,
+// internal/frame and package smi, and
+// TestMustRaiseForwardsCodeAndArgsUnchanged in package smi. What this
+// scan can still decide about a forwarder is whether the registry's
+// parameter indices match its declaration, which forwardedParams checks,
+// since a caller resolved at the wrong index is checked against the
+// wrong row and no runtime test would notice.
+func spreadFinding(finding func(string) []string, r raiser, enclosing *ast.FuncDecl, dir string) []string {
 	if enclosing == nil {
 		return finding("package-level code spreads a variadic into " + r.name +
 			", so no scan can read the argument count; register it as a forwarder or pass a fixed list")
@@ -444,50 +425,34 @@ func spreadFinding(finding func(string) []string, call *ast.CallExpr, r raiser, 
 		return finding(enclosing.Name.Name + " spreads a variadic into " + r.name +
 			", so no scan can read the argument count; register it as a forwarder or pass a fixed list")
 	}
-
-	codeName, argsName, ok := forwardedParams(enclosing, raisers[own])
-	if !ok {
+	if !forwardedParams(enclosing, raisers[own]) {
 		return finding(enclosing.Name.Name + " is registered with its code at parameter " +
 			strconv.Itoa(raisers[own].codeArg) + " and its variadic at parameter " +
 			strconv.Itoa(raisers[own].variadic) + ", but its declaration has no errs.Code and ... there")
-	}
-	if len(call.Args) != r.variadic+1 ||
-		!isIdent(call.Args[r.codeArg], codeName) || !isIdent(call.Args[r.variadic], argsName) {
-		return finding(enclosing.Name.Name + " is a registered forwarder, but this spread does not hand " +
-			r.name + " its own " + codeName + " and " + argsName + " parameters untouched, so no scan can read it")
 	}
 
 	return nil
 }
 
-// forwardedParams returns the names of fn's code and variadic parameters
-// at the indices the registry records for r, or false when the
-// declaration has no errs.Code and no `...` at those indices. This is the
-// one place the registry's indices meet the real declaration.
-func forwardedParams(fn *ast.FuncDecl, r raiser) (codeName, argsName string, ok bool) {
-	var names []*ast.Ident
+// forwardedParams reports whether fn declares an errs.Code parameter and
+// a `...` parameter at the indices the registry records for r. This is
+// the one place the registry's indices meet the real declaration.
+func forwardedParams(fn *ast.FuncDecl, r raiser) bool {
 	var types []ast.Expr
 	for _, field := range fn.Type.Params.List {
-		if len(field.Names) == 0 {
-			names = append(names, nil)
-			types = append(types, field.Type)
-		}
-		for _, name := range field.Names {
-			names = append(names, name)
+		for range max(len(field.Names), 1) {
 			types = append(types, field.Type)
 		}
 	}
-	if r.codeArg >= len(names) || r.variadic >= len(names) || names[r.codeArg] == nil || names[r.variadic] == nil {
-		return "", "", false
+	if r.codeArg >= len(types) || r.variadic >= len(types) {
+		return false
 	}
 	if sel, ok := types[r.codeArg].(*ast.SelectorExpr); !ok || !isIdent(sel.X, "errs") || sel.Sel.Name != "Code" {
-		return "", "", false
+		return false
 	}
-	if _, ok := types[r.variadic].(*ast.Ellipsis); !ok {
-		return "", "", false
-	}
+	_, ok := types[r.variadic].(*ast.Ellipsis)
 
-	return names[r.codeArg].Name, names[r.variadic].Name, true
+	return ok
 }
 
 func isIdent(expr ast.Expr, name string) bool {
@@ -724,9 +689,10 @@ func catalogArity() map[string]int {
 	return arity
 }
 
-// parseTree parses every non-test, non-testdata Go file in the
-// repository. testdata holds fixtures standing in for foreign code, and
-// a test that calls MustRaise wrongly is asserting the panic.
+// parseTree parses every non-test Go file in the repository outside a
+// directory named testdata. testdata holds fixtures standing in for
+// foreign code, and a test that calls MustRaise wrongly is asserting the
+// panic.
 func parseTree(t *testing.T, root string) []source {
 	t.Helper()
 
@@ -786,14 +752,6 @@ func parseSource(t *testing.T, dir, src string) source {
 	}
 
 	return source{path: dir + "/fixture.go", dir: dir, fset: fset, file: file}
-}
-
-func funcName(fn *ast.FuncDecl) string {
-	if fn == nil {
-		return "package-level code"
-	}
-
-	return fn.Name.Name
 }
 
 func plural(n int, noun string) string {
