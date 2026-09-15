@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -301,6 +302,13 @@ func TestMergeContextCancellationPrecedesSourceError(t *testing.T) {
 // panic as nil would leave Merge indistinguishable from a successful merge —
 // a consumer would see the channel close with Err() == nil and conclude every
 // source ran to completion.
+//
+// A nil source panics twice: once in the forwarder that dereferences it, and
+// again in the coordinator, whose stopSources calls SignalStop on it after the
+// first report arrives. The error that reaches Err() is therefore the
+// coordinator's, and the test names it rather than claiming the forwarder's.
+// The discrimination still holds: a forwarder reporting nil never causes the
+// second panic at all, so Err() would be nil and this fails.
 func TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources(t *testing.T) {
 	t.Parallel()
 	var nilSource *Pump[int]
@@ -337,6 +345,9 @@ func TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources(t *testin
 	}
 	if errs.Attributes(err)["panic"] == nil {
 		t.Errorf("merged.Err() carries no recovered panic value: %v", err)
+	}
+	if got, want := err.Error(), "Merge.coordinate panicked"; !strings.HasPrefix(got, want) {
+		t.Errorf("merged.Err() = %q, want a %q report", got, want)
 	}
 }
 

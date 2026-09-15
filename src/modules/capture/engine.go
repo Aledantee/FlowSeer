@@ -152,7 +152,17 @@ func (e *Engine) Run(ctx context.Context) (*pump.Pump[Batch], error) {
 	// leaving a consumer ranging over it blocked forever.
 	spawn.Go(ctx, "capture.Engine.run", func() {
 		e.run(p)
-	}, spawn.ReportTo(p.Fail))
+	}, spawn.ReportTo(func(err error) {
+		// run's tail does all three of these; a panic skips them, and the
+		// engine's own contract promises a caller that sees the pump
+		// finished that the source is released. Without this the fd stays
+		// open and State() reports RUNNING for the rest of the process.
+		e.setState(func(s *State) {
+			s.Lifecycle = apicapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_FAILED
+		})
+		_ = e.source.Close()
+		p.Fail(err)
+	}))
 	return p, nil
 }
 

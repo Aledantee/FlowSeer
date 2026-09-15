@@ -63,16 +63,20 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 		}, spawn.ReportTo(func(err error) { results <- err }))
 	}
 
-	spawn.Go(ctx, "Merge.coordinate", func() {
-		var stopSourcesOnce sync.Once
-		stopSources := func() {
-			stopSourcesOnce.Do(func() {
-				for _, source := range sources {
-					source.SignalStop()
-				}
-			})
-		}
+	// Declared here rather than inside the coordinator so the panic sink can
+	// reach it: Merge promises to signal its sources to stop, and a
+	// coordinator that panicked would otherwise end the merged pump while
+	// every source kept producing into it.
+	var stopSourcesOnce sync.Once
+	stopSources := func() {
+		stopSourcesOnce.Do(func() {
+			for _, source := range sources {
+				source.SignalStop()
+			}
+		})
+	}
 
+	spawn.Go(ctx, "Merge.coordinate", func() {
 		stopped := merged.Stopped()
 		contextDone := merged.Context().Done()
 		var terminalErr error
@@ -136,6 +140,10 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 		// this, a panic anywhere above would leave every consumer's range
 		// over merged.Data() blocked forever.
 		merged.Fail(err)
+		// Merge's contract: the sources are told to stop. The coordinator's
+		// normal exits do this; the panic path owes it too, or they go on
+		// producing into a pump nothing is draining.
+		stopSources()
 	}))
 
 	return merged

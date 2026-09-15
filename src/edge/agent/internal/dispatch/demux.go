@@ -141,10 +141,10 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 	// refuseExecute drops the admitted sequence and tells central this edge
 	// did not take it, so a re-dispatch is admitted again rather than found
 	// stuck "in flight" forever. Used on the ordinary Submit failure and, via
-	// spawn.ReportTo, on a recovered panic in the goroutine below — without
-	// it a panic would leave the registry entry admitted with nothing to
-	// clear it, which is worse than the panic itself: today's crash at least
-	// drops the connection central notices, where a stuck entry is silent.
+	// spawn.ReportTo, on a recovered panic in the goroutine below before the
+	// device ran the operation — without it such a panic would leave the
+	// registry entry admitted with nothing to clear it, and a stuck entry is
+	// silent where a dropped connection is not.
 	//
 	// It calls d.running.Done() itself rather than the goroutine deferring
 	// it, and on purpose: a deferred Done runs as part of the goroutine's own
@@ -161,6 +161,14 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 		d.running.Done()
 	}
 
+	// Set once the device has actually run the operation. A panic after that
+	// point must not be refused: refusing discards the registry entry and
+	// tells central the sequence never ran, so central re-dispatches work the
+	// device already performed — the duplicate execution the registry exists
+	// to prevent. Refusing would also re-enter d.out.Report, which is where
+	// such a panic most likely came from.
+	var completed bool
+
 	d.running.Add(1)
 	spawn.Go(ctx, "Demux.execute", func() {
 		// Submit blocks until the operation reaches a terminal result, which
@@ -173,9 +181,16 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 			return
 		}
 		d.registry.record(device, result)
+		completed = true
 		d.out.Report(ctx, reportOf(func(r *integrationv1.ReportRequest) { r.SetResult(result) }, device))
 		d.running.Done()
-	}, spawn.ReportTo(refuseExecute))
+	}, spawn.ReportTo(func(err error) {
+		if completed {
+			d.running.Done()
+			return
+		}
+		refuseExecute(err)
+	}))
 	return nil
 }
 
