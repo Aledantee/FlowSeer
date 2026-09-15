@@ -234,6 +234,42 @@ them.
   `Unknown` port still consulted it and still carries that port's issue,
   because the flood could have reached one more host had the port resolved.
 
+### LAG bucket selection and multicast query observation
+
+- **LAG buckets are runtime state, not a stateless hash.** A `BalanceSLB` or
+  `BalanceTCP` selection buckets `hash & 0xff` into 256 slots, and each slot
+  remembers which member last carried it. A bucket keeps its member while
+  that member stays enabled, so a member fault reassigns only the buckets
+  that were on the faulted member; the other buckets, and the flows hashing
+  to them, are untouched (`ofproto/bond.c` `choose_output_member` and
+  `get_enabled_member`, OVS `branch-3.3` at `73e38c8d`). A newly enabled
+  member joins the back of the enabled list rather than the front, so
+  reassignment after a fault cycles through survivors in a fixed order
+  instead of piling every orphaned bucket onto one member. `Select` commits
+  a bucket's assignment and the enabled list's rotation; `Peek` computes the
+  same choice without committing either, so a preview cannot perturb the
+  live bond. Active-backup keeps the member it last chose rather than
+  failing back once the member it moved away from recovers; only a
+  configured `Primary` returns traffic to a specific member. A
+  `RebalanceInterval` elapsing on an unchanged, balanced bucket with two or
+  more enabled members raises `lag-rebalance-unmodeled`: OVS would have
+  measured load and could have moved the bucket, and netsim does not
+  measure load.
+- **The switch never queries, so an unobserved query it depended on degrades
+  readiness instead of silently keeping full timers.** RFC 3376 §6.4's leave
+  and report tables call for a "Send Q" action in some rows, but the switch
+  does not emit that query itself, so nothing lowers a member's timer to the
+  last member query time on the switch's own initiative. When a table row
+  calls for a query, the VLAN has a router port, and no matching
+  group-specific or group-and-source-specific query with the suppress flag
+  clear arrives within the last member query time, `mcast-query-unobserved`
+  marks the group's forwarding result Incomplete on
+  `ProtocolScope(node, "mcast", "<vid>/<group>")` until state changes: a real
+  querier's query would have pruned the group sooner, and the switch cannot
+  tell whether one was sent and lost or never existed. With no router port
+  there is no querier to have sent one, so the full membership interval is
+  the real behavior and the result stays Complete.
+
 ### Semantic traces and producer-owned facts
 
 Prose strings are rejected as trace comparison keys. Capabilities define typed
@@ -321,8 +357,8 @@ The following areas remain outside the foundation established here:
 - **Topology identity and adjacency ambiguity**: resolving links from noisy,
   conflicting, or unmanaged LLDP and CDP neighbor records.
 - **Protocol depth**: rapid spanning tree convergence state machines (RSTP and
-  MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election and
-  fast leave, dynamic IP routing (BGP and OSPF), and transport protocol behavior.
+  MSTP), LACP dynamic aggregation negotiations, IGMP/MLD querier election,
+  dynamic IP routing (BGP and OSPF), and transport protocol behavior.
 - **Scenario overlays and search**: high-level scenario injection DSLs, packet
   generation search spaces, and multi-journey exploration budgets.
 - **Convergence guarantees**: automated loop detection and settling criteria

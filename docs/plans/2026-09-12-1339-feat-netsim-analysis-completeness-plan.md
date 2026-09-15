@@ -503,7 +503,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3-plan.md`
 - **After:** U1, U2
-- **Landed:**
+- **Landed:** `96ec9fb1..b27d2799`
 - **Change:** OVS bucket-table LAG selection with a sticky active member,
   source-filtered multicast, and last-member query timing.
 - **Tests:** Bucket, failover, and RFC 3376 state-table tests, plus corpus

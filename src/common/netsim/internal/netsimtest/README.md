@@ -50,6 +50,27 @@ established across the library:
   traversal. Asserts that the decisive lookup rule (`unicast-hit`), VLAN
   classification, egress tag rewrite, and Complete readiness are exposed in
   the trace.
+- `planning/lag-member-fault-keeps-surviving-flows`: Two flows land on
+  distinct members of a BalanceSLB bond (bucket 28 on one member, bucket 253
+  on the other). Faulting the first member's flow reassigns only its bucket;
+  the surviving flow's next selection keeps the bucket it already held, with
+  cause `kept`, disproving the false answer that a member fault remaps every
+  flow.
+- `troubleshooting/active-backup-no-failback`: An active-backup bond with no
+  configured `Primary` moves from member `a` to member `b` when `a` goes
+  down, and stays on `b` with cause `last-active` once `a` recovers,
+  disproving the false answer that traffic returns to the lowest-named
+  member.
+- `troubleshooting/ssm-rejects-unjoined-source`: A port joins a group with a
+  source-specific IGMPv3 report naming one source. A frame from a second,
+  unjoined source to the same group resolves zero admitted ports and drops
+  `unregistered`, disproving the false answer that a group-only model would
+  admit it.
+- `troubleshooting/leave-last-member-query`: A non-fast leave with an
+  observed group-specific query stops forwarding to the departed member at
+  the last member query time, two seconds after the leave, well short of the
+  260 s membership interval a full run would use, disproving the false
+  answer that forwarding continues for the full interval regardless.
 
 The five `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey] and [ExecutionResult.FabricMetadata] alongside the

@@ -12,10 +12,10 @@ goroutines or wall-clock dependencies.
 | `analysis`         | Analysis trust metadata, scoped issues, and evidence catalog |
 | `vswitch`          | Virtual switch composing pipeline capabilities               |
 | `vswitch/port`     | Port table, administrative state, and MTU                    |
-| `vswitch/lag`      | Bond modes, member delays, LACP                              |
+| `vswitch/lag`      | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `vswitch/phy`      | Physical Ethernet speeds and PoE budget allocation           |
 | `vswitch/bridge`   | Filtering database, VLAN classification, and tagging         |
-| `vswitch/mcast`    | Per-VLAN multicast memberships, router ports, and aging      |
+| `vswitch/mcast`    | Per-port RFC 3376/MLDv2 router state, router ports, and aging |
 | `vswitch/routing`  | Routed interfaces, per-VRF forwarding and neighbor tables    |
 | `vswitch/stp`      | Rapid Spanning Tree Protocol state machine and BPDUs         |
 | `vswitch/netmodel` | Translation boundary for FlowSeer network model protos       |
