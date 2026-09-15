@@ -547,7 +547,7 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 					break
 				}
 			}
-			selected, ok := sw.SelectMember(portName, frame, vid)
+			selected, ok := sw.SelectMember(now, portName, frame, vid)
 			if !ok {
 				// The switch takes the LAG's spanning tree link down with its
 				// last enabled member, so a protocol frame reaches here only

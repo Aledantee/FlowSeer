@@ -71,7 +71,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		if len(lag.Diff(aLAG, bLAG)) == 0 && lagMemberStatesEqual(cur.ports, next.ports) {
 			next.lag = cur.lag.Clone()
 			if next.bridge != nil {
-				next.bridge.SetSelector(next.lag, protocolScope(next.nodeID, port.LayerLag))
+				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, port.LayerLag))
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func restoreMulticastState(next *Switch, retained *mcast.Layer) {
 			membershipInterval = mcast.DefaultMembershipInterval
 		}
 		for _, entry := range retained.Groups(vid) {
-			learnedAt := entry.Expires.Add(-membershipInterval)
+			learnedAt := entry.GroupExpires.Add(-membershipInterval)
 			if entry.Group.Is4() {
 				next.mcast.Learn(learnedAt, vid, entry.Port, netip.Addr{}, igmp.Message{
 					Type:  igmp.ReportV2,

@@ -171,6 +171,21 @@ type Switch struct {
 	nodeID         string
 	metadata       analysis.Metadata
 	missingSTP     bool
+
+	// lagRebalanceHits and mcastQueryUnobservedHits name, for the forward or
+	// peek call in progress, the LAGs and multicast groups whose resolution
+	// reported an unmodeled condition; wrapResult turns each into an
+	// Incomplete issue. Both reset at the start of every forward call.
+	lagRebalanceHits         map[string]lag.Selection
+	mcastQueryUnobservedHits []mcastQueryUnobservedHit
+}
+
+// mcastQueryUnobservedHit names one (VLAN, group) pair a forward call
+// resolved while a "Send Q" obligation had gone unobserved past its last
+// member query time.
+type mcastQueryUnobservedHit struct {
+	vid   vlan.ID
+	group netip.Addr
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
@@ -248,7 +263,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		}
 		sw.lag = l
 		if sw.bridge != nil {
-			sw.bridge.SetSelector(sw.lag, protocolScope(nodeID, port.LayerLag))
+			sw.bridge.SetSelector(lagSelector{sw: sw}, protocolScope(nodeID, port.LayerLag))
 		}
 		for _, p := range norm.Ports.Ports() {
 			if p.LagParent != "" && p.Forwards() {
@@ -573,6 +588,8 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 			}},
 		})
 	}
+	issues = append(issues, s.lagRebalanceIssues()...)
+	issues = append(issues, s.mcastQueryUnobservedIssues()...)
 
 	return ForwardResult{
 		Result:   res,
@@ -580,7 +597,99 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	}
 }
 
+// lagRebalanceIssues raises lag-rebalance-unmodeled for each LAG the forward
+// or peek call in progress actually used with a balanced selection old enough
+// that unmodeled rebalancing could have moved it.
+func (s *Switch) lagRebalanceIssues() []runtimeIssue {
+	if len(s.lagRebalanceHits) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(s.lagRebalanceHits))
+	for name := range s.lagRebalanceHits {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	issues := make([]runtimeIssue, 0, len(names))
+	for _, name := range names {
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    IssueLAGRebalanceUnmodeled,
+				Status:  analysis.Incomplete,
+				Scope:   s.aggregatorScope(name),
+				Message: fmt.Sprintf("LAG %q selection is balanced and old enough that unmodeled rebalancing could have moved it", name),
+			},
+			facts: s.lagConstructionEvidence(name),
+		})
+	}
+
+	return issues
+}
+
+func (s *Switch) lagConstructionEvidence(lagName string) []trace.Fact {
+	var evidence []trace.Fact
+	if p, ok := s.ports.Port(lagName); ok {
+		evidence = append(evidence, port.ForwardingFact(lagName, p, p.Forwards(), ""))
+	}
+	for _, m := range s.ports.Members(lagName) {
+		evidence = append(evidence, port.ForwardingFact(m.Name, m, m.Forwards(), ""))
+	}
+
+	return evidence
+}
+
+// mcastQueryUnobservedIssues raises mcast-query-unobserved for each (VLAN,
+// group) pair the forward or peek call in progress resolved while an
+// expected query had gone unobserved past its last member query time.
+func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
+	if len(s.mcastQueryUnobservedHits) == 0 {
+		return nil
+	}
+	seen := make(map[mcastQueryUnobservedHit]struct{}, len(s.mcastQueryUnobservedHits))
+	issues := make([]runtimeIssue, 0, len(s.mcastQueryUnobservedHits))
+	for _, hit := range s.mcastQueryUnobservedHits {
+		if _, ok := seen[hit]; ok {
+			continue
+		}
+		seen[hit] = struct{}{}
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    IssueMcastQueryUnobserved,
+				Status:  analysis.Incomplete,
+				Scope:   mcastGroupScope(s.nodeID, hit.vid, hit.group),
+				Message: fmt.Sprintf("multicast group %s on vlan %d has an expected query that was never observed", hit.group, hit.vid),
+			},
+			facts: s.mcastConstructionEvidence(hit.vid),
+		})
+	}
+	slices.SortFunc(issues, func(a, b runtimeIssue) int { return a.issue.Scope.Compare(b.issue.Scope) })
+
+	return issues
+}
+
+func (s *Switch) mcastConstructionEvidence(vid vlan.ID) []trace.Fact {
+	if s.mcast == nil {
+		return nil
+	}
+	var evidence []trace.Fact
+	for _, r := range s.mcast.RouterPorts(vid) {
+		if p, ok := s.ports.Port(r.Port); ok {
+			evidence = append(evidence, port.ForwardingFact(r.Port, p, p.Forwards(), ""))
+		}
+	}
+
+	return evidence
+}
+
+// mcastGroupScope names the analysis scope for one multicast group's
+// forwarding state on a VLAN.
+func mcastGroupScope(nodeID string, vid vlan.ID, group netip.Addr) analysis.Scope {
+	return analysis.ProtocolScope(nodeID, string(port.LayerMcast), fmt.Sprintf("%d/%s", vid, group))
+}
+
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	s.lagRebalanceHits = nil
+	s.mcastQueryUnobservedHits = nil
 	if mutate {
 		s.copies = nil
 	}
@@ -613,7 +722,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				protocolScope(s.nodeID, port.LayerLag), "ports", ingress,
 			))
 			s.forwardingDependencies(ingress).consult(&res)
-			return s.finishForward(ingress, f, res, mutate)
+			return s.finishForward(now, ingress, f, res, mutate)
 		}
 	}
 
@@ -625,7 +734,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			))
 		}
 		s.forwardingDependencies(ingress).consult(&res)
-		return s.finishForward(ingress, f, res, mutate)
+		return s.finishForward(now, ingress, f, res, mutate)
 	}
 
 	var routingScopes []analysis.Scope
@@ -665,7 +774,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					}
 					s.forwardingDependencies(ingress).consult(&res)
 					res.ConsultScopes(portLookupScopes...)
-					return s.finishForward(ingress, f, res, mutate)
+					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
 				ownershipScope := s.routing.InterfaceOwnershipScope(iface)
@@ -689,22 +798,22 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					}
 					s.forwardingDependencies(ingress).consult(&res)
 					res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
-					return s.finishForward(ingress, f, res, mutate)
+					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
 				pcp, dei := framePriority(f)
 				routeRes := s.routing.Route(iface, f)
-				res := s.assembleRouteResult(resolved.Name, 0, pcp, dei, nil, routeRes)
+				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
-				return s.finishForward(ingress, f, res, mutate)
+				return s.finishForward(now, ingress, f, res, mutate)
 			}
 		}
 	}
 
 	if s.bridge != nil {
 		controlCandidate := multicastControlCandidate(f)
-		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate)
+		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate, mutate)
 		if !ok {
 			res.ConsultScopes(routingScopes...)
 			if s.missingSTP && f.Dst == stpGroupAddress {
@@ -712,7 +821,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
 				))
 			}
-			return s.finishForward(ingress, f, res, mutate)
+			return s.finishForward(now, ingress, f, res, mutate)
 		}
 		in.ConsultScopes(routingScopes...)
 
@@ -723,7 +832,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			))
 			if s.mcast.Snooped(in.FID) {
 				res := s.forwardMulticastControl(now, ingress, f, in, mutate)
-				return s.finishForward(ingress, f, res, mutate)
+				return s.finishForward(now, ingress, f, res, mutate)
 			}
 		}
 
@@ -737,10 +846,10 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 					}
 					routeRes := s.routing.Route(iface, f)
-					res := s.assembleRouteResult(in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes)
+					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes, mutate)
 					res.Consult(in.ConsultedPorts()...)
 					res.ConsultScopes(in.ConsultedScopes()...)
-					return s.finishForward(ingress, f, res, mutate)
+					return s.finishForward(now, ingress, f, res, mutate)
 				}
 			}
 		} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
@@ -751,12 +860,12 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 		}
 
-		return s.finishForward(ingress, f, s.bridge.Egress(in, f), mutate)
+		return s.finishForward(now, ingress, f, s.bridge.Egress(in, f), mutate)
 	}
 
-	res := s.forwardHub(ingress, f)
+	res := s.forwardHub(now, ingress, f, mutate)
 	res.ConsultScopes(routingScopes...)
-	return s.finishForward(ingress, f, res, mutate)
+	return s.finishForward(now, ingress, f, res, mutate)
 }
 
 func multicastControlCandidate(f ethernet.Frame) bool {
@@ -782,7 +891,7 @@ func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.
 		return in
 	}
 
-	learned, _, ok := s.bridge.Ingress(now, ingress, f, true)
+	learned, _, ok := s.bridge.Ingress(now, ingress, f, true, true)
 	if !ok {
 		return in
 	}
@@ -950,8 +1059,9 @@ func routerPortNames(routers []mcast.RouterPort) []string {
 	return ports
 }
 
-// Resolve selects multicast members and router ports for an eligible IP group frame.
-func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
+// Resolve selects multicast members and router ports for an eligible IP group
+// frame as of now, filtering admitted member ports by the frame's IP source.
+func (s *Switch) Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 	if s.mcast == nil || s.cfg.Mcast == nil {
 		return nil, false
 	}
@@ -983,8 +1093,11 @@ func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 		}
 	}
 
-	ports, registered := s.mcast.Resolve(vid, hdr.Dst)
+	ports, registered, pending := s.mcast.Resolve(vid, hdr.Dst, hdr.Src, now)
 	if registered {
+		if pending {
+			s.recordMcastQueryUnobserved(vid, hdr.Dst)
+		}
 		return ports, true
 	}
 	if s.cfg.Mcast.Floods(vid) {
@@ -994,21 +1107,23 @@ func (s *Switch) Resolve(vid vlan.ID, f ethernet.Frame) ([]string, bool) {
 	return ports, true
 }
 
-// MembershipFact records the multicast membership lookup used by bridge replication.
-func (s *Switch) MembershipFact(vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
+// MembershipFact records the multicast membership lookup used by bridge
+// replication, naming the frame's IP source: ports is already that source's
+// admitted egress set, so the fact makes explicit which source produced it.
+func (s *Switch) MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact {
 	if s.mcast == nil {
-		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+		return newMembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
 	}
 	hdr, _, err := ip.Decode(f.Payload)
 	if err != nil {
-		return mcast.MembershipDecisionFact(vid, netip.Addr{}, ports, false, decided)
+		return newMembershipFact(vid, netip.Addr{}, netip.Addr{}, ports, false, decided)
 	}
-	_, registered := s.mcast.Resolve(vid, hdr.Dst)
+	_, registered, _ := s.mcast.Resolve(vid, hdr.Dst, hdr.Src, now)
 
-	return mcast.MembershipDecisionFact(vid, hdr.Dst, ports, registered, decided)
+	return newMembershipFact(vid, hdr.Dst, hdr.Src, ports, registered, decided)
 }
 
-func (s *Switch) finishForward(ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
+func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
 	if s.traffic == nil {
 		return res
 	}
@@ -1052,7 +1167,7 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 		resolvedIngress = ingress
 	}
 	copies := traffic.Copies(*s.traffic, vlans, resolvedIngress, res.FID, received, res.Egress)
-	copies = s.readyMirrorCopies(&res, copies)
+	copies = s.readyMirrorCopies(now, &res, copies, mutate)
 	if mutate {
 		s.copies = copies
 	}
@@ -1060,7 +1175,7 @@ func (s *Switch) finishForward(ingress string, received ethernet.Frame, res brid
 	return res
 }
 
-func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []traffic.Copy {
+func (s *Switch) readyMirrorCopies(now time.Time, res *bridge.Result, copies []traffic.Copy, mutate bool) []traffic.Copy {
 	ready := copies[:0]
 	for _, copy := range copies {
 		output, ok := s.ports.Port(copy.Port)
@@ -1075,14 +1190,14 @@ func (s *Switch) readyMirrorCopies(res *bridge.Result, copies []traffic.Copy) []
 			reason = port.ReasonPortDown
 		} else if output.Kind == port.Lag {
 			res.ConsultScopes(s.aggregatorScope(copy.Port))
-			member, selected := s.SelectMember(copy.Port, copy.Frame, copy.VLAN)
-			selection = s.lag.SelectionFact(copy.Port, copy.Frame, copy.VLAN, member, selected)
-			if !selected {
+			sel, fact := s.selectMemberWithFact(now, copy.Port, copy.Frame, copy.VLAN, mutate)
+			selection = fact
+			if !sel.OK {
 				reason = bridge.ReasonNoMember
-			} else if memberPort, exists := s.ports.Port(member); !exists || !memberPort.Forwards() {
+			} else if memberPort, exists := s.ports.Port(sel.Member); !exists || !memberPort.Forwards() {
 				reason = port.ReasonPortDown
 			} else {
-				copy.Member = member
+				copy.Member = sel.Member
 			}
 		}
 
@@ -1172,12 +1287,14 @@ func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
 }
 
 func (s *Switch) assembleRouteResult(
+	now time.Time,
 	ingressPort string,
 	ingressFID vlan.ID,
 	ingressPCP vlan.PCP,
 	ingressDEI bool,
 	ingressSteps []trace.Step,
 	routeRes routing.Result,
+	mutate bool,
 ) bridge.Result {
 	routeScopes := routeRes.ConsultedScopes()
 	if routeRes.Reason != "" {
@@ -1215,11 +1332,13 @@ func (s *Switch) assembleRouteResult(
 		stepsSoFar = append(stepsSoFar, routeRes.Steps...)
 
 		bridgeIn := bridge.Ingress{
-			Port:  "",
-			FID:   egressIface.VLAN,
-			PCP:   ingressPCP,
-			DEI:   ingressDEI,
-			Steps: stepsSoFar,
+			Port:   "",
+			FID:    egressIface.VLAN,
+			PCP:    ingressPCP,
+			DEI:    ingressDEI,
+			Steps:  stepsSoFar,
+			Now:    now,
+			Commit: mutate,
 		}
 		bridgeIn.ConsultScopes(routeScopes...)
 		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
@@ -1271,9 +1390,9 @@ func (s *Switch) assembleRouteResult(
 	resultScopes := routeScopes
 	if p.Kind == port.Lag {
 		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
-		mem, ok := s.SelectMember(egressIface.Port, routeRes.Frame, 0)
-		selection = s.lag.SelectionFact(egressIface.Port, routeRes.Frame, 0, mem, ok)
-		if !ok {
+		sel, fact := s.selectMemberWithFact(now, egressIface.Port, routeRes.Frame, 0, mutate)
+		selection = fact
+		if !sel.OK {
 			steps = append(steps, trace.Step{
 				Layer:   port.LayerRouting,
 				Op:      trace.OpDrop,
@@ -1303,7 +1422,7 @@ func (s *Switch) assembleRouteResult(
 			res.ConsultScopes(resultScopes...)
 			return res
 		}
-		member = mem
+		member = sel.Member
 	}
 
 	steps = append(steps, trace.Step{
@@ -1361,7 +1480,7 @@ func (s *Switch) Age(now time.Time) {
 	}
 }
 
-func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
+func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
@@ -1475,9 +1594,9 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 		var selection trace.Fact
 		if cand.Kind == port.Lag {
 			res.ConsultScopes(s.aggregatorScope(cand.Name))
-			mem, ok := s.SelectMember(cand.Name, f, 0)
-			selection = s.lag.SelectionFact(cand.Name, f, 0, mem, ok)
-			if !ok {
+			sel, fact := s.selectMemberWithFact(now, cand.Name, f, 0, mutate)
+			selection = fact
+			if !sel.OK {
 				res.Egress = append(res.Egress, bridge.Egress{
 					Port:    cand.Name,
 					Frame:   f,
@@ -1494,7 +1613,7 @@ func (s *Switch) forwardHub(ingress string, f ethernet.Frame) bridge.Result {
 
 				continue
 			}
-			member = mem
+			member = sel.Member
 		}
 
 		res.Steps = append(res.Steps, trace.Step{
@@ -1999,6 +2118,17 @@ const (
 // point-to-point duplex status was unknown.
 const IssueProtocolLinkUnknown analysis.IssueCode = "protocol-link-unknown"
 
+// IssueLAGRebalanceUnmodeled indicates that a forward's LAG selection is a
+// balanced-mode bucket assignment old enough that measured-load rebalancing
+// could have moved it, which netsim does not model.
+const IssueLAGRebalanceUnmodeled analysis.IssueCode = "lag-rebalance-unmodeled"
+
+// IssueMcastQueryUnobserved indicates that a forward's multicast resolution
+// depends on a group-specific or group-and-source-specific query that the
+// router state tables call for but that was never observed within the last
+// member query time, though the VLAN has a router port.
+const IssueMcastQueryUnobserved analysis.IssueCode = "mcast-query-unobserved"
+
 // LinkChange notifies the protocol layers of a link transition on the named port.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
 	if s.portP2P == nil {
@@ -2048,14 +2178,107 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	s.recomputeProtocolLinkIssues()
 }
 
-// SelectMember chooses an enabled member of the named LAG to carry the given frame.
-// It returns false if the LAG is unknown, has no layer, or has no enabled member.
-func (s *Switch) SelectMember(lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+// SelectMember commits an enabled member choice for the named LAG to carry f
+// at vid, recording the choice as the layer's new bucket assignment or
+// last-active member: a fabric transmission or another real transmission the
+// switch makes outside the bridge pipeline. It returns false if the LAG is
+// unknown, has no layer, or has no enabled member.
+func (s *Switch) SelectMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	sel := s.selectOrPeekMember(now, lagName, f, vid, true)
+
+	return sel.Member, sel.OK
+}
+
+// PeekMember computes the same choice SelectMember would make without
+// committing it.
+func (s *Switch) PeekMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	sel := s.selectOrPeekMember(now, lagName, f, vid, false)
+
+	return sel.Member, sel.OK
+}
+
+// selectOrPeekMember chooses a member of the named LAG to carry f at vid,
+// committing the choice when commit is true, and records the selection for
+// the lag-rebalance-unmodeled issue when it reports that condition.
+func (s *Switch) selectOrPeekMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID, commit bool) lag.Selection {
 	if s.lag == nil {
-		return "", false
+		return lag.Selection{}
 	}
 
-	return s.lag.Select(lagName, f, vid)
+	var sel lag.Selection
+	if commit {
+		sel = s.lag.Select(now, lagName, f, vid)
+	} else {
+		sel = s.lag.Peek(now, lagName, f, vid)
+	}
+	if sel.OK {
+		s.recordLAGSelection(lagName, sel)
+	}
+
+	return sel
+}
+
+// selectMemberWithFact behaves as selectOrPeekMember, additionally returning
+// the semantic fact describing the selection for a caller building its own
+// trace step, such as hub flooding or routed LAG egress.
+func (s *Switch) selectMemberWithFact(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID, commit bool) (lag.Selection, trace.Fact) {
+	sel := s.selectOrPeekMember(now, lagName, f, vid, commit)
+	if s.lag == nil {
+		return sel, nil
+	}
+
+	return sel, s.lag.SelectionFact(lagName, f, vid, sel)
+}
+
+// recordLAGSelection notes that the forward or peek call in progress used
+// lagName's selection sel, so wrapResult can raise lag-rebalance-unmodeled
+// for that LAG when sel reports the condition.
+func (s *Switch) recordLAGSelection(lagName string, sel lag.Selection) {
+	if !sel.RebalanceUnmodeled {
+		return
+	}
+	if s.lagRebalanceHits == nil {
+		s.lagRebalanceHits = make(map[string]lag.Selection)
+	}
+	s.lagRebalanceHits[lagName] = sel
+}
+
+// recordMcastQueryUnobserved notes that the forward or peek call in progress
+// resolved (vid, group) while its expected query had gone unobserved, so
+// wrapResult can raise mcast-query-unobserved for that group.
+func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr) {
+	s.mcastQueryUnobservedHits = append(s.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group})
+}
+
+// lagSelector adapts a switch's LAG layer to [bridge.Selector] and
+// [bridge.semanticSelector], recording each selection so forward metadata can
+// raise the rebalance-unmodeled issue for the LAGs a journey actually used.
+type lagSelector struct {
+	sw *Switch
+}
+
+func (a lagSelector) Select(now time.Time, lagName string, commit bool, f ethernet.Frame, vid vlan.ID) bridge.Selection {
+	sel := a.sw.selectOrPeekMember(now, lagName, f, vid, commit)
+
+	return bridge.Selection{
+		Member:             sel.Member,
+		OK:                 sel.OK,
+		Bucket:             sel.Bucket,
+		Prior:              sel.Prior,
+		Cause:              string(sel.Cause),
+		RebalanceUnmodeled: sel.RebalanceUnmodeled,
+	}
+}
+
+func (a lagSelector) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, sel bridge.Selection) trace.Fact {
+	return a.sw.lag.SelectionFact(lagName, f, vid, lag.Selection{
+		Member:             sel.Member,
+		OK:                 sel.OK,
+		Bucket:             sel.Bucket,
+		Prior:              sel.Prior,
+		Cause:              lag.SelectionCause(sel.Cause),
+		RebalanceUnmodeled: sel.RebalanceUnmodeled,
+	})
 }
 
 // LagInfo returns the runtime aggregation status of the named LAG,

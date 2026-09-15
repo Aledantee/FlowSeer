@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -4289,7 +4290,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	sw.Start(now)
 
 	dummyFrame := ethernet.Frame{Dst: netaddr.MAC{1}, Src: netaddr.MAC{2}}
-	mem, ok := sw.SelectMember("lag1", dummyFrame, 10)
+	mem, ok := sw.SelectMember(now, "lag1", dummyFrame, 10)
 	if !ok || mem != "1/1/1" {
 		t.Fatalf("SelectMember = (%q, %t), want (1/1/1, true)", mem, ok)
 	}
@@ -4302,7 +4303,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	// Member 1/1/1 goes down through LinkChange
 	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000)
 
-	mem, ok = sw.SelectMember("lag1", dummyFrame, 10)
+	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
 	if !ok || mem != "1/1/2" {
 		t.Fatalf("after link down, SelectMember = (%q, %t), want (1/1/2, true)", mem, ok)
 	}
@@ -4314,7 +4315,7 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 
 	// Both members down: lag1 has no enabled member
 	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-	mem, ok = sw.SelectMember("lag1", dummyFrame, 10)
+	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
 	if ok {
 		t.Fatalf("after all links down, SelectMember returned %q, want false", mem)
 	}
@@ -4852,7 +4853,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	if res.Reason != mcast.ReasonUnregistered {
 		t.Errorf("unregistered group without router reason = %q, want %q", res.Reason, mcast.ReasonUnregistered)
 	}
-	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
+	if !traceHasFactType(res.Steps, "vswitch.mcast_membership") {
 		t.Errorf("unregistered multicast trace has no membership decision: %+v", res.Steps)
 	}
 
@@ -4866,7 +4867,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("unregistered group with router ports = %v, want [1/1/4]", got)
 	}
-	if !traceHasFactType(res.Steps, "mcast.membership_decision") {
+	if !traceHasFactType(res.Steps, "vswitch.mcast_membership") {
 		t.Errorf("router-port multicast trace has no membership decision: %+v", res.Steps)
 	}
 
@@ -4985,7 +4986,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
-	if groups := kept.Groups(10); len(groups) != 1 || groups[0].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
+	if groups := kept.Groups(10); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("derived Groups(10) = %+v, want retained entry with original expiry", groups)
 	}
 
@@ -5015,7 +5016,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}
-	if groups := retained.Groups(10); len(groups) != 1 || groups[0].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
+	if groups := retained.Groups(10); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("Groups(10) after configuration change = %+v, want retained original expiry", groups)
 	}
 	routers := retained.RouterPorts(10)
@@ -5023,4 +5024,249 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		routers[1].Port != "1/1/4" || routers[1].Static || routers[1].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("RouterPorts(10) after configuration change = %+v, want new static 1/1/3 and retained learned 1/1/4", routers)
 	}
+}
+
+// balancedLAGConfig builds a switch with one flat (untagged, VLAN-unaware)
+// ingress port "in" and a two-member BalanceSLB lag1, so a flooded frame
+// always exercises LAG member selection.
+func balancedLAGConfig(t *testing.T, rebalanceInterval *time.Duration) vswitch.Config {
+	t.Helper()
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	return vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode:              lag.BalanceSLB,
+				Members:           map[string]lag.Member{"member-a": {}, "member-b": {}},
+				RebalanceInterval: rebalanceInterval,
+			},
+		}},
+	}
+}
+
+func hasIssueCode(issues []analysis.Issue, code analysis.IssueCode) bool {
+	return slices.ContainsFunc(issues, func(issue analysis.Issue) bool { return issue.Code == code })
+}
+
+// TestForwardCommitsLAGSelectionPeekDoesNot is evidence for this change:
+// Peek must not commit a bucket assignment or rotate the enabled list, so a
+// Forward call that follows two Peeks of the same frame reaches the same
+// selector state a lone Forward on a fresh switch would.
+func TestForwardCommitsLAGSelectionPeekDoesNot(t *testing.T) {
+	cfg := balancedLAGConfig(t, nil)
+	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+
+	peeked := mustSwitch(t, cfg)
+	peeked.Peek(fixedTime, "in", frame)
+	peeked.Peek(fixedTime, "in", frame)
+	peekedResult := peeked.Forward(fixedTime, "in", frame)
+
+	fresh := mustSwitch(t, cfg)
+	freshResult := fresh.Forward(fixedTime, "in", frame)
+
+	if !reflect.DeepEqual(peekedResult.Result, freshResult.Result) {
+		t.Errorf("Peek committed LAG selection state:\npeeked = %+v\nfresh  = %+v", peekedResult.Result, freshResult.Result)
+	}
+}
+
+// TestForwardRaisesLAGRebalanceUnmodeled is evidence for this change: a
+// balanced selection whose bucket was assigned at least one rebalance
+// interval ago carries lag-rebalance-unmodeled, and a zero RebalanceInterval
+// disables the signal entirely.
+func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
+	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+	t0 := fixedTime
+	ten := 10 * time.Second
+
+	sw := mustSwitch(t, balancedLAGConfig(t, &ten))
+	sw.Forward(t0, "in", frame)
+
+	at9 := sw.Forward(t0.Add(9*time.Second), "in", frame)
+	if at9.Metadata.Status() != analysis.Complete {
+		t.Errorf("status at t0+9s = %v, want Complete: issues=%+v", at9.Metadata.Status(), at9.Metadata.Issues())
+	}
+
+	at10 := sw.Forward(t0.Add(10*time.Second), "in", frame)
+	if at10.Metadata.Status() != analysis.Incomplete {
+		t.Errorf("status at t0+10s = %v, want Incomplete", at10.Metadata.Status())
+	}
+	if !hasIssueCode(at10.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Errorf("issues at t0+10s = %+v, want lag-rebalance-unmodeled", at10.Metadata.Issues())
+	}
+
+	zero := time.Duration(0)
+	swDisabled := mustSwitch(t, balancedLAGConfig(t, &zero))
+	swDisabled.Forward(t0, "in", frame)
+	for _, at := range []time.Time{t0.Add(9 * time.Second), t0.Add(10 * time.Second)} {
+		res := swDisabled.Forward(at, "in", frame)
+		if res.Metadata.Status() != analysis.Complete {
+			t.Errorf("RebalanceInterval=0 at %v: status = %v, want Complete", at, res.Metadata.Status())
+		}
+	}
+}
+
+// TestRebalanceIssueScopedToJourneysThroughBalancedLAG is evidence that the
+// lag-rebalance-unmodeled issue names only the journeys that actually used
+// the balanced LAG, not every journey a switch with a stale bucket forwards.
+func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	ten := 10 * time.Second
+	cfg := vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode:              lag.BalanceSLB,
+				Members:           map[string]lag.Member{"member-a": {}, "member-b": {}},
+				RebalanceInterval: &ten,
+			},
+		}},
+	}
+	sw := mustSwitch(t, cfg)
+
+	lagDst := netaddr.MAC{0x02, 0, 0, 0, 0, 9}
+	outDst := netaddr.MAC{0x02, 0, 0, 0, 0, 8}
+	mustSwitchLearn(t, sw, []bridge.Seed{
+		{MAC: lagDst, Port: "lag1", Static: true},
+		{MAC: outDst, Port: "out", Static: true},
+	})
+
+	lagFrame := ethernet.Frame{Dst: lagDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+	outFrame := ethernet.Frame{Dst: outDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 2}}
+
+	t0 := fixedTime
+	sw.Forward(t0, "in", lagFrame)
+
+	lagRes := sw.Forward(t0.Add(10*time.Second), "in", lagFrame)
+	if !hasIssueCode(lagRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Fatalf("journey through lag1 issues = %+v, want lag-rebalance-unmodeled", lagRes.Metadata.Issues())
+	}
+
+	outRes := sw.Forward(t0.Add(10*time.Second), "in", outFrame)
+	if hasIssueCode(outRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Errorf("unrelated journey through out issues = %+v, want no lag-rebalance-unmodeled", outRes.Metadata.Issues())
+	}
+}
+
+// TestMulticastLeaveTimingThroughForward is evidence for this change: a
+// non-fast leave keeps forwarding for LMQT after an observed group-specific
+// query, for the full membership interval and mcast-query-unobserved without
+// one, and Complete regardless when the VLAN has no router port.
+func TestMulticastLeaveTimingThroughForward(t *testing.T) {
+	group := netip.MustParseAddr("239.6.6.6")
+	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x06, 0x06, 0x06}
+	allRoutersMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x02}
+
+	build := func(t *testing.T, withRouter bool) *vswitch.Switch {
+		t.Helper()
+		pvid := vlan.ID(10)
+		ports := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		snooping := mcast.VLANSnooping{LastMemberQueryInterval: time.Second, LastMemberQueryCount: 2}
+		if withRouter {
+			snooping.RouterPorts = []string{"p9"}
+		}
+		return mustSwitch(t, vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{
+					"p1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+					"p9": {PVID: &pvid, Untagged: []vlan.ID{10}},
+				},
+			}},
+			Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: snooping}},
+		})
+	}
+
+	dataFrame := func(t *testing.T, source netip.Addr) ethernet.Frame {
+		t.Helper()
+
+		return ethernet.Frame{
+			Dst:       groupMAC,
+			Src:       mcastRouterMAC,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   makeIPv4Packet(t, source, group, 32, []byte("data")),
+		}
+	}
+
+	t0 := fixedTime
+	leaveAt := t0.Add(10 * time.Second)
+	other := netip.MustParseAddr("10.9.9.9")
+
+	join := func(t *testing.T, sw *vswitch.Switch) {
+		sw.Forward(t0, "p1", makeIGMPControlFrame(t,
+			netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, groupMAC, 1,
+			igmp.Message{Type: igmp.ReportV2, Group: group}))
+	}
+	leave := func(t *testing.T, sw *vswitch.Switch) {
+		sw.Forward(leaveAt, "p1", makeIGMPControlFrame(t,
+			netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("224.0.0.2"), mcastHostMAC, allRoutersMAC, 1,
+			igmp.Message{Type: igmp.Leave, Group: group}))
+	}
+
+	t.Run("observed query shortens the leave to LMQT", func(t *testing.T) {
+		sw := build(t, true)
+		join(t, sw)
+		leave(t, sw)
+		sw.Forward(leaveAt, "p9", makeIGMPControlFrame(t,
+			netip.MustParseAddr("10.0.0.254"), group, mcastRouterMAC, groupMAC, 1,
+			igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group}))
+
+		res1 := sw.Forward(leaveAt.Add(time.Second), "p9", dataFrame(t, other))
+		if !slices.Contains(mcastForwardedPorts(res1), "p1") {
+			t.Errorf("egress at t+1s = false, want true")
+		}
+		res2 := sw.Forward(leaveAt.Add(2*time.Second), "p9", dataFrame(t, other))
+		if slices.Contains(mcastForwardedPorts(res2), "p1") {
+			t.Errorf("egress at t+2s = true, want false")
+		}
+	})
+
+	t.Run("without a query the leave runs the full interval and flags the gap", func(t *testing.T) {
+		sw := build(t, true)
+		join(t, sw)
+		leave(t, sw)
+
+		res := sw.Forward(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
+		if !slices.Contains(mcastForwardedPorts(res), "p1") {
+			t.Errorf("egress at t+3s = false, want true")
+		}
+		if !hasIssueCode(res.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+			t.Errorf("issues at t+3s = %+v, want mcast-query-unobserved", res.Metadata.Issues())
+		}
+		if res.Metadata.Status() != analysis.Incomplete {
+			t.Errorf("status at t+3s = %v, want Incomplete", res.Metadata.Status())
+		}
+	})
+
+	t.Run("with no router port nothing is flagged", func(t *testing.T) {
+		sw := build(t, false)
+		join(t, sw)
+		leave(t, sw)
+
+		res := sw.Forward(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
+		if !slices.Contains(mcastForwardedPorts(res), "p1") {
+			t.Errorf("egress at t+3s = false, want true")
+		}
+		if hasIssueCode(res.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+			t.Errorf("issues at t+3s = %+v, want no mcast-query-unobserved", res.Metadata.Issues())
+		}
+		if res.Metadata.Status() != analysis.Complete {
+			t.Errorf("status at t+3s = %v, want Complete", res.Metadata.Status())
+		}
+	})
 }

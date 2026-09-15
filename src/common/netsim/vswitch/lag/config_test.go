@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
@@ -404,6 +405,39 @@ func TestDiffCoversRebalanceInterval(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("Diff(unset, explicitFive) = %+v, want a rebalance_interval change", changes)
+	}
+}
+
+// TestVSwitchStoresEffectiveLAGConfiguration proves a package outside lag and
+// mcast can name every exported Config field and construct a value: it builds
+// the effective LAG configuration through vswitch.Config alone and checks it
+// against lag.Config{}.Defaults directly.
+func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
+	t.Parallel()
+
+	ports := lagPortTable(t)
+	systemID := mustMAC(t, "02:00:00:00:00:aa")
+	omitted := vswitch.Config{MAC: systemID, Ports: ports}
+	effectiveLAG := lag.Config{}.Defaults(ports, systemID)
+	explicit := vswitch.Config{MAC: systemID, Ports: ports, LAG: &effectiveLAG}
+
+	omittedNorm := omitted.Normalize()
+	if omittedNorm.LAG == nil {
+		t.Fatal("Normalize().LAG = nil, want effective LAG configuration")
+	}
+	if changes := vswitch.Diff(omittedNorm, explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(omitted, explicit) = %+v, want no changes", changes)
+	}
+
+	sw, err := vswitch.New(omitted)
+	if err != nil {
+		t.Fatalf("vswitch.New: %v", err)
+	}
+	if changes := vswitch.Diff(sw.Config(), explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(Switch.Config(), explicit) = %+v, want no changes", changes)
+	}
+	if changes := vswitch.Diff(sw.Spec().Config, explicit.Normalize()); len(changes) != 0 {
+		t.Errorf("Diff(Switch.Spec().Config, explicit) = %+v, want no changes", changes)
 	}
 }
 

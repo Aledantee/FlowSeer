@@ -27,23 +27,49 @@ type semanticGate interface {
 	ForwardingFact(port string, learns, forwards bool) trace.Fact
 }
 
-// Selector chooses a member port of a link aggregation group to carry an egress frame.
+// Selection is a bridge-level snapshot of a link aggregation member choice. It
+// carries the fields a [Selector] decision reports without the bridge package
+// depending on the layer that produces them.
+type Selection struct {
+	Member string
+	OK     bool
+
+	// Bucket and Prior describe a balanced-mode decision; both are zero for
+	// an active-backup decision.
+	Bucket uint8
+	Prior  string
+
+	// Cause names why the selector chose Member, in the selecting layer's own
+	// vocabulary (for example "kept", "first-use", "primary").
+	Cause string
+
+	// RebalanceUnmodeled reports that this is a balanced-mode selection whose
+	// bucket assignment is old enough that measured-load rebalancing could
+	// have moved it, which the selecting layer does not model.
+	RebalanceUnmodeled bool
+}
+
+// Selector chooses a member port of a link aggregation group to carry an
+// egress frame. commit reports whether the choice mutates the selector's
+// runtime state (a bucket assignment, an enabled-list rotation, or
+// active-backup's last-active memory); a non-committing call computes the
+// same choice without changing it.
 type Selector interface {
-	Select(lag string, f ethernet.Frame, vid vlan.ID) (string, bool)
+	Select(now time.Time, lag string, commit bool, f ethernet.Frame, vid vlan.ID) Selection
 }
 
 type semanticSelector interface {
-	SelectionFact(lag string, f ethernet.Frame, vid vlan.ID, member string, selected bool) trace.Fact
+	SelectionFact(lag string, f ethernet.Frame, vid vlan.ID, sel Selection) trace.Fact
 }
 
 // GroupResolver selects the logical egress ports for a group frame.
 // A false decision leaves the frame on the bridge's ordinary flood path.
 type GroupResolver interface {
-	Resolve(vid vlan.ID, f ethernet.Frame) (ports []string, decided bool)
+	Resolve(now time.Time, vid vlan.ID, f ethernet.Frame) (ports []string, decided bool)
 }
 
 type semanticGroupResolver interface {
-	MembershipFact(vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact
+	MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, ports []string, decided bool) trace.Fact
 }
 
 // Bridge simulates an Ethernet transparent bridge with optional IEEE 802.1Q VLAN awareness.
@@ -316,7 +342,7 @@ func (b *Bridge) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
 }
 
 func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn bool) Result {
-	in, res, ok := b.Ingress(now, ingress, f, learn)
+	in, res, ok := b.Ingress(now, ingress, f, learn, learn)
 	if !ok {
 		return res
 	}
@@ -326,13 +352,19 @@ func (b *Bridge) forward(now time.Time, ingress string, f ethernet.Frame, learn 
 
 // Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
 type Ingress struct {
-	Port            string
-	FID             vlan.ID
-	PCP             vlan.PCP
-	DEI             bool
-	RemainingTags   []vlan.Tag
-	TPID            uint16
-	Steps           []trace.Step
+	Port          string
+	FID           vlan.ID
+	PCP           vlan.PCP
+	DEI           bool
+	RemainingTags []vlan.Tag
+	TPID          uint16
+	Steps         []trace.Step
+
+	// Now is the time this ingress descriptor was composed at, and Commit
+	// reports whether the forwarding call that produced it mutates state: a
+	// LAG selection made during egress commits exactly when Commit is true.
+	Now             time.Time
+	Commit          bool
 	consultedPorts  []port.Port
 	consultedScopes []analysis.Scope
 }
@@ -365,9 +397,13 @@ func (in *Ingress) ConsultScopes(scopes ...analysis.Scope) {
 
 // Ingress processes an incoming frame through port validation, IEEE reserved address checks,
 // forwarding gate, VLAN classification, admission control, ingress filtering, and MAC learning.
+// learn governs forwarding-database learning; commit governs whether egress processing of the
+// returned descriptor commits mutating state such as a LAG selection. The two differ only when a
+// caller defers learning past a later check, since the commit semantics of its eventual egress
+// still reflect this call's caller.
 // It returns false and a populated Result on any drop; on success it returns true and an Ingress
 // descriptor for subsequent egress forwarding.
-func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn bool) (Ingress, Result, bool) {
+func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, commit bool) (Ingress, Result, bool) {
 	var res Result
 	res.Outcome = trace.Dropped
 	b.consultForwardingPath(&res, ingress)
@@ -741,6 +777,8 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn 
 		RemainingTags:   remainingTags,
 		TPID:            ingressTPID,
 		Steps:           res.Steps,
+		Now:             now,
+		Commit:          commit,
 		consultedPorts:  res.ConsultedPorts(),
 		consultedScopes: res.ConsultedScopes(),
 	}
@@ -817,10 +855,10 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 		})
 		if b.resolver != nil {
 			res.ConsultScopes(analysis.FieldScope(b.resolverScope, "vlans", strconv.Itoa(int(in.FID))))
-			if ports, decided := b.resolver.Resolve(in.FID, f); decided {
+			if ports, decided := b.resolver.Resolve(in.Now, in.FID, f); decided {
 				var membership trace.Fact
 				if resolver, ok := b.resolver.(semanticGroupResolver); ok {
-					membership = resolver.MembershipFact(in.FID, f, ports, decided)
+					membership = resolver.MembershipFact(in.Now, in.FID, f, ports, decided)
 				}
 				emptyReason := ReasonNoEgress
 				if len(ports) == 0 {
@@ -963,7 +1001,7 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		member, selection, ok := b.selectMember(&res, destPort, egressFrame, in.FID, in.PCP)
+		member, selection, ok := b.selectMember(&res, in, destPort, egressFrame, in.PCP)
 		if !ok {
 			res.Reason = ReasonNoMember
 
@@ -1163,7 +1201,7 @@ func (b *Bridge) replicate(
 			continue
 		}
 
-		member, selection, ok := b.selectMember(&res, candidate, egressFrame, in.FID, in.PCP)
+		member, selection, ok := b.selectMember(&res, in, candidate, egressFrame, in.PCP)
 		if !ok {
 			continue
 		}
@@ -1221,27 +1259,29 @@ func (b *Bridge) gateFact(name string, learns, forwards bool) trace.Fact {
 // selectMember asks the selector which member carries a frame out of a LAG
 // port, recording an egress drop with no-member when there is no selector or
 // it names none; a port that is not a LAG has no member and always passes.
-func (b *Bridge) selectMember(res *Result, p port.Port, f ethernet.Frame, vid vlan.ID, pcp vlan.PCP) (string, trace.Fact, bool) {
+// It commits the selector's choice exactly when in.Commit is true.
+func (b *Bridge) selectMember(res *Result, in Ingress, p port.Port, f ethernet.Frame, pcp vlan.PCP) (string, trace.Fact, bool) {
 	if p.Kind != port.Lag {
 		return "", nil, true
 	}
 	if p.Forwards() {
 		res.Consult(b.ports.Members(p.Name)...)
 	}
+	vid := in.FID
 	var selection trace.Fact
 	if b.selector != nil {
 		res.ConsultScopes(analysis.FieldScope(b.selectorScope, "aggregators", p.Name))
-		member, ok := b.selector.Select(p.Name, f, vid)
+		sel := b.selector.Select(in.Now, p.Name, in.Commit, f, vid)
 		reason := trace.Reason("")
-		if !ok {
+		if !sel.OK {
 			reason = ReasonNoMember
 		}
-		selection = egressSnapshot(p.Name, member, vid, reason, ok)
+		selection = egressSnapshot(p.Name, sel.Member, vid, reason, sel.OK)
 		if semantic, hasFacts := b.selector.(semanticSelector); hasFacts {
-			selection = semantic.SelectionFact(p.Name, f, vid, member, ok)
+			selection = semantic.SelectionFact(p.Name, f, vid, sel)
 		}
-		if ok {
-			return member, selection, true
+		if sel.OK {
+			return sel.Member, selection, true
 		}
 	}
 	res.Egress = append(res.Egress, Egress{

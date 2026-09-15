@@ -38,7 +38,7 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			currentConfig := lagDeriveConfig(t, port.Up, port.Up)
 			current := mustSwitch(t, currentConfig)
-			if member, ok := current.SelectMember("lag1", frame, 0); !ok || member != "member" {
+			if member, ok := current.SelectMember(fixedTime, "lag1", frame, 0); !ok || member != "member" {
 				t.Fatalf("current selection = (%q, %t), want member", member, ok)
 			}
 
@@ -49,8 +49,8 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 			}
 			fresh := mustSwitch(t, targetConfig)
 
-			derivedMember, derivedOK := derived.SelectMember("lag1", frame, 0)
-			freshMember, freshOK := fresh.SelectMember("lag1", frame, 0)
+			derivedMember, derivedOK := derived.SelectMember(fixedTime, "lag1", frame, 0)
+			freshMember, freshOK := fresh.SelectMember(fixedTime, "lag1", frame, 0)
 			if derivedMember != freshMember || derivedOK != freshOK {
 				t.Errorf("derived selection = (%q, %t), fresh = (%q, %t)", derivedMember, derivedOK, freshMember, freshOK)
 			}
@@ -286,11 +286,11 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 			}
 			sw := mustSwitch(t, cfg)
 
-			wantMember, ok := sw.SelectMember("lag1", frame, outputVLAN)
+			wantMember, ok := sw.SelectMember(fixedTime, "lag1", frame, outputVLAN)
 			if !ok {
 				t.Fatal("output VLAN has no selected LAG member")
 			}
-			inferredMember, ok := sw.SelectMember("lag1", frame, 0)
+			inferredMember, ok := sw.SelectMember(fixedTime, "lag1", frame, 0)
 			if !ok || inferredMember == wantMember {
 				t.Fatalf("test does not distinguish logical VLAN selection: VLAN 99 = %q, VLAN 0 = %q", wantMember, inferredMember)
 			}

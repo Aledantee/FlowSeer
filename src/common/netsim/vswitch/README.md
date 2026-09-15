@@ -129,10 +129,15 @@ The virtual switch uses a ladder of architectural layers:
   block traffic on Discarding ports while learning on Learning ports.
 - **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
   `mcast.Config`. IGMP and MLD reports register group members, while queries
-  identify router ports. Registered IP multicast reaches members and router
-  ports; each VLAN chooses whether an unregistered group floods or reaches
-  router ports only. Link-local control groups remain on the ordinary flood
-  path.
+  identify router ports. `Switch.Resolve` filters admitted member ports by
+  the frame's decoded IP source, so an `(S,G)` join admits that source and no
+  other; router ports always receive registered traffic. Each VLAN chooses
+  whether an unregistered group floods or reaches router ports only.
+  Link-local control groups remain on the ordinary flood path. A non-fast
+  leave keeps forwarding until an observed query lowers its timer to the
+  last member query time or, without one, until the full membership interval
+  elapses; the runtime issues below cover the completeness signal that gap
+  raises.
 - **Routing**: Configured with `routing.Config` containing VRFs and routed
   interfaces. An interface has one of two shapes: a VLAN interface (routed
   presence of a classified VLAN) or a routed port (physical or LAG port that
@@ -284,7 +289,11 @@ background timers. The host drives them through explicit calls:
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
-- `SelectMember(lag, frame, vid)` chooses an enabled member port for a frame.
+- `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
+  frame egressing a LAG outside the bridge pipeline, such as a fabric
+  transmission; `PeekMember` computes the same choice without committing it.
+  The bridge's own LAG egress commits exactly when the forwarding call that
+  produced it does (`Forward` commits, `Peek` does not).
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
@@ -353,6 +362,13 @@ Exported constructors validate and normalize configurations:
   an issue. When a LAG computes membership or operational state with an unknown
   member, the LAG and all its member ports receive an issue. Results that consult
   those ports attach these issues to their forwarding metadata.
+- A forward or peek that used a balanced-mode LAG selection old enough that
+  unmodeled rebalancing could have moved it raises `lag-rebalance-unmodeled`
+  on that LAG's aggregator scope, only for the journeys that went through it.
+- A forward or peek that resolved multicast membership while an expected
+  group-specific or group-and-source-specific query had gone unobserved past
+  its last member query time raises `mcast-query-unobserved` on
+  `analysis.ProtocolScope(nodeID, "mcast", "<vid>/<group>")`.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
 scopes. An empty key identifies an anonymous standalone switch and uses the

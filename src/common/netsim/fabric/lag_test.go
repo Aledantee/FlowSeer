@@ -170,22 +170,49 @@ func TestBalanceSLB(t *testing.T) {
 
 func TestBalanceTCP(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
-	lagA := &lag.Config{
-		LAGs: map[string]lag.LAG{
-			"lag1": {
-				Mode: lag.BalanceTCP,
+	balanceTCPConfig := func() *lag.Config {
+		return &lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					Mode: lag.BalanceTCP,
+					LACP: lag.LACPConfig{
+						Mode: lag.Active,
+						Fast: true,
+					},
+				},
 			},
-		},
+		}
 	}
-	fab, macH1, macH2 := newLagTopology(t, t0, lagA, nil)
+	fab, macH1, macH2 := newLagTopology(t, t0, balanceTCPConfig(), balanceTCPConfig())
+
+	// Balance-tcp selects nothing until LACP negotiates, so drive the
+	// fabric to convergence before testing flow selection.
+	target := t0.Add(3 * time.Second)
+	var converged time.Time
+	for {
+		snap := fab.Snapshot()
+		if targetSettled(snap, target) {
+			converged = snap.Clock
+			break
+		}
+		if _, ok := fab.Step(); !ok {
+			converged = fab.Snapshot().Clock
+			break
+		}
+	}
 
 	ports := []uint16{40000, 40001, 40002, 40003, 40004, 40005, 40006, 40007}
 	cablesUsed := make(map[string]bool)
 	portCables := make(map[uint16]string)
 
-	for i, srcPort := range ports {
+	cursor := converged
+	for _, srcPort := range ports {
 		for rep := 0; rep < 2; rep++ {
-			injTime := t0.Add(time.Duration(i*10+rep) * time.Millisecond)
+			if clock := fab.Snapshot().Clock; clock.After(cursor) {
+				cursor = clock
+			}
+			injTime := cursor.Add(time.Millisecond)
+			cursor = injTime
 
 			udpPayload := make([]byte, 8)
 			binary.BigEndian.PutUint16(udpPayload[0:2], srcPort)

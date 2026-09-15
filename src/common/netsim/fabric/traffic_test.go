@@ -444,7 +444,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 				t.Fatalf("fabric.New: %v", err)
 			}
 
-			wantMember, ok := fab.Switch("sw1").SelectMember("lag1", frame, outputVLAN)
+			wantMember, ok := fab.Switch("sw1").SelectMember(t0, "lag1", frame, outputVLAN)
 			if !ok {
 				t.Fatal("mirror output has no selected member")
 			}

@@ -303,3 +303,84 @@ func TestFabricMLDGroupForwarding(t *testing.T) {
 		t.Errorf("snapshot Groups[10] = %+v, want ff05::1", groups)
 	}
 }
+
+// TestFabricSourceFilterAcrossUplink is evidence for this change through a
+// fabric journey: an (S,G) join learned on one switch (A) admits data from
+// that source across the uplink and filters data from a different source,
+// proving Switch.Resolve's per-source filtering reaches a real two-switch
+// topology rather than only a single switch's local ports.
+func TestFabricSourceFilterAcrossUplink(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	pvid := vlan.ID(10)
+	buildPorts := func(t *testing.T) port.Table {
+		t.Helper()
+		tbl, err := port.NewBuilder().
+			Add(port.Port{Name: "uplink", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "access", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Build()
+		if err != nil {
+			t.Fatalf("build ports: %v", err)
+		}
+		return tbl
+	}
+	switchports := map[string]bridge.Switchport{
+		"uplink": {PVID: &pvid, Untagged: []vlan.ID{10}},
+		"access": {PVID: &pvid, Untagged: []vlan.ID{10}},
+	}
+	srcMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x05}
+
+	group := netip.MustParseAddr("239.5.5.5")
+	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x05, 0x05, 0x05}
+	s1 := netip.MustParseAddr("10.0.1.1")
+	s2 := netip.MustParseAddr("10.0.1.2")
+
+	fab, err := fabric.New(statedPhysical(fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"A": {
+				Ports:  buildPorts(t),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}, Switchports: switchports}},
+				Mcast:  &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}},
+			},
+			"B": {
+				Ports:  buildPorts(t),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}, Switchports: switchports}},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1":  {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
+			"src": {Address: srcMAC, Accept: fabric.HostAccept{AllMulticast: true}},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "A", Port: "uplink"}, B: fabric.Endpoint{Node: "B", Port: "uplink"}},
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "A", Port: "access"}},
+			{A: fabric.Endpoint{Node: "src"}, B: fabric.Endpoint{Node: "B", Port: "access"}},
+		},
+	}))
+	if err != nil {
+		t.Fatalf("New fabric: %v", err)
+	}
+
+	join := fabricIGMPFrame(t, "h1", s1, netip.MustParseAddr("224.0.0.22"), netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x16},
+		igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{
+			Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{s1},
+		}}})
+	injectMcastFrame(t, fab, t0, "h1", join)
+
+	data := func(source netip.Addr) ethernet.Frame {
+		packet, err := (ip.Header{Src: source, Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("data"))
+		if err != nil {
+			t.Fatalf("encode group data: %v", err)
+		}
+		return ethernet.Frame{Src: srcMAC, Dst: groupMAC, EtherType: ethernet.EtherTypeIPv4, Payload: packet}
+	}
+
+	admitted := injectMcastFrame(t, fab, t0.Add(time.Second), "src", data(s1))
+	if got := deliveryHosts(admitted); !slices.Equal(got, []string{"h1"}) {
+		t.Errorf("(S1,G) data deliveries = %v, want [h1]", got)
+	}
+
+	filtered := injectMcastFrame(t, fab, t0.Add(2*time.Second), "src", data(s2))
+	if got := deliveryHosts(filtered); len(got) != 0 {
+		t.Errorf("(S2,G) data deliveries = %v, want none", got)
+	}
+}
