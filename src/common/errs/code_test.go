@@ -2,6 +2,7 @@ package errs
 
 import (
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -129,7 +130,11 @@ func TestCodeOfPrefersOutermost(t *testing.T) {
 	}
 }
 
-func TestNewCodePanics(t *testing.T) {
+// NewCode no longer validates or deduplicates at runtime: the repo-wide scan
+// in TestDeclaredCodesAreUniqueRepoWide rejects a malformed or duplicate
+// declaration at go test time, over every declaration in the tree rather
+// than only the ones a running binary happens to link.
+func TestNewCodeDoesNotPanic(t *testing.T) {
 	tests := []struct {
 		name string
 		code string
@@ -146,13 +151,9 @@ func TestNewCodePanics(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("NewCode(%q) did not panic", tc.code)
-				}
-			}()
-
-			NewCode(tc.code)
+			if got := NewCode(tc.code); got != Code(tc.code) {
+				t.Errorf("NewCode(%q) = %q, want %q", tc.code, got, tc.code)
+			}
 		})
 	}
 }
@@ -182,38 +183,135 @@ func TestCodesEnumeratesRegistry(t *testing.T) {
 func TestDeclaredCodesAreUniqueRepoWide(t *testing.T) {
 	root := repoRoot(t)
 	pkgDir := packageDir(t)
-	declared := make(map[string]string)
+	var decls []codeDecl
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
+			if path == pkgDir {
+				// This package's own tests pass deliberately malformed and
+				// non-literal codes to exercise NewCode's validation; the
+				// scan is what enforces that validation repo-wide, and must
+				// not read those fixtures as declarations of its own.
+				return fs.SkipDir
+			}
 			if name := d.Name(); name != "." && (strings.HasPrefix(name, ".") || name == "testdata") {
 				return fs.SkipDir
 			}
 
 			return nil
 		}
-		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		if !strings.HasSuffix(path, ".go") {
 			return nil
 		}
 
-		for _, decl := range newCodeLiterals(t, path, pkgDir) {
-			if prev, dup := declared[decl.code]; dup {
-				t.Errorf("error code %q declared in both %s and %s", decl.code, prev, decl.pos)
-			}
-			if err := validateCode(decl.code); err != nil {
-				t.Errorf("%s: %v", decl.pos, err)
-			}
-
-			declared[decl.code] = decl.pos
-		}
+		decls = append(decls, newCodeLiterals(t, path, pkgDir)...)
 
 		return nil
 	})
 	if err != nil {
 		t.Fatalf("walking %s: %v", root, err)
+	}
+
+	for _, decl := range decls {
+		if err := validateCode(decl.code); err != nil {
+			t.Errorf("%s: %v", decl.pos, err)
+		}
+	}
+	for _, msg := range findDuplicates(decls) {
+		t.Error(msg)
+	}
+}
+
+// findDuplicates reports every code declared more than once, in declaration
+// order. It is a separate function so the duplicate check that
+// TestDeclaredCodesAreUniqueRepoWide runs over the whole tree can also be
+// exercised directly, in TestDuplicateInTestFixtureFailsScan, against a
+// synthetic declaration from a _test.go path.
+func findDuplicates(decls []codeDecl) []string {
+	declared := make(map[string]string, len(decls))
+	var dupes []string
+
+	for _, decl := range decls {
+		if prev, dup := declared[decl.code]; dup {
+			dupes = append(dupes, fmt.Sprintf("error code %q declared in both %s and %s", decl.code, prev, decl.pos))
+			continue
+		}
+
+		declared[decl.code] = decl.pos
+	}
+
+	return dupes
+}
+
+// A duplicate registered in a _test.go fixture fails the scan the same way
+// a duplicate in non-test code always has, now that the scan reads test
+// files.
+func TestDuplicateInTestFixtureFailsScan(t *testing.T) {
+	decls := []codeDecl{
+		{code: "dup/code", pos: "a_test.go:1"},
+		{code: "dup/code", pos: "b_test.go:5"},
+	}
+
+	dupes := findDuplicates(decls)
+	if len(dupes) != 1 {
+		t.Fatalf("findDuplicates(%v) = %v, want exactly one duplicate", decls, dupes)
+	}
+}
+
+// The scan stopped skipping _test.go files, which is where NewCode's
+// duplicate- and malformed-name panics had their only remaining coverage.
+// This checks it still finds the codes declared in test fixtures outside
+// this package — counted directly in the tree, not assumed.
+func TestScanFindsTestDeclaredCodesOutsideThisPackage(t *testing.T) {
+	root := repoRoot(t)
+	pkgDir := packageDir(t)
+
+	tests := []struct {
+		file string
+		want []string
+	}{
+		{
+			file: "src/edge/agent/internal/lanehost/heartbeat_test.go",
+			want: []string{"lanehost-test/refused"},
+		},
+		{
+			file: "src/edge/netpen/findings/contract_test.go",
+			want: []string{"findings-test/fixture"},
+		},
+		{
+			file: "src/services/device/internal/connecterr/connecterr_test.go",
+			want: []string{"connecterrtest/refused", "connecterrtest/unmapped", "connecterrtest/with-voice"},
+		},
+		{
+			file: "src/services/device/internal/connecterr/consistency_test.go",
+			want: []string{"connecterrtest/shared", "connecterrtest/shared-text"},
+		},
+	}
+
+	var total int
+
+	for _, tc := range tests {
+		t.Run(tc.file, func(t *testing.T) {
+			decls := newCodeLiterals(t, filepath.Join(root, tc.file), pkgDir)
+
+			got := make([]string, 0, len(decls))
+			for _, d := range decls {
+				got = append(got, d.code)
+			}
+
+			if !slices.Equal(got, tc.want) {
+				t.Errorf("scanned codes = %v, want %v", got, tc.want)
+			}
+
+			total += len(decls)
+		})
+	}
+
+	if total != 7 {
+		t.Errorf("scanned %d test-declared codes across these fixtures, want 7", total)
 	}
 }
 

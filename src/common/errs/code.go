@@ -29,18 +29,13 @@ var registry sync.Map
 //
 // name is "<package>/<name>", each segment starting with a lowercase letter
 // or digit and continuing with lowercase letters, digits, '-' or '_' — for
-// example "snmp/priv-decrypt". NewCode panics on a malformed name and on a
-// name already registered, so a collision fails the first run of any binary
-// that links both declarations rather than surfacing later as a false
-// [errors.Is] match.
+// example "snmp/priv-decrypt". NewCode does not itself reject a malformed or
+// already-registered name: the repo-wide scan in this package's tests reads
+// every NewCode string literal in the tree and asserts format and uniqueness
+// at go test time, which catches a collision across every declaration rather
+// than only the ones a running binary happens to link.
 func NewCode(name string) Code {
-	if err := validateCode(name); err != nil {
-		panic(fmt.Sprintf("errs: %v", err))
-	}
-
-	if _, loaded := registry.LoadOrStore(name, struct{}{}); loaded {
-		panic(fmt.Sprintf("errs: duplicate error code %q", name))
-	}
+	registry.LoadOrStore(name, struct{}{})
 
 	return Code(name)
 }
