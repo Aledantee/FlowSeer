@@ -2,11 +2,13 @@ package vswitch
 
 import (
 	"fmt"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -123,6 +125,33 @@ func forwardingMetadata(
 type runtimeIssue struct {
 	issue analysis.Issue
 	facts []trace.Fact
+}
+
+type membershipFact string
+
+func (f membershipFact) TypeID() string    { return "vswitch.mcast_membership" }
+func (f membershipFact) Canonical() string { return string(f) }
+
+// newMembershipFact returns an immutable snapshot of a multicast membership
+// lookup naming the frame's IP source: ports is already that source's
+// admitted egress set, so the fact records which source produced it rather
+// than only the group and the resulting port list.
+func newMembershipFact(vid vlan.ID, group, source netip.Addr, ports []string, registered, decided bool) trace.Fact {
+	sorted := slices.Clone(ports)
+	slices.Sort(sorted)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "fid=%d;group=%q;source=%q;registered=%t;decided=%t;ports=[",
+		vid, group.String(), source.String(), registered, decided)
+	for i, name := range sorted {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		fmt.Fprintf(&b, "%q", name)
+	}
+	b.WriteByte(']')
+
+	return membershipFact(b.String())
 }
 
 type runtimeFact struct {

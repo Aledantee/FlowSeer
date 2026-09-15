@@ -744,8 +744,8 @@ type stubSelector struct {
 	ok     bool
 }
 
-func (s stubSelector) Select(_ string, _ ethernet.Frame, _ vlan.ID) (string, bool) {
-	return s.member, s.ok
+func (s stubSelector) Select(_ time.Time, _ string, _ bool, _ ethernet.Frame, _ vlan.ID) bridge.Selection {
+	return bridge.Selection{Member: s.member, OK: s.ok}
 }
 
 func TestSelectorOnLAGEgress(t *testing.T) {
@@ -2737,7 +2737,7 @@ type testGroupResolver struct {
 	decided bool
 }
 
-func (r testGroupResolver) Resolve(vlan.ID, ethernet.Frame) ([]string, bool) {
+func (r testGroupResolver) Resolve(time.Time, vlan.ID, ethernet.Frame) ([]string, bool) {
 	return r.ports, r.decided
 }
 
