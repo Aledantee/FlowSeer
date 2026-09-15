@@ -7,6 +7,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
 func TestMergeZeroSourcesCompletesImmediately(t *testing.T) {
@@ -290,11 +292,15 @@ func TestMergeContextCancellationPrecedesSourceError(t *testing.T) {
 // TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources is
 // evidence for this change: it forces a real panic in the converted forward
 // goroutine — a nil *Pump[int] source panics on its first field access
-// inside Data() — and checks that the process survives and the merge still
-// completes for the other source, rather than crashing (the pre-conversion
-// behavior) or hanging (the failure mode a converted site without its own
-// "results <- result" defer would have introduced; that defer already
-// existed before this conversion and is unchanged here).
+// inside Data() — and checks that the process survives, that the merge still
+// drains the other source, and that the panic reaches the merged pump as a
+// terminal error.
+//
+// That last assertion is the load-bearing one. The coordinator reads a nil on
+// results as a source that finished cleanly, so a forwarder that reported its
+// panic as nil would leave Merge indistinguishable from a successful merge —
+// a consumer would see the channel close with Err() == nil and conclude every
+// source ran to completion.
 func TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources(t *testing.T) {
 	t.Parallel()
 	var nilSource *Pump[int]
@@ -324,6 +330,13 @@ func TestMergeForwarderPanicIsRecoveredAndDoesNotBlockRemainingSources(t *testin
 
 	if !slices.Equal(got, []int{1}) {
 		t.Errorf("merged values = %v, want [1]", got)
+	}
+	err := merged.Err()
+	if err == nil {
+		t.Fatal("merged.Err() is nil after a forwarder panicked; the panic was reported as a clean source")
+	}
+	if errs.Attributes(err)["panic"] == nil {
+		t.Errorf("merged.Err() carries no recovered panic value: %v", err)
 	}
 }
 

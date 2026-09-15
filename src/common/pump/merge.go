@@ -24,39 +24,43 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 	results := make(chan error, len(sources))
 	stopForwarders := make(chan struct{})
 	var forwarders sync.WaitGroup
+	// forward drains one source into merged and returns that source's
+	// terminal error, or nil when it stopped for any other reason. Its result
+	// reaches results through exactly one send: the call below on the normal
+	// path, or the ReportTo sink when it panics. A panic must not report nil,
+	// which the coordinator reads as a source that finished cleanly.
+	forward := func(source *Pump[T]) error {
+		for {
+			select {
+			case <-stopForwarders:
+				return nil
+			default:
+			}
+
+			select {
+			case <-merged.Stopped():
+				return nil
+			case <-merged.Context().Done():
+				merged.SignalStop()
+				return nil
+			case <-stopForwarders:
+				return nil
+			case value, ok := <-source.Data():
+				if !ok {
+					return source.Err()
+				}
+				if !merged.Send(value) {
+					return nil
+				}
+			}
+		}
+	}
 	for _, source := range sources {
 		forwarders.Add(1)
 		spawn.Go(ctx, "Merge.forward", func() {
 			defer forwarders.Done()
-			var result error
-			defer func() { results <- result }()
-
-			for {
-				select {
-				case <-stopForwarders:
-					return
-				default:
-				}
-
-				select {
-				case <-merged.Stopped():
-					return
-				case <-merged.Context().Done():
-					merged.SignalStop()
-					return
-				case <-stopForwarders:
-					return
-				case value, ok := <-source.Data():
-					if !ok {
-						result = source.Err()
-						return
-					}
-					if !merged.Send(value) {
-						return
-					}
-				}
-			}
-		})
+			results <- forward(source)
+		}, spawn.ReportTo(func(err error) { results <- err }))
 	}
 
 	spawn.Go(ctx, "Merge.coordinate", func() {
