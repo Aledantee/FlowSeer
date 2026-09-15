@@ -441,17 +441,6 @@ print("\n".join(sorted(affected)))
 PY
 )
         echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
-        # Three packages hold checks over repository-wide namespaces: error
-        # code uniqueness in src/common/errs, the schema layering and
-        # message rules in test/conformance/proto, and the panic placement
-        # and goroutine boundary over every first-party file under src/ in
-        # test/conformance/panic. A change that violates one of those
-        # touches none of the packages, so the importer fixpoint never
-        # selects them and the targeted run passes what --full refuses.
-        # Together they take a few seconds; always run them.
-        if [[ $module == . ]]; then
-          targets+=(./src/common/errs ./test/conformance/proto ./test/conformance/panic)
-        fi
       fi
       run go vet "${targets[@]}"
       vet_tagged "${targets[@]}"
@@ -486,6 +475,27 @@ PY
       fi
     )
   done
+  # Some packages hold checks over repository-wide namespaces: error code
+  # uniqueness in src/common/errs, and under test/conformance/ the schema
+  # layering and message rules, the panic placement and goroutine
+  # boundary over every first-party file under src/, and the forbidden
+  # module imports over every go.mod and .go file. A change that violates
+  # one of those touches none of the packages, so the importer fixpoint
+  # never selects them and a targeted run passes what --full refuses.
+  # They live in the root module and walk the tree by path, nested
+  # modules included, so a change in a nested module needs them just as
+  # much; run them once per targeted run from the root, whichever modules
+  # the changed files selected, rather than inside the loop above where
+  # a multi-module change would repeat them. --full already runs the
+  # root module whole. test/conformance/ is enumerated, not named, for
+  # the reason the Stop hook gives: a listed path for a renamed or new
+  # gate is silently absent, an enumerated tree has no name to rot, and
+  # a gate added there later runs at every entry point with no edit
+  # here. Together they take a few seconds.
+  if [[ $full == false ]]; then
+    echo "== Repository-wide gates =="
+    run go test -race ./src/common/errs ./test/conformance/...
+  fi
 fi
 
 for dep in "${dependent_modules[@]:-}"; do
