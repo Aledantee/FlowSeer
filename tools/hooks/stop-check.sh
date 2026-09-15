@@ -28,22 +28,37 @@ fi
 # `-run` pattern for a renamed test matches nothing and `go test` reports
 # ok, and a listed path for a renamed package is skipped the same way, so
 # a gate could vanish with no signal on either axis. Enumeration has no
-# name to rot; a gate added later runs without a hook edit. Only the
-# directory itself may be absent, in a fixture or an older tree, and that
-# still stops cleanly.
+# name to rot; a gate added later runs without a hook edit. Each child
+# runs recursively, so a gate that lands one level down (a
+# test/conformance/proto/layering/, say) runs here and not only at the
+# merge gate; a child holding no Go package fails loudly with `no
+# packages to test` instead of counting as a pass.
+#
+# The third axis is the root directory itself: a moved or emptied
+# test/conformance/ leaves the glob unmatched, and a hook that only
+# tolerated that would print {} with nothing run. So the gates are
+# counted, and zero in a checkout of this repository, which go.mod
+# identifies, is a failed gate. A fixture without go.mod has no gates to
+# run and still stops cleanly.
 #
 # This is fast feedback, not the authority. `go test -race ./...` runs the
 # same tests at the merge gate, and that is what AGENTS.md points at.
 output=""
 gates_ok=true
+gates_run=0
 for package in "$root"/test/conformance/*/; do
   # With no test/conformance/ the glob stays literal; nothing else is skipped.
   [ -d "$package" ] || continue
-  if ! output=$(cd "$root" && go test "./${package#"$root/"}" 2>&1); then
+  gates_run=$((gates_run + 1))
+  if ! output=$(cd "$root" && go test "./${package#"$root/"}..." 2>&1); then
     gates_ok=false
     break
   fi
 done
+if [ "$gates_run" -eq 0 ] && [ -f "$root/go.mod" ]; then
+  gates_ok=false
+  output="no conformance gate found under test/conformance/; the directory is missing or empty, so nothing was checked"
+fi
 
 if [ "$gates_ok" = true ]; then
   if [ -n "$unverified" ]; then

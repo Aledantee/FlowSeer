@@ -529,6 +529,42 @@ gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
 ok "Stop runs a gate package whatever its directory is named"
 
+# A gate package one level down, under a child that itself passes. A hook
+# that runs each child as a single package never sees it, and the merge
+# gate's `go test ./...` would be the first to; the hook has to run each
+# child recursively.
+cat >"$gate_fixture/test/conformance/panics/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {}
+GATE
+mkdir -p "$gate_fixture/test/conformance/panics/nested"
+cat >"$gate_fixture/test/conformance/panics/nested/nested_test.go" <<'GATE'
+package nested
+
+import "testing"
+
+func TestNestedGate(t *testing.T) {
+	t.Error("nested fixture violation")
+}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("nested fixture violation"))' <<<"$gate_output" >/dev/null
+rm -r "$gate_fixture/test/conformance/panics/nested"
+ok "Stop runs a gate package nested below a conformance child"
+
+# No test/conformance/ at all in a checkout that has a go.mod. The glob
+# matches nothing, and a hook that merely tolerated the absence would print
+# {} with no gate run: the same silent skip as the two renames above, on the
+# root directory's name. The fixture without go.mod earlier in this file
+# still passes cleanly, so the check discriminates a checkout from a stub.
+mv "$gate_fixture/test/conformance" "$gate_fixture/test/gates"
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("no conformance gate found under test/conformance/"))' <<<"$gate_output" >/dev/null
+ok "Stop blocks when a checkout has no conformance gate to run"
+
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q

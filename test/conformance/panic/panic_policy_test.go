@@ -136,6 +136,75 @@ func TestGoStatementPolicy(t *testing.T) {
 	}
 }
 
+// TestFileViolations is the positive control for the classifier. The real
+// tree holds no violation, so TestPanicPolicy alone cannot tell a working
+// fileViolations from one that returns nil, carries the enclosing
+// declaration across declarations, or drops the go statement case; these
+// fixtures can.
+func TestFileViolations(t *testing.T) {
+	tests := []struct {
+		name string
+		rel  string
+		src  string
+		want []string
+	}{
+		{
+			name: "panic in a plain function",
+			rel:  "src/services/x/decode.go",
+			src:  "package x\n\nfunc decode() { panic(\"x\") }\n",
+			want: []string{"src/services/x/decode.go:3: panic in decode, whose name does not begin with Must or must; rename it or return an error"},
+		},
+		{
+			name: "panic in a closure inside a plain function",
+			rel:  "src/services/x/decode.go",
+			src:  "package x\n\nfunc decode() {\n\tf := func() { panic(\"x\") }\n\tf()\n}\n",
+			want: []string{"src/services/x/decode.go:4: panic in decode, whose name does not begin with Must or must; rename it or return an error"},
+		},
+		{
+			name: "panic in a closure inside a must function",
+			rel:  "src/services/x/decode.go",
+			src:  "package x\n\nfunc mustDecode() {\n\tf := func() { panic(\"x\") }\n\tf()\n}\n",
+		},
+		{
+			name: "panic in a package-level func literal",
+			rel:  "src/services/x/decode.go",
+			src:  "package x\n\nfunc mustDecode() {}\n\nvar f = func() { panic(\"x\") }\n",
+			want: []string{"src/services/x/decode.go:5: panic outside any function declaration; a panic belongs in a Must or must function, where the call site can see it"},
+		},
+		{
+			name: "go statement in the supervised helper",
+			rel:  "src/common/spawn/spawn.go",
+			src:  "package spawn\n\nfunc Go(fn func()) { go fn() }\n",
+		},
+		{
+			name: "go statement in a service",
+			rel:  "src/services/x/run.go",
+			src:  "package x\n\nfunc run(fn func()) { go fn() }\n",
+			want: []string{"src/services/x/run.go:3: go statement outside src/common/spawn; a panic in a spawned goroutine is unhandled whatever recover its spawner sits under, so launch it through spawn.Go"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			file, err := goparser.ParseFile(fset, tt.rel, tt.src, 0)
+			if err != nil {
+				t.Fatalf("parsing fixture: %v", err)
+			}
+
+			got := fileViolations(fset, file, tt.rel)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d findings %q, want %d %q", len(got), got, len(tt.want), tt.want)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("finding %d: got %q, want %q", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 // fileViolations reports every placement and boundary finding in one
 // parsed file, each naming the file and line.
 //
