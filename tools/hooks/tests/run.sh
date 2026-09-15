@@ -472,9 +472,9 @@ stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
 [[ $stop_output == '{}' ]]
 ok "Stop reports unverified edits without blocking and passes a clean tree"
 
-# The panic gate is the second entry in stop-check's gate list, and a list
-# whose loop stops after the first entry would still pass every test above.
-# This fixture has no test/conformance/proto, so only the panic gate runs.
+# A fixture with one gate package under test/conformance/. The fixture
+# above has no such directory, so it proves only that Stop tolerates the
+# directory's absence; this one proves the gate inside it runs.
 gate_fixture="$fixture_parent/gate fixture"
 mkdir -p "$gate_fixture/test/conformance/panic"
 git -C "$gate_fixture" init -q
@@ -519,29 +519,15 @@ gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
 ok "Stop runs a gate package whatever its tests are named"
 
-# A gate whose test binary reads stdin must not eat the entries after it.
-# The proto entry precedes the panic entry, so a proto fixture that drains
-# stdin and passes would leave a loop fed through stdin with nothing left
-# for the panic gate, which then never runs.
-mkdir -p "$gate_fixture/test/conformance/proto"
-cat >"$gate_fixture/test/conformance/proto/drain_test.go" <<'GATE'
-package conformance
-
-import (
-	"io"
-	"os"
-	"testing"
-)
-
-func TestDrainsStdin(t *testing.T) {
-	if _, err := io.ReadAll(os.Stdin); err != nil {
-		t.Fatal(err)
-	}
-}
-GATE
+# A gate package whose directory is not called what the fixture above calls
+# it. A hook that names its gate packages and skips an absent one would
+# pass here with nothing run, the same silent skip the test above closes
+# on the test-name axis; the hook has to run whatever test/conformance/
+# holds.
+mv "$gate_fixture/test/conformance/panic" "$gate_fixture/test/conformance/panics"
 gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
 jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
-ok "Stop still runs the gates after one whose test binary drains stdin"
+ok "Stop runs a gate package whatever its directory is named"
 
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"

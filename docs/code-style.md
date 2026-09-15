@@ -364,11 +364,11 @@ and the gate would not have found it. The next one is a review catch.
 
 Everything else is review, because a cheap approximation of it is worse than
 none. Which recover handles a panic is a property of a repository-wide call
-graph, and `callOwned` takes a `Runner` interface, so it is not settled until run
-time. Whether a caller documents an inherited panic is a judgment about prose,
-and a check for the word "panic" is gameable. The benchmark exemption to the
-placement rule is granted in review for the same reason; no site claims it today,
-so the gate enforces the prefix outright.
+graph, and `callOwned` takes a `Runner` function value, so it is not settled
+until run time. Whether a caller documents an inherited panic is a judgment
+about prose, and a check for the word "panic" is gameable. The benchmark
+exemption to the placement rule is granted in review for the same reason; no
+site claims it today, so the gate enforces the prefix outright.
 
 ### Remedies
 
