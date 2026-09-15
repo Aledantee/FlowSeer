@@ -327,7 +327,7 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 	spawn.Go(ctx, "rawsocket.linuxMirrorSource.awaitReceiveClose", func() {
 		wg.Wait()
 		close(frames)
-	}, spawn.ReportTo(func(err error) {
+	}, spawn.ReportTo(func(error) {
 		close(frames)
 	}))
 
@@ -392,6 +392,28 @@ func (s *linuxMirrorSource) Close() error {
 // correctness (never closing a fd out from under a blocked recvmsg, which
 // risks another unrelated fd being assigned the same number) outweighs the
 // small added latency.
+// receiveOnce performs one guarded read on sock. open is false when the
+// source has been closed under the lock, which is a clean shutdown.
+//
+// The lock is released by a defer because this runs on a supervised
+// goroutine: a panic in recvmsg is recovered, so a release written after the
+// call would be skipped and s.mu would stay held for the life of the process.
+// Stats and Close both take it, so the capture engine would block there
+// forever — a hang in place of the crash the recovery replaced.
+func (s *linuxMirrorSource) receiveOnce(
+	sock mirrorSocket,
+	buf, oob []byte,
+) (n, oobn int, from unix.Sockaddr, open bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return 0, 0, nil, false, nil
+	}
+	n, oobn, from, err = sock.recvmsg(buf, oob)
+	return n, oobn, from, true, err
+}
+
 func (s *linuxMirrorSource) runMirrorLoop(
 	ctx context.Context,
 	sock mirrorSocket,
@@ -411,13 +433,10 @@ func (s *linuxMirrorSource) runMirrorLoop(
 		default:
 		}
 
-		s.mu.Lock()
-		if s.closed {
-			s.mu.Unlock()
+		n, oobn, from, open, err := s.receiveOnce(sock, buf, oob)
+		if !open {
 			return
 		}
-		n, oobn, from, err := sock.recvmsg(buf, oob)
-		s.mu.Unlock()
 
 		if err != nil {
 			if isRetryable(err) {

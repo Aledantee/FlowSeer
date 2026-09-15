@@ -204,17 +204,14 @@ func (s *linuxLocalSource) recvLoop(ctx context.Context, frames chan<- Frame) {
 		default:
 		}
 
-		s.mu.Lock()
-		if s.closed {
-			s.mu.Unlock()
-			// Close always closes done before releasing this lock, so
+		n, open, err := s.receiveOnce(buf)
+		if !open {
+			// Close always closes done before releasing the lock, so
 			// reaching here means the <-s.done case above lost this
 			// iteration's select race, not that anything failed: a
 			// clean shutdown, no terminal error frame.
 			return
 		}
-		n, err := s.sock.recvfrom(buf, unix.MSG_TRUNC)
-		s.mu.Unlock()
 
 		if err != nil {
 			if isRetryable(err) {
@@ -294,6 +291,25 @@ func (s *linuxLocalSource) Close() error {
 }
 
 // An abandoned consumer must not strand Receive on the final error frame.
+// receiveOnce performs one guarded read. open is false when the source has
+// been closed under the lock, which is a clean shutdown rather than an error.
+//
+// The lock is released by a defer because this runs on a supervised
+// goroutine: a panic in recvfrom is recovered, so a release written after the
+// call would be skipped and s.mu would stay held for the life of the process.
+// Stats and Close both take it, so the capture engine would block there
+// forever — a hang in place of the crash the recovery replaced.
+func (s *linuxLocalSource) receiveOnce(buf []byte) (n int, open bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return 0, false, nil
+	}
+	n, err = s.sock.recvfrom(buf, unix.MSG_TRUNC)
+	return n, true, err
+}
+
 func sendTerminal(frames chan<- Frame, f Frame) {
 	select {
 	case frames <- f:
