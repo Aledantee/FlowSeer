@@ -139,7 +139,7 @@ func stpCaseDataFrame() ethernet.Frame {
 }
 
 // RegisterSTPCases populates registry with the cases covering information
-// lifetime and the port guards: a root that no longer exists ageing out, BPDU
+// lifetime and the port guards: a root that no longer exists aging out, BPDU
 // guard disabling an edge port, and loop guard holding a port whose BPDUs
 // stopped.
 func RegisterSTPCases(registry *Registry) {
