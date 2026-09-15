@@ -251,15 +251,14 @@ func NewRawWalker(ctx context.Context, bufferSize int) *RawWalker {
 
 // Pump runs fn in a new goroutine with the same contract as
 // [Walker.Pump]: fn produces items via Send, calls Fail on terminal
-// errors, and returns on natural completion; a deferred Done closes the
-// channel exactly once. A panic in fn is recovered by [spawn.Go] and
-// reported through [spawn.ReportTo](w.Fail); without that sink a
-// panicking fn would close the channel via the deferred Done with
-// Err() still nil.
+// errors, and returns on natural completion. A panic in fn is recovered by
+// [spawn.Go] and reported through [spawn.ReportTo](w.Fail), which records
+// the error before it closes the channel. Done is not deferred, for the
+// reason [Walker.Pump] gives.
 func (w *RawWalker) Pump(fn func(ctx context.Context)) {
 	spawn.Go(w.pump.Context(), "RawWalker.Pump", func() {
-		defer w.Done()
 		fn(w.pump.Context())
+		w.Done()
 	}, spawn.ReportTo(w.Fail))
 }
 

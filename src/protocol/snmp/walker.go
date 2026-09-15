@@ -70,8 +70,8 @@ const defaultRowBuffer = 64
 //
 // Backends are responsible for spawning the pump and feeding values via
 // [Walker.Send] / [Walker.Fail] / [Walker.Done] (typically through
-// [Walker.Pump], which installs a deferred [Walker.Done] so the
-// channel is closed exactly once even on panic). Calling
+// [Walker.Pump], which closes the channel exactly once: Done on a normal
+// return, Fail on a panic). Calling
 // [Walker.Close] tells the pump to terminate early; range-over-func
 // loops invoke Close automatically when they exit via break.
 //
@@ -130,25 +130,26 @@ func NewWalker(ctx context.Context, bufferSize int) *Walker {
 //     closed session). Fail records the error and closes the data
 //     channel.
 //   - return normally when the walk reaches its natural end
-//     (EndOfMibView, root subtree exited). Pump installs a deferred
-//     [Walker.Done] so the channel is always closed exactly once,
-//     even when fn panics.
+//     (EndOfMibView, root subtree exited). Pump then calls [Walker.Done];
+//     a panic closes the channel through [Walker.Fail] instead, so the
+//     channel is closed exactly once either way.
 //
 // Pump may only be called once per Walker; calling it twice produces
 // two pump goroutines racing on the same channel, which is a
 // programming error.
 //
 // A panic in fn is recovered by [spawn.Go] and reported through
-// [spawn.ReportTo](w.Fail): without that sink, a panicking fn would
-// close the channel via the deferred Done below with Err() still
-// nil, which a consumer cannot tell from a walk that finished.
+// [spawn.ReportTo](w.Fail), which records the error before it closes the
+// channel. Done is therefore not deferred: a deferred Done runs during the
+// panic unwind, before the recover, and would close the channel with Err()
+// still nil — which a consumer cannot tell from a walk that finished.
 func (w *Walker) Pump(fn func(ctx context.Context)) {
 	spawn.Go(w.pump.Context(), "Walker.Pump", func() {
-		// Close the data channel exactly once when the pump returns,
-		// regardless of whether it returned normally, was canceled,
-		// or panicked. Done is idempotent with Fail.
-		defer w.Done()
 		fn(w.pump.Context())
+		// Reached only on a normal return; the panic path closes through
+		// Fail instead. Done is idempotent with Fail, so a pump that
+		// already failed explicitly closes once.
+		w.Done()
 	}, spawn.ReportTo(w.Fail))
 }
 

@@ -181,13 +181,13 @@ func TestWalker_TerminalError(t *testing.T) {
 }
 
 // TestWalker_PumpPanicLeavesErrNonNil is evidence for the spawn.Go
-// conversion of [Walker.Pump]: a panicking fn must not silently
-// present as a completed walk. Unlike Watcher, Walker's contract only
-// requires Err() to eventually become non-nil, not that it precede
-// the channel close — [Walker.Pump]'s own deferred Done closes the
-// channel before the panic reaches spawn.Go's recover, so the two
-// goroutines race and the assertion polls briefly instead of assuming
-// either order.
+// conversion of [Walker.Pump]: a panicking fn must not silently present as a
+// completed walk. Err() is read once, the instant the iteration ends, because
+// Walker holds the same ordering guarantee as Watcher — the panic path closes
+// the channel through Fail, which records the error before closing. Polling
+// here would also pass against a Pump whose deferred Done closed the channel
+// first and latched the error afterwards, which is the silent completion this
+// asserts against.
 func TestWalker_PumpPanicLeavesErrNonNil(t *testing.T) {
 	w := NewWalker(context.Background(), 0)
 	w.Pump(func(_ context.Context) {
@@ -202,12 +202,8 @@ func TestWalker_PumpPanicLeavesErrNonNil(t *testing.T) {
 		t.Errorf("yielded %d items after panic, want 0", count)
 	}
 
-	deadline := time.Now().Add(time.Second)
-	for w.Err() == nil && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
 	if err := w.Err(); err == nil {
-		t.Error("Err() is nil after a panicking Pump fn, want non-nil")
+		t.Error("Err() is nil when the data channel closed after a panicking Pump fn, want non-nil")
 	}
 }
 
