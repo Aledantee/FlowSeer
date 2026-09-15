@@ -7,10 +7,13 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
+	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
@@ -151,11 +154,493 @@ func stpCaseDataFrame() ethernet.Frame {
 // RegisterSTPCases populates registry with the cases covering information
 // lifetime and the port guards: a root that no longer exists aging out, BPDU
 // guard disabling an edge port, and loop guard holding a port whose BPDUs
-// stopped.
+// stopped; and the two cases covering multiple spanning tree instances: two
+// VLANs on separate MSTIs choosing different links, and a region boundary
+// holding the MSTIs to the CIST's answer.
 func RegisterSTPCases(registry *Registry) {
 	registry.MustRegister(CaseTroubleshootingStaleRootAgesOut())
 	registry.MustRegister(CaseTroubleshootingBPDUGuardDisablesEdge())
 	registry.MustRegister(CaseTroubleshootingLoopGuardUnidirectionalLink())
+	registry.MustRegister(CasePlanningMSTPVLANInstancesDiverge())
+	registry.MustRegister(CaseTopologyShadowingMSTRegionBoundary())
+}
+
+// stpMSTAddresses are the bridge addresses the two MST cases share: sw1 is
+// the region's root and regional root (the lowest priority), sw2 the
+// non-root bridge whose per-instance path costs (or, for the boundary case,
+// whose different region revision) decide what each case demonstrates.
+var (
+	stpMSTSW1Address = netaddr.MAC{0x02, 0, 0, 0, 4, 0x01}
+	stpMSTSW2Address = netaddr.MAC{0x02, 0, 0, 0, 4, 0x02}
+	stpMSTDst10      = netaddr.MAC{0x02, 0, 0, 0, 4, 0x11}
+	stpMSTDst20      = netaddr.MAC{0x02, 0, 0, 0, 4, 0x21}
+	stpMSTSrc10      = netaddr.MAC{0x02, 0, 0, 0, 4, 0x12}
+	stpMSTSrc20      = netaddr.MAC{0x02, 0, 0, 0, 4, 0x22}
+)
+
+// stpMSTFabricSpec returns the two-switch, two-link topology the MST corpus
+// cases share: sw1 and sw2 joined by l1 and l2, each carrying VLAN 10 and
+// VLAN 20 over an access port on either end. sw1's access ports (v10, v20)
+// are where a case injects, and sw2's (d10, d20) are where a case seeds the
+// destination MAC each VLAN resolves to, so a case chooses which physical
+// link a VLAN's frame must cross by which link its tree leaves forwarding
+// rather than by the seed itself.
+func stpMSTFabricSpec(mst1, mst2 *stp.MST) fabric.ConstructionSpec {
+	vid10, vid20 := vlan.ID(10), vlan.ID(20)
+
+	newPorts := func(access1, access2 string) port.Table {
+		tbl, err := port.NewBuilder().
+			Add(port.Port{Name: "l1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "l2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: access1, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: access2, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Build()
+		if err != nil {
+			panic(err)
+		}
+
+		return tbl
+	}
+
+	newBridgeCfg := func(access1, access2 string) *bridge.Config {
+		return &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "VLAN10", 20: "VLAN20"},
+				Switchports: map[string]bridge.Switchport{
+					"l1":    {Tagged: []vlan.ID{10, 20}},
+					"l2":    {Tagged: []vlan.ID{10, 20}},
+					access1: {PVID: &vid10, Untagged: []vlan.ID{10}},
+					access2: {PVID: &vid20, Untagged: []vlan.ID{20}},
+				},
+			},
+		}
+	}
+
+	return fabric.ConstructionSpec{
+		Start: stpCaseStart,
+		Switches: map[string]vswitch.ConstructionSpec{
+			"sw1": {
+				NodeID: "sw1",
+				Config: vswitch.Config{
+					Ports:  newPorts("v10", "v20"),
+					Bridge: newBridgeCfg("v10", "v20"),
+					STP: &stp.Config{
+						Priority: 4096,
+						Address:  stpMSTSW1Address,
+						Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+						MST:      mst1,
+					},
+					Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{
+						"l1": gigabitAuto(), "l2": gigabitAuto(), "v10": gigabitAuto(), "v20": gigabitAuto(),
+					}},
+				},
+				Seeds: []bridge.Seed{
+					{FID: 10, MAC: stpMSTDst10, Port: "l2", Static: true},
+					{FID: 20, MAC: stpMSTDst20, Port: "l1", Static: true},
+				},
+			},
+			"sw2": {
+				NodeID: "sw2",
+				Config: vswitch.Config{
+					Ports:  newPorts("d10", "d20"),
+					Bridge: newBridgeCfg("d10", "d20"),
+					STP: &stp.Config{
+						Priority: 32768,
+						Address:  stpMSTSW2Address,
+						Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+						MST:      mst2,
+					},
+					Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{
+						"l1": gigabitAuto(), "l2": gigabitAuto(), "d10": gigabitAuto(), "d20": gigabitAuto(),
+					}},
+				},
+				Seeds: []bridge.Seed{
+					{FID: 10, MAC: stpMSTDst10, Port: "d10", Static: true},
+					{FID: 20, MAC: stpMSTDst20, Port: "d20", Static: true},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1v10": {Address: stpMSTSrc10, Ethernet: gigabitAuto()},
+			"h1v20": {Address: stpMSTSrc20, Ethernet: gigabitAuto()},
+			"h2v10": {Address: stpMSTDst10, Ethernet: gigabitAuto()},
+			"h2v20": {Address: stpMSTDst20, Ethernet: gigabitAuto()},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h1v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h1v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h2v10"}, B: fabric.Endpoint{Node: "sw2", Port: "d10"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h2v20"}, B: fabric.Endpoint{Node: "sw2", Port: "d20"}, Medium: fabric.TwistedPair},
+		},
+	}
+}
+
+// stpMSTInjectFrame builds fab, runs it to convergence, injects one frame from
+// the VLAN 10 or VLAN 20 host on sw1's side toward that VLAN's host on sw2's
+// side, and returns the resulting journey.
+func stpMSTInjectFrame(spec fabric.ConstructionSpec, vid vlan.ID) (*fabric.Fabric, fabric.Journey, error) {
+	fab, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		return nil, fabric.Journey{}, err
+	}
+	fab.Run(1000)
+
+	var (
+		originHost string
+		src, dst   netaddr.MAC
+	)
+	if vid == 10 {
+		originHost, src, dst = "h1v10", stpMSTSrc10, stpMSTDst10
+	} else {
+		originHost, src, dst = "h1v20", stpMSTSrc20, stpMSTDst20
+	}
+
+	fid, err := fab.Inject(fabric.Injection{
+		At:     fab.Snapshot().Clock,
+		Origin: fabric.Endpoint{Node: originHost},
+		Frame:  ethernet.Frame{Src: src, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("mst")},
+	})
+	if err != nil {
+		return fab, fabric.Journey{}, err
+	}
+	fab.Run(50)
+
+	report := fab.Report()
+
+	return fab, report[fid-1], nil
+}
+
+// stpMSTRegion returns the MST region the two MST corpus cases share: VLAN 10
+// on MSTI 1 and VLAN 20 on MSTI 2, at the given revision, with no per-port
+// overrides.
+func stpMSTRegion(revision uint16) *stp.MST {
+	return &stp.MST{
+		Name:     "region-1",
+		Revision: revision,
+		Instances: map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+			2: {VLANs: []vlan.ID{20}},
+		},
+	}
+}
+
+// stpMSTOverriddenRegion returns stpMSTRegion at the given revision with sw2's
+// per-instance path cost inflated on l1 for MSTI 1 and on l2 for MSTI 2: the
+// override that, on an internal port, sends MSTI 1 and MSTI 2 root through
+// opposite links, and that a boundary port ignores entirely because it takes
+// the CIST port's role outright.
+func stpMSTOverriddenRegion(revision uint16) *stp.MST {
+	r := stpMSTRegion(revision)
+	inst1 := r.Instances[1]
+	inst1.Ports = map[string]stp.InstancePort{"l1": {PathCost: 200_000}}
+	r.Instances[1] = inst1
+	inst2 := r.Instances[2]
+	inst2.Ports = map[string]stp.InstancePort{"l2": {PathCost: 200_000}}
+	r.Instances[2] = inst2
+
+	return r
+}
+
+// CasePlanningMSTPVLANInstancesDiverge returns the case evaluating that two
+// VLANs running on separate MST instances choose independent links between
+// the same pair of switches: sw2's per-instance path cost is inflated on l1
+// for MSTI 1 (VLAN 10) and on l2 for MSTI 2 (VLAN 20), so MSTI 1 roots
+// through l2 and MSTI 2 through l1, and a VLAN 10 frame and a VLAN 20 frame
+// cross opposite links rather than the one link a single shared tree would
+// pick for both.
+func CasePlanningMSTPVLANInstancesDiverge() Case {
+	spec := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(1))
+
+	frame10Untagged := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:12";dst="02:00:00:00:04:11";ether_type=2048;tags=[];payload_len=3`)
+	frame10OnL2 := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:12";dst="02:00:00:00:04:11";ether_type=2048;`+
+			`tags=[{tpid=33024;pcp=0;dei=false;vid=10}];payload_len=3`)
+	frame20Untagged := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:22";dst="02:00:00:00:04:21";ether_type=2048;tags=[];payload_len=3`)
+	frame20OnL1 := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:22";dst="02:00:00:00:04:21";ether_type=2048;`+
+			`tags=[{tpid=33024;pcp=0;dei=false;vid=20}];payload_len=3`)
+
+	hitOnL2 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:11";present=true;port="l2";static=true`)
+	hitOnD10 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:11";present=true;port="d10";static=true`)
+	hitOnL1 := expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:21";present=true;port="l1";static=true`)
+	hitOnD20 := expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:21";present=true;port="d20";static=true`)
+
+	expectedSteps := []StepExpectation{
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame10Untagged},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="v10";fid=10;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:12"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:12";present=true;port="v10";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:11"},
+			[]FactExpectation{frame10Untagged}, []FactExpectation{hitOnL2}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "l2"},
+			[]FactExpectation{frame10Untagged},
+			[]FactExpectation{frame10OnL2, expectedFact("bridge.vlan_decision", `port="l2";fid=10;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "l2"},
+			[]FactExpectation{frame10OnL2},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="l2";member="";fid=10;eligible=true;reason=""`)}),
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame10OnL2},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="l2";fid=10;pcp=0;dei=false;form="tagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:12"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:12";present=true;port="l2";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:11"},
+			[]FactExpectation{frame10OnL2}, []FactExpectation{hitOnD10}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "d10"},
+			[]FactExpectation{frame10OnL2},
+			[]FactExpectation{frame10Untagged, expectedFact("bridge.vlan_decision", `port="d10";fid=10;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "d10"},
+			[]FactExpectation{frame10Untagged},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="d10";member="";fid=10;eligible=true;reason=""`)}),
+		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2v10"},
+			[]FactExpectation{
+				expectedFact("fabric.mac", "02:00:00:00:04:11"),
+				expectedFact("fabric.vlan_tags", "[]"),
+			}, nil),
+
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "20"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="v20";fid=20;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:22"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:22";present=true;port="v20";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:21"},
+			[]FactExpectation{frame20Untagged}, []FactExpectation{hitOnL1}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "l1"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{frame20OnL1, expectedFact("bridge.vlan_decision", `port="l1";fid=20;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "l1"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="l1";member="";fid=20;eligible=true;reason=""`)}),
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "20"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="l1";fid=20;pcp=0;dei=false;form="tagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:22"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:22";present=true;port="l1";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:21"},
+			[]FactExpectation{frame20OnL1}, []FactExpectation{hitOnD20}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "d20"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{frame20Untagged, expectedFact("bridge.vlan_decision", `port="d20";fid=20;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "d20"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="d20";member="";fid=20;eligible=true;reason=""`)}),
+		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2v20"},
+			[]FactExpectation{
+				expectedFact("fabric.mac", "02:00:00:00:04:21"),
+				expectedFact("fabric.vlan_tags", "[]"),
+			}, nil),
+	}
+
+	return Case{
+		ID:      "planning/mstp-vlan-instances-diverge",
+		UseCase: UseCasePlanning,
+		Question: "When VLAN 10 and VLAN 20 run on separate MST instances with different per-instance " +
+			"path costs, does each VLAN's frame cross the link its own instance elected, or does one " +
+			"shared tree send both VLANs over the same link?",
+		FalseAnswer: "Both VLANs block the same link, because spanning tree computes one shape for the " +
+			"whole bridge regardless of which VLAN a frame carries",
+		CurrentResult: "MSTI 1 (VLAN 10) roots through l2 and MSTI 2 (VLAN 20) roots through l1, so the " +
+			"VLAN 10 frame crosses l2 and the VLAN 20 frame crosses l1: opposite links between the same " +
+			"pair of switches",
+		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
+		ExpectedOutcome:  trace.Forwarded,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("vlan-classify"),
+			trace.RuleID("learn"),
+			trace.RuleID("unicast-hit"),
+			trace.RuleID("vlan-tag-form"),
+			trace.RuleID("transmit"),
+			trace.RuleID("host.mac.own"),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "vlan", Key: "10"},
+			{Kind: "vlan", Key: "20"},
+			{Kind: "mac", Key: "02:00:00:00:04:11"},
+			{Kind: "mac", Key: "02:00:00:00:04:21"},
+			{Kind: "port", Key: "l1"},
+			{Kind: "port", Key: "l2"},
+		},
+		ExpectedFacts: []FactExpectation{hitOnL2, hitOnL1},
+		ExpectedSteps: expectedSteps,
+		Execute: func() (ExecutionResult, error) {
+			_, j10, err := stpMSTInjectFrame(spec, 10)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			fab, j20, err := stpMSTInjectFrame(spec, 20)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			steps := append(slices.Clone(journeySteps(j10)), journeySteps(j20)...)
+
+			return ExecutionResult{
+				Outcome:  journeyHopOutcome(j20),
+				Reason:   journeyHopReason(j20),
+				Steps:    steps,
+				Metadata: j20.Metadata,
+				Switch:   fab.Switch("sw1"),
+				Journey:  &j20,
+			}, nil
+		},
+	}
+}
+
+// CaseTopologyShadowingMSTRegionBoundary returns the case evaluating that a
+// region boundary holds the MSTIs to the CIST's answer rather than letting
+// them compute one of their own: sw1 and sw2 name the same region but a
+// different revision, so every port between them is a boundary port, and
+// both VLAN 10 (MSTI 1) and VLAN 20 (MSTI 2) must cross whichever link the
+// CIST itself forwards on.
+func CaseTopologyShadowingMSTRegionBoundary() Case {
+	// sw2 carries the same per-instance path cost overrides
+	// [CasePlanningMSTPVLANInstancesDiverge] uses to split the two instances
+	// apart, but at a different region revision: the configuration
+	// identifier no longer matches sw1's, both links become boundary ports,
+	// and an MSTI takes the CIST port's role outright rather than computing
+	// its own, so the overrides that flipped MSTI 1 and MSTI 2 onto opposite
+	// links there have no effect here.
+	spec := stpMSTFabricSpec(stpMSTRegion(1), stpMSTOverriddenRegion(2))
+
+	frame10Untagged := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:12";dst="02:00:00:00:04:11";ether_type=2048;tags=[];payload_len=3`)
+	frame10OnL2 := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:12";dst="02:00:00:00:04:11";ether_type=2048;`+
+			`tags=[{tpid=33024;pcp=0;dei=false;vid=10}];payload_len=3`)
+	frame20Untagged := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:22";dst="02:00:00:00:04:21";ether_type=2048;tags=[];payload_len=3`)
+	frame20OnL1 := expectedFact("bridge.frame",
+		`src="02:00:00:00:04:22";dst="02:00:00:00:04:21";ether_type=2048;`+
+			`tags=[{tpid=33024;pcp=0;dei=false;vid=20}];payload_len=3`)
+
+	hitOnL2 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:11";present=true;port="l2";static=true`)
+	hitOnL1 := expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:21";present=true;port="l1";static=true`)
+	hitOnD20 := expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:21";present=true;port="d20";static=true`)
+
+	// gateBlocksL2 is the CIST's own answer for l2 (Alternate, Discarding),
+	// which MSTI 1 (mstid=1) reports outright on the boundary port instead of
+	// the role its own path cost override, ignored here, would have elected.
+	gateBlocksL2 := expectedFact("stp.forwarding_decision",
+		`port="l2";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
+			`path_cost=20000;designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";`+
+			`designated_port=0;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;`+
+			`tx_bpdus=0;rx_bpdus=0;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+
+	expectedSteps := []StepExpectation{
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame10Untagged},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="v10";fid=10;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:12"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:12";present=true;port="v10";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:11"},
+			[]FactExpectation{frame10Untagged}, []FactExpectation{hitOnL2}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "l2"},
+			[]FactExpectation{frame10Untagged},
+			[]FactExpectation{frame10OnL2, expectedFact("bridge.vlan_decision", `port="l2";fid=10;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "l2"},
+			[]FactExpectation{frame10OnL2},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="l2";member="";fid=10;eligible=true;reason=""`)}),
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
+			[]FactExpectation{frame10OnL2},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="l2";fid=10;pcp=0;dei=false;form="tagged"`)}),
+		expectedStep("relay", trace.OpDrop, "port-blocked", trace.Subject{Kind: "port", Key: "l2"},
+			[]FactExpectation{gateBlocksL2},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="l2";member="";fid=10;eligible=false;reason="port-blocked"`)}),
+
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "20"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="v20";fid=20;pcp=0;dei=false;form="untagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:22"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:22";present=true;port="v20";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:21"},
+			[]FactExpectation{frame20Untagged}, []FactExpectation{hitOnL1}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "l1"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{frame20OnL1, expectedFact("bridge.vlan_decision", `port="l1";fid=20;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "l1"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="l1";member="";fid=20;eligible=true;reason=""`)}),
+		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "20"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{expectedFact("bridge.vlan_decision", `port="l1";fid=20;pcp=0;dei=false;form="tagged"`)}),
+		expectedStep("relay", trace.OpLearn, "learn", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:22"},
+			nil, []FactExpectation{expectedFact("bridge.fdb_decision", `fid=20;mac="02:00:00:00:04:22";present=true;port="l1";static=false`)}),
+		expectedStep("relay", trace.OpLookup, "unicast-hit", trace.Subject{Kind: "mac", Key: "02:00:00:00:04:21"},
+			[]FactExpectation{frame20OnL1}, []FactExpectation{hitOnD20}),
+		expectedStep("vlan", trace.OpRewrite, "vlan-tag-form", trace.Subject{Kind: "port", Key: "d20"},
+			[]FactExpectation{frame20OnL1},
+			[]FactExpectation{frame20Untagged, expectedFact("bridge.vlan_decision", `port="d20";fid=20;pcp=0;dei=false;form="egress"`)}),
+		expectedStep("relay", trace.OpTransmit, "transmit", trace.Subject{Kind: "port", Key: "d20"},
+			[]FactExpectation{frame20Untagged},
+			[]FactExpectation{expectedFact("bridge.egress_decision", `port="d20";member="";fid=20;eligible=true;reason=""`)}),
+		expectedStep("host", trace.OpFilter, "host.mac.own", trace.Subject{Kind: "host", Key: "h2v20"},
+			[]FactExpectation{
+				expectedFact("fabric.mac", "02:00:00:00:04:21"),
+				expectedFact("fabric.vlan_tags", "[]"),
+			}, nil),
+	}
+
+	return Case{
+		ID:      "topology-shadowing/mst-region-boundary",
+		UseCase: UseCaseTopologyShadowing,
+		Question: "When sw1 and sw2 name the same MST region but a different revision, so every port " +
+			"between them is a boundary port, do MSTI 1 and MSTI 2 follow the CIST's blocking decision, " +
+			"or do they compute an independent answer that could disagree with it?",
+		FalseAnswer: "The MSTIs ignore the boundary and elect their own roles on it, which could block a " +
+			"different link than the CIST does",
+		CurrentResult: "l2 is a boundary port and the CIST itself blocks it (Alternate, Discarding); " +
+			"MSTI 1 reports that same block on l2 for VLAN 10 rather than the role its own (ignored) " +
+			"path cost override would have elected, and VLAN 20 crosses l1, the link the CIST forwards on",
+		ExpectedMetadata: &MetadataExpectation{Status: analysis.Complete, Scope: analysis.WholeScope()},
+		ExpectedOutcome:  trace.Dropped,
+		ExpectedReason:   bridge.ReasonPortBlocked,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("vlan-classify"),
+			trace.RuleID("learn"),
+			trace.RuleID("unicast-hit"),
+			trace.RuleID("vlan-tag-form"),
+			trace.RuleID("transmit"),
+			trace.RuleID("port-blocked"),
+			trace.RuleID("host.mac.own"),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "vlan", Key: "10"},
+			{Kind: "vlan", Key: "20"},
+			{Kind: "mac", Key: "02:00:00:00:04:11"},
+			{Kind: "mac", Key: "02:00:00:00:04:21"},
+			{Kind: "port", Key: "l1"},
+			{Kind: "port", Key: "l2"},
+		},
+		ExpectedFacts: []FactExpectation{gateBlocksL2, hitOnL1},
+		ExpectedSteps: expectedSteps,
+		Execute: func() (ExecutionResult, error) {
+			fab, j10, err := stpMSTInjectFrame(spec, 10)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			_, j20, err := stpMSTInjectFrame(spec, 20)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			steps := append(slices.Clone(journeySteps(j10)), journeySteps(j20)...)
+
+			return ExecutionResult{
+				Outcome:  journeyHopOutcome(j10),
+				Reason:   journeyHopReason(j10),
+				Steps:    steps,
+				Metadata: j10.Metadata,
+				Switch:   fab.Switch("sw1"),
+				Journey:  &j10,
+			}, nil
+		},
+	}
 }
 
 // CaseTroubleshootingStaleRootAgesOut returns the case evaluating that

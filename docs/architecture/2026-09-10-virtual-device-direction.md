@@ -283,6 +283,15 @@ them.
   conformance suite states the rule as a hop count with max age as its
   maximum, citing IEEE Std 802.1Q-2011 sub-clauses 13.23.6, 13.27.30, and
   13.28.
+- **Internal information ages by remaining hops instead of message age.** A
+  BPDU whose configuration identifier matches this bridge's own is internal;
+  it is accepted while `RemainingHops > 1` and re-originated one hop short, on
+  the CIST and every MSTI alike, so a claim naming a regional root that no
+  longer exists stops refreshing after `MaxHops` hops rather than a fixed
+  time. External information (an RST or Configuration BPDU, or an MST BPDU
+  from a different region) keeps the message-age test above, and both kinds
+  still expire in silence after `3 × HelloTime`. `MaxHops` defaults to 20,
+  bounded 6 through 40.
 - **A guard's outcome is a port state, not an issue code.** A port state an
   operator can see beats an issue code they have to look for, so BPDU guard
   disables the port with reason `bpdu-guard` until a link bounce, restricted
@@ -301,11 +310,13 @@ them.
 - **The layer keys its state by tree and the gate answers per VLAN.** A port's
   forwarding state belongs to a spanning tree, and more than one tree can run
   over one port, so `Learns` and `Forwards` take a port and a VLAN and the
-  layer maps the VLAN to a tree. One tree, the CIST, carries every VLAN today,
-  so the answers agree; the keying and the signature are what let that stop
-  being true without moving the seam again. The port identifier and the port
-  key set stay bridge-global: the identifier appears on the wire, and the key
-  set's order reaches the caller as the order of `Effects.Flush`.
+  layer maps the VLAN to a tree. With no region configured, one tree, the
+  CIST, carries every VLAN, so the answers agree; with a region configured, a
+  VLAN an instance claims maps to that MSTI instead, and a boundary port's
+  answer for it still traces back to the CIST because an MSTI takes the CIST
+  port's role there. The port identifier and the port key set stay
+  bridge-global: the identifier appears on the wire, and the key set's order
+  reaches the caller as the order of `Effects.Flush`.
 - **Classification precedes the ingress gate.** Active topology enforcement
   belongs to the forwarding process that follows ingress classification, so
   the bridge classifies first and asks the gate with the classified VLAN. A
@@ -314,13 +325,44 @@ them.
   than `port-blocked`, because a frame the port would never have admitted is
   not a spanning-tree question. A frame dropped in classification consults no
   spanning-tree scope, since no tree state could have changed its outcome.
-- **A version 3 BPDU is read as its RST prefix rather than refused.** An MST
-  BPDU's CIST prefix is how an RSTP bridge peers with an MST region at all,
-  and UNH-IOL's MSTP suite states that a compliant device must not validate an
-  MST BPDU on its protocol version identifier (Test MSTP.op.1.3, citing IEEE
-  Std 802.1Q-2011 sub-clause 14.4). Refusing it would leave a netsim RSTP
-  bridge facing an MSTP neighbour with both ends Designated and Forwarding,
-  which is an unbroken loop and a worse answer than the approximation.
+- **`Decode` reads a version 3 BPDU's MST body, and falls back to its RST
+  prefix only when the payload is too short for one.** The configuration
+  identifier, internal root path cost, remaining hops, and MSTI records come
+  back filled whenever the payload holds enough octets; a truncated capture
+  or an RSTP peer's 39-octet version 3 BPDU still decodes as its RST prefix
+  rather than being refused. UNH-IOL's MSTP suite states that a compliant
+  device must not validate a BPDU on its protocol version identifier (Test
+  MSTP.op.1.3, citing IEEE Std 802.1Q-2011 sub-clause 14.4), which is why the
+  fallback exists at all: refusing a short version 3 payload would leave a
+  netsim bridge facing that peer with both ends Designated and Forwarding, an
+  unbroken loop and a worse answer than the RST-prefix approximation.
+- **A region is a name, a revision, and a digest over the VID-to-MSTID
+  table, carried as a 51-octet configuration identifier.** The digest is
+  HMAC-MD5 over the 4096-entry table, two big-endian octets per VID, keyed
+  with a constant that appears in no other file in this repository; the
+  all-zero table digests to `ac36177f50283cd4b83821d8ab26de62` and VID 10 on
+  MSTID 1 with VID 20 on MSTID 2 to `9357ebb7a8d74dd5fef4f2bab50531aa`, which
+  is what proves the construction matches the standard rather than some other
+  one. A port is internal when the BPDU it last received carries this
+  bridge's own configuration identifier, and a boundary port otherwise; an
+  RST or Configuration BPDU is always external.
+- **One priority vector type serves the CIST and every MSTI.** Its six
+  components compare in order: root, external root path cost, regional root,
+  internal root path cost, designated bridge, designated port. An RSTP or
+  CIST vector takes its regional root from its root and leaves the internal
+  cost zero, collapsing to the landed four-component RSTP order; an MSTI
+  vector takes its root from its regional root and leaves the external cost
+  zero, collapsing to clause 13.11's MSTI order. Neither needs a branch,
+  because a constant leading component drops out of a lexicographic
+  comparison, so a second vector type would only duplicate the comparator.
+- **Only the CIST computes a boundary port's role; every MSTI takes the
+  CIST's role there outright.** Electing an independent role from information
+  a different region sent would let an MSTI disagree with the CIST about
+  which link is blocked, which is the boundary a region name and revision
+  exist to detect. netsim also reports no Master role: both the CIST and MSTI
+  role MIB tables list exactly Root, Alternate, Designated, and Backup, so a
+  boundary port's MSTI mirrors the CIST's Root under the label the MIB can
+  express, the same forwarding answer under a different name.
 
 ### Route selection and recursive next hops
 

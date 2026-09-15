@@ -41,6 +41,13 @@ established across the library:
   A journey forwarded over the other uplink stays Incomplete. It carries
   `protocol-link-unknown` for every STP port its hops consulted, even the ones
   the unknown link never touches.
+- `topology-shadowing/mst-region-boundary`: Two switches name the same MST
+  region at different revisions, so every link between them is a boundary
+  port. sw2's per-instance path costs, which flip MSTI 1 and MSTI 2 onto
+  opposite links when the region matches, have no effect here: both
+  instances take the CIST's own blocking decision on the boundary,
+  disproving the false answer that an MSTI computes an independent role
+  there that could disagree with the CIST's.
 - `troubleshooting/host-rejects-foreign-unicast`: A fully resolved, Complete
   network path carries a known-unicast frame onto a host's port for a MAC
   that is not the host's own address. The host refuses it under
@@ -56,6 +63,12 @@ established across the library:
   the surviving flow's next selection keeps the bucket it already held, with
   cause `kept`, disproving the false answer that a member fault remaps every
   flow.
+- `planning/mstp-vlan-instances-diverge`: VLAN 10 and VLAN 20 run on separate
+  MST instances between the same two switches, each with its own inflated
+  per-instance path cost on the opposite link. MSTI 1 roots through l2 and
+  MSTI 2 through l1, so the VLAN 10 frame and the VLAN 20 frame cross
+  opposite links, disproving the false answer that spanning tree computes one
+  shape for the bridge and blocks the same link for every VLAN.
 - `troubleshooting/active-backup-no-failback`: An active-backup bond with no
   configured `Primary` moves from member `a` to member `b` when `a` goes
   down, and stays on `b` with cause `last-active` once `a` recovers,
@@ -97,9 +110,9 @@ established across the library:
   with a Complete result, disproving the false answer that a broken recursive
   route silently forwards or fails construction.
 
-The five `fabric`-based cases execute a [fabric.Fabric] and populate
-[ExecutionResult.Journey] and [ExecutionResult.FabricMetadata] alongside the
-admitted primary metadata. Journey is the recorded traversal; its own
+The eight `fabric`-based cases execute a [fabric.Fabric] and populate
+[ExecutionResult.Journey], six of them alongside
+[ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
 [fabric.Fabric.Metadata], scoped over the whole topology, so it can carry an
 issue a given journey never depended on. Both fields are informational: only
