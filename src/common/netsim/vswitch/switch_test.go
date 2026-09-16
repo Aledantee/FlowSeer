@@ -2404,9 +2404,9 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 	}
 }
 
-// loopProtectReturnFact locates the "loopprotect.probe.return" step in res's
-// trace and returns its output fact's canonical string, or "" if the step is
-// not present.
+// loopProtectReturnFactString locates the "loopprotect.probe.return" step in
+// res's trace and returns its output fact's canonical string, or "" if the
+// step is not present.
 func loopProtectReturnFactString(t *testing.T, res vswitch.ForwardResult) string {
 	t.Helper()
 
@@ -2422,11 +2422,11 @@ func loopProtectReturnFactString(t *testing.T, res vswitch.ForwardResult) string
 // TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN proves that a probe
 // emitted on a port with no configured VLANs (VID 0, resolved to the port's
 // PVID) does not falsely report an inter-VLAN loop when it returns on a
-// VLAN-aware bridge: the switch must re-encode the probe's payload with the
-// resolved VID before transmitting, so the classified VLAN it returns under
-// agrees with what the payload itself says it was sent on. Before that fix,
-// the payload still named VID 0 while the switch classified the return into
-// the port's PVID, and Receive read that mismatch as a false inter-VLAN loop.
+// VLAN-aware bridge. It drives the real emission path (Wake, Drain, then
+// Forward with the frame the switch actually put on the wire): the switch
+// must re-encode the probe's payload with the resolved VID before
+// transmitting, so the payload names the VLAN the frame rides and a return
+// classified into that VLAN is not inter-VLAN.
 func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().

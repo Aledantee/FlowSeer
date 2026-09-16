@@ -45,7 +45,7 @@ func Example() {
 
 	// The unmanaged hub loops 1/1/1's probe back onto the switch; the
 	// switch decodes it and finds it names this switch as sender.
-	probe, err := loopprotect.Decode(fx.Emissions[0].Frame)
+	probe, err := loopprotect.Decode(loopprotect.Encode(fx.Emissions[0].Probe, mac))
 	if err != nil {
 		panic(err)
 	}

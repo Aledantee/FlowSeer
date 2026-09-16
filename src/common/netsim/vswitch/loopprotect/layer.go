@@ -4,25 +4,22 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 )
 
 // Emission describes a probe frame to transmit out one virtual switch port
-// carrying one VLAN. The VID rides alongside the frame because the switch,
-// not this layer, applies the port's VLAN egress tagging. Probe carries the
-// same value Frame was encoded from; a caller that resolves VID 0 to a real
-// VLAN (the switch does, for a port with no configured VLANs) must set
-// Probe.VID to that resolved value and re-encode before transmitting, so the
-// payload names the VLAN the probe actually rides rather than the VID 0 it
-// was built with.
+// carrying one VLAN. The VID rides alongside Probe because the switch, not
+// this layer, applies the port's VLAN egress tagging; a caller that resolves
+// VID 0 to a real VLAN (the switch does, for a port with no configured
+// VLANs) must set Probe.VID to that resolved value before calling Encode, so
+// the payload names the VLAN the probe actually rides rather than the VID 0
+// it was built with.
 type Emission struct {
 	Port  string
 	VID   vlan.ID
 	Probe Probe
-	Frame ethernet.Frame
 }
 
 // Effects lists the probe frames a Wake call emits and the ports whose
@@ -317,7 +314,6 @@ func (l *Layer) Wake(now time.Time) Effects {
 				Port:  name,
 				VID:   vid,
 				Probe: probe,
-				Frame: Encode(probe, l.mac),
 			})
 		}
 	}
