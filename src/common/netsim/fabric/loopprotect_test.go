@@ -31,7 +31,7 @@ func loopProtectSelfLoopPorts(t *testing.T) port.Table {
 	)
 }
 
-func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.Config, netaddr.MAC, netaddr.MAC) {
+func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.Config, netaddr.MAC) {
 	t.Helper()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -63,7 +63,7 @@ func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.
 		},
 	}
 
-	return cfg, macH1, macH2
+	return cfg, macH1
 }
 
 // runToQuiescence runs the fabric until its arrival queue drains on its own
@@ -85,7 +85,7 @@ func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
 // of both learning and forwarding on that port stops the second probe's
 // payload from ever being classified, so exactly one port is acted on.
 func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
-	cfg, macH1, _ := loopProtectSelfLoopConfig(t, loopprotect.Block)
+	cfg, macH1 := loopProtectSelfLoopConfig(t, loopprotect.Block)
 
 	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
@@ -138,7 +138,7 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 // neither probe's return is intercepted by the gate the way Block's is, and
 // both ports end up carrying the action.
 func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
-	cfg, _, _ := loopProtectSelfLoopConfig(t, loopprotect.NoLearn)
+	cfg, _ := loopProtectSelfLoopConfig(t, loopprotect.NoLearn)
 
 	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {

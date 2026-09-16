@@ -55,9 +55,8 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 	}
 
 	sawWake := false
-	sawProbe := false
 
-	for steps := 0; steps < 10 && !(sawWake && sawProbe); steps++ {
+	for steps := 0; steps < 10 && !sawWake; steps++ {
 		entry, ok := fab.Step()
 		if !ok {
 			break
@@ -71,6 +70,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		t.Fatalf("fabric.Step() never produced a Wake entry for sw1 with no spanning tree and no LAG configured")
 	}
 
+	sawProbe := false
 	for _, journey := range fab.Report() {
 		if !journey.Protocol || journey.Injection.Origin.Node != "sw1" {
 			continue
