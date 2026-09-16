@@ -2182,5 +2182,6 @@ func DefaultRegistry() *Registry {
 	RegisterLAGMulticastCases(r)
 	RegisterSTPCases(r)
 	RegisterRoutingCases(r)
+	RegisterMDNSCases(r)
 	return r
 }

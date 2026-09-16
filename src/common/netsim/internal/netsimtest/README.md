@@ -122,6 +122,16 @@ established across the library:
   withdrawn instead of installed, and the packet takes the less specific `/8`
   with a Complete result, disproving the false answer that a broken recursive
   route silently forwards or fails construction.
+- `troubleshooting/mdns-ipv4-floods-under-snooping`: A snooping switch with
+  `FloodUnregistered` disabled still floods an mDNS query addressed to
+  224.0.0.251, because that destination sits in the 224.0.0.0/24 range
+  RFC 4541 section 2.1.2 exempts from admission, disproving the false answer
+  that snooping drops unregistered mDNS.
+- `troubleshooting/mdns-ipv6-unregistered-router-ports`: The same switch
+  receives an mDNS query addressed to the link-scope group `ff02::fb` with no
+  member ever joined. The frame reaches only the configured router port,
+  disproving the false answer that the switch floods link-scope groups the
+  way it floods IPv4's reserved range.
 
 The eleven `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey], six of them alongside
