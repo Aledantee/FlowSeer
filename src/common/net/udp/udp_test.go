@@ -113,6 +113,11 @@ func TestEncodeMatchesFixture(t *testing.T) {
 	}{
 		{name: "ipv4", fixture: ipv4Fixture, src: "10.0.10.7", dst: "224.0.0.251"},
 		{name: "ipv6", fixture: ipv6Fixture, src: "fe80::1", dst: "ff02::fb"},
+		// An IPv4-mapped IPv6 source counts as IPv4 (see the doc comment on
+		// addressFamily), so this must select the IPv4 pseudo-header and
+		// produce the same bytes, checksum 0xaa94 included, as the plain
+		// IPv4 case above.
+		{name: "ipv4-mapped ipv6 source", fixture: ipv4Fixture, src: "::ffff:10.0.10.7", dst: "224.0.0.251"},
 	}
 
 	for _, tc := range tests {
@@ -151,34 +156,55 @@ func TestChecksumOffsets(t *testing.T) {
 	}
 }
 
-// TestZeroChecksumSentAsAllOnes searches for a payload whose one's-complement
-// checksum computes to zero, then asserts that Encode sends it as 0xffff
+// TestZeroChecksumSentAsAllOnes pins a payload whose one's-complement
+// checksum computes to zero and asserts that Encode sends it as 0xffff
 // (RFC 768) rather than 0x0000, which on IPv4 means "no checksum" and on
-// IPv6 is forbidden outright.
+// IPv6 is forbidden outright. Its sibling below pins the adjacent payload,
+// whose checksum computes to one, so the boundary is checked from both
+// sides.
+//
+// Both checksums were derived by hand from RFC 768, independently of this
+// package: sum the IPv4 pseudo-header, the UDP header with checksum zero,
+// and the payload as sixteen-bit big-endian words, fold carries past
+// sixteen bits, then complement.
+//
+//	pseudo-header: 0a00 0a07 e000 00fb 0011 000a
+//	UDP header:    14e9 14e9 000a 0000
+//	payload {0xe1, 0x05}: e105
+//	raw sum = 0x1fffe, folded = 0xffff, complement = 0x0000 -> sent as 0xffff
+//
+//	pseudo-header and UDP header are the same
+//	payload {0xe1, 0x04}: e104
+//	raw sum = 0x1fffd, folded = 0xfffe, complement = 0x0001 -> sent as 0x0001
 func TestZeroChecksumSentAsAllOnes(t *testing.T) {
 	src := netip.MustParseAddr("10.0.10.7")
 	dst := netip.MustParseAddr("224.0.0.251")
 	h := udp.Header{SrcPort: 5353, DstPort: 5353}
 
-	var wire []byte
-	found := false
-	for candidate := range 0x10000 {
-		payload := []byte{byte(candidate >> 8), byte(candidate)}
-		out, err := udp.Encode(h, payload, src, dst)
-		if err != nil {
-			t.Fatalf("Encode() error = %v", err)
-		}
-		if binary.BigEndian.Uint16(out[6:8]) == 0xffff {
-			wire = out
-			found = true
-			break
-		}
+	out, err := udp.Encode(h, []byte{0xe1, 0x05}, src, dst)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
 	}
-	if !found {
-		t.Fatal("search over two-octet payloads found none whose checksum computes to zero")
-	}
-	if got := binary.BigEndian.Uint16(wire[6:8]); got != 0xffff {
+	if got := binary.BigEndian.Uint16(out[6:8]); got != 0xffff {
 		t.Errorf("Checksum = %#x, want 0xffff", got)
+	}
+}
+
+// TestChecksumOneSentAsOne pins the payload adjacent to the one above, whose
+// checksum computes to one rather than zero, so Encode must leave it
+// untouched instead of substituting 0xffff. See the derivation on
+// [TestZeroChecksumSentAsAllOnes].
+func TestChecksumOneSentAsOne(t *testing.T) {
+	src := netip.MustParseAddr("10.0.10.7")
+	dst := netip.MustParseAddr("224.0.0.251")
+	h := udp.Header{SrcPort: 5353, DstPort: 5353}
+
+	out, err := udp.Encode(h, []byte{0xe1, 0x04}, src, dst)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	if got := binary.BigEndian.Uint16(out[6:8]); got != 0x0001 {
+		t.Errorf("Checksum = %#x, want 0x0001", got)
 	}
 }
 
@@ -210,8 +236,12 @@ func TestEncodeOddLengthPayload(t *testing.T) {
 	}
 }
 
-// TestVerify checks both fixtures against their correct addresses, and that
-// flipping one checksum octet turns the report false.
+// TestVerify checks both fixtures against their correct addresses, with two
+// trailing zero octets appended to stand in for Ethernet padding on a short
+// frame, and that flipping one checksum octet turns the report false. The
+// fixture's Length field (54) is smaller than the padded buffer, so a
+// checksum that covered the whole buffer instead of stopping at Length
+// would disagree with the correct one and report false.
 func TestVerify(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -227,10 +257,10 @@ func TestVerify(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := netip.MustParseAddr(tc.src)
 			dst := netip.MustParseAddr(tc.dst)
-			wire := mustDecodeHex(t, tc.fixture)
+			wire := append(mustDecodeHex(t, tc.fixture), 0x00, 0x00)
 
 			if !udp.Verify(wire, src, dst) {
-				t.Error("Verify() = false, want true for an unmodified fixture")
+				t.Error("Verify() = false, want true for an unmodified fixture with trailing pad octets")
 			}
 
 			corrupted := bytes.Clone(wire)
@@ -240,6 +270,26 @@ func TestVerify(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("mixed address family", func(t *testing.T) {
+		wire := mustDecodeHex(t, ipv4Fixture)
+		src := netip.MustParseAddr("10.0.10.7")
+		dst := netip.MustParseAddr("ff02::fb")
+
+		if udp.Verify(wire, src, dst) {
+			t.Error("Verify() = true, want false for a mixed address family pair")
+		}
+	})
+
+	t.Run("datagram Decode refuses", func(t *testing.T) {
+		src := netip.MustParseAddr("10.0.10.7")
+		dst := netip.MustParseAddr("224.0.0.251")
+		wire := []byte{0x14, 0xe9, 0x14, 0xe9, 0x00, 0x04, 0xaa, 0x94}
+
+		if udp.Verify(wire, src, dst) {
+			t.Error("Verify() = true, want false for a datagram Decode itself would refuse")
+		}
+	})
 }
 
 // TestDecodeRefusals covers the inputs Decode must reject: a datagram
