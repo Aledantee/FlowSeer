@@ -4,13 +4,15 @@ type: fix
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 3f: the link and VLAN 1 share one slot - Plan
+
+> Implemented. 6 units, 2026-09-16T17:50:08Z to 2026-09-16T18:48:27Z.
 
 ## Goal
 
