@@ -31,9 +31,13 @@ amended or proposed through `plan`. A solution with
 `problem_type: architecture_pattern` explains how to apply a decision and
 links to the record that made it.
 
-Whichever way the gate goes, leave the outcome on the Orca card, since `close`
-reads it. Append `; compound: <solution path>`, `; compound: no lesson`, or
-`; compound: observation logged`:
+Whichever way the gate goes, leave the outcome where `close` reads it
+(`close`, step 1): `compound: <solution path>`, `compound: no lesson`, or
+`compound: observation logged`, as a field in the plan's frontmatter beside
+`status`, committed together with the solution and followed by the verifier
+on the changed paths so the receipt post-dates the commit, or as a line
+appended to `$(git rev-parse --git-dir)/flowseer-checkpoints` when the work
+has no plan. In Orca, append the same entry to the card:
 
 ```bash
 orca worktree set --worktree active --comment "<existing>; compound: no lesson" --json

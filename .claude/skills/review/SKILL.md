@@ -155,11 +155,12 @@ Four findings need more than a re-read:
   a round finds a defect in the previous round's fix for the same
   mechanism, stop patching: state the property the mechanism must hold and
   make it executable (a generated state space, an invariant assertion the
-  suite can fail on) instead of reviewing the next rewrite.
+  suite can fail on) instead of reviewing the next rewrite. Step 6 says
+  whose job it is to notice this across rounds.
 
 ## 5. Report
 
-Verdict first (accept, accept with fixes, rework), then findings, most severe
+Verdict first (accept, accept after fixes, rework), then findings, most severe
 first: title, `path:line`, what goes wrong and when, the smallest fix. Then the
 residual testing gap. In Orca, append the verdict to the worktree comment,
 keeping what `implement` wrote:
@@ -176,7 +177,44 @@ verdict on the branch, and a subject review has not looked at the branch.
 Findings too large to fix in place go to `plan` with what this review
 established, not into a fix attempt at the end of an audit.
 
+When the scope is this branch's work (the working tree, the branch, or its
+plan's paths), record the verdict where `close` reads it, step 1 of
+`close`: the plan's frontmatter gains `review: <verdict>` beside `status`,
+committed with a message naming the review, and then the verifier runs on
+the plan path so the receipt post-dates that commit; planless work appends
+the same line to `$(git rev-parse --git-dir)/flowseer-checkpoints`, which
+no commit or run is needed for. A subject, commit, or path review of other
+work records nothing, for the reason above. The Orca comment is written as
+well; a verdict that lives only in the conversation cannot be read by a
+later session.
+
 Report only. When the user asks to apply the fixes, make them, run the
 verifier on the changed paths, report what changed, and set the verdict to
-`review: accept after fixes`. A correction to this procedure is logged as
-`compound`, Observe describes.
+`review: accept after fixes`.
+
+## 6. Fix and re-review, when asked
+
+When the user asks to fix the findings and review again until the work is
+clean, the coordinating session runs the rounds; no skill runs them on its
+own, and `implement` covers a plan's units, not a review's findings. One
+round is:
+
+1. Dispatch the fixes as `delegate` describes, one worker per file group,
+   each briefed with its findings' `path:line`, failure scenario, and
+   smallest fix. The coordinating session does not make the fixes itself.
+2. Merge each worker's branch, then run the verifier once on the union of
+   the changed paths, before anything is reviewed again.
+3. Repeat steps 3 and 4 of this skill over the branch diff, briefing the reviewer with
+   the previous round's findings and the paths that changed, so it judges
+   each fix against its finding instead of rediscovering it.
+
+The loop stops at a round with no correctness findings; what remains is
+listed in the final report and the verdict is `accept after fixes`. The
+coordinator holds the rounds' history, so it is the one that sees a round
+find a defect in the previous round's fix for the same mechanism; then
+step 4's rule applies before the next round, and after three rounds on the
+same mechanism without a clean one the work goes to `plan` with what the
+rounds established, as `implement` does with a unit still red after three
+verifier rounds.
+
+A correction to this procedure is logged as `compound`, Observe describes.

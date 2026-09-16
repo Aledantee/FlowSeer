@@ -91,6 +91,9 @@ parent: <path of the parent plan; only in a phase plan>
 `status` is `planned` until the work lands, then `implemented`,
 `partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
 describes the plan's completeness and does not change with progress.
+`review` and `compound` each add a field of their own name beside `status`
+when they run (`review: accept`, `compound: no lesson`); `close` reads the
+three together, so a plan carries its own checkpoints into the history.
 
 Body, in this order; leave out an empty section.
 
@@ -170,7 +173,14 @@ Rules:
 ## 4. Review the plan
 
 Read the plan as the implementer: can each unit start without a question? Fix
-the plan where not. Where a unit supplies a value to an existing matching
+the plan where not. Then read each unit's Tests line against the risks the
+plan itself names for that unit, in its Decisions, Open questions, and
+Change: a risk the plan calls unverifiable, or one a symmetric test cannot
+see, gets a test that pins it, a fixture with known bytes, or a sentence in
+the unit saying that nothing in it covers that risk. A round trip passes
+whatever octet an encoder chooses, so a Tests line asking for one where the
+plan calls the wire layout unverifiable prescribes the one test that cannot
+catch the risk it names. Where a unit supplies a value to an existing matching
 primitive (a prompt regex, a header parser, a routing predicate), trace that
 primitive's matching rule (anchor scope, tie-break) against the value and
 against every sibling it must not also match; the value's apparent intent is

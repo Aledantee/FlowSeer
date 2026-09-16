@@ -307,6 +307,57 @@ if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
   gates_selected=true
 fi
 
+# Go tools install to $(go env GOPATH)/bin, and a session's PATH does not
+# always carry it. Whether the tree verifies must not depend on the shell
+# that launched the run, so that directory is searched whenever go itself
+# is found. After the selection exit above, which must run no tool at all.
+if command -v go >/dev/null 2>&1 && gopath=$(go env GOPATH 2>/dev/null) && [[ -n $gopath ]]; then
+  case ":$PATH:" in
+    *":$gopath/bin:"*) ;;
+    *) PATH=$gopath/bin:$PATH ;;
+  esac
+fi
+
+# Every tool the selected gates will ask for, checked before the first gate
+# runs, so a setup problem stops the run at once with the whole list and
+# the remedy, and never lands after several gates have passed where it
+# reads as one of them. The list mirrors the per-gate need_tool calls
+# below, which stay as the last line of defence for a gate this list
+# misses.
+required_tools=(python3)
+if ((${#go_files[@]})); then
+  required_tools+=(gofumpt goimports)
+fi
+if ((${#modules[@]})); then
+  required_tools+=(go golangci-lint)
+fi
+if [[ $proto == true || $mib == true ]]; then
+  required_tools+=(go)
+fi
+if [[ $proto == true ]]; then
+  required_tools+=(buf)
+fi
+if [[ $hook_tooling == true ]]; then
+  required_tools+=(jq shellcheck)
+fi
+missing_tools=()
+for tool in "${required_tools[@]}"; do
+  command -v "$tool" >/dev/null 2>&1 && continue
+  for seen in "${missing_tools[@]:-}"; do
+    [[ $seen == "$tool" ]] && continue 2
+  done
+  missing_tools+=("$tool")
+done
+if ((${#missing_tools[@]})); then
+  echo "required tools are not on PATH: ${missing_tools[*]}" >&2
+  case " ${missing_tools[*]} " in
+    *" gofumpt "*|*" goimports "*|*" golangci-lint "*)
+      echo "Go tools install to \$(go env GOPATH)/bin; put that directory on PATH or install the missing ones there." >&2
+      ;;
+  esac
+  exit 1
+fi
+
 need_tool python3
 run python3 "$script_dir/check-plan-status.py"
 
@@ -486,7 +537,11 @@ PY
         fi
       done < <(go list -f '{{.Dir}}' "${targets[@]}" | grep -vE '/generated(/|$)')
       if ((${#lint_pkgs[@]})); then
-        run golangci-lint run --config "$root/.golangci.yml" "${lint_pkgs[@]}"
+        # golangci-lint takes a machine-wide file lock and by default dies
+        # with `parallel golangci-lint is running` when another instance
+        # holds it, which reads as a red gate. Serial runners wait for the
+        # lock instead.
+        run golangci-lint run --allow-serial-runners --config "$root/.golangci.yml" "${lint_pkgs[@]}"
       fi
     )
   done
@@ -694,7 +749,16 @@ if [[ -s $marker ]]; then
     [[ $verified == true ]] || printf '%s\n' "$marked" >>"$remaining"
   done <"$marker"
   if [[ -s $remaining ]]; then
+    # Rewritten in the same second as the receipt below, so a marker with
+    # the receipt's mtime is this run's own doing, not an artifact. Say
+    # what survived, or a passing run teaches its readers to ignore the
+    # marker and `close` finds a gate that decides nothing.
     sort -u "$remaining" >"$marker"
+    echo "Unverified edits remain after this run:"
+    sed 's/^/  /' "$marker"
+    if grep -qx '<Bash mutation; verify with --full>' "$marker"; then
+      echo "  The Bash-mutation line clears only under --full."
+    fi
   else
     rm -f "$marker"
   fi

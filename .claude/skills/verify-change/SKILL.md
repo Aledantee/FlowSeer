@@ -88,12 +88,35 @@ the Docker-backed OpenTelemetry tier through
 gate. `--print-selection -- <paths>` reports whether that tier would run
 without running any gate.
 
-A missing required tool is a failed gate. Do not replace a failed race test
-with a non-race test or skip lint; fix the failure or report the exact
+Every command-line tool the selected gates invoke is checked before the
+first gate runs, and a missing one stops the run with the whole list and
+no gate name: `required tools are not on PATH: gofumpt goimports`. That is
+a setup failure, not a finding. Go tools are looked up in
+`$(go env GOPATH)/bin` whether or not the session's PATH carries it. The
+Docker daemon the telemetry tier needs is not a PATH tool and stays a
+failed gate when unavailable. Do not replace a failed race
+test with a non-race test or skip lint; fix the failure or report the exact
 blocked command and reason.
 
-A successful run records its scope in the worktree's git metadata and clears
-matching dirty markers; `close` reads that receipt.
+The lint gate is exclusive machine-wide: `golangci-lint` takes one file
+lock per machine, and the gate passes `--allow-serial-runners` so a run
+waits for a concurrent instance instead of dying. A `golangci-lint` run by
+hand alongside a verification, without that flag, fails with
+`parallel golangci-lint is running`; that is contention, not a finding,
+and the hand run is repeated once the verifier has finished.
+
+A successful run records its scope in the worktree's git metadata and
+clears the dirty-marker lines it verified; `close` reads that receipt. A
+targeted run clears only the paths it named, and the
+`<Bash mutation; verify with --full>` line clears only under `--full`, so
+a passing run prints the lines that remain under
+`Unverified edits remain after this run:`, and the receipt records
+`full=false`. A `--full` run removes the marker outright, so a marker
+found beside a `full=true` receipt was written after the run by a Bash
+command the edit hook could not attribute to a path. Send a run's log to a
+`.log` file, not to `.md`, `.json`, or `.yaml`: the hook marks a redirect
+into those, so a `--full` run logged to `verify.md` re-creates the line it
+just cleared.
 
 ## Plan status ledger
 

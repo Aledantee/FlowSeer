@@ -37,7 +37,10 @@ When a plan has shipped, set `status` and add a short `> Implemented.` outcome
 note directly under its title, in the same change as the last unit. Keep
 `artifact_readiness` unchanged because it describes the plan's completeness,
 not its progress. A plan whose paths or package names have since moved keeps
-its text; the outcome note says where the code lives now.
+its text; the outcome note says where the code lives now. The `review` and
+`compound` skills each add a field of their own name beside `status`
+(`review: accept`, `compound: no lesson`), which `close` reads before
+merging.
 
 A large plan is split into a parent plan and phase plans; a phase plan
 names its parent in a `parent:` field, and the parent stays `planned`

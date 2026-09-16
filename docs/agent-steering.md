@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-09-10
+last_updated: 2026-09-16
 ---
 
 # Agent steering
@@ -119,12 +119,14 @@ steps: brainstorming folds into `plan`, doc review into `plan` and
 Gate the merge on evidence, not on the conversation. `close` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` each
-leave a checkpoint that `close` reads: the plan's `status` field, the
-verifier receipt under the git dir, and the Orca card's status and comment.
-Work that skipped the plan has no `status` field, so the card's
-`implemented:` entry and status, the commit range, and the receipt stand in
-for it; a branch that skipped the plan otherwise stopped `close` at its
-first signal.
+leave a checkpoint that `close` reads: the plan's `status`, `review`, and
+`compound` fields, the verifier receipt under the git dir, and in Orca the
+card's status and comment. Work that skipped the plan has no frontmatter,
+so the same three lines go to a `flowseer-checkpoints` file beside the
+receipt, with the commit range standing in for the plan. Every checkpoint
+is on disk because an answer given in the conversation is unreadable to
+a later session or a re-run, so `close` stops on a verdict it cannot read
+from a file rather than asking for one.
 A missing checkpoint stops the merge and names the skill to run next;
 `close` does not run that skill itself, for the same reason `implement`
 does not trigger a review. The skill leaves the worktree ready for
@@ -138,6 +140,26 @@ terminals open and its branch listed as live work, because
 `worker-release` closes only the agent terminal and no skill said who
 removes the rest; the coordinator had already read everything those
 terminals held.
+
+Merge from the worktree, and leave `main` one fast-forward away. Claude
+Code refuses a worktree-isolated session every git command that names
+another checkout, reads included; the refusal is the harness's, not the
+repository guard's, which is passive for Bash in a linked worktree, and
+disabling the sandbox does not lift it. So `close` merges `main` into the
+branch inside the worktree, where the tests and the verifier already are,
+verifies the union with `--base main`, and emits the primary checkout's
+`git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
+the verified commit and refuses if `main` moved again. The sandbox's deny
+of writes under `.claude/skills/` also covers git replaying a committed
+change, so that merge needs the bypass whenever `main` touched `.claude/`;
+that deny list, like the isolation guard, is Claude Code's own and not a
+repository policy surface, which is why the owner's direction that a
+session may merge in both directions and remove its own worktrees is met
+by the skill's shape rather than by a hook change: the repository already
+permits it, the merge half is met by merging in the worktree, and the
+removal half stays with the person because the harness refuses a
+`git worktree remove` naming another checkout and the repository cannot
+lift that; the report carries the command.
 
 Keep each skill short and specific to this repository. Anthropic's authoring
 guidance caps a `SKILL.md` body at 500 lines and says a skill that restates
@@ -231,7 +253,17 @@ verdict line names the gate that was running. The two invariant packages (`src/c
 same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that had already failed
 twice. `--full` bounds `go test -p` because a gate that fails for reasons
-the diff cannot cause teaches its readers to discount it.
+the diff cannot cause teaches its readers to discount it. Three more
+failures of that kind live in the script rather than in prose: the lint
+gate passes `--allow-serial-runners`, because `golangci-lint` holds one
+lock per machine and would otherwise die on any concurrent run; the
+script searches `$(go env GOPATH)/bin` and checks every tool the selected
+gates need before the first gate, because a session's PATH must not
+decide whether the tree verifies and a late tool failure reads as a gate
+result; and a passing run prints the dirty-marker lines it could not
+clear, because a targeted run rewrites the marker in the same second as
+the receipt and a silent survivor reads as an artifact, so `close` takes
+the marker's content as its remedy.
 
 Watch a test fail against the defect. One plan produced three tests that
 read as proof and asserted nothing, each found only by reverting the fix;
@@ -479,7 +511,18 @@ the plan and the ledger before trusting a summary.
 Tune the phase size from data. The six-unit trigger came from community
 reports; each outcome note `implement` writes now carries the unit count
 and the span of the ledger's `verified_at` values, and `steer`'s audit
-reads them before the trigger changes.
+reads them before the trigger changes. As of 2026-09-16 the notes show
+phases of three to six units, each inside one session; the data does not
+yet say, and the trigger stays.
+
+Fix-and-re-review rounds belong to the coordinator. `review` carries the
+loop as a step the user asks for, because the coordinator is the only
+party that holds the rounds' history and so the only one that can see a
+round undo the previous round's fix: fixes are dispatched through
+`delegate`, the verifier runs on the union before each review round, the
+loop stops at a round with no correctness findings, and after three
+rounds on one mechanism the work goes to `plan`, the cap `implement` puts
+on a red unit.
 
 The integration branch is `main`. The skills named `master` until
 2026-09-15, so `--base master` and `master..HEAD` failed in this
