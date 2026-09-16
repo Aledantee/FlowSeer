@@ -576,7 +576,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md`
 - **After:** U3e
-- **Landed:** `fb75f711..ae271bce`
+- **Landed:** `fb75f711..b75047ec`
 - **Change:** A VLAN lookup that can answer "no tree", an enumerated set of
   link properties every tree holds, and one SSTP entry point that always runs
   the link half of a receive. Corrective: two review rounds found four defects
