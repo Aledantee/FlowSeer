@@ -1,6 +1,7 @@
 package vswitch
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -38,6 +39,13 @@ const (
 
 var (
 	stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
+
+	// sstpGroupAddress is where a PVST bridge sends its per-VLAN BPDUs. It is
+	// taken from the stp package rather than re-declared the way
+	// stpGroupAddress is, since the codec that builds those frames is what
+	// owns the address.
+	sstpGroupAddress = stp.GroupAddressSSTP
+
 	allNodesAddress = netip.MustParseAddr("ff02::1")
 )
 
@@ -187,6 +195,18 @@ type Switch struct {
 	// Incomplete issue. Both reset at the start of every forward call.
 	lagRebalanceHits         map[string]lag.Selection
 	mcastQueryUnobservedHits []mcastQueryUnobservedHit
+
+	// pvstBoundaryHits names the (port, VLAN) pairs a journey crossed where
+	// the spanning tree layer reports a neighbor whose per-VLAN trees it
+	// cannot simulate. It resets with the other hit sets.
+	pvstBoundaryHits map[pvstBoundaryHit]struct{}
+}
+
+// pvstBoundaryHit names one port and VLAN a journey crossed while the port
+// faced a spanning tree neighbor this switch does not simulate per VLAN.
+type pvstBoundaryHit struct {
+	port string
+	vid  vlan.ID
 }
 
 // mcastQueryUnobservedHit names one (VLAN, group) pair a forward call
@@ -610,6 +630,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	}
 	issues = append(issues, s.lagRebalanceIssues()...)
 	issues = append(issues, s.mcastQueryUnobservedIssues()...)
+	issues = append(issues, s.pvstBoundaryIssues()...)
 
 	return ForwardResult{
 		Result:   res,
@@ -687,6 +708,84 @@ func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
 	return issues
 }
 
+// recordPVSTBoundaries notes every port of the journey in progress that faces
+// a spanning tree neighbor whose per-VLAN trees this switch cannot simulate,
+// so pvstBoundaryIssues can report the VLANs that go unheard across it.
+//
+// VLAN 1 is excluded because it is the one VLAN that does converge across the
+// boundary: a PVST bridge sends VLAN 1's tree to the IEEE bridge group
+// address as well, and that frame reaches an RSTP or MSTP neighbor's CIST
+// unchanged. Every other VLAN's tree stops at the port.
+func (s *Switch) recordPVSTBoundaries(res bridge.Result) {
+	if s.stp == nil || res.FID == 1 {
+		return
+	}
+
+	record := func(name string) {
+		if name == "" || !s.stp.PVSTBoundary(name) {
+			return
+		}
+		if s.pvstBoundaryHits == nil {
+			s.pvstBoundaryHits = make(map[pvstBoundaryHit]struct{})
+		}
+		s.pvstBoundaryHits[pvstBoundaryHit{port: name, vid: res.FID}] = struct{}{}
+	}
+
+	record(res.Ingress)
+	for _, egress := range res.Egress {
+		record(egress.Port)
+	}
+}
+
+// pvstBoundaryIssues raises stp-pvst-boundary for each port and VLAN the
+// journey in progress crossed at a boundary between per-VLAN spanning tree
+// and a protocol that runs one tree for many VLANs.
+//
+// The scope names the port and VLAN together as one protocol instance rather
+// than nesting a VLAN scope inside a port scope. Scope containment is a key
+// prefix test, and the bridge consults the port's own spanning tree scope on
+// every gated frame, so a nested scope would be contained by it and a VLAN 1
+// journey through the port would pick up another VLAN's issue.
+func (s *Switch) pvstBoundaryIssues() []runtimeIssue {
+	if len(s.pvstBoundaryHits) == 0 {
+		return nil
+	}
+
+	hits := make([]pvstBoundaryHit, 0, len(s.pvstBoundaryHits))
+	for hit := range s.pvstBoundaryHits {
+		hits = append(hits, hit)
+	}
+	slices.SortFunc(hits, func(a, b pvstBoundaryHit) int {
+		if c := cmp.Compare(a.port, b.port); c != 0 {
+			return c
+		}
+
+		return cmp.Compare(a.vid, b.vid)
+	})
+
+	issues := make([]runtimeIssue, 0, len(hits))
+	for _, hit := range hits {
+		p, _ := s.ports.Port(hit.port)
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    IssuePVSTBoundary,
+				Status:  analysis.Unsupported,
+				Scope:   pvstBoundaryScope(s.nodeID, hit.port, hit.vid),
+				Message: fmt.Sprintf("port %q faces a spanning tree neighbor that does not run a tree for vlan %d", hit.port, hit.vid),
+			},
+			facts: []trace.Fact{port.ForwardingFact(hit.port, p, p.Forwards(), "")},
+		})
+	}
+
+	return issues
+}
+
+// pvstBoundaryScope names the analysis scope for one port and VLAN at a
+// per-VLAN spanning tree boundary.
+func pvstBoundaryScope(nodeID, portName string, vid vlan.ID) analysis.Scope {
+	return analysis.ProtocolScope(nodeID, string(port.LayerStp), fmt.Sprintf("%s/%d", portName, vid))
+}
+
 func (s *Switch) mcastConstructionEvidence(vid vlan.ID) []trace.Fact {
 	if s.mcast == nil {
 		return nil
@@ -710,6 +809,7 @@ func mcastGroupScope(nodeID string, vid vlan.ID, group netip.Addr) analysis.Scop
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	s.lagRebalanceHits = nil
 	s.mcastQueryUnobservedHits = nil
+	s.pvstBoundaryHits = nil
 	if mutate {
 		s.copies = nil
 	}
@@ -748,6 +848,17 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 
 	if s.stp != nil && f.Dst == stpGroupAddress {
 		res := s.interceptBPDU(now, ingress, f, mutate)
+		if res.Reason != port.ReasonPortDown {
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
+			))
+		}
+		s.forwardingDependencies(ingress).consult(&res)
+		return s.finishForward(now, ingress, f, res, mutate)
+	}
+
+	if s.stp != nil && f.Dst == sstpGroupAddress {
+		res := s.interceptSSTP(now, ingress, f, mutate)
 		if res.Reason != port.ReasonPortDown {
 			res.ConsultScopes(analysis.FieldScope(
 				protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
@@ -843,7 +954,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate, mutate)
 		if !ok {
 			res.ConsultScopes(routingScopes...)
-			if s.missingSTP && f.Dst == stpGroupAddress {
+			if s.missingSTP && (f.Dst == stpGroupAddress || f.Dst == sstpGroupAddress) {
 				res.ConsultScopes(analysis.FieldScope(
 					protocolScope(s.nodeID, port.LayerStp), "ports", res.Ingress,
 				))
@@ -1151,6 +1262,8 @@ func (s *Switch) MembershipFact(now time.Time, vid vlan.ID, f ethernet.Frame, po
 }
 
 func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {
+	s.recordPVSTBoundaries(res)
+
 	if s.traffic == nil {
 		return res
 	}
@@ -1956,6 +2069,119 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 	}
 }
 
+// interceptSSTP handles a frame addressed to the per-VLAN BPDU group. Unlike
+// an IEEE-addressed BPDU, an SSTP BPDU means nothing without the VLAN it
+// arrived on: the tree it belongs to is chosen by that VLAN, and the check
+// that the peer agrees about the link compares it with the VLAN the BPDU
+// itself names.
+//
+// The VLAN is resolved from the frame's own tag, or the port's untagged VLAN
+// when it carries none, rather than through the bridge's ingress pipeline the
+// way a loop-protection probe is. A probe may be denied by a gated port; a
+// BPDU may not. The ports a spanning tree holds discarding are exactly the
+// ones whose blocking depends on continuing to hear their peer, so running a
+// BPDU through the gate the tree itself set would drop the frames that keep
+// the topology converged. This is why interceptBPDU does not consult the
+// bridge at all.
+//
+// A switch with no bridge has no VLAN to resolve, so there an SSTP frame is
+// an unsupported BPDU rather than a BPDU on VLAN 0.
+func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	receive := s.ports.Receive(ingress)
+	if receive.Reason != "" {
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  port.ReasonPortDown,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  "port.status.down",
+					Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
+					Inputs:  receive.ForwardingFacts(),
+				}},
+			},
+			Ingress: receive.Resolved.Name,
+		}
+	}
+	resolvedPort := receive.Resolved.Name
+	before := s.stp.PortInfo(resolvedPort)
+
+	bpdu, tlvVID, err := stp.DecodeSSTP(f)
+	if err == nil && s.bridge == nil {
+		err = errs.New().
+			Attr("reason", stp.ReasonUnsupportedBPDU).
+			Msg("SSTP BPDU on a switch with no bridge names a VLAN nothing can classify")
+	}
+	if err != nil {
+		if mutate {
+			s.stp.BadBPDU(resolvedPort)
+		}
+		after := s.stp.PortInfo(resolvedPort)
+
+		reason := stp.ReasonUnsupportedBPDU
+		if r, ok := errs.Attributes(err)["reason"].(trace.Reason); ok {
+			reason = r
+		}
+
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  reason,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  trace.RuleID("stp.sstp." + string(reason)),
+					Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+					Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, false, reason)},
+					Outputs: []trace.Fact{stp.PortTransitionFact(resolvedPort, "bad-bpdu", before, after)},
+				}},
+			},
+			Ingress: resolvedPort,
+		}
+	}
+
+	arrivalVID := s.untaggedVID(resolvedPort)
+	if len(f.Tags) > 0 {
+		arrivalVID = f.Tags[0].VID
+	}
+
+	if mutate {
+		s.applySTPEffects(s.stp.ReceiveSSTP(now, resolvedPort, arrivalVID, tlvVID, bpdu))
+	}
+	after := s.stp.VLANPortInfo(arrivalVID, resolvedPort)
+
+	return bridge.Result{
+		Trace: trace.Trace{
+			Outcome: trace.Consumed,
+			Steps: []trace.Step{{
+				Layer:   port.LayerStp,
+				Op:      trace.OpClassify,
+				RuleID:  "stp.sstp.admit",
+				Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+				Inputs: []trace.Fact{
+					stp.BPDUDecodeFact(f, true, ""),
+					sstpVLANFact(tlvVID, arrivalVID),
+				},
+				Outputs: []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)},
+			}},
+		},
+		Ingress: resolvedPort,
+		FID:     arrivalVID,
+	}
+}
+
+// sstpVLANFact records the two VLANs an SSTP BPDU is judged against: the one
+// its trailing TLV names and the one the bridge classified the frame into. A
+// trace that carries both is what makes a PVID inconsistency readable, since
+// the disagreement between them is the whole finding.
+func sstpVLANFact(tlvVID, arrivalVID vlan.ID) trace.Fact {
+	return runtimeFact{
+		typeID:    "stp.sstp.vlans",
+		canonical: fmt.Sprintf("tlv=%d,arrival=%d,consistent=%t", tlvVID, arrivalVID, tlvVID == arrivalVID),
+	}
+}
+
 // Start initializes the protocol layers with the current link state of every port in the table.
 // On a switch without spanning tree, link aggregation, or loop protection, Start is a no-op.
 func (s *Switch) Start(now time.Time) {
@@ -2043,7 +2269,26 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		s.bridge.Flush(targets)
 	}
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+		// A zero VID is a frame the layer built whole: an IEEE-addressed BPDU
+		// rides the wire untagged and unchecked against VLAN membership, on a
+		// trunk with no native VLAN as much as anywhere else. A non-zero VID
+		// is a per-VLAN BPDU, which leaves exactly as any other frame the
+		// switch originates on that VLAN would: tagged where the VLAN is
+		// tagged, untagged where it is the port's untagged VLAN, and not at
+		// all where the port does not carry it.
+		if em.VID == 0 {
+			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+
+			continue
+		}
+		if s.bridge == nil {
+			continue
+		}
+		egress, ok := s.bridge.OriginateFrame(em.Port, em.VID, em.Frame)
+		if !ok {
+			continue
+		}
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress})
 	}
 }
 
@@ -2388,6 +2633,13 @@ const IssueLAGRebalanceUnmodeled analysis.IssueCode = "lag-rebalance-unmodeled"
 // router state tables call for but that was never observed within the last
 // member query time, though the VLAN has a router port.
 const IssueMcastQueryUnobserved analysis.IssueCode = "mcast-query-unobserved"
+
+// IssuePVSTBoundary indicates that a journey crossed a port where per-VLAN
+// spanning tree meets a protocol that runs one tree for many VLANs, so the
+// journey's own VLAN has no tree agreed across the link. VLAN 1 is the
+// exception and raises nothing: it converges over the IEEE-addressed BPDU
+// both sides exchange.
+const IssuePVSTBoundary analysis.IssueCode = "stp-pvst-boundary"
 
 // LinkChange notifies the protocol layers of a link transition on the named port.
 //

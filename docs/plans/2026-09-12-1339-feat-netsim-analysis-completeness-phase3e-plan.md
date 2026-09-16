@@ -104,6 +104,15 @@ This phase claims parent R14c and R14d, and extends R15b and R39.
   the multiple-of-4096 rule `PVST.Validate` enforces reserves bits nothing
   uses. Cost if wrong: `pvstBridgeID`, `PVST.Normalize`'s signature, and the
   bridge identifier on the wire.
+- Ruled: `interceptSSTP` resolves the arrival VLAN from the frame's own tag,
+  or the port's untagged VLAN, rather than through `bridge.Ingress` the way
+  `interceptLoopProtect` does. Why: `Ingress` applies the spanning tree gate,
+  and the ports a tree holds discarding are exactly the ones whose blocking
+  depends on continuing to hear their peer, so a BPDU run through that gate is
+  dropped in the steady state the check exists to maintain. `interceptBPDU`
+  does not consult the bridge at all for the same reason. Cost if wrong: the
+  VLAN resolution in one function, and the classification steps its trace no
+  longer carries.
 - Ruled: `makeBPDU` sends the tree's own bridge identifier and `BridgeID()`
   answers the CIST's. Why: under PVST a BPDU sent under the layer's identifier
   matches no receiving tree's Backup test (`rcvBridgeID == t.bridgeID`), so a

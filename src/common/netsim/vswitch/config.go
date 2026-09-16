@@ -156,6 +156,9 @@ func (c Config) Validate() error {
 		if err := c.STP.Validate(c.Ports); err != nil {
 			return err
 		}
+		if err := c.validatePVSTCoversEveryVLAN(); err != nil {
+			return err
+		}
 	}
 	if c.LoopProtect != nil {
 		if c.Bridge == nil {
@@ -357,6 +360,36 @@ func (c Config) Validate() error {
 						Msgf("router without bridge must route port %q", p.Name)
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+// validatePVSTCoversEveryVLAN refuses a PVST switch carrying a VLAN that has
+// no tree. This lives here rather than in stp.Config, which never sees the
+// bridge's VLAN table: a VLAN with no tree has no defined forwarding state,
+// which is exactly the false answer per-VLAN spanning tree exists to remove.
+// The reverse, a tree for a VLAN the bridge does not carry, is not an error:
+// it configures a tree nothing asks about.
+func (c Config) validatePVSTCoversEveryVLAN() error {
+	if c.STP.PVST == nil || c.Bridge == nil || c.Bridge.VLAN == nil {
+		return nil
+	}
+
+	trees := c.STP.PVST.Normalize(c.STP.Priority).Trees
+	vids := make([]vlan.ID, 0, len(c.Bridge.VLAN.Table))
+	for vid := range c.Bridge.VLAN.Table {
+		vids = append(vids, vid)
+	}
+	slices.Sort(vids)
+
+	for _, vid := range vids {
+		if _, ok := trees[vid]; !ok {
+			return errs.New().
+				Attr("field", "stp.pvst.trees").
+				Attr("vlan", vid).
+				Msgf("vlan %d is carried by the bridge but has no per-VLAN spanning tree", vid)
 		}
 	}
 

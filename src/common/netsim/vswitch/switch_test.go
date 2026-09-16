@@ -6472,3 +6472,409 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		t.Fatalf("after MSTI 1's topology change, Entries() = %+v, want only the VLAN 20 entry on p3 kept", entries)
 	}
 }
+
+// pvstSwitchConfig builds a one-trunk PVST switch carrying VLAN 1 and VLAN 10,
+// with the trunk's untagged VLAN set to pvid and every other carried VLAN
+// tagged. That is the shape Cisco's tagging rules turn on: VLAN 1 untagged on
+// a native-VLAN-1 trunk, tagged on any other.
+func pvstSwitchConfig(t *testing.T, pvid vlan.ID, carried ...vlan.ID) vswitch.Config {
+	t.Helper()
+
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	table := make(map[vlan.ID]string, len(carried))
+	var tagged []vlan.ID
+	for _, vid := range carried {
+		table[vid] = fmt.Sprintf("VLAN%d", vid)
+		if vid != pvid {
+			tagged = append(tagged, vid)
+		}
+	}
+	slices.Sort(tagged)
+
+	trees := make(map[vlan.ID]stp.Tree, len(carried))
+	for _, vid := range carried {
+		trees[vid] = stp.Tree{}
+	}
+
+	return vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: table,
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{pvid}, Tagged: tagged},
+			},
+		}},
+		STP: &stp.Config{
+			Priority: 4096,
+			Address:  netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Ports:    map[string]stp.Port{"1/1/1": {}},
+			PVST:     &stp.PVST{Trees: trees},
+		},
+	}
+}
+
+// emittedBPDUShape renders one drained emission as the group address it went
+// to, the VLAN tag it actually carries on the wire, and the VLAN its payload
+// names. The tag is the part this unit decides; the payload VLAN comes from
+// the layer.
+func emittedBPDUShape(t *testing.T, em vswitch.Emission) string {
+	t.Helper()
+
+	tag := "untagged"
+	if len(em.Frame.Tags) == 1 {
+		tag = fmt.Sprintf("tag=%d", em.Frame.Tags[0].VID)
+	} else if len(em.Frame.Tags) > 1 {
+		tag = fmt.Sprintf("tags=%d", len(em.Frame.Tags))
+	}
+
+	if em.Frame.Dst != stp.GroupAddressSSTP {
+		return fmt.Sprintf("ieee/%s", tag)
+	}
+	_, tlvVID, err := stp.DecodeSSTP(em.Frame)
+	if err != nil {
+		t.Fatalf("decode drained SSTP emission: %v", err)
+	}
+
+	return fmt.Sprintf("sstp/%s/payload=%d", tag, tlvVID)
+}
+
+func emittedBPDUShapes(t *testing.T, emissions []vswitch.Emission) []string {
+	t.Helper()
+
+	shapes := make([]string, 0, len(emissions))
+	for _, em := range emissions {
+		shapes = append(shapes, emittedBPDUShape(t, em))
+	}
+	slices.Sort(shapes)
+
+	return shapes
+}
+
+// TestPVSTBPDUsRideTheirOwnVLANsEgressTagging is evidence for Cisco's tagging
+// rules on a PVST trunk: each VLAN's BPDU leaves the way any other frame on
+// that VLAN would, and VLAN 1's tree adds one untagged IEEE-addressed frame
+// whatever the native VLAN is. That second frame is what an RSTP or MSTP
+// neighbor converges with, so it must not pick up a tag.
+func TestPVSTBPDUsRideTheirOwnVLANsEgressTagging(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	t.Run("native vlan 1", func(t *testing.T) {
+		t.Parallel()
+
+		sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+		sw.Start(now)
+		sw.Drain()
+		sw.Wake(now.Add(2 * time.Second))
+
+		got := emittedBPDUShapes(t, sw.Drain())
+		want := []string{"ieee/untagged", "sstp/tag=10/payload=10", "sstp/untagged/payload=1"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("emissions = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("native vlan 20", func(t *testing.T) {
+		t.Parallel()
+
+		sw := mustSwitch(t, pvstSwitchConfig(t, 20, 1, 10, 20))
+		sw.Start(now)
+		sw.Drain()
+		sw.Wake(now.Add(2 * time.Second))
+
+		got := emittedBPDUShapes(t, sw.Drain())
+		want := []string{
+			"ieee/untagged",
+			"sstp/tag=1/payload=1",
+			"sstp/tag=10/payload=10",
+			"sstp/untagged/payload=20",
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("emissions = %v, want %v", got, want)
+		}
+	})
+}
+
+// TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN is evidence that the
+// emission goes through the bridge's ordinary origination rules rather than
+// around them: a tree configured for a VLAN the trunk does not carry puts no
+// frame on that trunk.
+func TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	// VLAN 30 has a tree but no place in the bridge's VLAN table, so the
+	// trunk cannot carry it.
+	cfg.STP.PVST.Trees[30] = stp.Tree{}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+	sw.Drain()
+	sw.Wake(now.Add(2 * time.Second))
+
+	for _, shape := range emittedBPDUShapes(t, sw.Drain()) {
+		if strings.HasSuffix(shape, "payload=30") {
+			t.Fatalf("a VLAN 30 BPDU left a trunk that does not carry VLAN 30: %s", shape)
+		}
+	}
+}
+
+// TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree is evidence for the
+// construction check: a VLAN the bridge carries with no tree of its own has
+// no defined forwarding state, which is the false answer per-VLAN spanning
+// tree exists to remove.
+func TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree(t *testing.T) {
+	t.Parallel()
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10, 20)
+	delete(cfg.STP.PVST.Trees, 20)
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() = nil, want a refusal naming the VLAN with no tree")
+	}
+	attrs := errs.Attributes(err)
+	if got := attrs["field"]; got != "stp.pvst.trees" {
+		t.Errorf("error field = %v, want %q", got, "stp.pvst.trees")
+	}
+	if got := attrs["vlan"]; got != vlan.ID(20) {
+		t.Errorf("error vlan = %v, want 20", got)
+	}
+
+	cfg.STP.PVST.Trees[20] = stp.Tree{}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() with every carried VLAN covered = %v, want nil", err)
+	}
+}
+
+// pvstSSTPFrame builds an SSTP BPDU that a peer bridge would send for vid,
+// tagged for the wire as tagVID names.
+func pvstSSTPFrame(t *testing.T, vid vlan.ID, tagVID vlan.ID, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.EncodeSSTP(stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096 | uint16(vid), Address: src},
+		BridgeID:     stp.BridgeID{Priority: 4096 | uint16(vid), Address: src},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}, vid, src)
+	if err != nil {
+		t.Fatalf("EncodeSSTP for vlan %d: %v", vid, err)
+	}
+	if tagVID != 0 {
+		frame.Tags = []vlan.Tag{{VID: tagVID}}
+	}
+
+	return frame
+}
+
+func findStep(steps []trace.Step, ruleID trace.RuleID) (trace.Step, bool) {
+	for _, step := range steps {
+		if step.RuleID == ruleID {
+			return step, true
+		}
+	}
+
+	return trace.Step{}, false
+}
+
+// TestPVSTPVIDInconsistencyTraceNamesBothVLANs is evidence that a PVID
+// inconsistency is readable from the trace rather than only from the port
+// state: the admit step carries the VLAN the BPDU named and the VLAN the
+// bridge classified it into, which is the whole finding.
+func TestPVSTPVIDInconsistencyTraceNamesBothVLANs(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+	sw.Start(now)
+	sw.Drain()
+
+	// A BPDU naming VLAN 20, tagged for VLAN 10, so the bridge classifies it
+	// into VLAN 10 and the two disagree.
+	res := sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 20, 10, peer))
+
+	step, ok := findStep(res.Steps, "stp.sstp.admit")
+	if !ok {
+		t.Fatalf("no stp.sstp.admit step in the trace: %+v", res.Steps)
+	}
+
+	var canonical string
+	for _, fact := range step.Inputs {
+		if fact.TypeID() == "stp.sstp.vlans" {
+			canonical = fact.Canonical()
+		}
+	}
+	want := "tlv=20,arrival=10,consistent=false"
+	if canonical != want {
+		t.Fatalf("stp.sstp.vlans fact = %q, want %q", canonical, want)
+	}
+}
+
+// TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1 is evidence for the
+// boundary this phase reports: a journey on a VLAN whose tree stops at the
+// port carries the issue, and a VLAN 1 journey through the same port does
+// not, because VLAN 1 is the one tree that does converge across the boundary.
+func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+	sw.Start(now)
+	sw.Drain()
+
+	// An MST BPDU from the neighbor marks the port a boundary.
+	mstFrame, err := stp.Encode(stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:       0x8001,
+		Version:      3,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+		ConfigID:     new(stp.MST{Name: "elsewhere", Revision: 7}.ConfigID()),
+	}, peerMAC)
+	if err != nil {
+		t.Fatalf("Encode MST BPDU: %v", err)
+	}
+	sw.Forward(now, "1/1/1", mstFrame)
+	sw.Drain()
+
+	vlan10 := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src:  netaddr.MAC{2, 0, 0, 0, 0, 0x10},
+		Dst:  netaddr.MAC{2, 0, 0, 0, 0, 0x11},
+		Tags: []vlan.Tag{{VID: 10}},
+	})
+	if !hasIssueCode(vlan10.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
+		t.Fatalf("vlan 10 journey carries no %s issue: %+v", vswitch.IssuePVSTBoundary, vlan10.Metadata.Issues())
+	}
+	for _, issue := range vlan10.Metadata.Issues() {
+		if issue.Code != vswitch.IssuePVSTBoundary {
+			continue
+		}
+		want := analysis.ProtocolScope("", string(port.LayerStp), "1/1/1/10")
+		if issue.Scope.Compare(want) != 0 {
+			t.Errorf("issue scope = %s, want %s", issue.Scope, want)
+		}
+		if issue.Status != analysis.Unsupported {
+			t.Errorf("issue status = %s, want %s", issue.Status, analysis.Unsupported)
+		}
+	}
+
+	vlan1 := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src: netaddr.MAC{2, 0, 0, 0, 0, 0x01},
+		Dst: netaddr.MAC{2, 0, 0, 0, 0, 0x02},
+	})
+	if hasIssueCode(vlan1.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
+		t.Errorf("vlan 1 journey carries a %s issue, want none: %+v",
+			vswitch.IssuePVSTBoundary, vlan1.Metadata.Issues())
+	}
+}
+
+// TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo is the reciprocal: a bridge
+// that does not run per-VLAN trees and meets one reports the same boundary
+// for the VLANs it cannot answer about.
+func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	cfg.STP.PVST = nil
+	cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+		1: {VLANs: []vlan.ID{10}},
+	}}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+	sw.Drain()
+
+	sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 10, 10, peerMAC))
+	sw.Drain()
+
+	vlan10 := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src:  netaddr.MAC{2, 0, 0, 0, 0, 0x10},
+		Dst:  netaddr.MAC{2, 0, 0, 0, 0, 0x11},
+		Tags: []vlan.Tag{{VID: 10}},
+	})
+	if !hasIssueCode(vlan10.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
+		t.Fatalf("vlan 10 journey on the MSTP bridge carries no %s issue: %+v",
+			vswitch.IssuePVSTBoundary, vlan10.Metadata.Issues())
+	}
+
+	vlan1 := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src: netaddr.MAC{2, 0, 0, 0, 0, 0x01},
+		Dst: netaddr.MAC{2, 0, 0, 0, 0, 0x02},
+	})
+	if hasIssueCode(vlan1.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
+		t.Errorf("vlan 1 journey carries a %s issue, want none: %+v",
+			vswitch.IssuePVSTBoundary, vlan1.Metadata.Issues())
+	}
+}
+
+// TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing is evidence that
+// a per-VLAN BPDU reaching a switch whose spanning tree state never loaded is
+// answered the way an IEEE-addressed one is: the result names the spanning
+// tree scope it depended on, rather than reporting a confident drop.
+func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	vid := vlan.ID(1)
+
+	stpScope := analysis.ProtocolScope("sw1", string(port.LayerStp), "0")
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			MAC: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Ports: mustTable(t, port.NewBuilder().
+				Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{1: "VLAN1"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &vid, Untagged: []vlan.ID{1}},
+				},
+			}},
+		},
+		NodeID: "sw1",
+		Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+			Code:    "test.stp.protocol",
+			Status:  analysis.Unsupported,
+			Scope:   stpScope,
+			Message: "the spanning tree protocol state is incomplete",
+		}}, analysis.EvidenceCatalog{}, nil),
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	// Tagged for a VLAN the access port does not carry, so the bridge drops
+	// the frame at classification, before any gate runs. That is the path
+	// where the spanning tree scope would otherwise go unnamed.
+	res := sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 99, 99, peerMAC))
+	if res.Outcome != trace.Dropped {
+		t.Fatalf("outcome = %s, want %s", res.Outcome, trace.Dropped)
+	}
+
+	want := analysis.FieldScope(stpScope, "ports", "1/1/1")
+	if !slices.ContainsFunc(res.ConsultedScopes(), func(s analysis.Scope) bool {
+		return s.Compare(want) == 0
+	}) {
+		t.Fatalf("consulted scopes = %v, want one naming %s", res.ConsultedScopes(), want)
+	}
+}
