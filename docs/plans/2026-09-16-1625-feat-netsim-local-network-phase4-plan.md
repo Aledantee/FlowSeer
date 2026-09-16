@@ -41,10 +41,10 @@ on `reject` apply. In addition:
   and the schema's `packet/v1` primitives already carry the same values.
 - Hooks: the ingress binding evaluates after interface ownership and before
   `routing.Route` on both the routed-port path
-  (`src/common/netsim/vswitch/switch.go:787-811`) and the VLAN interface
-  path (`switch.go:850-854`); the egress binding evaluates in
+  (`src/common/netsim/vswitch/switch.go:807-832`) and the VLAN interface
+  path (`switch.go:869-875`); the egress binding evaluates in
   `assembleRouteResult` after the egress interface is known
-  (`switch.go:1333`) and before the bridge or port transmit. The ingress
+  (`switch.go:1354`) and before the bridge or port transmit. The ingress
   binding applies to every packet entering the interface, packets to the
   switch itself included; the egress binding applies to forwarded packets
   only. Why: this is where the interface is known on both sides, and
