@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -7073,6 +7074,15 @@ func TestPVSTAdmitBeforeSnapshotUsesTheArrivalVLANsTree(t *testing.T) {
 	}
 	beforePart := canonical[beforeAt+len(";before=") : afterAt]
 	afterPart := canonical[afterAt+len(";after="):]
+
+	// The received-BPDU counter is the one field that must move: it counts the
+	// frame this very step is reporting on, and it is a link property both
+	// snapshots read from the same place. Everything else describes the tree
+	// the snapshot was taken from, which is what this test is about.
+	rxCount := regexp.MustCompile(`rx_bpdus=\d+`)
+	beforePart = rxCount.ReplaceAllString(beforePart, "rx_bpdus=N")
+	afterPart = rxCount.ReplaceAllString(afterPart, "rx_bpdus=N")
+
 	if beforePart != afterPart {
 		t.Errorf("a second identical VLAN 10 BPDU reported before != after:\nbefore=%s\nafter=%s", beforePart, afterPart)
 	}
