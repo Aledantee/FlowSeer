@@ -35,9 +35,9 @@ var mdnsIPv6Datagram = []byte{
 }
 
 // mdnsCaseSwitchPorts builds the nine administratively up physical ports
-// (p1..p9) shared by the two mDNS conformance cases. VLAN membership and the
-// multicast router port are configured separately, in
-// [mdnsCaseVLANSwitchports] and each case's own multicast config.
+// (p1..p9) shared by the two mDNS conformance cases. VLAN membership comes
+// from [mdnsCaseVLANSwitchports]; the multicast router port and the snooping
+// state come from [mdnsCaseExecute].
 func mdnsCaseSwitchPorts() (port.Table, error) {
 	builder := port.NewBuilder()
 	for _, name := range []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"} {
@@ -179,7 +179,7 @@ func CaseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
 				V4:       &ip.V4{},
 			}
 
-			return mdnsCaseExecute(hostMAC, groupMAC, ethernet.EtherTypeIPv4, hdr, mdnsIPv4Datagram)
+			return mdnsCaseExecute(hostMAC, groupMAC, hdr, mdnsIPv4Datagram)
 		},
 	}
 }
@@ -255,14 +255,17 @@ func CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
 				V6:       &ip.V6{},
 			}
 
-			return mdnsCaseExecute(hostMAC, groupMAC, ethernet.EtherTypeIPv6, hdr, mdnsIPv6Datagram)
+			return mdnsCaseExecute(hostMAC, groupMAC, hdr, mdnsIPv6Datagram)
 		},
 	}
 }
 
 // mdnsCaseExecute builds the shared nine-port switch and forwards a single
-// frame carrying an mDNS datagram from p1, for the mDNS conformance cases.
-func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, etherType ethernet.EtherType, hdr ip.Header, datagram []byte) (ExecutionResult, error) {
+// frame carrying an mDNS datagram from p1, for the mDNS conformance cases. It
+// configures VLAN 10 for snooping with unregistered flooding off and p9 as
+// the only multicast router port; both mDNS cases rest on that state being
+// exactly this, not merely present.
+func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []byte) (ExecutionResult, error) {
 	ports, err := mdnsCaseSwitchPorts()
 	if err != nil {
 		return ExecutionResult{}, err
@@ -290,6 +293,11 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, etherType ethernet.EtherType
 	pkt, err := hdr.Encode(datagram)
 	if err != nil {
 		return ExecutionResult{}, err
+	}
+
+	etherType := ethernet.EtherTypeIPv4
+	if hdr.V6 != nil {
+		etherType = ethernet.EtherTypeIPv6
 	}
 
 	mdnsFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: etherType, Payload: pkt}
