@@ -104,6 +104,19 @@ type Switchport struct {
 	PriorityTags     PriorityTagPolicy
 }
 
+// CarriesVID reports whether the switchport admits vid on egress: through the
+// tunnel's VID, an explicit tag in Tagged, or an explicit tag in Untagged.
+// This is the egress admission rule buildEgressFrame applies; PVID alone is
+// deliberately excluded, since an access port's PVID must also appear in
+// Untagged for a frame on that VLAN to actually leave the port.
+func (s Switchport) CarriesVID(vid vlan.ID) bool {
+	if s.Tunnel != nil {
+		return s.Tunnel.VID == vid
+	}
+
+	return slices.Contains(s.Tagged, vid) || slices.Contains(s.Untagged, vid)
+}
+
 // Clone returns an independent deep copy of the switchport configuration.
 func (s Switchport) Clone() Switchport {
 	cp := s

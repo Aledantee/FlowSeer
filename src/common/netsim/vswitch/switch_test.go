@@ -2400,6 +2400,172 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 	}
 }
 
+// TestLoopProtectValidateAgreesWithEgressAdmission is evidence that
+// vswitch.Config.Validate and bridge.Switchport.CarriesVID never disagree
+// about whether a protected port carries the VLAN it probes: for every
+// switchport shape below, either Validate refuses the configuration or a
+// probe for that port actually reaches the switch's emitted frames after a
+// Wake, never neither. A PVID by itself does not admit a VID on egress (only
+// Tagged, Untagged, or a tunnel's VID does), so a config that only checked
+// PVID at validation time could accept a setup that then emits nothing.
+func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
+	vid10 := vlan.ID(10)
+
+	newTable := func(names ...string) port.Table {
+		b := port.NewBuilder()
+		for _, name := range names {
+			b = b.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+		}
+		return mustTable(t, b)
+	}
+
+	tests := []struct {
+		name       string
+		cfg        vswitch.Config
+		wantRefuse bool
+	}{
+		{
+			name: "VLAN-unaware bridge probes untagged",
+			cfg: vswitch.Config{
+				Ports:  newTable("1/1/1"),
+				Bridge: &bridge.Config{},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block}},
+				},
+			},
+		},
+		{
+			name: "access port with PVID in Untagged",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "a"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+					},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block}},
+				},
+			},
+		},
+		{
+			name: "trunk with VLAN in Tagged and explicit VLANs",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "a", 20: "b"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{20}},
+					},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{
+						"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{20}},
+					},
+				},
+			},
+		},
+		{
+			name: "trunk PVID in neither list, no explicit VLANs",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "a", 20: "b"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{20}},
+					},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block}},
+				},
+			},
+			wantRefuse: true,
+		},
+		{
+			name: "trunk PVID in neither list, with explicit VLANs naming the PVID",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "a", 20: "b"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{20}},
+					},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{
+						"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{10}},
+					},
+				},
+			},
+			wantRefuse: true,
+		},
+		{
+			name: "tunnel switchport with no PVID and no explicit VLANs",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "a"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {Tunnel: &bridge.Tunnel{VID: 10}},
+					},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block}},
+				},
+			},
+		},
+		{
+			name: "protected port with no switchport entry at all",
+			cfg: vswitch.Config{
+				Ports: newTable("1/1/1"),
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table:       map[vlan.ID]string{10: "a"},
+					Switchports: map[string]bridge.Switchport{},
+				}},
+				LoopProtect: &loopprotect.Config{
+					Ports: map[string]loopprotect.Port{"1/1/1": {Action: loopprotect.Block}},
+				},
+			},
+			wantRefuse: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sw, err := vswitch.New(tt.cfg)
+			if tt.wantRefuse {
+				if err == nil {
+					t.Fatalf("vswitch.New = nil error, want the configuration refused")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("vswitch.New: %v", err)
+			}
+
+			now := fixedTime
+			sw.Start(now)
+			sw.Drain()
+			sw.Wake(now.Add(loopprotect.DefaultInterval))
+			emissions := sw.Drain()
+
+			found := false
+			for _, em := range emissions {
+				if em.Port != "1/1/1" {
+					continue
+				}
+				if _, err := loopprotect.Decode(em.Frame); err == nil {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+			}
+		})
+	}
+}
+
 // TestLoopProtectAppliedActionFlushesLearnedEntries proves that applying a
 // loop-protection action flushes the forwarding entries the loop taught the
 // blocked port: without the flush, a later unicast to that host keeps

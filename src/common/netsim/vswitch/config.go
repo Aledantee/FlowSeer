@@ -172,28 +172,53 @@ func (c Config) Validate() error {
 		slices.Sort(portNames)
 
 		for _, name := range portNames {
-			if c.Bridge.VLAN != nil && len(c.LoopProtect.Ports[name].VLANs) == 0 {
-				sw, known := c.Bridge.VLAN.Switchports[name]
-				if !known || (sw.PVID == nil && sw.Tunnel == nil) {
+			var (
+				sw    bridge.Switchport
+				known bool
+			)
+			if c.Bridge.VLAN != nil {
+				sw, known = c.Bridge.VLAN.Switchports[name]
+			}
+
+			if len(c.LoopProtect.Ports[name].VLANs) == 0 {
+				if c.Bridge.VLAN == nil {
+					continue
+				}
+
+				var (
+					resolved vlan.ID
+					hasVID   bool
+				)
+				switch {
+				case sw.PVID != nil:
+					resolved, hasVID = *sw.PVID, true
+				case sw.Tunnel != nil:
+					resolved, hasVID = sw.Tunnel.VID, true
+				}
+				if !hasVID {
 					return errs.New().
 						Attr("field", fmt.Sprintf("loop_protect.ports.%s.vlans", name)).
 						Attr("port", name).
 						Msgf("loop protection port %q has no VLANs and no PVID or tunnel to probe untagged", name)
 				}
+				// Validate against the same admission rule egress applies
+				// (bridge.Switchport.CarriesVID), so a config that passes
+				// here is guaranteed to reach the wire: a PVID that names a
+				// VLAN absent from Tagged/Untagged is not, by itself,
+				// enough for a frame to leave the port.
+				if !sw.CarriesVID(resolved) {
+					return errs.New().
+						Attr("field", fmt.Sprintf("loop_protect.ports.%s.vlans", name)).
+						Attr("port", name).
+						Attr("vlan", resolved).
+						Msgf("loop protection port %q's untagged VLAN %d is not carried by its switchport", name, resolved)
+				}
+
+				continue
 			}
 
 			for _, vid := range c.LoopProtect.Ports[name].VLANs {
-				var (
-					sw    bridge.Switchport
-					known bool
-				)
-				if c.Bridge.VLAN != nil {
-					sw, known = c.Bridge.VLAN.Switchports[name]
-				}
-				admitted := known && (slices.Contains(sw.Tagged, vid) || slices.Contains(sw.Untagged, vid) ||
-					(sw.PVID != nil && *sw.PVID == vid) ||
-					(sw.Tunnel != nil && sw.Tunnel.VID == vid))
-				if !admitted {
+				if !known || !sw.CarriesVID(vid) {
 					return errs.New().
 						Attr("field", fmt.Sprintf("loop_protect.ports.%s.vlans", name)).
 						Attr("port", name).
