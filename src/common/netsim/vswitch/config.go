@@ -373,8 +373,13 @@ func (c Config) Validate() error {
 // The reverse, a tree for a VLAN the bridge does not carry, is not an error:
 // it configures a tree nothing asks about.
 func (c Config) validatePVSTCoversEveryVLAN() error {
-	if c.STP.PVST == nil || c.Bridge == nil || c.Bridge.VLAN == nil {
+	if c.STP.PVST == nil {
 		return nil
+	}
+	if c.Bridge.VLAN == nil {
+		return errs.New().
+			Attr("field", "stp.pvst").
+			Msg("PVST requires a VLAN-aware bridge: there is nothing per-VLAN about a bridge with no VLAN table")
 	}
 
 	trees := c.STP.PVST.Normalize(c.STP.Priority).Trees

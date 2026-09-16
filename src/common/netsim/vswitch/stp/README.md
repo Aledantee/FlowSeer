@@ -191,6 +191,13 @@ does not override. A tree's bridge identifier carries its VLAN in the low 12
 bits of the system-ID extension, the way an MSTI carries its MSTID, which is
 what the multiple-of-4096 rule on a tree priority reserves those bits for.
 
+`Normalize` also inserts a default VLAN 1 tree whenever `Trees` omits one,
+whether `Trees` is empty or already names other VLANs, and leaves an
+explicitly configured VLAN 1 tree alone. `newLayer` builds VLAN 1's tree
+unconditionally in PVST mode, so a `Config` that never mentions VLAN 1 still
+runs one; `Normalize` has to agree, or `PVST.Canonical` and `PVST.Validate`
+would describe a different set of trees than `New` actually builds.
+
 VLAN 1's tree occupies the CIST slot. In PVST+ it *is* the common tree a
 neighboring RSTP or MSTP bridge converges with, and `Root`, `PortInfo`,
 `TopologyChanges`, `Times` and `BridgeID` all answer from the CIST, so putting

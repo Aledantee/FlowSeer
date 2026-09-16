@@ -782,6 +782,80 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 	}
 }
 
+func TestDiffPVSTTreePriority(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{
+		1:  {},
+		10: {Priority: 4096, PriorityPresent: true},
+	}}}
+	b := stp.Config{PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{
+		1:  {},
+		10: {Priority: 61440, PriorityPresent: true},
+	}}}
+
+	changes := stp.Diff(a, b)
+
+	var found int
+	for _, c := range changes {
+		if c.Subject.Kind == "pvst_tree" && c.Subject.Key == "10" && c.Field == "priority" {
+			found++
+			if c.From != stp.PriorityFact(4096) || c.To != stp.PriorityFact(61440) {
+				t.Errorf("pvst tree 10 priority change = (%v, %v), want (4096, 61440)", c.From, c.To)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("Diff() reported %d changes on pvst tree 10 priority, want exactly 1: %+v", found, changes)
+	}
+}
+
+func TestDiffPVSTPathCostMovesPorts(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{
+		Ports: map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{
+			1:  {},
+			10: {Ports: map[string]stp.InstancePort{"l1": {PathCost: 2_000_000}}},
+		}},
+	}
+	b := stp.Config{
+		Ports: map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{
+			1:  {},
+			10: {Ports: map[string]stp.InstancePort{"l2": {PathCost: 2_000_000}}},
+		}},
+	}
+
+	changes := stp.Diff(a, b)
+	if len(changes) == 0 {
+		t.Fatal("Diff() reported no changes when a PVST path cost moved from one port to another")
+	}
+}
+
+func TestDiffPVSTRemovedEntirely(t *testing.T) {
+	t.Parallel()
+
+	a := stp.Config{PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{1: {}, 10: {}}}}
+	b := stp.Config{}
+
+	changes := stp.Diff(a, b)
+
+	var found int
+	for _, c := range changes {
+		if c.Field == "pvst" {
+			found++
+			if c.From != stp.BoolFact(true) || c.To != stp.BoolFact(false) {
+				t.Errorf("pvst change = (%v, %v), want (true, false)", c.From, c.To)
+			}
+		}
+	}
+	if found != 1 {
+		t.Fatalf("Diff() reported %d changes on pvst removal, want exactly 1: %+v", found, changes)
+	}
+}
+
 func TestValidateRefusesMSTAndPVSTTogether(t *testing.T) {
 	t.Parallel()
 
@@ -927,13 +1001,20 @@ func TestPVSTNormalizeInsertsDefaultVLAN1(t *testing.T) {
 		t.Error("VLAN 1 tree PriorityPresent = false, want true after normalization")
 	}
 
+	// A non-empty Trees map that still omits VLAN 1 must also get the
+	// default tree inserted: newLayer builds VLAN 1's tree unconditionally
+	// in PVST mode, so Normalize must name every tree the layer runs.
 	nonEmpty := stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Priority: 4096, PriorityPresent: true}}}
 	norm = nonEmpty.Normalize(stp.DefaultBridgePriority)
-	if len(norm.Trees) != 1 {
-		t.Fatalf("Normalize() on non-empty Trees without VLAN 1 = %d trees, want 1 (no insertion)", len(norm.Trees))
+	if len(norm.Trees) != 2 {
+		t.Fatalf("Normalize() on Trees missing VLAN 1 = %d trees, want 2 (VLAN 1 inserted alongside VLAN 10)", len(norm.Trees))
 	}
-	if _, ok := norm.Trees[1]; ok {
-		t.Error("Normalize() inserted a VLAN 1 tree although Trees already held a tree")
+	vlan1, ok := norm.Trees[1]
+	if !ok {
+		t.Fatal("Normalize() did not insert a VLAN 1 tree although Trees held only VLAN 10")
+	}
+	if got := vlan1.Priority; got != stp.DefaultBridgePriority {
+		t.Errorf("inserted VLAN 1 tree priority = %d, want default %d", got, stp.DefaultBridgePriority)
 	}
 }
 
