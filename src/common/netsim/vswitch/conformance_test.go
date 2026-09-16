@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -97,6 +98,52 @@ func TestTroubleshootingConformance(t *testing.T) {
 	if !hitStepFound {
 		t.Error("steps missing decisive OpLookup unicast-hit rule")
 	}
+}
+
+func TestMDNSMulticastConformance(t *testing.T) {
+	reg := netsimtest.DefaultRegistry()
+
+	t.Run("ipv4 floods under snooping", func(t *testing.T) {
+		c, ok := reg.Get("troubleshooting/mdns-ipv4-floods-under-snooping")
+		if !ok {
+			t.Fatal("troubleshooting/mdns-ipv4-floods-under-snooping case not found in default registry")
+		}
+
+		res := netsimtest.AssertCase(t, c)
+		if res.Forward == nil {
+			t.Fatal("res.Forward is nil")
+		}
+
+		wantPorts := []string{"p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"}
+		gotPorts := make([]string, len(res.Forward.Egress))
+		for i, egress := range res.Forward.Egress {
+			gotPorts[i] = egress.Port
+		}
+		if !slices.Equal(gotPorts, wantPorts) {
+			t.Errorf("forwarded ports = %v, want %v", gotPorts, wantPorts)
+		}
+	})
+
+	t.Run("ipv6 unregistered router ports", func(t *testing.T) {
+		c, ok := reg.Get("troubleshooting/mdns-ipv6-unregistered-router-ports")
+		if !ok {
+			t.Fatal("troubleshooting/mdns-ipv6-unregistered-router-ports case not found in default registry")
+		}
+
+		res := netsimtest.AssertCase(t, c)
+		if res.Forward == nil {
+			t.Fatal("res.Forward is nil")
+		}
+
+		wantPorts := []string{"p9"}
+		gotPorts := make([]string, len(res.Forward.Egress))
+		for i, egress := range res.Forward.Egress {
+			gotPorts[i] = egress.Port
+		}
+		if !slices.Equal(gotPorts, wantPorts) {
+			t.Errorf("forwarded ports = %v, want %v", gotPorts, wantPorts)
+		}
+	})
 }
 
 func TestConstructorValidationAndNormalization(t *testing.T) {
