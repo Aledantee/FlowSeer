@@ -571,6 +571,21 @@ flowchart TD
   corpus case.
 - **Verify:** Re-plan the phase against the landed tree before implementation.
 
+### U3f: Separate the link's slot from VLAN 1's tree
+
+- **Files:**
+  `docs/plans/2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md`
+- **After:** U3e
+- **Landed:**
+- **Change:** A VLAN lookup that can answer "no tree", an enumerated set of
+  link properties every tree holds, and one SSTP entry point that always runs
+  the link half of a receive. Corrective: two review rounds found four defects
+  of one class in U3e's CIST slot.
+- **Tests:** A `portState` field classification test, per-VLAN guard and
+  migration assertions, and an agreement test between the bridge's ingress
+  admission rule and `Bridge.Ingress`.
+- **Verify:** Follow the phase plan.
+
 ### U3c: Add loop protection outside spanning tree
 
 - **Files:**
@@ -613,7 +628,7 @@ flowchart TD
 
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase5-plan.md`
-- **After:** U2, U3c, U3e, U4, U4b
+- **After:** U2, U3c, U3e, U3f, U4, U4b
 - **Landed:**
 - **Change:** Separate state ownership, key retained runtime state by complete
   dependencies, reconstruct static state from construction inputs, and make

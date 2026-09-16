@@ -244,6 +244,15 @@ line numbers that phases 3b through 4 have since moved.
   injected reply for an address nothing ever routed to a no-op rather than a
   silent way to populate the table.
   <https://www.rfc-editor.org/rfc/rfc4861#section-7.2.5>
+- **Ruled during implementation: `Encode` takes the Ethernet destination
+  rather than deriving it from the message.** The payload's target hardware
+  address and the frame's destination are independent, and coincide only for a
+  reply: a request carries zeros in the payload (the sender is asking for that
+  address) and goes to the broadcast address. Deriving one from the other
+  cannot express a request at all, and returning a frame whose destination the
+  caller must overwrite is a trap for the next one. `lacp` gets away with a
+  derived destination because it always sends to one group address; ARP does
+  not. Cost if wrong: one signature and its two call sites.
 - **Observation is a side effect, not an interception.** An ARP frame keeps
   its ordinary bridged path after the routing layer has read it, unlike an
   IGMP report, which `forwardMulticastControl` redirects to router ports
@@ -372,7 +381,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architect
 Files: `src/common/net/arp/arp.go`, `src/common/net/arp/arp_test.go`,
 `src/common/net/arp/README.md`
 After: none
-Change: `Encode(m Message) (ethernet.Frame, error)` and
+Change: `Encode(m Message, dst netaddr.MAC) (ethernet.Frame, error)` and
 `Decode(f ethernet.Frame) (Message, error)`, following `src/common/net/lacp`,
 which is the existing codec that rides Ethernet directly and checks the
 EtherType itself (`src/common/net/lacp/lacp.go:88`, `:108`). `Message` carries
