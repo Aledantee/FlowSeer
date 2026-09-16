@@ -151,10 +151,23 @@ results. The detailed loading report remains on `Result` because it describes th
 translation rather than runtime forwarding.
 
 A forwarding result selects metadata against the dependencies it actually
-consulted. Port state uses port scopes. Routing uses exact port, VLAN, ownership,
-route, local-address, and neighbor lookup scopes; neighbor scopes include the VRF,
-interface, and address, including for VLAN interfaces. Bridge forwarding uses the
-exact FID and destination MAC scope for an FDB lookup. A sibling dependency is
-excluded, while a node-scoped conflict affects every query on that node. The
-result's scope retains `SourceContext.DeviceID`, which keeps similarly named ports
-on different devices disjoint.
+consulted. Port state uses port scopes. Routing uses exact port, port-and-VID,
+VLAN, ownership, route, local-address, and neighbor lookup scopes; neighbor
+scopes include the VRF, interface, and address, including for VLAN interfaces.
+Bridge forwarding uses the exact FID and destination MAC scope for an FDB
+lookup. A sibling dependency is excluded, while a node-scoped conflict affects
+every query on that node. The result's scope retains `SourceContext.DeviceID`,
+which keeps similarly named ports on different devices disjoint.
+
+A `Subinterface` loads as a routed interface carrying its parent's port name
+and the VID of its one customer tag, provided the parent names a physical or
+LAG interface loaded alongside it and the encapsulation is exactly one
+`ETHER_TYPE_DOT1Q` tag whose VID is a usable IEEE 802.1Q identifier (1 through
+4094). It contributes no port-table entry of its own, since it is not a port,
+and an IP facet on it counts toward the same routed-interface capability flag
+a VLAN interface or a routed port would set. Any other encapsulation, an
+absent one included, raises `netmodel.routing.unsupported_encapsulation` on
+the parent port's lookup scope and leaves the interface out of the VRF; a
+parent that is absent from the load or is not itself a physical or LAG
+interface keeps raising `netmodel.routing.unsupported_interface_kind` on that
+same scope.

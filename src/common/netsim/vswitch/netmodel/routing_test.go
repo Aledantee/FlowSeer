@@ -12,6 +12,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -1078,6 +1079,225 @@ func TestLoadRoutingAcceptsZeroLengthPrefixes(t *testing.T) {
 			prefixes := result.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[name].Prefixes
 			if len(prefixes) != 1 || prefixes[0].String() != test.want {
 				t.Errorf("prefixes = %v, want [%s]", prefixes, test.want)
+			}
+		})
+	}
+}
+
+func vlanTag(tpid packetv1.EtherType, vid uint32) *switchingv1.VlanTag {
+	pcp := uint32(0)
+	dei := false
+	return switchingv1.VlanTag_builder{
+		Tpid:   &tpid,
+		VlanId: &vid,
+		Pcp:    &pcp,
+		Dei:    &dei,
+	}.Build()
+}
+
+// subInterface builds a Subinterface-kind interface over parent, carrying
+// an IP facet so it is eligible to route. A nil tags slice leaves the
+// encapsulation absent, matching a source that reported no encapsulation.
+func subInterface(name, parent string, tags ...*switchingv1.VlanTag) *interfacev1.Interface {
+	admin := interfacev1.AdminStatus_ADMIN_STATUS_UP
+	oper := interfacev1.OperStatus_OPER_STATUS_UP
+
+	var stack *switchingv1.VlanTagStack
+	if tags != nil {
+		stack = switchingv1.VlanTagStack_builder{Tags: tags}.Build()
+	}
+
+	return interfacev1.Interface_builder{
+		Name:        &name,
+		AdminStatus: &admin,
+		OperStatus:  &oper,
+		Sub: interfacev1.Subinterface_builder{
+			Parent:        &parent,
+			Encapsulation: stack,
+		}.Build(),
+		Ip: ipv1.IpFacet_builder{
+			Ipv4: ipv1.Ipv4Facet_builder{}.Build(),
+		}.Build(),
+	}.Build()
+}
+
+// TestLoad_SubInterfacesRouteOverPhysicalParent pins R7: two sub-interfaces
+// carved out of one physical parent by their outer C-TAG each load as a
+// routed interface carrying the parent's port name and the tag's VID, the
+// parent alone reaches the port table, and the loaded spec builds through
+// vswitch.NewWithSpec.
+func TestLoad_SubInterfacesRouteOverPhysicalParent(t *testing.T) {
+	parentName := "eth1"
+	sub10Name := "eth1.10"
+	sub20Name := "eth1.20"
+
+	parent := plainPhysicalInterface(parentName)
+	sub10 := subInterface(sub10Name, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
+	sub20 := subInterface(sub20Name, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 20))
+
+	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub10, sub20}}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+	cfg := loaded.Spec.Config
+	if cfg.Routing == nil {
+		t.Fatal("expected Routing configuration to be non-nil")
+	}
+	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+
+	if10, ok := vrf.Interfaces[sub10Name]
+	if !ok || if10.Port != parentName || if10.VLAN != 10 {
+		t.Errorf("eth1.10 = %+v, want Port:%q VLAN:10", if10, parentName)
+	}
+	if20, ok := vrf.Interfaces[sub20Name]
+	if !ok || if20.Port != parentName || if20.VLAN != 20 {
+		t.Errorf("eth1.20 = %+v, want Port:%q VLAN:20", if20, parentName)
+	}
+
+	if _, ok := cfg.Ports.Port(parentName); !ok {
+		t.Errorf("port table missing parent %s", parentName)
+	}
+	if _, ok := cfg.Ports.Port(sub10Name); ok {
+		t.Errorf("port table must not hold sub-interface %s", sub10Name)
+	}
+	if _, ok := cfg.Ports.Port(sub20Name); ok {
+		t.Errorf("port table must not hold sub-interface %s", sub20Name)
+	}
+
+	report := loaded.Report
+	if !slices.Contains(report.Capabilities, port.LayerRouting) || report.CapabilitySources[port.LayerRouting] != "inferred:ip" {
+		t.Errorf("routing capability = %v (%v), want inferred:ip", report.Capabilities, report.CapabilitySources)
+	}
+	if !slices.Contains(report.Capabilities, port.LayerVlan) || report.CapabilitySources[port.LayerVlan] != "implied:routing" {
+		t.Errorf("vlan capability = %v (%v), want implied:routing", report.Capabilities, report.CapabilitySources)
+	}
+	if !slices.Contains(report.Capabilities, port.LayerRelay) || report.CapabilitySources[port.LayerRelay] != "always" {
+		t.Errorf("relay capability = %v (%v), want always", report.Capabilities, report.CapabilitySources)
+	}
+
+	if _, err := vswitch.NewWithSpec(loaded.Spec); err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+}
+
+// TestLoad_SubInterfaceUnsupportedEncapsulation pins R7's rejection side: a
+// two-tag stack, an S-Tag, a priority-tagged VID, a reserved VID, and an
+// absent encapsulation each raise netmodel.routing.unsupported_encapsulation
+// scoped to the parent port, and the sub-interface still counts toward the
+// routed-interface capability flag even though its own encapsulation is
+// rejected, because the capability walk runs before the routing walk and
+// cannot see the outcome of this check.
+func TestLoad_SubInterfaceUnsupportedEncapsulation(t *testing.T) {
+	parentName := "eth1"
+	subName := "eth1.10"
+
+	for _, test := range []struct {
+		name string
+		tags []*switchingv1.VlanTag
+		// skipProtovalidate is set for a tag protovalidate itself refuses
+		// (a reserved VID), which netmodel must still handle defensively
+		// since Load does not assume its caller ran protovalidate.
+		skipProtovalidate bool
+	}{
+		{
+			name: "TwoTagStack",
+			tags: []*switchingv1.VlanTag{
+				vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10),
+				vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 20),
+			},
+		},
+		{
+			name: "STag",
+			tags: []*switchingv1.VlanTag{
+				vlanTag(packetv1.EtherType_ETHER_TYPE_PROVIDER_BRIDGING, 10),
+			},
+		},
+		{
+			name: "PriorityTaggedVID",
+			tags: []*switchingv1.VlanTag{
+				vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 0),
+			},
+		},
+		{
+			name: "ReservedVID",
+			tags: []*switchingv1.VlanTag{
+				vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 4095),
+			},
+			skipProtovalidate: true,
+		},
+		{
+			name: "AbsentEncapsulation",
+			tags: nil,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parent := plainPhysicalInterface(parentName)
+			sub := subInterface(subName, parentName, test.tags...)
+
+			input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
+			if !test.skipProtovalidate {
+				input.validate(t)
+			}
+			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, parentName)
+			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueUnsupportedEncapsulation && issue.Scope.Compare(wantScope) == 0
+			}) {
+				t.Errorf("issues = %+v, want unsupported_encapsulation at %s", loaded.Metadata.Issues(), wantScope)
+			}
+
+			if cfg := loaded.Spec.Config; cfg.Routing != nil {
+				if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces[subName]; ok {
+					t.Errorf("rejected sub-interface %s must not appear in VRF interfaces", subName)
+				}
+			}
+
+			if !slices.Contains(loaded.Report.Capabilities, port.LayerVlan) ||
+				loaded.Report.CapabilitySources[port.LayerVlan] != "implied:routing" {
+				t.Errorf("vlan capability = %v (%v), want implied:routing", loaded.Report.Capabilities, loaded.Report.CapabilitySources)
+			}
+		})
+	}
+}
+
+// TestLoad_SubInterfaceInvalidParentKind pins that a sub-interface whose
+// parent is absent from the load, or names an interface that is not a
+// physical or LAG port, keeps raising netmodel.routing.unsupported_interface_kind
+// rather than the new encapsulation code.
+func TestLoad_SubInterfaceInvalidParentKind(t *testing.T) {
+	subName := "eth1.10"
+
+	for _, test := range []struct {
+		name   string
+		parent string
+		ifaces []*interfacev1.Interface
+	}{
+		{
+			name:   "ParentIsVLANInterface",
+			parent: "vlan10",
+			ifaces: []*interfacev1.Interface{
+				routedVLANInterface("vlan10", 10, []byte{0, 1, 2, 3, 4, 5}),
+			},
+		},
+		{
+			name:   "ParentAbsentFromLoad",
+			parent: "eth9",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			sub := subInterface(subName, test.parent, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
+			ifaces := append(append([]*interfacev1.Interface{}, test.ifaces...), sub)
+
+			input := loadInput{ifaces: ifaces}
+			input.validate(t)
+			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, test.parent)
+			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueUnsupportedInterfaceKind && issue.Scope.Compare(wantScope) == 0
+			}) {
+				t.Errorf("issues = %+v, want unsupported_interface_kind at %s", loaded.Metadata.Issues(), wantScope)
 			}
 		})
 	}
