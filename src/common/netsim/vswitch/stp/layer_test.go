@@ -2299,8 +2299,13 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	if reason := local.VLANPortInfo(20, "l1").BlockReason; reason != "" {
 		t.Errorf("vlan 20 block reason = %q, want empty: the check blocks the arrival VLAN only", reason)
 	}
-	if got := local.VLANPortInfo(20, "l1"); got != vlan20Before {
-		t.Errorf("vlan 20 port state on l1 = %+v, want the %+v it held before the BPDU arrived", got, vlan20Before)
+	// RxBPDUs is link-on-cist: it is the port's received count, shared by
+	// every VLAN's view, so it moves with the frame that just arrived even
+	// though that frame named VLAN 20 and this snapshot is VLAN 20's own.
+	vlan20After := local.VLANPortInfo(20, "l1")
+	vlan20Before.RxBPDUs = vlan20After.RxBPDUs
+	if vlan20After != vlan20Before {
+		t.Errorf("vlan 20 port state on l1 = %+v, want the %+v it held before the BPDU arrived", vlan20After, vlan20Before)
 	}
 
 	// A BPDU naming the VLAN it arrived on clears the port.
@@ -2683,4 +2688,215 @@ func TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST(t *testing.T) {
 	if !rstp.TracksVLAN(30) {
 		t.Error("RSTP TracksVLAN(30) = false, want true: outside PVST the CIST carries every VLAN")
 	}
+}
+
+// TestEveryReaderOfALinkPropertyReadsTheCISTsCopy is evidence for R4: a
+// link-on-cist field answers the same value through every tree's own
+// PortInfo, because every reader resolves it through the CIST rather than
+// through its own copy. BPDU guard firing on a PVST bridge's trunk is what
+// exercises this: the guard and the received-frame counter both live on the
+// CIST alone, and VLAN 10's tree never receives a frame of its own.
+func TestEveryReaderOfALinkPropertyReadsTheCISTsCopy(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	rogue := mustMAC(t, "00:aa:bb:cc:dd:99")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {BPDUGuard: true}},
+		PVST:     pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "l1"))
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	sstp := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: rogue},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: rogue},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+
+	l.ReceiveSSTP(start.Add(time.Second), "l1", 10, 10, sstp)
+
+	cist := l.PortInfo("l1")
+	vlan10 := l.VLANPortInfo(10, "l1")
+
+	if cist.BlockReason != stp.BlockReasonBPDUGuard {
+		t.Fatalf("CIST block reason = %q, want %q", cist.BlockReason, stp.BlockReasonBPDUGuard)
+	}
+	if vlan10.BlockReason != cist.BlockReason {
+		t.Errorf("VLAN 10 block reason = %q, want the CIST's %q", vlan10.BlockReason, cist.BlockReason)
+	}
+	if cist.RxBPDUs == 0 {
+		t.Fatal("CIST RxBPDUs = 0, want the frame counted")
+	}
+	if vlan10.RxBPDUs != cist.RxBPDUs {
+		t.Errorf("VLAN 10 RxBPDUs = %d, want the CIST's %d", vlan10.RxBPDUs, cist.RxBPDUs)
+	}
+}
+
+// TestPVSTMigrationReachesEveryTreeAndSilencesSSTP is evidence for R5: a
+// legacy Configuration BPDU received IEEE-addressed migrates every tree, not
+// only the CIST's, and a migrated port sends VLAN 1's untagged Configuration
+// BPDU alone: SSTP has no legacy shape to carry a per-VLAN downgrade in, so
+// every other VLAN's tree falls silent on the port instead.
+func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	legacyConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	legacyConfig.SetRole(stp.RoleDesignated)
+
+	// An IEEE-addressed BPDU is what Receive handles in every mode, VLAN 1's
+	// tree included, since that slot is VLAN 1's tree under PVST.
+	l.Receive(start.Add(4*time.Second), "l1", legacyConfig)
+
+	if l.VLANPortInfo(10, "l1").SendRSTP {
+		t.Fatal("VLAN 10 SendRSTP = true, want false: the migration must reach every tree, not only the CIST's")
+	}
+
+	wake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake() reported no timer after the migration")
+	}
+	fx := l.Wake(wake)
+
+	var sstpCount, ieeeCount int
+	for _, em := range fx.Emissions {
+		if em.Port != "l1" {
+			continue
+		}
+		if em.Frame.Dst == stp.GroupAddressSSTP {
+			sstpCount++
+
+			continue
+		}
+		ieeeCount++
+		b, err := stp.Decode(em.Frame)
+		if err != nil {
+			t.Fatalf("decode IEEE emission: %v", err)
+		}
+		if b.Version != 0 || b.Type != stp.BPDUTypeConfiguration {
+			t.Errorf("IEEE emission version=%d type=%v, want 0 and Configuration", b.Version, b.Type)
+		}
+	}
+	if sstpCount != 0 {
+		t.Errorf("SSTP emissions on l1 = %d, want 0: a migrated port sends no per-VLAN frame", sstpCount)
+	}
+	if ieeeCount != 1 {
+		t.Errorf("IEEE emissions on l1 = %d, want 1", ieeeCount)
+	}
+}
+
+// TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing is evidence for
+// R8: a LinkChange that only changes the link-derived path cost reaches
+// every tree's own path cost, but does not restart the port's handshake the
+// way a role, point-to-point, or admin cost change would.
+func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:cc"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		PVST:     pvstTrees(map[vlan.ID]map[string]uint32{1: {"l1": 55}}, 1, 10),
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// No peer ever agrees, so the port climbs the forward delay ladder to
+	// Forwarding across two forward delays.
+	const fwdDelay = 15 * time.Second
+	l.Wake(start.Add(fwdDelay))
+	l.Wake(start.Add(2 * fwdDelay))
+
+	before := l.PortInfo("l1")
+	if before.State != stp.StateForwarding {
+		t.Fatalf("l1 state before the speed change = %v, want Forwarding", before.State)
+	}
+	if got := l.VLANPortInfo(10, "l1").PathCost; got != stp.DefaultPathCost(1_000_000_000) {
+		t.Fatalf("VLAN 10 path cost before the speed change = %d, want %d", got, stp.DefaultPathCost(1_000_000_000))
+	}
+
+	// Re-describing the same link at the same speed is not a transition.
+	if fx := l.LinkChange(start.Add(3*fwdDelay), "l1", true, true, 1_000_000_000); len(fx.Emissions) != 0 || len(fx.Flush) != 0 {
+		t.Fatalf("re-describing the same link = %+v, want no effects", fx)
+	}
+
+	l.LinkChange(start.Add(3*fwdDelay+time.Second), "l1", true, true, 10_000_000_000)
+
+	after := l.PortInfo("l1")
+	if after.PathCost != 55 {
+		t.Errorf("CIST (VLAN 1) path cost after the speed change = %d, want the fixed 55", after.PathCost)
+	}
+	if got := l.VLANPortInfo(10, "l1").PathCost; got != stp.DefaultPathCost(10_000_000_000) {
+		t.Errorf("VLAN 10 path cost after the speed change = %d, want %d", got, stp.DefaultPathCost(10_000_000_000))
+	}
+	if after.State != before.State {
+		t.Errorf("l1 state after the speed change = %v, want the unchanged %v", after.State, before.State)
+	}
+	if after.ForwardTransitions != before.ForwardTransitions {
+		t.Errorf("l1 forward transitions after the speed change = %d, want the unchanged %d",
+			after.ForwardTransitions, before.ForwardTransitions)
+	}
+}
+
+// TestATreesPortStartsAtTheBridgePortsConfiguredCost is evidence for R9: an
+// MSTI or PVST tree with no per-instance path cost override starts at the
+// bridge port's own configured cost, the same fallback the CIST itself
+// derives from, rather than at DefaultPathCost(0) until the first LinkChange
+// overwrites it.
+func TestATreesPortStartsAtTheBridgePortsConfiguredCost(t *testing.T) {
+	t.Parallel()
+
+	t.Run("pvst", func(t *testing.T) {
+		t.Parallel()
+
+		l := mustNewSTP(t, stp.Config{
+			Priority: 32768,
+			Address:  mustMAC(t, "00:11:22:33:44:01"),
+			Ports:    map[string]stp.Port{"l1": {PathCost: 100}},
+			PVST:     pvstTrees(nil, 1, 10),
+		}, mustPortTable(t, "l1"))
+
+		if got := l.VLANPortInfo(10, "l1").PathCost; got != 100 {
+			t.Errorf("VLAN 10 path cost before any LinkChange = %d, want the configured 100", got)
+		}
+	})
+
+	t.Run("mstp", func(t *testing.T) {
+		t.Parallel()
+
+		l := mustNewSTP(t, stp.Config{
+			Priority: 32768,
+			Address:  mustMAC(t, "00:11:22:33:44:02"),
+			Ports:    map[string]stp.Port{"l1": {PathCost: 100}},
+			MST: &stp.MST{
+				Name: "region-1", Revision: 1,
+				Instances: map[stp.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
+			},
+		}, mustPortTable(t, "l1"))
+
+		if got := l.InstancePortInfo(1, "l1").PathCost; got != 100 {
+			t.Errorf("MSTI 1 path cost before any LinkChange = %d, want the configured 100", got)
+		}
+	})
 }
