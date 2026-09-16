@@ -7247,11 +7247,11 @@ func TestSSTPRefusalTracesADecodedFrame(t *testing.T) {
 func sstpStepShape(step trace.Step) string {
 	inputs := make([]string, 0, len(step.Inputs))
 	for _, f := range step.Inputs {
-		inputs = append(inputs, string(f.TypeID()))
+		inputs = append(inputs, f.TypeID())
 	}
 	outputs := make([]string, 0, len(step.Outputs))
 	for _, f := range step.Outputs {
-		outputs = append(outputs, string(f.TypeID()))
+		outputs = append(outputs, f.TypeID())
 	}
 
 	return fmt.Sprintf("layer=%s;op=%s;rule=%s;subject=%s/%s;inputs=%v;outputs=%v",
