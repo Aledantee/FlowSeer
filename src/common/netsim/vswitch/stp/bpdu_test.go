@@ -3,6 +3,7 @@ package stp_test
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -1124,6 +1126,382 @@ func TestHelloTimeValidationPerType(t *testing.T) {
 		}
 		if dec.Type != stp.BPDUTypeTopologyChangeNotification {
 			t.Errorf("Type = %v, want %v", dec.Type, stp.BPDUTypeTopologyChangeNotification)
+		}
+	})
+}
+
+func mustEncodeSSTP(t *testing.T, b stp.BPDU, vid vlan.ID, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.EncodeSSTP(b, vid, src)
+	if err != nil {
+		t.Fatalf("stp.EncodeSSTP: %v", err)
+	}
+	return frame
+}
+
+func TestSSTPCodecRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	root := stp.BridgeID{Priority: 0x8000, Address: netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}}
+	bridge := stp.BridgeID{Priority: 0x9000, Address: mac}
+
+	tests := []struct {
+		name string
+		b    stp.BPDU
+		vid  vlan.ID
+	}{
+		{
+			name: "zero flags",
+			b: stp.BPDU{
+				RootID:       root,
+				RootPathCost: 4,
+				BridgeID:     bridge,
+				PortID:       0x8002,
+				HelloTime:    stp.DefaultHelloTime,
+				MaxAge:       stp.DefaultMaxAge,
+				ForwardDelay: stp.DefaultForwardDelay,
+				Flags:        0x00,
+			},
+			vid: 1,
+		},
+		{
+			name: "every flag bit set",
+			b: stp.BPDU{
+				RootID:       root,
+				RootPathCost: 0,
+				BridgeID:     bridge,
+				PortID:       0x8001,
+				HelloTime:    stp.DefaultHelloTime,
+				MaxAge:       stp.DefaultMaxAge,
+				ForwardDelay: stp.DefaultForwardDelay,
+				Flags:        0xFF,
+			},
+			vid: 100,
+		},
+		{
+			name: "every flag bit cleared",
+			b: stp.BPDU{
+				RootID:       bridge,
+				RootPathCost: 19,
+				BridgeID:     bridge,
+				PortID:       0x8003,
+				HelloTime:    stp.DefaultHelloTime,
+				MaxAge:       stp.DefaultMaxAge,
+				ForwardDelay: stp.DefaultForwardDelay,
+				Flags:        0x00,
+			},
+			vid: 4094,
+		},
+		{
+			name: "message age and version carried through",
+			b: stp.BPDU{
+				RootID:       root,
+				RootPathCost: 200000,
+				BridgeID:     bridge,
+				PortID:       0x8010,
+				MessageAge:   1 * time.Second,
+				HelloTime:    stp.DefaultHelloTime,
+				MaxAge:       stp.DefaultMaxAge,
+				ForwardDelay: stp.DefaultForwardDelay,
+				Flags:        0x3D,
+				Version:      2,
+			},
+			vid: 20,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			frame := mustEncodeSSTP(t, tc.b, tc.vid, mac)
+			if len(frame.Payload) != 50 {
+				t.Fatalf("payload len = %d, want 50", len(frame.Payload))
+			}
+			if frame.Dst != stp.GroupAddressSSTP {
+				t.Errorf("Dst = %v, want %v", frame.Dst, stp.GroupAddressSSTP)
+			}
+			if frame.EtherType != ethernet.EtherType(50) {
+				t.Errorf("EtherType = %v, want 50", frame.EtherType)
+			}
+
+			decoded, vid, err := stp.DecodeSSTP(frame)
+			if err != nil {
+				t.Fatalf("stp.DecodeSSTP: %v", err)
+			}
+
+			if vid != tc.vid {
+				t.Errorf("vid = %d, want %d", vid, tc.vid)
+			}
+			if decoded.RootID != tc.b.RootID {
+				t.Errorf("RootID = %v, want %v", decoded.RootID, tc.b.RootID)
+			}
+			if decoded.RootPathCost != tc.b.RootPathCost {
+				t.Errorf("RootPathCost = %d, want %d", decoded.RootPathCost, tc.b.RootPathCost)
+			}
+			if decoded.BridgeID != tc.b.BridgeID {
+				t.Errorf("BridgeID = %v, want %v", decoded.BridgeID, tc.b.BridgeID)
+			}
+			if decoded.PortID != tc.b.PortID {
+				t.Errorf("PortID = 0x%04x, want 0x%04x", decoded.PortID, tc.b.PortID)
+			}
+			if decoded.MessageAge != tc.b.MessageAge {
+				t.Errorf("MessageAge = %v, want %v", decoded.MessageAge, tc.b.MessageAge)
+			}
+			if decoded.MaxAge != tc.b.MaxAge {
+				t.Errorf("MaxAge = %v, want %v", decoded.MaxAge, tc.b.MaxAge)
+			}
+			if decoded.HelloTime != tc.b.HelloTime {
+				t.Errorf("HelloTime = %v, want %v", decoded.HelloTime, tc.b.HelloTime)
+			}
+			if decoded.ForwardDelay != tc.b.ForwardDelay {
+				t.Errorf("ForwardDelay = %v, want %v", decoded.ForwardDelay, tc.b.ForwardDelay)
+			}
+			if decoded.Flags != tc.b.Flags {
+				t.Errorf("Flags = 0x%02x, want 0x%02x", decoded.Flags, tc.b.Flags)
+			}
+			if decoded.Type != stp.BPDUTypeRapid {
+				t.Errorf("Type = %v, want %v", decoded.Type, stp.BPDUTypeRapid)
+			}
+			wantVersion := tc.b.Version
+			if wantVersion < 2 {
+				wantVersion = 2
+			}
+			if decoded.Version != wantVersion {
+				t.Errorf("Version = %d, want %d", decoded.Version, wantVersion)
+			}
+
+			// Re-encode and verify identical wire bytes.
+			reEncoded := mustEncodeSSTP(t, decoded, vid, mac)
+			if !bytes.Equal(reEncoded.Payload, frame.Payload) {
+				t.Error("re-encoded payload does not match original")
+			}
+		})
+	}
+}
+
+// TestSSTPEncodeGoldenPayload pins the SSTP wire layout against literal
+// expected bytes for VID 20, so the encoder's own field choices cannot drift
+// the layout underneath a round-trip test that would not notice a uniform
+// reordering.
+func TestSSTPEncodeGoldenPayload(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 0x8000, Address: netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}},
+		RootPathCost: 4,
+		BridgeID:     stp.BridgeID{Priority: 0x9000, Address: mac},
+		PortID:       0x8002,
+		MessageAge:   0,
+		MaxAge:       stp.DefaultMaxAge,
+		HelloTime:    stp.DefaultHelloTime,
+		ForwardDelay: stp.DefaultForwardDelay,
+		Flags:        0x00,
+	}
+
+	frame := mustEncodeSSTP(t, b, vlan.ID(20), mac)
+
+	want, err := hex.DecodeString(strings.ReplaceAll(
+		"AA AA 03 00 00 0C 01 0B 00 00 02 02 00 80 00 AA BB CC DD EE FF "+
+			"00 00 00 04 90 00 00 11 22 33 44 55 80 02 00 00 14 00 02 00 0F 00 "+
+			"00 00 00 00 02 00 14",
+		" ", ""))
+	if err != nil {
+		t.Fatalf("hex.DecodeString: %v", err)
+	}
+	if len(want) != 50 {
+		t.Fatalf("golden vector len = %d, want 50", len(want))
+	}
+
+	if len(frame.Payload) != len(want) {
+		t.Fatalf("payload len = %d, want %d", len(frame.Payload), len(want))
+	}
+	for i := range want {
+		if frame.Payload[i] != want[i] {
+			t.Errorf("payload[%d] = 0x%02x, want 0x%02x", i, frame.Payload[i], want[i])
+		}
+	}
+}
+
+func TestSSTPDecodeRefusals(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	validBPDU := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	validFrame := mustEncodeSSTP(t, validBPDU, 20, mac)
+
+	tests := []struct {
+		name      string
+		modify    func(f *ethernet.Frame)
+		wantField string
+	}{
+		{
+			name: "payload too short",
+			modify: func(f *ethernet.Frame) {
+				f.Payload = f.Payload[:49]
+			},
+			wantField: "too short",
+		},
+		{
+			name: "wrong LLC header",
+			modify: func(f *ethernet.Frame) {
+				f.Payload[0] = 0x00
+			},
+			wantField: "LLC header",
+		},
+		{
+			name: "wrong SNAP OUI",
+			modify: func(f *ethernet.Frame) {
+				f.Payload[3] = 0x01
+			},
+			wantField: "OUI",
+		},
+		{
+			name: "wrong SNAP PID",
+			modify: func(f *ethernet.Frame) {
+				binary.BigEndian.PutUint16(f.Payload[6:8], 0x0001)
+			},
+			wantField: "PID",
+		},
+		{
+			name: "wrong protocol identifier",
+			modify: func(f *ethernet.Frame) {
+				binary.BigEndian.PutUint16(f.Payload[8:10], 0x0001)
+			},
+			wantField: "protocol identifier",
+		},
+		{
+			name: "version below 2",
+			modify: func(f *ethernet.Frame) {
+				f.Payload[10] = 1
+			},
+			wantField: "version",
+		},
+		{
+			name: "wire type not 0x02",
+			modify: func(f *ethernet.Frame) {
+				f.Payload[11] = 0x00
+			},
+			wantField: "type",
+		},
+		{
+			name: "TLV type not 0",
+			modify: func(f *ethernet.Frame) {
+				binary.BigEndian.PutUint16(f.Payload[44:46], 0x0001)
+			},
+			wantField: "TLV type",
+		},
+		{
+			name: "TLV length not 2",
+			modify: func(f *ethernet.Frame) {
+				binary.BigEndian.PutUint16(f.Payload[46:48], 0x0003)
+			},
+			wantField: "TLV length",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			f := ethernet.Frame{
+				Dst:       validFrame.Dst,
+				Src:       validFrame.Src,
+				EtherType: validFrame.EtherType,
+				Payload:   append([]byte(nil), validFrame.Payload...),
+			}
+			tc.modify(&f)
+
+			_, _, err := stp.DecodeSSTP(f)
+			if err == nil {
+				t.Fatal("DecodeSSTP unexpectedly succeeded")
+			}
+
+			attrs := errs.Attributes(err)
+			reason, ok := attrs["reason"]
+			if !ok || reason != stp.ReasonUnsupportedBPDU {
+				t.Errorf("reason = %v, want %v", reason, stp.ReasonUnsupportedBPDU)
+			}
+
+			if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tc.wantField)) {
+				t.Errorf("error %q does not name field %q", err.Error(), tc.wantField)
+			}
+		})
+	}
+}
+
+func TestEncodeSSTPRefusesMSTConfigID(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:    stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:  stp.BridgeID{Priority: 4096, Address: mac},
+		HelloTime: 2 * time.Second,
+		ConfigID:  &stp.ConfigID{Name: "region-a"},
+	}
+
+	_, err := stp.EncodeSSTP(b, 1, mac)
+	if err == nil {
+		t.Fatal("EncodeSSTP unexpectedly succeeded for a BPDU with ConfigID set")
+	}
+
+	attrs := errs.Attributes(err)
+	if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+		t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+	}
+}
+
+func TestSSTPCrossesWithPlainBPDU(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	b := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: mac},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: mac},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+
+	t.Run("Decode refuses an SSTP frame", func(t *testing.T) {
+		t.Parallel()
+
+		sstpFrame := mustEncodeSSTP(t, b, 20, mac)
+
+		_, err := stp.Decode(sstpFrame)
+		if err == nil {
+			t.Fatal("Decode unexpectedly succeeded for an SSTP frame")
+		}
+		attrs := errs.Attributes(err)
+		if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+			t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
+		}
+	})
+
+	t.Run("DecodeSSTP refuses a plain LLC BPDU frame", func(t *testing.T) {
+		t.Parallel()
+
+		llcFrame := mustEncode(t, b, mac)
+
+		_, _, err := stp.DecodeSSTP(llcFrame)
+		if err == nil {
+			t.Fatal("DecodeSSTP unexpectedly succeeded for a plain LLC BPDU frame")
+		}
+		attrs := errs.Attributes(err)
+		if attrs["reason"] != stp.ReasonUnsupportedBPDU {
+			t.Errorf("reason = %v, want %v", attrs["reason"], stp.ReasonUnsupportedBPDU)
 		}
 	})
 }
