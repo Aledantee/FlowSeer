@@ -1534,6 +1534,16 @@ func (b *Bridge) buildEgressFrame(
 	return out, false
 }
 
+// OriginateFrame applies portName's egress VLAN tagging to a frame the switch
+// itself originates, rather than one relayed from an ingress port: no
+// priority, no drop-eligible marking, no remaining tags from an earlier
+// classification, and no inherited TPID. It reports false when portName does
+// not carry vid; a VLAN-unaware bridge carries every VID untagged and always
+// reports true.
+func (b *Bridge) OriginateFrame(portName string, vid vlan.ID, f ethernet.Frame) (ethernet.Frame, bool) {
+	return b.buildEgressFrame(portName, vid, f, 0, false, nil, 0)
+}
+
 func (b *Bridge) isFloodVLAN(fid vlan.ID) bool {
 	return slices.Contains(b.cfg.FloodVLANs, fid)
 }

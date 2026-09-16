@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	layer.Receive(t0, "1/1/2", probe.VID, probe)
+	layer.Receive(t0, probe.VID, probe)
 
 	fmt.Printf("1/1/1: %s\n", layer.PortInfo("1/1/1").Action) // Block
 	fmt.Printf("1/1/2: %s\n", layer.PortInfo("1/1/2").Action) // (none)

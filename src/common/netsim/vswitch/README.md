@@ -131,6 +131,20 @@ The virtual switch uses a ladder of architectural layers:
   the frame, so a drop names the VLAN it was classified into and a frame the
   port would never have admitted reports the classification reason rather than
   `port-blocked`. One tree carries every VLAN today, so the two answers agree.
+- **Loop protection**: Configured with a `port.Table`, `bridge.Config`, and
+  `loopprotect.Config`. Independent of spanning tree, it periodically emits a
+  probe frame addressed to its own group MAC out each protected port, naming
+  the sending switch and port in the payload. A returning probe naming this
+  switch is classified through the bridge's ordinary VLAN and gate pipeline
+  first, exactly like any other frame, so a gated ingress port still denies
+  it; only once that pipeline admits it does the port named in the payload
+  receive the configured action (`Block`, `NoLearn`, or `Disable`) and, when
+  the classified VLAN disagrees with the one the probe was sent on, an
+  inter-VLAN finding. A probe naming another switch is left untouched and
+  floods like any other frame addressed to an unregistered multicast group.
+  Implements the same bridge gate interface as spanning tree, under its own
+  scope, so the two coexist on one bridge without one replacing the other's
+  gate.
 - **Multicast snooping**: Configured with VLAN-aware `bridge.Config` and
   `mcast.Config`. IGMP and MLD reports register group members, while queries
   identify router ports. `Switch.Resolve` filters admitted member ports by
@@ -261,7 +275,7 @@ Drop reasons recorded in traces and egress records:
 | `not-member`       | Known unicast's port is not a member of the VLAN        |
 | `no-egress`        | No forwarding member port other than the ingress port   |
 | `no-member`        | LAG has no enabled member port to transmit egress frame |
-| `port-blocked`     | Port is blocked from learning or forwarding by spanning tree |
+| `port-blocked`     | Port is blocked from learning or forwarding by spanning tree or loop protection |
 | `unsupported-bpdu` | Frame could not be decoded as a BPDU                    |
 | `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
@@ -278,8 +292,9 @@ Drop reasons recorded in traces and egress records:
 
 ## Protocol schedule
 
-The spanning tree and link aggregation layers operate deterministically without
-background timers. The host drives them through explicit calls:
+The spanning tree, loop protection, and link aggregation layers operate
+deterministically without background timers. The host drives them through
+explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
 - `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
@@ -295,11 +310,14 @@ background timers. The host drives them through explicit calls:
   An invalid link state returns a structured error without changing either
   table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
-- `Wake(now)` fires due timers across spanning tree and link aggregation,
-  flushing bridge entries and triggering periodic transmissions.
+- `ClearLoopProtect(now, port)` manually lifts the loop-protection action
+  applied to the named port.
+- `Wake(now)` fires due timers across spanning tree, loop protection, and link
+  aggregation, flushing bridge entries and triggering periodic transmissions.
 - `NextWake()` reports the earliest deadline when the switch needs a wake
-  across both layers.
-- `Drain()` returns and clears pending frame emissions produced by both layers.
+  across all three layers.
+- `Drain()` returns and clears pending frame emissions produced by all three
+  layers, applying each emitting port's own egress VLAN tagging.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
@@ -314,6 +332,20 @@ On a switch configured with `stp.Config`, a frame addressed to
 outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
 switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
+
+On a switch configured with `loopprotect.Config`, a frame addressed to the
+loop-protection probe group is intercepted before relay processing, but only
+once decoded as a probe this switch itself sent: a probe naming another
+switch is left alone and falls through to the ordinary relay path, where it
+floods as unregistered multicast, so it is classified exactly once either
+way. Loop protection's own probe transmission bypasses every installed gate,
+including one it applied to a port itself or one spanning tree applied to a
+port sharing the same bridge, the way spanning tree's own BPDU transmission
+does; only the *returning* probe's classification consults the gates,
+which is what lets one action on a two-port loop stop the reciprocal probe
+from also triggering the layer, and what lets an already-blocking spanning
+tree port keep a probe configured on the same redundant link from ever
+returning.
 
 On a switch with link aggregation, a frame with EtherType 0x8809 whose first
 payload octet is 1 arriving on an up member port is intercepted before relay

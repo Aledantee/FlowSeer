@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -23,21 +24,22 @@ import (
 // Config specifies the configuration of a virtual switch, combining its port table,
 // optional physical layer attributes, optional bridge relay and VLAN configuration,
 // optional link aggregation configuration, optional spanning tree configuration,
-// optional multicast snooping, optional layer 3 routing configuration, and optional
-// traffic configuration.
+// optional netsim loop-protection configuration, optional multicast snooping,
+// optional layer 3 routing configuration, and optional traffic configuration.
 // MAC is the device's base hardware address.
 //
 // Config is safe for concurrent read access.
 type Config struct {
-	MAC     netaddr.MAC
-	Ports   port.Table
-	Phy     *phy.Config
-	Bridge  *bridge.Config
-	LAG     *lag.Config
-	STP     *stp.Config
-	Mcast   *mcast.Config
-	Routing *routing.Config
-	Traffic *traffic.Config
+	MAC         netaddr.MAC
+	Ports       port.Table
+	Phy         *phy.Config
+	Bridge      *bridge.Config
+	LAG         *lag.Config
+	STP         *stp.Config
+	LoopProtect *loopprotect.Config
+	Mcast       *mcast.Config
+	Routing     *routing.Config
+	Traffic     *traffic.Config
 }
 
 // Canonical returns a deterministic encoding of the configuration semantics used
@@ -73,6 +75,9 @@ func (c Config) Capabilities() []port.Layer {
 	}
 	if c.STP != nil {
 		caps = append(caps, port.LayerStp)
+	}
+	if c.LoopProtect != nil {
+		caps = append(caps, port.LayerLoopProtect)
 	}
 	if c.Mcast != nil {
 		caps = append(caps, port.LayerMcast)
@@ -150,6 +155,42 @@ func (c Config) Validate() error {
 		}
 		if err := c.STP.Validate(c.Ports); err != nil {
 			return err
+		}
+	}
+	if c.LoopProtect != nil {
+		if c.Bridge == nil {
+			return errs.New().Attr("field", "loop_protect").Msg("loop protection requires bridge configuration")
+		}
+		if err := c.LoopProtect.Validate(c.Ports); err != nil {
+			return err
+		}
+
+		portNames := make([]string, 0, len(c.LoopProtect.Ports))
+		for name := range c.LoopProtect.Ports {
+			portNames = append(portNames, name)
+		}
+		slices.Sort(portNames)
+
+		for _, name := range portNames {
+			for _, vid := range c.LoopProtect.Ports[name].VLANs {
+				var (
+					sw    bridge.Switchport
+					known bool
+				)
+				if c.Bridge.VLAN != nil {
+					sw, known = c.Bridge.VLAN.Switchports[name]
+				}
+				admitted := known && (slices.Contains(sw.Tagged, vid) || slices.Contains(sw.Untagged, vid) ||
+					(sw.PVID != nil && *sw.PVID == vid) ||
+					(sw.Tunnel != nil && sw.Tunnel.VID == vid))
+				if !admitted {
+					return errs.New().
+						Attr("field", fmt.Sprintf("loop_protect.ports.%s.vlans", name)).
+						Attr("port", name).
+						Attr("vlan", vid).
+						Msgf("loop protection port %q references VLAN %d not admitted by its switchport", name, vid)
+				}
+			}
 		}
 	}
 	if c.Mcast != nil {
@@ -396,6 +437,10 @@ func (c Config) Normalize() Config {
 		s := norm.STP.Normalize()
 		norm.STP = &s
 	}
+	if norm.LoopProtect != nil {
+		lp := norm.LoopProtect.Normalize()
+		norm.LoopProtect = &lp
+	}
 	if norm.Mcast != nil {
 		m := norm.Mcast.Normalize()
 		norm.Mcast = &m
@@ -442,6 +487,10 @@ func (c Config) Clone() Config {
 	if c.STP != nil {
 		stpCfg := c.STP.Clone()
 		cp.STP = &stpCfg
+	}
+	if c.LoopProtect != nil {
+		lpCfg := c.LoopProtect.Clone()
+		cp.LoopProtect = &lpCfg
 	}
 	if c.Mcast != nil {
 		mcastCfg := c.Mcast.Clone()

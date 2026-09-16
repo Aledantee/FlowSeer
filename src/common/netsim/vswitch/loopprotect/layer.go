@@ -172,8 +172,9 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 // to that port, marks PortInfo.InterVLAN when the classified vid disagrees
 // with the payload's own VID (an inter-VLAN loop), and advances the
 // recovery timer per the port's recovery mode. A probe naming a port this
-// layer does not track is ignored.
-func (l *Layer) Receive(now time.Time, _ string, vid vlan.ID, p Probe) Effects {
+// layer does not track is ignored. The ingress port the probe returned on
+// belongs to the caller's trace step, not to this layer.
+func (l *Layer) Receive(now time.Time, vid vlan.ID, p Probe) Effects {
 	ps, ok := l.ports[p.Port]
 	if !ok {
 		return Effects{}
