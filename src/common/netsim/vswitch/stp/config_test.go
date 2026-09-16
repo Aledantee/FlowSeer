@@ -782,6 +782,211 @@ func TestDiffMSTVLANMoveBetweenInstances(t *testing.T) {
 	}
 }
 
+func TestValidateRefusesMSTAndPVSTTogether(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	cfg := stp.Config{
+		Priority: 32768,
+		MST:      &stp.MST{},
+		PVST:     &stp.PVST{},
+	}
+
+	err = cfg.Validate(tbl)
+	if err == nil {
+		t.Fatal("Validate() = nil, want rejection of MST and PVST both set")
+	}
+	if got, want := errs.Attributes(err)["field"], "pvst"; got != want {
+		t.Errorf("field attribute = %v, want %q", got, want)
+	}
+}
+
+func TestPVSTValidate(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+	// "1/1/2" is in the port table but never added as an STP port, so a tree
+	// may reference it in the port table check but not the STP-port-set check.
+	stpPorts := map[string]stp.Port{"1/1/1": {}}
+
+	tests := []struct {
+		name      string
+		pvst      stp.PVST
+		wantErr   bool
+		wantField string
+	}{
+		{
+			name: "valid trees",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{
+					1: {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {}}},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "VID zero rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{0: {}},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.0",
+		},
+		{
+			name: "VID above 4094 rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{4095: {}},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.4095",
+		},
+		{
+			name: "priority not a multiple of 4096 rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{1: {Priority: 100}},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.1.priority",
+		},
+		{
+			name: "unknown tree port rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{
+					1: {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/99": {}}},
+				},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.1.ports.1/1/99",
+		},
+		{
+			name: "tree port absent from the STP port set rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{
+					1: {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/2": {}}},
+				},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.1.ports.1/1/2",
+		},
+		{
+			name: "tree port path cost over maximum rejected",
+			pvst: stp.PVST{
+				Trees: map[vlan.ID]stp.Tree{
+					1: {
+						Priority: 4096,
+						Ports:    map[string]stp.InstancePort{"1/1/1": {PathCost: stp.MaxPathCost + 1}},
+					},
+				},
+			},
+			wantErr:   true,
+			wantField: "pvst.trees.1.ports.1/1/1.path_cost",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tc.pvst.Validate(tbl, stpPorts)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %t", err, tc.wantErr)
+			}
+			if tc.wantErr {
+				if got := errs.Attributes(err)["field"]; got != tc.wantField {
+					t.Errorf("field attribute = %v, want %q", got, tc.wantField)
+				}
+			}
+		})
+	}
+}
+
+func TestPVSTNormalizeInsertsDefaultVLAN1(t *testing.T) {
+	t.Parallel()
+
+	empty := stp.PVST{}
+	norm := empty.Normalize()
+
+	tree, ok := norm.Trees[1]
+	if !ok {
+		t.Fatal("Normalize() on empty Trees did not insert a VLAN 1 tree")
+	}
+	if got := tree.Priority; got != stp.DefaultBridgePriority {
+		t.Errorf("VLAN 1 tree priority = %d, want default %d", got, stp.DefaultBridgePriority)
+	}
+	if !tree.PriorityPresent {
+		t.Error("VLAN 1 tree PriorityPresent = false, want true after normalization")
+	}
+
+	nonEmpty := stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Priority: 4096, PriorityPresent: true}}}
+	norm = nonEmpty.Normalize()
+	if len(norm.Trees) != 1 {
+		t.Fatalf("Normalize() on non-empty Trees without VLAN 1 = %d trees, want 1 (no insertion)", len(norm.Trees))
+	}
+	if _, ok := norm.Trees[1]; ok {
+		t.Error("Normalize() inserted a VLAN 1 tree although Trees already held a tree")
+	}
+}
+
+func TestPVSTNormalizeLeavesExplicitVLAN1Alone(t *testing.T) {
+	t.Parallel()
+
+	p := stp.PVST{Trees: map[vlan.ID]stp.Tree{1: {Priority: 4096, PriorityPresent: true}}}
+	norm := p.Normalize()
+
+	if got := norm.Trees[1].Priority; got != 4096 {
+		t.Errorf("VLAN 1 tree priority = %d, want the explicitly configured 4096", got)
+	}
+}
+
+func TestPVSTClone(t *testing.T) {
+	t.Parallel()
+
+	p := stp.PVST{
+		Trees: map[vlan.ID]stp.Tree{
+			1: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+		},
+	}
+
+	cloned := p.Clone()
+	cloned.Trees[2] = stp.Tree{Priority: 4096}
+	clonedTree := cloned.Trees[1]
+	clonedTree.Ports["1/1/1"] = stp.InstancePort{PathCost: 200}
+	cloned.Trees[1] = clonedTree
+
+	if _, ok := p.Trees[2]; ok {
+		t.Error("original Trees map modified: VLAN 2 tree added through the clone")
+	}
+	if p.Trees[1].Ports["1/1/1"].PathCost != 100 {
+		t.Errorf("original tree port modified: got %d, want 100", p.Trees[1].Ports["1/1/1"].PathCost)
+	}
+}
+
+func TestPVSTCanonicalIncludesTrees(t *testing.T) {
+	t.Parallel()
+
+	p := stp.PVST{
+		Trees: map[vlan.ID]stp.Tree{
+			1:  {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+			10: {Priority: 8192},
+		},
+	}
+
+	want := `trees=[1:{priority=4096,ports=[1/1/1:{priority=128,path_cost=100}]} 10:{priority=8192,ports=[]}]`
+	if got := p.Canonical(); got != want {
+		t.Errorf("Canonical() = %q, want %q", got, want)
+	}
+}
+
 func TestDiffMSTInstancePortCost(t *testing.T) {
 	t.Parallel()
 
