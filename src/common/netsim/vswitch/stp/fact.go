@@ -39,13 +39,20 @@ func BPDUDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fac
 // carrying vid rather than the CIST, because Learns and Forwards already
 // answered from that tree: rendering the CIST's role and state beside a
 // forwards=false the gate took from an MSTI would put a fact and its own
-// decision in the same step contradicting each other.
+// decision in the same step contradicting each other. A VLAN with no tree of
+// its own renders the zero snapshot, since Learns and Forwards did not
+// consult a tree either.
 func (l *Layer) ForwardingFact(port string, vid vlan.ID, learns, forwards bool) trace.Fact {
-	t := l.treeFor(vid)
+	t, ok := l.treeFor(vid)
+
+	var info PortInfo
+	if ok {
+		info = l.portInfo(t, port)
+	}
 
 	return forwardingDecisionFact("port=" + strconv.Quote(port) +
 		";vid=" + strconv.FormatUint(uint64(vid), 10) +
-		";state=" + portInfoSnapshot(l.portInfo(t, port)) +
+		";state=" + portInfoSnapshot(info) +
 		";learns=" + strconv.FormatBool(learns) +
 		";forwards=" + strconv.FormatBool(forwards))
 }

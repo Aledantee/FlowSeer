@@ -24,9 +24,9 @@ func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 	}
 
 	for vid := vlan.ID(0); vid <= 4095; vid++ {
-		got := l.treeFor(vid)
-		if got == nil {
-			t.Fatalf("treeFor(%d) = nil, want the CIST", vid)
+		got, ok := l.treeFor(vid)
+		if !ok {
+			t.Fatalf("treeFor(%d) = false, want the CIST", vid)
 		}
 		if got != cist {
 			t.Fatalf("treeFor(%d) = tree %d, want the CIST", vid, got.id)
@@ -768,7 +768,12 @@ func TestPVSTTreeMappingCoversEveryVLAN(t *testing.T) {
 		if got := l.vidToTree[vid]; got != want {
 			t.Errorf("vidToTree[%d] = %d, want %d", vid, got, want)
 		}
-		if got := l.treeFor(vid); got.id != want || got.vid != vid {
+		got, ok := l.treeFor(vid)
+		if !ok {
+			t.Errorf("treeFor(%d) = false, want tree{id:%d, vid:%d}", vid, want, vid)
+			continue
+		}
+		if got.id != want || got.vid != vid {
 			t.Errorf("treeFor(%d) = tree{id:%d, vid:%d}, want tree{id:%d, vid:%d}", vid, got.id, got.vid, want, vid)
 		}
 	}
