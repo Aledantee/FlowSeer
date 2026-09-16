@@ -131,7 +131,9 @@ The virtual switch uses a ladder of architectural layers:
   is asked about a port and a VLAN, and the bridge asks it after classifying
   the frame, so a drop names the VLAN it was classified into and a frame the
   port would never have admitted reports the classification reason rather than
-  `port-blocked`. One tree carries every VLAN today, so the two answers agree.
+  `port-blocked`. Outside PVST there is exactly one tree, the CIST, and every
+  VLAN maps to it, so the two answers agree; under PVST each VLAN maps to a
+  tree of its own, and a VLAN's answer can differ from the common tree's.
 - **Loop protection**: Configured with a `port.Table`, `bridge.Config`, and
   `loopprotect.Config`. Independent of spanning tree, it periodically emits a
   probe frame addressed to its own group MAC out each protected port, naming
@@ -341,11 +343,15 @@ the spanning tree gate, and the ports a tree holds discarding are exactly the
 ones whose blocking depends on continuing to hear their peer. A tag whose VID
 is 0 is a priority tag, not a VLAN selection, so it resolves the same as no
 tag at all; the frame `PriorityTags: Always` emits on an otherwise untagged
-port must not be read as a VLAN 0 BPDU. Bypassing the gate does not bypass the
-bridge's own notion of which VLANs a port speaks: a frame whose resolved VLAN
-the ingress port does not carry is refused as an unsupported BPDU rather than
-handed to the layer, which would otherwise fall back to the CIST and let a
-BPDU tagged for a foreign VLAN rewrite another VLAN's topology. Its trace step
+port must not be read as a VLAN 0 BPDU. Bypassing the spanning tree gate does
+not bypass the bridge's own notion of which VLANs a port speaks: the switch
+computes `bridge.VLAN.AdmitsVIDOnIngress` for the resolved VLAN on the
+ingress port and hands the answer to the layer as `SSTPArrival.Admitted`,
+rather than refusing the frame itself. The layer decides what a refusal
+means — BPDU guard still fires on a VLAN the port does not admit, because the
+link half of a receive always runs before the tree half is judged — and a
+frame for a VLAN the port does not admit is traced as
+`stp.sstp.vlan-not-admitted` rather than as a decode failure. Its trace step
 names both the VLAN the BPDU claims and the VLAN it arrived on, so a PVID
 inconsistency is readable from the journey.
 
@@ -392,8 +398,13 @@ port that is not a LAG member, it drops as a reserved address.
 
 A port that hears a version 0 BPDU after its 3 s migration delay sends
 Configuration BPDUs until `Mcheck` or an RST BPDU after another delay returns it
-to RSTP. Under `AutoEdge`, a proposing point-to-point port becomes an edge port
-after 3 s without receiving a BPDU; any received BPDU revokes that edge status.
+to RSTP. Migration is a property of the link, not of one VLAN's tree: under
+PVST a migrated port sends VLAN 1's untagged IEEE Configuration BPDU alone,
+and every other VLAN's tree sends nothing for that port until the port
+migrates back, because the codec SSTP shares with RSTP has no legacy form to
+carry a per-VLAN Configuration BPDU in. Under `AutoEdge`, a proposing
+point-to-point port becomes an edge port after 3 s without receiving a BPDU;
+any received BPDU revokes that edge status.
 The transmit hold count (`TxHoldCount`, default 6 per second per port) caps
 transmission rates; held BPDUs leave at the next tick. `PortInfo` reports
 cumulative per-port counters for transmitted, received, and undecodable
@@ -460,7 +471,11 @@ Exported constructors validate and normalize configurations:
   well, and that frame reaches an RSTP or MSTP neighbor's common tree
   unchanged. The scope names port and VLAN together rather than nesting a VLAN
   inside a port scope, because scope containment is a key-prefix test and the
-  bridge consults the port's own spanning tree scope on every gated frame.
+  bridge consults the port's own spanning tree scope on every gated frame. A
+  VLAN the ingress port does not admit does not suppress this issue:
+  `ReceiveSSTP` marks the boundary before it reads `SSTPArrival.Admitted`, so
+  a non-PVST bridge still reports the neighbor it cannot simulate even for a
+  VLAN it would otherwise refuse on ingress.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
 scopes. An empty key identifies an anonymous standalone switch and uses the

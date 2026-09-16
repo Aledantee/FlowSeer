@@ -214,18 +214,46 @@ bridge-global.
 
 `Receive` takes an IEEE-addressed BPDU and applies it to the CIST, which is
 where such a BPDU belongs in every mode. `ReceiveSSTP` takes an SSTP BPDU
-along with two VLANs: the one the switch classified the frame into and the one
-the BPDU's trailing TLV names. Both are needed because the disagreement
-between them is the PVID check. When they differ the BPDU is not applied, and
-the arrival VLAN is held discarding on that port and excluded from
-contributing a root vector until a consistent BPDU arrives. The arrival VLAN
-is the blocked one, not the VLAN the TLV names, because its local traffic is
-what would cross a link the two ends disagree about.
+along with an `SSTPArrival{ArrivalVID, TLVVID, Admitted}`: the VLAN the switch
+classified the frame into, the VLAN the BPDU's own trailing TLV names, and the
+bridge's ingress admission answer for the arrival VLAN on this port. The layer
+holds no VLAN table of its own, so `Admitted` is taken as given rather than
+derived a second time beside the bridge's own rule.
+
+`ReceiveSSTP` returns an `SSTPOutcome` alongside its `Effects`, naming the
+first thing that stopped the frame short of being applied to a tree:
+`SSTPGuarded` when BPDU guard fires or already holds the port disabled,
+`SSTPBoundary` when this bridge does not run PVST, `SSTPNotAdmitted` when
+`Admitted` is false, `SSTPUntrackedVLAN` when this bridge runs PVST but has no
+tree for the arrival VLAN, `SSTPPVIDInconsistent` when `TLVVID` disagrees with
+`ArrivalVID`, and `SSTPApplied` otherwise; `SSTPPortDown` covers a port the
+layer does not track or holds down, ahead of all of the above. `ArrivalVID`
+and `TLVVID` are needed together because the disagreement between them is the
+PVID check: when they differ the BPDU is not applied, and the arrival VLAN is
+held discarding on that port and excluded from contributing a root vector
+until a consistent BPDU arrives. The arrival VLAN is the blocked one, not the
+VLAN the TLV names, because its local traffic is what would cross a link the
+two ends disagree about.
 
 The half of a receive that belongs to the link rather than to any tree, BPDU
 guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
 of auto-edge status, runs once per frame in `receiveLink`, which both entry
-points share.
+points share, whatever `SSTPOutcome` the tree half goes on to report.
+
+Every property `receiveLink` can change belongs to the link, not to any tree,
+but the link keeps no state apart from the trees: `portState` embeds a
+`linkState{up, pointToPoint, edge, sendRSTP}`, one copy per tree, and
+`syncInstancePorts` copies the CIST's whole `linkState` onto every other
+tree's port once `receiveLink` finishes. A second group of link properties —
+path cost, whether the link is external, the BPDU-guard and loop-guard flags,
+the PVST-boundary mark, the migration-delay timer, and the two BPDU counters —
+is written only on the CIST's port state and read through it, rather than
+replicated: `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and `BadBPDUs` answer
+from the CIST's copy on any VLAN, the same value `PortInfo` reports for the
+common tree. A VLAN with no tree under PVST answers neither kind: `treeFor`
+says so through its second return, and `VLANPortInfo` and `ForwardingFact`
+return the zero value for it rather than VLAN 1's, because VLAN 1's tree is a
+tree like any other, not a stand-in for a VLAN that has none.
 
 A separate `Receive` taking a VLAN would read as though an RSTP bridge
 classified its BPDUs per VLAN, which it does not.
@@ -239,14 +267,24 @@ layer never builds a VLAN tag: a non-zero `Emission.VID` tells the switch to
 put the frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 
+A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
+alone, because SSTP has no legacy form: `EncodeSSTP` forces a version of at
+least 2 and `DecodeSSTP` refuses anything else, so a version-2 wrapper around
+a legacy BPDU would be a frame whose header contradicts its content. A
+non-CIST tree on such a port builds and meters nothing; VLAN 1's tree still
+builds its legacy Configuration BPDU but sends only the IEEE-addressed copy,
+dropping the SSTP one.
+
 ### The boundary this package reports
 
 `PVSTBoundary` reports a port facing a neighbor whose per-VLAN trees this
 bridge cannot simulate: an MST BPDU seen by a PVST bridge, or an SSTP BPDU
-seen by a bridge that is not one. The second applies nothing, because its CIST
-does not run that VLAN's tree and feeding the vector in would elect a root
-from a tree it is not running. The mark lives on the CIST port state and
-clears on a link down, since only that can replace the neighbor.
+seen by a bridge that is not one. The second withholds only the priority
+vector, because its CIST does not run that VLAN's tree and feeding the vector
+in would elect a root from a tree it is not running; the link half of the
+receive, BPDU guard among it, still runs, the same as for any other BPDU the
+port hears. The mark lives on the CIST port state and clears on a link down,
+since only that can replace the neighbor.
 
 ## Decoding a version 3 BPDU
 

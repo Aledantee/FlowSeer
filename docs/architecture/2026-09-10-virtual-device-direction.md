@@ -423,12 +423,17 @@ them.
   it. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
   port, whatever the native VLAN is, which is the frame an RSTP or MSTP
   neighbor converges with.
-- **A BPDU is admitted past the gate the tree itself set.** Reception
+- **A BPDU is admitted past the spanning tree gate the tree itself set, and
+  separately judged against the bridge's ingress admission rule.** Reception
   resolves the arrival VLAN from the frame's own tag, or the port's untagged
-  VLAN, rather than through the bridge's ingress pipeline. The ports a tree
-  holds discarding are exactly the ones whose blocking depends on continuing
+  VLAN. The spanning tree gate — a port a tree holds discarding — is still
+  bypassed: those are exactly the ports whose blocking depends on continuing
   to hear their peer, so running a BPDU through that gate would drop the
-  frames that keep the topology converged.
+  frames that keep the topology converged. The bridge's ingress admission
+  rule is not bypassed: `bridge.VLAN.AdmitsVIDOnIngress` answers whether the
+  arrival VLAN is admitted on the port, the same question an ordinary data
+  frame on that VLAN has to answer, and a BPDU the port does not admit
+  reaches no tree.
 - **A PVID inconsistency blocks the VLAN the frame arrived on, not the one it
   names.** When an SSTP BPDU's TLV names a different VLAN than the one the
   switch classified it into, the two ends disagree about what the link
@@ -441,11 +446,15 @@ them.
   reported, not modeled.** A PVST bridge meeting an MST BPDU, and a non-PVST
   bridge meeting an SSTP BPDU, marks the port and keeps its existing
   behavior: the first applies the MST BPDU's RST prefix to VLAN 1's tree, the
-  second counts the SSTP BPDU and applies nothing, because its CIST does not
-  run that VLAN's tree and feeding the vector in would elect a root from a
-  tree it is not running. The neighbor relationship still converges over the
-  IEEE-addressed frame both sides exchange, so the report covers every VLAN
-  but VLAN 1. It is raised per port and VLAN through a hit set, scoped
+  second counts the SSTP BPDU and withholds only its priority vector, because
+  its CIST does not run that VLAN's tree and feeding the vector in would
+  elect a root from a tree it is not running. The link-level half of a
+  receive — BPDU guard, the loop-guard clear, protocol migration, and
+  auto-edge loss — runs on both sides of the boundary the same as for any
+  other BPDU the port hears; the boundary withholds the vector alone. The
+  neighbor relationship still converges over the IEEE-addressed frame both
+  sides exchange, so the report covers every VLAN but VLAN 1. It is raised
+  per port and VLAN through a hit set, scoped
   `protocol["stp","<port>/<vid>"]` rather than a VLAN scope nested inside a
   port scope: scope containment is a key-prefix test and the bridge consults
   the port's own spanning tree scope on every gated frame, so a nested scope
