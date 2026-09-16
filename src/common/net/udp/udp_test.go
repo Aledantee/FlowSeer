@@ -231,13 +231,12 @@ func TestEncodeRefusesMixedFamilies(t *testing.T) {
 	}
 }
 
-// TestCapture pins the ports and checksum of a real mDNS datagram. No
-// capture was possible in this environment: tcpdump requires either root or
-// the access_bpf group to open /dev/bpf* on this machine
-// ("tcpdump: (cannot open BPF device) /dev/bpf0: Operation not permitted"),
-// and the sandbox this package was implemented under runs unprivileged with
-// no escalation available. This test documents that absence instead of
-// pinning a capture.
+// TestCapture pins the ports and checksum of a real mDNS datagram, which the
+// hand-computed fixtures above cannot settle on their own: only a capture
+// proves the field offsets match what a Bonjour responder puts on the wire.
+// It is skipped because no capture has been taken. Reading one needs root or
+// the access_bpf group to open /dev/bpf*, which the test host does not grant.
+// Fill it from "tcpdump -i en0 -x udp port 5353 -c 1" on a machine that does.
 func TestCapture(t *testing.T) {
-	t.Skip("no packet capture was possible in this environment: tcpdump could not open /dev/bpf0 without escalated privileges")
+	t.Skip("no captured mDNS datagram is pinned yet; opening /dev/bpf* needs privileges the test host does not grant")
 }
