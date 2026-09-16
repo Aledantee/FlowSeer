@@ -12,10 +12,16 @@ import (
 
 // Emission describes a probe frame to transmit out one virtual switch port
 // carrying one VLAN. The VID rides alongside the frame because the switch,
-// not this layer, applies the port's VLAN egress tagging.
+// not this layer, applies the port's VLAN egress tagging. Probe carries the
+// same value Frame was encoded from; a caller that resolves VID 0 to a real
+// VLAN (the switch does, for a port with no configured VLANs) must set
+// Probe.VID to that resolved value and re-encode before transmitting, so the
+// payload names the VLAN the probe actually rides rather than the VID 0 it
+// was built with.
 type Emission struct {
 	Port  string
 	VID   vlan.ID
+	Probe Probe
 	Frame ethernet.Frame
 }
 
@@ -310,6 +316,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 			emissions = append(emissions, Emission{
 				Port:  name,
 				VID:   vid,
+				Probe: probe,
 				Frame: Encode(probe, l.mac),
 			})
 		}

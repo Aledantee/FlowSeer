@@ -1479,18 +1479,16 @@ func (b *Bridge) buildEgressFrame(
 	}
 
 	if sw.Tunnel != nil {
-		if sw.Tunnel.VID == vid {
-			if len(remainingTags) > 0 {
-				out.Tags = make([]vlan.Tag, len(remainingTags))
-				copy(out.Tags, remainingTags)
-			} else {
-				out.Tags = nil
-			}
-
-			return out, true
+		// CarriesVID already established sw.Tunnel.VID == vid for a tunnel
+		// port; no other vid reaches here.
+		if len(remainingTags) > 0 {
+			out.Tags = make([]vlan.Tag, len(remainingTags))
+			copy(out.Tags, remainingTags)
+		} else {
+			out.Tags = nil
 		}
 
-		return out, false
+		return out, true
 	}
 
 	if slices.Contains(sw.Tagged, vid) {
@@ -1511,32 +1509,30 @@ func (b *Bridge) buildEgressFrame(
 		return out, true
 	}
 
-	if slices.Contains(sw.Untagged, vid) {
-		if sw.PriorityTags == PriorityTagsAlways || (sw.PriorityTags == PriorityTagsIfNonzero && ingressPCP != 0) {
-			cTag := vlan.Tag{
-				TPID: uint16(ethernet.EtherTypeDot1Q),
-				PCP:  ingressPCP,
-				DEI:  ingressDEI,
-				VID:  0,
-			}
-			out.Tags = make([]vlan.Tag, 0, 1+len(remainingTags))
-			out.Tags = append(out.Tags, cTag)
-			out.Tags = append(out.Tags, remainingTags...)
-
-			return out, true
+	// CarriesVID already established vid is in sw.Tagged or sw.Untagged; the
+	// Tagged case returned above, so vid is in sw.Untagged here.
+	if sw.PriorityTags == PriorityTagsAlways || (sw.PriorityTags == PriorityTagsIfNonzero && ingressPCP != 0) {
+		cTag := vlan.Tag{
+			TPID: uint16(ethernet.EtherTypeDot1Q),
+			PCP:  ingressPCP,
+			DEI:  ingressDEI,
+			VID:  0,
 		}
-
-		if len(remainingTags) > 0 {
-			out.Tags = make([]vlan.Tag, len(remainingTags))
-			copy(out.Tags, remainingTags)
-		} else {
-			out.Tags = nil
-		}
+		out.Tags = make([]vlan.Tag, 0, 1+len(remainingTags))
+		out.Tags = append(out.Tags, cTag)
+		out.Tags = append(out.Tags, remainingTags...)
 
 		return out, true
 	}
 
-	return out, false
+	if len(remainingTags) > 0 {
+		out.Tags = make([]vlan.Tag, len(remainingTags))
+		copy(out.Tags, remainingTags)
+	} else {
+		out.Tags = nil
+	}
+
+	return out, true
 }
 
 // OriginateFrame applies portName's egress VLAN tagging to a frame the switch

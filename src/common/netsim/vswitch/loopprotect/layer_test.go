@@ -295,6 +295,19 @@ func TestReceiveNoLearnNeverFlushes(t *testing.T) {
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush for NoLearn = %d targets, want 0: %+v", len(fx.Flush), fx.Flush)
 	}
+
+	// The positive half: NoLearn was actually applied, denying learning
+	// while still forwarding, rather than the absence of a flush meaning
+	// nothing happened at all.
+	if got := l.PortInfo("nolearn").Action; got != loopprotect.NoLearn {
+		t.Errorf("PortInfo(nolearn).Action = %q, want %q", got, loopprotect.NoLearn)
+	}
+	if l.Learns("nolearn", 0) {
+		t.Errorf("Learns(nolearn) = true, want false once NoLearn is applied")
+	}
+	if !l.Forwards("nolearn", 0) {
+		t.Errorf("Forwards(nolearn) = false, want true: NoLearn keeps forwarding")
+	}
 }
 
 func TestRecoveryManual(t *testing.T) {

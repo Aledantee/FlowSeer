@@ -166,8 +166,9 @@ func CaseTroubleshootingLoopProtectContainsAccessLoop() Case {
 			"two-cable loop between the switches",
 		CurrentResult: "One probe interval after startup, loop protection's Block action has denied " +
 			"both learning and forwarding on exactly one of sw1's two looped ports (1/1/1): the " +
-			"other port's returning probe finds this port's ingress already gated and is dropped " +
-			"there before it is ever classified as a probe, so only one port carries the action. A " +
+			"other port's returning probe is still recognized there as this switch's own probe, " +
+			"but the gated ingress refuses it VLAN classification, so it never reaches detection " +
+			"and only one port carries the action. A " +
 			"broadcast h1 sends afterward reaches h2 exactly once instead of circulating. The " +
 			"decisive trace injects directly on the blocked port: the frame drops Dropped and " +
 			"port-blocked at that port's own ingress, with the loop-protection gate fact naming " +

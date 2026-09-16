@@ -2043,13 +2043,15 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 	}
 }
 
-// applyLoopProtectEffects puts the layer's probes on the wire. A probe leaves
-// only where an ordinary frame would: the port has to be operationally
-// forwarding, and a spanning tree running on the same switch has to forward
-// the VLAN over it, so a port the tree already holds discarding cannot report
-// a loop the tree has broken. What the loop-protection layer itself says about
-// the port is deliberately not consulted, which is what lets a blocked port
-// keep probing and a LoopCleared recovery see the loop persist.
+// applyLoopProtectEffects puts the layer's probes on the wire and flushes the
+// bridge's learned entries on the ports fx.Flush names, mirroring
+// applySTPEffects's own flush. A probe leaves only where an ordinary frame
+// would: the port has to be operationally forwarding, and a spanning tree
+// running on the same switch has to forward the VLAN over it, so a port the
+// tree already holds discarding cannot report a loop the tree has broken.
+// What the loop-protection layer itself says about the port is deliberately
+// not consulted, which is what lets a blocked port keep probing and a
+// LoopCleared recovery see the loop persist.
 func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
 		targets := make([]bridge.FlushTarget, len(fx.Flush))
@@ -2072,7 +2074,17 @@ func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 			continue
 		}
 
-		egress, ok := s.bridge.OriginateFrame(em.Port, vid, em.Frame)
+		// The payload must name the VLAN the probe actually rides. em.VID is
+		// 0 for a port with no configured VLANs, encoded that way because
+		// the layer does not know the port's PVID; now that vid is resolved,
+		// re-encode so the wire frame agrees with what the switch classifies
+		// a returning copy into, instead of leaving the payload at VID 0 and
+		// reporting a false inter-VLAN loop when it returns.
+		probe := em.Probe
+		probe.VID = vid
+		frame := loopprotect.Encode(probe, s.cfg.MAC)
+
+		egress, ok := s.bridge.OriginateFrame(em.Port, vid, frame)
 		if !ok {
 			continue
 		}
