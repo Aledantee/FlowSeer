@@ -564,7 +564,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3e-plan.md`
 - **After:** U3d
-- **Landed:**
+- **Landed:** `840d36c2..29515c73`
 - **Change:** SSTP encapsulation and tagged emission, one tree per VLAN, the
   PVID check, and the unsupported PVST boundary.
 - **Tests:** SSTP codec vectors, per-VLAN root fabrics, the PVID check, and a

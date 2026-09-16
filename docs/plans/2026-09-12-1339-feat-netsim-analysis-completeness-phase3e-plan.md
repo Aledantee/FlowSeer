@@ -4,13 +4,15 @@ type: feat
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 ---
 
 # Network simulation analysis completeness, phase 3e: Rapid spanning tree per VLAN - Plan
+
+> Implemented. 6 units, 2026-09-16T16:20Z to 2026-09-16T16:45Z.
 
 > Re-planned on 2026-09-16 against the tree phase 3d left (`ca47a59d`). The
 > Decisions below keep the 2026-09-14 wire and behavior rulings, whose

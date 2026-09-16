@@ -319,6 +319,20 @@ them.
   port's role there. The port identifier and the port key set stay
   bridge-global: the identifier appears on the wire, and the key set's order
   reaches the caller as the order of `Effects.Flush`.
+
+  A third mode runs rapid spanning tree once per VLAN, and VLAN 1's tree
+  holds the CIST slot. In PVST+ that tree *is* the common tree a neighboring
+  RSTP or MSTP bridge converges with, and every bridge-level accessor,
+  `Root`, `PortInfo`, `TopologyChanges`, `Times`, answers from the CIST, so
+  putting it there keeps all three modes answering about the common tree
+  without a per-mode branch in any accessor. Each tree carries its VLAN in
+  the low 12 bits of its bridge identifier's system-ID extension, the way an
+  MSTI carries its MSTID, and each meters its own transmit budget, since a
+  PVST bridge puts one frame per VLAN on the wire where an MST bridge puts
+  one frame carrying every instance's record. The two boundary rules below
+  are MSTP's alone: on a PVST bridge every port reads external, because the
+  classification that sets it needs a region, so a VLAN's tree left to follow
+  them would mirror VLAN 1 instead of electing its own root.
 - **Classification precedes the ingress gate.** Active topology enforcement
   belongs to the forwarding process that follows ingress classification, so
   the bridge classifies first and asks the gate with the classified VLAN. A
@@ -393,7 +407,49 @@ them.
   there reaches every tree; on an internal port it costs a round of flooding
   to relearn entries that were not stale. The alternative is a target that
   can express "every FID except these", which is a wider contract than one
-  over-flush justifies.
+  over-flush justifies. That argument does not carry to PVST, where VLAN 1's
+  tree occupies the CIST slot but carries VLAN 1 alone: the set is
+  enumerable, so the flush names it, and a VLAN 1 change leaves every other
+  VLAN's learned entries in place.
+- **A per-VLAN BPDU rides its own VLAN through the port's ordinary egress
+  rules, and the switch is what tags it.** An SSTP BPDU is an RST BPDU in
+  LLC/SNAP addressed to `01:00:0c:cc:cc:cd` with the originating VLAN in a
+  trailing TLV. The spanning tree layer names the VLAN and leaves the frame
+  untagged; the switch passes it through the same `OriginateFrame` every
+  other frame it originates goes through, which already implements tagged
+  where the VLAN is tagged and untagged where it is the port's untagged VLAN.
+  That is Cisco's native-versus-tagged rule with no second implementation,
+  and it is why a port that does not carry a VLAN simply sends nothing for
+  it. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
+  port, whatever the native VLAN is, which is the frame an RSTP or MSTP
+  neighbor converges with.
+- **A BPDU is admitted past the gate the tree itself set.** Reception
+  resolves the arrival VLAN from the frame's own tag, or the port's untagged
+  VLAN, rather than through the bridge's ingress pipeline. The ports a tree
+  holds discarding are exactly the ones whose blocking depends on continuing
+  to hear their peer, so running a BPDU through that gate would drop the
+  frames that keep the topology converged.
+- **A PVID inconsistency blocks the VLAN the frame arrived on, not the one it
+  names.** When an SSTP BPDU's TLV names a different VLAN than the one the
+  switch classified it into, the two ends disagree about what the link
+  carries. The BPDU is not applied, and the arrival VLAN is held discarding
+  on that port and excluded from contributing a root vector until a
+  consistent BPDU arrives, the same two effects loop guard has. Cisco blocks
+  the traffic of the corresponding VLAN, and the arrival VLAN is the one
+  whose local traffic would cross a link the two ends disagree about.
+- **A boundary between per-VLAN trees and one-tree-for-many-VLANs is
+  reported, not modeled.** A PVST bridge meeting an MST BPDU, and a non-PVST
+  bridge meeting an SSTP BPDU, marks the port and keeps its existing
+  behavior: the first applies the MST BPDU's RST prefix to VLAN 1's tree, the
+  second counts the SSTP BPDU and applies nothing, because its CIST does not
+  run that VLAN's tree and feeding the vector in would elect a root from a
+  tree it is not running. The neighbor relationship still converges over the
+  IEEE-addressed frame both sides exchange, so the report covers every VLAN
+  but VLAN 1. It is raised per port and VLAN through a hit set, scoped
+  `protocol["stp","<port>/<vid>"]` rather than a VLAN scope nested inside a
+  port scope: scope containment is a key-prefix test and the bridge consults
+  the port's own spanning tree scope on every gated frame, so a nested scope
+  would hand a VLAN 1 journey another VLAN's issue.
 
 ### Loop protection outside spanning tree
 

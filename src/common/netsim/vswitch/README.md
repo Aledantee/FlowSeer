@@ -124,8 +124,9 @@ The virtual switch uses a ladder of architectural layers:
   LACPDUs on member ports, and derives the LAG row's operational state from its
   members' links.
 - **Spanning tree**: Configured with a `port.Table`, `bridge.Config`, and
-  `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00) to elect the root
-  bridge and compute loop-free port states. Implements the bridge gate to
+  `stp.Config`. Intercepts RSTP BPDUs (01-80-C2-00-00-00), and per-VLAN BPDUs
+  (01-00-0C-CC-CC-CD) when the configuration runs a tree per VLAN, to elect the
+  root bridge and compute loop-free port states. Implements the bridge gate to
   block traffic on Discarding ports while learning on Learning ports. The gate
   is asked about a port and a VLAN, and the bridge asks it after classifying
   the frame, so a drop names the VLAN it was classified into and a frame the
@@ -333,6 +334,23 @@ outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
 switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
 
+A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way. Its VLAN
+comes from the frame's own tag, or the port's untagged VLAN, rather than from
+the bridge's ingress pipeline: that pipeline applies the spanning tree gate,
+and the ports a tree holds discarding are exactly the ones whose blocking
+depends on continuing to hear their peer. Its trace step names both the VLAN
+the BPDU claims and the VLAN it arrived on, so a PVID inconsistency is
+readable from the journey. A switch with no bridge cannot resolve a VLAN at
+all, so an SSTP frame there is an unsupported BPDU.
+
+Emissions run the other way: a `stp.Emission` naming a VLAN goes out through
+`bridge.OriginateFrame`, so a per-VLAN BPDU is tagged where the VLAN is
+tagged, untagged where it is the port's untagged VLAN, and withheld where the
+port does not carry it. An emission naming no VLAN leaves untagged and
+unchecked, which is what the IEEE-addressed frame needs on a trunk with no
+native VLAN. A switch carrying a VLAN with no tree is refused at construction,
+naming `stp.pvst.trees`: that VLAN would have no defined forwarding state.
+
 On a switch configured with `loopprotect.Config`, a frame addressed to the
 loop-protection probe group is intercepted before relay processing, but only
 once decoded as a probe this switch itself sent: a probe naming another
@@ -423,6 +441,15 @@ Exported constructors validate and normalize configurations:
   group-specific or group-and-source-specific query had gone unobserved past
   its last member query time raises `mcast-query-unobserved` on
   `analysis.ProtocolScope(nodeID, "mcast", "<vid>/<group>")`.
+- A forward or peek that crossed a port facing a spanning tree neighbor whose
+  per-VLAN trees this switch cannot simulate raises `stp-pvst-boundary` on
+  `analysis.ProtocolScope(nodeID, "stp", "<port>/<vid>")`, for every VLAN but
+  VLAN 1. VLAN 1 is excluded because it does converge across the boundary: a
+  per-VLAN bridge sends VLAN 1's tree to the IEEE bridge group address as
+  well, and that frame reaches an RSTP or MSTP neighbor's common tree
+  unchanged. The scope names port and VLAN together rather than nesting a VLAN
+  inside a port scope, because scope containment is a key-prefix test and the
+  bridge consults the port's own spanning tree scope on every gated frame.
 
 `ConstructionSpec.NodeID` is the stable node key used to construct node and port
 scopes. An empty key identifies an anonymous standalone switch and uses the

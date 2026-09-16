@@ -155,12 +155,16 @@ answer, so refusing it names the conflict where the operator can see it.
 state belongs to a spanning tree and more than one tree can run over one port.
 The layer keys its state by tree and maps the VLAN to one.
 
-With no `MST` configured there is exactly one tree, the CIST, and every VLAN
-maps to it, so the two answers always agree. Once a region is configured, a
-VLAN an instance claims maps to that MSTI instead, and a boundary port's
-answer for it still traces back to the CIST because an MSTI takes the CIST
-port's role there. A VLAN no instance claims keeps mapping to the CIST on
-every port.
+With neither `MST` nor `PVST` configured there is exactly one tree, the CIST,
+and every VLAN maps to it, so the two answers always agree. Once a region is
+configured, a VLAN an instance claims maps to that MSTI instead, and a
+boundary port's answer for it still traces back to the CIST because an MSTI
+takes the CIST port's role there. A VLAN no instance claims keeps mapping to
+the CIST on every port. Under `PVST` every VLAN maps to a tree of its own.
+
+`VLANPortInfo` gives the same per-VLAN view of a port that `PortInfo` gives of
+the common tree, and works in every mode: on a bridge running one tree every
+VLAN answers alike.
 
 The bridge consults the gate after classifying the frame, so a gate-blocked
 frame names the VLAN it was classified into, and a frame that fails
@@ -171,6 +175,71 @@ Two things stay bridge-global rather than moving onto the tree. The port
 identifier, derived from the index in the sorted port names, appears on the wire
 and in `PortInfo`. The port key set and its iteration order reach the caller as
 the order of `Effects.Flush`.
+
+## Rapid spanning tree per VLAN (PVST)
+
+`Config.PVST` selects per-VLAN rapid spanning tree, and `Config.Validate`
+refuses a configuration setting both `MST` and `PVST`: the mode is the
+presence of a pointer, so a `Mode` enum would make the same fact readable two
+ways and let the two disagree.
+
+Each VLAN runs the landed RSTP machine. `PVST.Trees` holds one `Tree` per
+VLAN, with the per-port priority and path cost overrides `InstancePort`
+already carries, and `PVST.Normalize` fills a tree that names no priority from
+the bridge's own, so a bridge configured to be root is root on every VLAN it
+does not override. A tree's bridge identifier carries its VLAN in the low 12
+bits of the system-ID extension, the way an MSTI carries its MSTID, which is
+what the multiple-of-4096 rule on a tree priority reserves those bits for.
+
+VLAN 1's tree occupies the CIST slot. In PVST+ it *is* the common tree a
+neighboring RSTP or MSTP bridge converges with, and `Root`, `PortInfo`,
+`TopologyChanges`, `Times` and `BridgeID` all answer from the CIST, so putting
+it there keeps every bridge-level accessor answering about the common tree in
+all three modes.
+
+Every tree meters its own transmit budget. An MST bridge spends one slot per
+port because its MSTI records ride the CIST's BPDU; a PVST bridge puts one
+frame per VLAN on the wire, so a bridge carrying more VLANs than its hold
+count would starve the VLANs that sort last if the budget stayed
+bridge-global.
+
+### Two receive entry points
+
+`Receive` takes an IEEE-addressed BPDU and applies it to the CIST, which is
+where such a BPDU belongs in every mode. `ReceiveSSTP` takes an SSTP BPDU
+along with two VLANs: the one the switch classified the frame into and the one
+the BPDU's trailing TLV names. Both are needed because the disagreement
+between them is the PVID check. When they differ the BPDU is not applied, and
+the arrival VLAN is held discarding on that port and excluded from
+contributing a root vector until a consistent BPDU arrives. The arrival VLAN
+is the blocked one, not the VLAN the TLV names, because its local traffic is
+what would cross a link the two ends disagree about.
+
+The half of a receive that belongs to the link rather than to any tree, BPDU
+guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
+of auto-edge status, runs once per frame in `receiveLink`, which both entry
+points share.
+
+A separate `Receive` taking a VLAN would read as though an RSTP bridge
+classified its BPDUs per VLAN, which it does not.
+
+### Emission
+
+Every tree sends its BPDU to `GroupAddressSSTP` naming its own VLAN through
+`Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
+VLAN. The two are one transmission and spend one budget slot between them. The
+layer never builds a VLAN tag: a non-zero `Emission.VID` tells the switch to
+put the frame through the port's ordinary egress rules, which is where the
+native-versus-tagged decision already lives.
+
+### The boundary this package reports
+
+`PVSTBoundary` reports a port facing a neighbor whose per-VLAN trees this
+bridge cannot simulate: an MST BPDU seen by a PVST bridge, or an SSTP BPDU
+seen by a bridge that is not one. The second applies nothing, because its CIST
+does not run that VLAN's tree and feeding the vector in would elect a root
+from a tree it is not running. The mark lives on the CIST port state and
+clears on a link down, since only that can replace the neighbor.
 
 ## Decoding a version 3 BPDU
 
@@ -299,9 +368,14 @@ stale. Narrowing it would need a target that can say
 
 ## Not modeled
 
-- Per-VLAN RSTP: the SSTP encapsulation, per-VLAN trees, and the PVID
-  consistency check.
-- Tagged BPDU emission. `Encode` emits untagged LLC frames.
+- 802.1D spanning tree per VLAN, and the PVST inconsistency states other than
+  the PVID check: type inconsistency, and port-VLAN-ID mismatch on an access
+  port.
+- Cisco's PVST simulation on an MSTP boundary port, which this package reports
+  as a boundary rather than models.
+- Tagged BPDU emission from this package. `Encode` and `EncodeSSTP` both emit
+  untagged frames; a per-VLAN BPDU names its VLAN in `Emission.VID` and the
+  switch tags it.
 - Automatic BPDU-guard recovery timers, and BPDU filter.
 - MSTP L2GP, SPT, SPB, agreement digests, and Cisco pre-standard MSTI
   encoding, none of which `Decode` gives any special handling: a frame in one
