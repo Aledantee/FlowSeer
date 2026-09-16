@@ -1,9 +1,11 @@
 package stp
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
+	"unsafe"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -51,7 +53,10 @@ type fieldSpec struct {
 // by: every field of portState, including the ones embedded through
 // linkState, must have an entry here. A field with no entry is this
 // package's stop condition (see TestPortStateFieldsAreClassified), not a
-// judgment call left for a reader to make later.
+// judgment call left for a reader to make later. The tests below drive their
+// assertions off this table by reflection, field by field, so a class or a
+// linkDownClears flag that stops matching what the code does fails the test
+// that names the field, not just the table's own membership check.
 var portStateFieldClasses = map[string]fieldSpec{
 	// port-constant: set once at construction, never assigned again.
 	"name":      {class: classPortConstant},
@@ -110,12 +115,16 @@ var portStateFieldClasses = map[string]fieldSpec{
 
 // TestPortStateFieldsAreClassified walks every field of portState, descending
 // into the embedded linkState, and fails on any field portStateFieldClasses
-// does not name. A field added to portState without a classification entry
-// fails this test, which is the point: the propagation rule below can only be
-// trusted while every field has been placed into one of the five classes.
+// does not name. It also fails on a field whose struct position disagrees
+// with its class: a field embedded through linkState that the table does not
+// classify classLinkReplicated, or a field classified classLinkReplicated
+// that is not embedded through linkState. That position check is what a
+// field added to (or misplaced from) linkState cannot pass by accident, since
+// linkState is the struct syncInstancePorts assigns wholesale — it is the
+// mechanism the class name promises, not just a label next to the field.
 func TestPortStateFieldsAreClassified(t *testing.T) {
 	seen := map[string]bool{}
-	walkPortStateFields(t, reflect.TypeOf(portState{}), seen)
+	walkPortStateFields(t, reflect.TypeOf(portState{}), false, seen)
 
 	for name := range portStateFieldClasses {
 		if !seen[name] {
@@ -124,21 +133,36 @@ func TestPortStateFieldsAreClassified(t *testing.T) {
 	}
 }
 
-func walkPortStateFields(t *testing.T, typ reflect.Type, seen map[string]bool) {
+func walkPortStateFields(t *testing.T, typ reflect.Type, inLinkState bool, seen map[string]bool) {
 	t.Helper()
 
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
 		if f.Anonymous {
-			walkPortStateFields(t, f.Type, seen)
+			walkPortStateFields(t, f.Type, f.Type == reflect.TypeOf(linkState{}), seen)
 
 			continue
 		}
 
 		seen[f.Name] = true
-		if _, ok := portStateFieldClasses[f.Name]; !ok {
+
+		spec, ok := portStateFieldClasses[f.Name]
+		if !ok {
 			t.Errorf("portState field %q has no entry in portStateFieldClasses: classify it as "+
 				"link-replicated, link-on-cist, link-derived, tree-owned, or port-constant", f.Name)
+
+			continue
+		}
+
+		if replicated := spec.class == classLinkReplicated; replicated != inLinkState {
+			switch {
+			case inLinkState:
+				t.Errorf("portState field %q is embedded in linkState but classified %v, want classLinkReplicated",
+					f.Name, spec.class)
+			default:
+				t.Errorf("portState field %q is classified classLinkReplicated but declared outside the "+
+					"embedded linkState, so syncInstancePorts's wholesale assignment never reaches it", f.Name)
+			}
 		}
 	}
 }
@@ -170,52 +194,122 @@ func syncTestLayer(t *testing.T) (l *Layer, cistP, mstP *portState) {
 	return l, cistP, mstP
 }
 
-// TestSyncInstancePortsReplicatesLinkState is evidence for the
-// classLinkReplicated rule (R3): setting every linkState field on the CIST's
-// port to a value the MSTI's own port does not already hold, then calling
-// syncInstancePorts, leaves the MSTI's copy equal to the CIST's.
-func TestSyncInstancePortsReplicatesLinkState(t *testing.T) {
-	t.Parallel()
+// settableField returns a readable, settable reflect.Value for the named
+// field of a portState reached through v (a pointer to portState). portState
+// is a value type entirely internal to this package, so every field is
+// unexported; reflect refuses both Set and Interface on a value obtained
+// straight from FieldByName because of that. Re-wrapping the field's address
+// with reflect.NewAt drops the read-only flag reflect attaches for that
+// reason, which is safe here because every field this is called with is
+// already addressable (v is a pointer's Elem()) and package-private, so
+// nothing outside this test can observe the bypass.
+func settableField(v reflect.Value, name string) reflect.Value {
+	f := v.FieldByName(name)
 
-	l, cistP, mstP := syncTestLayer(t)
+	return reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
+}
 
-	cistP.linkState = linkState{up: true, pointToPoint: false, edge: true, sendRSTP: false}
-	if mstP.linkState == cistP.linkState {
-		t.Fatal("test setup: the MSTI's linkState already matches the CIST's before syncing")
+// distinctValue returns a value of typ that differs from typ's zero value, so
+// a table-driven test can tell whether a sync actually touched a field or
+// left its start-of-test value alone. seed only needs to vary the value
+// enough to be recognizable in a failure message; it plays no role in
+// correctness.
+func distinctValue(t *testing.T, typ reflect.Type, seed int) reflect.Value {
+	t.Helper()
+
+	switch typ {
+	case reflect.TypeOf(time.Time{}):
+		return reflect.ValueOf(time.Unix(int64(1_700_000_000+seed), 0))
+	case reflect.TypeOf(BridgeID{}):
+		return reflect.ValueOf(BridgeID{
+			Priority: uint16(seed + 1),
+			Address:  netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, byte(seed + 1)},
+		})
 	}
 
-	l.syncInstancePorts("p1", cistP)
+	v := reflect.New(typ).Elem()
+	switch typ.Kind() {
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.String:
+		v.SetString(fmt.Sprintf("distinct-%d", seed))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(uint64(seed + 1))
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(int64(seed + 1))
+	default:
+		t.Fatalf("distinctValue: portState field type %s has no case; add one", typ)
+	}
 
-	if mstP.linkState != cistP.linkState {
-		t.Errorf("MSTI linkState after sync = %+v, want the CIST's %+v", mstP.linkState, cistP.linkState)
+	return v
+}
+
+// TestSyncInstancePortsReplicatesEveryLinkReplicatedField is evidence for the
+// classLinkReplicated rule (R3), driven from portStateFieldClasses instead of
+// a hand-written field list: for every field the table classifies
+// classLinkReplicated, setting it on the CIST's port to a value distinct from
+// its start-of-test value and calling syncInstancePorts leaves the MSTI's
+// copy equal to the CIST's. A field the table misclassifies this way, or a
+// change to syncInstancePorts that stops assigning linkState wholesale, fails
+// on the specific field name rather than passing a membership check alone.
+func TestSyncInstancePortsReplicatesEveryLinkReplicatedField(t *testing.T) {
+	t.Parallel()
+
+	for name, spec := range portStateFieldClasses {
+		if spec.class != classLinkReplicated {
+			continue
+		}
+
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			l, cistP, mstP := syncTestLayer(t)
+
+			cistField := settableField(reflect.ValueOf(cistP).Elem(), name)
+			want := distinctValue(t, cistField.Type(), 1)
+			cistField.Set(want)
+
+			l.syncInstancePorts("p1", cistP)
+
+			got := settableField(reflect.ValueOf(mstP).Elem(), name).Interface()
+			if !reflect.DeepEqual(got, want.Interface()) {
+				t.Errorf("MSTI %s after sync = %v, want the CIST's %v", name, got, want.Interface())
+			}
+		})
 	}
 }
 
 // TestSyncInstancePortsLeavesLinkOnCISTFieldsUntouched is evidence for the
-// classLinkOnCIST rule (R4's other half): syncInstancePorts never writes an
-// MSTI's own copy of a link-on-cist field, since every reader is expected to
-// read the CIST's copy instead.
+// classLinkOnCIST rule (R4's other half), driven from portStateFieldClasses:
+// for every field the table classifies classLinkOnCIST, changing the CIST's
+// copy and calling syncInstancePorts leaves the MSTI's own copy exactly as it
+// was, since every reader is expected to read the CIST's copy instead.
 func TestSyncInstancePortsLeavesLinkOnCISTFieldsUntouched(t *testing.T) {
 	t.Parallel()
 
-	l, cistP, mstP := syncTestLayer(t)
+	for name, spec := range portStateFieldClasses {
+		if spec.class != classLinkOnCIST {
+			continue
+		}
 
-	cistP.linkPathCost = 12345
-	cistP.external = true
-	cistP.bpduGuardDisabled = true
-	cistP.loopInconsistent = true
-	cistP.pvstBoundary = true
-	cistP.mdelayWhile = time.Unix(100, 0)
-	cistP.rxBPDUs = 7
-	cistP.badBPDUs = 3
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	before := *mstP
-	l.syncInstancePorts("p1", cistP)
+			l, cistP, mstP := syncTestLayer(t)
 
-	if mstP.external != before.external || mstP.bpduGuardDisabled != before.bpduGuardDisabled ||
-		mstP.loopInconsistent != before.loopInconsistent || mstP.pvstBoundary != before.pvstBoundary ||
-		mstP.mdelayWhile != before.mdelayWhile || mstP.rxBPDUs != before.rxBPDUs || mstP.badBPDUs != before.badBPDUs {
-		t.Errorf("MSTI link-on-cist fields changed by sync: got %+v, want unchanged from %+v", mstP, before)
+			cistField := settableField(reflect.ValueOf(cistP).Elem(), name)
+			cistField.Set(distinctValue(t, cistField.Type(), 2))
+
+			mstField := settableField(reflect.ValueOf(mstP).Elem(), name)
+			before := mstField.Interface()
+
+			l.syncInstancePorts("p1", cistP)
+
+			after := mstField.Interface()
+			if !reflect.DeepEqual(before, after) {
+				t.Errorf("MSTI %s changed by sync: got %v, want the untouched %v", name, after, before)
+			}
+		})
 	}
 }
 
@@ -242,65 +336,46 @@ func TestSyncInstancePortsDerivesUnfixedPathCostFromTheLink(t *testing.T) {
 	}
 }
 
-// TestSyncInstancePortsLeavesOtherTreeOwnedFieldsUntouched is evidence that a
-// tree-owned field not named by the link-down-clear flag survives a sync
-// while the port stays up, whatever the CIST's own copy holds.
-func TestSyncInstancePortsLeavesOtherTreeOwnedFieldsUntouched(t *testing.T) {
+// TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag is evidence for
+// the linkDownClears flag, driven from portStateFieldClasses instead of a
+// hand-written field list: for every classTreeOwned field, setting it on the
+// MSTI's own port to a distinct value and then bringing the CIST's port down
+// through syncInstancePorts either overwrites that value (the fields the
+// table flags linkDownClears) or leaves it alone (every other tree-owned
+// field). A field whose flag stops matching what syncInstancePorts's
+// link-down branch actually does fails on that field's own name.
+func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 	t.Parallel()
 
-	l, cistP, mstP := syncTestLayer(t)
+	for name, spec := range portStateFieldClasses {
+		if spec.class != classTreeOwned {
+			continue
+		}
 
-	mstP.role = RoleAlternate
-	mstP.agreed = true
-	mstP.forwardTransitions = 9
-	mstP.txBPDUs = 4
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	l.syncInstancePorts("p1", cistP)
+			l, cistP, mstP := syncTestLayer(t)
 
-	if mstP.role != RoleAlternate || !mstP.agreed || mstP.forwardTransitions != 9 || mstP.txBPDUs != 4 {
-		t.Errorf("tree-owned fields changed by a sync with the port still up: got role=%v agreed=%t "+
-			"forwardTransitions=%d txBPDUs=%d", mstP.role, mstP.agreed, mstP.forwardTransitions, mstP.txBPDUs)
-	}
-}
+			mstField := settableField(reflect.ValueOf(mstP).Elem(), name)
+			set := distinctValue(t, mstField.Type(), 3)
+			mstField.Set(set)
 
-// TestSyncInstancePortsOnLinkDownClearsTheFourNamedFields is evidence for the
-// link-down-clear flag: when the CIST's port has gone down, syncInstancePorts
-// resets role, state, rcvInfoValid, and pvidInconsistent on the MSTI's own
-// port, and leaves every other tree-owned field alone.
-func TestSyncInstancePortsOnLinkDownClearsTheFourNamedFields(t *testing.T) {
-	t.Parallel()
+			cistP.up = false
+			l.syncInstancePorts("p1", cistP)
 
-	l, cistP, mstP := syncTestLayer(t)
+			after := mstField.Interface()
+			survived := reflect.DeepEqual(after, set.Interface())
 
-	mstP.role = RoleRoot
-	mstP.state = StateForwarding
-	mstP.rcvInfoValid = true
-	mstP.pvidInconsistent = true
-	mstP.forwardTransitions = 3
-	mstP.agreed = true
-
-	cistP.up = false
-	l.syncInstancePorts("p1", cistP)
-
-	if mstP.role != RoleDisabled {
-		t.Errorf("MSTI role after link down = %v, want Disabled", mstP.role)
-	}
-	if mstP.state != StateDiscarding {
-		t.Errorf("MSTI state after link down = %v, want Discarding", mstP.state)
-	}
-	if mstP.rcvInfoValid {
-		t.Error("MSTI rcvInfoValid after link down = true, want false")
-	}
-	if mstP.pvidInconsistent {
-		t.Error("MSTI pvidInconsistent after link down = true, want false")
-	}
-	// forwardTransitions and agreed are tree-owned but not among the four
-	// link-down-clear fields; they survive the same call untouched.
-	if mstP.forwardTransitions != 3 {
-		t.Errorf("MSTI forwardTransitions after link down = %d, want the untouched 3", mstP.forwardTransitions)
-	}
-	if !mstP.agreed {
-		t.Error("MSTI agreed after link down = false, want the untouched true")
+			if spec.linkDownClears && survived {
+				t.Errorf("MSTI %s survived link down = %v, want cleared (portStateFieldClasses flags it linkDownClears)",
+					name, after)
+			}
+			if !spec.linkDownClears && !survived {
+				t.Errorf("MSTI %s changed by link down = %v, want the untouched %v "+
+					"(portStateFieldClasses does not flag it linkDownClears)", name, after, set.Interface())
+			}
+		})
 	}
 }
 

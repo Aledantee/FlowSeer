@@ -609,7 +609,6 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID BridgeID, treePorts map
 			cfg:           pCfg,
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
-			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
 			adminEdge:     pCfg.AdminEdge,
 			linkState: linkState{
@@ -822,8 +821,14 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	}
 	// The counters and the guard fields blockReason reads are link-on-cist:
 	// every tree's snapshot answers from the CIST's copy, not its own, which
-	// for the CIST tree is p itself.
-	cistP := l.cist().ports[port]
+	// for the CIST tree is p itself. Every tree is built from l.portNames, so
+	// the CIST always has a matching port for any port a tree tracks; the
+	// zero portState below only guards that invariant, not a case this
+	// simulator reaches.
+	cistP, ok := l.cist().ports[port]
+	if !ok {
+		cistP = &portState{}
+	}
 
 	var desigRoot, desig BridgeID
 	var desigPort uint16
@@ -888,6 +893,12 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 
 	p.sendRSTP = true
 	p.mdelayWhile = now.Add(MigrateTime)
+
+	// sendRSTP is link-replicated: every other tree's emit gate reads its own
+	// copy, and only a sync carries this migration check onto it. Without
+	// this, a non-CIST tree that receiveLink had already forced to version 0
+	// would stay silenced after an operator forces the CIST back to RSTP.
+	l.syncInstancePorts(port, p)
 
 	var flushes []FlushTarget
 
@@ -1577,9 +1588,11 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 		// role, and pvidInconsistent is tree-owned: a peer that disagrees
 		// about which VLAN the link is describes a different VLAN's tree, so
 		// it reads from p. None of the four may contribute the bridge's root
-		// vector.
-		cistP := l.cist().ports[name]
-		if cistP.bpduGuardDisabled || p.cfg.RestrictedRole || cistP.loopInconsistent || p.pvidInconsistent {
+		// vector. Every tree is built from l.portNames, so the CIST always
+		// has a matching port for any port a tree tracks; a missing one here
+		// only guards that invariant, not a case this simulator reaches.
+		cistP, ok := l.cist().ports[name]
+		if !ok || cistP.bpduGuardDisabled || p.cfg.RestrictedRole || cistP.loopInconsistent || p.pvidInconsistent {
 			continue
 		}
 		if !p.rcvTime.Add(3 * p.rcvHelloTime).After(now) {
@@ -1639,7 +1652,14 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 		// needs l.mst). Ungated, every non-VLAN-1 tree would copy VLAN 1's
 		// role on every port instead of electing its own root.
 		if l.mst != nil && t.id != cistID && l.boundary(name) {
-			cistP := l.cist().ports[name]
+			// Every tree is built from l.portNames, so the CIST always has a
+			// matching port for any port a tree tracks; the zero portState
+			// below only guards that invariant, not a case this simulator
+			// reaches.
+			cistP, ok := l.cist().ports[name]
+			if !ok {
+				cistP = &portState{}
+			}
 			oldRole := p.role
 			p.role = cistP.role
 			if p.role != oldRole && p.role != RoleDesignated {
@@ -1653,8 +1673,14 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 		// of the port, like the internal/external classification: only the
 		// CIST's copy is ever written (Receive's guard branch, and Wake's
 		// loop-guard arm), so an MSTI reads them from the CIST's port state
-		// the way it already reaches across for l.boundary.
-		cistP := l.cist().ports[name]
+		// the way it already reaches across for l.boundary. Every tree is
+		// built from l.portNames, so the CIST always has a matching port for
+		// any port a tree tracks; the zero portState below only guards that
+		// invariant, not a case this simulator reaches.
+		cistP, ok := l.cist().ports[name]
+		if !ok {
+			cistP = &portState{}
+		}
 
 		oldRole := p.role
 		switch {
@@ -1702,7 +1728,14 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 		// and a VLAN's tree would mirror VLAN 1's state over the state its
 		// own election just decided.
 		if l.mst != nil && t.id != cistID && l.boundary(name) {
-			cistP := l.cist().ports[name]
+			// Every tree is built from l.portNames, so the CIST always has a
+			// matching port for any port a tree tracks; the zero portState
+			// below only guards that invariant, not a case this simulator
+			// reaches.
+			cistP, ok := l.cist().ports[name]
+			if !ok {
+				cistP = &portState{}
+			}
 			p.state = cistP.state
 			// A port that just flipped internal to boundary may still carry
 			// a live timer from its internal role and state ladder; a
@@ -2209,8 +2242,10 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 	// A BPDU is internal when it names this bridge's own region: an MST BPDU
 	// (ConfigID set) whose configuration identifier equals this bridge's. An
 	// RST or Configuration BPDU, and an MST BPDU from a different region, are
-	// external. The classification lives on the CIST port state because it
-	// is a property of the link, not of a tree running over it.
+	// external. The classification is written only on the CIST's port state
+	// because it is a property of the link, not of a tree running over it;
+	// boundary reads it through l.cist() regardless of which tree's applyBPDU
+	// call observed the frame.
 	internal := l.mst != nil && b.ConfigID != nil && *b.ConfigID == *l.configID
 
 	if internal {
@@ -2220,7 +2255,9 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.
 		if b.RemainingHops <= 1 {
-			p.external = !internal
+			if t.id == cistID {
+				p.external = !internal
+			}
 			emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
 			return emissions
@@ -2234,7 +2271,9 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 		// longer exists stops refreshing the timer on every hop and the
 		// port's own information ages out.
 		if b.MessageAge+time.Second > b.MaxAge {
-			p.external = !internal
+			if t.id == cistID {
+				p.external = !internal
+			}
 			emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
 			return emissions
@@ -2275,8 +2314,13 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 	// classification. Assigning it earlier would compare that stored
 	// information as though it already carried this BPDU's classification,
 	// which can invert the superiority verdict for the one BPDU that flips
-	// internal to external or back.
-	p.external = !internal
+	// internal to external or back. It is written only for the CIST's own
+	// call: a non-CIST tree's applyBPDU (PVST, an SSTP arrival on a VLAN
+	// other than 1) would otherwise leave a copy on a port boundary never
+	// reads.
+	if t.id == cistID {
+		p.external = !internal
+	}
 
 	if sameSource || isSuperior {
 		p.rcvInfoValid = true

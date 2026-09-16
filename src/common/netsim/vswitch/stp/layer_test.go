@@ -2853,6 +2853,56 @@ func TestPVSTAlreadyEmittedCheckIsPerVLAN(t *testing.T) {
 	}
 }
 
+// TestMcheckSyncsSendRSTPToEveryTree is evidence that Mcheck's migration
+// check reaches every tree, not just the CIST's own port state. sendRSTP is
+// link-replicated: LinkChange and receiveLink both call syncInstancePorts
+// after writing the CIST's copy, and Mcheck must too, or a PVST bridge that
+// migrated a port back to legacy STP on the CIST alone (a version-0
+// Configuration BPDU past MigrateTime) leaves every other VLAN's copy false.
+// That copy gates emission directly: l.emit refuses to send a non-CIST
+// tree's BPDU on a port whose own sendRSTP is false, so a stale copy
+// silences that VLAN on the port until the next link bounce or a fresh RST
+// BPDU, which an Mcheck call is supposed to force immediately.
+func TestMcheckSyncsSendRSTPToEveryTree(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
+
+	l.LinkChange(t0, "l1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "l2", true, true, 1_000_000_000)
+
+	legacyConfig := stp.BPDU{
+		Version:      0,
+		Type:         stp.BPDUTypeConfiguration,
+		RootID:       stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		BridgeID:     stp.BridgeID{Priority: 61440, Address: mustMAC(t, "02:00:00:00:00:0c")},
+		RootPathCost: 0,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	legacyConfig.SetRole(stp.RoleDesignated)
+
+	// LinkChange itself set mdelayWhile to t0+MigrateTime, so the legacy BPDU
+	// must arrive after that for receiveLink's own migration delay check to
+	// let the demotion through.
+	l.Receive(t0.Add(4*time.Second), "l1", legacyConfig)
+	if l.VLANPortInfo(10, "l1").SendRSTP {
+		t.Fatal("test setup: VLAN 10 SendRSTP still true after the legacy BPDU demoted the CIST")
+	}
+
+	l.Mcheck(t0.Add(10*time.Second), "l1")
+
+	if !l.PortInfo("l1").SendRSTP {
+		t.Error("after Mcheck: CIST SendRSTP = false, want true")
+	}
+	if !l.VLANPortInfo(10, "l1").SendRSTP {
+		t.Error("after Mcheck: VLAN 10 SendRSTP = false, want true: Mcheck must sync the link-replicated field to every tree, not just the CIST's")
+	}
+}
+
 // TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST pins both halves of R2: a
 // PVST layer with no tree for VLAN 30 answers the zero PortInfo and says it
 // does not track the VLAN, while an RSTP layer, which runs no PVST tree
