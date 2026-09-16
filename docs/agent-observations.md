@@ -138,3 +138,35 @@ Suggested change: decide deliberately whether a git checkout or merge writing
 under `.claude/skills/` should be permitted, and if not, say in `close` that
 this merge is expected to need the bypass, so the failure is not read as a
 defect. This is a policy surface, so `steer` stages it rather than applying it.
+
+## 2026-09-16 verify-change: a missing tool reads as a red verification
+Skill or agent: `.claude/skills/verify-change/scripts/verify-change.sh`, the
+tool-presence check.
+What happened: the verifier stopped with `required tool is not on PATH:
+gofumpt` and `FlowSeer verification FAILED (exit 1)`. Every Go tool the gates
+need — gofumpt, goimports, golangci-lint, staticcheck — was installed in
+`~/go/bin`, which the session's PATH did not carry. The run had already done
+its diff-aware path selection and its markdown gates, so the failure landed
+late and read as a gate result rather than a setup problem. The same PATH gap
+makes the Edit hook warn "edited Go files were not formatted" after every
+single edit. Re-running under an explicit PATH passed.
+Suggested change: check every required tool before the first gate and fail
+with the whole missing list plus the remedy — Go tools install to
+`$(go env GOPATH)/bin`, and that directory belongs on PATH. Better, resolve
+them from `$(go env GOPATH)/bin` directly when PATH does not carry them, so a
+session's PATH cannot decide whether the repository verifies.
+
+## 2026-09-16 close: the dirty marker is written by the verifier run that should clear it
+Skill or agent: `.claude/skills/close/SKILL.md`, step 1's receipt signal,
+against `flowseer-verification-dirty`.
+What happened: `close` requires `flowseer-verification-receipt` newer than
+the last commit and `flowseer-verification-dirty` absent. After a clean
+full verification the two files carried the same mtime to the second, so the
+marker the run was supposed to clear was written by that same run. The
+worktree was genuinely clean (`git status --porcelain` empty) and the receipt
+did post-date the last commit, so the session treated the marker as an
+artifact and proceeded — which means the signal decided nothing.
+Suggested change: find what writes the marker during a verification and stop
+it, or state in `close` what the marker means when it is newer than the
+receipt it accompanies. A gate that cannot be satisfied by doing the right
+thing teaches every session to ignore it, which is worse than not having it.
