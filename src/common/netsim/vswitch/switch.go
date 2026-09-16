@@ -2141,17 +2141,32 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		}
 	}
 
+	// arrivalVID and tagged both come from one test of the outer tag's TPID,
+	// the same test bridge.Bridge.Ingress makes: a tag whose TPID names
+	// neither dot1Q nor no-TPID (the codec's own zero-value) is not a VLAN
+	// selection at all, so the frame is untagged on the port's native VLAN
+	// however its VID field reads, and a VID of 0 under a dot1Q TPID is a
+	// priority tag, also untagged. Deriving the two independently — VID from
+	// any TPID, tagged from only a dot1Q-shaped one — let a QinQ-tagged frame
+	// judge admission against a VID the bridge itself would never classify it
+	// into.
 	arrivalVID := s.untaggedVID(resolvedPort)
-	if len(f.Tags) > 0 && f.Tags[0].VID != 0 {
-		arrivalVID = f.Tags[0].VID
+	tagged := false
+	if len(f.Tags) > 0 {
+		outer := f.Tags[0]
+		if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
+			if outer.VID != 0 {
+				tagged = true
+				arrivalVID = outer.VID
+			}
+		}
 	}
 
-	tagged := len(f.Tags) > 0 && f.Tags[0].VID != 0 &&
-		(f.Tags[0].TPID == 0 || f.Tags[0].TPID == uint16(ethernet.EtherTypeDot1Q))
 	admitted := true
 	if s.cfg.Bridge.VLAN != nil {
 		admitted = s.cfg.Bridge.VLAN.AdmitsVIDOnIngress(resolvedPort, arrivalVID, tagged)
 	}
+	tracked := s.stp.TracksVLAN(arrivalVID)
 
 	before = s.stp.VLANPortInfo(arrivalVID, resolvedPort)
 
@@ -2165,14 +2180,20 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		}, bpdu)
 		s.applySTPEffects(fx)
 	} else {
-		// Peek must render the same step shape Forward would without
-		// mutating anything. Every outcome ReceiveSSTP can still reach once
-		// admitted and tracked renders the same step (trace.Consumed, rule
-		// stp.sstp.admit), so those two answers are all this branch needs.
+		// Peek cannot call ReceiveSSTP without mutating the link half of a
+		// receive, so it renders the same step Forward reaches through
+		// admitted and tracked alone — every outcome but SSTPPortDown
+		// follows from those two once the frame has decoded. SSTPPortDown
+		// depends on the layer's own per-port up/down bookkeeping, which has
+		// no read-only answer distinct from "not configured for STP at all";
+		// a port the port table calls up but the layer has not yet linked
+		// renders here as whatever admitted/tracked says, where Forward
+		// would drop it as port down. That divergence is accepted rather
+		// than hidden: Forward is authoritative for it.
 		switch {
 		case !admitted:
 			outcome = stp.SSTPNotAdmitted
-		case !s.stp.TracksVLAN(arrivalVID):
+		case !tracked:
 			outcome = stp.SSTPUntrackedVLAN
 		default:
 			outcome = stp.SSTPApplied
@@ -2187,45 +2208,101 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	outputs := []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)}
 	subject := trace.Subject{Kind: "port", Key: resolvedPort}
 
-	switch outcome {
-	case stp.SSTPNotAdmitted, stp.SSTPUntrackedVLAN:
-		reason := stp.ReasonVLANNotAdmitted
-		if outcome == stp.SSTPUntrackedVLAN {
-			reason = stp.ReasonVLANUntracked
-		}
-
+	if outcome == stp.SSTPPortDown {
 		return bridge.Result{
 			Trace: trace.Trace{
 				Outcome: trace.Dropped,
-				Reason:  reason,
+				Reason:  port.ReasonPortDown,
 				Steps: []trace.Step{{
 					Layer:   port.LayerStp,
 					Op:      trace.OpDrop,
-					RuleID:  trace.RuleID("stp.sstp." + string(reason)),
+					RuleID:  "port.status.down",
 					Subject: subject,
 					Inputs:  inputs,
 					Outputs: outputs,
 				}},
 			},
 			Ingress: resolvedPort,
-		}
-	default:
-		return bridge.Result{
-			Trace: trace.Trace{
-				Outcome: trace.Consumed,
-				Steps: []trace.Step{{
-					Layer:   port.LayerStp,
-					Op:      trace.OpClassify,
-					RuleID:  "stp.sstp.admit",
-					Subject: subject,
-					Inputs:  inputs,
-					Outputs: outputs,
-				}},
-			},
-			Ingress: resolvedPort,
-			FID:     arrivalVID,
 		}
 	}
+
+	// admitted and tracked are exactly what ReceiveSSTP itself judges the
+	// tree half against, computed here the same way for Forward and Peek, so
+	// deciding the drop step from them directly — rather than from outcome —
+	// is what keeps the two paths identical by construction instead of two
+	// derivations that have to agree. It also renders bpdu guard correctly on
+	// an unadmitted VLAN: guard belongs to the link half, which always runs
+	// before the tree half is judged, so ReceiveSSTP can return SSTPGuarded
+	// for a frame that never reached admission at all.
+	switch {
+	case !admitted:
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  stp.ReasonVLANNotAdmitted,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  "stp.sstp.vlan-not-admitted",
+					Subject: subject,
+					Inputs:  inputs,
+					Outputs: outputs,
+				}},
+			},
+			Ingress: resolvedPort,
+		}
+	case !tracked:
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  stp.ReasonVLANUntracked,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  "stp.sstp.vlan-untracked",
+					Subject: subject,
+					Inputs:  inputs,
+					Outputs: outputs,
+				}},
+			},
+			Ingress: resolvedPort,
+		}
+	}
+
+	admitResult := bridge.Result{
+		Trace: trace.Trace{
+			Outcome: trace.Consumed,
+			Steps: []trace.Step{{
+				Layer:   port.LayerStp,
+				Op:      trace.OpClassify,
+				RuleID:  "stp.sstp.admit",
+				Subject: subject,
+				Inputs:  inputs,
+				Outputs: outputs,
+			}},
+		},
+		Ingress: resolvedPort,
+		FID:     arrivalVID,
+	}
+
+	// admitted and tracked are both true past this point, so every outcome
+	// ReceiveSSTP can still have returned — applied, bpdu guard, a PVST
+	// boundary, or a PVID mismatch — means the link half ran to completion
+	// and the tree half is done deciding what to do about it; all four are
+	// the layer having processed the frame, which is what stp.sstp.admit
+	// traces. They are named explicitly, rather than folded into a default
+	// arm, so a new stp.SSTPOutcome value needs its own case here instead of
+	// silently taking this path.
+	switch outcome {
+	case stp.SSTPApplied, stp.SSTPGuarded, stp.SSTPBoundary, stp.SSTPPVIDInconsistent:
+		return admitResult
+	}
+
+	// Unreachable given stp.SSTPOutcome's definition today: SSTPPortDown,
+	// SSTPNotAdmitted, and SSTPUntrackedVLAN are excluded above, leaving only
+	// the four outcomes named in the case above. Returned explicitly so this
+	// path stays visible rather than disappearing into the switch.
+	return admitResult
 }
 
 // sstpVLANFact records the two VLANs an SSTP BPDU is judged against: the one
