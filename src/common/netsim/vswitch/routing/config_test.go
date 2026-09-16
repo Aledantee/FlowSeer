@@ -558,6 +558,57 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsDuplicatePortVLANAtPortAndVLAN(t *testing.T) {
+	t.Parallel()
+
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Interfaces["1/1/2.10"] = routing.Interface{
+		VLAN:     10,
+		Port:     "1/1/2",
+		Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.40.1/24")},
+	}
+	vrf.Interfaces["1/1/2-other"] = routing.Interface{
+		VLAN:     10,
+		Port:     "1/1/2",
+		Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.41.1/24")},
+	}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	err := cfg.Validate(newTestPortTable(t))
+	if err == nil {
+		t.Fatal("Validate accepted two differently named interfaces claiming one port and VLAN")
+	}
+	attrs := errs.Attributes(err)
+	if got, want := attrs["port"], "1/1/2"; got != want {
+		t.Errorf("port attribute = %v, want %q", got, want)
+	}
+	if got, want := attrs["vlan"], vlan.ID(10); got != want {
+		t.Errorf("vlan attribute = %v, want %v", got, want)
+	}
+}
+
+func TestValidateRejectsOutOfRangeSubInterfaceVLANAtVLANField(t *testing.T) {
+	t.Parallel()
+
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Interfaces["1/1/2.4095"] = routing.Interface{
+		VLAN:     4095,
+		Port:     "1/1/2",
+		Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.40.1/24")},
+	}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	err := cfg.Validate(newTestPortTable(t))
+	if err == nil {
+		t.Fatal("Validate accepted a sub-interface VLAN outside the assignable range")
+	}
+	if got, want := errs.Attributes(err)["field"], "vrfs.default.interfaces.1/1/2.4095.vlan"; got != want {
+		t.Errorf("field = %v, want %q", got, want)
+	}
+}
+
 func TestValidateRejectsCrossFamilyNextHopAtNextHopField(t *testing.T) {
 	t.Parallel()
 

@@ -4226,6 +4226,9 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_miss drop", res.Steps)
+		}
 	})
 
 	t.Run("S-tagged frame on the sub-interface port drops as not-bridged", func(t *testing.T) {
@@ -4254,6 +4257,9 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_miss drop", res.Steps)
+		}
 	})
 
 	t.Run("the plain untagged routed port still routes beside the sub-interface's port", func(t *testing.T) {
@@ -4270,6 +4276,55 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 		}
 		if len(res.Egress) != 1 || res.Egress[0].Port != "eth1" || len(res.Egress[0].Frame.Tags) != 1 {
 			t.Fatalf("egress = %+v, want one tagged entry on eth1", res.Egress)
+		}
+	})
+
+	t.Run("sub-interface egress refused for MTU still carries the tag on the egress record", func(t *testing.T) {
+		// The egress tag is applied before the transmit and LAG checks, because a refused
+		// egress record still embeds the frame those checks were given. Moving the tag
+		// assignment below the transmit check would leave this refusal's egress record
+		// untagged instead, and a comparison that matches egress records by tag equality
+		// would not catch that silently.
+		mtuPorts := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "ethA", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "ethB", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 40}))
+
+		mtuCfg := vswitch.Config{
+			Ports: mtuPorts,
+			Routing: &routing.Config{
+				VRFs: map[string]routing.VRF{
+					"default": {
+						Interfaces: map[string]routing.Interface{
+							"ethA":    {Port: "ethA", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.40.1/24")}},
+							"ethB.10": {Port: "ethB", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						},
+						Neighbors: []routing.Neighbor{
+							{Interface: "ethB.10", Addr: ipH2, MAC: macH2},
+						},
+					},
+				},
+			},
+		}
+		mtuSw := mustSwitch(t, mtuCfg)
+
+		oversizedPayload := make([]byte, 50)
+		pkt := makeIPv4Packet(t, netip.MustParseAddr("10.0.40.7"), ipH2, 64, oversizedPayload)
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   pkt,
+		}
+		res := mtuSw.Forward(fixedTime, "ethA", frame)
+		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
+			t.Fatalf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "ethB" || res.Egress[0].Dropped != port.ReasonMTUExceeded {
+			t.Fatalf("egress = %+v, want one refused entry on ethB", res.Egress)
+		}
+		wantTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
+		if gotTags := res.Egress[0].Frame.Tags; len(gotTags) != 1 || gotTags[0] != wantTag {
+			t.Errorf("egress tags = %+v, want [%+v] even though transmit refused", gotTags, wantTag)
 		}
 	})
 
