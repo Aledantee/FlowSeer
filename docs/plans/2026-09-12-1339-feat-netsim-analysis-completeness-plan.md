@@ -576,7 +576,7 @@ flowchart TD
 - **Files:**
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3c-plan.md`
 - **After:** U3b
-- **Landed:** `0a6c64b6..9ba406d8`
+- **Landed:** `0a6c64b6..197f47d2`
 - **Change:** Probe-based loop detection with block, no-learning, and
   disable actions and recovery timers.
 - **Tests:** Codec, timer, fabric containment, and STP interaction tests,
