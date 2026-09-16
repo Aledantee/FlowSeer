@@ -162,11 +162,15 @@ The virtual switch uses a ladder of architectural layers:
   belongs to no VLAN and bridges nothing), or a routed sub-interface (both
   fields set), which classifies frames arriving on its port by their outer
   VLAN tag rather than by bridge VLAN membership. A routed port bypasses the
-  relay entirely; a frame arriving on it must be addressed to the interface
-  MAC or drop with `not-bridged`, and on a port carrying sub-interfaces the
-  outer tag must also name one of them, or the frame drops with `not-bridged`
-  before ownership is even checked. For frames arriving on a VLAN or routed
-  port, routing
+  relay entirely; the frame's outer tag, or its absence, must name an
+  interface configured on that port — a sub-interface at that tag's VID, or
+  the untagged interface when the frame carries none — or the frame drops
+  with `not-bridged` before ownership is even checked. This applies to every
+  routed port, so a tagged frame on a plain untagged routed port drops the
+  same way a frame at an unconfigured VID on a trunk of sub-interfaces does;
+  a frame that does name a configured interface but is not addressed to its
+  MAC drops with the same reason afterward, once ownership is checked. For
+  frames arriving on a VLAN or routed port, routing
   evaluates interface ownership (`Owns`), classification, local destination
   consumption (`not-routed`), hop limit verification, route lookup, and neighbor
   resolution. A lookup takes the longest matching prefix, then the lowest
@@ -291,7 +295,7 @@ Drop reasons recorded in traces and egress records:
 | `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
-| `not-bridged`      | Frame on a routed port not addressed to interface MAC, or its outer VLAN tag names no sub-interface |
+| `not-bridged`      | Frame on a routed port not addressed to interface MAC, or its outer VLAN tag (or the lack of one) names no interface configured on the port, or names one but at a tag protocol the port's interfaces cannot classify |
 | `policed`          | Ingress frame exceeded the port's token bucket           |
 | `mirror-output`    | Ordinary frame used a port reserved for mirror copies    |
 | `unregistered`    | Unregistered group had flooding disabled and no router port |

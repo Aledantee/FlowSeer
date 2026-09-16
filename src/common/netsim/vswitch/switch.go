@@ -781,8 +781,8 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			vid, tagAcceptable := outerTagVID(f)
 			portVLANScopes := s.routing.PortVLANLookupScopes(resolved.Name, vid)
 			routingScopes = append(routingScopes, portVLANScopes...)
-			if ifaceName, portRouted, matched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
-				matched = matched && tagAcceptable
+			if ifaceName, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
+				matched := vlanMatched && tagAcceptable
 
 				if receive.Reason != "" {
 					res := bridge.Result{
@@ -808,6 +808,14 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				}
 
 				if !matched {
+					// vlanMatched but !tagAcceptable is a service-tagged frame at a VID that
+					// does name a configured interface: the recorded VLAN id alone would name
+					// a routed pair and hide the real cause, so this case gets its own rule id
+					// rather than sharing the plain VLAN-id miss's.
+					ruleID := trace.RuleID("routing.tag_miss")
+					if vlanMatched {
+						ruleID = "routing.tag_protocol_miss"
+					}
 					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
@@ -816,7 +824,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 								{
 									Layer:   port.LayerRouting,
 									Op:      trace.OpDrop,
-									RuleID:  "routing.tag_miss",
+									RuleID:  ruleID,
 									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
 									Inputs:  []trace.Fact{routing.PortFact(resolved.Name), routing.VLANFact(vid)},
 								},

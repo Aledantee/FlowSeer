@@ -131,6 +131,8 @@ different questions from one lookup. A port with no routed interface at all repo
 interface at the given VID reports `portRouted` true and `matched` false, which the caller
 drops on, since a routed port has no bridge to fall back to.
 
+## Route order
+
 A lookup takes the longest prefix containing the destination, then the lowest
 preference, then the lowest metric.
 

@@ -80,8 +80,10 @@ const (
 	ReasonBadHeader trace.Reason = "bad-header"
 
 	// ReasonNotBridged indicates a frame dropped on a routed port: either its outer VLAN tag
-	// (or its absence) named no sub-interface configured on the port, or it named one that
-	// was not addressed to the port's interface MAC.
+	// (or its absence) named no interface configured on the port, or named one at a tag
+	// protocol the port's interfaces cannot classify (a distinct rule, "routing.tag_protocol_miss",
+	// from the plain VLAN-id miss's "routing.tag_miss"), or it named an interface that was not
+	// addressed to the port's interface MAC.
 	ReasonNotBridged trace.Reason = "not-bridged"
 )
 
