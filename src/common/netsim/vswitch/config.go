@@ -172,6 +172,16 @@ func (c Config) Validate() error {
 		slices.Sort(portNames)
 
 		for _, name := range portNames {
+			if c.Bridge.VLAN != nil && len(c.LoopProtect.Ports[name].VLANs) == 0 {
+				sw, known := c.Bridge.VLAN.Switchports[name]
+				if !known || (sw.PVID == nil && sw.Tunnel == nil) {
+					return errs.New().
+						Attr("field", fmt.Sprintf("loop_protect.ports.%s.vlans", name)).
+						Attr("port", name).
+						Msgf("loop protection port %q has no VLANs and no PVID or tunnel to probe untagged", name)
+				}
+			}
+
 			for _, vid := range c.LoopProtect.Ports[name].VLANs {
 				var (
 					sw    bridge.Switchport

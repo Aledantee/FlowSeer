@@ -78,8 +78,8 @@ func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
 	}
 }
 
-// TestLoopProtectSelfLoopBlockActsOnExactlyOnePort is the plan's Block
-// acceptance example: a switch with two of its own ports cabled directly
+// TestLoopProtectSelfLoopBlockActsOnExactlyOnePort proves Block's two-port
+// self-loop behavior: a switch with two of its own ports cabled directly
 // together forms a two-port loop. Each port's own probe returns on the
 // other, but only the first one processed applies Block, and Block's denial
 // of both learning and forwarding on that port stops the second probe's
@@ -94,13 +94,13 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 
 	runToQuiescence(t, fab, 200)
 
-	blocked, clean := loopProtectBlockedPort(t, fab, "1/1/1", "1/1/2")
-	t.Logf("blocked port = %s, clean port = %s", blocked, clean)
+	blocked, _ := loopProtectBlockedPort(t, fab, "1/1/1", "1/1/2")
 
 	// The property under test: the bridge's ordinary ingress gate check in
 	// the interception is what stops both ports from being acted on. With
 	// that check skipped, a second own-probe would be classified anyway and
-	// this assertion would find both ports blocked instead of exactly one.
+	// loopProtectBlockedPort would find both ports blocked, returning ""
+	// for both instead of naming exactly one.
 	if blocked == "" {
 		t.Fatalf("no port was blocked; want exactly one of 1/1/1, 1/1/2 acted on")
 	}
@@ -133,8 +133,8 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 	}
 }
 
-// TestLoopProtectSelfLoopNoLearnActsOnBothPorts is the plan's NoLearn
-// acceptance example: NoLearn denies learning but keeps forwarding, so
+// TestLoopProtectSelfLoopNoLearnActsOnBothPorts proves NoLearn's two-port
+// self-loop behavior: NoLearn denies learning but keeps forwarding, so
 // neither probe's return is intercepted by the gate the way Block's is, and
 // both ports end up carrying the action.
 func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
@@ -147,16 +147,10 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 
 	runToQuiescence(t, fab, 200)
 
-	blocked, clean := loopProtectBlockedPort(t, fab, "1/1/1", "1/1/2")
-	if blocked != "" || clean != "" {
-		// NoLearn never denies forwarding, so neither port drops a frame;
-		// loopProtectBlockedPort finding one blocked would be the failure.
-		t.Fatalf("a port denied forwarding under NoLearn: blocked=%q clean=%q, want neither (NoLearn only denies learning)", blocked, clean)
-	}
-
-	sw1 := fab.Switch("sw1")
-	if sw1 == nil {
-		t.Fatal("fabric has no switch sw1")
+	for _, name := range []string{"1/1/1", "1/1/2"} {
+		if loopProtectPortBlocked(t, fab, name) {
+			t.Errorf("port %s denied forwarding under NoLearn, want it still forwarding (NoLearn only denies learning)", name)
+		}
 	}
 
 	for _, name := range []string{"1/1/1", "1/1/2"} {
@@ -166,46 +160,52 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 	}
 }
 
-// loopProtectBlockedPort injects a distinguishable unicast frame directly
-// into each of the two named ports and reports which one (if either) the
-// bridge's ingress gate dropped as port-blocked. It returns empty strings
-// when neither port is denied.
+// loopProtectPortBlocked injects a distinguishable unicast frame directly
+// into the named port and reports whether the bridge's ingress gate denied
+// it as port-blocked.
+func loopProtectPortBlocked(t *testing.T, fab *fabric.Fabric, portName string) bool {
+	t.Helper()
+
+	now := fab.Snapshot().Clock.Add(time.Millisecond)
+	src := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x30}
+	dst := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x31}
+	fid, err := fab.Inject(fabric.Injection{
+		At:     now,
+		Origin: fabric.Endpoint{Node: "sw1", Port: portName},
+		Frame:  ethernet.Frame{Dst: dst, Src: src, EtherType: 0x0800, Payload: []byte{9, 9, 9}},
+	})
+	if err != nil {
+		t.Fatalf("Inject on %s: %v", portName, err)
+	}
+	runToQuiescence(t, fab, 50)
+
+	for _, j := range fab.Report() {
+		if j.FrameID != fid {
+			continue
+		}
+		for _, e := range j.Entries {
+			// Only the ingress-level drop, on the injected port itself,
+			// proves the gate denied that port. An egress-level drop on
+			// the *other* looped port, recorded while this frame floods
+			// out of a still-admitted ingress, is a different thing.
+			if e.Kind == fabric.EntryDrop && e.Port == portName && e.Reason == bridge.ReasonPortBlocked {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// loopProtectBlockedPort reports which of two ports, if either,
+// loopProtectPortBlocked finds denied. It returns empty strings when neither
+// port is denied, which is also what a regression that silences both ports'
+// denial would produce, so a caller that needs to tell those two cases apart
+// checks loopProtectPortBlocked per port directly instead.
 func loopProtectBlockedPort(t *testing.T, fab *fabric.Fabric, a, b string) (blocked, clean string) {
 	t.Helper()
 
-	test := func(portName string) bool {
-		now := fab.Snapshot().Clock.Add(time.Millisecond)
-		src := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x30}
-		dst := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x31}
-		fid, err := fab.Inject(fabric.Injection{
-			At:     now,
-			Origin: fabric.Endpoint{Node: "sw1", Port: portName},
-			Frame:  ethernet.Frame{Dst: dst, Src: src, EtherType: 0x0800, Payload: []byte{9, 9, 9}},
-		})
-		if err != nil {
-			t.Fatalf("Inject on %s: %v", portName, err)
-		}
-		runToQuiescence(t, fab, 50)
-
-		for _, j := range fab.Report() {
-			if j.FrameID != fid {
-				continue
-			}
-			for _, e := range j.Entries {
-				// Only the ingress-level drop, on the injected port itself,
-				// proves the gate denied that port. An egress-level drop on
-				// the *other* looped port, recorded while this frame floods
-				// out of a still-admitted ingress, is a different thing.
-				if e.Kind == fabric.EntryDrop && e.Port == portName && e.Reason == bridge.ReasonPortBlocked {
-					return true
-				}
-			}
-		}
-		return false
-	}
-
-	aBlocked := test(a)
-	bBlocked := test(b)
+	aBlocked := loopProtectPortBlocked(t, fab, a)
+	bBlocked := loopProtectPortBlocked(t, fab, b)
 
 	switch {
 	case aBlocked && !bBlocked:
@@ -335,6 +335,25 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	}
 	if blocked != 1 {
 		t.Fatalf("sw2 has %d blocked port(s) among its two loop ports, want exactly 1: %+v", blocked, snap.Devices["sw2"].Roles)
+	}
+
+	// Assert the state before the outcome: this precondition proves loop
+	// protection actually ran and emitted probes before RSTP converged. Without
+	// it, the absence loop below would pass just as well if loop protection
+	// never probed at all, which is the exact regression this test needs to
+	// catch.
+	sawProbe := false
+	for _, j := range fab.Report() {
+		if !j.Protocol {
+			continue
+		}
+		if _, err := loopprotect.Decode(j.Injection.Frame); err == nil {
+			sawProbe = true
+			break
+		}
+	}
+	if !sawProbe {
+		t.Fatalf("fabric never emitted a loop-protection probe, want at least one before asserting none returned")
 	}
 
 	for _, j := range fab.Report() {

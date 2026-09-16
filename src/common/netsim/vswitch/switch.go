@@ -1794,7 +1794,8 @@ func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.
 
 	before := s.loopprotect.PortInfo(probe.Port)
 	if mutate {
-		s.loopprotect.Receive(now, in.FID, probe)
+		fx := s.loopprotect.Receive(now, in.FID, probe)
+		s.applyLoopProtectEffects(fx)
 	}
 	after := s.loopprotect.PortInfo(probe.Port)
 
@@ -2042,9 +2043,6 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 	}
 }
 
-// applyLoopProtectEffects turns loop-protection probe emissions into switch
-// emissions, applying the emitting port's egress VLAN tagging and dropping
-// any emission for a VID the port does not carry.
 // applyLoopProtectEffects puts the layer's probes on the wire. A probe leaves
 // only where an ordinary frame would: the port has to be operationally
 // forwarding, and a spanning tree running on the same switch has to forward
@@ -2053,6 +2051,13 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 // the port is deliberately not consulted, which is what lets a blocked port
 // keep probing and a LoopCleared recovery see the loop persist.
 func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
+	if len(fx.Flush) > 0 && s.bridge != nil {
+		targets := make([]bridge.FlushTarget, len(fx.Flush))
+		for i, t := range fx.Flush {
+			targets[i] = bridge.FlushTarget{Port: t.Port, FIDs: t.FIDs}
+		}
+		s.bridge.Flush(targets)
+	}
 	for _, em := range fx.Emissions {
 		p, ok := s.ports.Port(em.Port)
 		if !ok || !p.Forwards() {
@@ -2107,14 +2112,14 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	lagOper := aggregateOperStatus(s.ports.Members(lagName))
 	s.setOperStatus(lagName, lagOper)
 
-	if s.stp != nil {
-		var enabledMembers []string
-		if s.lag != nil {
-			info := s.lag.Info(lagName)
-			enabledMembers = info.Enabled
-		}
-		lagUp := len(enabledMembers) > 0
+	var enabledMembers []string
+	if s.lag != nil {
+		info := s.lag.Info(lagName)
+		enabledMembers = info.Enabled
+	}
+	lagUp := len(enabledMembers) > 0
 
+	if s.stp != nil {
 		var highestSpeed uint64
 		lagP2P := len(enabledMembers) > 0
 		for _, memName := range enabledMembers {
@@ -2142,6 +2147,10 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 		}
 		fxSTP := s.stp.LinkChange(now, lagName, lagUp, lagP2P, highestSpeed)
 		s.applySTPEffects(fxSTP)
+	}
+	if s.loopprotect != nil {
+		fx := s.loopprotect.LinkChange(now, lagName, lagUp)
+		s.applyLoopProtectEffects(fx)
 	}
 }
 

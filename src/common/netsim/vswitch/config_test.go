@@ -101,3 +101,65 @@ func TestValidateRefusesLoopProtectVLANNotAdmitted(t *testing.T) {
 		t.Fatalf("Validate() = nil, want error when a loop protection port names a VLAN its switchport does not admit")
 	}
 }
+
+// TestValidateRefusesLoopProtectTrunkWithNoVLANsAndNoPVID proves that a
+// protected trunk port with an empty VLANs list needs a PVID or a tunnel to
+// probe untagged: Bridge.OriginateFrame on a VLAN-aware bridge rejects VID 0
+// unless the port carries it, so a port with neither would never emit a
+// probe and Validate's per-VLAN admission loop, which only walks a
+// non-empty VLANs list, would otherwise accept it silently.
+func TestValidateRefusesLoopProtectTrunkWithNoVLANsAndNoPVID(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "a", 20: "b"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {Tagged: []vlan.ID{10, 20}},
+				},
+			},
+		},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatalf("Validate() = nil, want error for a protected trunk port with no VLANs and no PVID")
+	}
+}
+
+// TestValidateAcceptsLoopProtectTrunkWithPVID proves the symmetric accept:
+// the same protected trunk port with no VLANs is valid once it carries a
+// PVID, because that PVID is what lets it originate a VID-0 probe.
+func TestValidateAcceptsLoopProtectTrunkWithPVID(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "a", 20: "b"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}, Tagged: []vlan.ID{20}},
+				},
+			},
+		},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() = %v, want nil for a protected trunk port with a PVID", err)
+	}
+}

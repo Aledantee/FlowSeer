@@ -316,8 +316,8 @@ explicit calls:
   aggregation, flushing bridge entries and triggering periodic transmissions.
 - `NextWake()` reports the earliest deadline when the switch needs a wake
   across all three layers.
-- `Drain()` returns and clears pending frame emissions produced by all three
-  layers, applying each emitting port's own egress VLAN tagging.
+- `Drain()` returns and clears pending frame emissions produced by the
+  protocol layers.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
@@ -343,11 +343,17 @@ way.
 A probe goes out where an ordinary frame would: the port must be
 operationally forwarding, and a spanning tree on the same switch must forward
 the VLAN over it, so a port the tree holds discarding raises no loop the tree
-has already broken. The one gate transmission ignores is loop protection's
-own, which is what lets a blocked port keep probing and a `LoopCleared`
-recovery watch the loop persist. The returning probe is classified like any
-other frame and dies on a gated ingress port — that is what stops the
-reciprocal probe of a two-port loop from acting on the second port.
+has already broken. Putting a probe on the wire applies the emitting port's
+own egress VLAN tagging, the same as any other frame the switch originates.
+The one gate transmission ignores is loop protection's own, which is what
+lets a blocked port keep probing and a `LoopCleared` recovery watch the loop
+persist. The returning probe is classified like any other frame and dies on
+a gated ingress port — that is what stops the reciprocal probe of a two-port
+loop from acting on the second port. Once a returned probe applies a
+forwarding-denying action (`Block` or `Disable`), the switch flushes that
+port's learned forwarding entries, the same as spanning tree flushes on a
+topology change, so traffic to a host the loop taught that port floods to
+relocate it instead of following a stale entry into the now-blocked port.
 
 On a switch with link aggregation, a frame with EtherType 0x8809 whose first
 payload octet is 1 arriving on an up member port is intercepted before relay
