@@ -45,7 +45,8 @@ IP version from the enclosing header.
 `Decode` returns `ErrMalformed` for a message shorter than 4 octets.
 `Checksum` is the transmitted value as read; `Decode` does not recompute or
 verify it, and it does not parse any type-specific body (the byte range
-after the header, RFC 792's "rest of header" and RFC 4443's message body).
+after the header: RFC 792's per-type fields, such as the echo message's
+identifier and sequence number, and RFC 4443's message body).
 
 ## Sources
 

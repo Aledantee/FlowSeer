@@ -38,11 +38,8 @@ func TestDecodeLiteral(t *testing.T) {
 	if h.Window != 0xffff {
 		t.Errorf("Window = %#x, want 0xffff", h.Window)
 	}
-	if !h.Flags.Has(tcp.SYN | tcp.ACK) {
-		t.Errorf("Flags = %#x, want SYN|ACK set", h.Flags)
-	}
-	if h.Flags.Has(tcp.FIN | tcp.RST | tcp.PSH | tcp.URG | tcp.ECE | tcp.CWR) {
-		t.Errorf("Flags = %#x, want no other bits set", h.Flags)
+	if h.Flags != tcp.SYN|tcp.ACK {
+		t.Errorf("Flags = %#x, want %#x (SYN|ACK, no other bits)", h.Flags, tcp.SYN|tcp.ACK)
 	}
 	if len(payload) != 0 {
 		t.Errorf("len(payload) = %d, want 0", len(payload))
@@ -76,7 +73,7 @@ func TestDecodeOffsets(t *testing.T) {
 		t.Fatalf("Decode() error = %v", err)
 	}
 	want := tcp.FIN | tcp.SYN | tcp.RST | tcp.PSH | tcp.ACK | tcp.URG
-	if !h.Flags.Has(want) || h.Flags.Has(tcp.ECE|tcp.CWR) {
+	if h.Flags != want {
 		t.Errorf("Flags = %#x, want %#x (from b[13]&0x3f)", h.Flags, want)
 	}
 
@@ -85,7 +82,7 @@ func TestDecodeOffsets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode() error = %v", err)
 	}
-	if !h.Flags.Has(tcp.ECE) || h.Flags.Has(tcp.CWR) {
+	if h.Flags != tcp.ECE {
 		t.Errorf("Flags = %#x, want only ECE set", h.Flags)
 	}
 
@@ -94,7 +91,7 @@ func TestDecodeOffsets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Decode() error = %v", err)
 	}
-	if !h.Flags.Has(tcp.CWR) || h.Flags.Has(tcp.ECE) {
+	if h.Flags != tcp.CWR {
 		t.Errorf("Flags = %#x, want only CWR set", h.Flags)
 	}
 }

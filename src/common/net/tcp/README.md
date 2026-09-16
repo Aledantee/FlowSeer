@@ -57,8 +57,7 @@ writes `h.Flags.Has(tcp.SYN | tcp.ACK)` instead of two separate comparisons.
 fixed header, a data offset below 5 (the minimum header size in 32-bit
 words), or a data offset that runs past the end of the buffer. It does not
 verify the checksum; nothing downstream of a switch's forwarding path needs
-that check, and RFC 9293 leaves checksum offload to the sending stack
-anyway.
+that check.
 
 ## Sources
 

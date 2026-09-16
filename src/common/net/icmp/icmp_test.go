@@ -46,6 +46,24 @@ func TestDecodeICMPv6Literal(t *testing.T) {
 	}
 }
 
+func TestDecodeDestinationUnreachable(t *testing.T) {
+	// ICMPv4 destination unreachable, fragmentation needed: type 3, code 4.
+	// Type and code differ from each other so neither field can stand in
+	// for the other.
+	b := []byte{0x03, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
+	h, _, err := icmp.Decode(b)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if h.Type != 3 {
+		t.Errorf("Type = %d, want 3", h.Type)
+	}
+	if h.Code != 4 {
+		t.Errorf("Code = %d, want 4", h.Code)
+	}
+}
+
 func TestDecodeRefusals(t *testing.T) {
 	_, _, err := icmp.Decode(literalEchoRequest[:3])
 	if !errors.Is(err, icmp.ErrMalformed) {
