@@ -182,8 +182,9 @@ plan's paths), record the verdict where `close` reads it, step 1 of
 `close`: the plan's frontmatter gains `review: <verdict>` beside `status`,
 committed with a message naming the review, and then the verifier runs on
 the plan path so the receipt post-dates that commit; planless work appends
-the same line to `$(git rev-parse --git-dir)/flowseer-checkpoints`, which
-no commit or run is needed for. A subject, commit, or path review of other
+the same line to `$(git rev-parse --git-dir)/flowseer-checkpoints` with
+`.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
+which no commit or run is needed for. A subject, commit, or path review of other
 work records nothing, for the reason above. The Orca comment is written as
 well; a verdict that lives only in the conversation cannot be read by a
 later session.
