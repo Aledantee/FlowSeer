@@ -250,6 +250,25 @@ them in short and states, with reasons, every place the landed tree moved them.
   payload names, and the port a probe returned on is in the switch's hand at
   the interception, where the trace step is built. Cost if wrong: a later unit
   that wants the return port in `PortInfo` re-adds the parameter and a field.
+- Ruled: the inter-VLAN finding is withheld when the port the probe was sent
+  from is an untagged member of both the sent VLAN and the VLAN the return
+  classified into. Why: an untagged frame carries no VLAN on the wire, so the
+  two ids are each end's own classification, and on an asymmetric-VLAN port —
+  legal under 802.1Q, whose untagged egress set is per VLAN while the PVID is
+  per port, and shipped by vendors for the shared-uplink case — they differ by
+  design with nothing joining the VLANs. The switch decides, because the layer
+  owns no switchports. Cost if wrong: the rule and its test, and a genuine
+  inter-VLAN loop confined to one such port goes unreported.
+  [An untagged frame's VLAN is local to each end](../solutions/architecture-patterns/an-untagged-frames-vlan-is-local-to-each-end.md)
+  records the class.
+- Ruled: an action that starts denying forwarding on a port flushes that
+  port's learned entries, through a `Flush []FlushTarget` on `Effects` that the
+  switch hands to `bridge.Flush`, as spanning tree's does. Why: the entries
+  learned through the loop point at the port the action just closed, so
+  without the flush unicast to those hosts drops as port-blocked until it ages
+  out instead of flooding to relocate them, and where a frame goes is the
+  question netsim exists to answer. Cost if wrong: one field, its wiring in
+  `applyLoopProtectEffects`, and the test that pins it.
 - Ruled: `Layer.Wake` emits only once its own interval is due. Why: a switch
   wakes its layers together, so `Wake` also runs at every spanning tree hello
   and every recovery expiry, and emitting on each would probe far ahead of the
