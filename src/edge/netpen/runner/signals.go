@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"syscall"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // SignalHandler installs the three-signal lifecycle (SIGINT, SIGTERM,
@@ -66,7 +68,7 @@ func (h *SignalHandler) Install() func() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	stop := make(chan struct{})
 
-	go func() {
+	spawn.Go(h.r.stopCtx, "netpen signal handler", func() {
 		for {
 			select {
 			case <-stop:
@@ -76,7 +78,7 @@ func (h *SignalHandler) Install() func() {
 				h.handleSignal()
 			}
 		}
-	}()
+	})
 
 	return func() {
 		select {
@@ -109,12 +111,17 @@ func (h *SignalHandler) handleSignal() {
 	}
 
 	// First signal: mark teardown started and engage it in a goroutine
-	// so the signal loop is free to observe a second signal.
+	// so the signal loop is free to observe a second signal. teardownDone
+	// closes once, from either the normal return below or the ReportTo
+	// sink on a panic, so a second-signal check never blocks waiting for
+	// a teardown attempt that will not complete on its own.
 	h.teardownStarted.Store(1)
-	go func() {
+	spawn.Go(h.r.stopCtx, "netpen signal teardown", func() {
 		h.r.Interrupt(nil)
 		close(h.teardownDone)
-	}()
+	}, spawn.ReportTo(func(error) {
+		close(h.teardownDone)
+	}))
 }
 
 // forceExit reports the abandoned teardown steps by name to stderr and

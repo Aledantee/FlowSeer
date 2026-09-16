@@ -20,6 +20,7 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 const (
@@ -267,10 +268,10 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 	}
 	bus.server.SetLoggerV2(bus.logger, false, false, false)
 	bus.server.Start()
-	go func() {
+	spawn.Go(ctx, "startLocalBus.waitForShutdown", func() {
+		defer close(bus.serverDone)
 		bus.server.WaitForShutdown()
-		close(bus.serverDone)
-	}()
+	})
 
 	if !bus.server.ReadyForConnections(config.startupTimeout) {
 		if fatalErr := bus.logger.err(); fatalErr != nil {
@@ -328,7 +329,14 @@ func startLocalBus(ctx context.Context, config normalizedBusConfig, reconcile bu
 
 	monitorCtx, cancel := context.WithCancel(context.Background())
 	bus.monitorCancel = cancel
-	go bus.monitor(monitorCtx)
+	// monitor's own defer close(b.monitorDone) is a proper Go defer inside
+	// its body, so it fires on a recovered panic without help from here.
+	//
+	// The sink is monitor's own failure path. Without it a panic here leaves
+	// the service running with nothing watching the bus: close joins cleanly,
+	// failures() stays silent, and the only sign that bus health stopped
+	// being monitored is one log record.
+	spawn.Go(monitorCtx, "localBus.monitor", func() { bus.monitor(monitorCtx) }, spawn.ReportTo(bus.reportFailure))
 	return bus, nil
 }
 

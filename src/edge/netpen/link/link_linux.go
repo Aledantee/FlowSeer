@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/bpf"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // pollTimeout is the per-poll wait. It bounds how long a blocked Receive
@@ -110,9 +111,13 @@ func (l *linuxLeg) SetFilter(raw []RawInstruction) error {
 func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 
-	go func() {
-		defer close(frames)
-
+	// receive owns no terminal close of its own: every exit path below
+	// already calls sendTerminal before returning, and spawn.Go's fn
+	// closes frames once receive returns. The panic path closes through
+	// the ReportTo sink instead, sending the recovered panic as the
+	// terminal frame first, so a consumer draining frames until close
+	// still learns why the receiver stopped.
+	receive := func() {
 		for {
 			select {
 			case <-ctx.Done():
@@ -123,16 +128,13 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 			default:
 			}
 
-			l.mu.Lock()
-			if l.closed {
-				l.mu.Unlock()
+			data, open, err := l.readOnce()
+			if !open {
 				sendTerminal(frames, Frame{Err: errs.New().
 					Code(ErrCodeLegOpen).
 					Msg("receive on closed leg")})
 				return
 			}
-			data, _, err := l.tp.ReadPacketData()
-			l.mu.Unlock()
 
 			if err != nil {
 				if isTimeout(err) {
@@ -158,7 +160,15 @@ func (l *linuxLeg) Receive(ctx context.Context) <-chan Frame {
 				return
 			}
 		}
-	}()
+	}
+
+	spawn.Go(ctx, "netpen link receive", func() {
+		receive()
+		close(frames)
+	}, spawn.ReportTo(func(err error) {
+		sendTerminal(frames, Frame{Err: err})
+		close(frames)
+	}))
 
 	return frames
 }
@@ -178,6 +188,25 @@ func (l *linuxLeg) Close() error {
 	close(l.done)
 
 	return nil
+}
+
+// readOnce performs one guarded read. open is false when the leg has been
+// closed under the lock.
+//
+// The lock is released by a defer because this runs on a supervised
+// goroutine: a panic in ReadPacketData is recovered, so a release written
+// after the call would be skipped and l.mu would stay held for the life of
+// the process, leaving Close blocked on it forever — a hang in place of the
+// crash the recovery replaced.
+func (l *linuxLeg) readOnce() (data []byte, open bool, err error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.closed {
+		return nil, false, nil
+	}
+	data, _, err = l.tp.ReadPacketData()
+	return data, true, err
 }
 
 // An abandoned consumer must not strand Receive on the final error frame.

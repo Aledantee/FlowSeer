@@ -207,19 +207,26 @@ type Diagnostic struct {
 	args     [catalog.MaxArgs]Arg
 }
 
-// Raise records that the condition identified by code was found at pos.
-// Severity comes from the catalog, so a caller cannot grade the same
+// MustRaise records that the condition identified by code was found at
+// pos. Severity comes from the catalog, so a caller cannot grade the same
 // condition two ways in two places.
 //
-// Raise allocates nothing: it copies args into the returned value and
+// MustRaise allocates nothing: it copies args into the returned value and
 // formats no text. The message is built by [Diagnostic.Render], which
 // runs once per diagnostic a human or a snapshot actually reads.
 //
-// Raise panics if code is not in the catalog or if len(args) disagrees
-// with the row's arity. Both are programming errors in the parser rather
-// than anything a MIB can provoke, and both would otherwise surface as a
-// mangled message far from the call that caused them.
-func Raise(pos Position, code errs.Code, args ...Arg) Diagnostic {
+// MustRaise panics if code is not in the catalog or if len(args)
+// disagrees with the row's arity. Both are programming errors in the
+// parser rather than anything a MIB can provoke, and both would otherwise
+// surface as a mangled message far from the call that caused them. The
+// invariant is proven in two halves: the arity scan in
+// arity_scan_test.go resolves every first-party call reaching here to a
+// catalog row and fails on a code it cannot resolve, and each variadic
+// forwarder the scan looks through is executed by its own package's
+// forwarding test, which the scan requires to exist, once per catalog
+// row to show it hands code and args on unchanged. So neither panic is
+// reachable from committed non-test source.
+func MustRaise(pos Position, code errs.Code, args ...Arg) Diagnostic {
 	row, ok := lookup(code)
 	if !ok {
 		panic(fmt.Sprintf("smi: %q is not a cataloged diagnostic code", code))
@@ -232,7 +239,11 @@ func Raise(pos Position, code errs.Code, args ...Arg) Diagnostic {
 		pos:      pos,
 		code:     code,
 		severity: Severity(row.Severity),
-		nargs:    uint8(len(args)),
+		// args is a [catalog.MaxArgs]Arg and Message indexes it by nargs,
+		// so the field's domain is the array's length. The arity panic
+		// above fires first on a caller bug and keeps the diagnosis; this
+		// states the bound where the field is written.
+		nargs: uint8(min(len(args), catalog.MaxArgs)),
 	}
 	copy(d.args[:], args)
 
@@ -298,7 +309,7 @@ func (d Diagnostic) Render(lines *LineTable) Rendered {
 }
 
 // Message formats the diagnostic's text from its catalog row. An
-// uncataloged code, which [Raise] cannot produce, renders as the code
+// uncataloged code, which [MustRaise] cannot produce, renders as the code
 // itself.
 func (d Diagnostic) Message() string {
 	row, ok := lookup(d.code)

@@ -234,6 +234,11 @@ func NewScalarIndicator(scalarOID OID, kind Kind, tableRoots []OID) (ChangeIndic
 //
 //	var IfTableIndicator = snmp.MustChangeIndicator(
 //	    snmp.NewPerRowIndicator(IfLastChange, ifTableRoot))
+//
+// The panic is clause 2's init-time answer: the only callers are generated
+// var-block initializers whose arguments are [MustOID] constants and column
+// references mibgen has already validated, so a failure surfaces at the
+// generated package's load, not during serving.
 func MustChangeIndicator(ci ChangeIndicator, err error) ChangeIndicator {
 	if err != nil {
 		panic(err)

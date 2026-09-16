@@ -3,6 +3,8 @@ package ssh
 import (
 	"context"
 	"sync"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ring is a bounded, drop-oldest byte buffer with a match-based wait.
@@ -26,11 +28,10 @@ type ring struct {
 }
 
 // newRing constructs a ring bounded to limit bytes of retained tail.
-// A non-positive limit panics: callers always default it first.
+// limit must be positive; the only callers (session.go) pass a value
+// already defaulted by [Options.withDefaults], so a non-positive limit
+// cannot arise and is not guarded here.
 func newRing(limit int) *ring {
-	if limit <= 0 {
-		panic("ssh: ring limit must be positive")
-	}
 	r := &ring{limit: limit}
 	r.cond = sync.NewCond(&r.mu)
 	return r
@@ -117,15 +118,21 @@ func (r *ring) reset() {
 func (r *ring) waitFor(ctx context.Context, match func(buf []byte) (consumed int, ok bool)) ([]byte, error) {
 	stop := make(chan struct{})
 	defer close(stop)
-	go func() {
+	// waitFor's own r.cond.Wait() below has no other way to notice ctx
+	// canceling, so a panic here that skipped the Broadcast would hang
+	// waitFor rather than crash it. Nothing here can fail (no call
+	// outside the standard library, on values this goroutine already
+	// holds), so that hazard is theoretical; Unlock is still deferred so
+	// a future addition to this body cannot leave r.mu held on a panic.
+	spawn.Go(ctx, "ssh ring wait cancellation watcher", func() {
 		select {
 		case <-ctx.Done():
 			r.mu.Lock()
+			defer r.mu.Unlock()
 			r.cond.Broadcast()
-			r.mu.Unlock()
 		case <-stop:
 		}
-	}()
+	})
 
 	r.mu.Lock()
 	defer r.mu.Unlock()

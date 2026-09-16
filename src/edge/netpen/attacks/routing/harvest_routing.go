@@ -30,6 +30,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -62,19 +63,32 @@ var (
 	wpacTTL = 30
 )
 
+// mustMAC parses a compile-time-constant MAC literal. Every argument is a
+// string constant in this file, so a parse failure is a typo caught the first
+// time the script runs — the init-time answer the style guide's Panics section
+// sanctions for a must-prefixed helper.
 func mustMAC(s string) net.HardwareAddr {
 	m, err := net.ParseMAC(s)
-	panicErr(err)
-	return m
-}
-
-func panicErr(err error) {
 	if err != nil {
 		panic(err)
 	}
+	return m
 }
 
 func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
+
+// genErr holds the first packet-assembly or write failure. [craft] and
+// [writePcap] record into it instead of panicking, and [run] returns it, so a
+// generator bug exits non-zero through log.Fatal rather than with a stack
+// trace.
+var genErr error
+
+// fail records the first non-nil error into [genErr].
+func fail(err error) {
+	if err != nil && genErr == nil {
+		genErr = err
+	}
+}
 
 const (
 	ospfHdrLen    = 24
@@ -83,6 +97,12 @@ const (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	// OSPF fixtures
 	writePcap("ospf.pcap", ospfHelloFrame(), ospfDBDescFrame(), ospfLSAUpdateFrame())
 	writePcap("ospf_restore.pcap", ospfLSAFlushFrame(), ospfGoodbyeFrame())
@@ -97,7 +117,13 @@ func main() {
 	// WPAD fixtures
 	writePcap("wpad.pcap", wpadNBTNSFrame(), wpadLLMNRFrame())
 
+	if genErr != nil {
+		return genErr
+	}
+
 	fmt.Println("harvest complete")
+
+	return nil
 }
 
 // OSPF frames use raw craft — the fork has no SerializeTo for OSPFv2.
@@ -428,25 +454,45 @@ func craft(layersList ...gopacket.SerializableLayer) []byte {
 		ComputeChecksums: true,
 		FixLengths:       true,
 	}
-	panicErr(gopacket.SerializeLayers(buf, opts, layersList...))
+	if err := gopacket.SerializeLayers(buf, opts, layersList...); err != nil {
+		fail(err)
+		return nil
+	}
 	return append([]byte(nil), buf.Bytes()...)
 }
 
+// writePcap writes pkts to path, recording the first failure — its own IO or
+// an assembly error [craft] already recorded — into [genErr] and returning
+// without writing, so a bad packet never lands in a fixture and [run] reports
+// the fault.
 func writePcap(path string, pkts ...[]byte) {
+	if genErr != nil {
+		return
+	}
+
 	fullPath := filepath.Join("..", "testdata", "routing", filepath.Base(path))
 	f, err := os.Create(fullPath)
-	panicErr(err)
+	if err != nil {
+		fail(fmt.Errorf("create %s: %w", fullPath, err))
+		return
+	}
 	defer func() { _ = f.Close() }()
 
 	w := pcapgo.NewWriter(f)
-	panicErr(w.WriteFileHeader(65535, layers.LinkTypeEthernet))
+	if err := w.WriteFileHeader(65535, layers.LinkTypeEthernet); err != nil {
+		fail(fmt.Errorf("write header %s: %w", fullPath, err))
+		return
+	}
 
 	for _, pkt := range pkts {
-		panicErr(w.WritePacket(gopacket.CaptureInfo{
+		if err := w.WritePacket(gopacket.CaptureInfo{
 			Timestamp:     time.Now(),
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
-		}, pkt))
+		}, pkt); err != nil {
+			fail(fmt.Errorf("write packet %s: %w", fullPath, err))
+			return
+		}
 	}
 	fmt.Println("wrote", fullPath, len(pkts), "packets")
 }

@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 )
 
@@ -94,7 +95,9 @@ func (l *Leg) SetFilter(_ []link.RawInstruction) error { return nil }
 // returned channel before starting another Receive call.
 func (l *Leg) Receive(ctx context.Context) <-chan link.Frame {
 	out := make(chan link.Frame, 64)
-	go func() {
+	// close(out) is fn's own deferred call, so it still runs on a panic
+	// unwind and a consumer draining out until close never hangs.
+	spawn.Go(ctx, "netpen testtest leg receive", func() {
 		defer close(out)
 		for {
 			if ctx.Err() != nil || l.closed.Load() {
@@ -127,7 +130,7 @@ func (l *Leg) Receive(ctx context.Context) <-chan link.Frame {
 				return
 			}
 		}
-	}()
+	})
 	return out
 }
 

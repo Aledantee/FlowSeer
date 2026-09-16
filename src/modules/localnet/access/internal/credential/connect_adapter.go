@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/device/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ErrCodeStream identifies a malformed or prematurely closed submission
@@ -78,7 +79,7 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 		authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
 		stream:    stream,
 	}
-	go h.relay(ctx, stream)
+	h.startRelay(ctx, stream)
 
 	return h, nil
 }
@@ -129,6 +130,24 @@ func (h *submissionHandle) Close() error {
 		return nil
 	}
 	return stream.Close()
+}
+
+// startRelay begins relay on its own supervised goroutine, split out of
+// Open so a test can drive it against a fake stream directly.
+//
+// relay's own normal exit always ends by recording why the stream ended
+// under h.mu, so a caller polling Err()/Authority() can tell the handle
+// stopped updating. ReportTo reaches the same field on a panic, or the
+// handle would look merely stale — still reporting its last authority as
+// current — rather than ended.
+func (h *submissionHandle) startRelay(ctx context.Context, stream submissionStream) {
+	spawn.Go(ctx, "credential.submissionHandle.relay", func() {
+		h.relay(ctx, stream)
+	}, spawn.ReportTo(func(err error) {
+		h.mu.Lock()
+		h.err = err
+		h.mu.Unlock()
+	}))
 }
 
 // relay keeps draining stream for as long as it stays open, updating h's

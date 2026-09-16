@@ -13,6 +13,7 @@ import (
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
@@ -193,7 +194,7 @@ type KeyLister interface {
 // the host — and a test — can join it rather than leak it.
 func (s *Service) RunSweeper(ctx context.Context, bucket KeyLister) <-chan struct{} {
 	done := make(chan struct{})
-	go func() {
+	spawn.Go(ctx, "dispatchapi sweeper", func() {
 		defer close(done)
 		ticker := time.NewTicker(s.sweepInterval)
 		defer ticker.Stop()
@@ -205,7 +206,7 @@ func (s *Service) RunSweeper(ctx context.Context, bucket KeyLister) <-chan struc
 				s.sweepAll(ctx, bucket)
 			}
 		}
-	}()
+	})
 	return done
 }
 

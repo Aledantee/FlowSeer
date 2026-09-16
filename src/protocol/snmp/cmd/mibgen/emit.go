@@ -19,6 +19,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/protocol/smi"
+	"go.aledante.io/FlowSeer/src/protocol/snmp"
 )
 
 // snmpImport is the import path for the FlowSeer SNMP runtime that
@@ -150,6 +151,19 @@ func renderModule(
 ) ([]byte, []degradedRef, error) {
 	if err := checkSourceNames(mod); err != nil {
 		return nil, nil, err
+	}
+
+	// OID pre-pass: every node's OID must satisfy snmp.NewOID before any
+	// emitter renders a snmp.MustOID call for it. MustOID enforces the
+	// SMIv2 root and length rules (validateSubs) that smi.OID.String and
+	// smi.MaxOIDLength do not, so without this pass a tree carrying an OID
+	// whose first arc is 3 would emit a MustOID that panics at the
+	// generated package's init. Failing here names the node and fails
+	// generation instead.
+	for _, n := range mod.Nodes {
+		if err := validateEmittedOID(n.OID.String()); err != nil {
+			return nil, nil, errs.Wrapf(err, "node %s (OID %s)", n.Name, n.OID.String())
+		}
 	}
 
 	ec := newEmitCtx(mod, set, cm, cfgByName, pkgPrefix)
@@ -295,6 +309,10 @@ func writeHeader(f *jen.File, mod *smi.Module, cm Module) {
 // MustOID (not NewOID) is the codegen-facing companion: a malformed
 // generated OID panics at package init rather than silently producing
 // a structurally-invalid value that propagates to wire IO.
+// The generated MustOID satisfies the style guide's Panics clause 2 by
+// proof: [validateEmittedOID], run over every node in the OID pre-pass in
+// [renderModule], is what guarantees the sub-identifiers are valid, so the
+// ParseUint below cannot fail and needs no fallback.
 func newOIDCall(oidStr string) *jen.Statement {
 	if oidStr == "" {
 		return jen.Qual(snmpImport, "MustOID").Call()
@@ -302,26 +320,44 @@ func newOIDCall(oidStr string) *jen.Statement {
 	parts := strings.Split(oidStr, ".")
 	args := make([]jen.Code, 0, len(parts))
 	for _, p := range parts {
-		v, err := strconv.ParseUint(p, 10, 32)
-		if err != nil {
-			// The OID strings reaching this helper come from
-			// smi.OID.String(), which is already a sequence of uint32
-			// values. A parse failure here would be a
-			// generator bug; emit a clearly-broken literal so the
-			// generator output trips compilation instead of silently
-			// rendering bad code.
-			args = append(args, jen.Lit(p))
-			continue
-		}
+		// The pre-pass already parsed and validated every emitted OID;
+		// v is guaranteed to fit uint32 here.
+		v, _ := strconv.ParseUint(p, 10, 32)
 		// Rendering the literal as a plain int keeps the generated
 		// source readable (snmp.MustOID(1, 3, 6, 1, ...)) rather than
 		// the typed-conversion form (uint32(0x1), uint32(0x3), ...).
 		// Untyped int constants assign to uint32 implicitly when the
-		// value fits, which is guaranteed here because v already
-		// fit ParseUint(10, 32).
+		// value fits.
 		args = append(args, jen.Lit(int(v)))
 	}
 	return jen.Qual(snmpImport, "MustOID").Call(args...)
+}
+
+// validateEmittedOID confirms oidStr renders to a structurally valid SMIv2
+// OID, so the snmp.MustOID call [newOIDCall] emits for it cannot panic when
+// the generated package initializes. It mirrors newOIDCall's parse and then
+// applies snmp.NewOID's rules — the first arc, the second arc's ceiling under
+// arcs 0 and 1, and the 128-sub-identifier cap — which smi.OID.String and
+// smi.MaxOIDLength do not check. The empty string is the zero OID, which
+// snmp.MustOID() accepts.
+func validateEmittedOID(oidStr string) error {
+	if oidStr == "" {
+		return nil
+	}
+	parts := strings.Split(oidStr, ".")
+	subs := make([]uint32, 0, len(parts))
+	for _, p := range parts {
+		v, err := strconv.ParseUint(p, 10, 32)
+		if err != nil {
+			return errs.Wrapf(err, "sub-identifier %q", p)
+		}
+		subs = append(subs, uint32(v))
+	}
+	if _, err := snmp.NewOID(subs...); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // runCheck regenerates every module and the identity package into a

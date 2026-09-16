@@ -17,6 +17,7 @@ import (
 	"crypto/md5"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -40,6 +41,10 @@ var (
 	broadcastMAC = mustMAC("ff:ff:ff:ff:ff:ff")
 )
 
+// mustMAC parses a compile-time-constant MAC literal. Every argument is a
+// string constant in this file, so a parse failure is a typo caught the first
+// time the script runs, not a runtime condition — the init-time answer the
+// style guide's Panics section sanctions for a must-prefixed helper.
 func mustMAC(s string) net.HardwareAddr {
 	m, err := net.ParseMAC(s)
 	if err != nil {
@@ -50,10 +55,29 @@ func mustMAC(s string) net.HardwareAddr {
 
 func srcBytes() net.HardwareAddr { return mustMAC(srcMAC) }
 
+// genErr holds the first packet-assembly or write failure. The builders and
+// [writePcap] record into it instead of panicking, and [run] returns it, so a
+// generator bug exits non-zero through log.Fatal rather than with a stack
+// trace. Assembly failures here are script bugs, not input.
+var genErr error
+
+// fail records the first non-nil error into [genErr].
+func fail(err error) {
+	if err != nil && genErr == nil {
+		genErr = err
+	}
+}
+
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
 	outDir := "../testdata/l2"
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		panic(err)
+		return err
 	}
 
 	// DTP: desirable + trunk (same as layers fixture, but attack-scoped).
@@ -137,7 +161,13 @@ func main() {
 		pagpFrame(),
 	)
 
+	if genErr != nil {
+		return genErr
+	}
+
 	fmt.Println("OK: generated L2 attack fixtures into", outDir)
+
+	return nil
 }
 
 func dtpFrame(mode uint8) []byte {
@@ -188,7 +218,8 @@ func doubleTagFrame(outerVLAN, innerVLAN uint16) []byte {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &outerDot1Q, &innerDot1Q, &ip, &icmp); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -217,7 +248,8 @@ func dot1qFrame(vlan uint16, payload []byte) []byte {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &dot1q, &ip, &icmp); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -233,7 +265,8 @@ func lldpVoiceFrame() []byte {
 	lldpPayload := buildLLDPVoiceVLANPayload()
 	buf := gopacket.NewSerializeBuffer()
 	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(lldpPayload)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -288,7 +321,8 @@ func stpBPDU(rootPriority, rootExtID, rootID, helloTime, forwardDelay, maxAge, m
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &llc, gopacket.Payload(stpPayload)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -368,7 +402,8 @@ func camFloodFrame(seq int) []byte {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &ip, &udp, gopacket.Payload(payload)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -460,7 +495,8 @@ func mvrpFrame(vid uint16, join bool) []byte {
 	}
 	buf := gopacket.NewSerializeBuffer()
 	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(pdu)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -485,7 +521,8 @@ func portStealARP(seq int) []byte {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &arp); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -528,7 +565,8 @@ func lacpFrame() []byte {
 	}
 	buf := gopacket.NewSerializeBuffer()
 	if err := gopacket.SerializeLayers(buf, gopacket.SerializeOptions{}, &eth, gopacket.Payload(pdu)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
@@ -574,28 +612,40 @@ func dot3SNAP(dst, src net.HardwareAddr, snapPID uint16, body []byte) []byte {
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{FixLengths: true}
 	if err := gopacket.SerializeLayers(buf, opts, &eth, &llc, &snap, gopacket.Payload(body)); err != nil {
-		panic(err)
+		fail(err)
+		return nil
 	}
 	return buf.Bytes()
 }
 
+// writePcap writes pkts to path. It records the first failure — its own IO or
+// an assembly error a builder already recorded — into [genErr] and returns
+// without writing, so a bad packet never lands in a fixture and [run] reports
+// the fault.
 func writePcap(path string, pkts ...[]byte) {
+	if genErr != nil {
+		return
+	}
+
 	f, err := os.Create(path)
 	if err != nil {
-		panic(err)
+		fail(err)
+		return
 	}
 	defer func() { _ = f.Close() }()
 
 	w := pcapgo.NewWriter(f)
 	if err := w.WriteFileHeader(65535, layers.LinkTypeEthernet); err != nil {
-		panic(err)
+		fail(err)
+		return
 	}
 	for _, pkt := range pkts {
 		if err := w.WritePacket(gopacket.CaptureInfo{
 			CaptureLength: len(pkt),
 			Length:        len(pkt),
 		}, pkt); err != nil {
-			panic(err)
+			fail(err)
+			return
 		}
 	}
 }

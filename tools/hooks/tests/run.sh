@@ -476,6 +476,99 @@ stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
 [[ $stop_output == '{}' ]]
 ok "Stop reports unverified edits without blocking and passes a clean tree"
 
+# A fixture with one gate package under test/conformance/. The fixture
+# above has no such directory, so it proves only that Stop tolerates the
+# directory's absence; this one proves the gate inside it runs.
+gate_fixture="$fixture_parent/gate fixture"
+mkdir -p "$gate_fixture/test/conformance/panic"
+git -C "$gate_fixture" init -q
+printf 'module example.invalid/gate\n\ngo 1.27\n' >"$gate_fixture/go.mod"
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {
+	t.Error("fixture violation")
+}
+GATE
+gate_input=$(jq -n --arg cwd "$gate_fixture" '{cwd:$cwd,hook_event_name:"Stop"}')
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("fixture violation"))' <<<"$gate_output" >/dev/null
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+[[ $gate_output == '{}' ]]
+ok "Stop blocks on a failing panic gate and passes when it holds"
+
+# A gate package whose test is not called what the fixture above calls it.
+# `go test -run` with a pattern that matches nothing exits 0, so a gate run
+# by test name would pass here without running anything; the gate has to
+# run the package.
+cat >"$gate_fixture/test/conformance/panic/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestRenamedGate(t *testing.T) {
+	t.Error("renamed fixture violation")
+}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
+ok "Stop runs a gate package whatever its tests are named"
+
+# A gate package whose directory is not called what the fixture above calls
+# it. A hook that names its gate packages and skips an absent one would
+# pass here with nothing run, the same silent skip the test above closes
+# on the test-name axis; the hook has to run whatever test/conformance/
+# holds.
+mv "$gate_fixture/test/conformance/panic" "$gate_fixture/test/conformance/panics"
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("renamed fixture violation"))' <<<"$gate_output" >/dev/null
+ok "Stop runs a gate package whatever its directory is named"
+
+# A gate package one level down, under a child that itself passes. A hook
+# that runs each child as a single package never sees it, and the merge
+# gate's `go test ./...` would be the first to; the hook has to run each
+# child recursively.
+cat >"$gate_fixture/test/conformance/panics/panic_policy_test.go" <<'GATE'
+package conformance
+
+import "testing"
+
+func TestPanicPolicy(t *testing.T) {}
+GATE
+mkdir -p "$gate_fixture/test/conformance/panics/nested"
+cat >"$gate_fixture/test/conformance/panics/nested/nested_test.go" <<'GATE'
+package nested
+
+import "testing"
+
+func TestNestedGate(t *testing.T) {
+	t.Error("nested fixture violation")
+}
+GATE
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("nested fixture violation"))' <<<"$gate_output" >/dev/null
+rm -r "$gate_fixture/test/conformance/panics/nested"
+ok "Stop runs a gate package nested below a conformance child"
+
+# No test/conformance/ at all in a checkout that has a go.mod. The glob
+# matches nothing, and a hook that merely tolerated the absence would print
+# {} with no gate run: the same silent skip as the two renames above, on the
+# root directory's name. The fixture without go.mod earlier in this file
+# still passes cleanly, so the check discriminates a checkout from a stub.
+mv "$gate_fixture/test/conformance" "$gate_fixture/test/gates"
+gate_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$gate_input")
+jq -e '.decision == "block" and (.reason | contains("no conformance gate found under test/conformance/"))' <<<"$gate_output" >/dev/null
+ok "Stop blocks when a checkout has no conformance gate to run"
+
 selection_fixture="$fixture_parent/selection fixture"
 mkdir -p "$selection_fixture"
 git -C "$selection_fixture" init -q

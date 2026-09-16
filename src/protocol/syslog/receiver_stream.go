@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 const streamAllowance = 8192
@@ -44,13 +46,13 @@ func (r *Receiver) accept(ctx context.Context, b boundListener) {
 		}
 		r.stats.connections.Add(1)
 		r.wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "syslog stream connection", func() {
 			defer r.wg.Done()
 			defer r.admission.release(streamAllowance, false)
 			defer r.stats.connections.Add(-1)
 			defer r.releaseConnection(slot, raw)
 			r.receiveStream(ctx, b, raw)
-		}()
+		})
 	}
 }
 

@@ -3,9 +3,9 @@ package catalog
 // registrations.go owns the behavior metadata table. Each (behavior, mode)
 // pair's class and teardown must match the durability oracle in catalog_test.go.
 //
-// This file is the production registration path for [Register]. Attack packages
-// contain the run functions and expose runner behavior maps; they do not call
-// [Register].
+// This file is the production registration path: init calls [MustRegister].
+// Attack packages contain the run functions and expose runner behavior maps;
+// they do not register catalog metadata.
 
 func init() {
 	nonDestructive := []Behavior{
@@ -16,7 +16,7 @@ func init() {
 		{Name: "raguard", Protocols: []string{"ipv6-nd", "ra"}, Legs: WatchOptional, Class: NonDestructive, Help: "observe forged RA handling under RA-Guard"},
 	}
 	for _, b := range nonDestructive {
-		Register(b)
+		MustRegister(b)
 	}
 
 	transientDecay := []Behavior{
@@ -48,10 +48,10 @@ func init() {
 		{Name: "lldpspoof", Protocols: []string{"lldp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "bounded bursts / holdtimes", Help: "generic LLDP spoofing"},
 	}
 	for _, b := range transientDecay {
-		Register(b)
+		MustRegister(b)
 	}
 
-	Register(Behavior{
+	MustRegister(Behavior{
 		Name: "portsteal", Protocols: []string{"arp"}, Legs: AttackOnly, Class: TransientDecay, Teardown: "CAM aging", Help: "port-steal ARP spoofing",
 		Modes: []Mode{
 			{Flag: "relay", Class: TemporaryRestored, Teardown: "ip_forward restore armed", Help: "port-steal with relay enabled"},
@@ -84,7 +84,7 @@ func init() {
 		{Name: "glbp", Protocols: []string{"glbp"}, Legs: AttackOnly, Class: TemporaryRestored, Teardown: "resign teardown", Help: "GLBP virtual-router hijack"},
 	}
 	for _, b := range temporaryRestored {
-		Register(b)
+		MustRegister(b)
 	}
 
 	// full is orchestration scripting the gate and carries no (attack,

@@ -44,6 +44,13 @@
 
 set -eu
 
+# benchstat writes its deltas with a period, and awk converts a string to a
+# number through the locale's decimal separator. Under a comma-decimal locale
+# — de_DE, fr_FR, most of Europe — "+0.10%" converts to 0, not 0.1, so every
+# fractional percentage reads as no change at all and the comparison below
+# silently under-reports. Machine output is parsed in the C locale.
+export LC_ALL=C
+
 COUNT="${COUNT:-10}"
 BENCH="${BENCH:-.}"
 GATE_NS="${GATE_NS:-0}"

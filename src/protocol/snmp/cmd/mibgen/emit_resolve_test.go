@@ -323,3 +323,33 @@ func TestRefuseUnresolved_FailsRatherThanEmittingPartially(t *testing.T) {
 		t.Errorf("whole module refused: %v", err)
 	}
 }
+
+// TestValidateDecoderVariant checks the resolve-time guard that replaced the
+// emission-path panic: every wire variant the resolvers emit has a leniency
+// helper, an unregistered variant is rejected with its name, and an empty
+// variant (a TC helper that bypasses the table) passes. This is the clause-2
+// proof that no unregistered variant reaches mustDecodeNatural/mustDecodeCast.
+func TestValidateDecoderVariant(t *testing.T) {
+	emitted := []string{
+		"Integer32Var", "Uinteger32Var", "Counter32Var", "Counter64Var",
+		"Gauge32Var", "TimeTicksVar", "OctetStringVar", "OpaqueVar",
+		"ObjectIDVar", "IPAddressVar",
+	}
+	for _, v := range emitted {
+		if err := validateDecoderVariant(v); err != nil {
+			t.Errorf("validateDecoderVariant(%q) = %v, want nil", v, err)
+		}
+	}
+
+	if err := validateDecoderVariant(""); err != nil {
+		t.Errorf("validateDecoderVariant(empty) = %v, want nil for a TC-helper resolution", err)
+	}
+
+	err := validateDecoderVariant("BogusVar")
+	if err == nil {
+		t.Fatal("validateDecoderVariant(BogusVar) = nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "BogusVar") {
+		t.Errorf("error %q does not name the offending variant", err)
+	}
+}

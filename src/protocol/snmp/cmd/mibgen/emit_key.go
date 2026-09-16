@@ -153,7 +153,7 @@ func keyedResolved(goType *jen.Statement, base keyBase) resolved {
 			GoType:     goType.Clone(),
 			Kind:       jen.Qual(snmpImport, "KindUinteger32"),
 			Variant:    "Uinteger32Var",
-			DecodeFunc: func() *jen.Statement { return decodeIntCast("Uinteger32Var", goType.Clone()) },
+			DecodeFunc: func() *jen.Statement { return mustDecodeIntCast("Uinteger32Var", goType.Clone()) },
 			ZeroExpr:   func() *jen.Statement { return goType.Clone().Call(jen.Lit(0)) },
 			RawFuse:    "RawGauge32",
 		}
@@ -163,7 +163,7 @@ func keyedResolved(goType *jen.Statement, base keyBase) resolved {
 			GoType:     goType.Clone(),
 			Kind:       jen.Qual(snmpImport, "KindOctetString"),
 			Variant:    "OctetStringVar",
-			DecodeFunc: func() *jen.Statement { return decodeCast("OctetStringVar", goType.Clone(), zero()) },
+			DecodeFunc: func() *jen.Statement { return mustDecodeCast("OctetStringVar", goType.Clone(), zero()) },
 			ZeroExpr:   zero,
 		}
 	default:

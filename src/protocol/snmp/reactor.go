@@ -17,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // reactor.go is the per-session UDP transport. A single read-loop
@@ -293,7 +294,11 @@ func newReactor(ctx context.Context, cfg reactorConfig) (*reactor, error) {
 	if cfg.usm != nil {
 		r.baseline = &engineBaseline{}
 	}
-	go r.readLoop()
+	// A panic in the read-loop is recovered and reported by spawn.Go;
+	// the sink also runs shutdown so every in-flight and future caller
+	// fails fast with ErrSessionClosed instead of only discovering the
+	// dead reactor at their own per-call timeout.
+	spawn.Go(r.logCtx, "reactor.readLoop", r.readLoop, spawn.ReportTo(func(error) { r.shutdown() }))
 	return r, nil
 }
 

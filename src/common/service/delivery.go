@@ -19,6 +19,7 @@ import (
 
 	servicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/service/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 const (
@@ -87,21 +88,24 @@ func (r *messageRuntime) runDeliveryWithTelemetry(ctx context.Context, module pl
 	jobs := make(chan jetstream.Msg)
 	failures := make(chan error, 1)
 	var workers sync.WaitGroup
+	reportWorkerFailure := func(err error) {
+		select {
+		case failures <- err:
+			cancel()
+		default:
+		}
+	}
 	for range module.leaf.deliveryConcurrency {
 		workers.Add(1)
-		go func() {
+		spawn.Go(workerCtx, "runDeliveryWithTelemetry.worker", func() {
 			defer workers.Done()
 			for message := range jobs {
 				if err := r.deliver(workerCtx, module, handlerSet, message, telemetry); err != nil {
-					select {
-					case failures <- err:
-						cancel()
-					default:
-					}
+					reportWorkerFailure(err)
 					return
 				}
 			}
-		}()
+		}, spawn.ReportTo(reportWorkerFailure))
 	}
 	defer func() {
 		cancel()
@@ -362,7 +366,7 @@ func callHandlerWithProgress(
 ) (panicked bool, handlerErr error, progressErr error) {
 	progressCtx, cancel := context.WithCancel(ctx)
 	progressDone := make(chan error, 1)
-	go func() {
+	spawn.Go(progressCtx, "callHandlerWithProgress.progress", func() {
 		ticker := time.NewTicker(progressInterval)
 		defer ticker.Stop()
 		for {
@@ -377,7 +381,15 @@ func callHandlerWithProgress(
 				}
 			}
 		}
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// The caller below always waits on <-progressDone once it cancels
+		// progressCtx; without this, a panic here leaves that receive
+		// parked forever.
+		select {
+		case progressDone <- err:
+		default:
+		}
+	}))
 	panicked, handlerErr = callHandler(ctx, handler, payload)
 	cancel()
 	return panicked, handlerErr, <-progressDone

@@ -81,17 +81,21 @@ func ArgInt(n int) Arg { return diag.ArgInt(n) }
 // costs an allocation at the call site.
 func ArgString(s string) Arg { return diag.ArgString(s) }
 
-// Raise records that the condition identified by code was found at pos.
-// Severity comes from the catalog, so a caller cannot grade the same
+// MustRaise records that the condition identified by code was found at
+// pos. Severity comes from the catalog, so a caller cannot grade the same
 // condition two ways in two places.
 //
-// Raise allocates nothing and formats no text: the message is built by
-// [Diagnostic.Render], which runs once per diagnostic somebody reads. It
-// panics if code is not cataloged or if len(args) disagrees with the
+// MustRaise allocates nothing and formats no text: the message is built
+// by [Diagnostic.Render], which runs once per diagnostic somebody reads.
+//
+// It panics if code is not cataloged or if len(args) disagrees with the
 // code's arity, both of which are bugs in the raising code rather than
-// anything a MIB can provoke.
-func Raise(pos Position, code errs.Code, args ...Arg) Diagnostic {
-	return diag.Raise(pos, code, args...)
+// anything a MIB can provoke. code and args are not closed here, so the
+// panic travels to the caller; the invariant is proven by the arity scan
+// in internal/diag, which resolves every first-party call reaching this
+// function to a catalog row.
+func MustRaise(pos Position, code errs.Code, args ...Arg) Diagnostic {
+	return diag.MustRaise(pos, code, args...)
 }
 
 // Severities returns the scale from most to least severe, every level

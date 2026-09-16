@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 )
@@ -163,13 +164,13 @@ func (r *Runner) Run(ctx context.Context) (result error) {
 	// ctx.Err() unwrapped).
 	runCtx, runCancel := context.WithCancel(ctx)
 	defer runCancel()
-	go func() {
+	spawn.Go(runCtx, "netpen runner stop watchdog", func() {
 		select {
 		case <-r.stopCtx.Done():
 			runCancel()
 		case <-r.runDone:
 		}
-	}()
+	})
 	if r.opts.Timeout > 0 {
 		var cancel context.CancelFunc
 		runCtx, cancel = context.WithTimeout(runCtx, r.opts.Timeout)

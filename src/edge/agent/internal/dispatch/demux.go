@@ -7,6 +7,7 @@ import (
 
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
 
@@ -137,23 +138,59 @@ func (d *Demux) execute(ctx context.Context, device string, request *integration
 		return nil
 	}
 
-	d.running.Add(1)
-	go func() {
-		defer d.running.Done()
+	// refuseExecute drops the admitted sequence and tells central this edge
+	// did not take it, so a re-dispatch is admitted again rather than found
+	// stuck "in flight" forever. Used on the ordinary Submit failure and, via
+	// spawn.ReportTo, on a recovered panic in the goroutine below before the
+	// device ran the operation — without it such a panic would leave the
+	// registry entry admitted with nothing to clear it, and a stuck entry is
+	// silent where a dropped connection is not.
+	//
+	// It calls d.running.Done() itself rather than the goroutine deferring
+	// it, and on purpose: a deferred Done runs as part of the goroutine's own
+	// unwind, which on the panic path finishes before spawn.Go's recover ever
+	// reaches ReportTo. Wait would then be free to return before this
+	// refusal's Report call happens — exactly the case host.go's shutdown
+	// depends on not happening, since it waits for the demux before closing
+	// the lane so every terminal report has already reached the queue.
+	// Calling Done() at the end of this same closure, after the refusal is
+	// sent, keeps that guarantee on the panic path too.
+	refuseExecute := func(err error) {
+		d.registry.discard(device, sequence)
+		d.refuse(ctx, device, sequence, integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, err)
+		d.running.Done()
+	}
 
+	// Set once the device has actually run the operation. A panic after that
+	// point must not be refused: refusing discards the registry entry and
+	// tells central the sequence never ran, so central re-dispatches work the
+	// device already performed — the duplicate execution the registry exists
+	// to prevent. Refusing would also re-enter d.out.Report, which is where
+	// such a panic most likely came from.
+	var completed bool
+
+	d.running.Add(1)
+	spawn.Go(ctx, "Demux.execute", func() {
 		// Submit blocks until the operation reaches a terminal result, which
 		// for a mutation means central has acknowledged it. It runs on its
 		// own goroutine so the dispatch stream keeps being read: one device's
 		// operation must not stop every other device's messages.
 		result, err := d.lane.Submit(ctx, access.SubmitOptions{DeviceKey: device, Request: request})
 		if err != nil {
-			d.registry.discard(device, sequence)
-			d.refuse(ctx, device, sequence, integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE, err)
+			refuseExecute(err)
 			return
 		}
 		d.registry.record(device, result)
+		completed = true
 		d.out.Report(ctx, reportOf(func(r *integrationv1.ReportRequest) { r.SetResult(result) }, device))
-	}()
+		d.running.Done()
+	}, spawn.ReportTo(func(err error) {
+		if completed {
+			d.running.Done()
+			return
+		}
+		refuseExecute(err)
+	}))
 	return nil
 }
 

@@ -39,6 +39,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/link"
 	"go.aledante.io/FlowSeer/src/edge/netpen/runner"
@@ -251,12 +252,15 @@ func (f *Full) runPhase(ctx context.Context, refs []runner.AttackRef, timeout ti
 
 	var recs []findings.Record
 	done := make(chan struct{})
-	go func() {
+	// close(done) is fn's own deferred call, so it runs during a panic
+	// unwind too: the caller's <-done below never hangs on a phase that
+	// panics collecting records.
+	spawn.Go(ctx, "netpen full.runPhase collect", func() {
+		defer close(done)
 		for rec := range r.Stream().Iter() {
 			recs = append(recs, rec)
 		}
-		close(done)
-	}()
+	})
 
 	runErr := r.Run(ctx)
 	r.Wait()

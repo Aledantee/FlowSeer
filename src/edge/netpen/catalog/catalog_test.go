@@ -116,6 +116,50 @@ func TestRegistrationValidatorRejectsBadRegistrations(t *testing.T) {
 	}
 }
 
+// TestRegisterReturnsErrorAndLeavesCatalogUnchanged proves Register reports a
+// bad registration and a post-read registration as an error rather than a
+// panic, and admits neither into the catalog, and that MustRegister panics on
+// each. It swaps in a private registry so the production one is untouched.
+func TestRegisterReturnsErrorAndLeavesCatalogUnchanged(t *testing.T) {
+	mu.Lock()
+	savedBehaviors, savedRegistered := behaviors, registered
+	behaviors, registered = nil, false
+	mu.Unlock()
+	t.Cleanup(func() {
+		mu.Lock()
+		behaviors, registered = savedBehaviors, savedRegistered
+		mu.Unlock()
+	})
+
+	bad := Behavior{Name: "", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
+	if err := Register(bad); err == nil {
+		t.Fatal("Register with an empty Name returned nil; want an error")
+	}
+	if got := len(Behaviors()); got != 0 {
+		t.Fatalf("Behaviors() has %d entries after a rejected registration; want 0", got)
+	}
+
+	// Behaviors() above latched the catalog as read, so a well-formed
+	// registration now fails with the post-read error.
+	good := Behavior{Name: "late", Class: NonDestructive, Legs: AttackOnly, Help: "x"}
+	if err := Register(good); err == nil {
+		t.Fatal("Register after the catalog was read returned nil; want an error")
+	}
+
+	assertPanics(t, "MustRegister(bad)", func() { MustRegister(bad) })
+	assertPanics(t, "MustRegister after read", func() { MustRegister(good) })
+}
+
+func assertPanics(t *testing.T, what string, fn func()) {
+	t.Helper()
+	defer func() {
+		if recover() == nil {
+			t.Errorf("%s did not panic", what)
+		}
+	}()
+	fn()
+}
+
 // oracleRow is one row of the authoritative durability table.
 type oracleRow struct {
 	name     string

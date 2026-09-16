@@ -579,6 +579,10 @@ func (p *parser) group() Span {
 	depth := 0
 	commas := 0
 
+	// The loop runs to the group's end even after a limit sets p.fatal:
+	// typeSpan calls group and continues without advancing itself, so a
+	// group that returned without consuming its opener would spin the
+	// caller. group grows nothing, so running on only consumes tokens.
 	for p.more() {
 		t := p.toks[p.pos]
 
@@ -626,9 +630,14 @@ func (p *parser) nameList() (Span, []Span) {
 	for p.more() && !p.at(lex.KindRightBrace) {
 		switch {
 		case p.isName():
-			names = append(names, p.span())
-			if len(names) > MaxMembers {
-				p.limit("enumeration members", MaxMembers, p.offset())
+			// Keep consuming to the closing brace after a limit, but stop
+			// growing names: the loop's job is forward progress for the
+			// caller; the cap's job is the memory bound.
+			if !p.fatal {
+				names = append(names, p.span())
+				if len(names) > MaxMembers {
+					p.limit("enumeration members", MaxMembers, p.offset())
+				}
 			}
 			p.next()
 		case p.at(lex.KindComma):

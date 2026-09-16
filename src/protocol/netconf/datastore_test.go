@@ -13,7 +13,7 @@ func TestInvalidDatastoreDoesNotSendRPC(t *testing.T) {
 	for _, ds := range []netconf.Datastore{"", "canddiate", "startup"} {
 		t.Run(string(ds), func(t *testing.T) {
 			f := newFake(capCandidate, capValidate, capWritableRunning)
-			s := netconf.NewSession(f, netconf.Options{})
+			s := netconf.NewSession(context.Background(), f, netconf.Options{})
 			t.Cleanup(func() {
 				if err := s.Close(context.Background()); err != nil {
 					t.Error(err)

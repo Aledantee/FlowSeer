@@ -23,10 +23,11 @@ type laneFake struct {
 	acks        []uint64
 	holds       []uint64
 
-	submitErr error
-	otherErr  error
-	release   chan struct{}
-	entered   chan struct{}
+	submitErr   error
+	submitPanic any
+	otherErr    error
+	release     chan struct{}
+	entered     chan struct{}
 }
 
 func (l *laneFake) Submit(_ context.Context, opts access.SubmitOptions) (*integrationv1.ExecuteResult, error) {
@@ -43,6 +44,9 @@ func (l *laneFake) Submit(_ context.Context, opts access.SubmitOptions) (*integr
 	}
 	if gate != nil {
 		<-gate
+	}
+	if l.submitPanic != nil {
+		panic(l.submitPanic)
 	}
 	if l.submitErr != nil {
 		return nil, l.submitErr
@@ -337,6 +341,40 @@ func TestALaneRefusalDoesNotLeaveTheOperationInFlight(t *testing.T) {
 
 	if got := lane.submitted(); len(got) != 2 {
 		t.Errorf("the lane saw %v, want the refused operation admitted again", got)
+	}
+}
+
+// TestASubmitPanicDoesNotLeaveTheOperationInFlight is evidence for the
+// converted goroutine in execute: it forces a real panic out of Submit and
+// checks that the process survives, that central is told the dispatch was
+// refused rather than hearing nothing, and that the sequence is admittable
+// again rather than stuck "in flight" forever. A registry entry left admitted
+// with nothing to clear it is silent, where a dropped connection is not.
+func TestASubmitPanicDoesNotLeaveTheOperationInFlight(t *testing.T) {
+	lane := &laneFake{submitPanic: "the lane fell over"}
+	out := &outboundFake{}
+	demux := dispatch.NewDemux(lane, out, nil)
+
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle: %v", err)
+	}
+	demux.Wait()
+
+	reports := out.sent()
+	if len(reports) != 1 || reports[0].GetRefused() == nil {
+		t.Fatalf("sent %d reports, want one refusal reporting the panic", len(reports))
+	}
+	if seq := reports[0].GetRefused().GetSequence(); seq != 3 {
+		t.Errorf("refused sequence = %d, want 3", seq)
+	}
+
+	if err := demux.Handle(context.Background(), executeDispatch("dev-1", 3)); err != nil {
+		t.Fatalf("Handle after panic: %v", err)
+	}
+	demux.Wait()
+
+	if got := lane.submitted(); len(got) != 2 {
+		t.Errorf("the lane saw %v, want the panicked operation admitted again", got)
 	}
 }
 

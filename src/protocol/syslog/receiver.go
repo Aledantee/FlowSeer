@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ListenConfig describes one listener. Empty Framing chooses Auto for TCP and
@@ -178,16 +179,23 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 	for _, b := range r.listeners {
 		r.wg.Add(1)
 		if b.packet != nil {
-			go func() { defer r.wg.Done(); r.receiveUDP(life, b) }()
+			spawn.Go(life, "syslog UDP listener", func() { defer r.wg.Done(); r.receiveUDP(life, b) })
 		} else {
-			go func() { defer r.wg.Done(); r.accept(life, b) }()
+			spawn.Go(life, "syslog stream listener", func() { defer r.wg.Done(); r.accept(life, b) })
 		}
 	}
-	go func() {
+	// Close(r.done) is deferred rather than called at the loop's default
+	// branch: Close waits on r.done, so a panic anywhere in this cleanup
+	// must still close it or Close blocks forever. nextMu.Unlock is
+	// likewise deferred, immediately after the lock is taken, so a panic
+	// mid-cleanup cannot leave Next permanently locked out either.
+	spawn.Go(life, "syslog receiver shutdown", func() {
+		defer close(r.done)
 		<-life.Done()
 		r.stop(nil)
 		r.wg.Wait()
 		r.nextMu.Lock()
+		defer r.nextMu.Unlock()
 		if r.pending != nil {
 			r.admission.release(l.MaxPayload, true)
 			r.stats.shutdownDiscarded.Add(1)
@@ -204,12 +212,10 @@ func Listen(ctx context.Context, configs []ListenConfig, options ReceiverOptions
 				r.connections = nil
 				r.listeners = nil
 				r.parser = nil
-				r.nextMu.Unlock()
-				close(r.done)
 				return
 			}
 		}
-	}()
+	})
 	return r, nil
 }
 

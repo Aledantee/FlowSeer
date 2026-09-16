@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -105,15 +106,25 @@ func Watch[Row any, Key comparable](ctx context.Context, sess *Session, desc yan
 		buf = defaultEventBuffer
 	}
 	w := &Watcher[Row, Key]{pump: pump.New[yang.WatchEvent[Row, Key]](ctx, buf), stream: stream}
-	go w.run(stream, desc)
+	// CloseData sits here rather than in a defer inside run: fn's defers run
+	// before the recover, so a deferred close would close the data channel
+	// before the sink recorded the panic, and a consumer draining to the
+	// close would read a nil Err() for a watch that panicked. On the panic
+	// path Fail is the terminal call, and it records before it closes.
+	spawn.Go(ctx, "gnmi watch", func() {
+		w.run(stream, desc)
+		w.pump.CloseData()
+	}, spawn.ReportTo(w.pump.Fail))
 	return w, nil
 }
 
-// run consumes the stream and translates batches into row events.
+// run consumes the stream and translates batches into row events. The caller
+// closes the pump; see the spawn call above for why that is not a defer here.
+// Cancel and the stream close stay deferred: they release resources and must
+// run on the panic path, and neither is the consumer's termination signal.
 func (w *Watcher[Row, Key]) run(stream *Stream, desc yang.ListDescriptor[Row, Key]) {
 	defer func() { _ = stream.Close() }()
 	defer w.pump.Cancel()
-	defer w.pump.CloseData()
 
 	store := newRowStore(desc)
 	emitted := make(map[string]Row) // rows the consumer has seen

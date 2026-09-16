@@ -15,6 +15,7 @@ import (
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/capture/mirror"
 )
 
@@ -281,35 +282,54 @@ func (s *linuxMirrorSource) Receive(ctx context.Context) <-chan Frame {
 	frames := make(chan Frame, 1)
 	var wg sync.WaitGroup
 
+	// Each loop's own exits already call sendTerminal before returning; the
+	// sink here covers only the case where the loop panics before reaching
+	// one of them. It cannot race the close below: frames closes only after
+	// every loop (this one included, via wg) has finished.
+	// None of these loops reports through frames on the panic path, and they
+	// must not: wg.Done is the goroutine's own defer, so it runs during the
+	// panic unwind, before the helper's recover. The awaiting goroutine below
+	// can therefore observe wg.Wait return and close frames before a sink
+	// would run, and a send on a closed channel panics even from a select
+	// with a default — inside the recover, where nothing catches it. A
+	// recovered panic would become a process crash. The helper's log record
+	// carries the diagnosis instead.
 	if s.rawV4 != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV4", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV4, decodeV4, frames)
-		}()
+		})
 	}
 	if s.rawV6 != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.rawV6", func() {
 			defer wg.Done()
 			s.runMirrorLoop(ctx, s.rawV6, mirror.Decode, frames)
-		}()
+		})
 	}
 	if s.udp != nil {
 		wg.Add(1)
-		go func() {
+		spawn.Go(ctx, "rawsocket.linuxMirrorSource.runMirrorLoop.udp", func() {
 			defer wg.Done()
 			decodeUDP := func(payload []byte, src, dst net.IP) (*capturev1.MirrorEnvelope, []byte, error) {
 				return mirror.DecodeUDP(payload, src, dst, s.candidates)
 			}
 			s.runMirrorLoop(ctx, s.udp, decodeUDP, frames)
-		}()
+		})
 	}
 
-	go func() {
+	// wg.Wait blocking forever needs every loop above to actually finish,
+	// which they now do even on a panic (wg.Done is their first defer); the
+	// only way this goroutine itself fails to close frames is a panic in
+	// Wait or close, which the sink covers so frames is never left open
+	// with nothing left running that could ever close it.
+	spawn.Go(ctx, "rawsocket.linuxMirrorSource.awaitReceiveClose", func() {
 		wg.Wait()
 		close(frames)
-	}()
+	}, spawn.ReportTo(func(error) {
+		close(frames)
+	}))
 
 	return frames
 }
@@ -372,6 +392,28 @@ func (s *linuxMirrorSource) Close() error {
 // correctness (never closing a fd out from under a blocked recvmsg, which
 // risks another unrelated fd being assigned the same number) outweighs the
 // small added latency.
+// receiveOnce performs one guarded read on sock. open is false when the
+// source has been closed under the lock, which is a clean shutdown.
+//
+// The lock is released by a defer because this runs on a supervised
+// goroutine: a panic in recvmsg is recovered, so a release written after the
+// call would be skipped and s.mu would stay held for the life of the process.
+// Stats and Close both take it, so the capture engine would block there
+// forever — a hang in place of the crash the recovery replaced.
+func (s *linuxMirrorSource) receiveOnce(
+	sock mirrorSocket,
+	buf, oob []byte,
+) (n, oobn int, from unix.Sockaddr, open bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return 0, 0, nil, false, nil
+	}
+	n, oobn, from, err = sock.recvmsg(buf, oob)
+	return n, oobn, from, true, err
+}
+
 func (s *linuxMirrorSource) runMirrorLoop(
 	ctx context.Context,
 	sock mirrorSocket,
@@ -391,13 +433,10 @@ func (s *linuxMirrorSource) runMirrorLoop(
 		default:
 		}
 
-		s.mu.Lock()
-		if s.closed {
-			s.mu.Unlock()
+		n, oobn, from, open, err := s.receiveOnce(sock, buf, oob)
+		if !open {
 			return
 		}
-		n, oobn, from, err := sock.recvmsg(buf, oob)
-		s.mu.Unlock()
 
 		if err != nil {
 			if isRetryable(err) {

@@ -174,6 +174,13 @@ type Fabric struct {
 	busyUntil      map[Endpoint]time.Time
 	egress         map[Endpoint]*egressQueue
 	counters       map[Endpoint]*Counters
+
+	// err is the first scheduling-invariant breach [Fabric.scheduleDequeue]
+	// recorded. It is sticky: once set, [Fabric.Step] refuses to advance and
+	// [Fabric.Err] reports it. A caller must read Err to see a fault, because
+	// a short step count alone does not distinguish a fault from an empty
+	// queue.
+	err error
 }
 
 type linkEndRef struct {
