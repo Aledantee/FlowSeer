@@ -109,8 +109,10 @@ func (m PointToPointMode) TypeID() string { return "stp.point_to_point" }
 func (m PointToPointMode) Canonical() string { return string(effectivePointToPoint(m)) }
 
 // Config defines the spanning tree configuration of a virtual switch. A
-// non-nil MST selects the Multiple Spanning Tree Protocol region it names;
-// a nil MST leaves the bridge running plain Rapid Spanning Tree.
+// non-nil MST selects the Multiple Spanning Tree Protocol region it names; a
+// non-nil PVST selects Per-VLAN Rapid Spanning Tree instead. A Config with
+// both is invalid. Neither set leaves the bridge running plain Rapid
+// Spanning Tree.
 type Config struct {
 	Priority        uint16
 	PriorityPresent bool
@@ -121,6 +123,7 @@ type Config struct {
 	TxHoldCount     uint8
 	Ports           map[string]Port
 	MST             *MST
+	PVST            *PVST
 }
 
 // Clone returns a deep copy of the spanning tree configuration.
@@ -135,6 +138,10 @@ func (c Config) Clone() Config {
 	if c.MST != nil {
 		mst := c.MST.Clone()
 		cloned.MST = &mst
+	}
+	if c.PVST != nil {
+		pvst := c.PVST.Clone()
+		cloned.PVST = &pvst
 	}
 	return cloned
 }
@@ -208,6 +215,10 @@ func (c Config) Normalize() Config {
 		normalized := cloned.MST.Normalize()
 		cloned.MST = &normalized
 	}
+	if cloned.PVST != nil {
+		normalized := cloned.PVST.Normalize()
+		cloned.PVST = &normalized
+	}
 	return cloned
 }
 
@@ -280,6 +291,11 @@ func (c Config) ValidateTimers() error {
 // be a multiple of 4096, effective timers must satisfy IEEE bounds, every configured
 // port must exist in the port table, and no configured port may be a LAG member.
 func (c Config) Validate(ports port.Table) error {
+	if c.MST != nil && c.PVST != nil {
+		return errs.New().
+			Attr("field", "pvst").
+			Msg("MST and PVST cannot both be configured")
+	}
 	if c.Priority%4096 != 0 {
 		return errs.New().
 			Attr("field", "priority").
@@ -361,6 +377,11 @@ func (c Config) Validate(ports port.Table) error {
 
 	if c.MST != nil {
 		if err := c.MST.Validate(ports, c.Ports); err != nil {
+			return err
+		}
+	}
+	if c.PVST != nil {
+		if err := c.PVST.Validate(ports, c.Ports); err != nil {
 			return err
 		}
 	}
