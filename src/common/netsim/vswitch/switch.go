@@ -2082,18 +2082,25 @@ func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 
 // untaggedVID is the VLAN a frame the switch originates on the named port
 // carries when the probe did not name one: the port's PVID on a VLAN-aware
-// bridge, and VLAN 0 on a bridge with no VLAN configuration, which is the
-// single forwarding domain the relay uses there.
+// bridge, falling back to the port's tunnel VID when it has no PVID, and
+// VLAN 0 on a bridge with no VLAN configuration, which is the single
+// forwarding domain the relay uses there.
 func (s *Switch) untaggedVID(name string) vlan.ID {
 	if s.cfg.Bridge == nil || s.cfg.Bridge.VLAN == nil {
 		return 0
 	}
 	sw, ok := s.cfg.Bridge.VLAN.Switchports[name]
-	if !ok || sw.PVID == nil {
+	if !ok {
 		return 0
 	}
+	if sw.PVID != nil {
+		return *sw.PVID
+	}
+	if sw.Tunnel != nil {
+		return sw.Tunnel.VID
+	}
 
-	return *sw.PVID
+	return 0
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {

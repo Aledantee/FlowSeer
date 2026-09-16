@@ -1474,6 +1474,10 @@ func (b *Bridge) buildEgressFrame(
 		return out, false
 	}
 
+	if !sw.CarriesVID(vid) {
+		return out, false
+	}
+
 	if sw.Tunnel != nil {
 		if sw.Tunnel.VID == vid {
 			if len(remainingTags) > 0 {
