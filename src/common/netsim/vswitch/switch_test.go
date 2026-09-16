@@ -4243,6 +4243,9 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_protocol_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_protocol_miss drop", res.Steps)
+		}
 	})
 
 	t.Run("tagged frame on a plain untagged routed port drops as not-bridged", func(t *testing.T) {
