@@ -91,8 +91,8 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 		MessageAge:   0,
 	}
-	swSTP.Forward(t0, "1/1/1", stp.Encode(rootBPDU, macRoot))
-	swSTP.Forward(t0, "1/1/2", stp.Encode(rootBPDU, macRoot))
+	swSTP.Forward(t0, "1/1/1", mustEncode(t, rootBPDU, macRoot))
+	swSTP.Forward(t0, "1/1/2", mustEncode(t, rootBPDU, macRoot))
 
 	// Redundant uplink 1/1/2 transitions to Unknown link state.
 	swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)

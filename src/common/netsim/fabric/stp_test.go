@@ -14,6 +14,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
+func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.Encode(b, src)
+	if err != nil {
+		t.Fatalf("stp.Encode: %v", err)
+	}
+	return frame
+}
+
 type portStatus struct {
 	role  stp.Role
 	state stp.State
@@ -902,7 +912,7 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	frame := stp.Encode(legacyBPDU, inferiorBridgeID.Address)
+	frame := mustEncode(t, legacyBPDU, inferiorBridgeID.Address)
 
 	injID, err := fab.Inject(fabric.Injection{
 		At:     t0.Add(4 * time.Second),
@@ -1047,7 +1057,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	frame := stp.Encode(legacyBPDU, inferiorBridgeID.Address)
+	frame := mustEncode(t, legacyBPDU, inferiorBridgeID.Address)
 
 	injectTimes := []time.Duration{
 		4100 * time.Millisecond,
@@ -1179,7 +1189,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	legacy.SetRole(stp.RoleDesignated)
 	if _, err := fab.Inject(fabric.Injection{
 		At: t0.Add(4 * time.Second), Origin: fabric.Endpoint{Node: "h1"},
-		Frame: stp.Encode(legacy, netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}),
+		Frame: mustEncode(t, legacy, netaddr.MAC{0x02, 0, 0, 0, 0, 0x0c}),
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}

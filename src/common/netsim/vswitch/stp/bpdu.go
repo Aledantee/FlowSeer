@@ -365,9 +365,9 @@ const (
 // identifier, CIST remaining hops, and one 16-octet record per entry in b.MSTIs). An
 // MST body is longer than the 802.3 minimum even with no MSTI records, so the payload
 // is sized to the body rather than padded to minDataLength. b.MSTIs beyond
-// maxMSTIRecords cannot fit the version 3 length field; Encode returns a zero
-// [ethernet.Frame] rather than write a length that would misread on decode.
-func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
+// maxMSTIRecords cannot fit the version 3 length field; Encode reports an error
+// rather than write a length that would misread on decode.
+func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	if b.ConfigID != nil {
 		return encodeMST(b, src)
 	}
@@ -394,7 +394,7 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 			Src:       src,
 			EtherType: ethernet.EtherType(llcConfigBPDULength),
 			Payload:   payload,
-		}
+		}, nil
 
 	case BPDUTypeTopologyChangeNotification:
 		payload[5] = 0
@@ -405,7 +405,7 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 			Src:       src,
 			EtherType: ethernet.EtherType(llcTCNBPDULength),
 			Payload:   payload,
-		}
+		}, nil
 
 	default:
 		version := b.Version
@@ -423,7 +423,7 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 			Src:       src,
 			EtherType: ethernet.EtherType(llcBPDULength),
 			Payload:   payload,
-		}
+		}, nil
 	}
 }
 
@@ -438,9 +438,12 @@ func Encode(b BPDU, src netaddr.MAC) ethernet.Frame {
 // the real CIST bridge identifier. encodeMST overwrites [20:28] with
 // b.RegionalRootID after putBody runs, and putMSTBody writes b.BridgeID at
 // [96:104], so the two fields land where the layout says they do.
-func encodeMST(b BPDU, src netaddr.MAC) ethernet.Frame {
+func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	if len(b.MSTIs) > maxMSTIRecords {
-		return ethernet.Frame{}
+		return ethernet.Frame{}, errs.New().
+			Attr("records", len(b.MSTIs)).
+			Attr("max_records", maxMSTIRecords).
+			Msgf("MST BPDU holds %d MSTI records, more than the %d the version 3 length field can carry", len(b.MSTIs), maxMSTIRecords)
 	}
 
 	contentLen := 3 + mstBodyLength + mstiRecordLength*len(b.MSTIs)
@@ -464,7 +467,7 @@ func encodeMST(b BPDU, src netaddr.MAC) ethernet.Frame {
 		Src:       src,
 		EtherType: ethernet.EtherType(contentLen),
 		Payload:   payload,
-	}
+	}, nil
 }
 
 // putMSTBody writes the MST body that follows the RST prefix putBody

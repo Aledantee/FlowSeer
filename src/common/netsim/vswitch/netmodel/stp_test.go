@@ -12,6 +12,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
@@ -22,6 +23,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
+
+func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.Encode(b, src)
+	if err != nil {
+		t.Fatalf("stp.Encode: %v", err)
+	}
+	return frame
+}
 
 // gigabitCopper is the physical profile these fabric fixtures assume, since
 // they exercise protocol export and loading rather than link negotiation:
@@ -306,7 +317,7 @@ func TestStpExport_MigratedPort(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	frame := stp.Encode(inferiorBPDU, inferiorBridgeID.Address)
+	frame := mustEncode(t, inferiorBPDU, inferiorBridgeID.Address)
 	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
 	sw.Drain()
 

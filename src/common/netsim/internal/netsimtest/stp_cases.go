@@ -116,13 +116,13 @@ func stpCaseSwitch(stpPorts map[string]stp.Port) (*vswitch.Switch, error) {
 // stpCaseSuperiorBPDU encodes an RST BPDU from the root bridge itself, better
 // than the one stpCaseSwitch builds, carrying the given message age against a
 // 20s max age.
-func stpCaseSuperiorBPDU(messageAge time.Duration) ethernet.Frame {
+func stpCaseSuperiorBPDU(messageAge time.Duration) (ethernet.Frame, error) {
 	return stpCaseBPDU(4096, 10, messageAge)
 }
 
 // stpCaseBPDU encodes an RST BPDU from bridge `sender` claiming root 4096 at
 // `cost`, so a case can place one bridge's claim against another's.
-func stpCaseBPDU(sender uint16, cost uint32, messageAge time.Duration) ethernet.Frame {
+func stpCaseBPDU(sender uint16, cost uint32, messageAge time.Duration) (ethernet.Frame, error) {
 	b := stp.BPDU{
 		Version:      2,
 		Type:         stp.BPDUTypeRapid,
@@ -895,14 +895,22 @@ func CaseTroubleshootingStaleRootAgesOut() Case {
 
 			// p2 hears the root bridge itself and becomes the root port, which
 			// fixes this bridge's own path cost to the root.
-			sw.Forward(stpCaseStart.Add(33*time.Second), "p2", stpCaseBPDU(4096, 0, 0))
+			rootClaim, err := stpCaseBPDU(4096, 0, 0)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			sw.Forward(stpCaseStart.Add(33*time.Second), "p2", rootClaim)
 
 			// A second bridge claims the same root on p1 at a cost that beats
 			// this bridge's own, so storing the claim would make p1 Alternate
 			// and blocked. Its message age has already reached the max age it
 			// carries, and every circulating copy would refresh the timer that
 			// holds the port there.
-			sw.Forward(stpCaseStart.Add(34*time.Second), "p1", stpCaseBPDU(8192, 100, 20*time.Second))
+			staleClaim, err := stpCaseBPDU(8192, 100, 20*time.Second)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			sw.Forward(stpCaseStart.Add(34*time.Second), "p1", staleClaim)
 
 			fwd := sw.Forward(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
 
@@ -958,7 +966,11 @@ func CaseTroubleshootingBPDUGuardDisablesEdge() Case {
 			}
 
 			// The unexpected bridge announces itself on the access port.
-			sw.Forward(stpCaseStart.Add(time.Second), "p1", stpCaseSuperiorBPDU(0))
+			superiorBPDU, err := stpCaseSuperiorBPDU(0)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			sw.Forward(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
 
 			// A frame the forwarding database resolves to p1 now meets a port
 			// the guard has disabled.
@@ -1022,7 +1034,11 @@ func CaseTroubleshootingLoopGuardUnidirectionalLink() Case {
 			}
 
 			// p1 hears a better bridge and becomes the root port.
-			sw.Forward(stpCaseStart.Add(time.Second), "p1", stpCaseSuperiorBPDU(0))
+			superiorBPDU, err := stpCaseSuperiorBPDU(0)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			sw.Forward(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
 
 			// The link breaks in the receive direction only: nothing more
 			// arrives, and three hello times later the information expires.

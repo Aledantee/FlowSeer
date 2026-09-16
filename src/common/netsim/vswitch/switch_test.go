@@ -44,6 +44,16 @@ func mustTable(t *testing.T, b *port.Builder) port.Table {
 	return tbl
 }
 
+func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.Encode(b, src)
+	if err != nil {
+		t.Fatalf("stp.Encode: %v", err)
+	}
+	return frame
+}
+
 func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -1696,7 +1706,7 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
 
-	frame := stp.Encode(bpdu, macRoot)
+	frame := mustEncode(t, bpdu, macRoot)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1758,7 +1768,7 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 	}
 	bpdu.SetRole(stp.RoleDesignated)
 
-	frame := stp.Encode(bpdu, macRoot)
+	frame := mustEncode(t, bpdu, macRoot)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1782,7 +1792,7 @@ func TestHubRepeatsBPDU(t *testing.T) {
 		RootID:   stp.BridgeID{Priority: 4096, Address: macRoot},
 		BridgeID: stp.BridgeID{Priority: 4096, Address: macRoot},
 	}
-	frame := stp.Encode(bpdu, macRoot)
+	frame := mustEncode(t, bpdu, macRoot)
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	res := sw.Forward(now, "1/1/1", frame)
@@ -1876,7 +1886,7 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
 
-	frame := stp.Encode(bpdu, macRoot)
+	frame := mustEncode(t, bpdu, macRoot)
 
 	res := sw.Peek(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -1989,7 +1999,7 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	frame := stp.Encode(inferiorBPDU, inferiorBridgeID.Address)
+	frame := mustEncode(t, inferiorBPDU, inferiorBridgeID.Address)
 
 	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
 
@@ -2064,7 +2074,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
 
-	sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+	sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
 
 	rolesBefore := sw.Roles()
 	if rolesBefore["1/1/1"].Role != stp.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
@@ -2119,7 +2129,7 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 	}
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
-	sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+	sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
 	if before := sw.Roles()["1/1/1"]; before.Role != stp.RoleRoot || before.State != stp.StateForwarding {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
 	}
@@ -2168,7 +2178,7 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	}
 	bpdu.SetRole(stp.RoleDesignated)
 
-	res := sw.Forward(now, "1/1/1", stp.Encode(bpdu, macRoot))
+	res := sw.Forward(now, "1/1/1", mustEncode(t, bpdu, macRoot))
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
@@ -4048,7 +4058,7 @@ func TestForwardBPDUWithSpanningTree(t *testing.T) {
 	bpdu.SetRole(stp.RoleDesignated)
 	bpdu.SetProposal(true)
 
-	bpduFrame := stp.Encode(bpdu, macRoot)
+	bpduFrame := mustEncode(t, bpdu, macRoot)
 	resBPDU := sw.Forward(now, "1/1/1", bpduFrame)
 	if resBPDU.Outcome != trace.Consumed {
 		t.Errorf("BPDU outcome = %s, want Consumed", resBPDU.Outcome)

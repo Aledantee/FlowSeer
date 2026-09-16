@@ -745,7 +745,17 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 			bpdu = l.makeAgreementBPDU(t, p, now)
 		}
 
-		*emissions = append(*emissions, Emission{Port: p.name, Frame: Encode(bpdu, l.address)})
+		frame, err := Encode(bpdu, l.address)
+		if err != nil {
+			// MST.Validate rejects a region with more instances than one
+			// BPDU can carry, so this is unreachable for a Layer built
+			// through New; the handling exists so that a future caller
+			// building a Layer another way degrades to sending nothing
+			// rather than to sending an empty frame.
+			return
+		}
+
+		*emissions = append(*emissions, Emission{Port: p.name, Frame: frame})
 		p.txBPDUs++
 		wasZero := tx.count == 0
 		tx.count++

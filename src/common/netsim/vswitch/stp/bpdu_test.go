@@ -13,6 +13,16 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
+func mustEncode(t *testing.T, b stp.BPDU, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := stp.Encode(b, src)
+	if err != nil {
+		t.Fatalf("stp.Encode: %v", err)
+	}
+	return frame
+}
+
 func TestBPDUCodecRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -39,7 +49,7 @@ func TestBPDUCodecRoundTrip(t *testing.T) {
 	b.SetRole(stp.RoleDesignated)
 	b.SetProposal(true)
 
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 	if len(frame.Payload) != 46 {
 		t.Fatalf("payload len = %d, want 46", len(frame.Payload))
 	}
@@ -97,7 +107,7 @@ func TestBPDUCodecRoundTrip(t *testing.T) {
 	}
 
 	// Re-encode and verify identical wire bytes.
-	reEncodedFrame := stp.Encode(decodedBPDU, mac)
+	reEncodedFrame := mustEncode(t, decodedBPDU, mac)
 	reEncodedWire, err := reEncodedFrame.Encode()
 	if err != nil {
 		t.Fatalf("re-encode: %v", err)
@@ -119,7 +129,7 @@ func TestBPDUDecodeRefusals(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	validFrame := stp.Encode(validBPDU, mac)
+	validFrame := mustEncode(t, validBPDU, mac)
 
 	tests := []struct {
 		name      string
@@ -236,7 +246,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x01 == 0 {
 			t.Errorf("bit 0 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -261,7 +271,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x02 == 0 {
 			t.Errorf("bit 1 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -295,7 +305,7 @@ func TestBPDUFlagBits(t *testing.T) {
 			if (b.Flags & (3 << 2)) != c.wantBits {
 				t.Errorf("role %v: Flags bits 2-3 = 0x%02x, want 0x%02x", c.role, b.Flags&(3<<2), c.wantBits)
 			}
-			f := stp.Encode(b, mac)
+			f := mustEncode(t, b, mac)
 			dec, err := stp.Decode(f)
 			if err != nil {
 				t.Fatalf("Decode: %v", err)
@@ -320,7 +330,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x10 == 0 {
 			t.Errorf("bit 4 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -345,7 +355,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x20 == 0 {
 			t.Errorf("bit 5 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -370,7 +380,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x40 == 0 {
 			t.Errorf("bit 6 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -395,7 +405,7 @@ func TestBPDUFlagBits(t *testing.T) {
 		if b.Flags&0x80 == 0 {
 			t.Errorf("bit 7 not set: Flags=0x%02x", b.Flags)
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)
@@ -417,7 +427,7 @@ func TestDecodeRefusesZeroHelloTime(t *testing.T) {
 	t.Parallel()
 
 	root := stp.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 1}}
-	frame := stp.Encode(stp.BPDU{RootID: root, BridgeID: root, MaxAge: 20 * time.Second}, root.Address)
+	frame := mustEncode(t, stp.BPDU{RootID: root, BridgeID: root, MaxAge: 20 * time.Second}, root.Address)
 	if _, err := stp.Decode(frame); err == nil {
 		t.Fatal("Decode accepted a BPDU with hello time 0")
 	}
@@ -518,7 +528,7 @@ func TestEncodeConfigurationBPDURoundTrip(t *testing.T) {
 	b.SetProposal(true)
 	b.SetRole(stp.RoleRoot)
 
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 	if frame.EtherType != ethernet.EtherType(38) {
 		t.Errorf("EtherType = %d, want 38", frame.EtherType)
 	}
@@ -573,7 +583,7 @@ func TestEncodeEmptyBPDURapid(t *testing.T) {
 	t.Parallel()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-	frame := stp.Encode(stp.BPDU{}, mac)
+	frame := mustEncode(t, stp.BPDU{}, mac)
 
 	if frame.EtherType != ethernet.EtherType(39) {
 		t.Errorf("EtherType = %d, want 39", frame.EtherType)
@@ -601,7 +611,7 @@ func TestEncodeEmptyBPDURapid(t *testing.T) {
 		t.Errorf("payload = %x, want %x", frame.Payload, expectedPayload)
 	}
 
-	frameWithHello := stp.Encode(stp.BPDU{HelloTime: 2 * time.Second}, mac)
+	frameWithHello := mustEncode(t, stp.BPDU{HelloTime: 2 * time.Second}, mac)
 	dec, err := stp.Decode(frameWithHello)
 	if err != nil {
 		t.Fatalf("stp.Decode: %v", err)
@@ -629,7 +639,7 @@ func TestBPDUVersionAndTypeCombinations(t *testing.T) {
 
 	t.Run("version 2 type 0 refused", func(t *testing.T) {
 		t.Parallel()
-		f := stp.Encode(valid, mac)
+		f := mustEncode(t, valid, mac)
 		f.Payload[5] = 2
 		f.Payload[6] = 0
 		_, err := stp.Decode(f)
@@ -644,7 +654,7 @@ func TestBPDUVersionAndTypeCombinations(t *testing.T) {
 
 	t.Run("version 0 type 2 refused", func(t *testing.T) {
 		t.Parallel()
-		f := stp.Encode(valid, mac)
+		f := mustEncode(t, valid, mac)
 		f.Payload[5] = 0
 		f.Payload[6] = 2
 		_, err := stp.Decode(f)
@@ -659,7 +669,7 @@ func TestBPDUVersionAndTypeCombinations(t *testing.T) {
 
 	t.Run("version 3 RST body decodes with Version 3", func(t *testing.T) {
 		t.Parallel()
-		f := stp.Encode(valid, mac)
+		f := mustEncode(t, valid, mac)
 		f.Payload[5] = 3
 		f.Payload[6] = 2
 		dec, err := stp.Decode(f)
@@ -751,7 +761,7 @@ func TestMSTBPDUCodecRoundTrip(t *testing.T) {
 				MSTIs:                tc.mstis,
 			}
 
-			frame := stp.Encode(b, mac)
+			frame := mustEncode(t, b, mac)
 
 			wantPayloadLen := 3 + 102 + 16*len(tc.mstis)
 			if len(frame.Payload) != wantPayloadLen {
@@ -801,7 +811,7 @@ func TestMSTBPDUCodecRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Fatalf("frame.Encode: %v", err)
 			}
-			reEncodedFrame := stp.Encode(decoded, mac)
+			reEncodedFrame := mustEncode(t, decoded, mac)
 			reEncodedWire, err := reEncodedFrame.Encode()
 			if err != nil {
 				t.Fatalf("re-encode: %v", err)
@@ -829,7 +839,7 @@ func TestMSTBPDUDecodeRefusesPartialRecord(t *testing.T) {
 			{MSTID: 1, RegionalRootID: stp.BridgeID{Priority: 8192, Address: mac}},
 		},
 	}
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 
 	// Truncate the single MSTI record so the payload no longer holds a whole
 	// one, while the version 3 length field still claims it does.
@@ -858,7 +868,7 @@ func TestMSTBPDUDecodeTruncatedBodyFallsBackToRST(t *testing.T) {
 		MaxAge:       20 * time.Second,
 		ForwardDelay: 15 * time.Second,
 	}
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 	frame.Payload[5] = 3 // Mark the RST BPDU as version 3 without an MST body.
 
 	if len(frame.Payload) >= 105 {
@@ -916,7 +926,7 @@ func TestMSTBPDUEncodePlacesBridgeAndRegionalRootSeparately(t *testing.T) {
 		RemainingHops:  20,
 	}
 
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 
 	wantCISTRegionalRootOctets := []byte{0x12, 0x34, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66}
 	if got := frame.Payload[20:28]; !bytes.Equal(got, wantCISTRegionalRootOctets) {
@@ -957,7 +967,7 @@ func TestMSTBPDUDecodeRefusesOverlongPayload(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 		ConfigID:     &stp.ConfigID{Name: "region-a"},
 	}
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 
 	// Append a whole trailing MSTI record's worth of octets without updating
 	// the version 3 length field, as ten records appended past the length
@@ -1012,10 +1022,7 @@ func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 		b := baseBPDU
 		b.MSTIs = makeMSTIs(maxRecords)
 
-		frame := stp.Encode(b, mac)
-		if len(frame.Payload) == 0 {
-			t.Fatal("Encode returned a zero Frame at the maximum record count")
-		}
+		frame := mustEncode(t, b, mac)
 
 		decoded, err := stp.Decode(frame)
 		if err != nil {
@@ -1032,9 +1039,9 @@ func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 		b := baseBPDU
 		b.MSTIs = makeMSTIs(maxRecords + 1)
 
-		frame := stp.Encode(b, mac)
-		if len(frame.Payload) != 0 {
-			t.Errorf("payload len = %d, want 0 (Encode should refuse to encode)", len(frame.Payload))
+		_, err := stp.Encode(b, mac)
+		if err == nil {
+			t.Fatal("stp.Encode: got nil error, want an error for a record count past the maximum")
 		}
 	})
 }
@@ -1060,7 +1067,7 @@ func TestMSTIRecordPriorityLowBitsFollowMSTID(t *testing.T) {
 		},
 	}
 
-	frame := stp.Encode(b, mac)
+	frame := mustEncode(t, b, mac)
 	decoded, err := stp.Decode(frame)
 	if err != nil {
 		t.Fatalf("stp.Decode: %v", err)
@@ -1094,7 +1101,7 @@ func TestHelloTimeValidationPerType(t *testing.T) {
 			ForwardDelay: 15 * time.Second,
 			HelloTime:    0,
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		_, err := stp.Decode(f)
 		if err == nil {
 			t.Fatal("Decode unexpectedly succeeded for Configuration BPDU with zero hello time")
@@ -1110,7 +1117,7 @@ func TestHelloTimeValidationPerType(t *testing.T) {
 		b := stp.BPDU{
 			Type: stp.BPDUTypeTopologyChangeNotification,
 		}
-		f := stp.Encode(b, mac)
+		f := mustEncode(t, b, mac)
 		dec, err := stp.Decode(f)
 		if err != nil {
 			t.Fatalf("Decode: %v", err)

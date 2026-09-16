@@ -99,7 +99,7 @@ func TestPortInsertionOrderDoesNotChangeConfigurationOrForwardingSemantics(t *te
 func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 	deviceMAC := netaddr.MAC{2, 0, 0, 0, 0, 1}
 	frame := ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 2}, Dst: deviceMAC}
-	bpdu := stp.Encode(stp.BPDU{
+	bpdu := mustEncode(t, stp.BPDU{
 		RootID:       stp.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
 		BridgeID:     stp.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
 		PortID:       0x8001,
