@@ -43,11 +43,15 @@ established across the library:
   the unknown link never touches.
 - `topology-shadowing/mst-region-boundary`: Two switches name the same MST
   region at different revisions, so every link between them is a boundary
-  port. sw2's per-instance path costs, which flip MSTI 1 and MSTI 2 onto
-  opposite links when the region matches, have no effect here: both
-  instances take the CIST's own blocking decision on the boundary,
-  disproving the false answer that an MSTI computes an independent role
-  there that could disagree with the CIST's.
+  port. sw2's per-instance path cost, which would flip MSTI 1 onto l2 when
+  the region matches, has no effect here: MSTI 1 takes the CIST's own
+  blocking decision on the boundary and drops on l2, disproving the false
+  answer that an MSTI computes an independent role there that could
+  disagree with the CIST's. One [Case] asserts one journey, so VLAN 20's
+  unaffected delivery is a second, registered case,
+  `topology-shadowing/mst-region-boundary-vlan20-crosses-l1`, sharing the
+  same fixture. It crosses l1, the link the CIST forwards on, unaffected by
+  VLAN 10's block.
 - `troubleshooting/host-rejects-foreign-unicast`: A fully resolved, Complete
   network path carries a known-unicast frame onto a host's port for a MAC
   that is not the host's own address. The host refuses it under
@@ -63,12 +67,21 @@ established across the library:
   the surviving flow's next selection keeps the bucket it already held, with
   cause `kept`, disproving the false answer that a member fault remaps every
   flow.
-- `planning/mstp-vlan-instances-diverge`: VLAN 10 and VLAN 20 run on separate
-  MST instances between the same two switches, each with its own inflated
-  per-instance path cost on the opposite link. MSTI 1 roots through l2 and
-  MSTI 2 through l1, so the VLAN 10 frame and the VLAN 20 frame cross
-  opposite links, disproving the false answer that spanning tree computes one
-  shape for the bridge and blocks the same link for every VLAN.
+- `planning/mstp-vlan-instances-diverge`: VLAN 10 runs on its own MST
+  instance between two switches, with sw2's per-instance path cost inflated
+  on l1. MSTI 1 roots through l2, so the VLAN 10 frame crosses it, disproving
+  the false answer that spanning tree computes one shape for the bridge and
+  sends every VLAN over whatever link that single tree elects. One [Case]
+  asserts one journey, so VLAN 20's opposite-link delivery is a second,
+  registered case, `planning/mstp-vlan-instances-diverge-vlan20-crosses-l1`,
+  sharing the same fixture: with its own per-instance path cost inflated on
+  l2, MSTI 2 roots through l1 instead, and the VLAN 20 frame crosses that
+  opposite link. A third case sharing the fixture,
+  `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`, proves
+  MSTI 1 does not merely leave l1 unused: a frame seeded behind l1 for VLAN
+  10 is dropped `port-blocked` there, carrying a gate fact for `mstid=1` in
+  state Alternate and Discarding, disproving the false answer that MSTI 1
+  elected l2 without ever putting l1 into a blocking state.
 - `troubleshooting/active-backup-no-failback`: An active-backup bond with no
   configured `Primary` moves from member `a` to member `b` when `a` goes
   down, and stays on `b` with cause `last-active` once `a` recovers,
@@ -110,7 +123,7 @@ established across the library:
   with a Complete result, disproving the false answer that a broken recursive
   route silently forwards or fails construction.
 
-The eight `fabric`-based cases execute a [fabric.Fabric] and populate
+The eleven `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey], six of them alongside
 [ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is

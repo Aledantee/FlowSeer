@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 20 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 20", len(allCases))
+	if len(allCases) != 23 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 23", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -590,6 +590,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"planning/ecmp-candidates-recorded",
 		"planning/lag-member-fault-keeps-surviving-flows",
 		"planning/mstp-vlan-instances-diverge",
+		"planning/mstp-vlan-instances-diverge-instance-blocks-alternate",
+		"planning/mstp-vlan-instances-diverge-vlan20-crosses-l1",
 		"planning/port-vlan-change",
 	}
 	planningCases := r.ByUseCase(netsimtest.UseCasePlanning)
@@ -604,6 +606,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 
 	wantShadowing := []string{
 		"topology-shadowing/mst-region-boundary",
+		"topology-shadowing/mst-region-boundary-vlan20-crosses-l1",
 		"topology-shadowing/partial-model-unknown-port",
 		"topology-shadowing/uncabled-port-definite-drop",
 		"topology-shadowing/unknown-uplink-stp",
