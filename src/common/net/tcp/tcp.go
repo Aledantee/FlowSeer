@@ -9,8 +9,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
-// Flags is the set of TCP control bits from the segment's thirteenth and
-// fourteenth octets (RFC 9293 section 3.1).
+// Flags is the set of TCP control bits, all eight of which share the
+// segment's fourteenth octet (RFC 9293 section 3.1).
 type Flags uint16
 
 const (
