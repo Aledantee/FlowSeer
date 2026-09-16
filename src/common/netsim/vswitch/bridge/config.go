@@ -108,7 +108,9 @@ type Switchport struct {
 // tunnel's VID, an explicit tag in Tagged, or an explicit tag in Untagged.
 // This is the egress admission rule buildEgressFrame applies; PVID alone is
 // deliberately excluded, since an access port's PVID must also appear in
-// Untagged for a frame on that VLAN to actually leave the port.
+// Untagged for a frame on that VLAN to actually leave the port. The ingress
+// counterpart, which a frame arriving on the port must satisfy instead, is
+// [VLAN.AdmitsVIDOnIngress].
 func (s Switchport) CarriesVID(vid vlan.ID) bool {
 	if s.Tunnel != nil {
 		return s.Tunnel.VID == vid
@@ -167,6 +169,59 @@ func (v *VLAN) Clone() *VLAN {
 	}
 
 	return cp
+}
+
+// AdmitsVIDOnIngress reports whether a frame carrying vid, tagged or
+// untagged as tagged says, is admitted when it arrives on port. This is the
+// ingress admission rule [Bridge.Ingress] applies; it differs from
+// [Switchport.CarriesVID], the egress rule, because a bridge can forward a
+// VLAN out a port without also being willing to receive that VLAN on it —
+// Admission and IngressFiltering are ingress-only policies, and an access
+// port's PVID admits its own VLAN untagged even though CarriesVID also
+// requires that VLAN in Untagged. A port absent from Switchports is judged
+// against the zero Switchport.
+//
+// A tunnel port always answers false: on such a port every frame is
+// reclassified into the tunnel's service VLAN and filtered against the
+// customer VID list, a decision [Bridge.Ingress] makes before any VLAN this
+// method could be asked about applies, so vid here names a VLAN inside the
+// customer's own spanning tree rather than one this bridge admits.
+func (v VLAN) AdmitsVIDOnIngress(port string, vid vlan.ID, tagged bool) bool {
+	sw := v.Switchports[port]
+
+	if sw.Tunnel != nil {
+		return false
+	}
+
+	admission := sw.Admission
+	if admission == "" {
+		admission = All
+	}
+	switch admission {
+	case TaggedOnly:
+		if !tagged {
+			return false
+		}
+	case UntaggedAndPriorityTaggedOnly:
+		if tagged {
+			return false
+		}
+	case All:
+	}
+
+	if !tagged {
+		if sw.PVID == nil || vid != *sw.PVID {
+			return false
+		}
+	}
+
+	if sw.IngressFiltering && !slices.Contains(sw.Tagged, vid) && !slices.Contains(sw.Untagged, vid) {
+		return false
+	}
+
+	_, inTable := v.Table[vid]
+
+	return inTable
 }
 
 // Config defines the configuration for a [Bridge].
