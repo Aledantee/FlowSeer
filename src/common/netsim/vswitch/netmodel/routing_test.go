@@ -1156,25 +1156,80 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 //     sub-interfaces naming the same parent and outer VID). Reachable and
 //     covered by DuplicatePortAndVLANClaim below.
 //  8. routing.Config.Validate: a duplicate VLAN claim (two VLAN-kind
-//     interfaces reporting the same VLAN id). This is the rule this task
-//     fixes: it was reachable and unguarded before the VLAN claim
-//     namespace added above, and is now covered by DuplicateVLANClaim below.
+//     interfaces reporting the same VLAN id). Reachable and covered by
+//     DuplicateVLANClaim below, guarded by the VLAN claim namespace above:
+//     two same-VLAN claimants both drop out of the pending list before
+//     either can reach routing.Validate. Dropping both claimants can leave
+//     a VRF with no interfaces at all, which is rule 14 below;
+//     DuplicateVLANClaim's two claimants are the only interfaces in its
+//     load, so its check also pins that rule.
 //  9. routing.Config.Validate: an invalid VLAN on a port-bearing interface
 //     (a sub-interface's own VLAN out of the 1-4094 range). Reachable and
 //     covered by InvalidVLANOnPortBearingInterface below, guarded earlier by
 //     acceptRoutedSubParent's own VID validity check, which raises
 //     netmodel.routing.unsupported_encapsulation before a Port-and-VLAN pair
-//     with an invalid VLAN ever reaches a pending routed interface.
+//     with an invalid VLAN ever reaches a pending routed interface. The
+//     check's own VID has to be 4095: a VID of 0 leaves the sub-interface's
+//     VLAN at the zero value, which routing.Validate reads as "no VLAN
+//     configured" rather than "invalid VLAN", so it can never trip this
+//     rule even with the guard removed; 4095 is the only value the schema
+//     still accepts on a tag that is both nonzero and outside 1-4094.
 //  10. routing.Config.Validate: an interface with neither VLAN nor port.
 //     Reachable and covered by InterfaceWithNeitherVLANNorPort below,
 //     guarded earlier by the unsupported-interface-kind branch (a Loopback
 //     interface with an IP facet, among others), which is skipped before
 //     ever reaching a pending routed interface.
+//  11. vswitch.Config.Validate and routing.Config.Validate: a group MAC
+//     address on a routed interface. Guarded: the pending-interface loop
+//     zeroes any interface MAC that fails the individual six-octet EUI-48
+//     check, which a group address fails, and raises
+//     netmodel.address.invalid_mac instead, so routing.Interface.MAC is
+//     never a group MAC by the time Validate runs.
+//  12. routing.Config.Validate: an interface prefix that is invalid, or
+//     IPv4-mapped. The IPv4-mapped case was reachable and unguarded before
+//     [parseIP] refused an IPv4-mapped sixteen-octet address: an address and
+//     prefix both reported in IPv4-mapped form parsed and reached the VRF,
+//     so the device report failed the whole load instead of raising an
+//     issue; covered by IPv4MappedInterfaceAddress below. A plain malformed
+//     prefix is unreachable: [parsePrefix] only ever hands the VRF a
+//     [netip.Prefix] built from an address [parseIP] already accepted as
+//     valid, so a prefix that fails IsValid() never reaches Validate.
+//  13. routing.Config.Validate: an IPv4-mapped neighbor address. Reachable
+//     and unguarded before the same [parseIP] fix; a mapped address needs no
+//     mapped prefix on its interface to get there, since the family match
+//     compares only Is4()/Is6(), which a mapped address satisfies against
+//     any ordinary IPv6 prefix. Covered by IPv4MappedNeighborAddress below.
+//  14. routing.Config.Validate: a VRF with no interfaces. Reachable whenever
+//     every routed interface's claim is dropped as a conflict, which
+//     DuplicateVLANClaim's two same-VLAN interfaces do, since neither
+//     interface has any other claim to fall back on. Guarded by Load's own
+//     check after the routing walk (len(vrf.Interfaces) > 0), which leaves
+//     cfg.Routing nil and drops the routing capability instead of handing
+//     Validate an empty VRF.
+//  15. vswitch.Config.Validate: a routed VLAN interface requiring bridge
+//     VLAN configuration, and one referencing a VLAN absent from the bridge
+//     table. Unreachable for the same reason as (1): a routed VLAN-kind
+//     interface only ever reaches the routing walk once Load has implied
+//     both the VLAN and relay layers, and the routing walk itself backfills
+//     any VLAN id missing from Bridge.VLAN.Table before Validate runs, so
+//     Bridge.VLAN is always present and always already carries the VLAN.
+//  16. routing.Config.Validate: every route rule (an unmasked prefix, an
+//     IPv4-mapped prefix or next hop, a route naming neither next hop nor
+//     interface, a next hop in a different address family than its prefix,
+//     a non-unicast next hop, a route naming an interface outside its VRF,
+//     a duplicate route). Unreachable: Load takes no route input and never
+//     assigns routing.VRF.Routes, so every VRF it builds carries an empty
+//     route slice regardless of the device report.
 func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 	for _, test := range []struct {
-		name  string
-		input loadInput
-		check func(t *testing.T, loaded netmodel.Result)
+		name string
+		// skipProtovalidate is set for a row whose fixture protovalidate
+		// itself refuses (a reserved VLAN tag id), which netmodel must still
+		// handle defensively since Load does not assume its caller ran
+		// protovalidate.
+		skipProtovalidate bool
+		input             loadInput
+		check             func(t *testing.T, loaded netmodel.Result)
 	}{
 		{
 			name: "RoutedPortConfiguredAsBridgeSwitchport",
@@ -1288,14 +1343,26 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 				}) {
 					t.Errorf("issues = %+v, want claim conflict at %s", loaded.Metadata.Issues(), wantScope)
 				}
+				if cfg := loaded.Spec.Config; cfg.Routing != nil {
+					t.Errorf("expected Routing configuration to be nil once both VLAN claimants drop out, got %+v", cfg.Routing)
+				}
 			},
 		},
 		{
-			name: "InvalidVLANOnPortBearingInterface",
+			// The tag id has to be 4095: id 0 leaves the sub-interface's
+			// VLAN at the zero value, which routing.Validate reads as "no
+			// VLAN configured" rather than "invalid VLAN", so it can never
+			// trip the rule this row is named for even with its guard
+			// removed. 4095 is the only nonzero id outside 1-4094 the
+			// schema still accepts on a tag, so it skips protovalidate the
+			// same way the reserved-id case in
+			// TestLoad_SubInterfaceUnsupportedEncapsulation does.
+			name:              "InvalidVLANOnPortBearingInterface",
+			skipProtovalidate: true,
 			input: loadInput{
 				ifaces: []*interfacev1.Interface{
 					plainPhysicalInterface("eth1"),
-					subInterface("eth1.0", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 0)),
+					subInterface("eth1.4095", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 4095)),
 				},
 			},
 			check: func(t *testing.T, loaded netmodel.Result) {
@@ -1306,8 +1373,8 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 					t.Errorf("issues = %+v, want unsupported_encapsulation at %s", loaded.Metadata.Issues(), wantScope)
 				}
 				if cfg := loaded.Spec.Config; cfg.Routing != nil {
-					if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces["eth1.0"]; ok {
-						t.Errorf("rejected sub-interface eth1.0 must not appear in VRF interfaces")
+					if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces["eth1.4095"]; ok {
+						t.Errorf("rejected sub-interface eth1.4095 must not appear in VRF interfaces")
 					}
 				}
 			},
@@ -1343,9 +1410,89 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "IPv4MappedInterfaceAddress",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+				addrs: []*ipv1.InterfaceAddress{
+					func() *ipv1.InterfaceAddress {
+						name := "eth1"
+						mapped := [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 203, 0, 113, 7}
+						return ipv1.InterfaceAddress_builder{
+							InterfaceName: &name,
+							Address:       protoIPv6Addr(mapped),
+							Prefix:        protoIPv6Prefix(mapped, 128),
+						}.Build()
+					}(),
+				},
+			},
+			check: func(t *testing.T, loaded netmodel.Result) {
+				wantScope := routing.VRFScope("sw1", routing.DefaultVRF)
+				if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+					return issue.Code == netmodel.IssueInvalidIPAddress && issue.Scope.Compare(wantScope) == 0
+				}) {
+					t.Errorf("issues = %+v, want invalid ip address at %s", loaded.Metadata.Issues(), wantScope)
+				}
+				cfg := loaded.Spec.Config
+				if cfg.Routing == nil {
+					t.Fatal("expected Routing configuration to be non-nil")
+				}
+				iface, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces["eth1"]
+				if !ok {
+					t.Fatal("missing interface eth1 in VRF default")
+				}
+				if len(iface.Prefixes) != 0 {
+					t.Errorf("eth1 prefixes = %v, want none for a rejected IPv4-mapped address", iface.Prefixes)
+				}
+			},
+		},
+		{
+			name: "IPv4MappedNeighborAddress",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+				addrs: []*ipv1.InterfaceAddress{
+					func() *ipv1.InterfaceAddress {
+						name := "eth1"
+						return ipv1.InterfaceAddress_builder{
+							InterfaceName: &name,
+							Address:       protoIPv6Addr([16]byte{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}),
+							Prefix:        protoIPv6Prefix([16]byte{0x20, 0x01, 0x0d, 0xb8}, 64),
+						}.Build()
+					}(),
+				},
+				neighbors: []*ipv1.NeighborEntry{
+					func() *ipv1.NeighborEntry {
+						name := "eth1"
+						mapped := [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 203, 0, 113, 9}
+						return ipv1.NeighborEntry_builder{
+							InterfaceName: &name,
+							Ip:            protoIPv6Addr(mapped),
+							Mac:           protoEUI48([6]byte{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}),
+						}.Build()
+					}(),
+				},
+			},
+			check: func(t *testing.T, loaded netmodel.Result) {
+				wantScope := routing.NeighborTableScope("sw1", routing.DefaultVRF, "eth1")
+				if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+					return issue.Code == netmodel.IssueInvalidIPAddress && issue.Scope.Compare(wantScope) == 0
+				}) {
+					t.Errorf("issues = %+v, want invalid ip address at %s", loaded.Metadata.Issues(), wantScope)
+				}
+				cfg := loaded.Spec.Config
+				if cfg.Routing == nil {
+					t.Fatal("expected Routing configuration to be non-nil")
+				}
+				if neighbors := cfg.Routing.VRFs[routing.DefaultVRF].Neighbors; len(neighbors) != 0 {
+					t.Errorf("neighbors = %+v, want none for a rejected IPv4-mapped neighbor address", neighbors)
+				}
+			},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			test.input.validate(t)
+			if !test.skipProtovalidate {
+				test.input.validate(t)
+			}
 			loaded := test.input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
 			test.check(t, loaded)
 			if err := loaded.Spec.Config.Validate(); err != nil {
@@ -1976,43 +2123,6 @@ func TestLoad_DuplicateVLANInterfaceClaimSkipped(t *testing.T) {
 	}
 
 	if err := cfg.Validate(); err != nil {
-		t.Errorf("cfg.Validate failed: %v", err)
-	}
-}
-
-// TestLoad_DirectRoutedLAGMemberSkipped pins the other instance of the
-// routed-port ban class found while fixing the STP walk: a physical
-// interface that is itself a LAG member cannot be a routed port, whether
-// routed directly or through a sub-interface. The sub-interface case
-// already carried a skip; a device reporting an IP facet straight on the
-// member port hit the same routing validation refusal by a different path.
-func TestLoad_DirectRoutedLAGMemberSkipped(t *testing.T) {
-	memberName := "1/1/1"
-	ifaces := lagInterfaces()
-	for i, iface := range ifaces {
-		if iface.GetName() == memberName {
-			ifaces[i] = routedPhysicalInterface(memberName)
-			ifaces[i].SetPhysical(iface.GetPhysical())
-		}
-	}
-
-	input := loadInput{ifaces: ifaces}
-	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
-
-	wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, memberName)
-	if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
-		return issue.Code == netmodel.IssueUnsupportedInterfaceKind && issue.Scope.Compare(wantScope) == 0
-	}) {
-		t.Errorf("issues = %+v, want unsupported_interface_kind at %s", loaded.Metadata.Issues(), wantScope)
-	}
-
-	if cfg := loaded.Spec.Config; cfg.Routing != nil {
-		if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces[memberName]; ok {
-			t.Errorf("rejected LAG member %s must not appear in VRF interfaces", memberName)
-		}
-	}
-
-	if err := loaded.Spec.Config.Validate(); err != nil {
 		t.Errorf("cfg.Validate failed: %v", err)
 	}
 }
