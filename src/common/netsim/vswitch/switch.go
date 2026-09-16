@@ -717,7 +717,7 @@ func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
 // address as well, and that frame reaches an RSTP or MSTP neighbor's CIST
 // unchanged. Every other VLAN's tree stops at the port.
 func (s *Switch) recordPVSTBoundaries(res bridge.Result) {
-	if s.stp == nil || res.FID == 1 {
+	if s.stp == nil || res.FID == 0 || res.FID == 1 {
 		return
 	}
 
@@ -2081,11 +2081,13 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 // BPDU may not. The ports a spanning tree holds discarding are exactly the
 // ones whose blocking depends on continuing to hear their peer, so running a
 // BPDU through the gate the tree itself set would drop the frames that keep
-// the topology converged. This is why interceptBPDU does not consult the
-// bridge at all.
-//
-// A switch with no bridge has no VLAN to resolve, so there an SSTP frame is
-// an unsupported BPDU rather than a BPDU on VLAN 0.
+// the topology converged. This is why interceptSSTP does not consult the
+// bridge's ingress rules for the spanning tree gate. It still refuses a
+// frame whose resolved VLAN the ingress port does not carry: bypassing the
+// gate must not also bypass the bridge's own notion of which VLANs a port
+// speaks, or a BPDU tagged for a VLAN the port never joined could rewrite
+// another VLAN's topology. A tag whose VID is 0 is a priority tag, not a
+// VLAN selection, so it resolves the same as an untagged frame.
 func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	receive := s.ports.Receive(ingress)
 	if receive.Reason != "" {
@@ -2108,11 +2110,6 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	before := s.stp.PortInfo(resolvedPort)
 
 	bpdu, tlvVID, err := stp.DecodeSSTP(f)
-	if err == nil && s.bridge == nil {
-		err = errs.New().
-			Attr("reason", stp.ReasonUnsupportedBPDU).
-			Msg("SSTP BPDU on a switch with no bridge names a VLAN nothing can classify")
-	}
 	if err != nil {
 		if mutate {
 			s.stp.BadBPDU(resolvedPort)
@@ -2142,10 +2139,37 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 
 	arrivalVID := s.untaggedVID(resolvedPort)
-	if len(f.Tags) > 0 {
+	if len(f.Tags) > 0 && f.Tags[0].VID != 0 {
 		arrivalVID = f.Tags[0].VID
 	}
 
+	if s.cfg.Bridge.VLAN != nil {
+		sw, ok := s.cfg.Bridge.VLAN.Switchports[resolvedPort]
+		if !ok || !sw.CarriesVID(arrivalVID) {
+			if mutate {
+				s.stp.BadBPDU(resolvedPort)
+			}
+			after := s.stp.PortInfo(resolvedPort)
+
+			return bridge.Result{
+				Trace: trace.Trace{
+					Outcome: trace.Dropped,
+					Reason:  stp.ReasonUnsupportedBPDU,
+					Steps: []trace.Step{{
+						Layer:   port.LayerStp,
+						Op:      trace.OpDrop,
+						RuleID:  trace.RuleID("stp.sstp." + string(stp.ReasonUnsupportedBPDU)),
+						Subject: trace.Subject{Kind: "port", Key: resolvedPort},
+						Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, false, stp.ReasonUnsupportedBPDU)},
+						Outputs: []trace.Fact{stp.PortTransitionFact(resolvedPort, "bad-bpdu", before, after)},
+					}},
+				},
+				Ingress: resolvedPort,
+			}
+		}
+	}
+
+	before = s.stp.VLANPortInfo(arrivalVID, resolvedPort)
 	if mutate {
 		s.applySTPEffects(s.stp.ReceiveSSTP(now, resolvedPort, arrivalVID, tlvVID, bpdu))
 	}
@@ -2279,9 +2303,6 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		if em.VID == 0 {
 			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
 
-			continue
-		}
-		if s.bridge == nil {
 			continue
 		}
 		egress, ok := s.bridge.OriginateFrame(em.Port, em.VID, em.Frame)

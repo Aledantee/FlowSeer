@@ -308,6 +308,18 @@ func Diff(a, b Config) []trace.Change {
 		}
 	}
 
+	if a.PVST != nil || b.PVST != nil {
+		if (a.PVST == nil) != (b.PVST == nil) {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
+				From: BoolFact(a.PVST != nil), To: BoolFact(b.PVST != nil),
+			})
+		}
+		if a.PVST != nil && b.PVST != nil {
+			changes = append(changes, diffPVST(*a.PVST, *b.PVST, layer)...)
+		}
+	}
+
 	return changes
 }
 
@@ -424,6 +436,102 @@ func diffMSTInstance(a, b Instance, key string, layer port.Layer) []trace.Change
 			changes = append(changes, trace.Change{
 				Layer:   layer,
 				Subject: trace.Subject{Kind: "mst_instance_port", Key: portKey},
+				Field:   "",
+				From:    nil,
+				To:      b.Ports[name],
+			})
+		}
+	}
+
+	return changes
+}
+
+// diffPVST computes the differences between two normalized PVST
+// configurations: each VLAN's tree added, removed, or changed in priority
+// and per-port settings, walked in VLAN ID order.
+func diffPVST(a, b PVST, layer port.Layer) []trace.Change {
+	var changes []trace.Change
+
+	for _, vid := range sortedVLANIDs(a.Trees) {
+		at := a.Trees[vid]
+		key := strconv.FormatUint(uint64(vid), 10)
+		bt, exists := b.Trees[vid]
+		if !exists {
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "pvst_tree", Key: key},
+				Field:   "",
+				From:    at,
+				To:      nil,
+			})
+
+			continue
+		}
+		changes = append(changes, diffPVSTTree(at, bt, key, layer)...)
+	}
+
+	for _, vid := range sortedVLANIDs(b.Trees) {
+		if _, exists := a.Trees[vid]; !exists {
+			key := strconv.FormatUint(uint64(vid), 10)
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "pvst_tree", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      b.Trees[vid],
+			})
+		}
+	}
+
+	return changes
+}
+
+// diffPVSTTree computes the differences between two normalized PVST trees
+// identified by key (the VLAN ID as a decimal string).
+func diffPVSTTree(a, b Tree, key string, layer port.Layer) []trace.Change {
+	var changes []trace.Change
+
+	subject := trace.Subject{Kind: "pvst_tree", Key: key}
+
+	if a.Priority != b.Priority {
+		changes = append(changes, trace.Change{
+			Layer: layer, Subject: subject, Field: "priority",
+			From: PriorityFact(a.Priority), To: PriorityFact(b.Priority),
+		})
+	}
+
+	for _, name := range sortedKeys(a.Ports) {
+		ap := a.Ports[name]
+		portKey := key + "/" + name
+		portSubject := trace.Subject{Kind: "pvst_tree_port", Key: portKey}
+		bp, exists := b.Ports[name]
+		if !exists {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "", From: ap, To: nil,
+			})
+
+			continue
+		}
+		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "priority",
+				From: PortPriorityFact(ap.Priority), To: PortPriorityFact(bp.Priority),
+			})
+		}
+		if ap.PathCost != bp.PathCost {
+			changes = append(changes, trace.Change{
+				Layer: layer, Subject: portSubject, Field: "path_cost",
+				From: PathCostFact(ap.PathCost), To: PathCostFact(bp.PathCost),
+			})
+		}
+	}
+
+	for _, name := range sortedKeys(b.Ports) {
+		if _, exists := a.Ports[name]; !exists {
+			portKey := key + "/" + name
+			changes = append(changes, trace.Change{
+				Layer:   layer,
+				Subject: trace.Subject{Kind: "pvst_tree_port", Key: portKey},
 				Field:   "",
 				From:    nil,
 				To:      b.Ports[name],

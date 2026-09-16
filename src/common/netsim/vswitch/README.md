@@ -335,13 +335,19 @@ switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
 
 A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way. Its VLAN
-comes from the frame's own tag, or the port's untagged VLAN, rather than from
-the bridge's ingress pipeline: that pipeline applies the spanning tree gate,
-and the ports a tree holds discarding are exactly the ones whose blocking
-depends on continuing to hear their peer. Its trace step names both the VLAN
-the BPDU claims and the VLAN it arrived on, so a PVID inconsistency is
-readable from the journey. A switch with no bridge cannot resolve a VLAN at
-all, so an SSTP frame there is an unsupported BPDU.
+comes from the frame's own tag, or the port's untagged VLAN when it carries
+none, rather than from the bridge's ingress pipeline: that pipeline applies
+the spanning tree gate, and the ports a tree holds discarding are exactly the
+ones whose blocking depends on continuing to hear their peer. A tag whose VID
+is 0 is a priority tag, not a VLAN selection, so it resolves the same as no
+tag at all; the frame `PriorityTags: Always` emits on an otherwise untagged
+port must not be read as a VLAN 0 BPDU. Bypassing the gate does not bypass the
+bridge's own notion of which VLANs a port speaks: a frame whose resolved VLAN
+the ingress port does not carry is refused as an unsupported BPDU rather than
+handed to the layer, which would otherwise fall back to the CIST and let a
+BPDU tagged for a foreign VLAN rewrite another VLAN's topology. Its trace step
+names both the VLAN the BPDU claims and the VLAN it arrived on, so a PVID
+inconsistency is readable from the journey.
 
 Emissions run the other way: a `stp.Emission` naming a VLAN goes out through
 `bridge.OriginateFrame`, so a per-VLAN BPDU is tagged where the VLAN is
@@ -349,7 +355,12 @@ tagged, untagged where it is the port's untagged VLAN, and withheld where the
 port does not carry it. An emission naming no VLAN leaves untagged and
 unchecked, which is what the IEEE-addressed frame needs on a trunk with no
 native VLAN. A switch carrying a VLAN with no tree is refused at construction,
-naming `stp.pvst.trees`: that VLAN would have no defined forwarding state.
+naming `stp.pvst.trees`: that VLAN would have no defined forwarding state. A
+`PVST` configuration on a bridge with no VLAN table is refused outright,
+naming `stp.pvst`: with no VLAN table every port's untagged VLAN resolves to
+0, so two such switches read each other's BPDUs as arriving on the wrong
+VLAN and block VLAN 1 permanently. There is nothing per-VLAN about a bridge
+that carries no VLANs.
 
 On a switch configured with `loopprotect.Config`, a frame addressed to the
 loop-protection probe group is intercepted before relay processing, but only

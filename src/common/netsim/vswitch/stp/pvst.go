@@ -80,8 +80,9 @@ func (t Tree) clone() Tree {
 
 // Normalize returns a normalized copy of the PVST configuration, filling each
 // tree's priority with bridgePriority when the tree sets none and inserting a
-// default VLAN 1 tree when Trees holds none. An explicitly configured VLAN 1
-// tree is left alone.
+// default VLAN 1 tree whenever Trees omits one, whether Trees is empty or
+// already names other VLANs. An explicitly configured VLAN 1 tree is left
+// alone.
 //
 // The fallback is the bridge's own priority rather than the standard default
 // an MST instance falls back to: PVST is rapid spanning tree run once per
@@ -89,8 +90,11 @@ func (t Tree) clone() Tree {
 // not override, which is not true of an MSTI within a region.
 func (p PVST) Normalize(bridgePriority uint16) PVST {
 	cloned := p.Clone()
-	if len(cloned.Trees) == 0 {
-		cloned.Trees = map[vlan.ID]Tree{1: {}}
+	if cloned.Trees == nil {
+		cloned.Trees = map[vlan.ID]Tree{}
+	}
+	if _, ok := cloned.Trees[1]; !ok {
+		cloned.Trees[1] = Tree{}
 	}
 	for vid, tree := range cloned.Trees {
 		if !tree.PriorityPresent {
