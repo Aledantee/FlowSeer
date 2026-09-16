@@ -145,7 +145,8 @@ func (c Config) Normalize() Config {
 // Validate checks the configuration against the port table: Interval must
 // not be negative, every configured port must exist in the port table and
 // must not be a LAG member, each port's Action and Recovery.Mode must be one
-// of the defined values, Recovery.Duration must not be negative, and
+// of the defined values, Recovery.Duration must not be negative, a port name
+// must not exceed the probe payload's 255-octet name-length field, and
 // LoopCleared cannot pair with Disable because a disabled port sends no
 // probes and can never observe the loop clearing.
 func (c Config) Validate(ports port.Table) error {
@@ -157,6 +158,15 @@ func (c Config) Validate(ports port.Table) error {
 	}
 
 	for _, name := range sortedKeys(c.Ports) {
+		if len(name) > maxProbePortNameLength {
+			return errs.New().
+				Attr("field", "ports."+name).
+				Attr("port", name).
+				Attr("length", len(name)).
+				Attr("max", maxProbePortNameLength).
+				Msgf("loop protection port name %q is %d octets, exceeds the %d-octet probe limit", name, len(name), maxProbePortNameLength)
+		}
+
 		p, ok := ports.Port(name)
 		if !ok {
 			return errs.New().

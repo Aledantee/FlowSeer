@@ -159,6 +159,144 @@ func TestRecoveryTimer(t *testing.T) {
 	}
 }
 
+func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that Receive expires an elapsed recovery window itself,
+	// using the same rule Wake uses, instead of reading a stale applied
+	// state that only a later Wake call would have caught: a probe
+	// delivered at exactly the expiry instant must see the window as
+	// already lifted, and the action as freshly reapplied.
+	tbl := newLayerTable(t, "1/1/1")
+	l, err := loopprotect.New(loopprotect.Config{
+		Interval: 5 * time.Second,
+		Ports: map[string]loopprotect.Port{
+			"1/1/1": {
+				Action:   loopprotect.Block,
+				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
+			},
+		},
+	}, tbl, switchMAC)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t0 := time.Unix(1_700_000_000, 0)
+
+	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
+		t.Fatalf("Action after first Receive = %q, want Block", got)
+	}
+
+	// A probe returns at exactly t0+15s, the instant the window elapses,
+	// with no Wake call in between.
+	l.Receive(t0.Add(15*time.Second), 0, returnedProbe("1/1/1", 0))
+
+	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
+		t.Fatalf("Action at exact expiry = %q, want still Block (reapplied)", got)
+	}
+	if got := l.PortInfo("1/1/1").Recurrences; got != 1 {
+		t.Errorf("Recurrences at exact expiry = %d, want 1", got)
+	}
+}
+
+func TestClearResetsRecurrenceTracking(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that Clear resets everApplied along with applied: the next
+	// application after a Clear is not a Timer recurrence, since Clear,
+	// not an elapsed Timer window, ended the previous one.
+	tbl := newLayerTable(t, "1/1/1")
+	l, err := loopprotect.New(loopprotect.Config{
+		Interval: 5 * time.Second,
+		Ports: map[string]loopprotect.Port{
+			"1/1/1": {
+				Action:   loopprotect.Block,
+				Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: 15 * time.Second},
+			},
+		},
+	}, tbl, switchMAC)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t0 := time.Unix(1_700_000_000, 0)
+
+	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
+		t.Fatalf("Action after first Receive = %q, want Block", got)
+	}
+
+	if ok := l.Clear(t0.Add(time.Second), "1/1/1"); !ok {
+		t.Fatalf("Clear = false, want true")
+	}
+
+	// The loop is still cabled: the very next returned probe reapplies the
+	// action.
+	l.Receive(t0.Add(2*time.Second), 0, returnedProbe("1/1/1", 0))
+	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
+		t.Fatalf("Action after reapplication = %q, want Block", got)
+	}
+	if got := l.PortInfo("1/1/1").Recurrences; got != 0 {
+		t.Errorf("Recurrences after Clear then reapplication = %d, want 0 (Clear, not a Timer recovery, ended the prior application)", got)
+	}
+}
+
+func TestReceiveFlushesOnTransitionIntoDenyingAction(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that Receive flushes the port's learned entries exactly
+	// once, on the transition into a forwarding-denying action, and not
+	// again for a repeat probe on a port already carrying that action.
+	tbl := newLayerTable(t, "block")
+	l, err := loopprotect.New(loopprotect.Config{
+		Ports: map[string]loopprotect.Port{
+			"block": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+		},
+	}, tbl, switchMAC)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t0 := time.Unix(1_700_000_000, 0)
+
+	fx := l.Receive(t0, 0, returnedProbe("block", 0))
+	if len(fx.Flush) != 1 {
+		t.Fatalf("Flush on transition = %d targets, want 1: %+v", len(fx.Flush), fx.Flush)
+	}
+	if fx.Flush[0].Port != "block" || len(fx.Flush[0].FIDs) != 0 {
+		t.Errorf("Flush target = %+v, want {Port: block, FIDs: nil}", fx.Flush[0])
+	}
+
+	fx = l.Receive(t0.Add(time.Second), 0, returnedProbe("block", 0))
+	if len(fx.Flush) != 0 {
+		t.Errorf("Flush on repeat probe = %d targets, want 0: %+v", len(fx.Flush), fx.Flush)
+	}
+}
+
+func TestReceiveNoLearnNeverFlushes(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that NoLearn, which keeps forwarding, never flushes: the
+	// entries it learned remain valid.
+	tbl := newLayerTable(t, "nolearn")
+	l, err := loopprotect.New(loopprotect.Config{
+		Ports: map[string]loopprotect.Port{
+			"nolearn": {Action: loopprotect.NoLearn},
+		},
+	}, tbl, switchMAC)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t0 := time.Unix(1_700_000_000, 0)
+
+	fx := l.Receive(t0, 0, returnedProbe("nolearn", 0))
+	if len(fx.Flush) != 0 {
+		t.Errorf("Flush for NoLearn = %d targets, want 0: %+v", len(fx.Flush), fx.Flush)
+	}
+}
+
 func TestRecoveryManual(t *testing.T) {
 	t.Parallel()
 
@@ -318,6 +456,10 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	t.Parallel()
 
+	// Evidence that Wake gates emission on the applied action, not the
+	// configured one: a Disable-configured port that has never had the
+	// action applied still probes, since a returned probe is the only way
+	// Disable can ever be applied.
 	tbl := newLayerTable(t, "1/1/3", "1/1/1", "1/1/2")
 	l, err := loopprotect.New(loopprotect.Config{
 		Interval: 5 * time.Second,
@@ -335,16 +477,46 @@ func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	l.Wake(t0)
 	fx := l.Wake(t0.Add(5 * time.Second))
 
-	if len(fx.Emissions) != 2 {
-		t.Fatalf("Wake() emitted %d frames, want 2 (disabled port excluded): %+v", len(fx.Emissions), fx.Emissions)
+	if len(fx.Emissions) != 3 {
+		t.Fatalf("Wake() emitted %d frames, want 3 (never-applied Disable port still probes): %+v", len(fx.Emissions), fx.Emissions)
 	}
-	if fx.Emissions[0].Port != "1/1/1" || fx.Emissions[1].Port != "1/1/3" {
-		t.Errorf("emission order = [%s, %s], want [1/1/1, 1/1/3] (sorted)", fx.Emissions[0].Port, fx.Emissions[1].Port)
+	if fx.Emissions[0].Port != "1/1/1" || fx.Emissions[1].Port != "1/1/2" || fx.Emissions[2].Port != "1/1/3" {
+		t.Errorf("emission order = [%s, %s, %s], want [1/1/1, 1/1/2, 1/1/3] (sorted)",
+			fx.Emissions[0].Port, fx.Emissions[1].Port, fx.Emissions[2].Port)
 	}
-	for _, e := range fx.Emissions {
-		if e.Port == "1/1/2" {
-			t.Errorf("Disabled port 1/1/2 emitted a probe")
-		}
+}
+
+func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that emission gates on the applied action: a Disable port
+	// probes until a returned probe applies the action, then stops.
+	tbl := newLayerTable(t, "1/1/1")
+	l, err := loopprotect.New(loopprotect.Config{
+		Interval: 5 * time.Second,
+		Ports: map[string]loopprotect.Port{
+			"1/1/1": {Action: loopprotect.Disable, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+		},
+	}, tbl, switchMAC)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	t0 := time.Unix(1_700_000_000, 0)
+	l.Wake(t0)
+	fx := l.Wake(t0.Add(5 * time.Second))
+	if len(fx.Emissions) != 1 {
+		t.Fatalf("Wake() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
+	}
+
+	l.Receive(t0.Add(5*time.Second), 0, returnedProbe("1/1/1", 0))
+	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Disable {
+		t.Fatalf("Action after Receive = %q, want Disable", got)
+	}
+
+	fx = l.Wake(t0.Add(10 * time.Second))
+	if len(fx.Emissions) != 0 {
+		t.Errorf("Wake() after the action is applied emitted %d frames, want 0: %+v", len(fx.Emissions), fx.Emissions)
 	}
 }
 
