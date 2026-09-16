@@ -128,9 +128,9 @@ func Verify(b []byte, src, dst netip.Addr) bool {
 // (false). It returns [ErrMalformed] for a mixed pair.
 func addressFamily(src, dst netip.Addr) (bool, error) {
 	switch {
-	case pureIPv4(src) && pureIPv4(dst):
+	case isIPv4(src) && isIPv4(dst):
 		return true, nil
-	case pureIPv6(src) && pureIPv6(dst):
+	case isIPv6(src) && isIPv6(dst):
 		return false, nil
 	default:
 		return false, errs.From(ErrMalformed).
@@ -141,11 +141,11 @@ func addressFamily(src, dst netip.Addr) (bool, error) {
 	}
 }
 
-func pureIPv4(a netip.Addr) bool {
+func isIPv4(a netip.Addr) bool {
 	return a.Is4() || a.Is4In6()
 }
 
-func pureIPv6(a netip.Addr) bool {
+func isIPv6(a netip.Addr) bool {
 	return a.Is6() && !a.Is4In6()
 }
 

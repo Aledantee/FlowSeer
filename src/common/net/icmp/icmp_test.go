@@ -31,7 +31,10 @@ func TestDecodeLiteral(t *testing.T) {
 }
 
 func TestDecodeICMPv6Literal(t *testing.T) {
-	// ICMPv6 echo request, type 128, code 0.
+	// ICMPv6 echo request, type 128, code 0. The checksum field is left
+	// zero rather than a computed value: an ICMPv6 checksum covers the
+	// IPv6 pseudo-header, and this literal carries no addresses to compute
+	// one from.
 	b := []byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 	h, _, err := icmp.Decode(b)
@@ -47,10 +50,14 @@ func TestDecodeICMPv6Literal(t *testing.T) {
 }
 
 func TestDecodeDestinationUnreachable(t *testing.T) {
-	// ICMPv4 destination unreachable, fragmentation needed: type 3, code 4.
-	// Type and code differ from each other so neither field can stand in
-	// for the other.
-	b := []byte{0x03, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+	// ICMPv4 destination unreachable, fragmentation needed: type 3, code 4,
+	// checksum 0xfcfb. Type and code differ from each other so neither field
+	// can stand in for the other. The checksum covers only these eight
+	// octets (an ICMPv4 checksum has no pseudo-header), so it can be
+	// verified independently: with the checksum field zeroed, the four
+	// 16-bit big-endian words are 0x0304, 0x0000, 0x0000, 0x0000, summing to
+	// 0x0304; the one's complement is 0xfcfb.
+	b := []byte{0x03, 0x04, 0xfc, 0xfb, 0x00, 0x00, 0x00, 0x00}
 
 	h, _, err := icmp.Decode(b)
 	if err != nil {

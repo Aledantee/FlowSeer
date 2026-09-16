@@ -92,10 +92,10 @@ the address width:
 
 `Encode` picks the pseudo-header shape from `src` and `dst`, which must both
 be IPv4 (an IPv4-mapped IPv6 address counts as IPv4) or both be pure IPv6; a
-mixed pair returns `ErrMalformed`. A
-computed checksum of zero is sent as `0xffff` instead, per RFC 768: a real
-zero on IPv4 means "no checksum was computed", and RFC 8200 section 8.1
-forbids a zero UDP checksum on IPv6 outright.
+mixed pair returns `ErrMalformed`. A computed checksum of zero is sent as
+`0xffff` instead, per RFC 768: a real zero on IPv4 means "no checksum was
+computed", and RFC 8200 section 8.1 forbids a zero UDP checksum on IPv6
+outright.
 
 ## Errors
 
