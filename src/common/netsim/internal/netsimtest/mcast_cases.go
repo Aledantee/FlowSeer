@@ -34,9 +34,10 @@ var mdnsIPv6Datagram = []byte{
 	0x6c, 0x00, 0x00, 0x0c, 0x00, 0x01,
 }
 
-// mdnsCaseSwitchPorts builds the nine-port, single-VLAN switch shared by the
-// two mDNS conformance cases: VLAN 10 spans p1..p9, and p9 is the multicast
-// router port.
+// mdnsCaseSwitchPorts builds the nine administratively up physical ports
+// (p1..p9) shared by the two mDNS conformance cases. VLAN membership and the
+// multicast router port are configured separately, in
+// [mdnsCaseVLANSwitchports] and each case's own multicast config.
 func mdnsCaseSwitchPorts() (port.Table, error) {
 	builder := port.NewBuilder()
 	for _, name := range []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"} {
@@ -46,7 +47,7 @@ func mdnsCaseSwitchPorts() (port.Table, error) {
 	return builder.Build()
 }
 
-func mdnsCaseSwitchports() map[string]bridge.Switchport {
+func mdnsCaseVLANSwitchports() map[string]bridge.Switchport {
 	pvid := vlan.ID(10)
 	switchports := make(map[string]bridge.Switchport, 9)
 	for _, name := range []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"} {
@@ -170,30 +171,6 @@ func CaseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
 			Scope:  analysis.NodeScope(""),
 		},
 		Execute: func() (ExecutionResult, error) {
-			ports, err := mdnsCaseSwitchPorts()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			flood := false
-			spec := vswitch.ConstructionSpec{
-				Config: vswitch.Config{
-					Ports: ports,
-					Bridge: &bridge.Config{VLAN: &bridge.VLAN{
-						Table:       map[vlan.ID]string{10: "ten"},
-						Switchports: mdnsCaseSwitchports(),
-					}},
-					Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-						10: {FloodUnregistered: &flood, RouterPorts: []string{"p9"}},
-					}},
-				},
-			}
-
-			sw, err := vswitch.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
 			hdr := ip.Header{
 				Src:      netip.MustParseAddr("10.0.10.7"),
 				Dst:      netip.MustParseAddr("224.0.0.251"),
@@ -201,24 +178,8 @@ func CaseTroubleshootingMDNSIPv4FloodsUnderSnooping() Case {
 				Protocol: 17,
 				V4:       &ip.V4{},
 			}
-			pkt, err := hdr.Encode(mdnsIPv4Datagram)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
 
-			mdnsFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
-
-			now := time.Unix(1700000000, 0)
-			fwd := sw.Forward(now, "p1", mdnsFrame)
-
-			return ExecutionResult{
-				Outcome:  fwd.Outcome,
-				Reason:   fwd.Reason,
-				Steps:    fwd.Steps,
-				Metadata: fwd.Metadata,
-				Switch:   sw,
-				Forward:  &fwd,
-			}, nil
+			return mdnsCaseExecute(hostMAC, groupMAC, ethernet.EtherTypeIPv4, hdr, mdnsIPv4Datagram)
 		},
 	}
 }
@@ -286,30 +247,6 @@ func CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
 			Scope:  analysis.NodeScope(""),
 		},
 		Execute: func() (ExecutionResult, error) {
-			ports, err := mdnsCaseSwitchPorts()
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
-			flood := false
-			spec := vswitch.ConstructionSpec{
-				Config: vswitch.Config{
-					Ports: ports,
-					Bridge: &bridge.Config{VLAN: &bridge.VLAN{
-						Table:       map[vlan.ID]string{10: "ten"},
-						Switchports: mdnsCaseSwitchports(),
-					}},
-					Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-						10: {FloodUnregistered: &flood, RouterPorts: []string{"p9"}},
-					}},
-				},
-			}
-
-			sw, err := vswitch.NewWithSpec(spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-
 			hdr := ip.Header{
 				Src:      netip.MustParseAddr("fe80::1"),
 				Dst:      netip.MustParseAddr("ff02::fb"),
@@ -317,26 +254,57 @@ func CaseTroubleshootingMDNSIPv6UnregisteredRouterPorts() Case {
 				Protocol: 17,
 				V6:       &ip.V6{},
 			}
-			pkt, err := hdr.Encode(mdnsIPv6Datagram)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
 
-			mdnsFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv6, Payload: pkt}
-
-			now := time.Unix(1700000000, 0)
-			fwd := sw.Forward(now, "p1", mdnsFrame)
-
-			return ExecutionResult{
-				Outcome:  fwd.Outcome,
-				Reason:   fwd.Reason,
-				Steps:    fwd.Steps,
-				Metadata: fwd.Metadata,
-				Switch:   sw,
-				Forward:  &fwd,
-			}, nil
+			return mdnsCaseExecute(hostMAC, groupMAC, ethernet.EtherTypeIPv6, hdr, mdnsIPv6Datagram)
 		},
 	}
+}
+
+// mdnsCaseExecute builds the shared nine-port switch and forwards a single
+// frame carrying an mDNS datagram from p1, for the mDNS conformance cases.
+func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, etherType ethernet.EtherType, hdr ip.Header, datagram []byte) (ExecutionResult, error) {
+	ports, err := mdnsCaseSwitchPorts()
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	flood := false
+	spec := vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: mdnsCaseVLANSwitchports(),
+			}},
+			Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
+				10: {FloodUnregistered: &flood, RouterPorts: []string{"p9"}},
+			}},
+		},
+	}
+
+	sw, err := vswitch.NewWithSpec(spec)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	pkt, err := hdr.Encode(datagram)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+
+	mdnsFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: etherType, Payload: pkt}
+
+	now := time.Unix(1700000000, 0)
+	fwd := sw.Forward(now, "p1", mdnsFrame)
+
+	return ExecutionResult{
+		Outcome:  fwd.Outcome,
+		Reason:   fwd.Reason,
+		Steps:    fwd.Steps,
+		Metadata: fwd.Metadata,
+		Switch:   sw,
+		Forward:  &fwd,
+	}, nil
 }
 
 // RegisterMDNSCases populates registry with the cases covering how IGMP and
