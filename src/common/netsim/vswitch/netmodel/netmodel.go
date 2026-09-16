@@ -524,15 +524,33 @@ func Load(
 	// itself accept counts, so a parent keeps its switchport and
 	// spanning-tree membership when the sub-interface routing rejects is the
 	// only reason it looked routed.
-	routedSubParents := make(map[string]struct{})
+	//
+	// Two sub-interfaces can claim the same parent and outer VID; the
+	// routing walk drops both claimants for that conflict, and this pre-pass
+	// must agree before it decides routedSubParents, or the switchport and
+	// spanning-tree walks strip a parent's membership for a routed status
+	// the routing walk then also refuses, leaving the port in none of the
+	// three tables. So the conflict is decided here first: claims are
+	// grouped by parent and VID, and a parent is routed only through a group
+	// with exactly one claimant.
+	routedSubClaimants := make(map[string][]string)
 	for _, iface := range ifaces {
 		sub := iface.GetSub()
 		if sub == nil || iface.GetIp() == nil {
 			continue
 		}
-		if parentPort, _, accepted := acceptRoutedSubParent(ifaceByName, ports, sub); accepted {
-			routedSubParents[parentPort] = struct{}{}
+		if parentPort, vlanID, accepted := acceptRoutedSubParent(ifaceByName, ports, sub); accepted {
+			key := parentPort + "\x00" + strconv.Itoa(int(vlanID))
+			routedSubClaimants[key] = append(routedSubClaimants[key], iface.GetName())
 		}
+	}
+	routedSubParents := make(map[string]struct{})
+	for key, claimants := range routedSubClaimants {
+		if len(claimants) != 1 {
+			continue
+		}
+		parentPort, _, _ := strings.Cut(key, "\x00")
+		routedSubParents[parentPort] = struct{}{}
 	}
 
 	var (
@@ -1578,13 +1596,17 @@ func Load(
 			Interfaces: make(map[string]routing.Interface),
 		}
 
-		// A claim is the (port, VLAN) pair a routed interface resolves to.
-		// Two sub-interfaces can report the same parent and outer VID, which
-		// routing validation refuses as a duplicate claim, so every claimant
-		// is collected before any of them reaches the VRF: a key claimed
-		// more than once drops every claimant, the same way the shared fact
-		// resolver drops a contested value instead of keeping whichever
-		// input happened to arrive first.
+		// A claim is the (port, VLAN) pair a routed interface resolves to,
+		// or, for a VLAN-kind interface that resolves to no port, the VLAN
+		// id on its own. Two sub-interfaces can report the same parent and
+		// outer VID, and two VLAN interfaces can report the same VLAN id;
+		// both are refused by routing validation as a duplicate claim, so
+		// every claimant is collected before any of them reaches the VRF: a
+		// key claimed more than once drops every claimant, the same way the
+		// shared fact resolver drops a contested value instead of keeping
+		// whichever input happened to arrive first. The two claim kinds get
+		// separate namespaces, since a port-and-VLAN claim and a bare VLAN
+		// claim never contend for the same slot.
 		type pendingRoutedInterface struct {
 			iface    *interfacev1.Interface
 			portName string
@@ -1593,6 +1615,7 @@ func Load(
 
 		var pending []pendingRoutedInterface
 		claimants := make(map[string][]string)
+		vlanClaimants := make(map[vlan.ID][]string)
 
 		for _, iface := range ifaces {
 			if iface.GetIp() == nil {
@@ -1617,6 +1640,7 @@ func Load(
 						cfg.Bridge.VLAN.Table[vlanID] = ""
 					}
 				}
+				vlanClaimants[vlanID] = append(vlanClaimants[vlanID], iface.GetName())
 			case iface.GetPhysical() != nil || iface.GetLag() != nil:
 				if p, ok := ports.Port(iface.GetName()); ok && p.LagParent != "" {
 					// A LAG member cannot be a routed port either directly or
@@ -1674,6 +1698,34 @@ func Load(
 				routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, portName),
 				"routed_interface_claim",
 				fmt.Sprintf("%s VLAN %s", portName, vlanStr),
+				"claimed by "+strings.Join(quoted, ", "),
+				IssueConflictRoutedClaim,
+			)
+			for _, name := range names {
+				conflictedClaimants[name] = struct{}{}
+			}
+		}
+
+		vlanIDs := make([]vlan.ID, 0, len(vlanClaimants))
+		for vid := range vlanClaimants {
+			vlanIDs = append(vlanIDs, vid)
+		}
+		slices.Sort(vlanIDs)
+		for _, vid := range vlanIDs {
+			names := vlanClaimants[vid]
+			if len(names) < 2 {
+				continue
+			}
+			slices.Sort(names)
+
+			quoted := make([]string, len(names))
+			for i, name := range names {
+				quoted[i] = strconv.Quote(name)
+			}
+			addConflict(
+				routing.VLANLookupScope(src.DeviceID, routing.DefaultVRF, vid),
+				"routed_interface_claim",
+				fmt.Sprintf("vlan %d", vid),
 				"claimed by "+strings.Join(quoted, ", "),
 				IssueConflictRoutedClaim,
 			)

@@ -166,8 +166,12 @@ LAG interface loaded alongside it and the encapsulation is exactly one
 4094). It contributes no port-table entry of its own, since it is not a port,
 and an IP facet on it counts toward the same routed-interface capability flag
 a VLAN interface or a routed port would set. A parent's own switchport facet
-is skipped from the bridge switchport table on the same footing as a directly
-routed port, even when the parent carries no IP facet of its own.
+and its spanning-tree port are skipped from the bridge switchport table and
+the spanning-tree port table on the same footing as a directly routed port,
+even when the parent carries no IP facet of its own, but only once one of
+its sub-interfaces resolves to a claim the routing walk accepts without a
+conflicting claimant; a parent whose only sub-interface is rejected, or
+whose sub-interfaces claim the same parent and VID, keeps both.
 
 Any other encapsulation, an absent one included, raises
 `netmodel.routing.unsupported_encapsulation` on the parent port's lookup
