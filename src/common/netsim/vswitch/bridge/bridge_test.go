@@ -2,6 +2,7 @@ package bridge_test
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1545,6 +1546,205 @@ func TestGateBlocksEgress(t *testing.T) {
 	}
 	if egress3 == nil || egress3.Dropped != "" {
 		t.Errorf("egress on 1/1/3 = %+v, want forwarded", egress3)
+	}
+}
+
+// testSemanticGate is a stub [bridge.Gate] that also implements the
+// unexported semanticGate contract, so a multi-gate test can tell which
+// installed gate a recorded fact came from.
+type testSemanticGate struct {
+	name     string
+	learns   map[string]bool
+	forwards map[string]bool
+}
+
+func (g testSemanticGate) Learns(p string, _ vlan.ID) bool {
+	if g.learns == nil {
+		return true
+	}
+
+	return g.learns[p]
+}
+
+func (g testSemanticGate) Forwards(p string, _ vlan.ID) bool {
+	if g.forwards == nil {
+		return true
+	}
+
+	return g.forwards[p]
+}
+
+func (g testSemanticGate) ForwardingFact(port string, _ vlan.ID, learns, forwards bool) trace.Fact {
+	return testSemanticFact(g.name + ":" + port + ":" + strconv.FormatBool(learns) + ":" + strconv.FormatBool(forwards))
+}
+
+type testSemanticFact string
+
+func (f testSemanticFact) TypeID() string    { return "test.semantic_gate" }
+func (f testSemanticFact) Canonical() string { return string(f) }
+
+// gateFactIn returns the first testSemanticFact found among a step's Inputs,
+// so a test can assert which installed gate decided a drop.
+func gateFactIn(inputs []trace.Fact) (testSemanticFact, bool) {
+	for _, input := range inputs {
+		if fact, ok := input.(testSemanticFact); ok {
+			return fact, true
+		}
+	}
+
+	return "", false
+}
+
+func portBlockedStep(steps []trace.Step) (trace.Step, bool) {
+	for _, step := range steps {
+		if step.RuleID == trace.RuleID("port-blocked") {
+			return step, true
+		}
+	}
+
+	return trace.Step{}, false
+}
+
+// TestMultiGateIngressBothDenyRecordsFirstInstallationOrder is evidence that
+// when every consulted gate denies both Learns and Forwards on the ingress
+// port, the ingress drop attributes to the first gate installed, in
+// installation order, that denies both, matching a single-gate bridge's
+// behavior of naming its one gate.
+func TestMultiGateIngressBothDenyRecordsFirstInstallationOrder(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, bridge.Config{}, ports)
+	br.SetGate(testSemanticGate{
+		name:     "first",
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
+	br.SetGate(testSemanticGate{
+		name:     "second",
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "second", "0"))
+
+	frame := ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("test")}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortBlocked)
+	}
+	step, ok := portBlockedStep(res.Steps)
+	if !ok {
+		t.Fatalf("steps = %+v, want a port-blocked drop", res.Steps)
+	}
+	fact, ok := gateFactIn(step.Inputs)
+	if !ok {
+		t.Fatalf("port-blocked step Inputs = %+v, want a semantic gate fact", step.Inputs)
+	}
+	if want := testSemanticFact("first:1/1/1:false:false"); fact != want {
+		t.Errorf("gate fact = %q, want %q: both gates deny both, so the first installed decides", fact, want)
+	}
+}
+
+// TestMultiGateIngressSecondGateDeniesBothRecordsSecondsFact is evidence
+// against the naive "first gate that denies anything" rule: a port the first
+// gate merely holds in Learning (Learns true, Forwards false) alongside a
+// second gate that denies both must not be attributed to the first gate,
+// since the first gate did not cause the ingress drop.
+func TestMultiGateIngressSecondGateDeniesBothRecordsSecondsFact(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, bridge.Config{}, ports)
+	br.SetGate(testSemanticGate{
+		name:     "first",
+		learns:   map[string]bool{"1/1/1": true, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "stp", "0"))
+	br.SetGate(testSemanticGate{
+		name:     "second",
+		learns:   map[string]bool{"1/1/1": false, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": false, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "second", "0"))
+
+	frame := ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("test")}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("res.Reason = %q, want %q", res.Reason, bridge.ReasonPortBlocked)
+	}
+	step, ok := portBlockedStep(res.Steps)
+	if !ok {
+		t.Fatalf("steps = %+v, want a port-blocked drop", res.Steps)
+	}
+	fact, ok := gateFactIn(step.Inputs)
+	if !ok {
+		t.Fatalf("port-blocked step Inputs = %+v, want a semantic gate fact", step.Inputs)
+	}
+	if want := testSemanticFact("second:1/1/1:false:false"); fact != want {
+		t.Errorf("gate fact = %q, want %q: the first gate only denies Forwards, so the gate that denies both decides", fact, want)
+	}
+	if len(br.Entries()) != 0 {
+		t.Errorf("len(br.Entries()) = %d, want 0: the drop happens before learning since Forwards is false on both gates", len(br.Entries()))
+	}
+}
+
+// TestMultiGateScopeOnlyEntryGatesNothingButIsConsulted is evidence that a
+// nil gate installed for a scope, meaning that scope's protocol metadata
+// exists without a layer running, gates nothing on its own but still adds its
+// scope to the consulted set, exactly as it does for a single-gate bridge.
+func TestMultiGateScopeOnlyEntryGatesNothingButIsConsulted(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, bridge.Config{}, ports)
+	scopeOnly := analysis.ProtocolScope("sw1", "stp", "0")
+	br.SetGate(nil, scopeOnly)
+	br.SetGate(testSemanticGate{
+		name:     "second",
+		learns:   map[string]bool{"1/1/1": true, "1/1/2": true},
+		forwards: map[string]bool{"1/1/1": true, "1/1/2": true},
+	}, analysis.ProtocolScope("sw1", "second", "0"))
+
+	frame := ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("test")}
+	res := br.Forward(testTime0, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("res.Outcome = %q, want %q: the nil gate allows and the other gate allows", res.Outcome, trace.Flooded)
+	}
+	want := analysis.FieldScope(scopeOnly, "ports", "1/1/1")
+	found := false
+	for _, scope := range res.ConsultedScopes() {
+		if scope.Compare(want) == 0 {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("ConsultedScopes() = %+v, want it to contain %+v", res.ConsultedScopes(), want)
+	}
+}
+
+// TestMultiGateConsultedScopesAreTheUnion is evidence that every installed
+// gate's scope, keyed by port, is consulted: forwarding this frame depends on
+// every gate's decision, so a change to any one gate's scope could change the
+// outcome.
+func TestMultiGateConsultedScopesAreTheUnion(t *testing.T) {
+	ports := buildTestPorts(t, 2)
+	br := mustNewBridge(t, bridge.Config{}, ports)
+	firstScope := analysis.ProtocolScope("sw1", "stp", "0")
+	secondScope := analysis.ProtocolScope("sw1", "second", "0")
+	br.SetGate(testSemanticGate{name: "first"}, firstScope)
+	br.SetGate(testSemanticGate{name: "second"}, secondScope)
+
+	frame := ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("test")}
+	res := br.Forward(testTime0, "1/1/1", frame)
+
+	want := []analysis.Scope{
+		analysis.FieldScope(firstScope, "ports", "1/1/1"),
+		analysis.FieldScope(secondScope, "ports", "1/1/1"),
+	}
+	for _, w := range want {
+		found := false
+		for _, scope := range res.ConsultedScopes() {
+			if scope.Compare(w) == 0 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("ConsultedScopes() = %+v, want it to contain %+v", res.ConsultedScopes(), w)
+		}
 	}
 }
 

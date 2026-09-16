@@ -29,6 +29,15 @@ type semanticGate interface {
 	ForwardingFact(port string, vid vlan.ID, learns, forwards bool) trace.Fact
 }
 
+// gateEntry pairs an installed [Gate] with the analysis scope it was
+// installed under. A bridge consults every entry, keyed by scope, so more
+// than one capability layer (spanning tree alongside another gating layer)
+// can gate a port at once.
+type gateEntry struct {
+	gate  Gate
+	scope analysis.Scope
+}
+
 // Selection is a bridge-level snapshot of a link aggregation member choice. It
 // carries the fields a [Selector] decision reports without the bridge package
 // depending on the layer that produces them.
@@ -82,8 +91,7 @@ type Bridge struct {
 	ports         port.Table
 	agingTime     time.Duration
 	fdb           map[fdbKey]Entry
-	gate          Gate
-	gateScope     analysis.Scope
+	gates         []gateEntry
 	selector      Selector
 	selectorScope analysis.Scope
 	resolver      GroupResolver
@@ -125,12 +133,33 @@ func (b *Bridge) Validate(ports port.Table) error {
 	return b.cfg.Validate(ports)
 }
 
-// SetGate installs g as the bridge forwarding and learning gate. scope is the
-// protocol scope containing the per-port fields consulted by the gate. A nil
-// gate allows every port to learn and forward.
+// SetGate installs g as the bridge forwarding and learning gate for scope,
+// the protocol scope containing the per-port fields the gate consults. A nil
+// gate allows every port to learn and forward, but still contributes scope to
+// the consulted set.
+//
+// SetGate replaces the entry whose scope compares equal to scope, so a caller
+// that reinstalls the gate for a scope it already holds (as [Derive] does
+// when it retains a converged layer over the one [NewWithSpec] just built)
+// does not end up consulting both the stale and the retained layer. A scope
+// SetGate has not seen before is appended as an additional gate, so more than
+// one capability layer can gate a port at once, keyed by scope.
 func (b *Bridge) SetGate(g Gate, scope analysis.Scope) {
-	b.gate = g
-	b.gateScope = scope
+	for i := range b.gates {
+		if b.gates[i].scope.Compare(scope) == 0 {
+			b.gates[i].gate = g
+			b.gates[i].scope = scope
+			return
+		}
+	}
+	b.gates = append(b.gates, gateEntry{gate: g, scope: scope})
+}
+
+// GateCount reports the number of installed gate entries. It exists for
+// tests that must confirm [Bridge.SetGate]'s replacing semantics rather than
+// an appending one; production code has no use for the count.
+func (b *Bridge) GateCount() int {
+	return len(b.gates)
 }
 
 // SetSelector installs sel as the member port selector for LAG egress. scope
@@ -703,14 +732,44 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 	// the scope is consulted here and not ahead of the classification drops.
 	ingressLearns := true
 	ingressForwards := true
-	var ingressGate trace.Fact
-	if b.gateScope.Compare(analysis.WholeScope()) != 0 {
-		res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", res.Ingress))
+	var (
+		firstFact    trace.Fact
+		denyBoth     trace.Fact
+		denyForwards trace.Fact
+	)
+	for _, entry := range b.gates {
+		if entry.scope.Compare(analysis.WholeScope()) != 0 {
+			res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", res.Ingress))
+		}
+		if entry.gate == nil {
+			continue
+		}
+		learns := entry.gate.Learns(res.Ingress, classifiedFID)
+		forwards := entry.gate.Forwards(res.Ingress, classifiedFID)
+		ingressLearns = ingressLearns && learns
+		ingressForwards = ingressForwards && forwards
+		fact := b.gateFact(entry.gate, res.Ingress, classifiedFID, learns, forwards)
+		if firstFact == nil {
+			firstFact = fact
+		}
+		if !learns && !forwards && denyBoth == nil {
+			denyBoth = fact
+		}
+		if !forwards && denyForwards == nil {
+			denyForwards = fact
+		}
 	}
-	if b.gate != nil {
-		ingressLearns = b.gate.Learns(res.Ingress, classifiedFID)
-		ingressForwards = b.gate.Forwards(res.Ingress, classifiedFID)
-		ingressGate = b.gateFact(res.Ingress, classifiedFID, ingressLearns, ingressForwards)
+	// The ingress drop below fires only when both predicates are false, so its
+	// fact names the gate that alone accounts for that; when no single gate
+	// denies both, the forwards-only drop further down needs the first gate
+	// that denied forwarding. When every gate allows, this is unused, but the
+	// first non-nil gate's fact matches what a single-gate bridge recorded.
+	ingressGate := denyBoth
+	if ingressGate == nil {
+		ingressGate = denyForwards
+	}
+	if ingressGate == nil {
+		ingressGate = firstFact
 	}
 
 	if !ingressLearns && !ingressForwards {
@@ -974,11 +1033,23 @@ func (b *Bridge) Egress(in Ingress, f ethernet.Frame) Result {
 			return res
 		}
 
-		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
-			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", destPort.Name))
+		egressForwards := true
+		var egressDenyForwards trace.Fact
+		for _, entry := range b.gates {
+			if entry.scope.Compare(analysis.WholeScope()) != 0 {
+				res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", destPort.Name))
+			}
+			if entry.gate == nil {
+				continue
+			}
+			forwards := entry.gate.Forwards(destPort.Name, in.FID)
+			egressForwards = egressForwards && forwards
+			if !forwards && egressDenyForwards == nil {
+				egressDenyForwards = b.gateFact(entry.gate, destPort.Name, in.FID, entry.gate.Learns(destPort.Name, in.FID), false)
+			}
 		}
-		if b.gate != nil && !b.gate.Forwards(destPort.Name, in.FID) {
-			gate := b.gateFact(destPort.Name, in.FID, b.gate.Learns(destPort.Name, in.FID), false)
+		if !egressForwards {
+			gate := egressDenyForwards
 			res.Reason = ReasonPortBlocked
 			res.Egress = append(res.Egress, Egress{
 				Port:    destPort.Name,
@@ -1177,11 +1248,23 @@ func (b *Bridge) replicate(
 	for i, candidate := range candidates {
 		txReason := txReasons[i]
 		egressFrame := egressFrames[i]
-		if b.gateScope.Compare(analysis.WholeScope()) != 0 {
-			res.ConsultScopes(analysis.FieldScope(b.gateScope, "ports", candidate.Name))
+		floodForwards := true
+		var floodDenyForwards trace.Fact
+		for _, entry := range b.gates {
+			if entry.scope.Compare(analysis.WholeScope()) != 0 {
+				res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", candidate.Name))
+			}
+			if entry.gate == nil {
+				continue
+			}
+			forwards := entry.gate.Forwards(candidate.Name, in.FID)
+			floodForwards = floodForwards && forwards
+			if !forwards && floodDenyForwards == nil {
+				floodDenyForwards = b.gateFact(entry.gate, candidate.Name, in.FID, entry.gate.Learns(candidate.Name, in.FID), false)
+			}
 		}
-		if b.gate != nil && !b.gate.Forwards(candidate.Name, in.FID) {
-			gate := b.gateFact(candidate.Name, in.FID, b.gate.Learns(candidate.Name, in.FID), false)
+		if !floodForwards {
+			gate := floodDenyForwards
 			res.Egress = append(res.Egress, Egress{
 				Port:    candidate.Name,
 				Frame:   egressFrame,
@@ -1283,13 +1366,16 @@ func (b *Bridge) replicate(
 	return res
 }
 
-func (b *Bridge) gateFact(name string, vid vlan.ID, learns, forwards bool) trace.Fact {
-	gate, ok := b.gate.(semanticGate)
+// gateFact takes the deciding gate as a parameter rather than reading a
+// field, since the bridge now consults more than one gate and must attribute
+// a fact to whichever one decided.
+func (b *Bridge) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards bool) trace.Fact {
+	sg, ok := gate.(semanticGate)
 	if !ok {
 		return nil
 	}
 
-	return gate.ForwardingFact(name, vid, learns, forwards)
+	return sg.ForwardingFact(name, vid, learns, forwards)
 }
 
 // selectMember asks the selector which member carries a frame out of a LAG
