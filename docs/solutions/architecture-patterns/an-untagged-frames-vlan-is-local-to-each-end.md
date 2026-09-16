@@ -73,7 +73,15 @@ exclude it:
 Put that judgment in the component that holds the VLAN configuration. The
 capability layer that owns the finding owns no switchports — sibling layers do
 not import one another — so the switch decides and the layer records what it
-is told.
+is told. That is why `Receive` takes a value rather than a bare VLAN id:
+
+```go
+// src/common/netsim/vswitch/loopprotect/layer.go:230
+ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
+```
+
+with `Switch.sameUntaggedDomain` (`src/common/netsim/vswitch/switch.go:2135`)
+reading the sending port's untagged set and filling the field.
 
 ## Why the usual safety nets miss it
 
@@ -94,6 +102,18 @@ is told.
 
 - `dot1qVlanStaticUntaggedPorts` (`spec/mib/ietf/Q-BRIDGE-MIB:1277`) against
   `dot1qPvid` (`:1371`), read on 2026-09-16.
+- The pair of tests that bound the rule from both sides:
+  `TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN`
+  (`src/common/netsim/vswitch/switch_test.go:2554`), which fails with
+  `after={action="Block";inter_vlan=true` against the unconditional
+  comparison, and `TestLoopProtectCrossVLANReturnedProbeIsInterVLAN` (`:2498`),
+  which fails if a future change satisfies the first by suppressing the
+  finding outright.
+- The predicate that ended the duplicated rule:
+  `func (s Switchport) CarriesVID(vid vlan.ID) bool`
+  (`src/common/netsim/vswitch/bridge/config.go:112`), called by
+  `buildEgressFrame` and by the loop-protection branch of
+  `vswitch.Config.Validate`.
 - Vendors documenting the feature and its shared-uplink use case:
   [TP-Link](https://community.tp-link.com/en/business/forum/topic/198458),
   [D-Link DGS-3100](https://www.manualslib.com/manual/419247/D-Link-Dgs-3100-48.html?page=88),
