@@ -46,9 +46,9 @@ func main() {
 }
 ```
 
-`Decode` overwrites nothing on `h`; `Encode` overwrites `h.Length` and
-`h.Checksum`, since both are derived from the payload and the addresses
-rather than caller state.
+`Decode` overwrites nothing on `h`; `Encode` ignores `h.Length` and
+`h.Checksum` on the `h` it is given and derives both fields itself, from the
+payload and the addresses, in the datagram it returns.
 
 ## Header layout
 
@@ -62,7 +62,7 @@ rather than caller state.
 `Decode` refuses fewer than eight octets, a Length under eight, or a Length
 that exceeds the supplied buffer. It does not verify the checksum: a
 snooping switch reads ports without checking transport checksums, and the
-filter and reflector this package supports need the same. Call [`Verify`] for
+filter and reflector this package supports need the same. Call `Verify` for
 callers that do want the check.
 
 ## Checksum
@@ -91,7 +91,8 @@ the address width:
 | 39 | 1 | Next Header (17) |
 
 `Encode` picks the pseudo-header shape from `src` and `dst`, which must both
-be pure IPv4 or both be pure IPv6; a mixed pair returns `ErrMalformed`. A
+be IPv4 (an IPv4-mapped IPv6 address counts as IPv4) or both be pure IPv6; a
+mixed pair returns `ErrMalformed`. A
 computed checksum of zero is sent as `0xffff` instead, per RFC 768: a real
 zero on IPv4 means "no checksum was computed", and RFC 8200 section 8.1
 forbids a zero UDP checksum on IPv6 outright.

@@ -70,12 +70,13 @@ func Decode(b []byte) (Header, []byte, error) {
 }
 
 // Encode serializes h and payload into a UDP datagram addressed from src to
-// dst. It overwrites h.Length with headerLen+len(payload) and h.Checksum with
-// the RFC 768 (IPv4) or RFC 8200 section 8.1 (IPv6) pseudo-header checksum. A
-// checksum that computes to zero is sent as 0xffff, since a real zero means
-// "no checksum" on IPv4 and is forbidden outright on IPv6. Encode returns
-// [ErrMalformed] if src and dst are not the same address family, if either
-// is not a pure IPv4 or IPv6 address, or if the encoded datagram would exceed
+// dst. It ignores h.Length and h.Checksum and derives both fields itself:
+// Length from headerLen+len(payload), and Checksum from the RFC 768 (IPv4) or
+// RFC 8200 section 8.1 (IPv6) pseudo-header checksum. A checksum that
+// computes to zero is sent as 0xffff, since a real zero means "no checksum"
+// on IPv4 and is forbidden outright on IPv6. Encode returns [ErrMalformed] if
+// src and dst are not the same address family, if either is not an IPv4,
+// IPv6, or IPv4-mapped IPv6 address, or if the encoded datagram would exceed
 // 65535 octets.
 func Encode(h Header, payload []byte, src, dst netip.Addr) ([]byte, error) {
 	v4, err := addressFamily(src, dst)
@@ -122,9 +123,9 @@ func Verify(b []byte, src, dst netip.Addr) bool {
 	return checksum(src, dst, v4, wire) == 0
 }
 
-// addressFamily reports whether src and dst are both pure IPv4 addresses (true)
-// or both pure IPv6 addresses (false). It returns [ErrMalformed] for a mixed
-// or non-pure pair.
+// addressFamily reports whether src and dst are both IPv4 addresses, treating
+// an IPv4-mapped IPv6 address as IPv4 (true), or both pure IPv6 addresses
+// (false). It returns [ErrMalformed] for a mixed pair.
 func addressFamily(src, dst netip.Addr) (bool, error) {
 	switch {
 	case pureIPv4(src) && pureIPv4(dst):
