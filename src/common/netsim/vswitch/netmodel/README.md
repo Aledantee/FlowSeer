@@ -174,7 +174,9 @@ Any other encapsulation, an absent one included, raises
 scope and leaves the interface out of the VRF; a parent that is absent from
 the load, is not itself a physical or LAG interface, or is itself a LAG
 member, keeps raising `netmodel.routing.unsupported_interface_kind` on that
-same scope. Two sub-interfaces naming the same parent and VID is a device
-reporting the same claim twice: the first loads and the second is recorded
-as a conflict rather than reaching the VRF, where routing validation would
-otherwise refuse the duplicate claim and fail the whole load.
+same scope. A directly routed interface that is itself a LAG member raises
+the same issue. Two sub-interfaces naming the same parent and VID is a
+device reporting the same claim twice: `netmodel.routing.claim_conflict` is
+recorded on the parent port's lookup scope and neither claimant reaches the
+VRF, the same way any other contested fact drops out rather than keeping
+whichever claimant happened to load first.
