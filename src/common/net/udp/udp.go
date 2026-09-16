@@ -130,7 +130,7 @@ func addressFamily(src, dst netip.Addr) (bool, error) {
 	switch {
 	case isIPv4(src) && isIPv4(dst):
 		return true, nil
-	case isIPv6(src) && isIPv6(dst):
+	case pureIPv6(src) && pureIPv6(dst):
 		return false, nil
 	default:
 		return false, errs.From(ErrMalformed).
@@ -145,7 +145,7 @@ func isIPv4(a netip.Addr) bool {
 	return a.Is4() || a.Is4In6()
 }
 
-func isIPv6(a netip.Addr) bool {
+func pureIPv6(a netip.Addr) bool {
 	return a.Is6() && !a.Is4In6()
 }
 
