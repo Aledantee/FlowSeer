@@ -2081,13 +2081,16 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 // BPDU may not. The ports a spanning tree holds discarding are exactly the
 // ones whose blocking depends on continuing to hear their peer, so running a
 // BPDU through the gate the tree itself set would drop the frames that keep
-// the topology converged. This is why interceptSSTP does not consult the
-// bridge's ingress rules for the spanning tree gate. It still refuses a
-// frame whose resolved VLAN the ingress port does not carry: bypassing the
-// gate must not also bypass the bridge's own notion of which VLANs a port
-// speaks, or a BPDU tagged for a VLAN the port never joined could rewrite
-// another VLAN's topology. A tag whose VID is 0 is a priority tag, not a
-// VLAN selection, so it resolves the same as an untagged frame.
+// the topology converged. A tag whose VID is 0 is a priority tag, not a VLAN
+// selection, so it resolves the same as an untagged frame.
+//
+// The bridge's own ingress admission rule is not bypassed: it is computed
+// here and handed to the layer as SSTPArrival.Admitted, so the spanning tree
+// gate and the bridge's notion of which VLANs a port speaks are the same
+// question asked once, rather than a second, stricter gate ahead of the
+// layer. The layer decides what a refusal means — bpdu-guard still fires
+// even when the frame's VLAN is not admitted, because the link half of a
+// receive always runs before the tree half is judged.
 func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	receive := s.ports.Receive(ingress)
 	if receive.Reason != "" {
@@ -2143,55 +2146,85 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		arrivalVID = f.Tags[0].VID
 	}
 
+	tagged := len(f.Tags) > 0 && f.Tags[0].VID != 0 &&
+		(f.Tags[0].TPID == 0 || f.Tags[0].TPID == uint16(ethernet.EtherTypeDot1Q))
+	admitted := true
 	if s.cfg.Bridge.VLAN != nil {
-		sw, ok := s.cfg.Bridge.VLAN.Switchports[resolvedPort]
-		if !ok || !sw.CarriesVID(arrivalVID) {
-			if mutate {
-				s.stp.BadBPDU(resolvedPort)
-			}
-			after := s.stp.PortInfo(resolvedPort)
-
-			return bridge.Result{
-				Trace: trace.Trace{
-					Outcome: trace.Dropped,
-					Reason:  stp.ReasonUnsupportedBPDU,
-					Steps: []trace.Step{{
-						Layer:   port.LayerStp,
-						Op:      trace.OpDrop,
-						RuleID:  trace.RuleID("stp.sstp." + string(stp.ReasonUnsupportedBPDU)),
-						Subject: trace.Subject{Kind: "port", Key: resolvedPort},
-						Inputs:  []trace.Fact{stp.BPDUDecodeFact(f, false, stp.ReasonUnsupportedBPDU)},
-						Outputs: []trace.Fact{stp.PortTransitionFact(resolvedPort, "bad-bpdu", before, after)},
-					}},
-				},
-				Ingress: resolvedPort,
-			}
-		}
+		admitted = s.cfg.Bridge.VLAN.AdmitsVIDOnIngress(resolvedPort, arrivalVID, tagged)
 	}
 
 	before = s.stp.VLANPortInfo(arrivalVID, resolvedPort)
+
+	var outcome stp.SSTPOutcome
 	if mutate {
-		s.applySTPEffects(s.stp.ReceiveSSTP(now, resolvedPort, arrivalVID, tlvVID, bpdu))
+		var fx stp.Effects
+		fx, outcome = s.stp.ReceiveSSTP(now, resolvedPort, stp.SSTPArrival{
+			ArrivalVID: arrivalVID,
+			TLVVID:     tlvVID,
+			Admitted:   admitted,
+		}, bpdu)
+		s.applySTPEffects(fx)
+	} else {
+		// Peek must render the same step shape Forward would without
+		// mutating anything. Every outcome ReceiveSSTP can still reach once
+		// admitted and tracked renders the same step (trace.Consumed, rule
+		// stp.sstp.admit), so those two answers are all this branch needs.
+		switch {
+		case !admitted:
+			outcome = stp.SSTPNotAdmitted
+		case !s.stp.TracksVLAN(arrivalVID):
+			outcome = stp.SSTPUntrackedVLAN
+		default:
+			outcome = stp.SSTPApplied
+		}
 	}
 	after := s.stp.VLANPortInfo(arrivalVID, resolvedPort)
 
-	return bridge.Result{
-		Trace: trace.Trace{
-			Outcome: trace.Consumed,
-			Steps: []trace.Step{{
-				Layer:   port.LayerStp,
-				Op:      trace.OpClassify,
-				RuleID:  "stp.sstp.admit",
-				Subject: trace.Subject{Kind: "port", Key: resolvedPort},
-				Inputs: []trace.Fact{
-					stp.BPDUDecodeFact(f, true, ""),
-					sstpVLANFact(tlvVID, arrivalVID),
-				},
-				Outputs: []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)},
-			}},
-		},
-		Ingress: resolvedPort,
-		FID:     arrivalVID,
+	inputs := []trace.Fact{
+		stp.BPDUDecodeFact(f, true, ""),
+		sstpVLANFact(tlvVID, arrivalVID),
+	}
+	outputs := []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)}
+	subject := trace.Subject{Kind: "port", Key: resolvedPort}
+
+	switch outcome {
+	case stp.SSTPNotAdmitted, stp.SSTPUntrackedVLAN:
+		reason := stp.ReasonVLANNotAdmitted
+		if outcome == stp.SSTPUntrackedVLAN {
+			reason = stp.ReasonVLANUntracked
+		}
+
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Dropped,
+				Reason:  reason,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpDrop,
+					RuleID:  trace.RuleID("stp.sstp." + string(reason)),
+					Subject: subject,
+					Inputs:  inputs,
+					Outputs: outputs,
+				}},
+			},
+			Ingress: resolvedPort,
+		}
+	default:
+		return bridge.Result{
+			Trace: trace.Trace{
+				Outcome: trace.Consumed,
+				Steps: []trace.Step{{
+					Layer:   port.LayerStp,
+					Op:      trace.OpClassify,
+					RuleID:  "stp.sstp.admit",
+					Subject: subject,
+					Inputs:  inputs,
+					Outputs: outputs,
+				}},
+			},
+			Ingress: resolvedPort,
+			FID:     arrivalVID,
+		}
 	}
 }
 
