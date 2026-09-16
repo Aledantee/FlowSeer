@@ -2043,7 +2043,7 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		s.bridge.Flush(targets)
 	}
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission(em))
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
 	}
 }
 

@@ -914,7 +914,7 @@ func TestPVSTNormalizeInsertsDefaultVLAN1(t *testing.T) {
 	t.Parallel()
 
 	empty := stp.PVST{}
-	norm := empty.Normalize()
+	norm := empty.Normalize(stp.DefaultBridgePriority)
 
 	tree, ok := norm.Trees[1]
 	if !ok {
@@ -928,7 +928,7 @@ func TestPVSTNormalizeInsertsDefaultVLAN1(t *testing.T) {
 	}
 
 	nonEmpty := stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Priority: 4096, PriorityPresent: true}}}
-	norm = nonEmpty.Normalize()
+	norm = nonEmpty.Normalize(stp.DefaultBridgePriority)
 	if len(norm.Trees) != 1 {
 		t.Fatalf("Normalize() on non-empty Trees without VLAN 1 = %d trees, want 1 (no insertion)", len(norm.Trees))
 	}
@@ -941,7 +941,7 @@ func TestPVSTNormalizeLeavesExplicitVLAN1Alone(t *testing.T) {
 	t.Parallel()
 
 	p := stp.PVST{Trees: map[vlan.ID]stp.Tree{1: {Priority: 4096, PriorityPresent: true}}}
-	norm := p.Normalize()
+	norm := p.Normalize(stp.DefaultBridgePriority)
 
 	if got := norm.Trees[1].Priority; got != 4096 {
 		t.Errorf("VLAN 1 tree priority = %d, want the explicitly configured 4096", got)

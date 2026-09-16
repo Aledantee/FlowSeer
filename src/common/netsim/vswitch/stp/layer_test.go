@@ -1894,3 +1894,547 @@ func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 		t.Errorf("Flush = %v, want none: an edge transition raises no topology change", fx.Flush)
 	}
 }
+
+// pvstTrees builds a PVST configuration carrying one tree per VLAN, with the
+// per-port path costs each tree names.
+func pvstTrees(costs map[vlan.ID]map[string]uint32, vids ...vlan.ID) *stp.PVST {
+	trees := make(map[vlan.ID]stp.Tree, len(vids))
+	for _, vid := range vids {
+		tree := stp.Tree{}
+		if ports, ok := costs[vid]; ok {
+			tree.Ports = make(map[string]stp.InstancePort, len(ports))
+			for name, cost := range ports {
+				tree.Ports[name] = stp.InstancePort{PathCost: cost}
+			}
+		}
+		trees[vid] = tree
+	}
+
+	return &stp.PVST{Trees: trees}
+}
+
+// convergePVSTLayers drives a set of PVST layers to convergence the way
+// convergeLayers does for the IEEE-addressed protocols, dispatching each
+// emission to Receive or ReceiveSSTP by its destination address. A cable here
+// carries every VLAN, so the arrival VID is the VID the emitting layer named
+// and a consistent fabric never trips the PVID check.
+func convergePVSTLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables []cableLink, snapshot func() string) time.Time {
+	t.Helper()
+
+	now := start
+
+	findPeer := func(srcSw int, srcPort string) (int, string, bool) {
+		for _, c := range cables {
+			if c.swA == srcSw && c.portA == srcPort {
+				return c.swB, c.portB, true
+			}
+			if c.swB == srcSw && c.portB == srcPort {
+				return c.swA, c.portA, true
+			}
+		}
+
+		return 0, "", false
+	}
+
+	type packet struct {
+		targetSw   int
+		targetPort string
+		vid        vlan.ID
+		frame      ethernet.Frame
+	}
+
+	var queue []packet
+	enqueue := func(sw int, emissions []stp.Emission) {
+		for _, em := range emissions {
+			if peerSw, peerPort, ok := findPeer(sw, em.Port); ok {
+				queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, vid: em.VID, frame: em.Frame})
+			}
+		}
+	}
+
+	for _, c := range cables {
+		enqueue(c.swA, layers[c.swA].LinkChange(now, c.portA, true, true, 1_000_000_000).Emissions)
+		enqueue(c.swB, layers[c.swB].LinkChange(now, c.portB, true, true, 1_000_000_000).Emissions)
+	}
+
+	deliver := func(pkt packet) {
+		if pkt.frame.Dst == stp.GroupAddressSSTP {
+			bpdu, tlvVID, err := stp.DecodeSSTP(pkt.frame)
+			if err != nil {
+				t.Fatalf("decode SSTP packet for sw%d %s: %v", pkt.targetSw, pkt.targetPort, err)
+			}
+			enqueue(pkt.targetSw, layers[pkt.targetSw].ReceiveSSTP(now, pkt.targetPort, pkt.vid, tlvVID, bpdu).Emissions)
+
+			return
+		}
+		bpdu, err := stp.Decode(pkt.frame)
+		if err != nil {
+			t.Fatalf("decode packet for sw%d %s: %v", pkt.targetSw, pkt.targetPort, err)
+		}
+		enqueue(pkt.targetSw, layers[pkt.targetSw].Receive(now, pkt.targetPort, bpdu).Emissions)
+	}
+
+	var prevSnapshot string
+	stableRounds := 0
+
+	for round := 0; round < 400; round++ {
+		current := snapshot()
+		if current == prevSnapshot {
+			// A per-VLAN tree settles a hello cycle behind VLAN 1's, since
+			// nothing but the periodic hello carries its first BPDU. Two
+			// quiet rounds would break out between two of those hellos, with
+			// the VLANs that have not converged yet looking stable.
+			stableRounds++
+			if stableRounds >= 8 && len(queue) == 0 {
+				break
+			}
+		} else {
+			stableRounds = 0
+			prevSnapshot = current
+		}
+
+		if len(queue) > 0 {
+			batch := queue
+			queue = nil
+			for _, pkt := range batch {
+				deliver(pkt)
+			}
+
+			continue
+		}
+
+		var earliestWake time.Time
+		hasWake := false
+		for _, l := range layers {
+			if w, ok := l.NextWake(); ok {
+				if !hasWake || w.Before(earliestWake) {
+					earliestWake = w
+					hasWake = true
+				}
+			}
+		}
+		if !hasWake {
+			break
+		}
+
+		now = earliestWake
+		for i, l := range layers {
+			enqueue(i, l.Wake(now).Emissions)
+		}
+	}
+
+	return now
+}
+
+// TestPVSTVLANsSelectIndependentRoots is evidence that each VLAN runs its own
+// root election. The non-root bridge's path cost is inflated on l1 for VLAN
+// 10 and on l2 for VLAN 20, so the two VLANs block opposite links. Both ends
+// exchange ordinary VLAN 1 hellos first, which is what marks every port
+// external: a boundary-role branch that did not also check for MSTP would
+// then have every VLAN copy VLAN 1's roles, and this test would fail.
+func TestPVSTVLANsSelectIndependentRoots(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	sw1 := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST:     pvstTrees(nil, 1, 10, 20),
+	}, mustPortTable(t, "l1", "l2"))
+
+	sw2 := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST: pvstTrees(map[vlan.ID]map[string]uint32{
+			10: {"l1": 2_000_000},
+			20: {"l2": 2_000_000},
+		}, 1, 10, 20),
+	}, mustPortTable(t, "l1", "l2"))
+
+	layers := []*stp.Layer{sw1, sw2}
+	cables := []cableLink{
+		{swA: 0, portA: "l1", swB: 1, portB: "l1"},
+		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
+	}
+
+	snapshot := func() string {
+		var sb strings.Builder
+		for i, l := range layers {
+			for _, vid := range []vlan.ID{1, 10, 20} {
+				for _, name := range []string{"l1", "l2"} {
+					info := l.VLANPortInfo(vid, name)
+					fmt.Fprintf(&sb, "sw%d/%d/%s=%s/%s;", i, vid, name, info.Role, info.State)
+				}
+			}
+		}
+
+		return sb.String()
+	}
+
+	convergePVSTLayers(t, start, layers, cables, snapshot)
+
+	// sw2 is the non-root bridge, so its inflated costs are what decide which
+	// link each VLAN blocks.
+	if got := sw2.VLANPortInfo(10, "l1"); got.Role != stp.RoleAlternate || got.State != stp.StateDiscarding {
+		t.Fatalf("vlan 10 on l1: got %s/%s, want %s/%s", got.Role, got.State, stp.RoleAlternate, stp.StateDiscarding)
+	}
+	if got := sw2.VLANPortInfo(10, "l2"); got.Role != stp.RoleRoot {
+		t.Fatalf("vlan 10 on l2: got role %s, want %s", got.Role, stp.RoleRoot)
+	}
+	if got := sw2.VLANPortInfo(20, "l2"); got.Role != stp.RoleAlternate || got.State != stp.StateDiscarding {
+		t.Fatalf("vlan 20 on l2: got %s/%s, want %s/%s", got.Role, got.State, stp.RoleAlternate, stp.StateDiscarding)
+	}
+	if got := sw2.VLANPortInfo(20, "l1"); got.Role != stp.RoleRoot {
+		t.Fatalf("vlan 20 on l1: got role %s, want %s", got.Role, stp.RoleRoot)
+	}
+
+	if !sw2.Forwards("l2", 10) || sw2.Forwards("l1", 10) {
+		t.Fatalf("vlan 10 forwarding: l1=%v l2=%v, want l1=false l2=true", sw2.Forwards("l1", 10), sw2.Forwards("l2", 10))
+	}
+	if !sw2.Forwards("l1", 20) || sw2.Forwards("l2", 20) {
+		t.Fatalf("vlan 20 forwarding: l1=%v l2=%v, want l1=true l2=false", sw2.Forwards("l1", 20), sw2.Forwards("l2", 20))
+	}
+}
+
+// pvstLayer builds a PVST layer over ports l1 and l2 carrying the named VLANs.
+func pvstLayer(t *testing.T, addr string, vids ...vlan.ID) *stp.Layer {
+	t.Helper()
+
+	return mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, addr),
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST:     pvstTrees(nil, vids...),
+	}, mustPortTable(t, "l1", "l2"))
+}
+
+// emissionShape renders one emission as the VID the layer named and the group
+// address the frame carries, which is what the switch routes on.
+func emissionShape(em stp.Emission) string {
+	kind := "ieee"
+	if em.Frame.Dst == stp.GroupAddressSSTP {
+		kind = "sstp"
+	}
+
+	return fmt.Sprintf("%s/%d/%s", em.Port, em.VID, kind)
+}
+
+func emissionShapes(emissions []stp.Emission) []string {
+	shapes := make([]string, len(emissions))
+	for i, em := range emissions {
+		shapes[i] = emissionShape(em)
+	}
+
+	return shapes
+}
+
+// TestPVSTHelloEmitsEveryVLANAndOneIEEEFrame pins the emission shape of one
+// hello on a PVST bridge: every VLAN's tree sends its own SSTP BPDU naming
+// its own VLAN, and VLAN 1's tree sends a second, IEEE-addressed frame naming
+// no VLAN, which is the one an RSTP or MSTP neighbor converges with. The VID
+// is what the layer names; whether the frame leaves tagged is the switch's
+// decision, not this layer's.
+func TestPVSTHelloEmitsEveryVLANAndOneIEEEFrame(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
+
+	up := l.LinkChange(start, "l1", true, true, 1_000_000_000)
+	if got, want := emissionShapes(up.Emissions), []string{"l1/1/sstp", "l1/0/ieee"}; !slices.Equal(got, want) {
+		t.Fatalf("link up emissions = %v, want %v", got, want)
+	}
+
+	wake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake() reported no timer after a link came up")
+	}
+	fx := l.Wake(wake)
+
+	got := emissionShapes(fx.Emissions)
+	want := []string{"l1/1/sstp", "l1/0/ieee", "l1/10/sstp"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("hello emissions = %v, want %v", got, want)
+	}
+
+	for _, em := range fx.Emissions {
+		if em.Frame.Dst != stp.GroupAddressSSTP {
+			continue
+		}
+		bpdu, tlvVID, err := stp.DecodeSSTP(em.Frame)
+		if err != nil {
+			t.Fatalf("decode SSTP emission on vid %d: %v", em.VID, err)
+		}
+		if tlvVID != em.VID {
+			t.Errorf("SSTP TLV vid = %d, want the emission's %d", tlvVID, em.VID)
+		}
+		if bpdu.Type != stp.BPDUTypeRapid {
+			t.Errorf("SSTP BPDU type = %v, want %v", bpdu.Type, stp.BPDUTypeRapid)
+		}
+	}
+}
+
+// TestPVSTEveryVLANKeepsItsOwnTransmitBudget is evidence that the budget is
+// metered per tree in PVST mode. Seven VLANs at a hold count of six would
+// starve the VLAN that sorts last if the budget stayed bridge-global, since
+// one hello spends one slot per tree.
+func TestPVSTEveryVLANKeepsItsOwnTransmitBudget(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	vids := []vlan.ID{1, 10, 20, 30, 40, 50, 60}
+
+	l := mustNewSTP(t, stp.Config{
+		Priority:    4096,
+		Address:     mustMAC(t, "00:11:22:33:44:01"),
+		TxHoldCount: 6,
+		Ports:       map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST:        pvstTrees(nil, vids...),
+	}, mustPortTable(t, "l1", "l2"))
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	wake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake() reported no timer after a link came up")
+	}
+	fx := l.Wake(wake)
+
+	sent := make(map[vlan.ID]int, len(vids))
+	for _, em := range fx.Emissions {
+		if em.Frame.Dst == stp.GroupAddressSSTP {
+			sent[em.VID]++
+		}
+	}
+	for _, vid := range vids {
+		if sent[vid] != 1 {
+			t.Errorf("vlan %d sent %d SSTP BPDUs on the hello, want 1 (emissions: %v)",
+				vid, sent[vid], emissionShapes(fx.Emissions))
+		}
+	}
+}
+
+// TestPVSTVLAN1FlushNamesVLAN1Only is evidence that VLAN 1's tree stales only
+// VLAN 1. MSTP's CIST flushes every FID, carried as an empty FIDs, because it
+// forwards every VLAN no MSTI claims, a set the layer never enumerates; in
+// PVST mode VLAN 1's tree carries VLAN 1 and nothing else, so the same
+// transition names that one VLAN. The bridge here runs VLAN 1 alone, which is
+// what tells the two apart: an every-FID marker and a correct list would
+// otherwise flush the same entries.
+func TestPVSTVLAN1FlushNamesVLAN1Only(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1)
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+	l.LinkChange(start, "l2", true, true, 1_000_000_000)
+
+	// l2 reaching Forwarding raises VLAN 1's topology change, which flushes
+	// every other port by VLAN 1's own FID list.
+	var target stp.FlushTarget
+	found := false
+	for range 20 {
+		wake, ok := l.NextWake()
+		if !ok {
+			break
+		}
+		fx := l.Wake(wake)
+		if got, ok := flushTarget(fx.Flush, "l1"); ok {
+			target, found = got, true
+
+			break
+		}
+	}
+	if !found {
+		t.Fatal("no flush target for l1 was raised while VLAN 1's tree converged")
+	}
+	if want := []vlan.ID{1}; !slices.Equal(target.FIDs, want) {
+		t.Fatalf("VLAN 1 topology change flushed FIDs %v, want %v", target.FIDs, want)
+	}
+}
+
+// TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN is evidence for the PVID
+// check: a BPDU naming VLAN 20 that arrives classified into VLAN 10 is not
+// applied, VLAN 10 is held out of the topology on that port, and VLAN 20's
+// own port is untouched. A consistent BPDU on VLAN 10 clears it.
+func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	local := pvstLayer(t, "00:11:22:33:44:02", 1, 10, 20)
+	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
+
+	local.LinkChange(start, "l1", true, true, 1_000_000_000)
+	local.LinkChange(start, "l2", true, true, 1_000_000_000)
+	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// A BPDU the peer built for VLAN 20, delivered on a link the local switch
+	// classifies into VLAN 10.
+	now := start.Add(2 * time.Second)
+	var vlan20BPDU stp.BPDU
+	for _, em := range peer.Wake(now).Emissions {
+		if em.Frame.Dst == stp.GroupAddressSSTP && em.VID == 20 {
+			b, _, err := stp.DecodeSSTP(em.Frame)
+			if err != nil {
+				t.Fatalf("decode peer VLAN 20 BPDU: %v", err)
+			}
+			vlan20BPDU = b
+		}
+	}
+
+	vlan20Before := local.VLANPortInfo(20, "l1")
+	local.ReceiveSSTP(now, "l1", 10, 20, vlan20BPDU)
+
+	got := local.VLANPortInfo(10, "l1")
+	if got.BlockReason != stp.BlockReasonPVIDInconsistent {
+		t.Fatalf("vlan 10 block reason = %q, want %q", got.BlockReason, stp.BlockReasonPVIDInconsistent)
+	}
+	if local.Forwards("l1", 10) {
+		t.Error("Forwards(l1, 10) = true, want false while the port is PVID inconsistent")
+	}
+	if reason := local.VLANPortInfo(20, "l1").BlockReason; reason != "" {
+		t.Errorf("vlan 20 block reason = %q, want empty: the check blocks the arrival VLAN only", reason)
+	}
+	if got := local.VLANPortInfo(20, "l1"); got != vlan20Before {
+		t.Errorf("vlan 20 port state on l1 = %+v, want the %+v it held before the BPDU arrived", got, vlan20Before)
+	}
+
+	// A BPDU naming the VLAN it arrived on clears the port.
+	var vlan10BPDU stp.BPDU
+	now = now.Add(2 * time.Second)
+	for _, em := range peer.Wake(now).Emissions {
+		if em.Frame.Dst == stp.GroupAddressSSTP && em.VID == 10 {
+			b, _, err := stp.DecodeSSTP(em.Frame)
+			if err != nil {
+				t.Fatalf("decode peer VLAN 10 BPDU: %v", err)
+			}
+			vlan10BPDU = b
+		}
+	}
+
+	local.ReceiveSSTP(now, "l1", 10, 10, vlan10BPDU)
+
+	if reason := local.VLANPortInfo(10, "l1").BlockReason; reason != "" {
+		t.Fatalf("vlan 10 block reason after a consistent BPDU = %q, want empty", reason)
+	}
+}
+
+// TestPVSTBoundaryMarkedFromAnMSTNeighbour is evidence for the boundary this
+// phase reports rather than models: a PVST bridge that meets an MST BPDU
+// marks the port, keeps applying the BPDU's RST prefix to VLAN 1's tree, and
+// holds the mark until the link goes down.
+func TestPVSTBoundaryMarkedFromAnMSTNeighbour(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	local := pvstLayer(t, "00:11:22:33:44:02", 1, 10)
+	local.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	region := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		MST: &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+		}},
+	}, mustPortTable(t, "l1"))
+
+	now := start
+	var mstBPDU stp.BPDU
+	for _, em := range region.LinkChange(now, "l1", true, true, 1_000_000_000).Emissions {
+		b, err := stp.Decode(em.Frame)
+		if err != nil {
+			t.Fatalf("decode MST emission: %v", err)
+		}
+		mstBPDU = b
+	}
+	if mstBPDU.ConfigID == nil {
+		t.Fatal("the MSTP bridge emitted no BPDU carrying a configuration identifier")
+	}
+
+	if local.PVSTBoundary("l1") {
+		t.Fatal("PVSTBoundary(l1) = true before any BPDU arrived")
+	}
+	local.Receive(now, "l1", mstBPDU)
+	if !local.PVSTBoundary("l1") {
+		t.Fatal("PVSTBoundary(l1) = false after an MST BPDU arrived on a PVST bridge")
+	}
+
+	// The RST prefix still reaches VLAN 1's tree: that is what lets the two
+	// bridges converge on the common tree while every other VLAN goes unheard.
+	if root, _, _ := local.Root(); root != mstBPDU.RootID {
+		t.Errorf("VLAN 1 root = %v, want the MST neighbor's %v", root, mstBPDU.RootID)
+	}
+
+	now = now.Add(time.Second)
+	local.LinkChange(now, "l1", false, true, 0)
+	if local.PVSTBoundary("l1") {
+		t.Error("PVSTBoundary(l1) = true after the link went down, want the mark cleared")
+	}
+}
+
+// TestSSTPOnANonPVSTBridgeMarksTheBoundaryAndAppliesNothing is the reciprocal:
+// an MSTP bridge's CIST does not run VLAN 20's tree, so feeding that vector
+// into it would elect a root from a tree the bridge is not running. It counts
+// the BPDU, marks the port, and leaves every tree alone.
+func TestSSTPOnANonPVSTBridgeMarksTheBoundaryAndAppliesNothing(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	local := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		MST: &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{20}},
+		}},
+	}, mustPortTable(t, "l1"))
+	local.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 20)
+	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	now := start.Add(2 * time.Second)
+	var sstpBPDU stp.BPDU
+	for _, em := range peer.Wake(now).Emissions {
+		if em.Frame.Dst == stp.GroupAddressSSTP && em.VID == 20 {
+			b, _, err := stp.DecodeSSTP(em.Frame)
+			if err != nil {
+				t.Fatalf("decode peer VLAN 20 BPDU: %v", err)
+			}
+			sstpBPDU = b
+		}
+	}
+
+	before := []stp.PortInfo{local.PortInfo("l1"), local.InstancePortInfo(1, "l1")}
+	fx := local.ReceiveSSTP(now, "l1", 20, 20, sstpBPDU)
+
+	if len(fx.Emissions) != 0 || len(fx.Flush) != 0 {
+		t.Errorf("ReceiveSSTP on a non-PVST bridge returned %d emissions and %d flushes, want none",
+			len(fx.Emissions), len(fx.Flush))
+	}
+	if !local.PVSTBoundary("l1") {
+		t.Error("PVSTBoundary(l1) = false after an SSTP BPDU arrived on an MSTP bridge")
+	}
+	if root, _, _ := local.Root(); root != local.BridgeID() {
+		t.Errorf("CIST root = %v, want this bridge's own %v: the SSTP vector must not be applied", root, local.BridgeID())
+	}
+
+	after := []stp.PortInfo{local.PortInfo("l1"), local.InstancePortInfo(1, "l1")}
+	for i := range before {
+		// The received BPDU counter is the one field that must move: the
+		// frame did arrive, it is what the boundary report rests on.
+		before[i].RxBPDUs = after[i].RxBPDUs
+		if before[i] != after[i] {
+			t.Errorf("tree %d port state changed: got %+v, want %+v", i, after[i], before[i])
+		}
+	}
+	if after[0].RxBPDUs != before[0].RxBPDUs {
+		t.Error("RxBPDUs was not counted for an SSTP BPDU on a non-PVST bridge")
+	}
+}

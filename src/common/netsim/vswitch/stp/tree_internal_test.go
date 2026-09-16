@@ -1,6 +1,7 @@
 package stp
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -741,5 +742,86 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	}
 	if !mstiPort.fwdDelayTimer.IsZero() {
 		t.Errorf("MSTI 1's forward delay timer = %v, want to stay cleared on a boundary port", mstiPort.fwdDelayTimer)
+	}
+}
+
+// TestPVSTTreeMappingCoversEveryVLAN pins the mapping a PVST bridge builds:
+// VLAN 1's tree holds the CIST slot, every other VLAN gets its own treeID,
+// and every tree names exactly its own VLAN in treeVLANs. The CIST's entry is
+// the one worth pinning: MSTP leaves it absent so a CIST flush widens to every
+// FID, and PVST must not, since VLAN 1's tree carries VLAN 1 alone.
+func TestPVSTTreeMappingCoversEveryVLAN(t *testing.T) {
+	t.Parallel()
+
+	l := newLayer(Config{
+		Priority: 4096,
+		Ports:    map[string]Port{"l1": {}, "l2": {}},
+		PVST:     &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}, 20: {}}},
+	}.Normalize())
+
+	wantOrder := []treeID{cistID, treeID(10), treeID(20)}
+	if !slices.Equal(l.treeOrder, wantOrder) {
+		t.Fatalf("treeOrder = %v, want %v", l.treeOrder, wantOrder)
+	}
+
+	for vid, want := range map[vlan.ID]treeID{1: cistID, 10: treeID(10), 20: treeID(20)} {
+		if got := l.vidToTree[vid]; got != want {
+			t.Errorf("vidToTree[%d] = %d, want %d", vid, got, want)
+		}
+		if got := l.treeFor(vid); got.id != want || got.vid != vid {
+			t.Errorf("treeFor(%d) = tree{id:%d, vid:%d}, want tree{id:%d, vid:%d}", vid, got.id, got.vid, want, vid)
+		}
+	}
+
+	for id, want := range map[treeID][]vlan.ID{cistID: {1}, treeID(10): {10}, treeID(20): {20}} {
+		if got := l.treeVLANs[id]; !slices.Equal(got, want) {
+			t.Errorf("treeVLANs[%d] = %v, want %v", id, got, want)
+		}
+	}
+}
+
+// TestTransmitBudgetKeyingFollowsTheMode pins where the transmit budget
+// lives. Outside PVST mode every tree shares one budget per port, which is
+// what IEEE 802.1Q meters and what lets an MST bridge spend one slot for the
+// CIST BPDU carrying every instance's record. Inside it each tree meters its
+// own, because each VLAN puts a frame of its own on the wire.
+func TestTransmitBudgetKeyingFollowsTheMode(t *testing.T) {
+	t.Parallel()
+
+	mstLayer := newLayer(Config{
+		Ports: map[string]Port{"l1": {}, "l2": {}},
+		MST: &MST{Name: "region-1", Revision: 1, Instances: map[MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+			2: {VLANs: []vlan.ID{20}},
+		}},
+	}.Normalize())
+
+	if got := len(mstLayer.portTx); got != 2 {
+		t.Errorf("MST bridge holds %d transmit budgets over 2 ports and 3 trees, want 2", got)
+	}
+	for _, id := range mstLayer.treeOrder {
+		if got := mstLayer.tx(mstLayer.trees[id], "l1"); got != mstLayer.tx(mstLayer.cist(), "l1") {
+			t.Errorf("tree %d on l1 resolved to its own budget, want the CIST's", id)
+		}
+	}
+
+	pvstLayer := newLayer(Config{
+		Ports: map[string]Port{"l1": {}, "l2": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}, 20: {}}},
+	}.Normalize())
+
+	if got := len(pvstLayer.portTx); got != 6 {
+		t.Errorf("PVST bridge holds %d transmit budgets over 2 ports and 3 trees, want 6", got)
+	}
+	seen := make(map[*portTx]struct{}, 3)
+	for _, id := range pvstLayer.treeOrder {
+		tx := pvstLayer.tx(pvstLayer.trees[id], "l1")
+		if tx == nil {
+			t.Fatalf("tree %d has no transmit budget on l1", id)
+		}
+		if _, dup := seen[tx]; dup {
+			t.Errorf("tree %d on l1 shares a budget with an earlier tree, want its own", id)
+		}
+		seen[tx] = struct{}{}
 	}
 }

@@ -216,7 +216,7 @@ func (c Config) Normalize() Config {
 		cloned.MST = &normalized
 	}
 	if cloned.PVST != nil {
-		normalized := cloned.PVST.Normalize()
+		normalized := cloned.PVST.Normalize(cloned.Priority)
 		cloned.PVST = &normalized
 	}
 	return cloned

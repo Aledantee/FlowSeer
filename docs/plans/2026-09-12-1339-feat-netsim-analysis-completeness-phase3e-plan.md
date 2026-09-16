@@ -84,6 +84,32 @@ This phase claims parent R14c and R14d, and extends R15b and R39.
   `Layer` built directly in a package test with an unlisted VID answers from
   VLAN 1's tree rather than panicking.
 
+### Ruled during implementation
+
+- Ruled: `recompute`'s state branch gains `l.mst != nil` alongside its role
+  branch, not only the role branch at `layer.go:1291`. Why: the state loop
+  carries a second boundary branch that mirrors the CIST's state the same way,
+  so gating one alone leaves every non-VLAN-1 tree with its own roles and VLAN
+  1's states. Cost if wrong: one condition in `recompute`.
+- Ruled: `ReceiveSSTP` takes the arrival VLAN and the TLV VLAN as separate
+  parameters. Why: the PVID check compares the two, and the single-VID
+  signature this plan wrote cannot express the comparison it requires. Cost if
+  wrong: the signature and its two call sites.
+- Ruled: a per-VLAN tree's bridge identifier carries the VLAN in the low 12
+  bits of the system-ID extension, the way an MSTI carries its MSTID, and a
+  tree that configures no priority falls back to `Config.Priority` rather than
+  the standard instance default, so `PVST.Normalize` takes the bridge
+  priority. Why: without the fallback `Config.Priority` is dead in PVST mode
+  and a bridge configured to be root is root on no VLAN; without the extension
+  the multiple-of-4096 rule `PVST.Validate` enforces reserves bits nothing
+  uses. Cost if wrong: `pvstBridgeID`, `PVST.Normalize`'s signature, and the
+  bridge identifier on the wire.
+- Ruled: `makeBPDU` sends the tree's own bridge identifier and `BridgeID()`
+  answers the CIST's. Why: under PVST a BPDU sent under the layer's identifier
+  matches no receiving tree's Backup test (`rcvBridgeID == t.bridgeID`), so a
+  Backup port reads as Alternate. Outside PVST the CIST's identifier is the
+  layer's and both are unchanged. Cost if wrong: two field reads.
+
 ### The wire
 
 Evidence re-fetched 2026-09-16: Wireshark `epan/dissectors/packet-bpdu.c`

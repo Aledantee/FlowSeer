@@ -7,12 +7,14 @@ import (
 )
 
 // treeID identifies one spanning tree within the bridge. Rapid spanning tree
-// has a single tree, so CIST is the only value constructed; MSTP is what gives
-// the identifier more than one value.
+// has a single tree, so CIST is the only value constructed; MSTP gives the
+// identifier the MSTID's range, and PVST the VLAN's. The two never share a
+// Layer, so the ranges cannot collide.
 type treeID uint16
 
 // cistID is the Common and Internal Spanning Tree, the tree every VLAN maps to
-// while the bridge runs one tree.
+// while the bridge runs one tree. In PVST mode it is VLAN 1's tree, which is
+// the common tree a neighboring RSTP or MSTP bridge converges with.
 const cistID treeID = 0
 
 // tree holds the state one spanning tree computes over the bridge's ports: its
@@ -24,6 +26,12 @@ const cistID treeID = 0
 // set fixes the iteration order that reaches the caller as Effects.Flush.
 type tree struct {
 	id treeID
+
+	// vid is the VLAN this tree runs for in PVST mode, and zero in every
+	// other mode. It rides on the tree because the VLAN is what an SSTP BPDU
+	// carries in its trailing TLV, so emission needs it without a reverse
+	// lookup through vidToTree.
+	vid vlan.ID
 
 	// bridgeID is this bridge's identifier for the tree. The CIST's is the
 	// layer's own bridgeID; an MSTI can carry a different one.
@@ -68,7 +76,9 @@ func (l *Layer) cist() *tree {
 
 // treeFor returns the tree that carries the given VLAN. Every VLAN maps to the
 // CIST while the bridge runs one tree, so the map is empty and the fallback
-// answers; MSTP is what fills it.
+// answers; MSTP and PVST are what fill it. A PVST bridge built through New
+// carries a tree for every VLAN in its bridge table, so the fallback there is
+// reached only by a Layer assembled directly in a test.
 func (l *Layer) treeFor(vid vlan.ID) *tree {
 	if id, ok := l.vidToTree[vid]; ok {
 		return l.trees[id]
