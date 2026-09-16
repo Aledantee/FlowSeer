@@ -21,7 +21,7 @@ classifies frames on a routed port by their outer C-TAG and pushes the tag on
 egress, and `netmodel` loads the schema's `Subinterface` kind. The plan is
 wrong if the routed-port path cannot classify without the bridge, which
 would mean the parent port has to become a switchport and the ban at
-`src/common/netsim/vswitch/config.go:241-259` has to fall.
+`src/common/netsim/vswitch/config.go:316-335` has to fall.
 
 ## Decisions
 
@@ -36,7 +36,7 @@ The parent's decision on sub-interfaces applies. In addition:
   is untagged where no untagged interface exists, drops with
   `routing.ReasonNotBridged` and a fact naming the port and VID. Why: the
   port is not a switchport, so there is no bridge to fall back to, and the
-  reason already exists (`src/common/netsim/vswitch/switch.go:787-799`).
+  reason already exists (`src/common/netsim/vswitch/switch.go:812-819`).
 - Egress pushes one C-TAG with the interface's VID and PCP 0. Why: nothing
   in routing carries a priority decision; a later QoS layer may rewrite it.
 - `netmodel` accepts a `Subinterface` whose parent is a physical or LAG
