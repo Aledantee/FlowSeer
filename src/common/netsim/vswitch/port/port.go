@@ -37,6 +37,9 @@ const (
 	// LayerStp identifies the Rapid Spanning Tree Protocol layer.
 	LayerStp trace.Layer = "stp"
 
+	// LayerLoopProtect identifies netsim's own loop-protection layer.
+	LayerLoopProtect trace.Layer = "loopprotect"
+
 	// LayerMcast identifies multicast snooping decisions.
 	LayerMcast trace.Layer = "mcast"
 

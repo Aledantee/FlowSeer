@@ -7,6 +7,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -97,6 +98,17 @@ func Diff(a, b Config) []trace.Change {
 			bSTP = *b.STP
 		}
 		changes = append(changes, stp.Diff(aSTP, bSTP)...)
+	}
+
+	if a.LoopProtect != nil || b.LoopProtect != nil {
+		var aLoopProtect, bLoopProtect loopprotect.Config
+		if a.LoopProtect != nil {
+			aLoopProtect = *a.LoopProtect
+		}
+		if b.LoopProtect != nil {
+			bLoopProtect = *b.LoopProtect
+		}
+		changes = append(changes, loopprotect.Diff(aLoopProtect, bLoopProtect)...)
 	}
 
 	if a.Mcast != nil || b.Mcast != nil {

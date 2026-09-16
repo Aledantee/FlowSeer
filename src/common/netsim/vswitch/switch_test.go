@@ -24,6 +24,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -2185,6 +2186,262 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	if root, _, _ := sw.Root(); root.Address == macRoot {
 		t.Error("layer adopted a root from a BPDU on a down port")
 	}
+}
+
+func loopProtectTestSwitch(t *testing.T) *vswitch.Switch {
+	t.Helper()
+
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	return mustSwitch(t, vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+			},
+		},
+	})
+}
+
+// TestLoopProtectOwnProbeConsumedNotFlooded proves that a probe this switch
+// sent, returned by an unmanaged loop, is consumed by the loop-protection
+// interception rather than relayed: the mechanism only works if the switch
+// recognizes and acts on its own probe instead of flooding it like any other
+// frame addressed to an unregistered multicast group.
+func TestLoopProtectOwnProbeConsumedNotFlooded(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	frame := loopprotect.Encode(probe, mac)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("own probe outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+	if len(res.Egress) != 0 {
+		t.Errorf("own probe produced %d egress transmissions, want 0 (consumed, not flooded)", len(res.Egress))
+	}
+	if !traceHasRuleID(res.Steps, "loopprotect.probe.return") {
+		t.Errorf("own probe steps lack a probe-return step: %+v", res.Steps)
+	}
+	if !traceHasRuleID(res.Steps, "loopprotect.port.block") {
+		t.Errorf("own probe steps lack a port-block step for the newly applied action: %+v", res.Steps)
+	}
+}
+
+// TestLoopProtectForeignProbeFloodsWithOneClassificationStep proves that a
+// probe naming another switch as origin is left untouched by the
+// loop-protection interception and falls through to the ordinary relay
+// path, where it floods as unregistered multicast. Classifying it once on
+// the fall-through, rather than once in the interception and again on the
+// fall-through, matters because a corpus comparing the ordered step list
+// exactly would fail on a duplicate classification.
+func TestLoopProtectForeignProbeFloodsWithOneClassificationStep(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	foreignMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
+	probe := loopprotect.Probe{OriginMAC: foreignMAC, VID: 0, Sequence: 1, Port: "1/1/1"}
+	frame := loopprotect.Encode(probe, foreignMAC)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("foreign probe outcome = %s, want %s", res.Outcome, trace.Flooded)
+	}
+
+	classifications := 0
+	for _, step := range res.Steps {
+		if step.Op == trace.OpClassify {
+			classifications++
+		}
+	}
+	if classifications != 1 {
+		t.Errorf("foreign probe produced %d classification steps, want exactly 1: %+v", classifications, res.Steps)
+	}
+	if traceHasFactType(res.Steps, "vswitch.loopprotect_decision") {
+		t.Errorf("foreign probe steps carry a loop-protection decision: %+v", res.Steps)
+	}
+}
+
+// TestLoopProtectGatedPortDropsBeforeDetection proves the mechanism that
+// keeps a two-port loop from blocking both ports: once a port's action is
+// applied, the bridge's ordinary ingress gate denies both learning and
+// forwarding on it, so a probe arriving there next is dropped by the gate
+// before the interception ever calls Receive again.
+func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	frame := loopprotect.Encode(probe, mac)
+
+	first := sw.Forward(now, "1/1/1", frame)
+	if first.Outcome != trace.Consumed {
+		t.Fatalf("first probe outcome = %s, want %s", first.Outcome, trace.Consumed)
+	}
+
+	second := sw.Forward(now, "1/1/1", frame)
+	if second.Outcome != trace.Dropped || second.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("second probe on the now-blocked port = %s/%s, want %s/%s",
+			second.Outcome, second.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+	if traceHasRuleID(second.Steps, "loopprotect.probe.return") {
+		t.Errorf("second probe ran detection after the port was already blocked: %+v", second.Steps)
+	}
+}
+
+// TestDeriveRetainsLoopProtectOverUnchangedConfig proves that Derive keeps
+// the loop-protection layer, and the action it applied, when the target
+// configuration and every protected port's link state are unchanged: an
+// ordinary frame on the blocked port is still denied after Derive.
+func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	res := derived.Forward(now, "1/1/1", data)
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("derived switch, ordinary frame on the blocked port = %s/%s, want %s/%s",
+			res.Outcome, res.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+}
+
+// TestDeriveRebuildsLoopProtectOnAdminStatusCycle proves that Derive rebuilds
+// the loop-protection layer, clearing any applied action, when a protected
+// port's administrative or operational state differs from the current
+// switch: the layer's action and recovery timer are keyed to the link
+// staying up throughout, so a state change invalidates the retained runtime
+// state rather than just the configuration.
+func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+
+	target := sw.Config()
+	p, ok := target.Ports.Port("1/1/1")
+	if !ok {
+		t.Fatalf("target config lacks port 1/1/1")
+	}
+	p.AdminStatus = port.Down
+	updated, err := port.NewBuilder().
+		Add(p).
+		Add(mustPort(t, target.Ports, "1/1/2")).
+		Build()
+	if err != nil {
+		t.Fatalf("rebuild port table: %v", err)
+	}
+	target.Ports = updated
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: target})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	res := derived.Forward(now, "1/1/1", data)
+	if res.Outcome == trace.Dropped && res.Reason == bridge.ReasonPortBlocked {
+		t.Fatalf("derived switch after an admin-status cycle still blocks 1/1/1, want the rebuilt layer's action cleared")
+	}
+}
+
+// TestDiffLoopProtectCapabilityAndFieldChange proves that vswitch.Diff
+// reports loop protection's capability presence change and, for two
+// configurations differing by exactly one loop-protection field, exactly
+// one loop-protection change.
+func TestDiffLoopProtectCapabilityAndFieldChange(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical}))
+
+	base := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+	}
+	withLoopProtect := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	}
+
+	capChanges := vswitch.Diff(base, withLoopProtect)
+	foundCap := false
+	for _, ch := range capChanges {
+		if ch.Layer == port.LayerLoopProtect && ch.Subject.Kind == "capability" {
+			foundCap = true
+		}
+	}
+	if !foundCap {
+		t.Fatalf("Diff() did not report a loop-protection capability change: %+v", capChanges)
+	}
+
+	withNoLearn := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.NoLearn},
+			},
+		},
+	}
+
+	fieldChanges := vswitch.Diff(withLoopProtect, withNoLearn)
+	loopProtectChanges := 0
+	for _, ch := range fieldChanges {
+		if ch.Layer == port.LayerLoopProtect && ch.Subject.Kind == "port" {
+			loopProtectChanges++
+		}
+	}
+	if loopProtectChanges != 1 {
+		t.Errorf("Diff() reported %d loop-protection field changes for one changed field, want 1: %+v", loopProtectChanges, fieldChanges)
+	}
+}
+
+func traceHasRuleID(steps []trace.Step, ruleID trace.RuleID) bool {
+	for _, step := range steps {
+		if step.RuleID == ruleID {
+			return true
+		}
+	}
+
+	return false
+}
+
+func mustPort(t *testing.T, tbl port.Table, name string) port.Port {
+	t.Helper()
+
+	p, ok := tbl.Port(name)
+	if !ok {
+		t.Fatalf("port %q not found in table", name)
+	}
+
+	return p
 }
 
 func makeIPv4Packet(t *testing.T, src, dst netip.Addr, ttl uint8, payload []byte) []byte {

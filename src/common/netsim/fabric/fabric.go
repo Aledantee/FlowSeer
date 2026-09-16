@@ -528,7 +528,7 @@ func (f *Fabric) startLayers(names []string) {
 				break
 			}
 		}
-		if swCfg.STP == nil && !hasLag {
+		if swCfg.STP == nil && swCfg.LoopProtect == nil && !hasLag {
 			continue
 		}
 

@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
@@ -56,6 +57,21 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 			next.portSpeed = make(map[string]uint64, len(cur.portSpeed))
 			for k, v := range cur.portSpeed {
 				next.portSpeed[k] = v
+			}
+		}
+	}
+
+	if cur != nil && cur.loopprotect != nil && next.cfg.LoopProtect != nil {
+		var aLoopProtect loopprotect.Config
+		if cur.cfg.LoopProtect != nil {
+			aLoopProtect = *cur.cfg.LoopProtect
+		}
+		bLoopProtect := *next.cfg.LoopProtect
+		if len(loopprotect.Diff(aLoopProtect, bLoopProtect)) == 0 &&
+			loopProtectPortStatesEqual(bLoopProtect, cur.ports, next.ports) {
+			next.loopprotect = cur.loopprotect.Clone()
+			if next.bridge != nil {
+				next.bridge.SetGate(next.loopprotect, protocolScope(next.nodeID, port.LayerLoopProtect))
 			}
 		}
 	}
@@ -193,6 +209,33 @@ func lagMemberStates(ports port.Table) map[string]lagMemberDependency {
 	}
 
 	return members
+}
+
+type loopProtectPortDependency struct {
+	admin port.LinkState
+	oper  port.LinkState
+}
+
+// loopProtectPortStatesEqual reports whether every port cfg protects has the
+// same administrative and operational state in both port tables. An
+// admin-status cycle on a protected port must rebuild the layer rather than
+// retain it, since the layer's own action and recovery timer are keyed to a
+// link staying up throughout.
+func loopProtectPortStatesEqual(cfg loopprotect.Config, a, b port.Table) bool {
+	return maps.Equal(loopProtectPortStates(cfg, a), loopProtectPortStates(cfg, b))
+}
+
+func loopProtectPortStates(cfg loopprotect.Config, ports port.Table) map[string]loopProtectPortDependency {
+	states := make(map[string]loopProtectPortDependency, len(cfg.Ports))
+	for name := range cfg.Ports {
+		p, ok := ports.Port(name)
+		if !ok {
+			continue
+		}
+		states[name] = loopProtectPortDependency{admin: p.AdminStatus, oper: p.OperStatus}
+	}
+
+	return states
 }
 
 type bridgeSeedKey struct {

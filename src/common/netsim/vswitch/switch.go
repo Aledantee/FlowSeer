@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -19,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/lag"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/phy"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
@@ -157,6 +159,7 @@ type Switch struct {
 	speeds         map[string]phy.Resolved
 	power          phy.Allocation
 	stp            *stp.Layer
+	loopprotect    *loopprotect.Layer
 	lag            *lag.Layer
 	mcast          *mcast.Layer
 	routing        *routing.Layer
@@ -289,6 +292,17 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 		sw.stp = st
 		if sw.bridge != nil {
 			sw.bridge.SetGate(sw.stp, protocolScope(nodeID, port.LayerStp))
+		}
+	}
+
+	if norm.LoopProtect != nil {
+		lp, err := loopprotect.New(*norm.LoopProtect, norm.Ports, norm.MAC)
+		if err != nil {
+			return nil, err
+		}
+		sw.loopprotect = lp
+		if sw.bridge != nil {
+			sw.bridge.SetGate(sw.loopprotect, protocolScope(nodeID, port.LayerLoopProtect))
 		}
 	}
 
@@ -741,6 +755,13 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		}
 		s.forwardingDependencies(ingress).consult(&res)
 		return s.finishForward(now, ingress, f, res, mutate)
+	}
+
+	if s.loopprotect != nil && f.Dst == loopprotect.GroupAddress {
+		if res, handled := s.interceptLoopProtect(now, ingress, f, mutate); handled {
+			s.forwardingDependencies(ingress).consult(&res)
+			return s.finishForward(now, ingress, f, res, mutate)
+		}
 	}
 
 	var routingScopes []analysis.Scope
@@ -1751,6 +1772,106 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 }
 
+// interceptLoopProtect handles a frame addressed to the loop-protection probe
+// group. It reports handled=false for a probe this switch did not originate,
+// or for a frame that does not decode as a probe at all: both fall through to
+// the ordinary relay path unclassified, where an unrecognized destination
+// floods as unregistered multicast. A probe this switch did originate is
+// classified through the bridge's ordinary VLAN and gate pipeline first, so a
+// gated ingress port still denies it exactly as it would deny any other
+// frame; only once that pipeline admits it does this apply the port's
+// configured loop-protection action.
+func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.Frame, mutate bool) (bridge.Result, bool) {
+	probe, err := loopprotect.Decode(f)
+	if err != nil || probe.OriginMAC != s.cfg.MAC {
+		return bridge.Result{}, false
+	}
+
+	in, res, ok := s.bridge.Ingress(now, ingress, f, false, false)
+	if !ok {
+		return res, true
+	}
+
+	before := s.loopprotect.PortInfo(probe.Port)
+	if mutate {
+		s.loopprotect.Receive(now, in.FID, probe)
+	}
+	after := s.loopprotect.PortInfo(probe.Port)
+
+	steps := append([]trace.Step(nil), in.Steps...)
+	steps = append(steps, trace.Step{
+		Layer:   port.LayerLoopProtect,
+		Op:      trace.OpClassify,
+		RuleID:  "loopprotect.probe.return",
+		Subject: trace.Subject{Kind: "port", Key: probe.Port},
+		Inputs:  []trace.Fact{loopProtectProbeFact(probe)},
+		Outputs: []trace.Fact{loopProtectReturnFact(probe, in.FID, before, after)},
+	})
+	if before.Action != after.Action {
+		steps = append(steps, trace.Step{
+			Layer:   port.LayerLoopProtect,
+			Op:      trace.OpFilter,
+			RuleID:  "loopprotect.port.block",
+			Subject: trace.Subject{Kind: "port", Key: probe.Port},
+			Outputs: []trace.Fact{loopProtectTransitionFact(probe.Port, before, after)},
+		})
+	}
+
+	result := bridge.Result{
+		Trace: trace.Trace{
+			Outcome: trace.Consumed,
+			Steps:   steps,
+		},
+		Ingress: in.Port,
+		FID:     in.FID,
+	}
+	result.Consult(in.ConsultedPorts()...)
+	result.ConsultScopes(in.ConsultedScopes()...)
+	result.ConsultScopes(analysis.FieldScope(
+		protocolScope(s.nodeID, port.LayerLoopProtect), "ports", probe.Port,
+	))
+
+	return result, true
+}
+
+type loopProtectDecisionFact string
+
+func (f loopProtectDecisionFact) TypeID() string    { return "vswitch.loopprotect_decision" }
+func (f loopProtectDecisionFact) Canonical() string { return string(f) }
+
+// loopProtectProbeFact returns an immutable snapshot of a returned probe's payload.
+func loopProtectProbeFact(probe loopprotect.Probe) trace.Fact {
+	return loopProtectDecisionFact("origin=" + probe.OriginMAC.String() +
+		";sequence=" + strconv.FormatUint(uint64(probe.Sequence), 10) +
+		";sent_vid=" + strconv.FormatUint(uint64(probe.VID), 10) +
+		";port=" + strconv.Quote(probe.Port))
+}
+
+// loopProtectReturnFact returns an immutable snapshot of a probe's return,
+// carrying both the VLAN it was sent on and the VLAN it was classified into
+// so an inter-VLAN loop is visible in the trace.
+func loopProtectReturnFact(probe loopprotect.Probe, returnedVID vlan.ID, before, after loopprotect.PortInfo) trace.Fact {
+	return loopProtectDecisionFact("port=" + strconv.Quote(probe.Port) +
+		";sent_vid=" + strconv.FormatUint(uint64(probe.VID), 10) +
+		";returned_vid=" + strconv.FormatUint(uint64(returnedVID), 10) +
+		";before=" + loopProtectPortInfoSnapshot(before) +
+		";after=" + loopProtectPortInfoSnapshot(after))
+}
+
+// loopProtectTransitionFact returns an immutable snapshot of a loop-protection
+// port action transition.
+func loopProtectTransitionFact(portName string, before, after loopprotect.PortInfo) trace.Fact {
+	return loopProtectDecisionFact("port=" + strconv.Quote(portName) +
+		";before=" + loopProtectPortInfoSnapshot(before) +
+		";after=" + loopProtectPortInfoSnapshot(after))
+}
+
+func loopProtectPortInfoSnapshot(info loopprotect.PortInfo) string {
+	return "{action=" + strconv.Quote(string(info.Action)) +
+		";inter_vlan=" + strconv.FormatBool(info.InterVLAN) +
+		";recurrences=" + strconv.FormatUint(info.Recurrences, 10) + "}"
+}
+
 func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	// The relay's first checks apply to a BPDU too: a dead or unknown port
 	// received nothing, and a trace saying Consumed there would hide a BPDU
@@ -1831,9 +1952,9 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 }
 
 // Start initializes the protocol layers with the current link state of every port in the table.
-// On a switch without spanning tree or link aggregation, Start is a no-op.
+// On a switch without spanning tree, link aggregation, or loop protection, Start is a no-op.
 func (s *Switch) Start(now time.Time) {
-	if s.stp == nil && s.lag == nil {
+	if s.stp == nil && s.lag == nil && s.loopprotect == nil {
 		return
 	}
 	if s.portP2P == nil {
@@ -1883,6 +2004,10 @@ func (s *Switch) Start(now time.Time) {
 			fx := s.stp.LinkChange(now, p.Name, p.Forwards(), p2p, speed)
 			s.applySTPEffects(fx)
 		}
+		if s.loopprotect != nil {
+			fx := s.loopprotect.LinkChange(now, p.Name, p.Forwards())
+			s.applyLoopProtectEffects(fx)
+		}
 	}
 	s.recomputeProtocolLinkIssues()
 }
@@ -1914,6 +2039,19 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 	}
 	for _, em := range fx.Emissions {
 		s.emissions = append(s.emissions, Emission(em))
+	}
+}
+
+// applyLoopProtectEffects turns loop-protection probe emissions into switch
+// emissions, applying the emitting port's egress VLAN tagging and dropping
+// any emission for a VID the port does not carry.
+func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
+	for _, em := range fx.Emissions {
+		egress, ok := s.bridge.OriginateFrame(em.Port, em.VID, em.Frame)
+		if !ok {
+			continue
+		}
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress})
 	}
 }
 
@@ -2063,6 +2201,10 @@ func (s *Switch) Wake(now time.Time) {
 		fx := s.lag.Wake(now)
 		s.applyLAGEffects(now, fx)
 	}
+	if s.loopprotect != nil {
+		fx := s.loopprotect.Wake(now)
+		s.applyLoopProtectEffects(fx)
+	}
 }
 
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
@@ -2089,6 +2231,9 @@ func (s *Switch) NextWake() (time.Time, bool) {
 	if s.lag != nil {
 		update(s.lag.NextWake())
 	}
+	if s.loopprotect != nil {
+		update(s.loopprotect.NextWake())
+	}
 
 	return earliest, hasTimer
 }
@@ -2106,6 +2251,18 @@ func (s *Switch) Mcheck(now time.Time, port string) {
 	}
 	fx := s.stp.Mcheck(now, resolvedPort)
 	s.applySTPEffects(fx)
+}
+
+// ClearLoopProtect manually lifts the loop-protection action applied to the
+// named port. It reports whether the port was tracked by the loop-protection
+// layer and had an action applied. On a switch without loop-protection
+// configuration, ClearLoopProtect is a no-op that reports false.
+func (s *Switch) ClearLoopProtect(now time.Time, port string) bool {
+	if s.loopprotect == nil {
+		return false
+	}
+
+	return s.loopprotect.Clear(now, port)
 }
 
 // PointToPoint represents the operational point-to-point status of a link.
@@ -2187,6 +2344,10 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	if s.stp != nil {
 		fx := s.stp.LinkChange(now, resolvedPort, up, p2p, speed)
 		s.applySTPEffects(fx)
+	}
+	if s.loopprotect != nil {
+		fx := s.loopprotect.LinkChange(now, resolvedPort, up)
+		s.applyLoopProtectEffects(fx)
 	}
 	s.recomputeProtocolLinkIssues()
 }
