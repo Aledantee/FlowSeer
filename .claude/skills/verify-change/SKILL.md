@@ -125,7 +125,16 @@ never committed, so a later session resumes a plan without re-deriving
 what landed. Every verifier run that runs a gate validates it first with
 `scripts/check-plan-status.py [LEDGER_PATH]`; `--print-selection` does
 not. An absent ledger passes, a malformed one fails the run naming the
-field. The shape:
+field.
+
+The skills write the ledger and the checkpoints file beside it only
+through `scripts/ledger.py`, which resolves the git directory itself,
+writes each file whole, and recomputes `resume`; its docstring lists the
+subcommands (`init`, `set`, `show`, `checkpoint`). A session isolated in
+a worktree cannot write into the parent checkout's `.git/` through a
+redirect or the Write tool, and the script's command line names only the
+unit, status, and note, so it is the one caller that reaches the
+directory, as the verifier is for its receipt. The shape:
 
 ```json
 {

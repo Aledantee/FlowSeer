@@ -41,9 +41,16 @@ Any non-zero exit, the one for an unknown object included, means not an
 ancestor: report the unit, compare its files with the tree, record the
 mismatch under Open questions, and ask the user before rewinding a unit.
 Then continue from `resume`. A ledger naming another plan is replaced only
-after the user confirms. When the work has a plan and no ledger, write one
-with every unit `pending` before the first edit; a planless request keeps
-no ledger.
+after the user confirms (`init --force`). When the work has a plan and no
+ledger, write one with every unit `pending` before the first edit; a
+planless request keeps no ledger. Every ledger write goes through
+`.claude/skills/verify-change/scripts/ledger.py`, which resolves the git
+directory itself and recomputes `resume`; read it with `show` or the Read
+tool, and never write it by hand:
+
+```bash
+.claude/skills/verify-change/scripts/ledger.py init <plan> U1 U2 U3
+```
 
 Read the `docs/architecture/` record for the area, the `CONCEPTS.md` entries
 the plan uses, and the conventions for the files you will touch:
@@ -66,8 +73,9 @@ headroom.
 
 For each unit:
 
-1. Re-read the unit, set it `in_progress` in the ledger, then inspect the
-   current source and tests for its files.
+1. Re-read the unit, set it `in_progress` in the ledger with
+   `ledger.py set <unit> in_progress`, then inspect the current source and
+   tests for its files.
 2. Make the smallest change that satisfies it, through the editor tools:
    a Bash command that writes a source file or runs a generator (`sed -i`,
    a heredoc, `gofumpt -w`, `buf generate`, `go mod tidy`) marks the tree
@@ -113,14 +121,15 @@ For each unit:
    those units together and say so.
 
 6. Once that run's last line reads `FlowSeer verification passed.`, quoted
-   into the report verbatim, write the unit `passed` in the ledger with
-   `git rev-parse HEAD` and that run's `verified_at` from the receipt,
-   move `resume` to the next unit, and fill `note` only when the unit
-   produced a decision or pitfall the next unit needs, in one line. In
-   Orca, set the worktree comment to the unit that landed.
+   into the report verbatim, write the unit `passed` in the ledger:
+   `ledger.py set U1 passed` records `HEAD` and that run's `verified_at`
+   from the receipt and moves `resume` to the next unit; add `--note` only
+   when the unit produced a decision or pitfall the next unit needs, in
+   one line. In Orca, set the worktree comment to the unit that landed.
 
 A unit still red after three verifier rounds is `blocked` in the ledger
-with the reason in `note`, and the work goes back to `plan`: a fourth
+(`ledger.py set U1 blocked --note "<reason>"`), and the work goes back to
+`plan`: a fourth
 patch on the same failure optimizes the test that is visible, not the
 requirement behind it, and the plan is where the requirement lives.
 
@@ -145,7 +154,8 @@ cost more than a few file reads.
 
 The order here matters: first record the outcome in the plan and amend it
 into the last unit's commit, rewrite that unit's `commit` in the ledger
-with the new hash, and only then run the verifier, as the last action of
+with the new hash (`ledger.py set <unit> passed`, which reads `HEAD`
+again), and only then run the verifier, as the last action of
 the task, sandbox disabled. A run before the last edit is evidence about a
 tree that no longer exists, and `close` refuses a receipt older than the
 last commit. Run it as `--base main -- <paths>`, the task's paths
@@ -189,8 +199,13 @@ in the same commit. A request that skipped the plan records the outcome as
 one line, `implemented: <request in a few words>`, written as the whole
 content of `$(git rev-parse --git-dir)/flowseer-checkpoints`, the file
 `close` (step 1) reads for planless work; overwriting rather than
-appending drops the lines an earlier task left in a reused worktree. Write
-it even for a small change, since it is then the only implementation
+appending drops the lines an earlier task left in a reused worktree:
+
+```bash
+.claude/skills/verify-change/scripts/ledger.py checkpoint --replace implemented "<request in a few words>"
+```
+
+Write it even for a small change, since it is then the only implementation
 signal `close` has. In Orca the card entry below is written as well.
 
 In Orca, mark the card for `close`, naming the plan path, or the request in

@@ -37,7 +37,9 @@ Whichever way the gate goes, leave the outcome where `close` reads it
 `status`, committed together with the solution and followed by the verifier
 on the changed paths so the receipt post-dates the commit, or as a line
 appended to `$(git rev-parse --git-dir)/flowseer-checkpoints` when the work
-has no plan. In Orca, append the same entry to the card:
+has no plan, with
+`.claude/skills/verify-change/scripts/ledger.py checkpoint compound "<outcome>"`.
+In Orca, append the same entry to the card:
 
 ```bash
 orca worktree set --worktree active --comment "<existing>; compound: no lesson" --json

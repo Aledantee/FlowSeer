@@ -293,7 +293,12 @@ the verifier receipt: per unit an id, status, commit, verifier time, and a
 one-line note for a decision the next unit needs. The verifier validates
 it on every run, `close` gates the merge on every unit `passed` and removes
 it after the merge, and a resumed session checks each recorded commit
-against `HEAD` before editing. The ledger is temporary by construction;
+against `HEAD` before editing. The skills write it and the checkpoints
+file through `ledger.py` in the verifier's scripts rather than by hand:
+that directory sits under the parent checkout's `.git/`, which a
+worktree-isolated session can read but not write through a redirect or
+the Write tool, so the script that resolves the path is the one writer,
+as the verifier is for its receipt. The ledger is temporary by construction;
 a STATE.md or per-wave directory would be a second artifact format, and
 the strongest community counter-signal is ceremony fatigue with
 multi-artifact frameworks. Phase boundaries follow dependency cohesion:
