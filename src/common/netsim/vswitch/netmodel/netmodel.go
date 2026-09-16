@@ -14,6 +14,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
@@ -64,6 +65,7 @@ const (
 	IssueInvalidAdminPathCost           analysis.IssueCode = "netmodel.stp.invalid_admin_path_cost"
 	IssueUnknownPort                    analysis.IssueCode = "netmodel.skipped.unknown_port"
 	IssueUnsupportedInterfaceKind       analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
+	IssueUnsupportedEncapsulation       analysis.IssueCode = "netmodel.routing.unsupported_encapsulation"
 	IssueMissingIPFacet                 analysis.IssueCode = "netmodel.routing.missing_ip_facet"
 	IssueMissingNeighborMAC             analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
 	IssueInvalidMAC                     analysis.IssueCode = "netmodel.address.invalid_mac"
@@ -152,9 +154,10 @@ func (c factConflict) detail() string {
 // interface is an aggregation, stp if bridge state is present, and routing if any interface
 // carries an IP facet. If want is non-empty, only the requested layers are built, and any
 // present facet outside want is omitted and recorded in [Report.Skipped]. When want contains
-// stp, relay is implied. When a routed interface loads, a VLAN interface or a routed port,
-// vlan and relay are implied so the relay can leave the routed port out. When routing is
-// not wanted, every IP facet, address row, and neighbor row is recorded as skipped. When routing ends up with no interfaces (every IP facet skipped),
+// stp, relay is implied. When a routed interface loads, a VLAN interface, a routed port, or
+// a sub-interface, vlan and relay are implied so the relay can leave the routed port out.
+// When routing is not wanted, every IP facet, address row, and neighbor row is recorded as
+// skipped. When routing ends up with no interfaces (every IP facet skipped),
 // the routing configuration is left nil and routing is dropped from capabilities with its
 // source removed, so [vswitch.Config.Validate] does not refuse an empty VRF.
 //
@@ -200,6 +203,9 @@ func Load(
 		}
 		if iface.GetPhysical() != nil || iface.GetLag() != nil {
 			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
+		}
+		if sub := iface.GetSub(); sub != nil {
+			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParent())
 		}
 		return routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 	}
@@ -380,6 +386,13 @@ func Load(
 
 	portBuilder := port.NewBuilder()
 	for _, iface := range ifaces {
+		if iface.GetSub() != nil {
+			// A sub-interface carves a routed interface out of its parent
+			// port's frames; it is not itself a port, and a port-table entry
+			// for it would be a bridgeless router's phantom port that
+			// nothing routes.
+			continue
+		}
 		p := port.Port{
 			Name: iface.GetName(),
 		}
@@ -495,7 +508,7 @@ func Load(
 			hasIPFacet = true
 			// A routed interface needs a relay that can leave it out, which
 			// only a VLAN-aware relay has.
-			if iface.GetVlan() != nil || iface.GetPhysical() != nil || iface.GetLag() != nil {
+			if iface.GetVlan() != nil || iface.GetPhysical() != nil || iface.GetLag() != nil || iface.GetSub() != nil {
 				hasRoutedIface = true
 			}
 		}
@@ -1514,6 +1527,11 @@ func Load(
 			Interfaces: make(map[string]routing.Interface),
 		}
 
+		ifaceByName := make(map[string]*interfacev1.Interface, len(ifaces))
+		for _, iface := range ifaces {
+			ifaceByName[iface.GetName()] = iface
+		}
+
 		for _, iface := range ifaces {
 			if iface.GetIp() == nil {
 				continue
@@ -1535,6 +1553,20 @@ func Load(
 				}
 			case iface.GetPhysical() != nil || iface.GetLag() != nil:
 				portName = iface.GetName()
+			case iface.GetSub() != nil:
+				sub := iface.GetSub()
+				parent := ifaceByName[sub.GetParent()]
+				if parent == nil || (parent.GetPhysical() == nil && parent.GetLag() == nil) {
+					isSupported = false
+					break
+				}
+				tags := sub.GetEncapsulation().GetTags()
+				if len(tags) != 1 || tags[0].GetTpid() != packetv1.EtherType_ETHER_TYPE_DOT1Q || !vlan.ID(tags[0].GetVlanId()).Valid() {
+					addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", "unsupported encapsulation", analysis.Unsupported, IssueUnsupportedEncapsulation)
+					continue
+				}
+				portName = parent.GetName()
+				vlanID = vlan.ID(tags[0].GetVlanId())
 			default:
 				isSupported = false
 			}
