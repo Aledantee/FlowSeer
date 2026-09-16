@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -12,6 +12,15 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 
 # Network simulation analysis completeness, phase 3c: Loop protection without spanning tree - Plan
 
+> Implemented. 4 units, 2026-09-16T12:22:54Z to 2026-09-16T13:16:30Z.
+> Two requirements needed a mechanism the Units had not named. R41c holds only
+> because a probe leaves a port the spanning tree also forwards, so emission
+> consults the tree's gate and the port's operational state; without that, a
+> tree-discarding port probes, hears itself through the rest of the topology,
+> and blocks for a loop the tree had already broken. And a probe carrying no
+> VLAN resolves to the port's PVID, because VLAN 0 is not a VLAN a VLAN-aware
+> bridge carries.
+>
 > Re-planned on 2026-09-16 against the tree that holds phases 3b (`10b696a1`)
 > and 3d (`ca47a59d`). The 2026-09-14 draft's Decisions and Requirements
 > survive; its Units did not, because the bridge admits exactly one gate and
@@ -162,7 +171,8 @@ them in short and states, with reasons, every place the landed tree moved them.
   `src/common/netsim/fabric/queue.go:35-55`).
 - **A port emits probes on the strength of its operational state and the
   spanning-tree gate, never its own loop-protection verdict — except under
-  `Disable`.** The layer is itself a gate, so consulting every gate would stop
+  `Disable`.** The switch applies both, in `applyLoopProtectEffects`; the
+  layer knows about neither. The layer is itself a gate, so consulting every gate would stop
   a `Block`ed port from probing, its probes would stop returning, and
   `LoopCleared` would decay into a plain timer that lifts while the cable is
   still looped. `Disable` is the one action defined to stop probing, which is
@@ -233,6 +243,17 @@ them in short and states, with reasons, every place the landed tree moved them.
   does with the wire, which is how phase 3d put two MST identifiers in each
   other's octets
   (`docs/solutions/conventions/a-codec-round-trip-cannot-locate-a-field-on-the-wire.md`).
+
+- Ruled: `Layer.Receive` drops the ingress-port parameter the Units first gave
+  it. Why: nothing in the layer reads it — the action targets the port the
+  payload names, and the port a probe returned on is in the switch's hand at
+  the interception, where the trace step is built. Cost if wrong: a later unit
+  that wants the return port in `PortInfo` re-adds the parameter and a field.
+- Ruled: `Layer.Wake` emits only once its own interval is due. Why: a switch
+  wakes its layers together, so `Wake` also runs at every spanning tree hello
+  and every recovery expiry, and emitting on each would probe far ahead of the
+  configured interval. Cost if wrong: nothing outside the layer; the metering
+  is one comparison and its test.
 
 ## Requirements
 

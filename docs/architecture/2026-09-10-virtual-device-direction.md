@@ -397,12 +397,15 @@ them.
 
 ### Loop protection outside spanning tree
 
-- **The mechanism is netsim's own, not a vendor's.** It is drawn from how
-  Cisco, Juniper, and other vendors detect a loop with a self-addressed probe,
-  but it emulates none of their frames: each vendor's probe format is
-  proprietary, so a netsim probe carries only what the layer itself needs to
-  recognize its own return, sent to a locally scoped multicast address no
-  bridge treats specially.
+- **The mechanism is netsim's own, not a vendor's.** It is drawn from H3C
+  loop detection and the Aruba and Huawei features of the same shape — a
+  multicast probe, a returned frame read as a loop, a per-port action — but it
+  emulates none of their frames: each vendor's probe format is proprietary, so
+  a netsim probe carries only what the layer needs to recognize its own
+  return, sent to a locally scoped multicast address no bridge treats
+  specially. The recovery modes come from a wider read: Cisco's errdisable
+  recovery, Juniper's revert interval, and the timers MikroTik, Extreme, and
+  TP-Link expose.
 - **An action is a port state, not an issue code.** The same reasoning that
   puts BPDU guard's and loop guard's outcome on the port applies here: `Block`
   and `NoLearn` land on the port a real device would report, where an
@@ -428,8 +431,8 @@ them.
   suits a port an operator wants to keep passing traffic on while diagnosing
   what is looping.
 - **Not emulated: vendor probe formats, per-VLAN recovery, and carrier loss.**
-  No vendor's on-the-wire probe is reproduced, an applied action is
-  bridge-wide rather than recovering independently per VLAN, and a real
+  No vendor's on-the-wire probe is reproduced, an applied action covers the
+  whole port rather than recovering independently per VLAN, and a real
   errdisabled port drops carrier where netsim's blocked port stays
   operationally up and simply stops learning and forwarding.
 
