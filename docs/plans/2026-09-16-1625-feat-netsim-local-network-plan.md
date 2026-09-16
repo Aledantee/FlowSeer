@@ -176,7 +176,7 @@ Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase1-plan.md`
 After: none
 Change: `src/common/net/udp`, `src/common/net/tcp`, and `src/common/net/icmp`
 decode and, for UDP, encode; the corpus pins R3.
-Landed: `f638a3bd..PLACEHOLDER`
+Landed: `f638a3bd..7698b1a6`
 
 ### U2. Phase 2 - routed sub-interfaces
 Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase2-plan.md`
