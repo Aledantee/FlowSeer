@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	layer.Receive(t0, probe.VID, probe)
+	layer.Receive(t0, loopprotect.Return{VID: probe.VID}, probe)
 
 	fmt.Printf("1/1/1: %s\n", layer.PortInfo("1/1/1").Action) // Block
 	fmt.Printf("1/1/2: %s\n", layer.PortInfo("1/1/2").Action) // (none)
@@ -85,12 +85,24 @@ loop on the port the payload names as the sender — `p.Port`, not the port
 recognizes itself is responsible for calling `Receive` only in that case;
 this layer trusts the caller and never re-derives ownership from the wire.
 
-The `vid` `Receive` takes is the VLAN the frame was classified into on
-arrival, which can differ from `Probe.VID`, the VLAN the probe carried when
-it was sent: a probe that returns under a different VLAN tag has crossed an
-inter-VLAN loop, and `PortInfo.InterVLAN` records it. The comparison is
-against the classified VLAN rather than a tag the returning frame may not
-carry at all — an access-port loop returns the probe untagged.
+The `Return.VID` `Receive` takes is the VLAN the frame was classified into
+on arrival, which can differ from `Probe.VID`, the VLAN the probe carried
+when it was sent: a probe that returns under a different VLAN tag has
+crossed an inter-VLAN loop, and `PortInfo.InterVLAN` records it. The
+comparison is against the classified VLAN rather than a tag the returning
+frame may not carry at all — an access-port loop returns the probe untagged.
+
+A VID difference is not evidence of an inter-VLAN loop when the sending
+port is itself an untagged member of both VLANs (`Return.SameUntaggedDomain`).
+IEEE 802.1Q makes untagged egress a per-VLAN port set while ingress
+classification is a per-port PVID scalar, so a port can legitimately untag
+several VLANs while classifying ingress into only one of them — vendors
+ship this as "asymmetric VLAN" for a shared uplink to many tenant VLANs. An
+untagged frame carries no tag at all, so both VLAN numbers on such a port
+are local bookkeeping on either end of the wire, not something the wire
+joined; the switch, which owns the VLAN configuration this layer does not,
+computes `SameUntaggedDomain` and `Receive` only sets `InterVLAN` when it is
+false.
 
 ## Actions and the gate
 

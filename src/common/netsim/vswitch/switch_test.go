@@ -2542,6 +2542,62 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 	}
 }
 
+// TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN proves the false
+// positive this package must not report: a port that is an untagged member
+// of two VLANs (the "asymmetric VLAN" shared-uplink configuration IEEE
+// 802.1Q permits, since untagged egress is a per-VLAN port set while ingress
+// classification is a per-port PVID scalar) sends a probe on one of those
+// VLANs and gets it back classified into the other by its own PVID. Nothing
+// bridged the two VLANs: the numbers are local to this port on either side
+// of an untagged wire. The loop itself is still real, so the action must
+// still apply; only the VLAN finding is false.
+func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "a", 20: "b"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10, 20}},
+			},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{20}},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 20, Sequence: 1, Port: "1/1/1"}
+	// Delivered untagged, so bridge ingress classifies it by the port's
+	// PVID (10) even though the port also untags egress for VLAN 20.
+	frame := loopprotect.Encode(probe, mac)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+
+	factStr := loopProtectReturnFactString(t, res)
+	if factStr == "" {
+		t.Fatalf("trace has no loopprotect.probe.return step: %+v", res.Steps)
+	}
+	if !strings.Contains(factStr, "sent_vid=20;returned_vid=10") {
+		t.Fatalf("loopprotect.probe.return fact = %q, want sent_vid=20;returned_vid=10", factStr)
+	}
+	if !strings.Contains(factStr, "after={action=\"Block\";inter_vlan=false") {
+		t.Errorf("loopprotect.probe.return fact = %q, want after.inter_vlan=false with the Block action still applied", factStr)
+	}
+}
+
 // TestLoopProtectValidateAgreesWithEgressAdmission is evidence that
 // vswitch.Config.Validate and bridge.Switchport.CarriesVID never disagree
 // about whether a protected port carries the VLAN it probes: for every

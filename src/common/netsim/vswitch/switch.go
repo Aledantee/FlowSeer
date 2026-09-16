@@ -1794,7 +1794,11 @@ func (s *Switch) interceptLoopProtect(now time.Time, ingress string, f ethernet.
 
 	before := s.loopprotect.PortInfo(probe.Port)
 	if mutate {
-		fx := s.loopprotect.Receive(now, in.FID, probe)
+		ret := loopprotect.Return{
+			VID:                in.FID,
+			SameUntaggedDomain: s.sameUntaggedDomain(probe.Port, probe.VID, in.FID),
+		}
+		fx := s.loopprotect.Receive(now, ret, probe)
 		s.applyLoopProtectEffects(fx)
 	}
 	after := s.loopprotect.PortInfo(probe.Port)
@@ -2113,6 +2117,31 @@ func (s *Switch) untaggedVID(name string) vlan.ID {
 	}
 
 	return 0
+}
+
+// sameUntaggedDomain reports whether the named port is an untagged member of
+// both sent and classified, so a loop-protection probe crossing those two
+// VLANs on that port says nothing about the VLANs being joined. IEEE
+// 802.1Q makes untagged egress a per-VLAN port set (dot1qVlanStaticUntaggedPorts)
+// while ingress classification is a per-port PVID scalar
+// (dot1qPvid), so a port can legitimately untag on egress for several VLANs
+// while classifying ingress into only one of them (vendors call this
+// "asymmetric VLAN," used for a shared uplink to many tenant VLANs). An
+// untagged frame carries no VLAN tag at all, so the VID the probe recorded
+// and the VID it classified into are both local bookkeeping — this port's
+// own choices, not evidence of anything on the wire joining the two VLANs.
+// A bridge with no VLAN configuration has no switchports, so the question
+// does not arise there.
+func (s *Switch) sameUntaggedDomain(name string, sent, classified vlan.ID) bool {
+	if s.cfg.Bridge == nil || s.cfg.Bridge.VLAN == nil {
+		return false
+	}
+	sw, ok := s.cfg.Bridge.VLAN.Switchports[name]
+	if !ok {
+		return false
+	}
+
+	return slices.Contains(sw.Untagged, sent) && slices.Contains(sw.Untagged, classified)
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
