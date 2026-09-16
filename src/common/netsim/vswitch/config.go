@@ -283,7 +283,10 @@ func (c Config) Validate() error {
 
 			for _, ifaceName := range ifaceNames {
 				iface := vrf.Interfaces[ifaceName]
-				if iface.VLAN != 0 {
+				// A sub-interface (VLAN and Port both set) classifies by the port's outer
+				// tag rather than by bridge VLAN membership, so it needs no bridge VLAN
+				// table entry and none of this block's checks apply to it.
+				if iface.VLAN != 0 && iface.Port == "" {
 					if c.Bridge == nil || c.Bridge.VLAN == nil {
 						return errs.New().
 							Attr("field", fmt.Sprintf("routing.vrfs.%s.interfaces.%s.vlan", vrfName, ifaceName)).
