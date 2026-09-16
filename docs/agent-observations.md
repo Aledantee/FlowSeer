@@ -170,3 +170,35 @@ Suggested change: find what writes the marker during a verification and stop
 it, or state in `close` what the marker means when it is newer than the
 receipt it accompanies. A gate that cannot be satisfied by doing the right
 thing teaches every session to ignore it, which is worse than not having it.
+
+## 2026-09-16 close: let a session merge both directions and clean up the branches it made
+Skill or agent: the worktree-isolation hook and the sandbox deny list in
+`.claude/settings.json` (both policy surfaces), and `.claude/skills/close/SKILL.md`
+steps 2, 3 and the worktree removal it defers.
+Direction from the repository owner, recorded here for `steer` to stage rather
+than an observation to be verified: a session should be allowed to merge to and
+from `main`, and to clean up its own work branches.
+What happened: across one close, every git operation the skill prescribes
+against the primary checkout was refused — `git -C`, `cd … && git`, and any
+compound command naming git — and so was the Edit tool on paths under it. The
+merge, its conflict resolution, the abort of a stale merge left behind by an
+earlier attempt, and the final fast-forward were all typed by hand by the owner
+while the session read the results and supplied the commands. `git rebase main`
+inside the worktree additionally died mid-checkout on
+`unable to unlink old '.claude/skills/close/SKILL.md': Operation not permitted`,
+because `.claude/skills` is write-denied even for git replaying a committed
+change; it aborted with HEAD intact and succeeded only with the sandbox
+disabled. The session also could not remove the probe worktree it created for a
+post-merge verification, nor any of the fourteen merged child worktrees the task
+spawned, so they accumulate for a person to clear.
+Suggested change: permit, for the session's own branch and worktrees —
+`git merge` in either direction between that branch and `main`, `git rebase`
+onto `main`, `git merge --abort`/`--ff-only`, `git worktree remove` and
+`git branch -d` for a worktree or branch this session created and has landed,
+and the writes under `.claude/skills/` that a checkout or merge of an already
+committed change performs. Keep refusing what the isolation guard exists for:
+switching the primary checkout's branch, committing to it directly, and editing
+`.claude/skills/` as a file change rather than as a checkout. Removing the
+session's own worktree stays a person's action, since it kills the terminal
+issuing it. Both files are policy surfaces, so this is staged for review, not
+applied.
