@@ -100,3 +100,32 @@ Suggested change: extend item 1 so the definition of done names the
 requirements as unalterable, and item 7 so that a requirement the worker
 believes it cannot satisfy is itself a blocker to report, never a thing to
 restate, narrow, or move to another fixture.
+
+## 2026-09-16 review: a fix brief carries the instance, not the class
+Skill or agent: `.claude/skills/review/SKILL.md`, step 6.1.
+What happened: step 4 already says a finding is a sample of a class until
+shown otherwise, and that the fix should cover the class. Step 6.1 then
+specifies the fix brief as the finding's `path:line`, failure scenario, and
+smallest fix, which is instance-shaped, and says nothing about the class. Both
+steps were followed as written and the class rule did not survive the handoff
+twice in one session: a missing payload bound was fixed for `Decode` while the
+same hole stood one function over in `Verify`, and stale code citations were
+fixed in three plans while two more carried the same staleness. The next review
+round found each of them.
+Suggested change: add the class to the brief in step 6.1, so it names the
+finding's mechanism and asks the worker to find and fix every other site that
+engages it, reporting the sites it cleared.
+
+## 2026-09-16 implement: new code has no rule that a test be watched failing
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.3.
+What happened: the step requires watching a test fail only "when the unit
+changes behavior", plus the stronger evidence rule for concurrency, ordering,
+and security properties. A unit that adds a new package changes no behavior and
+asserts no such property, so nothing asked for it. Three new codec packages
+landed with tests that were never watched failing; seven of those tests turned
+out to pass against a deliberately broken decoder, found later by mutation
+during review rather than by the unit that wrote them.
+Suggested change: extend the rule to a unit that adds a new exported function
+or package, where there is no prior behavior to change: each test that claims to
+pin a guard is watched failing against that guard removed, and the unit reports
+which mutation it watched per test.
