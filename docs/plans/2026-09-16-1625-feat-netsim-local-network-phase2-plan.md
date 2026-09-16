@@ -4,12 +4,14 @@ type: feat
 date: 2026-09-16
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 ---
 
 # Local Network Analysis Phase 2 - Routed Sub-Interfaces - Plan
+
+> Implemented. 3 units, 2026-09-16T18:01Z to 2026-09-16T18:01Z.
 
 ## Goal
 
