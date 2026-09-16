@@ -1,6 +1,7 @@
 package loopprotect_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,31 @@ func TestValidate(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestValidateRefusesPortNameOverProbeLimit(t *testing.T) {
+	t.Parallel()
+
+	// Evidence that Validate refuses a port name Encode could never encode:
+	// the probe payload's port-name length field is a single octet, so a
+	// name over 255 octets would silently wrap and make every probe that
+	// port sends undecodable.
+	longName := strings.Repeat("x", 256)
+	tbl, err := port.NewBuilder().
+		Add(port.Port{Name: longName, Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.Builder.Build: %v", err)
+	}
+
+	cfg := loopprotect.Config{
+		Ports: map[string]loopprotect.Port{
+			longName: {Action: loopprotect.Block},
+		},
+	}
+	if err := cfg.Validate(tbl); err == nil {
+		t.Errorf("Validate() = nil, want error for a %d-octet port name (probe limit is 255)", len(longName))
 	}
 }
 

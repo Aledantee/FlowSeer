@@ -19,9 +19,25 @@ type Emission struct {
 	Frame ethernet.Frame
 }
 
-// Effects lists the probe frames a Wake call emits.
+// Effects lists the probe frames a Wake call emits and the ports whose
+// learned forwarding table entries must be flushed as a result of a
+// loop-protection action taking effect.
 type Effects struct {
 	Emissions []Emission
+	Flush     []FlushTarget
+}
+
+// FlushTarget names a port whose learned forwarding table entries must be
+// flushed, and which FIDs on it are stale. An empty FIDs means every FID.
+// Receive returns one target, naming the port whose action it just applied,
+// only on the transition into a forwarding-denying action (Block or
+// Disable): the entries the loop taught that port are stale, exactly as
+// spanning tree flushes on a topology change. NoLearn keeps forwarding, so
+// it flushes nothing, and a repeat probe for a port already carrying an
+// applied action flushes nothing either.
+type FlushTarget struct {
+	Port string
+	FIDs []vlan.ID
 }
 
 // PortInfo summarizes the runtime loop-protection status of one port.
@@ -174,6 +190,12 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 // recovery timer per the port's recovery mode. A probe naming a port this
 // layer does not track is ignored. The ingress port the probe returned on
 // belongs to the caller's trace step, not to this layer.
+//
+// Before evaluating the probe, Receive expires an elapsed Timer or
+// LoopCleared recovery window using the same rule Wake uses, so a probe
+// delivered at or after the window's expiry sees the action as already
+// lifted rather than reading a stale applied state that Wake alone would
+// have caught later.
 func (l *Layer) Receive(now time.Time, vid vlan.ID, p Probe) Effects {
 	ps, ok := l.ports[p.Port]
 	if !ok {
@@ -181,6 +203,18 @@ func (l *Layer) Receive(now time.Time, vid vlan.ID, p Probe) Effects {
 	}
 
 	ps.interVLAN = vid != p.VID
+
+	if ps.applied && !ps.waitUntil.IsZero() {
+		switch ps.cfg.Recovery.Mode {
+		case Timer, LoopCleared:
+			if !now.Before(ps.waitUntil) {
+				ps.applied = false
+				ps.waitUntil = time.Time{}
+			}
+		}
+	}
+
+	wasApplied := ps.applied
 
 	switch ps.cfg.Recovery.Mode {
 	case LoopCleared:
@@ -206,14 +240,21 @@ func (l *Layer) Receive(now time.Time, vid vlan.ID, p Probe) Effects {
 		ps.applied = true
 	}
 
+	if !wasApplied && ps.applied && ps.cfg.Action != NoLearn {
+		return Effects{Flush: []FlushTarget{{Port: p.Port}}}
+	}
+
 	return Effects{}
 }
 
 // Wake advances every port's Timer and LoopCleared recovery windows past
 // now, lifting an action whose wait has elapsed, and emits one probe per
-// protected port per VLAN whose action is not Disable, walking ports in
-// sorted order so the emissions are ordered. A port with no VLANs emits one
-// probe for VID 0, which the switch sends on the port's PVID.
+// protected port per VLAN, walking ports in sorted order so the emissions
+// are ordered, except for a port currently applying Disable: that port
+// emits nothing. A Disable-configured port that has not yet had the action
+// applied still probes, because only a returned probe can apply it in the
+// first place. A port with no VLANs emits one probe for VID 0, which the
+// switch sends on the port's PVID.
 //
 // Probes go out only once the configured interval is due. A switch wakes its
 // layers together, so this runs at every spanning tree hello and at every
@@ -247,7 +288,7 @@ func (l *Layer) Wake(now time.Time) Effects {
 
 	for _, name := range l.sortedNames {
 		ps := l.ports[name]
-		if ps.cfg.Action == Disable {
+		if ps.applied && ps.cfg.Action == Disable {
 			continue
 		}
 
@@ -330,8 +371,12 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) Effects {
 	return Effects{}
 }
 
-// Clear manually lifts the action applied to the named port. It reports
-// whether the port was tracked and had an action applied.
+// Clear manually lifts the action applied to the named port and resets its
+// Timer recurrence tracking, so a later returned probe treats the next
+// applied action as the first one rather than counting it in
+// PortInfo.Recurrences: Clear proves the operator addressed the port, not
+// that a Timer recovery lifted it. It reports whether the port was tracked
+// and had an action applied.
 func (l *Layer) Clear(_ time.Time, portName string) bool {
 	ps, ok := l.ports[portName]
 	if !ok || !ps.applied {
@@ -339,6 +384,7 @@ func (l *Layer) Clear(_ time.Time, portName string) bool {
 	}
 
 	ps.applied = false
+	ps.everApplied = false
 	ps.waitUntil = time.Time{}
 
 	return true

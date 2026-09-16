@@ -105,6 +105,20 @@ loop, because the port keeps forwarding. An unprotected port, or a protected
 port with no action currently applied, allows both, following the house
 convention (see `stp`) that an untracked port never blocks.
 
+## Flushing stale entries
+
+`Receive` returns `Effects.Flush`, one `FlushTarget{Port, FIDs}` naming the
+port whose action it just applied, mirroring `stp`'s topology-change flush:
+the entries a port learned while the loop flooded through it are stale the
+moment the port stops forwarding, exactly as spanning tree's own flush
+covers a topology change. `FIDs` is always empty, meaning every FID on the
+port.
+
+This fires only on the transition into a forwarding-denying action (`Block`
+or `Disable`) — a repeat probe for a port already carrying one flushes
+nothing again, and `NoLearn` never flushes, because it keeps forwarding and
+denies only new learning.
+
 ## Recovery
 
 | Mode | Lifts | Clears |
@@ -137,9 +151,12 @@ clearing and would hold the port down forever.
 
 `Wake` emits one probe per protected port per VLAN in `Port.VLANs` — or one
 probe for VID 0, which the switch sends on the port's PVID, when `VLANs` is
-empty — for every port whose action is not `Disable`, walking ports in
-sorted name order so a wake's emissions are deterministic. Sequence numbers
-increase per port.
+empty — for every port that is not currently applying `Disable`, walking
+ports in sorted name order so a wake's emissions are deterministic. A
+`Disable`-configured port keeps probing until a returned probe applies the
+action; only an *applied* `Disable` stops emission, because only a returned
+probe can apply it in the first place — gating on the configured action
+alone would make `Disable` unreachable. Sequence numbers increase per port.
 
 The layer meters its own probes: a `Wake` before the interval is due lifts
 whatever recovery windows have elapsed and emits nothing. A switch wakes its

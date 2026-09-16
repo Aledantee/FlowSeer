@@ -22,6 +22,12 @@ const probeVersion uint8 = 1
 // sequence number (4), port-name length (1).
 const probeHeaderLength = 14
 
+// maxProbePortNameLength is the longest port name Encode can represent: the
+// single-octet port-name length field in the probe payload caps it at 255.
+// Config.Validate refuses a longer name so New never builds a layer that
+// would emit an undecodable probe for that port.
+const maxProbePortNameLength = 255
+
 // GroupAddress is the destination address of a loop-protection probe, a
 // locally administered group MAC.
 var GroupAddress = netaddr.MAC{0x03, 0x46, 0x53, 0x4c, 0x50, 0x00}
