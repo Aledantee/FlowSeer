@@ -6828,11 +6828,10 @@ func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
 	}
 }
 
-// TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot is evidence that interceptSSTP
-// refuses a BPDU tagged for a VLAN the ingress port does not carry, before
-// resolving a tree for it: bypassing the bridge's ingress rules to skip the
-// spanning tree gate must not also bypass the bridge's notion of which VLANs
-// a port speaks, or a foreign VLAN's BPDU falls back to the CIST, which under
+// TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot is evidence that a BPDU tagged
+// for a VLAN the bridge does not admit on the ingress port never reaches a
+// tree lookup: the layer's SSTPNotAdmitted outcome stops it before treeFor
+// runs, so a foreign VLAN's BPDU cannot fall back to the CIST, which under
 // PVST is VLAN 1's own tree.
 func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 	t.Parallel()
@@ -6846,10 +6845,10 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 
 	rootBefore, _, portBefore := sw.Root()
 
-	// VLAN 20 is neither in the bridge table nor carried by the trunk. Its
-	// root priority is far better than this switch's own, so if the BPDU
-	// falls back to the CIST (VLAN 1's tree under PVST) instead of being
-	// refused, the peer displaces this switch as VLAN 1's root.
+	// VLAN 20 is not in the bridge's VLAN table, so it is not admitted on
+	// any port. Its root priority is far better than this switch's own, so
+	// if the BPDU falls back to the CIST (VLAN 1's tree under PVST) instead
+	// of being refused, the peer displaces this switch as VLAN 1's root.
 	foreign, err := stp.EncodeSSTP(stp.BPDU{
 		RootID:       stp.BridgeID{Priority: 0, Address: peer},
 		BridgeID:     stp.BridgeID{Priority: 0, Address: peer},
@@ -6864,11 +6863,18 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 		t.Fatalf("EncodeSSTP: %v", err)
 	}
 	foreign.Tags = []vlan.Tag{{VID: 20}}
-	sw.Forward(now, "1/1/1", foreign)
+	res := sw.Forward(now, "1/1/1", foreign)
+
+	if _, ok := findStep(res.Steps, "stp.sstp.vlan-not-admitted"); !ok {
+		t.Fatalf("no stp.sstp.vlan-not-admitted step in the trace: %+v", res.Steps)
+	}
+	if res.Reason != stp.ReasonVLANNotAdmitted {
+		t.Errorf("trace reason = %q, want %q", res.Reason, stp.ReasonVLANNotAdmitted)
+	}
 
 	rootAfter, _, portAfter := sw.Root()
 	if rootAfter != rootBefore || portAfter != portBefore {
-		t.Errorf("a VLAN 20 BPDU on a port carrying neither VLAN 20 nor a VLAN 20 tree changed VLAN 1's root from %v/%q to %v/%q",
+		t.Errorf("a VLAN 20 BPDU not admitted on the ingress port changed VLAN 1's root from %v/%q to %v/%q",
 			rootBefore, portBefore, rootAfter, portAfter)
 	}
 }
@@ -7137,5 +7143,228 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 		return s.Compare(want) == 0
 	}) {
 		t.Fatalf("consulted scopes = %v, want one naming %s", res.ConsultedScopes(), want)
+	}
+}
+
+// TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard is the regression test for
+// the defect this unit fixes: a rogue bridge cannot evade BPDU guard by
+// tagging its BPDU with a VLAN the ingress port does not admit. BPDU guard
+// lives in the link half of a receive, which now runs before the switch's
+// admission answer decides anything about the tree, so a frame that decodes
+// still disables the port even when the layer goes on to refuse the VLAN.
+func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+	sw.Drain()
+
+	// VLAN 30 is not in the bridge's VLAN table, so it is not admitted on
+	// this port. A gate that refused the frame before the layer saw it would
+	// never let BPDU guard fire; the fix is that the layer's link half runs
+	// regardless.
+	rogue, err := stp.EncodeSSTP(stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 0, Address: peer},
+		BridgeID:     stp.BridgeID{Priority: 0, Address: peer},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}, 30, peer)
+	if err != nil {
+		t.Fatalf("EncodeSSTP: %v", err)
+	}
+	rogue.Tags = []vlan.Tag{{VID: 30}}
+	sw.Forward(now, "1/1/1", rogue)
+
+	info := sw.Roles()["1/1/1"]
+	if info.BlockReason != stp.BlockReasonBPDUGuard {
+		t.Errorf("block reason = %q, want %q: an SSTP BPDU tagged for an unadmitted VLAN did not fire BPDU guard", info.BlockReason, stp.BlockReasonBPDUGuard)
+	}
+}
+
+// TestSSTPRefusalTracesADecodedFrame is evidence that a VLAN refusal is
+// rendered as what it is: a frame that decoded and was judged against the
+// bridge's admission rule, not a malformed frame. The decode fact reports
+// valid=true, and the VLAN fact names both the TLV's VLAN and the VLAN the
+// switch resolved on arrival.
+func TestSSTPRefusalTracesADecodedFrame(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+	sw.Start(now)
+	sw.Drain()
+
+	before := sw.Roles()["1/1/1"]
+
+	foreign := pvstSSTPFrame(t, 30, 30, peer)
+	res := sw.Forward(now, "1/1/1", foreign)
+
+	step, ok := findStep(res.Steps, "stp.sstp.vlan-not-admitted")
+	if !ok {
+		t.Fatalf("no stp.sstp.vlan-not-admitted step in the trace: %+v", res.Steps)
+	}
+
+	var decodeCanonical, vlansCanonical string
+	for _, fact := range step.Inputs {
+		switch fact.TypeID() {
+		case "stp.bpdu_decision":
+			decodeCanonical = fact.Canonical()
+		case "stp.sstp.vlans":
+			vlansCanonical = fact.Canonical()
+		}
+	}
+	if !strings.Contains(decodeCanonical, "valid=true") {
+		t.Errorf("decode fact = %q, want valid=true: a refusal on VLAN grounds is not a decode failure", decodeCanonical)
+	}
+	if want := "tlv=30,arrival=30,consistent=true"; vlansCanonical != want {
+		t.Errorf("stp.sstp.vlans fact = %q, want %q", vlansCanonical, want)
+	}
+
+	after := sw.Roles()["1/1/1"]
+	if after.BadBPDUs != before.BadBPDUs {
+		t.Errorf("BadBPDUs = %d, want %d unchanged: a decoded frame refused on VLAN grounds must not count as a bad BPDU", after.BadBPDUs, before.BadBPDUs)
+	}
+}
+
+// sstpStepShape summarizes an SSTP step's structural shape: which layer and
+// op it belongs to, its rule and subject, and the kind of fact each input and
+// output carries. It deliberately excludes the facts' own canonical values,
+// since those report port state that mutation changes and Peek does not —
+// the trace shape this unit promises is independent of mutation is the shape
+// alone, not the counters a mutating call went on to move.
+func sstpStepShape(step trace.Step) string {
+	inputs := make([]string, 0, len(step.Inputs))
+	for _, f := range step.Inputs {
+		inputs = append(inputs, string(f.TypeID()))
+	}
+	outputs := make([]string, 0, len(step.Outputs))
+	for _, f := range step.Outputs {
+		outputs = append(outputs, string(f.TypeID()))
+	}
+
+	return fmt.Sprintf("layer=%s;op=%s;rule=%s;subject=%s/%s;inputs=%v;outputs=%v",
+		step.Layer, step.Op, step.RuleID, step.Subject.Kind, step.Subject.Key, inputs, outputs)
+}
+
+// TestSSTPTraceShapeIsTheSameWithAndWithoutMutation is the claim nothing else
+// pins: interceptSSTP renders the same step shape whether or not mutate is
+// set, because the outcome the non-mutating path derives from admitted and
+// TracksVLAN is exactly the outcome the mutating path reaches by calling
+// ReceiveSSTP. Every reachable outcome but SSTPPortDown is covered: a port
+// admitted into the bridge's VLAN table always has a per-VLAN spanning tree
+// under a validly constructed switch (Config.Validate refuses a carried VLAN
+// with no tree), so SSTPUntrackedVLAN — which requires an admitted VLAN with
+// no tree — is not reachable through Switch.Forward and is not one of the
+// cases below; stp.Layer's own tests cover it directly.
+func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cases := []struct {
+		name   string
+		cfg    func(t *testing.T) vswitch.Config
+		frame  func(t *testing.T) ethernet.Frame
+		ruleID trace.RuleID
+	}{
+		{
+			name: "applied",
+			cfg:  func(t *testing.T) vswitch.Config { return pvstSwitchConfig(t, 1, 1, 10) },
+			frame: func(t *testing.T) ethernet.Frame {
+				return pvstSSTPFrame(t, 10, 10, peer)
+			},
+			ruleID: "stp.sstp.admit",
+		},
+		{
+			name: "bpdu-guard",
+			cfg: func(t *testing.T) vswitch.Config {
+				cfg := pvstSwitchConfig(t, 1, 1, 10)
+				cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
+				return cfg
+			},
+			frame: func(t *testing.T) ethernet.Frame {
+				return pvstSSTPFrame(t, 10, 10, peer)
+			},
+			ruleID: "stp.sstp.admit",
+		},
+		{
+			name: "pvst-boundary",
+			cfg: func(t *testing.T) vswitch.Config {
+				cfg := pvstSwitchConfig(t, 1, 1, 10)
+				cfg.STP.PVST = nil
+				cfg.STP.MST = &stp.MST{Name: "region-1", Revision: 1, Instances: map[stp.MSTID]stp.Instance{
+					1: {VLANs: []vlan.ID{10}},
+				}}
+				return cfg
+			},
+			frame: func(t *testing.T) ethernet.Frame {
+				return pvstSSTPFrame(t, 10, 10, peer)
+			},
+			ruleID: "stp.sstp.admit",
+		},
+		{
+			name: "vlan-not-admitted",
+			cfg:  func(t *testing.T) vswitch.Config { return pvstSwitchConfig(t, 1, 1, 10) },
+			frame: func(t *testing.T) ethernet.Frame {
+				return pvstSSTPFrame(t, 30, 30, peer)
+			},
+			ruleID: "stp.sstp.vlan-not-admitted",
+		},
+		{
+			name: "pvid-inconsistent",
+			cfg:  func(t *testing.T) vswitch.Config { return pvstSwitchConfig(t, 1, 1, 10) },
+			frame: func(t *testing.T) ethernet.Frame {
+				return pvstSSTPFrame(t, 20, 10, peer)
+			},
+			ruleID: "stp.sstp.admit",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+
+			forwardSw := mustSwitch(t, c.cfg(t))
+			forwardSw.Start(now)
+			forwardSw.Drain()
+			forwardRes := forwardSw.Forward(now, "1/1/1", c.frame(t))
+
+			peekSw := mustSwitch(t, c.cfg(t))
+			peekSw.Start(now)
+			peekSw.Drain()
+			peekRes := peekSw.Peek(now, "1/1/1", c.frame(t))
+
+			forwardStep, ok := findStep(forwardRes.Steps, c.ruleID)
+			if !ok {
+				t.Fatalf("Forward: no %s step in the trace: %+v", c.ruleID, forwardRes.Steps)
+			}
+			peekStep, ok := findStep(peekRes.Steps, c.ruleID)
+			if !ok {
+				t.Fatalf("Peek: no %s step in the trace: %+v", c.ruleID, peekRes.Steps)
+			}
+
+			if got, want := sstpStepShape(peekStep), sstpStepShape(forwardStep); got != want {
+				t.Errorf("Peek step shape = %s, want %s (Forward's shape)", got, want)
+			}
+			if forwardRes.Outcome != peekRes.Outcome {
+				t.Errorf("Forward outcome = %s, Peek outcome = %s, want equal", forwardRes.Outcome, peekRes.Outcome)
+			}
+			if forwardRes.Reason != peekRes.Reason {
+				t.Errorf("Forward reason = %q, Peek reason = %q, want equal", forwardRes.Reason, peekRes.Reason)
+			}
+		})
 	}
 }
