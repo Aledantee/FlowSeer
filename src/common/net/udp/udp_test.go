@@ -272,7 +272,24 @@ func TestVerify(t *testing.T) {
 	}
 
 	t.Run("mixed address family", func(t *testing.T) {
+		// addressFamily rejects this pair (10.0.10.7 is IPv4, ff02::fb is pure
+		// IPv6), so if its error were ignored, checksum's v4 argument would
+		// keep its zero value (false) and the code would checksum the IPv4
+		// fixture's bytes against the RFC 8200 section 8.1 IPv6 pseudo-header
+		// instead, treating src as its IPv4-mapped form ::ffff:10.0.10.7.
+		// That pseudo-header is 16 (src) + 16 (dst) + 4 (UDP length, 54) +
+		// 3 zero bytes + 1 next-header byte (17):
+		//   00000000 00000000 0000ffff 0a000a07
+		//   ff020000 00000000 00000000 000000fb
+		//   00000036 00000011
+		// Summing that against the fixture's own bytes with its checksum
+		// field zeroed folds to 0x746d, so the checksum field that makes the
+		// total fold to 0xffff (checksum() returns its one's complement, and
+		// Verify wants that complement to be zero) is 0xffff-0x746d = 0x8b92.
+		// With the guard in place, addressFamily's error stops Verify before
+		// any of this runs, so only the guard can produce the false here.
 		wire := mustDecodeHex(t, ipv4Fixture)
+		wire[6], wire[7] = 0x8b, 0x92
 		src := netip.MustParseAddr("10.0.10.7")
 		dst := netip.MustParseAddr("ff02::fb")
 
@@ -282,9 +299,18 @@ func TestVerify(t *testing.T) {
 	})
 
 	t.Run("datagram Decode refuses", func(t *testing.T) {
+		// Length is 4, so Decode refuses before any checksum work happens.
+		// For the checksum to agree too and leave the refusal as the only
+		// possible cause, the eight octets must check out for 10.0.10.7 ->
+		// 224.0.0.251 under the RFC 768 pseudo-header: src (4) + dst (4) +
+		// zero + protocol (17) + UDP length (8):
+		//   0a000a07 e00000fb 00110008
+		// Summing that against the octets with the checksum field zeroed
+		// (14e9 14e9 0004 0000) folds to 0x1ef2, so the checksum field that
+		// makes the total fold to 0xffff is 0xffff-0x1ef2 = 0xe10d.
 		src := netip.MustParseAddr("10.0.10.7")
 		dst := netip.MustParseAddr("224.0.0.251")
-		wire := []byte{0x14, 0xe9, 0x14, 0xe9, 0x00, 0x04, 0xaa, 0x94}
+		wire := []byte{0x14, 0xe9, 0x14, 0xe9, 0x00, 0x04, 0xe1, 0x0d}
 
 		if udp.Verify(wire, src, dst) {
 			t.Error("Verify() = true, want false for a datagram Decode itself would refuse")
