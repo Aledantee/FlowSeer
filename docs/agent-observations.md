@@ -26,3 +26,18 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-09-16 plan: a unit's Tests line prescribed the test that could not catch the risk the plan named
+Skill or agent: `.claude/skills/plan/SKILL.md`, the per-unit `Tests:` line.
+What happened: phase 3d's Open questions said the MST BPDU octet layout "is
+verifiable from no in-repo file" and that "the tests prove only the round-trip
+and the body lengths, and no peer capture is available here"
+(`docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3d-plan.md`).
+Unit U2's Tests line then asked for "the R14a-wire round-trip byte for byte",
+which is symmetric and passes whatever placement the encoder chooses.
+`implement` followed it, and two fields shipped in each other's octets until
+review found it (fixed in `02ec81b0`). The step was followed as written and
+still produced the wrong result.
+Suggested change: have `plan` check each unit's Tests line against that unit's
+own risks, so a risk the plan states as unverifiable by the tests either gets a
+test that pins it or an explicit note that nothing in the unit covers it.
