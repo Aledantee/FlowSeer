@@ -80,7 +80,7 @@ firewall uses, and those are what this plan adds.
   to a trunk (`eth0.10`), the schema already expresses it
   (`spec/proto/flowseer/net/interface/v1/subinterface.proto`), and keeping
   the parent out of the bridge and spanning tree leaves the existing bans at
-  `src/common/netsim/vswitch/config.go:241-259` in force.
+  `src/common/netsim/vswitch/config.go:316-335` in force.
 - Transport codecs live in `src/common/net/udp`, `src/common/net/tcp`, and
   `src/common/net/icmp`, one package per protocol like `igmp` and `mld`.
   Why: the filter matches ports, flags, and ICMP types, and the reflector
@@ -90,7 +90,7 @@ firewall uses, and those are what this plan adds.
   applies to each.
 - The multicast flooding rules change nothing and gain conformance cases.
   Why: `Switch.Resolve` already floods 224.0.0.0/24 as RFC 4541 section
-  2.1.2 requires (`src/common/netsim/vswitch/switch.go:1089-1093`), and
+  2.1.2 requires (`src/common/netsim/vswitch/switch.go:1110-1114`), and
   snoops IPv6 link-scope groups other than `ff02::1` as section 3 allows.
   The corpus has no case for either, and the reflector's answer depends on
   both.
@@ -105,9 +105,9 @@ firewall uses, and those are what this plan adds.
 ## Requirements
 
 1. A UDP datagram decodes to its ports, length, and checksum, and encodes
-   with a checksum over the IPv4 or IPv6 pseudo-header. Example: the mDNS
-   query captured in phase 1 decodes to source and destination port 5353
-   and re-encodes to the captured bytes.
+   with a checksum over the IPv4 or IPv6 pseudo-header. Example: phase 1's
+   hand-computed IPv4 fixture decodes to source and destination port 5353,
+   length 54, and checksum `0xaa94`, and re-encodes to the same bytes.
 2. A TCP segment decodes to its ports, data offset, and flags; an ICMP
    message decodes to its type and code. Example: bytes `00 50 1f 90 ...`
    with offset 5 and flags `0x12` decode to source 80, destination 8080,
@@ -193,7 +193,7 @@ Landed:
 
 ### U4. Phase 4 - the filter capability and its schema
 Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase4-plan.md`
-After: U1, U2
+After: U1, U2, U3
 Change: `vswitch/filter`, its wiring, corpus cases, `flowseer.net.filter.v1`,
 and the `netmodel` translation (R8 to R11). Its code depends on U1 and U2
 only; it runs after U3 because both register cases in

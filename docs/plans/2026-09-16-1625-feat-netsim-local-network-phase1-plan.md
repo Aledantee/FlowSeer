@@ -12,7 +12,7 @@ parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 
 # Local Network Analysis Phase 1 - Transport Codecs and Multicast Conformance - Plan
 
-> Implemented. 3 units, 2026-09-16T16:11Z to 2026-09-16T16:11Z.
+> Implemented. 3 units, 2026-09-16T16:13Z to 2026-09-16T16:13Z.
 
 ## Goal
 
@@ -23,7 +23,7 @@ shape of `igmp` and `mld`, and two troubleshooting cases in
 `src/common/netsim/internal/netsimtest`. The plan is wrong if the IPv6 case
 shows `ff02::fb` flooding or dropping outright, which would mean the
 resolver's scope rules differ from what
-`src/common/netsim/vswitch/switch.go:1094-1100` reads as today.
+`src/common/netsim/vswitch/switch.go:1115-1121` reads as today.
 
 ## Decisions
 
@@ -152,41 +152,45 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net
 Files: `src/common/netsim/internal/netsimtest/mcast_cases.go`, `src/common/netsim/internal/netsimtest/cases.go`, `src/common/netsim/internal/netsimtest/corpus_test.go`, `src/common/netsim/internal/netsimtest/README.md`, `src/common/netsim/vswitch/conformance_test.go`
 After: none
 Change: two cases in a new `mcast_cases.go`, registered in
-`DefaultRegistry`, in the troubleshooting ID list at `corpus_test.go:628-638`
-(they sort between `loop-guard-unidirectional-link` and
+`DefaultRegistry`, in the troubleshooting ID list at `corpus_test.go:628-639`
+(they sort between `loop-protect-contains-access-loop` and
 `recursive-route-not-installed`), and in the total at `corpus_test.go:579`,
 which becomes 26: the two cases take the corpus from 23 to 25, and merging
 `main` brought a third, `troubleshooting/loop-protect-contains-access-loop`;
 described in the README's case list.
-`troubleshooting/mdns-ipv4-floods-under-snooping`:
-switch `sw1`, ports `p1..p9`, VLAN 10 with `FloodUnregistered=false` and
-`RouterPorts: ["p9"]` (`mcast.VLANSnooping`, a static router port, so no
-query has to be learned), then the IPv4 fixture from U1, as literal bytes
-rather than an import, inside an IPv4 packet with hop limit 255 from
-10.0.10.7 to 224.0.0.251, destination MAC `01:00:5e:00:00:fb`, on `p1`.
-Expected outcome `Flooded` to `p2..p9`, readiness `Complete`, false
-answer "snooping drops unregistered mDNS". `ExpectedSteps` is the complete
-ordered trace, as `corpus.go:434` requires: the bridge's classify and learn
-steps, `group-destination` on layer `relay`, `flood` on layer `relay`, then
-per egress port in port order a `vlan-tag-form` rewrite and a `transmit`
-step (`src/common/netsim/vswitch/bridge/bridge.go:1245-1262`), twenty
+
+`troubleshooting/mdns-ipv4-floods-under-snooping`: switch `sw1`, ports
+`p1..p9`, VLAN 10 with `FloodUnregistered=false` and `RouterPorts: ["p9"]`
+(`mcast.VLANSnooping`, a static router port, so no query has to be
+learned), then the IPv4 fixture from U1, as literal bytes rather than an
+import, inside an IPv4 packet with hop limit 255 from 10.0.10.7 to
+224.0.0.251, destination MAC `01:00:5e:00:00:fb`, on `p1`. Expected outcome
+`Flooded` to `p2..p9`, readiness `Complete`, false answer "snooping drops
+unregistered mDNS". `ExpectedSteps` is the complete ordered trace, as
+`corpus.go:434` requires: the bridge's classify and learn steps,
+`group-destination` on layer `relay`, `flood` on layer `relay`, then per
+egress port in port order a `vlan-tag-form` rewrite and a `transmit` step
+(`src/common/netsim/vswitch/bridge/bridge.go:1330-1346`), twenty
 expectations. `Switch.Resolve` exempts 224.0.0.0/24 before the multicast
 resolver runs, so the IPv4 case has no `group-members` step and floods to
 all eight other ports. The implementer takes the exact list from a first
 run's rendered trace and checks each rule against the source before
-pinning it. `troubleshooting/mdns-ipv6-unregistered-router-ports`:
-same switch, the IPv6 fixture from `fe80::1` to `ff02::fb`, destination
-MAC `33:33:00:00:00:fb`, on `p1`, no MLD report. Expected outcome
-`Flooded` with `p9` as the only egress: `replicate` reports `Flooded`
-whenever at least one port transmitted (`bridge.go:1272-1274`), so the
-IPv4 and IPv6 cases differ in their steps, not their outcome. Decisive
-step RuleID `group-members` on layer `mcast` with a
-`vswitch.mcast_membership` fact reading `registered=false`; the full step
-list is classify, learn, `group-destination`, `group-members`, then one
-`vlan-tag-form` and one `transmit` for `p9`. False answer "the switch
-floods link-scope groups like IPv4". The corpus
-test in `vswitch/conformance_test.go` gains a subtest asserting both
-cases' forwarded port sets.
+pinning it.
+
+`troubleshooting/mdns-ipv6-unregistered-router-ports`: same switch, the
+IPv6 fixture from `fe80::1` to `ff02::fb`, destination MAC
+`33:33:00:00:00:fb`, on `p1`, no MLD report. Expected outcome `Flooded`
+with `p9` as the only egress: `replicate` reports `Flooded` whenever at
+least one port transmitted (`bridge.go:1356-1358`), so the IPv4 and IPv6
+cases differ in their steps, not their outcome. Decisive step RuleID
+`group-members` on layer `mcast` with a `vswitch.mcast_membership` fact
+reading `registered=false`; the full step list is classify, learn,
+`group-destination`, `group-members`, then one `vlan-tag-form` and one
+`transmit` for `p9`. False answer "the switch floods link-scope groups
+like IPv4".
+
+The corpus test in `vswitch/conformance_test.go` gains a subtest asserting
+both cases' forwarded port sets.
 Tests: the corpus runner (`AssertCase` twice per case),
 `TestRegistryDeterministicOrdering` with the count and the two IDs added,
 and the new `conformance_test.go` subtest. Nothing in this unit covers the resolver's `pending` path
@@ -205,14 +209,14 @@ go test -race ./src/common/net/udp/... ./src/common/net/tcp/... ./src/common/net
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `src/common/netsim/README.md` lists the three codecs beside `igmp`
+- [x] Verifier green for every changed path.
+- [x] `src/common/netsim/README.md` lists the three codecs beside `igmp`
       and `mld`; each package has a README with a working example.
-- [ ] The corpus README lists both cases; `TestRegistryDeterministicOrdering`
+- [x] The corpus README lists both cases; `TestRegistryDeterministicOrdering`
       names them.
-- [ ] This plan's `status` set with an outcome note under its title; the
+- [x] This plan's `status` set with an outcome note under its title; the
       parent's U1 `Landed:` line carries the commit range.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 
