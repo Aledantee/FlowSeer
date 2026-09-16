@@ -2347,9 +2347,13 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 	sw.LinkChange(now, "1/1/1", port.Up, vswitch.PointToPointUnknown, 0)
 	sw.LinkChange(now, "1/1/2", port.Up, vswitch.PointToPointUnknown, 0)
 
+	// lag1 is the fixture's only non-member port, so an unblocked broadcast
+	// off it has nowhere left to flood to: the positive outcome here is
+	// Dropped/no-egress, not the port-blocked drop the precondition proved.
 	after := sw.Forward(now, "lag1", data)
-	if after.Outcome == trace.Dropped && after.Reason == bridge.ReasonPortBlocked {
-		t.Fatalf("frame on lag1 after a port cycle still blocked, want the Manual action cleared")
+	if after.Outcome != trace.Dropped || after.Reason != bridge.ReasonNoEgress {
+		t.Fatalf("frame on lag1 after a port cycle = %s/%s, want %s/%s: the Manual action should have cleared",
+			after.Outcome, after.Reason, trace.Dropped, bridge.ReasonNoEgress)
 	}
 }
 
@@ -2397,6 +2401,144 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+	}
+}
+
+// loopProtectReturnFact locates the "loopprotect.probe.return" step in res's
+// trace and returns its output fact's canonical string, or "" if the step is
+// not present.
+func loopProtectReturnFactString(t *testing.T, res vswitch.ForwardResult) string {
+	t.Helper()
+
+	for _, step := range res.Steps {
+		if step.RuleID == "loopprotect.probe.return" && len(step.Outputs) > 0 {
+			return step.Outputs[0].Canonical()
+		}
+	}
+
+	return ""
+}
+
+// TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN proves that a probe
+// emitted on a port with no configured VLANs (VID 0, resolved to the port's
+// PVID) does not falsely report an inter-VLAN loop when it returns on a
+// VLAN-aware bridge: the switch must re-encode the probe's payload with the
+// resolved VID before transmitting, so the classified VLAN it returns under
+// agrees with what the payload itself says it was sent on. Before that fix,
+// the payload still named VID 0 while the switch classified the return into
+// the port's PVID, and Receive read that mismatch as a false inter-VLAN loop.
+func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "a"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+			},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				// No VLANs configured: Wake emits VID 0 for this port.
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	sw.Wake(now.Add(loopprotect.DefaultInterval))
+	emissions := sw.Drain()
+
+	var probeFrame ethernet.Frame
+	found := false
+	for _, em := range emissions {
+		if em.Port != "1/1/1" {
+			continue
+		}
+		if _, err := loopprotect.Decode(em.Frame); err == nil {
+			probeFrame = em.Frame
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+	}
+
+	// An unmanaged loop hands the same probe back on the port it left from.
+	res := sw.Forward(now, "1/1/1", probeFrame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+
+	factStr := loopProtectReturnFactString(t, res)
+	if factStr == "" {
+		t.Fatalf("trace has no loopprotect.probe.return step: %+v", res.Steps)
+	}
+	if !strings.Contains(factStr, "sent_vid=10;returned_vid=10") {
+		t.Errorf("loopprotect.probe.return fact = %q, want sent_vid and returned_vid to agree at 10", factStr)
+	}
+	if !strings.Contains(factStr, "after={action=\"Block\";inter_vlan=false") {
+		t.Errorf("loopprotect.probe.return fact = %q, want after.inter_vlan=false", factStr)
+	}
+}
+
+// TestLoopProtectCrossVLANReturnedProbeIsInterVLAN proves the genuine
+// positive this package must still detect: a probe sent on one VLAN that
+// returns classified into a different VLAN is a real inter-VLAN loop. The
+// probe here is built and fed back by hand naming VID 10 as the VLAN it was
+// sent on, then delivered untagged so the port's own PVID (20) classifies
+// the return into a different VLAN, reproducing what a real inter-VLAN loop
+// looks like on the wire.
+func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
+	pvid := vlan.ID(20)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "a", 20: "b"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{20}, Tagged: []vlan.ID{10}},
+			},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{10}},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 10, Sequence: 1, Port: "1/1/1"}
+	// Delivered untagged, so bridge ingress classifies it by the port's
+	// PVID (20) rather than by the VID 10 the payload names as sent.
+	frame := loopprotect.Encode(probe, mac)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+
+	factStr := loopProtectReturnFactString(t, res)
+	if factStr == "" {
+		t.Fatalf("trace has no loopprotect.probe.return step: %+v", res.Steps)
+	}
+	if !strings.Contains(factStr, "sent_vid=10;returned_vid=20") {
+		t.Fatalf("loopprotect.probe.return fact = %q, want sent_vid=10;returned_vid=20", factStr)
+	}
+	if !strings.Contains(factStr, "inter_vlan=true") {
+		t.Errorf("loopprotect.probe.return fact = %q, want inter_vlan=true", factStr)
 	}
 }
 
@@ -2683,8 +2825,9 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 	}
 
 	res := derived.Forward(now, "1/1/1", data)
-	if res.Outcome == trace.Dropped && res.Reason == bridge.ReasonPortBlocked {
-		t.Fatalf("derived switch after the current switch's port state diverged from the target still blocks 1/1/1, want the rebuilt layer's action cleared")
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("derived switch after the current switch's port state diverged from the target: 1/1/1 = %s/%s, want %s: the rebuilt layer's action should have cleared",
+			res.Outcome, res.Reason, trace.Flooded)
 	}
 }
 
