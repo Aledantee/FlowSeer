@@ -9,6 +9,31 @@ hook_init() {
   HOOK_ROOT=$(git -C "$HOOK_CWD" rev-parse --show-toplevel 2>/dev/null) || exit 0
   HOOK_ROOT=$(cd "$HOOK_ROOT" && pwd -P) || exit 0
   HOOK_PREFIX=$(git -C "$HOOK_CWD" rev-parse --show-prefix 2>/dev/null) || exit 0
+  hook_go_tools_on_path
+}
+
+# Go tools install to $(go env GOPATH)/bin, which a session's PATH does not
+# always carry; the format hook then reports every Go edit as unformatted
+# although the formatters are installed. Search that directory whenever go
+# itself is found, so the session's PATH does not decide what a hook can do.
+hook_go_tools_on_path() {
+  local gobin gopath
+  command -v go >/dev/null 2>&1 || return 0
+  # GOBIN wins when set; otherwise the first GOPATH entry, which is where
+  # go install writes. An empty answer adds nothing: "/bin" ahead of PATH
+  # would shadow every later entry.
+  gobin=$(go env GOBIN 2>/dev/null) || gobin=""
+  if [ -z "$gobin" ]; then
+    gopath=$(go env GOPATH 2>/dev/null) || gopath=""
+    gopath=${gopath%%:*}
+    [ -n "$gopath" ] && gobin=$gopath/bin
+  fi
+  [ -n "$gobin" ] || return 0
+  case ":$PATH:" in
+    *":$gobin:"*) ;;
+    *) PATH=$gobin:$PATH ;;
+  esac
+  return 0
 }
 
 hook_paths() {

@@ -468,6 +468,31 @@ assert_allow "$repo_root/tools/hooks/mark-verification-dirty.sh" "$bash_mark_inp
 grep -qx '<Bash mutation; verify with --full>' "$fixture/.git/flowseer-verification-dirty"
 ok "Bash source mutations mark a full-scope verification"
 
+# The format hook resolves gofumpt and goimports from $(go env GOPATH)/bin
+# when PATH does not carry it: a stub go names a GOPATH whose bin holds
+# stubs that record the call, and both must run with only the stub go on
+# PATH ahead of whatever the runner's PATH holds.
+format_gopath=$(canonical_tmp "$fixture_parent/gopath.XXXXXX")
+mkdir -p "$format_gopath/bin" "$format_gopath/stub"
+cat >"$format_gopath/stub/go" <<EOF
+#!/usr/bin/env bash
+[[ \$2 == GOPATH ]] && printf '%s\n' "$format_gopath"
+exit 0
+EOF
+for formatter in gofumpt goimports; do
+  cat >"$format_gopath/bin/$formatter" <<EOF
+#!/usr/bin/env bash
+touch "$format_gopath/$formatter.ran"
+EOF
+done
+chmod +x "$format_gopath/stub/go" "$format_gopath/bin/gofumpt" "$format_gopath/bin/goimports"
+format_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/main.go" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+format_output=$(PATH="$format_gopath/stub:$PATH" "$repo_root/tools/hooks/go-format.sh" <<<"$format_input")
+[[ -f $format_gopath/gofumpt.ran && -f $format_gopath/goimports.ran ]]
+[[ $format_output != *"not on PATH"* ]]
+ok "go-format resolves the formatters from GOPATH/bin when PATH lacks it"
+
 stop_input=$(jq -n --arg cwd "$fixture" '{cwd:$cwd,hook_event_name:"Stop"}')
 stop_output=$("$repo_root/tools/hooks/stop-check.sh" <<<"$stop_input")
 jq -e '.decision == null and (.systemMessage | contains("Edited but not verified"))' <<<"$stop_output" >/dev/null
