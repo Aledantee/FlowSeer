@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -2144,6 +2145,59 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 	if derived.BridgeID().Address != sw.BridgeID().Address {
 		t.Errorf("derived bridge address = %s, want %s", derived.BridgeID().Address, sw.BridgeID().Address)
 	}
+}
+
+// TestDeriveKeepsOneGateEntryPerScope is evidence that Derive's retained-clone
+// install (SetGate for the STP scope over the layer NewWithSpec already
+// installed for the same scope) replaces rather than appends. An appending
+// SetGate would leave the bridge consulting both the stale layer NewWithSpec
+// built and the retained one, which is the defect
+// TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress guards behaviorally;
+// this test asserts the entry count directly.
+func TestDeriveKeepsOneGateEntryPerScope(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		},
+	}
+
+	sw := mustSwitch(t, cfg)
+	if got := bridgeOf(t, sw).GateCount(); got != 1 {
+		t.Fatalf("GateCount() on New = %d, want 1", got)
+	}
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+	if got := bridgeOf(t, derived).GateCount(); got != 1 {
+		t.Errorf("GateCount() after Derive = %d, want 1: Derive's retained-clone SetGate must replace the scope NewWithSpec already installed, not append to it", got)
+	}
+}
+
+// bridgeOf reaches the unexported bridge field of sw so a test can call
+// [bridge.Bridge.GateCount], a test-only accessor. Switch does not otherwise
+// expose its bridge to this external test package.
+func bridgeOf(t *testing.T, sw *vswitch.Switch) *bridge.Bridge {
+	t.Helper()
+	field := reflect.ValueOf(sw).Elem().FieldByName("bridge")
+	if !field.IsValid() {
+		t.Fatal("vswitch.Switch has no field named bridge")
+	}
+	field = reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
+	br, ok := field.Interface().(*bridge.Bridge)
+	if !ok || br == nil {
+		t.Fatal("switch has no bridge")
+	}
+
+	return br
 }
 
 // TestBPDUOnDownPortIsDropped is evidence that the intercept applies the
