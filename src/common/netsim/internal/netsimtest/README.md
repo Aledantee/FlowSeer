@@ -113,6 +113,12 @@ established across the library:
   stops receiving BPDUs. Loop guard holds it Alternate and Discarding with
   reason `loop-inconsistent`, disproving the false answer that it becomes
   Designated and forwards, which on a link broken in one direction is a loop.
+- `troubleshooting/loop-protect-contains-access-loop`: Two switches joined by
+  two cables run no spanning tree, so the cables form a real loop; loop
+  protection with Block on one switch's two looped ports acts on exactly one
+  of them once a probe returns, and a broadcast the other switch's host sends
+  reaches it exactly once instead of circulating, disproving the false answer
+  that the fabric floods the broadcast forever because no spanning tree runs.
 - `planning/ecmp-candidates-recorded`: Two equal-cost static routes reach one
   prefix. The lookup fact names both next hops in canonical order and the index
   of the one the flow hash chose, disproving the false answer that one route
@@ -123,8 +129,8 @@ established across the library:
   with a Complete result, disproving the false answer that a broken recursive
   route silently forwards or fails construction.
 
-The eleven `fabric`-based cases execute a [fabric.Fabric] and populate
-[ExecutionResult.Journey], six of them alongside
+The twelve `fabric`-based cases execute a [fabric.Fabric] and populate
+[ExecutionResult.Journey], seven of them alongside
 [ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
 [fabric.Fabric.Metadata], scoped over the whole topology, so it can carry an

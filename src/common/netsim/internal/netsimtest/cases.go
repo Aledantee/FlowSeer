@@ -2181,6 +2181,7 @@ func DefaultRegistry() *Registry {
 	RegisterPhysicalTopologyCases(r)
 	RegisterLAGMulticastCases(r)
 	RegisterSTPCases(r)
+	RegisterLoopProtectCases(r)
 	RegisterRoutingCases(r)
 	return r
 }
