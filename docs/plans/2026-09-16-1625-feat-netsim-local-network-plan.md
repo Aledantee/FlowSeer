@@ -211,8 +211,10 @@ buf lint && buf generate
 .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
 ```
 
-Each phase plan names its focused checks. No lab device takes part; the
-one manual step is the capture phase 1 asks for.
+Each phase plan names its focused checks. No lab device takes part, and no
+manual step remains: the capture phase 1 asked for was not taken, and
+`TestCapture` in `src/common/net/udp/udp_test.go` records its absence as a
+skip.
 
 ## Definition of done
 
