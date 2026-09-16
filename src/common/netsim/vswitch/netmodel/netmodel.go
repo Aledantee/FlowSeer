@@ -2116,7 +2116,16 @@ func parseIP(ipAddr *addrv1.IpAddress) (netip.Addr, bool) {
 		if len(octets) != 16 {
 			return netip.Addr{}, false
 		}
-		return netip.AddrFrom16([16]byte(octets)), true
+		addr := netip.AddrFrom16([16]byte(octets))
+		if addr.Is4In6() {
+			// Routing validation refuses an IPv4-mapped address outright
+			// (a decoded IPv4 address is 4 bytes and never matches it), so
+			// treating it as invalid here turns a device report that
+			// carries one into the same recorded issue a parse failure
+			// gets, instead of an unconstructible load.
+			return netip.Addr{}, false
+		}
+		return addr, true
 	}
 	return netip.Addr{}, false
 }

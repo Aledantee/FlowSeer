@@ -183,4 +183,7 @@ the same issue. Two sub-interfaces naming the same parent and VID is a
 device reporting the same claim twice: `netmodel.routing.claim_conflict` is
 recorded on the parent port's lookup scope and neither claimant reaches the
 VRF, the same way any other contested fact drops out rather than keeping
-whichever claimant happened to load first.
+whichever claimant happened to load first. Two VLAN-kind interfaces
+reporting the same VLAN id contest a separate namespace, since neither one
+resolves to a port: the same conflict code is recorded on the VLAN's own
+lookup scope instead, and again neither claimant reaches the VRF.
