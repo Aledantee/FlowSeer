@@ -185,7 +185,7 @@ Change: `routing.Interface` accepts `Port` with `VLAN`; the switch classifies
 and tags on the routed-port path; `netmodel` loads `Subinterface` (R4, R5).
 It also pins the two `udp.Verify` refusal guards phase 1 left unpinned, which
 its own plan records as a decision.
-Landed: `91af8469..PLACEHOLDER`
+Landed: `91af8469..edd97001`
 
 ### U3. Phase 3 - the mDNS reflector node
 Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase3-plan.md`
