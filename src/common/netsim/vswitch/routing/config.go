@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/netip"
 	"slices"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -39,19 +40,69 @@ type Route struct {
 }
 
 // Neighbor defines a static link-layer address binding mapping an IP address on an interface
-// to a destination MAC address.
+// to a destination MAC address. [New] loads it into the neighbor table as [NeighborReachable]
+// with no expiry, so a static binding never ages out the way an observed one does.
 type Neighbor struct {
 	Interface string
 	Addr      netip.Addr
 	MAC       netaddr.MAC
 }
 
+// Mode selects whether a VRF's neighbor table resolves an address it was not told about, or
+// refuses every such next hop outright.
+type Mode string
+
+const (
+	// NeighborObserved is the zero value: an unresolved next hop enters the RFC 4861 section
+	// 7.2.2 hold-and-resolve cycle described in the package README's "Neighbor lifecycle"
+	// section.
+	NeighborObserved Mode = ""
+
+	// NeighborDisabled means the VRF never holds a frame for resolution; an absent or
+	// previously failed neighbor is a terminal miss.
+	NeighborDisabled Mode = "disabled"
+)
+
+// Default neighbor policy timers and depth, from RFC 4861 section 10: REACHABLE_TIME is
+// 30,000 milliseconds, and the resolution timeout is MAX_MULTICAST_SOLICIT (3 transmissions)
+// times RETRANS_TIMER (1,000 milliseconds). HoldDepth defaults above section 7.2.2's permitted
+// minimum of one, because an analysis library is asked which of several frames arrived, and a
+// depth of one answers that for the last one only.
+const (
+	defaultReachableTime     = 30 * time.Second
+	defaultResolutionTimeout = 3 * time.Second
+	defaultHoldDepth         = 3
+)
+
+// NeighborPolicy configures how a VRF's neighbor table resolves and holds. The zero value
+// normalizes to the RFC 4861 section 10 defaults under [NeighborObserved].
+type NeighborPolicy struct {
+	Mode              Mode
+	ReachableTime     time.Duration
+	ResolutionTimeout time.Duration
+	HoldDepth         int
+}
+
+func (p NeighborPolicy) normalize() NeighborPolicy {
+	if p.ReachableTime == 0 {
+		p.ReachableTime = defaultReachableTime
+	}
+	if p.ResolutionTimeout == 0 {
+		p.ResolutionTimeout = defaultResolutionTimeout
+	}
+	if p.HoldDepth == 0 {
+		p.HoldDepth = defaultHoldDepth
+	}
+	return p
+}
+
 // VRF represents an isolated virtual routing and forwarding instance with its own interfaces,
 // static routes, and neighbor table.
 type VRF struct {
-	Interfaces map[string]Interface
-	Routes     []Route
-	Neighbors  []Neighbor
+	Interfaces     map[string]Interface
+	Routes         []Route
+	Neighbors      []Neighbor
+	NeighborPolicy NeighborPolicy
 }
 
 // Config defines the complete routing capability configuration of a virtual switch,
@@ -67,9 +118,10 @@ func (c Config) Clone() Config {
 	}
 	for vrfName, vrf := range c.VRFs {
 		clonedVRF := VRF{
-			Interfaces: make(map[string]Interface, len(vrf.Interfaces)),
-			Routes:     slices.Clone(vrf.Routes),
-			Neighbors:  slices.Clone(vrf.Neighbors),
+			Interfaces:     make(map[string]Interface, len(vrf.Interfaces)),
+			Routes:         slices.Clone(vrf.Routes),
+			Neighbors:      slices.Clone(vrf.Neighbors),
+			NeighborPolicy: vrf.NeighborPolicy,
 		}
 		for ifName, iface := range vrf.Interfaces {
 			clonedVRF.Interfaces[ifName] = Interface{
@@ -123,6 +175,7 @@ func (c Config) Normalize() Config {
 			}
 			return x.Addr.Compare(y.Addr)
 		})
+		vrf.NeighborPolicy = vrf.NeighborPolicy.normalize()
 		cloned.VRFs[vrfName] = vrf
 	}
 	return cloned
@@ -426,6 +479,37 @@ func (c Config) Validate(ports port.Table) error {
 					Msgf("duplicate neighbor %s on interface %q in VRF %q", n.Addr, n.Interface, vrfName)
 			}
 			seenNeighbors[key] = struct{}{}
+		}
+
+		policy := vrf.NeighborPolicy
+		switch policy.Mode {
+		case NeighborObserved, NeighborDisabled:
+		default:
+			return errs.New().
+				Attr("vrf", vrfName).
+				Attr("mode", string(policy.Mode)).
+				Attr("field", "vrfs."+vrfName+".neighbor_policy.mode").
+				Msgf("VRF %q neighbor policy mode %q is not one of the two named values", vrfName, policy.Mode)
+		}
+		// Zero on either field means "unset" here exactly as it does for a route's Preference
+		// above: [NeighborPolicy.normalize] raises it to the RFC 4861 section 10 default, so
+		// only a negative value — one normalization leaves alone — claims a hold path the
+		// configuration cannot run.
+		if policy.Mode == NeighborObserved {
+			if policy.HoldDepth < 0 {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("hold_depth", policy.HoldDepth).
+					Attr("field", "vrfs."+vrfName+".neighbor_policy.hold_depth").
+					Msgf("VRF %q neighbor policy hold depth %d cannot be negative under NeighborObserved", vrfName, policy.HoldDepth)
+			}
+			if policy.ResolutionTimeout < 0 {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("resolution_timeout", policy.ResolutionTimeout).
+					Attr("field", "vrfs."+vrfName+".neighbor_policy.resolution_timeout").
+					Msgf("VRF %q neighbor policy resolution timeout cannot be negative under NeighborObserved", vrfName)
+			}
 		}
 	}
 

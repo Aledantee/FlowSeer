@@ -6,9 +6,12 @@ configured static routes, neighbor entries, and the rules that pick one next hop
 for a packet.
 
 The layer runs deterministically in memory, with no background goroutines and no
-wall clock. `Route` and `Originate` read the packet and the table and nothing
-else, so the same packet against the same configuration always leaves the same
-way, and looking at a decision cannot change it.
+wall clock of its own; `now` is a parameter the caller supplies. `Route` and
+`Originate` read the packet and the table and, with `commit` set, may also
+update the neighbor table described below. With `commit` clear neither one
+mutates anything, so the same packet against the same configuration always
+leaves the same way and looking at a decision cannot change it — see "Neighbor
+lifecycle" for why that distinction exists.
 
 ## Example
 
@@ -21,6 +24,7 @@ package main
 import (
 	"fmt"
 	"net/netip"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -70,12 +74,13 @@ func main() {
 		panic(err)
 	}
 
-	res := layer.Route("vlan10", ethernet.Frame{
+	now := time.Now()
+	res := layer.Route(now, "vlan10", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       routerMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
-	})
+	}, true)
 
 	fmt.Printf("egress %s towards %s\n", res.Interface, res.Frame.Dst)
 	for _, c := range res.Candidates {
@@ -256,8 +261,104 @@ Forwarding then answers from the routes that remain — a less specific route, o
 `no-route` — and that answer is complete, not an admission that netsim lacked an
 input.
 
-A withdrawal and a `neighbor-miss` are different failures and answer different
-questions. A withdrawn route means no chain of routes reaches the next hop, and
-it is decided once, when the table is built. A `neighbor-miss` means the table
-reached the next hop and no neighbor entry resolves it to a MAC address, and it
-is decided per packet.
+A withdrawal, a `neighbor-miss`, and a `neighbor-pending` are three different
+answers. A withdrawn route means no chain of routes reaches the next hop, and
+it is decided once, when the table is built. A `neighbor-miss` means the VRF
+will never resolve the next hop to a MAC address — it does not observe
+neighbors at all, or it already tried and gave up. A `neighbor-pending` means
+the table reached the next hop and resolution is still in progress; the next
+section describes when a lookup lands on which of the two.
+
+## Neighbor lifecycle
+
+A neighbor entry occupies one of five states: `Unobserved` (no entry — the
+zero value, not a state a lookup ever reports as such), `Incomplete`,
+`Reachable`, `Stale`, and `Failed`. The set is RFC 4861 section 7.3.2's IPv6
+state machine, which netsim also runs for ARP: Linux keeps one neighbour table
+for both families, and inventing a second vocabulary for IPv4 would buy
+nothing a shared one does not already say. `Delay` and `Probe` are
+deliberately absent — both exist only to schedule a unicast solicitation
+toward Neighbor Unreachability Detection, and netsim never solicits, so no
+input can reach either one. A state a test can never drive is worse than no
+state at all.
+
+A configured `routing.Neighbor` enters the table as `Reachable` with no
+expiry, so a static binding never ages out; that is `New`'s job, not the state
+machine's. Everything else on the table is driven by two calls:
+
+- **`Layer.Observe(now, Advertisement)`** applies RFC 4861 section 7.2.5 to
+  an observed link-layer address binding, over both families through one
+  family-neutral record. `Advertisement` carries the interface, the address,
+  the MAC, whether a link-layer address was supplied at all, and the
+  solicited, override, and router flags. If no entry exists for the address,
+  Observe does nothing — "there is no need to create an entry if none exists,
+  since the recipient has apparently not initiated any communication with the
+  target." An `Incomplete` entry records the address and moves to `Reachable`
+  when the advertisement is solicited or to `Stale` otherwise (Override is
+  ignored in this case). Elsewhere, Override clear and a differing address
+  moves a `Reachable` entry to `Stale` without adopting the new address, and
+  leaves any other state untouched; Override set (or no address supplied, or
+  the address already matches) updates the cache, landing on `Reachable` when
+  solicited or `Stale` when the update changed the address.
+
+  ARP has no solicited or override flags of its own, so the switch maps
+  them: a reply becomes `{Solicited: true, Override: true, Router: false}`
+  and a request's sender fields become
+  `{Solicited: false, Override: true, Router: false}`. RFC 826's merge rule
+  overwrites a known sender's hardware address unconditionally, which is what
+  `Override: true` produces under rule II regardless of which family sent it;
+  `Solicited` then carries the one difference the RFC 4861 table needs: a
+  reply confirms the forward path a solicitation was sent on, and a request
+  only refreshes the binding.
+
+- **`Layer.Wake(now)`** turns a state change into an effect. An `Incomplete`
+  entry whose resolution deadline has passed becomes `Failed`, and its held
+  frames are reported in `Effects.Failed`, still carried rather than
+  discarded — nothing here ever generates the retransmissions RFC 4861 counts
+  against, so `Failed` names a timeout and never an exhausted solicitation
+  count. Any entry that already holds frames and is no longer `Incomplete`
+  (because `Observe` resolved it since the previous `Wake`) has them reported
+  in `Effects.Released`. Either way the queue is drained, so calling `Wake`
+  again before anything else changes reports nothing further.
+  `Layer.NextWake()` reports the earliest `Incomplete` deadline, and
+  `Layer.Age(now)` is the separate timer that moves a `Reachable` entry past
+  its `ReachableTime` to `Stale`.
+
+A `Stale` entry forwards on its cached MAC and stays `Stale`. RFC 4861
+section 7.3.2 says of `STALE` that "until traffic is sent to the neighbor, no
+attempt should be made to verify its reachability," and real gear would move
+to `Delay` and start probing on the next send; netsim has no probe to send,
+so it forwards and leaves the state alone. Treating a `Stale` hit as a drop
+would reintroduce exactly the invented failure this lifecycle exists to
+remove.
+
+### The hold queue
+
+Under `NeighborObserved`, a `Route` or `Originate` call that misses the
+table and is told to `commit` creates an `Incomplete` entry (if one does not
+already exist) and appends the frame to that neighbor's hold queue, bounded
+by `NeighborPolicy.HoldDepth`. RFC 4861 section 7.2.2: "the number of queued
+packets per neighbor SHOULD be limited to some small value. When a queue
+overflows, the new arrival SHOULD replace the oldest entry." `HoldDepth`
+defaults to 3 rather than the permitted minimum of 1, because an analysis
+library is asked which of several frames arrived, and a depth of 1 answers
+that for the last one only.
+
+`commit` is what makes a preview safe. With it clear, a miss reports
+`neighbor-pending` without creating an entry or queuing anything, so
+`Switch.Peek` can be called any number of times without perturbing what a
+later commit sees, and two consecutive comparisons of the same pair of
+switches agree. Under `NeighborDisabled`, or against an entry already
+`Failed`, both values of `commit` report `neighbor-miss` and change nothing —
+there is nothing pending to preview.
+
+### Policy
+
+`VRF.NeighborPolicy` holds `Mode` (`NeighborObserved`, the zero value, or
+`NeighborDisabled`), `ReachableTime`, `ResolutionTimeout`, and `HoldDepth`.
+Left at zero, the timers and depth normalize to the RFC 4861 section 10
+defaults: `ReachableTime` 30 seconds, `ResolutionTimeout` 3 seconds
+(`MAX_MULTICAST_SOLICIT` × `RETRANS_TIMER`, 3 × 1 second), and `HoldDepth` 3.
+`NeighborDisabled` is for a VRF — a host stack, say — that never resolves an
+address it was not told about: every miss there is `neighbor-miss`, never
+`neighbor-pending`.

@@ -5,10 +5,12 @@ import (
 	"net/netip"
 	"slices"
 	"strconv"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -62,8 +64,13 @@ const (
 	// ReasonTTLExpired indicates a frame dropped because its hop limit expired in transit.
 	ReasonTTLExpired trace.Reason = "ttl-expired"
 
-	// ReasonNeighborMiss indicates a frame dropped because next-hop neighbor resolution failed.
+	// ReasonNeighborMiss indicates a frame dropped because the VRF does not resolve neighbors,
+	// or because a prior resolution attempt for the next hop already failed.
 	ReasonNeighborMiss trace.Reason = "neighbor-miss"
+
+	// ReasonNeighborPending indicates a frame held because the next hop's neighbor entry is
+	// newly or still unresolved under [NeighborObserved]; it is not a drop.
+	ReasonNeighborPending trace.Reason = "neighbor-pending"
 
 	// ReasonNotRouted indicates a frame addressed to a local interface of the device was consumed rather than routed.
 	ReasonNotRouted trace.Reason = "not-routed"
@@ -188,14 +195,47 @@ type vrfState struct {
 	table      []routeEntry
 	withdrawn  []WithdrawnRoute
 	localAddrs map[netip.Addr]struct{}
-	neighbors  map[neighborKey]Neighbor
+	neighbors  map[neighborKey]*neighborEntry
 	interfaces map[string]Interface
+	policy     NeighborPolicy
+}
+
+func (vs *vrfState) clone() *vrfState {
+	cp := &vrfState{
+		name:       vs.name,
+		table:      slices.Clone(vs.table),
+		localAddrs: make(map[netip.Addr]struct{}, len(vs.localAddrs)),
+		neighbors:  make(map[neighborKey]*neighborEntry, len(vs.neighbors)),
+		interfaces: make(map[string]Interface, len(vs.interfaces)),
+		policy:     vs.policy,
+	}
+	for name, iface := range vs.interfaces {
+		cp.interfaces[name] = Interface{VLAN: iface.VLAN, Port: iface.Port, MAC: iface.MAC, Prefixes: slices.Clone(iface.Prefixes)}
+	}
+	for i := range vs.withdrawn {
+		cp.withdrawn = append(cp.withdrawn, WithdrawnRoute{
+			Prefix:    vs.withdrawn[i].Prefix,
+			NextHop:   vs.withdrawn[i].NextHop,
+			Interface: vs.withdrawn[i].Interface,
+			Reason:    vs.withdrawn[i].Reason,
+			Chain:     slices.Clone(vs.withdrawn[i].Chain),
+		})
+	}
+	for addr := range vs.localAddrs {
+		cp.localAddrs[addr] = struct{}{}
+	}
+	for k, v := range vs.neighbors {
+		cp.neighbors[k] = v.clone()
+	}
+	return cp
 }
 
 // Layer executes layer 3 routing decisions over plain configuration values
 // and Ethernet frames, maintaining per-VRF forwarding and neighbor tables.
 //
-// A Layer is safe for concurrent use.
+// A Layer is not safe for concurrent use: [Layer.Route] and [Layer.Originate] mutate the
+// neighbor table and its hold queues when called with commit set, and [Layer.Observe],
+// [Layer.Age], and [Layer.Wake] always do.
 type Layer struct {
 	nodeID   string
 	byVLAN   map[vlan.ID]string
@@ -245,8 +285,9 @@ func newLayer(cfg Config, nodeID string) *Layer {
 		vs := &vrfState{
 			name:       vrfName,
 			localAddrs: make(map[netip.Addr]struct{}),
-			neighbors:  make(map[neighborKey]Neighbor, len(vrf.Neighbors)),
+			neighbors:  make(map[neighborKey]*neighborEntry, len(vrf.Neighbors)),
 			interfaces: vrf.Interfaces,
+			policy:     vrf.NeighborPolicy,
 		}
 
 		ifaceNames := make([]string, 0, len(vrf.Interfaces))
@@ -280,7 +321,13 @@ func newLayer(cfg Config, nodeID string) *Layer {
 		vs.installRoutes(vrf.Routes)
 
 		for _, n := range vrf.Neighbors {
-			vs.neighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = n
+			// A configured binding enters as Reachable with no expiry, so it never ages out
+			// the way an observed one does.
+			vs.neighbors[neighborKey{iface: n.Interface, addr: n.Addr}] = &neighborEntry{
+				state:  NeighborReachable,
+				mac:    n.MAC,
+				origin: originConfigured,
+			}
 		}
 
 		l.vrfs[vrfName] = vs
@@ -629,11 +676,20 @@ func (l *Layer) Interface(name string) (Interface, bool) {
 // (RFC 1812 section 5.2.2). If the destination matches an interface address of the VRF,
 // Route marks the frame [ReasonNotRouted]. If the hop limit is 1 or less, Route drops
 // the frame with [ReasonTTLExpired] (RFC 1812 section 5.3.1). If no route matches the
-// destination, Route drops with [ReasonNoRoute] (RFC 1812 section 5.2.4.3). If neighbor
-// address resolution fails, Route drops with [ReasonNeighborMiss].
+// destination, Route drops with [ReasonNoRoute] (RFC 1812 section 5.2.4.3). If the next
+// hop's neighbor entry cannot resolve it, either because the VRF never resolves neighbors
+// or because a prior resolution attempt already failed, Route drops with
+// [ReasonNeighborMiss]; if the next hop is simply unresolved yet under [NeighborObserved],
+// Route reports [ReasonNeighborPending] instead — see the package README's "Neighbor
+// lifecycle" section.
+//
+// now is the instant the neighbor lifecycle reasons against, both for a newly created entry's
+// resolution deadline and (through [Layer.Age]) an existing one's reachability deadline. commit
+// gates every mutation Route can make to the neighbor table: with it clear, Route never creates
+// an entry or queues a frame, so a preview cannot change what a later call observes.
 //
 // Route never mutates f; the returned Result carries a newly constructed frame and payload.
-func (l *Layer) Route(iface string, f ethernet.Frame) Result {
+func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool) Result {
 	vrfName, ok := l.ifaceVRF[iface]
 	if !ok {
 		return Result{
@@ -752,8 +808,24 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	targetIface := matchedRoute.Interface
 	res.Interface = targetIface
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
-	neighbor, ok := vrf.neighbors[neighborKey{iface: targetIface, addr: targetAddr}]
-	if !ok {
+	key := neighborKey{iface: targetIface, addr: targetAddr}
+	lookup := vrf.resolveNeighbor(now, key, commit, func() heldEntry {
+		return heldEntry{iface: targetIface, etherType: f.EtherType, header: hdr, payload: payload}
+	})
+
+	if lookup.state == NeighborIncomplete {
+		res.Reason = ReasonNeighborPending
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpLookup,
+			RuleID:  trace.RuleID(ReasonNeighborPending),
+			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
+			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+		})
+		return res
+	}
+	if !lookup.ok {
 		res.Reason = ReasonNeighborMiss
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   port.LayerRouting,
@@ -761,7 +833,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 			RuleID:  trace.RuleID(ReasonNeighborMiss),
 			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
 			Inputs:  []trace.Fact{routeSnapshot(vrfName, hdr.Dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
 		})
 		return res
 	}
@@ -776,7 +848,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 		Op:      trace.OpRewrite,
 		RuleID:  trace.RuleID("decrement-ttl"),
 		Subject: trace.Subject{Kind: "interface", Key: targetIface},
-		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, neighbor, true)},
+		Inputs:  []trace.Fact{packetSnapshot(iface, f, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state)},
 		Outputs: []trace.Fact{packetSnapshot(targetIface, f, newHdr, true, "")},
 	})
 
@@ -797,7 +869,7 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 	res.Interface = targetIface
 	res.Frame = ethernet.Frame{
 		Src:       egressMAC,
-		Dst:       neighbor.MAC,
+		Dst:       lookup.mac,
 		EtherType: f.EtherType,
 		Payload:   newPayload,
 	}
@@ -812,7 +884,11 @@ func (l *Layer) Route(iface string, f ethernet.Frame) Result {
 // family by longest matching prefix (RFC 6724 section 5 rule 8; RFC 1122 section 3.3.4.3),
 // falling back to the first configured address of that family. The datagram transmits with
 // hop limit 64 direct on connected prefixes and via gateway otherwise (RFC 1122 section 3.3.1.1).
-func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []byte) Result {
+//
+// now and commit govern the neighbor lookup exactly as they do for [Layer.Route]: now is the
+// instant the neighbor lifecycle reasons against, and with commit clear Originate never creates
+// an entry or queues a frame.
+func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol uint8, payload []byte, commit bool) Result {
 	vrfState, ok := l.vrfs[vrf]
 	if !ok {
 		res := l.result(vrf)
@@ -894,23 +970,6 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	}
 
 	targetIface := matchedRoute.Interface
-	neighbor, ok := vrfState.neighbors[neighborKey{iface: targetIface, addr: targetAddr}]
-	if !ok {
-		res := l.result(vrf)
-		res.Steps = slices.Clone(steps)
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   port.LayerRouting,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID(ReasonNeighborMiss),
-			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
-			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
-			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, Neighbor{}, false)},
-		})
-		res.Reason = ReasonNeighborMiss
-		res.Interface = targetIface
-		res.Candidates = candidateSet(sel.candidates)
-		return res
-	}
 
 	hdr := ip.Header{
 		Src:      srcAddr,
@@ -926,18 +985,56 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 		hdr.V6 = &ip.V6{}
 		etherType = ethernet.EtherTypeIPv6
 	}
-	steps[len(steps)-1].Outputs = append(steps[len(steps)-1].Outputs, neighborSnapshot(targetIface, targetAddr, neighbor, true))
+
+	res := l.result(vrf)
+	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
+	key := neighborKey{iface: targetIface, addr: targetAddr}
+	lookup := vrfState.resolveNeighbor(now, key, commit, func() heldEntry {
+		return heldEntry{iface: targetIface, etherType: etherType, header: hdr, payload: payload}
+	})
+
+	if lookup.state == NeighborIncomplete {
+		res.Steps = slices.Clone(steps)
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpLookup,
+			RuleID:  trace.RuleID(ReasonNeighborPending),
+			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
+			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+		})
+		res.Reason = ReasonNeighborPending
+		res.Interface = targetIface
+		res.Candidates = candidateSet(sel.candidates)
+		return res
+	}
+	if !lookup.ok {
+		res.Steps = slices.Clone(steps)
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonNeighborMiss),
+			Subject: trace.Subject{Kind: "ip", Key: targetAddr.String()},
+			Inputs:  []trace.Fact{routeSnapshot(vrf, dst, sel)},
+			Outputs: []trace.Fact{neighborSnapshot(targetIface, targetAddr, netaddr.MAC{}, lookup.state)},
+		})
+		res.Reason = ReasonNeighborMiss
+		res.Interface = targetIface
+		res.Candidates = candidateSet(sel.candidates)
+		return res
+	}
+
+	steps[len(steps)-1].Outputs = append(steps[len(steps)-1].Outputs, neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state))
 
 	pktBytes, err := hdr.Encode(payload)
 	if err != nil {
-		res := l.result(vrf)
 		res.Steps = slices.Clone(steps)
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   port.LayerRouting,
 			Op:      trace.OpDrop,
 			RuleID:  trace.RuleID(ReasonBadHeader),
 			Subject: trace.Subject{Kind: "interface", Key: targetIface},
-			Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, neighbor, true)},
+			Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state)},
 			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
 		})
 		res.Reason = ReasonBadHeader
@@ -946,13 +1043,12 @@ func (l *Layer) Originate(vrf string, dst netip.Addr, protocol uint8, payload []
 	}
 
 	egressIfaceObj := l.ifaces[targetIface]
-	res := l.result(vrf)
 	res.Steps = steps
 	res.Interface = targetIface
 	res.Candidates = candidateSet(sel.candidates)
 	res.Frame = ethernet.Frame{
 		Src:       egressIfaceObj.MAC,
-		Dst:       neighbor.MAC,
+		Dst:       lookup.mac,
 		EtherType: etherType,
 		Payload:   pktBytes,
 	}

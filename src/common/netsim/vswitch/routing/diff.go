@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -97,6 +98,42 @@ func (f RouteMetricFact) TypeID() string { return "routing.route.metric" }
 // Canonical returns the decimal metric string.
 func (f RouteMetricFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
+// NeighborModeFact wraps a neighbor policy Mode as a trace.Fact.
+type NeighborModeFact Mode
+
+// TypeID returns the fact type identifier for NeighborModeFact.
+func (f NeighborModeFact) TypeID() string { return "routing.neighbor_policy.mode" }
+
+// Canonical returns the mode string.
+func (f NeighborModeFact) Canonical() string { return string(f) }
+
+// ReachableTimeFact wraps a neighbor policy ReachableTime as a trace.Fact.
+type ReachableTimeFact time.Duration
+
+// TypeID returns the fact type identifier for ReachableTimeFact.
+func (f ReachableTimeFact) TypeID() string { return "routing.neighbor_policy.reachable_time" }
+
+// Canonical returns the duration string.
+func (f ReachableTimeFact) Canonical() string { return time.Duration(f).String() }
+
+// ResolutionTimeoutFact wraps a neighbor policy ResolutionTimeout as a trace.Fact.
+type ResolutionTimeoutFact time.Duration
+
+// TypeID returns the fact type identifier for ResolutionTimeoutFact.
+func (f ResolutionTimeoutFact) TypeID() string { return "routing.neighbor_policy.resolution_timeout" }
+
+// Canonical returns the duration string.
+func (f ResolutionTimeoutFact) Canonical() string { return time.Duration(f).String() }
+
+// HoldDepthFact wraps a neighbor policy HoldDepth as a trace.Fact.
+type HoldDepthFact int
+
+// TypeID returns the fact type identifier for HoldDepthFact.
+func (f HoldDepthFact) TypeID() string { return "routing.neighbor_policy.hold_depth" }
+
+// Canonical returns the decimal depth string.
+func (f HoldDepthFact) Canonical() string { return strconv.Itoa(int(f)) }
+
 type interfaceSnapshotFact string
 
 func (f interfaceSnapshotFact) TypeID() string    { return "routing.interface" }
@@ -160,7 +197,15 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 		b.WriteString(strconv.Quote(neighbor.MAC.String()))
 		b.WriteByte('}')
 	}
-	b.WriteByte(']')
+	b.WriteString("];neighbor_policy={mode=")
+	b.WriteString(strconv.Quote(string(vrf.NeighborPolicy.Mode)))
+	b.WriteString(";reachable_time=")
+	b.WriteString(vrf.NeighborPolicy.ReachableTime.String())
+	b.WriteString(";resolution_timeout=")
+	b.WriteString(vrf.NeighborPolicy.ResolutionTimeout.String())
+	b.WriteString(";hold_depth=")
+	b.WriteString(strconv.Itoa(vrf.NeighborPolicy.HoldDepth))
+	b.WriteString("}")
 
 	return vrfSnapshotFact(b.String())
 }
@@ -436,6 +481,44 @@ func Diff(a, b Config) []trace.Change {
 						})
 					}
 				}
+			}
+
+			policySubject := trace.Subject{Kind: "neighbor-policy", Key: vrfName}
+			if aVRF.NeighborPolicy.Mode != bVRF.NeighborPolicy.Mode {
+				changes = append(changes, trace.Change{
+					Layer:   port.LayerRouting,
+					Subject: policySubject,
+					Field:   "mode",
+					From:    NeighborModeFact(aVRF.NeighborPolicy.Mode),
+					To:      NeighborModeFact(bVRF.NeighborPolicy.Mode),
+				})
+			}
+			if aVRF.NeighborPolicy.ReachableTime != bVRF.NeighborPolicy.ReachableTime {
+				changes = append(changes, trace.Change{
+					Layer:   port.LayerRouting,
+					Subject: policySubject,
+					Field:   "reachable_time",
+					From:    ReachableTimeFact(aVRF.NeighborPolicy.ReachableTime),
+					To:      ReachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
+				})
+			}
+			if aVRF.NeighborPolicy.ResolutionTimeout != bVRF.NeighborPolicy.ResolutionTimeout {
+				changes = append(changes, trace.Change{
+					Layer:   port.LayerRouting,
+					Subject: policySubject,
+					Field:   "resolution_timeout",
+					From:    ResolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
+					To:      ResolutionTimeoutFact(bVRF.NeighborPolicy.ResolutionTimeout),
+				})
+			}
+			if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {
+				changes = append(changes, trace.Change{
+					Layer:   port.LayerRouting,
+					Subject: policySubject,
+					Field:   "hold_depth",
+					From:    HoldDepthFact(aVRF.NeighborPolicy.HoldDepth),
+					To:      HoldDepthFact(bVRF.NeighborPolicy.HoldDepth),
+				})
 			}
 		}
 	}

@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -476,6 +477,51 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "neighbor policy mode outside the two named values",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.Mode("bogus")}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "neighbor policy negative hold depth under NeighborObserved",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{HoldDepth: -1}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "neighbor policy negative resolution timeout under NeighborObserved",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{ResolutionTimeout: -time.Second}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "neighbor policy negative fields accepted under NeighborDisabled",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, HoldDepth: -1, ResolutionTimeout: -time.Second}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
+		{
+			name: "neighbor policy ReachableTime shorter than ResolutionTimeout is valid",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{ReachableTime: time.Second, ResolutionTimeout: time.Minute}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -526,6 +572,27 @@ func TestClone(t *testing.T) {
 	clonedVRF := cloned.VRFs[routing.DefaultVRF]
 	if len(clonedVRF.Interfaces["vlan10"].Prefixes) != 1 {
 		t.Fatalf("cloned prefixes modified: got %d, want 1", len(clonedVRF.Interfaces["vlan10"].Prefixes))
+	}
+}
+
+func TestCloneCopiesNeighborPolicy(t *testing.T) {
+	t.Parallel()
+	cfg := validBaseConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 5 * time.Second, HoldDepth: 7}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	cloned := cfg.Clone()
+
+	// Modify the original after cloning.
+	vrf = cfg.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborObserved}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+
+	got := cloned.VRFs[routing.DefaultVRF].NeighborPolicy
+	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 5 * time.Second, HoldDepth: 7}
+	if got != want {
+		t.Errorf("cloned neighbor policy = %+v, want %+v", got, want)
 	}
 }
 
@@ -625,6 +692,33 @@ func TestNormalize(t *testing.T) {
 	}
 	if vrf.Neighbors[1].Addr.String() != "10.0.10.9" {
 		t.Errorf("neighbor 1: got %s, want 10.0.10.9", vrf.Neighbors[1].Addr)
+	}
+
+	// Check the zero neighbor policy normalizes to the RFC 4861 section 10 defaults.
+	wantPolicy := routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3}
+	if vrf.NeighborPolicy != wantPolicy {
+		t.Errorf("neighbor policy = %+v, want %+v", vrf.NeighborPolicy, wantPolicy)
+	}
+}
+
+func TestNormalizeLeavesAnExplicitNeighborPolicyAlone(t *testing.T) {
+	t.Parallel()
+	cfg := routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {
+			Interfaces: map[string]routing.Interface{"vlan10": {VLAN: 10}},
+			NeighborPolicy: routing.NeighborPolicy{
+				Mode:              routing.NeighborDisabled,
+				ReachableTime:     time.Minute,
+				ResolutionTimeout: 10 * time.Second,
+				HoldDepth:         5,
+			},
+		},
+	}}
+
+	got := cfg.Normalize().VRFs[routing.DefaultVRF].NeighborPolicy
+	want := routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: time.Minute, ResolutionTimeout: 10 * time.Second, HoldDepth: 5}
+	if got != want {
+		t.Errorf("neighbor policy = %+v, want %+v", got, want)
 	}
 }
 
@@ -852,6 +946,68 @@ func TestDiff(t *testing.T) {
 	})
 }
 
+// TestDiffReportsNeighborPolicyChange fails if NeighborPolicy has a Diff arm missing while
+// Validate, Normalize, and Clone are all present: without it, [routing.Derive]'s
+// len(routing.Diff(...)) == 0 reuse test reads every policy change as no change and keeps
+// running the old policy. See docs/solutions/architecture-patterns/validate-and-derive-judge-what-new-builds.md.
+func TestDiffReportsNeighborPolicyChange(t *testing.T) {
+	t.Parallel()
+
+	configWithPolicy := func(p routing.NeighborPolicy) routing.Config {
+		return routing.Config{VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces:     map[string]routing.Interface{"vlan10": {VLAN: 10}},
+				NeighborPolicy: p,
+			},
+		}}
+	}
+
+	base := routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3}
+
+	cases := []struct {
+		name  string
+		other routing.NeighborPolicy
+		field string
+	}{
+		{
+			name:  "mode",
+			other: routing.NeighborPolicy{Mode: routing.NeighborDisabled, ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3},
+			field: "mode",
+		},
+		{
+			name:  "reachable time from 30s to 60s",
+			other: routing.NeighborPolicy{ReachableTime: 60 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 3},
+			field: "reachable_time",
+		},
+		{
+			name:  "resolution timeout",
+			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 5 * time.Second, HoldDepth: 3},
+			field: "resolution_timeout",
+		},
+		{
+			name:  "hold depth",
+			other: routing.NeighborPolicy{ReachableTime: 30 * time.Second, ResolutionTimeout: 3 * time.Second, HoldDepth: 5},
+			field: "hold_depth",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			changes := routing.Diff(configWithPolicy(base), configWithPolicy(tc.other))
+			if len(changes) != 1 {
+				t.Fatalf("changes = %+v, want exactly one", changes)
+			}
+			if changes[0].Subject.Kind != "neighbor-policy" || changes[0].Subject.Key != routing.DefaultVRF {
+				t.Errorf("subject = %+v, want neighbor-policy/%s", changes[0].Subject, routing.DefaultVRF)
+			}
+			if changes[0].Field != tc.field {
+				t.Errorf("field = %q, want %q", changes[0].Field, tc.field)
+			}
+		})
+	}
+}
+
 func TestRouteCanonicalDistinguishesPreference(t *testing.T) {
 	t.Parallel()
 
@@ -1003,6 +1159,10 @@ func TestFactTypeIDsUnique(t *testing.T) {
 		routing.RouteInterfaceFact(""),
 		routing.RoutePreferenceFact(0),
 		routing.RouteMetricFact(0),
+		routing.NeighborModeFact(""),
+		routing.ReachableTimeFact(0),
+		routing.ResolutionTimeoutFact(0),
+		routing.HoldDepthFact(0),
 	}
 
 	seen := make(map[string]string)
