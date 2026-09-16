@@ -1951,6 +1951,13 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 func (l *Layer) receiveLink(now time.Time, p *portState, b BPDU, flushes *[]FlushTarget) (emissions []Emission, done bool) {
 	t := l.cist()
 
+	// Any BPDU on the port is evidence the link carries traffic both ways,
+	// which is the condition loop guard was waiting to see restored. This
+	// runs before the BPDU guard checks below: a frame that trips or is held
+	// by BPDU guard is still such evidence, and guard and loop guard clear on
+	// independent events.
+	p.loopInconsistent = false
+
 	// BPDU guard exists to keep an unexpected bridge on an access port out of
 	// the topology, so the frame that proves one is there disables the port
 	// before anything reads the BPDU. Only a link down and up brings it back.
@@ -1974,10 +1981,6 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b BPDU, flushes *[]Flus
 	if p.bpduGuardDisabled {
 		return nil, true
 	}
-
-	// Any BPDU on the port is evidence the link carries traffic both ways,
-	// which is the condition loop guard was waiting to see restored.
-	p.loopInconsistent = false
 
 	if (b.Type == BPDUTypeConfiguration || b.Type == BPDUTypeTopologyChangeNotification) && p.sendRSTP && !p.mdelayWhile.After(now) {
 		p.sendRSTP = false
@@ -2070,23 +2073,62 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 	}
 }
 
-// ReceiveSSTP processes an SSTP BPDU received on a port, applying it to the
-// tree of arrivalVID, the VLAN the switch classified the frame into. tlvVID is
-// the VLAN the BPDU itself names in its trailing TLV. Both are needed because
-// the disagreement between them is what the PVID check exists to catch: when
-// they differ the two ends of the link disagree about what it carries, and the
-// arrival VLAN is held discarding on that port until a consistent BPDU
-// arrives.
-//
-// On a bridge that does not run PVST the BPDU is counted and the port marked
-// a PVST boundary, but nothing is applied: that bridge's CIST does not run
-// this VLAN's tree, so feeding the vector into it would elect a root from a
-// tree it is not running. The neighbor relationship still converges, because
-// a PVST+ bridge sends VLAN 1's tree to the IEEE address as well.
-func (l *Layer) ReceiveSSTP(now time.Time, port string, arrivalVID, tlvVID vlan.ID, b BPDU) Effects {
+// SSTPArrival describes how the switch classified one SSTP BPDU before
+// handing it to ReceiveSSTP. ArrivalVID is the VLAN the switch classified the
+// frame into; TLVVID is the VLAN the BPDU's own trailing TLV names, which the
+// PVID check compares against ArrivalVID. Admitted is the bridge's ingress
+// admission answer for ArrivalVID on this port: the layer holds no VLAN
+// table of its own, so it takes that answer as given rather than deriving a
+// second one beside the bridge's.
+type SSTPArrival struct {
+	ArrivalVID vlan.ID
+	TLVVID     vlan.ID
+	Admitted   bool
+}
+
+// SSTPOutcome names what ReceiveSSTP did with one SSTP BPDU, beyond the
+// Effects it returns alongside.
+type SSTPOutcome string
+
+const (
+	// SSTPApplied means the BPDU was applied to the tree of
+	// SSTPArrival.ArrivalVID.
+	SSTPApplied SSTPOutcome = "applied"
+	// SSTPGuarded means BPDU guard fired or already held the port disabled;
+	// the frame was not applied to any tree.
+	SSTPGuarded SSTPOutcome = "bpdu-guard"
+	// SSTPBoundary means this bridge does not run PVST, so its CIST does not
+	// run the VLAN the BPDU named; the port is marked a PVST boundary and
+	// nothing is applied.
+	SSTPBoundary SSTPOutcome = "pvst-boundary"
+	// SSTPNotAdmitted means the bridge does not admit ArrivalVID on this
+	// port; the frame was not applied to any tree.
+	SSTPNotAdmitted SSTPOutcome = "vlan-not-admitted"
+	// SSTPUntrackedVLAN means this bridge runs PVST but has no tree for
+	// ArrivalVID; the frame was not applied to any tree.
+	SSTPUntrackedVLAN SSTPOutcome = "vlan-untracked"
+	// SSTPPVIDInconsistent means TLVVID disagreed with ArrivalVID; the
+	// arrival VLAN's port is held discarding rather than applied.
+	SSTPPVIDInconsistent SSTPOutcome = "pvid-inconsistent"
+	// SSTPPortDown means the port is not one the layer tracks, or is held
+	// down; the BPDU was not processed at all.
+	SSTPPortDown SSTPOutcome = "port-down"
+)
+
+// ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
+// receive — BPDU guard, the loop-guard clear, protocol migration, and
+// auto-edge loss — always runs before anything below decides what happens to
+// a tree, whatever that decision turns out to be: a caller that could skip
+// the link half by declining to call this function is the hole BPDU guard
+// exists to close. syncInstancePorts carries whatever the link half changed
+// to every tree before the frame is judged, so the tree of
+// arrival.ArrivalVID sees an up-to-date link even though the change was made
+// on the CIST's port state. The returned SSTPOutcome describes the tree half
+// alone: what, if anything, happened to arrival.ArrivalVID's own tree.
+func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b BPDU) (Effects, SSTPOutcome) {
 	cistP, ok := l.cist().ports[port]
 	if !ok || !cistP.up {
-		return Effects{}
+		return Effects{}, SSTPPortDown
 	}
 
 	cistP.rxBPDUs++
@@ -2095,49 +2137,63 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrivalVID, tlvVID vlan.
 
 	// receiveLink is the link-level half of a receive: BPDU guard, the
 	// loop-guard clear, protocol migration, and auto-edge loss all belong to
-	// the port whatever tree the frame names, so a bridge that does not run
-	// this VLAN's tree must still run it before turning the frame away.
+	// the port whatever tree the frame names, so it runs whatever this bridge
+	// goes on to decide about the tree half below.
 	emissions, done := l.receiveLink(now, cistP, b, &flushes)
 
+	// The mark is a statement about the neighbor, not about this frame's
+	// outcome, so it is set whenever this bridge does not run PVST even when
+	// the guard above just fired.
 	if l.pvst == nil {
 		cistP.pvstBoundary = true
+	}
 
-		return Effects{Emissions: emissions, Flush: flushes}
+	if done {
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPGuarded
 	}
 
 	l.armHelloTimers(now)
 
-	if done {
-		return Effects{Emissions: emissions, Flush: flushes}
+	if l.pvst == nil {
+		// This bridge's CIST does not run the BPDU's VLAN, so feeding the
+		// vector into it would elect a root from a tree it is not running.
+		// The neighbor relationship still converges, because a PVST+ bridge
+		// sends VLAN 1's tree to the IEEE address as well.
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPBoundary
 	}
+
 	// receiveLink may have changed link properties every tree tracks its own
 	// copy of, and the tree this BPDU belongs to is about to read them.
 	l.syncInstancePorts(port, cistP)
 
-	t, ok := l.treeFor(arrivalVID)
+	if !arrival.Admitted {
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPNotAdmitted
+	}
+
+	t, ok := l.treeFor(arrival.ArrivalVID)
 	if !ok {
-		return Effects{Emissions: emissions, Flush: flushes}
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
 	}
 
 	p, ok := t.ports[port]
 	if !ok {
-		return Effects{Emissions: emissions, Flush: flushes}
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
 	}
 
 	// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
 	// VLAN the peer named: the arrival VLAN is the one whose local traffic
 	// would cross a link the two ends disagree about.
-	if tlvVID != arrivalVID {
+	if arrival.TLVVID != arrival.ArrivalVID {
 		p.pvidInconsistent = true
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
-		return Effects{Emissions: emissions, Flush: flushes}
+		return Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
 	}
 	p.pvidInconsistent = false
 
 	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
 
-	return Effects{Emissions: emissions, Flush: flushes}
+	return Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
 }
 
 // applyBPDU applies one received BPDU to one tree: the classification, the

@@ -18,6 +18,15 @@ const (
 	// as a BPDU because of an unexpected LLC header, protocol identifier,
 	// version, or BPDU type.
 	ReasonUnsupportedBPDU trace.Reason = "unsupported-bpdu"
+
+	// ReasonVLANNotAdmitted indicates that an SSTP BPDU decoded but the
+	// bridge does not admit its arrival VLAN on the port it arrived on.
+	ReasonVLANNotAdmitted trace.Reason = "vlan-not-admitted"
+
+	// ReasonVLANUntracked indicates that an SSTP BPDU decoded and was
+	// admitted, but this bridge runs PVST and has no tree for its arrival
+	// VLAN.
+	ReasonVLANUntracked trace.Reason = "vlan-untracked"
 )
 
 // Role represents the spanning tree role assigned to a port.
