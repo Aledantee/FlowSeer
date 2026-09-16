@@ -55,6 +55,10 @@ In addition:
   datagram needs privileges to open `/dev/bpf*` that the test host does not
   grant, and this plan allows recording the absence. Cost if wrong: one test
   body, once a capture is taken.
+- Ruled: `TestZeroChecksumSentAsAllOnes` pins two boundary payloads instead
+  of searching for one at test time. Why: a search whose predicate is the
+  behavior under test cannot fail. Cost if wrong: the two payload literals,
+  `{0xe1, 0x05}` and `{0xe1, 0x04}`.
 
 ## Requirements
 
@@ -121,9 +125,11 @@ wrong way round fails, which the 5353-to-5353 fixtures cannot catch
 (`docs/solutions/conventions/a-codec-round-trip-cannot-locate-a-field-on-the-wire.md`); `TestEncodeMatchesFixture`
 encodes header and payload with the fixture addresses and compares all 54
 bytes; `TestChecksumOffsets` asserts `out[6:8]` equals the literal checksum
-and `out[4:6]` the literal length; `TestZeroChecksumSentAsAllOnes` uses a
-payload chosen so the sum is zero (search at test time, assert the search
-found one); `TestDecodeRefusals` covers short input, `Length` under 8, and
+and `out[4:6]` the literal length; `TestZeroChecksumSentAsAllOnes` pins the
+payload `{0xe1, 0x05}`, whose checksum computes to zero, and asserts it is
+sent as `0xffff`; its sibling `TestChecksumOneSentAsOne` pins the adjacent
+payload `{0xe1, 0x04}`, whose checksum computes to one, and asserts it is
+sent unchanged as `0x0001`; `TestDecodeRefusals` covers short input, `Length` under 8, and
 `Length` over the buffer; `TestEncodeRefusesMixedFamilies` covers an IPv4
 source with an IPv6 destination and the reverse; `TestCapture`
 pins the captured datagram or documents its absence.
@@ -220,4 +226,14 @@ go test -race ./src/common/net/udp/... ./src/common/net/tcp/... ./src/common/net
 
 ## Open questions
 
-None.
+Three review rounds each found a UDP codec test that passed for the wrong
+reason: first that no test bounded the decoded payload by the length
+field, then that the zero-checksum test searched for its input by calling
+the encoder, and now that the two negative cases added to `TestVerify`
+return false whether or not the guards they were added for are present.
+Each round fixed the instance in front of it and the next round found
+another. The property these rounds have been reaching for by hand is that
+every guard in the package should be discriminated by at least one test,
+which is what mutation testing checks mechanically. Whether to add such a
+gate, and at what scope, is a decision for a plan rather than another
+round of hand-written assertions.
