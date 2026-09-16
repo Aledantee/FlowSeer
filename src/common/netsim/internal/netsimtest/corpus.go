@@ -28,7 +28,10 @@ const (
 	// UseCasePlanning evaluates the behavioral impact of prospective configuration changes.
 	UseCasePlanning UseCaseClass = "planning"
 
-	// UseCaseTopologyShadowing evaluates device and network state under incomplete or noisy telemetry.
+	// UseCaseTopologyShadowing evaluates device and network state under
+	// incomplete or noisy telemetry, or under a configuration mismatch that
+	// shadows the topology an operator believes in without either side
+	// reporting it as an error.
 	UseCaseTopologyShadowing UseCaseClass = "topology-shadowing"
 
 	// UseCaseTroubleshooting traces frame progression to isolate root causes and decisive rules.
