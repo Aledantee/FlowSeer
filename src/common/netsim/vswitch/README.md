@@ -336,24 +336,37 @@ outcome `Consumed`, or `port-down` when the port it arrived on is not up. A
 switch without the layer drops it as a reserved address, unless the bridge's
 `ForwardBPDU` is set.
 
-A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way. Its VLAN
-comes from the frame's own tag, or the port's untagged VLAN when it carries
-none, rather than from the bridge's ingress pipeline: that pipeline applies
-the spanning tree gate, and the ports a tree holds discarding are exactly the
-ones whose blocking depends on continuing to hear their peer. A tag whose VID
-is 0 is a priority tag, not a VLAN selection, so it resolves the same as no
-tag at all; the frame `PriorityTags: Always` emits on an otherwise untagged
-port must not be read as a VLAN 0 BPDU. Bypassing the spanning tree gate does
-not bypass the bridge's own notion of which VLANs a port speaks: the switch
-computes `bridge.VLAN.AdmitsVIDOnIngress` for the resolved VLAN on the
-ingress port and hands the answer to the layer as `SSTPArrival.Admitted`,
+A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way, with one
+more source of `port-down`: the layer's own per-port link state, tracked
+separately from the port table's up/down check above, refuses a port it has
+not configured or has not yet seen a link-up event for, even though the port
+table itself calls the port up. Its VLAN and whether it counts as tagged both
+come from one test of the outer tag's TPID, the same test the bridge's own
+ingress classification makes, rather than from the bridge's ingress pipeline
+itself: that pipeline applies the spanning tree gate, and the ports a tree
+holds discarding are exactly the ones whose blocking depends on continuing to
+hear their peer. A VID of 0 under a dot1Q TPID is a priority tag, not a VLAN
+selection, and an outer tag whose TPID names neither dot1Q nor the codec's
+untagged zero value — an 802.1ad/QinQ tag, say — is not a VLAN tag at all;
+either way the frame resolves onto the port's untagged VLAN the same as no
+tag at all, and the frame `PriorityTags: Always` emits on an otherwise
+untagged port must not be read as a VLAN 0 BPDU. Bypassing the spanning tree
+gate does not bypass the bridge's own notion of which VLANs a port speaks:
+the switch computes `bridge.VLAN.AdmitsVIDOnIngress` for the resolved VLAN on
+the ingress port and hands the answer to the layer as `SSTPArrival.Admitted`,
 rather than refusing the frame itself. The layer decides what a refusal
 means — BPDU guard still fires on a VLAN the port does not admit, because the
 link half of a receive always runs before the tree half is judged — and a
 frame for a VLAN the port does not admit is traced as
-`stp.sstp.vlan-not-admitted` rather than as a decode failure. Its trace step
-names both the VLAN the BPDU claims and the VLAN it arrived on, so a PVID
-inconsistency is readable from the journey.
+`stp.sstp.vlan-not-admitted` rather than as a decode failure, whatever the
+layer went on to do with the link half. A VLAN the port does admit but this
+bridge runs no tree for is traced the same way, as `stp.sstp.vlan-untracked`.
+Every other outcome — the BPDU applied to its tree, BPDU guard firing, a PVST
+boundary neighbor, or a PVID mismatch — is traced as `stp.sstp.admit`: the
+frame's own VLAN was admitted and tracked, so whatever the tree half decided,
+the layer processed the frame. The trace step names both the VLAN the BPDU
+claims and the VLAN it arrived on, so a PVID inconsistency is readable from
+the journey.
 
 Emissions run the other way: a `stp.Emission` naming a VLAN goes out through
 `bridge.OriginateFrame`, so a per-VLAN BPDU is tagged where the VLAN is

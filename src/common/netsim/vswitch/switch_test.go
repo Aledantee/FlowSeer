@@ -7368,3 +7368,174 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 		})
 	}
 }
+
+// TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted is the regression
+// test for the defect where a bpdu-guard hit on a VLAN the port does not
+// admit rendered as stp.sstp.admit with an all-zero decision fact: ReceiveSSTP
+// returns SSTPGuarded because the link half of a receive runs before
+// admission is judged, and the outcome alone does not say whether the
+// frame's own VLAN was ever admitted. The journey must say
+// vlan-not-admitted, not admit, for this frame — the port carries VLANs 1
+// and 10 only.
+func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+	sw.Drain()
+
+	rogue := pvstSSTPFrame(t, 30, 30, peer)
+	res := sw.Forward(now, "1/1/1", rogue)
+
+	if res.Outcome != trace.Dropped {
+		t.Errorf("Outcome = %s, want %s: bpdu guard firing on an unadmitted VLAN is not an admit", res.Outcome, trace.Dropped)
+	}
+	if res.Reason != stp.ReasonVLANNotAdmitted {
+		t.Errorf("Reason = %q, want %q", res.Reason, stp.ReasonVLANNotAdmitted)
+	}
+
+	step, ok := findStep(res.Steps, "stp.sstp.vlan-not-admitted")
+	if !ok {
+		t.Fatalf("no stp.sstp.vlan-not-admitted step in the trace: %+v", res.Steps)
+	}
+
+	var decodeCanonical, outputCanonical string
+	for _, fact := range step.Inputs {
+		if fact.TypeID() == "stp.bpdu_decision" {
+			decodeCanonical = fact.Canonical()
+		}
+	}
+	for _, fact := range step.Outputs {
+		if fact.TypeID() == "stp.bpdu_decision" {
+			outputCanonical = fact.Canonical()
+		}
+	}
+	if !strings.Contains(decodeCanonical, "valid=true") {
+		t.Errorf("decode fact = %q, want valid=true: bpdu guard firing is not a decode failure", decodeCanonical)
+	}
+
+	// VLAN 30 has no tree on this bridge, so before and after both read as
+	// the zero PortInfo; that is consistent with a refusal on VLAN grounds,
+	// unlike rendering the same zero state under a rule that claims the
+	// frame was admitted.
+	beforeIdx := strings.Index(outputCanonical, ";before=")
+	afterIdx := strings.Index(outputCanonical, ";after=")
+	if beforeIdx < 0 || afterIdx < 0 || afterIdx <= beforeIdx {
+		t.Fatalf("decision fact = %q, want before/after segments", outputCanonical)
+	}
+	beforeSeg := outputCanonical[beforeIdx+len(";before=") : afterIdx]
+	afterSeg := outputCanonical[afterIdx+len(";after="):]
+	if beforeSeg != afterSeg {
+		t.Errorf("decision fact before != after: %q vs %q, want equal for an unadmitted, untracked VLAN", beforeSeg, afterSeg)
+	}
+
+	// BPDU guard still disabled the port: the fix must not weaken the guard
+	// while correcting how the frame is traced.
+	info := sw.Roles()["1/1/1"]
+	if info.BlockReason != stp.BlockReasonBPDUGuard {
+		t.Errorf("block reason = %q, want %q", info.BlockReason, stp.BlockReasonBPDUGuard)
+	}
+}
+
+// TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown is the regression test
+// for the defect where stp.SSTPPortDown fell through to the default arm and
+// rendered as stp.sstp.admit: Config.Validate checks that every STP port
+// exists in the port table, not the reverse, so an operationally-up port
+// stp.Config.Ports omits passes the port table's own receive check and
+// reaches ReceiveSSTP, which is what actually refuses it.
+func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := pvstSwitchConfig(t, 1, 1, 10)
+	cfg.Ports = mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	// "1/1/2" stays out of cfg.STP.Ports on purpose: the layer never
+	// configured it even though the port table calls it up.
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+	sw.Drain()
+
+	frame := pvstSSTPFrame(t, 10, 10, peer)
+	res := sw.Forward(now, "1/1/2", frame)
+
+	if res.Outcome != trace.Dropped {
+		t.Errorf("Outcome = %s, want %s: a port the layer never configured did not process this frame at all", res.Outcome, trace.Dropped)
+	}
+	if res.Reason != port.ReasonPortDown {
+		t.Errorf("Reason = %q, want %q", res.Reason, port.ReasonPortDown)
+	}
+
+	step, ok := findStep(res.Steps, "port.status.down")
+	if !ok {
+		t.Fatalf("no port.status.down step in the trace: %+v", res.Steps)
+	}
+	if step.Layer != port.LayerStp {
+		t.Errorf("step layer = %s, want %s", step.Layer, port.LayerStp)
+	}
+}
+
+// TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress is the regression test
+// for the defect where arrivalVID took an outer tag's VID under any TPID
+// while tagged required a dot1Q-shaped TPID: a frame with an 0x88A8 outer tag
+// carrying VID 10 read as arrivalVID=10, tagged=false, which
+// AdmitsVIDOnIngress judges as an untagged VLAN 10 frame on a port whose
+// untagged VLAN is 1 and refuses — while bridge.Bridge.Ingress treats an
+// outer tag whose TPID names neither dot1Q nor the codec's untagged zero
+// value as not a VLAN tag at all, and classifies the same frame into the
+// port's untagged VLAN 1.
+func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+	sw.Start(now)
+	sw.Drain()
+
+	frame, err := stp.EncodeSSTP(stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096 | 1, Address: peer},
+		BridgeID:     stp.BridgeID{Priority: 4096 | 1, Address: peer},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}, 1, peer)
+	if err != nil {
+		t.Fatalf("EncodeSSTP: %v", err)
+	}
+	frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 10}}
+
+	res := sw.Forward(now, "1/1/1", frame)
+
+	step, ok := findStep(res.Steps, "stp.sstp.admit")
+	if !ok {
+		t.Fatalf("no stp.sstp.admit step in the trace: %+v", res.Steps)
+	}
+	if res.FID != 1 {
+		t.Errorf("FID = %d, want 1: a QinQ outer tag is not a VLAN selection, so the frame lands on the port's untagged VLAN the same way bridge.Ingress classifies it", res.FID)
+	}
+
+	var vlansCanonical string
+	for _, fact := range step.Inputs {
+		if fact.TypeID() == "stp.sstp.vlans" {
+			vlansCanonical = fact.Canonical()
+		}
+	}
+	if want := "tlv=1,arrival=1,consistent=true"; vlansCanonical != want {
+		t.Errorf("stp.sstp.vlans fact = %q, want %q", vlansCanonical, want)
+	}
+}
