@@ -613,7 +613,7 @@ func CasePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 		`port="l1";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=200000;designated_root="32769/02:00:00:00:04:01";designated="32769/02:00:00:00:04:01";`+
 			`designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;`+
-			`tx_bpdus=0;rx_bpdus=0;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+			`tx_bpdus=0;rx_bpdus=164;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
@@ -722,7 +722,7 @@ func CaseTopologyShadowingMSTRegionBoundary() Case {
 		`port="l2";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=20000;designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";`+
 			`designated_port=0;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;`+
-			`tx_bpdus=0;rx_bpdus=0;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+			`tx_bpdus=0;rx_bpdus=166;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},

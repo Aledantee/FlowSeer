@@ -142,15 +142,26 @@ type Layer struct {
 	configID *ConfigID
 }
 
-type portState struct {
-	name         string
-	cfg          Port
-	portID       uint16
-	pathCost     uint32
-	adminEdge    bool
-	edge         bool
-	pointToPoint bool
+// linkState holds the properties of a physical link that are true for every
+// tree running over the port, whatever VLAN that tree carries. portState
+// embeds it and syncInstancePorts assigns it whole onto every other tree's
+// port, so a field added here propagates to every tree by construction
+// instead of needing its own copy statement remembered at every call site.
+type linkState struct {
 	up           bool
+	pointToPoint bool
+	edge         bool
+	sendRSTP     bool
+}
+
+type portState struct {
+	name      string
+	cfg       Port
+	portID    uint16
+	pathCost  uint32
+	adminEdge bool
+
+	linkState
 
 	// linkPathCost is the cost the link and its admin configuration derive,
 	// kept apart from pathCost so an instance-level override never overwrites
@@ -225,7 +236,6 @@ type portState struct {
 
 	forwardTransitions uint64
 
-	sendRSTP       bool
 	mdelayWhile    time.Time
 	edgeDelayWhile time.Time
 
@@ -266,18 +276,23 @@ func (tx *portTx) clone() *portTx {
 }
 
 // blockReason names the guard holding the port out of the active topology.
-// BPDU guard outranks the rest: it disables the port outright, so nothing
-// below it can be the decisive reason. A PVID-inconsistent port is by
-// definition receiving BPDUs, which is what clears loopInconsistent on every
-// receive, so those two cannot both hold after a receive and the order
-// between them only fixes what a reader sees should that stop being true.
-func (p *portState) blockReason() BlockReason {
+// bpduGuardDisabled and loopInconsistent are link-on-cist: they are written
+// only on the CIST's port state, so every tree reads them through cistP
+// rather than through its own copy, which for the CIST tree is the same
+// object. pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU
+// disagreed about the link, so it reads from p. BPDU guard outranks the
+// rest: it disables the port outright, so nothing below it can be the
+// decisive reason. A PVID-inconsistent port is by definition receiving
+// BPDUs, which is what clears loopInconsistent on every receive, so those
+// two cannot both hold after a receive and the order between them only
+// fixes what a reader sees should that stop being true.
+func (l *Layer) blockReason(p, cistP *portState) BlockReason {
 	switch {
-	case p.bpduGuardDisabled:
+	case cistP.bpduGuardDisabled:
 		return BlockReasonBPDUGuard
 	case p.pvidInconsistent:
 		return BlockReasonPVIDInconsistent
-	case p.loopInconsistent:
+	case cistP.loopInconsistent:
 		return BlockReasonLoopInconsistent
 	default:
 		return ""
@@ -449,12 +464,12 @@ func newLayer(cfg Config) *Layer {
 			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
 			adminEdge:     pCfg.AdminEdge,
-			edge:          pCfg.AdminEdge,
-			pointToPoint:  false,
-			up:            false,
-			role:          RoleDisabled,
-			state:         StateDiscarding,
-			sendRSTP:      true,
+			linkState: linkState{
+				edge:     pCfg.AdminEdge,
+				sendRSTP: true,
+			},
+			role:  RoleDisabled,
+			state: StateDiscarding,
 		}
 	}
 
@@ -573,7 +588,16 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID BridgeID, treePorts map
 			portPrio = treePort.Priority
 		}
 
-		cost := DefaultPathCost(0)
+		// The starting cost is the bridge port's own configured cost, the
+		// same fallback newLayer derives the CIST's from, not
+		// DefaultPathCost(0) outright: a port configured with an explicit
+		// cost must read it before the first LinkChange ever runs, not just
+		// after.
+		linkCost := pCfg.PathCost
+		if linkCost == 0 {
+			linkCost = DefaultPathCost(0)
+		}
+		cost := linkCost
 		fixed := false
 		if hasTreePort && treePort.PathCost != 0 {
 			cost = treePort.PathCost
@@ -585,14 +609,15 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID BridgeID, treePorts map
 			cfg:           pCfg,
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
+			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
 			adminEdge:     pCfg.AdminEdge,
-			edge:          pCfg.AdminEdge,
-			pointToPoint:  false,
-			up:            false,
-			role:          RoleDisabled,
-			state:         StateDiscarding,
-			sendRSTP:      true,
+			linkState: linkState{
+				edge:     pCfg.AdminEdge,
+				sendRSTP: true,
+			},
+			role:  RoleDisabled,
+			state: StateDiscarding,
 		}
 	}
 
@@ -795,6 +820,10 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	if !ok {
 		return PortInfo{}
 	}
+	// The counters and the guard fields blockReason reads are link-on-cist:
+	// every tree's snapshot answers from the CIST's copy, not its own, which
+	// for the CIST tree is p itself.
+	cistP := l.cist().ports[port]
 
 	var desigRoot, desig BridgeID
 	var desigPort uint16
@@ -820,7 +849,7 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 		MSTID:              MSTID(t.id),
 		Role:               p.role,
 		State:              p.state,
-		BlockReason:        p.blockReason(),
+		BlockReason:        l.blockReason(p, cistP),
 		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
 		DesignatedRoot:     desigRoot,
@@ -831,21 +860,19 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 		Edge:               p.edge,
 		ForwardTransitions: p.forwardTransitions,
 		TxBPDUs:            p.txBPDUs,
-		RxBPDUs:            p.rxBPDUs,
-		BadBPDUs:           p.badBPDUs,
+		RxBPDUs:            cistP.rxBPDUs,
+		BadBPDUs:           cistP.badBPDUs,
 		SendRSTP:           p.sendRSTP,
 	}
 }
 
 // BadBPDU records that a frame received on the named port could not be
-// decoded as a BPDU. It is recorded against every tree running on the port,
-// since a frame that fails to decode is bad evidence for every instance
-// alike. An untracked port is ignored.
+// decoded as a BPDU. badBPDUs is link-on-cist, so it is bumped on the CIST's
+// port alone; every tree's PortInfo answers from that same copy. An
+// untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
-	for _, id := range l.treeOrder {
-		if p, ok := l.trees[id].ports[port]; ok {
-			p.badBPDUs++
-		}
+	if p, ok := l.cist().ports[port]; ok {
+		p.badBPDUs++
 	}
 }
 
@@ -937,6 +964,15 @@ const (
 )
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]Emission) {
+	// SSTP has no legacy shape: EncodeSSTP forces a version of at least 2 and
+	// DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
+	// legacy STP has no frame it can send. It builds and meters nothing
+	// rather than sending a per-VLAN frame whose header would contradict its
+	// content.
+	if l.pvst != nil && t.id != cistID && !p.sendRSTP {
+		return
+	}
+
 	tx := l.tx(t, p.name)
 
 	for tx.count > 0 && !tx.tick.After(now) {
@@ -957,7 +993,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 			bpdu = l.makeAgreementBPDU(t, p, now)
 		}
 
-		built, err := l.frames(t, bpdu)
+		built, err := l.frames(t, p, bpdu)
 		if err != nil {
 			// MST.Validate rejects a region with more instances than one
 			// BPDU can carry, so this is unreachable for a Layer built
@@ -994,13 +1030,18 @@ type taggedFrame struct {
 	frame ethernet.Frame
 }
 
-// frames builds the wire form of one BPDU for tree t. Outside PVST mode that
-// is the single IEEE-addressed frame, untagged. Inside it, every tree sends
-// its BPDU to the SSTP address on its own VLAN, and VLAN 1's tree sends a
-// second, IEEE-addressed and untagged, which is the one an RSTP or MSTP
-// neighbor converges with. The two frames are one transmission and spend one
-// budget slot between them.
-func (l *Layer) frames(t *tree, b BPDU) ([]taggedFrame, error) {
+// frames builds the wire form of one BPDU for tree t on port p. Outside PVST
+// mode that is the single IEEE-addressed frame, untagged. Inside it, every
+// tree sends its BPDU to the SSTP address on its own VLAN, and VLAN 1's tree
+// sends a second, IEEE-addressed and untagged, which is the one an RSTP or
+// MSTP neighbor converges with — unless the port has migrated to legacy STP,
+// in which case the SSTP copy is dropped and only the IEEE Configuration BPDU
+// goes out: SSTP has no legacy shape to carry it in, so sending the SSTP copy
+// would relabel a legacy BPDU under a version-2 RST header. emit already
+// withholds a non-CIST tree's frame entirely on a migrated port, so this
+// branch is only ever reached with p.sendRSTP true there. The two frames are
+// one transmission and spend one budget slot between them.
+func (l *Layer) frames(t *tree, p *portState, b BPDU) ([]taggedFrame, error) {
 	if l.pvst == nil {
 		frame, err := Encode(b, l.address)
 		if err != nil {
@@ -1010,11 +1051,14 @@ func (l *Layer) frames(t *tree, b BPDU) ([]taggedFrame, error) {
 		return []taggedFrame{{frame: frame}}, nil
 	}
 
-	sstp, err := EncodeSSTP(b, t.vid, l.address)
-	if err != nil {
-		return nil, err
+	var built []taggedFrame
+	if p.sendRSTP {
+		sstp, err := EncodeSSTP(b, t.vid, l.address)
+		if err != nil {
+			return nil, err
+		}
+		built = append(built, taggedFrame{vid: t.vid, frame: sstp})
 	}
-	built := []taggedFrame{{vid: t.vid, frame: sstp}}
 
 	if t.id != cistID {
 		return built, nil
@@ -1121,12 +1165,14 @@ func (l *Layer) boundary(name string) bool {
 }
 
 // syncInstancePorts carries a physical link property change on the CIST's
-// port cistP onto every MSTI's port state of the same name: up, point to
-// point, and, for an instance that left its path cost unconfigured, the
-// path cost too. These are link properties, not per-instance ones, so an
-// MSTI only tracks its own copy to give recompute one shape of portState to
-// read regardless of tree; instanceRemainingHops and the boundary role rule
-// are what actually let instances diverge.
+// port cistP onto every other tree's port state of the same name: the whole
+// link-replicated linkState, assigned in one statement so a field added to
+// it later propagates without a copy line of its own, plus the link-derived
+// path cost for an instance that left its own unconfigured. These are link
+// properties, not per-instance ones, so every tree tracks its own copy to
+// give recompute one shape of portState to read regardless of tree;
+// instanceRemainingHops and the boundary role rule are what actually let
+// instances diverge.
 func (l *Layer) syncInstancePorts(name string, cistP *portState) {
 	for _, id := range l.treeOrder {
 		if id == cistID {
@@ -1137,9 +1183,7 @@ func (l *Layer) syncInstancePorts(name string, cistP *portState) {
 			continue
 		}
 
-		mp.up = cistP.up
-		mp.pointToPoint = cistP.pointToPoint
-		mp.edge = cistP.edge
+		mp.linkState = cistP.linkState
 		if !mp.pathCostFixed {
 			mp.pathCost = cistP.linkPathCost
 		}
@@ -1522,15 +1566,20 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]FlushTarget, emit b
 
 	for _, name := range l.portNames {
 		p, ok := t.ports[name]
-		if !ok || !p.up || p.bpduGuardDisabled || !p.rcvInfoValid {
+		if !ok || !p.up || !p.rcvInfoValid {
 			continue
 		}
-		// Restricted role denies the port the root role, and loop guard holds a
-		// port whose information expired out of the tree so it reconverges
-		// around it. A PVID-inconsistent port carries a peer that disagrees
-		// about which VLAN the link is, so its vector describes a different
-		// VLAN's tree. None may contribute the bridge's root vector.
-		if p.cfg.RestrictedRole || p.loopInconsistent || p.pvidInconsistent {
+		// bpduGuardDisabled and loopInconsistent are link-on-cist: only the
+		// CIST's copy is ever written, so every tree's root election reads
+		// them through cistP the way the role switch below already does. A
+		// guard that fires on the CIST must hold every MSTI's election too,
+		// not only the CIST's own. Restricted role denies the port the root
+		// role, and pvidInconsistent is tree-owned: a peer that disagrees
+		// about which VLAN the link is describes a different VLAN's tree, so
+		// it reads from p. None of the four may contribute the bridge's root
+		// vector.
+		cistP := l.cist().ports[name]
+		if cistP.bpduGuardDisabled || p.cfg.RestrictedRole || cistP.loopInconsistent || p.pvidInconsistent {
 			continue
 		}
 		if !p.rcvTime.Add(3 * p.rcvHelloTime).After(now) {
@@ -1808,24 +1857,38 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	case PointToPointForceFalse:
 		p2p = false
 	}
-	cost := p.cfg.PathCost
-	if cost == 0 {
-		cost = DefaultPathCost(speedBPS)
+	linkCost := p.cfg.PathCost
+	if linkCost == 0 {
+		linkCost = DefaultPathCost(speedBPS)
 	}
-	p.linkPathCost = cost
 	// A cost the tree configured for itself stays put across a link change,
 	// the way syncInstancePorts already leaves a fixed instance cost alone.
 	// Only PVST sets this on the CIST's own port state, by configuring VLAN
 	// 1's path cost on the tree that occupies the CIST slot.
+	cost := linkCost
 	if p.pathCostFixed {
 		cost = p.pathCost
 	}
 	// A report of the state the port already has is not a transition: two
 	// callers may describe the same link, and re-entering a port that is up
-	// would restart its handshake for nothing.
+	// would restart its handshake for nothing. A speed change alone is not
+	// that either, but it must still reach every tree's own path cost: the
+	// link-derived cost is written and synced without disturbing the role,
+	// agreement, migration, edge, or forward-delay state the full handshake
+	// below would reset.
 	if p.up && p.pointToPoint == p2p && p.pathCost == cost {
-		return Effects{}
+		if p.linkPathCost != linkCost {
+			p.linkPathCost = linkCost
+			l.syncInstancePorts(port, p)
+			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		}
+
+		return Effects{
+			Emissions: emissions,
+			Flush:     flushes,
+		}
 	}
+	p.linkPathCost = linkCost
 
 	p.up = true
 	p.pointToPoint = p2p
@@ -1935,12 +1998,14 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b BPDU, flushes *[]Flus
 		p.state = StateDiscarding
 		p.fwdDelayTimer = time.Time{}
 		p.proposing = p.pointToPoint && p.sendRSTP
-		// edge is a bridge-global link property (see syncInstancePorts): a
-		// port losing auto-edge status must clear it on every instance too,
-		// or an MSTI keeps treating the port as an edge after the CIST no
-		// longer does.
-		l.syncInstancePorts(p.name, p)
 	}
+
+	// edge and sendRSTP are link-replicated: whatever this receive changed on
+	// the CIST's copy — an auto-edge loss above, or a migration a few lines
+	// up — must reach every other tree's own copy before the frame is judged,
+	// or a property this function exists to hold link-wide is invisible to
+	// every tree but the CIST's.
+	l.syncInstancePorts(p.name, p)
 
 	return nil, false
 }
