@@ -116,9 +116,10 @@ established across the library:
 - `troubleshooting/loop-protect-contains-access-loop`: Two switches joined by
   two cables run no spanning tree, so the cables form a real loop; loop
   protection with Block on one switch's two looped ports acts on exactly one
-  of them once a probe returns, and a broadcast the other switch's host sends
-  reaches it exactly once instead of circulating, disproving the false answer
-  that the fabric floods the broadcast forever because no spanning tree runs.
+  of them once a probe returns, and a broadcast the loop-protected switch's
+  own host sends afterward reaches the host on the other switch exactly once
+  instead of circulating, disproving the false answer that the fabric floods
+  the broadcast forever because no spanning tree runs.
 - `planning/ecmp-candidates-recorded`: Two equal-cost static routes reach one
   prefix. The lookup fact names both next hops in canonical order and the index
   of the one the flow hash chose, disproving the false answer that one route

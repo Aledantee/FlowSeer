@@ -411,20 +411,24 @@ them.
   and `NoLearn` land on the port a real device would report, where an
   operator already looks, rather than in a separate issue an operator has to
   go find.
-- **A probe leaves only where the topology is already believed clear.** It
-  goes out a port that is operationally forwarding and that a spanning tree
-  running over the same VLAN also forwards, so loop protection never raises
-  anything the tree has already broken; it exists for the loop a tree does
-  not cover, whether because none runs or because the loop sits outside every
-  tree's view.
+- **A probe leaves wherever an ordinary frame would, not wherever loop
+  protection judges the topology clear.** It goes out a port that is
+  operationally forwarding and that a spanning tree on the same switch also
+  forwards, so loop protection never raises anything the tree has already
+  broken; it exists for the loop a tree does not cover, whether because none
+  runs or because the loop sits outside every tree's view. Loop protection's
+  own verdict on the port is deliberately not one of the gates: a port a
+  `Block` action already covers keeps probing, which is what lets a
+  `LoopCleared` recovery watch the loop persist.
 - **A returning probe is an ordinary frame to the bridge that receives it.**
   It is classified through the same ingress pipeline, gates included, as any
   other frame, so a probe returning into a port a `Block` action already
   denies dies at that gate before the loop-protection layer ever sees it.
   That ingress check, not anything loop protection does itself, is what stops
   a two-port loop from acting on both ports: whichever probe is processed
-  first blocks its own port, and the second probe's return is refused before
-  it can be classified as a probe at all.
+  first blocks its own port, and the second probe is still recognized as this
+  switch's own on the blocked port, but the gated ingress refuses it VLAN
+  classification, so it never reaches detection.
 - **`NoLearn` contains the symptom without removing the cause.** It stops the
   MAC flapping between two ports that a loop causes, but keeps forwarding, so
   the loop itself is not broken; only `Block` and `Disable` do that. `NoLearn`
