@@ -2296,6 +2296,159 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 	}
 }
 
+// TestLoopProtectManualClearsOnLAGPortCycle proves that a Manual recovery
+// applied to a protected LAG port clears when the LAG's link cycles down and
+// back up, the same way it clears on a physical port: updateLagState now
+// notifies loop protection of the LAG's aggregate link state, not just
+// spanning tree, so a LAG-only switch's protected port is not stuck applied
+// forever once blocked.
+func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.Lag, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"1/1/1": {}, "1/1/2": {}}},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"lag1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "lag1"}
+	res := sw.Forward(now, "lag1", loopprotect.Encode(probe, mac))
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("probe outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	blocked := sw.Forward(now, "lag1", data)
+	if blocked.Outcome != trace.Dropped || blocked.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("frame on lag1 after Block applied = %s/%s, want %s/%s",
+			blocked.Outcome, blocked.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+
+	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointUnknown, 0)
+	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointUnknown, 0)
+	sw.LinkChange(now, "1/1/1", port.Up, vswitch.PointToPointUnknown, 0)
+	sw.LinkChange(now, "1/1/2", port.Up, vswitch.PointToPointUnknown, 0)
+
+	after := sw.Forward(now, "lag1", data)
+	if after.Outcome == trace.Dropped && after.Reason == bridge.ReasonPortBlocked {
+		t.Fatalf("frame on lag1 after a port cycle still blocked, want the Manual action cleared")
+	}
+}
+
+// TestLoopProtectTrunkWithPVIDEmitsAProbe proves that a protected trunk port
+// with no configured VLANs still probes on a VLAN-aware bridge, once it
+// carries a PVID: the layer emits VID 0 for such a port, and the switch
+// resolves that to the port's PVID before asking the bridge to originate the
+// frame, so the probe is not silently discarded for naming a VID the bridge
+// does not admit.
+func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "a", 20: "b"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}, Tagged: []vlan.ID{20}},
+			},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block},
+			},
+		},
+	})
+
+	now := fixedTime
+	sw.Start(now)
+	sw.Drain()
+
+	sw.Wake(now.Add(loopprotect.DefaultInterval))
+	emissions := sw.Drain()
+
+	found := false
+	for _, em := range emissions {
+		if em.Port != "1/1/1" {
+			continue
+		}
+		if _, err := loopprotect.Decode(em.Frame); err == nil {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+	}
+}
+
+// TestLoopProtectAppliedActionFlushesLearnedEntries proves that applying a
+// loop-protection action flushes the forwarding entries the loop taught the
+// blocked port: without the flush, a later unicast to that host keeps
+// following the stale entry into the now-blocked port and is dropped as
+// port-blocked instead of flooding to relocate it.
+func TestLoopProtectAppliedActionFlushesLearnedEntries(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+			},
+		},
+	})
+	now := fixedTime
+
+	host := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x42}
+	mustSwitchLearn(t, sw, []bridge.Seed{
+		{FID: 0, MAC: host, Port: "1/1/1", LearnedAt: now},
+	})
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	data := ethernet.Frame{Dst: host, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	res := sw.Forward(now, "1/1/2", data)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("unicast to the host learned through the loop = %s, want %s (stale entry flushed)", res.Outcome, trace.Flooded)
+	}
+	floodedTo13 := false
+	for _, eg := range res.Egress {
+		if eg.Port == "1/1/3" {
+			floodedTo13 = true
+		}
+	}
+	if !floodedTo13 {
+		t.Errorf("flood egress = %+v, want 1/1/3 among the targets", res.Egress)
+	}
+}
+
 // TestDeriveRetainsLoopProtectOverUnchangedConfig proves that Derive keeps
 // the loop-protection layer, and the action it applied, when the target
 // configuration and every protected port's link state are unchanged: an
@@ -2326,10 +2479,16 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 
 // TestDeriveRebuildsLoopProtectOnAdminStatusCycle proves that Derive rebuilds
 // the loop-protection layer, clearing any applied action, when a protected
-// port's administrative or operational state differs from the current
-// switch: the layer's action and recovery timer are keyed to the link
-// staying up throughout, so a state change invalidates the retained runtime
-// state rather than just the configuration.
+// port's administrative or operational state on the current switch differs
+// from the target's port table: the layer's action and recovery timer are
+// keyed to the link staying up throughout, so a state change invalidates the
+// retained runtime state rather than just the configuration.
+//
+// It changes the current switch's live operational state with SetOperStatus,
+// which mutates only s.ports and never notifies the loop-protection layer,
+// so it isolates what Derive itself does with the mismatch: the target
+// configuration (sw.Config()) still reads the port Up, so the derived port
+// is usable, and the only thing that can still block it is a retained layer.
 func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 	sw := loopProtectTestSwitch(t)
 	now := fixedTime
@@ -2338,33 +2497,28 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
 	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
 
-	target := sw.Config()
-	p, ok := target.Ports.Port("1/1/1")
-	if !ok {
-		t.Fatalf("target config lacks port 1/1/1")
-	}
-	p.AdminStatus = port.Down
-	updated, err := port.NewBuilder().
-		Add(p).
-		Add(mustPort(t, target.Ports, "1/1/2")).
-		Build()
-	if err != nil {
-		t.Fatalf("rebuild port table: %v", err)
-	}
-	target.Ports = updated
-
-	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: target})
-	if err != nil {
-		t.Fatalf("Derive() error = %v", err)
-	}
-
 	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
 
+	precondition := sw.Forward(now, "1/1/1", data)
+	if precondition.Outcome != trace.Dropped || precondition.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("precondition: current switch on 1/1/1 = %s/%s, want %s/%s",
+			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+
+	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
 	res := derived.Forward(now, "1/1/1", data)
 	if res.Outcome == trace.Dropped && res.Reason == bridge.ReasonPortBlocked {
-		t.Fatalf("derived switch after an admin-status cycle still blocks 1/1/1, want the rebuilt layer's action cleared")
+		t.Fatalf("derived switch after the current switch's port state diverged from the target still blocks 1/1/1, want the rebuilt layer's action cleared")
 	}
 }
 
@@ -2431,17 +2585,6 @@ func traceHasRuleID(steps []trace.Step, ruleID trace.RuleID) bool {
 	}
 
 	return false
-}
-
-func mustPort(t *testing.T, tbl port.Table, name string) port.Port {
-	t.Helper()
-
-	p, ok := tbl.Port(name)
-	if !ok {
-		t.Fatalf("port %q not found in table", name)
-	}
-
-	return p
 }
 
 func makeIPv4Packet(t *testing.T, src, dst netip.Addr, ttl uint8, payload []byte) []byte {
