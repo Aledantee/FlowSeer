@@ -239,18 +239,13 @@ func traceLoopProtectBlockStepSeen(t *testing.T, fab *fabric.Fabric, portName st
 	return false
 }
 
-// TestLoopProtectWithRSTPDetectsNothing proves loop protection and spanning
-// tree coexist without cross-talk: two switches connected by two parallel
-// links run RSTP over those
-// links, converging the redundant path away on its own; each switch also
-// runs loop protection, but on a third port that carries no loop of its
-// own. Loop protection's own probe transmission bypasses every gate,
-// including a gate RSTP itself installed, so nothing about RSTP's block
-// stops a probe configured on the *same* redundant links from completing a
-// round trip through the rest of the still-connected topology; watching an
-// unrelated, unlooped port instead is what makes "detects nothing" a
-// meaningful claim rather than a race against the probe interval. The only
-// block anywhere in the fabric is RSTP's own Alternate or Backup port.
+// TestLoopProtectWithRSTPDetectsNothing is evidence that a port spanning tree
+// holds discarding reports no loop. Two switches are joined by two parallel
+// links, and both run RSTP and loop protection over the same two ports. RSTP
+// converges the redundant path away, and no probe ever returns: a probe leaves
+// only where the tree forwards the VLAN, so the discarding port sends none,
+// and a probe that reaches a discarding port on the far side dies at its
+// ingress gate. The only block anywhere in the fabric is the tree's own.
 func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
@@ -269,7 +264,8 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 		return &loopprotect.Config{
 			Interval: 5 * time.Second,
 			Ports: map[string]loopprotect.Port{
-				"1/1/3": {Action: loopprotect.Block},
+				"1/1/1": {Action: loopprotect.Block},
+				"1/1/2": {Action: loopprotect.Block},
 			},
 		}
 	}

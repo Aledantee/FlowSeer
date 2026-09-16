@@ -37,6 +37,15 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 					},
 				},
 			},
+			// A probe leaves only a port whose link is up, so sw1's
+			// protected port is cabled to a switch that runs nothing.
+			"sw2": {
+				Ports:  tbl,
+				Bridge: &bridge.Config{},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}
 

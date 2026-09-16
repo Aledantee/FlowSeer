@@ -2045,14 +2045,50 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 // applyLoopProtectEffects turns loop-protection probe emissions into switch
 // emissions, applying the emitting port's egress VLAN tagging and dropping
 // any emission for a VID the port does not carry.
+// applyLoopProtectEffects puts the layer's probes on the wire. A probe leaves
+// only where an ordinary frame would: the port has to be operationally
+// forwarding, and a spanning tree running on the same switch has to forward
+// the VLAN over it, so a port the tree already holds discarding cannot report
+// a loop the tree has broken. What the loop-protection layer itself says about
+// the port is deliberately not consulted, which is what lets a blocked port
+// keep probing and a LoopCleared recovery see the loop persist.
 func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 	for _, em := range fx.Emissions {
-		egress, ok := s.bridge.OriginateFrame(em.Port, em.VID, em.Frame)
+		p, ok := s.ports.Port(em.Port)
+		if !ok || !p.Forwards() {
+			continue
+		}
+
+		vid := em.VID
+		if vid == 0 {
+			vid = s.untaggedVID(em.Port)
+		}
+		if s.stp != nil && !s.stp.Forwards(em.Port, vid) {
+			continue
+		}
+
+		egress, ok := s.bridge.OriginateFrame(em.Port, vid, em.Frame)
 		if !ok {
 			continue
 		}
 		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress})
 	}
+}
+
+// untaggedVID is the VLAN a frame the switch originates on the named port
+// carries when the probe did not name one: the port's PVID on a VLAN-aware
+// bridge, and VLAN 0 on a bridge with no VLAN configuration, which is the
+// single forwarding domain the relay uses there.
+func (s *Switch) untaggedVID(name string) vlan.ID {
+	if s.cfg.Bridge == nil || s.cfg.Bridge.VLAN == nil {
+		return 0
+	}
+	sw, ok := s.cfg.Bridge.VLAN.Switchports[name]
+	if !ok || sw.PVID == nil {
+		return 0
+	}
+
+	return *sw.PVID
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {

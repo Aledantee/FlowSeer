@@ -338,14 +338,16 @@ loop-protection probe group is intercepted before relay processing, but only
 once decoded as a probe this switch itself sent: a probe naming another
 switch is left alone and falls through to the ordinary relay path, where it
 floods as unregistered multicast, so it is classified exactly once either
-way. Loop protection's own probe transmission bypasses every installed gate,
-including one it applied to a port itself or one spanning tree applied to a
-port sharing the same bridge, the way spanning tree's own BPDU transmission
-does; only the *returning* probe's classification consults the gates,
-which is what lets one action on a two-port loop stop the reciprocal probe
-from also triggering the layer, and what lets an already-blocking spanning
-tree port keep a probe configured on the same redundant link from ever
-returning.
+way.
+
+A probe goes out where an ordinary frame would: the port must be
+operationally forwarding, and a spanning tree on the same switch must forward
+the VLAN over it, so a port the tree holds discarding raises no loop the tree
+has already broken. The one gate transmission ignores is loop protection's
+own, which is what lets a blocked port keep probing and a `LoopCleared`
+recovery watch the loop persist. The returning probe is classified like any
+other frame and dies on a gated ingress port — that is what stops the
+reciprocal probe of a two-port loop from acting on the second port.
 
 On a switch with link aggregation, a frame with EtherType 0x8809 whose first
 payload octet is 1 arriving on an up member port is intercepted before relay

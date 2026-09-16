@@ -165,5 +165,7 @@ also why pairing it with `LoopCleared` recovery is refused at construction.
   the link go down, unlike a real errdisabled port.
 - Per-VLAN recovery: an action is per port, matching every fetched vendor's
   default target.
-- Automatic operational-state or spanning-tree awareness for emission: see
-  "Emission ignores the gate" above.
+- Operational state and spanning tree, for emission. This layer knows about
+  neither; the switch drops a probe for a port that is not forwarding or that
+  a spanning tree holds discarding before it reaches the wire. See "Emission
+  ignores the gate" above.
