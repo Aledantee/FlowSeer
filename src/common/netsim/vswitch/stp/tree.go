@@ -33,8 +33,10 @@ type tree struct {
 	// lookup through vidToTree.
 	vid vlan.ID
 
-	// bridgeID is this bridge's identifier for the tree. The CIST's is the
-	// layer's own bridgeID; an MSTI can carry a different one.
+	// bridgeID is this bridge's identifier for the tree. Outside PVST mode
+	// the CIST's is the layer's own bridgeID; an MSTI can carry a different
+	// one, and so can the CIST in PVST mode, where it carries VLAN 1 in the
+	// system-ID extension.
 	bridgeID BridgeID
 
 	rootID       BridgeID

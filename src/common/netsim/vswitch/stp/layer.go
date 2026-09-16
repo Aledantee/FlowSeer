@@ -152,10 +152,20 @@ type portState struct {
 	pointToPoint bool
 	up           bool
 
+	// linkPathCost is the cost the link and its admin configuration derive,
+	// kept apart from pathCost so an instance-level override never overwrites
+	// it. In PVST mode VLAN 1's own per-port cost overrides the CIST's
+	// pathCost, since that slot is VLAN 1's tree; syncInstancePorts must still
+	// carry the link-derived cost, not VLAN 1's, onto every other VLAN's tree.
+	// Outside PVST mode the two are always equal.
+	linkPathCost uint32
+
 	// pathCostFixed marks an MSTI port whose path cost was configured
-	// explicitly on the instance (InstancePort.PathCost nonzero). A fixed
-	// cost stays put across a link change; an unfixed one tracks the CIST
-	// port's cost, which link speed and admin configuration otherwise drive.
+	// explicitly on the instance (InstancePort.PathCost nonzero), or the
+	// CIST's own port state in PVST mode when VLAN 1's tree configures it. A
+	// fixed cost stays put across a link change; an unfixed one tracks the
+	// CIST port's cost, which link speed and admin configuration otherwise
+	// drive.
 	pathCostFixed bool
 
 	// external marks a boundary port: one whose most recently received BPDU
@@ -237,9 +247,11 @@ type txKey struct {
 	port string
 }
 
-// portTx holds the BPDU transmit budget for one port. IEEE 802.1Q meters
-// transmission per port, not per spanning tree instance, so this lives on
-// Layer rather than inside a tree's per-port state.
+// portTx holds the BPDU transmit budget for one key. Outside PVST mode IEEE
+// 802.1Q meters transmission per port, not per spanning tree instance, which
+// is why this lives on Layer rather than inside a tree's per-port state; in
+// PVST mode it is metered per VLAN's tree as well, which is what txKey's
+// tree component addresses.
 type portTx struct {
 	count             int
 	tick              time.Time
@@ -416,6 +428,7 @@ func newLayer(cfg Config) *Layer {
 		if cost == 0 {
 			cost = DefaultPathCost(0)
 		}
+		linkCost := cost
 		fixed := false
 
 		if treePort, ok := cistTreePorts[name]; ok {
@@ -433,6 +446,7 @@ func newLayer(cfg Config) *Layer {
 			cfg:           pCfg,
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
+			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
 			adminEdge:     pCfg.AdminEdge,
 			edge:          pCfg.AdminEdge,
@@ -828,7 +842,10 @@ func (l *Layer) Mcheck(now time.Time, port string) Effects {
 	if p.role == RoleDesignated && p.up {
 		alreadyEmitted := false
 		for _, e := range emissions {
-			if e.Port == p.name {
+			// Under PVST every tree can emit on this port; only a match on
+			// this tree's own VID is evidence that this call's own recompute
+			// already sent the CIST's proposal, not some other VLAN's.
+			if e.Port == p.name && e.VID == t.vid {
 				alreadyEmitted = true
 				break
 			}
@@ -1097,7 +1114,7 @@ func (l *Layer) syncInstancePorts(name string, cistP *portState) {
 		mp.pointToPoint = cistP.pointToPoint
 		mp.edge = cistP.edge
 		if !mp.pathCostFixed {
-			mp.pathCost = cistP.pathCost
+			mp.pathCost = cistP.linkPathCost
 		}
 		if !cistP.up {
 			mp.role = RoleDisabled
@@ -1768,6 +1785,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	if cost == 0 {
 		cost = DefaultPathCost(speedBPS)
 	}
+	p.linkPathCost = cost
 	// A cost the tree configured for itself stays put across a link change,
 	// the way syncInstancePorts already leaves a fixed instance cost alone.
 	// Only PVST sets this on the CIST's own port state, by configuring VLAN
@@ -1813,7 +1831,10 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	if p.pointToPoint && !p.edge && p.role == RoleDesignated && p.state == StateDiscarding {
 		alreadyEmitted := false
 		for _, e := range emissions {
-			if e.Port == p.name {
+			// Under PVST every tree can emit on this port; only a match on
+			// this tree's own VID is evidence that this call's own recompute
+			// already sent the CIST's proposal, not some other VLAN's.
+			if e.Port == p.name && e.VID == t.vid {
 				alreadyEmitted = true
 
 				break
@@ -1936,7 +1957,7 @@ func (l *Layer) Receive(now time.Time, port string, b BPDU) Effects {
 			t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 			for _, name := range l.portNames {
 				if name != port {
-					mergeFlushTarget(&flushes, name, nil)
+					mergeFlushTarget(&flushes, name, l.treeVLANs[t.id])
 				}
 			}
 		}
@@ -1978,17 +1999,22 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrivalVID, tlvVID vlan.
 
 	cistP.rxBPDUs++
 
+	var flushes []FlushTarget
+
+	// receiveLink is the link-level half of a receive: BPDU guard, the
+	// loop-guard clear, protocol migration, and auto-edge loss all belong to
+	// the port whatever tree the frame names, so a bridge that does not run
+	// this VLAN's tree must still run it before turning the frame away.
+	emissions, done := l.receiveLink(now, cistP, b, &flushes)
+
 	if l.pvst == nil {
 		cistP.pvstBoundary = true
 
-		return Effects{}
+		return Effects{Emissions: emissions, Flush: flushes}
 	}
 
 	l.armHelloTimers(now)
 
-	var flushes []FlushTarget
-
-	emissions, done := l.receiveLink(now, cistP, b, &flushes)
 	if done {
 		return Effects{Emissions: emissions, Flush: flushes}
 	}
@@ -2063,17 +2089,22 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 		}
 	}
 
-	incoming := priorityVector{
-		rootID:               b.RootID,
-		externalRootPathCost: b.RootPathCost,
-		bridgeID:             b.BridgeID,
-		portID:               b.PortID,
-	}
-	if internal {
+	// Built in the same shape rawVector gives the stored vector it is compared
+	// against: a non-CIST tree carries its cost in internalRootPathCost, not
+	// externalRootPathCost, and a vector built with the cost in the wrong slot
+	// compares against a different component than the one it belongs next to.
+	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
+	switch {
+	case t.id == cistID && internal:
+		incoming.externalRootPathCost = b.RootPathCost
 		incoming.regionalRootID = b.RegionalRootID
 		incoming.internalRootPathCost = b.InternalRootPathCost
-	} else {
+	case t.id == cistID:
+		incoming.externalRootPathCost = b.RootPathCost
 		incoming.regionalRootID = b.RootID
+	default:
+		incoming.regionalRootID = b.RootID
+		incoming.internalRootPathCost = b.RootPathCost
 	}
 
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
@@ -2142,7 +2173,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b BPDU, flushes 
 		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
 		for _, name := range l.portNames {
 			if name != p.name {
-				mergeFlushTarget(flushes, name, nil)
+				mergeFlushTarget(flushes, name, l.treeVLANs[t.id])
 			}
 		}
 	}

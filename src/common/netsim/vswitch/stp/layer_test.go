@@ -2323,10 +2323,9 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	}
 }
 
-// TestPVSTBoundaryMarkedFromAnMSTNeighbour is evidence for the boundary this
-// phase reports rather than models: a PVST bridge that meets an MST BPDU
-// marks the port, keeps applying the BPDU's RST prefix to VLAN 1's tree, and
-// holds the mark until the link goes down.
+// TestPVSTBoundaryMarkedFromAnMSTNeighbour is evidence that a PVST bridge
+// that meets an MST BPDU marks the port, keeps applying the BPDU's RST prefix
+// to VLAN 1's tree, and holds the mark until the link goes down.
 func TestPVSTBoundaryMarkedFromAnMSTNeighbour(t *testing.T) {
 	t.Parallel()
 
@@ -2436,5 +2435,221 @@ func TestSSTPOnANonPVSTBridgeMarksTheBoundaryAndAppliesNothing(t *testing.T) {
 	}
 	if after[0].RxBPDUs != before[0].RxBPDUs {
 		t.Error("RxBPDUs was not counted for an SSTP BPDU on a non-PVST bridge")
+	}
+}
+
+// TestPVSTNonVLAN1TreeAcceptsSuperiorLowerCost is evidence that a non-VLAN-1
+// PVST tree compares a received RootPathCost against the slot rawVector
+// stores it in. Building the incoming vector with the cost always in
+// externalRootPathCost, while rawVector's non-CIST branch stores it in
+// internalRootPathCost, compares the two in different slots and no BPDU
+// naming a nonzero cost can ever be superior.
+func TestPVSTNonVLAN1TreeAcceptsSuperiorLowerCost(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	root := mustMAC(t, "00:00:00:00:00:01")
+	far := mustMAC(t, "00:00:00:00:00:dd")
+	near := mustMAC(t, "00:00:00:00:00:bb")
+
+	l := pvstLayer(t, "00:00:00:00:00:cc", 1, 20)
+	l.LinkChange(start, "l1", true, false, 1_000_000_000)
+
+	mk := func(bridge netaddr.MAC, cost uint32, portID uint16) stp.BPDU {
+		b := stp.BPDU{
+			RootID:       stp.BridgeID{Priority: 4096 | 20, Address: root},
+			RootPathCost: cost,
+			BridgeID:     stp.BridgeID{Priority: 4096 | 20, Address: bridge},
+			PortID:       portID,
+			Version:      2,
+			Type:         stp.BPDUTypeRapid,
+			MaxAge:       20 * time.Second,
+			HelloTime:    2 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(stp.RoleDesignated)
+
+		return b
+	}
+
+	// A distant designated bridge claims a high cost on VLAN 20 first.
+	l.ReceiveSSTP(start.Add(time.Second), "l1", 20, 20, mk(far, 200_000, 0x8001))
+	if got := l.VLANPortInfo(20, "l1").DesignatedCost; got != 200_000 {
+		t.Fatalf("VLAN 20 designated cost after the far bridge = %d, want 200000", got)
+	}
+
+	// A nearer designated bridge, same root, a lower cost, must supersede it.
+	l.ReceiveSSTP(start.Add(2*time.Second), "l1", 20, 20, mk(near, 20_000, 0x8002))
+	got := l.VLANPortInfo(20, "l1")
+	if got.DesignatedCost != 20_000 {
+		t.Errorf("VLAN 20 designated cost after the nearer bridge = %d, want 20000: the superior BPDU was rejected", got.DesignatedCost)
+	}
+	if got.Designated != (stp.BridgeID{Priority: 4096 | 20, Address: near}) {
+		t.Errorf("VLAN 20 designated bridge = %v, want the nearer bridge %v", got.Designated, near)
+	}
+}
+
+// TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs is evidence that VLAN 1's own
+// per-port path cost, applied to the CIST's port state because that slot is
+// VLAN 1's tree, does not carry onto a tree syncInstancePorts otherwise keeps
+// synced to the link-derived cost.
+func TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:cc"),
+		Ports:    map[string]stp.Port{"l1": {}, "l2": {}},
+		PVST:     pvstTrees(map[vlan.ID]map[string]uint32{1: {"l1": 100}}, 1, 20),
+	}, mustPortTable(t, "l1", "l2"))
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+	l.LinkChange(start, "l2", true, true, 1_000_000_000)
+
+	if got := l.VLANPortInfo(1, "l1").PathCost; got != 100 {
+		t.Fatalf("VLAN 1 l1 path cost = %d, want the configured 100", got)
+	}
+
+	want := stp.DefaultPathCost(1_000_000_000)
+	if got := l.VLANPortInfo(20, "l1").PathCost; got != want {
+		t.Errorf("VLAN 20 l1 path cost = %d, want the link-derived %d, not VLAN 1's configured 100", got, want)
+	}
+	if got := l.VLANPortInfo(20, "l2").PathCost; got != want {
+		t.Errorf("VLAN 20 l2 path cost = %d, want the link-derived %d", got, want)
+	}
+}
+
+// TestPVSTBPDUGuardFiresOnSSTPBPDU is evidence that an SSTP BPDU on a
+// BPDU-guarded access port disables it even on a bridge that does not run
+// PVST: ReceiveSSTP used to return before receiveLink ran, on the theory that
+// nothing should be applied to a tree that does not exist on this bridge, but
+// that also skipped the guard, which belongs to the link and must run first.
+func TestPVSTBPDUGuardFiresOnSSTPBPDU(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	rogue := mustMAC(t, "00:aa:bb:cc:dd:99")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:aa:bb:cc:dd:01"),
+		Ports:    map[string]stp.Port{"a1": {BPDUGuard: true}},
+	}, mustPortTable(t, "a1"))
+	l.LinkChange(start, "a1", true, true, 1_000_000_000)
+
+	sstp := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 4096, Address: rogue},
+		BridgeID:     stp.BridgeID{Priority: 4096, Address: rogue},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+
+	l.ReceiveSSTP(start.Add(time.Second), "a1", 1, 1, sstp)
+
+	info := l.PortInfo("a1")
+	if info.BlockReason != stp.BlockReasonBPDUGuard {
+		t.Errorf("block reason after an SSTP BPDU on a guarded port = %q, want %q", info.BlockReason, stp.BlockReasonBPDUGuard)
+	}
+	if info.State != stp.StateDiscarding {
+		t.Errorf("state after an SSTP BPDU on a guarded port = %v, want Discarding", info.State)
+	}
+}
+
+// TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN is evidence that a topology
+// change raised while applying a BPDU to a non-VLAN-1 tree flushes that
+// tree's own VLAN, not every VLAN on every other port. applyBPDU's
+// topology-change branch used to pass nil to mergeFlushTarget, which means
+// "every FID", the same shorthand raiseTopologyChange itself uses only for
+// the CIST's empty FID set.
+func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	local := pvstLayer(t, "00:11:22:33:44:02", 1, 10, 20)
+	local.LinkChange(start, "l1", true, true, 1_000_000_000)
+	local.LinkChange(start, "l2", true, true, 1_000_000_000)
+
+	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
+	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// A designated, agreeing BPDU for VLAN 20 with the topology-change flag
+	// set, delivered straight to VLAN 20's tree. The peer's first hello timer
+	// is due at 2s; a wake before that finds nothing to send.
+	now := start.Add(2 * time.Second)
+	var vlan20BPDU stp.BPDU
+	for _, em := range peer.Wake(now).Emissions {
+		if em.Frame.Dst == stp.GroupAddressSSTP && em.VID == 20 {
+			b, _, err := stp.DecodeSSTP(em.Frame)
+			if err != nil {
+				t.Fatalf("decode peer VLAN 20 BPDU: %v", err)
+			}
+			vlan20BPDU = b
+		}
+	}
+	vlan20BPDU.SetTopologyChange(true)
+
+	fx := local.ReceiveSSTP(now, "l1", 20, 20, vlan20BPDU)
+
+	target, ok := flushTarget(fx.Flush, "l2")
+	if !ok {
+		t.Fatal("no flush target for l2 was raised by VLAN 20's topology change")
+	}
+	if want := []vlan.ID{20}; !slices.Equal(target.FIDs, want) {
+		t.Errorf("VLAN 20 topology change flushed FIDs %v on l2, want %v: VLAN 1 and VLAN 10 must not be flushed", target.FIDs, want)
+	}
+}
+
+// TestPVSTAlreadyEmittedCheckIsPerVLAN is evidence that Mcheck's scan for an
+// emission recompute already sent on this port compares the VLAN as well as
+// the port name. l1 is left isolated (up, Designated, never agreed) while
+// VLAN 20 elects a peer heard on l2 as root, then loses it once its
+// information ages past three hello times with nothing to refresh it. That
+// reconvergence is a root change for VLAN 20's tree, so its own recompute
+// emits a fresh proposal on every still-Discarding port it owns, l1
+// included, purely as a side effect of the election. A scan for e.Port==l1
+// alone, with no VID compared, reads that unrelated VLAN 20 frame as this
+// Mcheck call's own CIST proposal and skips sending it.
+func TestPVSTAlreadyEmittedCheckIsPerVLAN(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1, 20)
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+	l.LinkChange(start, "l2", true, true, 1_000_000_000)
+
+	peerRoot := mustMAC(t, "00:11:22:33:44:ee")
+	vlan20BPDU := stp.BPDU{
+		RootID:       stp.BridgeID{Priority: 0, Address: peerRoot},
+		RootPathCost: 100,
+		BridgeID:     stp.BridgeID{Priority: 0, Address: peerRoot},
+		PortID:       0x8001,
+		Version:      2,
+		Type:         stp.BPDUTypeRapid,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	vlan20BPDU.SetRole(stp.RoleDesignated)
+
+	l.ReceiveSSTP(start.Add(time.Second), "l2", 20, 20, vlan20BPDU)
+	if root := l.VLANPortInfo(20, "l2").DesignatedRoot; root != vlan20BPDU.RootID {
+		t.Fatalf("VLAN 20 root after the peer BPDU = %v, want the peer's %v", root, vlan20BPDU.RootID)
+	}
+
+	// Past three hello times (2s each) with no refresh, VLAN 20's root
+	// reverts to this bridge itself.
+	fx := l.Mcheck(start.Add(9*time.Second), "l1")
+
+	got := emissionShapes(fx.Emissions)
+	want := "l1/0/ieee"
+	if !slices.Contains(got, want) {
+		t.Errorf("Mcheck emissions on l1 = %v, want them to include %q: VLAN 20's own reconvergence emission on l1 must not suppress the CIST's migration proposal", got, want)
 	}
 }
