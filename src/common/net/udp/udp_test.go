@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"net/netip"
 	"testing"
 
@@ -73,9 +74,11 @@ func TestDecodeFixtures(t *testing.T) {
 // TestDecodeDistinctPorts decodes a header whose source and destination
 // ports differ, so a decoder that reads the two port slots the wrong way
 // round fails. The fixtures above cannot catch that swap because both use
-// port 5353 for source and destination.
+// port 5353 for source and destination. Two trailing octets beyond Length
+// stand in for Ethernet padding on a short frame: the payload must stop at
+// Length, not at len(wire), or the pad octets leak into it.
 func TestDecodeDistinctPorts(t *testing.T) {
-	wire := []byte{0xc3, 0x50, 0x00, 0x35, 0x00, 0x0c, 0x00, 0x00, 0xde, 0xad, 0xbe, 0xef}
+	wire := []byte{0xc3, 0x50, 0x00, 0x35, 0x00, 0x0c, 0x00, 0x00, 0xde, 0xad, 0xbe, 0xef, 0x00, 0x00}
 
 	h, payload, err := udp.Decode(wire)
 	if err != nil {
@@ -89,6 +92,9 @@ func TestDecodeDistinctPorts(t *testing.T) {
 	}
 	if h.Length != 12 {
 		t.Errorf("Length = %d, want 12", h.Length)
+	}
+	if len(payload) != 4 {
+		t.Errorf("len(payload) = %d, want 4", len(payload))
 	}
 	if !bytes.Equal(payload, wire[8:12]) {
 		t.Errorf("payload = % x, want % x", payload, wire[8:12])
@@ -176,6 +182,66 @@ func TestZeroChecksumSentAsAllOnes(t *testing.T) {
 	}
 }
 
+// TestEncodeOddLengthPayload covers a payload whose length is odd, which every
+// other Encode case in this file avoids: both pseudo-headers and every other
+// payload here are even length, so a checksum that drops the trailing octet's
+// contribution would still pass them.
+//
+// The expected checksum is 0x0156, computed by a standalone Python script
+// implementing the RFC 768 algorithm from scratch (not by calling this
+// package): sum the pseudo-header and the UDP header-plus-payload as
+// big-endian 16-bit words, treating the payload's trailing odd octet as the
+// high byte of a padded word, fold carries past 16 bits, and complement.
+func TestEncodeOddLengthPayload(t *testing.T) {
+	src := netip.MustParseAddr("10.0.10.7")
+	dst := netip.MustParseAddr("224.0.0.251")
+	h := udp.Header{SrcPort: 5353, DstPort: 5353}
+	payload := []byte{0xde, 0xad, 0x01}
+
+	out, err := udp.Encode(h, payload, src, dst)
+	if err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	if got := binary.BigEndian.Uint16(out[4:6]); got != 11 {
+		t.Errorf("out[4:6] = %d, want 11", got)
+	}
+	if got := binary.BigEndian.Uint16(out[6:8]); got != 0x0156 {
+		t.Errorf("Checksum = %#x, want 0x0156", got)
+	}
+}
+
+// TestVerify checks both fixtures against their correct addresses, and that
+// flipping one checksum octet turns the report false.
+func TestVerify(t *testing.T) {
+	tests := []struct {
+		name    string
+		fixture string
+		src     string
+		dst     string
+	}{
+		{name: "ipv4", fixture: ipv4Fixture, src: "10.0.10.7", dst: "224.0.0.251"},
+		{name: "ipv6", fixture: ipv6Fixture, src: "fe80::1", dst: "ff02::fb"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			src := netip.MustParseAddr(tc.src)
+			dst := netip.MustParseAddr(tc.dst)
+			wire := mustDecodeHex(t, tc.fixture)
+
+			if !udp.Verify(wire, src, dst) {
+				t.Error("Verify() = false, want true for an unmodified fixture")
+			}
+
+			corrupted := bytes.Clone(wire)
+			corrupted[6] ^= 0xff
+			if udp.Verify(corrupted, src, dst) {
+				t.Error("Verify() = true, want false with a checksum octet flipped")
+			}
+		})
+	}
+}
+
 // TestDecodeRefusals covers the inputs Decode must reject: a datagram
 // shorter than a header, a Length field under the header size, and a Length
 // field that exceeds the supplied buffer.
@@ -200,8 +266,8 @@ func TestDecodeRefusals(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, _, err := udp.Decode(tc.wire); err == nil {
-				t.Fatal("Decode() error = nil, want an error")
+			if _, _, err := udp.Decode(tc.wire); !errors.Is(err, udp.ErrMalformed) {
+				t.Fatalf("Decode() error = %v, want ErrMalformed", err)
 			}
 		})
 	}
@@ -224,8 +290,8 @@ func TestEncodeRefusesMixedFamilies(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := udp.Encode(h, nil, tc.src, tc.dst); err == nil {
-				t.Fatal("Encode() error = nil, want an error")
+			if _, err := udp.Encode(h, nil, tc.src, tc.dst); !errors.Is(err, udp.ErrMalformed) {
+				t.Fatalf("Encode() error = %v, want ErrMalformed", err)
 			}
 		})
 	}
