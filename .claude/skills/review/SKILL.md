@@ -109,6 +109,10 @@ intent in code doing the opposite. Ask:
 - Does every behavior change have a test that would fail without it, and
   would that test still fail if the check moved to the wrong place?
 - Does any comment narrate process, cite history, or carry a plan label?
+- For each line the verifier printed under `Test changes to account for:`
+  (a deleted or skipped test, a removed test function, a rewritten
+  `testdata/` file), does the implementer's reason hold against the diff,
+  and does the suite still prove what that test proved?
 - Does a README, convention doc, or schema comment now disagree with the code?
 - Is anything added that has one caller, one implementation, or no caller?
 - Does the change move a boundary an accepted direction record fixes?

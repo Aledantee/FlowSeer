@@ -598,8 +598,14 @@ func canonicalDiagnostics(diags []Diagnostic) []Diagnostic {
 }
 
 // raise records a resolution diagnostic against a file and offset.
+//
+// It builds the position and hands code and args straight to [MustRaise];
+// the resolver has no cap and no throttle. It inherits MustRaise's panic
+// on an uncataloged code or an argument count the code's catalog row does
+// not declare, which the arity scan in internal/diag checks at every
+// resolver call site, two hops from diag.MustRaise.
 func (r *resolver) raise(file string, offset int32, code errs.Code, args ...Arg) {
-	r.diags = append(r.diags, Raise(Position{File: file, Offset: int(offset)}, code, args...))
+	r.diags = append(r.diags, MustRaise(Position{File: file, Offset: int(offset)}, code, args...))
 }
 
 // build turns one module's declarations into nodes and types, in the

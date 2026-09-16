@@ -642,6 +642,47 @@ func TestWatcher_ColdStartSessionClosedIsTerminal(t *testing.T) {
 	}
 }
 
+// TestWatcher_PanicDuringColdStartSetsErrBeforeChannelCloses is
+// evidence for the spawn.Go conversion, not a guard for later code: it
+// pins the ordering [NewWatcher] depends on — a panic recovered by
+// spawn.Go must reach [Watcher.Err] before the data channel closes, not
+// merely before the test happens to check again. A decode func that
+// panics on the first row exercises the panic path inside coldStart.
+func TestWatcher_PanicDuringColdStartSetsErrBeforeChannelCloses(t *testing.T) {
+	s := &watcherFakeSession{}
+	s.pushScript(makeIfRowVarBinds(1))
+
+	panicDecode := func(OID, []VarBind) (testIfRow, error) {
+		panic("decode exploded")
+	}
+
+	w, err := NewWatcher[testIfRow](
+		context.Background(),
+		s,
+		makeIfIndicator(t),
+		[]AnyColumn{fakeColumn{oid: ifDescrOID, kind: KindOctetString}},
+		panicDecode,
+		testIfEqual,
+		testIfMerge,
+		WithCadenceBounds(50*time.Millisecond, 1*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("NewWatcher: %v", err)
+	}
+	defer func() { _ = w.Close() }()
+
+	// Drain until the data channel is closed (Iter's range-over-func
+	// form only returns once the underlying channel is exhausted), then
+	// check Err() immediately — not after a sleep or a second poll.
+	// "Eventually set" is the bug this test guards against, not the fix.
+	for range w.Iter() {
+	}
+	if w.Err() == nil {
+		t.Fatal("Err() is nil right after the data channel closed; " +
+			"want the panic's error already latched by then")
+	}
+}
+
 func TestWatcher_CloseIsIdempotent(t *testing.T) {
 	s := &watcherFakeSession{}
 	s.pushScript(makeIfRowVarBinds(1))

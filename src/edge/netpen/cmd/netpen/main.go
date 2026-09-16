@@ -18,6 +18,7 @@ import (
 	"golang.org/x/term"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/edge/netpen/catalog"
 	"go.aledante.io/FlowSeer/src/edge/netpen/findings"
 	"go.aledante.io/FlowSeer/src/edge/netpen/full"
@@ -444,12 +445,16 @@ func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	done := make(chan error, 1)
-	go func() {
+	// done is a rendezvous: runErr, <-done below blocks until exactly one
+	// send reaches it. The normal path sends at the end of fn; the sink
+	// sends on a panic, so a panicking output consumer cannot hang this
+	// call forever.
+	spawn.Go(ctx, "netpen stream output", func() {
 		var err error
 		if mode == output.ModeJSON {
 			err = streamJSON(stdout, stderr, ch, meta)
 		} else {
-			err = streamTUI(ch, meta, cancel)
+			err = streamTUI(ctx, ch, meta, cancel)
 		}
 		if err != nil {
 			cancel()
@@ -457,7 +462,10 @@ func streamAndRun(ctx context.Context, ch <-chan findings.Record, meta findings.
 		for range ch {
 		}
 		done <- err
-	}()
+	}, spawn.ReportTo(func(err error) {
+		cancel()
+		done <- err
+	}))
 	runErr := runFn(ctx)
 	return errors.Join(runErr, <-done)
 }
@@ -504,13 +512,15 @@ func runAndOutput(ctx context.Context, opts runner.Options, cf *cmdFlags, stdout
 	defer stopSig()
 
 	// Bridge runner.Stream.Iter() to a channel for streamJSON/streamTUI.
+	// close(ch) is fn's own deferred call, so it still runs on a panic
+	// unwind and streamAndRun's `for range ch` never hangs on it.
 	ch := make(chan findings.Record, 64)
-	go func() {
+	spawn.Go(ctx, "netpen stream bridge", func() {
 		defer close(ch)
 		for rec := range r.Stream().Iter() {
 			ch <- rec
 		}
-	}()
+	})
 
 	meta := findings.Meta{
 		Tool:      "netpen",

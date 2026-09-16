@@ -180,6 +180,33 @@ func TestWalker_TerminalError(t *testing.T) {
 	}
 }
 
+// TestWalker_PumpPanicLeavesErrNonNil is evidence for the spawn.Go
+// conversion of [Walker.Pump]: a panicking fn must not silently present as a
+// completed walk. Err() is read once, the instant the iteration ends, because
+// Walker holds the same ordering guarantee as Watcher — the panic path closes
+// the channel through Fail, which records the error before closing. Polling
+// here would also pass against a Pump whose deferred Done closed the channel
+// first and latched the error afterwards, which is the silent completion this
+// asserts against.
+func TestWalker_PumpPanicLeavesErrNonNil(t *testing.T) {
+	w := NewWalker(context.Background(), 0)
+	w.Pump(func(_ context.Context) {
+		panic("pump exploded")
+	})
+
+	count := 0
+	for range w.Iter() {
+		count++
+	}
+	if count != 0 {
+		t.Errorf("yielded %d items after panic, want 0", count)
+	}
+
+	if err := w.Err(); err == nil {
+		t.Error("Err() is nil when the data channel closed after a panicking Pump fn, want non-nil")
+	}
+}
+
 // TestWalker_ContextCancel: caller cancels ctx; pump's next Send
 // returns false; pump exits within a bounded time.
 func TestWalker_ContextCancel(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // watch.go is the shared row plumbing under the protocol libraries'
@@ -113,19 +114,31 @@ func NewRowWalker[Row any](ctx context.Context, produce func(ctx context.Context
 		buffer = 64
 	}
 	w := &Walker[Row]{pump: pump.New[Row](ctx, buffer)}
-	go func() {
-		defer w.pump.Done()
+	traverse := func() error {
 		rows, err := produce(w.pump.Context())
 		if err != nil {
-			w.pump.Fail(errs.From(err).Code(ErrCodeWatch).Msg("walker traversal failed"))
-			return
+			return errs.From(err).Code(ErrCodeWatch).Msg("walker traversal failed")
 		}
 		for _, row := range rows {
 			if !w.pump.Send(row) {
-				return
+				return nil
 			}
 		}
-	}()
+		return nil
+	}
+	// The pump is closed by exactly one terminal call: Fail on a traversal
+	// error, Fail from the sink when the body panics, Done otherwise. Done
+	// must not be deferred — fn's defers run before the recover, so a
+	// deferred Done would close the data channel before the sink recorded
+	// the error, and a consumer that drains to the close would read a nil
+	// Err() for a walk that panicked.
+	spawn.Go(ctx, "yang row walker traversal", func() {
+		if err := traverse(); err != nil {
+			w.pump.Fail(err)
+			return
+		}
+		w.pump.Done()
+	}, spawn.ReportTo(w.pump.Fail))
 	return w
 }
 
@@ -195,14 +208,21 @@ func NewTickWatcher[Row any, Key comparable](ctx context.Context, codec RowCodec
 		pump:  pump.New[WatchEvent[Row, Key]](ctx, cfg.Buffer),
 		codec: codec,
 	}
-	go w.run(fetch, decode, cfg)
+	// CloseData sits here rather than in a defer inside run: fn's defers run
+	// before the recover, so a deferred close would close the data channel
+	// before the sink recorded the panic, and a consumer draining to the
+	// close would read a nil Err() for a watch that panicked. On the panic
+	// path Fail is the terminal call, and it records before it closes.
+	spawn.Go(ctx, "yang tick watcher", func() {
+		w.run(fetch, decode, cfg)
+		w.pump.CloseData()
+	}, spawn.ReportTo(w.pump.Fail))
 	return w
 }
 
-// run drives cold start and the steady-state tick loop.
+// run drives cold start and the steady-state tick loop. The caller closes the
+// pump; see the spawn call above for why that is not a defer here.
 func (w *TickWatcher[Row, Key]) run(fetch FetchFunc, decode func([]byte) ([]Row, error), cfg WatchConfig) {
-	defer w.pump.CloseData()
-
 	snapshot, ok := w.coldStart(fetch, decode, cfg)
 	if !ok {
 		return

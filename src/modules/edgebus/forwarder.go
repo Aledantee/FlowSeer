@@ -17,6 +17,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ErrCodeForwarder identifies a failure starting the forwarder.
@@ -141,7 +142,14 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 		cancel()
 		return nil, err
 	}
-	go f.follow(runCtx)
+	// follow's defer close(f.done) already runs on a panic, since it is
+	// fn's own defer and fires during the panic's unwind before spawn's
+	// recover — Close's <-f.done never hangs. No ReportTo: follow reports
+	// no error to any caller today, so there is nothing for a sink to hand
+	// off; the default log record is the floor.
+	spawn.Go(runCtx, "edgebus.Forwarder.follow", func() {
+		f.follow(runCtx)
+	})
 	return f, nil
 }
 

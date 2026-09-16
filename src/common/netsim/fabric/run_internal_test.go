@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,4 +91,79 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 	if got := egress.Payload[0]; got != 1 {
 		t.Errorf("fresh egress frame payload = %d, want 1", got)
 	}
+}
+
+// TestScheduleDequeueRecordsFaultInsteadOfPanicking drives scheduleDequeue's
+// two internal invariants directly — the only way to reach them, since no
+// topology can — and checks each records a sticky fault instead of panicking,
+// that the queue is left unscheduled, that the first fault is the one Err
+// reports, and that Step and Run both stop and surface it. The Err assertions
+// are the caller-side read the sticky field needs: without them a recorded
+// fault would go unnoticed.
+func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
+	base := time.Unix(1, 0)
+	ep := Endpoint{Node: "sw1", Port: "e0"}
+
+	t.Run("dequeue before the clock", func(t *testing.T) {
+		f := &Fabric{
+			egress:  map[Endpoint]*egressQueue{ep: {}},
+			clock:   base,
+			stepped: true,
+		}
+
+		f.scheduleDequeue(ep, base.Add(-time.Second))
+
+		if f.Err() == nil {
+			t.Fatal("Err() = nil; want a fault for a dequeue preceding the clock")
+		}
+		if !strings.Contains(f.Err().Error(), base.String()) {
+			t.Errorf("Err() = %q, want it to name the clock %s", f.Err(), base)
+		}
+		if len(f.queue) != 0 {
+			t.Errorf("queue = %d entries, want 0 (nothing scheduled)", len(f.queue))
+		}
+		if f.egress[ep].dequeuePending {
+			t.Error("dequeuePending = true, want false after a rejected schedule")
+		}
+		if _, ok := f.Step(); ok {
+			t.Error("Step() ok = true after a fault, want false")
+		}
+	})
+
+	t.Run("second dequeue while one is pending", func(t *testing.T) {
+		f := &Fabric{
+			egress: map[Endpoint]*egressQueue{ep: {dequeuePending: true}},
+		}
+
+		f.scheduleDequeue(ep, base)
+
+		if f.Err() == nil {
+			t.Fatal("Err() = nil; want a fault for a second pending dequeue")
+		}
+		if !strings.Contains(f.Err().Error(), ep.Node) {
+			t.Errorf("Err() = %q, want it to name endpoint %s", f.Err(), ep.Node)
+		}
+	})
+
+	t.Run("Run halts and Err keeps the first fault", func(t *testing.T) {
+		f := &Fabric{
+			egress:  map[Endpoint]*egressQueue{ep: {}},
+			clock:   base,
+			stepped: true,
+		}
+
+		f.scheduleDequeue(ep, base.Add(-time.Second))
+		first := f.Err()
+		f.scheduleDequeue(ep, base.Add(-2*time.Second))
+
+		if f.Err() != first {
+			t.Errorf("Err() = %q after a second fault, want the first %q", f.Err(), first)
+		}
+		if n := f.Run(10); n != 0 {
+			t.Errorf("Run(10) = %d after a fault, want 0", n)
+		}
+		if f.Err() == nil {
+			t.Fatal("Err() = nil after Run over a faulted fabric, want the fault")
+		}
+	})
 }

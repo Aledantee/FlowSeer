@@ -11,6 +11,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/protocol/yang"
 )
 
@@ -108,18 +109,26 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 	}
 
 	// A blocked Recv only returns when the stream context dies, so
-	// Close (which signals the pump) must also cancel sctx.
-	go func() {
+	// Close (which signals the pump) must also cancel sctx. cancel is
+	// deferred rather than called only on the Stopped branch: a panic
+	// here must still cancel sctx, or the receive goroutine stays parked
+	// in Recv for the life of the process. Close itself does not join it,
+	// so the cost is a leaked goroutine rather than a hang.
+	spawn.Go(sctx, "gnmi subscribe cancel watcher", func() {
+		defer cancel()
 		select {
 		case <-st.pump.Stopped():
-			cancel()
 		case <-sctx.Done():
 		}
-	}()
+	})
 
-	go func() {
-		defer cancel()
-		defer st.pump.Done()
+	// receive returns when the stream is finished; the caller below makes the
+	// single terminal pump call. Done is not deferred inside fn: fn's defers
+	// run before the recover, so a deferred Done would close the data channel
+	// before the sink recorded the panic, and a consumer draining to the close
+	// would read a nil Err() for a subscription that panicked. On the panic
+	// path Fail is the terminal call, and it records before it closes.
+	receive := func() {
 		for {
 			select {
 			case <-st.pump.Stopped():
@@ -153,7 +162,12 @@ func (s *Session) Subscribe(ctx context.Context, opts SubscribeOptions) (*Stream
 				return
 			}
 		}
-	}()
+	}
+	spawn.Go(sctx, "gnmi subscribe receive", func() {
+		defer cancel()
+		receive()
+		st.pump.Done()
+	}, spawn.ReportTo(st.pump.Fail))
 	return st, nil
 }
 

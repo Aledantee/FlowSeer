@@ -501,9 +501,10 @@ func TestNoPanicEscapesTheFrame(t *testing.T) {
 	}
 }
 
-// TestGradeAtTheDiagnosticLimitDoesNotEscape pins the recover the grade
-// pass needs. Grading runs after the declaration loop, so a limit it
-// reaches unwinds with no frame boundary between it and Parse's caller.
+// TestGradeAtTheDiagnosticLimitDoesNotEscape pins the grade pass at the
+// diagnostic limit. Grading runs after the declaration loop, so a limit it
+// reaches sets p.fatal there; the limit diagnostic must stay last and Parse
+// must still return the result.
 func TestGradeAtTheDiagnosticLimitDoesNotEscape(t *testing.T) {
 	// An SMIv2 module whose ACCESS clause says an SMIv1-only word: the
 	// declaration parses, and only the grade pass has anything to say
@@ -516,7 +517,7 @@ o OBJECT-TYPE SYNTAX INTEGER ACCESS write-only STATUS current DESCRIPTION "d" ::
 	// Seed the file at the cap, which the parser clones as its starting
 	// diagnostic list, so the grade pass is the call that trips it.
 	for range diag.MaxDiagnostics {
-		f.Diagnostics = append(f.Diagnostics, diag.Raise(
+		f.Diagnostics = append(f.Diagnostics, diag.MustRaise(
 			diag.Position{File: testFile},
 			diag.ErrCodeLimitExceeded,
 			diag.ArgString("diagnostics"), diag.ArgInt(diag.MaxDiagnostics),
@@ -531,5 +532,28 @@ o OBJECT-TYPE SYNTAX INTEGER ACCESS write-only STATUS current DESCRIPTION "d" ::
 	last := r.Diagnostics[len(r.Diagnostics)-1]
 	if last.Code() != diag.ErrCodeLimitExceeded {
 		t.Errorf("got %v, want the limit diagnostic that ended the grade pass", last.Code())
+	}
+}
+
+// TestRaiseAndLimitAreNoOpsOnceFatal pins the two guards that replaced the
+// bailout panic. Once a limit has set p.fatal, the parser keeps descending over
+// output the driver will discard; the guards are what keep that descent from
+// adding to the diagnostic list. This is asserted directly rather than through
+// a crafted source, because typeSpan absorbs tokens that are not clause
+// keywords, so a source that reliably reaches a later raise after a limit is
+// fragile. Removing raise's guard makes the raise below append; removing
+// limit's guard makes the limit below append.
+func TestRaiseAndLimitAreNoOpsOnceFatal(t *testing.T) {
+	res := lex.Lex([]byte("x"), lex.Options{File: testFile})
+	p := newParser(res, testFile)
+	p.fatal = true
+
+	// A cataloged code with the arity its call sites use, so diag.MustRaise
+	// does not object; the point is that raise never reaches it.
+	p.raise(0, diag.ErrCodeUnexpectedToken, diag.ArgString("x"), diag.ArgString("a name"))
+	p.limit("enumeration members", MaxMembers, 0)
+
+	if n := len(p.diags); n != 0 {
+		t.Fatalf("raise and limit appended %d diagnostics while fatal, want 0:\n%v", n, p.diags)
 	}
 }

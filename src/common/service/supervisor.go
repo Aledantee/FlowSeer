@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/trace"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 var (
@@ -396,23 +398,60 @@ func (s *supervisorState) start(parent context.Context, index int, reconstructed
 			lifecycleActionStart,
 		)
 		s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
-		go func(done chan struct{}) {
-			defer close(done)
-			result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
-			result.span = attemptSpan.SpanContext()
-			endLifecycleSpan(attemptSpan, result.outcome, result.err)
-			s.results <- result
-		}(slot.done)
+		done := slot.done
+		spawn.Go(childCtx, "supervisorState.start.leaf", func() {
+			s.publishLeafResult(childCtx, index, generation, module, telemetry, attemptSpan)
+			close(done)
+		}, spawn.ReportTo(func(err error) {
+			// runChild already recovers a Setup or Runner panic and returns a
+			// normal childResult, so this only fires for a panic in the
+			// wrapper around it (the span bookkeeping or the send below).
+			// Publish a fatal result ourselves, or the supervisor's run loop
+			// — which learns of every generation's end only through
+			// s.results — never observes this slot finish.
+			//
+			// The publish precedes the close because done is what wait joins
+			// on: closing first lets wait return, and stopAll then reports a
+			// clean run while the fatal result sits unread in the buffer, or
+			// a restart bumps the generation and s.current drops it.
+			s.results <- childResult{index: index, generation: generation, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+			close(done)
+		}))
 		s.transition("start", module.path)
 		return
 	}
 	s.record(childCtx, module, telemetry, lifecycleActionStart, lifecycleOutcomeRunning, trace.SpanContext{})
-	go func(done chan struct{}) {
-		defer close(done)
+	done := slot.done
+	spawn.Go(childCtx, "supervisorState.start.supervisor", func() {
 		result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
 		s.results <- result
-	}(slot.done)
+		close(done)
+	}, spawn.ReportTo(func(err error) {
+		// Publish before closing: done is what wait joins on, so a close that
+		// preceded the publish would let the run loop declare this generation
+		// finished with the fatal result still in flight.
+		s.results <- childResult{index: index, generation: generation, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+		close(done)
+	}))
 	s.transition("start", module.path)
+}
+
+// publishLeafResult runs one leaf generation and publishes its result,
+// closing out the attempt span first. It is the body spawn.Go runs for a
+// leaf slot; splitting it out lets a test force a panic here directly rather
+// than through runChild's own already-recovered Setup and Runner paths.
+func (s *supervisorState) publishLeafResult(
+	childCtx context.Context,
+	index int,
+	generation uint64,
+	module plannedModule,
+	telemetry telemetryView,
+	attemptSpan trace.Span,
+) {
+	result := runChild(childCtx, index, generation, module, telemetry, s.runtime)
+	result.span = attemptSpan.SpanContext()
+	endLifecycleSpan(attemptSpan, result.outcome, result.err)
+	s.results <- result
 }
 
 func (s *supervisorState) publishImmediate(index int, outcome lifecycleOutcome, err error) {
@@ -572,14 +611,17 @@ func (c *attemptCoordinator) launch(task Runner) error {
 	c.owned.Add(1)
 	c.mu.Unlock()
 
-	go func() {
+	// callOwned recovers a first-party panic in task itself and returns it as
+	// a panic outcome, so it never escapes to spawn.Go's recover; that
+	// recover only backstops a panic in the code around callOwned.
+	spawn.Go(c.attemptCtx, c.path+" task", func() {
 		defer c.owned.Done()
 		outcome, err := callOwned(c.attemptCtx, c.path, "task", task)
 		if outcome == lifecycleOutcomeNormal || outcome == lifecycleOutcomeCanceled {
 			return
 		}
 		c.terminate(attemptTermination{outcome: outcome, err: err})
-	}()
+	})
 	return nil
 }
 
@@ -639,7 +681,7 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 			runDelivery = runtime.delivery
 		}
 		coordinator.owned.Add(1)
-		go func() {
+		spawn.Go(attemptCtx, "runLeafAttempt.delivery", func() {
 			defer coordinator.owned.Done()
 			if err := runDelivery(attemptCtx, module, attempt.Handlers); err != nil {
 				// Record the termination before reporting it, so that an
@@ -650,7 +692,12 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 					runtime.infrastructureFailure(err)
 				}
 			}
-		}()
+		}, spawn.ReportTo(func(err error) {
+			// A panic here leaves the runner waiting on the coordinator's
+			// terminal channel with no delivery loop left to fill it;
+			// terminate the attempt instead of hanging it.
+			coordinator.terminate(attemptTermination{outcome: lifecycleOutcomePanic, err: err})
+		}))
 	}
 	if runtime.options.beforeRunnerStart != nil {
 		runtime.options.beforeRunnerStart()
@@ -669,11 +716,14 @@ func runLeafAttempt(ctx context.Context, module plannedModule, telemetry telemet
 	runnerStartedAt := runtime.options.clock.Now()
 	coordinator.owned.Add(1)
 	coordinator.mu.Unlock()
-	go func() {
+	// As above: callOwned recovers a first-party panic in attempt.Runner and
+	// always calls terminate with its outcome, so spawn.Go's recover only
+	// backstops a panic in the code around callOwned.
+	spawn.Go(attemptCtx, "runLeafAttempt.runner", func() {
 		defer coordinator.owned.Done()
 		outcome, err := callOwned(attemptCtx, module.path, "runner", attempt.Runner)
 		coordinator.terminate(attemptTermination{outcome: outcome, err: err})
-	}()
+	})
 
 	var terminal attemptTermination
 	select {

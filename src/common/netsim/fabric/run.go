@@ -307,8 +307,12 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
 // Corrupted arrivals are discarded with [ReasonBadFrame]. Normal arrivals are policed before dynamic MAC aging and
 // forwarding, then un-dropped egress frames are enqueued onto connected cables or delivered to target hosts.
-// Step returns false when the arrival queue is empty.
+// Step returns false when the arrival queue is empty or a scheduling fault has
+// been recorded; [Fabric.Err] distinguishes the two.
 func (f *Fabric) Step() (Entry, bool) {
+	if f.err != nil {
+		return Entry{}, false
+	}
 	if len(f.queue) == 0 {
 		return Entry{}, false
 	}
@@ -721,13 +725,23 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 	}
 }
 
+// scheduleDequeue queues the serve of txEnd's pending egress at time at.
+//
+// Both guards below are fabric-internal invariants no topology or injection
+// can provoke: the serve path never schedules a dequeue in the past or a
+// second one while the first is pending. A breach is a bug in fabric's own
+// scheduling, so it records a sticky fault (see [Fabric.err]) and returns
+// without touching the queue rather than panicking. [Fabric.Step] then stops
+// advancing, and [Fabric.Err] surfaces the fault to the caller.
 func (f *Fabric) scheduleDequeue(txEnd Endpoint, at time.Time) {
 	if f.runStarted() && at.Before(f.clock) {
-		panic("fabric: scheduled dequeue precedes clock")
+		f.recordFault(errs.Msgf("fabric: scheduled dequeue at %s precedes clock %s", at, f.clock))
+		return
 	}
 	q := f.egress[txEnd]
 	if q.dequeuePending {
-		panic("fabric: endpoint already has a pending dequeue")
+		f.recordFault(errs.Msgf("fabric: endpoint %s/%s already has a pending dequeue", txEnd.Node, txEnd.Port))
+		return
 	}
 	q.dequeueAt = at
 	q.dequeuePending = true
@@ -737,6 +751,21 @@ func (f *Fabric) scheduleDequeue(txEnd Endpoint, at time.Time) {
 		Device: txEnd.Node,
 		Port:   txEnd.Port,
 	})
+}
+
+// recordFault stores the first scheduling fault. Later faults are dropped so
+// Err reports the one that ended the run, not whatever followed it.
+func (f *Fabric) recordFault(err error) {
+	if f.err == nil {
+		f.err = err
+	}
+}
+
+// Err reports the first scheduling-invariant breach a run recorded, or nil if
+// none occurred. A short [Fabric.Run] count or a false [Fabric.Step] means
+// either an empty queue or a fault; Err is how a caller tells them apart.
+func (f *Fabric) Err() error {
+	return f.err
 }
 
 func (f *Fabric) removeDequeue(txEnd Endpoint) {
@@ -923,6 +952,10 @@ func (f *Fabric) removeWake(device string) {
 
 // Run repeatedly invokes [Fabric.Step] until the arrival queue is empty or n steps have executed,
 // returning the number of steps taken. A non-positive budget executes zero steps.
+//
+// A count below n means the queue drained or a scheduling fault halted the run.
+// Check [Fabric.Err] after Run to tell a fault from an exhausted queue; the
+// count alone does not.
 func (f *Fabric) Run(n int) int {
 	if n <= 0 {
 		return 0

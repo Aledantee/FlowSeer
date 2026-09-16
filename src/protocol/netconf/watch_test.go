@@ -40,7 +40,7 @@ func TestWalkAndWatchOverSession(t *testing.T) {
 		`<server><name>b</name><port>2</port></server></servers>`)
 
 	f := &sequencedFake{fakeTransport: newFake(capCandidate), payloads: [][]byte{tick1, tick1, tick2}}
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	desc := fixturemain.Servers_ServerDescriptor()

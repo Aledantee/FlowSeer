@@ -23,7 +23,9 @@ func TestRegistrationMetadataIsDetached(t *testing.T) {
 		Legs: WatchRequired, Class: NonDestructive, Help: "snapshot fixture",
 		Modes: []Mode{{Flag: "persist", Class: PermanentDestructive, Help: "persistent fixture"}},
 	}
-	Register(b)
+	if err := Register(b); err != nil {
+		t.Fatalf("Register(%q): %v", b.Name, err)
+	}
 	want := Entries()
 
 	b.Protocols[0] = "changed"

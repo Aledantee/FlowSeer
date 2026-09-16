@@ -13,6 +13,7 @@ import (
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
 	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/credential"
@@ -1010,12 +1011,19 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 	// is done, releasing the timer promptly rather than waiting out the
 	// full OperationTimeout on every ordinary completion.
 	done := make(chan submissionOutcome, 1)
-	go func() {
+	spawn.Go(workCtx, "access.Lane.submitAndCoalesce.await", func() {
 		defer cancel()
 		outcome := <-sub.result
 		finish(outcome.result, outcome.err)
 		done <- outcome
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// finish and the send on done are this goroutine's rendezvous with
+		// every joiner waiting on the Coalescer ticket and with the select
+		// below; a panic before either runs must still reach both; done is
+		// buffered, so the send never blocks.
+		finish(nil, err)
+		done <- submissionOutcome{err: err}
+	}))
 
 	select {
 	case outcome := <-done:
@@ -1056,40 +1064,63 @@ func (l *Lane) submitAndCoalesce(ctx context.Context, ds *deviceState, opts Subm
 // purpose. A rule that requires each acquirer to know about the others is
 // also the rule that breaks when a third one is added.
 func (l *Lane) drain(ds *deviceState) {
-	go func() {
+	// drain is detached from any single caller: the goroutine below outlives
+	// whichever Submit admitted the item that woke it, and several callers'
+	// items may be drained in one run, so no one caller's context is the
+	// right one to trace it under.
+	spawn.Go(context.Background(), "access.Lane.drain", func() {
 		for {
-			if !ds.draining.TryLock() {
+			acquired := l.drainOnce(ds)
+			if !acquired {
 				return
 			}
-			for {
-				item, ok := ds.queue.Next()
-				if !ok {
-					break
-				}
-				sub := item.Payload.(*submission)
-				// Each item is processed under its own submitter's
-				// context, never the context of whichever goroutine
-				// happened to become the drainer: this device may drain
-				// several callers' items in one loop, and one caller's
-				// cancellation or deadline must never spuriously fail
-				// another caller's still-live item queued behind it.
-				//
-				// process answers the submission itself rather than
-				// returning an outcome to send here, because a mutation
-				// that enters recovery has no outcome yet: process
-				// returns, this loop moves on, and the poll timer or
-				// central's acknowledgement answers the caller later.
-				l.process(sub.ctx, ds, sub)
-			}
-			ds.draining.Unlock()
 			if ds.queue.Len() == 0 {
 				return
 			}
 			// Something was admitted in the gap between the last empty
-			// Next() and the Unlock above; loop back and try to become
+			// Next() and drainOnce's release; loop back and try to become
 			// the drainer again rather than leaving it stranded.
 		}
-	}()
+	})
+}
+
+// drainOnce becomes the drainer if no other goroutine currently is, drains
+// every item currently queued, then releases the lock. It reports false when
+// another goroutine is already draining.
+//
+// ds.draining is released through defer rather than an explicit call at the
+// end of the loop, so a panic partway through l.process leaves the lock
+// released too: the release rule that every acquirer drains on release
+// depends on the lock actually being free afterward, and a panic that left
+// it held would strand every future admission on this device behind a lock
+// nothing can ever take back.
+func (l *Lane) drainOnce(ds *deviceState) bool {
+	if !ds.draining.TryLock() {
+		return false
+	}
+	defer ds.draining.Unlock()
+
+	for {
+		item, ok := ds.queue.Next()
+		if !ok {
+			break
+		}
+		sub := item.Payload.(*submission)
+		// Each item is processed under its own submitter's context, never
+		// the context of whichever goroutine happened to become the
+		// drainer: this device may drain several callers' items in one
+		// loop, and one caller's cancellation or deadline must never
+		// spuriously fail another caller's still-live item queued behind
+		// it.
+		//
+		// process answers the submission itself rather than returning an
+		// outcome to send here, because a mutation that enters recovery
+		// has no outcome yet: process returns, this loop moves on, and the
+		// poll timer or central's acknowledgement answers the caller
+		// later.
+		l.process(sub.ctx, ds, sub)
+	}
+	return true
 }
 
 // HandleCheckpoint delivers central's CheckpointRequest to the device's
@@ -1311,6 +1342,18 @@ func (l *Lane) process(ctx context.Context, ds *deviceState, sub *submission) {
 	defer func() {
 		endSpan(&err, classifyError)
 		l.cfg.Telemetry.RecordOperationDuration(ctx, operationClass, l.cfg.Clock().Sub(start).Seconds(), classifyErrorOrEmpty(err))
+	}()
+	// Registered last so it unwinds first, ahead of the span and the answer
+	// above. Without it a panic here reaches the answering defer with err
+	// still nil and the submitter is told the work succeeded with no result,
+	// which central then reports as a completed mutation. The recover is
+	// per item rather than per goroutine on purpose: this runs inside the
+	// drain loop, and one device's bad read must not abandon the rest of
+	// that device's queue.
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = errs.New().Attr("panic", recovered).Msg("device work panicked")
+		}
 	}()
 
 	// Re-checked here, not only at admission. Submit's own check happens
@@ -1753,7 +1796,7 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 
 	runner := recovery.New(open.machine, l.cfg.Fenced, effect, minGap, l.cfg.Clock, &ds.hold)
 
-	go func() {
+	spawn.Go(pollCtx, "access.Lane.startRecoveryPoll", func() {
 		defer cancel()
 		for {
 			if !l.cfg.Wait(pollCtx, interval) {
@@ -1772,7 +1815,23 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 				return
 			}
 		}
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// A panic answers the submitter directly rather than through
+		// endRecoveryPoll alone. open.answered is a sync.Once, and Once
+		// counts a panicking body as having run, so a panic raised inside
+		// the Once — in reportAuditGap, hold.Resolve or report — consumes
+		// it before the answering send, and endRecoveryPoll would then do
+		// nothing at all. The send is non-blocking on a buffered channel,
+		// so it lands only when the Once's own send never happened.
+		select {
+		case open.sub.result <- submissionOutcome{err: err}:
+		default:
+		}
+		l.endRecoveryPoll(pollCtx, ds, open)
+		// The poll held ds.draining when it panicked, so it owes the queue
+		// the drain its normal exit performs.
+		l.drain(ds)
+	}))
 }
 
 // pollOnce runs one recovery attempt under the device's drain lock and
@@ -1784,50 +1843,22 @@ func (l *Lane) startRecoveryPoll(ctx context.Context, ds *deviceState, open *ope
 // attempt itself, so reads admitted meanwhile are served between polls
 // rather than waiting out the horizon.
 func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation, runner *recovery.Runner, since time.Time, baseline *accessv1.InterfaceObservation) bool {
-	ds.draining.Lock()
+	step := l.pollUnderLock(ctx, ds, open, runner, since, baseline)
 
-	// Checked after acquiring, before any step. A poll parked in Lock when
-	// Close canceled it must release without running: by the time it wins
-	// the lock the lane may be shutting down, and the check it made before
-	// blocking says nothing about now.
-	l.mu.Lock()
-	closed := l.closed
-	l.mu.Unlock()
-	if closed || ctx.Err() != nil || open.machine.IsTerminal() {
-		ds.draining.Unlock()
-		l.drain(ds)
-		l.endRecoveryPoll(ctx, ds, open)
-		return true
-	}
-
-	if open.machine.Verified() {
-		// Verified and waiting on central's acknowledgement. Attempt would
-		// call Observe, which refuses from VERIFIED — a permanent refusal
-		// this loop cannot tell from a transient step failure, so it would
-		// go on reading the device every interval for the rest of the
-		// budget and treating each refusal as retryable. Nothing here is
-		// retryable: the answer is known and the acknowledgement is the
-		// only thing outstanding.
-		ds.draining.Unlock()
-		l.drain(ds)
-		return false
-	}
-
-	outcome, _, err := runner.Attempt(ctx, since, baseline)
-	if err == nil && outcome == recovery.OutcomeRetry {
-		// The retry runs under the same lock: it is the same device's
-		// single ordered piece of work, and releasing between the decision
-		// and the command would let a read interleave with a resubmission.
-		err = l.retryUnderLock(ctx, open)
-	}
-
-	ds.draining.Unlock()
 	// The release rule, stated on drain: an acquirer drains on release, and
 	// never on the assumption that another acquirer will. A submitter whose
 	// TryLock lost while this poll held the lock exited at once and will not
 	// come back for its own item.
 	l.drain(ds)
 
+	if step.stop {
+		if step.ended {
+			l.endRecoveryPoll(ctx, ds, open)
+		}
+		return step.ended
+	}
+
+	outcome, err := step.outcome, step.err
 	if err != nil {
 		// A failed step — a fence that errored, an abandonment whose audit
 		// delivery failed — keeps the poll and retries the same step next
@@ -1848,6 +1879,68 @@ func (l *Lane) pollOnce(ctx context.Context, ds *deviceState, open *openMutation
 	default:
 		return false
 	}
+}
+
+// pollStep is what one locked poll step decided, read after ds.draining is
+// released. stop ends the poll; ended additionally means the caller is owed
+// its answer.
+type pollStep struct {
+	outcome recovery.Outcome
+	err     error
+	stop    bool
+	ended   bool
+}
+
+// pollUnderLock runs one step of a recovery poll under ds.draining.
+//
+// The release is deferred rather than written at each exit, because this runs
+// on a supervised goroutine: a panic in a step is recovered, so an explicit
+// release the panic skipped would leave ds.draining held for the life of the
+// process. Every later drain would lose its TryLock and silently do nothing,
+// every later poll would park in Lock, and the device's queue would stop
+// moving with a log record as the only sign — a worse outcome than the crash
+// the recovery replaced.
+func (l *Lane) pollUnderLock(
+	ctx context.Context,
+	ds *deviceState,
+	open *openMutation,
+	runner *recovery.Runner,
+	since time.Time,
+	baseline *accessv1.InterfaceObservation,
+) pollStep {
+	ds.draining.Lock()
+	defer ds.draining.Unlock()
+
+	// Checked after acquiring, before any step. A poll parked in Lock when
+	// Close canceled it must release without running: by the time it wins
+	// the lock the lane may be shutting down, and the check it made before
+	// blocking says nothing about now.
+	l.mu.Lock()
+	closed := l.closed
+	l.mu.Unlock()
+	if closed || ctx.Err() != nil || open.machine.IsTerminal() {
+		return pollStep{stop: true, ended: true}
+	}
+
+	if open.machine.Verified() {
+		// Verified and waiting on central's acknowledgement. Attempt would
+		// call Observe, which refuses from VERIFIED — a permanent refusal
+		// this loop cannot tell from a transient step failure, so it would
+		// go on reading the device every interval for the rest of the
+		// budget and treating each refusal as retryable. Nothing here is
+		// retryable: the answer is known and the acknowledgement is the
+		// only thing outstanding.
+		return pollStep{stop: true}
+	}
+
+	outcome, _, err := runner.Attempt(ctx, since, baseline)
+	if err == nil && outcome == recovery.OutcomeRetry {
+		// The retry runs under the same lock: it is the same device's
+		// single ordered piece of work, and releasing between the decision
+		// and the command would let a read interleave with a resubmission.
+		err = l.retryUnderLock(ctx, open)
+	}
+	return pollStep{outcome: outcome, err: err}
 }
 
 // retryUnderLock resends the command for a mutation recovery authorized a

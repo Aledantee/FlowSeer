@@ -121,7 +121,7 @@ func TestCapabilitySelectsEditTarget(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			s := netconf.NewSession(newFake(tc.caps...), netconf.Options{})
+			s := netconf.NewSession(context.Background(), newFake(tc.caps...), netconf.Options{})
 			defer func() { _ = s.Close(context.Background()) }()
 			got, ok := s.EditTarget()
 			if ok != tc.editable || (ok && got != tc.want) {
@@ -132,7 +132,7 @@ func TestCapabilitySelectsEditTarget(t *testing.T) {
 }
 
 func TestApplyUnsupportedWithoutWritableDatastore(t *testing.T) {
-	s := netconf.NewSession(newFake("urn:ietf:params:netconf:base:1.1"), netconf.Options{})
+	s := netconf.NewSession(context.Background(), newFake("urn:ietf:params:netconf:base:1.1"), netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 	err := s.Apply(context.Background(), []byte("<x/>"))
 	if code, ok := errs.CodeOf(err); !ok || code != netconf.ErrCodeUnsupported {
@@ -142,7 +142,7 @@ func TestApplyUnsupportedWithoutWritableDatastore(t *testing.T) {
 
 func TestApplyCandidateHappyPath(t *testing.T) {
 	f := newFake(capCandidate, capValidate)
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	if err := s.Apply(context.Background(), []byte("<hostname>edge</hostname>")); err != nil {
@@ -168,7 +168,7 @@ func TestApplyCandidateHappyPath(t *testing.T) {
 func TestApplyValidateFailureDiscardsAndUnlocks(t *testing.T) {
 	f := newFake(capCandidate, capValidate)
 	f.fail["validate"] = rpcError(nclib.ErrOperationFailed, "ip address overlaps")
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	err := s.Apply(context.Background(), []byte("<bad/>"))
@@ -203,7 +203,7 @@ func TestApplyValidateFailureDiscardsAndUnlocks(t *testing.T) {
 func TestLockContentionIsRetryable(t *testing.T) {
 	f := newFake(capCandidate)
 	f.fail["lock"] = rpcError(nclib.ErrLockDenied, "lock held by session 7")
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	err := s.Lock(context.Background(), netconf.Candidate)
@@ -218,7 +218,7 @@ func TestLockContentionIsRetryable(t *testing.T) {
 func TestGetReturnsDataPayload(t *testing.T) {
 	f := newFake(capCandidate)
 	f.data["get"] = []byte(`<interfaces xmlns="urn:x"><interface><name>eth0</name></interface></interfaces>`)
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	payload, err := s.Get(context.Background(), yang.Path{Segments: []yang.Segment{{Module: "m", Namespace: "urn:x", Name: "interfaces"}}})
@@ -240,7 +240,7 @@ func TestKeepaliveLatchesDeadTransport(t *testing.T) {
 	f.hang = true
 	f.mu.Unlock()
 
-	s := netconf.NewSession(f, netconf.Options{KeepaliveInterval: 30 * time.Millisecond})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{KeepaliveInterval: 30 * time.Millisecond})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	deadline := time.After(5 * time.Second)
@@ -260,12 +260,36 @@ func TestKeepaliveLatchesDeadTransport(t *testing.T) {
 	}
 }
 
+// TestKeepalivePanicLatchesViaReportTo is TestKeepaliveLatchesDeadTransport's
+// analog for a panic instead of a transport error: keepalive's own defer
+// s.wg.Done() already survives a panic (it is inside keepalive, which
+// spawn.Go's recover only wraps), but s.latch is not deferred — only
+// spawn.ReportTo(s.latch) gives Err() the panic once the goroutine dies.
+func TestKeepalivePanicLatchesViaReportTo(t *testing.T) {
+	f := &contextTransport{fakeTransport: newFake(capCandidate)}
+	f.exec = func(context.Context, any, any) error {
+		panic("boom")
+	}
+
+	s := netconf.NewSession(context.Background(), f, netconf.Options{KeepaliveInterval: 30 * time.Millisecond})
+	defer func() { _ = s.Close(context.Background()) }()
+
+	deadline := time.After(5 * time.Second)
+	for s.Err() == nil {
+		select {
+		case <-deadline:
+			t.Fatal("keepalive panic never latched")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
 func TestCloseIdempotentAndMidRPC(t *testing.T) {
 	f := newFake(capCandidate)
 	f.mu.Lock()
 	f.hang = true
 	f.mu.Unlock()
-	s := netconf.NewSession(f, netconf.Options{RPCTimeout: 100 * time.Millisecond})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{RPCTimeout: 100 * time.Millisecond})
 
 	done := make(chan error, 1)
 	go func() {
@@ -304,7 +328,7 @@ func TestContextCancellationStaysUnwrapped(t *testing.T) {
 	f.mu.Lock()
 	f.hang = true
 	f.mu.Unlock()
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -326,7 +350,7 @@ func TestModuleRevisionsFromHello(t *testing.T) {
 		"http://cisco.com/ns/yang/Cisco-IOS-XE-native?module=Cisco-IOS-XE-native&revision=2023-11-01&features=x",
 		"urn:no-query-here",
 	)
-	s := netconf.NewSession(f, netconf.Options{})
+	s := netconf.NewSession(context.Background(), f, netconf.Options{})
 	defer func() { _ = s.Close(context.Background()) }()
 
 	revs := s.ModuleRevisions()

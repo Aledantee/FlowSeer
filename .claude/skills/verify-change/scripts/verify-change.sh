@@ -310,6 +310,21 @@ fi
 need_tool python3
 run python3 "$script_dir/check-plan-status.py"
 
+# Reported, not failed: deleting a test, skipping it, or rewriting a golden
+# file is sometimes right in a repository that breaks APIs on purpose, and
+# sometimes the way a suite stops proving anything. The list goes into
+# the implementer's report with a reason per line, and the reviewer reads
+# the reasons.
+if [[ $full == true ]]; then
+  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base")
+else
+  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base" -- "${paths[@]}")
+fi
+if [[ -n $test_changes ]]; then
+  echo "Test changes to account for:"
+  printf '  %s\n' "${test_changes//$'\n'/$'\n'  }"
+fi
+
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 
 if ((${#markdown_files[@]})); then
@@ -441,15 +456,6 @@ print("\n".join(sorted(affected)))
 PY
 )
         echo "Targeted packages: ${#targets[@]} (changed: ${changed_pkgs[*]})"
-        # Two packages hold checks over repository-wide namespaces: error
-        # code uniqueness in src/common/errs, and the schema layering and
-        # message rules in test/conformance/proto. A change that violates
-        # one of those touches neither package, so the importer fixpoint
-        # never selects them and the targeted run passes what --full
-        # refuses. Together they take a few seconds; always run them.
-        if [[ $module == . ]]; then
-          targets+=(./src/common/errs ./test/conformance/proto)
-        fi
       fi
       run go vet "${targets[@]}"
       vet_tagged "${targets[@]}"
@@ -484,6 +490,28 @@ PY
       fi
     )
   done
+  # Some packages hold checks over repository-wide namespaces: error code
+  # uniqueness in src/common/errs, and under test/conformance/ the schema
+  # layering and message rules, the panic placement and goroutine
+  # boundary over every first-party file under src/, and the forbidden
+  # module imports over the root and snmp bench go.mod files and every
+  # non-test .go file. A change that violates one of those touches none
+  # of the packages, so the importer fixpoint never selects them and a
+  # targeted run passes what --full refuses.
+  # They live in the root module and walk the tree by path, nested
+  # modules included, so a change in a nested module needs them just as
+  # much; run them once per targeted run from the root, whichever modules
+  # the changed files selected, rather than inside the loop above where
+  # a multi-module change would repeat them. --full already runs the
+  # root module whole. test/conformance/ is enumerated, not named, for
+  # the reason the Stop hook gives: a listed path for a renamed or new
+  # gate is silently absent, an enumerated tree has no name to rot, and
+  # a gate added there later runs at every entry point with no edit
+  # here. Together they take a few seconds.
+  if [[ $full == false ]]; then
+    echo "== Repository-wide gates =="
+    run go test -race ./src/common/errs ./test/conformance/...
+  fi
 fi
 
 for dep in "${dependent_modules[@]:-}"; do
@@ -507,26 +535,39 @@ if [[ $proto == true ]]; then
   fi
   run buf format -d --exit-code ${proto_path_args[@]+"${proto_path_args[@]}"}
   run buf lint ${proto_path_args[@]+"${proto_path_args[@]}"}
-  if git show-ref --verify --quiet refs/heads/master; then
-    # --path names files in the against-ref. A file the branch added is
-    # absent there, so targeting it yields "no .proto files were targeted",
-    # which buf reports as a failure rather than a vacuous pass. Compare
-    # only the changed files master holds; a branch whose changed schema
-    # files are all new has nothing to break yet, and says so.
-    breaking_path_args=()
-    for proto_file in "${proto_files[@]:-}"; do
-      [[ -n $proto_file ]] || continue
-      if git cat-file -e "master:$proto_file" 2>/dev/null; then
-        breaking_path_args+=(--path "$proto_file")
-      fi
-    done
-    if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
-      run buf breaking --against '.git#branch=master'
-    elif ((${#breaking_path_args[@]})); then
-      run buf breaking --against '.git#branch=master' "${breaking_path_args[@]}"
-    else
-      echo "buf breaking skipped: every changed .proto file is new on this branch."
+  # The integration branch is main; master is accepted for a checkout that
+  # still carries the old name. Neither resolving is a failed gate: this
+  # block once looked for master alone and fell through in silence, so
+  # every schema change passed with no breaking comparison at all.
+  integration_branch=""
+  for candidate in main master; do
+    if git show-ref --verify --quiet "refs/heads/$candidate"; then
+      integration_branch=$candidate
+      break
     fi
+  done
+  if [[ -z $integration_branch ]]; then
+    echo "buf breaking needs a main (or master) branch to compare against, and neither exists." >&2
+    exit 1
+  fi
+  # --path names files in the against-ref. A file the branch added is
+  # absent there, so targeting it yields "no .proto files were targeted",
+  # which buf reports as a failure rather than a vacuous pass. Compare
+  # only the changed files the integration branch holds; a branch whose
+  # changed schema files are all new has nothing to break yet, and says so.
+  breaking_path_args=()
+  for proto_file in "${proto_files[@]:-}"; do
+    [[ -n $proto_file ]] || continue
+    if git cat-file -e "$integration_branch:$proto_file" 2>/dev/null; then
+      breaking_path_args+=(--path "$proto_file")
+    fi
+  done
+  if [[ $full == true || $proto_deleted == true || ${#proto_files[@]} -eq 0 ]]; then
+    run buf breaking --against ".git#branch=$integration_branch"
+  elif ((${#breaking_path_args[@]})); then
+    run buf breaking --against ".git#branch=$integration_branch" "${breaking_path_args[@]}"
+  else
+    echo "buf breaking skipped: every changed .proto file is new on this branch."
   fi
   generated_dir=$build_dir/generated
   run buf generate -o "$generated_dir"

@@ -62,6 +62,15 @@ func NewOID(subs ...uint32) (OID, error) {
 // MustOID surfaces a generator-bug-produced invalid OID at process start
 // (when the generated package's var-block initializer runs) rather than
 // as a wire-protocol error in a later Backend call.
+//
+// The panic satisfies the style guide's Panics clause 2 two ways at once. In
+// generated MIB code it is proven unreachable: mibgen validates every OID with
+// snmp.NewOID in a pre-pass before it emits a MustOID call, so the argument is
+// known valid, and the call runs in the package's var-block initializer, which
+// is the init-time answer. A hand-written test fixture supplies a statically
+// valid literal for the same reason regexp.MustCompile's callers do. Neither a
+// generated accessor nor a caller of one owes a further comment: the invariant
+// never travels past the closed argument.
 func MustOID(subs ...uint32) OID {
 	o, err := NewOID(subs...)
 	if err != nil {

@@ -24,12 +24,6 @@ const MaxMembers = 65536
 // consumption guarantees the loop ends.
 const maxSyncAttempts = 10
 
-// bailout unwinds a declaration whose parse cannot continue. It is a
-// distinct type rather than an error value so that the frame boundary
-// can tell its own unwinding from a genuine bug and re-panic the second
-// kind rather than swallowing it.
-type bailout struct{}
-
 // cursor walks a token slice. Both the frame parser and the value
 // reader step over tokens the same way, so the shared position
 // arithmetic lives here once and each embeds it.
@@ -153,7 +147,21 @@ func (p *parser) text() string {
 // the rest would drown the ones that matter. What the parser knows is
 // not lost by the throttle — a declaration's missing clauses are on the
 // node whether or not each one drew a diagnostic.
+//
+// The throttle decides whether a report is made and leaves its content
+// alone: on a line that still reports, code and args reach
+// [diag.MustRaise] as handed. So the parser inherits MustRaise's panic on
+// an uncataloged code or an argument count the code's catalog row does
+// not declare, and the arity scan in internal/diag resolves each parser
+// call site to its row, including the ones the value reader makes
+// through its parser field.
 func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
+	// Once a limit is fatal, later clause readers keep running over discarded
+	// output; staying silent here is what keeps the limit diagnostic last.
+	if p.fatal {
+		return
+	}
+
 	line, _ := p.res.Lines.LineColumn(int(offset))
 	if line == p.lastLine {
 		return
@@ -166,21 +174,29 @@ func (p *parser) raise(offset int32, code errs.Code, args ...diag.Arg) {
 		return
 	}
 
-	p.diags = append(p.diags, diag.Raise(diag.Position{File: p.file, Offset: int(offset)}, code, args...))
+	p.diags = append(p.diags, diag.MustRaise(diag.Position{File: p.file, Offset: int(offset)}, code, args...))
 }
 
-// limit reports a resource bound being reached and unwinds. It bypasses
-// the per-line throttle because a limit is the one diagnostic that
+// limit reports a resource bound being reached and marks the parse fatal. It
+// bypasses the per-line throttle because a limit is the one diagnostic that
 // explains why everything after it is missing.
+//
+// It does not unwind. Setting p.fatal is what ends the parse: the driver loop
+// breaks on it, the bounded loops stop on it, and raise goes silent, so the
+// limit diagnostic stays the last one on the list without a panic. The guard
+// makes limit idempotent — a second call on the depth or member paths would
+// otherwise append a second limit diagnostic.
 func (p *parser) limit(what string, bound int, offset int32) {
-	p.diags = append(p.diags, diag.Raise(
+	if p.fatal {
+		return
+	}
+
+	p.diags = append(p.diags, diag.MustRaise(
 		diag.Position{File: p.file, Offset: int(offset)},
 		diag.ErrCodeLimitExceeded,
 		diag.ArgString(what), diag.ArgInt(bound),
 	))
 	p.fatal = true
-
-	panic(bailout{})
 }
 
 // enter counts one level of a recursive construct. The cap is what turns

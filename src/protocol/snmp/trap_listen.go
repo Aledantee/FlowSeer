@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/common/service"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // trap_listen.go is the v1/v2c/v3 trap listener. It owns the UDP
@@ -151,9 +152,16 @@ type listener struct {
 	loopDone  chan struct{}
 }
 
+// start spawns the listener's two goroutines under l.logCtx: start
+// itself takes no context (it is called from [ListenTraps] after the
+// listener is fully built), and logCtx is the right stand-in — it is
+// the dial-time context with cancellation stripped, already used for
+// this listener's other background logging, so the goroutines keep
+// the caller's log/trace attributes without inheriting a cancellation
+// that would race listener teardown.
 func (l *listener) start() {
-	go l.listenLoop()
-	go l.watchStop()
+	spawn.Go(l.logCtx, "listener.listenLoop", l.listenLoop, spawn.ReportTo(l.ts.pump.Fail))
+	spawn.Go(l.logCtx, "listener.watchStop", l.watchStop)
 }
 
 // watchStop tears the listener down when the TrapStream terminates (Close
@@ -166,9 +174,15 @@ func (l *listener) watchStop() {
 // listenLoop reads each datagram and hands it to handlePacket. It exits
 // when the socket is closed (the orchestrated shutdown path) or on any
 // other socket error.
+// The loop closes the stream itself on a clean shutdown; every other exit
+// closes it through Fail, which records the error before closing. Done is not
+// deferred: a deferred Done runs during a panic's unwind, before spawn's
+// recover reaches the Fail sink, so the data channel would close with no error
+// recorded and a consumer draining to that close could not tell a decode panic
+// from a listener that stopped normally. close(l.loopDone) stays deferred —
+// it is the rendezvous the closer waits on, and it must complete on every path.
 func (l *listener) listenLoop() {
 	defer close(l.loopDone)
-	defer l.ts.pump.Done()
 
 	buf := make([]byte, trapBufSize)
 	for {
@@ -176,7 +190,8 @@ func (l *listener) listenLoop() {
 		if err != nil {
 			select {
 			case <-l.ts.stopped():
-				return // clean shutdown
+				l.ts.pump.Done() // clean shutdown
+				return
 			default:
 			}
 			l.ts.pump.Fail(errs.Wrap(err, "trap listener"))

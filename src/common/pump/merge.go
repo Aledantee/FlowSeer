@@ -3,6 +3,8 @@ package pump
 import (
 	"context"
 	"sync"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Merge forwards every value of each source into the returned pump. It
@@ -22,49 +24,59 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 	results := make(chan error, len(sources))
 	stopForwarders := make(chan struct{})
 	var forwarders sync.WaitGroup
+	// forward drains one source into merged and returns that source's
+	// terminal error, or nil when it stopped for any other reason. Its result
+	// reaches results through exactly one send: the call below on the normal
+	// path, or the ReportTo sink when it panics. A panic must not report nil,
+	// which the coordinator reads as a source that finished cleanly.
+	forward := func(source *Pump[T]) error {
+		for {
+			select {
+			case <-stopForwarders:
+				return nil
+			default:
+			}
+
+			select {
+			case <-merged.Stopped():
+				return nil
+			case <-merged.Context().Done():
+				merged.SignalStop()
+				return nil
+			case <-stopForwarders:
+				return nil
+			case value, ok := <-source.Data():
+				if !ok {
+					return source.Err()
+				}
+				if !merged.Send(value) {
+					return nil
+				}
+			}
+		}
+	}
 	for _, source := range sources {
-		forwarders.Go(func() {
-			var result error
-			defer func() { results <- result }()
+		forwarders.Add(1)
+		spawn.Go(ctx, "Merge.forward", func() {
+			defer forwarders.Done()
+			results <- forward(source)
+		}, spawn.ReportTo(func(err error) { results <- err }))
+	}
 
-			for {
-				select {
-				case <-stopForwarders:
-					return
-				default:
-				}
-
-				select {
-				case <-merged.Stopped():
-					return
-				case <-merged.Context().Done():
-					merged.SignalStop()
-					return
-				case <-stopForwarders:
-					return
-				case value, ok := <-source.Data():
-					if !ok {
-						result = source.Err()
-						return
-					}
-					if !merged.Send(value) {
-						return
-					}
-				}
+	// Declared here rather than inside the coordinator so the panic sink can
+	// reach it: Merge promises to signal its sources to stop, and a
+	// coordinator that panicked would otherwise end the merged pump while
+	// every source kept producing into it.
+	var stopSourcesOnce sync.Once
+	stopSources := func() {
+		stopSourcesOnce.Do(func() {
+			for _, source := range sources {
+				source.SignalStop()
 			}
 		})
 	}
 
-	go func() {
-		var stopSourcesOnce sync.Once
-		stopSources := func() {
-			stopSourcesOnce.Do(func() {
-				for _, source := range sources {
-					source.SignalStop()
-				}
-			})
-		}
-
+	spawn.Go(ctx, "Merge.coordinate", func() {
 		stopped := merged.Stopped()
 		contextDone := merged.Context().Done()
 		var terminalErr error
@@ -123,7 +135,16 @@ func Merge[T any](ctx context.Context, buf int, sources ...*Pump[T]) *Pump[T] {
 			return
 		}
 		merged.Done()
-	}()
+	}, spawn.ReportTo(func(err error) {
+		// merged.Fail closes Data() and records the terminal error; without
+		// this, a panic anywhere above would leave every consumer's range
+		// over merged.Data() blocked forever.
+		merged.Fail(err)
+		// Merge's contract: the sources are told to stop. The coordinator's
+		// normal exits do this; the panic path owes it too, or they go on
+		// producing into a pump nothing is draining.
+		stopSources()
+	}))
 
 	return merged
 }

@@ -7,6 +7,7 @@ information.
 | Knowledge | Location | Lifetime and audience |
 | --- | --- | --- |
 | Human overview and documentation map | `README.md`, `docs/README.md` | Durable; contributors learning or navigating the repository |
+| Contribution workflow and checks | `CONTRIBUTING.md` | Durable; anyone preparing a change, restating rules that `AGENTS.md` owns |
 | Project entry points and binding rules | `AGENTS.md`, imported by `CLAUDE.md` | Durable; humans and all coding agents |
 | Steering design and maintenance | `docs/agent-steering.md` | Durable; maintainers changing instructions, skills, agents, or enforcement |
 | Accepted system direction | `docs/architecture/` | Durable; architecture decisions and constraints |

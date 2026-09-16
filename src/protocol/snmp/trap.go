@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/pump"
 	"go.aledante.io/FlowSeer/src/common/secret"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Trap is the decoded form of an SNMPv1 trap, SNMPv2c TRAP2, or SNMPv3
@@ -134,7 +135,7 @@ func NewTrapStream(ctx context.Context, bufferSize int) *TrapStream {
 	// Spawn a small watcher goroutine so a ctx cancel triggers Fail
 	// with ctx.Err() — matching the Walker contract that a canceled
 	// context surfaces as the terminal error.
-	go ts.watchCtx()
+	spawn.Go(ts.pump.Context(), "TrapStream.watchCtx", ts.watchCtx, spawn.ReportTo(ts.pump.Fail))
 	return ts
 }
 

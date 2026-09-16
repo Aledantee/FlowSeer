@@ -129,24 +129,34 @@ var (
 	registered bool
 )
 
-// Register adds behavior metadata to the catalog. registrations.go calls it
-// during package initialization; attack packages expose runner behavior maps
-// and do not register catalog metadata. Register copies b and its slices. It
-// panics for missing names or help text, unknown classes or legs, and modes
-// without flags or help text. It also panics after the first call to [Behaviors]
-// or [Entries], because generation requires a fixed registration set.
-// Register is safe for concurrent calls; callers must not mutate b's slices
-// during the call.
-func Register(b Behavior) {
+// Register adds behavior metadata to the catalog. Register copies b and its
+// slices. It returns an error for missing names or help text, unknown classes
+// or legs, and modes without flags or help text, and after the first call to
+// [Behaviors] or [Entries], because generation requires a fixed registration
+// set. Register is safe for concurrent calls; callers must not mutate b's
+// slices during the call. [MustRegister] is the init-time companion.
+func Register(b Behavior) error {
 	mu.Lock()
 	defer mu.Unlock()
 	if registered {
-		panic(fmt.Sprintf("catalog: Register(%q) called after the catalog was read; registrations must precede generation", b.Name))
+		return fmt.Errorf("catalog: Register(%q) called after the catalog was read; registrations must precede generation", b.Name)
 	}
 	if err := validate(b); err != nil {
-		panic(fmt.Sprintf("catalog: invalid registration %q: %v", b.Name, err))
+		return fmt.Errorf("catalog: invalid registration %q: %w", b.Name, err)
 	}
 	behaviors = append(behaviors, cloneBehavior(b))
+	return nil
+}
+
+// MustRegister adds behavior metadata to the catalog and panics if [Register]
+// returns an error. registrations.go calls it during package initialization
+// over compile-time-constant behavior literals, which is the panic's init-time
+// warrant: a bad registration fails on the first import of this package, in
+// every build, before any behavior runs.
+func MustRegister(b Behavior) {
+	if err := Register(b); err != nil {
+		panic(err)
+	}
 }
 
 func cloneBehavior(b Behavior) Behavior {

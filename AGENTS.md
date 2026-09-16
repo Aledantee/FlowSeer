@@ -109,9 +109,11 @@ on a protected branch, prompt for approval before an edit to a policy surface,
 auto-run gofumpt/goimports and `buf format`/`buf lint` on edits, check triad
 and ref message sync (a member the file-level comment names as deliberately
 absent is not reported), and flag newly added lint suppressions. Both
-runtimes' Stop hooks run the repository layout checks and name edits the
-verifier has not seen. Hooks are fast feedback, not the authority —
-`go test -race ./...` enforces the same invariants.
+runtimes' Stop hooks run the repository layout checks and every conformance
+gate under `test/conformance/` (among them the panic gate: a `panic` outside
+a `Must`/`must` function, a `go` statement outside `src/common/spawn`) and
+name edits the verifier has not seen. Hooks are fast feedback, not the
+authority: `go test -race ./...` enforces the same invariants.
 
 ## Layout
 

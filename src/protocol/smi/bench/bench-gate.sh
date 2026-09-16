@@ -44,13 +44,12 @@
 
 set -eu
 
-# The verdict below converts benchstat's delta string to a number in awk, whose
-# string-to-number conversion honours LC_NUMERIC. Under a comma-decimal locale
-# "+0.10%" converts to 0 while "+50.00%" converts to 50, so every sub-1% delta
-# collapses to zero and MIN_DELTA below 1 can never fire. Pin the numeric locale
-# so the gate compares the same way wherever it runs.
-LC_ALL=C
-export LC_ALL
+# benchstat writes its deltas with a period, and awk converts a string to a
+# number through the locale's decimal separator. Under a comma-decimal locale
+# — de_DE, fr_FR, most of Europe — "+0.10%" converts to 0, not 0.1, so every
+# fractional percentage reads as no change at all and the comparison below
+# silently under-reports. Machine output is parsed in the C locale.
+export LC_ALL=C
 
 COUNT="${COUNT:-10}"
 BENCH="${BENCH:-.}"

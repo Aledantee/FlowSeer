@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stop gate: the repository layout policy must hold, and unverified source
-# edits are reported (not blocked) so the handoff names them.
+# Stop gate: the repository conformance gates must hold, and unverified
+# source edits are reported (not blocked) so the handoff names them.
 
 set -uo pipefail
 
@@ -23,17 +23,44 @@ if [ -n "$git_dir" ] && [ -s "$git_dir/flowseer-verification-dirty" ]; then
   unverified=$(sort -u "$git_dir/flowseer-verification-dirty" | head -20 | paste -sd ' ' -)
 fi
 
+# Every package under test/conformance/ is a gate, and each runs whole. The
+# hook enumerates the directory rather than naming packages or tests: a
+# `-run` pattern for a renamed test matches nothing and `go test` reports
+# ok, and a listed path for a renamed package is skipped the same way, so
+# a gate could vanish with no signal on either axis. Enumeration has no
+# name to rot; a gate added later runs without a hook edit. Each child
+# runs recursively, so a gate that lands one level down (a
+# test/conformance/proto/layering/, say) runs here and not only at the
+# merge gate; a child holding no Go package fails loudly with `no
+# packages to test` instead of counting as a pass.
+#
+# The third axis is the root directory itself: a moved or emptied
+# test/conformance/ leaves the glob unmatched, and a hook that only
+# tolerated that would print {} with nothing run. So the gates are
+# counted, and zero in a checkout of this repository, which go.mod
+# identifies, is a failed gate. A fixture without go.mod has no gates to
+# run and still stops cleanly.
+#
+# This is fast feedback, not the authority. `go test -race ./...` runs the
+# same tests at the merge gate, and that is what AGENTS.md points at.
 output=""
-layout_ok=true
-if [ -d "$root/test/conformance/proto" ]; then
-  # The layout test is the fast slice of the conformance package; the rest of
-  # the package compiles alongside it and runs in the verifier.
-  if ! output=$(cd "$root" && go test -run 'TestProtoSourceTreeLayout|TestProtoPathPolicy' ./test/conformance/proto 2>&1); then
-    layout_ok=false
+gates_ok=true
+gates_run=0
+for package in "$root"/test/conformance/*/; do
+  # With no test/conformance/ the glob stays literal; nothing else is skipped.
+  [ -d "$package" ] || continue
+  gates_run=$((gates_run + 1))
+  if ! output=$(cd "$root" && go test "./${package#"$root/"}..." 2>&1); then
+    gates_ok=false
+    break
   fi
+done
+if [ "$gates_run" -eq 0 ] && [ -f "$root/go.mod" ]; then
+  gates_ok=false
+  output="no conformance gate found under test/conformance/; the directory is missing or empty, so nothing was checked"
 fi
 
-if [ "$layout_ok" = true ]; then
+if [ "$gates_ok" = true ]; then
   if [ -n "$unverified" ]; then
     jq -n --arg message "Edited but not verified: $unverified. Run .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths> before handoff." \
       '{systemMessage:$message}'
@@ -43,7 +70,7 @@ if [ "$layout_ok" = true ]; then
   exit 0
 fi
 
-reason="Repository layout policy failed. Fix the violations before stopping:"$'\n'"$output"
+reason="A repository conformance gate failed. Fix the violations before stopping:"$'\n'"$output"
 if [ "$(jq -r '.stop_hook_active // false' <<<"$input")" = true ]; then
   jq -n --arg message "$reason" '{systemMessage:$message}'
 else

@@ -12,6 +12,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 func TestRunCrossesOutcomesAndActions(t *testing.T) {
@@ -997,6 +999,53 @@ func TestGoRejectsUnmanagedAndCanceledContexts(t *testing.T) {
 	}
 	if err := <-checked; err == nil {
 		t.Fatal("Go() after cancellation succeeded")
+	}
+}
+
+// TestSupervisorLeafPanicPublishesFatalResultBeforeClosingDone pins the order
+// of the two things a panicking leaf generation owes the run loop.
+//
+// done is what wait joins on, and s.results is the only way the loop learns a
+// generation ended. A close that reached the loop before the result would let
+// stopAll return a clean run with the fatal result still in the buffer, and
+// let a restart bump the generation so s.current drops it. So the result is
+// read without blocking the instant done is observed closed: waiting for it
+// would pass against either order and prove nothing.
+func TestSupervisorLeafPanicPublishesFatalResultBeforeClosingDone(t *testing.T) {
+	s := &supervisorState{
+		results: make(chan childResult, 1),
+		runtime: supervisorRuntime{options: supervisorOptions{}.withDefaults()},
+	}
+	module := plannedModule{path: "worker"}
+	done := make(chan struct{})
+
+	// Mirrors the order start uses for a leaf slot. A nil attemptSpan forces
+	// the panic at result.span = attemptSpan.SpanContext(), the statement
+	// after runChild returns that its own recover cannot reach.
+	spawn.Go(context.Background(), "test.leaf", func() {
+		s.publishLeafResult(context.Background(), 0, 1, module, telemetryView{}, nil)
+		close(done)
+	}, spawn.ReportTo(func(err error) {
+		s.results <- childResult{index: 0, generation: 1, outcome: lifecycleOutcomePanic, err: err, fatal: true}
+		close(done)
+	}))
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("done was not closed after the panic")
+	}
+
+	select {
+	case result := <-s.results:
+		if !result.fatal || result.outcome != lifecycleOutcomePanic {
+			t.Fatalf("published result = %+v, want a fatal panic outcome", result)
+		}
+		if result.err == nil {
+			t.Fatal("published result carries no error")
+		}
+	default:
+		t.Fatal("done closed before the fatal result was published; the run loop can join this slot and never see the panic")
 	}
 }
 

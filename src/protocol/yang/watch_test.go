@@ -241,3 +241,50 @@ func TestWalkerFetchFailureLatches(t *testing.T) {
 		t.Fatal("fetch failure not latched")
 	}
 }
+
+// TestWalkerFetchPanicLatches proves a panic in the traversal goroutine
+// reaches Err() rather than making the walk look like a clean, empty
+// completion.
+//
+// Err() is read once, the instant Iter's loop returns, and that is the point
+// of the test. The walk's terminal call is Fail on the panic path, and Fail
+// records the error before it closes the data channel, so a consumer that
+// drains to the close can never observe a nil Err() for a walk that panicked.
+// Polling here instead would pass against a traversal that closed the channel
+// first and latched the error afterwards — the silent completion this asserts
+// against.
+func TestWalkerFetchPanicLatches(t *testing.T) {
+	fetch := &scriptedFetch{payloads: []any{42}} // an unscripted type panics inside fetch itself.
+	codec := serverCodec()
+	w := yang.NewWalker(context.Background(), fetch.fetch, codec.DecodeXML, 0)
+	for range w.Iter() {
+		t.Fatal("rows yielded despite a panicking fetch")
+	}
+
+	if err := w.Err(); err == nil {
+		t.Fatal("Err() is nil when the walk's data channel closed after a panicking fetch")
+	}
+}
+
+// TestTickWatcherFetchPanicLatches is TestWalkerFetchPanicLatches' analog for
+// the tick loop: the same silent-success risk applies to its pump.
+//
+// Err() is read once, at the moment the event channel closes. The watcher's
+// terminal call on the panic path is Fail, which records before it closes, so
+// a consumer that drains to the close can never see a nil error for a watch
+// that panicked. Polling would pass against a watcher that closed first and
+// latched afterwards, which is the state this asserts against.
+func TestTickWatcherFetchPanicLatches(t *testing.T) {
+	fetch := &scriptedFetch{payloads: []any{42}}
+	codec := serverCodec()
+	w := yang.NewTickWatcher(context.Background(), codec, fetch.fetch, codec.DecodeXML,
+		yang.WatchConfig{Interval: 15 * time.Millisecond})
+	defer func() { _ = w.Close() }()
+
+	for range w.Iter() {
+	}
+
+	if err := w.Err(); err == nil {
+		t.Fatal("Err() is nil when the watcher's event channel closed after a panicking fetch")
+	}
+}
