@@ -213,6 +213,11 @@ func (l *Layer) Receive(now time.Time, _ string, vid vlan.ID, p Probe) Effects {
 // protected port per VLAN whose action is not Disable, walking ports in
 // sorted order so the emissions are ordered. A port with no VLANs emits one
 // probe for VID 0, which the switch sends on the port's PVID.
+//
+// Probes go out only once the configured interval is due. A switch wakes its
+// layers together, so this runs at every spanning tree hello and at every
+// recovery expiry as well; emitting on each of those would probe far faster
+// than the configuration asks for.
 func (l *Layer) Wake(now time.Time) Effects {
 	if !l.armed {
 		l.armed = true
@@ -231,6 +236,10 @@ func (l *Layer) Wake(now time.Time) Effects {
 				ps.waitUntil = time.Time{}
 			}
 		}
+	}
+
+	if now.Before(l.nextProbeAt) {
+		return Effects{}
 	}
 
 	var emissions []Emission

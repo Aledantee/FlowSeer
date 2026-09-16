@@ -61,7 +61,8 @@ func main() {
 	layer.LinkChange(t0, "1/1/1", true)
 	layer.LinkChange(t0, "1/1/2", true)
 
-	fx := layer.Wake(t0)
+	// The first probes go out one interval after the links came up.
+	fx := layer.Wake(t0.Add(5 * time.Second))
 
 	// The unmanaged hub loops 1/1/1's probe back onto the switch; the
 	// switch decodes it and finds it names this switch as sender.
@@ -139,6 +140,13 @@ probe for VID 0, which the switch sends on the port's PVID, when `VLANs` is
 empty — for every port whose action is not `Disable`, walking ports in
 sorted name order so a wake's emissions are deterministic. Sequence numbers
 increase per port.
+
+The layer meters its own probes: a `Wake` before the interval is due lifts
+whatever recovery windows have elapsed and emits nothing. A switch wakes its
+layers together, so `Wake` runs at every spanning tree hello and at every
+recovery expiry as well, and a probe on each of those would run far ahead of
+the configured interval. `NextWake` reports the earlier of the next probe and
+the next recovery.
 
 Crucially, emission does not consult `Learns`/`Forwards` on its own port: a
 `Block`ed port keeps sending probes. If it stopped, a `Block`ed port's probes

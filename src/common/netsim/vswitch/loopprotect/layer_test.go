@@ -332,7 +332,8 @@ func TestWakeEmitsProbesForProtectedPortsInSortedOrder(t *testing.T) {
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	fx := l.Wake(t0)
+	l.Wake(t0)
+	fx := l.Wake(t0.Add(5 * time.Second))
 
 	if len(fx.Emissions) != 2 {
 		t.Fatalf("Wake() emitted %d frames, want 2 (disabled port excluded): %+v", len(fx.Emissions), fx.Emissions)
@@ -362,7 +363,9 @@ func TestWakeEmitsPerVLAN(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
-	fx := l.Wake(time.Unix(1_700_000_000, 0))
+	t0 := time.Unix(1_700_000_000, 0)
+	l.Wake(t0)
+	fx := l.Wake(t0.Add(5 * time.Second))
 
 	var vidsFor1 []vlan.ID
 	var vidsFor2 []vlan.ID
@@ -399,8 +402,9 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	fx1 := l.Wake(t0)
-	fx2 := l.Wake(t0.Add(5 * time.Second))
+	l.Wake(t0)
+	fx1 := l.Wake(t0.Add(5 * time.Second))
+	fx2 := l.Wake(t0.Add(10 * time.Second))
 
 	if len(fx1.Emissions) != 1 || len(fx2.Emissions) != 1 {
 		t.Fatalf("expected one emission per wake, got %d and %d", len(fx1.Emissions), len(fx2.Emissions))
@@ -552,6 +556,7 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
+	l.Wake(t0)
 	l.Receive(t0, "x", 0, returnedProbe("block", 0))
 	l.Receive(t0, "x", 0, returnedProbe("disable", 0))
 
