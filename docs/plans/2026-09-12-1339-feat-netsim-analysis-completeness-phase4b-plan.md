@@ -253,6 +253,22 @@ line numbers that phases 3b through 4 have since moved.
   caller must overwrite is a trap for the next one. `lacp` gets away with a
   derived destination because it always sends to one group address; ARP does
   not. Cost if wrong: one signature and its two call sites.
+- **Ruled during implementation: zero means "unset", not invalid.** The
+  Decisions called a `HoldDepth` below 1 and a zero `ResolutionTimeout`
+  construction errors. Implemented literally that refuses a `VRF` whose
+  optional fields are left at their Go zero value, which is how the rest of
+  this package is configured and tested: `Route.Preference` already treats 0
+  as "unset" and normalizes it to 1 rather than refusing it. `Validate` now
+  refuses only a negative value, and zero normalizes to the RFC default.
+  Validation judges what the constructor builds, not what the caller wrote.
+  Cost if wrong: two comparisons and their refusal cases.
+
+- **Open: a rewritten cross-package test.** `TestSwitchPeekAndForwardAgree`
+  proved `Peek` and `Forward` agree through a `Switch`; it was rewritten as
+  `TestPeekAndCommitAgreeOnSelection` against `routing.Layer` alone, because
+  `vswitch` does not compile until the switch unit lands. The seam it covered
+  is the one this phase most changes, so the switch-level test is restored in
+  that unit rather than left as the narrower one.
 - **Observation is a side effect, not an interception.** An ARP frame keeps
   its ordinary bridged path after the routing layer has read it, unlike an
   IGMP report, which `forwardMulticastControl` redirects to router ports
