@@ -427,8 +427,9 @@ them.
   That ingress check, not anything loop protection does itself, is what stops
   a two-port loop from acting on both ports: whichever probe is processed
   first blocks its own port, and the second probe is still recognized as this
-  switch's own on the blocked port, but the gated ingress refuses it VLAN
-  classification, so it never reaches detection.
+  switch's own on the blocked port and classified like any other frame, but
+  the gate then denies the port both learning and forwarding, so the bridge
+  drops it at ingress before detection runs.
 - **`NoLearn` contains the symptom without removing the cause.** It stops the
   MAC flapping between two ports that a loop causes, but keeps forwarding, so
   the loop itself is not broken; only `Block` and `Disable` do that. `NoLearn`

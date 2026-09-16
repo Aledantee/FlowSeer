@@ -2082,7 +2082,7 @@ func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 		// reporting a false inter-VLAN loop when it returns.
 		probe := em.Probe
 		probe.VID = vid
-		frame := loopprotect.Encode(probe, s.cfg.MAC)
+		frame := loopprotect.Encode(probe, probe.OriginMAC)
 
 		egress, ok := s.bridge.OriginateFrame(em.Port, vid, frame)
 		if !ok {

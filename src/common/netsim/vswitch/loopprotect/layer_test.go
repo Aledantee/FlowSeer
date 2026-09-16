@@ -595,11 +595,11 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 		t.Fatalf("expected one emission per wake, got %d and %d", len(fx1.Emissions), len(fx2.Emissions))
 	}
 
-	p1, err := loopprotect.Decode(fx1.Emissions[0].Frame)
+	p1, err := loopprotect.Decode(loopprotect.Encode(fx1.Emissions[0].Probe, switchMAC))
 	if err != nil {
 		t.Fatalf("Decode(fx1): %v", err)
 	}
-	p2, err := loopprotect.Decode(fx2.Emissions[0].Frame)
+	p2, err := loopprotect.Decode(loopprotect.Encode(fx2.Emissions[0].Probe, switchMAC))
 	if err != nil {
 		t.Fatalf("Decode(fx2): %v", err)
 	}
@@ -618,7 +618,9 @@ func TestWakeSequenceNumbersIncreasePerPort(t *testing.T) {
 	if p1 != p2 {
 		t.Errorf("frames differ by more than sequence: %+v vs %+v", p1, p2)
 	}
-	if !bytes.Equal(fx1.Emissions[0].Frame.Dst[:], fx2.Emissions[0].Frame.Dst[:]) {
+	f1 := loopprotect.Encode(fx1.Emissions[0].Probe, switchMAC)
+	f2 := loopprotect.Encode(fx2.Emissions[0].Probe, switchMAC)
+	if !bytes.Equal(f1.Dst[:], f2.Dst[:]) {
 		t.Errorf("Dst differs across wakes")
 	}
 }
