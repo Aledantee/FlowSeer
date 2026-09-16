@@ -136,7 +136,7 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "interface with both VLAN and Port",
+			name: "sub-interface with both VLAN and Port loads",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]
 				vrf.Interfaces["hybrid"] = routing.Interface{
@@ -146,7 +146,74 @@ func TestValidate(t *testing.T) {
 				}
 				c.VRFs[routing.DefaultVRF] = vrf
 			},
+			wantErr: false,
+		},
+		{
+			name: "sub-interface VLAN outside the assignable range",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Interfaces["hybrid"] = routing.Interface{
+					VLAN:     4095,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")},
+				}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
 			wantErr: true,
+		},
+		{
+			name: "two sub-interfaces on one port at different VLANs load",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Interfaces["1/1/2.10"] = routing.Interface{
+					VLAN:     10,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")},
+				}
+				vrf.Interfaces["1/1/2.20"] = routing.Interface{
+					VLAN:     20,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.31.1/24")},
+				}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
+		},
+		{
+			name: "two differently named sub-interfaces claiming one port and VLAN",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Interfaces["1/1/2.10"] = routing.Interface{
+					VLAN:     10,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")},
+				}
+				vrf.Interfaces["1/1/2-other"] = routing.Interface{
+					VLAN:     10,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.31.1/24")},
+				}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
+			name: "the same VLAN on two different ports loads",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.Interfaces["1/1/2.10"] = routing.Interface{
+					VLAN:     10,
+					Port:     "1/1/2",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")},
+				}
+				vrf.Interfaces["1/1/1.10"] = routing.Interface{
+					VLAN:     10,
+					Port:     "1/1/1",
+					Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.31.1/24")},
+				}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: false,
 		},
 		{
 			name: "duplicate VLAN across VRFs",

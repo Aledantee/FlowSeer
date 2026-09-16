@@ -778,9 +778,12 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		receive := s.ports.Receive(ingress)
 		resolved := receive.Resolved
 		if resolved.Name != "" {
-			portLookupScopes := s.routing.PortLookupScopes(resolved.Name)
-			routingScopes = append(routingScopes, portLookupScopes...)
-			if iface, ok := s.routing.ByPort(resolved.Name); ok {
+			vid, tagAcceptable := outerTagVID(f)
+			portVLANScopes := s.routing.PortVLANLookupScopes(resolved.Name, vid)
+			routingScopes = append(routingScopes, portVLANScopes...)
+			if ifaceName, portRouted, matched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
+				matched = matched && tagAcceptable
+
 				if receive.Reason != "" {
 					res := bridge.Result{
 						Trace: trace.Trace{
@@ -800,12 +803,35 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						FID:     0,
 					}
 					s.forwardingDependencies(ingress).consult(&res)
-					res.ConsultScopes(portLookupScopes...)
+					res.ConsultScopes(portVLANScopes...)
 					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
-				ownershipScope := s.routing.InterfaceOwnershipScope(iface)
-				if !s.routing.Owns(iface, f) {
+				if !matched {
+					res := bridge.Result{
+						Trace: trace.Trace{
+							Outcome: trace.Dropped,
+							Reason:  routing.ReasonNotBridged,
+							Steps: []trace.Step{
+								{
+									Layer:   port.LayerRouting,
+									Op:      trace.OpDrop,
+									RuleID:  "routing.tag_miss",
+									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
+									Inputs:  []trace.Fact{routing.PortFact(resolved.Name), routing.VLANFact(vid)},
+								},
+							},
+						},
+						Ingress: resolved.Name,
+						FID:     0,
+					}
+					s.forwardingDependencies(ingress).consult(&res)
+					res.ConsultScopes(portVLANScopes...)
+					return s.finishForward(now, ingress, f, res, mutate)
+				}
+
+				ownershipScope := s.routing.InterfaceOwnershipScope(ifaceName)
+				if !s.routing.Owns(ifaceName, f) {
 					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
@@ -824,15 +850,15 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						FID:     0,
 					}
 					s.forwardingDependencies(ingress).consult(&res)
-					res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
+					res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
 					return s.finishForward(now, ingress, f, res, mutate)
 				}
 
 				pcp, dei := framePriority(f)
-				routeRes := s.routing.Route(iface, f)
+				routeRes := s.routing.Route(ifaceName, f)
 				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
-				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
+				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
 				return s.finishForward(now, ingress, f, res, mutate)
 			}
 		}
@@ -1313,6 +1339,22 @@ func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
 	return outer.PCP, outer.DEI
 }
 
+// outerTagVID reads the VLAN identifier a routed sub-interface would classify f on: zero for
+// an untagged frame, or the outer tag's VID otherwise. tagAcceptable reports whether the outer
+// tag's TPID is one a C-TAG sub-interface can match (zero or the C-TAG EtherType, the same
+// predicate framePriority uses); an S-Tagged or otherwise labeled frame reports its VID but
+// false, so the caller takes the tag-miss drop rather than a coincidental match.
+func outerTagVID(f ethernet.Frame) (vid vlan.ID, tagAcceptable bool) {
+	if len(f.Tags) == 0 {
+		return 0, true
+	}
+	outer := f.Tags[0]
+	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
+		return outer.VID, false
+	}
+	return outer.VID, true
+}
+
 func (s *Switch) assembleRouteResult(
 	now time.Time,
 	ingressPort string,
@@ -1353,7 +1395,7 @@ func (s *Switch) assembleRouteResult(
 	// Route names only an interface of its own table, so the lookup cannot miss.
 	egressIface, _ := s.routing.Interface(routeRes.Interface)
 
-	if egressIface.VLAN != 0 {
+	if egressIface.VLAN != 0 && egressIface.Port == "" {
 		stepsSoFar := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
 		stepsSoFar = append(stepsSoFar, ingressSteps...)
 		stepsSoFar = append(stepsSoFar, routeRes.Steps...)
@@ -1377,6 +1419,18 @@ func (s *Switch) assembleRouteResult(
 	steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps)+1)
 	steps = append(steps, ingressSteps...)
 	steps = append(steps, routeRes.Steps...)
+
+	// A sub-interface's egress carries the outer tag its parent port classifies on; a plain
+	// routed port (VLAN zero) leaves untagged. Applied before the transmit and LAG checks
+	// below, because their refusal-path egress records embed this same frame.
+	if egressIface.VLAN != 0 {
+		routeRes.Frame.Tags = append([]vlan.Tag{{
+			TPID: uint16(ethernet.EtherTypeDot1Q),
+			VID:  egressIface.VLAN,
+			PCP:  ingressPCP,
+			DEI:  ingressDEI,
+		}}, routeRes.Frame.Tags...)
+	}
 
 	member, txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
 	if txReason != "" {

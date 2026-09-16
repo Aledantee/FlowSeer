@@ -501,6 +501,72 @@ func TestNegativeRoutingCapabilityLookupsRetainScopedUncertainty(t *testing.T) {
 	}
 }
 
+// TestNegativeSubInterfaceTagMissRetainsScopedUncertainty proves that a routed port carrying
+// a sub-interface, given a frame tagged at a VID none of its sub-interfaces claim, consults
+// the port-and-VID scope [routing.PortVLANLookupScope] rather than the bare port scope
+// [TestNegativeRoutingCapabilityLookupsRetainScopedUncertainty]'s "ByPort miss" case consults
+// for a port with no routed interface at all: the two misses answer different questions and
+// must retain different uncertainty.
+func TestNegativeSubInterfaceTagMissRetainsScopedUncertainty(t *testing.T) {
+	vid10 := vlan.ID(10)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	scope := routing.PortVLANLookupScope("sw1", routing.DefaultVRF, "in", 20)
+
+	catalog, relevantRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
+		Kind: "snapshot", Origin: "inventory", Context: "relevant routing uncertainty",
+	})
+	catalog, siblingRef := catalog.Add(analysis.Evidence{
+		Kind: "snapshot", Origin: "inventory", Context: "unrelated routing uncertainty",
+	})
+	siblingScope := routing.VLANLookupScope("sw1", routing.DefaultVRF, 99)
+
+	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: vswitch.Config{
+			Ports: ports,
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+					"in.10": {Port: "in", VLAN: vid10, MAC: macRouter},
+				}},
+			}},
+		},
+		NodeID: "sw1",
+		Metadata: analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{
+			{
+				Code: "test.routing.relevant", Status: analysis.Incomplete, Scope: scope,
+				Message: "the consulted routing lookup is incomplete", Evidence: []trace.EvidenceRef{relevantRef},
+			},
+			{
+				Code: "test.routing.sibling", Status: analysis.Unsupported, Scope: siblingScope,
+				Message: "an unrelated routing lookup is unsupported", Evidence: []trace.EvidenceRef{siblingRef},
+			},
+		}, catalog, nil),
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+
+	result := sw.Peek(fixedTime, "in", ethernet.Frame{
+		Src: macH1,
+		Dst: macH2,
+		Tags: []vlan.Tag{
+			{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20},
+		},
+	})
+	if result.Metadata.Status() != analysis.Incomplete {
+		t.Fatalf("status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())
+	}
+	if issues := result.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.routing.relevant" {
+		t.Fatalf("issues = %+v, want only the relevant routing uncertainty", issues)
+	}
+	if !slices.ContainsFunc(result.ConsultedScopes(), func(s analysis.Scope) bool {
+		return s.Compare(scope) == 0
+	}) {
+		t.Errorf("consulted scopes = %v, want %s", result.ConsultedScopes(), scope)
+	}
+}
+
 func TestComposeForwardResultTreatsMissingDependencyAsUnknown(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "present", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))

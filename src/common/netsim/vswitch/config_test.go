@@ -1,6 +1,8 @@
 package vswitch_test
 
 import (
+	"net/netip"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -8,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -161,5 +164,115 @@ func TestValidateAcceptsLoopProtectTrunkWithPVID(t *testing.T) {
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() = %v, want nil for a protected trunk port with a PVID", err)
+	}
+}
+
+// TestNewAcceptsBridgelessRouterWithSubInterfaces proves a firewall cabled to a trunk with
+// no bridge at all can load: its port carries only routed sub-interfaces, so R1's constraint
+// against a bridgeless router leaving a port unrouted is satisfied by the sub-interfaces alone.
+func TestNewAcceptsBridgelessRouterWithSubInterfaces(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {
+							Port:     "eth1",
+							VLAN:     10,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if _, err := vswitch.New(cfg); err != nil {
+		t.Fatalf("New() = %v, want nil for a bridgeless router with a sub-interface", err)
+	}
+}
+
+// TestNewRejectsSubInterfaceParentPortAsBridgeSwitchport and
+// TestNewRejectsSubInterfaceParentPortAsSpanningTreePort prove that a sub-interface's parent
+// port stays outside the bridge and the spanning tree exactly as a plain routed port's does
+// (docs/architecture/2026-09-16-local-network-analysis-direction.md): all three bans in
+// [Config.Validate] name the same `.port` field, keyed off Port alone, so a sub-interface's
+// Port is banned identically.
+func TestNewRejectsSubInterfaceParentPortAsBridgeSwitchport(t *testing.T) {
+	pvid := vlan.ID(10)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"eth1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {
+							Port:     "eth1",
+							VLAN:     10,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := vswitch.New(cfg)
+	if err == nil {
+		t.Fatal("New() = nil, want error for a sub-interface parent port that is also a bridge switchport")
+	}
+	if !strings.Contains(err.Error(), "cannot be configured as a bridge switchport") {
+		t.Errorf("New() error = %q, want the switchport ban's message", err)
+	}
+}
+
+func TestNewRejectsSubInterfaceParentPortAsSpanningTreePort(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{},
+		},
+		STP: &stp.Config{
+			Ports: map[string]stp.Port{"eth1": {}},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {
+							Port:     "eth1",
+							VLAN:     10,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := vswitch.New(cfg)
+	if err == nil {
+		t.Fatal("New() = nil, want error for a sub-interface parent port that is also a spanning tree port")
+	}
+	if !strings.Contains(err.Error(), "cannot be configured as a spanning tree port") {
+		t.Errorf("New() error = %q, want the spanning tree ban's message", err)
 	}
 }
