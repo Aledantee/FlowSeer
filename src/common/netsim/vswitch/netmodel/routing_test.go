@@ -13,10 +13,12 @@ import (
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
 	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
+	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -1416,9 +1418,11 @@ func TestLoad_SubInterfaceParentSwitchportSkippedAsRouted(t *testing.T) {
 }
 
 // TestLoad_DuplicateSubInterfaceClaimSkipped pins that two sub-interfaces
-// naming the same parent and outer VID load one and skip the other as a
-// conflict rather than both reaching the VRF, where routing validation
-// would refuse the duplicate (port, VLAN) claim and fail the whole load.
+// naming the same parent and outer VID drop both claimants as a conflict
+// rather than letting the input order decide a winner, matching the shared
+// fact resolver's behavior for every other conflicting fact. Routing
+// validation would otherwise refuse the duplicate (port, VLAN) claim and
+// fail the whole load.
 func TestLoad_DuplicateSubInterfaceClaimSkipped(t *testing.T) {
 	parentName := "eth1"
 	subAName := "eth1-vid10-a"
@@ -1440,18 +1444,212 @@ func TestLoad_DuplicateSubInterfaceClaimSkipped(t *testing.T) {
 	}
 
 	cfg := loaded.Spec.Config
-	if cfg.Routing == nil {
-		t.Fatal("expected Routing configuration to be non-nil")
-	}
-	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
-	if _, ok := vrf.Interfaces[subAName]; !ok {
-		t.Errorf("first claimant %s must load", subAName)
-	}
-	if _, ok := vrf.Interfaces[subBName]; ok {
-		t.Errorf("second claimant %s must not load", subBName)
+	if cfg.Routing != nil {
+		vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+		if _, ok := vrf.Interfaces[subAName]; ok {
+			t.Errorf("first claimant %s must not load", subAName)
+		}
+		if _, ok := vrf.Interfaces[subBName]; ok {
+			t.Errorf("second claimant %s must not load", subBName)
+		}
 	}
 
 	if err := cfg.Validate(); err != nil {
+		t.Errorf("cfg.Validate failed: %v", err)
+	}
+}
+
+// TestLoad_RejectedSubInterfaceParentKeepsSwitchport pins that a parent's
+// switchport survives a sub-interface whose own routing claim is rejected.
+// The skip set that removes a parent's switchport must come from
+// sub-interfaces the routing walk actually accepts, not from every
+// sub-interface that merely names the parent and carries an IP facet: a
+// provider-bridging (S-Tag) outer tag is an encapsulation the routing walk
+// always rejects, so eth1.10 never reaches the VRF, and eth1 must still
+// bridge on its own reported VLAN 10 tag.
+func TestLoad_RejectedSubInterfaceParentKeepsSwitchport(t *testing.T) {
+	parentName := "eth1"
+	subName := "eth1.10"
+
+	parent := switchedPhysicalInterface(parentName, 10)
+	sub := subInterface(subName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_PROVIDER_BRIDGING, 10))
+
+	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+	cfg := loaded.Spec.Config
+	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
+		t.Fatal("expected bridge VLAN configuration to be non-nil")
+	}
+	sw, ok := cfg.Bridge.VLAN.Switchports[parentName]
+	if !ok {
+		t.Fatalf("parent %s must keep its switchport when its sub-interface's routing claim is rejected", parentName)
+	}
+	if len(sw.Tagged) != 1 || int(sw.Tagged[0]) != 10 {
+		t.Errorf("parent switchport tagged VLANs = %v, want [10]", sw.Tagged)
+	}
+
+	for _, skipped := range loaded.Report.Skipped {
+		if skipped.Port == parentName && skipped.What == "switchport" {
+			t.Errorf("parent switchport must not be skipped, got %+v", skipped)
+		}
+	}
+
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("cfg.Validate failed: %v", err)
+	}
+}
+
+// TestLoad_STPWalkSkipsRoutedPort pins that a routed port, whether routed
+// directly or through an accepted sub-interface, is skipped from the
+// spanning tree port table. Switch validation refuses a routed port
+// configured as an STP port; without the skip the load would fail outright
+// for a device that reports spanning tree state on every port including a
+// routed one.
+func TestLoad_STPWalkSkipsRoutedPort(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		ifaces     []*interfacev1.Interface
+		routedPort string
+	}{
+		{
+			name:       "DirectlyRouted",
+			ifaces:     []*interfacev1.Interface{routedPhysicalInterface("eth1")},
+			routedPort: "eth1",
+		},
+		{
+			name: "RoutedSubInterfaceParent",
+			ifaces: []*interfacev1.Interface{
+				plainPhysicalInterface("eth1"),
+				subInterface("eth1.10", "eth1", vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10)),
+			},
+			routedPort: "eth1",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			portName := test.routedPort
+			ps := stpv1.PortState_builder{InterfaceName: &portName}.Build()
+
+			input := loadInput{
+				ifaces:      test.ifaces,
+				bridgeState: validBridgeState(),
+				stpPorts:    []*stpv1.PortState{ps},
+			}
+			input.validate(t)
+			loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			if cfg := loaded.Spec.Config; cfg.STP != nil {
+				if _, ok := cfg.STP.Ports[test.routedPort]; ok {
+					t.Errorf("STP port table must not hold routed port %s", test.routedPort)
+				}
+			}
+
+			wantScope := analysis.FieldScope(analysis.ProtocolScope("sw1", string(port.LayerStp), "0"), "ports", test.routedPort)
+			if !slices.ContainsFunc(loaded.Report.Skipped, func(skip netmodel.Skipped) bool {
+				return skip.Port == test.routedPort && skip.What == "stp_port" && skip.Scope.Compare(wantScope) == 0
+			}) {
+				t.Errorf("skipped = %+v, want stp_port skip at %s", loaded.Report.Skipped, wantScope)
+			}
+
+			if err := loaded.Spec.Config.Validate(); err != nil {
+				t.Errorf("cfg.Validate failed: %v", err)
+			}
+		})
+	}
+}
+
+// TestLoad_CapabilityWalkIgnoresRoutedSubParentSwitchport pins that the
+// capability walk does not count a routed sub-interface parent's own
+// switchport facet toward VLAN inference: the port walk already treats
+// that switchport as absent, so the only switchport facet in this load
+// belongs to a port the routing walk owns. The VLAN capability must come
+// from the routed interface itself, not from a switchport report the
+// finished configuration no longer carries.
+func TestLoad_CapabilityWalkIgnoresRoutedSubParentSwitchport(t *testing.T) {
+	parentName := "eth1"
+	subName := "eth1.10"
+
+	parent := switchedPhysicalInterface(parentName, 5)
+	sub := subInterface(subName, parentName, vlanTag(packetv1.EtherType_ETHER_TYPE_DOT1Q, 10))
+
+	input := loadInput{ifaces: []*interfacev1.Interface{parent, sub}}
+	input.validate(t)
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+	if got := loaded.Report.CapabilitySources[port.LayerVlan]; got != "implied:routing" {
+		t.Errorf("vlan capability source = %q, want implied:routing", got)
+	}
+}
+
+// TestLoad_VLANInterfaceInvalidIDSkipped pins that a VLAN interface whose
+// id the schema itself forbids, unset (zero) or the reserved 4095, becomes
+// an issue rather than failing the whole load: [Load] does not assume its
+// caller ran protovalidate, and until this fix only the sub-interface
+// encapsulation check received that treatment.
+func TestLoad_VLANInterfaceInvalidIDSkipped(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		vid  uint32
+	}{
+		{name: "Zero", vid: 0},
+		{name: "Reserved", vid: 4095},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ifaceName := "vlan-bad"
+			iface := routedVLANInterface(ifaceName, test.vid, []byte{0, 1, 2, 3, 4, 5})
+
+			loaded := (loadInput{ifaces: []*interfacev1.Interface{iface}}).load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+			wantScope := routing.VLANLookupScope("sw1", routing.DefaultVRF, vlan.ID(test.vid))
+			if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+				return issue.Code == netmodel.IssueInvalidVlanID && issue.Scope.Compare(wantScope) == 0
+			}) {
+				t.Errorf("issues = %+v, want invalid vlan id at %s", loaded.Metadata.Issues(), wantScope)
+			}
+
+			if cfg := loaded.Spec.Config; cfg.Routing != nil {
+				if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces[ifaceName]; ok {
+					t.Errorf("rejected VLAN interface %s must not appear in VRF interfaces", ifaceName)
+				}
+			}
+		})
+	}
+}
+
+// TestLoad_DirectRoutedLAGMemberSkipped pins the other instance of the
+// routed-port ban class found while fixing the STP walk: a physical
+// interface that is itself a LAG member cannot be a routed port, whether
+// routed directly or through a sub-interface. The sub-interface case
+// already carried a skip; a device reporting an IP facet straight on the
+// member port hit the same routing validation refusal by a different path.
+func TestLoad_DirectRoutedLAGMemberSkipped(t *testing.T) {
+	memberName := "1/1/1"
+	ifaces := lagInterfaces()
+	for i, iface := range ifaces {
+		if iface.GetName() == memberName {
+			ifaces[i] = routedPhysicalInterface(memberName)
+			ifaces[i].SetPhysical(iface.GetPhysical())
+		}
+	}
+
+	input := loadInput{ifaces: ifaces}
+	loaded := input.load(t, netmodel.SourceContext{DeviceID: "sw1"})
+
+	wantScope := routing.PortLookupScope("sw1", routing.DefaultVRF, memberName)
+	if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool {
+		return issue.Code == netmodel.IssueUnsupportedInterfaceKind && issue.Scope.Compare(wantScope) == 0
+	}) {
+		t.Errorf("issues = %+v, want unsupported_interface_kind at %s", loaded.Metadata.Issues(), wantScope)
+	}
+
+	if cfg := loaded.Spec.Config; cfg.Routing != nil {
+		if _, ok := cfg.Routing.VRFs[routing.DefaultVRF].Interfaces[memberName]; ok {
+			t.Errorf("rejected LAG member %s must not appear in VRF interfaces", memberName)
+		}
+	}
+
+	if err := loaded.Spec.Config.Validate(); err != nil {
 		t.Errorf("cfg.Validate failed: %v", err)
 	}
 }
