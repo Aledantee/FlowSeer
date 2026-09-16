@@ -395,6 +395,52 @@ them.
   can express "every FID except these", which is a wider contract than one
   over-flush justifies.
 
+### Loop protection outside spanning tree
+
+- **The mechanism is netsim's own, not a vendor's.** It is drawn from H3C
+  loop detection and the Aruba and Huawei features of the same shape — a
+  multicast probe, a returned frame read as a loop, a per-port action — but it
+  emulates none of their frames: each vendor's probe format is proprietary, so
+  a netsim probe carries only what the layer needs to recognize its own
+  return, sent to a locally scoped multicast address no bridge treats
+  specially. The recovery modes come from a wider read: Cisco's errdisable
+  recovery, Juniper's revert interval, and the timers MikroTik, Extreme, and
+  TP-Link expose.
+- **An action is a port state, not an issue code.** The same reasoning that
+  puts BPDU guard's and loop guard's outcome on the port applies here: `Block`
+  and `NoLearn` land on the port a real device would report, where an
+  operator already looks, rather than in a separate issue an operator has to
+  go find.
+- **A probe leaves wherever an ordinary frame would, not wherever loop
+  protection judges the topology clear.** It goes out a port that is
+  operationally forwarding and that a spanning tree on the same switch also
+  forwards, so loop protection never raises anything the tree has already
+  broken; it exists for the loop a tree does not cover, whether because none
+  runs or because the loop sits outside every tree's view. Loop protection's
+  own verdict on the port is deliberately not one of the gates: a port a
+  `Block` action already covers keeps probing, which is what lets a
+  `LoopCleared` recovery watch the loop persist.
+- **A returning probe is an ordinary frame to the bridge that receives it.**
+  It is classified through the same ingress pipeline, gates included, as any
+  other frame, so a probe returning into a port a `Block` action already
+  denies dies at that gate before the loop-protection layer ever sees it.
+  That ingress check, not anything loop protection does itself, is what stops
+  a two-port loop from acting on both ports: whichever probe is processed
+  first blocks its own port, and the second probe is still recognized as this
+  switch's own on the blocked port and classified like any other frame, but
+  the gate then denies the port both learning and forwarding, so the bridge
+  drops it at ingress before detection runs.
+- **`NoLearn` contains the symptom without removing the cause.** It stops the
+  MAC flapping between two ports that a loop causes, but keeps forwarding, so
+  the loop itself is not broken; only `Block` and `Disable` do that. `NoLearn`
+  suits a port an operator wants to keep passing traffic on while diagnosing
+  what is looping.
+- **Not emulated: vendor probe formats, per-VLAN recovery, and carrier loss.**
+  No vendor's on-the-wire probe is reproduced, an applied action covers the
+  whole port rather than recovering independently per VLAN, and a real
+  errdisabled port drops carrier where netsim's blocked port stays
+  operationally up and simply stops learning and forwarding.
+
 ### Route selection and recursive next hops
 
 - **A lookup yields a candidate set, not a single winner.** Routes are ordered

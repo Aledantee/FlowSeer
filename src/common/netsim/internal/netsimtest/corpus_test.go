@@ -576,8 +576,8 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 	r := netsimtest.DefaultRegistry()
 	allCases := r.All()
 
-	if len(allCases) != 25 {
-		t.Fatalf("DefaultRegistry contains %d cases, want 25", len(allCases))
+	if len(allCases) != 26 {
+		t.Fatalf("DefaultRegistry contains %d cases, want 26", len(allCases))
 	}
 
 	for i := 1; i < len(allCases); i++ {
@@ -630,6 +630,7 @@ func TestRegistryDeterministicOrdering(t *testing.T) {
 		"troubleshooting/host-rejects-foreign-unicast",
 		"troubleshooting/leave-last-member-query",
 		"troubleshooting/loop-guard-unidirectional-link",
+		"troubleshooting/loop-protect-contains-access-loop",
 		"troubleshooting/mdns-ipv4-floods-under-snooping",
 		"troubleshooting/mdns-ipv6-unregistered-router-ports",
 		"troubleshooting/recursive-route-not-installed",
