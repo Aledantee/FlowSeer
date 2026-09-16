@@ -333,8 +333,10 @@ func (m *Machine) requireAnyPhase(method string, want ...accessv1.OperationPhase
 // and, only once that delivery succeeds, updates the durable phase. A
 // Deliverer failure leaves Phase() reporting the mutation's last durable
 // value. The record is delivered before the state it describes is
-// published, at every transition and not only at release, so a phase this
-// process reports is one the durable account already carries.
+// published, and not only at release, so a phase this process reports is one
+// the durable account already carries. The move into RECOVERING is the one
+// exception: it retains its record rather than refusing the move — see
+// [Machine.transitionRetainingOwed] for why.
 // commitPhaseLocked writes the phase only if it is still the one the caller
 // read before it released mu. The caller must hold mu.
 //
@@ -397,22 +399,31 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 // at it again. The record is retained instead, on the same terms as the block
 // and the RecoveryStarted that follow it — the poll re-sends what is owed,
 // and the account catches up once the stream takes records again.
+//
+// A move overtaken while its record was being delivered retains nothing and
+// returns no owed error. Only the poll re-sends a retained record, and a
+// stale move starts no poll, so the record would never leave the machine —
+// it would surface only as an audit gap naming a transition that never
+// happened, telling an operator the account is short a record it should not
+// contain.
 func (m *Machine) transitionRetainingOwed(ctx context.Context, to accessv1.OperationPhase) (owed, err error) {
 	m.mu.Lock()
 	from := m.phase
 	m.mu.Unlock()
 
 	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, to)
-	if emitErr := m.deps.Audit.Emit(ctx, event); emitErr != nil {
-		m.retainOwed(event)
-		owed = errs.Wrap(emitErr, "deliver phase transitioned event")
-	}
+	emitErr := m.deps.Audit.Emit(ctx, event)
 
 	m.mu.Lock()
 	committed := m.commitPhaseLocked(from, to)
 	m.mu.Unlock()
 	if !committed {
-		return owed, m.staleTransition()
+		return nil, m.staleTransition()
+	}
+
+	if emitErr != nil {
+		m.retainOwed(event)
+		owed = errs.Wrap(emitErr, "deliver phase transitioned event")
 	}
 
 	return owed, nil
@@ -861,10 +872,11 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 }
 
 // InRecovery reports whether this mutation reached RECOVERING, which is the
-// question a caller asks after EnterRecovering fails: the phase moves only
-// once its own record is delivered, so a failure before that leaves nothing
-// written, and a failure after it leaves a mutation that is in recovery and
-// needs a poll.
+// question a caller asks after EnterRecovering fails. A refusal of any of the
+// three records leaves the mutation in recovery with that record owed, so the
+// failure is one a poll resolves. Only a phase EnterRecovering is not valid
+// from, or a move overtaken by a terminal acknowledgement, leaves it out of
+// recovery with nothing written and nothing scheduled.
 func (m *Machine) InRecovery() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()

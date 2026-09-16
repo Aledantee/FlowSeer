@@ -1677,14 +1677,16 @@ func (l *Lane) enterRecovery(ctx context.Context, ds *deviceState, open *openMut
 	m := open.machine
 	ds.hold.Engage(m.Sequence())
 
-	// A failure here is not one thing. The phase moves only once its own
-	// record is delivered, so a failure at that first step leaves nothing
-	// written and the mutation genuinely is not in recovery: no poll should
-	// run, and failing the caller is the only honest answer.
+	// A failure here is not one thing. Two of them leave the mutation out of
+	// recovery: a phase EnterRecovering is not valid from, and a move
+	// overtaken by a terminal acknowledgement. Neither writes anything, so
+	// there is nothing for a poll to look at and failing the caller is the
+	// only honest answer.
 	//
-	// Past that step the phase is RECOVERING and the block is written,
-	// whatever the audit stream has heard, and the records that did not land
-	// are retained for the poll to re-send. A mutation in that state needs a
+	// A refused record is the other kind, and it is not one of them. The
+	// phase is RECOVERING and the block is written whatever the audit stream
+	// has heard, and the records that did not land are retained for the poll
+	// to re-send. A mutation in that state needs a
 	// poll more than an intact account does — without one it rests
 	// INDETERMINATE forever on a device that may have been written to, and
 	// only an operator ends it. So the poll follows the state, and the

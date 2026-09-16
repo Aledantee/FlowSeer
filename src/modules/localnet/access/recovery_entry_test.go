@@ -272,17 +272,18 @@ func isRecoveringTransition(e *eventv1.DeviceOperationEvent) bool {
 //
 // This is the half TestARefusedRecordCostsTheMutationNeitherItsPollNorItsAccount
 // does not reach. That test refuses the lane-blocked record, which
-// EnterRecovering delivers after the phase has already moved, and the poll
-// follows the state. The phase transition itself is delivered first, under the
-// audit-before-state rule: when it is refused the phase does not move, the
-// mutation genuinely is not in recovery, and enterRecovery returns without
-// starting a poll.
+// EnterRecovering delivers after the phase has already moved. The phase
+// transition itself is delivered first, and it used to be strict: a refused
+// transition left the phase where it was, so the mutation was not in recovery
+// and enterRecovery returned without starting a poll. Nothing came back to it
+// afterwards, and a refusal that lasted a moment cost the mutation its
+// recovery permanently — it rested INDETERMINATE on a device that may have
+// been written to, and only an operator could end it.
 //
-// The rule is right and the poll's absence at that instant is right with it.
-// What is not right is that nothing comes back to it. A refused delivery is
-// transient — the stream takes the record a moment later — but the mutation
-// has already been left with no poll, no retry, and a device that may have
-// been written to.
+// The transition now retains its record and moves the phase, on the same
+// terms as the two records after it. So the two waits below are the two
+// halves of that: a poll runs despite the refusal, and the account is not
+// short the record once the stream takes it again.
 func TestARefusedRecoveryTransitionDoesNotStrandTheMutation(t *testing.T) {
 	var refuseTransition atomic.Bool
 	refuseTransition.Store(true)
@@ -301,12 +302,27 @@ func TestARefusedRecoveryTransitionDoesNotStrandTheMutation(t *testing.T) {
 
 	waitFor(t, 30*time.Second, "the recovery transition to be refused",
 		func() bool { return len(deliverer.refusedIDs()) > 0 })
+	refused := deliverer.refusedIDs()
 
-	// The stream takes records again. From here a mutation that is still
-	// owed its recovery has everything it needs to enter it.
-	refuseTransition.Store(false)
-
+	// The poll is what proves the mutation entered recovery: only this
+	// device's reads move the count, and the mutation's own observation is
+	// already behind it, so the next read can only be a poll's.
 	before := reads.Load()
 	waitFor(t, 60*time.Second, "the device to be read again by a recovery poll",
 		func() bool { return reads.Load() > before })
+
+	// And the account catches up once the stream will take the record.
+	refuseTransition.Store(false)
+	waitFor(t, 60*time.Second, "the refused transition to be redelivered",
+		func() bool { return len(deliverer.acceptedOfKind(isRecoveringTransition)) > 0 })
+
+	accepted := deliverer.acceptedOfKind(isRecoveringTransition)
+	if len(accepted) != 1 {
+		t.Errorf("the stream took %d recovery transitions for one move (%v); a retry that rebuilds the record is a second record",
+			len(accepted), accepted)
+	}
+	if accepted[0] != refused[0] {
+		t.Errorf("the redelivered record carries id %q, want the refused record's %q — the stream deduplicates on that id",
+			accepted[0], refused[0])
+	}
 }

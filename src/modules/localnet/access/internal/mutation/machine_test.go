@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -1116,5 +1117,66 @@ func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
 	}
 	if !m.IsTerminal() {
 		t.Error("IsTerminal() = false for an abandoned mutation")
+	}
+}
+
+// A refused recovery transition leaves the mutation in recovery, holding the
+// record.
+//
+// The lane's own test proves the consequence — a poll runs — but it costs a
+// minute and reaches these facts only through the lane. They are the contract
+// [mutation.Machine.EnterRecovering] owes its caller, and the caller decides
+// whether to start a poll by asking InRecovery() after a non-nil error, so
+// each one is asserted here directly.
+func TestARefusedRecoveryTransitionEntersRecoveryOwingTheRecord(t *testing.T) {
+	deliverer := newFakeDeliverer()
+	deps := baseDeps(deliverer, fakeSubmission())
+	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
+
+	req := mutationRequest(7, "uplink to core")
+	m, err := mutation.Admitted(req, deps)
+	if err != nil {
+		t.Fatalf("Admitted() error: %v", err)
+	}
+	ctx := context.Background()
+	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq.SetSequence(7)
+	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
+		t.Fatalf("Checkpoint() error: %v", err)
+	}
+	if err := m.Execute(ctx); err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+
+	deliverer.failNext = true
+	enterErr := m.EnterRecovering(ctx)
+	if enterErr == nil {
+		t.Fatal("EnterRecovering() returned no error; the refused record is what it owes the caller")
+	}
+
+	if !m.InRecovery() {
+		t.Error("InRecovery() is false; a refused record must not cost the mutation its recovery, or nothing schedules a poll")
+	}
+	if got := m.Phase(); got != accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
+		t.Errorf("Phase() is %v, want RECOVERING", got)
+	}
+
+	// The refused record is the one the poll has to re-send, so it must be
+	// the one the machine is holding — by the id it was built with, since
+	// the stream deduplicates on that.
+	var refusedID string
+	for _, e := range deliverer.events {
+		if e.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_RECOVERING {
+			refusedID = e.GetEventId()
+		}
+	}
+	if refusedID == "" {
+		t.Fatal("no RECOVERING transition was built; the refusal did not happen where this test assumes")
+	}
+	owed := m.OwedRecordIDs()
+	if !slices.Contains(owed, refusedID) {
+		t.Errorf("OwedRecordIDs() is %v, want it to hold the refused transition %q", owed, refusedID)
 	}
 }
