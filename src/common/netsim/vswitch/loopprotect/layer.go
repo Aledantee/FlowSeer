@@ -43,6 +43,24 @@ type FlushTarget struct {
 	FIDs []vlan.ID
 }
 
+// Return describes a probe's arrival back at the switch that sent it.
+type Return struct {
+	// VID is the VLAN the returning frame was classified into.
+	VID vlan.ID
+
+	// SameUntaggedDomain reports that the sending port is an untagged
+	// member of both the VLAN the probe was sent on and VID. IEEE 802.1Q
+	// lets a port untag on egress for many VLANs (a per-VLAN set) while
+	// classifying ingress into exactly one (a per-port PVID scalar), so a
+	// port can be a legitimate untagged member of several VLANs at once
+	// (vendors ship this as "asymmetric VLAN" for a shared uplink). When
+	// that is the case here, the VID difference is explained entirely by
+	// that port's own membership and PVID, not by anything joining the two
+	// VLANs, so it says nothing about an inter-VLAN loop. The switch, which
+	// owns the VLAN configuration this layer does not, computes it.
+	SameUntaggedDomain bool
+}
+
 // PortInfo summarizes the runtime loop-protection status of one port.
 type PortInfo struct {
 	// Action is the action currently applied to the port, or the empty
@@ -50,7 +68,9 @@ type PortInfo struct {
 	Action Action
 
 	// InterVLAN reports whether the most recently returned probe on this
-	// port was classified into a different VLAN than the one it was sent on.
+	// port was classified into a different VLAN than the one it was sent
+	// on, and that difference could not be explained by the sending port's
+	// own untagged VLAN membership (see Return.SameUntaggedDomain).
 	InterVLAN bool
 
 	// Recurrences counts how many times a Timer recovery lifted and a later
@@ -188,24 +208,26 @@ func (l *Layer) PortInfo(portName string) PortInfo {
 
 // Receive processes a probe that returned to this switch, naming this
 // switch's own port as its sender. It applies that port's configured action
-// to that port, marks PortInfo.InterVLAN when the classified vid disagrees
-// with the payload's own VID (an inter-VLAN loop), and advances the
-// recovery timer per the port's recovery mode. A probe naming a port this
-// layer does not track is ignored. The ingress port the probe returned on
-// belongs to the caller's trace step, not to this layer.
+// to that port, marks PortInfo.InterVLAN when the classified VID disagrees
+// with the payload's own VID and that disagreement is not explained by the
+// sending port's own untagged VLAN membership (an inter-VLAN loop; see
+// Return.SameUntaggedDomain), and advances the recovery timer per the
+// port's recovery mode. A probe naming a port this layer does not track is
+// ignored. The ingress port the probe returned on belongs to the caller's
+// trace step, not to this layer.
 //
 // Before evaluating the probe, Receive expires an elapsed Timer or
 // LoopCleared recovery window using the same rule Wake uses, so a probe
 // delivered at or after the window's expiry sees the action as already
 // lifted rather than reading a stale applied state that Wake alone would
 // have caught later.
-func (l *Layer) Receive(now time.Time, vid vlan.ID, p Probe) Effects {
+func (l *Layer) Receive(now time.Time, ret Return, p Probe) Effects {
 	ps, ok := l.ports[p.Port]
 	if !ok {
 		return Effects{}
 	}
 
-	ps.interVLAN = vid != p.VID
+	ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
 
 	if ps.applied && !ps.waitUntil.IsZero() {
 		switch ps.cfg.Recovery.Mode {

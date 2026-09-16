@@ -49,7 +49,7 @@ func Example() {
 	if err != nil {
 		panic(err)
 	}
-	layer.Receive(t0, probe.VID, probe)
+	layer.Receive(t0, loopprotect.Return{VID: probe.VID}, probe)
 
 	fmt.Printf("1/1/1: %s\n", layer.PortInfo("1/1/1").Action)
 	fmt.Printf("1/1/2: %s\n", layer.PortInfo("1/1/2").Action)

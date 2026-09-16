@@ -56,7 +56,7 @@ func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 		t.Fatalf("PortInfo before Receive: Action = %q, want empty", got)
 	}
 
-	l.Receive(t0, 10, returnedProbe("1/1/1", 10))
+	l.Receive(t0, loopprotect.Return{VID: 10}, returnedProbe("1/1/1", 10))
 
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Errorf("PortInfo after Receive: Action = %q, want %q", got, loopprotect.Block)
@@ -83,16 +83,16 @@ func TestRecoveryLoopCleared(t *testing.T) {
 	t0 := time.Unix(1_700_000_000, 0)
 
 	// Applied at t0.
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after first Receive = %q, want Block", got)
 	}
 
 	// A probe keeps returning at t+5s and t+10s, restarting the wait each time.
 	l.Wake(t0.Add(5 * time.Second))
-	l.Receive(t0.Add(5*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	l.Wake(t0.Add(10 * time.Second))
-	l.Receive(t0.Add(10*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(10*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	// Cable fault just before t+15s and t+20s: no more returned probes after
 	// the one at t+10s. The wait, restarted at t+10s, elapses at t+25s, not
@@ -131,15 +131,15 @@ func TestRecoveryTimer(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after first Receive = %q, want Block", got)
 	}
 
 	// The loop is still cabled: probes keep returning, but Timer takes no
 	// notice and lifts unconditionally at t+15s.
-	l.Receive(t0.Add(5*time.Second), 0, returnedProbe("1/1/1", 0))
-	l.Receive(t0.Add(10*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(10*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	l.Wake(t0.Add(15 * time.Second))
 	if got := l.PortInfo("1/1/1").Action; got != "" {
@@ -150,7 +150,7 @@ func TestRecoveryTimer(t *testing.T) {
 	}
 
 	// The next returned probe reapplies the action.
-	l.Receive(t0.Add(16*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(16*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after reapplication = %q, want Block", got)
 	}
@@ -183,14 +183,14 @@ func TestReceiveExpiresElapsedTimerWindowBeforeApplying(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after first Receive = %q, want Block", got)
 	}
 
 	// A probe returns at exactly t0+15s, the instant the window elapses,
 	// with no Wake call in between.
-	l.Receive(t0.Add(15*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(15*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action at exact expiry = %q, want still Block (reapplied)", got)
@@ -222,7 +222,7 @@ func TestClearResetsRecurrenceTracking(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after first Receive = %q, want Block", got)
 	}
@@ -233,7 +233,7 @@ func TestClearResetsRecurrenceTracking(t *testing.T) {
 
 	// The loop is still cabled: the very next returned probe reapplies the
 	// action.
-	l.Receive(t0.Add(2*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(2*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after reapplication = %q, want Block", got)
 	}
@@ -260,7 +260,7 @@ func TestReceiveFlushesOnTransitionIntoDenyingAction(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	fx := l.Receive(t0, 0, returnedProbe("block", 0))
+	fx := l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("block", 0))
 	if len(fx.Flush) != 1 {
 		t.Fatalf("Flush on transition = %d targets, want 1: %+v", len(fx.Flush), fx.Flush)
 	}
@@ -268,7 +268,7 @@ func TestReceiveFlushesOnTransitionIntoDenyingAction(t *testing.T) {
 		t.Errorf("Flush target = %+v, want {Port: block, FIDs: nil}", fx.Flush[0])
 	}
 
-	fx = l.Receive(t0.Add(time.Second), 0, returnedProbe("block", 0))
+	fx = l.Receive(t0.Add(time.Second), loopprotect.Return{VID: 0}, returnedProbe("block", 0))
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush on repeat probe = %d targets, want 0: %+v", len(fx.Flush), fx.Flush)
 	}
@@ -291,7 +291,7 @@ func TestReceiveNoLearnNeverFlushes(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	fx := l.Receive(t0, 0, returnedProbe("nolearn", 0))
+	fx := l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("nolearn", 0))
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush for NoLearn = %d targets, want 0: %+v", len(fx.Flush), fx.Flush)
 	}
@@ -329,7 +329,7 @@ func TestRecoveryManual(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after Receive = %q, want Block", got)
 	}
@@ -369,7 +369,7 @@ func TestRecoveryManualClearedByClear(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Fatalf("Action after Receive = %q, want Block", got)
 	}
@@ -436,7 +436,7 @@ func TestInterVLAN(t *testing.T) {
 	t0 := time.Unix(1_700_000_000, 0)
 
 	probe := loopprotect.Probe{OriginMAC: switchMAC, VID: 10, Sequence: 1, Port: "1/1/1"}
-	l.Receive(t0, 20, probe)
+	l.Receive(t0, loopprotect.Return{VID: 20}, probe)
 
 	if got := l.PortInfo("1/1/1").InterVLAN; !got {
 		t.Errorf("InterVLAN = %v, want true", got)
@@ -459,7 +459,7 @@ func TestInterVLANFalseWhenMatching(t *testing.T) {
 	t0 := time.Unix(1_700_000_000, 0)
 
 	probe := loopprotect.Probe{OriginMAC: switchMAC, VID: 10, Sequence: 1, Port: "1/1/1"}
-	l.Receive(t0, 10, probe)
+	l.Receive(t0, loopprotect.Return{VID: 10}, probe)
 
 	if got := l.PortInfo("1/1/1").InterVLAN; got {
 		t.Errorf("InterVLAN = %v, want false", got)
@@ -522,7 +522,7 @@ func TestWakeStopsProbingOnceDisableIsApplied(t *testing.T) {
 		t.Fatalf("Wake() before the action is applied emitted %d frames, want 1", len(fx.Emissions))
 	}
 
-	l.Receive(t0.Add(5*time.Second), 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0.Add(5*time.Second), loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Disable {
 		t.Fatalf("Action after Receive = %q, want Disable", got)
 	}
@@ -662,9 +662,9 @@ func TestGateForEachAction(t *testing.T) {
 		})
 	}
 
-	l.Receive(t0, 0, returnedProbe("block", 0))
-	l.Receive(t0, 0, returnedProbe("nolearn", 0))
-	l.Receive(t0, 0, returnedProbe("disable", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("block", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("nolearn", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("disable", 0))
 
 	applied := []struct {
 		name         string
@@ -704,9 +704,9 @@ func TestForwardingFactPerDenial(t *testing.T) {
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Receive(t0, 0, returnedProbe("block", 0))
-	l.Receive(t0, 0, returnedProbe("nolearn", 0))
-	l.Receive(t0, 0, returnedProbe("disable", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("block", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("nolearn", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("disable", 0))
 
 	seen := map[string]bool{}
 	for _, name := range []string{"block", "nolearn", "disable"} {
@@ -744,8 +744,8 @@ func TestBlockedPortKeepsProbingDisabledDoesNot(t *testing.T) {
 
 	t0 := time.Unix(1_700_000_000, 0)
 	l.Wake(t0)
-	l.Receive(t0, 0, returnedProbe("block", 0))
-	l.Receive(t0, 0, returnedProbe("disable", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("block", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("disable", 0))
 
 	if got := l.PortInfo("block").Action; got != loopprotect.Block {
 		t.Fatalf("block port Action = %q, want Block", got)
@@ -784,7 +784,7 @@ func TestCloneIndependence(t *testing.T) {
 	}
 
 	t0 := time.Unix(1_700_000_000, 0)
-	l.Receive(t0, 0, returnedProbe("1/1/1", 0))
+	l.Receive(t0, loopprotect.Return{VID: 0}, returnedProbe("1/1/1", 0))
 
 	cp := l.Clone()
 	cp.Clear(t0, "1/1/1")
@@ -813,7 +813,7 @@ func TestReceiveIgnoresUntrackedPort(t *testing.T) {
 	t0 := time.Unix(1_700_000_000, 0)
 	probe := loopprotect.Probe{OriginMAC: switchMAC, VID: 0, Sequence: 1, Port: "not-protected"}
 
-	fx := l.Receive(t0, 0, probe)
+	fx := l.Receive(t0, loopprotect.Return{VID: 0}, probe)
 	if len(fx.Emissions) != 0 {
 		t.Errorf("Receive for untracked port emitted %d frames, want 0", len(fx.Emissions))
 	}
