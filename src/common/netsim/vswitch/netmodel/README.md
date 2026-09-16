@@ -165,9 +165,16 @@ LAG interface loaded alongside it and the encapsulation is exactly one
 `ETHER_TYPE_DOT1Q` tag whose VID is a usable IEEE 802.1Q identifier (1 through
 4094). It contributes no port-table entry of its own, since it is not a port,
 and an IP facet on it counts toward the same routed-interface capability flag
-a VLAN interface or a routed port would set. Any other encapsulation, an
-absent one included, raises `netmodel.routing.unsupported_encapsulation` on
-the parent port's lookup scope and leaves the interface out of the VRF; a
-parent that is absent from the load or is not itself a physical or LAG
-interface keeps raising `netmodel.routing.unsupported_interface_kind` on that
-same scope.
+a VLAN interface or a routed port would set. A parent's own switchport facet
+is skipped from the bridge switchport table on the same footing as a directly
+routed port, even when the parent carries no IP facet of its own.
+
+Any other encapsulation, an absent one included, raises
+`netmodel.routing.unsupported_encapsulation` on the parent port's lookup
+scope and leaves the interface out of the VRF; a parent that is absent from
+the load, is not itself a physical or LAG interface, or is itself a LAG
+member, keeps raising `netmodel.routing.unsupported_interface_kind` on that
+same scope. Two sub-interfaces naming the same parent and VID is a device
+reporting the same claim twice: the first loads and the second is recorded
+as a conflict rather than reaching the VRF, where routing validation would
+otherwise refuse the duplicate claim and fail the whole load.
