@@ -654,11 +654,16 @@ func (l *Layer) Clone() *Layer {
 }
 
 // Learns reports whether the named port learns MAC addresses into the filtering
-// database for the given VLAN. An untracked port always learns. While the bridge
-// runs one tree every VLAN answers alike; the parameter is what lets that stop
-// being true without moving the seam again.
+// database for the given VLAN. An untracked port always learns, and so does a
+// VLAN with no tree of its own under PVST: the gate this feeds has no reason
+// to hold a VLAN's traffic back for a tree that was never asked to run it.
 func (l *Layer) Learns(port string, vid vlan.ID) bool {
-	p, ok := l.treeFor(vid).ports[port]
+	t, ok := l.treeFor(vid)
+	if !ok {
+		return true
+	}
+
+	p, ok := t.ports[port]
 	if !ok {
 		return true
 	}
@@ -667,9 +672,15 @@ func (l *Layer) Learns(port string, vid vlan.ID) bool {
 }
 
 // Forwards reports whether the named port forwards traffic carrying the given
-// VLAN. An untracked port always forwards.
+// VLAN. An untracked port always forwards, and so does a VLAN with no tree of
+// its own under PVST, for the same reason Learns does.
 func (l *Layer) Forwards(port string, vid vlan.ID) bool {
-	p, ok := l.treeFor(vid).ports[port]
+	t, ok := l.treeFor(vid)
+	if !ok {
+		return true
+	}
+
+	p, ok := t.ports[port]
 	if !ok {
 		return true
 	}
@@ -741,9 +752,25 @@ func (l *Layer) InstancePortInfo(mstid MSTID, port string) PortInfo {
 // VLANPortInfo returns runtime spanning tree information for the named port
 // within the tree that carries the given VLAN. On a bridge running one tree
 // every VLAN answers alike, which is what makes this usable as the per-VLAN
-// view in every mode; PVST is what makes the VLANs diverge.
+// view in every mode; PVST is what makes the VLANs diverge. It returns a zero
+// value when the VLAN has no tree of its own, which is also what
+// InstancePortInfo answers for an unknown MSTID.
 func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
-	return l.portInfo(l.treeFor(vid), port)
+	t, ok := l.treeFor(vid)
+	if !ok {
+		return PortInfo{}
+	}
+
+	return l.portInfo(t, port)
+}
+
+// TracksVLAN reports whether the layer runs a spanning tree for the given
+// VLAN. Outside PVST mode this is always true, since the CIST carries every
+// VLAN; under PVST it is true only for a VLAN with its own tree.
+func (l *Layer) TracksVLAN(vid vlan.ID) bool {
+	_, ok := l.treeFor(vid)
+
+	return ok
 }
 
 // PVSTBoundary reports whether the named port faces a neighbor whose
@@ -2022,7 +2049,11 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrivalVID, tlvVID vlan.
 	// copy of, and the tree this BPDU belongs to is about to read them.
 	l.syncInstancePorts(port, cistP)
 
-	t := l.treeFor(arrivalVID)
+	t, ok := l.treeFor(arrivalVID)
+	if !ok {
+		return Effects{Emissions: emissions, Flush: flushes}
+	}
+
 	p, ok := t.ports[port]
 	if !ok {
 		return Effects{Emissions: emissions, Flush: flushes}

@@ -76,15 +76,21 @@ func (l *Layer) cist() *tree {
 	return l.trees[cistID]
 }
 
-// treeFor returns the tree that carries the given VLAN. Every VLAN maps to the
-// CIST while the bridge runs one tree, so the map is empty and the fallback
-// answers; MSTP and PVST are what fill it. A PVST bridge built through New
-// carries a tree for every VLAN in its bridge table, so the fallback there is
-// reached only by a Layer assembled directly in a test.
-func (l *Layer) treeFor(vid vlan.ID) *tree {
+// treeFor returns the tree that carries the given VLAN, and whether one does.
+// Outside PVST mode every VLAN maps to the CIST, since the bridge runs one
+// tree for all of them, so the answer is always (CIST, true). Inside PVST
+// mode the CIST is VLAN 1's tree and nothing else's: a VLAN with no entry in
+// vidToTree has no tree on this bridge, and treeFor says so rather than
+// answering with VLAN 1's, which a caller could otherwise mistake for that
+// VLAN's own state.
+func (l *Layer) treeFor(vid vlan.ID) (*tree, bool) {
 	if id, ok := l.vidToTree[vid]; ok {
-		return l.trees[id]
+		return l.trees[id], true
 	}
 
-	return l.cist()
+	if l.pvst != nil {
+		return nil, false
+	}
+
+	return l.cist(), true
 }

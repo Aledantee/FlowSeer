@@ -2653,3 +2653,34 @@ func TestPVSTAlreadyEmittedCheckIsPerVLAN(t *testing.T) {
 		t.Errorf("Mcheck emissions on l1 = %v, want them to include %q: VLAN 20's own reconvergence emission on l1 must not suppress the CIST's migration proposal", got, want)
 	}
 }
+
+// TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST pins both halves of R2: a
+// PVST layer with no tree for VLAN 30 answers the zero PortInfo and says it
+// does not track the VLAN, while an RSTP layer, which runs no PVST tree
+// table at all, still answers VLAN 30 with the CIST's own state because the
+// CIST carries every VLAN there.
+func TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST(t *testing.T) {
+	t.Parallel()
+
+	pvst := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
+	if got := pvst.VLANPortInfo(30, "l1"); got != (stp.PortInfo{}) {
+		t.Errorf("PVST VLANPortInfo(30, l1) = %+v, want the zero PortInfo: VLAN 30 has no tree", got)
+	}
+	if pvst.TracksVLAN(30) {
+		t.Error("PVST TracksVLAN(30) = true, want false: VLAN 30 has no tree")
+	}
+
+	rstp := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"l1": {}},
+	}, mustPortTable(t, "l1"))
+
+	want := rstp.PortInfo("l1")
+	if got := rstp.VLANPortInfo(30, "l1"); got != want {
+		t.Errorf("RSTP VLANPortInfo(30, l1) = %+v, want the CIST's %+v: outside PVST every VLAN maps to the CIST", got, want)
+	}
+	if !rstp.TracksVLAN(30) {
+		t.Error("RSTP TracksVLAN(30) = false, want true: outside PVST the CIST carries every VLAN")
+	}
+}
