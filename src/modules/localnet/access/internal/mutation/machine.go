@@ -385,6 +385,39 @@ func (m *Machine) transition(ctx context.Context, to accessv1.OperationPhase) er
 	return nil
 }
 
+// transitionRetainingOwed is [Machine.transition] for a move that has to
+// happen whether or not its own record lands, returning the delivery failure
+// separately from a failure of the move itself.
+//
+// [Machine.transition] returns on a refused delivery and leaves the phase
+// where it was, which is right wherever a caller can still decline to act.
+// Entering recovery is not such a place: the caller has already engaged the
+// device's hold, and a mutation left un-recovered there rests INDETERMINATE
+// on a device that may have been written to, with nothing scheduled to look
+// at it again. The record is retained instead, on the same terms as the block
+// and the RecoveryStarted that follow it — the poll re-sends what is owed,
+// and the account catches up once the stream takes records again.
+func (m *Machine) transitionRetainingOwed(ctx context.Context, to accessv1.OperationPhase) (owed, err error) {
+	m.mu.Lock()
+	from := m.phase
+	m.mu.Unlock()
+
+	event := audit.BuildPhaseTransitioned(m.deps.Clock, m.common(ctx), from, to)
+	if emitErr := m.deps.Audit.Emit(ctx, event); emitErr != nil {
+		m.retainOwed(event)
+		owed = errs.Wrap(emitErr, "deliver phase transitioned event")
+	}
+
+	m.mu.Lock()
+	committed := m.commitPhaseLocked(from, to)
+	m.mu.Unlock()
+	if !committed {
+		return owed, m.staleTransition()
+	}
+
+	return owed, nil
+}
+
 // transitionWithDisposition is [Machine.transition] for a move that also
 // settles the mutation's outcome. Phase and disposition are written in one
 // critical section because MutationState.disposition_matches_phase is an
@@ -787,11 +820,15 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	); err != nil {
 		return err
 	}
-	// The phase moves only if its own record was delivered, which is
-	// the audit-before-state rule, and is why a failure here leaves nothing written:
-	// the mutation is not in recovery and a caller must not treat it as if
-	// it were.
-	if err := m.transition(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING); err != nil {
+	// The move happens even when its record does not land, and the record is
+	// retained. The audit-before-state rule holds everywhere a caller can
+	// still choose not to act; here the hold is already engaged, and a
+	// mutation that fails to enter recovery keeps neither a poll nor a
+	// retry — it simply rests INDETERMINATE until an operator ends it. A
+	// refused delivery is transient and that outcome is not, so the record
+	// waits for the poll rather than the mutation waiting for the record.
+	owedTransition, err := m.transitionRetainingOwed(ctx, accessv1.OperationPhase_OPERATION_PHASE_RECOVERING)
+	if err != nil {
 		return err
 	}
 
@@ -809,9 +846,9 @@ func (m *Machine) EnterRecovering(ctx context.Context) error {
 	// is real either way; returning here instead would leave a mutation that
 	// is blocked, in recovery, and has nobody scheduled to look at it — see
 	// the caller.
-	var owed error
+	owed := owedTransition
 	if err := m.block(ctx, accessv1.BlockReason_BLOCK_REASON_INDETERMINATE); err != nil {
-		owed = err
+		owed = errors.Join(owed, err)
 	}
 
 	m.deps.Telemetry.RecoveryStarted(ctx)
