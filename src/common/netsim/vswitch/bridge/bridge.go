@@ -763,7 +763,8 @@ func (b *Bridge) Ingress(now time.Time, ingress string, f ethernet.Frame, learn,
 	// fact names the gate that alone accounts for that; when no single gate
 	// denies both, the forwards-only drop further down needs the first gate
 	// that denied forwarding. When every gate allows, this is unused, but the
-	// first non-nil gate's fact matches what a single-gate bridge recorded.
+	// first non-nil gate's fact is the one attributable fact: with one gate
+	// configured, that gate's own.
 	ingressGate := denyBoth
 	if ingressGate == nil {
 		ingressGate = denyForwards
@@ -1367,8 +1368,8 @@ func (b *Bridge) replicate(
 }
 
 // gateFact takes the deciding gate as a parameter rather than reading a
-// field, since the bridge now consults more than one gate and must attribute
-// a fact to whichever one decided.
+// field, since the bridge consults more than one gate and must attribute a
+// fact to whichever one decided.
 func (b *Bridge) gateFact(gate Gate, name string, vid vlan.ID, learns, forwards bool) trace.Fact {
 	sg, ok := gate.(semanticGate)
 	if !ok {
