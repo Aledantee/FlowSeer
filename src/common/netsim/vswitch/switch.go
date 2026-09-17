@@ -977,7 +977,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	// Discovery frame still takes its ordinary path below, unlike the
 	// multicast control redirect at forwardMulticastControl, so a switch
 	// that swallowed an ARP broadcast would not break the resolution it is
-	// modelling. mutate gates the write the way it gates every other
+	// modeling. mutate gates the write the way it gates every other
 	// mutation on this path, so Peek never observes.
 	if mutate && s.routing != nil {
 		if f.EtherType == ethernet.EtherTypeARP {

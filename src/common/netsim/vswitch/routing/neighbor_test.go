@@ -58,7 +58,7 @@ func routeToV6(t *testing.T, l *routing.Layer, now time.Time, dst netip.Addr, pa
 		Src:       lifecycleHostMAC,
 		Dst:       lifecycleDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv6,
-		Payload:   encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), dst, 64, payload),
+		Payload:   encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), dst, payload),
 	}
 	return l.Route(now, "vlan10", frame, commit)
 }

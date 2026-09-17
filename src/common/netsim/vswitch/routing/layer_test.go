@@ -76,12 +76,15 @@ func encodeIPv4Packet(t *testing.T, src, dst netip.Addr, hopLimit uint8, payload
 	return b
 }
 
-func encodeIPv6Packet(t *testing.T, src, dst netip.Addr, hopLimit uint8, payload []byte) []byte {
+// encodeIPv6Packet fixes the hop limit at 64, unlike encodeIPv4Packet: hop
+// limit expiry is exercised over IPv4 only, and the routing layer decrements
+// both families in the same code path.
+func encodeIPv6Packet(t *testing.T, src, dst netip.Addr, payload []byte) []byte {
 	t.Helper()
 	hdr := ip.Header{
 		Src:      src,
 		Dst:      dst,
-		HopLimit: hopLimit,
+		HopLimit: 64,
 		Protocol: 17, // UDP
 		V6:       &ip.V6{},
 	}
@@ -427,7 +430,7 @@ func TestRouteIPv6(t *testing.T) {
 	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
-	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("ipv6 data"))
+	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), []byte("ipv6 data"))
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
 		Dst:       deviceMAC,
@@ -452,7 +455,7 @@ func TestRouteIPv6(t *testing.T) {
 	}
 
 	// Unrouted IPv6 prefix.
-	unroutedPkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:30::7"), 64, []byte("ipv6 data"))
+	unroutedPkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:30::7"), []byte("ipv6 data"))
 	unroutedFrame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
 		Dst:       deviceMAC,
@@ -1061,7 +1064,7 @@ func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 	l := mustNewRouting(t, standardSwitchConfig())
 	deviceMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
 
-	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("ipv6 data"))
+	pkt := encodeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), []byte("ipv6 data"))
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
 		Dst:       deviceMAC,
