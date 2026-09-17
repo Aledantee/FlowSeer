@@ -327,6 +327,10 @@ func TestRouteNeighborLifecycle(t *testing.T) {
 		if first.Reason != routing.ReasonNeighborPending || second.Reason != routing.ReasonNeighborPending {
 			t.Fatalf("reasons = %q, %q, want both %q", first.Reason, second.Reason, routing.ReasonNeighborPending)
 		}
+		// If either peek had created an entry, NextWake would name its resolution deadline.
+		if _, ok := l.NextWake(); ok {
+			t.Fatal("NextWake reports a timer after two peeks, want none: a peek must not create an entry")
+		}
 		// If either peek had created an entry or queued a frame, Wake would report it.
 		eff := l.Wake(testNow.Add(time.Hour))
 		if len(eff.Failed) != 0 || len(eff.Released) != 0 {

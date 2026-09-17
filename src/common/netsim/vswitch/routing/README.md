@@ -272,7 +272,8 @@ section describes when a lookup lands on which of the two.
 ## Neighbor lifecycle
 
 A neighbor entry occupies one of five states: `Unobserved` (no entry — the
-zero value, not a state a lookup ever reports as such), `Incomplete`,
+zero value; under `NeighborDisabled`, a lookup that finds nothing reports it
+directly, rendered by the trace as an empty `state`), `Incomplete`,
 `Reachable`, `Stale`, and `Failed`. The set is RFC 4861 section 7.3.2's IPv6
 state machine, which netsim also runs for ARP: Linux keeps one neighbour table
 for both families, and inventing a second vocabulary for IPv4 would buy

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -339,7 +340,8 @@ func TestObserveWithNoEntryChangesNothing(t *testing.T) {
 
 // TestHoldQueueDropsOldestAtDepth is RFC 4861 section 7.2.2: "When a queue overflows, the new
 // arrival SHOULD replace the oldest entry." At HoldDepth 3, four queued frames release as
-// frames two through four in arrival order.
+// frames two through four in arrival order, and the evicted first frame is reported failed
+// rather than dropped without a trace (finding 3).
 func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 3})
@@ -355,8 +357,11 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	eff := l.Wake(testNow)
-	if len(eff.Failed) != 0 {
-		t.Fatalf("failed = %+v, want none", eff.Failed)
+	if len(eff.Failed) != 1 {
+		t.Fatalf("failed = %+v, want 1 (frame 1, the one appendHeld evicted)", eff.Failed)
+	}
+	if got := lastPayloadByte(t, eff.Failed[0].Frame); got != 1 {
+		t.Errorf("failed[0] payload marker = %d, want 1", got)
 	}
 	if len(eff.Released) != 3 {
 		t.Fatalf("released = %d frames, want 3", len(eff.Released))
@@ -486,6 +491,167 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	cloneRes := routeToV4(t, clone, testNow, lifecycleDstV4, []byte("data"), true)
 	if cloneRes.Reason != "" || cloneRes.Frame.Dst != mac {
 		t.Errorf("clone reason = %q, dst = %s, want resolved to %s", cloneRes.Reason, cloneRes.Frame.Dst, mac)
+	}
+}
+
+// TestWakeReleasesInDeterministicOrder is finding 1: Wake ranges l.vrfs and a VRF's neighbors,
+// both Go maps, so without a sort the release order varies run to run. Two next hops on one VRF,
+// each holding one frame and resolved together, must release in (iface, addr) order every time.
+func TestWakeReleasesInDeterministicOrder(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+
+	addr98 := netip.MustParseAddr("10.0.10.98")
+	addr99 := netip.MustParseAddr("10.0.10.99")
+
+	if res := routeToV4(t, l, testNow, addr98, []byte{98}, true); res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("addr98 reason = %q, want pending", res.Reason)
+	}
+	if res := routeToV4(t, l, testNow, addr99, []byte{99}, true); res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("addr99 reason = %q, want pending", res.Reason)
+	}
+
+	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x20}
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+
+	eff := l.Wake(testNow)
+	if len(eff.Released) != 2 {
+		t.Fatalf("released = %d frames, want 2", len(eff.Released))
+	}
+	if got := lastPayloadByte(t, eff.Released[0].Frame); got != 98 {
+		t.Errorf("released[0] payload marker = %d, want 98 (10.0.10.98 sorts before 10.0.10.99)", got)
+	}
+	if got := lastPayloadByte(t, eff.Released[1].Frame); got != 99 {
+		t.Errorf("released[1] payload marker = %d, want 99", got)
+	}
+}
+
+// TestDiscardHeldThenWakePastDeadlineFailsTheEntry is finding 2: the queue-emptiness guard in
+// Wake used to sit above the Incomplete-expiry check, so an entry DiscardHeld emptied never
+// reached Failed and NextWake kept naming a deadline that would never arrive. DiscardHeld and
+// NextWake had no test in this package before this one.
+func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
+
+	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	if res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason = %q, want pending", res.Reason)
+	}
+	if _, ok := l.NextWake(); !ok {
+		t.Fatal("NextWake reports no timer before DiscardHeld, want one")
+	}
+
+	l.DiscardHeld()
+
+	// DiscardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
+	after := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), false)
+	if after.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason after DiscardHeld = %q, want still pending", after.Reason)
+	}
+
+	eff := l.Wake(testNow.Add(time.Second))
+	if len(eff.Failed) != 0 || len(eff.Released) != 0 {
+		t.Fatalf("effects = %+v, want none: DiscardHeld left no frames to report", eff)
+	}
+	if _, ok := l.NextWake(); ok {
+		t.Error("NextWake still reports a timer once the entry failed, want none")
+	}
+
+	final := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true)
+	if final.Reason != routing.ReasonNeighborMiss {
+		t.Fatalf("reason = %q, want %q (the entry reached Failed on its own)", final.Reason, routing.ReasonNeighborMiss)
+	}
+	wantState(t, final, "failed")
+}
+
+// TestOriginatePendingResolutionKeepsHopLimit64 is finding 4: finishHeld used to decrement the
+// hop limit of every held frame, but Originate's direct (non-held) path never decrements, so a
+// datagram queued while its neighbor resolved left one hop limit lower than an identical one that
+// resolved immediately. Originate's doc comment promises hop limit 64.
+func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+
+	res := l.Originate(testNow, routing.DefaultVRF, lifecycleDstV4, 17, []byte("data"), true)
+	if res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason = %q, want pending", res.Reason)
+	}
+
+	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x21}
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+
+	eff := l.Wake(testNow)
+	if len(eff.Released) != 1 {
+		t.Fatalf("released = %d frames, want 1", len(eff.Released))
+	}
+	if eff.Released[0].Frame.Dst != mac {
+		t.Fatalf("released dst = %s, want %s", eff.Released[0].Frame.Dst, mac)
+	}
+	hdr, _, err := ip.Decode(eff.Released[0].Frame.Payload)
+	if err != nil {
+		// ip.Decode itself verifies the header checksum and errors on a mismatch, so a
+		// successful decode is also evidence the checksum matches.
+		t.Fatalf("decode released frame payload: %v", err)
+	}
+	if hdr.HopLimit != 64 {
+		t.Errorf("hop limit = %d, want 64", hdr.HopLimit)
+	}
+}
+
+// TestObserveDoesNotOverwriteConfiguredBinding is finding 6: a configured binding must never
+// adopt an observed MAC or gain an expiry. Without the origin check, a solicited, overriding
+// advertisement moves a configured entry to Reachable with an expiry, and aging past it demotes
+// the binding to Stale even though config.go documents that a static binding never ages out.
+func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
+	t.Parallel()
+	configuredMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
+	observedMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x30}
+
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{ReachableTime: 30 * time.Second})
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Neighbors = []routing.Neighbor{{Interface: "vlan10", Addr: lifecycleDstV4, MAC: configuredMAC}}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+	l := mustNewRouting(t, cfg)
+
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
+
+	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	if res.Frame.Dst != configuredMAC {
+		t.Errorf("frame dst = %s, want the unchanged configured MAC %s", res.Frame.Dst, configuredMAC)
+	}
+	wantState(t, res, "reachable")
+
+	// A configured entry was never given an expiry, so aging well past the policy's
+	// ReachableTime must not move it to Stale.
+	l.Age(testNow.Add(time.Hour))
+	after := routeToV4(t, l, testNow.Add(time.Hour), lifecycleDstV4, []byte("data"), true)
+	wantState(t, after, "reachable")
+	if after.Frame.Dst != configuredMAC {
+		t.Errorf("frame dst after Age = %s, want %s", after.Frame.Dst, configuredMAC)
+	}
+}
+
+// TestAgeMovesReachableToStaleAfterReachableTime is Layer.Age's first behavioral test in this
+// package, and so also the first test that exercises NeighborPolicy.ReachableTime: deleting the
+// expiry assignment from both Observe branches leaves every existing test passing.
+func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ReachableTime: 30 * time.Second})
+	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+
+	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x31}
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+
+	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	wantState(t, res, "reachable")
+
+	l.Age(testNow.Add(30 * time.Second))
+	after := routeToV4(t, l, testNow.Add(30*time.Second), lifecycleDstV4, []byte("data"), true)
+	wantState(t, after, "stale")
+	if after.Frame.Dst != mac {
+		t.Errorf("frame dst = %s, want %s (a Stale entry still forwards on its cached MAC)", after.Frame.Dst, mac)
 	}
 }
 

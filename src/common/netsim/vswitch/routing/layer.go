@@ -810,7 +810,11 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
 	lookup := vrf.resolveNeighbor(now, key, commit, func() heldEntry {
-		return heldEntry{iface: targetIface, etherType: f.EtherType, header: hdr, payload: payload}
+		// Queued in the egress form the direct path below builds too, so finishHeld need not
+		// (and must not) decrement it again once resolution completes.
+		heldHdr := hdr
+		heldHdr.HopLimit--
+		return heldEntry{iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload}
 	})
 
 	if lookup.state == NeighborIncomplete {
@@ -990,6 +994,9 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
 	lookup := vrfState.resolveNeighbor(now, key, commit, func() heldEntry {
+		// hdr's hop limit is already 64, the egress form Originate's direct path below encodes
+		// unchanged, so nothing is decremented before queuing (contrast Route's closure, which
+		// decrements here because its direct path does too).
 		return heldEntry{iface: targetIface, etherType: etherType, header: hdr, payload: payload}
 	})
 

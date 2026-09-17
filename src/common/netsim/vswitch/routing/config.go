@@ -510,6 +510,13 @@ func (c Config) Validate(ports port.Table) error {
 					Attr("field", "vrfs."+vrfName+".neighbor_policy.resolution_timeout").
 					Msgf("VRF %q neighbor policy resolution timeout cannot be negative under NeighborObserved", vrfName)
 			}
+			if policy.ReachableTime < 0 {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("reachable_time", policy.ReachableTime).
+					Attr("field", "vrfs."+vrfName+".neighbor_policy.reachable_time").
+					Msgf("VRF %q neighbor policy reachable time cannot be negative under NeighborObserved", vrfName)
+			}
 		}
 	}
 
