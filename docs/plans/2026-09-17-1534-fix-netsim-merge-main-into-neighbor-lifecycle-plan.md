@@ -4,11 +4,13 @@ type: fix
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Merge main's sub-interfaces and reflector into the neighbor lifecycle branch - Plan
+
+> Implemented. 4 units, 2026-09-17T13:58Z to 2026-09-17T14:10Z.
 
 ## Goal
 

@@ -781,6 +781,155 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 	}
 }
 
+// TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost is the whole-fabric
+// counterpart of the switch's sub-interface release: a packet held for a
+// neighbor behind a sub-interface reaches the host once that host answers, and
+// reaches it tagged. The switch keeps its own hold queue, so nothing here is a
+// second copy of that test — what it adds is the wire on either side of the
+// switch, where a frame released untagged, or flooded onto a bridge, would
+// never arrive at a host that only accepts its own VLAN.
+func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "eth3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	vid10 := vlan.ID(10)
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
+	addrH1 := netip.MustParseAddr("10.0.30.7")
+	addrH2 := netip.MustParseAddr("10.0.10.7")
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   swMAC,
+				Ports: ports,
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"eth1.10": {Port: "eth1", VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+								"eth3":    {Port: "eth3", MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+							},
+							// No neighbor for h2: the reply below is the only
+							// thing that resolves it.
+						},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.30.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.30.1"): swMAC},
+				},
+			},
+			"h2": {Address: macH2, VLAN: &vid10},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "eth3"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "eth1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{To: addrH2, Protocol: 17, Payload: []byte("ping")},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	msg := arp.Message{
+		HardwareType: 1,
+		ProtocolType: 0x0800,
+		Operation:    arp.Reply,
+		SenderMAC:    macH2,
+		SenderAddr:   addrH2,
+		TargetMAC:    swMAC,
+		TargetAddr:   netip.MustParseAddr("10.0.10.1"),
+	}
+	replyFrame, err := arp.Encode(msg, swMAC)
+	if err != nil {
+		t.Fatalf("encode ARP reply: %v", err)
+	}
+
+	// h2 carries a VLAN tag form, so the fabric stamps VID 10 on what it sends,
+	// which is the only tag that names eth1.10 on the parent port.
+	replyID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start.Add(time.Second),
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame:  replyFrame,
+	})
+	if err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+
+	fab.Run(20)
+
+	heldJourney := findJourney(t, fab, heldID)
+	if len(heldJourney.Entries) == 0 {
+		t.Fatalf("held journey has no entries")
+	}
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	}
+
+	var released *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID || j.FrameID == replyID {
+			continue
+		}
+		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+			jj := j
+			released = &jj
+			break
+		}
+	}
+	if released == nil {
+		t.Fatalf("no released journey delivered to h2 among: %+v", fab.Report())
+	}
+
+	wantTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
+	if got := released.Deliveries[0].Frame.Tags; len(got) != 1 || got[0] != wantTag {
+		t.Errorf("delivered tags = %+v, want [%+v]", got, wantTag)
+	}
+	hdr, _, err := ip.Decode(released.Deliveries[0].Frame.Payload)
+	if err != nil {
+		t.Fatalf("decode delivered IP payload: %v", err)
+	}
+	if hdr.Src != addrH1 || hdr.Dst != addrH2 {
+		t.Errorf("delivered src/dst = %s/%s, want %s/%s", hdr.Src, hdr.Dst, addrH1, addrH2)
+	}
+
+	snap := fab.Snapshot()
+	if got := snap.Devices["sw1"].Counters["eth1"].OutUnicast; got == 0 {
+		t.Errorf("sw1 eth1 OutUnicast = 0, want the released frame counted against the parent port")
+	}
+	for _, j := range fab.Report() {
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryDrop && e.Reason == routing.ReasonNeighborMiss {
+				t.Errorf("neighbor drop recorded: %+v", e)
+			}
+		}
+	}
+}
+
 // TestFabricRecordsNeighborFailureOnHeldFrameTimeout is evidence that the
 // fabric drains [vswitch.Switch.DrainNeighborFailures] alongside
 // [vswitch.Switch.Drain]: a held frame whose neighbor never resolves must
