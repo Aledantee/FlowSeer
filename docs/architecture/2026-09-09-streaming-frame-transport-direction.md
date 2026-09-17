@@ -116,3 +116,16 @@ Every claim here is checkable in this repository; nothing external is relied on.
 - Bounded buffering that reports what it discarded — `TrySendDropOldest` in
   `src/common/pump/pump.go`.
 - Untrusted bytes never reach telemetry — `docs/conventions/observability.md`.
+
+## Amendments
+
+### 2026-09-17 — the assertion moved to model/edge
+
+`assertion.proto` and the assertion-header section this record cites split
+out of `api/edge/v1` into `model/edge/v1` with the rest of the Edge entity.
+The `edge_assertion.short_lived` rule and the "does not bind the RPC method"
+and "streams are checked when they open" language now live in
+`spec/proto/flowseer/model/edge/v1/assertion.proto` and
+`spec/proto/flowseer/model/edge/v1/README.md`. See [the network model
+structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).

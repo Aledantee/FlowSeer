@@ -4,13 +4,15 @@ type: refactor
 date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md
 ---
 
 # Protobuf Tree Phase 1 - The Model Root, the Record, and the Gates - Plan
+
+> Implemented. 6 units, 2026-09-17T17:21Z to 2026-09-17T19:20Z.
 
 ## Goal
 
@@ -88,6 +90,8 @@ rewrites or reorders the section; no test depends on its contents until
 then.
 
 Ruled: `model/policy/v1/README.md` omits `api/device` from `Imported by:`, and `model/edge/v1/README.md` adds `model/capture`. Why: the `Imported by:` gate checks the actual imports declared by `.proto` files in the tree rather than the wider allowlist in `layering_test.go`, and `api/device/v1/device_service.proto` imports `model/access` and `model/inventory` but not `model/policy`, while `model/capture/v1/capture_session.proto` imports `model/edge`. Cost if wrong: a future change adding a direct import from `api/device` to `model/policy` will update the README's `Imported by:` line.
+
+Ruled: U6's six pointer amendments say only that `api/inventory`, `device/policy`, `device/credential`, `device/access`, and the entity halves of `api/edge` and `api/capture` now read under `model/`; none claims `integration/device` or `event/device` now reads under `edge/` or `event/access`. Why: neither root exists yet, and an amendment dated today that named one would be false the day it was written; the record that cites `integration/device/v1`'s `DispatchService.Subscribe` and `event/device/v1`'s `AuditService.Deliver` says those two are unchanged instead. Cost if wrong: the pointer amendments need a second one-line addition when the edge plane move lands.
 
 ## Requirements
 
@@ -310,11 +314,12 @@ block lists the imports that exist after U3, each within the landed
 amendment, "2026-09-17 — the tree is cut by kind of contract", states the
 parent's root decisions, the sink rule, and the README shape, and names
 this plan. Each of the six other records gains a one-paragraph dated
-amendment saying the paths it cites under `api/inventory`, `api/edge`,
-`device/`, `api/capture`'s entity files, `integration/device`, and
-`event/device` now read under `model/`, `edge/`, and `event/access`, with
-a pointer to the structure record. `docs/conventions/protobuf.md` replaces
-every `api/inventory/v1`, `api/edge/v1`, and `device/policy/v1` citation
+amendment saying the paths it cites under `api/inventory`, `device/`, and
+the entity halves of `api/edge` and `api/capture` now read under `model/`;
+a record that also cites `integration/device` or `event/device` says those
+are unchanged, with a pointer to the structure record.
+`docs/conventions/protobuf.md` replaces every `api/inventory/v1`,
+`api/edge/v1`, and `device/policy/v1` citation
 with the `model/` path, and its "Refs live beside the triad" paragraph adds
 that a ref never lives in a service package. The architecture README's
 "Read when" cell for the structure record adds "or a README under

@@ -160,3 +160,20 @@ interface description on that switch.
   never replace it.
 - Every write path needs measured delayed-apply and recovery bounds from the
   real fixture before it is enabled; an absent bound blocks mutation.
+
+## Amendments
+
+### 2026-09-17 — the boundary packages moved to model/
+
+Decision 12's tree and import list describe the boundary packages as they
+stood on 2026-09-05. `device/policy`, `device/credential`, and
+`api/inventory` now read `model/policy`, `model/credential`, and
+`model/inventory`; `device/access` now reads `model/access`; the Edge ref
+and lifecycle that `api/edge` carried split out to `model/edge`, and
+`api/edge` keeps only `EdgeService` and `EdgeAdminService`. `api/device`,
+`integration/device`, `event/device`, and `store/device` keep their names;
+where this decision says one of them imports a `device/` or `api/inventory`
+package, that import now names the matching `model/` package. See [the
+network model structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree)
+for the tree and import graph as they stand.

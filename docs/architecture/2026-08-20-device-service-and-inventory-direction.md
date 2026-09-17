@@ -607,3 +607,16 @@ for protobuf type renames.
   `dynamicpb` (pkg.go.dev); protovalidate-go dynamic-message support;
   Terraform `GetProviderSchema` (developer.hashicorp.com); Telegraf external
   plugins ("no discoverability"; github.com/influxdata/telegraf).
+
+## Amendments
+
+### 2026-09-17 — the Edge entity moved to model/edge/v1
+
+This record's `api/edge/v1` citations split. The Edge entity — its ref pair,
+lifecycle, registered key, and setup key record — moved out to
+`model/edge/v1`; `api/edge/v1` keeps `EdgeService` and `EdgeAdminService`,
+the enrollment, heartbeat, credential, and administration calls this record
+names. `integration/device/v1` and `event/device/v1` are unchanged. See
+[the network model structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree)
+for the tree and import graph as they stand.

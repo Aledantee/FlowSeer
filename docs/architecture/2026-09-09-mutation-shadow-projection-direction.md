@@ -115,3 +115,12 @@ preview diff with a confidence tier. No third-party emulator runs.
 - `src/common/netsim` provides the projection engine: a virtual device
   evaluates the projected configuration, and a frame query joins the named
   invariants in the preview.
+
+## Amendments
+
+### 2026-09-17 — device/access moved to model/access
+
+`spec/proto/flowseer/device/access/v1/` in Consequences now reads
+`spec/proto/flowseer/model/access/v1/`; the typed operation schemas this
+record wants shaped as effects live there. See [the network model structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).

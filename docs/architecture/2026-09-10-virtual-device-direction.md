@@ -699,3 +699,11 @@ The following areas remain outside the foundation established here:
 - **System boundaries**: control-plane service wiring, OpenTelemetry span and
   metric instrumentation, persistent run storage, and user interfaces remain
   out of scope.
+
+## Amendments
+
+### 2026-09-17 — device.access moved to model.access
+
+`flowseer.device.access.v1` in Consequences above now reads
+`flowseer.model.access.v1`. See [the network model structure
+record](2026-08-20-network-model-structure-direction.md#the-package-tree).

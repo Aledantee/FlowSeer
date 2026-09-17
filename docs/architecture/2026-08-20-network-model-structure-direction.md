@@ -55,18 +55,20 @@ spec/proto/flowseer/
     interface/v1/       Interface (oneof kind) and one message per kind arm
     wlan/v1/            Radio, Bss, WirelessClient — a peer of switching, not a child
     protocol/<x>/v1/    lldp, stp, lacp, … — one package per protocol, all it owns
-  api/
-    inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, provenance
-    edge/v1/            Edge, its assertion and provisioning, EdgeService and EdgeAdminService (the first Connect service package)
-    capture/v1/         CaptureSession and its lifecycle, CaptureService and CaptureEdgeService
-    device/v1/          DeviceService, the operator-facing typed device API
-  device/
+  model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
-    credential/v1/      the typed secret material a device login carries; imports nothing
+    credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
+    edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
+    inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
+    capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
     access/v1/          the operation vocabulary every device-access boundary shares
-  integration/device/v1/  execution envelopes between central and an integration (reserved)
-  event/device/v1/      the durable DeviceOperationEvent audit record (reserved)
-  errs/v1/              the error wire payload (reserved)
+  api/
+    edge/v1/            EdgeService and EdgeAdminService, the two Connect services around the Edge entity
+    capture/v1/         CaptureService and CaptureEdgeService, the two Connect services around the CaptureSession entity
+    device/v1/          DeviceService, the operator-facing typed device API
+  errs/v1/              the error wire payload
+  integration/device/v1/  execution envelopes between central and an integration: the dispatches central sends and the reports the edge answers with
+  event/device/v1/      DeviceOperationEvent, the durable audit record, and AuditService, the call an edge makes to deliver it
   service/v1/           process-local runtime messages and durable mailbox contracts
   store/
     device/v1/          the device service's persisted records; imported by nothing
@@ -74,11 +76,15 @@ spec/proto/flowseer/
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
-families beyond those present in the repository remain reserved locations,
-as are the execution, audit, and error wire packages, whose paths the
-2026-09-05 amendment below settles. `flowseer.service.v1` names the
-process-local service runtime contract; it must not be treated as a
-ConnectRPC API package by inference.
+families beyond those present in the repository remain reserved locations.
+Four more roots are not real yet. `edge/` is the Connect service plane
+between central and an enrolled edge, today still split across `api/edge`,
+`api/capture`, `integration/device`, and `event/device`. `integration/`'s
+own fabric contract (announce, kind descriptor, event subjects) is reserved
+once `integration/device` moves out and leaves the root holding only a
+README. `runtime/` is today's `service/v1`, and `store/agent` is today's
+`store/edge`. `flowseer.service.v1` names the process-local service runtime
+contract; it must not be treated as a ConnectRPC API package by inference.
 
 There is no base package. Ref pairs and lifecycle enums, when a family has
 them, live in the package that owns the entity. The rules and deliberate
@@ -95,15 +101,19 @@ net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
 {net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
-{device/credential, device/policy, net/addr} ← api/edge
-{api/edge, device/policy, net/addr, net/phy} ← api/inventory
-{api/inventory, api/edge, device/policy, net/interface} ← device/access
-{device/access, api/inventory} ← api/device
-device/access ← {integration/device, event/device}
-api/inventory ← event/device
+model/edge ← {api/capture, api/edge, model/access, model/capture, model/inventory, store/device}
+model/policy ← {api/edge, model/access, model/inventory, store/device}
+model/credential ← api/edge
+{model/edge, net/capture} ← model/capture
+{model/edge, net/addr} ← api/edge
+{model/edge, model/policy, net/addr, net/phy} ← model/inventory
+{model/edge, model/inventory, model/policy, net/interface} ← model/access
+{model/capture, model/edge, net/capture} ← api/capture
+{model/access, model/inventory} ← api/device
+model/access ← {integration/device, event/device}
+model/inventory ← event/device
 errs ← {integration/device, store/device}
-{net/capture, api/edge} ← api/capture
-{api/edge, api/inventory, device/access, device/policy, errs, net/addr} ← store/device
+{model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
 `net/*` never imports `api/` or another entity or boundary package. Layers
@@ -111,25 +121,29 @@ never import a protocol; a protocol package imports the address values it
 renders and nothing above them.
 `net/addr`, `net/packet`, and `net/phy` are leaves with respect to FlowSeer
 packages; `net/switching` imports address and packet values, while `net/ip`
-imports address values. Future integration, service API, and event packages
-consume the entity model without introducing a downward import. `api/edge`
-is the Edge's entity package and, as the first Connect service package, also
-holds the Edge's services; below it sit only the two `device/` leaves it
-carries handles and secret material from, and the address values. `api/inventory`
-imports it because an integration names its hosting edge, and imports
-`net/phy` because a component embeds the pluggable module and a cable
-names its connector. `api/inventory` does not yet embed the interface
-model: the interface entity is undecided, and the device-access boundary is
-where `net/interface` values cross today. The service API, the execution
-envelope, and the event envelope are sibling boundary consumers of
-`device/access` and never import one another; the event envelope reaches
-`api/edge` only through `device/access`, which names the edge responsible
-for a mutation, and names the device directly through `api/inventory`. The
-allowlist also grants `errs` to `api/device` and `event/device`, which do
-not use it yet. The `store/` packages are imported by nothing. The order's
-home for automated checking is `test/conformance/proto/layering_test.go`;
-`spec/proto/` holds only `.proto` and `README.md` files, so no test can sit
-beside the schemas.
+imports address values. `model/edge`, `model/credential`, and `model/policy`
+are leaves too: every package that needs the Edge ref, a credential, or an
+access-policy handle imports the matching one of the three, and none of
+them imports anything FlowSeer-owned back. `api/edge` imports `model/edge`
+for the entity, `model/credential` and `model/policy` for the handles and
+secret material its services hand out, and `net/addr` for the IP address a
+listed device reports; `api/capture` imports `model/capture` for the entity
+and the chunk frames, `model/edge` for the owning ref, and `net/capture`
+for the values a capture observes. `model/inventory` imports `model/edge`
+because an integration names its hosting edge, `model/policy` because a
+device pins an access-policy handle, and `net/phy` because a component
+embeds the pluggable module and a cable names its connector; it does not
+yet embed the interface model, because the interface entity is undecided
+and `model/access` is where `net/interface` values cross today.
+`model/access` is the operation vocabulary the operator API, the execution
+envelope, and the audit event share; none of the three imports another, and
+the audit event reaches `model/edge` only through `model/access`, which
+names the edge responsible for a mutation, and reaches the device directly
+through `model/inventory`. The allowlist also grants `errs` to `api/device`
+and `event/device`, which do not use it yet. The `store/` packages are
+imported by nothing. The order's home for automated checking is
+`test/conformance/proto/layering_test.go`; `spec/proto/` holds only
+`.proto` and `README.md` files, so no test can sit beside the schemas.
 
 ## Why this shape
 
@@ -862,3 +876,43 @@ undecided; the port component's `interface_name` is the join to the
 interface model. A link's end is an interface name, because that is what
 LLDP and LACP report. None of the four top-level families joins
 `EntityType` until its store table lands.
+
+### 2026-09-17 — the tree is cut by kind of contract
+
+Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md`,
+the first of three plans that re-cut this tree by what kind of contract each
+package is rather than by which entity or boundary happened to define it
+first.
+
+- **The axis becomes the kind of contract.** The roots become `net`, `errs`,
+  `model`, `event`, `api`, `edge`, `integration`, `store`, and `runtime`.
+  `net/` stays ref-free values and `errs/` the error wire payload. `model/`
+  gains every package that carries or names identity: entities with their
+  refs and triads, the device-access operation vocabulary, and the policy
+  and credential leaves. `api/` keeps the northbound services an operator
+  calls. `edge/`, the rest of `integration/`, `store/`, and `runtime/` are
+  reserved for the Connect plane between central and an edge, the
+  integration fabric contract, one process's own files, and the
+  process-local bus contract; the tree above marks what still sits where
+  until each move lands.
+- **A package that declares a service is a sink.** Nothing may import a
+  package that declares a Connect service, and no package under `model/`
+  declares one. `test/conformance/proto/layering_test.go` enforces both
+  halves. The rule already held for what `api/edge` and `api/capture`
+  export as services — nothing ever imported either package to call
+  `EdgeService` or `CaptureService`, only for the ref each also carried —
+  and splitting the ref out makes that fact checkable instead of
+  incidental.
+- **Every directory carries a README in one shape.** A root or intermediate
+  directory states its identity, the test a new package passes to live
+  there, and which roots it may import and be imported by. A versioned
+  package README states its full package name, one identity paragraph, and
+  a `## Boundaries` section with `Imports:`, `Imported by:`, and
+  `Deliberately absent:` lines, checked against the tree by
+  `TestProtoReadmeCoverage` and `TestProtoReadmeImports`.
+- **The device-access packages move to `model/`.** `device/policy`,
+  `device/credential`, and `api/inventory` move there unsplit; the Edge
+  entity splits out of `api/edge/v1` and the CaptureSession entity and its
+  chunk frames split out of `api/capture/v1`, so each service package keeps
+  only its Connect services and imports the entity package for the ref. The
+  tree and import graph above describe the result.
