@@ -8,20 +8,20 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 )
 
 const eventID = "0192e6a0-0000-7000-8000-00000000e001"
 
-func deviceOperationEvent() eventv1.DeviceOperationEvent_builder {
-	return eventv1.DeviceOperationEvent_builder{
+func deviceOperationEvent() eventaccessv1.DeviceOperationEvent_builder {
+	return eventaccessv1.DeviceOperationEvent_builder{
 		Device:     deviceRef(deviceID),
 		EventId:    proto.String(eventID),
 		Sequence:   proto.Uint64(42),
 		OccurredAt: timestamppb.New(edgeIssuedAt),
-		PhaseTransitioned: eventv1.PhaseTransitioned_builder{
+		PhaseTransitioned: eventaccessv1.PhaseTransitioned_builder{
 			From: accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum(),
 			To:   accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED.Enum(),
 		}.Build(),
@@ -44,7 +44,7 @@ func TestDeviceOperationEventRules(t *testing.T) {
 	laneFrozen := deviceOperationEvent()
 	laneFrozen.Sequence = nil
 	laneFrozen.PhaseTransitioned = nil
-	laneFrozen.LaneFrozen = eventv1.LaneFrozen_builder{}.Build()
+	laneFrozen.LaneFrozen = eventaccessv1.LaneFrozen_builder{}.Build()
 
 	tooManyCorrelationIDs := deviceOperationEvent()
 	correlationIDs := make(map[string]string, 9)
@@ -78,7 +78,7 @@ func TestPhaseTransitionedRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name: "a named from and to is valid",
-			message: eventv1.PhaseTransitioned_builder{
+			message: eventaccessv1.PhaseTransitioned_builder{
 				From: accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum(),
 				To:   accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED.Enum(),
 			}.Build(),
@@ -86,17 +86,17 @@ func TestPhaseTransitionedRules(t *testing.T) {
 		},
 		{
 			name:      "unset from is valid",
-			message:   eventv1.PhaseTransitioned_builder{To: accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED.Enum()}.Build(),
+			message:   eventaccessv1.PhaseTransitioned_builder{To: accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED.Enum()}.Build(),
 			wantValid: true,
 		},
 		{
 			name: "from explicitly unspecified is rejected",
-			message: eventv1.PhaseTransitioned_builder{
+			message: eventaccessv1.PhaseTransitioned_builder{
 				From: accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED.Enum(),
 				To:   accessv1.OperationPhase_OPERATION_PHASE_INTENT_RECORDED.Enum(),
 			}.Build(),
 		},
-		{name: "to is required", message: eventv1.PhaseTransitioned_builder{}.Build()},
+		{name: "to is required", message: eventaccessv1.PhaseTransitioned_builder{}.Build()},
 	}
 
 	runValidationCases(t, tests)
@@ -106,30 +106,30 @@ func TestDeviceOperationEventKindRules(t *testing.T) {
 	tests := []validationCase{
 		{
 			name: "lane blocked with a reason is valid",
-			message: eventv1.LaneBlocked_builder{
+			message: eventaccessv1.LaneBlocked_builder{
 				Reason: accessv1.BlockReason_BLOCK_REASON_INDETERMINATE.Enum(),
 			}.Build(),
 			wantValid: true,
 		},
-		{name: "lane blocked without a reason is rejected", message: eventv1.LaneBlocked_builder{}.Build()},
-		{name: "lane released is valid", message: eventv1.LaneReleased_builder{}.Build(), wantValid: true},
+		{name: "lane blocked without a reason is rejected", message: eventaccessv1.LaneBlocked_builder{}.Build()},
+		{name: "lane released is valid", message: eventaccessv1.LaneReleased_builder{}.Build(), wantValid: true},
 		{
 			name: "route selected is valid",
-			message: eventv1.RouteSelected_builder{
+			message: eventaccessv1.RouteSelected_builder{
 				Protocol: inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SNMP.Enum(),
 			}.Build(),
 			wantValid: true,
 		},
-		{name: "route selected without a protocol is rejected", message: eventv1.RouteSelected_builder{}.Build()},
+		{name: "route selected without a protocol is rejected", message: eventaccessv1.RouteSelected_builder{}.Build()},
 		{
 			name:      "discovery completed is valid",
-			message:   eventv1.DiscoveryCompleted_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(),
+			message:   eventaccessv1.DiscoveryCompleted_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(),
 			wantValid: true,
 		},
-		{name: "discovery completed without a fingerprint is rejected", message: eventv1.DiscoveryCompleted_builder{}.Build()},
+		{name: "discovery completed without a fingerprint is rejected", message: eventaccessv1.DiscoveryCompleted_builder{}.Build()},
 		{
 			name: "firmware epoch changed is valid",
-			message: eventv1.FirmwareEpochChanged_builder{
+			message: eventaccessv1.FirmwareEpochChanged_builder{
 				PreviousFingerprint: proto.String(fingerprint),
 				NewFingerprint:      proto.String("ICX7150-24P SPS10011a"),
 			}.Build(),
@@ -137,24 +137,17 @@ func TestDeviceOperationEventKindRules(t *testing.T) {
 		},
 		{
 			name:    "firmware epoch changed without the new fingerprint is rejected",
-			message: eventv1.FirmwareEpochChanged_builder{PreviousFingerprint: proto.String(fingerprint)}.Build(),
+			message: eventaccessv1.FirmwareEpochChanged_builder{PreviousFingerprint: proto.String(fingerprint)}.Build(),
 		},
-		{name: "recovery started is valid", message: eventv1.RecoveryStarted_builder{}.Build(), wantValid: true},
+		{name: "recovery started is valid", message: eventaccessv1.RecoveryStarted_builder{}.Build(), wantValid: true},
 		{
 			name:      "drift detected is valid",
-			message:   eventv1.DriftDetected_builder{FieldName: proto.String("admin_status")}.Build(),
+			message:   eventaccessv1.DriftDetected_builder{FieldName: proto.String("admin_status")}.Build(),
 			wantValid: true,
 		},
-		{name: "drift detected without a field name is rejected", message: eventv1.DriftDetected_builder{}.Build()},
-		{name: "lane frozen is valid", message: eventv1.LaneFrozen_builder{}.Build(), wantValid: true},
+		{name: "drift detected without a field name is rejected", message: eventaccessv1.DriftDetected_builder{}.Build()},
+		{name: "lane frozen is valid", message: eventaccessv1.LaneFrozen_builder{}.Build(), wantValid: true},
 	}
 
 	runValidationCases(t, tests)
-}
-
-func TestDeliverRequestRules(t *testing.T) {
-	runValidationCases(t, []validationCase{
-		{name: "delivery carries one event", message: eventv1.DeliverRequest_builder{Event: deviceOperationEvent().Build()}.Build(), wantValid: true},
-		{name: "delivery without an event is rejected", message: eventv1.DeliverRequest_builder{}.Build()},
-	})
 }

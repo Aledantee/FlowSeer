@@ -17,7 +17,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -75,13 +75,13 @@ func New(publisher Publisher, tenant string, clock func() time.Time) *Emitter {
 // epoch first among them — lives nowhere else, and "the sequence ended" with
 // no cause is the answer an incident starts from rather than ends at.
 func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, state *accessv1.MutationState, from accessv1.OperationPhase, refusalCode string) error {
-	detail := &eventv1.PhaseTransitioned{}
+	detail := &eventaccessv1.PhaseTransitioned{}
 	if from != accessv1.OperationPhase_OPERATION_PHASE_UNSPECIFIED {
 		detail.SetFrom(from)
 	}
 	detail.SetTo(state.GetPhase())
 
-	event := &eventv1.DeviceOperationEvent{}
+	event := &eventaccessv1.DeviceOperationEvent{}
 	event.SetDevice(device)
 	event.SetEventId(uuid.NewString())
 	event.SetSequence(state.GetSequence())
@@ -106,10 +106,10 @@ func (e *Emitter) DispatchRejected(ctx context.Context, device *inventoryv1.Devi
 // attributes: an auditor reading "drift on ethernet 1/1/1" and nothing else
 // cannot tell a typo from a device someone else is administering.
 func (e *Emitter) DriftDetected(ctx context.Context, device *inventoryv1.DeviceGlobalRef, iface, expected, observed string) error {
-	detail := &eventv1.DriftDetected{}
+	detail := &eventaccessv1.DriftDetected{}
 	detail.SetFieldName(iface)
 
-	event := &eventv1.DeviceOperationEvent{}
+	event := &eventaccessv1.DeviceOperationEvent{}
 	event.SetDevice(device)
 	event.SetEventId(uuid.NewString())
 	event.SetOccurredAt(timestamppb.New(e.clock()))
@@ -122,7 +122,7 @@ func (e *Emitter) DriftDetected(ctx context.Context, device *inventoryv1.DeviceG
 	return e.emit(ctx, device.GetDevice().GetId(), event)
 }
 
-func (e *Emitter) emit(ctx context.Context, deviceID string, event *eventv1.DeviceOperationEvent) error {
+func (e *Emitter) emit(ctx context.Context, deviceID string, event *eventaccessv1.DeviceOperationEvent) error {
 	data, err := proto.Marshal(event)
 	if err != nil {
 		return errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).Msg("marshal audit event")

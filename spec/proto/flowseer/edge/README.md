@@ -17,11 +17,12 @@ calls it.
 
 ## Boundaries
 
-Imports: errs, model/access, model/capture, model/edge
+Imports: errs, event/access, model/access, model/capture, model/edge
 
 Imported by: nothing
 
 ## Packages
 
+- `audit/v1/`: `AuditService`, delivering the durable `DeviceOperationEvent` audit record.
 - `capture/v1/`: Edge-facing `CaptureEdgeService` to upload a running capture session's packets.
 - `dispatch/v1/`: `DispatchService`, the execution envelope central and the edge hosting a device's lane exchange.

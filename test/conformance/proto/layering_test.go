@@ -87,7 +87,13 @@ var importOrder = map[string][]string{
 	// any live transport context.
 	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
-	"event/device": {"model/inventory", "model/access", "errs"},
+	// The Connect call an edge delivers a DeviceOperationEvent through.
+	"edge/audit": {"event/access"},
+
+	// The durable audit record of what happened on one device's lane, read
+	// outside any live transport context, so it names the device and its
+	// operation vocabulary directly instead of relying on the transport.
+	"event/access": {"model/inventory", "model/access", "errs"},
 
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
@@ -296,11 +302,12 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
 		{name: "execution envelope imports access values", importer: "edge/dispatch", imported: "model/access", want: true},
 		{name: "execution envelope imports errs", importer: "edge/dispatch", imported: "errs", want: true},
-		{name: "execution envelope imports the audit event", importer: "edge/dispatch", imported: "event/device"},
-		{name: "audit event imports access values", importer: "event/device", imported: "model/access", want: true},
-		{name: "audit event imports inventory", importer: "event/device", imported: "model/inventory", want: true},
-		{name: "audit event imports the execution envelope", importer: "event/device", imported: "edge/dispatch"},
-		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
+		{name: "execution envelope imports the audit event", importer: "edge/dispatch", imported: "event/access"},
+		{name: "audit event imports access values", importer: "event/access", imported: "model/access", want: true},
+		{name: "audit event imports inventory", importer: "event/access", imported: "model/inventory", want: true},
+		{name: "audit event imports the execution envelope", importer: "event/access", imported: "edge/dispatch"},
+		{name: "audit event imports api/edge directly", importer: "event/access", imported: "api/edge"},
+		{name: "the audit service imports the record it delivers", importer: "edge/audit", imported: "event/access", want: true},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
 		{name: "edge imports credential material", importer: "api/edge", imported: "model/credential", want: true},
 		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
@@ -330,6 +337,12 @@ func TestLayeringViolationRules(t *testing.T) {
 			importer:   "model/access",
 			imported:   "edge/dispatch",
 			wantReason: "edge/dispatch declares a service and is imported by nothing",
+		},
+		{
+			name:       "the record imports the service that delivers it",
+			importer:   "event/access",
+			imported:   "edge/audit",
+			wantReason: "edge/audit declares a service and is imported by nothing",
 		},
 		// The sink rule's own case. Every other rejection above is one the
 		// table would make anyway, so this is the pair that fails when the rule

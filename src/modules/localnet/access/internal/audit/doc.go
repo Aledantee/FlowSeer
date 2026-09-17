@@ -1,5 +1,5 @@
 // Package audit builds and delivers the durable
-// flowseer.event.device.v1.DeviceOperationEvent audit record. Deliverer is
+// flowseer.event.access.v1.DeviceOperationEvent audit record. Deliverer is
 // the seam this module's mutation state machine calls before releasing the
 // phase an event describes: audit and telemetry are separate, and only a
 // Deliverer failure may block or fail the operation it records.

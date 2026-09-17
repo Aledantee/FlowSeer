@@ -5,7 +5,7 @@ edition = "2024";
 // or DeviceOperationState, because this package is a pure event stream with
 // no queryable current-state entity of its own — MutationState in
 // model/access carries the live state this audit trails.
-package flowseer.event.device.v1;
+package flowseer.event.access.v1;
 
 import "flowseer/model/access/v1/operation.proto";
 import "flowseer/model/inventory/v1/binding.proto";

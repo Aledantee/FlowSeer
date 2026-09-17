@@ -12,7 +12,7 @@ import (
 	"time"
 
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -116,7 +116,7 @@ func (r *recordingReporter) phases() []accessv1.OperationPhase {
 // auditDeliverer mirrors the internal audit.Deliverer an external test
 // cannot name, so these helpers can take one as a parameter.
 type auditDeliverer interface {
-	Emit(context.Context, *eventv1.DeviceOperationEvent) error
+	Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error
 }
 
 func laneWithReporter(t *testing.T, reporter access.Reporter, deliverer auditDeliverer, sources ...access.SubmissionCredentialSource) *access.Lane {
@@ -413,7 +413,7 @@ type failingDeliverer struct {
 	failAt int
 }
 
-func (d *failingDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error {
+func (d *failingDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.seen++

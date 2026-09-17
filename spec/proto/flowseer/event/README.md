@@ -9,7 +9,7 @@ message streams.
 ## Admission
 
 A package belongs in `event/` if it defines standalone, durable stream records
-rather than an entity's Config/State/Event lifecycle. `event/device/v1` passes
+rather than an entity's Config/State/Event lifecycle. `event/access/v1` passes
 because `DeviceOperationEvent` is an audit row across nine operational kinds. An
 entity transition like `TagEvent` fails admission and belongs beside its triad
 in `model/inventory`.
@@ -18,12 +18,13 @@ in `model/inventory`.
 
 Imports: model/access, model/inventory
 
-Imported by: nothing
+Imported by: edge/audit
 
 Packages under `event/` may import `model/` entities and handles, `net/`
-primitives, and `errs/`. They are sinks and are imported by nothing
-FlowSeer-owned.
+primitives, and `errs/`. `event/` holds records that a delivering service
+reads; the sink rule is about service declarations, and no package here
+makes one.
 
 ## Packages
 
-- `device/v1/`: Durable audit events for device mutations, lane blocks, route selections, and recovery.
+- `access/v1/`: Durable audit events for device mutations, lane blocks, route selections, and recovery.

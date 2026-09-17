@@ -4,9 +4,9 @@ edition = "2024";
 // is the audit stream's only writer and answers only once the stream holds
 // the record, which is what lets the edge release state only after its
 // record is durable.
-package flowseer.event.device.v1;
+package flowseer.edge.audit.v1;
 
-import "flowseer/event/device/v1/operation_event.proto";
+import "flowseer/event/access/v1/operation_event.proto";
 import option "buf/validate/validate.proto";
 
 service AuditService {
@@ -18,7 +18,7 @@ service AuditService {
 
 message DeliverRequest {
   // Must be present.
-  DeviceOperationEvent event = 1 [(buf.validate.field).required = true];
+  flowseer.event.access.v1.DeviceOperationEvent event = 1 [(buf.validate.field).required = true];
 }
 
 message DeliverResponse {}

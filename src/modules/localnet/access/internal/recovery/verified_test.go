@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/recovery"
@@ -18,7 +18,7 @@ type countingDeliverer struct {
 	other            int
 }
 
-func (d *countingDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *countingDeliverer) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if transition := event.GetPhaseTransitioned(); transition != nil {
 		d.phaseTransitions = append(d.phaseTransitions, transition.GetTo().String())
 		return nil
@@ -201,7 +201,7 @@ type failVerifiedTransition struct{ armed bool }
 
 func (d *failVerifiedTransition) arm() { d.armed = true }
 
-func (d *failVerifiedTransition) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *failVerifiedTransition) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if d.armed && event.GetPhaseTransitioned().GetTo() == accessv1.OperationPhase_OPERATION_PHASE_VERIFIED {
 		d.armed = false
 		return errors.New("audit delivery unavailable")
