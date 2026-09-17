@@ -255,7 +255,8 @@ of `api/edge`. `api/capture/v1` keeps `CaptureService` and imports
 `model/capture` for the entity it returns; `CaptureEdgeService` left
 `api/capture` for `edge/capture`, and the open question about reaching the
 edge moved with it. The import-order line in Consequences reads
-`{model/capture, model/edge, net/capture} ← api/capture` and
-`{model/edge, net/capture} ← model/capture` now. See [the network model
+`{model/capture, model/edge, net/capture} ← api/capture`,
+`{model/edge, net/capture} ← model/capture`, and
+`{model/capture, model/edge} ← edge/capture` now. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).

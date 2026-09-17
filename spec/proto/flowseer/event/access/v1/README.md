@@ -59,8 +59,9 @@ restates a device or edge ref because every message travels over an
 already-addressed channel, an audit record is read and queried outside any
 live transport context — a compliance report, an incident timeline. It must
 name its device on its own, so this package imports
-`flowseer/model/inventory/v1/device.proto` for `DeviceGlobalRef` in addition to
-`model/access` and `errs`. It never imports `model/edge` directly; the
+`flowseer/model/inventory/v1/device.proto` for `DeviceGlobalRef` and
+`flowseer/model/inventory/v1/binding.proto` for `ManagementProtocol`, in
+addition to `model/access`. It never imports `model/edge` directly; the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 states that an event envelope reaches `model/edge` only through
 `model/access`, where `MutationState.responsible_edge` already names it

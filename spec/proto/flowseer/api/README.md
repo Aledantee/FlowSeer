@@ -3,10 +3,8 @@
 ## Identity
 
 The `api/` root holds northbound Connect services that an operator, the web
-app, or a workflow calls, now that the edge-facing services — enrollment and
-attachment, dispatch, audit delivery, and capture upload — have moved to
-`edge/`. Services here are RPC sinks: they expose request and response
-endpoints and are imported by no schema in the tree.
+app, or a workflow calls. Services here are RPC sinks: they expose request
+and response endpoints and are imported by no schema in the tree.
 
 ## Admission
 

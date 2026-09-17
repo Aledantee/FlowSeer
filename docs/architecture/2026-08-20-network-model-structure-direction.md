@@ -75,18 +75,18 @@ spec/proto/flowseer/
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
   integration/          holds only a README; fabric contract reserved
-  service/v1/           process-local runtime messages and durable mailbox contracts (reserved for runtime/v1)
+  service/v1/           process-local runtime messages and durable mailbox contracts (pending rename to runtime/v1)
   store/
     device/v1/          the device service's persisted records; imported by nothing
-    edge/v1/            the edge agent's persisted configuration; imported by nothing (reserved for store/agent/v1)
+    edge/v1/            the edge agent's persisted configuration; imported by nothing (pending rename to store/agent/v1)
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
-Two roots rather than four are not real yet. `integration/` holds only a
-README, with its own fabric contract (announce, kind descriptor, event
-subjects) reserved. `runtime/` is today's `service/v1`, and `store/agent` is
-today's `store/edge`. `flowseer.service.v1` names the process-local service
+`integration/` holds only a README, with its own fabric contract (announce,
+kind descriptor, event subjects) reserved. `runtime/` and `store/agent` do
+not exist yet; they are pending renames of today's `service/v1` and today's
+`store/edge`. `flowseer.service.v1` names the process-local service
 runtime contract; it must not be treated as a ConnectRPC API package by
 inference.
 
