@@ -2081,8 +2081,11 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 // BPDU may not. The ports a spanning tree holds discarding are exactly the
 // ones whose blocking depends on continuing to hear their peer, so running a
 // BPDU through the gate the tree itself set would drop the frames that keep
-// the topology converged. A tag whose VID is 0 is a priority tag, not a VLAN
-// selection, so it resolves the same as an untagged frame.
+// the topology converged. The outer tag counts as a VLAN selection only when
+// its TPID names dot1Q (or the codec's untagged zero value, treated the
+// same); any other TPID — an 802.1ad/QinQ tag, say — is not a VLAN tag at
+// all, and a VID of 0 under a dot1Q TPID is a priority tag, not a VLAN
+// selection either. Both cases resolve the same as an untagged frame.
 //
 // The bridge's own ingress admission rule is not bypassed: it is computed
 // here and handed to the layer as SSTPArrival.Admitted, so the spanning tree
@@ -2142,14 +2145,16 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 
 	// arrivalVID and tagged both come from one test of the outer tag's TPID,
-	// the same test bridge.Bridge.Ingress makes: a tag whose TPID names
-	// neither dot1Q nor no-TPID (the codec's own zero-value) is not a VLAN
-	// selection at all, so the frame is untagged on the port's native VLAN
-	// however its VID field reads, and a VID of 0 under a dot1Q TPID is a
-	// priority tag, also untagged. Deriving the two independently — VID from
-	// any TPID, tagged from only a dot1Q-shaped one — let a QinQ-tagged frame
-	// judge admission against a VID the bridge itself would never classify it
-	// into.
+	// the same test bridge.Bridge.Ingress makes on its non-tunnel arm (a
+	// tunnel port classifies into the tunnel VID regardless, but
+	// AdmitsVIDOnIngress refuses tunnel ports outright, so that arm never
+	// reaches here): a tag whose TPID names neither dot1Q nor no-TPID (the
+	// codec's own zero-value) is not a VLAN selection at all, so the frame is
+	// untagged on the port's native VLAN however its VID field reads, and a
+	// VID of 0 under a dot1Q TPID is a priority tag, also untagged. Deriving
+	// the two independently — VID from any TPID, tagged from only a
+	// dot1Q-shaped one — let a QinQ-tagged frame judge admission against a
+	// VID the bridge itself would never classify it into.
 	arrivalVID := s.untaggedVID(resolvedPort)
 	tagged := false
 	if len(f.Tags) > 0 {
@@ -2182,15 +2187,14 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	} else {
 		// Peek cannot call ReceiveSSTP without mutating the link half of a
 		// receive, so it renders the same step Forward reaches through
-		// admitted and tracked alone — every outcome but SSTPPortDown
-		// follows from those two once the frame has decoded. SSTPPortDown
-		// depends on the layer's own per-port up/down bookkeeping, which has
-		// no read-only answer distinct from "not configured for STP at all";
-		// a port the port table calls up but the layer has not yet linked
-		// renders here as whatever admitted/tracked says, where Forward
-		// would drop it as port down. That divergence is accepted rather
-		// than hidden: Forward is authoritative for it.
+		// PortLinked, admitted, and tracked instead: PortLinked reproduces
+		// ReceiveSSTP's own first check (the port is tracked and its CIST
+		// copy has the link up), and every remaining outcome but that one
+		// follows from admitted and tracked alone once the frame has
+		// decoded.
 		switch {
+		case !s.stp.PortLinked(resolvedPort):
+			outcome = stp.SSTPPortDown
 		case !admitted:
 			outcome = stp.SSTPNotAdmitted
 		case !tracked:

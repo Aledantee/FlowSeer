@@ -810,6 +810,20 @@ func (l *Layer) PVSTBoundary(port string) bool {
 	return p.pvstBoundary
 }
 
+// PortLinked reports whether the layer would process a BPDU arriving on the
+// named port rather than treat it as SSTPPortDown: the port is one this
+// layer tracks and its CIST copy currently holds the link up. ReceiveSSTP
+// makes exactly this check before doing anything else with a frame, and it
+// is the one read-only distinction the other accessors cannot make: PortInfo
+// and VLANPortInfo return a zero-value PortInfo for both "never configured"
+// and "configured but the link is down", so a caller judging a port before
+// calling ReceiveSSTP needs this instead.
+func (l *Layer) PortLinked(port string) bool {
+	p, ok := l.cist().ports[port]
+
+	return ok && p.up
+}
+
 // portInfo renders a PortInfo snapshot for one port within one tree. The
 // designated fields resolve against that tree's own bridge and root, so an
 // MSTI's designated cost reads as its internal cost to the regional root

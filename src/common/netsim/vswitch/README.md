@@ -340,7 +340,10 @@ A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way, with one
 more source of `port-down`: the layer's own per-port link state, tracked
 separately from the port table's up/down check above, refuses a port it has
 not configured or has not yet seen a link-up event for, even though the port
-table itself calls the port up. Its VLAN and whether it counts as tagged both
+table itself calls the port up. `Forward` and `Peek` agree on this: `Peek`
+asks the layer's `PortLinked` directly rather than deriving the answer from a
+snapshot, so it renders `port-down` for exactly the ports `Forward` would.
+Its VLAN and whether it counts as tagged both
 come from one test of the outer tag's TPID, the same test the bridge's own
 ingress classification makes, rather than from the bridge's ingress pipeline
 itself: that pipeline applies the spanning tree gate, and the ports a tree

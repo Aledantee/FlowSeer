@@ -42,11 +42,13 @@ const (
 	classPortConstant
 )
 
-// fieldSpec classifies one portState field and, for a classTreeOwned field,
-// whether syncInstancePorts also clears it on the link-down branch.
+// fieldSpec classifies one portState field and, for a classTreeOwned field
+// syncInstancePorts clears on the link-down branch, both that it clears and
+// the value it clears to.
 type fieldSpec struct {
 	class          propertyClass
 	linkDownClears bool
+	linkDownValue  any
 }
 
 // portStateFieldClasses is the classification this package's own test lives
@@ -89,9 +91,9 @@ var portStateFieldClasses = map[string]fieldSpec{
 	// resets when the CIST's port goes down.
 	"portID":                  {class: classTreeOwned},
 	"pathCostFixed":           {class: classTreeOwned},
-	"role":                    {class: classTreeOwned, linkDownClears: true},
-	"state":                   {class: classTreeOwned, linkDownClears: true},
-	"pvidInconsistent":        {class: classTreeOwned, linkDownClears: true},
+	"role":                    {class: classTreeOwned, linkDownClears: true, linkDownValue: RoleDisabled},
+	"state":                   {class: classTreeOwned, linkDownClears: true, linkDownValue: StateDiscarding},
+	"pvidInconsistent":        {class: classTreeOwned, linkDownClears: true, linkDownValue: false},
 	"proposing":               {class: classTreeOwned},
 	"agreed":                  {class: classTreeOwned},
 	"fwdDelayTimer":           {class: classTreeOwned},
@@ -101,7 +103,7 @@ var portStateFieldClasses = map[string]fieldSpec{
 	"rcvRegionalRootID":       {class: classTreeOwned},
 	"rcvInternalRootPathCost": {class: classTreeOwned},
 	"rcvRemainingHops":        {class: classTreeOwned},
-	"rcvInfoValid":            {class: classTreeOwned, linkDownClears: true},
+	"rcvInfoValid":            {class: classTreeOwned, linkDownClears: true, linkDownValue: false},
 	"rcvRootID":               {class: classTreeOwned},
 	"rcvRootPathCost":         {class: classTreeOwned},
 	"rcvBridgeID":             {class: classTreeOwned},
@@ -202,9 +204,19 @@ func syncTestLayer(t *testing.T) (l *Layer, cistP, mstP *portState) {
 // with reflect.NewAt drops the read-only flag reflect attaches for that
 // reason, which is safe here because every field this is called with is
 // already addressable (v is a pointer's Elem()) and package-private, so
-// nothing outside this test can observe the bypass.
-func settableField(v reflect.Value, name string) reflect.Value {
+// nothing outside this test can observe the bypass. If portStateFieldClasses
+// names a field portState no longer has, FieldByName returns the zero
+// reflect.Value, whose UnsafeAddr panics; this repository bans panics outside
+// a Must/must helper, and a reflection subtest that crashed the binary would
+// hide TestPortStateFieldsAreClassified's own readable Errorf for the same
+// mismatch, so this fails the calling subtest instead.
+func settableField(t *testing.T, v reflect.Value, name string) reflect.Value {
+	t.Helper()
+
 	f := v.FieldByName(name)
+	if !f.IsValid() {
+		t.Fatalf("portState has no field %q; portStateFieldClasses is out of date", name)
+	}
 
 	return reflect.NewAt(f.Type(), unsafe.Pointer(f.UnsafeAddr())).Elem()
 }
@@ -247,11 +259,15 @@ func distinctValue(t *testing.T, typ reflect.Type, seed int) reflect.Value {
 // TestSyncInstancePortsReplicatesEveryLinkReplicatedField is evidence for the
 // classLinkReplicated rule (R3), driven from portStateFieldClasses instead of
 // a hand-written field list: for every field the table classifies
-// classLinkReplicated, setting it on the CIST's port to a value distinct from
-// its start-of-test value and calling syncInstancePorts leaves the MSTI's
-// copy equal to the CIST's. A field the table misclassifies this way, or a
-// change to syncInstancePorts that stops assigning linkState wholesale, fails
-// on the specific field name rather than passing a membership check alone.
+// classLinkReplicated, zeroing the MSTI's own copy, setting the CIST's to a
+// value distinct from that zero, and calling syncInstancePorts leaves the
+// MSTI's copy equal to the CIST's. Zeroing the MSTI's copy first (rather than
+// leaving it at whatever syncTestLayer's LinkChange left) keeps the check
+// live for a bool field, where distinctValue always returns true and the two
+// trees already agree once both have seen the same link-up call. A field the
+// table misclassifies this way, or a change to syncInstancePorts that stops
+// assigning linkState wholesale, fails on the specific field name rather than
+// passing a membership check alone.
 func TestSyncInstancePortsReplicatesEveryLinkReplicatedField(t *testing.T) {
 	t.Parallel()
 
@@ -265,13 +281,25 @@ func TestSyncInstancePortsReplicatesEveryLinkReplicatedField(t *testing.T) {
 
 			l, cistP, mstP := syncTestLayer(t)
 
-			cistField := settableField(reflect.ValueOf(cistP).Elem(), name)
+			cistField := settableField(t, reflect.ValueOf(cistP).Elem(), name)
 			want := distinctValue(t, cistField.Type(), 1)
+
+			// Plant the opposing value on the MSTI's own copy first: both
+			// LinkChange calls in syncTestLayer leave every classLinkReplicated
+			// field already equal to want for a bool field (distinctValue
+			// always returns true), which would make cistField.Set(want) below
+			// a no-op and the assertion pass whether or not syncInstancePorts
+			// actually replicates the field.
+			mstField := settableField(t, reflect.ValueOf(mstP).Elem(), name)
+			mstField.Set(reflect.Zero(mstField.Type()))
 			cistField.Set(want)
+			if reflect.DeepEqual(mstField.Interface(), want.Interface()) {
+				t.Fatal("test setup: the MSTI already holds the value the sync must carry")
+			}
 
 			l.syncInstancePorts("p1", cistP)
 
-			got := settableField(reflect.ValueOf(mstP).Elem(), name).Interface()
+			got := mstField.Interface()
 			if !reflect.DeepEqual(got, want.Interface()) {
 				t.Errorf("MSTI %s after sync = %v, want the CIST's %v", name, got, want.Interface())
 			}
@@ -297,10 +325,10 @@ func TestSyncInstancePortsLeavesLinkOnCISTFieldsUntouched(t *testing.T) {
 
 			l, cistP, mstP := syncTestLayer(t)
 
-			cistField := settableField(reflect.ValueOf(cistP).Elem(), name)
+			cistField := settableField(t, reflect.ValueOf(cistP).Elem(), name)
 			cistField.Set(distinctValue(t, cistField.Type(), 2))
 
-			mstField := settableField(reflect.ValueOf(mstP).Elem(), name)
+			mstField := settableField(t, reflect.ValueOf(mstP).Elem(), name)
 			before := mstField.Interface()
 
 			l.syncInstancePorts("p1", cistP)
@@ -340,9 +368,13 @@ func TestSyncInstancePortsDerivesUnfixedPathCostFromTheLink(t *testing.T) {
 // the linkDownClears flag, driven from portStateFieldClasses instead of a
 // hand-written field list: for every classTreeOwned field, setting it on the
 // MSTI's own port to a distinct value and then bringing the CIST's port down
-// through syncInstancePorts either overwrites that value (the fields the
-// table flags linkDownClears) or leaves it alone (every other tree-owned
-// field). A field whose flag stops matching what syncInstancePorts's
+// through syncInstancePorts either overwrites that value with the table's
+// recorded linkDownValue (the fields the table flags linkDownClears) or
+// leaves it alone (every other tree-owned field). Asserting the specific
+// cleared-to value, not just that the planted value is gone, is what catches
+// a link-down branch that clears a field to the wrong thing, such as a role
+// or state other than the disabled/discarding pair a dead link must produce.
+// A field whose flag or value stops matching what syncInstancePorts's
 // link-down branch actually does fails on that field's own name.
 func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 	t.Parallel()
@@ -357,7 +389,7 @@ func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 
 			l, cistP, mstP := syncTestLayer(t)
 
-			mstField := settableField(reflect.ValueOf(mstP).Elem(), name)
+			mstField := settableField(t, reflect.ValueOf(mstP).Elem(), name)
 			set := distinctValue(t, mstField.Type(), 3)
 			mstField.Set(set)
 
@@ -367,15 +399,66 @@ func TestSyncInstancePortsOnLinkDownFollowsTheLinkDownClearsFlag(t *testing.T) {
 			after := mstField.Interface()
 			survived := reflect.DeepEqual(after, set.Interface())
 
-			if spec.linkDownClears && survived {
-				t.Errorf("MSTI %s survived link down = %v, want cleared (portStateFieldClasses flags it linkDownClears)",
-					name, after)
-			}
-			if !spec.linkDownClears && !survived {
+			if spec.linkDownClears {
+				if !reflect.DeepEqual(after, spec.linkDownValue) {
+					t.Errorf("MSTI %s after link down = %v, want the table's linkDownValue %v",
+						name, after, spec.linkDownValue)
+				}
+			} else if !survived {
 				t.Errorf("MSTI %s changed by link down = %v, want the untouched %v "+
 					"(portStateFieldClasses does not flag it linkDownClears)", name, after, set.Interface())
 			}
 		})
+	}
+}
+
+// TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck is evidence for the
+// divergence PortLinked closes (switch.go's Peek arm has no other read-only
+// way to ask what ReceiveSSTP itself checks first): for a port this layer
+// never configured, for one it configured but has not yet linked, and for
+// one it has linked, PortLinked(port) is false in exactly the cases
+// ReceiveSSTP itself returns SSTPPortDown, never diverging on either input.
+// switch.go relies on this equivalence to make Peek agree with Forward
+// without calling ReceiveSSTP itself, since Peek must not mutate the link
+// half of a receive.
+func TestPortLinkedAgreesWithReceiveSSTPsOwnPortDownCheck(t *testing.T) {
+	cfg := Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+		Ports: map[string]Port{
+			"p1": {PathCost: 100},
+			"p3": {PathCost: 100},
+		},
+	}.Normalize()
+
+	l := newLayer(cfg)
+	t0 := time.Unix(0, 0)
+	l.LinkChange(t0, "p1", true, true, 1_000_000_000)
+	// "p2" names no port at all: never configured. "p3" is configured but
+	// LinkChange is never called for it, so it stays down. "p1" is linked.
+
+	bpdu := BPDU{
+		Version:      2,
+		Type:         BPDUTypeRapid,
+		RootID:       BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		BridgeID:     BridgeID{Priority: 4096, Address: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	bpdu.SetRole(RoleDesignated)
+
+	for _, port := range []string{"p1", "p2", "p3"} {
+		linked := l.PortLinked(port)
+
+		_, outcome := l.ReceiveSSTP(t0.Add(time.Second), port, SSTPArrival{ArrivalVID: 1, TLVVID: 1, Admitted: true}, bpdu)
+		down := outcome == SSTPPortDown
+
+		if linked == down {
+			t.Errorf("port %q: PortLinked = %v, ReceiveSSTP outcome = %v (down = %v), want PortLinked == !down",
+				port, linked, outcome, down)
+		}
 	}
 }
 
