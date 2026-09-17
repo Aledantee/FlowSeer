@@ -10,7 +10,7 @@
 // and whatever route a caller resolved, honoring an explicit pin or not),
 // so this package never imports a firmware and never re-implements route
 // selection. Every phase transition and block/release is recorded as a
-// flowseer.event.device.v1.DeviceOperationEvent through the injected
+// flowseer.event.access.v1.DeviceOperationEvent through the injected
 // audit.Deliverer, and the call that would flip Machine's own phase blocks
 // on that delivery succeeding first — the audit record is written before
 // the state it describes is published — so a Deliverer failure leaves Phase() reporting the mutation's

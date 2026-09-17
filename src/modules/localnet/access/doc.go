@@ -18,7 +18,7 @@
 // admission, priority, and poll coalescing), credential (the EdgeService
 // RPCs this module consumes), telemetry (every OpenTelemetry signal),
 // freeze (control-plane freeze), audit (the durable
-// flowseer.event.device.v1.DeviceOperationEvent record), mutation (the
+// flowseer.event.access.v1.DeviceOperationEvent record), mutation (the
 // phase-by-phase state machine), and recovery (the ambiguity
 // handling). See
 // docs/architecture/2026-09-05-verified-device-access-direction.md for the

@@ -9,7 +9,7 @@ import (
 
 	"buf.build/go/protovalidate"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -27,7 +27,7 @@ func commonFixture() audit.Common {
 	}
 }
 
-func validate(t *testing.T, event *eventv1.DeviceOperationEvent) {
+func validate(t *testing.T, event *eventaccessv1.DeviceOperationEvent) {
 	t.Helper()
 	if err := protovalidate.Validate(event); err != nil {
 		t.Errorf("event failed validation: %v", err)
@@ -87,14 +87,14 @@ func TestBuildLaneFrozenValidates(t *testing.T) {
 type fakeSink struct {
 	release chan struct{}
 	err     error
-	called  chan *eventv1.DeviceOperationEvent
+	called  chan *eventaccessv1.DeviceOperationEvent
 }
 
 func newFakeSink() *fakeSink {
-	return &fakeSink{release: make(chan struct{}), called: make(chan *eventv1.DeviceOperationEvent, 1)}
+	return &fakeSink{release: make(chan struct{}), called: make(chan *eventaccessv1.DeviceOperationEvent, 1)}
 }
 
-func (s *fakeSink) Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error {
+func (s *fakeSink) Emit(ctx context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	select {
 	case <-s.release:
 	case <-ctx.Done():

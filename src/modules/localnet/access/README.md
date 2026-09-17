@@ -7,7 +7,7 @@ interface capability through the mutation state machine (plan, checkpoint,
 execute, observe, compare, result), recovers from ambiguity, honors a
 control-plane freeze,
 and reports a subset of the named OpenTelemetry signals plus the durable
-`flowseer.event.device.v1.DeviceOperationEvent` audit record before
+`flowseer.event.access.v1.DeviceOperationEvent` audit record before
 releasing the lane — see "Named events, spans, and the audit record" below
 for exactly which signals are wired and which are defined but not yet
 emitted. Grounded in

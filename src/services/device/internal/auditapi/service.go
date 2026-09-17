@@ -12,7 +12,7 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 )
@@ -66,7 +66,7 @@ func New(stream Publisher, binding EdgeBinding, tenant string) *Service {
 // confirming the calling edge hosts the event's device. A publish failure is
 // returned so the edge keeps the state the event describes; the event id is
 // the stream's message id, so a duplicate is stored once.
-func (s *Service) Deliver(ctx context.Context, req *connect.Request[eventv1.DeliverRequest]) (*connect.Response[eventv1.DeliverResponse], error) {
+func (s *Service) Deliver(ctx context.Context, req *connect.Request[auditv1.DeliverRequest]) (*connect.Response[auditv1.DeliverResponse], error) {
 	event := req.Msg.GetEvent()
 	deviceID := event.GetDevice().GetDevice().GetId()
 
@@ -93,5 +93,5 @@ func (s *Service) Deliver(ctx context.Context, req *connect.Request[eventv1.Deli
 		return nil, connectErr(errs.From(err).Code(ErrCodePublish).Attr("device", deviceID).
 			Attr("event", event.GetEventId()).Msg("publish audit event"))
 	}
-	return connect.NewResponse(&eventv1.DeliverResponse{}), nil
+	return connect.NewResponse(&auditv1.DeliverResponse{}), nil
 }

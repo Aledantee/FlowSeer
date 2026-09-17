@@ -10,7 +10,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -113,7 +113,7 @@ type Machine struct {
 	// owed are the audit records this mutation could not deliver, kept as
 	// the values that were built so a retry carries the same event id and
 	// the stream reads it as a duplicate rather than a second fact.
-	owed []*eventv1.DeviceOperationEvent
+	owed []*eventaccessv1.DeviceOperationEvent
 	// cancelWaits cancels the context [Machine.Execute] runs its waits
 	// under, and is nil whenever Execute is not parked in one.
 	cancelWaits context.CancelFunc
@@ -890,7 +890,7 @@ func (m *Machine) InRecovery() bool {
 // event_id, and the audit stream deduplicates on exactly that id — so a
 // rebuilt record is a second record rather than a retry, and an account with
 // duplicates is as wrong as one with holes while looking healthier.
-func (m *Machine) retainOwed(event *eventv1.DeviceOperationEvent) {
+func (m *Machine) retainOwed(event *eventaccessv1.DeviceOperationEvent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.owed = append(m.owed, event)
@@ -920,7 +920,7 @@ func (m *Machine) DeliverOwed(ctx context.Context) error {
 	m.owed = nil
 	m.mu.Unlock()
 
-	var failed []*eventv1.DeviceOperationEvent
+	var failed []*eventaccessv1.DeviceOperationEvent
 	var err error
 	for _, event := range pending {
 		if emitErr := m.deps.Audit.Emit(ctx, event); emitErr != nil {

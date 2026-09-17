@@ -9,7 +9,7 @@
 // edge must act on: the agent's own logs, metrics, and traces today, and the
 // device logs, traps, and change events the ingestion sources will add on
 // the same buffer. Every decision between the two processes is a Connect
-// call in edge/dispatch/v1 and event/device/v1, never a subject here.
+// call in edge/dispatch/v1 and edge/audit/v1, never a subject here.
 //
 // See docs/architecture/2026-08-20-device-service-and-inventory-direction.md,
 // "Edge attachment and enrollment", and this package's README for the

@@ -13,7 +13,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -27,7 +27,7 @@ import (
 // fakeDeliverer records every event handed to it and can be told to fail
 // once, or to block until released.
 type fakeDeliverer struct {
-	events    []*eventv1.DeviceOperationEvent
+	events    []*eventaccessv1.DeviceOperationEvent
 	failNext  bool
 	release   chan struct{}
 	awaitCall chan struct{}
@@ -50,7 +50,7 @@ func closedChan() chan struct{} {
 	return ch
 }
 
-func (d *fakeDeliverer) Emit(ctx context.Context, event *eventv1.DeviceOperationEvent) error {
+func (d *fakeDeliverer) Emit(ctx context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if d.awaitCall != nil {
 		close(d.awaitCall)
 	}

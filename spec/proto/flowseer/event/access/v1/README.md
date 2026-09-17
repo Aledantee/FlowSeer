@@ -1,6 +1,6 @@
 # Device operation audit event
 
-The `flowseer.event.device.v1` package holds `DeviceOperationEvent`, the
+The `flowseer.event.access.v1` package holds `DeviceOperationEvent`, the
 durable audit record of what happened on one device's lane. Decision 13 of
 the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
@@ -13,7 +13,7 @@ blocking work. This package carries only the former.
 
 Imports: model/access, model/inventory
 
-Imported by: nothing
+Imported by: edge/audit
 
 Deliberately absent:
 
@@ -51,18 +51,6 @@ A separate kind per fact keeps every event row typed instead of a single
 struct wide enough for the union of all nine. `LaneBlocked` carries the same
 `BlockReason` enum `MutationState` uses, so a reader never has to reconcile
 two vocabularies for the same concept.
-
-## Delivery
-
-`AuditService.Deliver` is how a record reaches the stream: the edge (or
-central's own drift detector) sends one `DeviceOperationEvent` per call over
-Connect, central writes it into the JetStream audit stream with the event
-id as the deduplication key, and answers only after the stream has
-acknowledged it. Central is the stream's only writer, and an error means the
-record is not held, so a caller that must not release state before its
-record is durable simply does not proceed on an error. Central derives
-nothing from the stream afterwards; the fingerprint and every other fact it
-acts on arrive through `edge/dispatch/v1`'s reports.
 
 ## Why this package imports model/inventory directly
 

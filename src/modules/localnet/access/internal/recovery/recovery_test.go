@@ -7,7 +7,7 @@ import (
 	"time"
 
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -20,7 +20,7 @@ import (
 
 type noopDeliverer struct{}
 
-func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+func (noopDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error { return nil }
 
 // failsOnLaneBlockedDeliverer fails only for a LaneBlocked event whose
 // reason is RECOVERY_HOLD, so PhaseTransitioned, EnterRecovering's own
@@ -29,7 +29,7 @@ func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error 
 // sees the simulated outage.
 type failsOnLaneBlockedDeliverer struct{}
 
-func (failsOnLaneBlockedDeliverer) Emit(_ context.Context, event *eventv1.DeviceOperationEvent) error {
+func (failsOnLaneBlockedDeliverer) Emit(_ context.Context, event *eventaccessv1.DeviceOperationEvent) error {
 	if event.GetLaneBlocked().GetReason() == accessv1.BlockReason_BLOCK_REASON_RECOVERY_HOLD {
 		return errors.New("audit delivery unavailable")
 	}

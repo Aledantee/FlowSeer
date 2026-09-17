@@ -9,7 +9,7 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
-	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
+	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -555,7 +555,7 @@ func NewLane(cfg Config) *Lane {
 // name one to use this module at all.
 type noopDeliverer struct{}
 
-func (noopDeliverer) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
+func (noopDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) error { return nil }
 
 // noopReadSource is Config's default ReadCredentialSource when a host has
 // not wired a real one: it returns an empty credential immediately, which a

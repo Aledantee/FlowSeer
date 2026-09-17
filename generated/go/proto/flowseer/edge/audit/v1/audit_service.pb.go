@@ -2,16 +2,17 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/event/device/v1/audit_service.proto
+// source: flowseer/edge/audit/v1/audit_service.proto
 
 // The Connect call an edge delivers a DeviceOperationEvent through. Central
 // is the audit stream's only writer and answers only once the stream holds
 // the record, which is what lets the edge release state only after its
 // record is durable.
 
-package devicev1
+package auditv1
 
 import (
+	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -26,15 +27,15 @@ const (
 )
 
 type DeliverRequest struct {
-	state            protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Event *DeviceOperationEvent  `protobuf:"bytes,1,opt,name=event"`
+	state            protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_Event *v1.DeviceOperationEvent `protobuf:"bytes,1,opt,name=event"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeliverRequest) Reset() {
 	*x = DeliverRequest{}
-	mi := &file_flowseer_event_device_v1_audit_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_audit_v1_audit_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +47,7 @@ func (x *DeliverRequest) String() string {
 func (*DeliverRequest) ProtoMessage() {}
 
 func (x *DeliverRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_audit_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_audit_v1_audit_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,14 +58,14 @@ func (x *DeliverRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *DeliverRequest) GetEvent() *DeviceOperationEvent {
+func (x *DeliverRequest) GetEvent() *v1.DeviceOperationEvent {
 	if x != nil {
 		return x.xxx_hidden_Event
 	}
 	return nil
 }
 
-func (x *DeliverRequest) SetEvent(v *DeviceOperationEvent) {
+func (x *DeliverRequest) SetEvent(v *v1.DeviceOperationEvent) {
 	x.xxx_hidden_Event = v
 }
 
@@ -83,7 +84,7 @@ type DeliverRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// Must be present.
-	Event *DeviceOperationEvent
+	Event *v1.DeviceOperationEvent
 }
 
 func (b0 DeliverRequest_builder) Build() *DeliverRequest {
@@ -102,7 +103,7 @@ type DeliverResponse struct {
 
 func (x *DeliverResponse) Reset() {
 	*x = DeliverResponse{}
-	mi := &file_flowseer_event_device_v1_audit_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_audit_v1_audit_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -114,7 +115,7 @@ func (x *DeliverResponse) String() string {
 func (*DeliverResponse) ProtoMessage() {}
 
 func (x *DeliverResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_audit_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_audit_v1_audit_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -137,28 +138,28 @@ func (b0 DeliverResponse_builder) Build() *DeliverResponse {
 	return m0
 }
 
-var File_flowseer_event_device_v1_audit_service_proto protoreflect.FileDescriptor
+var File_flowseer_edge_audit_v1_audit_service_proto protoreflect.FileDescriptor
 
-const file_flowseer_event_device_v1_audit_service_proto_rawDesc = "" +
+const file_flowseer_edge_audit_v1_audit_service_proto_rawDesc = "" +
 	"\n" +
-	",flowseer/event/device/v1/audit_service.proto\x12\x18flowseer.event.device.v1\x1a.flowseer/event/device/v1/operation_event.proto\"^\n" +
+	"*flowseer/edge/audit/v1/audit_service.proto\x12\x16flowseer.edge.audit.v1\x1a.flowseer/event/access/v1/operation_event.proto\"^\n" +
 	"\x0eDeliverRequest\x12L\n" +
-	"\x05event\x18\x01 \x01(\v2..flowseer.event.device.v1.DeviceOperationEventB\x06\xbaH\x03\xc8\x01\x01R\x05event\"\x11\n" +
-	"\x0fDeliverResponse2n\n" +
-	"\fAuditService\x12^\n" +
-	"\aDeliver\x12(.flowseer.event.device.v1.DeliverRequest\x1a).flowseer.event.device.v1.DeliverResponseB\x82\x02\n" +
-	"\x1ccom.flowseer.event.device.v1B\x11AuditServiceProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1;devicev1\xa2\x02\x03FED\xaa\x02\x18Flowseer.Event.Device.V1\xca\x02\x18Flowseer\\Event\\Device\\V1\xe2\x02$Flowseer\\Event\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Event::Device::V1b\beditionsp\xe9\a"
+	"\x05event\x18\x01 \x01(\v2..flowseer.event.access.v1.DeviceOperationEventB\x06\xbaH\x03\xc8\x01\x01R\x05event\"\x11\n" +
+	"\x0fDeliverResponse2j\n" +
+	"\fAuditService\x12Z\n" +
+	"\aDeliver\x12&.flowseer.edge.audit.v1.DeliverRequest\x1a'.flowseer.edge.audit.v1.DeliverResponseB\xf5\x01\n" +
+	"\x1acom.flowseer.edge.audit.v1B\x11AuditServiceProtoP\x01ZIgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1;auditv1\xa2\x02\x03FEA\xaa\x02\x16Flowseer.Edge.Audit.V1\xca\x02\x16Flowseer\\Edge\\Audit\\V1\xe2\x02\"Flowseer\\Edge\\Audit\\V1\\GPBMetadata\xea\x02\x19Flowseer::Edge::Audit::V1b\beditionsp\xe9\a"
 
-var file_flowseer_event_device_v1_audit_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_flowseer_event_device_v1_audit_service_proto_goTypes = []any{
-	(*DeliverRequest)(nil),       // 0: flowseer.event.device.v1.DeliverRequest
-	(*DeliverResponse)(nil),      // 1: flowseer.event.device.v1.DeliverResponse
-	(*DeviceOperationEvent)(nil), // 2: flowseer.event.device.v1.DeviceOperationEvent
+var file_flowseer_edge_audit_v1_audit_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_flowseer_edge_audit_v1_audit_service_proto_goTypes = []any{
+	(*DeliverRequest)(nil),          // 0: flowseer.edge.audit.v1.DeliverRequest
+	(*DeliverResponse)(nil),         // 1: flowseer.edge.audit.v1.DeliverResponse
+	(*v1.DeviceOperationEvent)(nil), // 2: flowseer.event.access.v1.DeviceOperationEvent
 }
-var file_flowseer_event_device_v1_audit_service_proto_depIdxs = []int32{
-	2, // 0: flowseer.event.device.v1.DeliverRequest.event:type_name -> flowseer.event.device.v1.DeviceOperationEvent
-	0, // 1: flowseer.event.device.v1.AuditService.Deliver:input_type -> flowseer.event.device.v1.DeliverRequest
-	1, // 2: flowseer.event.device.v1.AuditService.Deliver:output_type -> flowseer.event.device.v1.DeliverResponse
+var file_flowseer_edge_audit_v1_audit_service_proto_depIdxs = []int32{
+	2, // 0: flowseer.edge.audit.v1.DeliverRequest.event:type_name -> flowseer.event.access.v1.DeviceOperationEvent
+	0, // 1: flowseer.edge.audit.v1.AuditService.Deliver:input_type -> flowseer.edge.audit.v1.DeliverRequest
+	1, // 2: flowseer.edge.audit.v1.AuditService.Deliver:output_type -> flowseer.edge.audit.v1.DeliverResponse
 	2, // [2:3] is the sub-list for method output_type
 	1, // [1:2] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -166,27 +167,26 @@ var file_flowseer_event_device_v1_audit_service_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_event_device_v1_audit_service_proto_init() }
-func file_flowseer_event_device_v1_audit_service_proto_init() {
-	if File_flowseer_event_device_v1_audit_service_proto != nil {
+func init() { file_flowseer_edge_audit_v1_audit_service_proto_init() }
+func file_flowseer_edge_audit_v1_audit_service_proto_init() {
+	if File_flowseer_edge_audit_v1_audit_service_proto != nil {
 		return
 	}
-	file_flowseer_event_device_v1_operation_event_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_event_device_v1_audit_service_proto_rawDesc), len(file_flowseer_event_device_v1_audit_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_audit_v1_audit_service_proto_rawDesc), len(file_flowseer_edge_audit_v1_audit_service_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_flowseer_event_device_v1_audit_service_proto_goTypes,
-		DependencyIndexes: file_flowseer_event_device_v1_audit_service_proto_depIdxs,
-		MessageInfos:      file_flowseer_event_device_v1_audit_service_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_audit_v1_audit_service_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_audit_v1_audit_service_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_audit_v1_audit_service_proto_msgTypes,
 	}.Build()
-	File_flowseer_event_device_v1_audit_service_proto = out.File
-	file_flowseer_event_device_v1_audit_service_proto_goTypes = nil
-	file_flowseer_event_device_v1_audit_service_proto_depIdxs = nil
+	File_flowseer_edge_audit_v1_audit_service_proto = out.File
+	file_flowseer_edge_audit_v1_audit_service_proto_goTypes = nil
+	file_flowseer_edge_audit_v1_audit_service_proto_depIdxs = nil
 }

@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/event/device/v1/operation_event.proto
+// source: flowseer/event/access/v1/operation_event.proto
 
 // The durable audit record of what happened on one device's lane: DeviceOperationEvent
 // and its typed kinds. Deliberately partial: there is no DeviceOperationConfig
@@ -10,7 +10,7 @@
 // no queryable current-state entity of its own — MutationState in
 // model/access carries the live state this audit trails.
 
-package devicev1
+package accessv1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -50,7 +50,7 @@ type DeviceOperationEvent struct {
 
 func (x *DeviceOperationEvent) Reset() {
 	*x = DeviceOperationEvent{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[0]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -62,7 +62,7 @@ func (x *DeviceOperationEvent) String() string {
 func (*DeviceOperationEvent) ProtoMessage() {}
 
 func (x *DeviceOperationEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[0]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +602,7 @@ func (b0 DeviceOperationEvent_builder) Build() *DeviceOperationEvent {
 type case_DeviceOperationEvent_Detail protoreflect.FieldNumber
 
 func (x case_DeviceOperationEvent_Detail) String() string {
-	md := file_flowseer_event_device_v1_operation_event_proto_msgTypes[0].Descriptor()
+	md := file_flowseer_event_access_v1_operation_event_proto_msgTypes[0].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -680,7 +680,7 @@ type PhaseTransitioned struct {
 
 func (x *PhaseTransitioned) Reset() {
 	*x = PhaseTransitioned{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[1]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -692,7 +692,7 @@ func (x *PhaseTransitioned) String() string {
 func (*PhaseTransitioned) ProtoMessage() {}
 
 func (x *PhaseTransitioned) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[1]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +793,7 @@ type LaneBlocked struct {
 
 func (x *LaneBlocked) Reset() {
 	*x = LaneBlocked{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[2]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -805,7 +805,7 @@ func (x *LaneBlocked) String() string {
 func (*LaneBlocked) ProtoMessage() {}
 
 func (x *LaneBlocked) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[2]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +869,7 @@ type LaneReleased struct {
 
 func (x *LaneReleased) Reset() {
 	*x = LaneReleased{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[3]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +881,7 @@ func (x *LaneReleased) String() string {
 func (*LaneReleased) ProtoMessage() {}
 
 func (x *LaneReleased) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[3]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +917,7 @@ type RouteSelected struct {
 
 func (x *RouteSelected) Reset() {
 	*x = RouteSelected{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[4]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +929,7 @@ func (x *RouteSelected) String() string {
 func (*RouteSelected) ProtoMessage() {}
 
 func (x *RouteSelected) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[4]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1028,7 +1028,7 @@ type DiscoveryCompleted struct {
 
 func (x *DiscoveryCompleted) Reset() {
 	*x = DiscoveryCompleted{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[5]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1040,7 +1040,7 @@ func (x *DiscoveryCompleted) String() string {
 func (*DiscoveryCompleted) ProtoMessage() {}
 
 func (x *DiscoveryCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[5]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1110,7 +1110,7 @@ type FirmwareEpochChanged struct {
 
 func (x *FirmwareEpochChanged) Reset() {
 	*x = FirmwareEpochChanged{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[6]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1122,7 +1122,7 @@ func (x *FirmwareEpochChanged) String() string {
 func (*FirmwareEpochChanged) ProtoMessage() {}
 
 func (x *FirmwareEpochChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[6]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1220,7 +1220,7 @@ type RecoveryStarted struct {
 
 func (x *RecoveryStarted) Reset() {
 	*x = RecoveryStarted{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[7]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1232,7 +1232,7 @@ func (x *RecoveryStarted) String() string {
 func (*RecoveryStarted) ProtoMessage() {}
 
 func (x *RecoveryStarted) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[7]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1267,7 +1267,7 @@ type DriftDetected struct {
 
 func (x *DriftDetected) Reset() {
 	*x = DriftDetected{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[8]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1279,7 @@ func (x *DriftDetected) String() string {
 func (*DriftDetected) ProtoMessage() {}
 
 func (x *DriftDetected) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[8]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1346,7 +1346,7 @@ type LaneFrozen struct {
 
 func (x *LaneFrozen) Reset() {
 	*x = LaneFrozen{}
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[9]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1358,7 @@ func (x *LaneFrozen) String() string {
 func (*LaneFrozen) ProtoMessage() {}
 
 func (x *LaneFrozen) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_event_device_v1_operation_event_proto_msgTypes[9]
+	mi := &file_flowseer_event_access_v1_operation_event_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1381,31 +1381,31 @@ func (b0 LaneFrozen_builder) Build() *LaneFrozen {
 	return m0
 }
 
-var File_flowseer_event_device_v1_operation_event_proto protoreflect.FileDescriptor
+var File_flowseer_event_access_v1_operation_event_proto protoreflect.FileDescriptor
 
-const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
+const file_flowseer_event_access_v1_operation_event_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/event/device/v1/operation_event.proto\x12\x18flowseer.event.device.v1\x1a(flowseer/model/access/v1/operation.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\v\n" +
+	".flowseer/event/access/v1/operation_event.proto\x12\x18flowseer.event.access.v1\x1a(flowseer/model/access/v1/operation.proto\x1a)flowseer/model/inventory/v1/binding.proto\x1a(flowseer/model/inventory/v1/device.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x97\v\n" +
 	"\x14DeviceOperationEvent\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bevent_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aeventId\x12#\n" +
 	"\bsequence\x18\x03 \x01(\x04B\a\xbaH\x042\x02(\x01R\bsequence\x12C\n" +
 	"\voccurred_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"occurredAt\x12\x82\x01\n" +
-	"\x0fcorrelation_ids\x18\x05 \x03(\v2B.flowseer.event.device.v1.DeviceOperationEvent.CorrelationIdsEntryB\x15\xbaH\x12\x9a\x01\x0f\x10\b\"\x04r\x02\x18@*\x05r\x03\x18\x80\x01R\x0ecorrelationIds\x12h\n" +
+	"\x0fcorrelation_ids\x18\x05 \x03(\v2B.flowseer.event.access.v1.DeviceOperationEvent.CorrelationIdsEntryB\x15\xbaH\x12\x9a\x01\x0f\x10\b\"\x04r\x02\x18@*\x05r\x03\x18\x80\x01R\x0ecorrelationIds\x12h\n" +
 	"\n" +
-	"attributes\x18\x06 \x03(\v2>.flowseer.event.device.v1.DeviceOperationEvent.AttributesEntryB\b\xbaH\x05\x9a\x01\x02\x10\x10R\n" +
+	"attributes\x18\x06 \x03(\v2>.flowseer.event.access.v1.DeviceOperationEvent.AttributesEntryB\b\xbaH\x05\x9a\x01\x02\x10\x10R\n" +
 	"attributes\x12\\\n" +
 	"\x12phase_transitioned\x18\n" +
-	" \x01(\v2+.flowseer.event.device.v1.PhaseTransitionedH\x00R\x11phaseTransitioned\x12J\n" +
-	"\flane_blocked\x18\v \x01(\v2%.flowseer.event.device.v1.LaneBlockedH\x00R\vlaneBlocked\x12M\n" +
-	"\rlane_released\x18\f \x01(\v2&.flowseer.event.device.v1.LaneReleasedH\x00R\flaneReleased\x12P\n" +
-	"\x0eroute_selected\x18\r \x01(\v2'.flowseer.event.device.v1.RouteSelectedH\x00R\rrouteSelected\x12_\n" +
-	"\x13discovery_completed\x18\x0e \x01(\v2,.flowseer.event.device.v1.DiscoveryCompletedH\x00R\x12discoveryCompleted\x12f\n" +
-	"\x16firmware_epoch_changed\x18\x0f \x01(\v2..flowseer.event.device.v1.FirmwareEpochChangedH\x00R\x14firmwareEpochChanged\x12V\n" +
-	"\x10recovery_started\x18\x10 \x01(\v2).flowseer.event.device.v1.RecoveryStartedH\x00R\x0frecoveryStarted\x12P\n" +
-	"\x0edrift_detected\x18\x11 \x01(\v2'.flowseer.event.device.v1.DriftDetectedH\x00R\rdriftDetected\x12G\n" +
-	"\vlane_frozen\x18\x12 \x01(\v2$.flowseer.event.device.v1.LaneFrozenH\x00R\n" +
+	" \x01(\v2+.flowseer.event.access.v1.PhaseTransitionedH\x00R\x11phaseTransitioned\x12J\n" +
+	"\flane_blocked\x18\v \x01(\v2%.flowseer.event.access.v1.LaneBlockedH\x00R\vlaneBlocked\x12M\n" +
+	"\rlane_released\x18\f \x01(\v2&.flowseer.event.access.v1.LaneReleasedH\x00R\flaneReleased\x12P\n" +
+	"\x0eroute_selected\x18\r \x01(\v2'.flowseer.event.access.v1.RouteSelectedH\x00R\rrouteSelected\x12_\n" +
+	"\x13discovery_completed\x18\x0e \x01(\v2,.flowseer.event.access.v1.DiscoveryCompletedH\x00R\x12discoveryCompleted\x12f\n" +
+	"\x16firmware_epoch_changed\x18\x0f \x01(\v2..flowseer.event.access.v1.FirmwareEpochChangedH\x00R\x14firmwareEpochChanged\x12V\n" +
+	"\x10recovery_started\x18\x10 \x01(\v2).flowseer.event.access.v1.RecoveryStartedH\x00R\x0frecoveryStarted\x12P\n" +
+	"\x0edrift_detected\x18\x11 \x01(\v2'.flowseer.event.access.v1.DriftDetectedH\x00R\rdriftDetected\x12G\n" +
+	"\vlane_frozen\x18\x12 \x01(\v2$.flowseer.event.access.v1.LaneFrozenH\x00R\n" +
 	"laneFrozen\x1aA\n" +
 	"\x13CorrelationIdsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -1442,22 +1442,22 @@ const file_flowseer_event_device_v1_operation_event_proto_rawDesc = "" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\tfieldName\"\f\n" +
 	"\n" +
 	"LaneFrozenB\x84\x02\n" +
-	"\x1ccom.flowseer.event.device.v1B\x13OperationEventProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1;devicev1\xa2\x02\x03FED\xaa\x02\x18Flowseer.Event.Device.V1\xca\x02\x18Flowseer\\Event\\Device\\V1\xe2\x02$Flowseer\\Event\\Device\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Event::Device::V1b\beditionsp\xe9\a"
+	"\x1ccom.flowseer.event.access.v1B\x13OperationEventProtoP\x01ZLgo.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1;accessv1\xa2\x02\x03FEA\xaa\x02\x18Flowseer.Event.Access.V1\xca\x02\x18Flowseer\\Event\\Access\\V1\xe2\x02$Flowseer\\Event\\Access\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Event::Access::V1b\beditionsp\xe9\a"
 
-var file_flowseer_event_device_v1_operation_event_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
-var file_flowseer_event_device_v1_operation_event_proto_goTypes = []any{
-	(*DeviceOperationEvent)(nil),  // 0: flowseer.event.device.v1.DeviceOperationEvent
-	(*PhaseTransitioned)(nil),     // 1: flowseer.event.device.v1.PhaseTransitioned
-	(*LaneBlocked)(nil),           // 2: flowseer.event.device.v1.LaneBlocked
-	(*LaneReleased)(nil),          // 3: flowseer.event.device.v1.LaneReleased
-	(*RouteSelected)(nil),         // 4: flowseer.event.device.v1.RouteSelected
-	(*DiscoveryCompleted)(nil),    // 5: flowseer.event.device.v1.DiscoveryCompleted
-	(*FirmwareEpochChanged)(nil),  // 6: flowseer.event.device.v1.FirmwareEpochChanged
-	(*RecoveryStarted)(nil),       // 7: flowseer.event.device.v1.RecoveryStarted
-	(*DriftDetected)(nil),         // 8: flowseer.event.device.v1.DriftDetected
-	(*LaneFrozen)(nil),            // 9: flowseer.event.device.v1.LaneFrozen
-	nil,                           // 10: flowseer.event.device.v1.DeviceOperationEvent.CorrelationIdsEntry
-	nil,                           // 11: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry
+var file_flowseer_event_access_v1_operation_event_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_flowseer_event_access_v1_operation_event_proto_goTypes = []any{
+	(*DeviceOperationEvent)(nil),  // 0: flowseer.event.access.v1.DeviceOperationEvent
+	(*PhaseTransitioned)(nil),     // 1: flowseer.event.access.v1.PhaseTransitioned
+	(*LaneBlocked)(nil),           // 2: flowseer.event.access.v1.LaneBlocked
+	(*LaneReleased)(nil),          // 3: flowseer.event.access.v1.LaneReleased
+	(*RouteSelected)(nil),         // 4: flowseer.event.access.v1.RouteSelected
+	(*DiscoveryCompleted)(nil),    // 5: flowseer.event.access.v1.DiscoveryCompleted
+	(*FirmwareEpochChanged)(nil),  // 6: flowseer.event.access.v1.FirmwareEpochChanged
+	(*RecoveryStarted)(nil),       // 7: flowseer.event.access.v1.RecoveryStarted
+	(*DriftDetected)(nil),         // 8: flowseer.event.access.v1.DriftDetected
+	(*LaneFrozen)(nil),            // 9: flowseer.event.access.v1.LaneFrozen
+	nil,                           // 10: flowseer.event.access.v1.DeviceOperationEvent.CorrelationIdsEntry
+	nil,                           // 11: flowseer.event.access.v1.DeviceOperationEvent.AttributesEntry
 	(*v1.DeviceGlobalRef)(nil),    // 12: flowseer.model.inventory.v1.DeviceGlobalRef
 	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
 	(v11.OperationPhase)(0),       // 14: flowseer.model.access.v1.OperationPhase
@@ -1465,25 +1465,25 @@ var file_flowseer_event_device_v1_operation_event_proto_goTypes = []any{
 	(v1.ManagementProtocol)(0),    // 16: flowseer.model.inventory.v1.ManagementProtocol
 	(*structpb.Value)(nil),        // 17: google.protobuf.Value
 }
-var file_flowseer_event_device_v1_operation_event_proto_depIdxs = []int32{
-	12, // 0: flowseer.event.device.v1.DeviceOperationEvent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	13, // 1: flowseer.event.device.v1.DeviceOperationEvent.occurred_at:type_name -> google.protobuf.Timestamp
-	10, // 2: flowseer.event.device.v1.DeviceOperationEvent.correlation_ids:type_name -> flowseer.event.device.v1.DeviceOperationEvent.CorrelationIdsEntry
-	11, // 3: flowseer.event.device.v1.DeviceOperationEvent.attributes:type_name -> flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry
-	1,  // 4: flowseer.event.device.v1.DeviceOperationEvent.phase_transitioned:type_name -> flowseer.event.device.v1.PhaseTransitioned
-	2,  // 5: flowseer.event.device.v1.DeviceOperationEvent.lane_blocked:type_name -> flowseer.event.device.v1.LaneBlocked
-	3,  // 6: flowseer.event.device.v1.DeviceOperationEvent.lane_released:type_name -> flowseer.event.device.v1.LaneReleased
-	4,  // 7: flowseer.event.device.v1.DeviceOperationEvent.route_selected:type_name -> flowseer.event.device.v1.RouteSelected
-	5,  // 8: flowseer.event.device.v1.DeviceOperationEvent.discovery_completed:type_name -> flowseer.event.device.v1.DiscoveryCompleted
-	6,  // 9: flowseer.event.device.v1.DeviceOperationEvent.firmware_epoch_changed:type_name -> flowseer.event.device.v1.FirmwareEpochChanged
-	7,  // 10: flowseer.event.device.v1.DeviceOperationEvent.recovery_started:type_name -> flowseer.event.device.v1.RecoveryStarted
-	8,  // 11: flowseer.event.device.v1.DeviceOperationEvent.drift_detected:type_name -> flowseer.event.device.v1.DriftDetected
-	9,  // 12: flowseer.event.device.v1.DeviceOperationEvent.lane_frozen:type_name -> flowseer.event.device.v1.LaneFrozen
-	14, // 13: flowseer.event.device.v1.PhaseTransitioned.from:type_name -> flowseer.model.access.v1.OperationPhase
-	14, // 14: flowseer.event.device.v1.PhaseTransitioned.to:type_name -> flowseer.model.access.v1.OperationPhase
-	15, // 15: flowseer.event.device.v1.LaneBlocked.reason:type_name -> flowseer.model.access.v1.BlockReason
-	16, // 16: flowseer.event.device.v1.RouteSelected.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
-	17, // 17: flowseer.event.device.v1.DeviceOperationEvent.AttributesEntry.value:type_name -> google.protobuf.Value
+var file_flowseer_event_access_v1_operation_event_proto_depIdxs = []int32{
+	12, // 0: flowseer.event.access.v1.DeviceOperationEvent.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	13, // 1: flowseer.event.access.v1.DeviceOperationEvent.occurred_at:type_name -> google.protobuf.Timestamp
+	10, // 2: flowseer.event.access.v1.DeviceOperationEvent.correlation_ids:type_name -> flowseer.event.access.v1.DeviceOperationEvent.CorrelationIdsEntry
+	11, // 3: flowseer.event.access.v1.DeviceOperationEvent.attributes:type_name -> flowseer.event.access.v1.DeviceOperationEvent.AttributesEntry
+	1,  // 4: flowseer.event.access.v1.DeviceOperationEvent.phase_transitioned:type_name -> flowseer.event.access.v1.PhaseTransitioned
+	2,  // 5: flowseer.event.access.v1.DeviceOperationEvent.lane_blocked:type_name -> flowseer.event.access.v1.LaneBlocked
+	3,  // 6: flowseer.event.access.v1.DeviceOperationEvent.lane_released:type_name -> flowseer.event.access.v1.LaneReleased
+	4,  // 7: flowseer.event.access.v1.DeviceOperationEvent.route_selected:type_name -> flowseer.event.access.v1.RouteSelected
+	5,  // 8: flowseer.event.access.v1.DeviceOperationEvent.discovery_completed:type_name -> flowseer.event.access.v1.DiscoveryCompleted
+	6,  // 9: flowseer.event.access.v1.DeviceOperationEvent.firmware_epoch_changed:type_name -> flowseer.event.access.v1.FirmwareEpochChanged
+	7,  // 10: flowseer.event.access.v1.DeviceOperationEvent.recovery_started:type_name -> flowseer.event.access.v1.RecoveryStarted
+	8,  // 11: flowseer.event.access.v1.DeviceOperationEvent.drift_detected:type_name -> flowseer.event.access.v1.DriftDetected
+	9,  // 12: flowseer.event.access.v1.DeviceOperationEvent.lane_frozen:type_name -> flowseer.event.access.v1.LaneFrozen
+	14, // 13: flowseer.event.access.v1.PhaseTransitioned.from:type_name -> flowseer.model.access.v1.OperationPhase
+	14, // 14: flowseer.event.access.v1.PhaseTransitioned.to:type_name -> flowseer.model.access.v1.OperationPhase
+	15, // 15: flowseer.event.access.v1.LaneBlocked.reason:type_name -> flowseer.model.access.v1.BlockReason
+	16, // 16: flowseer.event.access.v1.RouteSelected.protocol:type_name -> flowseer.model.inventory.v1.ManagementProtocol
+	17, // 17: flowseer.event.access.v1.DeviceOperationEvent.AttributesEntry.value:type_name -> google.protobuf.Value
 	18, // [18:18] is the sub-list for method output_type
 	18, // [18:18] is the sub-list for method input_type
 	18, // [18:18] is the sub-list for extension type_name
@@ -1491,12 +1491,12 @@ var file_flowseer_event_device_v1_operation_event_proto_depIdxs = []int32{
 	0,  // [0:18] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_event_device_v1_operation_event_proto_init() }
-func file_flowseer_event_device_v1_operation_event_proto_init() {
-	if File_flowseer_event_device_v1_operation_event_proto != nil {
+func init() { file_flowseer_event_access_v1_operation_event_proto_init() }
+func file_flowseer_event_access_v1_operation_event_proto_init() {
+	if File_flowseer_event_access_v1_operation_event_proto != nil {
 		return
 	}
-	file_flowseer_event_device_v1_operation_event_proto_msgTypes[0].OneofWrappers = []any{
+	file_flowseer_event_access_v1_operation_event_proto_msgTypes[0].OneofWrappers = []any{
 		(*deviceOperationEvent_PhaseTransitioned)(nil),
 		(*deviceOperationEvent_LaneBlocked)(nil),
 		(*deviceOperationEvent_LaneReleased)(nil),
@@ -1511,17 +1511,17 @@ func file_flowseer_event_device_v1_operation_event_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_event_device_v1_operation_event_proto_rawDesc), len(file_flowseer_event_device_v1_operation_event_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_event_access_v1_operation_event_proto_rawDesc), len(file_flowseer_event_access_v1_operation_event_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_event_device_v1_operation_event_proto_goTypes,
-		DependencyIndexes: file_flowseer_event_device_v1_operation_event_proto_depIdxs,
-		MessageInfos:      file_flowseer_event_device_v1_operation_event_proto_msgTypes,
+		GoTypes:           file_flowseer_event_access_v1_operation_event_proto_goTypes,
+		DependencyIndexes: file_flowseer_event_access_v1_operation_event_proto_depIdxs,
+		MessageInfos:      file_flowseer_event_access_v1_operation_event_proto_msgTypes,
 	}.Build()
-	File_flowseer_event_device_v1_operation_event_proto = out.File
-	file_flowseer_event_device_v1_operation_event_proto_goTypes = nil
-	file_flowseer_event_device_v1_operation_event_proto_depIdxs = nil
+	File_flowseer_event_access_v1_operation_event_proto = out.File
+	file_flowseer_event_access_v1_operation_event_proto_goTypes = nil
+	file_flowseer_event_access_v1_operation_event_proto_depIdxs = nil
 }

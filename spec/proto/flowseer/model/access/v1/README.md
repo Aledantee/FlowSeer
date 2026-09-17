@@ -82,7 +82,7 @@ read reaches the edge with no `MutationIntent` to carry one.
 
 Imports: model/edge, model/inventory, model/policy, net/interface
 
-Imported by: api/device, edge/dispatch, event/device, store/device
+Imported by: api/device, edge/dispatch, event/access, store/device
 
 Deliberately absent:
 
