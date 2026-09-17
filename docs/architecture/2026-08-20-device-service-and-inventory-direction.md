@@ -616,7 +616,9 @@ This record's `api/edge/v1` citations split. The Edge entity — its ref pair,
 lifecycle, registered key, and setup key record — moved out to
 `model/edge/v1`; `api/edge/v1` keeps `EdgeService` and `EdgeAdminService`,
 the enrollment, heartbeat, credential, and administration calls this record
-names. `integration/device/v1` and `event/device/v1` are unchanged. See
+names. `integration/device` and `event/device` now read `edge/dispatch`,
+`edge/audit`, and `event/access`, and `api/edge`'s `EdgeService` reads
+`edge/attach` while `EdgeAdminService` stays. See
 [the network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree)
 for the tree and import graph as they stand.

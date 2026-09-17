@@ -63,28 +63,32 @@ spec/proto/flowseer/
     capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
     access/v1/          the operation vocabulary every device-access boundary shares
   api/
-    edge/v1/            EdgeService and EdgeAdminService, the two Connect services around the Edge entity
-    capture/v1/         CaptureService and CaptureEdgeService, the two Connect services around the CaptureSession entity
+    edge/v1/            EdgeAdminService, the operator-facing Connect service for edge administration
+    capture/v1/         CaptureService, the operator-facing Connect service around the CaptureSession entity
     device/v1/          DeviceService, the operator-facing typed device API
+  edge/
+    attach/v1/          EdgeService, what an edge calls to enroll, stay attached, list its devices, and acquire credentials
+    dispatch/v1/        DispatchService, the execution envelope central and the edge hosting a device's lane exchange
+    audit/v1/           AuditService, delivering the durable DeviceOperationEvent audit record
+    capture/v1/         CaptureEdgeService, the upload stream for packet capture sessions
   errs/v1/              the error wire payload
-  integration/device/v1/  execution envelopes between central and an integration: the dispatches central sends and the reports the edge answers with
-  event/device/v1/      DeviceOperationEvent, the durable audit record, and AuditService, the call an edge makes to deliver it
-  service/v1/           process-local runtime messages and durable mailbox contracts
+  event/
+    access/v1/          DeviceOperationEvent, the durable audit record of lane operations
+  integration/          holds only a README; fabric contract reserved
+  service/v1/           process-local runtime messages and durable mailbox contracts (reserved for runtime/v1)
   store/
     device/v1/          the device service's persisted records; imported by nothing
-    edge/v1/            the edge agent's persisted configuration; imported by nothing
+    edge/v1/            the edge agent's persisted configuration; imported by nothing (reserved for store/agent/v1)
 ```
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
-Four more roots are not real yet. `edge/` is the Connect service plane
-between central and an enrolled edge, today still split across `api/edge`,
-`api/capture`, `integration/device`, and `event/device`. `integration/`'s
-own fabric contract (announce, kind descriptor, event subjects) is reserved
-once `integration/device` moves out and leaves the root holding only a
-README. `runtime/` is today's `service/v1`, and `store/agent` is today's
-`store/edge`. `flowseer.service.v1` names the process-local service runtime
-contract; it must not be treated as a ConnectRPC API package by inference.
+Two roots rather than four are not real yet. `integration/` holds only a
+README, with its own fabric contract (announce, kind descriptor, event
+subjects) reserved. `runtime/` is today's `service/v1`, and `store/agent` is
+today's `store/edge`. `flowseer.service.v1` names the process-local service
+runtime contract; it must not be treated as a ConnectRPC API package by
+inference.
 
 There is no base package. Ref pairs and lifecycle enums, when a family has
 them, live in the package that owns the entity. The rules and deliberate
@@ -101,18 +105,20 @@ net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
 {net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/phy, net/switching, net/ip} ← net/interface
-model/edge ← {api/capture, api/edge, model/access, model/capture, model/inventory, store/device}
-model/policy ← {api/edge, model/access, model/inventory, store/device}
-model/credential ← api/edge
+model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
+model/policy ← {edge/attach, model/access, model/inventory, store/device}
+model/credential ← edge/attach
 {model/edge, net/capture} ← model/capture
-{model/edge, model/policy, model/credential, net/addr} ← api/edge
+{model/edge, model/policy, model/credential, net/addr} ← edge/attach
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
 {model/edge, model/inventory, model/policy, net/interface} ← model/access
 {model/capture, model/edge, net/capture} ← api/capture
+{model/capture, model/edge} ← edge/capture
 {model/access, model/inventory} ← api/device
-model/access ← {integration/device, event/device}
-model/inventory ← event/device
-errs ← {integration/device, store/device}
+model/access ← {edge/dispatch, event/access}
+model/inventory ← event/access
+errs ← {edge/dispatch, store/device}
+event/access ← edge/audit
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
@@ -124,12 +130,14 @@ packages; `net/switching` imports address and packet values, while `net/ip`
 imports address values. `model/edge`, `model/credential`, and `model/policy`
 are leaves too: every package that needs the Edge ref, a credential, or an
 access-policy handle imports the matching one of the three, and none of
-them imports anything FlowSeer-owned back. `api/edge` imports `model/edge`
+them imports anything FlowSeer-owned back. `edge/attach` imports `model/edge`
 for the entity, `model/credential` and `model/policy` for the handles and
 secret material its services hand out, and `net/addr` for the IP address a
-listed device reports; `api/capture` imports `model/capture` for the entity
-and the chunk frames, `model/edge` for the owning ref, and `net/capture`
-for the values a capture observes. `model/inventory` imports `model/edge`
+listed device reports; `api/edge` imports `model/edge` alone. `api/capture`
+imports `model/capture` for the entity and the chunk frames, `model/edge`
+for the owning ref, and `net/capture` for the values a capture observes;
+`edge/capture` imports `model/capture` and `model/edge` for the assertion
+its upload stream re-verifies. `model/inventory` imports `model/edge`
 because an integration names its hosting edge, `model/policy` because a
 device pins an access-policy handle, and `net/phy` because a component
 embeds the pluggable module and a cable names its connector; it does not
@@ -140,7 +148,7 @@ envelope, and the audit event share; none of the three imports another, and
 the audit event reaches `model/edge` only through `model/access`, which
 names the edge responsible for a mutation, and reaches the device directly
 through `model/inventory`. The allowlist also grants `errs` to `api/device`
-and `event/device`, which do not use it yet. The `store/` packages are
+and `event/access`, which do not use it yet. The `store/` packages are
 imported by nothing. The order's home for automated checking is
 `test/conformance/proto/layering_test.go`; `spec/proto/` holds only
 `.proto` and `README.md` files, so no test can sit beside the schemas.
@@ -916,3 +924,24 @@ first.
   chunk frames split out of `api/capture/v1`, so each service package keeps
   only its Connect services and imports the entity package for the ref. The
   tree and import graph above describe the result.
+
+### 2026-09-17 — the edge plane is its own root
+
+Landed with `docs/plans/2026-09-17-1141-refactor-proto-layout-phase2-plan.md`.
+
+- **The edge-facing Connect services move to `edge/`.** `EdgeService` moves
+  from `api/edge/v1` to `edge/attach/v1`, leaving `api/edge/v1` holding
+  `EdgeAdminService` alone. `CaptureEdgeService` moves from `api/capture/v1` to
+  `edge/capture/v1`. `DispatchService` and the execution envelope move from
+  `integration/device/v1` to `edge/dispatch/v1`, leaving `integration/` holding
+  only a README with its fabric contract reserved. `AuditService` moves from
+  `event/device/v1` to `edge/audit/v1`.
+- **`DeviceOperationEvent` moves to `event/access/v1`.** `event/` holds durable
+  event records that other packages read, not services; `edge/audit` imports
+  `event/access` for the record it delivers.
+- **Connect routes change with the package names.** The procedure path on the
+  wire changes to match the new packages (for example,
+  `/flowseer.edge.attach.v1.EdgeService/Heartbeat`). The edge assertion signs
+  the procedure, so the signed assertion changes with the route. The
+  assertion's deployment-configured `audience` is unaffected, so persisted
+  enrollments remain valid across the rename.

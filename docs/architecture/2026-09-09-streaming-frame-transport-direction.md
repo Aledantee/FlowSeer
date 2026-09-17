@@ -126,6 +126,7 @@ out of `api/edge/v1` into `model/edge/v1` with the rest of the Edge entity.
 The `edge_assertion.short_lived` rule and the "does not bind the RPC method"
 and "streams are checked when they open" language now live in
 `spec/proto/flowseer/model/edge/v1/assertion.proto` and
-`spec/proto/flowseer/model/edge/v1/README.md`. See [the network model
+`spec/proto/flowseer/model/edge/v1/README.md`. The assertion's `procedure`
+example now names the `edge/attach` route. See [the network model
 structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).
