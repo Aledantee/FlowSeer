@@ -668,7 +668,7 @@ area reads this before planning; a phase that closes one removes its entry.
 - **Files:**
   `docs/plans/2026-09-17-1217-fix-netsim-analysis-completeness-phase4c-plan.md`
 - **After:** U4b
-- **Landed:**
+- **Landed:** `2515bb09..cd9c08d6`
 - **Change:** One exit slice carrying a cause, an encode that validates before
   the queue rather than after it, an egress identity carried with the frame, a
   drop record that keeps the egress's own reason, and a released frame's
