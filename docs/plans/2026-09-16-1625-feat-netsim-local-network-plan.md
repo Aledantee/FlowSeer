@@ -135,7 +135,10 @@ firewall uses, and those are what this plan adds.
    on trunk `p8`); one copy leaves `p8` tagged 20 and host `h20` accepts it.
 7. Two reflectors sharing two VLANs produce a journey that records a loop
    and the run halts on its budget. Example: `r1` and `r2` both attached to
-   VLANs 10 and 20; the query's root journey gains an `EntryLoop` entry.
+   VLANs 10 and 20; a reflected copy's journey gains an `EntryLoop` entry.
+   The copy's, not the query's: re-entry is detected per frame with a copy
+   seeded from its parent, so the injected query enters each reflector once
+   and never re-enters. Phase 3 records why a root key does not work.
 8. A filter set bound to an interface decides accept, drop, or reject on the
    first matching rule, else on the default action, and a drop is a Complete
    domain outcome. Example: set `lan-in` `[deny udp any->10.0.20.0/24:5353,
