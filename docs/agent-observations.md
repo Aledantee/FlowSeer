@@ -167,3 +167,23 @@ property, the following round's brief names that artifact as the primary
 subject and asks three questions of it: is its enumeration complete against the
 source it claims to read, does each case fail for the rule it names, and is
 each exemption an argument an input cannot violate.
+
+## 2026-09-17 review: a finding is verified but the fix it proposes is not
+Skill or agent: `.claude/skills/review/SKILL.md`, step 4 ("Verify before
+reporting") and step 5's finding shape.
+What happened: every finding carries a "smallest fix", and step 4 requires
+confirming that the failure is real in the current tree. It says nothing about
+the fix. A reviewer reported, correctly, that a test's no-drop assertion gated
+one reason out of several, and proposed widening it to every drop entry "which
+this topology has no legitimate source of". The finding was real and the
+premise was false: the topology drops the advertisement itself on every run,
+because an ARP frame is not owned by a routed port. The coordinator found this
+only by applying the fix and watching the suite fail, then had to re-derive a
+different remedy — which turned out to be deleting the assertion, since nothing
+in that topology could make it fail. The step was followed as written.
+Suggested change: extend step 4 so that a fix resting on a claim about the code
+("nothing else produces this", "no caller does that", "this path is
+unreachable") is verified the way the finding is, and so that a fix the
+reviewer could not verify is reported as a direction rather than as a patch.
+The cost of leaving it is that a verified finding lends its authority to an
+unverified remedy, which the coordinator then applies first and checks second.

@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-merge-is-green-where-neither-sides-fixtures-meet.md
 execution: code
 ---
 
