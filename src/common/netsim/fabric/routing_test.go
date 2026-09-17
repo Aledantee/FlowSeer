@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
@@ -1019,6 +1020,125 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 	}
 }
 
+// TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch is the case
+// TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort does not check: recordNeighborFailure
+// opens a journey with an empty Port, and dependencies must not read that empty Port as "this is a
+// host's one unnamed port" the way it correctly does for a real host. sw1 is not a host, so an
+// empty Port here means no port was involved, not the whole switch.
+func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up})
+	// 1/1/3 carries no traffic in this test: it exists only to put a real issue on sw1, at its own
+	// port scope. It is configured Up but listed Uncabled, so its derived status is Down and the
+	// mismatch raises an oper-status-conflict issue on PortScope("sw1", "1/1/3").
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	pvid10 := vlan.ID(10)
+	pvid20 := vlan.ID(20)
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   swMAC,
+				Ports: ports,
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+						"1/1/2": {PVID: &pvid20, Untagged: []vlan.ID{20}},
+					},
+				}},
+				Routing: &routing.Config{VRFs: map[string]routing.VRF{
+					routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						// Nothing is configured for 10.0.20.77: the switch
+						// holds a frame for it and never resolves it.
+						"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					}},
+				}},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.10.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+		},
+		Uncabled: []fabric.Uncabled{
+			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+		},
+		PhyAssumption: gigabitCopper(),
+	}
+
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	fabMeta := fab.Metadata()
+	issueScope := analysis.PortScope("sw1", "1/1/3")
+	found := false
+	for _, issue := range fabMeta.Issues() {
+		if issue.Code == fabric.IssueOperStatusConflict && issue.Scope.Compare(issueScope) == 0 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("fabric metadata has no oper-status-conflict issue on 1/1/3: %+v", fabMeta.Issues())
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{To: netip.MustParseAddr("10.0.20.77"), Protocol: 17, Payload: []byte("ping")},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	fab.Run(50)
+
+	var dropJourney *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID {
+			continue
+		}
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryDrop && e.Reason == routing.ReasonNeighborMiss {
+				jj := j
+				dropJourney = &jj
+
+				break
+			}
+		}
+	}
+	if dropJourney == nil {
+		t.Fatalf("no neighbor-miss drop journey found among: %+v", fab.Report())
+	}
+
+	for _, issue := range dropJourney.Metadata.Issues() {
+		if issue.Code == fabric.IssueOperStatusConflict && issue.Scope.Compare(issueScope) == 0 {
+			t.Errorf("drop journey metadata carries 1/1/3's oper-status-conflict issue, want none: %+v", issue)
+		}
+	}
+}
+
 // TestFabricReleasedFrameQueuesAtItsIngressPriority is the end of the priority's journey: the
 // switch carries a released frame's priority on the Emission, and the fabric has to queue on
 // that rather than re-derive one from a frame whose egress tag is gone. The baseline is the same
@@ -1141,6 +1261,20 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 			t.Fatalf("Inject ARP reply: %v", err)
 		}
 		fab.Run(200)
+
+		if neighbors == nil {
+			held := false
+			for _, j := range fab.Report() {
+				for _, e := range j.Entries {
+					if e.Result != nil && e.Result.Outcome == trace.Held {
+						held = true
+					}
+				}
+			}
+			if !held {
+				t.Fatalf("no journey entry took the hold path: %+v", fab.Report())
+			}
+		}
 
 		var found []vlan.PCP
 		for _, j := range fab.Report() {

@@ -232,7 +232,9 @@ func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
 func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	var scopes []analysis.Scope
 	endpoint := func(ep Endpoint) {
-		scopes = append(scopes, endpointScope(ep))
+		if _, isHost := f.cfg.Hosts[ep.Node]; ep.Port != "" || isHost {
+			scopes = append(scopes, endpointScope(ep))
+		}
 		if ref, ok := f.byEnd[ep]; ok {
 			scopes = append(scopes, cableScope(ref.link.Cable))
 		}

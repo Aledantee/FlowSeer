@@ -941,11 +941,11 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 // device's real ports and would never show it, while a later reader finding
 // it would believe it meant something.
 //
-// The held frame carried no frame ID of its own — [routing.HeldFrame] keeps
-// only the interface a failed frame was held on — so this opens a new
-// one-entry journey for it, the way injectEmission opens one for a released
-// frame's own injection, rather than attaching it to a frame journey it was
-// never part of.
+// The held frame carried no fabric frame ID of its own — no [FrameID]
+// travels with a held frame while it waits — so this opens a new one-entry
+// journey for it, the way injectEmission opens one for a released frame's own
+// injection, rather than attaching it to a frame journey it was never part
+// of.
 func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop vswitch.NeighborDrop) {
 	f.initRunState()
 
