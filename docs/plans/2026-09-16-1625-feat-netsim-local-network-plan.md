@@ -209,6 +209,17 @@ and the `netmodel` translation (R8 to R11). Its code depends on U1 and U2
 only; it runs after U3 because both register cases in
 `src/common/netsim/internal/netsimtest`, and two units that edit the same
 files are never independent.
+Requires, outside this plan:
+`docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md` has landed.
+That phase cuts `spec/proto/flowseer/` by kind of contract, amends the network
+model structure record this schema sits under, and adds two gates a new package
+has to satisfy: every directory that is not a bare version holder carries a
+README in the parent's shape, and a README's `Imports:` line matches the
+package's real imports. A filter package written before it lands is written
+against a tree and a record that are both about to move, and against gates that
+do not exist yet to tell it what it owes. Nothing enforces this mechanically:
+`check-plan-status.py` resolves only unit-level prerequisites within one parent,
+so the next session checks this line itself before starting U4.
 Landed:
 
 Waves: U1 U2 | U3 | U4 (U3 and U4 are ordered by their shared corpus files)

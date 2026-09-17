@@ -13,6 +13,16 @@ parent: docs/plans/2026-09-16-1625-feat-netsim-local-network-plan.md
 
 > Re-planned by plan when its turn comes; the tree will have moved.
 
+> Blocked. This phase requires
+> `docs/plans/2026-09-17-1141-refactor-proto-layout-phase1-plan.md` to have
+> landed first. That phase cuts `spec/proto/flowseer/` by kind of contract,
+> amends the network model structure record this phase's schema sits under,
+> and adds the README and imports gates a new package must satisfy. Re-planning
+> this phase before it lands would fix a package path, a record, and a set of
+> obligations that are all about to change. Nothing enforces the order: the
+> plan-status checker resolves only unit-level prerequisites inside one parent,
+> so whoever picks this up checks that phase's `status` first.
+
 ## Goal
 
 The virtual switch filters routed traffic by interface-bound rule sets, a
