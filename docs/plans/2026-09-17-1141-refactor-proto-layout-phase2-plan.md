@@ -78,9 +78,9 @@ The parent's Decisions hold. The moves this phase makes:
   that moves a service, regenerates, and fixes both sides leaves no commit at
   which the two disagree. Splitting a service's move across units is the only
   way to strand the agent, and no unit here does that.
-- **The four worked-vector literals change with `EdgeService` and are
-  recomputed, not hand-edited.** The procedure is inside the signed payload:
-  decoding the Heartbeat vector in
+- **The two worked vectors change with `EdgeService`, across five literal
+  sites, and are recomputed rather than hand-edited.** The procedure sits
+  inside the signed payload: decoding the Heartbeat vector in
   `spec/proto/flowseer/model/edge/v1/README.md` puts
   `/flowseer.api.edge.v1.EdgeService/Heartbeat` at offset 99 behind a `0x2b`
   length prefix, so a 46-byte route changes the length prefix, the payload, the
@@ -89,10 +89,13 @@ The parent's Decisions hold. The moves this phase makes:
   compute the header from their own constants and log it before comparing it to
   the README, so changing `edgeProcedure` in
   `test/conformance/proto/model_edge_rules_test.go` and running those two tests
-  produces the new strings to paste. The other three copies
-  (`assertion_test.go`'s `vectorHeader`, `client_test.go`'s
-  `vectorStreamHeader`, `verifier_test.go`'s `readmeVector`) take the same
-  values.
+  produces the two new strings. They are different strings for different
+  procedures, and five sites carry them: the Heartbeat one goes to the
+  README's first code block, `assertion_test.go`'s `vectorHeader`, and
+  `verifier_test.go`'s `readmeVector`; the `OpenDeviceSubmission` one goes to
+  the README's second code block and `client_test.go`'s `vectorStreamHeader`.
+  Pasting either into the other's sites fails `client_test.go`'s stream-open
+  case rather than any vector test, so the two are kept apart by name.
 - **The assertion's `audience` does not change.** It is a deployment-configured
   string that central puts in `EnrollResponse`
   (`src/services/device/internal/edgeapi/enroll.go:237`, from
@@ -181,9 +184,11 @@ unit's diff is a few lines wider than its schema move.
 
 - Any new RPC, including the capture command the remote capture record leaves
   open, and any change to a message's fields or validation rules.
-- `store/edge` to `store/agent` and `service/v1` to `runtime/v1`. Phase 3, which
-  also does the closing pass over every `Imported by:` line and the root map's
-  nine roots.
+- `store/edge` to `store/agent` and `service/v1` to `runtime/v1`. Phase 3,
+  which also re-reads every README's prose against the finished tree and lists
+  the nine roots in the root map. The gated `Imports:` and `Imported by:` lines
+  are not deferred: the README gates read the whole tree, so each unit here
+  leaves every line it invalidates correct.
 - `EdgeAdminService`, which stays at `api/edge/v1` and keeps its route, so
   `docs/runbooks/lab-icx7150-first-write.md`'s `CreateEdge` call is unchanged.
 - The `audience` value and anything that would migrate a persisted enrollment.
@@ -210,11 +215,16 @@ the unit that creates the `edge/` root, so `orderedRoots` gains
 `"edge/capture": {"model/capture", "model/edge"}`; `api/capture` keeps its row,
 because `capture_service.proto` still imports all three of `model/capture`,
 `model/edge`, and `net/capture`. `edge/README.md` is created with the root
-shape: identity, admission, the two boundary lines, and one `## Packages` line.
+shape: identity, admission, the two boundary lines
+(`Imports: model/capture, model/edge` and `Imported by: nothing`), and one
+`## Packages` line.
 `edge/capture/v1/README.md` takes the "Re-assertion on the upload stream"
 section and the sentence naming `CaptureEdgeService` out of
-`api/capture/v1/README.md`, which keeps `CaptureService`, the open question
-about reaching the edge, and a first paragraph saying the upload service moved.
+`api/capture/v1/README.md`, and takes the "Open question: reaching the edge"
+section with them, because the RPC that answers it lands beside
+`UploadCapture`. `api/capture/v1/README.md` keeps `CaptureService` and gains a
+first paragraph saying the upload service moved and where the open question
+went.
 `model/capture/v1/README.md` and `model/edge/v1/README.md` add `edge/capture` to
 `Imported by:`, and `model/capture`'s prose sentence that the services "live in
 `api/capture/v1`" names both packages. `model/README.md` adds `edge/capture`;
@@ -244,7 +254,8 @@ spec/proto/flowseer/integration/README.md, spec/proto/flowseer/edge/README.md,
 spec/proto/flowseer/errs/README.md, spec/proto/flowseer/errs/v1/README.md,
 spec/proto/flowseer/model/README.md,
 spec/proto/flowseer/model/access/v1/README.md,
-spec/proto/flowseer/api/edge/v1/README.md,
+spec/proto/flowseer/api/edge/v1/{README.md,credential.proto},
+spec/proto/flowseer/event/device/v1/README.md,
 generated/go/proto/flowseer/**, test/conformance/proto/layering_test.go,
 test/conformance/proto/integration_device_rules_test.go renamed
 test/conformance/proto/edge_dispatch_rules_test.go,
@@ -264,21 +275,29 @@ follows. `importOrder` drops `integration/device` and gains
 `"edge/dispatch": {"model/access", "errs"}`; `orderedRoots` keeps
 `flowseer/integration`, whose directory survives with its README alone and
 which `protoFilesUnder` walks to an empty result. `integration/README.md` loses
-its `DispatchService` admission example and its `## Packages` entry and reads
+its `DispatchService` admission example, and its `## Packages` section says the
+root holds no package yet rather than being dropped, since the parent's README
+shape requires the section. It reads
 `Imports: nothing FlowSeer-owned` and `Imported by: nothing`, saying the root is
 reserved for the fabric contract the device service record names. `errs/README.md`,
 `errs/v1/README.md`, and `model/access/v1/README.md` swap `integration/device`
 for `edge/dispatch` on `Imported by:`; `model/access`'s prose sentence about the
-"envelope in `integration/device/v1`" and `api/edge/v1/README.md`'s two
-sentences naming `integration/device/v1` follow. `model/README.md` and
-`edge/README.md` gain the package. Go files drop the `integrationv1` alias for
-the plain `dispatchv1` and `integrationv1connect` for `dispatchv1connect`; in
+"envelope in `integration/device/v1`" follows, as do
+`api/edge/v1/README.md`'s three (lines 32, 52, and the
+`flowseer.integration.device.v1.ExecuteRequest` citation at 115),
+`api/edge/v1/credential.proto`'s comment citing the same full name, and
+`event/device/v1/README.md`'s two sentences naming the envelope, which
+U3 then carries into the split. `model/README.md` gains the package, and
+`edge/README.md`'s `Imports:` becomes
+`errs, model/access, model/capture, model/edge`. Go files drop the
+`integrationv1` alias for the plain `dispatchv1`, and `integrationv1connect`
+for `dispatchv1connect`; in
 `src/services/device/internal/host/serve.go` and `src/edge/agent/host/host.go`
 that removes an alias rather than renaming one.
 Tests: `edge_dispatch_rules_test.go` passes with its six tests keeping their
 cases, the import path and the `integrationv1` identifier being all that
-changes in them; `TestLayeringViolationRules`' three cases naming `integration/device`
-read `edge/dispatch`, and the sink case keeps
+changes in them; `TestLayeringViolationRules`' three cases naming
+`integration/device` read `edge/dispatch`, and the sink case keeps
 `wantReason: "edge/dispatch declares a service and is imported by nothing"`;
 `TestImportOrderCoversEveryPackage` passes and reports `edge/dispatch` when the
 row is left out; `TestProtoReadmeImports` passes for the six edited READMEs and
@@ -303,7 +322,9 @@ test/conformance/proto/{edge_audit_rules_test.go,event_access_rules_test.go},
 src/edge/agent/host/{host.go,lane_test.go},
 src/edge/agent/internal/report/{deliver.go,deliver_test.go},
 src/modules/localnet/access/{lane.go,lane_test.go,ack_test.go,epoch_test.go,freeze_audit_test.go,hold_test.go,recovery_entry_test.go},
-src/modules/localnet/access/internal/audit/{event.go,event_test.go},
+src/modules/localnet/access/{doc.go,README.md},
+src/modules/localnet/access/internal/audit/{event.go,event_test.go,doc.go},
+src/modules/localnet/access/internal/mutation/doc.go,
 src/modules/localnet/access/internal/mutation/{machine.go,machine_test.go},
 src/modules/localnet/access/internal/recovery/{recovery_test.go,verified_test.go},
 src/services/device/internal/auditapi/{service.go,service_test.go},
@@ -329,8 +350,14 @@ packages sinks imported by nothing FlowSeer-owned is replaced: `event/` holds
 records that a delivering service reads, and the sink rule speaks about service
 declarations, which no package here makes. `model/access/v1/README.md` and
 `model/inventory/v1/README.md` swap `event/device` for `event/access`;
-`model/README.md` and `edge/README.md` follow, and `api/edge/v1/README.md`'s two
-sentences naming `event/device/v1` read `edge/audit/v1`. Go files using
+`model/README.md` follows, `edge/README.md`'s `Imports:` becomes
+`errs, event/access, model/access, model/capture, model/edge`, and
+`api/edge/v1/README.md`'s two sentences naming `event/device/v1` read
+`edge/audit/v1`. The four doc comments and the module README under
+`src/modules/localnet/access/` that cite
+`flowseer.event.device.v1.DeviceOperationEvent` read
+`flowseer.event.access.v1.DeviceOperationEvent`; they carry no import, so a
+file list built from imports alone misses them. Go files using
 `DeviceOperationEvent` and its kinds take `eventaccessv1` where they also
 import `model/access`, otherwise `accessv1`; the seven files touching
 `AuditService`, `DeliverRequest`, or `DeliverResponse` take `auditv1`, and
@@ -377,7 +404,7 @@ src/services/device/internal/edge/{verifier.go,verifier_test.go},
 src/services/device/internal/edgeapi/{service.go,service_test.go,admin.go,admin_test.go,enroll.go,export_test.go,listdevices_test.go,submission.go,submission_test.go,middleware_test.go},
 src/services/device/internal/host/{serve.go,host_test.go},
 src/services/device/test/integration/{agent_seams_test.go,agent_test.go,device_test.go,e2e_test.go,fixture_test.go},
-src/services/device/test/integration/testdata/mutation-verification-repro/{device_test.go.repro,e2e_test.go.repro,fixture_test.go.repro}
+src/services/device/test/integration/testdata/mutation-verification-repro/{device_test.go.repro,e2e_test.go.repro,fixture_test.go.repro,README.md}
 After: U3
 Change: `git mv` moves the four files to `spec/proto/flowseer/edge/attach/v1/`,
 their `package` line reads `flowseer.edge.attach.v1`, and `edge_service.proto`'s
@@ -387,8 +414,9 @@ three intra-package imports follow the directory. `api/edge/v1` is left holding
 `"edge/attach": {"model/edge", "model/policy", "model/credential", "net/addr"}`.
 The Connect routes change with the package, which is the wire break the parent
 states; nothing in production code spells a route, so the change reaches the
-wire through `buf generate` alone. The five procedure literals that are test
-data are updated together with the vectors they sign:
+wire through `buf generate` alone. Every procedure literal that is test data
+is updated together with the vectors it signs; they sit in six files, a dozen
+lines in all, and the files are listed above:
 `test/conformance/proto/model_edge_rules_test.go`'s `edgeProcedure` and its
 `OpenDeviceSubmission` string, `src/services/device/internal/edge/verifier_test.go`'s
 `testProcedure`, `src/services/device/internal/edgeapi/middleware_test.go`'s
@@ -400,10 +428,14 @@ in `spec/proto/flowseer/model/edge/v1/README.md` and into `assertion_test.go`'s
 `vectorHeader`, `client_test.go`'s `vectorStreamHeader`, and
 `verifier_test.go`'s `readmeVector`, and the README's prose naming the vector's
 procedure follows. `model/edge/v1/assertion.proto`'s example procedure comment
-and `assertion.go`'s `Header` doc comment read the new route, and the three
-stale phase 1 citations named in the ruling above are corrected: the two in
-`store/edge/v1/agent_config.proto` to `flowseer.model.edge.v1.EdgeProvisioning`
-and `device.proto`'s to `model/inventory`. `api_edge_bus_credential_rules_test.go` is renamed
+and the `Header` doc comments in `assertion.go` and
+`src/services/device/internal/edge/verifier.go` read the new route, as do
+`model/edge/v1/README.md`'s step 5 example and the
+`mutation-verification-repro/README.md` line recording the `rpc.method` the
+fixture replays. The three stale phase 1 citations named in the ruling above
+are corrected: the two in `store/edge/v1/agent_config.proto` to
+`flowseer.model.edge.v1.EdgeProvisioning` and `device.proto`'s to
+`model/inventory`. `api_edge_bus_credential_rules_test.go` is renamed
 `edge_attach_rules_test.go` and takes `TestEdgeRequestRules`' `EnrollRequest`
 and `HeartbeatRequest` cases out of `api_edge_rules_test.go`, which keeps the
 `CreateEdgeRequest`, `IssueSetupKeyRequest`, and `ListEdgesRequest` cases and
@@ -423,7 +455,11 @@ it. `model/credential/v1`, `model/policy/v1`, `net/addr/v1`, and
 `api/edge/v1` names both packages. `api/README.md`'s `Imports:` narrows to
 `model/access, model/capture, model/edge, model/inventory, net/capture` —
 `net/addr` leaves with the device listing and the credential handles — and its
-`## Packages` line for `edge/v1/` describes `EdgeAdminService` alone. Go files
+`## Packages` line for `edge/v1/` describes `EdgeAdminService` alone.
+`edge/README.md`'s `Imports:` reaches its final value,
+`errs, event/access, model/access, model/capture, model/credential, model/edge,
+model/policy, net/addr`, with `Imported by: nothing` throughout, since all four
+packages under it declare a service. Go files
 importing only the service package drop the `apiedgev1` alias for a plain
 `attachv1`; those importing `api/edge` for the admin messages keep it beside
 `edgev1`, and `edgev1connect` stays for `NewEdgeAdminServiceHandler` beside a new
@@ -459,8 +495,11 @@ direction, admission passes `edge/attach` because an edge calls it on its own
 behalf and fails `api/edge` because an operator calls it about an edge, and the
 `## Packages` section carries one line each. `spec/proto/flowseer/README.md`'s
 root map gains the `edge/` line and rewrites the `integration/` line to say the
-root is reserved and holds only a README; the roots' order sentence places
-`edge/` beside `api/`. `api/README.md`'s identity paragraph says `api/` is what
+root is reserved and holds only a README. Its "Import order between roots"
+section adds `edge/` to the boundary consumers and drops the claim that they
+"never import each other", which U3 made false when `edge/audit` took an import
+on `event/access`; no gate reads that paragraph, so nothing else would report
+it. `api/README.md`'s identity paragraph says `api/` is what
 an operator, the web app, or a workflow calls, now that the edge-facing
 services have left, and its admission example contrasts `api/edge` with
 `edge/attach` rather than with `model/access`. `event/README.md`'s admission
@@ -486,9 +525,13 @@ landing with phase 3. The paragraph below it says two roots rather than four
 are not real yet: `edge/` leaves the list, and `integration/`'s sentence stops
 describing the move as a future condition and says the root now holds only a
 README, with the fabric contract still reserved. Its import-order block replaces
-the `api/edge`, `api/capture`, `integration/device`, and `event/device` rows
-with the rows this phase lands, among them `event/access ← edge/audit`, and
-each row stays within the landed `importOrder`. The prose beneath it that
+every row naming `api/edge`, `api/capture`, `integration/device`, or
+`event/device` on either side of its arrow, not only the rows keyed on them:
+the block lists leaves by the package imported, so `model/credential ← api/edge`
+and `errs ← {integration/device, store/device}` are rows that go wrong too, and
+`model/credential ← api/edge` is the one that would leave the record outside
+`importOrder`, whose `api/edge` row narrows to `{model/edge}`. Among the rows
+this phase lands is `event/access ← edge/audit`. The prose beneath it that
 explains what `api/edge` and `api/capture` import is rewritten for
 `edge/attach` and `edge/capture`, and the sentence granting `errs` to
 `event/device` names `event/access`. A dated amendment,
