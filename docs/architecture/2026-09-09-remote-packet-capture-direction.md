@@ -251,9 +251,11 @@ documentation, EU legislation) and from schemas already vendored here.
 with its services. The entity — the ref pair, the lifecycle, and the chunk
 frames `CapturePacketChunk` and `CaptureArtifactChunk` — split out to
 `model/capture/v1`, which imports `model/edge` for the owning ref in place
-of `api/edge`. `api/capture/v1` keeps `CaptureService` and
-`CaptureEdgeService` and imports `model/capture` for the entity it returns.
-The import-order line in Consequences reads `{model/capture, model/edge,
-net/capture} ← api/capture` and `{model/edge, net/capture} ← model/capture`
-now. See [the network model structure
+of `api/edge`. `api/capture/v1` keeps `CaptureService` and imports
+`model/capture` for the entity it returns; `CaptureEdgeService` left
+`api/capture` for `edge/capture`, and the open question about reaching the
+edge moved with it. The import-order line in Consequences reads
+`{model/capture, model/edge, net/capture} ← api/capture` and
+`{model/edge, net/capture} ← model/capture` now. See [the network model
+structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree).

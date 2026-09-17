@@ -170,10 +170,12 @@ stood on 2026-09-05. `device/policy`, `device/credential`, and
 `api/inventory` now read `model/policy`, `model/credential`, and
 `model/inventory`; `device/access` now reads `model/access`; the Edge ref
 and lifecycle that `api/edge` carried split out to `model/edge`, and
-`api/edge` keeps only `EdgeService` and `EdgeAdminService`. `api/device`,
-`integration/device`, `event/device`, and `store/device` keep their names;
-where this decision says one of them imports a `device/` or `api/inventory`
-package, that import now names the matching `model/` package. See [the
+`api/edge` keeps only `EdgeAdminService`. `api/device` and `store/device`
+keep their names; where this decision says one of them imports a `device/`
+or `api/inventory` package, that import now names the matching `model/`
+package. `integration/device` and `event/device` now read `edge/dispatch`,
+`edge/audit`, and `event/access`, and `api/edge`'s `EdgeService` reads
+`edge/attach` while `EdgeAdminService` stays. See [the
 network model structure
 record](2026-08-20-network-model-structure-direction.md#the-package-tree)
 for the tree and import graph as they stand.
