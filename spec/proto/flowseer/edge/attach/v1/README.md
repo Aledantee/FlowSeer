@@ -36,7 +36,7 @@ carries an operation, a device ref, or a durable audit record.
 ## Three lifecycles, never the same call
 
 Decision 9 of the
-[verified device access record](../../../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
+[verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 keeps bus attachment, credential delivery, and revocation apart, and this
 package keeps them on separate RPCs so that revoking one never touches the
 others. The device listing below them is a fourth call and none of the three:

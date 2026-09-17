@@ -22,6 +22,9 @@ model/edge, model/policy, net/addr
 
 Imported by: nothing
 
+`edge/audit` imports `event/access`, the tree's only edge from one boundary
+consumer to another.
+
 ## Packages
 
 - `attach/v1/`: `EdgeService`, what an edge calls to enroll, stay attached, list its devices, and acquire credentials.

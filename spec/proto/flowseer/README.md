@@ -19,7 +19,7 @@ spec/proto/flowseer/
   edge/          Connect services between central and an enrolled edge, in either direction
   integration/   Reserved for the integration fabric contract; holds only a README
   store/         Private records one process writes or reads at start
-  service/       Process-local bus contracts and durable mailboxes (renamed runtime in a later phase)
+  service/       Process-local bus contracts and durable mailboxes (pending rename to runtime/)
 ```
 
 ## Import order between roots

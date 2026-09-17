@@ -6,7 +6,7 @@ The `integration/` root is reserved for the integration fabric contract the
 [device service direction record's "Transport" section](../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#transport-nats-as-the-integration-fabric)
 names: what a distributed integration and central exchange over NATS to
 announce itself, describe its kind, and publish events. The root holds only
-this README until the bus plan lands.
+this README.
 
 ## Admission
 

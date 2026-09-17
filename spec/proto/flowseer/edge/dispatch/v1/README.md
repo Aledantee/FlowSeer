@@ -7,7 +7,7 @@ two Connect calls that carry them. Decision 4 of the
 [verified device access record](../../../../../../docs/architecture/2026-09-05-verified-device-access-direction.md)
 puts the central journal at the barrier; this package is the wire between
 that journal and the edge. It imports only `model/access` and `errs`, per
-the record's amendment, and it is not the operator-facing API,
+the record's amendment, and it is not the operator-facing API.
 `api/device/v1` is that and never imports this package.
 
 ## Boundaries

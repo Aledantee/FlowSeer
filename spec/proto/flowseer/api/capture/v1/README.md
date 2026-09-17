@@ -1,10 +1,5 @@
 # Capture services
 
-`CaptureEdgeService`, the Connect service an edge calls to upload packet
-chunks, moved to [`edge/capture/v1`](../../../edge/capture/v1/README.md)
-along with the open question of how an operator-originated capture command
-reaches the edge.
-
 The `flowseer.api.capture.v1` package holds `CaptureService`, which an
 operator calls to create, control, and read back a capture. The
 CaptureSession entity and the chunk frames both services share live in
@@ -26,3 +21,7 @@ Deliberately absent:
 - Raw packet capture filters and link types. Those are ref-free values in
   `net/capture/v1`.
 - Ambient tenancy. Scope is ambient from the authenticated request.
+- The edge-facing service that uploads packet chunks. `CaptureEdgeService`
+  moved to [`edge/capture/v1`](../../../edge/capture/v1/README.md), along
+  with the open question of how an operator-originated capture command
+  reaches the edge; an edge calls it and an operator never does.

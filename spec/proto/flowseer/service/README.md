@@ -3,8 +3,8 @@
 ## Identity
 
 The `service/` root holds process-local runtime messages, durable service
-mailbox envelopes, and broker reconciliation records. The root is renamed
-`runtime/` in a later phase so its name does not suggest Connect RPC services.
+mailbox envelopes, and broker reconciliation records. `runtime/` is this
+root's reserved name, chosen so it does not suggest Connect RPC services.
 
 ## Admission
 
