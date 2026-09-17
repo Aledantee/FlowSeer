@@ -194,7 +194,7 @@ Landed: `91af8469..edd97001`
 Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase3-plan.md`
 After: U1
 Change: `fabric.Reflector` exists, reflects, and loops detectably (R6, R7).
-Landed:
+Landed: `dabf6a44..95b45193`
 
 ### U4. Phase 4 - the filter capability and its schema
 Files: `docs/plans/2026-09-16-1625-feat-netsim-local-network-phase4-plan.md`
