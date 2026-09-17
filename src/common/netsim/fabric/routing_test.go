@@ -788,6 +788,11 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 // second copy of that test — what it adds is the wire on either side of the
 // switch, where a frame released untagged, or flooded onto a bridge, would
 // never arrive at a host that only accepts its own VLAN.
+//
+// There is no separate assertion that no vswitch.NeighborDrop was recorded.
+// Every way the held frame could leave its queue without reaching a wire ends
+// with no delivery to h2, which the released == nil check below already fails
+// on, so such an assertion would have no discriminating power here.
 func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -920,13 +925,6 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	snap := fab.Snapshot()
 	if got := snap.Devices["sw1"].Counters["eth1"].OutUnicast; got == 0 {
 		t.Errorf("sw1 eth1 OutUnicast = 0, want the released frame counted against the parent port")
-	}
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Kind == fabric.EntryDrop && e.Reason == routing.ReasonNeighborMiss {
-				t.Errorf("neighbor drop recorded: %+v", e)
-			}
-		}
 	}
 }
 

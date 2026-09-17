@@ -2967,11 +2967,12 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 
 // releaseHeldFrame resolves the port a released frame for routed interface
 // hf.Interface leaves through, the same egress path [Switch.assembleRouteResult]
-// builds for a route resolved live: a VLAN interface's frame goes out through
-// [bridge.Bridge.Egress] with the synthetic ingress a routed frame already
-// uses, and a routed port's frame transmits directly, through its LAG member
-// selection if it has one. Every way out of here that is not an emission is
-// a [NeighborDrop] rather than a silently discarded frame, because a released
+// builds for a route resolved live: a VLAN interface with no parent port goes out
+// through [bridge.Bridge.Egress] with the synthetic ingress a routed frame already
+// uses, while a routed port's frame transmits directly, through its LAG member
+// selection if it has one, and a sub-interface takes that same direct path with
+// subInterfaceTag's C-TAG prepended. Every way out of here that is not an
+// emission is a [NeighborDrop] rather than a silently discarded frame, because a released
 // frame the bridge or port refuses is a different answer from one that was
 // never held — and an SVI whose only member port is down produces no egress
 // entry at all, so the bridge's own no-candidate reason is the only thing
@@ -3015,9 +3016,9 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 		return
 	}
 
-	// A sub-interface leaves by its parent port, tagged, exactly as the live path leaves it;
-	// applied before the transmit and LAG checks below, because the records they make embed
-	// this same frame.
+	// A sub-interface leaves by its parent port, tagged, exactly as the live path leaves it.
+	// The tag goes on here rather than at the emission so this function and assembleRouteResult
+	// read as one shape, with the same three stages in the same order.
 	if tags, ok := subInterfaceTag(egressIface, hf.PCP, hf.DEI); ok {
 		hf.Frame.Tags = append(tags, hf.Frame.Tags...)
 	}

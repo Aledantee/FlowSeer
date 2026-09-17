@@ -8446,7 +8446,7 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 // with the sub-interface's VLAN, the way the live path leaves the same frame.
 // The fixture configures no bridge, which is a sub-interface's ordinary shape,
 // so a release routed through the bridge does not merely take the wrong path
-// here — it dereferences nothing at all.
+// here — it dereferences a nil bridge and panics.
 func TestARPObservationReleasesHeldFrameOnSubInterface(t *testing.T) {
 	sw := buildSubInterfaceSwitch(t)
 	holdOnSubInterface(t, sw)
@@ -8471,9 +8471,9 @@ func TestARPObservationReleasesHeldFrameOnSubInterface(t *testing.T) {
 
 // TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort pins HeldFrame.Port's
 // contract for a sub-interface: the drop is counted against the parent port,
-// which is the only port the interface has. It passes before the release path
-// learns about sub-interfaces as well as after — finishHeld already fills Port
-// from the interface — so it is a pin on that contract, not proof of a fix.
+// which is the only port the interface has. finishHeld fills Port from the
+// interface, so this pins that contract rather than the release path; a timed
+// out frame never reaches releaseHeldFrame at all.
 func TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort(t *testing.T) {
 	sw := buildSubInterfaceSwitch(t)
 	holdOnSubInterface(t, sw)

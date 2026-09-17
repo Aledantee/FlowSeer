@@ -193,7 +193,11 @@ The virtual switch uses a ladder of architectural layers:
   layer (for a routed port or a sub-interface). A plain routed port leaves
   the frame untagged; a sub-interface's egress carries one tag naming its
   VLAN, the ingress priority code point, and the ingress drop eligible
-  indicator, on the live and the released path alike.
+  indicator, on the live and the released path alike. A sub-interface resolves
+  neighbors under its own interface name, and an arriving ARP or Neighbor
+  Discovery advertisement binds the sub-interface its own outer VLAN tag names
+  and no other; on a routed port whose lookup misses, it binds nothing, since
+  such a port has no bridge membership to fall through to.
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
   copies after bridge, hub, or routed forwarding. A copy is exposed only when
@@ -335,10 +339,8 @@ explicit calls:
   aggregation, and neighbor resolution, flushing bridge entries, triggering
   periodic transmissions, releasing a held frame whose entry resolved since
   the last wake, and failing one whose resolution deadline passed. A
-  sub-interface resolves neighbors under its own interface name, releases held
-  frames tagged on its parent port rather than through the bridge, and takes an
-  advertisement on that port only when the advertisement's own outer VLAN tag
-  names it.
+  sub-interface's held frames leave tagged on its parent port rather than
+  through the bridge.
 - `NextWake()` reports the earliest deadline when the switch needs a wake
   across all four layers.
 - `Drain()` returns and clears pending frame emissions produced by the

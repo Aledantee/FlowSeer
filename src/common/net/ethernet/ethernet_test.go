@@ -281,10 +281,9 @@ func TestEncodeRejectsATagItCannotDecode(t *testing.T) {
 	}
 }
 
-// TestFrameOuterVID covers the four tag shapes on the same frames
-// TestFramePriority uses, including the untagged frame the two answer
-// differently: OuterVID reports a classifiable VID 0 where Priority reports no
-// priority carried.
+// TestFrameOuterVID covers the same four tag shapes TestFramePriority covers,
+// including the untagged frame the two answer differently: OuterVID reports a
+// classifiable VID 0 where Priority reports no priority carried.
 func TestFrameOuterVID(t *testing.T) {
 	tests := []struct {
 		name     string
