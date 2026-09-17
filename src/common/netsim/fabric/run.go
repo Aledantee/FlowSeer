@@ -373,6 +373,31 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	f.entered[arr.FrameID][ep] = true
 
+	// A reflector arrival is decided here rather than through the switch
+	// lookup below, which is unguarded and would nil-dereference on a
+	// reflector's arrival: f.switches holds no entry for it. Corruption is
+	// checked first, as the host far-end branch checks it before ever calling
+	// arrive, so a corrupt arrival never reaches a clause that could accept
+	// it.
+	if refl, isReflector := f.cfg.Reflectors[arr.Device]; isReflector {
+		if arr.Corrupt {
+			dropEntry := Entry{
+				At:     arr.At,
+				Kind:   EntryDrop,
+				Device: arr.Device,
+				Port:   arr.Port,
+				Reason: ReasonBadFrame,
+			}
+			f.record(journey, dropEntry)
+
+			return dropEntry, true
+		}
+
+		entry := f.arriveReflector(journey, arr.Device, refl, arr.Port, arr.Frame, arr.At)
+
+		return entry, true
+	}
+
 	sw := f.switches[arr.Device]
 	var inPorts []string
 	inPorts = append(inPorts, arr.Port)

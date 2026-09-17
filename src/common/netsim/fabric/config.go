@@ -80,6 +80,9 @@ const (
 // HostLayer is the trace layer of a host's acceptance decisions.
 const HostLayer trace.Layer = "host"
 
+// ReflectorLayer is the trace layer of a reflector's acceptance decisions.
+const ReflectorLayer trace.Layer = "reflector"
+
 const (
 	// IssueOperStatusConflict marks a switch port whose configured operational status, Up or Down,
 	// differs from the status its cable derives. The derived status is the one that executes.
