@@ -3,6 +3,7 @@ package fabric_test
 import (
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -1010,6 +1011,33 @@ func TestInjectInvalidOrigins(t *testing.T) {
 			t.Errorf("expected error for unknown switch port")
 		}
 	})
+}
+
+// TestInjectAtReflectorOriginNamesTheReflector proves that injecting at a
+// reflector's origin reports the reflector as unable to originate an
+// injection, distinct from the message an unknown node origin gets: a
+// reflector is a node the fabric knows, but one with no host or switch port
+// to inject at.
+func TestInjectAtReflectorOriginNamesTheReflector(t *testing.T) {
+	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	_, err = fab.Inject(fabric.Injection{
+		At:     fixedTime,
+		Origin: fabric.Endpoint{Node: "r1"},
+		Frame:  ethernet.Frame{Payload: []byte("x")},
+	})
+	if err == nil {
+		t.Fatalf("expected error for reflector origin")
+	}
+	if !strings.Contains(err.Error(), "cannot originate an injection") {
+		t.Errorf("Inject error = %q, want it to name the reflector as unable to originate an injection", err.Error())
+	}
+	if strings.Contains(err.Error(), "not found in fabric") {
+		t.Errorf("Inject error = %q, want it not to claim the reflector is unknown to the fabric", err.Error())
+	}
 }
 
 func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
@@ -2479,10 +2507,10 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 }
 
 // TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress
-// covers parent R5 and the no-address case: an mDNS query arriving on one
-// attachment produces exactly one copy, onto the other attachment whose
-// address family it shares, rebuilt end to end, and a drop naming the
-// attachment with no address of that family instead of a second copy.
+// proves that an mDNS query arriving on one attachment produces exactly one
+// copy, onto the other attachment whose address family it shares, rebuilt
+// end to end, and a drop naming the attachment with no address of that
+// family instead of a second copy.
 func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *testing.T) {
 	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
 	if err != nil {
@@ -2549,10 +2577,10 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 
 // reflectLoopConfig cables two reflectors directly to each other on a trunk
 // carrying VLANs 10 and 20, with h1 feeding VLAN 10 queries into r1's own
-// attachment on a separate port. This is parent R6's two-reflector,
-// two-VLAN loop, and it is also the reflector-to-reflector cable the
-// Decisions require the far end to enqueue rather than call inline: r1 and
-// r2 are cabled to each other with no switch between them.
+// attachment on a separate port. This exercises a two-reflector, two-VLAN
+// loop, and it is also the reflector-to-reflector cable the Decisions
+// require the far end to enqueue rather than call inline: r1 and r2 are
+// cabled to each other with no switch between them.
 func reflectLoopConfig(t *testing.T) fabric.Config {
 	t.Helper()
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
@@ -2587,11 +2615,10 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 	}
 }
 
-// TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget covers parent R6: r1
-// and r2 keep reflecting each other's copies back and forth over their
-// direct trunk, an EntryLoop lands once entered is exhausted, and the run
-// stops on Run's budget rather than draining the queue or overflowing the
-// stack.
+// TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget proves that r1 and r2
+// keep reflecting each other's copies back and forth over their direct
+// trunk, an EntryLoop lands once entered is exhausted, and the run stops on
+// Run's budget rather than draining the queue or overflowing the stack.
 func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 	fab, err := fabric.New(statedPhysical(reflectLoopConfig(t)))
 	if err != nil {
@@ -2661,7 +2688,7 @@ func reflectSiblingConfig(t *testing.T) fabric.Config {
 	}
 }
 
-// TestReflectorSiblingCopiesAreNotALoop covers parent R7: two sibling copies
+// TestReflectorSiblingCopiesAreNotALoop proves that two sibling copies
 // crossing into the same next-hop endpoint from the same attachment are not
 // a loop. Seeding each copy's entered set from a clone of the parent's is
 // what keeps them apart; sharing one set across the family would mark the
