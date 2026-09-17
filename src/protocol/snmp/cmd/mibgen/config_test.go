@@ -47,7 +47,7 @@ func TestLoadConfig_FullSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig(mibgen.yaml): %v", err)
 	}
-	if got, want := len(cfg.Modules), 28; got != want {
+	if got, want := len(cfg.Modules), 32; got != want {
 		t.Fatalf("mibgen.yaml modules: got %d, want %d", got, want)
 	}
 	seen := make(map[string]bool, len(cfg.Modules))
