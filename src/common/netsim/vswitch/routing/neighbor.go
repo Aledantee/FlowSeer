@@ -56,19 +56,45 @@ const (
 // heldEntry is one frame queued on an Incomplete neighbor entry: everything Route or Originate
 // had already decided (egress interface, EtherType, and the header and payload before the hop
 // limit decrement) except the destination link-layer address, which is what it is waiting on.
+// pcp and dei are the ingress 802.1Q priority the frame arrived with: Route's closure captures
+// them from the frame it was given, and Originate's closure leaves them at their zero value,
+// since a self-originated datagram never arrived tagged in the first place.
 type heldEntry struct {
 	iface     string
 	etherType ethernet.EtherType
 	header    ip.Header
 	payload   []byte
+	pcp       vlan.PCP
+	dei       bool
 }
 
 // HeldFrame is one frame [Layer.Wake] reports on for a neighbor entry it acted on: released
 // with a frame ready to leave by Interface, or failed because resolution never completed, in
-// which case Frame carries no resolved destination and exists to name what was held.
+// which case Frame carries no resolved destination and exists to name what was held. PCP and DEI
+// are the ingress 802.1Q priority the held frame arrived with (zero for a self-originated
+// frame), so a caller that releases it onto a tagged egress port can carry the same priority the
+// live, non-held path would have used.
 type HeldFrame struct {
 	Interface string
 	Frame     ethernet.Frame
+	PCP       vlan.PCP
+	DEI       bool
+}
+
+// framePriority reads the outer 802.1Q tag's PCP and DEI directly off f, mirroring the
+// derivation the switch layer applies to the live, non-held path (see framePriority in
+// switch.go) so a frame held here for neighbor resolution and later released carries the same
+// priority a frame that resolved immediately would have. An untagged frame, or one whose outer
+// tag's TPID names neither 802.1Q nor the frame's own EtherType, carries no priority.
+func framePriority(f ethernet.Frame) (vlan.PCP, bool) {
+	if len(f.Tags) == 0 {
+		return 0, false
+	}
+	outer := f.Tags[0]
+	if outer.TPID != 0 && outer.TPID != uint16(ethernet.EtherTypeDot1Q) {
+		return 0, false
+	}
+	return outer.PCP, outer.DEI
 }
 
 // neighborEntry is one row of a VRF's runtime neighbor table: the state it currently occupies,
@@ -283,6 +309,8 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
 			EtherType: h.etherType,
 			Payload:   newPayload,
 		},
+		PCP: h.pcp,
+		DEI: h.dei,
 	}, true
 }
 
