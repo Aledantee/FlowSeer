@@ -123,10 +123,13 @@ them is created.
   (`apicapturev1` beside `capturev1` in `src/modules/capture/engine.go`).
 - **The Connect route names change, and that is a wire break.** A route is
   `/<package>.<Service>/<Method>`, and the edge assertion signs it as its
-  audience (`src/edge/agent/internal/identity/assertion.go`), so phase 2
-  changes what every edge signs and central verifies. Nothing external
-  consumes it, and `AGENTS.md` says to state such a break as a fact rather
-  than shim it; no compatibility route is kept.
+  `procedure` (`src/edge/agent/internal/identity/assertion.go` signs
+  `req.URL.Path`; the verifier compares it at step 5), so phase 2 changes
+  what every edge signs and central verifies. The assertion's `audience` is
+  a separate, deployment-configured string that does not change with the
+  route, so a persisted enrollment survives the rename. Nothing external
+  consumes the routes, and `AGENTS.md` says to state such a break as a fact
+  rather than shim it; no compatibility route is kept.
 - **Moves use `git mv`, and every phase leaves `buf lint`, `buf generate`,
   and `go test -race ./...` green.** Why: a directory rename that git records
   as delete-and-add loses the blame history that the schema comments cite,
