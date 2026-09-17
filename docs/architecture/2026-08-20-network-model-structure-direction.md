@@ -30,7 +30,7 @@ switching, and ip boundary is recorded in the
 Two kinds of message, two trees, one import rule. **Primitives** under
 `flowseer/net/…` are networking *values* — an address, a VLAN, a neighbor
 entry, an interface — with no identity, tenant, lifecycle, or provenance.
-**Entities** currently under `flowseer/api/inventory/v1` embed primitives by
+**Entities** currently under `flowseer/model/inventory/v1` embed primitives by
 value. UUID-identified entities carry ref pairs; intended-and-observed families
 use the applicable lifecycle and Config/State/Event shapes. Deliberately partial
 families, including the keyless Tenant sketch, follow the exceptions in the
@@ -100,12 +100,12 @@ is wider where a package may still grow into a permitted import:
 net/addr ← {net/switching, net/ip, net/protocol/*}
 net/packet ← net/switching
 {net/addr, net/packet, net/switching} ← net/capture
-{net/addr, net/packet, net/phy, net/switching, net/ip} ← net/interface
+{net/addr, net/phy, net/switching, net/ip} ← net/interface
 model/edge ← {api/capture, api/edge, model/access, model/capture, model/inventory, store/device}
 model/policy ← {api/edge, model/access, model/inventory, store/device}
 model/credential ← api/edge
 {model/edge, net/capture} ← model/capture
-{model/edge, net/addr} ← api/edge
+{model/edge, model/policy, model/credential, net/addr} ← api/edge
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
 {model/edge, model/inventory, model/policy, net/interface} ← model/access
 {model/capture, model/edge, net/capture} ← api/capture
@@ -487,7 +487,7 @@ API_OPAQUE`.
    `<Entity>LocalRef`/`<Entity>GlobalRef` pair beside its triad in its own
    package — an eventual `InterfaceRef` is an entity-package concern, not a
    `net/interface/v1` one; the landed Device ref lives in
-   `api/inventory/v1` — because a package holding every ref would have to
+   `model/inventory/v1` — because a package holding every ref would have to
    know every entity above it, which is the upward import this layering
    forbids. Refs do not carry tenancy scope: tenancy is ambient, resolved from
    the request context for RPC and from the producing integration for events.
@@ -495,7 +495,7 @@ API_OPAQUE`.
    [The model conventions](../conventions/protobuf.md) hold the detail.
 9. **Provenance rides the envelope, not State.** `observed_at` and the
    answering binding describe a live response or an event, so they are one
-   message defined beside `Binding` in `api/inventory/v1` and embedded by the
+   message defined beside `Binding` in `model/inventory/v1` and embedded by the
    integration, service-response, and event envelopes — never a field of an
    `<Entity>State`, and never on a primitive. Rule 3 of
    [the device service direction](2026-08-20-device-service-and-inventory-direction.md)
@@ -550,12 +550,12 @@ one commit with regenerated `generated/`:
    conformance coverage outside the schema source tree.
 2. `net/phy` and `net/interface` with the `physical`, `lag`, `vlan`,
    `loopback`, `other` arms. A separate Interface entity slice remains
-   unlanded; the Device family currently lives in `api/inventory/v1`.
+   unlanded; the Device family currently lives in `model/inventory/v1`.
 3. `net/switching` (the `vlan_id` rule, `Vlan`, `SwitchportFacet`,
    `AggregationFacet`, `FdbEntry`) and `net/protocol/lldp` — three of the five
    v1 capabilities (interfaces, neighbors, VLANs) via
    `qbridgemib`/`bridgemib`/`lldpmib`.
-4. `api/inventory/v1` for the landed Device, Integration, Binding, Placement,
+4. `model/inventory/v1` for the landed Device, Integration, Binding, Placement,
    and provenance families. Central integration execution, event envelopes,
    and ConnectRPC APIs still need settled package paths.
 5. `net/ip` (`IpFacet`, `InterfaceAddress`, `NeighborEntry`) via `ipmib`; needed
