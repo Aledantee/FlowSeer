@@ -52,8 +52,13 @@ trace that is a value, and no state between frames.
   5353. Hosts stay passive; the reflector is the one endpoint kind that
   reacts, and it reacts only to mDNS.
 - **A reflected copy is a journey with a parent, and loops are detected on
-  the root.** The copy carries `Parent`; re-entry detection keys on the
-  injected root frame, so two reflectors sharing two VLANs produce a
+  the frame, not the root.** The copy carries `Parent`; re-entry detection
+  keys on the frame, with a reflected copy's re-entry set seeded from a copy
+  of its parent's. A root key cannot work: it cannot tell a sibling copy
+  from an ancestor, so a reflector with three attachments would report a
+  false loop on its own first query, once two sibling copies both land on
+  the same next-hop endpoint. Seeding from the parent keeps that apart from
+  a real loop, and two reflectors sharing two VLANs still produce a
   recorded loop and a budget halt rather than a silent exhaustion.
 - **Transport codecs are common packages.** `src/common/net/udp`, `tcp`,
   and `icmp` sit beside `igmp` and `mld`; the filter matches on them and

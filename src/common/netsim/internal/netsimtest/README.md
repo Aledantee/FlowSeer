@@ -139,8 +139,25 @@ established across the library:
   member ever joined. The frame reaches only the configured router port,
   disproving the false answer that the switch floods link-scope groups the
   way it floods IPv4's reserved range.
+- `troubleshooting/mdns-reflected-across-vlans`: An mDNS reflector sits on a
+  trunk carrying VLAN 10 and VLAN 20, behind a switch that snoops both VLANs
+  with `FloodUnregistered` off. A query from VLAN 10 still reaches the
+  reflector, which originates one copy addressed from its VLAN 20 attachment,
+  and a VLAN 20 host decodes and delivers it, disproving the false answer
+  that a switch locked down against unregistered multicast also blocks the
+  reflected copy. One [Case] asserts one journey, so this pins the copy's,
+  not the injected query's.
+- `troubleshooting/mdns-two-reflectors-loop`: Two reflectors share VLAN 10
+  and VLAN 20 over one direct trunk. A copy bouncing between them re-enters
+  an endpoint its own ancestry already carries, recording an `EntryLoop`,
+  and the run stops on its step budget with work still queued rather than
+  circulating forever or overflowing the call stack. That same arrival is
+  also where the reflector's own acceptance step, rule ID, and
+  `fabric.udp_ports` fact are pinned, since re-entry does not stop the frame
+  from being decided, disproving the false answer that re-entry detection
+  keyed on the injected query's own frame would catch this.
 
-The twelve `fabric`-based cases execute a [fabric.Fabric] and populate
+The fourteen `fabric`-based cases execute a [fabric.Fabric] and populate
 [ExecutionResult.Journey], seven of them alongside
 [ExecutionResult.FabricMetadata]. Journey is the recorded traversal; its own
 `Metadata` is what the case's `ExpectedMetadata` asserts. FabricMetadata is
