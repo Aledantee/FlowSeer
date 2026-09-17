@@ -1160,7 +1160,7 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 //     DuplicateVLANClaim below, guarded by the VLAN claim namespace above:
 //     two same-VLAN claimants both drop out of the pending list before
 //     either can reach routing.Validate. Dropping both claimants can leave
-//     a VRF with no interfaces at all, which is rule 14 below;
+//     a VRF with no interfaces at all, which is rule 15 below;
 //     DuplicateVLANClaim's two claimants are the only interfaces in its
 //     load, so its check also pins that rule.
 //  9. routing.Config.Validate: an invalid VLAN on a port-bearing interface
@@ -1169,23 +1169,31 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 //     acceptRoutedSubParent's own VID validity check, which raises
 //     netmodel.routing.unsupported_encapsulation before a Port-and-VLAN pair
 //     with an invalid VLAN ever reaches a pending routed interface. The
-//     check's own VID has to be 4095: a VID of 0 leaves the sub-interface's
-//     VLAN at the zero value, which routing.Validate reads as "no VLAN
-//     configured" rather than "invalid VLAN", so it can never trip this
-//     rule even with the guard removed; 4095 is the only value the schema
-//     still accepts on a tag that is both nonzero and outside 1-4094.
+//     check's own tag id has to be 4095: a zero id leaves the sub-interface's
+//     VLAN at its zero value, which routing.Validate reads as "no VLAN
+//     configured" rather than "invalid VLAN", so it can never trip this rule
+//     even with the guard removed. 4095 is the smallest id that is both
+//     nonzero and outside 1-4094, and the schema refuses it, which is why
+//     this row skips protovalidate.
 //  10. routing.Config.Validate: an interface with neither VLAN nor port.
 //     Reachable and covered by InterfaceWithNeitherVLANNorPort below,
 //     guarded earlier by the unsupported-interface-kind branch (a Loopback
 //     interface with an IP facet, among others), which is skipped before
 //     ever reaching a pending routed interface.
-//  11. vswitch.Config.Validate and routing.Config.Validate: a group MAC
-//     address on a routed interface. Guarded: the pending-interface loop
-//     zeroes any interface MAC that fails the individual six-octet EUI-48
-//     check, which a group address fails, and raises
-//     netmodel.address.invalid_mac instead, so routing.Interface.MAC is
-//     never a group MAC by the time Validate runs.
-//  12. routing.Config.Validate: an interface prefix that is invalid, or
+//  11. routing.Config.Validate: a group MAC address on a routed interface.
+//     Guarded: the pending-interface loop zeroes any interface MAC that
+//     fails the individual six-octet EUI-48 check, which a group address
+//     fails, and raises netmodel.address.invalid_mac instead, so
+//     routing.Interface.MAC is never a group MAC by the time Validate runs.
+//     vswitch.Config.Validate has no per-interface MAC rule; its only MAC
+//     rule is on the device base address (c.MAC.IsGroup(), config.go), and
+//     the guard above does not touch that field.
+//  12. vswitch.Config.Validate: a group MAC on the device base address.
+//     Unreachable: netmodel never assigns cfg.MAC from the device report,
+//     so it stays zero until vswitch.Config.Normalize's own MAC step
+//     assigns it a locally administered individual address (netaddr.Local,
+//     config.go), which is never a group address.
+//  13. routing.Config.Validate: an interface prefix that is invalid, or
 //     IPv4-mapped. The IPv4-mapped case was reachable and unguarded before
 //     [parseIP] refused an IPv4-mapped sixteen-octet address: an address and
 //     prefix both reported in IPv4-mapped form parsed and reached the VRF,
@@ -1194,32 +1202,58 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 //     prefix is unreachable: [parsePrefix] only ever hands the VRF a
 //     [netip.Prefix] built from an address [parseIP] already accepted as
 //     valid, so a prefix that fails IsValid() never reaches Validate.
-//  13. routing.Config.Validate: an IPv4-mapped neighbor address. Reachable
+//  14. routing.Config.Validate: an IPv4-mapped neighbor address. Reachable
 //     and unguarded before the same [parseIP] fix; a mapped address needs no
 //     mapped prefix on its interface to get there, since the family match
 //     compares only Is4()/Is6(), which a mapped address satisfies against
 //     any ordinary IPv6 prefix. Covered by IPv4MappedNeighborAddress below.
-//  14. routing.Config.Validate: a VRF with no interfaces. Reachable whenever
+//  15. routing.Config.Validate: a VRF with no interfaces. Reachable whenever
 //     every routed interface's claim is dropped as a conflict, which
 //     DuplicateVLANClaim's two same-VLAN interfaces do, since neither
 //     interface has any other claim to fall back on. Guarded by Load's own
 //     check after the routing walk (len(vrf.Interfaces) > 0), which leaves
 //     cfg.Routing nil and drops the routing capability instead of handing
 //     Validate an empty VRF.
-//  15. vswitch.Config.Validate: a routed VLAN interface requiring bridge
+//  16. vswitch.Config.Validate: a routed VLAN interface requiring bridge
 //     VLAN configuration, and one referencing a VLAN absent from the bridge
 //     table. Unreachable for the same reason as (1): a routed VLAN-kind
 //     interface only ever reaches the routing walk once Load has implied
 //     both the VLAN and relay layers, and the routing walk itself backfills
 //     any VLAN id missing from Bridge.VLAN.Table before Validate runs, so
 //     Bridge.VLAN is always present and always already carries the VLAN.
-//  16. routing.Config.Validate: every route rule (an unmasked prefix, an
+//  17. routing.Config.Validate: every route rule (an unmasked prefix, an
 //     IPv4-mapped prefix or next hop, a route naming neither next hop nor
 //     interface, a next hop in a different address family than its prefix,
 //     a non-unicast next hop, a route naming an interface outside its VRF,
 //     a duplicate route). Unreachable: Load takes no route input and never
 //     assigns routing.VRF.Routes, so every VRF it builds carries an empty
 //     route slice regardless of the device report.
+//  18. routing.Config.Validate: four more neighbor-table rules, each
+//     reachable and guarded before a neighbor row reaches Validate. A
+//     neighbor naming an interface outside its VRF is guarded by the
+//     "interface carries no ip facet" check, since Load only ever builds
+//     one VRF, so an interface absent from vrf.Interfaces has no home in
+//     any VRF. A neighbor MAC that is zero or a group address is guarded by
+//     the "mac is not a usable six-octet individual EUI-48 address" check.
+//     A neighbor whose address family matches no interface prefix is
+//     guarded by the "neighbor address family has no interface prefix"
+//     check. A duplicate interface-and-address pair within a VRF is guarded
+//     by resolveFacts's own key dedup, which raises netmodel.routing.conflict
+//     instead of ever handing Validate two neighbor rows with the same
+//     (interface, address) key. All four checks are in the neighborRows
+//     resolveFacts callback above.
+//  19. Four more rules are structurally unreachable and unnamed above:
+//     routing.Config.Validate's empty VRF name (Load only ever builds the
+//     single hardcoded routing.DefaultVRF), routing.Config.Validate's empty
+//     interface name (Load's own interface-name check at the top of this
+//     function already refuses an empty name before any interface reaches
+//     the routing walk), routing.Config.Validate's interface claimed by two
+//     VRFs (Load only ever builds one VRF, so there is no second VRF to
+//     claim it), and vswitch.Config.Validate's spanning tree requiring a
+//     bridge configuration (Load drops the STP capability and never builds
+//     cfg.STP whenever bridgeState is nil, the "requested STP layer has no
+//     bridge state" branch above, so cfg.STP is never non-nil while
+//     cfg.Bridge is nil).
 func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 	for _, test := range []struct {
 		name string
@@ -1349,13 +1383,13 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 			},
 		},
 		{
-			// The tag id has to be 4095: id 0 leaves the sub-interface's
-			// VLAN at the zero value, which routing.Validate reads as "no
+			// The tag id has to be 4095: a zero id leaves the sub-interface's
+			// VLAN at its zero value, which routing.Validate reads as "no
 			// VLAN configured" rather than "invalid VLAN", so it can never
 			// trip the rule this row is named for even with its guard
-			// removed. 4095 is the only nonzero id outside 1-4094 the
-			// schema still accepts on a tag, so it skips protovalidate the
-			// same way the reserved-id case in
+			// removed. 4095 is the smallest id that is both nonzero and
+			// outside 1-4094, and the schema refuses it, which is why this
+			// row skips protovalidate, the same way the reserved-id case in
 			// TestLoad_SubInterfaceUnsupportedEncapsulation does.
 			name:              "InvalidVLANOnPortBearingInterface",
 			skipProtovalidate: true,

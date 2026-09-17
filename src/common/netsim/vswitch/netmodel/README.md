@@ -63,8 +63,8 @@ Errors returned by [Load] are strictly reserved for impossible construction inpu
 
 - Empty interface slices.
 - Duplicate interface names.
+- Empty interface names.
 - LAG parent references to non-existent interfaces.
-- Configuration invariants that violate switch validation.
 
 Partial, uncertain, or conflicting inputs do not return an error. Instead, [Load]
 preserves the unaffected configuration and records scoped findings in `res.Report`
