@@ -5,8 +5,9 @@ package dispatch
 import (
 	"sync"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"google.golang.org/protobuf/proto"
+
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
 // registry remembers, per device and sequence, the report this edge last made
