@@ -14,8 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
-	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
@@ -94,6 +92,10 @@ func encodeIPv6Packet(t *testing.T, src, dst netip.Addr, hopLimit uint8, payload
 	return b
 }
 
+// testNow is the fixed instant most tests route or originate against; only the tests
+// exercising the neighbor lifecycle's timers advance it themselves.
+var testNow = time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
+
 func mustNewRouting(t *testing.T, cfg routing.Config) *routing.Layer {
 	t.Helper()
 	return mustNewRoutingWithPorts(t, cfg, port.Table{})
@@ -133,7 +135,7 @@ func TestRouteIPv4Connected(t *testing.T) {
 		t.Fatalf("Owns(%q) = false, want true", ifaceName)
 	}
 
-	res := l.Route(ifaceName, frame)
+	res := l.Route(testNow, ifaceName, frame, true)
 	if res.Reason != "" {
 		t.Fatalf("Route reason = %q, want empty", res.Reason)
 	}
@@ -193,11 +195,15 @@ func TestRouteIPv4Connected(t *testing.T) {
 	}
 }
 
+// TestRouteNeighborMiss covers the terminal miss a VRF that never resolves neighbors gives an
+// absent entry; TestRouteNeighborLifecycle covers the pending answer NeighborObserved gives the
+// same absent entry.
 func TestRouteNeighborMiss(t *testing.T) {
 	t.Parallel()
 	cfg := standardSwitchConfig()
 	vrf := cfg.VRFs[routing.DefaultVRF]
 	vrf.Neighbors = nil
+	vrf.NeighborPolicy = routing.NeighborPolicy{Mode: routing.NeighborDisabled}
 	cfg.VRFs[routing.DefaultVRF] = vrf
 
 	l := mustNewRouting(t, cfg)
@@ -209,7 +215,7 @@ func TestRouteNeighborMiss(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != routing.ReasonNeighborMiss {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborMiss)
 	}
@@ -259,6 +265,73 @@ func TestRouteNeighborMiss(t *testing.T) {
 	}
 }
 
+// TestRouteNeighborLifecycle covers the three answers an unresolved next hop can now give
+// (pending, miss, disabled) beside each other, and that a peek changes nothing a later commit
+// can see.
+func TestRouteNeighborLifecycle(t *testing.T) {
+	t.Parallel()
+
+	cfgWithPolicy := func(policy routing.NeighborPolicy) routing.Config {
+		return routing.Config{VRFs: map[string]routing.VRF{
+			routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"vlan10": {
+						VLAN:     10,
+						MAC:      netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+						Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.99.0/24")},
+					},
+				},
+				NeighborPolicy: policy,
+			},
+		}}
+	}
+	pendingFrame := func(t *testing.T) ethernet.Frame {
+		t.Helper()
+		return ethernet.Frame{
+			Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
+			Dst:       netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.0.99.1"), netip.MustParseAddr("10.0.99.7"), 64, []byte("data")),
+		}
+	}
+
+	t.Run("pending under NeighborObserved", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, cfgWithPolicy(routing.NeighborPolicy{}))
+		res := l.Route(testNow, "vlan10", pendingFrame(t), true)
+		if res.Reason != routing.ReasonNeighborPending {
+			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
+		}
+		if len(res.Frame.Payload) != 0 {
+			t.Errorf("expected no egress frame while pending, got payload len %d", len(res.Frame.Payload))
+		}
+	})
+
+	t.Run("miss under NeighborDisabled", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, cfgWithPolicy(routing.NeighborPolicy{Mode: routing.NeighborDisabled}))
+		res := l.Route(testNow, "vlan10", pendingFrame(t), true)
+		if res.Reason != routing.ReasonNeighborMiss {
+			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborMiss)
+		}
+	})
+
+	t.Run("commit false changes nothing", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewRouting(t, cfgWithPolicy(routing.NeighborPolicy{}))
+		first := l.Route(testNow, "vlan10", pendingFrame(t), false)
+		second := l.Route(testNow, "vlan10", pendingFrame(t), false)
+		if first.Reason != routing.ReasonNeighborPending || second.Reason != routing.ReasonNeighborPending {
+			t.Fatalf("reasons = %q, %q, want both %q", first.Reason, second.Reason, routing.ReasonNeighborPending)
+		}
+		// If either peek had created an entry or queued a frame, Wake would report it.
+		eff := l.Wake(testNow.Add(time.Hour))
+		if len(eff.Failed) != 0 || len(eff.Released) != 0 {
+			t.Fatalf("effects = %+v, want none: a peek must not create an entry or queue a frame", eff)
+		}
+	})
+}
+
 func TestRouteDropsAndLocalAddress(t *testing.T) {
 	t.Parallel()
 	l := mustNewRouting(t, standardSwitchConfig())
@@ -273,7 +346,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != routing.ReasonTTLExpired {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonTTLExpired)
 		}
@@ -294,7 +367,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != routing.ReasonNotRouted {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNotRouted)
 		}
@@ -321,7 +394,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   corruptPkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != routing.ReasonBadHeader {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
 		}
@@ -339,7 +412,7 @@ func TestRouteDropsAndLocalAddress(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != routing.ReasonNoRoute {
 			t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 		}
@@ -362,7 +435,7 @@ func TestRouteIPv6(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != "" {
 		t.Fatalf("route reason = %q, want empty", res.Reason)
 	}
@@ -386,7 +459,7 @@ func TestRouteIPv6(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv6,
 		Payload:   unroutedPkt,
 	}
-	unroutedRes := l.Route("vlan10", unroutedFrame)
+	unroutedRes := l.Route(testNow, "vlan10", unroutedFrame, true)
 	if unroutedRes.Reason != routing.ReasonNoRoute {
 		t.Fatalf("unrouted reason = %q, want %q", unroutedRes.Reason, routing.ReasonNoRoute)
 	}
@@ -431,7 +504,7 @@ func TestVRFIsolation(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	resTenant := l.Route("vlan30", frameTenant)
+	resTenant := l.Route(testNow, "vlan30", frameTenant, true)
 	if resTenant.Reason != "" {
 		t.Fatalf("tenant route reason = %q, want empty", resTenant.Reason)
 	}
@@ -454,7 +527,7 @@ func TestVRFIsolation(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
 	}
-	resDefault := l.Route("vlan10", frameDefault)
+	resDefault := l.Route(testNow, "vlan10", frameDefault, true)
 	if resDefault.Interface != "vlan20" || resDefault.Frame.Dst != defaultNeighborMAC {
 		t.Errorf("default route mismatch: iface %q, dst %s", resDefault.Interface, resDefault.Frame.Dst)
 	}
@@ -477,7 +550,7 @@ func TestVRFIsolation(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt99,
 	}
-	resTenant99 := l2.Route("vlan30", frameTenant99)
+	resTenant99 := l2.Route(testNow, "vlan30", frameTenant99, true)
 	if resTenant99.Reason != routing.ReasonNoRoute {
 		t.Fatalf("tenant99 reason = %q, want %q", resTenant99.Reason, routing.ReasonNoRoute)
 	}
@@ -526,7 +599,7 @@ func TestRoutedPort(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
 	}
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != "" {
 		t.Fatalf("route reason = %q, want empty", res.Reason)
 	}
@@ -548,7 +621,7 @@ func TestRoutedPort(t *testing.T) {
 	if !l.Owns("1/1/5", frameOnPort) {
 		t.Fatalf("Owns(1/1/5) = false, want true")
 	}
-	resFromPort := l.Route("1/1/5", frameOnPort)
+	resFromPort := l.Route(testNow, "1/1/5", frameOnPort, true)
 	if resFromPort.Reason != "" {
 		t.Fatalf("route from port reason = %q, want empty", resFromPort.Reason)
 	}
@@ -631,7 +704,7 @@ func TestStaticRoutes(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != "" {
 			t.Fatalf("reason = %q, want empty", res.Reason)
 		}
@@ -655,7 +728,7 @@ func TestStaticRoutes(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Reason != "" {
 			t.Fatalf("reason = %q, want empty", res.Reason)
 		}
@@ -677,7 +750,7 @@ func TestStaticRoutes(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := l.Route("vlan10", frame)
+		res := l.Route(testNow, "vlan10", frame, true)
 		if res.Interface != "vlan20" {
 			t.Errorf("interface = %q, want vlan20", res.Interface)
 		}
@@ -690,7 +763,7 @@ func TestStaticRoutes(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pktDefault,
 		}
-		resDefault := l.Route("vlan10", frameDefault)
+		resDefault := l.Route(testNow, "vlan10", frameDefault, true)
 		if resDefault.Interface != "vlan10" {
 			t.Errorf("default route interface = %q, want vlan10", resDefault.Interface)
 		}
@@ -795,7 +868,7 @@ func TestStaticRouteVRFBoundaries(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
 	}
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != "" {
 		t.Fatalf("reason = %q, want empty", res.Reason)
 	}
@@ -896,6 +969,9 @@ func TestOriginate(t *testing.T) {
 						MAC:       hostMAC,
 					},
 				},
+				// Disabled so the unresolved-destination subtest below still exercises the
+				// terminal miss; TestRouteNeighborLifecycle covers the pending answer.
+				NeighborPolicy: routing.NeighborPolicy{Mode: routing.NeighborDisabled},
 			},
 		},
 	}
@@ -905,7 +981,7 @@ func TestOriginate(t *testing.T) {
 	t.Run("longest matching source selection", func(t *testing.T) {
 		t.Parallel()
 		// 10.0.10.7 matches 10.0.10.1/24 (/24 > /16), so source should be 10.0.10.1.
-		res := l.Originate(routing.DefaultVRF, netip.MustParseAddr("10.0.10.7"), 17, []byte("originate payload"))
+		res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("10.0.10.7"), 17, []byte("originate payload"), true)
 		if res.Reason != "" {
 			t.Fatalf("reason = %q, want empty", res.Reason)
 		}
@@ -927,7 +1003,7 @@ func TestOriginate(t *testing.T) {
 	t.Run("direct on connected prefix", func(t *testing.T) {
 		t.Parallel()
 		// 10.0.50.7 matches 10.0.0.1/16 (connected prefix).
-		res := l.Originate(routing.DefaultVRF, netip.MustParseAddr("10.0.50.7"), 17, []byte("direct payload"))
+		res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("10.0.50.7"), 17, []byte("direct payload"), true)
 		if res.Reason != "" {
 			t.Fatalf("reason = %q, want empty", res.Reason)
 		}
@@ -938,7 +1014,7 @@ func TestOriginate(t *testing.T) {
 
 	t.Run("default route gateway for off-prefix destination", func(t *testing.T) {
 		t.Parallel()
-		res := l.Originate(routing.DefaultVRF, netip.MustParseAddr("198.51.100.1"), 17, []byte("wan payload"))
+		res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("198.51.100.1"), 17, []byte("wan payload"), true)
 		if res.Reason != "" {
 			t.Fatalf("reason = %q, want empty", res.Reason)
 		}
@@ -961,7 +1037,7 @@ func TestOriginate(t *testing.T) {
 	t.Run("neighbor miss and no route", func(t *testing.T) {
 		t.Parallel()
 		// Neighbor miss: 10.0.20.7 has no neighbor entry on vlan20.
-		resMiss := l.Originate(routing.DefaultVRF, netip.MustParseAddr("10.0.20.7"), 17, []byte("data"))
+		resMiss := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("10.0.20.7"), 17, []byte("data"), true)
 		if resMiss.Reason != routing.ReasonNeighborMiss {
 			t.Fatalf("reason = %q, want %q", resMiss.Reason, routing.ReasonNeighborMiss)
 		}
@@ -970,7 +1046,7 @@ func TestOriginate(t *testing.T) {
 		}
 
 		// No route in unknown VRF or family with no route.
-		resNoRoute := l.Originate("nonexistent", netip.MustParseAddr("10.0.10.7"), 17, []byte("data"))
+		resNoRoute := l.Originate(testNow, "nonexistent", netip.MustParseAddr("10.0.10.7"), 17, []byte("data"), true)
 		if resNoRoute.Reason != routing.ReasonNoRoute {
 			t.Fatalf("reason = %q, want %q", resNoRoute.Reason, routing.ReasonNoRoute)
 		}
@@ -993,7 +1069,7 @@ func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != routing.ReasonBadHeader {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
 	}
@@ -1020,7 +1096,7 @@ func TestRouteLeavesInputUntouched(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := l.Route("vlan10", frame)
+	res := l.Route(testNow, "vlan10", frame, true)
 	if res.Reason != "" {
 		t.Fatalf("reason = %q, want empty", res.Reason)
 	}
@@ -1039,7 +1115,7 @@ func TestRouteUnknownInterface(t *testing.T) {
 	t.Parallel()
 	l := mustNewRouting(t, standardSwitchConfig())
 
-	res := l.Route("vlan99", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4})
+	res := l.Route(testNow, "vlan99", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4}, true)
 	if res.Reason != routing.ReasonNoRoute {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 	}
@@ -1079,9 +1155,6 @@ func TestConstructorsNormalizeRoutePrefixesBeforeValidation(t *testing.T) {
 
 	if _, err := routing.New(cfg, ports, "sw1"); err != nil {
 		t.Errorf("routing.New: %v", err)
-	}
-	if _, err := vswitch.New(vswitch.Config{Ports: ports, Routing: &cfg}); err != nil {
-		t.Errorf("vswitch.New: %v", err)
 	}
 }
 
@@ -1127,12 +1200,12 @@ func selectionConfig(routes ...routing.Route) routing.Config {
 
 func routeFromVLAN10(t *testing.T, l *routing.Layer, dst netip.Addr) routing.Result {
 	t.Helper()
-	return l.Route("vlan10", ethernet.Frame{
+	return l.Route(testNow, "vlan10", ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.0.10.7"), dst, 64, []byte("data")),
-	})
+	}, true)
 }
 
 func TestRouteSelectionOrder(t *testing.T) {
@@ -1556,12 +1629,12 @@ func TestRecursiveRouteCapsInheritedCandidates(t *testing.T) {
 		routing.DefaultVRF: {Interfaces: ifaces, Routes: routes, Neighbors: neighbors},
 	}})
 
-	res := l.Route("vlan1", ethernet.Frame{
+	res := l.Route(testNow, "vlan1", ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11},
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("10.1.0.7"), netip.MustParseAddr("10.200.1.1"), 64, []byte("data")),
-	})
+	}, true)
 	if len(res.Candidates) != 64 {
 		t.Fatalf("candidates = %d, want the cap of 64", len(res.Candidates))
 	}
@@ -1613,12 +1686,12 @@ func ecmpConfig(gateways ...netip.Addr) routing.Config {
 // routeFlow forwards one IPv4 flow in at vlan10 and returns the routing result.
 func routeFlow(t *testing.T, l *routing.Layer, src, dst netip.Addr, payload []byte) routing.Result {
 	t.Helper()
-	return l.Route("vlan10", ethernet.Frame{
+	return l.Route(testNow, "vlan10", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   encodeIPv4Packet(t, src, dst, 64, payload),
-	})
+	}, true)
 }
 
 // flowSpread returns a source and destination pair per flow, wide enough to reach every
@@ -1678,12 +1751,12 @@ func routeFragment(t *testing.T, l *routing.Layer, src, dst netip.Addr, v4 *ip.V
 	if err != nil {
 		t.Fatalf("encode fragment: %v", err)
 	}
-	return l.Route("vlan10", ethernet.Frame{
+	return l.Route(testNow, "vlan10", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
-	})
+	}, true)
 }
 
 func TestFragmentsOfOneDatagramShareANextHop(t *testing.T) {
@@ -1760,7 +1833,7 @@ func TestOriginateSelectsOverTheCandidateSet(t *testing.T) {
 	reached := make(map[string]int)
 	for i := 1; i <= 40; i++ {
 		dst := netip.MustParseAddr(fmt.Sprintf("10.200.%d.1", i))
-		first := l.Originate(routing.DefaultVRF, dst, 17, []byte("data"))
+		first := l.Originate(testNow, routing.DefaultVRF, dst, 17, []byte("data"), true)
 		if first.Reason != "" {
 			t.Fatalf("reason = %q for %s, want empty", first.Reason, dst)
 		}
@@ -1769,7 +1842,7 @@ func TestOriginateSelectsOverTheCandidateSet(t *testing.T) {
 		}
 		reached[first.Interface]++
 		for range 10 {
-			again := l.Originate(routing.DefaultVRF, dst, 17, []byte("data"))
+			again := l.Originate(testNow, routing.DefaultVRF, dst, 17, []byte("data"), true)
 			if again.Interface != first.Interface || again.Frame.Dst != first.Frame.Dst {
 				t.Fatalf("%s left by %s towards %s, want %s towards %s", dst, again.Interface, again.Frame.Dst, first.Interface, first.Frame.Dst)
 			}
@@ -1813,12 +1886,12 @@ func routeFlow6(t *testing.T, l *routing.Layer, src, dst netip.Addr, flowLabel u
 	if err != nil {
 		t.Fatalf("encode IPv6 packet: %v", err)
 	}
-	return l.Route("vlan10", ethernet.Frame{
+	return l.Route(testNow, "vlan10", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv6,
 		Payload:   pkt,
-	})
+	}, true)
 }
 
 func TestFlowLabelSeparatesIPv6Flows(t *testing.T) {
@@ -1885,12 +1958,12 @@ func TestEqualCostRoutesOnOnePrefixAreCapped(t *testing.T) {
 		routing.DefaultVRF: {Interfaces: ifaces, Routes: routes, Neighbors: neighbors},
 	}})
 
-	res := l.Route("vlan1", ethernet.Frame{
+	res := l.Route(testNow, "vlan1", ethernet.Frame{
 		Src:       hostMAC,
 		Dst:       selectionDeviceMAC,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   encodeIPv4Packet(t, netip.MustParseAddr("172.1.0.7"), netip.MustParseAddr("10.200.0.1"), 64, []byte("data")),
-	})
+	}, true)
 	if len(res.Candidates) != 64 {
 		t.Fatalf("candidates = %d, want the cap of 64", len(res.Candidates))
 	}
@@ -1904,46 +1977,12 @@ func TestEqualCostRoutesOnOnePrefixAreCapped(t *testing.T) {
 	}
 }
 
-// TestSwitchPeekAndForwardAgree holds because the selection reads the packet and nothing
-// else: no bucket table remembers where a flow went, so looking cannot move it.
-func TestSwitchPeekAndForwardAgree(t *testing.T) {
+// TestPeekAndCommitAgreeOnSelection holds because the selection reads the packet and nothing
+// else: no bucket table remembers where a flow went, so looking cannot move it, and a commit
+// chooses the same candidate a preceding peek already reported.
+func TestPeekAndCommitAgreeOnSelection(t *testing.T) {
 	t.Parallel()
-
-	builder := port.NewBuilder()
-	for _, name := range []string{"1/1/1", "1/1/2", "1/1/3"} {
-		builder = builder.Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	}
-	ports, err := builder.Build()
-	if err != nil {
-		t.Fatalf("build ports: %v", err)
-	}
-
-	p10, p20, p30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
-	routingCfg := ecmpConfig(gatewayA, gatewayB, gatewayC)
-	sw, err := vswitch.New(vswitch.Config{
-		Ports: ports,
-		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
-			Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20", 30: "vlan30"},
-			Switchports: map[string]bridge.Switchport{
-				"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
-				"1/1/2": {PVID: &p20, Untagged: []vlan.ID{20}},
-				"1/1/3": {PVID: &p30, Untagged: []vlan.ID{30}},
-			},
-		}},
-		Routing: &routingCfg,
-	})
-	if err != nil {
-		t.Fatalf("vswitch.New: %v", err)
-	}
-
-	now := time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC)
-	nextHopMAC := func(t *testing.T, res vswitch.ForwardResult) netaddr.MAC {
-		t.Helper()
-		if len(res.Egress) != 1 {
-			t.Fatalf("egress = %+v, want one routed copy", res.Egress)
-		}
-		return res.Egress[0].Frame.Dst
-	}
+	l := mustNewRouting(t, ecmpConfig(gatewayA, gatewayB, gatewayC))
 
 	for _, flow := range flowSpread()[:20] {
 		frame := ethernet.Frame{
@@ -1952,11 +1991,11 @@ func TestSwitchPeekAndForwardAgree(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   encodeIPv4Packet(t, flow[0], flow[1], 64, []byte("data")),
 		}
-		first := nextHopMAC(t, sw.Peek(now, "1/1/1", frame))
-		second := nextHopMAC(t, sw.Peek(now, "1/1/1", frame))
-		forwarded := nextHopMAC(t, sw.Forward(now, "1/1/1", frame))
-		if first != second || first != forwarded {
-			t.Fatalf("%s -> %s: peeks chose %s and %s, forward chose %s", flow[0], flow[1], first, second, forwarded)
+		first := l.Route(testNow, "vlan10", frame, false)
+		second := l.Route(testNow, "vlan10", frame, false)
+		committed := l.Route(testNow, "vlan10", frame, true)
+		if first.Frame.Dst != second.Frame.Dst || first.Frame.Dst != committed.Frame.Dst {
+			t.Fatalf("%s -> %s: peeks chose %s and %s, commit chose %s", flow[0], flow[1], first.Frame.Dst, second.Frame.Dst, committed.Frame.Dst)
 		}
 	}
 }

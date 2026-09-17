@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 )
 
@@ -73,11 +74,14 @@ func routeSnapshot(vrf string, destination netip.Addr, sel *selection) trace.Fac
 	return routeDecisionFact(b.String())
 }
 
-func neighborSnapshot(iface string, addr netip.Addr, neighbor Neighbor, present bool) trace.Fact {
+// neighborSnapshot records what a neighbor lookup found: the state the entry was in (including
+// [NeighborUnobserved] for no entry at all) and its bound MAC, if any, so a trace says which of
+// the lifecycle's answers a lookup produced.
+func neighborSnapshot(iface string, addr netip.Addr, mac netaddr.MAC, state NeighborState) trace.Fact {
 	return neighborDecisionFact("interface=" + strconv.Quote(iface) +
 		";address=" + strconv.Quote(addr.String()) +
-		";present=" + strconv.FormatBool(present) +
-		";mac=" + strconv.Quote(neighbor.MAC.String()))
+		";state=" + strconv.Quote(string(state)) +
+		";mac=" + strconv.Quote(mac.String()))
 }
 
 // EgressFact returns an immutable snapshot of the routed interface and selected
