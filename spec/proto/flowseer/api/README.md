@@ -28,4 +28,4 @@ so no schema in the tree may import one.
 
 - `capture/v1/`: Operator-facing `CaptureService` and edge-upload `CaptureEdgeService`.
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
-- `edge/v1/`: Operator-facing `EdgeAdminService` and edge-facing `EdgeService` (until split in a later phase).
+- `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges, and edge-facing `EdgeService` to enroll, attach to the bus, and acquire credentials.
