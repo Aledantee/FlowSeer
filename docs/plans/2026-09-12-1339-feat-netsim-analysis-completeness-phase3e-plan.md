@@ -16,6 +16,11 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 
 > Implemented. 6 units, 2026-09-16T16:20Z to 2026-09-16T16:45Z.
 
+> Reviewed rework. The findings were too large to fix in place and were
+> carried to phase 3f
+> ([`docs/plans/2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md`](2026-09-12-1339-fix-netsim-analysis-completeness-phase3f-plan.md)),
+> which closed `accept after fixes`. This phase is complete through that one.
+
 > Re-planned on 2026-09-16 against the tree phase 3d left (`ca47a59d`). The
 > Decisions below keep the 2026-09-14 wire and behavior rulings, whose
 > evidence was re-fetched on 2026-09-16, and settle the four questions the

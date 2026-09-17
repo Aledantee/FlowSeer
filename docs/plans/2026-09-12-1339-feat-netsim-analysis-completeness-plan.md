@@ -595,6 +595,7 @@ area reads this before planning; a phase that closes one removes its entry.
   `docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase3e-plan.md`
 - **After:** U3d
 - **Landed:** `840d36c2..29515c73`
+- **Reviewed:** rework, carried to U3f and closed there.
 - **Change:** SSTP encapsulation and tagged emission, one tree per VLAN, the
   PVID check, and the unsupported PVST boundary.
 - **Tests:** SSTP codec vectors, per-VLAN root fabrics, the PVID check, and a
