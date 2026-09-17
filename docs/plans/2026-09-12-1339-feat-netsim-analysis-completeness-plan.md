@@ -506,6 +506,17 @@ area reads this before planning; a phase that closes one removes its entry.
   pre-existing; it then reached U6's plan as a convergence fingerprint that
   would report a settled fabric while an instance tree churned. Whether the
   inspection contract owes a per-VLAN shape is undecided.
+- **`routing.Layer.NextWake` reports a timer only while an entry is
+  Incomplete.** Resolving a held entry therefore makes the layer report no
+  timer, and the run loop cancels the wake that would have flushed the queue.
+  The switch works around it by flushing eagerly on observation, so the
+  behaviour is correct today, but the accessor's scope is narrower than a
+  caller reading its name would assume. A phase that schedules from it, rather
+  than flushing at the point of observation, has to widen it first.
+- **Derivation's routing arm landed with the neighbor lifecycle, not with the
+  state-ownership phase.** Phase 5's plan assigns the routing retention arm to
+  itself; `derive.go` already has one, keyed on `routing.Diff` with held frames
+  discarded. Phase 5 reconciles rather than adds.
 - **`stp.PortInfo` carries counters that advance on every hello.**
   `TxBPDUs`, `RxBPDUs`, `ForwardTransitions` and `BadBPDUs` move whenever the
   protocol runs, so anything that hashes a port snapshot whole never sees the
