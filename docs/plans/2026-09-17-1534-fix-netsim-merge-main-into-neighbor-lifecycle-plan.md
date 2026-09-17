@@ -149,6 +149,26 @@ the new diff.
   is code catching up with a record, which this plan does, and no record
   changes.
 
+- Ruled: `observationInterface`'s positive control in U1 is the untagged reply
+  on the plain routed port, and the reply that binds a sub-interface moves to
+  U3's release test. Why: `routing.Layer.Observe` updates an existing neighbor
+  entry and creates none (`routing/neighbor.go:224-227`), so a sub-interface
+  binding is observable only through the release path, which dereferences the
+  nil bridge until U3; five subtests asserting "nothing happened" need a
+  positive control that can pass at the merge commit. Cost if wrong: one
+  subtest moves between two tests in the same file.
+- Ruled: `routing.Layer.Clone`'s `byPort` copy is repaired in the merge commit
+  alongside `observationInterface`. Why: main narrows `byPort` to
+  `map[string]map[vlan.ID]string` and `Clone` lives in the branch-only
+  `routing/neighbor.go`, so the auto-merge leaves the package uncompilable;
+  this is the same kind of break the Decisions name for `observationInterface`,
+  and there is no compiling intermediate state to land it after. Cost if wrong:
+  a five-line deep copy moves to its own commit.
+- Ruled: `outerTagVID`'s doc comment names `[ethernet.Frame.Priority]` rather
+  than the deleted `framePriority`. Why: the merge deletes `framePriority`, and
+  a comment citing a function the tree no longer has reads as a live reference.
+  Cost if wrong: one comment line, which U3 deletes with the function.
+
 ## Requirements
 
 1. The merge commit has two parents, `704c17c5`'s successor on the branch
@@ -258,15 +278,18 @@ that `releaseHeldFrame` does not yet handle a sub-interface, which U3 does.
 Tests: `switch_test.go` — a new `buildSubInterfaceSwitch` fixture with
 `eth1.10`, `eth1.20` on `eth1`, `eth3` as a plain routed port, no bridge, and
 `NeighborPolicy` at defaults; `TestSubInterfaceObservationBindsOnlyItsOuterVID`
-proves requirement 5 with six subtests (`0x8100`/10, `0x8100`/20,
-`0x8100`/30, `0x88A8`/10, untagged, and `0x8100`/10 with `eth1` set
-`OperStatus: port.Down` through `SetOperStatus` before the reply), each
-asserting `Drain` and `DrainNeighborFailures` empty except the first, which
-asserts one emission; the untagged subtest also sends an untagged reply on
-`eth3` and asserts it resolves `eth3`'s neighbor. The reply subtests that
-must not release cannot be watched failing against the merge's own code,
-since that code does not compile; they are watched failing against a variant
-that returns `name, true` whenever `portRouted`. `go build ./...`,
+proves the part of requirement 5 that holds before U3, with five subtests that
+must not bind (`0x8100`/20, `0x8100`/30, `0x88A8`/10, untagged, and
+`0x8100`/10 with `eth1` set `OperStatus: port.Down` through `SetOperStatus`
+before the reply), each asserting `Drain` and `DrainNeighborFailures` empty,
+and one positive control that holds a frame on `eth3` and releases it with an
+untagged reply there. Requirement 5's releasing case is U3's
+`TestARPObservationReleasesHeldFrameOnSubInterface`; see the ruling. The five
+subtests cannot be watched failing against the merge's own code, since that
+code does not compile; the four tag subtests are watched failing against a
+variant that classifies at a fixed VID whatever the frame carries, and the
+down-port subtest against a variant with the `receive.Reason == ""` guard
+removed. `go build ./...`,
 `go vet ./src/common/netsim/...`, and
 `go test -race ./src/common/netsim/... ./src/common/net/...` pass at the merge
 commit; `TestRegistryDeterministicOrdering` and

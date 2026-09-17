@@ -13,6 +13,8 @@ search_paths:
   # Vendor product trees listed only for the sysobjectid identity table.
   - spec/mib/ruckus/icx
   - spec/mib/lancom/lcos
+  - spec/mib/cisco/products
+  - spec/mib/cisco/smb
 
 modules:
   - name: SNMPv2-SMI
@@ -72,9 +74,10 @@ modules:
   - { name: DLINKSW-SFPINFO-MIB,       package: dlinkswsfpinfomib }
   - { name: HP-ICF-TRANSCEIVER-MIB,    package: hpicftransceivermib }
   - { name: HH3C-TRANSCEIVER-INFO-MIB, package: hh3ctransceiverinfomib }
-  # Identity only: the three modules below declare product naming nodes
-  # and no tables, so their packages are near-empty and their whole value
-  # is the entries they add to the sysobjectid table.
+  # Identity only: the modules below declare product naming nodes and no
+  # tables, so their packages are near-empty and their whole value is the
+  # entries they add to the sysobjectid table. LCOS-MIB at the end is the
+  # exception, and says so itself.
   #
   # FOUNDRY-SN-ROOT-MIB carries the Ruckus ICX (ex-Brocade, ex-Foundry)
   # product families and models under enterprises 1991.
@@ -84,6 +87,33 @@ modules:
   # without it those parents are absent from the identity table.
   - { name: HH3C-OID-MIB,        package: hh3coid }
   - { name: HH3C-PRODUCT-ID-MIB, package: hh3cproductid }
+  # CISCO-SMI declares the roots under enterprises 9 — ciscoProducts among
+  # them — that CISCO-PRODUCTS-MIB hangs its models off. Without it those
+  # parents are absent, and a product OID the products module does not name
+  # has no Cisco ancestor to fall back to.
+  - { name: CISCO-SMI,           package: ciscosmi }
+  # The sysObjectID every IOS, IOS-XE, and NX-OS box reports, Catalyst
+  # switches and 9800 wireless controllers included: ~2950 product nodes
+  # under ciscoProducts and not one table.
+  - { name: CISCO-PRODUCTS-MIB,  package: ciscoproducts }
+  # The small-business line (CBS, SG, Catalyst 1200/1300) sits outside
+  # ciscoProducts, under enterprises 9.6.1, and reports a per-family OID
+  # below the switch001 node this module declares. The families themselves
+  # are in no public MIB, so a CBS350 resolves to switch001 rather than to
+  # its model — enough to know the vendor and the firmware line.
+  - { name: CISCOSB-MIB,         package: ciscosbmib }
+  # AIRESPACE-REF-MIB declares the airespace root at enterprises 14179 and
+  # nothing else, which is the whole AireOS identity anyone gets. An AireOS
+  # controller reports a sysObjectID under 14179.1.1.4, and the only nodes
+  # declared there are agentProductGroup and productGroup1 through 4 in
+  # AIRESPACE-SWITCHING-MIB — families, not models, whose descriptions have
+  # not kept up: productGroup3 is documented as the 4202 and 4204, and is
+  # what much later controllers report. So that module buys a product-shaped
+  # ancestor that still cannot name the box, for 16 tables nothing reads.
+  # Both LibreNMS and Observium stop at the same place, Observium matching
+  # the bare .1.3.6.1.4.1.14179 prefix this module supplies. The model comes
+  # off the device instead, from ENTITY-MIB's chassis row.
+  - { name: AIRESPACE-REF-MIB,   package: airespaceref }
   # LCOS-MIB carries the LANCOM product nodes (enterprises 2356) together
   # with the whole LCOS status and setup tree, so unlike the identity-only
   # modules above it costs a full package. LANCOM ships one full copy per

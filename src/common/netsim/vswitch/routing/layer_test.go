@@ -593,9 +593,9 @@ func TestRoutedPort(t *testing.T) {
 	}
 	l := mustNewRoutingWithPorts(t, cfg, ports)
 
-	ifName, ok := l.ByPort("1/1/5")
-	if !ok || ifName != "1/1/5" {
-		t.Fatalf("ByPort(1/1/5) = %q, %v; want 1/1/5, true", ifName, ok)
+	ifName, portRouted, matched := l.ByPortVLAN("1/1/5", 0)
+	if !portRouted || !matched || ifName != "1/1/5" {
+		t.Fatalf("ByPortVLAN(1/1/5, 0) = %q, %v, %v; want 1/1/5, true, true", ifName, portRouted, matched)
 	}
 
 	// Packet from vlan10 to 10.0.50.7 egresses on 1/1/5.
@@ -637,6 +637,63 @@ func TestRoutedPort(t *testing.T) {
 	}
 	if resFromPort.Steps[0].RuleID != "classify" || resFromPort.Steps[0].Subject.Key != "1/1/5" {
 		t.Errorf("classify step = %+v, want classify 1/1/5", resFromPort.Steps[0])
+	}
+}
+
+func TestByPortVLANDistinguishesPortAndVLANMisses(t *testing.T) {
+	t.Parallel()
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.NewBuilder: %v", err)
+	}
+
+	cfg := routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+			"eth1.10": {Port: "eth1", VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+			"eth1.20": {Port: "eth1", VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+		}},
+	}}
+	l := mustNewRoutingWithPorts(t, cfg, ports)
+
+	if name, portRouted, matched := l.ByPortVLAN("eth1", 10); name != "eth1.10" || !portRouted || !matched {
+		t.Errorf("ByPortVLAN(eth1, 10) = %q, %v, %v; want eth1.10, true, true", name, portRouted, matched)
+	}
+	if name, portRouted, matched := l.ByPortVLAN("eth1", 20); name != "eth1.20" || !portRouted || !matched {
+		t.Errorf("ByPortVLAN(eth1, 20) = %q, %v, %v; want eth1.20, true, true", name, portRouted, matched)
+	}
+	// A routed port with no interface at this VID drops rather than falling through to a
+	// bridge, so the miss must be told apart from a port that carries no routed interface at all.
+	if name, portRouted, matched := l.ByPortVLAN("eth1", 30); name != "" || !portRouted || matched {
+		t.Errorf("ByPortVLAN(eth1, 30) = %q, %v, %v; want \"\", true, false", name, portRouted, matched)
+	}
+	if name, portRouted, matched := l.ByPortVLAN("eth2", 30); name != "" || portRouted || matched {
+		t.Errorf("ByPortVLAN(eth2, 30) = %q, %v, %v; want \"\", false, false", name, portRouted, matched)
+	}
+}
+
+func TestByVLANNeverAnswersWithASubInterface(t *testing.T) {
+	t.Parallel()
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "xe1", Kind: port.Physical}).
+		Build()
+	if err != nil {
+		t.Fatalf("port.NewBuilder: %v", err)
+	}
+
+	cfg := routing.Config{VRFs: map[string]routing.VRF{
+		routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+			"vlan10": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+			"xe1.10": {Port: "xe1", VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.11.1/24")}},
+		}},
+	}}
+	l := mustNewRoutingWithPorts(t, cfg, ports)
+
+	// xe1.10 sorts after vlan10 in interface-name order, so a bridge VLAN index that still
+	// admitted a sub-interface would have the later write win and answer xe1.10 instead.
+	if name, ok := l.ByVLAN(10); !ok || name != "vlan10" {
+		t.Fatalf("ByVLAN(10) = %q, %v; want vlan10, true", name, ok)
 	}
 }
 

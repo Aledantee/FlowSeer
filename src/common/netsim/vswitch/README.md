@@ -160,11 +160,20 @@ The virtual switch uses a ladder of architectural layers:
   elapses; the runtime issues below cover the completeness signal that gap
   raises.
 - **Routing**: Configured with `routing.Config` containing VRFs and routed
-  interfaces. An interface has one of two shapes: a VLAN interface (routed
-  presence of a classified VLAN) or a routed port (physical or LAG port that
-  belongs to no VLAN and bridges nothing). A routed port bypasses the relay
-  entirely; frames arriving on it must be addressed to the interface MAC or drop
-  with `not-bridged`. For frames arriving on a VLAN or routed port, routing
+  interfaces. An interface has one of three shapes: a VLAN interface (routed
+  presence of a classified VLAN), a routed port (physical or LAG port that
+  belongs to no VLAN and bridges nothing), or a routed sub-interface (both
+  fields set), which classifies frames arriving on its port by their outer
+  VLAN tag rather than by bridge VLAN membership. A routed port bypasses the
+  relay entirely; the frame's outer tag, or its absence, must name an
+  interface configured on that port — a sub-interface at that tag's VID, or
+  the untagged interface when the frame carries none — or the frame drops
+  with `not-bridged` before ownership is even checked. This applies to every
+  routed port, so a tagged frame on a plain untagged routed port drops the
+  same way a frame at an unconfigured VID on a trunk of sub-interfaces does;
+  a frame that does name a configured interface but is not addressed to its
+  MAC drops with the same reason afterward, once ownership is checked. For
+  frames arriving on a VLAN or routed port, routing
   evaluates interface ownership (`Owns`), classification, local destination
   consumption (`not-routed`), hop limit verification, route lookup, and neighbor
   resolution. A lookup takes the longest matching prefix, then the lowest
@@ -180,8 +189,11 @@ The virtual switch uses a ladder of architectural layers:
   decremented by one and packets reaching
   zero drop without forwarding per RFC 1812 section 5.3.1. Routed packets are
   re-encapsulated with the egress interface source MAC and next-hop neighbor
-  destination MAC with no tags, handing off to the relay (for VLAN egress) or
-  the port layer (for a routed port).
+  destination MAC, handing off to the relay (for VLAN egress) or the port
+  layer (for a routed port or a sub-interface). A plain routed port leaves
+  the frame untagged; a sub-interface's egress carries one tag naming its
+  VLAN, the ingress priority code point, and the ingress drop eligible
+  indicator.
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
   copies after bridge, hub, or routed forwarding. A copy is exposed only when
@@ -290,7 +302,7 @@ Drop reasons recorded in traces and egress records:
 | `held-cause-unknown` | Held frame released under a routing hold-queue exit cause this package does not recognize |
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
-| `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
+| `not-bridged`      | Frame on a routed port not addressed to interface MAC, or its outer VLAN tag (or the lack of one) names no interface configured on the port, or names one but at a tag protocol the port's interfaces cannot classify |
 | `policed`          | Ingress frame exceeded the port's token bucket           |
 | `mirror-output`    | Ordinary frame used a port reserved for mirror copies    |
 | `unregistered`    | Unregistered group had flooding disabled and no router port |

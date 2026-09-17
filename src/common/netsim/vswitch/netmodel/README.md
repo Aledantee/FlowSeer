@@ -63,8 +63,8 @@ Errors returned by [Load] are strictly reserved for impossible construction inpu
 
 - Empty interface slices.
 - Duplicate interface names.
+- Empty interface names.
 - LAG parent references to non-existent interfaces.
-- Configuration invariants that violate switch validation.
 
 Partial, uncertain, or conflicting inputs do not return an error. Instead, [Load]
 preserves the unaffected configuration and records scoped findings in `res.Report`
@@ -151,10 +151,39 @@ results. The detailed loading report remains on `Result` because it describes th
 translation rather than runtime forwarding.
 
 A forwarding result selects metadata against the dependencies it actually
-consulted. Port state uses port scopes. Routing uses exact port, VLAN, ownership,
-route, local-address, and neighbor lookup scopes; neighbor scopes include the VRF,
-interface, and address, including for VLAN interfaces. Bridge forwarding uses the
-exact FID and destination MAC scope for an FDB lookup. A sibling dependency is
-excluded, while a node-scoped conflict affects every query on that node. The
-result's scope retains `SourceContext.DeviceID`, which keeps similarly named ports
-on different devices disjoint.
+consulted. Port state uses port scopes. Routing uses exact port, port-and-VID,
+VLAN, ownership, route, local-address, and neighbor lookup scopes; neighbor
+scopes include the VRF, interface, and address, including for VLAN interfaces.
+Bridge forwarding uses the exact FID and destination MAC scope for an FDB
+lookup. A sibling dependency is excluded, while a node-scoped conflict affects
+every query on that node. The result's scope retains `SourceContext.DeviceID`,
+which keeps similarly named ports on different devices disjoint.
+
+A `Subinterface` loads as a routed interface carrying its parent's port name
+and the VID of its one customer tag, provided the parent names a physical or
+LAG interface loaded alongside it and the encapsulation is exactly one
+`ETHER_TYPE_DOT1Q` tag whose VID is a usable IEEE 802.1Q identifier (1 through
+4094). It contributes no port-table entry of its own, since it is not a port,
+and an IP facet on it counts toward the same routed-interface capability flag
+a VLAN interface or a routed port would set. A parent's own switchport facet
+and its spanning-tree port are skipped from the bridge switchport table and
+the spanning-tree port table on the same footing as a directly routed port,
+even when the parent carries no IP facet of its own, but only once one of
+its sub-interfaces resolves to a claim the routing walk accepts without a
+conflicting claimant; a parent whose only sub-interface is rejected, or
+whose sub-interfaces claim the same parent and VID, keeps both.
+
+Any other encapsulation, an absent one included, raises
+`netmodel.routing.unsupported_encapsulation` on the parent port's lookup
+scope and leaves the interface out of the VRF; a parent that is absent from
+the load, is not itself a physical or LAG interface, or is itself a LAG
+member, keeps raising `netmodel.routing.unsupported_interface_kind` on that
+same scope. A directly routed interface that is itself a LAG member raises
+the same issue. Two sub-interfaces naming the same parent and VID is a
+device reporting the same claim twice: `netmodel.routing.claim_conflict` is
+recorded on the parent port's lookup scope and neither claimant reaches the
+VRF, the same way any other contested fact drops out rather than keeping
+whichever claimant happened to load first. Two VLAN-kind interfaces
+reporting the same VLAN id contest a separate namespace, since neither one
+resolves to a port: the same conflict code is recorded on the VLAN's own
+lookup scope instead, and again neither claimant reaches the VRF.

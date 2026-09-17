@@ -8,6 +8,9 @@ goroutines or wall-clock dependencies.
 | ------------------ | ------------------------------------------------------------ |
 | `../net/igmp`      | IGMPv1, IGMPv2, and IGMPv3 message codec                    |
 | `../net/mld`       | MLDv1 and MLDv2 message codec                               |
+| `../net/udp`       | UDP header codec with pseudo-header checksums               |
+| `../net/tcp`       | TCP header decoder: ports, sequence numbers, control bits   |
+| `../net/icmp`      | ICMPv4 and ICMPv6 header decoder: type, code, checksum       |
 | `trace`            | Step, outcome, and change trace records                      |
 | `analysis`         | Analysis trust metadata, scoped issues, and evidence catalog |
 | `vswitch`          | Virtual switch composing pipeline capabilities               |

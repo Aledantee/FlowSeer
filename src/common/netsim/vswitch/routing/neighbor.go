@@ -427,7 +427,7 @@ func (l *Layer) Clone() *Layer {
 	cp := &Layer{
 		nodeID:   l.nodeID,
 		byVLAN:   make(map[vlan.ID]string, len(l.byVLAN)),
-		byPort:   make(map[string]string, len(l.byPort)),
+		byPort:   make(map[string]map[vlan.ID]string, len(l.byPort)),
 		ifaceVRF: make(map[string]string, len(l.ifaceVRF)),
 		ifaces:   make(map[string]Interface, len(l.ifaces)),
 		vrfs:     make(map[string]*vrfState, len(l.vrfs)),
@@ -435,8 +435,12 @@ func (l *Layer) Clone() *Layer {
 	for k, v := range l.byVLAN {
 		cp.byVLAN[k] = v
 	}
-	for k, v := range l.byPort {
-		cp.byPort[k] = v
+	for portName, vids := range l.byPort {
+		cpVIDs := make(map[vlan.ID]string, len(vids))
+		for vid, iface := range vids {
+			cpVIDs[vid] = iface
+		}
+		cp.byPort[portName] = cpVIDs
 	}
 	for k, v := range l.ifaceVRF {
 		cp.ifaceVRF[k] = v

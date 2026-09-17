@@ -4293,6 +4293,239 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 	})
 }
 
+// TestRoutedSubInterfaceForwardingAndTagMiss covers a firewall cabled to a trunk with no
+// bridge at all: the port carries two routed sub-interfaces classified by outer VLAN tag,
+// beside a plain untagged routed port and, in a second switch, a bridge switchport sharing
+// one sub-interface's VID. Sub-interface egress carries the routed VLAN's tag with the
+// ingress priority; a routed port with no interface at the arriving VID or TPID drops rather
+// than falling through to a bridge that does not exist for it.
+func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
+	neighbor20 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "eth3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {Port: "eth1", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"eth1.20": {Port: "eth1", VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"eth3":    {Port: "eth3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+					Neighbors: []routing.Neighbor{
+						{Interface: "eth1.20", Addr: ipH2, MAC: neighbor20},
+					},
+				},
+			},
+		},
+	}
+	sw := mustSwitch(t, cfg)
+
+	t.Run("frame tagged 10 leaves tagged 20 carrying the ingress priority", func(t *testing.T) {
+		pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("sub-interface routing"))
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10, PCP: 3, DEI: true}},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   pkt,
+		}
+		res := sw.Forward(fixedTime, "eth1", frame)
+		if res.Outcome != trace.Forwarded {
+			t.Fatalf("outcome = %v, want %v; steps=%+v", res.Outcome, trace.Forwarded, res.Steps)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "eth1" {
+			t.Fatalf("egress = %+v, want one entry on eth1", res.Egress)
+		}
+		wantTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20, PCP: 3, DEI: true}
+		if gotTags := res.Egress[0].Frame.Tags; len(gotTags) != 1 || gotTags[0] != wantTag {
+			t.Errorf("egress tags = %+v, want [%+v]", gotTags, wantTag)
+		}
+	})
+
+	t.Run("frame tagged 30 on the sub-interface port drops as not-bridged", func(t *testing.T) {
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 30}},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("no sub-interface at vid 30"),
+		}
+		res := sw.Forward(fixedTime, "eth1", frame)
+		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
+			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
+		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_miss drop", res.Steps)
+		}
+		wantFacts := []trace.Fact{routing.PortFact("eth1"), routing.VLANFact(30)}
+		gotFacts := res.Steps[0].Inputs
+		if !slices.EqualFunc(gotFacts, wantFacts, func(a, b trace.Fact) bool {
+			return a.TypeID() == b.TypeID() && a.Canonical() == b.Canonical()
+		}) {
+			t.Errorf("fact inputs = %+v, want %+v", gotFacts, wantFacts)
+		}
+	})
+
+	t.Run("untagged frame drops as not-bridged when no untagged sub-interface exists", func(t *testing.T) {
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("no untagged sub-interface here"),
+		}
+		res := sw.Forward(fixedTime, "eth1", frame)
+		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
+			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
+		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_miss drop", res.Steps)
+		}
+	})
+
+	t.Run("S-tagged frame on the sub-interface port drops as not-bridged", func(t *testing.T) {
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 10}},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("s-tagged, no C-TAG sub-interface can match"),
+		}
+		res := sw.Forward(fixedTime, "eth1", frame)
+		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
+			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
+		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_protocol_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_protocol_miss drop", res.Steps)
+		}
+	})
+
+	t.Run("tagged frame on a plain untagged routed port drops as not-bridged", func(t *testing.T) {
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("tagged on a plain routed port"),
+		}
+		res := sw.Forward(fixedTime, "eth3", frame)
+		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
+			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
+		}
+		if len(res.Steps) != 1 || res.Steps[0].RuleID != "routing.tag_miss" {
+			t.Fatalf("steps = %+v, want a single routing.tag_miss drop", res.Steps)
+		}
+	})
+
+	t.Run("the plain untagged routed port still routes beside the sub-interface's port", func(t *testing.T) {
+		pkt := makeIPv4Packet(t, netip.MustParseAddr("10.0.30.7"), ipH2, 64, []byte("plain routed port"))
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   pkt,
+		}
+		res := sw.Forward(fixedTime, "eth3", frame)
+		if res.Outcome != trace.Forwarded {
+			t.Fatalf("outcome = %v, want %v; steps=%+v", res.Outcome, trace.Forwarded, res.Steps)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "eth1" || len(res.Egress[0].Frame.Tags) != 1 {
+			t.Fatalf("egress = %+v, want one tagged entry on eth1", res.Egress)
+		}
+	})
+
+	t.Run("sub-interface egress refused for MTU still carries the tag on the egress record", func(t *testing.T) {
+		// The egress tag is applied before the transmit and LAG checks, because a refused
+		// egress record still embeds the frame those checks were given. Moving the tag
+		// assignment below the transmit check would leave this refusal's egress record
+		// untagged instead, and a comparison that matches egress records by tag equality
+		// would not catch that silently.
+		mtuPorts := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "ethA", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "ethB", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 40}))
+
+		mtuCfg := vswitch.Config{
+			Ports: mtuPorts,
+			Routing: &routing.Config{
+				VRFs: map[string]routing.VRF{
+					"default": {
+						Interfaces: map[string]routing.Interface{
+							"ethA":    {Port: "ethA", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.40.1/24")}},
+							"ethB.10": {Port: "ethB", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						},
+						Neighbors: []routing.Neighbor{
+							{Interface: "ethB.10", Addr: ipH2, MAC: macH2},
+						},
+					},
+				},
+			},
+		}
+		mtuSw := mustSwitch(t, mtuCfg)
+
+		oversizedPayload := make([]byte, 50)
+		pkt := makeIPv4Packet(t, netip.MustParseAddr("10.0.40.7"), ipH2, 64, oversizedPayload)
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   pkt,
+		}
+		res := mtuSw.Forward(fixedTime, "ethA", frame)
+		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
+			t.Fatalf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
+		}
+		if len(res.Egress) != 1 || res.Egress[0].Port != "ethB" || res.Egress[0].Dropped != port.ReasonMTUExceeded {
+			t.Fatalf("egress = %+v, want one refused entry on ethB", res.Egress)
+		}
+		wantTag := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}
+		if gotTags := res.Egress[0].Frame.Tags; len(gotTags) != 1 || gotTags[0] != wantTag {
+			t.Errorf("egress tags = %+v, want [%+v] even though transmit refused", gotTags, wantTag)
+		}
+	})
+
+	p10 := vlan.ID(10)
+	bridgeSw := mustSwitch(t, vswitch.Config{
+		Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "swport", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table:       map[vlan.ID]string{10: "ten"},
+				Switchports: map[string]bridge.Switchport{"swport": {PVID: &p10, Untagged: []vlan.ID{10}}},
+			},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {Port: "eth1", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					},
+				},
+			},
+		},
+	})
+
+	t.Run("a bridge VLAN sharing the sub-interface's VID still floods rather than routing to it", func(t *testing.T) {
+		// If the bridge VLAN index answered VLAN 10 with the sub-interface (the regression
+		// this pins), Owns would match the frame's router-MAC destination and it would leave
+		// tagged out eth1 instead of taking the ordinary no-egress flood drop on swport alone.
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   []byte("stay on the bridge"),
+		}
+		res := bridgeSw.Forward(fixedTime, "swport", frame)
+		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
+			t.Fatalf("got outcome=%v reason=%v, want Dropped/no-egress", res.Outcome, res.Reason)
+		}
+	})
+}
+
 func TestSourceMACLearnedOnVLANAndNotOnRoutedPort(t *testing.T) {
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
@@ -8073,6 +8306,139 @@ func TestARPObservationReleasesHeldFrameOnRoutedPort(t *testing.T) {
 	if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
 		t.Errorf("neighbor failures = %d, want 0: %+v", len(failures), failures)
 	}
+}
+
+var (
+	ipSubHost   = netip.MustParseAddr("10.0.10.77")
+	ipSubSrc    = netip.MustParseAddr("10.0.30.7")
+	ipSubHost3  = netip.MustParseAddr("10.0.30.77")
+	macSubHost  = netaddr.MAC{0x02, 0, 0, 0, 0x10, 0x77}
+	macSubHost3 = netaddr.MAC{0x02, 0, 0, 0, 0x30, 0x77}
+)
+
+// buildSubInterfaceSwitch builds a bridgeless routed switch carrying two C-TAG
+// sub-interfaces on eth1 and a plain untagged routed port on eth3, with no
+// static neighbors, so a frame routed out any of the three holds. A
+// sub-interface's ordinary shape is a switch with no bridge at all, which is
+// why this fixture configures none.
+func buildSubInterfaceSwitch(t *testing.T) *vswitch.Switch {
+	t.Helper()
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "eth3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"eth1.10": {Port: "eth1", VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"eth1.20": {Port: "eth1", VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+						"eth3":    {Port: "eth3", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+					},
+				},
+			},
+		},
+	}
+	return mustSwitch(t, cfg)
+}
+
+// holdOnSubInterface routes a frame in on eth3 for a host behind eth1.10, which
+// has no neighbor, leaving the frame in that interface's hold queue.
+func holdOnSubInterface(t *testing.T, sw *vswitch.Switch) {
+	t.Helper()
+	pkt := makeIPv4Packet(t, ipSubSrc, ipSubHost, 64, []byte("held on a sub-interface"))
+	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+	res := sw.Forward(fixedTime, "eth3", frame)
+	if res.Outcome != trace.Held || res.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("outcome/reason = %v/%v, want Held/%v", res.Outcome, res.Reason, routing.ReasonNeighborPending)
+	}
+}
+
+// subInterfaceARPReply builds ipSubHost's reply to eth1.10's ARP request,
+// carrying the tags the caller asks for.
+func subInterfaceARPReply(t *testing.T, tags []vlan.Tag) ethernet.Frame {
+	t.Helper()
+	reply := makeARPReply(t, ipSubHost, netip.MustParseAddr("10.0.10.1"), macSubHost, macRouter)
+	reply.Tags = tags
+
+	return reply
+}
+
+// TestSubInterfaceObservationBindsOnlyItsOuterVID pins which advertisement on a
+// parent port answers a sub-interface's pending neighbor. The reply's own outer
+// C-TAG names the interface, so a reply at a sibling's VID, at a VID no
+// interface carries, under an S-TAG, untagged, or arriving while the port is
+// operationally down binds nothing at all rather than falling back to whichever
+// interface the port would carry untagged. The last subtest is the positive
+// control: without it the five above would all pass against an
+// observationInterface that never observes anything. The reply that does bind
+// a sub-interface is TestARPObservationReleasesHeldFrameOnSubInterface, which
+// needs the release path: Observe updates a pending entry and creates none, so
+// binding shows only as the held frame leaving.
+func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
+	cTag := uint16(ethernet.EtherTypeDot1Q)
+
+	for _, tc := range []struct {
+		name string
+		tags []vlan.Tag
+		down bool
+	}{
+		{name: "the sibling sub-interface's VID", tags: []vlan.Tag{{TPID: cTag, VID: 20}}},
+		{name: "a VID no interface carries", tags: []vlan.Tag{{TPID: cTag, VID: 30}}},
+		{name: "an S-TAG at the right VID", tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 10}}},
+		{name: "untagged", tags: nil},
+		{name: "the right C-TAG while the parent port is down", tags: []vlan.Tag{{TPID: cTag, VID: 10}}, down: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sw := buildSubInterfaceSwitch(t)
+			holdOnSubInterface(t, sw)
+			if tc.down {
+				if err := sw.SetOperStatus("eth1", port.Down); err != nil {
+					t.Fatalf("SetOperStatus(eth1, Down) = %v", err)
+				}
+			}
+
+			sw.Forward(fixedTime.Add(time.Second), "eth1", subInterfaceARPReply(t, tc.tags))
+			sw.Wake(fixedTime.Add(time.Second))
+
+			if emissions := sw.Drain(); len(emissions) != 0 {
+				t.Errorf("emissions = %+v, want none: the reply answered a neighbor it does not name", emissions)
+			}
+			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+				t.Errorf("neighbor failures = %+v, want none", failures)
+			}
+		})
+	}
+
+	t.Run("an untagged reply on a plain routed port binds that port's interface", func(t *testing.T) {
+		sw := buildSubInterfaceSwitch(t)
+
+		pkt := makeIPv4Packet(t, ipSubHost, ipSubHost3, 64, []byte("held on the untagged port"))
+		frame := ethernet.Frame{
+			Src:       macH1,
+			Dst:       macRouter,
+			Tags:      []vlan.Tag{{TPID: cTag, VID: 10}},
+			EtherType: ethernet.EtherTypeIPv4,
+			Payload:   pkt,
+		}
+		if res := sw.Forward(fixedTime, "eth1", frame); res.Outcome != trace.Held {
+			t.Fatalf("outcome = %v, want Held; steps=%+v", res.Outcome, res.Steps)
+		}
+
+		reply := makeARPReply(t, ipSubHost3, netip.MustParseAddr("10.0.30.1"), macSubHost3, macRouter)
+		sw.Forward(fixedTime.Add(time.Second), "eth3", reply)
+		sw.Wake(fixedTime.Add(time.Second))
+
+		emissions := sw.Drain()
+		if len(emissions) != 1 || emissions[0].Port != "eth3" {
+			t.Fatalf("emissions = %+v, want one on eth3", emissions)
+		}
+		if emissions[0].Frame.Dst != macSubHost3 {
+			t.Errorf("released dst MAC = %v, want %v", emissions[0].Frame.Dst, macSubHost3)
+		}
+	})
 }
 
 // TestARPObservationReleasesHeldFrameOnVLANInterface covers the same release

@@ -27,6 +27,7 @@ than an edit.
 | [Streaming Frame Transport](2026-09-09-streaming-frame-transport-direction.md) | Proposed direction | Adding a streaming RPC, a chunked payload, or a producer that can outrun its consumer, or deciding how a long-lived edge stream stays authorized. |
 | [Remote Packet Capture](2026-09-09-remote-packet-capture-direction.md) | Proposed direction | Working on packet capture, mirrored traffic, ERSPAN or other mirror encapsulations, capture filters, or the handling of captured payload. |
 | [Supervised Goroutine Spawn](2026-09-15-supervised-goroutine-spawn-direction.md) | Proposed direction | Writing a `go` statement in non-test `src/`, or deciding where a panic in a spawned goroutine is recovered, reported, and attributed. |
+| [Local Network Analysis](2026-09-16-local-network-analysis-direction.md) | Proposed direction | Adding packet filtering, a routed sub-interface, or an endpoint that reacts to traffic under `src/common/netsim`, or deciding how a stateful firewall or an mDNS reflector is simulated. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or

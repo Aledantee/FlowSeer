@@ -2355,5 +2355,7 @@ func DefaultRegistry() *Registry {
 	RegisterSTPCases(r)
 	RegisterLoopProtectCases(r)
 	RegisterRoutingCases(r)
+	RegisterMDNSCases(r)
+	RegisterReflectorCases(r)
 	return r
 }

@@ -14,6 +14,7 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	ipv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/ip/v1"
+	packetv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/packet/v1"
 	phyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/phy/v1"
 	lacpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/lacp/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
@@ -64,6 +65,7 @@ const (
 	IssueInvalidAdminPathCost           analysis.IssueCode = "netmodel.stp.invalid_admin_path_cost"
 	IssueUnknownPort                    analysis.IssueCode = "netmodel.skipped.unknown_port"
 	IssueUnsupportedInterfaceKind       analysis.IssueCode = "netmodel.routing.unsupported_interface_kind"
+	IssueUnsupportedEncapsulation       analysis.IssueCode = "netmodel.routing.unsupported_encapsulation"
 	IssueMissingIPFacet                 analysis.IssueCode = "netmodel.routing.missing_ip_facet"
 	IssueMissingNeighborMAC             analysis.IssueCode = "netmodel.routing.missing_neighbor_mac"
 	IssueInvalidMAC                     analysis.IssueCode = "netmodel.address.invalid_mac"
@@ -92,6 +94,7 @@ const (
 	IssueConflictVlan                   analysis.IssueCode = "netmodel.vlan.conflict"
 	IssueConflictAddress                analysis.IssueCode = "netmodel.routing.address_conflict"
 	IssueConflictNeighbor               analysis.IssueCode = "netmodel.routing.conflict"
+	IssueConflictRoutedClaim            analysis.IssueCode = "netmodel.routing.claim_conflict"
 )
 
 type factKey struct {
@@ -152,11 +155,16 @@ func (c factConflict) detail() string {
 // interface is an aggregation, stp if bridge state is present, and routing if any interface
 // carries an IP facet. If want is non-empty, only the requested layers are built, and any
 // present facet outside want is omitted and recorded in [Report.Skipped]. When want contains
-// stp, relay is implied. When a routed interface loads, a VLAN interface or a routed port,
-// vlan and relay are implied so the relay can leave the routed port out. When routing is
-// not wanted, every IP facet, address row, and neighbor row is recorded as skipped. When routing ends up with no interfaces (every IP facet skipped),
+// stp, relay is implied. When a routed interface loads, a VLAN interface, a routed port, or
+// a sub-interface, vlan and relay are implied so the relay can leave the routed port out.
+// When routing is not wanted, every IP facet, address row, and neighbor row is recorded as
+// skipped. When routing ends up with no interfaces (every IP facet skipped),
 // the routing configuration is left nil and routing is dropped from capabilities with its
 // source removed, so [vswitch.Config.Validate] does not refuse an empty VRF.
+//
+// Load does not assume its caller ran protovalidate: a value the schema itself forbids,
+// such as a reserved VLAN ID, is treated the same as any other invalid device report and
+// turned into an issue rather than trusted as pre-checked.
 //
 // Load returns an error only for conditions that prevent constructing a switch at all:
 // an empty interface slice, a duplicate or empty interface name, or a LAG parent reference
@@ -181,6 +189,21 @@ func Load(
 		return Result{}, errs.New().Msg("interface list cannot be empty")
 	}
 
+	// The port builder only sees interfaces that become ports; a sub-interface
+	// never reaches it, so name collisions and blanks are caught here instead,
+	// across the whole input rather than one port kind.
+	seenNames := make(map[string]struct{}, len(ifaces))
+	for _, iface := range ifaces {
+		name := iface.GetName()
+		if name == "" {
+			return Result{}, errs.New().Msg("interface name cannot be empty")
+		}
+		if _, exists := seenNames[name]; exists {
+			return Result{}, errs.New().Attr("name", name).Msgf("duplicate interface name %q", name)
+		}
+		seenNames[name] = struct{}{}
+	}
+
 	rootScope := analysis.NodeScope(src.DeviceID)
 
 	portScope := func(portName string) analysis.Scope {
@@ -200,6 +223,9 @@ func Load(
 		}
 		if iface.GetPhysical() != nil || iface.GetLag() != nil {
 			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
+		}
+		if sub := iface.GetSub(); sub != nil {
+			return routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, sub.GetParent())
 		}
 		return routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
 	}
@@ -380,6 +406,13 @@ func Load(
 
 	portBuilder := port.NewBuilder()
 	for _, iface := range ifaces {
+		if iface.GetSub() != nil {
+			// A sub-interface carves a routed interface out of its parent
+			// port's frames; it is not itself a port, and a port-table entry
+			// for it would be a bridgeless router's phantom port that
+			// nothing routes.
+			continue
+		}
 		p := port.Port{
 			Name: iface.GetName(),
 		}
@@ -481,6 +514,45 @@ func Load(
 		return Result{}, errs.Wrap(err, "build port table")
 	}
 
+	ifaceByName := make(map[string]*interfacev1.Interface, len(ifaces))
+	for _, iface := range ifaces {
+		ifaceByName[iface.GetName()] = iface
+	}
+
+	// A parent whose sub-interface carries an IP facet is routed even though
+	// its own IP facet is absent. Only a sub-interface the routing walk would
+	// itself accept counts, so a parent keeps its switchport and
+	// spanning-tree membership when the sub-interface routing rejects is the
+	// only reason it looked routed.
+	//
+	// Two sub-interfaces can claim the same parent and outer VID; the
+	// routing walk drops both claimants for that conflict, and this pre-pass
+	// must agree before it decides routedSubParents, or the switchport and
+	// spanning-tree walks strip a parent's membership for a routed status
+	// the routing walk then also refuses, leaving the port in none of the
+	// three tables. So the conflict is decided here first: claims are
+	// grouped by parent and VID, and a parent is routed only through a group
+	// with exactly one claimant.
+	routedSubClaimants := make(map[string][]string)
+	for _, iface := range ifaces {
+		sub := iface.GetSub()
+		if sub == nil || iface.GetIp() == nil {
+			continue
+		}
+		if parentPort, vlanID, accepted := acceptRoutedSubParent(ifaceByName, ports, sub); accepted {
+			key := parentPort + "\x00" + strconv.Itoa(int(vlanID))
+			routedSubClaimants[key] = append(routedSubClaimants[key], iface.GetName())
+		}
+	}
+	routedSubParents := make(map[string]struct{})
+	for key, claimants := range routedSubClaimants {
+		if len(claimants) != 1 {
+			continue
+		}
+		parentPort, _, _ := strings.Cut(key, "\x00")
+		routedSubParents[parentPort] = struct{}{}
+	}
+
 	var (
 		hasSwitchportFacet bool
 		hasEthernetFacet   bool
@@ -495,7 +567,7 @@ func Load(
 			hasIPFacet = true
 			// A routed interface needs a relay that can leave it out, which
 			// only a VLAN-aware relay has.
-			if iface.GetVlan() != nil || iface.GetPhysical() != nil || iface.GetLag() != nil {
+			if iface.GetVlan() != nil || iface.GetPhysical() != nil || iface.GetLag() != nil || iface.GetSub() != nil {
 				hasRoutedIface = true
 			}
 		}
@@ -510,7 +582,8 @@ func Load(
 			}
 			if iface.GetPhysical().HasSwitchport() && iface.GetPhysical().GetSwitchport() != nil {
 				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
-				if !routingWanted || iface.GetIp() == nil {
+				_, isRoutedSubParent := routedSubParents[iface.GetName()]
+				if !routingWanted || (iface.GetIp() == nil && !isRoutedSubParent) {
 					hasSwitchportFacet = true
 				}
 			}
@@ -518,7 +591,8 @@ func Load(
 			hasLag = true
 			if iface.GetLag().HasSwitchport() && iface.GetLag().GetSwitchport() != nil {
 				routingWanted := !explicitRequest || slices.Contains(want, port.LayerRouting)
-				if !routingWanted || iface.GetIp() == nil {
+				_, isRoutedSubParent := routedSubParents[iface.GetName()]
+				if !routingWanted || (iface.GetIp() == nil && !isRoutedSubParent) {
 					hasSwitchportFacet = true
 				}
 			}
@@ -962,7 +1036,8 @@ func Load(
 					addSkipped(iface.GetName(), "switchport", "lag member", analysis.Incomplete, IssueSkippedLagMember)
 					continue
 				}
-				if isWanted(port.LayerRouting) && iface.GetIp() != nil {
+				_, isRoutedSubParent := routedSubParents[iface.GetName()]
+				if isWanted(port.LayerRouting) && (iface.GetIp() != nil || isRoutedSubParent) {
 					addSkipped(iface.GetName(), "switchport", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
 					continue
 				}
@@ -1253,6 +1328,13 @@ func Load(
 					addSkippedAt(stpPortScope(portName), portName, "stp_port", "port is a LAG member", analysis.Incomplete, IssueSkippedLagMember)
 					return factKey{}, "", false
 				}
+				if isWanted(port.LayerRouting) {
+					_, isRoutedSubParent := routedSubParents[portName]
+					if ifaceByName[portName].GetIp() != nil || isRoutedSubParent {
+						addSkippedAt(stpPortScope(portName), portName, "stp_port", "interface is routed", analysis.Incomplete, IssueSkippedInterfaceRouted)
+						return factKey{}, "", false
+					}
+				}
 				if ps.GetPriority() > 255 {
 					addSkippedAt(stpPortScope(portName), portName, "stp_port", "priority above 255", analysis.Unsupported, IssueInvalidPortPriority)
 					return factKey{}, "", false
@@ -1514,6 +1596,27 @@ func Load(
 			Interfaces: make(map[string]routing.Interface),
 		}
 
+		// A claim is the (port, VLAN) pair a routed interface resolves to,
+		// or, for a VLAN-kind interface that resolves to no port, the VLAN
+		// id on its own. Two sub-interfaces can report the same parent and
+		// outer VID, and two VLAN interfaces can report the same VLAN id;
+		// both are refused by routing validation as a duplicate claim, so
+		// every claimant is collected before any of them reaches the VRF: a
+		// key claimed more than once drops every claimant, the same way the
+		// shared fact resolver drops a contested value instead of keeping
+		// whichever input happened to arrive first. The two claim kinds get
+		// separate namespaces, since a port-and-VLAN claim and a bare VLAN
+		// claim never contend for the same slot.
+		type pendingRoutedInterface struct {
+			iface    *interfacev1.Interface
+			portName string
+			vlanID   vlan.ID
+		}
+
+		var pending []pendingRoutedInterface
+		claimants := make(map[string][]string)
+		vlanClaimants := make(map[vlan.ID][]string)
+
 		for _, iface := range ifaces {
 			if iface.GetIp() == nil {
 				continue
@@ -1528,13 +1631,39 @@ func Load(
 			switch {
 			case iface.GetVlan() != nil:
 				vlanID = vlan.ID(iface.GetVlan().GetVlanId())
-				if cfg.Bridge != nil && cfg.Bridge.VLAN != nil && vlanID.Valid() {
+				if !vlanID.Valid() {
+					addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", fmt.Sprintf("vlan id %d is not usable", iface.GetVlan().GetVlanId()), analysis.Unsupported, IssueInvalidVlanID)
+					continue
+				}
+				if cfg.Bridge != nil && cfg.Bridge.VLAN != nil {
 					if _, exists := cfg.Bridge.VLAN.Table[vlanID]; !exists {
 						cfg.Bridge.VLAN.Table[vlanID] = ""
 					}
 				}
+				vlanClaimants[vlanID] = append(vlanClaimants[vlanID], iface.GetName())
 			case iface.GetPhysical() != nil || iface.GetLag() != nil:
+				if p, ok := ports.Port(iface.GetName()); ok && p.LagParent != "" {
+					// A LAG member cannot be a routed port either directly or
+					// through a sub-interface; routing validation refuses it,
+					// so it is turned aside here with the other unsupported
+					// parent kinds rather than reaching that refusal.
+					isSupported = false
+					break
+				}
 				portName = iface.GetName()
+			case iface.GetSub() != nil:
+				sub := iface.GetSub()
+				resolvedPort, resolvedVLAN, accepted := acceptRoutedSubParent(ifaceByName, ports, sub)
+				if !accepted {
+					if _, parentOK := routedSubParentPort(ifaceByName, ports, sub.GetParent()); !parentOK {
+						isSupported = false
+						break
+					}
+					addSkippedAt(routingInterfaceLookupScope(iface), iface.GetName(), "ip", "unsupported encapsulation", analysis.Unsupported, IssueUnsupportedEncapsulation)
+					continue
+				}
+				portName = resolvedPort
+				vlanID = resolvedVLAN
 			default:
 				isSupported = false
 			}
@@ -1544,22 +1673,88 @@ func Load(
 				continue
 			}
 
-			ownershipScope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, iface.GetName())
-			ifaceMAC, validIfaceMAC := parseMAC(iface.GetMac())
+			if portName != "" {
+				claimKey := portName + "\x00" + strconv.Itoa(int(vlanID))
+				claimants[claimKey] = append(claimants[claimKey], iface.GetName())
+			}
+
+			pending = append(pending, pendingRoutedInterface{iface: iface, portName: portName, vlanID: vlanID})
+		}
+
+		conflictedClaimants := make(map[string]struct{})
+		for _, claimKey := range sortedKeys(claimants) {
+			names := claimants[claimKey]
+			if len(names) < 2 {
+				continue
+			}
+			slices.Sort(names)
+
+			portName, vlanStr, _ := strings.Cut(claimKey, "\x00")
+			quoted := make([]string, len(names))
+			for i, name := range names {
+				quoted[i] = strconv.Quote(name)
+			}
+			addConflict(
+				routing.PortLookupScope(src.DeviceID, routing.DefaultVRF, portName),
+				"routed_interface_claim",
+				fmt.Sprintf("%s VLAN %s", portName, vlanStr),
+				"claimed by "+strings.Join(quoted, ", "),
+				IssueConflictRoutedClaim,
+			)
+			for _, name := range names {
+				conflictedClaimants[name] = struct{}{}
+			}
+		}
+
+		vlanIDs := make([]vlan.ID, 0, len(vlanClaimants))
+		for vid := range vlanClaimants {
+			vlanIDs = append(vlanIDs, vid)
+		}
+		slices.Sort(vlanIDs)
+		for _, vid := range vlanIDs {
+			names := vlanClaimants[vid]
+			if len(names) < 2 {
+				continue
+			}
+			slices.Sort(names)
+
+			quoted := make([]string, len(names))
+			for i, name := range names {
+				quoted[i] = strconv.Quote(name)
+			}
+			addConflict(
+				routing.VLANLookupScope(src.DeviceID, routing.DefaultVRF, vid),
+				"routed_interface_claim",
+				fmt.Sprintf("vlan %d", vid),
+				"claimed by "+strings.Join(quoted, ", "),
+				IssueConflictRoutedClaim,
+			)
+			for _, name := range names {
+				conflictedClaimants[name] = struct{}{}
+			}
+		}
+
+		for _, p := range pending {
+			if _, conflicted := conflictedClaimants[p.iface.GetName()]; conflicted {
+				continue
+			}
+
+			ownershipScope := routing.OwnershipScope(src.DeviceID, routing.DefaultVRF, p.iface.GetName())
+			ifaceMAC, validIfaceMAC := parseMAC(p.iface.GetMac())
 			switch {
-			case iface.GetMac() == nil:
+			case p.iface.GetMac() == nil:
 				ifaceMAC = netaddr.MAC{}
-				addDefaultAt(ownershipScope, iface.GetName(), "mac", "device base address")
+				addDefaultAt(ownershipScope, p.iface.GetName(), "mac", "device base address")
 			case validIfaceMAC && ifaceMAC != (netaddr.MAC{}) && !ifaceMAC.IsGroup():
 			default:
 				ifaceMAC = netaddr.MAC{}
-				addSkippedAt(ownershipScope, iface.GetName(), "interface_mac", "not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
-				addDefaultAt(ownershipScope, iface.GetName(), "mac", "device base address")
+				addSkippedAt(ownershipScope, p.iface.GetName(), "interface_mac", "not a usable six-octet individual EUI-48 address", analysis.Incomplete, IssueInvalidMAC)
+				addDefaultAt(ownershipScope, p.iface.GetName(), "mac", "device base address")
 			}
 
-			vrf.Interfaces[iface.GetName()] = routing.Interface{
-				VLAN: vlanID,
-				Port: portName,
+			vrf.Interfaces[p.iface.GetName()] = routing.Interface{
+				VLAN: p.vlanID,
+				Port: p.portName,
 				MAC:  ifaceMAC,
 			}
 		}
@@ -1840,6 +2035,37 @@ func normalizeLoadedFDBSeed(cfg vswitch.Config, seed bridge.Seed) (bridge.Seed, 
 	return bridge.Seed{}, err.Error(), code, false
 }
 
+// routedSubParentPort resolves parentName to the interface the routing walk
+// requires it to be: a physical or link-aggregation interface that is not
+// itself a LAG member. It reports the parent's interface and whether it
+// qualifies.
+func routedSubParentPort(ifaceByName map[string]*interfacev1.Interface, ports port.Table, parentName string) (*interfacev1.Interface, bool) {
+	parent := ifaceByName[parentName]
+	if parent == nil || (parent.GetPhysical() == nil && parent.GetLag() == nil) {
+		return nil, false
+	}
+	if p, ok := ports.Port(parent.GetName()); ok && p.LagParent != "" {
+		return nil, false
+	}
+	return parent, true
+}
+
+// acceptRoutedSubParent applies the routing walk's full acceptance test for a
+// routed sub-interface: routedSubParentPort on its parent, plus an
+// encapsulation of exactly one customer 802.1Q tag at a usable VLAN id. It
+// returns the parent's port name and that VLAN id when accepted.
+func acceptRoutedSubParent(ifaceByName map[string]*interfacev1.Interface, ports port.Table, sub *interfacev1.Subinterface) (string, vlan.ID, bool) {
+	parent, ok := routedSubParentPort(ifaceByName, ports, sub.GetParent())
+	if !ok {
+		return "", 0, false
+	}
+	tags := sub.GetEncapsulation().GetTags()
+	if len(tags) != 1 || tags[0].GetTpid() != packetv1.EtherType_ETHER_TYPE_DOT1Q || !vlan.ID(tags[0].GetVlanId()).Valid() {
+		return "", 0, false
+	}
+	return parent.GetName(), vlan.ID(tags[0].GetVlanId()), true
+}
+
 func routingUsesPort(cfg *routing.Config, portName string) bool {
 	if cfg == nil {
 		return false
@@ -1890,7 +2116,16 @@ func parseIP(ipAddr *addrv1.IpAddress) (netip.Addr, bool) {
 		if len(octets) != 16 {
 			return netip.Addr{}, false
 		}
-		return netip.AddrFrom16([16]byte(octets)), true
+		addr := netip.AddrFrom16([16]byte(octets))
+		if addr.Is4In6() {
+			// Routing validation refuses an IPv4-mapped address outright
+			// (a decoded IPv4 address is 4 bytes and never matches it), so
+			// treating it as invalid here turns a device report that
+			// carries one into the same recorded issue a parse failure
+			// gets, instead of an unconstructible load.
+			return netip.Addr{}, false
+		}
+		return addr, true
 	}
 	return netip.Addr{}, false
 }

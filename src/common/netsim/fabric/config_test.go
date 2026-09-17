@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
@@ -41,6 +42,7 @@ func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
 		Start:         cfg.Start,
 		Switches:      switches,
 		Hosts:         cfg.Hosts,
+		Reflectors:    cfg.Reflectors,
 		Cables:        cfg.Cables,
 		Uncabled:      cfg.Uncabled,
 		PhyAssumption: cfg.PhyAssumption,
@@ -641,6 +643,284 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 				t.Errorf("Validate() error = %v, wantError = %v", err, tc.wantError)
 			}
 		})
+	}
+}
+
+// reflectorBaseConfig extends twoSwitchBaseConfig with a free port on sw1 and
+// a reflector r1 cabled to it, attached on VLAN 10.
+func reflectorBaseConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	cfg := twoSwitchBaseConfig(t)
+
+	b := port.NewBuilder()
+	for _, p := range cfg.Switches["sw1"].Ports.Ports() {
+		b.Add(p)
+	}
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	sw1 := cfg.Switches["sw1"]
+	sw1.Ports = mustTable(t, b)
+	cfg.Switches["sw1"] = sw1
+
+	vid10 := vlan.ID(10)
+	cfg.Reflectors = map[string]fabric.Reflector{
+		"r1": {
+			Ports: map[string]phy.Ethernet{"p1": {}},
+			Attachments: map[string]fabric.Attachment{
+				"a": {
+					Port:      "p1",
+					VLAN:      &vid10,
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")},
+				},
+			},
+		},
+	}
+	cfg.Cables = append(cfg.Cables, fabric.Cable{
+		A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+		B:            fabric.Endpoint{Node: "r1", Port: "p1"},
+		LengthMeters: 5,
+	})
+
+	return cfg
+}
+
+func TestReflectorValidateRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		mutate    func(*fabric.Config)
+		wantError bool
+	}{
+		{
+			name:      "unmodified baseline passes",
+			mutate:    func(*fabric.Config) {},
+			wantError: false,
+		},
+		{
+			name: "node name collision between reflector and switch",
+			mutate: func(c *fabric.Config) {
+				c.Switches["r1"] = c.Switches["sw1"]
+			},
+			wantError: true,
+		},
+		{
+			name: "reflector MAC collides with a host",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				r1.Address = c.Hosts["h1"].Address
+				c.Reflectors["r1"] = r1
+			},
+			wantError: true,
+		},
+		{
+			name: "attachment VLAN above the valid range",
+			mutate: func(c *fabric.Config) {
+				vid := vlan.ID(4095)
+				r1 := c.Reflectors["r1"]
+				a := r1.Attachments["a"]
+				a.VLAN = &vid
+				r1.Attachments["a"] = a
+				c.Reflectors["r1"] = r1
+			},
+			wantError: true,
+		},
+		{
+			name: "reflector port with invalid ethernet facts",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				r1.Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{Duplex: "Bogus"}}
+				c.Reflectors["r1"] = r1
+			},
+			wantError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := reflectorBaseConfig(t)
+			tc.mutate(&cfg)
+			err := cfg.Validate()
+			if (err != nil) != tc.wantError {
+				t.Errorf("Validate() error = %v, wantError = %v", err, tc.wantError)
+			}
+		})
+	}
+}
+
+// TestReflectorValidateRejectionsNameTheirField asserts the error's field
+// attribute rather than only that an error occurred: an uncabled port, a port
+// named in Uncabled, an attachment naming an unknown port, two attachments
+// sharing a port and VLAN, and an attachment with no address would all
+// otherwise pass any test that stopped at err != nil. A node name collision
+// between a reflector and a host, a reflector with an empty name, a cable
+// endpoint naming an unknown reflector port, and a reflector endpoint with an
+// empty port name need the same treatment: deleting the guard each names
+// still leaves a different rule refusing the configuration, and the field
+// attribute is what tells the two apart. The collision guard and the
+// empty-port guard carry their own field; the empty-name guard and the
+// unknown-port guard carry none, so their cases want nil, which is what a
+// different rule's field would displace.
+func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
+	tests := []struct {
+		name      string
+		mutate    func(*fabric.Config)
+		wantField any
+	}{
+		{
+			name: "node name collision between reflector and host",
+			mutate: func(c *fabric.Config) {
+				c.Hosts["r1"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
+			},
+			wantField: "hosts.r1",
+		},
+		{
+			// Deleting this guard leaves the reflector's name "" reaching the
+			// ports-must-be-cabled check, which carries a field of its own;
+			// the guard's own error carries none, so the intact case wants
+			// nil, not empty string.
+			name: "reflector name empty",
+			mutate: func(c *fabric.Config) {
+				c.Reflectors[""] = c.Reflectors["r1"]
+				delete(c.Reflectors, "r1")
+				// The cable still names r1, which now names nothing.
+				c.Cables = c.Cables[:len(c.Cables)-1]
+			},
+			wantField: nil,
+		},
+		{
+			// Deleting this guard leaves port "p9" accepted, which reaches
+			// the ports-must-be-cabled check for the now-uncabled p1; that
+			// error carries a field, the guard's own error does not.
+			name: "cable endpoint naming an unknown reflector port",
+			mutate: func(c *fabric.Config) {
+				c.Cables[len(c.Cables)-1].B.Port = "p9"
+			},
+			wantField: nil,
+		},
+		{
+			name: "reflector endpoint with empty port name",
+			mutate: func(c *fabric.Config) {
+				c.Cables[len(c.Cables)-1].B.Port = ""
+			},
+			wantField: "reflectors.r1.ports",
+		},
+		{
+			name: "an uncabled port",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				r1.Ports["p2"] = phy.Ethernet{}
+				c.Reflectors["r1"] = r1
+			},
+			wantField: "reflectors.r1.ports.p2",
+		},
+		{
+			name: "a port named in Uncabled",
+			mutate: func(c *fabric.Config) {
+				c.Uncabled = append(c.Uncabled, fabric.Uncabled{Endpoint: fabric.Endpoint{Node: "r1", Port: "p1"}})
+			},
+			wantField: "uncabled.0",
+		},
+		{
+			name: "an attachment naming an unknown port",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				a := r1.Attachments["a"]
+				a.Port = "p9"
+				r1.Attachments["a"] = a
+				c.Reflectors["r1"] = r1
+			},
+			wantField: "reflectors.r1.attachments.a.port",
+		},
+		{
+			name: "two attachments sharing a port and VLAN",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				a := r1.Attachments["a"]
+				r1.Attachments["b"] = fabric.Attachment{Port: a.Port, VLAN: a.VLAN, Addresses: a.Addresses}
+				c.Reflectors["r1"] = r1
+			},
+			wantField: "reflectors.r1.attachments.b.vlan",
+		},
+		{
+			name: "an attachment with no address",
+			mutate: func(c *fabric.Config) {
+				r1 := c.Reflectors["r1"]
+				a := r1.Attachments["a"]
+				a.Addresses = nil
+				r1.Attachments["a"] = a
+				c.Reflectors["r1"] = r1
+			},
+			wantField: "reflectors.r1.attachments.a.addresses",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := reflectorBaseConfig(t)
+			tc.mutate(&cfg)
+			err := cfg.Validate()
+			if err == nil {
+				t.Fatal("Validate() = nil, want an error")
+			}
+			if got := errs.Attributes(err)["field"]; got != tc.wantField {
+				t.Errorf("field = %v, want %v (error %v)", got, tc.wantField, err)
+			}
+		})
+	}
+}
+
+func TestReflectorClone(t *testing.T) {
+	cfg := reflectorBaseConfig(t)
+	original := cfg.Reflectors["r1"]
+	cloned := original.Clone()
+	sibling := original.Clone()
+
+	if !cloned.Equal(sibling) {
+		t.Error("Equal reports two independent clones of the same reflector as different")
+	}
+
+	r1 := cfg.Reflectors["r1"]
+	r1.Ports["p1"] = phy.Ethernet{SupportedSpeedsBPS: []uint64{999}}
+	a := r1.Attachments["a"]
+	a.Addresses[0] = netip.MustParsePrefix("192.0.2.1/24")
+	*a.VLAN = 999
+	r1.Attachments["a"] = a
+
+	if cloned.Ports["p1"].Canonical() == r1.Ports["p1"].Canonical() {
+		t.Error("cloned reflector shares its Ports map with the original")
+	}
+	if cloned.Attachments["a"].Addresses[0] == a.Addresses[0] {
+		t.Error("cloned attachment shares its Addresses slice with the original")
+	}
+	if *cloned.Attachments["a"].VLAN == 999 {
+		t.Error("cloned attachment shares its VLAN pointer with the original")
+	}
+	if !cloned.Equal(sibling) {
+		t.Error("mutating the original through its shared maps changed an unrelated clone")
+	}
+}
+
+func TestConfigNormalizeAssignsReflectorMACAndNormalizesFacts(t *testing.T) {
+	cfg := reflectorBaseConfig(t)
+	r1 := cfg.Reflectors["r1"]
+	r1.Ports["p1"] = phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000, 100_000_000, 100_000_000}}
+	a := r1.Attachments["a"]
+	dup := netip.MustParsePrefix("10.0.10.9/24")
+	unsorted := netip.MustParsePrefix("10.0.10.1/24")
+	a.Addresses = []netip.Prefix{dup, unsorted, dup}
+	r1.Attachments["a"] = a
+	cfg.Reflectors["r1"] = r1
+
+	norm := cfg.Normalize()
+	got := norm.Reflectors["r1"]
+
+	if got.Address == (netaddr.MAC{}) {
+		t.Error("Normalize left the reflector's Address unassigned")
+	}
+	if speeds := got.Ports["p1"].SupportedSpeedsBPS; !slices.Equal(speeds, []uint64{100_000_000, 1_000_000_000}) {
+		t.Errorf("normalized supported speeds = %v, want sorted and deduplicated", speeds)
+	}
+	wantAddresses := []netip.Prefix{unsorted, dup}
+	if addrs := got.Attachments["a"].Addresses; !slices.Equal(addrs, wantAddresses) {
+		t.Errorf("normalized attachment addresses = %v, want %v", addrs, wantAddresses)
 	}
 }
 

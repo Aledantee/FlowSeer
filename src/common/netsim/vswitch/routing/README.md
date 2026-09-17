@@ -104,6 +104,38 @@ carries this packet is the flow hash below. The route to `198.51.100.0/24` is
 valid configuration, but no chain of routes in the VRF reaches `203.0.113.1`, so
 the table does not hold it.
 
+## Sub-interfaces
+
+A routed interface sets `Port` alone (an untagged routed port), `VLAN` alone (a bridge
+VLAN interface), or both (a routed sub-interface): a firewall cabled to a trunk with no
+bridge at all routes between the VLANs the trunk carries by giving each one its own
+sub-interface on the same `Port`.
+
+```go
+cfg := routing.Config{VRFs: map[string]routing.VRF{
+	routing.DefaultVRF: {
+		Interfaces: map[string]routing.Interface{
+			"eth1.10": {Port: "eth1", VLAN: 10, MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+			"eth1.20": {Port: "eth1", VLAN: 20, MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+		},
+	},
+}}
+```
+
+A frame's outer VLAN tag, not bridge VLAN membership, picks the sub-interface: a frame
+arriving on `eth1` tagged 10 is handed to `eth1.10`, and one tagged 20 to `eth1.20`. Two
+sub-interfaces may share a VID as long as they sit on different ports, and two interfaces
+naming the same `(Port, VLAN)` pair fail `Validate`. A sub-interface's VLAN must be a valid
+assigned identifier (1 through 4094; `vlan.ID.Valid`), because nothing else bounds it once
+it stops needing a bridge VLAN table entry.
+
+A bridge VLAN lookup (`Layer.ByVLAN`) never answers with a sub-interface, whatever the
+interface names happen to sort to; only `Layer.ByPortVLAN` resolves one, and it answers two
+different questions from one lookup. A port with no routed interface at all reports
+`portRouted` false, which the caller falls through to a bridge for; a routed port with no
+interface at the given VID reports `portRouted` true and `matched` false, which the caller
+drops on, since a routed port has no bridge to fall back to.
+
 ## Route order
 
 A lookup takes the longest prefix containing the destination, then the lowest

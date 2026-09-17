@@ -80,6 +80,9 @@ const (
 // HostLayer is the trace layer of a host's acceptance decisions.
 const HostLayer trace.Layer = "host"
 
+// ReflectorLayer is the trace layer of a reflector's acceptance decisions.
+const ReflectorLayer trace.Layer = "reflector"
+
 const (
 	// IssueOperStatusConflict marks a switch port whose configured operational status, Up or Down,
 	// differs from the status its cable derives. The derived status is the one that executes.
@@ -330,6 +333,100 @@ func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
 	}, tbl
 }
 
+// Reflector is a third node kind beside a switch and a host: an endpoint with
+// no address of its own reachable by unicast, whose ports all carry a cable,
+// unlike a switch's, which may go uncabled. Ports holds each port's physical
+// facts under a switch port's validation rules, keyed by port name; a port
+// with no cable has nothing to reflect onto, so every key must appear on a
+// cable. Attachments names the VLANs a port answers on and the addresses a
+// copy originates from: an arriving mDNS query is accepted on the attachment
+// its tag form and port match, and reflected as a fresh copy on every other
+// attachment of the query's address family.
+type Reflector struct {
+	Address     netaddr.MAC
+	Ports       map[string]phy.Ethernet
+	Attachments map[string]Attachment
+}
+
+// Attachment names one VLAN a reflector answers on: Port is one of the
+// reflector's declared ports, a nil VLAN means the port's untagged form, and
+// Addresses are the source addresses a copy originates from on that VLAN.
+type Attachment struct {
+	Port      string
+	VLAN      *vlan.ID
+	Addresses []netip.Prefix
+}
+
+// Clone returns an independent deep copy of the reflector configuration.
+func (r Reflector) Clone() Reflector {
+	cp := r
+	if r.Ports != nil {
+		cp.Ports = make(map[string]phy.Ethernet, len(r.Ports))
+		for k, v := range r.Ports {
+			cp.Ports[k] = v.Clone()
+		}
+	}
+	if r.Attachments != nil {
+		cp.Attachments = make(map[string]Attachment, len(r.Attachments))
+		for k, v := range r.Attachments {
+			cp.Attachments[k] = v.Clone()
+		}
+	}
+
+	return cp
+}
+
+// Equal reports whether two reflector configurations are identical.
+func (r Reflector) Equal(other Reflector) bool {
+	if r.Address != other.Address {
+		return false
+	}
+	if len(r.Ports) != len(other.Ports) || len(r.Attachments) != len(other.Attachments) {
+		return false
+	}
+	for k, e := range r.Ports {
+		oe, ok := other.Ports[k]
+		if !ok || e.Canonical() != oe.Canonical() {
+			return false
+		}
+	}
+	for k, a := range r.Attachments {
+		oa, ok := other.Attachments[k]
+		if !ok || !a.Equal(oa) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Clone returns an independent deep copy of the attachment.
+func (a Attachment) Clone() Attachment {
+	cp := a
+	cp.Addresses = slices.Clone(a.Addresses)
+	if a.VLAN != nil {
+		v := *a.VLAN
+		cp.VLAN = &v
+	}
+
+	return cp
+}
+
+// Equal reports whether two attachments are identical.
+func (a Attachment) Equal(other Attachment) bool {
+	if a.Port != other.Port {
+		return false
+	}
+	if (a.VLAN == nil) != (other.VLAN == nil) {
+		return false
+	}
+	if a.VLAN != nil && *a.VLAN != *other.VLAN {
+		return false
+	}
+
+	return slices.Equal(a.Addresses, other.Addresses)
+}
+
 // Cable models a physical link connecting two endpoints: a length and a medium that give the propagation time and
 // bound the negotiated speed, an optional Delay that replaces the propagation term, an optional top speed limit,
 // and declared faults. A LengthMeters of 0 is a stated 0 m cable. Evidence references entries of
@@ -435,6 +532,7 @@ type Config struct {
 	Start         time.Time
 	Switches      map[string]vswitch.Config
 	Hosts         map[string]Host
+	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
 	PhyAssumption *PhyAssumption
@@ -457,6 +555,12 @@ func (c Config) Clone() Config {
 		cp.Hosts = make(map[string]Host, len(c.Hosts))
 		for k, v := range c.Hosts {
 			cp.Hosts[k] = v.Clone()
+		}
+	}
+	if c.Reflectors != nil {
+		cp.Reflectors = make(map[string]Reflector, len(c.Reflectors))
+		for k, v := range c.Reflectors {
+			cp.Reflectors[k] = v.Clone()
 		}
 	}
 	if c.Cables != nil {
@@ -493,7 +597,8 @@ func equalNormalizedConfigs(c, other Config) bool {
 	if !slices.EqualFunc(c.Uncabled, other.Uncabled, Uncabled.Equal) || !c.PhyAssumption.Equal(other.PhyAssumption) {
 		return false
 	}
-	if len(c.Switches) != len(other.Switches) || len(c.Hosts) != len(other.Hosts) || len(c.Cables) != len(other.Cables) {
+	if len(c.Switches) != len(other.Switches) || len(c.Hosts) != len(other.Hosts) ||
+		len(c.Reflectors) != len(other.Reflectors) || len(c.Cables) != len(other.Cables) {
 		return false
 	}
 	for k, sw := range c.Switches {
@@ -505,6 +610,12 @@ func equalNormalizedConfigs(c, other Config) bool {
 	for k, h := range c.Hosts {
 		otherH, ok := other.Hosts[k]
 		if !ok || !h.Equal(otherH) {
+			return false
+		}
+	}
+	for k, r := range c.Reflectors {
+		otherR, ok := other.Reflectors[k]
+		if !ok || !r.Equal(otherR) {
 			return false
 		}
 	}
@@ -545,6 +656,11 @@ func (c Config) Normalize() Config {
 	for _, h := range cloned.Hosts {
 		if h.Address != (netaddr.MAC{}) {
 			usedMACs[h.Address] = struct{}{}
+		}
+	}
+	for _, r := range cloned.Reflectors {
+		if r.Address != (netaddr.MAC{}) {
+			usedMACs[r.Address] = struct{}{}
 		}
 	}
 
@@ -591,6 +707,38 @@ func (c Config) Normalize() Config {
 			h.Accept.Multicast = slices.Compact(h.Accept.Multicast)
 		}
 		cloned.Hosts[name] = h
+	}
+
+	rNames := make([]string, 0, len(cloned.Reflectors))
+	for name := range cloned.Reflectors {
+		rNames = append(rNames, name)
+	}
+	slices.Sort(rNames)
+	for _, name := range rNames {
+		r := cloned.Reflectors[name]
+		if r.Address == (netaddr.MAC{}) {
+			r.Address = assignLocal()
+		}
+		if r.Ports != nil {
+			normalizedPorts := make(map[string]phy.Ethernet, len(r.Ports))
+			for portName, e := range r.Ports {
+				normalizedPorts[portName] = normalizedEthernet(e)
+			}
+			r.Ports = normalizedPorts
+		}
+		if r.Attachments != nil {
+			normalizedAttachments := make(map[string]Attachment, len(r.Attachments))
+			for attachName, a := range r.Attachments {
+				if len(a.Addresses) > 0 {
+					a.Addresses = slices.Clone(a.Addresses)
+					slices.SortFunc(a.Addresses, comparePrefix)
+					a.Addresses = slices.Compact(a.Addresses)
+				}
+				normalizedAttachments[attachName] = a
+			}
+			r.Attachments = normalizedAttachments
+		}
+		cloned.Reflectors[name] = r
 	}
 
 	for i := range cloned.Cables {
@@ -686,12 +834,13 @@ func comparePrefix(a, b netip.Prefix) int {
 // Validate verifies structural and topological invariants of the configuration:
 // switch configurations must pass their own validation, endpoints must reference existing
 // nodes and ports, cable attachments cannot target LAGs or duplicate existing links,
-// hosts must attach to exactly one cable with an empty port name, host and assumed
-// Ethernet facts must pass a switch port's physical validation, a host's accepted multicast
-// entries must be group addresses, and every Uncabled entry must name an existing non-LAG
-// switch port that no cable and no other entry names. Errors about host facts, Uncabled
-// entries, and the assumption carry a "field" path attribute such as "uncabled.1",
-// "hosts.h1.ethernet.duplex", or "hosts.h1.accept.multicast.0".
+// hosts must attach to exactly one cable with an empty port name, a reflector's ports must
+// all be cabled, host and assumed Ethernet facts must pass a switch port's physical
+// validation, a host's accepted multicast entries must be group addresses, and every
+// Uncabled entry must name an existing non-LAG switch port that no cable and no other entry
+// names. Errors about host facts, reflector attachments, Uncabled entries, and the
+// assumption carry a "field" path attribute such as "uncabled.1", "hosts.h1.ethernet.duplex",
+// "hosts.h1.accept.multicast.0", or "reflectors.r1.attachments.b.vlan".
 func (c Config) Validate() error {
 	swNames := make([]string, 0, len(c.Switches))
 	for name := range c.Switches {
@@ -704,6 +853,12 @@ func (c Config) Validate() error {
 		hostNames = append(hostNames, name)
 	}
 	slices.Sort(hostNames)
+
+	reflectorNames := make([]string, 0, len(c.Reflectors))
+	for name := range c.Reflectors {
+		reflectorNames = append(reflectorNames, name)
+	}
+	slices.Sort(reflectorNames)
 
 	claimedMACs := make(map[netaddr.MAC]string)
 	checkMAC := func(node string, mac netaddr.MAC) error {
@@ -725,6 +880,9 @@ func (c Config) Validate() error {
 	for _, name := range swNames {
 		if name == "" {
 			return errs.New().Msg("switch name cannot be empty")
+		}
+		if _, isReflector := c.Reflectors[name]; isReflector {
+			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a reflector", name)
 		}
 		swCfg := c.Switches[name]
 		// A protocol layer schedules its first hello from Start; a zero Start
@@ -766,6 +924,9 @@ func (c Config) Validate() error {
 		if _, isSw := c.Switches[name]; isSw {
 			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a host", name)
 		}
+		if _, isReflector := c.Reflectors[name]; isReflector {
+			return errs.New().Attr("field", "hosts."+name).Attr("node", name).Msgf("node %q cannot be both a host and a reflector", name)
+		}
 		h := c.Hosts[name]
 		if err := checkMAC(name, h.Address); err != nil {
 			return err
@@ -792,6 +953,33 @@ func (c Config) Validate() error {
 			if err := rtCfg.Validate(tbl); err != nil {
 				return errs.Wrapf(err, "host %q", name)
 			}
+		}
+	}
+
+	// A collision between a reflector's name and a switch's or a host's is
+	// caught in those loops, above, which run first and already check the
+	// reflector map; checking the other direction here would never trigger.
+	for _, name := range reflectorNames {
+		if name == "" {
+			return errs.New().Msg("reflector name cannot be empty")
+		}
+		refl := c.Reflectors[name]
+		if err := checkMAC(name, refl.Address); err != nil {
+			return err
+		}
+		portNames := make([]string, 0, len(refl.Ports))
+		for portName := range refl.Ports {
+			portNames = append(portNames, portName)
+		}
+		slices.Sort(portNames)
+		for _, portName := range portNames {
+			field := "reflectors." + name + ".ports." + portName
+			if err := validateEthernet(field, refl.Ports[portName]); err != nil {
+				return errs.Wrapf(err, "reflector %q port %q", name, portName)
+			}
+		}
+		if err := refl.validateAttachments("reflectors." + name); err != nil {
+			return err
 		}
 	}
 
@@ -836,6 +1024,25 @@ func (c Config) Validate() error {
 		}
 		if n > 1 {
 			return errs.New().Attr("host", name).Attr("count", n).Msgf("host %q is connected to %d cables", name, n)
+		}
+	}
+
+	for _, name := range reflectorNames {
+		refl := c.Reflectors[name]
+		portNames := make([]string, 0, len(refl.Ports))
+		for portName := range refl.Ports {
+			portNames = append(portNames, portName)
+		}
+		slices.Sort(portNames)
+		for _, portName := range portNames {
+			ep := Endpoint{Node: name, Port: portName}
+			if portCables[ep] == 0 {
+				return errs.New().
+					Attr("field", "reflectors."+name+".ports."+portName).
+					Attr("node", name).
+					Attr("port", portName).
+					Msgf("reflector port %q on %q must be connected to a cable", portName, name)
+			}
 		}
 	}
 
@@ -885,6 +1092,63 @@ func (a HostAccept) validate(field string) error {
 				Attr("mac", mac).
 				Msgf("accepted multicast entry %s is not a group address", mac)
 		}
+	}
+
+	return nil
+}
+
+// validateAttachments checks that every attachment names a declared port with a valid VLAN
+// and at least one address, and that no two attachments share a port and tag form, which would
+// leave a frame on that port unable to tell which attachment it belongs to. Attachments are
+// walked in sorted name order, so the field path a rejection names is the same on every run.
+func (r Reflector) validateAttachments(field string) error {
+	type portVLAN struct {
+		port string
+		vlan vlan.ID
+	}
+	seen := make(map[portVLAN]string, len(r.Attachments))
+
+	names := make([]string, 0, len(r.Attachments))
+	for name := range r.Attachments {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	for _, name := range names {
+		a := r.Attachments[name]
+		afield := field + ".attachments." + name
+
+		if _, ok := r.Ports[a.Port]; !ok {
+			return errs.New().
+				Attr("field", afield+".port").
+				Attr("port", a.Port).
+				Msgf("attachment %q names port %q, which the reflector does not have", name, a.Port)
+		}
+		if a.VLAN != nil && !a.VLAN.Valid() {
+			return errs.New().
+				Attr("field", afield+".vlan").
+				Attr("vlan", *a.VLAN).
+				Msgf("attachment %q has invalid VLAN ID %d", name, *a.VLAN)
+		}
+		if len(a.Addresses) == 0 {
+			return errs.New().
+				Attr("field", afield+".addresses").
+				Msgf("attachment %q has no address to originate a copy from", name)
+		}
+
+		key := portVLAN{port: a.Port}
+		if a.VLAN != nil {
+			key.vlan = *a.VLAN
+		}
+		if other, dup := seen[key]; dup {
+			return errs.New().
+				Attr("field", afield+".vlan").
+				Attr("port", a.Port).
+				Attr("vlan", key.vlan).
+				Attr("duplicates", field+".attachments."+other).
+				Msgf("attachment %q and %q share port %q and VLAN %d", other, name, a.Port, key.vlan)
+		}
+		seen[key] = name
 	}
 
 	return nil
@@ -947,6 +1211,30 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 				Msgf("host endpoint %q must have an empty port, got %q", ep.Node, ep.Port)
 		}
 		hostCables[ep.Node]++
+
+		return nil
+	}
+
+	if refl, isReflector := c.Reflectors[ep.Node]; isReflector {
+		if ep.Port == "" {
+			return errs.New().
+				Attr("field", "reflectors."+ep.Node+".ports").
+				Attr("node", ep.Node).
+				Msgf("reflector endpoint %q requires a port name", ep.Node)
+		}
+		if _, ok := refl.Ports[ep.Port]; !ok {
+			return errs.New().
+				Attr("node", ep.Node).
+				Attr("port", ep.Port).
+				Msgf("port %q not found on reflector %q", ep.Port, ep.Node)
+		}
+		portCables[ep]++
+		if portCables[ep] > 1 {
+			return errs.New().
+				Attr("node", ep.Node).
+				Attr("port", ep.Port).
+				Msgf("port %q on reflector %q is connected to multiple cables", ep.Port, ep.Node)
+		}
 
 		return nil
 	}

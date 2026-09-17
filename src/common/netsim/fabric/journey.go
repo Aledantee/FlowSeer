@@ -45,14 +45,20 @@ const (
 	// EntryDelivery records a host accepting an arrived frame.
 	EntryDelivery EntryKind = "Delivery"
 
-	// EntryRejection records a host refusing an arrived frame; its Reason names the refusing check.
+	// EntryReflection records a reflector accepting an arrived frame for
+	// reflection. A reflector is not a host and delivers nothing, so this is
+	// its own kind rather than EntryDelivery: originating copies is not a
+	// host taking delivery of a frame.
+	EntryReflection EntryKind = "Reflection"
+
+	// EntryRejection records a host or a reflector refusing an arrived frame; its Reason names the refusing check.
 	EntryRejection EntryKind = "Rejection"
 
 	// EntryDrop records whole-frame discard by a switch, due to corrupted arrival, or at a host whose link is Down.
 	EntryDrop EntryKind = "Drop"
 
-	// EntryUnresolved records a frame whose fate cannot be decided: the link it needs is Unknown, and its Reason
-	// is the link's, or a host cannot read the IP header its acceptance rests on.
+	// EntryUnresolved records a frame whose fate cannot be decided: the link it needs is Unknown, or a host or a
+	// reflector cannot read the IP or UDP header its acceptance rests on. Its Reason names the link or the header.
 	EntryUnresolved EntryKind = "Unresolved"
 
 	// EntryLoop records frame re-entry at a device port already visited by the same frame.
@@ -69,9 +75,10 @@ const (
 //
 // Device and Port name the endpoint the entry happened at; a host's Port is empty. Cable is the cable the
 // entry rests on: the one crossed, lost on, or arrived over, and for an injection the origin's cable. Step is
-// set on a host's acceptance decision, on a Delivery, Rejection, or Unresolved entry after an Arrival, and on
-// the Drop entry a [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no
-// wire, where Port and Reason likewise come from the drop rather than from reading the step back.
+// set on a host's Delivery, Rejection, or Unresolved entry after an Arrival, on a reflector's Reflection,
+// Rejection, or Unresolved entry, which carries no preceding Arrival, and on the Drop entry a
+// [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no wire, where
+// Port and Reason likewise come from the drop rather than from reading the step back.
 type Entry struct {
 	At            time.Time
 	Kind          EntryKind

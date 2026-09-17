@@ -27,6 +27,14 @@ func PortLookupScope(nodeID, vrf, name string) analysis.Scope {
 	return analysis.FieldScope(VRFScope(nodeID, vrf), "ports", name)
 }
 
+// PortVLANLookupScope returns the exact scope for resolving a routed sub-interface by port
+// and outer VLAN. It nests beneath [PortLookupScope]: scope matching is prefix containment,
+// so an issue attached to the parent port's lookup scope still covers a frame classified at
+// one of its VIDs.
+func PortVLANLookupScope(nodeID, vrf, port string, vid vlan.ID) analysis.Scope {
+	return analysis.FieldScope(VRFScope(nodeID, vrf), "ports", port, strconv.Itoa(int(vid)))
+}
+
 // VLANLookupScope returns the exact scope for resolving a routed interface by VLAN.
 func VLANLookupScope(nodeID, vrf string, vid vlan.ID) analysis.Scope {
 	return analysis.FieldScope(VRFScope(nodeID, vrf), "vlans", strconv.Itoa(int(vid)))
@@ -83,7 +91,11 @@ const (
 	// ReasonBadHeader indicates an IP header that could not be decoded.
 	ReasonBadHeader trace.Reason = "bad-header"
 
-	// ReasonNotBridged indicates a frame dropped on a routed port because it was not addressed to the port.
+	// ReasonNotBridged indicates a frame dropped on a routed port: either its outer VLAN tag
+	// (or its absence) named no interface configured on the port, or named one at a tag
+	// protocol the port's interfaces cannot classify (a distinct rule, "routing.tag_protocol_miss",
+	// from the plain VLAN-id miss's "routing.tag_miss"), or it named an interface that was not
+	// addressed to the port's interface MAC.
 	ReasonNotBridged trace.Reason = "not-bridged"
 )
 
@@ -244,7 +256,7 @@ func (vs *vrfState) clone() *vrfState {
 type Layer struct {
 	nodeID   string
 	byVLAN   map[vlan.ID]string
-	byPort   map[string]string
+	byPort   map[string]map[vlan.ID]string
 	ifaceVRF map[string]string
 	ifaces   map[string]Interface
 	vrfs     map[string]*vrfState
@@ -280,7 +292,7 @@ func newLayer(cfg Config, nodeID string) *Layer {
 	l := &Layer{
 		nodeID:   nodeID,
 		byVLAN:   make(map[vlan.ID]string),
-		byPort:   make(map[string]string),
+		byPort:   make(map[string]map[vlan.ID]string),
 		ifaceVRF: make(map[string]string),
 		ifaces:   make(map[string]Interface),
 		vrfs:     make(map[string]*vrfState, len(cloned.VRFs)),
@@ -305,11 +317,16 @@ func newLayer(cfg Config, nodeID string) *Layer {
 			iface := vrf.Interfaces[name]
 			l.ifaces[name] = iface
 			l.ifaceVRF[name] = vrfName
-			if iface.VLAN != 0 {
+			// A sub-interface (both fields set) classifies by port and VLAN together,
+			// and never answers a bridge VLAN lookup: see [Layer.ByVLAN].
+			if iface.VLAN != 0 && iface.Port == "" {
 				l.byVLAN[iface.VLAN] = name
 			}
 			if iface.Port != "" {
-				l.byPort[iface.Port] = name
+				if l.byPort[iface.Port] == nil {
+					l.byPort[iface.Port] = make(map[vlan.ID]string)
+				}
+				l.byPort[iface.Port][iface.VLAN] = name
 			}
 
 			for _, p := range iface.Prefixes {
@@ -622,16 +639,42 @@ func (l *Layer) VLANLookupScopes(vid vlan.ID) []analysis.Scope {
 	return scopes
 }
 
-// ByPort returns the name of the routed interface associated with the given port.
-func (l *Layer) ByPort(port string) (string, bool) {
-	name, ok := l.byPort[port]
-	return name, ok
+// ByPortVLAN returns the name of the routed interface classifying frames on the given port
+// at the given outer VLAN identifier; a plain untagged routed port is keyed at VLAN 0.
+// portRouted reports whether the port carries any routed interface at all, which the caller
+// falls through to the bridge on when false; matched reports whether one exists at vid
+// specifically, which the caller drops on when false, since a routed port has no bridge to
+// fall back to. A two-valued lookup could not distinguish those two misses, because today's
+// [Layer.ByPort] miss (deleted with it) served both meanings and had to pick one.
+func (l *Layer) ByPortVLAN(port string, vid vlan.ID) (name string, portRouted, matched bool) {
+	vids, portRouted := l.byPort[port]
+	if !portRouted {
+		return "", false, false
+	}
+	name, matched = vids[vid]
+	return name, true, matched
 }
 
-// PortLookupScopes returns the exact VRF scopes consulted by [Layer.ByPort].
-func (l *Layer) PortLookupScopes(name string) []analysis.Scope {
-	if iface, ok := l.byPort[name]; ok {
-		return []analysis.Scope{PortLookupScope(l.nodeID, l.ifaceVRF[iface], name)}
+// PortVLANLookupScopes returns the exact scopes consulted by [Layer.ByPortVLAN]: the
+// port-level scope (one per VRF when uncertain) when the port carries no routed interface at
+// all, or the port-and-VLAN scope, exact when vid matches and one per VRF otherwise.
+func (l *Layer) PortVLANLookupScopes(port string, vid vlan.ID) []analysis.Scope {
+	vids, portRouted := l.byPort[port]
+	if !portRouted {
+		vrfs := make([]string, 0, len(l.vrfs))
+		for vrf := range l.vrfs {
+			vrfs = append(vrfs, vrf)
+		}
+		slices.Sort(vrfs)
+		scopes := make([]analysis.Scope, len(vrfs))
+		for i, vrf := range vrfs {
+			scopes[i] = PortLookupScope(l.nodeID, vrf, port)
+		}
+		return scopes
+	}
+
+	if iface, ok := vids[vid]; ok {
+		return []analysis.Scope{PortVLANLookupScope(l.nodeID, l.ifaceVRF[iface], port, vid)}
 	}
 
 	vrfs := make([]string, 0, len(l.vrfs))
@@ -641,7 +684,7 @@ func (l *Layer) PortLookupScopes(name string) []analysis.Scope {
 	slices.Sort(vrfs)
 	scopes := make([]analysis.Scope, len(vrfs))
 	for i, vrf := range vrfs {
-		scopes[i] = PortLookupScope(l.nodeID, vrf, name)
+		scopes[i] = PortVLANLookupScope(l.nodeID, vrf, port, vid)
 	}
 	return scopes
 }

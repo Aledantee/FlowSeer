@@ -18,8 +18,10 @@ import (
 // DefaultVRF is the standard VRF name used by single-table configurations and default loaders.
 const DefaultVRF = "default"
 
-// Interface defines the routed presence of a virtual switch interface, operating either
-// as a VLAN interface (VLAN set, Port empty) or as a routed port (Port set, VLAN zero).
+// Interface defines the routed presence of a virtual switch interface, operating as a
+// VLAN interface (VLAN set, Port empty), an untagged routed port (Port set, VLAN zero),
+// or a routed sub-interface (both set), which classifies by the outer VLAN tag of frames
+// arriving on Port rather than by bridge VLAN membership.
 type Interface struct {
 	VLAN     vlan.ID
 	Port     string
@@ -198,6 +200,13 @@ func (n Neighbor) Canonical() string {
 	return fmt.Sprintf("interface=%q,addr=%q,mac=%q", n.Interface, n.Addr.String(), n.MAC.String())
 }
 
+// portVLAN keys a routed port claim by the port name and the outer VLAN a sub-interface
+// classifies on; a plain routed port claims VLAN 0.
+type portVLAN struct {
+	port string
+	vlan vlan.ID
+}
+
 func comparePrefix(a, b netip.Prefix) int {
 	if c := a.Addr().Compare(b.Addr()); c != 0 {
 		return c
@@ -206,9 +215,10 @@ func comparePrefix(a, b netip.Prefix) int {
 }
 
 // Validate verifies the configuration against the port table and internal routing invariants.
-// It refuses empty VRF or interface names, VRFs with no interfaces, interfaces with both or
-// neither VLAN and Port, duplicate VLAN or port assignments across VRFs, unknown ports,
-// LAG members configured as routed ports, group MAC addresses, unmasked route prefixes,
+// It refuses empty VRF or interface names, VRFs with no interfaces, an interface configuring
+// neither VLAN nor Port, a Port-bearing interface whose VLAN is set but outside 1 through 4094,
+// duplicate VLAN interfaces across VRFs, duplicate (Port, VLAN) assignments across VRFs, unknown
+// ports, LAG members configured as routed ports, group MAC addresses, unmasked route prefixes,
 // routes with neither next hop nor interface, next hops whose address family differs from
 // their route's prefix, unspecified or multicast next hops,
 // routes or neighbors referencing interfaces outside their VRF, neighbor address families
@@ -228,7 +238,7 @@ func (c Config) Validate(ports port.Table) error {
 	slices.Sort(vrfNames)
 
 	claimedVLANs := make(map[vlan.ID]string)
-	claimedPorts := make(map[string]string)
+	claimedPortVLANs := make(map[portVLAN]string)
 	// The layer keys interfaces by name across every VRF, as a device does.
 	claimedIfaces := make(map[string]string)
 
@@ -274,15 +284,24 @@ func (c Config) Validate(ports port.Table) error {
 			iface := vrf.Interfaces[ifaceName]
 			hasVLAN := iface.VLAN != 0
 			hasPort := iface.Port != ""
-			if (hasVLAN && hasPort) || (!hasVLAN && !hasPort) {
+			if !hasVLAN && !hasPort {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("interface", ifaceName).
 					Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName).
-					Msgf("interface %q must configure exactly one of VLAN or Port", ifaceName)
+					Msgf("interface %q must configure at least one of VLAN or Port", ifaceName)
 			}
 
-			if hasVLAN {
+			if hasPort && hasVLAN && !iface.VLAN.Valid() {
+				return errs.New().
+					Attr("vrf", vrfName).
+					Attr("interface", ifaceName).
+					Attr("vlan", iface.VLAN).
+					Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".vlan").
+					Msgf("sub-interface %q VLAN %d is outside the assignable range 1-4094", ifaceName, iface.VLAN)
+			}
+
+			if hasVLAN && !hasPort {
 				if prev, ok := claimedVLANs[iface.VLAN]; ok {
 					return errs.New().
 						Attr("vrf", vrfName).
@@ -296,16 +315,18 @@ func (c Config) Validate(ports port.Table) error {
 			}
 
 			if hasPort {
-				if prev, ok := claimedPorts[iface.Port]; ok {
+				key := portVLAN{port: iface.Port, vlan: iface.VLAN}
+				if prev, ok := claimedPortVLANs[key]; ok {
 					return errs.New().
 						Attr("vrf", vrfName).
 						Attr("interface", ifaceName).
 						Attr("port", iface.Port).
+						Attr("vlan", iface.VLAN).
 						Attr("claimed_by", prev).
 						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".port").
-						Msgf("port %q claimed by multiple interfaces across VRFs (%q and %q)", iface.Port, prev, ifaceName)
+						Msgf("port %q VLAN %d claimed by multiple interfaces across VRFs (%q and %q)", iface.Port, iface.VLAN, prev, ifaceName)
 				}
-				claimedPorts[iface.Port] = ifaceName
+				claimedPortVLANs[key] = ifaceName
 
 				p, ok := ports.Port(iface.Port)
 				if !ok {

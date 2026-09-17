@@ -1,11 +1,13 @@
 package fabric_test
 
 import (
+	"net/netip"
 	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -151,6 +153,78 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 	injection := fab.Report()[fid-1].Entries[0]
 	if injection.Port != "1/1/1" || injection.Cable == nil || injection.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
 		t.Errorf("injection entry = %+v, want port 1/1/1 with its cable", injection)
+	}
+}
+
+// reflectMetadataConfig cables a reflector to h1 (the arrival side, VLAN 10,
+// plain assumed physical facts) and to h2 (VLAN 20). Neither h2 nor the
+// reflector's port toward it reports any physical fact, so that link
+// resolves Unknown with capability-unknown and stops a reflected copy before
+// it ever reaches h2: the reflector-side entries are then the only possible
+// source of the issue in the copy's journey, unlike a copy that is also
+// delivered over the same cable and could pick the issue up from either
+// side.
+func reflectMetadataConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	gigabit := autoEthernet(1_000_000_000)
+	vid10, vid20 := vlan.ID(10), vlan.ID(20)
+
+	return fabric.Config{
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
+			"h2": {Address: reflectH2Address, VLAN: &vid20},
+		},
+		Reflectors: map[string]fabric.Reflector{
+			"r1": {
+				Address: reflectR1Address,
+				Ports:   map[string]phy.Ethernet{"rp1": gigabit, "rp2": {}},
+				Attachments: map[string]fabric.Attachment{
+					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
+					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}, LengthMeters: 2},
+		},
+	}
+}
+
+// TestReflectedCopyJourneyFoldsItsCableMetadata proves that a copy's journey
+// folds in the issues of the cables and links it depends on, exactly as a
+// host delivery's journey does, because both go through the same generic
+// [Fabric.record] dependency fold rather than a reflector-specific path.
+func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
+	fab, err := fabric.NewWithSpec(constructionSpec(reflectMetadataConfig(t)))
+	if err != nil {
+		t.Fatalf("NewWithSpec: %v", err)
+	}
+	if !hasIssue(fab.Metadata().Issues(), analysis.IssueCode(phy.ReasonCapabilityUnknown)) {
+		t.Fatalf("fabric issues = %+v, want the fixture's capability-unknown on r1's link to h2", fab.Metadata().Issues())
+	}
+
+	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
+	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(20)
+
+	var copyJourney fabric.Journey
+	for _, j := range fab.Report() {
+		if j.Parent == parentID {
+			copyJourney = j
+		}
+	}
+	if copyJourney.FrameID == 0 {
+		t.Fatalf("no copy journey found for parent %d", parentID)
+	}
+	if len(copyJourney.Deliveries) != 0 {
+		t.Fatalf("copy deliveries = %+v, want none: the egress link to h2 is Unknown", copyJourney.Deliveries)
+	}
+	if !hasIssue(copyJourney.Metadata.Issues(), analysis.IssueCode(phy.ReasonCapabilityUnknown)) {
+		t.Errorf("copy journey issues = %+v, want capability-unknown from its own unresolved egress link", copyJourney.Metadata.Issues())
 	}
 }
 
