@@ -260,7 +260,7 @@ func TestNDPDecodeRefuses(t *testing.T) {
 		{
 			name:    "multicast target",
 			hdr:     hdr,
-			payload: finalizeChecksum(hdr, rawAdvertisement(0, netip.MustParseAddr("ff02::1"), nil)),
+			payload: finalizeChecksum(hdr, rawAdvertisement(netip.MustParseAddr("ff02::1"), nil)),
 		},
 		{
 			name: "option length zero",
@@ -277,7 +277,7 @@ func TestNDPDecodeRefuses(t *testing.T) {
 		{
 			name: "matching link-layer address option whose declared length is not one 8-octet unit",
 			hdr:  hdr,
-			payload: finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), append(
+			payload: finalizeChecksum(hdr, rawAdvertisement(seqAddr(0x30), append(
 				[]byte{2, 2}, // type 2 (target link-layer), length 2 (16 octets)
 				make([]byte, 14)...,
 			))),
@@ -316,7 +316,7 @@ func TestNeighborAdvertisementDecodeSkipsUnrelatedOptionToFindTargetLinkLayerAdd
 		[]byte{0x0e, 1, 0, 0, 0, 0, 0, 0}, // unrelated option: type 14, length 1
 		append([]byte{2, 1}, mac[:]...)...,
 	)
-	payload := finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), option))
+	payload := finalizeChecksum(hdr, rawAdvertisement(seqAddr(0x30), option))
 
 	got, err := ndp.Decode(hdr, payload)
 	if err != nil {
@@ -339,7 +339,7 @@ func TestNeighborAdvertisementDecodeWithOnlyUnrelatedOptionHasNoLinkLayerAddr(t 
 
 	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
 	option := []byte{0x0e, 1, 0, 0, 0, 0, 0, 0} // unrelated option: type 14, length 1
-	payload := finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), option))
+	payload := finalizeChecksum(hdr, rawAdvertisement(seqAddr(0x30), option))
 
 	got, err := ndp.Decode(hdr, payload)
 	if err != nil {
@@ -503,10 +503,12 @@ func rawSolicitation(target netip.Addr, option []byte) []byte {
 	return wire
 }
 
-func rawAdvertisement(flags byte, target netip.Addr, option []byte) []byte {
+// rawAdvertisement builds a Neighbor Advertisement on the wire with every flag clear. The flag
+// octet is not a parameter because no caller sets one: these are decode-refusal cases, and the
+// field they are about is never the flags.
+func rawAdvertisement(target netip.Addr, option []byte) []byte {
 	wire := make([]byte, 24+len(option))
 	wire[0] = 136
-	wire[4] = flags
 	t := target.As16()
 	copy(wire[8:24], t[:])
 	copy(wire[24:], option)
