@@ -360,10 +360,17 @@ declarations, which no package here makes. `model/access/v1/README.md` and
 file list built from imports alone misses them. Go files using
 `DeviceOperationEvent` and its kinds take `eventaccessv1` where they also
 import `model/access`, otherwise `accessv1`; the seven files touching
-`AuditService`, `DeliverRequest`, or `DeliverResponse` take `auditv1`, and
-`src/edge/agent/host/host.go`, `src/edge/agent/internal/report/deliver.go`, and
-`src/services/device/internal/{auditapi/service.go,centralaudit/centralaudit.go,host/serve.go}`
-take one of each. `eventv1connect` becomes `auditv1connect` with no alias.
+`AuditService`, `DeliverRequest`, or `DeliverResponse` take `auditv1`.
+`src/edge/agent/internal/report/deliver.go` and
+`src/services/device/internal/centralaudit/centralaudit.go` take one of each,
+since both build a `DeviceOperationEvent` and hand it to a `Deliver` call;
+`src/edge/agent/host/host.go` and `src/services/device/internal/host/serve.go`
+touch only the connect client and handler, so they take `auditv1connect`
+and never name the pb package, and
+`src/services/device/internal/auditapi/service.go` passes the record through
+as an opaque `proto.Message` without naming `DeviceOperationEvent`, so it
+takes `auditv1` alone. `eventv1connect` becomes `auditv1connect` with no
+alias.
 Tests: `event_access_rules_test.go` carries `TestDeviceOperationEventRules`,
 `TestPhaseTransitionedRules`, and `TestDeviceOperationEventKindRules` with their
 cases intact and only the `eventv1` identifier changed, and
