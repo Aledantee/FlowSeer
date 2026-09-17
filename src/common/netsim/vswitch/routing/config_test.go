@@ -505,6 +505,15 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "neighbor policy negative reachable time under NeighborObserved",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy = routing.NeighborPolicy{ReachableTime: -time.Second}
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr: true,
+		},
+		{
 			name: "neighbor policy negative fields accepted under NeighborDisabled",
 			mutate: func(c *routing.Config) {
 				vrf := c.VRFs[routing.DefaultVRF]

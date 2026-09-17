@@ -1,7 +1,9 @@
 package routing
 
 import (
+	"cmp"
 	"net/netip"
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -40,8 +42,10 @@ const (
 	NeighborFailed NeighborState = "failed"
 )
 
-// neighborOrigin distinguishes a statically configured binding from one learned by observation,
-// which matters only for [neighborEntry.clone]'s bookkeeping today; both answer lookups alike.
+// neighborOrigin distinguishes a statically configured binding from one learned by observation.
+// [Layer.Observe] reads it to refuse ever overwriting a configured binding, which is what keeps
+// config.go's claim that "a static binding never ages out" true; a lookup otherwise answers the
+// same for either origin.
 type neighborOrigin string
 
 const (
@@ -70,19 +74,22 @@ type HeldFrame struct {
 // neighborEntry is one row of a VRF's runtime neighbor table: the state it currently occupies,
 // the bound link-layer address once one is known, the time the entry next changes on its own
 // (a resolution deadline for Incomplete, a reachability deadline for Reachable, and zero for
-// every other state), whether it came from static configuration or a live observation, and the
-// frames queued while the entry is Incomplete.
+// every other state), whether it came from static configuration or a live observation, the
+// frames queued while the entry is Incomplete, and any frame [appendHeld] has since evicted from
+// that queue but [Layer.Wake] has not yet reported.
 type neighborEntry struct {
-	state  NeighborState
-	mac    netaddr.MAC
-	expiry time.Time
-	origin neighborOrigin
-	queue  []heldEntry
+	state   NeighborState
+	mac     netaddr.MAC
+	expiry  time.Time
+	origin  neighborOrigin
+	queue   []heldEntry
+	evicted []heldEntry
 }
 
 func (e *neighborEntry) clone() *neighborEntry {
 	cp := *e
 	cp.queue = append([]heldEntry(nil), e.queue...)
+	cp.evicted = append([]heldEntry(nil), e.evicted...)
 	return &cp
 }
 
@@ -102,13 +109,16 @@ type Advertisement struct {
 }
 
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
-// (RFC 4861 section 7.2.2).
-func appendHeld(queue []heldEntry, h heldEntry, depth int) []heldEntry {
+// (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
+// hold queue gives up on is still reported, in [Layer.Wake]'s next Effects.Failed, not silently
+// dropped.
+func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
+		evicted = queue[:len(queue)-depth]
 		queue = queue[len(queue)-depth:]
 	}
-	return queue
+	return queue, evicted
 }
 
 // neighborLookup is the outcome [vrfState.resolveNeighbor] found for one address: a resolved
@@ -137,7 +147,9 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 			origin: originObserved,
 			expiry: now.Add(vs.policy.ResolutionTimeout),
 		}
-		entry.queue = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
+		var evicted []heldEntry
+		entry.queue, evicted = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
+		entry.evicted = append(entry.evicted, evicted...)
 		vs.neighbors[key] = entry
 		return neighborLookup{state: NeighborIncomplete}
 	}
@@ -147,11 +159,20 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 		return neighborLookup{state: entry.state, mac: entry.mac, ok: true}
 	case NeighborFailed:
 		return neighborLookup{state: NeighborFailed}
-	default: // NeighborIncomplete
+	case NeighborIncomplete:
 		if commit {
-			entry.queue = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
+			var evicted []heldEntry
+			entry.queue, evicted = appendHeld(entry.queue, held(), vs.policy.HoldDepth)
+			entry.evicted = append(entry.evicted, evicted...)
 		}
 		return neighborLookup{state: NeighborIncomplete}
+	default:
+		// A stored zero [NeighborState] is unreachable through any exported path today, but a
+		// stored entry's zero value is legal Go, and [NeighborUnobserved] is meaningful only as
+		// a lookup answer, never as something to hold frames for: naming it here rather than
+		// folding it into the Incomplete arm above keeps a defect like that a miss, not a
+		// silent, unbounded hold.
+		return neighborLookup{state: NeighborUnobserved}
 	}
 }
 
@@ -159,8 +180,11 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, commit bool,
 // adv, which also serves an ARP reply or request mapped as the package README describes. If no
 // entry exists for adv's interface and address, the advertisement is silently discarded per
 // section 7.2.5: "There is no need to create an entry if none exists, since the recipient has
-// apparently not initiated any communication with the target." Observe changes state alone; the
-// frames an entry's transition frees or gives up on are reported by the next [Layer.Wake].
+// apparently not initiated any communication with the target." A configured binding is likewise
+// left alone: [New] installs it Reachable with no expiry so it never ages out, and an
+// advertisement adopting its address or handing it an expiry would falsify that. Observe changes
+// state alone; the frames an entry's transition frees or gives up on are reported by the next
+// [Layer.Wake].
 func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	vrfName, ok := l.ifaceVRF[adv.Interface]
 	if !ok {
@@ -168,7 +192,7 @@ func (l *Layer) Observe(now time.Time, adv Advertisement) {
 	}
 	vs := l.vrfs[vrfName]
 	entry, ok := vs.neighbors[neighborKey{iface: adv.Interface, addr: adv.Addr}]
-	if !ok {
+	if !ok || entry.origin == originConfigured {
 		return
 	}
 
@@ -240,15 +264,14 @@ type Effects struct {
 	Failed   []HeldFrame
 }
 
-// finishHeld decrements h's hop limit, re-encodes its header and payload, and builds the
-// Ethernet frame it leaves as (or, with a zero mac, the frame a failure step names). An encode
-// error is unreachable in practice: h's header decoded successfully moments before it was
-// queued and only its hop limit changes here, so this silently omits the frame rather than
-// carry a spurious error path.
+// finishHeld re-encodes h's header, already in the egress form the caller queued it in (Route's
+// closure pre-decrements the hop limit; Originate's leaves it at 64, matching each one's direct,
+// non-held path), and builds the Ethernet frame it leaves as (or, with a zero mac, the frame a
+// failure step names). An encode error is unreachable in practice: h's header decoded
+// successfully moments before it was queued and nothing about it changes here, so this silently
+// omits the frame rather than carry a spurious error path.
 func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
-	newHdr := h.header
-	newHdr.HopLimit--
-	newPayload, err := newHdr.Encode(h.payload)
+	newPayload, err := h.header.Encode(h.payload)
 	if err != nil {
 		return HeldFrame{}, false
 	}
@@ -263,41 +286,77 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
 	}, true
 }
 
+// neighborTableEntry names one row Wake acts on, keyed for the total order below: a Go map
+// iterates its VRFs and neighbors in random order, and Effects.Released and Effects.Failed are
+// ordered slices the switch consumes in sequence, so Wake sorts before it acts rather than
+// leaving emission order, Drain order, and the fabric's frame numbering to inherit map order.
+type neighborTableEntry struct {
+	vrfName string
+	key     neighborKey
+	entry   *neighborEntry
+}
+
 // Wake advances every VRF's neighbor table to now: an Incomplete entry whose resolution
 // deadline has passed becomes Failed, and its held frames are reported in Effects.Failed; any
 // entry that already holds frames and is no longer Incomplete (because [Layer.Observe] resolved
 // it since the previous Wake) has them reported in Effects.Released. Either way the entry's
 // queue is drained, so calling Wake again before anything else changes reports nothing further.
+// A frame [appendHeld] evicted from a queue is reported in Effects.Failed unconditionally, on
+// the first Wake after the eviction, regardless of the entry's current state or whether its
+// queue currently holds anything.
 func (l *Layer) Wake(now time.Time) Effects {
 	var eff Effects
-	for _, vs := range l.vrfs {
-		for _, entry := range vs.neighbors {
-			if len(entry.queue) == 0 {
-				continue
-			}
 
-			if entry.state == NeighborIncomplete {
-				if entry.expiry.IsZero() || entry.expiry.After(now) {
-					continue
-				}
-				for _, h := range entry.queue {
-					if hf, ok := l.finishHeld(h, netaddr.MAC{}); ok {
-						eff.Failed = append(eff.Failed, hf)
-					}
-				}
-				entry.state = NeighborFailed
-				entry.expiry = time.Time{}
-				entry.queue = nil
-				continue
-			}
-
-			for _, h := range entry.queue {
-				if hf, ok := l.finishHeld(h, entry.mac); ok {
-					eff.Released = append(eff.Released, hf)
-				}
-			}
-			entry.queue = nil
+	var rows []neighborTableEntry
+	for vrfName, vs := range l.vrfs {
+		for key, entry := range vs.neighbors {
+			rows = append(rows, neighborTableEntry{vrfName: vrfName, key: key, entry: entry})
 		}
+	}
+	slices.SortFunc(rows, func(a, b neighborTableEntry) int {
+		if c := cmp.Compare(a.vrfName, b.vrfName); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.key.iface, b.key.iface); c != 0 {
+			return c
+		}
+		return a.key.addr.Compare(b.key.addr)
+	})
+
+	for _, row := range rows {
+		entry := row.entry
+
+		for _, h := range entry.evicted {
+			if hf, ok := l.finishHeld(h, netaddr.MAC{}); ok {
+				eff.Failed = append(eff.Failed, hf)
+			}
+		}
+		entry.evicted = nil
+
+		if entry.state == NeighborIncomplete {
+			if entry.expiry.IsZero() || entry.expiry.After(now) {
+				continue
+			}
+			for _, h := range entry.queue {
+				if hf, ok := l.finishHeld(h, netaddr.MAC{}); ok {
+					eff.Failed = append(eff.Failed, hf)
+				}
+			}
+			entry.state = NeighborFailed
+			entry.expiry = time.Time{}
+			entry.queue = nil
+			continue
+		}
+
+		if len(entry.queue) == 0 {
+			continue
+		}
+		for _, h := range entry.queue {
+			if hf, ok := l.finishHeld(h, entry.mac); ok {
+				eff.Released = append(eff.Released, hf)
+			}
+		}
+		entry.queue = nil
 	}
 	return eff
 }
@@ -353,15 +412,24 @@ func (l *Layer) Clone() *Layer {
 	return cp
 }
 
-// DiscardHeld drops every neighbor entry's held-frame queue without changing
-// its state, expiry, or link-layer address. A frame in flight belongs to the
-// run that queued it, not to configuration a later derive retains: a cloned
-// layer that kept someone else's in-flight frames would make two forks
-// compare unequal for a reason neither configuration shows.
+// DiscardHeld drops every neighbor entry's held-frame queue and any frame
+// [appendHeld] has evicted from it but [Layer.Wake] has not yet reported,
+// without changing the entry's state, expiry, or link-layer address. A frame
+// in flight belongs to the run that queued it, not to configuration a later
+// derive retains: a cloned layer that kept someone else's in-flight or
+// evicted frames would make two forks compare unequal for a reason neither
+// configuration shows, or report a frame from a run that never woke it.
+//
+// DiscardHeld leaves an Incomplete entry's state and expiry untouched on
+// purpose, even though emptying its queue looks like settling it: [Layer.Wake]
+// alone decides when a resolution deadline passing moves the entry to Failed,
+// and it does that whether or not the queue it drains is empty. Settling the
+// entry here as well would just duplicate that decision under a second name.
 func (l *Layer) DiscardHeld() {
 	for _, vs := range l.vrfs {
 		for _, entry := range vs.neighbors {
 			entry.queue = nil
+			entry.evicted = nil
 		}
 	}
 }
