@@ -36,4 +36,17 @@ func TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination(t *testing.T) 
 		t.Errorf("second Compare disagreed with first: %v/%v vs %v/%v",
 			second.Current.Outcome, second.Current.Reason, first.Current.Outcome, first.Current.Reason)
 	}
+
+	// Same only compares outcome, reason, FID and egress, so it would agree
+	// across two calls even if mutate were not threaded through to Peek: it
+	// takes no position on whether either switch's state changed. NextWake
+	// does: a peek that queued a frame or created an Incomplete entry would
+	// leave a resolution timer behind, so its absence here is what actually
+	// proves neither switch was mutated.
+	if _, ok := a.NextWake(); ok {
+		t.Errorf("a.NextWake() reported a timer after two Compare calls, want none: Peek must not have queued a frame")
+	}
+	if _, ok := b.NextWake(); ok {
+		t.Errorf("b.NextWake() reported a timer after two Compare calls, want none: Peek must not have queued a frame")
+	}
 }

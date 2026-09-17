@@ -778,3 +778,129 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		t.Errorf("delivered src/dst = %s/%s, want 10.0.10.7/%s", hdr.Src, hdr.Dst, addrH2)
 	}
 }
+
+// TestFabricRecordsNeighborFailureOnHeldFrameTimeout is evidence that the
+// fabric drains [vswitch.Switch.DrainNeighborFailures] alongside
+// [vswitch.Switch.Drain]: a held frame whose neighbor never resolves must
+// leave a drop entry and a discard counter behind, not vanish after a held
+// journey entry with nothing following it.
+func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+
+	swCfg := vswitch.Config{
+		MAC:   swMAC,
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{
+						"1/1/1": {
+							Port:     "1/1/1",
+							MAC:      swMAC,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")},
+						},
+						"1/1/2": {
+							Port:     "1/1/2",
+							MAC:      swMAC,
+							Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")},
+						},
+					},
+					// No neighbor configured for 10.0.60.77 on 1/1/2: the
+					// switch holds and never resolves it.
+				},
+			},
+		},
+	}
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": swCfg,
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.50.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.50.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{
+						netip.MustParseAddr("10.0.50.1"): swMAC,
+					},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{
+			To:       netip.MustParseAddr("10.0.60.77"),
+			Protocol: 17,
+			Payload:  []byte("ping"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	fab.Run(50)
+
+	heldJourney := findJourney(t, fab, heldID)
+	if len(heldJourney.Entries) == 0 {
+		t.Fatalf("held journey has no entries")
+	}
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	}
+
+	var dropEntry *fabric.Entry
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID {
+			continue
+		}
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryDrop && e.Reason == routing.ReasonNeighborMiss {
+				ee := e
+				dropEntry = &ee
+				break
+			}
+		}
+	}
+	if dropEntry == nil {
+		t.Fatalf("no neighbor-miss drop entry found among: %+v", fab.Report())
+	}
+	if dropEntry.Device != "sw1" {
+		t.Errorf("drop entry device = %q, want sw1", dropEntry.Device)
+	}
+
+	snap := fab.Snapshot()
+	dev, ok := snap.Devices["sw1"]
+	if !ok {
+		t.Fatalf("no device sw1 in snapshot")
+	}
+	counters, ok := dev.Counters["1/1/2"]
+	if !ok {
+		t.Fatalf("no counters for port 1/1/2")
+	}
+	if got := counters.Discards[routing.ReasonNeighborMiss]; got != 1 {
+		t.Errorf("Discards[neighbor-miss] = %d, want 1", got)
+	}
+}

@@ -411,10 +411,13 @@ is the one out-of-band protocol call: it runs the switch's management check
 at the current clock and queues the emission and the next wake like a step.
 
 Frames emitted by switch layers during wake-ups or forwarding cross cables and
-hubs as journeys marked `Protocol`. Periodic hellos ensure the queue never
-drains; callers supply a step budget to `Run(n)` and evaluate topology
-convergence by checking whether consecutive snapshots report identical roles
-and forwarding states across all ports.
+hubs as journeys marked `Protocol`. The one exception is a released held
+frame: it is also emitted during a wake-up, but it carries a neighbor
+resolution's ordinary data, not a frame of the switch's own, so its journey
+is marked `Protocol` false like the data frame that was held. Periodic
+hellos ensure the queue never drains; callers supply a step budget to
+`Run(n)` and evaluate topology convergence by checking whether consecutive
+snapshots report identical roles and forwarding states across all ports.
 
 ## Link operational state rule
 

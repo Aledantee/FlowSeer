@@ -788,6 +788,28 @@ func (s *Switch) vrfForInterface(iface string) (string, bool) {
 	return "", false
 }
 
+// neighborObservationAllowed reports whether an ARP or Neighbor Discovery
+// frame observed on iface may rewrite the neighbor table, mirroring the
+// switch's own configuration the way [Switch.vrfForInterface] does: a VRF
+// configured [routing.NeighborDisabled] never holds a frame for resolution
+// (RFC 4861 section 7.2.2's hold-and-resolve cycle never runs for it), and
+// README describes it as never resolving an address it was not told about,
+// so an observed frame must not rewrite that table either. An interface
+// outside any VRF, or a VRF the config omits, allows observation: nothing
+// names a mode to disable.
+func (s *Switch) neighborObservationAllowed(iface string) bool {
+	vrfName, ok := s.vrfForInterface(iface)
+	if !ok {
+		return true
+	}
+	vrf, ok := s.cfg.Routing.VRFs[vrfName]
+	if !ok {
+		return true
+	}
+
+	return vrf.NeighborPolicy.Mode != routing.NeighborDisabled
+}
+
 // neighborPendingAddr extracts the address a Held [routing.Result] was
 // waiting to resolve. [routing.Layer.Route] and [routing.Layer.Originate]
 // both append the neighbor-pending step last, naming the address in the same
@@ -982,7 +1004,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	if mutate && s.routing != nil {
 		if f.EtherType == ethernet.EtherTypeARP {
 			if msg, err := arp.Decode(f); err == nil {
-				if iface, ok := s.observationInterface(now, ingress, f); ok {
+				if iface, ok := s.observationInterface(now, ingress, f); ok && s.neighborObservationAllowed(iface) {
 					s.observeAndRelease(now, arpAdvertisement(iface, msg))
 				}
 			}
@@ -992,8 +1014,10 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			case byte(ndp.NeighborSolicitation), byte(ndp.NeighborAdvertisement):
 				if hdr, icmpPayload, err := ip.Decode(f.Payload); err == nil {
 					if msg, err := ndp.Decode(hdr, icmpPayload); err == nil {
-						if iface, ok := s.observationInterface(now, ingress, f); ok {
-							s.observeAndRelease(now, ndpAdvertisement(iface, msg))
+						if iface, ok := s.observationInterface(now, ingress, f); ok && s.neighborObservationAllowed(iface) {
+							if adv, ok := ndpAdvertisement(iface, hdr, msg); ok {
+								s.observeAndRelease(now, adv)
+							}
 						}
 					}
 				}
@@ -1196,11 +1220,36 @@ func arpAdvertisement(iface string, m arp.Message) routing.Advertisement {
 }
 
 // ndpAdvertisement maps a Neighbor Solicitation or Advertisement observed on
-// iface onto a [routing.Advertisement]. The ndp package already leaves
+// iface onto a [routing.Advertisement]. The two message types bind the
+// LinkLayerAddr option to different addresses: on an Advertisement it is the
+// Target Link-Layer Address, confirming the address named by m.Target, but
+// on a Solicitation it is the Source Link-Layer Address, naming the
+// solicitor's own address (RFC 4861 section 4.3), carried in the IPv6
+// header's source, not in m.Target — the solicitation asks about m.Target,
+// it does not vouch for who holds it. RFC 4861 section 7.2.3 updates the
+// entry for the solicitation's IP source address, so hdr is required to
+// recover it; a solicitation from the unspecified address (duplicate
+// address detection) names no one to bind and reports ok false. A
+// solicitation's Source Link-Layer Address option refreshes a binding
+// rather than confirming a forward path, so it maps like an ARP request:
+// {Solicited: false, Override: true}. The ndp package already leaves
 // Router, Solicited, and Override false for a solicitation (RFC 4861
-// sections 4.3 and 4.4), so a direct field copy carries the right meaning
-// for both message types without a type switch.
-func ndpAdvertisement(iface string, m ndp.Message) routing.Advertisement {
+// sections 4.3 and 4.4), so an Advertisement's fields carry over with a
+// direct copy.
+func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Advertisement, bool) {
+	if m.Type == ndp.NeighborSolicitation {
+		if hdr.Src.IsUnspecified() {
+			return routing.Advertisement{}, false
+		}
+		return routing.Advertisement{
+			Interface: iface,
+			Addr:      hdr.Src,
+			MAC:       m.LinkLayerAddr,
+			HasMAC:    m.HasLinkLayerAddr,
+			Solicited: false,
+			Override:  true,
+		}, true
+	}
 	return routing.Advertisement{
 		Interface: iface,
 		Addr:      m.Target,
@@ -1209,7 +1258,7 @@ func ndpAdvertisement(iface string, m ndp.Message) routing.Advertisement {
 		Solicited: m.Solicited,
 		Override:  m.Override,
 		Router:    m.Router,
-	}
+	}, true
 }
 
 // observeAndRelease applies adv and flushes whatever it freed or gave up on
@@ -1220,9 +1269,26 @@ func ndpAdvertisement(iface string, m ndp.Message) routing.Advertisement {
 // would ever flush that queue. Wake also settles any other entry whose
 // resolution deadline has separately passed by now, which is the same
 // answer a caller-driven Wake at this instant would give.
+//
+// A release reached through applyRoutingEffects can itself commit a LAG
+// selection or hit an unresolved neighbor, on a path the observing frame
+// never traversed — it is a queued frame going out an egress interface of
+// its own, not the frame forward is currently processing. Left alone that
+// would charge the release's LAG rebalance or neighbor-unresolved issues to
+// the observing frame's result, so observeAndRelease snapshots
+// s.lagRebalanceHits and s.neighborUnresolvedHits first and restores them
+// after, discarding whatever the release added; the observing frame's own
+// processing, which runs after this call returns, still records its own
+// hits onto the restored state.
 func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
+	savedLAGRebalanceHits := s.lagRebalanceHits
+	savedNeighborUnresolvedHits := s.neighborUnresolvedHits
+
 	s.routing.Observe(now, adv)
 	s.applyRoutingEffects(now, s.routing.Wake(now))
+
+	s.lagRebalanceHits = savedLAGRebalanceHits
+	s.neighborUnresolvedHits = savedNeighborUnresolvedHits
 }
 
 func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {

@@ -481,6 +481,10 @@ Exported constructors validate and normalize configurations:
 - A forward or peek that used a balanced-mode LAG selection old enough that
   unmodeled rebalancing could have moved it raises `lag-rebalance-unmodeled`
   on that LAG's aggregator scope, only for the journeys that went through it.
+- A forward or peek that found a next hop pending — a neighbor netsim never
+  asked about, rather than one it knows has no answer — raises
+  `neighbor-unresolved` on `routing.NeighborLookupScope(nodeID, vrf, iface,
+  addr)`.
 - A forward or peek that resolved multicast membership while an expected
   group-specific or group-and-source-specific query had gone unobserved past
   its last member query time raises `mcast-query-unobserved` on
