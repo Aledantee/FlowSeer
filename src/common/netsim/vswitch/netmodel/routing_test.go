@@ -734,8 +734,8 @@ func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 		Payload:   payload,
 	})
 
-	if result.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason = %s, want neighbor-miss", result.Reason)
+	if result.Reason != routing.ReasonNeighborPending {
+		t.Fatalf("reason = %s, want neighbor-pending", result.Reason)
 	}
 	if result.Metadata.Status() != analysis.Incomplete {
 		t.Fatalf("status = %s, want Incomplete; issues: %+v", result.Metadata.Status(), result.Metadata.Issues())

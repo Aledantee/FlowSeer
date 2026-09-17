@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/mld"
+	"go.aledante.io/FlowSeer/src/common/net/ndp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/analysis"
@@ -151,6 +153,13 @@ type PowerResult struct {
 type Emission struct {
 	Port  string
 	Frame ethernet.Frame
+
+	// Protocol reports whether the frame is a BPDU, LACPDU, loop-protect
+	// probe, or other frame the switch generated for a protocol of its own,
+	// as opposed to a held user frame [Switch.Wake] released once its next
+	// hop resolved. [Fabric.injectEmission] reads it instead of assuming
+	// every emission is a protocol frame.
+	Protocol bool
 }
 
 // Switch simulates a network device composed of a port table and optional
@@ -196,10 +205,22 @@ type Switch struct {
 	lagRebalanceHits         map[string]lag.Selection
 	mcastQueryUnobservedHits []mcastQueryUnobservedHit
 
+	// neighborUnresolvedHits names, for the forward or peek call in
+	// progress, the (interface, address) pairs a routing lookup found
+	// pending. It resets with the other hit sets.
+	neighborUnresolvedHits []neighborUnresolvedHit
+
 	// pvstBoundaryHits names the (port, VLAN) pairs a journey crossed where
 	// the spanning tree layer reports a neighbor whose per-VLAN trees it
 	// cannot simulate. It resets with the other hit sets.
 	pvstBoundaryHits map[pvstBoundaryHit]struct{}
+
+	// neighborFailures holds the trace steps [Switch.Wake] recorded for held
+	// frames whose neighbor resolution timed out, drained by
+	// [Switch.DrainNeighborFailures] the way [Switch.Drain] drains emissions.
+	// A frame that vanished with no step would be the same silent answer
+	// R20 exists to remove.
+	neighborFailures []trace.Step
 }
 
 // pvstBoundaryHit names one port and VLAN a journey crossed while the port
@@ -215,6 +236,14 @@ type pvstBoundaryHit struct {
 type mcastQueryUnobservedHit struct {
 	vid   vlan.ID
 	group netip.Addr
+}
+
+// neighborUnresolvedHit names one interface and address a forward or peek
+// call in progress found pending: a next hop with no resolved link-layer
+// address yet, distinct from a definite miss.
+type neighborUnresolvedHit struct {
+	iface string
+	addr  netip.Addr
 }
 
 // New constructs a [Switch] from the provided configuration, cloning the configuration,
@@ -630,6 +659,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 	}
 	issues = append(issues, s.lagRebalanceIssues()...)
 	issues = append(issues, s.mcastQueryUnobservedIssues()...)
+	issues = append(issues, s.neighborUnresolvedIssues()...)
 	issues = append(issues, s.pvstBoundaryIssues()...)
 
 	return ForwardResult{
@@ -706,6 +736,73 @@ func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
 	slices.SortFunc(issues, func(a, b runtimeIssue) int { return a.issue.Scope.Compare(b.issue.Scope) })
 
 	return issues
+}
+
+// neighborUnresolvedIssues raises neighbor-unresolved for each interface and
+// address a forward or peek call in progress found pending: a next hop
+// netsim never asked about, as opposed to one it knows has no answer. The
+// hit mechanism mirrors mcastQueryUnobservedIssues above.
+func (s *Switch) neighborUnresolvedIssues() []runtimeIssue {
+	if len(s.neighborUnresolvedHits) == 0 {
+		return nil
+	}
+	seen := make(map[neighborUnresolvedHit]struct{}, len(s.neighborUnresolvedHits))
+	issues := make([]runtimeIssue, 0, len(s.neighborUnresolvedHits))
+	for _, hit := range s.neighborUnresolvedHits {
+		if _, ok := seen[hit]; ok {
+			continue
+		}
+		seen[hit] = struct{}{}
+		vrf, ok := s.vrfForInterface(hit.iface)
+		if !ok {
+			continue
+		}
+		issues = append(issues, runtimeIssue{
+			issue: analysis.Issue{
+				Code:    IssueNeighborUnresolved,
+				Status:  analysis.Incomplete,
+				Scope:   routing.NeighborLookupScope(s.nodeID, vrf, hit.iface, hit.addr),
+				Message: fmt.Sprintf("neighbor %s on interface %q has not been resolved", hit.addr, hit.iface),
+			},
+		})
+	}
+	slices.SortFunc(issues, func(a, b runtimeIssue) int { return a.issue.Scope.Compare(b.issue.Scope) })
+
+	return issues
+}
+
+// vrfForInterface returns the name of the VRF configured with the named
+// routed interface. [routing.Layer] keeps this association unexported, so
+// this mirrors it from the switch's own normalized configuration rather than
+// asking the layer for something it does not expose.
+func (s *Switch) vrfForInterface(iface string) (string, bool) {
+	if s.cfg.Routing == nil {
+		return "", false
+	}
+	for name, vrf := range s.cfg.Routing.VRFs {
+		if _, ok := vrf.Interfaces[iface]; ok {
+			return name, true
+		}
+	}
+
+	return "", false
+}
+
+// neighborPendingAddr extracts the address a Held [routing.Result] was
+// waiting to resolve. [routing.Layer.Route] and [routing.Layer.Originate]
+// both append the neighbor-pending step last, naming the address in the same
+// trace.Subject shape, so recovering it here needs no change to either.
+func neighborPendingAddr(res routing.Result) (netip.Addr, bool) {
+	if len(res.Steps) == 0 {
+		return netip.Addr{}, false
+	}
+	last := res.Steps[len(res.Steps)-1]
+	if last.RuleID != trace.RuleID(routing.ReasonNeighborPending) {
+		return netip.Addr{}, false
+	}
+
+	addr, err := netip.ParseAddr(last.Subject.Key)
+	return addr, err == nil
 }
 
 // recordPVSTBoundaries notes every port of the journey in progress that faces
@@ -810,6 +907,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 	s.lagRebalanceHits = nil
 	s.mcastQueryUnobservedHits = nil
 	s.pvstBoundaryHits = nil
+	s.neighborUnresolvedHits = nil
 	if mutate {
 		s.copies = nil
 	}
@@ -872,6 +970,34 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		if res, handled := s.interceptLoopProtect(now, ingress, f, mutate); handled {
 			s.forwardingDependencies(ingress).consult(&res)
 			return s.finishForward(now, ingress, f, res, mutate)
+		}
+	}
+
+	// Observation is a side effect, not an interception: an ARP or Neighbor
+	// Discovery frame still takes its ordinary path below, unlike the
+	// multicast control redirect at forwardMulticastControl, so a switch
+	// that swallowed an ARP broadcast would not break the resolution it is
+	// modelling. mutate gates the write the way it gates every other
+	// mutation on this path, so Peek never observes.
+	if mutate && s.routing != nil {
+		if f.EtherType == ethernet.EtherTypeARP {
+			if msg, err := arp.Decode(f); err == nil {
+				if iface, ok := s.observationInterface(now, ingress, f); ok {
+					s.observeAndRelease(now, arpAdvertisement(iface, msg))
+				}
+			}
+		} else if f.EtherType == ethernet.EtherTypeIPv6 && len(f.Payload) > ip.V6HeaderLen &&
+			f.Payload[6] == protocolICMPv6 {
+			switch f.Payload[ip.V6HeaderLen] {
+			case byte(ndp.NeighborSolicitation), byte(ndp.NeighborAdvertisement):
+				if hdr, icmpPayload, err := ip.Decode(f.Payload); err == nil {
+					if msg, err := ndp.Decode(hdr, icmpPayload); err == nil {
+						if iface, ok := s.observationInterface(now, ingress, f); ok {
+							s.observeAndRelease(now, ndpAdvertisement(iface, msg))
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -940,7 +1066,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				}
 
 				pcp, dei := framePriority(f)
-				routeRes := s.routing.Route(iface, f)
+				routeRes := s.routing.Route(now, iface, f, mutate)
 				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portLookupScopes, ownershipScope)...)
@@ -983,7 +1109,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					if controlCandidate {
 						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 					}
-					routeRes := s.routing.Route(iface, f)
+					routeRes := s.routing.Route(now, iface, f, mutate)
 					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, routeRes, mutate)
 					res.Consult(in.ConsultedPorts()...)
 					res.ConsultScopes(in.ConsultedScopes()...)
@@ -1022,6 +1148,81 @@ func multicastControlCandidate(f ethernet.Frame) bool {
 	default:
 		return false
 	}
+}
+
+// observationInterface finds the routed interface an ARP or Neighbor Discovery
+// frame arrived on, for [Layer.Observe] alone: it never mutates the bridge's
+// forwarding database or admits the frame anywhere, so calling it ahead of
+// the routed-port and bridge blocks below cannot pre-empt what either one
+// decides. A routed port resolves through the same [routing.Layer.ByPort]
+// lookup that block uses; any other ingress classifies through a read-only
+// bridge pass to find its VLAN, then resolves through
+// [routing.Layer.ByVLAN] the way the bridge block does.
+func (s *Switch) observationInterface(now time.Time, ingress string, f ethernet.Frame) (string, bool) {
+	receive := s.ports.Receive(ingress)
+	resolved := receive.Resolved
+	if resolved.Name != "" && receive.Reason == "" {
+		if iface, ok := s.routing.ByPort(resolved.Name); ok {
+			return iface, true
+		}
+	}
+	if s.bridge == nil {
+		return "", false
+	}
+	in, _, ok := s.bridge.Ingress(now, ingress, f, false, false)
+	if !ok {
+		return "", false
+	}
+	return s.routing.ByVLAN(in.FID)
+}
+
+// arpAdvertisement maps an ARP message observed on iface onto the
+// family-neutral [routing.Advertisement] the neighbor state machine takes.
+// An ARP reply maps to {Solicited: true, Override: true}, which is what
+// makes RFC 4861 section 7.2.5 rule II reproduce RFC 826's unconditional
+// merge rule for a reply; an ARP request's sender fields map to
+// {Solicited: false, Override: true}, since a request only refreshes a
+// binding rather than confirming the forward path. See the arp package
+// README for the mapping's derivation.
+func arpAdvertisement(iface string, m arp.Message) routing.Advertisement {
+	return routing.Advertisement{
+		Interface: iface,
+		Addr:      m.SenderAddr,
+		MAC:       m.SenderMAC,
+		HasMAC:    true,
+		Solicited: m.Operation == arp.Reply,
+		Override:  true,
+	}
+}
+
+// ndpAdvertisement maps a Neighbor Solicitation or Advertisement observed on
+// iface onto a [routing.Advertisement]. The ndp package already leaves
+// Router, Solicited, and Override false for a solicitation (RFC 4861
+// sections 4.3 and 4.4), so a direct field copy carries the right meaning
+// for both message types without a type switch.
+func ndpAdvertisement(iface string, m ndp.Message) routing.Advertisement {
+	return routing.Advertisement{
+		Interface: iface,
+		Addr:      m.Target,
+		MAC:       m.LinkLayerAddr,
+		HasMAC:    m.HasLinkLayerAddr,
+		Solicited: m.Solicited,
+		Override:  m.Override,
+		Router:    m.Router,
+	}
+}
+
+// observeAndRelease applies adv and flushes whatever it freed or gave up on
+// in the same call, rather than leaving a resolved entry's queue for a
+// caller to notice. [routing.Layer.NextWake] reports a timer for an
+// Incomplete entry only, so a fabric run that scheduled a wake for the old
+// deadline cancels it the moment Observe resolves the entry — nothing else
+// would ever flush that queue. Wake also settles any other entry whose
+// resolution deadline has separately passed by now, which is the same
+// answer a caller-driven Wake at this instant would give.
+func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
+	s.routing.Observe(now, adv)
+	s.applyRoutingEffects(now, s.routing.Wake(now))
 }
 
 func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {
@@ -1439,8 +1640,16 @@ func (s *Switch) assembleRouteResult(
 	routeScopes := routeRes.ConsultedScopes()
 	if routeRes.Reason != "" {
 		outcome := trace.Dropped
-		if routeRes.Reason == routing.ReasonNotRouted {
+		switch routeRes.Reason {
+		case routing.ReasonNotRouted:
 			outcome = trace.Consumed
+		case routing.ReasonNeighborPending:
+			// Pending is not a drop: R21's acceptance example requires a
+			// frame that neither arrived nor failed.
+			outcome = trace.Held
+			if addr, ok := neighborPendingAddr(routeRes); ok {
+				s.recordNeighborUnresolved(routeRes.Interface, addr)
+			}
 		}
 		steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps))
 		steps = append(steps, ingressSteps...)
@@ -1617,6 +1826,9 @@ func (s *Switch) Age(now time.Time) {
 	}
 	if s.mcast != nil {
 		s.mcast.Age(now)
+	}
+	if s.routing != nil {
+		s.routing.Age(now)
 	}
 }
 
@@ -2409,7 +2621,7 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		// tagged, untagged where it is the port's untagged VLAN, and not at
 		// all where the port does not carry it.
 		if em.VID == 0 {
-			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame})
+			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 
 			continue
 		}
@@ -2417,7 +2629,7 @@ func (s *Switch) applySTPEffects(fx stp.Effects) {
 		if !ok {
 			continue
 		}
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress})
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
@@ -2466,7 +2678,7 @@ func (s *Switch) applyLoopProtectEffects(fx loopprotect.Effects) {
 		if !ok {
 			continue
 		}
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress})
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
@@ -2520,11 +2732,99 @@ func (s *Switch) sameUntaggedDomain(name string, sent, classified vlan.ID) bool 
 
 func (s *Switch) applyLAGEffects(now time.Time, fx lag.Effects) {
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission(em))
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
 	for _, lagName := range fx.Changed {
 		s.updateLagState(now, lagName)
 	}
+}
+
+// applyRoutingEffects turns the routing layer's neighbor-resolution outcomes
+// into what [Switch.Wake]'s caller can observe: a released frame becomes an
+// Emission with Protocol false, since it is ordinary data the switch is
+// finally able to send rather than a protocol frame of the switch's own, and
+// a frame the hold queue gave up on becomes a trace step rather than
+// vanishing silently.
+func (s *Switch) applyRoutingEffects(now time.Time, fx routing.Effects) {
+	for _, hf := range fx.Released {
+		s.releaseHeldFrame(now, hf)
+	}
+	for _, hf := range fx.Failed {
+		s.neighborFailures = append(s.neighborFailures, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(routing.ReasonNeighborMiss),
+			Subject: trace.Subject{Kind: "interface", Key: hf.Interface},
+			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, "", "", routing.ReasonNeighborMiss)},
+		})
+	}
+}
+
+// releaseHeldFrame resolves the port a released frame for routed interface
+// hf.Interface leaves through, the same egress path [Switch.assembleRouteResult]
+// builds for a route resolved live: a VLAN interface's frame goes out through
+// [bridge.Bridge.Egress] with the synthetic ingress a routed frame already
+// uses, and a routed port's frame transmits directly, through its LAG member
+// selection if it has one. Either way a drop the egress attempt itself
+// reports becomes a trace step rather than a silently discarded frame,
+// because a released frame the bridge or port refuses is a different answer
+// from one that was never held.
+func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
+	egressIface, ok := s.routing.Interface(hf.Interface)
+	if !ok {
+		return
+	}
+
+	if egressIface.VLAN != 0 {
+		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, Now: now, Commit: true}, hf.Frame)
+		for _, eg := range res.Egress {
+			if eg.Dropped != "" {
+				s.neighborFailures = append(s.neighborFailures, trace.Step{
+					Layer:   port.LayerRouting,
+					Op:      trace.OpDrop,
+					RuleID:  trace.RuleID(eg.Dropped),
+					Subject: trace.Subject{Kind: "port", Key: eg.Port},
+					Outputs: []trace.Fact{routing.EgressFact(hf.Interface, eg.Port, eg.Member, eg.Dropped)},
+				})
+
+				continue
+			}
+			s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame})
+		}
+
+		return
+	}
+
+	member, txReason := s.ports.Transmit(egressIface.Port, len(hf.Frame.Payload))
+	if txReason != "" {
+		s.neighborFailures = append(s.neighborFailures, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID("port.status." + string(txReason)),
+			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressIface.Port, member, txReason)},
+		})
+
+		return
+	}
+
+	p, _ := s.ports.Port(egressIface.Port)
+	if p.Kind == port.Lag {
+		sel := s.selectOrPeekMember(now, egressIface.Port, hf.Frame, 0, true)
+		if !sel.OK {
+			s.neighborFailures = append(s.neighborFailures, trace.Step{
+				Layer:   port.LayerRouting,
+				Op:      trace.OpDrop,
+				RuleID:  "lag.egress.no_member",
+				Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
+				Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressIface.Port, "", bridge.ReasonNoMember)},
+			})
+
+			return
+		}
+	}
+
+	s.emissions = append(s.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame})
 }
 
 func (s *Switch) updateLagState(now time.Time, lagName string) {
@@ -2601,6 +2901,18 @@ func (s *Switch) Drain() []Emission {
 	return em
 }
 
+// DrainNeighborFailures returns and clears the trace steps [Switch.Wake]
+// recorded for held frames whose neighbor resolution timed out: each names
+// the interface the frame was held on with outcome Dropped and reason
+// [routing.ReasonNeighborMiss], the same way [Switch.Drain] returns and
+// clears released frames as emissions.
+func (s *Switch) DrainNeighborFailures() []trace.Step {
+	steps := s.neighborFailures
+	s.neighborFailures = nil
+
+	return steps
+}
+
 // Roles returns the runtime spanning tree status for each configured port,
 // or nil if the spanning tree layer is absent.
 func (s *Switch) Roles() map[string]stp.PortInfo {
@@ -2672,6 +2984,10 @@ func (s *Switch) Wake(now time.Time) {
 		fx := s.loopprotect.Wake(now)
 		s.applyLoopProtectEffects(fx)
 	}
+	if s.routing != nil {
+		fx := s.routing.Wake(now)
+		s.applyRoutingEffects(now, fx)
+	}
 }
 
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
@@ -2700,6 +3016,9 @@ func (s *Switch) NextWake() (time.Time, bool) {
 	}
 	if s.loopprotect != nil {
 		update(s.loopprotect.NextWake())
+	}
+	if s.routing != nil {
+		update(s.routing.NextWake())
 	}
 
 	return earliest, hasTimer
@@ -2762,6 +3081,12 @@ const IssueLAGRebalanceUnmodeled analysis.IssueCode = "lag-rebalance-unmodeled"
 // router state tables call for but that was never observed within the last
 // member query time, though the VLAN has a router port.
 const IssueMcastQueryUnobserved analysis.IssueCode = "mcast-query-unobserved"
+
+// IssueNeighborUnresolved indicates that a forward or peek's routing
+// resolution depends on a next hop's neighbor entry that is newly or still
+// Incomplete: netsim has not observed an answer yet, which is not the same
+// claim as [routing.ReasonNeighborMiss]'s definite failure.
+const IssueNeighborUnresolved analysis.IssueCode = "neighbor-unresolved"
 
 // IssuePVSTBoundary indicates that a journey crossed a port where per-VLAN
 // spanning tree meets a protocol that runs one tree for many VLANs, so the
@@ -2896,6 +3221,13 @@ func (s *Switch) recordLAGSelection(lagName string, sel lag.Selection) {
 // wrapResult can raise mcast-query-unobserved for that group.
 func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr) {
 	s.mcastQueryUnobservedHits = append(s.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group})
+}
+
+// recordNeighborUnresolved notes that the forward or peek call in progress
+// resolved (iface, addr) as pending, so wrapResult can raise
+// neighbor-unresolved for that lookup.
+func (s *Switch) recordNeighborUnresolved(iface string, addr netip.Addr) {
+	s.neighborUnresolvedHits = append(s.neighborUnresolvedHits, neighborUnresolvedHit{iface: iface, addr: addr})
 }
 
 // lagSelector adapts a switch's LAG layer to [bridge.Selector] and

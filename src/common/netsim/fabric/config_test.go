@@ -937,7 +937,7 @@ func TestHostWithOffLinkGatewayHasNoDefaultRoute(t *testing.T) {
 		t.Errorf("reason = %q, want %q", withdrawn[0].Reason, routing.WithdrawnUnresolved)
 	}
 
-	res := stack.Originate(routing.DefaultVRF, netip.MustParseAddr("192.0.2.9"), 17, []byte("payload"))
+	res := stack.Originate(fixedTime, routing.DefaultVRF, netip.MustParseAddr("192.0.2.9"), 17, []byte("payload"), true)
 	if res.Reason != routing.ReasonNoRoute {
 		t.Errorf("off-link send reason = %q, want %q", res.Reason, routing.ReasonNoRoute)
 	}

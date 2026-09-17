@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/mcast"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/port"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/stp"
 )
 
@@ -114,6 +115,19 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 			return next.stp == nil || next.stp.Forwards(name, vid)
 		})
 		restoreMulticastState(next, retained)
+	}
+
+	// Both sides are compared as New left them, the same reason the STP arm
+	// above does: New stamps the assigned base MAC onto every zero routed
+	// interface, so diffing raw input against a filled one would rebuild the
+	// routing layer on every derive. A held frame belongs to the run that
+	// queued it, not to the configuration, so it is never retained: a derived
+	// switch that silently carried someone else's in-flight frames would make
+	// two forks compare unequal for a reason neither configuration shows.
+	if cur != nil && cur.routing != nil && next.cfg.Routing != nil && cur.cfg.Routing != nil &&
+		len(routing.Diff(*cur.cfg.Routing, *next.cfg.Routing)) == 0 {
+		next.routing = cur.routing.Clone()
+		next.routing.DiscardHeld()
 	}
 
 	if cur == nil || cur.bridge == nil || next.bridge == nil {

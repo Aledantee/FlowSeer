@@ -352,3 +352,16 @@ func (l *Layer) Clone() *Layer {
 	}
 	return cp
 }
+
+// DiscardHeld drops every neighbor entry's held-frame queue without changing
+// its state, expiry, or link-layer address. A frame in flight belongs to the
+// run that queued it, not to configuration a later derive retains: a cloned
+// layer that kept someone else's in-flight frames would make two forks
+// compare unequal for a reason neither configuration shows.
+func (l *Layer) DiscardHeld() {
+	for _, vs := range l.vrfs {
+		for _, entry := range vs.neighbors {
+			entry.queue = nil
+		}
+	}
+}

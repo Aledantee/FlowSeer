@@ -1911,7 +1911,7 @@ func CasePlanningECMPCandidatesRecorded() Case {
 			`interface="out-a";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
 			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out-a|10.0.20.7,10.0.30.7|out-b|10.0.30.7]`)
 	neighbor := expectedFact("routing.neighbor_decision",
-		`interface="out-a";address="10.0.20.7";present=true;mac="02:00:00:00:00:a1"`)
+		`interface="out-a";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1"`)
 	packetOut := expectedFact("routing.packet_decision",
 		`interface="out-a";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
 
@@ -2033,7 +2033,7 @@ func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
 			`interface="out";kind="static";hash_src="10.0.10.7";hash_dst="10.0.99.5";hash_flow_label=0;`+
 			`hash=2072557066;chosen=0;candidates=[10.0.20.7|out|10.0.20.7]`)
 	neighbor := expectedFact("routing.neighbor_decision",
-		`interface="out";address="10.0.20.7";present=true;mac="02:00:00:00:00:a1"`)
+		`interface="out";address="10.0.20.7";state="reachable";mac="02:00:00:00:00:a1"`)
 	packetOut := expectedFact("routing.packet_decision",
 		`interface="out";ether_type=2048;src="10.0.10.7";dst="10.0.99.5";hop_limit=63;valid=true;reason=""`)
 

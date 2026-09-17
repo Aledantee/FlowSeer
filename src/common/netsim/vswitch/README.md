@@ -283,7 +283,8 @@ Drop reasons recorded in traces and egress records:
 | `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
-| `neighbor-miss`    | Next-hop IP address has no matching neighbor MAC entry  |
+| `neighbor-miss`    | Next hop's VRF resolves no neighbors, or the entry already failed |
+| `neighbor-pending` | Next hop's neighbor entry is newly or still unresolved (not a drop; outcome `Held`) |
 | `not-routed`       | Frame addressed to local interface address (consumed)   |
 | `bad-header`       | IP packet header failed decoding or checksum validation |
 | `not-bridged`      | Frame on a routed port not addressed to interface MAC   |
@@ -315,12 +316,18 @@ explicit calls:
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `ClearLoopProtect(now, port)` manually lifts the loop-protection action
   applied to the named port.
-- `Wake(now)` fires due timers across spanning tree, loop protection, and link
-  aggregation, flushing bridge entries and triggering periodic transmissions.
+- `Wake(now)` fires due timers across spanning tree, loop protection, link
+  aggregation, and neighbor resolution, flushing bridge entries, triggering
+  periodic transmissions, releasing a held frame whose entry resolved since
+  the last wake, and failing one whose resolution deadline passed.
 - `NextWake()` reports the earliest deadline when the switch needs a wake
-  across all three layers.
+  across all four layers.
 - `Drain()` returns and clears pending frame emissions produced by the
-  protocol layers.
+  protocol layers and by a released held frame.
+- `DrainNeighborFailures()` returns and clears the trace steps `Wake`
+  recorded for held frames whose neighbor resolution timed out, the released
+  half's counterpart: a frame that vanished with neither a step nor an entry
+  would be the same silent answer the neighbor lifecycle exists to remove.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
