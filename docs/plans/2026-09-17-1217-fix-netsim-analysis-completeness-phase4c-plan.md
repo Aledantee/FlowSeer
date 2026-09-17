@@ -5,7 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: code
 amends: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-phase4b-plan.md
 parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
@@ -14,6 +14,8 @@ parent: docs/plans/2026-09-12-1339-feat-netsim-analysis-completeness-plan.md
 # Network simulation analysis completeness, phase 4c: a held frame's exit is accounted for - Plan
 
 > Implemented. 5 units, 2026-09-17T10:29Z to 2026-09-17T11:14Z.
+> Reviewed; one fix round closed every correctness finding, including a
+> conservation hole on the `Route` path the first conservation test could not see.
 
 ## Goal
 
@@ -227,22 +229,20 @@ the arm this phase exists for, would go untested. `DiscardHeld` clears both
 lists, so the discard rule carries over unchanged. Cost if wrong: one line in
 the test's observer and a weaker assertion direction.
 
-Ruled: of the two silent exits U3 names, only one is constructible, and the
-other lands as a documented guard rather than a tested fix. Why: the decision
-above reads `bridge.replicate`'s no-candidate return as the SVI arm's silent
-exit, but a released frame reaches `replicate` only on a unicast miss, and the
-advertisement that resolved the neighbor had to arrive over a live member of
-that same VLAN, which is then a live flood candidate — the observing `Forward`
-is the releasing call, so there is no window in between. `Bridge.Egress`'s
-known-unicast arm appends a `Dropped` egress entry for a down port, so that
-path was never silent either. The arm that *is* silent is LAG member selection
-failing (`bridge.go:1112`), which returns `ReasonNoMember` with no egress
-entry; `TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason`
-constructs it over a LAG whose LACP never converged. The
-`routing.Interface`-unknown return is likewise not constructible and keeps a
-stated reason, `ReasonHeldInterfaceUnknown`. Cost if wrong: both guards are
-four lines each and already record; a later test that reaches either one needs
-no production change.
+Ruled, and later corrected by review: the `len(res.Egress) == 0` guard is
+reachable and now has a test. The original ruling claimed the silent arm was
+LAG member selection failing; that was wrong, because `selectMember` appends
+its own `Dropped` egress entry before returning false (`bridge.go:1410`), so
+`TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason` takes the
+pre-existing `eg.Dropped` arm and pins the bridge's reason reaching
+`NeighborDrop`, not a drop that used to vanish. The reachable silent case is a
+flood VLAN with no member port at all, which
+`TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason` constructs. The
+`routing.Interface`-unknown return remains unconstructible and keeps a stated
+reason, `ReasonHeldInterfaceUnknown`; an unrecognised `HeldCause` now gets the
+same treatment under `ReasonHeldCauseUnknown` rather than being dropped by a
+switch with no default arm. Cost if wrong: the two remaining guards are four
+lines each and already record.
 
 Ruled: the four protocol append sites do not gain an explicit `PCP: 0`. Why:
 zero is the field's zero value and what the deleted derivation returned for all
