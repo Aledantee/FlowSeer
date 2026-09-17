@@ -381,8 +381,14 @@ func TestCollect_FailedOptionalTableIsolated(t *testing.T) {
 }
 
 func TestCollect_Identity(t *testing.T) {
+	// The child arc has to be one no configured module declares, or the
+	// resolver finds that deeper node instead and the case stops testing
+	// nearest-ancestor resolution. No vendor registers under the maximum
+	// arc, which is what makes it safe here and in unknown below.
+	const undeclaredArc = 4294967295
+
 	known := sysobjectid.Entries()[0]
-	unknown := snmp.MustOID(1, 3, 6, 1, 4, 1, 4294967295, 1)
+	unknown := snmp.MustOID(1, 3, 6, 1, 4, 1, undeclaredArc, 1)
 
 	tests := []struct {
 		name      string
@@ -391,7 +397,7 @@ func TestCollect_Identity(t *testing.T) {
 		wantKnown bool
 		wantErr   error
 	}{
-		{"resolved", []vbFixture{oidVar(sysObjectIDOID, known.OID.Append(7))}, known.OID.Append(7), true, nil},
+		{"resolved", []vbFixture{oidVar(sysObjectIDOID, known.OID.Append(undeclaredArc))}, known.OID.Append(undeclaredArc), true, nil},
 		{"unresolved keeps the OID", []vbFixture{oidVar(sysObjectIDOID, unknown)}, unknown, false, nil},
 		{"unreadable", nil, snmp.OID{}, false, errs.New().Code(collect.ErrCodeIdentity).Msg("identity")},
 	}

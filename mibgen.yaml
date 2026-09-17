@@ -13,6 +13,8 @@ search_paths:
   # Vendor product trees listed only for the sysobjectid identity table.
   - spec/mib/ruckus/icx
   - spec/mib/lancom/lcos
+  - spec/mib/cisco/products
+  - spec/mib/cisco/smb
 
 modules:
   - name: SNMPv2-SMI
@@ -84,6 +86,21 @@ modules:
   # without it those parents are absent from the identity table.
   - { name: HH3C-OID-MIB,        package: hh3coid }
   - { name: HH3C-PRODUCT-ID-MIB, package: hh3cproductid }
+  # CISCO-SMI declares the roots under enterprises 9 — ciscoProducts among
+  # them — that CISCO-PRODUCTS-MIB hangs its models off. Without it those
+  # parents are absent, and a product OID the products module does not name
+  # has no Cisco ancestor to fall back to.
+  - { name: CISCO-SMI,           package: ciscosmi }
+  # The sysObjectID every IOS, IOS-XE, and NX-OS box reports, Catalyst
+  # switches and 9800 wireless controllers included: ~2950 product nodes
+  # under ciscoProducts and not one table.
+  - { name: CISCO-PRODUCTS-MIB,  package: ciscoproducts }
+  # The small-business line (CBS, SG, Catalyst 1200/1300) sits outside
+  # ciscoProducts, under enterprises 9.6.1, and reports a per-family OID
+  # below the switch001 node this module declares. The families themselves
+  # are in no public MIB, so a CBS350 resolves to switch001 rather than to
+  # its model — enough to know the vendor and the firmware line.
+  - { name: CISCOSB-MIB,         package: ciscosbmib }
   # LCOS-MIB carries the LANCOM product nodes (enterprises 2356) together
   # with the whole LCOS status and setup tree, so unlike the identity-only
   # modules above it costs a full package. LANCOM ships one full copy per
