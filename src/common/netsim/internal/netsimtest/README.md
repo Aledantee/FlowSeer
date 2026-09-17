@@ -124,6 +124,13 @@ established across the library:
   prefix. The lookup fact names both next hops in canonical order and the index
   of the one the flow hash chose, disproving the false answer that one route
   wins and the alternatives are invisible.
+- `troubleshooting/neighbor-resolution-pending`: A routed forward's next hop
+  has no configured neighbor and none has been observed yet. The frame holds
+  with outcome Held and reason `neighbor-pending`, and the forward's metadata
+  carries `neighbor-unresolved` at Incomplete scoped to the neighbor lookup,
+  disproving the false answer that an unresolved next hop is a definite drop.
+  The case goes on to observe an ARP reply and wake the switch, proving the
+  hold is releasable rather than a disguised, permanent drop.
 - `troubleshooting/recursive-route-not-installed`: A `/24` static route names a
   next hop no other route reaches. The device still constructs, the `/24` is
   withdrawn instead of installed, and the packet takes the less specific `/8`

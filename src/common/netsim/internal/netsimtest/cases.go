@@ -1,12 +1,14 @@
 package netsimtest
 
 import (
+	"fmt"
 	"net/netip"
 	"slices"
 	"time"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -2015,6 +2017,170 @@ func CasePlanningECMPCandidatesRecorded() Case {
 	}
 }
 
+// CaseTroubleshootingNeighborResolutionPending returns the case evaluating what a
+// routed forward does when its next hop has no configured or observed neighbor entry:
+// whether it is indistinguishable from a definite drop, or a hold netsim can still release.
+func CaseTroubleshootingNeighborResolutionPending() Case {
+	routerMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}
+	hostMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0x51}
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
+	source := netip.MustParseAddr("10.0.10.7")
+	destination := netip.MustParseAddr("10.0.20.77")
+
+	packetIn := expectedFact("routing.packet_decision",
+		`interface="in";ether_type=2048;src="10.0.10.7";dst="10.0.20.77";hop_limit=64;valid=true;reason=""`)
+	lookup := expectedFact("routing.lookup_decision",
+		`vrf="default";destination="10.0.20.77";matched=true;prefix="10.0.20.0/24";next_hop="invalid IP";`+
+			`interface="out";kind="connected";hash_src="10.0.10.7";hash_dst="10.0.20.77";hash_flow_label=0;`+
+			`hash=336306069;chosen=0;candidates=[invalid IP|out|invalid IP]`)
+	neighborPending := expectedFact("routing.neighbor_decision",
+		`interface="out";address="10.0.20.77";state="incomplete";mac="00:00:00:00:00:00"`)
+
+	neighborScope := routing.NeighborLookupScope("", "default", "out", destination)
+	var cat analysis.EvidenceCatalog
+	neighborUnresolvedEvidence := analysis.Evidence{
+		Kind:   "vswitch.runtime",
+		Origin: "forward",
+		Context: fmt.Sprintf("code=%q,status=%q,scope=%q",
+			vswitch.IssueNeighborUnresolved.String(), analysis.Incomplete.String(), neighborScope.String()),
+	}
+	var refNeighborUnresolved trace.EvidenceRef
+	cat, refNeighborUnresolved = cat.Add(neighborUnresolvedEvidence)
+	expectedIssue := IssueExpectation{
+		Code:     vswitch.IssueNeighborUnresolved,
+		Status:   analysis.Incomplete,
+		Scope:    neighborScope,
+		Evidence: []trace.EvidenceRef{refNeighborUnresolved},
+	}
+	resultMetadata := MetadataExpectation{
+		Status:   analysis.Incomplete,
+		Scope:    analysis.NodeScope(""),
+		Issues:   []IssueExpectation{expectedIssue},
+		Evidence: cat.Entries(),
+	}.Canonical()
+
+	expectedSteps := []StepExpectation{
+		expectedStep(port.LayerRouting, trace.OpClassify, "classify", trace.Subject{Kind: "interface", Key: "in"},
+			[]FactExpectation{packetIn},
+			[]FactExpectation{expectedFact("routing.route.interface", "in")}),
+		expectedStep(port.LayerRouting, trace.OpLookup, "connected", trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"},
+			[]FactExpectation{packetIn}, []FactExpectation{lookup}),
+		expectedStep(port.LayerRouting, trace.OpLookup, trace.RuleID(routing.ReasonNeighborPending), trace.Subject{Kind: "ip", Key: "10.0.20.77"},
+			[]FactExpectation{lookup}, []FactExpectation{neighborPending}),
+	}
+
+	return Case{
+		ID:      "troubleshooting/neighbor-resolution-pending",
+		UseCase: UseCaseTroubleshooting,
+		Question: "A routed forward's next hop has no configured neighbor and none has been " +
+			"observed yet. Does the frame drop, or does netsim hold it as an open question?",
+		FalseAnswer: "An unresolved next hop is a definite drop, so a plan reads a missing " +
+			"neighbor as a misconfiguration rather than as something netsim has not observed",
+		CurrentResult: "The frame holds with outcome Held and reason neighbor-pending, and the " +
+			"forward's metadata carries IssueNeighborUnresolved at Incomplete scoped to the " +
+			"neighbor lookup, rather than a Complete drop",
+		ExpectedMetadata: &resultMetadata,
+		ExpectedOutcome:  trace.Held,
+		ExpectedReason:   routing.ReasonNeighborPending,
+		ExpectedRules: []trace.RuleID{
+			trace.RuleID("classify"),
+			trace.RuleID("connected"),
+			trace.RuleID(routing.ReasonNeighborPending),
+		},
+		ExpectedSubjects: []trace.Subject{
+			{Kind: "interface", Key: "in"},
+			{Kind: "prefix", Key: "10.0.20.0/24"},
+			{Kind: "ip", Key: "10.0.20.77"},
+		},
+		ExpectedFacts:           []FactExpectation{lookup},
+		ExpectedSteps:           expectedSteps,
+		ExpectedForwardMetadata: &resultMetadata,
+		Execute: func() (ExecutionResult, error) {
+			ports, err := port.NewBuilder().
+				Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+				Build()
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			spec := vswitch.ConstructionSpec{
+				Config: vswitch.Config{
+					Ports: ports,
+					Routing: &routing.Config{VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"in":  {Port: "in", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+								"out": {Port: "out", MAC: routerMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+							},
+							// No neighbors configured: the next hop is on-link but unresolved.
+						},
+					}},
+				},
+			}
+
+			sw, err := vswitch.NewWithSpec(spec)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			now := time.Unix(1700000000, 0)
+
+			hdr := ip.Header{Src: source, Dst: destination, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
+			pkt, err := hdr.Encode([]byte("hello"))
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+
+			fwd := sw.Forward(now, "in", ethernet.Frame{
+				Dst:       routerMAC,
+				Src:       hostMAC,
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   pkt,
+			})
+
+			// Observe an ARP reply for the pending destination and wake the switch, so
+			// the case's own execution proves the hold above is releasable rather than
+			// a disguised, permanent drop.
+			replyMsg := arp.Message{
+				HardwareType: 1,
+				ProtocolType: 0x0800,
+				Operation:    arp.Reply,
+				SenderMAC:    learnedMAC,
+				SenderAddr:   destination,
+				TargetMAC:    routerMAC,
+				TargetAddr:   netip.MustParseAddr("10.0.20.1"),
+			}
+			reply, err := arp.Encode(replyMsg, routerMAC)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			sw.Forward(now.Add(time.Second), "out", reply)
+			sw.Wake(now.Add(time.Second))
+
+			emissions := sw.Drain()
+			if len(emissions) != 1 {
+				return ExecutionResult{}, fmt.Errorf("released emissions = %d, want 1", len(emissions))
+			}
+			if emissions[0].Frame.Dst != learnedMAC {
+				return ExecutionResult{}, fmt.Errorf("released frame dst = %v, want %v", emissions[0].Frame.Dst, learnedMAC)
+			}
+			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+				return ExecutionResult{}, fmt.Errorf("neighbor failures = %d, want 0: %+v", len(failures), failures)
+			}
+
+			return ExecutionResult{
+				Outcome:  fwd.Outcome,
+				Reason:   fwd.Reason,
+				Steps:    fwd.Steps,
+				Metadata: fwd.Metadata,
+				Switch:   sw,
+				Forward:  &fwd,
+			}, nil
+		},
+	}
+}
+
 // CaseTroubleshootingRecursiveRouteNotInstalled returns the case evaluating what a
 // static route whose next hop resolves to nothing does to the packets it would match.
 func CaseTroubleshootingRecursiveRouteNotInstalled() Case {
@@ -2171,6 +2337,7 @@ func RegisterLAGMulticastCases(registry *Registry) {
 // candidate set a lookup records and the withdrawal of an unresolvable static route.
 func RegisterRoutingCases(registry *Registry) {
 	registry.MustRegister(CasePlanningECMPCandidatesRecorded())
+	registry.MustRegister(CaseTroubleshootingNeighborResolutionPending())
 	registry.MustRegister(CaseTroubleshootingRecursiveRouteNotInstalled())
 }
 
