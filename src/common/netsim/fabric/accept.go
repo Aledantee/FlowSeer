@@ -89,6 +89,11 @@ const (
 	// ReasonReflectorUDPPortNotMDNS records a reflector refusing a frame
 	// whose UDP destination port is not 5353.
 	ReasonReflectorUDPPortNotMDNS trace.Reason = "reflector-udp-port-not-mdns"
+
+	// ReasonReflectorNoAddress records a reflector dropping a copy it did not
+	// originate: the target attachment names no address of the accepted
+	// datagram's family.
+	ReasonReflectorNoAddress trace.Reason = "reflector-no-address"
 )
 
 var (
@@ -162,9 +167,9 @@ func udpPortsFactFor(header udp.Header) trace.Fact {
 // arriveReflector records a reflector's decision on an arrived frame,
 // journaled on the arriving frame's own journey rather than on any copy: a
 // copy does not exist yet at this point, only the frame that reached the
-// reflector. Unlike arrive, it never appends to Deliveries, since a
-// reflector's acceptance is not a host taking delivery of a frame, and
-// Compare pairs journeys on Deliveries alone.
+// reflector. Unlike arrive, it never appends to Deliveries, since an
+// EntryReflection is not a host taking delivery of a frame, and Compare pairs
+// journeys on Deliveries alone.
 func (f *Fabric) arriveReflector(j *Journey, name string, refl Reflector, arrivalPort string, frame ethernet.Frame, at time.Time) Entry {
 	kind, step, reason := acceptReflector(name, refl, arrivalPort, frame)
 	var raised []analysis.Issue
@@ -187,10 +192,8 @@ func (f *Fabric) arriveReflector(j *Journey, name string, refl Reflector, arriva
 // matches an attachment on the arrival port, that its destination MAC is the
 // IPv4 or IPv6 mDNS group MAC, that its IP destination is the corresponding
 // mDNS group, that its protocol is UDP, and that its UDP destination is port
-// 5353. It returns EntryDelivery, EntryRejection, or EntryUnresolved, with the
-// step of the deciding rule over the facts read up to it. EntryDelivery here
-// means the reflector accepted the frame for reflection, not that a host took
-// delivery of it.
+// 5353. It returns EntryReflection, EntryRejection, or EntryUnresolved, with
+// the step of the deciding rule over the facts read up to it.
 func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethernet.Frame) (EntryKind, trace.Step, trace.Reason) {
 	inputs := []trace.Fact{vlanTagsFact(frame.Tags)}
 	decide := func(kind EntryKind, rule trace.RuleID, reason trace.Reason) (EntryKind, trace.Step, trace.Reason) {
@@ -246,7 +249,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 		return decide(EntryRejection, ruleReflectorUDPPort, ReasonReflectorUDPPortNotMDNS)
 	}
 
-	return decide(EntryDelivery, ruleReflectorUDPPort, "")
+	return decide(EntryReflection, ruleReflectorUDPPort, "")
 }
 
 // acceptsTags reports whether tags is the tag form of one of the reflector's

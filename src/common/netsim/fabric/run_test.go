@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/netsim/fabric"
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
@@ -2407,5 +2408,290 @@ func TestInjectRefusesTimeBeforeRunningClock(t *testing.T) {
 	after := fab.Snapshot()
 	if len(after.Queue) != len(before.Queue) || len(after.Queued) != len(before.Queued) {
 		t.Errorf("rejected injection changed pending work: before=%+v after=%+v", before, after)
+	}
+}
+
+var (
+	reflectR1Address = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0xaa}
+	reflectH1Address = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x01}
+	reflectH2Address = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x02}
+	reflectH3Address = netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0x03}
+)
+
+// reflectCopyConfig cables a reflector directly to three hosts, one per
+// attachment, so each attachment's fate is unambiguous: no switch and no
+// shared port stand between a copy and its destination. Attachment "a" is
+// the arrival side (VLAN 10); "b" (VLAN 20) has an IPv4 address and answers
+// on h2; "c" (VLAN 30) carries only an IPv6 address, so an IPv4 query gives
+// it no copy.
+func reflectCopyConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
+
+	return fabric.Config{
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: reflectH1Address, VLAN: &vid10},
+			"h2": {
+				Address: reflectH2Address, VLAN: &vid20,
+				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+			},
+			"h3": {Address: reflectH3Address, VLAN: &vid30},
+		},
+		Reflectors: map[string]fabric.Reflector{
+			"r1": {
+				Address: reflectR1Address,
+				Ports:   map[string]phy.Ethernet{"rp1": {}, "rp2": {}, "rp3": {}},
+				Attachments: map[string]fabric.Attachment{
+					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
+					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
+					"c": {Port: "rp3", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("fd00::9/64")}},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}},
+			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "r1", Port: "rp3"}},
+		},
+	}
+}
+
+// journeyByParent returns the one reported journey whose Parent is parent, or
+// fails the test: [Fabric.Report] carries every journey the run produced.
+func journeyByParent(t *testing.T, journeys []fabric.Journey, parent fabric.FrameID) fabric.Journey {
+	t.Helper()
+	var found []fabric.Journey
+	for _, j := range journeys {
+		if j.Parent == parent {
+			found = append(found, j)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("journeys with parent %d = %d, want exactly 1: %+v", parent, len(found), found)
+	}
+
+	return found[0]
+}
+
+func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
+	return slices.ContainsFunc(entries, func(e fabric.Entry) bool { return e.Kind == kind })
+}
+
+// TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress
+// covers parent R5 and the no-address case: an mDNS query arriving on one
+// attachment produces exactly one copy, onto the other attachment whose
+// address family it shares, rebuilt end to end, and a drop naming the
+// attachment with no address of that family instead of a second copy.
+func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *testing.T) {
+	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
+	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(20)
+
+	journeys := fab.Report()
+	var parent fabric.Journey
+	for _, j := range journeys {
+		if j.FrameID == parentID {
+			parent = j
+		}
+	}
+	if parent.FrameID == 0 {
+		t.Fatalf("parent journey %d not found", parentID)
+	}
+
+	if !slices.ContainsFunc(parent.Entries, func(e fabric.Entry) bool {
+		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == fabric.ReasonReflectorNoAddress
+	}) {
+		t.Errorf("parent entries = %+v, want a no-address drop naming rp3", parent.Entries)
+	}
+
+	copyJourney := journeyByParent(t, journeys, parentID)
+
+	ipHeader, ipPayload, err := ip.Decode(copyJourney.Injection.Frame.Payload)
+	if err != nil {
+		t.Fatalf("decode copy IP header: %v", err)
+	}
+	if !ipHeader.Src.Is4() || ipHeader.Src != netip.MustParseAddr("10.0.20.9") {
+		t.Errorf("copy IP src = %s, want attachment b's address", ipHeader.Src)
+	}
+	if ipHeader.HopLimit != 255 {
+		t.Errorf("copy hop limit = %d, want 255", ipHeader.HopLimit)
+	}
+	udpHeader, _, err := udp.Decode(ipPayload)
+	if err != nil {
+		t.Fatalf("decode copy UDP header: %v", err)
+	}
+	if udpHeader.SrcPort != 5353 {
+		t.Errorf("copy UDP source port = %d, want 5353", udpHeader.SrcPort)
+	}
+	wantTags := []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
+	if !slices.Equal(copyJourney.Injection.Frame.Tags, wantTags) {
+		t.Errorf("copy tags = %+v, want %+v", copyJourney.Injection.Frame.Tags, wantTags)
+	}
+	if copyJourney.Injection.Frame.Src != reflectR1Address {
+		t.Errorf("copy source MAC = %s, want the reflector's own %s", copyJourney.Injection.Frame.Src, reflectR1Address)
+	}
+
+	if len(copyJourney.Deliveries) != 1 || copyJourney.Deliveries[0].Host != "h2" {
+		t.Fatalf("copy deliveries = %+v, want h2 to decode it", copyJourney.Deliveries)
+	}
+	if journeyHasKind(copyJourney.Entries, fabric.EntryUnresolved) {
+		t.Errorf("copy entries = %+v, want no undecodable arrival at h2", copyJourney.Entries)
+	}
+}
+
+// reflectLoopConfig cables two reflectors directly to each other on a trunk
+// carrying VLANs 10 and 20, with h1 feeding VLAN 10 queries into r1's own
+// attachment on a separate port. This is parent R6's two-reflector,
+// two-VLAN loop, and it is also the reflector-to-reflector cable the
+// Decisions require the far end to enqueue rather than call inline: r1 and
+// r2 are cabled to each other with no switch between them.
+func reflectLoopConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	vid10, vid20 := vlan.ID(10), vlan.ID(20)
+
+	return fabric.Config{
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: reflectH1Address, VLAN: &vid10},
+		},
+		Reflectors: map[string]fabric.Reflector{
+			"r1": {
+				Address: reflectR1Address,
+				Ports:   map[string]phy.Ethernet{"up": {}, "trunk": {}},
+				Attachments: map[string]fabric.Attachment{
+					"up":  {Port: "up", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
+					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}},
+					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.10/24")}},
+				},
+			},
+			"r2": {
+				Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x02, 0xbb},
+				Ports:   map[string]phy.Ethernet{"trunk": {}},
+				Attachments: map[string]fabric.Attachment{
+					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.20/24")}},
+					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.20/24")}},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "up"}},
+			{A: fabric.Endpoint{Node: "r1", Port: "trunk"}, B: fabric.Endpoint{Node: "r2", Port: "trunk"}},
+		},
+	}
+}
+
+// TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget covers parent R6: r1
+// and r2 keep reflecting each other's copies back and forth over their
+// direct trunk, an EntryLoop lands once entered is exhausted, and the run
+// stops on Run's budget rather than draining the queue or overflowing the
+// stack.
+func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
+	fab, err := fabric.New(statedPhysical(reflectLoopConfig(t)))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
+	if _, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+
+	const budget = 40
+	steps := fab.Run(budget)
+	if steps != budget {
+		t.Fatalf("Run(%d) = %d, want the full budget: the loop should not drain the queue", budget, steps)
+	}
+	if err := fab.Err(); err != nil {
+		t.Fatalf("Err() = %v, want no scheduling fault", err)
+	}
+	if got := fab.Snapshot().Queue; len(got) == 0 {
+		t.Error("queue empty after the loop's budget, want pending work still queued")
+	}
+
+	foundLoop := false
+	for _, j := range fab.Report() {
+		if journeyHasKind(j.Entries, fabric.EntryLoop) {
+			foundLoop = true
+		}
+	}
+	if !foundLoop {
+		t.Error("no journey carries an EntryLoop, want the two-reflector loop to surface")
+	}
+}
+
+// reflectSiblingConfig cables one reflector to a switch over a single trunk
+// port carrying three VLANs, with h1 feeding VLAN 10 into the switch. The
+// two sibling copies r1 originates both leave via the same trunk port and
+// arrive at the same switch port endpoint, which is exactly the case a
+// shared (rather than seeded) re-entry set reports as a false loop on the
+// second sibling.
+func reflectSiblingConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
+
+	return fabric.Config{
+		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: reflectH1Address, VLAN: &vid10},
+		},
+		Reflectors: map[string]fabric.Reflector{
+			"r1": {
+				Address: reflectR1Address,
+				Ports:   map[string]phy.Ethernet{"trunk": {}},
+				Attachments: map[string]fabric.Attachment{
+					"a": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
+					"b": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
+					"c": {Port: "trunk", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.9/24")}},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "r1", Port: "trunk"}},
+		},
+	}
+}
+
+// TestReflectorSiblingCopiesAreNotALoop covers parent R7: two sibling copies
+// crossing into the same next-hop endpoint from the same attachment are not
+// a loop. Seeding each copy's entered set from a clone of the parent's is
+// what keeps them apart; sharing one set across the family would mark the
+// switch port entered when the first sibling arrives and falsely flag the
+// second.
+func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
+	fab, err := fabric.New(statedPhysical(reflectSiblingConfig(t)))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
+	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
+	if err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	fab.Run(20)
+
+	journeys := fab.Report()
+	var copies []fabric.Journey
+	for _, j := range journeys {
+		if j.Parent == parentID {
+			copies = append(copies, j)
+		}
+	}
+	if len(copies) != 2 {
+		t.Fatalf("copies = %d, want exactly 2 siblings: %+v", len(copies), copies)
+	}
+	for _, copy := range copies {
+		if journeyHasKind(copy.Entries, fabric.EntryLoop) {
+			t.Errorf("sibling copy %d entries = %+v, want no EntryLoop", copy.FrameID, copy.Entries)
+		}
 	}
 }
