@@ -1275,14 +1275,24 @@ func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Adver
 // never traversed — it is a queued frame going out an egress interface of
 // its own, not the frame forward is currently processing. Left alone that
 // would charge the release's LAG rebalance or neighbor-unresolved issues to
-// the observing frame's result, so observeAndRelease snapshots
-// s.lagRebalanceHits and s.neighborUnresolvedHits first and restores them
-// after, discarding whatever the release added; the observing frame's own
-// processing, which runs after this call returns, still records its own
-// hits onto the restored state.
+// the observing frame's result, so observeAndRelease saves
+// s.lagRebalanceHits and s.neighborUnresolvedHits, then clears both to their
+// zero value before the release runs, so the release always writes into a
+// fresh map and slice rather than one this call is about to hand back:
+// s.lagRebalanceHits is a map, and restoring a saved map reference alone,
+// without first clearing the field, would not undo writes the release makes
+// into that same map, since the saved variable names the same underlying
+// map the release just mutated. Clearing first means the release can only
+// ever write somewhere this call discards, whatever it does. The observing
+// frame's own processing, which runs after this call returns, then records
+// its own hits onto the state this call restores, exactly as if the release
+// in between had never happened.
 func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
 	savedLAGRebalanceHits := s.lagRebalanceHits
 	savedNeighborUnresolvedHits := s.neighborUnresolvedHits
+
+	s.lagRebalanceHits = nil
+	s.neighborUnresolvedHits = nil
 
 	s.routing.Observe(now, adv)
 	s.applyRoutingEffects(now, s.routing.Wake(now))
@@ -2842,7 +2852,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	}
 
 	if egressIface.VLAN != 0 {
-		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, Now: now, Commit: true}, hf.Frame)
+		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, PCP: hf.PCP, DEI: hf.DEI, Now: now, Commit: true}, hf.Frame)
 		for _, eg := range res.Egress {
 			if eg.Dropped != "" {
 				s.neighborFailures = append(s.neighborFailures, trace.Step{

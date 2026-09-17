@@ -3639,13 +3639,29 @@ func TestNeighborDisabledMisses(t *testing.T) {
 	}
 }
 
-// TestNeighborDisabledDoesNotObserve covers the README's claim that a
-// NeighborDisabled VRF never resolves an address it was not told about: an
-// ARP reply observed on such a VRF must not rewrite a statically configured
-// binding, the way it would on a NeighborObserved one. A static neighbor
-// still loads regardless of policy mode (config.go loads it unconditionally),
-// so this proves the gate sits on Observe, not on whether the table holds
-// anything at all.
+// TestNeighborDisabledDoesNotObserve exercises neighborObservationAllowed's
+// gate over a NeighborDisabled VRF, but does not pin it: the VRF here holds
+// only the statically configured binding for ipH2, and
+// [routing.Layer.Observe] already refuses to overwrite a configured binding
+// regardless of mode (see the origin guard in routing/neighbor.go), so the
+// static MAC survives this test whether or not the switch-side mode gate
+// exists. Stubbing neighborObservationAllowed to always return true still
+// leaves this test passing.
+//
+// The gate still stands for what the origin guard does not cover: an
+// observed (non-configured) entry on a VRF whose mode is NeighborDisabled.
+// That state is not constructible through any exported path today. An
+// entry gets origin "observed" only by resolving through
+// [routing.vrfState.resolveNeighbor], which creates one only under
+// [routing.NeighborObserved]; the only way to reach NeighborDisabled from
+// NeighborObserved is a config change through [Derive], and any diff in
+// [routing.Config] — a NeighborPolicy.Mode change included — rebuilds the
+// routing layer from scratch (see derive.go's routing.Diff check), which
+// seeds only configured neighbors, discarding whatever was observed under
+// the old mode. So there is no sequence of exported calls that leaves a
+// NeighborDisabled VRF holding an observed entry for the gate to protect
+// against here; TestDeriveRebuildsRoutingWhenNeighborPolicyChanges pins the
+// rebuild-on-policy-change half of that argument directly.
 func TestNeighborDisabledDoesNotObserve(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -8094,6 +8110,87 @@ func TestARPObservationReleasesHeldFrameOnVLANInterface(t *testing.T) {
 	}
 	if emissions[0].Protocol {
 		t.Errorf("released frame Protocol = true, want false")
+	}
+}
+
+// TestReleasedFrameCarriesIngressPCPAndDEI covers a held frame's egress
+// priority: a tagged frame arrives on a tagged vlan10 port with PCP 5, holds
+// on an unresolved vlan20 next hop, and once the neighbor resolves the frame
+// this releases onto a tagged vlan20 port carries the same PCP 5 the live,
+// non-held path would have used. Before the item 1 fix, releaseHeldFrame
+// built its synthetic bridge.Ingress with PCP and DEI left at zero, so the
+// released frame always egressed at priority 0 regardless of what it
+// arrived with.
+func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
+	p10 := vlan.ID(10)
+	p20 := vlan.ID(20)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Tagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &p20, Tagged: []vlan.ID{20}},
+				},
+			},
+		},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"vlan20": {VLAN: 20, MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+				},
+			},
+		},
+	}
+	sw := mustSwitch(t, cfg)
+
+	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("hello"))
+	frame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       macRouter,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, VID: 10}},
+		Payload:   pkt,
+	}
+
+	held := sw.Forward(fixedTime, "1/1/1", frame)
+	if held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+
+	learnedMAC := macH2
+	reply := makeARPReply(t, ipH2, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
+
+	sw.Wake(fixedTime.Add(time.Second))
+	emissions := sw.Drain()
+	if len(emissions) != 1 {
+		t.Fatalf("emissions = %d, want 1: %+v", len(emissions), emissions)
+	}
+	released := emissions[0]
+	if released.Frame.Dst != learnedMAC {
+		t.Fatalf("released dst MAC = %v, want %v", released.Frame.Dst, learnedMAC)
+	}
+	if len(released.Frame.Tags) != 1 {
+		t.Fatalf("released tags = %+v, want exactly one tag", released.Frame.Tags)
+	}
+	if released.Frame.Tags[0].VID != p20 {
+		t.Errorf("released VID = %v, want %v", released.Frame.Tags[0].VID, p20)
+	}
+	if released.Frame.Tags[0].PCP != 5 {
+		t.Errorf("released PCP = %v, want 5: the ingress priority must survive the hold", released.Frame.Tags[0].PCP)
+	}
+	if released.Frame.Tags[0].DEI {
+		t.Errorf("released DEI = true, want false")
 	}
 }
 
