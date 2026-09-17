@@ -9,7 +9,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -31,14 +31,14 @@ const (
 // Subscriber opens central's dispatch stream. Satisfied by the generated
 // client.
 type Subscriber interface {
-	Subscribe(context.Context, *connect.Request[integrationv1.SubscribeRequest]) (*connect.ServerStreamForClient[integrationv1.SubscribeResponse], error)
+	Subscribe(context.Context, *connect.Request[dispatchv1.SubscribeRequest]) (*connect.ServerStreamForClient[dispatchv1.SubscribeResponse], error)
 }
 
 // Handler applies one dispatch. Returning an error does not end the stream:
 // central re-sends what it is still owed, and a message this edge cannot
 // apply is answered with a refusal rather than by hanging up.
 type Handler interface {
-	Handle(ctx context.Context, message *integrationv1.SubscribeResponse) error
+	Handle(ctx context.Context, message *dispatchv1.SubscribeResponse) error
 }
 
 // Contact is what a watcher outside the loop can see of it.
@@ -185,7 +185,7 @@ func Run(ctx context.Context, cfg Config, contact *Contact) error {
 // attempt opens the stream once and reads it until it ends, returning how
 // many messages it delivered.
 func attempt(ctx context.Context, cfg Config, contact *Contact, log *slog.Logger) (int64, error) {
-	stream, err := cfg.Client.Subscribe(ctx, connect.NewRequest(&integrationv1.SubscribeRequest{}))
+	stream, err := cfg.Client.Subscribe(ctx, connect.NewRequest(&dispatchv1.SubscribeRequest{}))
 	if err != nil {
 		return 0, err
 	}

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/interfaces"
@@ -219,7 +219,7 @@ func TestAPollThatEndsStillOwingRecordsReportsTheGap(t *testing.T) {
 	go func() {
 		deadline := time.Now().Add(30 * time.Second)
 		for time.Now().Before(deadline) {
-			checkpoint := &integrationv1.CheckpointRequest{}
+			checkpoint := &dispatchv1.CheckpointRequest{}
 			checkpoint.SetSequence(req.GetSequence())
 			if err := l.HandleCheckpoint("dev-1", checkpoint); err == nil {
 				return

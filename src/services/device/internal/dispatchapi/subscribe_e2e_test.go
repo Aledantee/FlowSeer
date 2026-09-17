@@ -8,9 +8,8 @@ import (
 	"time"
 
 	connect "connectrpc.com/connect"
-
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 )
 
 // TestSubscribeStreamsOnOpenAndWakesOnChange runs the relay behind the real
@@ -33,18 +32,18 @@ func TestSubscribeStreamsOnOpenAndWakesOnChange(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	path, handler := devicev1connect.NewDispatchServiceHandler(svc)
+	path, handler := dispatchv1connect.NewDispatchServiceHandler(svc)
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
-	client := devicev1connect.NewDispatchServiceClient(srv.Client(), srv.URL)
+	client := dispatchv1connect.NewDispatchServiceClient(srv.Client(), srv.URL)
 
 	if _, err := j.Admit(ctx, deviceID, mutationIntent("0192e6a0-0000-7000-8000-000000000c01"), edgeRef()); err != nil {
 		t.Fatalf("admit: %v", err)
 	}
 
-	stream, err := client.Subscribe(ctx, connect.NewRequest(&integrationv1.SubscribeRequest{}))
+	stream, err := client.Subscribe(ctx, connect.NewRequest(&dispatchv1.SubscribeRequest{}))
 	if err != nil {
 		t.Fatalf("subscribe: %v", err)
 	}

@@ -4,13 +4,13 @@ import (
 	"sync"
 	"testing"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 )
 
-func resultAt(sequence uint64) *integrationv1.ExecuteResult {
-	result := &integrationv1.ExecuteResult{}
+func resultAt(sequence uint64) *dispatchv1.ExecuteResult {
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(sequence)
-	result.SetProgress(&integrationv1.Progress{})
+	result.SetProgress(&dispatchv1.Progress{})
 	return result
 }
 

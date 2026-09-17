@@ -7,7 +7,7 @@ import (
 
 	"github.com/nats-io/nats.go/jetstream"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
@@ -43,10 +43,10 @@ func (f fakeResolver) Hosts(context.Context, string, string) (bool, error) {
 }
 
 type capture struct {
-	msgs []*integrationv1.SubscribeResponse
+	msgs []*dispatchv1.SubscribeResponse
 }
 
-func (c *capture) Send(m *integrationv1.SubscribeResponse) error {
+func (c *capture) Send(m *dispatchv1.SubscribeResponse) error {
 	c.msgs = append(c.msgs, m)
 	return nil
 }
@@ -128,7 +128,7 @@ func typedRead() *accessv1.TypedRead {
 	return read
 }
 
-func pass(t *testing.T, svc *Service) []*integrationv1.SubscribeResponse {
+func pass(t *testing.T, svc *Service) []*dispatchv1.SubscribeResponse {
 	t.Helper()
 	sink := &capture{}
 	if err := svc.dispatchPass(context.Background(), edgeID, sink); err != nil {

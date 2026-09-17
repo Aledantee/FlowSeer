@@ -62,11 +62,11 @@ acknowledged it. Central is the stream's only writer, and an error means the
 record is not held, so a caller that must not release state before its
 record is durable simply does not proceed on an error. Central derives
 nothing from the stream afterwards; the fingerprint and every other fact it
-acts on arrive through `integration/device/v1`'s reports.
+acts on arrive through `edge/dispatch/v1`'s reports.
 
 ## Why this package imports model/inventory directly
 
-Unlike the execution envelope in `integration/device/v1`, which never
+Unlike the execution envelope in `edge/dispatch/v1`, which never
 restates a device or edge ref because every message travels over an
 already-addressed channel, an audit record is read and queried outside any
 live transport context — a compliance report, an incident timeline. It must

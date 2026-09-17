@@ -9,8 +9,8 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -28,7 +28,7 @@ var ErrCodeReadDeadline = errs.NewCode("dispatchapi/read-deadline")
 // sender is the dispatch target. A *connect.ServerStream satisfies it; a test
 // captures the sent messages through the same interface.
 type sender interface {
-	Send(*integrationv1.SubscribeResponse) error
+	Send(*dispatchv1.SubscribeResponse) error
 }
 
 // dispatchPass derives and sends every row the edge's devices owe, sweeping
@@ -78,20 +78,20 @@ func (s *Service) dispatchDevice(ctx context.Context, deviceID string, out sende
 // rowToDispatch builds the wire message for one owed row, or reports that it
 // cannot be built this pass (a mutation whose horizon or admission time is
 // missing, or a read whose entry has gone).
-func (s *Service) rowToDispatch(ctx context.Context, deviceID string, rec *storev1.DeviceLaneRecord, owed journal.Owed) (*integrationv1.SubscribeResponse, bool) {
-	resp := &integrationv1.SubscribeResponse{}
+func (s *Service) rowToDispatch(ctx context.Context, deviceID string, rec *storev1.DeviceLaneRecord, owed journal.Owed) (*dispatchv1.SubscribeResponse, bool) {
+	resp := &dispatchv1.SubscribeResponse{}
 	resp.SetDeviceId(deviceID)
 	switch owed.Kind {
 	case journal.OwedHoldResolved:
-		hr := &integrationv1.HoldResolved{}
+		hr := &dispatchv1.HoldResolved{}
 		hr.SetSequence(owed.Sequence)
 		resp.SetHoldResolved(hr)
 	case journal.OwedCheckpoint:
-		cp := &integrationv1.CheckpointRequest{}
+		cp := &dispatchv1.CheckpointRequest{}
 		cp.SetSequence(owed.Sequence)
 		resp.SetCheckpoint(cp)
 	case journal.OwedTerminalAck:
-		ta := &integrationv1.TerminalResultAck{}
+		ta := &dispatchv1.TerminalResultAck{}
 		ta.SetSequence(owed.Sequence)
 		ta.SetDisposition(owed.Disposition)
 		resp.SetTerminalAck(ta)
@@ -118,7 +118,7 @@ func (s *Service) rowToDispatch(ctx context.Context, deviceID string, rec *store
 // deadline is the admission time plus the binding's delayed-apply horizon, so
 // a resumed dispatch measures the horizon from admission — the moment the
 // command was handed to the device is lost with the edge that held it.
-func (s *Service) mutationExecute(ctx context.Context, deviceID string, rec *storev1.DeviceLaneRecord, owed journal.Owed) (*integrationv1.ExecuteRequest, bool) {
+func (s *Service) mutationExecute(ctx context.Context, deviceID string, rec *storev1.DeviceLaneRecord, owed journal.Owed) (*dispatchv1.ExecuteRequest, bool) {
 	m := rec.GetMutation()
 	admitted := rec.GetAdmittedAt()
 	if admitted == nil {
@@ -130,7 +130,7 @@ func (s *Service) mutationExecute(ctx context.Context, deviceID string, rec *sto
 		s.log.WarnContext(ctx, "cannot dispatch mutation without a horizon", slog.String("flowseer.device.id", deviceID), slog.Uint64("flowseer.device.sequence", owed.Sequence), slog.String("error.type", telemetry.ErrorType(err)))
 		return nil, false
 	}
-	exec := &integrationv1.ExecuteRequest{}
+	exec := &dispatchv1.ExecuteRequest{}
 	exec.SetSequence(owed.Sequence)
 	exec.SetDeadline(timestamppb.New(admitted.AsTime().Add(horizon)))
 	exec.SetIdempotencyKey(m.GetIntent().GetIdempotencyKey())
@@ -143,12 +143,12 @@ func (s *Service) mutationExecute(ctx context.Context, deviceID string, rec *sto
 }
 
 // readExecute builds the ExecuteRequest for an owed read from its open entry.
-func readExecute(rec *storev1.DeviceLaneRecord, sequence uint64) (*integrationv1.ExecuteRequest, bool) {
+func readExecute(rec *storev1.DeviceLaneRecord, sequence uint64) (*dispatchv1.ExecuteRequest, bool) {
 	entry, ok := findRead(rec, sequence)
 	if !ok {
 		return nil, false
 	}
-	exec := &integrationv1.ExecuteRequest{}
+	exec := &dispatchv1.ExecuteRequest{}
 	exec.SetSequence(sequence)
 	exec.SetDeadline(entry.GetDeadline())
 	exec.SetIdempotencyKey(entry.GetIdempotencyKey())

@@ -14,8 +14,8 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	eventv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1/devicev1connect"
-	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/auditapi"
@@ -113,7 +113,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// caller can reach, and the one the bound exists for.
 	mux.Handle(edgev1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
-	dispatchPath, dispatchHandler := integrationv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
+	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
 	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))
 
 	auditPath, auditHandler := eventv1connect.NewAuditServiceHandler(auditService, interceptors, recoverPanic)

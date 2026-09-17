@@ -11,7 +11,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -29,7 +29,7 @@ const (
 
 // Reporter is the Report call this queue drains through.
 type Reporter interface {
-	Report(context.Context, *connect.Request[integrationv1.ReportRequest]) (*connect.Response[integrationv1.ReportResponse], error)
+	Report(context.Context, *connect.Request[dispatchv1.ReportRequest]) (*connect.Response[dispatchv1.ReportResponse], error)
 }
 
 // Confirmer is told when central has taken a report that ends its operation,
@@ -55,7 +55,7 @@ type key struct {
 }
 
 type entry struct {
-	report   *integrationv1.ReportRequest
+	report   *dispatchv1.ReportRequest
 	admitted uint64
 }
 
@@ -141,7 +141,7 @@ func (q *Queue) Pending() int {
 // the lane calls this while holding a device's drain lock, and a report that
 // could fail would make every operation's outcome depend on the network it is
 // being reported over.
-func (q *Queue) Report(ctx context.Context, report *integrationv1.ReportRequest) {
+func (q *Queue) Report(ctx context.Context, report *dispatchv1.ReportRequest) {
 	if report == nil {
 		return
 	}

@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -107,7 +107,7 @@ func (f submissionFunc) Open(ctx context.Context, deviceID, bindingID string, se
 // fingerprint "fw-A" — the fixed value every baseDeps sets as
 // CurrentFingerprint, so a caller wanting a fingerprint mismatch builds its
 // own MutationIntent instead of adding an unused parameter here.
-func mutationRequest(sequence uint64, description string) *integrationv1.ExecuteRequest {
+func mutationRequest(sequence uint64, description string) *dispatchv1.ExecuteRequest {
 	change := &accessv1.InterfaceDescriptionChange{}
 	change.SetInterfaceName("ethernet 1/1/1")
 	change.SetDescription(description)
@@ -116,19 +116,19 @@ func mutationRequest(sequence uint64, description string) *integrationv1.Execute
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
 
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(sequence)
 	req.SetMutation(intent)
 	return req
 }
 
-func readRequest(sequence uint64) *integrationv1.ExecuteRequest {
+func readRequest(sequence uint64) *dispatchv1.ExecuteRequest {
 	readIntent := &accessv1.InterfaceReadIntent{}
 	readIntent.SetInterfaceName("ethernet 1/1/1")
 	typedRead := &accessv1.TypedRead{}
 	typedRead.SetInterface(readIntent)
 
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(sequence)
 	req.SetRead(typedRead)
 	return req
@@ -184,7 +184,7 @@ func TestFullHappyPathPhaseByPhase(t *testing.T) {
 
 	ctx := context.Background()
 
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(42)
 	ack, err := m.Checkpoint(ctx, checkpointReq)
 	if err != nil {
@@ -230,7 +230,7 @@ func TestFullHappyPathPhaseByPhase(t *testing.T) {
 		t.Fatalf("Phase() = %v, want VERIFIED", got)
 	}
 
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(42)
 	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	if err := m.Acknowledge(ctx, termAck); err != nil {
@@ -313,7 +313,7 @@ func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -354,7 +354,7 @@ func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testi
 	}
 
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -394,7 +394,7 @@ func TestExpiredGrantDeadlineBlocksSubmission(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -423,7 +423,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
-		checkpointReq := &integrationv1.CheckpointRequest{}
+		checkpointReq := &dispatchv1.CheckpointRequest{}
 		checkpointReq.SetSequence(2)
 		if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 			t.Fatalf("Checkpoint() error: %v", err)
@@ -454,7 +454,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
-		checkpointReq := &integrationv1.CheckpointRequest{}
+		checkpointReq := &dispatchv1.CheckpointRequest{}
 		checkpointReq.SetSequence(3)
 		if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 			t.Fatalf("Checkpoint() error: %v", err)
@@ -488,7 +488,7 @@ func TestConflictingReadsBlockInsteadOfVerifying(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(9)
 	ctx := context.Background()
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
@@ -589,7 +589,7 @@ func TestAbandonAfterReleaseIsRejected(t *testing.T) {
 		t.Fatalf("Admitted() error: %v", err)
 	}
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(9)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -606,7 +606,7 @@ func TestAbandonAfterReleaseIsRejected(t *testing.T) {
 	if err := m.MarkVerified(ctx); err != nil {
 		t.Fatalf("MarkVerified() error: %v", err)
 	}
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(9)
 	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	if err := m.Acknowledge(ctx, termAck); err != nil {
@@ -636,7 +636,7 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 		t.Fatalf("Admitted() error: %v", err)
 	}
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(6)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -690,7 +690,7 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 		t.Fatalf("Admitted() error: %v", err)
 	}
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(8)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -709,7 +709,7 @@ func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 	}
 
 	deliverer.failNext = true
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(8)
 	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	if err := m.Acknowledge(ctx, termAck); err == nil {
@@ -756,7 +756,7 @@ func TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent(t *testing.T) {
 // Observe, Compare, and MarkVerified, leaving the Machine at VERIFIED — the
 // shared setup for the tests below that check Disposition/BlockReason/
 // BlockedSince at and after that phase.
-func driveToVerified(t *testing.T, req *integrationv1.ExecuteRequest, deps mutation.Deps) *mutation.Machine {
+func driveToVerified(t *testing.T, req *dispatchv1.ExecuteRequest, deps mutation.Deps) *mutation.Machine {
 	t.Helper()
 	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
 	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
@@ -768,7 +768,7 @@ func driveToVerified(t *testing.T, req *integrationv1.ExecuteRequest, deps mutat
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(req.GetSequence())
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -817,7 +817,7 @@ func TestAcknowledgeSetsDispositionAndReleaseClearsTheBlock(t *testing.T) {
 	deps := baseDeps(deliverer, fakeSubmission())
 	m := driveToVerified(t, mutationRequest(21, "uplink to core"), deps)
 
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(21)
 	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	if err := m.Acknowledge(context.Background(), termAck); err != nil {
@@ -843,7 +843,7 @@ func TestAcknowledgeRejectsUnspecifiedDisposition(t *testing.T) {
 	deps := baseDeps(deliverer, fakeSubmission())
 	m := driveToVerified(t, mutationRequest(22, "uplink to core"), deps)
 
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(22)
 	// Disposition left at its zero value, DISPOSITION_UNSPECIFIED.
 	if err := m.Acknowledge(context.Background(), termAck); err == nil {
@@ -920,7 +920,7 @@ func TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint(t *t
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(30)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -964,7 +964,7 @@ func TestCorrelationIDsCarryIdempotencyKeyAndTraceID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(31)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -1008,7 +1008,7 @@ func TestAResentAcknowledgementFinishesTheWalkWhereverItStopped(t *testing.T) {
 				t.Fatalf("Admitted() error: %v", err)
 			}
 			ctx := context.Background()
-			checkpointReq := &integrationv1.CheckpointRequest{}
+			checkpointReq := &dispatchv1.CheckpointRequest{}
 			checkpointReq.SetSequence(8)
 			if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 				t.Fatalf("Checkpoint() error: %v", err)
@@ -1026,7 +1026,7 @@ func TestAResentAcknowledgementFinishesTheWalkWhereverItStopped(t *testing.T) {
 				t.Fatalf("MarkVerified() error: %v", err)
 			}
 
-			termAck := &integrationv1.TerminalResultAck{}
+			termAck := &dispatchv1.TerminalResultAck{}
 			termAck.SetSequence(8)
 			termAck.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 
@@ -1084,7 +1084,7 @@ func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
 		t.Fatalf("Admitted() error: %v", err)
 	}
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(11)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -1103,7 +1103,7 @@ func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
 	}()
 
 	<-reading
-	termAck := &integrationv1.TerminalResultAck{}
+	termAck := &dispatchv1.TerminalResultAck{}
 	termAck.SetSequence(11)
 	termAck.SetDisposition(accessv1.Disposition_DISPOSITION_INDETERMINATE_ABANDONED)
 	if err := m.Acknowledge(ctx, termAck); err != nil {
@@ -1141,7 +1141,7 @@ func TestARefusedRecoveryTransitionEntersRecoveryOwingTheRecord(t *testing.T) {
 		t.Fatalf("Admitted() error: %v", err)
 	}
 	ctx := context.Background()
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(7)
 	if _, err := m.Checkpoint(ctx, checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)

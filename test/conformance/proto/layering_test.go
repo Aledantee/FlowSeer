@@ -65,6 +65,11 @@ var importOrder = map[string][]string{
 	// model/capture does not already carry.
 	"edge/capture": {"model/capture", "model/edge"},
 
+	// The execution envelope between central and the edge hosting a
+	// device's lane: what central dispatches and what the edge reports
+	// back.
+	"edge/dispatch": {"model/access", "errs"},
+
 	"model/inventory": {"model/edge", "model/policy", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
 
 	// The operation values every device-access boundary shares. They reach
@@ -81,8 +86,6 @@ var importOrder = map[string][]string{
 	// audit event needs model/inventory directly because it is read outside
 	// any live transport context.
 	"api/device": {"model/inventory", "model/access", "model/policy", "errs", "net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface", "net/protocol/lldp"},
-
-	"integration/device": {"model/access", "errs"},
 
 	"event/device": {"model/inventory", "model/access", "errs"},
 
@@ -291,12 +294,12 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "operator api imports access values", importer: "api/device", imported: "model/access", want: true},
 		{name: "operator api imports the bus contract", importer: "api/device", imported: "service"},
 		{name: "leaf boundary imports inventory", importer: "model/policy", imported: "model/inventory"},
-		{name: "execution envelope imports access values", importer: "integration/device", imported: "model/access", want: true},
-		{name: "execution envelope imports errs", importer: "integration/device", imported: "errs", want: true},
-		{name: "execution envelope imports the audit event", importer: "integration/device", imported: "event/device"},
+		{name: "execution envelope imports access values", importer: "edge/dispatch", imported: "model/access", want: true},
+		{name: "execution envelope imports errs", importer: "edge/dispatch", imported: "errs", want: true},
+		{name: "execution envelope imports the audit event", importer: "edge/dispatch", imported: "event/device"},
 		{name: "audit event imports access values", importer: "event/device", imported: "model/access", want: true},
 		{name: "audit event imports inventory", importer: "event/device", imported: "model/inventory", want: true},
-		{name: "audit event imports the execution envelope", importer: "event/device", imported: "integration/device"},
+		{name: "audit event imports the execution envelope", importer: "event/device", imported: "edge/dispatch"},
 		{name: "audit event imports api/edge directly", importer: "event/device", imported: "api/edge"},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
 		{name: "edge imports credential material", importer: "api/edge", imported: "model/credential", want: true},
@@ -308,7 +311,7 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "storage imports the edge entity", importer: "store/device", imported: "model/edge", want: true},
 		{name: "access values import storage", importer: "model/access", imported: "store/device"},
 		{name: "operator api imports storage", importer: "api/device", imported: "store/device"},
-		{name: "operator api imports the execution envelope", importer: "api/device", imported: "integration/device"},
+		{name: "operator api imports the execution envelope", importer: "api/device", imported: "edge/dispatch"},
 		{name: "capture upload imports the entity and the chunk frames", importer: "edge/capture", imported: "model/capture", want: true},
 		{
 			name:       "the entity imports the service that carries it",
@@ -325,8 +328,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{
 			name:       "access values import a sink",
 			importer:   "model/access",
-			imported:   "integration/device",
-			wantReason: "integration/device declares a service and is imported by nothing",
+			imported:   "edge/dispatch",
+			wantReason: "edge/dispatch declares a service and is imported by nothing",
 		},
 		// The sink rule's own case. Every other rejection above is one the
 		// table would make anyway, so this is the pair that fails when the rule

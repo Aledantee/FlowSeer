@@ -29,7 +29,7 @@ An edge is the process, not an integration. The local-network integration and
 any on-prem controller adapter a site needs run on the edge and point at it; the
 edge's own concerns are identity, liveness, provisioning, which devices it
 serves, and the three lifecycles below. The execute and event contracts are
-their own packages, `integration/device/v1` and `event/device/v1`; nothing here
+their own packages, `edge/dispatch/v1` and `event/device/v1`; nothing here
 carries an operation, a device ref, or a durable audit record.
 
 ## Three lifecycles, never the same call
@@ -49,7 +49,7 @@ needs: an `account_jwt` scoping it to its tenant's subject namespace, a
 `subjects` map from logical name to the concrete broker subject the edge
 publishes on, and at least one `cluster_url` to dial. The leaf carries what
 the edge publishes and nothing the edge must act on; dispatches, reports,
-and audit records are Connect calls in `integration/device/v1` and
+and audit records are Connect calls in `edge/dispatch/v1` and
 `event/device/v1`. The vocabulary of logical subject names belongs
 to the module that builds the leaf node, not to this package. An edge
 attaches once, as a whole, never per integration or per device; there is no
@@ -112,7 +112,7 @@ credential for the next read rather than caching one past its expiry.
 
 `OpenDeviceSubmission` is a server stream the edge opens once central has
 durably checkpointed `POSSIBLY_APPLIED` for the named sequence (the same
-sequence `flowseer.integration.device.v1.ExecuteRequest` carries). The
+sequence `flowseer.edge.dispatch.v1.ExecuteRequest` carries). The
 first message is always a `SubmissionGrant` — a one-use `DeviceCredential`,
 a `HostTrustHandle`, the same `ssh_host_key_sha256` rule as the read
 response, and a `deadline` — and every message after it is an

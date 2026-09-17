@@ -12,7 +12,7 @@ here, so the schema stays free of any process's error-handling logic.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: integration/device, store/device
+Imported by: edge/dispatch, store/device
 
 Deliberately absent:
 

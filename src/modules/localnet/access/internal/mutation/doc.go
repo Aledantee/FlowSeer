@@ -19,6 +19,6 @@
 //
 // See docs/architecture/2026-09-05-verified-device-access-direction.md for
 // the boundaries this package keeps, and
-// spec/proto/flowseer/integration/device/v1/README.md for the envelope its
+// spec/proto/flowseer/edge/dispatch/v1/README.md for the envelope its
 // Checkpoint/Execute/Observe/Result methods answer.
 package mutation

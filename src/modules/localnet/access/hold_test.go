@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -94,7 +94,7 @@ func TestAnAbandonmentHoldsTheDeviceEvenWhenItsRecordIsRefused(t *testing.T) {
 
 	req := mutationRequest(1)
 	done := make(chan struct{})
-	var firstResult *integrationv1.ExecuteResult
+	var firstResult *dispatchv1.ExecuteResult
 	var firstErr error
 	go func() {
 		defer close(done)

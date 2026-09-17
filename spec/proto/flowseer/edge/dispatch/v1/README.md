@@ -1,6 +1,6 @@
 # Execution envelope
 
-The `flowseer.integration.device.v1` package is what central and the edge
+The `flowseer.edge.dispatch.v1` package is what central and the edge
 running one integration exchange to execute operations on a device's lane:
 the dispatches central sends, the reports the edge answers with, and the
 two Connect calls that carry them. Decision 4 of the

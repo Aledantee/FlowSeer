@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/integration/device/v1/execution.proto
+// source: flowseer/edge/dispatch/v1/execution.proto
 
 // The execution envelope between central and the integration that runs one
 // device's lane: what central dispatches, what the edge reports back, and
@@ -13,7 +13,7 @@
 // carries its own device ref for the mutation case, and a TypedRead needs
 // none because the transport supplies it.
 
-package devicev1
+package dispatchv1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
@@ -49,7 +49,7 @@ type ExecuteRequest struct {
 
 func (x *ExecuteRequest) Reset() {
 	*x = ExecuteRequest{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[0]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -61,7 +61,7 @@ func (x *ExecuteRequest) String() string {
 func (*ExecuteRequest) ProtoMessage() {}
 
 func (x *ExecuteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[0]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -326,7 +326,7 @@ func (b0 ExecuteRequest_builder) Build() *ExecuteRequest {
 type case_ExecuteRequest_Operation protoreflect.FieldNumber
 
 func (x case_ExecuteRequest_Operation) String() string {
-	md := file_flowseer_integration_device_v1_execution_proto_msgTypes[0].Descriptor()
+	md := file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[0].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -364,7 +364,7 @@ type ExecuteResult struct {
 
 func (x *ExecuteResult) Reset() {
 	*x = ExecuteResult{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[1]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -376,7 +376,7 @@ func (x *ExecuteResult) String() string {
 func (*ExecuteResult) ProtoMessage() {}
 
 func (x *ExecuteResult) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[1]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -624,7 +624,7 @@ func (b0 ExecuteResult_builder) Build() *ExecuteResult {
 type case_ExecuteResult_Outcome protoreflect.FieldNumber
 
 func (x case_ExecuteResult_Outcome) String() string {
-	md := file_flowseer_integration_device_v1_execution_proto_msgTypes[1].Descriptor()
+	md := file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[1].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -664,7 +664,7 @@ type Progress struct {
 
 func (x *Progress) Reset() {
 	*x = Progress{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -676,7 +676,7 @@ func (x *Progress) String() string {
 func (*Progress) ProtoMessage() {}
 
 func (x *Progress) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[2]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -712,7 +712,7 @@ type CheckpointRequest struct {
 
 func (x *CheckpointRequest) Reset() {
 	*x = CheckpointRequest{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +724,7 @@ func (x *CheckpointRequest) String() string {
 func (*CheckpointRequest) ProtoMessage() {}
 
 func (x *CheckpointRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[3]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +790,7 @@ type CheckpointAck struct {
 
 func (x *CheckpointAck) Reset() {
 	*x = CheckpointAck{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -802,7 +802,7 @@ func (x *CheckpointAck) String() string {
 func (*CheckpointAck) ProtoMessage() {}
 
 func (x *CheckpointAck) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[4]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +869,7 @@ type TerminalResultAck struct {
 
 func (x *TerminalResultAck) Reset() {
 	*x = TerminalResultAck{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[5]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -881,7 +881,7 @@ func (x *TerminalResultAck) String() string {
 func (*TerminalResultAck) ProtoMessage() {}
 
 func (x *TerminalResultAck) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[5]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -982,7 +982,7 @@ type HoldResolved struct {
 
 func (x *HoldResolved) Reset() {
 	*x = HoldResolved{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[6]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +994,7 @@ func (x *HoldResolved) String() string {
 func (*HoldResolved) ProtoMessage() {}
 
 func (x *HoldResolved) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[6]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1060,7 +1060,7 @@ type HoldResolvedAck struct {
 
 func (x *HoldResolvedAck) Reset() {
 	*x = HoldResolvedAck{}
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[7]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1072,7 +1072,7 @@ func (x *HoldResolvedAck) String() string {
 func (*HoldResolvedAck) ProtoMessage() {}
 
 func (x *HoldResolvedAck) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_execution_proto_msgTypes[7]
+	mi := &file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1125,11 +1125,11 @@ func (b0 HoldResolvedAck_builder) Build() *HoldResolvedAck {
 	return m0
 }
 
-var File_flowseer_integration_device_v1_execution_proto protoreflect.FileDescriptor
+var File_flowseer_edge_dispatch_v1_execution_proto protoreflect.FileDescriptor
 
-const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
+const file_flowseer_edge_dispatch_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	".flowseer/integration/device/v1/execution.proto\x12\x1eflowseer.integration.device.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x05\n" +
+	")flowseer/edge/dispatch/v1/execution.proto\x12\x19flowseer.edge.dispatch.v1\x1a\x1cflowseer/errs/v1/error.proto\x1a(flowseer/model/access/v1/interface.proto\x1a(flowseer/model/access/v1/operation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xc5\x05\n" +
 	"\x0eExecuteRequest\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12>\n" +
@@ -1143,7 +1143,7 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\x04read\x18\v \x01(\v2#.flowseer.model.access.v1.TypedReadH\x00R\x04read:\xa1\x02\xbaH\x9d\x02\x1a\xa2\x01\n" +
 	"$execute_request.resume_is_a_mutation\x12;resume applies to a mutation and carries its admission time\x1a=!this.resume || (has(this.mutation) && has(this.admitted_at))\x1av\n" +
 	"(execute_request.admitted_at_needs_resume\x12#admitted_at is set only with resume\x1a%!has(this.admitted_at) || this.resumeB\x12\n" +
-	"\toperation\x12\x05\xbaH\x02\b\x01\"\xa0\x03\n" +
+	"\toperation\x12\x05\xbaH\x02\b\x01\"\x9b\x03\n" +
 	"\rExecuteResult\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12\\\n" +
@@ -1152,8 +1152,8 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\tsubmitted\x18\x03 \x01(\bB\x05\xaa\x01\x02\b\x02R\tsubmitted\x12R\n" +
 	"\vobservation\x18\n" +
 	" \x01(\v2..flowseer.model.access.v1.InterfaceObservationH\x00R\vobservation\x126\n" +
-	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05error\x12F\n" +
-	"\bprogress\x18\f \x01(\v2(.flowseer.integration.device.v1.ProgressH\x00R\bprogressB\x10\n" +
+	"\x05error\x18\v \x01(\v2\x1e.flowseer.errs.v1.ErrorPayloadH\x00R\x05error\x12A\n" +
+	"\bprogress\x18\f \x01(\v2#.flowseer.edge.dispatch.v1.ProgressH\x00R\bprogressB\x10\n" +
 	"\aoutcome\x12\x05\xbaH\x02\b\x01\"\n" +
 	"\n" +
 	"\bProgress\";\n" +
@@ -1173,19 +1173,19 @@ const file_flowseer_integration_device_v1_execution_proto_rawDesc = "" +
 	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"9\n" +
 	"\x0fHoldResolvedAck\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\xa3\x02\n" +
-	"\"com.flowseer.integration.device.v1B\x0eExecutionProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1;devicev1\xa2\x02\x03FID\xaa\x02\x1eFlowseer.Integration.Device.V1\xca\x02\x1eFlowseer\\Integration\\Device\\V1\xe2\x02*Flowseer\\Integration\\Device\\V1\\GPBMetadata\xea\x02!Flowseer::Integration::Device::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceB\x87\x02\n" +
+	"\x1dcom.flowseer.edge.dispatch.v1B\x0eExecutionProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
 
-var file_flowseer_integration_device_v1_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_flowseer_integration_device_v1_execution_proto_goTypes = []any{
-	(*ExecuteRequest)(nil),          // 0: flowseer.integration.device.v1.ExecuteRequest
-	(*ExecuteResult)(nil),           // 1: flowseer.integration.device.v1.ExecuteResult
-	(*Progress)(nil),                // 2: flowseer.integration.device.v1.Progress
-	(*CheckpointRequest)(nil),       // 3: flowseer.integration.device.v1.CheckpointRequest
-	(*CheckpointAck)(nil),           // 4: flowseer.integration.device.v1.CheckpointAck
-	(*TerminalResultAck)(nil),       // 5: flowseer.integration.device.v1.TerminalResultAck
-	(*HoldResolved)(nil),            // 6: flowseer.integration.device.v1.HoldResolved
-	(*HoldResolvedAck)(nil),         // 7: flowseer.integration.device.v1.HoldResolvedAck
+var file_flowseer_edge_dispatch_v1_execution_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_flowseer_edge_dispatch_v1_execution_proto_goTypes = []any{
+	(*ExecuteRequest)(nil),          // 0: flowseer.edge.dispatch.v1.ExecuteRequest
+	(*ExecuteResult)(nil),           // 1: flowseer.edge.dispatch.v1.ExecuteResult
+	(*Progress)(nil),                // 2: flowseer.edge.dispatch.v1.Progress
+	(*CheckpointRequest)(nil),       // 3: flowseer.edge.dispatch.v1.CheckpointRequest
+	(*CheckpointAck)(nil),           // 4: flowseer.edge.dispatch.v1.CheckpointAck
+	(*TerminalResultAck)(nil),       // 5: flowseer.edge.dispatch.v1.TerminalResultAck
+	(*HoldResolved)(nil),            // 6: flowseer.edge.dispatch.v1.HoldResolved
+	(*HoldResolvedAck)(nil),         // 7: flowseer.edge.dispatch.v1.HoldResolvedAck
 	(*timestamppb.Timestamp)(nil),   // 8: google.protobuf.Timestamp
 	(*v1.MutationIntent)(nil),       // 9: flowseer.model.access.v1.MutationIntent
 	(*v1.TypedRead)(nil),            // 10: flowseer.model.access.v1.TypedRead
@@ -1194,16 +1194,16 @@ var file_flowseer_integration_device_v1_execution_proto_goTypes = []any{
 	(*v11.ErrorPayload)(nil),        // 13: flowseer.errs.v1.ErrorPayload
 	(v1.Disposition)(0),             // 14: flowseer.model.access.v1.Disposition
 }
-var file_flowseer_integration_device_v1_execution_proto_depIdxs = []int32{
-	8,  // 0: flowseer.integration.device.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
-	8,  // 1: flowseer.integration.device.v1.ExecuteRequest.admitted_at:type_name -> google.protobuf.Timestamp
-	9,  // 2: flowseer.integration.device.v1.ExecuteRequest.mutation:type_name -> flowseer.model.access.v1.MutationIntent
-	10, // 3: flowseer.integration.device.v1.ExecuteRequest.read:type_name -> flowseer.model.access.v1.TypedRead
-	11, // 4: flowseer.integration.device.v1.ExecuteResult.phase_reached:type_name -> flowseer.model.access.v1.OperationPhase
-	12, // 5: flowseer.integration.device.v1.ExecuteResult.observation:type_name -> flowseer.model.access.v1.InterfaceObservation
-	13, // 6: flowseer.integration.device.v1.ExecuteResult.error:type_name -> flowseer.errs.v1.ErrorPayload
-	2,  // 7: flowseer.integration.device.v1.ExecuteResult.progress:type_name -> flowseer.integration.device.v1.Progress
-	14, // 8: flowseer.integration.device.v1.TerminalResultAck.disposition:type_name -> flowseer.model.access.v1.Disposition
+var file_flowseer_edge_dispatch_v1_execution_proto_depIdxs = []int32{
+	8,  // 0: flowseer.edge.dispatch.v1.ExecuteRequest.deadline:type_name -> google.protobuf.Timestamp
+	8,  // 1: flowseer.edge.dispatch.v1.ExecuteRequest.admitted_at:type_name -> google.protobuf.Timestamp
+	9,  // 2: flowseer.edge.dispatch.v1.ExecuteRequest.mutation:type_name -> flowseer.model.access.v1.MutationIntent
+	10, // 3: flowseer.edge.dispatch.v1.ExecuteRequest.read:type_name -> flowseer.model.access.v1.TypedRead
+	11, // 4: flowseer.edge.dispatch.v1.ExecuteResult.phase_reached:type_name -> flowseer.model.access.v1.OperationPhase
+	12, // 5: flowseer.edge.dispatch.v1.ExecuteResult.observation:type_name -> flowseer.model.access.v1.InterfaceObservation
+	13, // 6: flowseer.edge.dispatch.v1.ExecuteResult.error:type_name -> flowseer.errs.v1.ErrorPayload
+	2,  // 7: flowseer.edge.dispatch.v1.ExecuteResult.progress:type_name -> flowseer.edge.dispatch.v1.Progress
+	14, // 8: flowseer.edge.dispatch.v1.TerminalResultAck.disposition:type_name -> flowseer.model.access.v1.Disposition
 	9,  // [9:9] is the sub-list for method output_type
 	9,  // [9:9] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
@@ -1211,16 +1211,16 @@ var file_flowseer_integration_device_v1_execution_proto_depIdxs = []int32{
 	0,  // [0:9] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_integration_device_v1_execution_proto_init() }
-func file_flowseer_integration_device_v1_execution_proto_init() {
-	if File_flowseer_integration_device_v1_execution_proto != nil {
+func init() { file_flowseer_edge_dispatch_v1_execution_proto_init() }
+func file_flowseer_edge_dispatch_v1_execution_proto_init() {
+	if File_flowseer_edge_dispatch_v1_execution_proto != nil {
 		return
 	}
-	file_flowseer_integration_device_v1_execution_proto_msgTypes[0].OneofWrappers = []any{
+	file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[0].OneofWrappers = []any{
 		(*executeRequest_Mutation)(nil),
 		(*executeRequest_Read)(nil),
 	}
-	file_flowseer_integration_device_v1_execution_proto_msgTypes[1].OneofWrappers = []any{
+	file_flowseer_edge_dispatch_v1_execution_proto_msgTypes[1].OneofWrappers = []any{
 		(*executeResult_Observation)(nil),
 		(*executeResult_Error)(nil),
 		(*executeResult_Progress)(nil),
@@ -1229,17 +1229,17 @@ func file_flowseer_integration_device_v1_execution_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_integration_device_v1_execution_proto_rawDesc), len(file_flowseer_integration_device_v1_execution_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_dispatch_v1_execution_proto_rawDesc), len(file_flowseer_edge_dispatch_v1_execution_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_integration_device_v1_execution_proto_goTypes,
-		DependencyIndexes: file_flowseer_integration_device_v1_execution_proto_depIdxs,
-		MessageInfos:      file_flowseer_integration_device_v1_execution_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_dispatch_v1_execution_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_dispatch_v1_execution_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_dispatch_v1_execution_proto_msgTypes,
 	}.Build()
-	File_flowseer_integration_device_v1_execution_proto = out.File
-	file_flowseer_integration_device_v1_execution_proto_goTypes = nil
-	file_flowseer_integration_device_v1_execution_proto_depIdxs = nil
+	File_flowseer_edge_dispatch_v1_execution_proto = out.File
+	file_flowseer_edge_dispatch_v1_execution_proto_goTypes = nil
+	file_flowseer_edge_dispatch_v1_execution_proto_depIdxs = nil
 }

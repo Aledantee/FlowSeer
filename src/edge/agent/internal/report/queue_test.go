@@ -13,7 +13,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 )
@@ -25,7 +25,7 @@ type centralFake struct {
 	// only for accepted reports cannot tell "refused" from "never tried",
 	// and the refusal cases are exactly the ones that need the difference.
 	attempts  int
-	received  []*integrationv1.ReportRequest
+	received  []*dispatchv1.ReportRequest
 	refuse    bool
 	reportErr error
 	accepted  chan struct{}
@@ -35,8 +35,8 @@ type centralFake struct {
 }
 
 func (c *centralFake) Report(
-	_ context.Context, req *connect.Request[integrationv1.ReportRequest],
-) (*connect.Response[integrationv1.ReportResponse], error) {
+	_ context.Context, req *connect.Request[dispatchv1.ReportRequest],
+) (*connect.Response[dispatchv1.ReportResponse], error) {
 	c.mu.Lock()
 	c.attempts++
 	refuse := c.refuse
@@ -63,13 +63,13 @@ func (c *centralFake) Report(
 		default:
 		}
 	}
-	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
+	return connect.NewResponse(&dispatchv1.ReportResponse{}), nil
 }
 
-func (c *centralFake) got() []*integrationv1.ReportRequest {
+func (c *centralFake) got() []*dispatchv1.ReportRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return append([]*integrationv1.ReportRequest(nil), c.received...)
+	return append([]*dispatchv1.ReportRequest(nil), c.received...)
 }
 
 func (c *centralFake) attemptCount() int {
@@ -101,25 +101,25 @@ func (s *confirmSpy) count() int {
 	return len(s.confirmed)
 }
 
-func resultReport(device string, sequence uint64, description string) *integrationv1.ReportRequest {
+func resultReport(device string, sequence uint64, description string) *dispatchv1.ReportRequest {
 	observation := &accessv1.InterfaceObservation{}
 	observation.SetInterfaceName("ethernet 1/1/1")
 	observation.SetDescription(description)
 
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(sequence)
 	result.SetObservation(observation)
 
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	req.SetResult(result)
 	return req
 }
 
-func onboardedReport(device string) *integrationv1.ReportRequest {
-	onboarded := &integrationv1.Onboarded{}
+func onboardedReport(device string) *dispatchv1.ReportRequest {
+	onboarded := &dispatchv1.Onboarded{}
 	onboarded.SetFirmwareFingerprint("fw-A")
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	req.SetOnboarded(onboarded)
 	return req
@@ -340,15 +340,15 @@ type selectiveCentral struct {
 }
 
 func (c *selectiveCentral) Report(
-	_ context.Context, req *connect.Request[integrationv1.ReportRequest],
-) (*connect.Response[integrationv1.ReportResponse], error) {
+	_ context.Context, req *connect.Request[dispatchv1.ReportRequest],
+) (*connect.Response[dispatchv1.ReportResponse], error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if req.Msg.GetDeviceId() == c.refuseDevice {
 		return nil, errors.New("central refuses this device")
 	}
 	c.accepted++
-	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
+	return connect.NewResponse(&dispatchv1.ReportResponse{}), nil
 }
 
 // TestAnUnknownArmSupersedesNothing covers the branch that exists because
@@ -389,41 +389,41 @@ func TestAnUnknownArmSupersedesNothing(t *testing.T) {
 
 // unknownReport is a report whose arm this build does not recognize, which is
 // what an edge older than its central receives.
-func unknownReport(device string) *integrationv1.ReportRequest {
-	req := &integrationv1.ReportRequest{}
+func unknownReport(device string) *dispatchv1.ReportRequest {
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	return req
 }
 
-func progressReport(device string, sequence uint64) *integrationv1.ReportRequest {
-	result := &integrationv1.ExecuteResult{}
+func progressReport(device string, sequence uint64) *dispatchv1.ReportRequest {
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(sequence)
 	result.SetPhaseReached(accessv1.OperationPhase_OPERATION_PHASE_POSSIBLY_APPLIED)
-	result.SetProgress(&integrationv1.Progress{})
+	result.SetProgress(&dispatchv1.Progress{})
 
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	req.SetResult(result)
 	return req
 }
 
-func checkpointAckReport(device string, sequence uint64) *integrationv1.ReportRequest {
-	ack := &integrationv1.CheckpointAck{}
+func checkpointAckReport(device string, sequence uint64) *dispatchv1.ReportRequest {
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(sequence)
 
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	req.SetCheckpointAck(ack)
 	return req
 }
 
-func refusedReport(device string, sequence uint64) *integrationv1.ReportRequest {
-	refused := &integrationv1.Refused{}
+func refusedReport(device string, sequence uint64) *dispatchv1.ReportRequest {
+	refused := &dispatchv1.Refused{}
 	refused.SetSequence(sequence)
-	refused.SetKind(integrationv1.DispatchKind_DISPATCH_KIND_EXECUTE)
+	refused.SetKind(dispatchv1.DispatchKind_DISPATCH_KIND_EXECUTE)
 	refused.SetCode("access/unknown-device")
 
-	req := &integrationv1.ReportRequest{}
+	req := &dispatchv1.ReportRequest{}
 	req.SetDeviceId(device)
 	req.SetRefused(refused)
 	return req
@@ -442,7 +442,7 @@ func refusedReport(device string, sequence uint64) *integrationv1.ReportRequest 
 func TestOnlyAReportThatEndsAnOperationConfirmsIt(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		report  *integrationv1.ReportRequest
+		report  *dispatchv1.ReportRequest
 		confirm bool
 	}{
 		{"a progress report leaves the operation running", progressReport("dev-1", 7), false},
@@ -508,13 +508,13 @@ func TestADeviceWithAnOwedReportSendsNoLaterOne(t *testing.T) {
 // so a test can watch what the queue sends while one report is still owed.
 type firstReportRefused struct {
 	mu       sync.Mutex
-	received []*integrationv1.ReportRequest
+	received []*dispatchv1.ReportRequest
 	refused  bool
 }
 
 func (c *firstReportRefused) Report(
-	_ context.Context, req *connect.Request[integrationv1.ReportRequest],
-) (*connect.Response[integrationv1.ReportResponse], error) {
+	_ context.Context, req *connect.Request[dispatchv1.ReportRequest],
+) (*connect.Response[dispatchv1.ReportResponse], error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.received = append(c.received, req.Msg)
@@ -522,13 +522,13 @@ func (c *firstReportRefused) Report(
 		c.refused = true
 		return nil, errors.New("central is unavailable")
 	}
-	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
+	return connect.NewResponse(&dispatchv1.ReportResponse{}), nil
 }
 
-func (c *firstReportRefused) seen() []*integrationv1.ReportRequest {
+func (c *firstReportRefused) seen() []*dispatchv1.ReportRequest {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return append([]*integrationv1.ReportRequest(nil), c.received...)
+	return append([]*dispatchv1.ReportRequest(nil), c.received...)
 }
 
 // TestReportsGoOutOldestFirst pins the delivery order the drain documents:

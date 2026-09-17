@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/integration/device/v1/dispatch.proto
+// source: flowseer/edge/dispatch/v1/dispatch.proto
 
 // The two Connect calls that carry the execution envelope between central
 // and the edge hosting an integration: the server stream central writes
@@ -10,7 +10,7 @@
 // names its device by id, since one stream serves every device an edge
 // hosts.
 
-package devicev1
+package dispatchv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -66,11 +66,11 @@ func (x DispatchKind) String() string {
 }
 
 func (DispatchKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_integration_device_v1_dispatch_proto_enumTypes[0].Descriptor()
+	return file_flowseer_edge_dispatch_v1_dispatch_proto_enumTypes[0].Descriptor()
 }
 
 func (DispatchKind) Type() protoreflect.EnumType {
-	return &file_flowseer_integration_device_v1_dispatch_proto_enumTypes[0]
+	return &file_flowseer_edge_dispatch_v1_dispatch_proto_enumTypes[0]
 }
 
 func (x DispatchKind) Number() protoreflect.EnumNumber {
@@ -86,7 +86,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[0]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -98,7 +98,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[0]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -134,7 +134,7 @@ type SubscribeResponse struct {
 
 func (x *SubscribeResponse) Reset() {
 	*x = SubscribeResponse{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[1]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -146,7 +146,7 @@ func (x *SubscribeResponse) String() string {
 func (*SubscribeResponse) ProtoMessage() {}
 
 func (x *SubscribeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[1]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -384,7 +384,7 @@ func (b0 SubscribeResponse_builder) Build() *SubscribeResponse {
 type case_SubscribeResponse_Dispatch protoreflect.FieldNumber
 
 func (x case_SubscribeResponse_Dispatch) String() string {
-	md := file_flowseer_integration_device_v1_dispatch_proto_msgTypes[1].Descriptor()
+	md := file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[1].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -432,7 +432,7 @@ type ReportRequest struct {
 
 func (x *ReportRequest) Reset() {
 	*x = ReportRequest{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[2]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -444,7 +444,7 @@ func (x *ReportRequest) String() string {
 func (*ReportRequest) ProtoMessage() {}
 
 func (x *ReportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[2]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -720,7 +720,7 @@ func (b0 ReportRequest_builder) Build() *ReportRequest {
 type case_ReportRequest_Report protoreflect.FieldNumber
 
 func (x case_ReportRequest_Report) String() string {
-	md := file_flowseer_integration_device_v1_dispatch_proto_msgTypes[2].Descriptor()
+	md := file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[2].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -769,7 +769,7 @@ type ReportResponse struct {
 
 func (x *ReportResponse) Reset() {
 	*x = ReportResponse{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[3]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -781,7 +781,7 @@ func (x *ReportResponse) String() string {
 func (*ReportResponse) ProtoMessage() {}
 
 func (x *ReportResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[3]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -810,7 +810,7 @@ func (b0 ReportResponse_builder) Build() *ReportResponse {
 type Refused struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Sequence    uint64                 `protobuf:"varint,1,opt,name=sequence"`
-	xxx_hidden_Kind        DispatchKind           `protobuf:"varint,2,opt,name=kind,enum=flowseer.integration.device.v1.DispatchKind"`
+	xxx_hidden_Kind        DispatchKind           `protobuf:"varint,2,opt,name=kind,enum=flowseer.edge.dispatch.v1.DispatchKind"`
 	xxx_hidden_Code        *string                `protobuf:"bytes,3,opt,name=code"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -820,7 +820,7 @@ type Refused struct {
 
 func (x *Refused) Reset() {
 	*x = Refused{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[4]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -832,7 +832,7 @@ func (x *Refused) String() string {
 func (*Refused) ProtoMessage() {}
 
 func (x *Refused) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[4]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -966,7 +966,7 @@ type Onboarded struct {
 
 func (x *Onboarded) Reset() {
 	*x = Onboarded{}
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[5]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +978,7 @@ func (x *Onboarded) String() string {
 func (*Onboarded) ProtoMessage() {}
 
 func (x *Onboarded) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_integration_device_v1_dispatch_proto_msgTypes[5]
+	mi := &file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1034,36 +1034,36 @@ func (b0 Onboarded_builder) Build() *Onboarded {
 	return m0
 }
 
-var File_flowseer_integration_device_v1_dispatch_proto protoreflect.FileDescriptor
+var File_flowseer_edge_dispatch_v1_dispatch_proto protoreflect.FileDescriptor
 
-const file_flowseer_integration_device_v1_dispatch_proto_rawDesc = "" +
+const file_flowseer_edge_dispatch_v1_dispatch_proto_rawDesc = "" +
 	"\n" +
-	"-flowseer/integration/device/v1/dispatch.proto\x12\x1eflowseer.integration.device.v1\x1a.flowseer/integration/device/v1/execution.proto\"\x12\n" +
-	"\x10SubscribeRequest\"\x9e\x03\n" +
+	"(flowseer/edge/dispatch/v1/dispatch.proto\x12\x19flowseer.edge.dispatch.v1\x1a)flowseer/edge/dispatch/v1/execution.proto\"\x12\n" +
+	"\x10SubscribeRequest\"\x8a\x03\n" +
 	"\x11SubscribeResponse\x12(\n" +
-	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12J\n" +
+	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12E\n" +
 	"\aexecute\x18\n" +
-	" \x01(\v2..flowseer.integration.device.v1.ExecuteRequestH\x00R\aexecute\x12S\n" +
+	" \x01(\v2).flowseer.edge.dispatch.v1.ExecuteRequestH\x00R\aexecute\x12N\n" +
 	"\n" +
-	"checkpoint\x18\v \x01(\v21.flowseer.integration.device.v1.CheckpointRequestH\x00R\n" +
-	"checkpoint\x12V\n" +
-	"\fterminal_ack\x18\f \x01(\v21.flowseer.integration.device.v1.TerminalResultAckH\x00R\vterminalAck\x12S\n" +
-	"\rhold_resolved\x18\r \x01(\v2,.flowseer.integration.device.v1.HoldResolvedH\x00R\fholdResolvedB\x11\n" +
-	"\bdispatch\x12\x05\xbaH\x02\b\x01\"\xda\x03\n" +
+	"checkpoint\x18\v \x01(\v2,.flowseer.edge.dispatch.v1.CheckpointRequestH\x00R\n" +
+	"checkpoint\x12Q\n" +
+	"\fterminal_ack\x18\f \x01(\v2,.flowseer.edge.dispatch.v1.TerminalResultAckH\x00R\vterminalAck\x12N\n" +
+	"\rhold_resolved\x18\r \x01(\v2'.flowseer.edge.dispatch.v1.HoldResolvedH\x00R\fholdResolvedB\x11\n" +
+	"\bdispatch\x12\x05\xbaH\x02\b\x01\"\xc1\x03\n" +
 	"\rReportRequest\x12(\n" +
-	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12G\n" +
+	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12B\n" +
 	"\x06result\x18\n" +
-	" \x01(\v2-.flowseer.integration.device.v1.ExecuteResultH\x00R\x06result\x12V\n" +
-	"\x0echeckpoint_ack\x18\v \x01(\v2-.flowseer.integration.device.v1.CheckpointAckH\x00R\rcheckpointAck\x12]\n" +
-	"\x11hold_resolved_ack\x18\f \x01(\v2/.flowseer.integration.device.v1.HoldResolvedAckH\x00R\x0fholdResolvedAck\x12C\n" +
-	"\arefused\x18\r \x01(\v2'.flowseer.integration.device.v1.RefusedH\x00R\arefused\x12I\n" +
-	"\tonboarded\x18\x0e \x01(\v2).flowseer.integration.device.v1.OnboardedH\x00R\tonboardedB\x0f\n" +
+	" \x01(\v2(.flowseer.edge.dispatch.v1.ExecuteResultH\x00R\x06result\x12Q\n" +
+	"\x0echeckpoint_ack\x18\v \x01(\v2(.flowseer.edge.dispatch.v1.CheckpointAckH\x00R\rcheckpointAck\x12X\n" +
+	"\x11hold_resolved_ack\x18\f \x01(\v2*.flowseer.edge.dispatch.v1.HoldResolvedAckH\x00R\x0fholdResolvedAck\x12>\n" +
+	"\arefused\x18\r \x01(\v2\".flowseer.edge.dispatch.v1.RefusedH\x00R\arefused\x12D\n" +
+	"\tonboarded\x18\x0e \x01(\v2$.flowseer.edge.dispatch.v1.OnboardedH\x00R\tonboardedB\x0f\n" +
 	"\x06report\x12\x05\xbaH\x02\b\x01\"\x10\n" +
-	"\x0eReportResponse\"\xdb\x01\n" +
+	"\x0eReportResponse\"\xd6\x01\n" +
 	"\aRefused\x12&\n" +
 	"\bsequence\x18\x01 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12O\n" +
-	"\x04kind\x18\x02 \x01(\x0e2,.flowseer.integration.device.v1.DispatchKindB\r\xbaH\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12J\n" +
+	"\x04kind\x18\x02 \x01(\x0e2'.flowseer.edge.dispatch.v1.DispatchKindB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\x04kind\x12W\n" +
 	"\x04code\x18\x03 \x01(\tBC\xbaH@\xc8\x01\x01r;29^[a-z0-9]+(?:[-_][a-z0-9]+)*/[a-z0-9]+(?:[-_][a-z0-9]+)*$R\x04code\"M\n" +
 	"\tOnboarded\x12@\n" +
@@ -1074,45 +1074,45 @@ const file_flowseer_integration_device_v1_dispatch_proto_rawDesc = "" +
 	"\x15DISPATCH_KIND_EXECUTE\x10\x01\x12\x1c\n" +
 	"\x18DISPATCH_KIND_CHECKPOINT\x10\x02\x12\x1e\n" +
 	"\x1aDISPATCH_KIND_TERMINAL_ACK\x10\x03\x12\x1f\n" +
-	"\x1bDISPATCH_KIND_HOLD_RESOLVED\x10\x042\xee\x01\n" +
-	"\x0fDispatchService\x12r\n" +
-	"\tSubscribe\x120.flowseer.integration.device.v1.SubscribeRequest\x1a1.flowseer.integration.device.v1.SubscribeResponse0\x01\x12g\n" +
-	"\x06Report\x12-.flowseer.integration.device.v1.ReportRequest\x1a..flowseer.integration.device.v1.ReportResponseB\xa2\x02\n" +
-	"\"com.flowseer.integration.device.v1B\rDispatchProtoP\x01ZRgo.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1;devicev1\xa2\x02\x03FID\xaa\x02\x1eFlowseer.Integration.Device.V1\xca\x02\x1eFlowseer\\Integration\\Device\\V1\xe2\x02*Flowseer\\Integration\\Device\\V1\\GPBMetadata\xea\x02!Flowseer::Integration::Device::V1b\beditionsp\xe9\a"
+	"\x1bDISPATCH_KIND_HOLD_RESOLVED\x10\x042\xda\x01\n" +
+	"\x0fDispatchService\x12h\n" +
+	"\tSubscribe\x12+.flowseer.edge.dispatch.v1.SubscribeRequest\x1a,.flowseer.edge.dispatch.v1.SubscribeResponse0\x01\x12]\n" +
+	"\x06Report\x12(.flowseer.edge.dispatch.v1.ReportRequest\x1a).flowseer.edge.dispatch.v1.ReportResponseB\x86\x02\n" +
+	"\x1dcom.flowseer.edge.dispatch.v1B\rDispatchProtoP\x01ZOgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1;dispatchv1\xa2\x02\x03FED\xaa\x02\x19Flowseer.Edge.Dispatch.V1\xca\x02\x19Flowseer\\Edge\\Dispatch\\V1\xe2\x02%Flowseer\\Edge\\Dispatch\\V1\\GPBMetadata\xea\x02\x1cFlowseer::Edge::Dispatch::V1b\beditionsp\xe9\a"
 
-var file_flowseer_integration_device_v1_dispatch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_integration_device_v1_dispatch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_flowseer_integration_device_v1_dispatch_proto_goTypes = []any{
-	(DispatchKind)(0),         // 0: flowseer.integration.device.v1.DispatchKind
-	(*SubscribeRequest)(nil),  // 1: flowseer.integration.device.v1.SubscribeRequest
-	(*SubscribeResponse)(nil), // 2: flowseer.integration.device.v1.SubscribeResponse
-	(*ReportRequest)(nil),     // 3: flowseer.integration.device.v1.ReportRequest
-	(*ReportResponse)(nil),    // 4: flowseer.integration.device.v1.ReportResponse
-	(*Refused)(nil),           // 5: flowseer.integration.device.v1.Refused
-	(*Onboarded)(nil),         // 6: flowseer.integration.device.v1.Onboarded
-	(*ExecuteRequest)(nil),    // 7: flowseer.integration.device.v1.ExecuteRequest
-	(*CheckpointRequest)(nil), // 8: flowseer.integration.device.v1.CheckpointRequest
-	(*TerminalResultAck)(nil), // 9: flowseer.integration.device.v1.TerminalResultAck
-	(*HoldResolved)(nil),      // 10: flowseer.integration.device.v1.HoldResolved
-	(*ExecuteResult)(nil),     // 11: flowseer.integration.device.v1.ExecuteResult
-	(*CheckpointAck)(nil),     // 12: flowseer.integration.device.v1.CheckpointAck
-	(*HoldResolvedAck)(nil),   // 13: flowseer.integration.device.v1.HoldResolvedAck
+var file_flowseer_edge_dispatch_v1_dispatch_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_flowseer_edge_dispatch_v1_dispatch_proto_goTypes = []any{
+	(DispatchKind)(0),         // 0: flowseer.edge.dispatch.v1.DispatchKind
+	(*SubscribeRequest)(nil),  // 1: flowseer.edge.dispatch.v1.SubscribeRequest
+	(*SubscribeResponse)(nil), // 2: flowseer.edge.dispatch.v1.SubscribeResponse
+	(*ReportRequest)(nil),     // 3: flowseer.edge.dispatch.v1.ReportRequest
+	(*ReportResponse)(nil),    // 4: flowseer.edge.dispatch.v1.ReportResponse
+	(*Refused)(nil),           // 5: flowseer.edge.dispatch.v1.Refused
+	(*Onboarded)(nil),         // 6: flowseer.edge.dispatch.v1.Onboarded
+	(*ExecuteRequest)(nil),    // 7: flowseer.edge.dispatch.v1.ExecuteRequest
+	(*CheckpointRequest)(nil), // 8: flowseer.edge.dispatch.v1.CheckpointRequest
+	(*TerminalResultAck)(nil), // 9: flowseer.edge.dispatch.v1.TerminalResultAck
+	(*HoldResolved)(nil),      // 10: flowseer.edge.dispatch.v1.HoldResolved
+	(*ExecuteResult)(nil),     // 11: flowseer.edge.dispatch.v1.ExecuteResult
+	(*CheckpointAck)(nil),     // 12: flowseer.edge.dispatch.v1.CheckpointAck
+	(*HoldResolvedAck)(nil),   // 13: flowseer.edge.dispatch.v1.HoldResolvedAck
 }
-var file_flowseer_integration_device_v1_dispatch_proto_depIdxs = []int32{
-	7,  // 0: flowseer.integration.device.v1.SubscribeResponse.execute:type_name -> flowseer.integration.device.v1.ExecuteRequest
-	8,  // 1: flowseer.integration.device.v1.SubscribeResponse.checkpoint:type_name -> flowseer.integration.device.v1.CheckpointRequest
-	9,  // 2: flowseer.integration.device.v1.SubscribeResponse.terminal_ack:type_name -> flowseer.integration.device.v1.TerminalResultAck
-	10, // 3: flowseer.integration.device.v1.SubscribeResponse.hold_resolved:type_name -> flowseer.integration.device.v1.HoldResolved
-	11, // 4: flowseer.integration.device.v1.ReportRequest.result:type_name -> flowseer.integration.device.v1.ExecuteResult
-	12, // 5: flowseer.integration.device.v1.ReportRequest.checkpoint_ack:type_name -> flowseer.integration.device.v1.CheckpointAck
-	13, // 6: flowseer.integration.device.v1.ReportRequest.hold_resolved_ack:type_name -> flowseer.integration.device.v1.HoldResolvedAck
-	5,  // 7: flowseer.integration.device.v1.ReportRequest.refused:type_name -> flowseer.integration.device.v1.Refused
-	6,  // 8: flowseer.integration.device.v1.ReportRequest.onboarded:type_name -> flowseer.integration.device.v1.Onboarded
-	0,  // 9: flowseer.integration.device.v1.Refused.kind:type_name -> flowseer.integration.device.v1.DispatchKind
-	1,  // 10: flowseer.integration.device.v1.DispatchService.Subscribe:input_type -> flowseer.integration.device.v1.SubscribeRequest
-	3,  // 11: flowseer.integration.device.v1.DispatchService.Report:input_type -> flowseer.integration.device.v1.ReportRequest
-	2,  // 12: flowseer.integration.device.v1.DispatchService.Subscribe:output_type -> flowseer.integration.device.v1.SubscribeResponse
-	4,  // 13: flowseer.integration.device.v1.DispatchService.Report:output_type -> flowseer.integration.device.v1.ReportResponse
+var file_flowseer_edge_dispatch_v1_dispatch_proto_depIdxs = []int32{
+	7,  // 0: flowseer.edge.dispatch.v1.SubscribeResponse.execute:type_name -> flowseer.edge.dispatch.v1.ExecuteRequest
+	8,  // 1: flowseer.edge.dispatch.v1.SubscribeResponse.checkpoint:type_name -> flowseer.edge.dispatch.v1.CheckpointRequest
+	9,  // 2: flowseer.edge.dispatch.v1.SubscribeResponse.terminal_ack:type_name -> flowseer.edge.dispatch.v1.TerminalResultAck
+	10, // 3: flowseer.edge.dispatch.v1.SubscribeResponse.hold_resolved:type_name -> flowseer.edge.dispatch.v1.HoldResolved
+	11, // 4: flowseer.edge.dispatch.v1.ReportRequest.result:type_name -> flowseer.edge.dispatch.v1.ExecuteResult
+	12, // 5: flowseer.edge.dispatch.v1.ReportRequest.checkpoint_ack:type_name -> flowseer.edge.dispatch.v1.CheckpointAck
+	13, // 6: flowseer.edge.dispatch.v1.ReportRequest.hold_resolved_ack:type_name -> flowseer.edge.dispatch.v1.HoldResolvedAck
+	5,  // 7: flowseer.edge.dispatch.v1.ReportRequest.refused:type_name -> flowseer.edge.dispatch.v1.Refused
+	6,  // 8: flowseer.edge.dispatch.v1.ReportRequest.onboarded:type_name -> flowseer.edge.dispatch.v1.Onboarded
+	0,  // 9: flowseer.edge.dispatch.v1.Refused.kind:type_name -> flowseer.edge.dispatch.v1.DispatchKind
+	1,  // 10: flowseer.edge.dispatch.v1.DispatchService.Subscribe:input_type -> flowseer.edge.dispatch.v1.SubscribeRequest
+	3,  // 11: flowseer.edge.dispatch.v1.DispatchService.Report:input_type -> flowseer.edge.dispatch.v1.ReportRequest
+	2,  // 12: flowseer.edge.dispatch.v1.DispatchService.Subscribe:output_type -> flowseer.edge.dispatch.v1.SubscribeResponse
+	4,  // 13: flowseer.edge.dispatch.v1.DispatchService.Report:output_type -> flowseer.edge.dispatch.v1.ReportResponse
 	12, // [12:14] is the sub-list for method output_type
 	10, // [10:12] is the sub-list for method input_type
 	10, // [10:10] is the sub-list for extension type_name
@@ -1120,19 +1120,19 @@ var file_flowseer_integration_device_v1_dispatch_proto_depIdxs = []int32{
 	0,  // [0:10] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_integration_device_v1_dispatch_proto_init() }
-func file_flowseer_integration_device_v1_dispatch_proto_init() {
-	if File_flowseer_integration_device_v1_dispatch_proto != nil {
+func init() { file_flowseer_edge_dispatch_v1_dispatch_proto_init() }
+func file_flowseer_edge_dispatch_v1_dispatch_proto_init() {
+	if File_flowseer_edge_dispatch_v1_dispatch_proto != nil {
 		return
 	}
-	file_flowseer_integration_device_v1_execution_proto_init()
-	file_flowseer_integration_device_v1_dispatch_proto_msgTypes[1].OneofWrappers = []any{
+	file_flowseer_edge_dispatch_v1_execution_proto_init()
+	file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[1].OneofWrappers = []any{
 		(*subscribeResponse_Execute)(nil),
 		(*subscribeResponse_Checkpoint)(nil),
 		(*subscribeResponse_TerminalAck)(nil),
 		(*subscribeResponse_HoldResolved)(nil),
 	}
-	file_flowseer_integration_device_v1_dispatch_proto_msgTypes[2].OneofWrappers = []any{
+	file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes[2].OneofWrappers = []any{
 		(*reportRequest_Result)(nil),
 		(*reportRequest_CheckpointAck)(nil),
 		(*reportRequest_HoldResolvedAck)(nil),
@@ -1143,18 +1143,18 @@ func file_flowseer_integration_device_v1_dispatch_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_integration_device_v1_dispatch_proto_rawDesc), len(file_flowseer_integration_device_v1_dispatch_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_dispatch_v1_dispatch_proto_rawDesc), len(file_flowseer_edge_dispatch_v1_dispatch_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_flowseer_integration_device_v1_dispatch_proto_goTypes,
-		DependencyIndexes: file_flowseer_integration_device_v1_dispatch_proto_depIdxs,
-		EnumInfos:         file_flowseer_integration_device_v1_dispatch_proto_enumTypes,
-		MessageInfos:      file_flowseer_integration_device_v1_dispatch_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_dispatch_v1_dispatch_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_dispatch_v1_dispatch_proto_depIdxs,
+		EnumInfos:         file_flowseer_edge_dispatch_v1_dispatch_proto_enumTypes,
+		MessageInfos:      file_flowseer_edge_dispatch_v1_dispatch_proto_msgTypes,
 	}.Build()
-	File_flowseer_integration_device_v1_dispatch_proto = out.File
-	file_flowseer_integration_device_v1_dispatch_proto_goTypes = nil
-	file_flowseer_integration_device_v1_dispatch_proto_depIdxs = nil
+	File_flowseer_edge_dispatch_v1_dispatch_proto = out.File
+	file_flowseer_edge_dispatch_v1_dispatch_proto_goTypes = nil
+	file_flowseer_edge_dispatch_v1_dispatch_proto_depIdxs = nil
 }

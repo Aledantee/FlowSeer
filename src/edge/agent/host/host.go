@@ -11,8 +11,8 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	eventv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1/devicev1connect"
-	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
@@ -117,7 +117,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	signer := edge.Signer(ctx, time.Now, base)
 	signed := identity.SigningClient(edge.TrustAnchors(), signer)
 	edgeClient := edgev1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
-	dispatchClient := integrationv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
+	dispatchClient := dispatchv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := eventv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
 
 	bufferBytes, bufferAge := cfg.Buffer()
@@ -184,7 +184,7 @@ type assembly struct {
 	edgeID   string
 	signer   *identity.Signer
 	edge     edgev1connect.EdgeServiceClient
-	dispatch integrationv1connect.DispatchServiceClient
+	dispatch dispatchv1connect.DispatchServiceClient
 	audit    eventv1connect.AuditServiceClient
 }
 

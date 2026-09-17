@@ -9,7 +9,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -138,7 +138,7 @@ const recoverySequence = 1
 // submitted is one Submit call's whole outcome, since an abandonment is a
 // result rather than an error and a test has to be able to tell them apart.
 type submitted struct {
-	result *integrationv1.ExecuteResult
+	result *dispatchv1.ExecuteResult
 	err    error
 }
 
@@ -500,7 +500,7 @@ func TestASuccessfulRecoveryReleasesTheDeviceHold(t *testing.T) {
 
 // resumedRequest is central re-dispatching a mutation after an edge
 // restart, carrying the admission time its horizon runs from.
-func resumedRequest(sequence uint64, admittedAt time.Time) *integrationv1.ExecuteRequest {
+func resumedRequest(sequence uint64, admittedAt time.Time) *dispatchv1.ExecuteRequest {
 	req := mutationRequest(sequence)
 	req.SetResume(true)
 	req.SetAdmittedAt(timestamppb.New(admittedAt))

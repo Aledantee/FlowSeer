@@ -11,8 +11,8 @@ import (
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/host"
@@ -96,15 +96,15 @@ func TestEachReportIsAddressedToItsDevice(t *testing.T) {
 	reporter := host.LaneReporterForTest(out)
 	ctx := context.Background()
 
-	result := &integrationv1.ExecuteResult{}
+	result := &dispatchv1.ExecuteResult{}
 	result.SetSequence(7)
 	reporter.Reported(ctx, "dev-1", result)
 
-	ack := &integrationv1.CheckpointAck{}
+	ack := &dispatchv1.CheckpointAck{}
 	ack.SetSequence(7)
 	reporter.CheckpointAcked(ctx, "dev-2", ack)
 
-	hold := &integrationv1.HoldResolvedAck{}
+	hold := &dispatchv1.HoldResolvedAck{}
 	hold.SetSequence(7)
 	reporter.HoldResolvedAcked(ctx, "dev-3", hold)
 
@@ -127,14 +127,14 @@ type auditNoop struct{}
 func (auditNoop) Emit(context.Context, *eventv1.DeviceOperationEvent) error { return nil }
 
 type recordingOutbound struct {
-	seen []*integrationv1.ReportRequest
+	seen []*dispatchv1.ReportRequest
 }
 
-func (r *recordingOutbound) Report(_ context.Context, report *integrationv1.ReportRequest) {
+func (r *recordingOutbound) Report(_ context.Context, report *dispatchv1.ReportRequest) {
 	r.seen = append(r.seen, report)
 }
 
-func (r *recordingOutbound) reports() []*integrationv1.ReportRequest { return r.seen }
+func (r *recordingOutbound) reports() []*dispatchv1.ReportRequest { return r.seen }
 
 // recordingEdge answers AcquireReadCredential and remembers who it was for.
 type recordingEdge struct {
@@ -152,12 +152,12 @@ func (e *recordingEdge) AcquireReadCredential(
 
 func (e *recordingEdge) acquired() string { return e.device }
 
-func readRequest() *integrationv1.ExecuteRequest {
+func readRequest() *dispatchv1.ExecuteRequest {
 	intent := &accessv1.InterfaceReadIntent{}
 	intent.SetInterfaceName("ethernet 1/1/1")
 	typed := &accessv1.TypedRead{}
 	typed.SetInterface(intent)
-	request := &integrationv1.ExecuteRequest{}
+	request := &dispatchv1.ExecuteRequest{}
 	request.SetRead(typed)
 	request.SetSequence(1)
 	return request
@@ -169,4 +169,4 @@ func readRequest() *integrationv1.ExecuteRequest {
 // exists to prevent invisible in production too.
 type discardOutbound struct{}
 
-func (discardOutbound) Report(context.Context, *integrationv1.ReportRequest) {}
+func (discardOutbound) Report(context.Context, *dispatchv1.ReportRequest) {}

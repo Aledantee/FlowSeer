@@ -17,7 +17,7 @@ admission and belongs with that entity in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: integration/device, store/device
+Imported by: edge/dispatch, store/device
 
 The `errs/` root is a leaf: it imports nothing FlowSeer-owned. Any service,
 integration, event, or storage root may import `errs/`.

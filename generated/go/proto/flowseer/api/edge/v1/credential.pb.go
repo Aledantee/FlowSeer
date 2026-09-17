@@ -603,7 +603,7 @@ type OpenDeviceSubmissionRequest_builder struct {
 	// The integration binding running the mutation. Must be present.
 	BindingId *string
 	// The device's lane sequence this submission is for, matching
-	// flowseer.integration.device.v1.ExecuteRequest.sequence. Must be present
+	// flowseer.edge.dispatch.v1.ExecuteRequest.sequence. Must be present
 	// and at least 1.
 	Sequence *uint64
 }

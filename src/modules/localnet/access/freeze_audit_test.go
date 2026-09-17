@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -206,7 +206,7 @@ func assertNoDeviceWriteWhileFrozen(t *testing.T, l *access.Lane, submits *atomi
 
 	// Let it past the checkpoint so it reaches the execute step, which is
 	// the step the gate stops.
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(1)
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {

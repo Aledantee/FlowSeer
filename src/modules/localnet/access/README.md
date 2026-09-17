@@ -157,7 +157,7 @@ engage a recovery hold over a mutation central has already released.
 ## Lane position vs. central sequence
 
 `ExecuteRequest.sequence` is central's: assigned before dispatch and
-delivered to the edge on the envelope (`spec/proto/flowseer/integration/device/v1/README.md`).
+delivered to the edge on the envelope (`spec/proto/flowseer/edge/dispatch/v1/README.md`).
 This module's own `internal/lane.Item.Position` is a separate, edge-local
 counter assigned at admission into one device's `lane.Queue` — it orders
 FIFO dispatch and poll coalescing before dispatch, has no relation to

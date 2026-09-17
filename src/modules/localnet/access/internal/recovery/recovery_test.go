@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/audit"
@@ -86,7 +86,7 @@ func recoveringMachineWithDeliverer(t *testing.T, deliverer audit.Deliverer, rea
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
@@ -94,7 +94,7 @@ func recoveringMachineWithDeliverer(t *testing.T, deliverer audit.Deliverer, rea
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -129,14 +129,14 @@ func TestObserveAlwaysPrecedesARetryDecision(t *testing.T) {
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 	m, err := mutation.Admitted(req, deps)
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)
@@ -360,7 +360,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	intent := &accessv1.MutationIntent{}
 	intent.SetExpectedFirmwareFingerprint("fw-A")
 	intent.SetInterfaceDescription(change)
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(1)
 	req.SetMutation(intent)
 
@@ -368,7 +368,7 @@ func TestRecoveryTerminatesWhenTheDeviceStaysUnreachable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Admitted() error: %v", err)
 	}
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 	if _, err := m.Checkpoint(context.Background(), checkpointReq); err != nil {
 		t.Fatalf("Checkpoint() error: %v", err)

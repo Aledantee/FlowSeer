@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/mutation"
 )
@@ -50,13 +50,13 @@ func TestSubmitLatchLetsOnlyOneOfCancelAndCommandWin(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Admitted() error: %v", err)
 		}
-		checkpoint := &integrationv1.CheckpointRequest{}
+		checkpoint := &dispatchv1.CheckpointRequest{}
 		checkpoint.SetSequence(1)
 		if _, err := m.Checkpoint(context.Background(), checkpoint); err != nil {
 			t.Fatalf("Checkpoint() error: %v", err)
 		}
 
-		ack := &integrationv1.TerminalResultAck{}
+		ack := &dispatchv1.TerminalResultAck{}
 		ack.SetSequence(1)
 		ack.SetDisposition(accessv1.Disposition_DISPOSITION_REJECTED)
 

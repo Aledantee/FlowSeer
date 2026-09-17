@@ -9,8 +9,8 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
-	integrationv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1/devicev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 )
 
 // panickingDispatch stands in for the dispatch service on the one call shape
@@ -18,15 +18,15 @@ import (
 type panickingDispatch struct{}
 
 func (panickingDispatch) Subscribe(
-	context.Context, *connect.Request[integrationv1.SubscribeRequest], *connect.ServerStream[integrationv1.SubscribeResponse],
+	context.Context, *connect.Request[dispatchv1.SubscribeRequest], *connect.ServerStream[dispatchv1.SubscribeResponse],
 ) error {
 	panic("a relay pass went wrong")
 }
 
 func (panickingDispatch) Report(
-	context.Context, *connect.Request[integrationv1.ReportRequest],
-) (*connect.Response[integrationv1.ReportResponse], error) {
-	return connect.NewResponse(&integrationv1.ReportResponse{}), nil
+	context.Context, *connect.Request[dispatchv1.ReportRequest],
+) (*connect.Response[dispatchv1.ReportResponse], error) {
+	return connect.NewResponse(&dispatchv1.ReportResponse{}), nil
 }
 
 // TestAPanicOnTheDispatchStreamAnswersRatherThanResetting covers the option
@@ -35,14 +35,14 @@ func (panickingDispatch) Report(
 // telemetry interceptor records no duration, and the relay's per-device
 // state is abandoned mid-pass.
 func TestAPanicOnTheDispatchStreamAnswersRatherThanResetting(t *testing.T) {
-	path, handler := integrationv1connect.NewDispatchServiceHandler(panickingDispatch{}, panicRecovery())
+	path, handler := dispatchv1connect.NewDispatchServiceHandler(panickingDispatch{}, panicRecovery())
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	client := integrationv1connect.NewDispatchServiceClient(server.Client(), server.URL)
-	stream, err := client.Subscribe(context.Background(), connect.NewRequest(&integrationv1.SubscribeRequest{}))
+	client := dispatchv1connect.NewDispatchServiceClient(server.Client(), server.URL)
+	stream, err := client.Subscribe(context.Background(), connect.NewRequest(&dispatchv1.SubscribeRequest{}))
 	if err != nil {
 		t.Fatalf("open the stream: %v", err)
 	}

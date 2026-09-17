@@ -14,8 +14,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
@@ -69,11 +69,11 @@ func fixturePolicy() *policyv1.AccessPolicyHandle {
 
 // mutationRequest expects whatever the fixture identity probe returns,
 // which is what every fixture device's OpenSNMP answers.
-func mutationRequest(sequence uint64) *integrationv1.ExecuteRequest {
+func mutationRequest(sequence uint64) *dispatchv1.ExecuteRequest {
 	return mutationRequestWithFingerprint(sequence, probedFingerprint(), "uplink to core")
 }
 
-func mutationRequestWithFingerprint(sequence uint64, fingerprint, description string) *integrationv1.ExecuteRequest {
+func mutationRequestWithFingerprint(sequence uint64, fingerprint, description string) *dispatchv1.ExecuteRequest {
 	change := &accessv1.InterfaceDescriptionChange{}
 	change.SetInterfaceName("ethernet 1/1/1")
 	change.SetDescription(description)
@@ -81,19 +81,19 @@ func mutationRequestWithFingerprint(sequence uint64, fingerprint, description st
 	intent.SetExpectedFirmwareFingerprint(fingerprint)
 	intent.SetInterfaceDescription(change)
 	intent.SetAccessPolicy(fixturePolicy())
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetSequence(sequence)
 	req.SetMutation(intent)
 	return req
 }
 
-func readRequest() *integrationv1.ExecuteRequest {
+func readRequest() *dispatchv1.ExecuteRequest {
 	readIntent := &accessv1.InterfaceReadIntent{}
 	readIntent.SetInterfaceName("ethernet 1/1/1")
 	typedRead := &accessv1.TypedRead{}
 	typedRead.SetInterface(readIntent)
 	typedRead.SetAccessPolicy(fixturePolicy())
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetRead(typedRead)
 	return req
 }
@@ -118,7 +118,7 @@ func addDevice(t *testing.T, l *access.Lane) {
 // runMutation drives one mutation admission for "dev-1" through checkpoint
 // and terminal ack concurrently with Submit, since both block on external
 // delivery.
-func runMutation(t *testing.T, l *access.Lane, req *integrationv1.ExecuteRequest) (*integrationv1.ExecuteResult, error) {
+func runMutation(t *testing.T, l *access.Lane, req *dispatchv1.ExecuteRequest) (*dispatchv1.ExecuteResult, error) {
 	t.Helper()
 	const deviceKey = "dev-1"
 	var wg sync.WaitGroup
@@ -127,7 +127,7 @@ func runMutation(t *testing.T, l *access.Lane, req *integrationv1.ExecuteRequest
 		defer wg.Done()
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
-			checkpointReq := &integrationv1.CheckpointRequest{}
+			checkpointReq := &dispatchv1.CheckpointRequest{}
 			checkpointReq.SetSequence(req.GetSequence())
 			if err := l.HandleCheckpoint(deviceKey, checkpointReq); err == nil {
 				break
@@ -136,7 +136,7 @@ func runMutation(t *testing.T, l *access.Lane, req *integrationv1.ExecuteRequest
 		}
 		deadline = time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
-			ack := &integrationv1.TerminalResultAck{}
+			ack := &dispatchv1.TerminalResultAck{}
 			ack.SetSequence(req.GetSequence())
 			ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 			if err := l.HandleTerminalAck(context.Background(), deviceKey, ack); err == nil {
@@ -268,7 +268,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	firstDone := make(chan struct{})
 	go func() {
 		defer close(firstDone)
-		req := &integrationv1.ExecuteRequest{}
+		req := &dispatchv1.ExecuteRequest{}
 		readIntent := &accessv1.InterfaceReadIntent{}
 		readIntent.SetInterfaceName("eth-first")
 		typedRead := &accessv1.TypedRead{}
@@ -282,7 +282,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	// inside ReadOverride.
 	time.Sleep(50 * time.Millisecond)
 
-	secondReq := &integrationv1.ExecuteRequest{}
+	secondReq := &dispatchv1.ExecuteRequest{}
 	readIntent2 := &accessv1.InterfaceReadIntent{}
 	readIntent2.SetInterfaceName("eth-second")
 	typedRead2 := &accessv1.TypedRead{}
@@ -302,7 +302,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond)
 
-	thirdReq := &integrationv1.ExecuteRequest{}
+	thirdReq := &dispatchv1.ExecuteRequest{}
 	readIntent3 := &accessv1.InterfaceReadIntent{}
 	readIntent3.SetInterfaceName("eth-third")
 	typedRead3 := &accessv1.TypedRead{}
@@ -335,7 +335,7 @@ func TestLaneOverloadRejectsWithoutDroppingExisting(t *testing.T) {
 }
 
 type submitResult struct {
-	result *integrationv1.ExecuteResult
+	result *dispatchv1.ExecuteResult
 	err    error
 }
 
@@ -361,7 +361,7 @@ func TestLanePollCoalescing(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	results := make([]*integrationv1.ExecuteResult, 2)
+	results := make([]*dispatchv1.ExecuteResult, 2)
 	for i := range 2 {
 		wg.Add(1)
 		go func(i int) {
@@ -585,7 +585,7 @@ func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *te
 			t.Errorf("Close() error: %v", err)
 		}
 
-		checkpointReq := &integrationv1.CheckpointRequest{}
+		checkpointReq := &dispatchv1.CheckpointRequest{}
 		checkpointReq.SetSequence(1)
 		deadline := time.Now().Add(2 * time.Second)
 		for time.Now().Before(deadline) {
@@ -595,7 +595,7 @@ func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *te
 			time.Sleep(time.Millisecond)
 		}
 
-		ack := &integrationv1.TerminalResultAck{}
+		ack := &dispatchv1.TerminalResultAck{}
 		ack.SetSequence(1)
 		ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 		deadline = time.Now().Add(2 * time.Second)
@@ -621,13 +621,13 @@ func TestLaneCloseStillDeliversCheckpointAndAckToAnAlreadyAdmittedMutation(t *te
 	}
 }
 
-func readRequestFor(interfaceName string) *integrationv1.ExecuteRequest {
+func readRequestFor(interfaceName string) *dispatchv1.ExecuteRequest {
 	readIntent := &accessv1.InterfaceReadIntent{}
 	readIntent.SetInterfaceName(interfaceName)
 	typedRead := &accessv1.TypedRead{}
 	typedRead.SetInterface(readIntent)
 	typedRead.SetAccessPolicy(fixturePolicy())
-	req := &integrationv1.ExecuteRequest{}
+	req := &dispatchv1.ExecuteRequest{}
 	req.SetRead(typedRead)
 	return req
 }
@@ -665,7 +665,7 @@ func TestLaneOneCallersCancellationDoesNotPoisonAnother(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond) // let A become the active drainer and block in ReadOverride
 
-	var resultB *integrationv1.ExecuteResult
+	var resultB *dispatchv1.ExecuteResult
 	var errB error
 	doneB := make(chan struct{})
 	go func() {
@@ -904,7 +904,7 @@ func TestLaneCoalescedJoinerReceivesRealResultDespiteOwnersExpiry(t *testing.T) 
 		ownerDone <- err
 	}()
 
-	var joinerResult *integrationv1.ExecuteResult
+	var joinerResult *dispatchv1.ExecuteResult
 	var joinerErr error
 	joinerDone := make(chan struct{})
 	go func() {
@@ -965,7 +965,7 @@ func TestLaneCoalescedLongerDeadlineJoinerSurvivesShortDeadlineOwner(t *testing.
 	}()
 	time.Sleep(20 * time.Millisecond) // let the owner win coalescer.Start first
 
-	var joinerResult *integrationv1.ExecuteResult
+	var joinerResult *dispatchv1.ExecuteResult
 	var joinerErr error
 	joinerDone := make(chan struct{})
 	go func() {
@@ -1017,7 +1017,7 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 	}()
 	time.Sleep(50 * time.Millisecond) // let Submit become the drainer and park in awaitCheckpoint
 
-	checkpointReq := &integrationv1.CheckpointRequest{}
+	checkpointReq := &dispatchv1.CheckpointRequest{}
 	checkpointReq.SetSequence(1)
 
 	const attempts = 3
@@ -1061,7 +1061,7 @@ func TestLaneDuplicateCheckpointDeliveryReturnsErrorNotBlock(t *testing.T) {
 		t.Errorf("%d HandleCheckpoint call(s) blocked instead of returning an error", blocked)
 	}
 
-	ack := &integrationv1.TerminalResultAck{}
+	ack := &dispatchv1.TerminalResultAck{}
 	ack.SetSequence(1)
 	ack.SetDisposition(accessv1.Disposition_DISPOSITION_VERIFIED)
 	deadline := time.Now().Add(2 * time.Second)

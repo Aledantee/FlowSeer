@@ -3,7 +3,7 @@
 The NATS carrier between an edge and central, assembled by both hosts. The
 device service starts the hub; the edge agent starts the leaf node and the
 loopback receiver. Nothing an edge must act on rides here: dispatches,
-reports, and audit records are Connect calls in `integration/device/v1` and
+reports, and audit records are Connect calls in `edge/dispatch/v1` and
 `event/device/v1`. The bus carries what the edge publishes, the agent's own
 OpenTelemetry signals today and, on the same buffer, the device logs, traps,
 and change events the ingestion sources will add. The accepted

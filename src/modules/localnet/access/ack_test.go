@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/device/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
@@ -25,9 +25,9 @@ import (
 // it never hides a blocking implementation's effect on the lane.
 type recordingReporter struct {
 	mu          sync.Mutex
-	results     []*integrationv1.ExecuteResult
-	checkpoints []*integrationv1.CheckpointAck
-	holds       []*integrationv1.HoldResolvedAck
+	results     []*dispatchv1.ExecuteResult
+	checkpoints []*dispatchv1.CheckpointAck
+	holds       []*dispatchv1.HoldResolvedAck
 	devices     []string
 	ackDevices  []string
 	holdDevices []string
@@ -48,21 +48,21 @@ func (r *recordingReporter) onboardings() []string {
 	return append([]string(nil), r.onboarded...)
 }
 
-func (r *recordingReporter) Reported(_ context.Context, deviceKey string, result *integrationv1.ExecuteResult) {
+func (r *recordingReporter) Reported(_ context.Context, deviceKey string, result *dispatchv1.ExecuteResult) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.results = append(r.results, result)
 	r.devices = append(r.devices, deviceKey)
 }
 
-func (r *recordingReporter) CheckpointAcked(_ context.Context, deviceKey string, ack *integrationv1.CheckpointAck) {
+func (r *recordingReporter) CheckpointAcked(_ context.Context, deviceKey string, ack *dispatchv1.CheckpointAck) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.checkpoints = append(r.checkpoints, ack)
 	r.ackDevices = append(r.ackDevices, deviceKey)
 }
 
-func (r *recordingReporter) HoldResolvedAcked(_ context.Context, deviceKey string, ack *integrationv1.HoldResolvedAck) {
+func (r *recordingReporter) HoldResolvedAcked(_ context.Context, deviceKey string, ack *dispatchv1.HoldResolvedAck) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.holds = append(r.holds, ack)
@@ -85,22 +85,22 @@ func (r *recordingReporter) ackedDevices() (checkpoints, holds []string) {
 	return append([]string(nil), r.ackDevices...), append([]string(nil), r.holdDevices...)
 }
 
-func (r *recordingReporter) reported() []*integrationv1.ExecuteResult {
+func (r *recordingReporter) reported() []*dispatchv1.ExecuteResult {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]*integrationv1.ExecuteResult(nil), r.results...)
+	return append([]*dispatchv1.ExecuteResult(nil), r.results...)
 }
 
-func (r *recordingReporter) checkpointAcks() []*integrationv1.CheckpointAck {
+func (r *recordingReporter) checkpointAcks() []*dispatchv1.CheckpointAck {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]*integrationv1.CheckpointAck(nil), r.checkpoints...)
+	return append([]*dispatchv1.CheckpointAck(nil), r.checkpoints...)
 }
 
-func (r *recordingReporter) holdAcks() []*integrationv1.HoldResolvedAck {
+func (r *recordingReporter) holdAcks() []*dispatchv1.HoldResolvedAck {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]*integrationv1.HoldResolvedAck(nil), r.holds...)
+	return append([]*dispatchv1.HoldResolvedAck(nil), r.holds...)
 }
 
 // phases reduces the reported results to the phases they carried, which is
@@ -174,8 +174,8 @@ func awaitSubmit(t *testing.T, done <-chan error) error {
 	}
 }
 
-func terminalAck(sequence uint64, disposition accessv1.Disposition) *integrationv1.TerminalResultAck {
-	ack := &integrationv1.TerminalResultAck{}
+func terminalAck(sequence uint64, disposition accessv1.Disposition) *dispatchv1.TerminalResultAck {
+	ack := &dispatchv1.TerminalResultAck{}
 	ack.SetSequence(sequence)
 	ack.SetDisposition(disposition)
 	return ack
@@ -185,7 +185,7 @@ func terminalAck(sequence uint64, disposition accessv1.Disposition) *integration
 // wait, since Submit and the delivery run on different goroutines.
 func deliverCheckpoint(t *testing.T, l *access.Lane, sequence uint64) {
 	t.Helper()
-	req := &integrationv1.CheckpointRequest{}
+	req := &dispatchv1.CheckpointRequest{}
 	req.SetSequence(sequence)
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
@@ -199,7 +199,7 @@ func deliverCheckpoint(t *testing.T, l *access.Lane, sequence uint64) {
 
 // deliverAck retries only no-pending-wait, which means the mutation has not
 // opened yet. Every other refusal is a real answer this test wants to see.
-func deliverAck(t *testing.T, l *access.Lane, ack *integrationv1.TerminalResultAck) error {
+func deliverAck(t *testing.T, l *access.Lane, ack *dispatchv1.TerminalResultAck) error {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for {
@@ -236,7 +236,7 @@ func TestRejectedAcknowledgementReachesAMutationParkedInTheFreezeWait(t *testing
 	}
 
 	type outcome struct {
-		result *integrationv1.ExecuteResult
+		result *dispatchv1.ExecuteResult
 		err    error
 	}
 	done := make(chan outcome, 1)
@@ -292,7 +292,7 @@ func TestRejectedAcknowledgementAfterTheLatchIsRefused(t *testing.T) {
 	addDeviceCountingSubmits(t, l, &submits)
 
 	type outcome struct {
-		result *integrationv1.ExecuteResult
+		result *dispatchv1.ExecuteResult
 		err    error
 	}
 	done := make(chan outcome, 1)
@@ -525,7 +525,7 @@ func TestAbandoningAcknowledgementEndsTheMutationAndHoldsTheLane(t *testing.T) {
 		t.Fatalf("Submit() after an abandonment: code = %v, want %v", code, access.ErrCodeDesynchronized)
 	}
 
-	resolved := &integrationv1.HoldResolved{}
+	resolved := &dispatchv1.HoldResolved{}
 	resolved.SetSequence(1)
 	if err := l.ResolveHold(context.Background(), "dev-1", resolved); err != nil {
 		t.Fatalf("ResolveHold() error: %v", err)
@@ -639,7 +639,7 @@ func TestCoalescedReadReportsOncePerJoiner(t *testing.T) {
 		t.Fatalf("AddDevice() error: %v", err)
 	}
 
-	results := make(chan *integrationv1.ExecuteResult, 2)
+	results := make(chan *dispatchv1.ExecuteResult, 2)
 	var wg sync.WaitGroup
 	for _, sequence := range []uint64{4, 5} {
 		wg.Add(1)
@@ -863,7 +863,7 @@ func TestAStaleHoldResolutionIsAcknowledgedWithoutLiftingTheHold(t *testing.T) {
 		t.Fatalf("Submit() error: %v", err)
 	}
 
-	resolved := &integrationv1.HoldResolved{}
+	resolved := &dispatchv1.HoldResolved{}
 	resolved.SetSequence(7)
 	if err := l.ResolveHold(context.Background(), "dev-1", resolved); err != nil {
 		t.Fatalf("ResolveHold() error: %v", err)

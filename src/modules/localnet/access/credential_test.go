@@ -9,7 +9,7 @@ import (
 	"time"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
@@ -420,7 +420,7 @@ func TestACoalescedJoinerWhoseAcquisitionFailsIsRefusedAndReported(t *testing.T)
 		t.Errorf("the device was read %d times, want 1: the refused joiner must not reach it", got)
 	}
 
-	var reported *integrationv1.ExecuteResult
+	var reported *dispatchv1.ExecuteResult
 	for _, result := range reporter.reported() {
 		if result.GetSequence() == 42 {
 			reported = result

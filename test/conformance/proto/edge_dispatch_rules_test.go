@@ -7,15 +7,15 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
-	integrationv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/device/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 )
 
 var executeDeadline = timestamppb.New(edgeIssuedAt.Add(30 * time.Second))
 
-func executeRequest() integrationv1.ExecuteRequest_builder {
-	return integrationv1.ExecuteRequest_builder{
+func executeRequest() dispatchv1.ExecuteRequest_builder {
+	return dispatchv1.ExecuteRequest_builder{
 		Sequence:       proto.Uint64(42),
 		Deadline:       executeDeadline,
 		IdempotencyKey: proto.String(idempotencyKey),
@@ -76,8 +76,8 @@ func TestExecuteRequestRules(t *testing.T) {
 	runValidationCases(t, tests)
 }
 
-func executeResult() integrationv1.ExecuteResult_builder {
-	return integrationv1.ExecuteResult_builder{
+func executeResult() dispatchv1.ExecuteResult_builder {
+	return dispatchv1.ExecuteResult_builder{
 		Sequence:     proto.Uint64(42),
 		PhaseReached: accessv1.OperationPhase_OPERATION_PHASE_OBSERVING.Enum(),
 		Observation:  interfaceObservation().Build(),
@@ -91,7 +91,7 @@ func TestExecuteResultRules(t *testing.T) {
 
 	asProgress := executeResult()
 	asProgress.Observation = nil
-	asProgress.Progress = &integrationv1.Progress{}
+	asProgress.Progress = &dispatchv1.Progress{}
 	asProgress.PhaseReached = accessv1.OperationPhase_OPERATION_PHASE_ADMITTED.Enum()
 
 	submitted := executeResult()
@@ -121,13 +121,13 @@ func TestExecuteResultRules(t *testing.T) {
 
 func TestCheckpointAndTerminalAckRules(t *testing.T) {
 	tests := []validationCase{
-		{name: "checkpoint request is valid", message: integrationv1.CheckpointRequest_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
-		{name: "checkpoint request sequence zero is rejected", message: integrationv1.CheckpointRequest_builder{Sequence: proto.Uint64(0)}.Build()},
-		{name: "checkpoint ack is valid", message: integrationv1.CheckpointAck_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
-		{name: "checkpoint ack sequence zero is rejected", message: integrationv1.CheckpointAck_builder{Sequence: proto.Uint64(0)}.Build()},
+		{name: "checkpoint request is valid", message: dispatchv1.CheckpointRequest_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
+		{name: "checkpoint request sequence zero is rejected", message: dispatchv1.CheckpointRequest_builder{Sequence: proto.Uint64(0)}.Build()},
+		{name: "checkpoint ack is valid", message: dispatchv1.CheckpointAck_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
+		{name: "checkpoint ack sequence zero is rejected", message: dispatchv1.CheckpointAck_builder{Sequence: proto.Uint64(0)}.Build()},
 		{
 			name: "terminal ack is valid",
-			message: integrationv1.TerminalResultAck_builder{
+			message: dispatchv1.TerminalResultAck_builder{
 				Sequence:    proto.Uint64(42),
 				Disposition: accessv1.Disposition_DISPOSITION_VERIFIED.Enum(),
 			}.Build(),
@@ -135,7 +135,7 @@ func TestCheckpointAndTerminalAckRules(t *testing.T) {
 		},
 		{
 			name: "terminal ack without disposition is rejected",
-			message: integrationv1.TerminalResultAck_builder{
+			message: dispatchv1.TerminalResultAck_builder{
 				Sequence: proto.Uint64(42),
 			}.Build(),
 		},
@@ -146,17 +146,17 @@ func TestCheckpointAndTerminalAckRules(t *testing.T) {
 
 func TestHoldResolvedRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
-		{name: "hold resolved is valid", message: integrationv1.HoldResolved_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
-		{name: "hold resolved sequence zero is rejected", message: integrationv1.HoldResolved_builder{Sequence: proto.Uint64(0)}.Build()},
-		{name: "hold resolved ack is valid", message: integrationv1.HoldResolvedAck_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
-		{name: "hold resolved ack without a sequence is rejected", message: integrationv1.HoldResolvedAck_builder{}.Build()},
+		{name: "hold resolved is valid", message: dispatchv1.HoldResolved_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
+		{name: "hold resolved sequence zero is rejected", message: dispatchv1.HoldResolved_builder{Sequence: proto.Uint64(0)}.Build()},
+		{name: "hold resolved ack is valid", message: dispatchv1.HoldResolvedAck_builder{Sequence: proto.Uint64(42)}.Build(), wantValid: true},
+		{name: "hold resolved ack without a sequence is rejected", message: dispatchv1.HoldResolvedAck_builder{}.Build()},
 	})
 }
 
-func refused(code string) integrationv1.Refused_builder {
-	return integrationv1.Refused_builder{
+func refused(code string) dispatchv1.Refused_builder {
+	return dispatchv1.Refused_builder{
 		Sequence: proto.Uint64(42),
-		Kind:     integrationv1.DispatchKind_DISPATCH_KIND_CHECKPOINT.Enum(),
+		Kind:     dispatchv1.DispatchKind_DISPATCH_KIND_CHECKPOINT.Enum(),
 		Code:     proto.String(code),
 	}
 }
@@ -166,7 +166,7 @@ func TestRefusedAndOnboardedRules(t *testing.T) {
 	noKind.Kind = nil
 
 	unspecifiedKind := refused("access/no-pending-wait")
-	unspecifiedKind.Kind = integrationv1.DispatchKind_DISPATCH_KIND_UNSPECIFIED.Enum()
+	unspecifiedKind.Kind = dispatchv1.DispatchKind_DISPATCH_KIND_UNSPECIFIED.Enum()
 
 	runValidationCases(t, []validationCase{
 		{name: "refusal with a lane code is valid", message: refused("access/no-pending-wait").Build(), wantValid: true},
@@ -174,8 +174,8 @@ func TestRefusedAndOnboardedRules(t *testing.T) {
 		{name: "refusal code must be package slash name", message: refused("NoPendingWait").Build()},
 		{name: "refusal without a kind is rejected", message: noKind.Build()},
 		{name: "refusal with the zero kind is rejected", message: unspecifiedKind.Build()},
-		{name: "onboarded with a fingerprint is valid", message: integrationv1.Onboarded_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(), wantValid: true},
-		{name: "onboarded without a fingerprint is rejected", message: integrationv1.Onboarded_builder{}.Build()},
+		{name: "onboarded with a fingerprint is valid", message: dispatchv1.Onboarded_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(), wantValid: true},
+		{name: "onboarded without a fingerprint is rejected", message: dispatchv1.Onboarded_builder{}.Build()},
 	})
 }
 
@@ -183,7 +183,7 @@ func TestDispatchStreamRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
 		{
 			name: "execute dispatch names its device",
-			message: integrationv1.SubscribeResponse_builder{
+			message: dispatchv1.SubscribeResponse_builder{
 				DeviceId: proto.String(deviceID),
 				Execute:  executeRequest().Build(),
 			}.Build(),
@@ -191,25 +191,25 @@ func TestDispatchStreamRules(t *testing.T) {
 		},
 		{
 			name: "hold resolved dispatch is valid",
-			message: integrationv1.SubscribeResponse_builder{
+			message: dispatchv1.SubscribeResponse_builder{
 				DeviceId:     proto.String(deviceID),
-				HoldResolved: integrationv1.HoldResolved_builder{Sequence: proto.Uint64(42)}.Build(),
+				HoldResolved: dispatchv1.HoldResolved_builder{Sequence: proto.Uint64(42)}.Build(),
 			}.Build(),
 			wantValid: true,
 		},
 		{
 			name: "dispatch without a device is rejected",
-			message: integrationv1.SubscribeResponse_builder{
+			message: dispatchv1.SubscribeResponse_builder{
 				Execute: executeRequest().Build(),
 			}.Build(),
 		},
 		{
 			name:    "dispatch without a message is rejected",
-			message: integrationv1.SubscribeResponse_builder{DeviceId: proto.String(deviceID)}.Build(),
+			message: dispatchv1.SubscribeResponse_builder{DeviceId: proto.String(deviceID)}.Build(),
 		},
 		{
 			name: "result report is valid",
-			message: integrationv1.ReportRequest_builder{
+			message: dispatchv1.ReportRequest_builder{
 				DeviceId: proto.String(deviceID),
 				Result:   executeResult().Build(),
 			}.Build(),
@@ -217,22 +217,22 @@ func TestDispatchStreamRules(t *testing.T) {
 		},
 		{
 			name: "onboarded report is valid",
-			message: integrationv1.ReportRequest_builder{
+			message: dispatchv1.ReportRequest_builder{
 				DeviceId:  proto.String(deviceID),
-				Onboarded: integrationv1.Onboarded_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(),
+				Onboarded: dispatchv1.Onboarded_builder{FirmwareFingerprint: proto.String(fingerprint)}.Build(),
 			}.Build(),
 			wantValid: true,
 		},
 		{
 			name: "report with a device that is not a uuid is rejected",
-			message: integrationv1.ReportRequest_builder{
+			message: dispatchv1.ReportRequest_builder{
 				DeviceId: proto.String("switch-1"),
 				Result:   executeResult().Build(),
 			}.Build(),
 		},
 		{
 			name:    "report without an arm is rejected",
-			message: integrationv1.ReportRequest_builder{DeviceId: proto.String(deviceID)}.Build(),
+			message: dispatchv1.ReportRequest_builder{DeviceId: proto.String(deviceID)}.Build(),
 		},
 	})
 }

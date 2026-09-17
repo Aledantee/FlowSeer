@@ -70,7 +70,7 @@ oneof: a required, typed-variant wrapper so a read the device's lane admits
 is as typed as a write it admits. Today it has one arm,
 `InterfaceReadIntent`, naming the interface by the device-local name the
 device spells, the same key `InterfaceObservation` uses. The execution
-envelope in `integration/device/v1` dispatches a `TypedRead` the same way it
+envelope in `edge/dispatch/v1` dispatches a `TypedRead` the same way it
 dispatches a `MutationIntent`, and any future read capability joins this
 oneof rather than inventing a second read shape.
 
@@ -82,7 +82,7 @@ read reaches the edge with no `MutationIntent` to carry one.
 
 Imports: model/edge, model/inventory, model/policy, net/interface
 
-Imported by: api/device, event/device, integration/device, store/device
+Imported by: api/device, edge/dispatch, event/device, store/device
 
 Deliberately absent:
 

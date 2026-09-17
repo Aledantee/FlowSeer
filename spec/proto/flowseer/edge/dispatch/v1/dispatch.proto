@@ -5,9 +5,9 @@ edition = "2024";
 // dispatches to, and the unary report the edge answers with. Every message
 // names its device by id, since one stream serves every device an edge
 // hosts.
-package flowseer.integration.device.v1;
+package flowseer.edge.dispatch.v1;
 
-import "flowseer/integration/device/v1/execution.proto";
+import "flowseer/edge/dispatch/v1/execution.proto";
 import option "buf/validate/validate.proto";
 
 service DispatchService {

@@ -8,7 +8,7 @@ edition = "2024";
 // and one edge, so nothing here carries a device or edge ref; MutationIntent
 // carries its own device ref for the mutation case, and a TypedRead needs
 // none because the transport supplies it.
-package flowseer.integration.device.v1;
+package flowseer.edge.dispatch.v1;
 
 import "flowseer/errs/v1/error.proto";
 import "flowseer/model/access/v1/interface.proto";
