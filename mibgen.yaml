@@ -74,9 +74,10 @@ modules:
   - { name: DLINKSW-SFPINFO-MIB,       package: dlinkswsfpinfomib }
   - { name: HP-ICF-TRANSCEIVER-MIB,    package: hpicftransceivermib }
   - { name: HH3C-TRANSCEIVER-INFO-MIB, package: hh3ctransceiverinfomib }
-  # Identity only: the three modules below declare product naming nodes
-  # and no tables, so their packages are near-empty and their whole value
-  # is the entries they add to the sysobjectid table.
+  # Identity only: the modules below declare product naming nodes and no
+  # tables, so their packages are near-empty and their whole value is the
+  # entries they add to the sysobjectid table. LCOS-MIB at the end is the
+  # exception, and says so itself.
   #
   # FOUNDRY-SN-ROOT-MIB carries the Ruckus ICX (ex-Brocade, ex-Foundry)
   # product families and models under enterprises 1991.
