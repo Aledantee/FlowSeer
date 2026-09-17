@@ -2007,6 +2007,33 @@ func TestPeekAndCommitAgreeOnSelection(t *testing.T) {
 	}
 }
 
+// TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt pins that a datagram
+// ip.Header.Encode refuses never reaches a hold queue. finishHeld re-encodes the header once the
+// neighbor resolves, and an encode failure there omits the frame with no report at all, so a
+// datagram Encode will never accept has to be refused while its caller is still there to be told.
+func TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
+
+	// A 20-octet IPv4 header over 65516 octets of payload totals 65536, one past what the
+	// total-length field can carry.
+	res := l.Originate(testNow, routing.DefaultVRF, lifecycleDstV4, 17, make([]byte, 65516), true)
+	if res.Reason != routing.ReasonBadHeader {
+		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
+	}
+	last := res.Steps[len(res.Steps)-1]
+	if last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonBadHeader) {
+		t.Errorf("last step = %s/%s, want %s/%s", last.Op, last.RuleID, trace.OpDrop, routing.ReasonBadHeader)
+	}
+
+	// A queued frame surfaces here: a Wake past the resolution deadline fails an Incomplete
+	// entry and reports every frame it was holding.
+	eff := l.Wake(testNow.Add(2 * time.Second))
+	if len(eff.Released) != 0 || len(eff.Failed) != 0 {
+		t.Fatalf("wake reported %d released and %d failed, want none of either", len(eff.Released), len(eff.Failed))
+	}
+}
+
 var (
 	hostMAC      = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	ecmpPrefix   = netip.MustParsePrefix("10.0.0.0/8")

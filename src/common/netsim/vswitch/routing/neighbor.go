@@ -277,9 +277,11 @@ type Effects struct {
 // finishHeld re-encodes h's header, already in the egress form the caller queued it in (Route's
 // closure pre-decrements the hop limit; Originate's leaves it at 64, matching each one's direct,
 // non-held path), and builds the Ethernet frame it leaves as (or, with a zero mac, the frame a
-// failure step names). An encode error is unreachable in practice: h's header decoded
-// successfully moments before it was queued and nothing about it changes here, so this silently
-// omits the frame rather than carry a spurious error path.
+// failure step names). An encode error is unreachable: both callers establish encodability
+// before they queue, Originate by encoding the same header and payload and discarding the bytes
+// and Route by having decoded the datagram out of a frame that already held it, so this omits
+// the frame rather than carry a spurious error path. Neither caller's closure changes the
+// encoded size, the only thing Encode refuses on — Route's decrements the hop limit in place.
 func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC) (HeldFrame, bool) {
 	newPayload, err := h.header.Encode(h.payload)
 	if err != nil {

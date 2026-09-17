@@ -992,6 +992,29 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	}
 
 	res := l.result(vrf)
+
+	// Encode before resolving. A datagram Encode refuses is refused the same way whether or not
+	// its next hop is known: queued on an unresolved next hop it would be re-encoded at release,
+	// fail there, and leave the hold queue by a path nothing reports. The bytes are kept for the
+	// direct path below, which would otherwise encode the same header and payload a second time,
+	// but are deliberately not carried into heldEntry: finishHeld re-encodes from header and
+	// payload, so a carried copy would be either a double encode or a second path through it.
+	pktBytes, err := hdr.Encode(payload)
+	if err != nil {
+		res.Steps = slices.Clone(steps)
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   port.LayerRouting,
+			Op:      trace.OpDrop,
+			RuleID:  trace.RuleID(ReasonBadHeader),
+			Subject: trace.Subject{Kind: "interface", Key: targetIface},
+			Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, "")},
+			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
+		})
+		res.Reason = ReasonBadHeader
+		res.Candidates = candidateSet(sel.candidates)
+		return res
+	}
+
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
 	lookup := vrfState.resolveNeighbor(now, key, commit, func() heldEntry {
@@ -1035,22 +1058,6 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	}
 
 	steps[len(steps)-1].Outputs = append(steps[len(steps)-1].Outputs, neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state))
-
-	pktBytes, err := hdr.Encode(payload)
-	if err != nil {
-		res.Steps = slices.Clone(steps)
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   port.LayerRouting,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID(ReasonBadHeader),
-			Subject: trace.Subject{Kind: "interface", Key: targetIface},
-			Inputs:  []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, true, ""), neighborSnapshot(targetIface, targetAddr, lookup.mac, lookup.state)},
-			Outputs: []trace.Fact{packetSnapshot(targetIface, ethernet.Frame{EtherType: etherType}, hdr, false, ReasonBadHeader)},
-		})
-		res.Reason = ReasonBadHeader
-		res.Candidates = candidateSet(sel.candidates)
-		return res
-	}
 
 	egressIfaceObj := l.ifaces[targetIface]
 	res.Steps = steps

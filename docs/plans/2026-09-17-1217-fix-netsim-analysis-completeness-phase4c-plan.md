@@ -201,6 +201,18 @@ case already pins the release path it shares. Adding a case that cannot see the
 change would be a case passing for the wrong reason, which is what this phase
 exists because of.
 
+### Rulings taken during implementation
+
+Ruled: `Originate` keeps the validation encode's bytes for its direct path
+instead of discarding them, and the later drop step at the resolved path is
+deleted rather than kept. Why: with the validation encode unconditional and
+nothing mutating the header between the two, the later encode cannot fail, so
+keeping it leaves an unreachable branch and a trace step no input can produce,
+and encodes a 64 KiB payload twice on every originated datagram. The discard
+the Decisions section argued for is about `heldEntry`, which still carries
+header and payload rather than bytes. Cost if wrong: restoring the second
+encode and its step, both in `Originate`; no caller or test reads either.
+
 ## Requirements
 
 1. A frame that enters a hold queue leaves exactly once with a stated cause.
@@ -457,7 +469,13 @@ in-memory inputs and a logical clock.
    outside every unit here, and it is a frame entering a hold queue whose exit
    no journey can account for. Whether `Inject` should refuse before committing,
    or own a journey, is a question for parent U6, which holds journey identity.
-4. **Does `bridge.replicate`'s no-candidate return
+4. **U5 says `framePCP` has no other caller; the tree says it has three.**
+   `fabric/run.go:287` (host injection), `:541` (mirror copies) and `:925`
+   (`injectEmission`) all call it. Only `:925` gains an `Emission.PCP` to read
+   instead, so U5 replaces that one call and leaves the function and its other
+   two callers standing. The tree wins; U5's Change line is corrected in the
+   same commit.
+5. **Does `bridge.replicate`'s no-candidate return
    (`bridge/bridge.go:1222-1234`) leave the same hole in other callers?** It
    sets `Reason` and appends a step but returns no `Egress` entry, so any
    caller reading only `res.Egress` inherits U3's defect. The live forwarding
