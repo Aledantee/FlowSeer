@@ -5,6 +5,7 @@ date: 2026-09-17
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+compound: docs/solutions/conventions/a-refusal-test-needs-an-input-only-the-refusal-rejects.md
 execution: mixed
 parent: docs/plans/2026-09-17-1141-refactor-proto-layout-plan.md
 amends: docs/architecture/2026-08-20-network-model-structure-direction.md

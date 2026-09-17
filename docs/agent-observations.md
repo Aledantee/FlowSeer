@@ -187,3 +187,17 @@ unreachable") is verified the way the finding is, and so that a fix the
 reviewer could not verify is reported as a direction rather than as a patch.
 The cost of leaving it is that a verified finding lends its authority to an
 unverified remedy, which the coordinator then applies first and checks second.
+
+## 2026-09-17 delegate: a brief written to $TMPDIR reached a worker as another session's brief
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief", and
+`references/herdr.md`.
+What happened: the brief was written by a sandboxed Bash command, whose
+`$TMPDIR` is the per-session sandbox directory, and read by the unsandboxed
+`herdr-worker.sh start`, whose `$TMPDIR` is the shared system one. The path
+resolved on both sides, so no step failed: the worker was dispatched with a
+stale brief another session had left at the same relative path, reported the
+task "already implemented", and changed nothing. The skill names the
+scratchpad directory only for a reviewer's diff file.
+Suggested change: say that a brief, like a diff, is written to the session
+scratchpad directory, because every runtime command runs unsandboxed and
+`$TMPDIR` does not mean the same directory on both sides of that boundary.

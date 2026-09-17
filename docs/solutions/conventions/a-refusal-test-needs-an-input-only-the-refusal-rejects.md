@@ -1,7 +1,7 @@
 ---
 title: A Refusal Test Needs an Input Only the Refusal Rejects
 date: 2026-09-16
-last_verified: 2026-09-16
+last_verified: 2026-09-17
 category: conventions
 module: src/common/net/udp
 problem_type: convention
@@ -11,8 +11,9 @@ applies_when:
   - "Writing a test that asserts a function refuses, returning false, nil, or an error, where the function has more than one way to produce that outcome"
   - "Choosing a test input by running the function under test until it returns the wanted result"
   - "Reviewing a codec or a validator whose tests are refusals, or judging whether a passing suite would notice a guard being deleted"
-related_components: [codec, packet_capture]
-tags: [testing, codec, refusal, mutation-testing]
+  - "Adding a rule to a gate that already refuses, such as a second condition in a layering or validation table, where the cases you write may be ones the old rule rejects anyway"
+related_components: [codec, packet_capture, conformance-gates]
+tags: [testing, codec, refusal, mutation-testing, conformance-gate]
 ---
 
 # A refusal test needs an input only the refusal rejects
@@ -60,6 +61,36 @@ A test that searches for a payload by calling the encoder and stopping when the
 output looks right has made the behavior under test into its own search
 predicate, and its assertion restates the condition that ended the loop. Pin the
 input as a literal and derive it from the specification instead.
+
+## A second rule in a gate that already refuses
+
+The same trap catches a gate gaining a rule. `layeringViolation` refuses an
+import for two reasons: the importer's allowlist does not name it, or the
+imported package declares a Connect service and is therefore a sink
+(`test/conformance/proto/layering_test.go:412-424`). Every case written for the
+sink rule named an import the allowlist already rejected, and the table lists no
+service package as a permitted import of anything, so the whole gate stayed
+green with the sink branch deleted.
+
+The discriminating case has to make the old rule say yes:
+
+```go
+// model/access declares model/inventory, so only a service declaration in
+// model/inventory can stand in the way.
+{
+    name:       "declared import of a package that declares a service",
+    importer:   "model/access",
+    imported:   "model/inventory",
+    services:   map[string]bool{"model/inventory": true},
+    wantReason: "model/inventory declares a service and is imported by nothing",
+},
+```
+
+Two things make it work: a substituted set of service-declaring packages, so the
+case does not depend on which packages happen to declare one today, and an
+assertion on the reason rather than on the boolean, so the case pins which rule
+refused. A gate whose test asserts only that something refused cannot tell its
+rules apart.
 
 ## How to tell, without waiting for a reviewer
 
