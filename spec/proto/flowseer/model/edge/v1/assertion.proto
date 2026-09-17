@@ -43,7 +43,7 @@ message EdgeAssertion {
     (buf.validate.field).bytes.len = 16
   ];
   // The full Connect procedure name this assertion authorizes, for example
-  // "/flowseer.api.edge.v1.EdgeService/Heartbeat". Must be present.
+  // "/flowseer.edge.attach.v1.EdgeService/Heartbeat". Must be present.
   string procedure = 6 [
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,

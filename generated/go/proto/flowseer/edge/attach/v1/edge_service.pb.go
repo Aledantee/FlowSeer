@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/edge_service.proto
+// source: flowseer/edge/attach/v1/edge_service.proto
 
 // The service an edge calls. Enroll is the only call without an assertion;
 // every other call carries a signed assertion in the Authorization header
 // and is authorized as the edge that assertion names.
 
-package edgev1
+package attachv1
 
 import (
 	v1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -38,7 +38,7 @@ type EnrollRequest struct {
 
 func (x *EnrollRequest) Reset() {
 	*x = EnrollRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +50,7 @@ func (x *EnrollRequest) String() string {
 func (*EnrollRequest) ProtoMessage() {}
 
 func (x *EnrollRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -146,7 +146,7 @@ type EnrollResponse struct {
 
 func (x *EnrollResponse) Reset() {
 	*x = EnrollResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -158,7 +158,7 @@ func (x *EnrollResponse) String() string {
 func (*EnrollResponse) ProtoMessage() {}
 
 func (x *EnrollResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -289,7 +289,7 @@ type RekeyRequest struct {
 
 func (x *RekeyRequest) Reset() {
 	*x = RekeyRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -301,7 +301,7 @@ func (x *RekeyRequest) String() string {
 func (*RekeyRequest) ProtoMessage() {}
 
 func (x *RekeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +359,7 @@ type RekeyResponse struct {
 
 func (x *RekeyResponse) Reset() {
 	*x = RekeyResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[3]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -371,7 +371,7 @@ func (x *RekeyResponse) String() string {
 func (*RekeyResponse) ProtoMessage() {}
 
 func (x *RekeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[3]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -431,7 +431,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[4]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +443,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[4]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -535,7 +535,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[5]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -547,7 +547,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_edge_service_proto_msgTypes[5]
+	mi := &file_flowseer_edge_attach_v1_edge_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,11 +595,11 @@ func (b0 HeartbeatResponse_builder) Build() *HeartbeatResponse {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_edge_service_proto protoreflect.FileDescriptor
+var File_flowseer_edge_attach_v1_edge_service_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_edge_service_proto_rawDesc = "" +
+const file_flowseer_edge_attach_v1_edge_service_proto_rawDesc = "" +
 	"\n" +
-	"'flowseer/api/edge/v1/edge_service.proto\x12\x14flowseer.api.edge.v1\x1a\x1eflowseer/api/edge/v1/bus.proto\x1a%flowseer/api/edge/v1/credential.proto\x1a!flowseer/api/edge/v1/device.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a&flowseer/model/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
+	"*flowseer/edge/attach/v1/edge_service.proto\x12\x17flowseer.edge.attach.v1\x1a!flowseer/edge/attach/v1/bus.proto\x1a(flowseer/edge/attach/v1/credential.proto\x1a$flowseer/edge/attach/v1/device.proto\x1a!flowseer/model/edge/v1/edge.proto\x1a&flowseer/model/edge/v1/key_proof.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x01\n" +
 	"\rEnrollRequest\x12G\n" +
 	"\tsetup_key\x18\x01 \x01(\tB*\xbaH'\xc8\x01\x01r\"2 ^fse1_[a-z2-7]{26}_[a-z2-7]{52}$R\bsetupKey\x12>\n" +
 	"\x05proof\x18\x02 \x01(\v2 .flowseer.model.edge.v1.KeyProofB\x06\xbaH\x03\xc8\x01\x01R\x05proof\"\xfa\x01\n" +
@@ -622,59 +622,59 @@ const file_flowseer_api_edge_v1_edge_service_proto_rawDesc = "" +
 	"\x0fbuffering_since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x0ebufferingSince\"X\n" +
 	"\x11HeartbeatResponse\x12C\n" +
 	"\vserver_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\n" +
-	"serverTime2\xd8\x05\n" +
-	"\vEdgeService\x12S\n" +
-	"\x06Enroll\x12#.flowseer.api.edge.v1.EnrollRequest\x1a$.flowseer.api.edge.v1.EnrollResponse\x12P\n" +
-	"\x05Rekey\x12\".flowseer.api.edge.v1.RekeyRequest\x1a#.flowseer.api.edge.v1.RekeyResponse\x12\\\n" +
-	"\tHeartbeat\x12&.flowseer.api.edge.v1.HeartbeatRequest\x1a'.flowseer.api.edge.v1.HeartbeatResponse\x12\\\n" +
-	"\tAttachBus\x12&.flowseer.api.edge.v1.AttachBusRequest\x1a'.flowseer.api.edge.v1.AttachBusResponse\x12b\n" +
-	"\vListDevices\x12(.flowseer.api.edge.v1.ListDevicesRequest\x1a).flowseer.api.edge.v1.ListDevicesResponse\x12\x80\x01\n" +
-	"\x15AcquireReadCredential\x122.flowseer.api.edge.v1.AcquireReadCredentialRequest\x1a3.flowseer.api.edge.v1.AcquireReadCredentialResponse\x12\x7f\n" +
-	"\x14OpenDeviceSubmission\x121.flowseer.api.edge.v1.OpenDeviceSubmissionRequest\x1a2.flowseer.api.edge.v1.OpenDeviceSubmissionResponse0\x01B\xe7\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\x10EdgeServiceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"serverTime2\x83\x06\n" +
+	"\vEdgeService\x12Y\n" +
+	"\x06Enroll\x12&.flowseer.edge.attach.v1.EnrollRequest\x1a'.flowseer.edge.attach.v1.EnrollResponse\x12V\n" +
+	"\x05Rekey\x12%.flowseer.edge.attach.v1.RekeyRequest\x1a&.flowseer.edge.attach.v1.RekeyResponse\x12b\n" +
+	"\tHeartbeat\x12).flowseer.edge.attach.v1.HeartbeatRequest\x1a*.flowseer.edge.attach.v1.HeartbeatResponse\x12b\n" +
+	"\tAttachBus\x12).flowseer.edge.attach.v1.AttachBusRequest\x1a*.flowseer.edge.attach.v1.AttachBusResponse\x12h\n" +
+	"\vListDevices\x12+.flowseer.edge.attach.v1.ListDevicesRequest\x1a,.flowseer.edge.attach.v1.ListDevicesResponse\x12\x86\x01\n" +
+	"\x15AcquireReadCredential\x125.flowseer.edge.attach.v1.AcquireReadCredentialRequest\x1a6.flowseer.edge.attach.v1.AcquireReadCredentialResponse\x12\x85\x01\n" +
+	"\x14OpenDeviceSubmission\x124.flowseer.edge.attach.v1.OpenDeviceSubmissionRequest\x1a5.flowseer.edge.attach.v1.OpenDeviceSubmissionResponse0\x01B\xfb\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\x10EdgeServiceProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
-var file_flowseer_api_edge_v1_edge_service_proto_goTypes = []any{
-	(*EnrollRequest)(nil),                 // 0: flowseer.api.edge.v1.EnrollRequest
-	(*EnrollResponse)(nil),                // 1: flowseer.api.edge.v1.EnrollResponse
-	(*RekeyRequest)(nil),                  // 2: flowseer.api.edge.v1.RekeyRequest
-	(*RekeyResponse)(nil),                 // 3: flowseer.api.edge.v1.RekeyResponse
-	(*HeartbeatRequest)(nil),              // 4: flowseer.api.edge.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),             // 5: flowseer.api.edge.v1.HeartbeatResponse
+var file_flowseer_edge_attach_v1_edge_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_flowseer_edge_attach_v1_edge_service_proto_goTypes = []any{
+	(*EnrollRequest)(nil),                 // 0: flowseer.edge.attach.v1.EnrollRequest
+	(*EnrollResponse)(nil),                // 1: flowseer.edge.attach.v1.EnrollResponse
+	(*RekeyRequest)(nil),                  // 2: flowseer.edge.attach.v1.RekeyRequest
+	(*RekeyResponse)(nil),                 // 3: flowseer.edge.attach.v1.RekeyResponse
+	(*HeartbeatRequest)(nil),              // 4: flowseer.edge.attach.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),             // 5: flowseer.edge.attach.v1.HeartbeatResponse
 	(*v1.KeyProof)(nil),                   // 6: flowseer.model.edge.v1.KeyProof
 	(*v1.EdgeGlobalRef)(nil),              // 7: flowseer.model.edge.v1.EdgeGlobalRef
 	(*timestamppb.Timestamp)(nil),         // 8: google.protobuf.Timestamp
-	(*AttachBusRequest)(nil),              // 9: flowseer.api.edge.v1.AttachBusRequest
-	(*ListDevicesRequest)(nil),            // 10: flowseer.api.edge.v1.ListDevicesRequest
-	(*AcquireReadCredentialRequest)(nil),  // 11: flowseer.api.edge.v1.AcquireReadCredentialRequest
-	(*OpenDeviceSubmissionRequest)(nil),   // 12: flowseer.api.edge.v1.OpenDeviceSubmissionRequest
-	(*AttachBusResponse)(nil),             // 13: flowseer.api.edge.v1.AttachBusResponse
-	(*ListDevicesResponse)(nil),           // 14: flowseer.api.edge.v1.ListDevicesResponse
-	(*AcquireReadCredentialResponse)(nil), // 15: flowseer.api.edge.v1.AcquireReadCredentialResponse
-	(*OpenDeviceSubmissionResponse)(nil),  // 16: flowseer.api.edge.v1.OpenDeviceSubmissionResponse
+	(*AttachBusRequest)(nil),              // 9: flowseer.edge.attach.v1.AttachBusRequest
+	(*ListDevicesRequest)(nil),            // 10: flowseer.edge.attach.v1.ListDevicesRequest
+	(*AcquireReadCredentialRequest)(nil),  // 11: flowseer.edge.attach.v1.AcquireReadCredentialRequest
+	(*OpenDeviceSubmissionRequest)(nil),   // 12: flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
+	(*AttachBusResponse)(nil),             // 13: flowseer.edge.attach.v1.AttachBusResponse
+	(*ListDevicesResponse)(nil),           // 14: flowseer.edge.attach.v1.ListDevicesResponse
+	(*AcquireReadCredentialResponse)(nil), // 15: flowseer.edge.attach.v1.AcquireReadCredentialResponse
+	(*OpenDeviceSubmissionResponse)(nil),  // 16: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
 }
-var file_flowseer_api_edge_v1_edge_service_proto_depIdxs = []int32{
-	6,  // 0: flowseer.api.edge.v1.EnrollRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
-	7,  // 1: flowseer.api.edge.v1.EnrollResponse.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
-	8,  // 2: flowseer.api.edge.v1.EnrollResponse.server_time:type_name -> google.protobuf.Timestamp
-	6,  // 3: flowseer.api.edge.v1.RekeyRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
-	8,  // 4: flowseer.api.edge.v1.RekeyResponse.server_time:type_name -> google.protobuf.Timestamp
-	8,  // 5: flowseer.api.edge.v1.HeartbeatRequest.buffering_since:type_name -> google.protobuf.Timestamp
-	8,  // 6: flowseer.api.edge.v1.HeartbeatResponse.server_time:type_name -> google.protobuf.Timestamp
-	0,  // 7: flowseer.api.edge.v1.EdgeService.Enroll:input_type -> flowseer.api.edge.v1.EnrollRequest
-	2,  // 8: flowseer.api.edge.v1.EdgeService.Rekey:input_type -> flowseer.api.edge.v1.RekeyRequest
-	4,  // 9: flowseer.api.edge.v1.EdgeService.Heartbeat:input_type -> flowseer.api.edge.v1.HeartbeatRequest
-	9,  // 10: flowseer.api.edge.v1.EdgeService.AttachBus:input_type -> flowseer.api.edge.v1.AttachBusRequest
-	10, // 11: flowseer.api.edge.v1.EdgeService.ListDevices:input_type -> flowseer.api.edge.v1.ListDevicesRequest
-	11, // 12: flowseer.api.edge.v1.EdgeService.AcquireReadCredential:input_type -> flowseer.api.edge.v1.AcquireReadCredentialRequest
-	12, // 13: flowseer.api.edge.v1.EdgeService.OpenDeviceSubmission:input_type -> flowseer.api.edge.v1.OpenDeviceSubmissionRequest
-	1,  // 14: flowseer.api.edge.v1.EdgeService.Enroll:output_type -> flowseer.api.edge.v1.EnrollResponse
-	3,  // 15: flowseer.api.edge.v1.EdgeService.Rekey:output_type -> flowseer.api.edge.v1.RekeyResponse
-	5,  // 16: flowseer.api.edge.v1.EdgeService.Heartbeat:output_type -> flowseer.api.edge.v1.HeartbeatResponse
-	13, // 17: flowseer.api.edge.v1.EdgeService.AttachBus:output_type -> flowseer.api.edge.v1.AttachBusResponse
-	14, // 18: flowseer.api.edge.v1.EdgeService.ListDevices:output_type -> flowseer.api.edge.v1.ListDevicesResponse
-	15, // 19: flowseer.api.edge.v1.EdgeService.AcquireReadCredential:output_type -> flowseer.api.edge.v1.AcquireReadCredentialResponse
-	16, // 20: flowseer.api.edge.v1.EdgeService.OpenDeviceSubmission:output_type -> flowseer.api.edge.v1.OpenDeviceSubmissionResponse
+var file_flowseer_edge_attach_v1_edge_service_proto_depIdxs = []int32{
+	6,  // 0: flowseer.edge.attach.v1.EnrollRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
+	7,  // 1: flowseer.edge.attach.v1.EnrollResponse.edge:type_name -> flowseer.model.edge.v1.EdgeGlobalRef
+	8,  // 2: flowseer.edge.attach.v1.EnrollResponse.server_time:type_name -> google.protobuf.Timestamp
+	6,  // 3: flowseer.edge.attach.v1.RekeyRequest.proof:type_name -> flowseer.model.edge.v1.KeyProof
+	8,  // 4: flowseer.edge.attach.v1.RekeyResponse.server_time:type_name -> google.protobuf.Timestamp
+	8,  // 5: flowseer.edge.attach.v1.HeartbeatRequest.buffering_since:type_name -> google.protobuf.Timestamp
+	8,  // 6: flowseer.edge.attach.v1.HeartbeatResponse.server_time:type_name -> google.protobuf.Timestamp
+	0,  // 7: flowseer.edge.attach.v1.EdgeService.Enroll:input_type -> flowseer.edge.attach.v1.EnrollRequest
+	2,  // 8: flowseer.edge.attach.v1.EdgeService.Rekey:input_type -> flowseer.edge.attach.v1.RekeyRequest
+	4,  // 9: flowseer.edge.attach.v1.EdgeService.Heartbeat:input_type -> flowseer.edge.attach.v1.HeartbeatRequest
+	9,  // 10: flowseer.edge.attach.v1.EdgeService.AttachBus:input_type -> flowseer.edge.attach.v1.AttachBusRequest
+	10, // 11: flowseer.edge.attach.v1.EdgeService.ListDevices:input_type -> flowseer.edge.attach.v1.ListDevicesRequest
+	11, // 12: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:input_type -> flowseer.edge.attach.v1.AcquireReadCredentialRequest
+	12, // 13: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:input_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
+	1,  // 14: flowseer.edge.attach.v1.EdgeService.Enroll:output_type -> flowseer.edge.attach.v1.EnrollResponse
+	3,  // 15: flowseer.edge.attach.v1.EdgeService.Rekey:output_type -> flowseer.edge.attach.v1.RekeyResponse
+	5,  // 16: flowseer.edge.attach.v1.EdgeService.Heartbeat:output_type -> flowseer.edge.attach.v1.HeartbeatResponse
+	13, // 17: flowseer.edge.attach.v1.EdgeService.AttachBus:output_type -> flowseer.edge.attach.v1.AttachBusResponse
+	14, // 18: flowseer.edge.attach.v1.EdgeService.ListDevices:output_type -> flowseer.edge.attach.v1.ListDevicesResponse
+	15, // 19: flowseer.edge.attach.v1.EdgeService.AcquireReadCredential:output_type -> flowseer.edge.attach.v1.AcquireReadCredentialResponse
+	16, // 20: flowseer.edge.attach.v1.EdgeService.OpenDeviceSubmission:output_type -> flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
 	14, // [14:21] is the sub-list for method output_type
 	7,  // [7:14] is the sub-list for method input_type
 	7,  // [7:7] is the sub-list for extension type_name
@@ -682,29 +682,29 @@ var file_flowseer_api_edge_v1_edge_service_proto_depIdxs = []int32{
 	0,  // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_edge_service_proto_init() }
-func file_flowseer_api_edge_v1_edge_service_proto_init() {
-	if File_flowseer_api_edge_v1_edge_service_proto != nil {
+func init() { file_flowseer_edge_attach_v1_edge_service_proto_init() }
+func file_flowseer_edge_attach_v1_edge_service_proto_init() {
+	if File_flowseer_edge_attach_v1_edge_service_proto != nil {
 		return
 	}
-	file_flowseer_api_edge_v1_bus_proto_init()
-	file_flowseer_api_edge_v1_credential_proto_init()
-	file_flowseer_api_edge_v1_device_proto_init()
+	file_flowseer_edge_attach_v1_bus_proto_init()
+	file_flowseer_edge_attach_v1_credential_proto_init()
+	file_flowseer_edge_attach_v1_device_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_edge_service_proto_rawDesc), len(file_flowseer_api_edge_v1_edge_service_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_attach_v1_edge_service_proto_rawDesc), len(file_flowseer_edge_attach_v1_edge_service_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_edge_service_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_edge_service_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_edge_service_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_attach_v1_edge_service_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_attach_v1_edge_service_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_attach_v1_edge_service_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_edge_service_proto = out.File
-	file_flowseer_api_edge_v1_edge_service_proto_goTypes = nil
-	file_flowseer_api_edge_v1_edge_service_proto_depIdxs = nil
+	File_flowseer_edge_attach_v1_edge_service_proto = out.File
+	file_flowseer_edge_attach_v1_edge_service_proto_goTypes = nil
+	file_flowseer_edge_attach_v1_edge_service_proto_depIdxs = nil
 }

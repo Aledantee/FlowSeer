@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 	"go.aledante.io/FlowSeer/src/protocol/snmp"
@@ -53,11 +53,11 @@ func (d *fakeDevice) snapshot() (description string, endpoints, hostKeys, comman
 		append([]string(nil), d.commands...), d.credentials
 }
 
-func (d *fakeDevice) snmpFactory(endpoint string) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+func (d *fakeDevice) snmpFactory(endpoint string) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 	d.mu.Lock()
 	d.endpoints = append(d.endpoints, endpoint)
 	d.mu.Unlock()
-	return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+	return func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 		d.mu.Lock()
 		d.credentials++
 		d.mu.Unlock()
@@ -65,11 +65,11 @@ func (d *fakeDevice) snmpFactory(endpoint string) func(context.Context, *edgev1.
 	}
 }
 
-func (d *fakeDevice) shellFactory(endpoint string) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+func (d *fakeDevice) shellFactory(endpoint string) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 	d.mu.Lock()
 	d.endpoints = append(d.endpoints, endpoint)
 	d.mu.Unlock()
-	return func(_ context.Context, _ *edgev1.DeviceCredential, hostKey string) (access.ShellSession, error) {
+	return func(_ context.Context, _ *attachv1.DeviceCredential, hostKey string) (access.ShellSession, error) {
 		d.mu.Lock()
 		d.hostKeys = append(d.hostKeys, hostKey)
 		d.mu.Unlock()

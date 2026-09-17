@@ -8,7 +8,7 @@ with its authentication and privacy settings, or a shell login.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/edge
+Imported by: edge/attach
 
 Deliberately absent:
 
@@ -20,7 +20,7 @@ Deliberately absent:
 - A triad and a ref pair. Material is resolved from a handle, never
   configured or observed as an entity.
 
-`api/edge` carries this material on its credential responses without a
+`edge/attach` carries this material on its credential responses without a
 cycle, the same way it carries the handles from `model/policy`. A handle in
 `model/policy` names a credential version; this package is what that version
 resolves to. The two stay apart because the handle travels on records that

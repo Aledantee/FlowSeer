@@ -2,14 +2,14 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/credential.proto
+// source: flowseer/edge/attach/v1/credential.proto
 
 // A read credential for reads and preflight, and a one-use submission grant
 // that opens only after central's checkpoint and carries the authority
 // pulses the edge checks before each command. Both ride authenticated
 // Connect calls and never the bus.
 
-package edgev1
+package attachv1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
@@ -65,11 +65,11 @@ func (x SubmissionAuthority) String() string {
 }
 
 func (SubmissionAuthority) Descriptor() protoreflect.EnumDescriptor {
-	return file_flowseer_api_edge_v1_credential_proto_enumTypes[0].Descriptor()
+	return file_flowseer_edge_attach_v1_credential_proto_enumTypes[0].Descriptor()
 }
 
 func (SubmissionAuthority) Type() protoreflect.EnumType {
-	return &file_flowseer_api_edge_v1_credential_proto_enumTypes[0]
+	return &file_flowseer_edge_attach_v1_credential_proto_enumTypes[0]
 }
 
 func (x SubmissionAuthority) Number() protoreflect.EnumNumber {
@@ -88,7 +88,7 @@ type DeviceCredential struct {
 
 func (x *DeviceCredential) Reset() {
 	*x = DeviceCredential{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -100,7 +100,7 @@ func (x *DeviceCredential) String() string {
 func (*DeviceCredential) ProtoMessage() {}
 
 func (x *DeviceCredential) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -189,7 +189,7 @@ type AcquireReadCredentialRequest struct {
 
 func (x *AcquireReadCredentialRequest) Reset() {
 	*x = AcquireReadCredentialRequest{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -201,7 +201,7 @@ func (x *AcquireReadCredentialRequest) String() string {
 func (*AcquireReadCredentialRequest) ProtoMessage() {}
 
 func (x *AcquireReadCredentialRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -330,7 +330,7 @@ type AcquireReadCredentialResponse struct {
 
 func (x *AcquireReadCredentialResponse) Reset() {
 	*x = AcquireReadCredentialResponse{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -342,7 +342,7 @@ func (x *AcquireReadCredentialResponse) String() string {
 func (*AcquireReadCredentialResponse) ProtoMessage() {}
 
 func (x *AcquireReadCredentialResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -494,7 +494,7 @@ type OpenDeviceSubmissionRequest struct {
 
 func (x *OpenDeviceSubmissionRequest) Reset() {
 	*x = OpenDeviceSubmissionRequest{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[3]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -506,7 +506,7 @@ func (x *OpenDeviceSubmissionRequest) String() string {
 func (*OpenDeviceSubmissionRequest) ProtoMessage() {}
 
 func (x *OpenDeviceSubmissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[3]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -643,7 +643,7 @@ type SubmissionGrant struct {
 
 func (x *SubmissionGrant) Reset() {
 	*x = SubmissionGrant{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[4]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -655,7 +655,7 @@ func (x *SubmissionGrant) String() string {
 func (*SubmissionGrant) ProtoMessage() {}
 
 func (x *SubmissionGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[4]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -795,7 +795,7 @@ func (b0 SubmissionGrant_builder) Build() *SubmissionGrant {
 // command in the sequence it holds a grant for.
 type AuthorityPulse struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Authority   SubmissionAuthority    `protobuf:"varint,1,opt,name=authority,enum=flowseer.api.edge.v1.SubmissionAuthority"`
+	xxx_hidden_Authority   SubmissionAuthority    `protobuf:"varint,1,opt,name=authority,enum=flowseer.edge.attach.v1.SubmissionAuthority"`
 	xxx_hidden_Deadline    *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=deadline"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -805,7 +805,7 @@ type AuthorityPulse struct {
 
 func (x *AuthorityPulse) Reset() {
 	*x = AuthorityPulse{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[5]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -817,7 +817,7 @@ func (x *AuthorityPulse) String() string {
 func (*AuthorityPulse) ProtoMessage() {}
 
 func (x *AuthorityPulse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[5]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -906,7 +906,7 @@ type OpenDeviceSubmissionResponse struct {
 
 func (x *OpenDeviceSubmissionResponse) Reset() {
 	*x = OpenDeviceSubmissionResponse{}
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[6]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -918,7 +918,7 @@ func (x *OpenDeviceSubmissionResponse) String() string {
 func (*OpenDeviceSubmissionResponse) ProtoMessage() {}
 
 func (x *OpenDeviceSubmissionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_credential_proto_msgTypes[6]
+	mi := &file_flowseer_edge_attach_v1_credential_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1048,7 +1048,7 @@ func (b0 OpenDeviceSubmissionResponse_builder) Build() *OpenDeviceSubmissionResp
 type case_OpenDeviceSubmissionResponse_Update protoreflect.FieldNumber
 
 func (x case_OpenDeviceSubmissionResponse_Update) String() string {
-	md := file_flowseer_api_edge_v1_credential_proto_msgTypes[6].Descriptor()
+	md := file_flowseer_edge_attach_v1_credential_proto_msgTypes[6].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1071,11 +1071,11 @@ func (*openDeviceSubmissionResponse_Grant) isOpenDeviceSubmissionResponse_Update
 
 func (*openDeviceSubmissionResponse_Pulse) isOpenDeviceSubmissionResponse_Update() {}
 
-var File_flowseer_api_edge_v1_credential_proto protoreflect.FileDescriptor
+var File_flowseer_edge_attach_v1_credential_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
+const file_flowseer_edge_attach_v1_credential_proto_rawDesc = "" +
 	"\n" +
-	"%flowseer/api/edge/v1/credential.proto\x12\x14flowseer.api.edge.v1\x1a+flowseer/model/credential/v1/material.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd7\x01\n" +
+	"(flowseer/edge/attach/v1/credential.proto\x12\x17flowseer.edge.attach.v1\x1a+flowseer/model/credential/v1/material.proto\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd7\x01\n" +
 	"\x10DeviceCredential\x12R\n" +
 	"\n" +
 	"credential\x18\x01 \x01(\v2*.flowseer.model.policy.v1.CredentialHandleB\x06\xbaH\x03\xc8\x01\x01R\n" +
@@ -1085,10 +1085,10 @@ const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12Y\n" +
-	"\raccess_policy\x18\x03 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc2\x04\n" +
-	"\x1dAcquireReadCredentialResponse\x12N\n" +
+	"\raccess_policy\x18\x03 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\"\xc5\x04\n" +
+	"\x1dAcquireReadCredentialResponse\x12Q\n" +
 	"\n" +
-	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
+	"credential\x18\x01 \x01(\v2).flowseer.edge.attach.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"credential\x12P\n" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12A\n" +
@@ -1101,61 +1101,61 @@ const file_flowseer_api_edge_v1_credential_proto_rawDesc = "" +
 	"\n" +
 	"binding_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\tbindingId\x12&\n" +
 	"\bsequence\x18\x03 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa1\x04\n" +
-	"\x0fSubmissionGrant\x12N\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\"\xa4\x04\n" +
+	"\x0fSubmissionGrant\x12Q\n" +
 	"\n" +
-	"credential\x18\x01 \x01(\v2&.flowseer.api.edge.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
+	"credential\x18\x01 \x01(\v2).flowseer.edge.attach.v1.DeviceCredentialB\x06\xbaH\x03\xc8\x01\x01R\n" +
 	"credential\x12P\n" +
 	"\n" +
 	"host_trust\x18\x02 \x01(\v2).flowseer.model.policy.v1.HostTrustHandleB\x06\xbaH\x03\xc8\x01\x01R\thostTrust\x12>\n" +
 	"\bdeadline\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\x12P\n" +
 	"\x13ssh_host_key_sha256\x18\x04 \x01(\tB!\xbaH\x1er\x1c2\x1a^SHA256:[A-Za-z0-9+/]{43}$R\x10sshHostKeySha256:\xd9\x01\xbaH\xd5\x01\x1a\xd2\x01\n" +
-	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1ae!has(this.credential) || (has(this.credential.typed_material.shell) == has(this.ssh_host_key_sha256))\"\xa8\x01\n" +
-	"\x0eAuthorityPulse\x12V\n" +
-	"\tauthority\x18\x01 \x01(\x0e2).flowseer.api.edge.v1.SubmissionAuthorityB\r\xbaH\n" +
+	"\"submission_grant.pin_matches_shell\x12Essh_host_key_sha256 is set exactly when the material is a shell login\x1ae!has(this.credential) || (has(this.credential.typed_material.shell) == has(this.ssh_host_key_sha256))\"\xab\x01\n" +
+	"\x0eAuthorityPulse\x12Y\n" +
+	"\tauthority\x18\x01 \x01(\x0e2,.flowseer.edge.attach.v1.SubmissionAuthorityB\r\xbaH\n" +
 	"\xc8\x01\x01\x82\x01\x04\x10\x01 \x00R\tauthority\x12>\n" +
-	"\bdeadline\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\"\xac\x01\n" +
-	"\x1cOpenDeviceSubmissionResponse\x12=\n" +
-	"\x05grant\x18\x01 \x01(\v2%.flowseer.api.edge.v1.SubmissionGrantH\x00R\x05grant\x12<\n" +
-	"\x05pulse\x18\x02 \x01(\v2$.flowseer.api.edge.v1.AuthorityPulseH\x00R\x05pulseB\x0f\n" +
+	"\bdeadline\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\bdeadline\"\xb2\x01\n" +
+	"\x1cOpenDeviceSubmissionResponse\x12@\n" +
+	"\x05grant\x18\x01 \x01(\v2(.flowseer.edge.attach.v1.SubmissionGrantH\x00R\x05grant\x12?\n" +
+	"\x05pulse\x18\x02 \x01(\v2'.flowseer.edge.attach.v1.AuthorityPulseH\x00R\x05pulseB\x0f\n" +
 	"\x06update\x12\x05\xbaH\x02\b\x01*\x82\x01\n" +
 	"\x13SubmissionAuthority\x12$\n" +
 	" SUBMISSION_AUTHORITY_UNSPECIFIED\x10\x00\x12#\n" +
 	"\x1fSUBMISSION_AUTHORITY_AUTHORIZED\x10\x01\x12 \n" +
-	"\x1cSUBMISSION_AUTHORITY_REVOKED\x10\x02B\xe6\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\x0fCredentialProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\x1cSUBMISSION_AUTHORITY_REVOKED\x10\x02B\xfa\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\x0fCredentialProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_credential_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_api_edge_v1_credential_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_flowseer_api_edge_v1_credential_proto_goTypes = []any{
-	(SubmissionAuthority)(0),              // 0: flowseer.api.edge.v1.SubmissionAuthority
-	(*DeviceCredential)(nil),              // 1: flowseer.api.edge.v1.DeviceCredential
-	(*AcquireReadCredentialRequest)(nil),  // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest
-	(*AcquireReadCredentialResponse)(nil), // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse
-	(*OpenDeviceSubmissionRequest)(nil),   // 4: flowseer.api.edge.v1.OpenDeviceSubmissionRequest
-	(*SubmissionGrant)(nil),               // 5: flowseer.api.edge.v1.SubmissionGrant
-	(*AuthorityPulse)(nil),                // 6: flowseer.api.edge.v1.AuthorityPulse
-	(*OpenDeviceSubmissionResponse)(nil),  // 7: flowseer.api.edge.v1.OpenDeviceSubmissionResponse
+var file_flowseer_edge_attach_v1_credential_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_flowseer_edge_attach_v1_credential_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_flowseer_edge_attach_v1_credential_proto_goTypes = []any{
+	(SubmissionAuthority)(0),              // 0: flowseer.edge.attach.v1.SubmissionAuthority
+	(*DeviceCredential)(nil),              // 1: flowseer.edge.attach.v1.DeviceCredential
+	(*AcquireReadCredentialRequest)(nil),  // 2: flowseer.edge.attach.v1.AcquireReadCredentialRequest
+	(*AcquireReadCredentialResponse)(nil), // 3: flowseer.edge.attach.v1.AcquireReadCredentialResponse
+	(*OpenDeviceSubmissionRequest)(nil),   // 4: flowseer.edge.attach.v1.OpenDeviceSubmissionRequest
+	(*SubmissionGrant)(nil),               // 5: flowseer.edge.attach.v1.SubmissionGrant
+	(*AuthorityPulse)(nil),                // 6: flowseer.edge.attach.v1.AuthorityPulse
+	(*OpenDeviceSubmissionResponse)(nil),  // 7: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse
 	(*v1.CredentialHandle)(nil),           // 8: flowseer.model.policy.v1.CredentialHandle
 	(*v11.CredentialMaterial)(nil),        // 9: flowseer.model.credential.v1.CredentialMaterial
 	(*v1.AccessPolicyHandle)(nil),         // 10: flowseer.model.policy.v1.AccessPolicyHandle
 	(*v1.HostTrustHandle)(nil),            // 11: flowseer.model.policy.v1.HostTrustHandle
 	(*timestamppb.Timestamp)(nil),         // 12: google.protobuf.Timestamp
 }
-var file_flowseer_api_edge_v1_credential_proto_depIdxs = []int32{
-	8,  // 0: flowseer.api.edge.v1.DeviceCredential.credential:type_name -> flowseer.model.policy.v1.CredentialHandle
-	9,  // 1: flowseer.api.edge.v1.DeviceCredential.typed_material:type_name -> flowseer.model.credential.v1.CredentialMaterial
-	10, // 2: flowseer.api.edge.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
-	1,  // 3: flowseer.api.edge.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	11, // 4: flowseer.api.edge.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
-	12, // 5: flowseer.api.edge.v1.AcquireReadCredentialResponse.expires_at:type_name -> google.protobuf.Timestamp
-	1,  // 6: flowseer.api.edge.v1.SubmissionGrant.credential:type_name -> flowseer.api.edge.v1.DeviceCredential
-	11, // 7: flowseer.api.edge.v1.SubmissionGrant.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
-	12, // 8: flowseer.api.edge.v1.SubmissionGrant.deadline:type_name -> google.protobuf.Timestamp
-	0,  // 9: flowseer.api.edge.v1.AuthorityPulse.authority:type_name -> flowseer.api.edge.v1.SubmissionAuthority
-	12, // 10: flowseer.api.edge.v1.AuthorityPulse.deadline:type_name -> google.protobuf.Timestamp
-	5,  // 11: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.grant:type_name -> flowseer.api.edge.v1.SubmissionGrant
-	6,  // 12: flowseer.api.edge.v1.OpenDeviceSubmissionResponse.pulse:type_name -> flowseer.api.edge.v1.AuthorityPulse
+var file_flowseer_edge_attach_v1_credential_proto_depIdxs = []int32{
+	8,  // 0: flowseer.edge.attach.v1.DeviceCredential.credential:type_name -> flowseer.model.policy.v1.CredentialHandle
+	9,  // 1: flowseer.edge.attach.v1.DeviceCredential.typed_material:type_name -> flowseer.model.credential.v1.CredentialMaterial
+	10, // 2: flowseer.edge.attach.v1.AcquireReadCredentialRequest.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
+	1,  // 3: flowseer.edge.attach.v1.AcquireReadCredentialResponse.credential:type_name -> flowseer.edge.attach.v1.DeviceCredential
+	11, // 4: flowseer.edge.attach.v1.AcquireReadCredentialResponse.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
+	12, // 5: flowseer.edge.attach.v1.AcquireReadCredentialResponse.expires_at:type_name -> google.protobuf.Timestamp
+	1,  // 6: flowseer.edge.attach.v1.SubmissionGrant.credential:type_name -> flowseer.edge.attach.v1.DeviceCredential
+	11, // 7: flowseer.edge.attach.v1.SubmissionGrant.host_trust:type_name -> flowseer.model.policy.v1.HostTrustHandle
+	12, // 8: flowseer.edge.attach.v1.SubmissionGrant.deadline:type_name -> google.protobuf.Timestamp
+	0,  // 9: flowseer.edge.attach.v1.AuthorityPulse.authority:type_name -> flowseer.edge.attach.v1.SubmissionAuthority
+	12, // 10: flowseer.edge.attach.v1.AuthorityPulse.deadline:type_name -> google.protobuf.Timestamp
+	5,  // 11: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse.grant:type_name -> flowseer.edge.attach.v1.SubmissionGrant
+	6,  // 12: flowseer.edge.attach.v1.OpenDeviceSubmissionResponse.pulse:type_name -> flowseer.edge.attach.v1.AuthorityPulse
 	13, // [13:13] is the sub-list for method output_type
 	13, // [13:13] is the sub-list for method input_type
 	13, // [13:13] is the sub-list for extension type_name
@@ -1163,12 +1163,12 @@ var file_flowseer_api_edge_v1_credential_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_credential_proto_init() }
-func file_flowseer_api_edge_v1_credential_proto_init() {
-	if File_flowseer_api_edge_v1_credential_proto != nil {
+func init() { file_flowseer_edge_attach_v1_credential_proto_init() }
+func file_flowseer_edge_attach_v1_credential_proto_init() {
+	if File_flowseer_edge_attach_v1_credential_proto != nil {
 		return
 	}
-	file_flowseer_api_edge_v1_credential_proto_msgTypes[6].OneofWrappers = []any{
+	file_flowseer_edge_attach_v1_credential_proto_msgTypes[6].OneofWrappers = []any{
 		(*openDeviceSubmissionResponse_Grant)(nil),
 		(*openDeviceSubmissionResponse_Pulse)(nil),
 	}
@@ -1176,18 +1176,18 @@ func file_flowseer_api_edge_v1_credential_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_credential_proto_rawDesc), len(file_flowseer_api_edge_v1_credential_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_attach_v1_credential_proto_rawDesc), len(file_flowseer_edge_attach_v1_credential_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_credential_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_credential_proto_depIdxs,
-		EnumInfos:         file_flowseer_api_edge_v1_credential_proto_enumTypes,
-		MessageInfos:      file_flowseer_api_edge_v1_credential_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_attach_v1_credential_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_attach_v1_credential_proto_depIdxs,
+		EnumInfos:         file_flowseer_edge_attach_v1_credential_proto_enumTypes,
+		MessageInfos:      file_flowseer_edge_attach_v1_credential_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_credential_proto = out.File
-	file_flowseer_api_edge_v1_credential_proto_goTypes = nil
-	file_flowseer_api_edge_v1_credential_proto_depIdxs = nil
+	File_flowseer_edge_attach_v1_credential_proto = out.File
+	file_flowseer_edge_attach_v1_credential_proto_goTypes = nil
+	file_flowseer_edge_attach_v1_credential_proto_depIdxs = nil
 }

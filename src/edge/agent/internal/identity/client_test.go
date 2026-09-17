@@ -16,8 +16,8 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/identity"
 )
 
@@ -26,7 +26,7 @@ import (
 // raw body and hashes it, so anything the edge's transport does to the
 // request after signing shows up here as a mismatch.
 type capturingCentral struct {
-	edgev1connect.UnimplementedEdgeServiceHandler
+	attachv1connect.UnimplementedEdgeServiceHandler
 
 	mu       sync.Mutex
 	requests []capturedRequest
@@ -71,30 +71,30 @@ func (c *capturingCentral) captured() []capturedRequest {
 }
 
 func (c *capturingCentral) Heartbeat(
-	context.Context, *connect.Request[edgev1.HeartbeatRequest],
-) (*connect.Response[edgev1.HeartbeatResponse], error) {
-	return connect.NewResponse(&edgev1.HeartbeatResponse{}), nil
+	context.Context, *connect.Request[attachv1.HeartbeatRequest],
+) (*connect.Response[attachv1.HeartbeatResponse], error) {
+	return connect.NewResponse(&attachv1.HeartbeatResponse{}), nil
 }
 
 func (c *capturingCentral) ListDevices(
-	context.Context, *connect.Request[edgev1.ListDevicesRequest],
-) (*connect.Response[edgev1.ListDevicesResponse], error) {
-	return connect.NewResponse(&edgev1.ListDevicesResponse{}), nil
+	context.Context, *connect.Request[attachv1.ListDevicesRequest],
+) (*connect.Response[attachv1.ListDevicesResponse], error) {
+	return connect.NewResponse(&attachv1.ListDevicesResponse{}), nil
 }
 
 func (c *capturingCentral) OpenDeviceSubmission(
-	_ context.Context, _ *connect.Request[edgev1.OpenDeviceSubmissionRequest],
-	stream *connect.ServerStream[edgev1.OpenDeviceSubmissionResponse],
+	_ context.Context, _ *connect.Request[attachv1.OpenDeviceSubmissionRequest],
+	stream *connect.ServerStream[attachv1.OpenDeviceSubmissionResponse],
 ) error {
-	return stream.Send(&edgev1.OpenDeviceSubmissionResponse{})
+	return stream.Send(&attachv1.OpenDeviceSubmissionResponse{})
 }
 
 // signedClient stands a fake central up and returns a client whose requests
 // go through the signing transport, plus the signer a test re-signs with.
-func signedClient(t *testing.T, central *capturingCentral) (edgev1connect.EdgeServiceClient, *identity.Signer) {
+func signedClient(t *testing.T, central *capturingCentral) (attachv1connect.EdgeServiceClient, *identity.Signer) {
 	t.Helper()
 	mux := http.NewServeMux()
-	path, handler := edgev1connect.NewEdgeServiceHandler(central)
+	path, handler := attachv1connect.NewEdgeServiceHandler(central)
 	mux.Handle(path, central.wrap(handler))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -109,7 +109,7 @@ func signedClient(t *testing.T, central *capturingCentral) (edgev1connect.EdgeSe
 	identity.SetNonceForTest(signer, vectorNonce())
 
 	httpClient := &http.Client{Transport: identity.SigningTransport(server.Client().Transport, signer)}
-	return edgev1connect.NewEdgeServiceClient(httpClient, server.URL), signer
+	return attachv1connect.NewEdgeServiceClient(httpClient, server.URL), signer
 }
 
 // wantSignedAs asserts that the request central received carries the header
@@ -146,12 +146,12 @@ func TestEveryCallCarriesAnAssertionOverTheBytesCentralReceives(t *testing.T) {
 	central := &capturingCentral{}
 	client, signer := signedClient(t, central)
 
-	if _, err := client.Heartbeat(context.Background(), connect.NewRequest(edgev1.HeartbeatRequest_builder{
+	if _, err := client.Heartbeat(context.Background(), connect.NewRequest(attachv1.HeartbeatRequest_builder{
 		AgentVersion: proto.String("v0.1.0-test"),
 	}.Build())); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}
-	if _, err := client.ListDevices(context.Background(), connect.NewRequest(&edgev1.ListDevicesRequest{})); err != nil {
+	if _, err := client.ListDevices(context.Background(), connect.NewRequest(&attachv1.ListDevicesRequest{})); err != nil {
 		t.Fatalf("ListDevices: %v", err)
 	}
 
@@ -167,7 +167,7 @@ func TestEveryCallCarriesAnAssertionOverTheBytesCentralReceives(t *testing.T) {
 	}
 }
 
-// The api/edge README's second worked header, for a server-stream open with
+// The model/edge README's second worked header, for a server-stream open with
 // a non-empty body, and the request it was computed over: the same key,
 // edge, audience, window and nonce as the first vector, procedure
 // OpenDeviceSubmission, and body_sha256 over the Connect-enveloped request
@@ -177,7 +177,7 @@ const (
 	vectorStreamDevice  = "0192e6a0-0000-7000-8000-0000000000d1"
 	vectorStreamBinding = "0192e6a0-0000-7000-8000-0000000000b1"
 	vectorStreamSeq     = 42
-	vectorStreamHeader  = "FlowSeer-Edge CrgBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI2L2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJA7CbFLzvZmR/jh2rq6sc+fB89EXI+K99j9O69oKmbsQc2AwMZpsAPlXngwrtopUzc5itWFa+FDYXe2DB+ZQOZBg"
+	vectorStreamHeader  = "FlowSeer-Edge CrsBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI5L2Zsb3dzZWVyLmVkZ2UuYXR0YWNoLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJAsb+O8uLcdES1VFehfnF03/BdZDORI5gchpSrhaKhNojd/6ZKhTari2D9EY5QBrY07c9orSYG5Cwobsg//34oBQ"
 )
 
 func vectorNonce() []byte {
@@ -204,7 +204,7 @@ func TestAStreamOpenIsSignedOverItsEnvelopedRequest(t *testing.T) {
 	central := &capturingCentral{}
 	client, signer := signedClient(t, central)
 
-	stream, err := client.OpenDeviceSubmission(context.Background(), connect.NewRequest(edgev1.OpenDeviceSubmissionRequest_builder{
+	stream, err := client.OpenDeviceSubmission(context.Background(), connect.NewRequest(attachv1.OpenDeviceSubmissionRequest_builder{
 		DeviceId:  proto.String(vectorStreamDevice),
 		BindingId: proto.String(vectorStreamBinding),
 		Sequence:  proto.Uint64(vectorStreamSeq),
@@ -224,7 +224,7 @@ func TestAStreamOpenIsSignedOverItsEnvelopedRequest(t *testing.T) {
 	// The envelope is a flags byte and a length prefix in front of the
 	// message, so a body no longer than the message would mean the bytes
 	// signed are not the bytes sent.
-	if len(captured[0].body) <= proto.Size(edgev1.OpenDeviceSubmissionRequest_builder{
+	if len(captured[0].body) <= proto.Size(attachv1.OpenDeviceSubmissionRequest_builder{
 		DeviceId:  proto.String(vectorStreamDevice),
 		BindingId: proto.String(vectorStreamBinding),
 		Sequence:  proto.Uint64(vectorStreamSeq),
@@ -250,15 +250,15 @@ func TestAStreamOpenIsSignedOverItsEnvelopedRequest(t *testing.T) {
 func TestEnrollCarriesNoAssertion(t *testing.T) {
 	central := &capturingCentral{}
 	mux := http.NewServeMux()
-	path, handler := edgev1connect.NewEdgeServiceHandler(central)
+	path, handler := attachv1connect.NewEdgeServiceHandler(central)
 	mux.Handle(path, central.wrap(handler))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	client := edgev1connect.NewEdgeServiceClient(server.Client(), server.URL)
+	client := attachv1connect.NewEdgeServiceClient(server.Client(), server.URL)
 	// The handler is unimplemented, so the call fails; what this test is
 	// about is the request that reached central, not the answer.
-	_, _ = client.Enroll(context.Background(), connect.NewRequest(&edgev1.EnrollRequest{}))
+	_, _ = client.Enroll(context.Background(), connect.NewRequest(&attachv1.EnrollRequest{}))
 
 	captured := central.captured()
 	if len(captured) != 1 {
@@ -282,7 +282,7 @@ func TestACompressedRequestIsRefusedHereRatherThanByCentral(t *testing.T) {
 		return nil, nil
 	})
 
-	request, err := http.NewRequest(http.MethodPost, "https://central.example.test/flowseer.api.edge.v1.EdgeService/Heartbeat", http.NoBody)
+	request, err := http.NewRequest(http.MethodPost, "https://central.example.test/flowseer.edge.attach.v1.EdgeService/Heartbeat", http.NoBody)
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestEveryEncodingHeaderCentralRefusesIsRefusedHere(t *testing.T) {
 			})
 
 			request, err := http.NewRequest(http.MethodPost,
-				"https://central.example.test/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission", http.NoBody)
+				"https://central.example.test/flowseer.edge.attach.v1.EdgeService/OpenDeviceSubmission", http.NoBody)
 			if err != nil {
 				t.Fatalf("NewRequest: %v", err)
 			}
@@ -379,7 +379,7 @@ func TestClockSkewResponseRetriesWithServerTime(t *testing.T) {
 		}
 		return response, nil
 	})
-	request, err := http.NewRequest(http.MethodPost, "https://central.example.test/flowseer.api.edge.v1.EdgeService/Heartbeat", http.NoBody)
+	request, err := http.NewRequest(http.MethodPost, "https://central.example.test/flowseer.edge.attach.v1.EdgeService/Heartbeat", http.NoBody)
 	if err != nil {
 		t.Fatalf("NewRequest: %v", err)
 	}

@@ -5,12 +5,13 @@ through which FlowSeer runs integrations inside a site's network, and
 everything that names it — its ref pair, its lifecycle, the setup key and
 registered key it carries, the assertion it signs on every call, the proof
 of possession that registers a key, and the provisioning file that ships
-with it before its first boot. The two Connect services around it — the one
-an edge calls to enroll and stay attached, and the one an operator calls to
-create, provision, and retire edges — live in
-[`api/edge/v1`](../../../api/edge/v1/README.md), which imports this package
-for the entity and returns `EdgeRecord` from every call that hands back an
-edge.
+with it before its first boot. The two Connect services around it live one
+on each side of the boundary: the one an edge calls to enroll and stay attached
+is [`edge/attach/v1`](../../../edge/attach/v1/README.md), and the one an
+operator calls to create, provision, and retire edges is
+[`api/edge/v1`](../../../api/edge/v1/README.md). Both import this package for
+the entity, and the operator one returns `EdgeRecord` from every call that
+hands back an edge.
 
 ## Two secrets, two lifetimes
 
@@ -61,7 +62,7 @@ The verifier checks, in this order, and stops at the first failure:
 4. The parsed `EdgeAssertion` passes its own validation: the 60 second
    window, the nonce length, and the `procedure` and `body_sha256` shape.
 5. `procedure` equals the full Connect method name of the RPC being
-   invoked, for example `/flowseer.api.edge.v1.EdgeService/Heartbeat`.
+   invoked, for example `/flowseer.edge.attach.v1.EdgeService/Heartbeat`.
 6. `body_sha256` equals the SHA-256 of the HTTP request body exactly as
    received. The edge sends requests uncompressed and central refuses a
    compressed one, so the bytes hashed are the bytes on the wire; for a
@@ -91,17 +92,17 @@ longer carries it: private key from a seed of 32 zero bytes, edge id
 `0192e6a0-0000-7000-8000-0000000000ed`, audience `flowseer-central`,
 issued at 2026-09-05T12:00:00Z, expiring 30 seconds later, nonce bytes
 `00` through `0f`, procedure
-`/flowseer.api.edge.v1.EdgeService/Heartbeat`, body_sha256 the SHA-256 of
+`/flowseer.edge.attach.v1.EdgeService/Heartbeat`, body_sha256 the SHA-256 of
 an empty body, deterministic serialization.
 
 ```
-Authorization: FlowSeer-Edge Cq0BCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIrL2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQBNz5MF25z/nq9bRdOT4oJEWA17sTJTatD0nn1TIfYuyFyicifeP7cpA1NCP0JzyZsCjx+MxN4zhY+4dpgi8WwU
+Authorization: FlowSeer-Edge CrABCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzIuL2Zsb3dzZWVyLmVkZ2UuYXR0YWNoLnYxLkVkZ2VTZXJ2aWNlL0hlYXJ0YmVhdDog47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFUSQFTvraPhC4Oqv5YZ2M5g/C7gPGXFrUoZOO2fGBux7F5ymuCZkyRbfx1gZOOwhBZ3hT+vgHxR8yYexZ2LLktvZwM
 ```
 
 A second worked header covers a server-stream open with a non-empty body,
 so a middleware that hashes the HTTP body bytes can check itself against
 it: the same key, edge, audience, window, and nonce, procedure
-`/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission`, and `body_sha256`
+`/flowseer.edge.attach.v1.EdgeService/OpenDeviceSubmission`, and `body_sha256`
 over the Connect-enveloped `OpenDeviceSubmissionRequest` for device
 `0192e6a0-0000-7000-8000-0000000000d1`, binding
 `0192e6a0-0000-7000-8000-0000000000b1`, sequence 42 (a zero flags byte, the
@@ -111,7 +112,7 @@ against it hashes the bytes it received, never a re-marshal of the decoded
 message, since a client's encoding need not be deterministic.
 
 ```
-Authorization: FlowSeer-Edge CrgBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI2L2Zsb3dzZWVyLmFwaS5lZGdlLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJA7CbFLzvZmR/jh2rq6sc+fB89EXI+K99j9O69oKmbsQc2AwMZpsAPlXngwrtopUzc5itWFa+FDYXe2DB+ZQOZBg
+Authorization: FlowSeer-Edge CrsBCigKJgokMDE5MmU2YTAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMGVkEhBmbG93c2Vlci1jZW50cmFsGgYIwIjw1AYiBgjeiPDUBioQAAECAwQFBgcICQoLDA0ODzI5L2Zsb3dzZWVyLmVkZ2UuYXR0YWNoLnYxLkVkZ2VTZXJ2aWNlL09wZW5EZXZpY2VTdWJtaXNzaW9uOiBeiE+EkKO3xyVNss7plVtArK4AMWo9MlZn0egw06XT8BJAsb+O8uLcdES1VFehfnF03/BdZDORI5gchpSrhaKhNojd/6ZKhTari2D9EY5QBrY07c9orSYG5Cwobsg//34oBQ
 ```
 
 Ed25519 is the only algorithm and the verifier has no way to be told
@@ -208,11 +209,17 @@ integrations it hosts are later allowed to reach.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/edge, edge/capture, model/access, model/capture,
-model/inventory, store/device
+Imported by: api/capture, api/edge, edge/attach, edge/capture, model/access,
+model/capture, model/inventory, store/device
 
 Deliberately absent:
 
 - A Connect service. The two services that create, enroll, and operate an
-  edge live in `api/edge/v1`; this package holds only the entity every
-  boundary that names an edge agrees on, never the calls that act on it.
+  edge live in `api/edge/v1` and `edge/attach/v1`; this package holds only the
+  entity every boundary that names an edge agrees on, never the calls that act
+  on it.
+- Admission to `EntityType` in `model/inventory/v1`. Admission obliges a
+  cascading delete of attribute values and an existence check that need the edge
+  store, which arrives with the first host. Until then nothing may reference an
+  edge through an `EntityRef`; the conventions doc records the exception next
+  to the tenant one.

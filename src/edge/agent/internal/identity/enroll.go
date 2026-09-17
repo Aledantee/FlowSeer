@@ -10,7 +10,7 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
@@ -19,7 +19,7 @@ import (
 // identity to sign with. Satisfied by the generated client; an interface so
 // the ordering below can be tested without a server.
 type Enroller interface {
-	Enroll(context.Context, *connect.Request[apiedgev1.EnrollRequest]) (*connect.Response[apiedgev1.EnrollResponse], error)
+	Enroll(context.Context, *connect.Request[attachv1.EnrollRequest]) (*connect.Response[attachv1.EnrollResponse], error)
 }
 
 // Identity is an enrolled edge: the key central registered and the answer
@@ -31,7 +31,7 @@ type Enroller interface {
 // package's business; what a caller needs is Signer.
 type Identity struct {
 	key        ed25519.PrivateKey
-	Enrollment *apiedgev1.EnrollResponse
+	Enrollment *attachv1.EnrollResponse
 	// Set only when Enroll returned in this process. The time inside a loaded
 	// enrollment is historical and cannot define a current clock offset.
 	serverTime time.Time
@@ -125,7 +125,7 @@ func Establish(ctx context.Context, store *Store, client Enroller, setupKey stri
 	if err != nil {
 		return nil, err
 	}
-	request := &apiedgev1.EnrollRequest{}
+	request := &attachv1.EnrollRequest{}
 	request.SetSetupKey(setupKey)
 	request.SetProof(proof)
 

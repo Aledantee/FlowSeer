@@ -2,14 +2,14 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/device.proto
+// source: flowseer/edge/attach/v1/device.proto
 
 // What ListDevices tells an edge about the devices it serves: where each one
 // answers, which binding reaches it, the access policy version it pins, and
 // how long a mutation on it may take to become visible. Nothing here is a
 // credential; those are their own lifecycle in credential.proto.
 
-package edgev1
+package attachv1
 
 import (
 	v11 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
@@ -38,7 +38,7 @@ type ListDevicesRequest struct {
 
 func (x *ListDevicesRequest) Reset() {
 	*x = ListDevicesRequest{}
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -50,7 +50,7 @@ func (x *ListDevicesRequest) String() string {
 func (*ListDevicesRequest) ProtoMessage() {}
 
 func (x *ListDevicesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -82,7 +82,7 @@ type ListDevicesResponse struct {
 
 func (x *ListDevicesResponse) Reset() {
 	*x = ListDevicesResponse{}
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -94,7 +94,7 @@ func (x *ListDevicesResponse) String() string {
 func (*ListDevicesResponse) ProtoMessage() {}
 
 func (x *ListDevicesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -155,7 +155,7 @@ type ListedDevice struct {
 
 func (x *ListedDevice) Reset() {
 	*x = ListedDevice{}
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -167,7 +167,7 @@ func (x *ListedDevice) String() string {
 func (*ListedDevice) ProtoMessage() {}
 
 func (x *ListedDevice) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_device_proto_msgTypes[2]
+	mi := &file_flowseer_edge_attach_v1_device_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -350,7 +350,7 @@ type ListedDevice_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
 	// The device this describes, as a plain UUID string: this package sits
-	// below api/inventory in the import graph and cannot name a
+	// below model/inventory in the import graph and cannot name a
 	// DeviceGlobalRef. The same id the credential calls take. Must be
 	// present.
 	DeviceId *string
@@ -400,14 +400,14 @@ func (b0 ListedDevice_builder) Build() *ListedDevice {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_device_proto protoreflect.FileDescriptor
+var File_flowseer_edge_attach_v1_device_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_device_proto_rawDesc = "" +
+const file_flowseer_edge_attach_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!flowseer/api/edge/v1/device.proto\x12\x14flowseer.api.edge.v1\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\x14\n" +
-	"\x12ListDevicesRequest\"^\n" +
-	"\x13ListDevicesResponse\x12G\n" +
-	"\adevices\x18\x01 \x03(\v2\".flowseer.api.edge.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xa5\x03\n" +
+	"$flowseer/edge/attach/v1/device.proto\x12\x17flowseer.edge.attach.v1\x1a%flowseer/model/policy/v1/handle.proto\x1a\x1dflowseer/net/addr/v1/ip.proto\x1a\x1egoogle/protobuf/duration.proto\"\x14\n" +
+	"\x12ListDevicesRequest\"a\n" +
+	"\x13ListDevicesResponse\x12J\n" +
+	"\adevices\x18\x01 \x03(\v2%.flowseer.edge.attach.v1.ListedDeviceB\t\xbaH\x06\x92\x01\x03\x10\x80 R\adevices\"\xa5\x03\n" +
 	"\fListedDevice\x12(\n" +
 	"\tdevice_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\bdeviceId\x12*\n" +
 	"\n" +
@@ -417,23 +417,23 @@ const file_flowseer_api_edge_v1_device_proto_rawDesc = "" +
 	"\bssh_port\x18\x05 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03(\x01R\asshPort\x12Y\n" +
 	"\raccess_policy\x18\x06 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Y\n" +
 	"\x15delayed_apply_horizon\x18\a \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xe2\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\vDeviceProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x13delayedApplyHorizonB\xf6\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\vDeviceProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_flowseer_api_edge_v1_device_proto_goTypes = []any{
-	(*ListDevicesRequest)(nil),     // 0: flowseer.api.edge.v1.ListDevicesRequest
-	(*ListDevicesResponse)(nil),    // 1: flowseer.api.edge.v1.ListDevicesResponse
-	(*ListedDevice)(nil),           // 2: flowseer.api.edge.v1.ListedDevice
+var file_flowseer_edge_attach_v1_device_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_flowseer_edge_attach_v1_device_proto_goTypes = []any{
+	(*ListDevicesRequest)(nil),     // 0: flowseer.edge.attach.v1.ListDevicesRequest
+	(*ListDevicesResponse)(nil),    // 1: flowseer.edge.attach.v1.ListDevicesResponse
+	(*ListedDevice)(nil),           // 2: flowseer.edge.attach.v1.ListedDevice
 	(*v1.IpAddress)(nil),           // 3: flowseer.net.addr.v1.IpAddress
 	(*v11.AccessPolicyHandle)(nil), // 4: flowseer.model.policy.v1.AccessPolicyHandle
 	(*durationpb.Duration)(nil),    // 5: google.protobuf.Duration
 }
-var file_flowseer_api_edge_v1_device_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.edge.v1.ListDevicesResponse.devices:type_name -> flowseer.api.edge.v1.ListedDevice
-	3, // 1: flowseer.api.edge.v1.ListedDevice.ip:type_name -> flowseer.net.addr.v1.IpAddress
-	4, // 2: flowseer.api.edge.v1.ListedDevice.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
-	5, // 3: flowseer.api.edge.v1.ListedDevice.delayed_apply_horizon:type_name -> google.protobuf.Duration
+var file_flowseer_edge_attach_v1_device_proto_depIdxs = []int32{
+	2, // 0: flowseer.edge.attach.v1.ListDevicesResponse.devices:type_name -> flowseer.edge.attach.v1.ListedDevice
+	3, // 1: flowseer.edge.attach.v1.ListedDevice.ip:type_name -> flowseer.net.addr.v1.IpAddress
+	4, // 2: flowseer.edge.attach.v1.ListedDevice.access_policy:type_name -> flowseer.model.policy.v1.AccessPolicyHandle
+	5, // 3: flowseer.edge.attach.v1.ListedDevice.delayed_apply_horizon:type_name -> google.protobuf.Duration
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type
 	4, // [4:4] is the sub-list for extension type_name
@@ -441,26 +441,26 @@ var file_flowseer_api_edge_v1_device_proto_depIdxs = []int32{
 	0, // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_device_proto_init() }
-func file_flowseer_api_edge_v1_device_proto_init() {
-	if File_flowseer_api_edge_v1_device_proto != nil {
+func init() { file_flowseer_edge_attach_v1_device_proto_init() }
+func file_flowseer_edge_attach_v1_device_proto_init() {
+	if File_flowseer_edge_attach_v1_device_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_device_proto_rawDesc), len(file_flowseer_api_edge_v1_device_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_attach_v1_device_proto_rawDesc), len(file_flowseer_edge_attach_v1_device_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_device_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_device_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_device_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_attach_v1_device_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_attach_v1_device_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_attach_v1_device_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_device_proto = out.File
-	file_flowseer_api_edge_v1_device_proto_goTypes = nil
-	file_flowseer_api_edge_v1_device_proto_depIdxs = nil
+	File_flowseer_edge_attach_v1_device_proto = out.File
+	file_flowseer_edge_attach_v1_device_proto_goTypes = nil
+	file_flowseer_edge_attach_v1_device_proto_depIdxs = nil
 }

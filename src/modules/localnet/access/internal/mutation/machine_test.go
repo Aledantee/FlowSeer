@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -76,26 +76,26 @@ func (d *fakeDeliverer) Emit(ctx context.Context, event *eventaccessv1.DeviceOpe
 // the synchronous-snapshot contract [credential.SubmissionHandle] promises.
 // With none given, authority stays AUTHORIZED (what an issued grant implies
 // until told otherwise).
-func fakeSubmission(pulses ...*edgev1.AuthorityPulse) credential.SubmissionCredentialSource {
-	authority := edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+func fakeSubmission(pulses ...*attachv1.AuthorityPulse) credential.SubmissionCredentialSource {
+	authority := attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
 	for _, p := range pulses {
 		authority = p.GetAuthority()
 	}
 	return submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
-		return &fakeSubmissionHandle{grant: &edgev1.SubmissionGrant{}, authority: authority}, nil
+		return &fakeSubmissionHandle{grant: &attachv1.SubmissionGrant{}, authority: authority}, nil
 	})
 }
 
 type fakeSubmissionHandle struct {
-	grant     *edgev1.SubmissionGrant
-	authority edgev1.SubmissionAuthority
+	grant     *attachv1.SubmissionGrant
+	authority attachv1.SubmissionAuthority
 	err       error
 }
 
-func (h *fakeSubmissionHandle) Grant() *edgev1.SubmissionGrant        { return h.grant }
-func (h *fakeSubmissionHandle) Authority() edgev1.SubmissionAuthority { return h.authority }
-func (h *fakeSubmissionHandle) Err() error                            { return h.err }
-func (h *fakeSubmissionHandle) Close() error                          { return nil }
+func (h *fakeSubmissionHandle) Grant() *attachv1.SubmissionGrant        { return h.grant }
+func (h *fakeSubmissionHandle) Authority() attachv1.SubmissionAuthority { return h.authority }
+func (h *fakeSubmissionHandle) Err() error                              { return h.err }
+func (h *fakeSubmissionHandle) Close() error                            { return nil }
 
 type submissionFunc func(ctx context.Context, deviceID, bindingID string, sequence uint64) (credential.SubmissionHandle, error)
 
@@ -165,7 +165,7 @@ func TestFullHappyPathPhaseByPhase(t *testing.T) {
 	deps := baseDeps(deliverer, fakeSubmission())
 
 	var submitted bool
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		submitted = true
 		return nil
 	}
@@ -296,12 +296,12 @@ func TestReadArmStopsAtObserving(t *testing.T) {
 
 func TestCheckpointThenRevokedPulseBlocksSubmission(t *testing.T) {
 	deliverer := newFakeDeliverer()
-	pulse := &edgev1.AuthorityPulse{}
-	pulse.SetAuthority(edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
+	pulse := &attachv1.AuthorityPulse{}
+	pulse.SetAuthority(attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED)
 	deps := baseDeps(deliverer, fakeSubmission(pulse))
 
 	var submitted bool
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		submitted = true
 		return nil
 	}
@@ -335,14 +335,14 @@ func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testi
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
 		return &fakeSubmissionHandle{
-			grant:     &edgev1.SubmissionGrant{},
-			authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
+			grant:     &attachv1.SubmissionGrant{},
+			authority: attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
 			err:       errors.New("connection reset"),
 		}, nil
 	}))
 
 	var submitted bool
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		submitted = true
 		return nil
 	}
@@ -374,15 +374,15 @@ func TestBrokenSubmissionStreamBlocksSubmissionEvenWithoutARevokedPulse(t *testi
 func TestExpiredGrantDeadlineBlocksSubmission(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	past := time.Now().Add(-time.Minute)
-	grant := &edgev1.SubmissionGrant{}
+	grant := &attachv1.SubmissionGrant{}
 	grant.SetDeadline(timestamppb.New(past))
 
 	deps := baseDeps(deliverer, submissionFunc(func(context.Context, string, string, uint64) (credential.SubmissionHandle, error) {
-		return &fakeSubmissionHandle{grant: grant, authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED}, nil
+		return &fakeSubmissionHandle{grant: grant, authority: attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED}, nil
 	}))
 
 	var submitted bool
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		submitted = true
 		return nil
 	}
@@ -414,7 +414,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 	t.Run("before submission", func(t *testing.T) {
 		deps := baseDeps(deliverer, fakeSubmission())
 		var submitted bool
-		deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 			submitted = true
 			return nil
 		}
@@ -442,7 +442,7 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 	t.Run("after submission", func(t *testing.T) {
 		deps := baseDeps(deliverer, fakeSubmission())
 		var observed bool
-		deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 			return nil
 		}
 		deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
@@ -478,7 +478,9 @@ func TestCancellationBeforeSubmissionBlocksItCancellationAfterDoesNot(t *testing
 func TestConflictingReadsBlockInsteadOfVerifying(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
 		return completeObservation("fresh value"), nil
 	}
@@ -578,7 +580,9 @@ func TestOutOfOrderTransitionIsRejected(t *testing.T) {
 func TestAbandonAfterReleaseIsRejected(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
 		return completeObservation("x"), nil
 	}
@@ -625,7 +629,7 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
 	var submitted bool
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		submitted = true
 		return nil
 	}
@@ -679,7 +683,9 @@ func TestExecuteBlocksWhileFrozenAndProceedsOnceUnfrozen(t *testing.T) {
 func TestDelivererErrorAtReleaseLeavesPhaseAtLastDurableValue(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
 		return completeObservation("x"), nil
 	}
@@ -758,7 +764,9 @@ func TestAdmittedOnFirmwareEpochMismatchDeliversNoAuditEvent(t *testing.T) {
 // BlockedSince at and after that phase.
 func driveToVerified(t *testing.T, req *dispatchv1.ExecuteRequest, deps mutation.Deps) *mutation.Machine {
 	t.Helper()
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
 		return completeObservation("uplink to core"), nil
 	}
@@ -902,7 +910,9 @@ func TestResultFallsBackToErrorArmWhenNoObservationRecorded(t *testing.T) {
 func TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
 		obs := completeObservation("uplink to core")
 		prov := &inventoryv1.Provenance{}
@@ -940,7 +950,9 @@ func TestObserveNeverComparesProvenanceFingerprintAgainstCurrentFingerprint(t *t
 func TestCorrelationIDsCarryIdempotencyKeyAndTraceID(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 	deps.Read = func(context.Context) (*accessv1.InterfaceObservation, error) {
 		return completeObservation("uplink to core"), nil
 	}
@@ -997,7 +1009,9 @@ func TestAResentAcknowledgementFinishesTheWalkWhereverItStopped(t *testing.T) {
 		t.Run(fmt.Sprintf("record %d fails", failFrom), func(t *testing.T) {
 			deliverer := newFakeDeliverer()
 			deps := baseDeps(deliverer, fakeSubmission())
-			deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+			deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+				return nil
+			}
 			deps.Read = func(_ context.Context) (*accessv1.InterfaceObservation, error) {
 				return completeObservation("x"), nil
 			}
@@ -1067,7 +1081,9 @@ func TestAResentAcknowledgementFinishesTheWalkWhereverItStopped(t *testing.T) {
 func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error { return nil }
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+		return nil
+	}
 
 	reading := make(chan struct{})
 	finishRead := make(chan struct{})
@@ -1131,7 +1147,7 @@ func TestAnAbandonmentDuringAPollIsNotOverwrittenByIt(t *testing.T) {
 func TestARefusedRecoveryTransitionEntersRecoveryOwingTheRecord(t *testing.T) {
 	deliverer := newFakeDeliverer()
 	deps := baseDeps(deliverer, fakeSubmission())
-	deps.Submit = func(context.Context, *edgev1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
+	deps.Submit = func(context.Context, *attachv1.SubmissionGrant, *accessv1.InterfaceDescriptionChange) error {
 		return nil
 	}
 

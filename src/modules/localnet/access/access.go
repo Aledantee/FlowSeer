@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/secret"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access/internal/capability/fastiron"
@@ -84,7 +84,7 @@ type SubmissionHandle = credential.SubmissionHandle
 // silently cannot mutate them — the no-op default grants immediately, stays
 // AUTHORIZED and never ends, which is right for a facade with no central and
 // wrong for a host that has one.
-func NewConnectCredentials(client edgev1connect.EdgeServiceClient) (ReadCredentialSource, SubmissionCredentialSource) {
+func NewConnectCredentials(client attachv1connect.EdgeServiceClient) (ReadCredentialSource, SubmissionCredentialSource) {
 	adapter := &credential.ConnectAdapter{Client: client}
 	return adapter, adapter
 }

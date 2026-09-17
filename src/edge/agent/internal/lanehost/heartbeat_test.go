@@ -11,7 +11,7 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
@@ -27,8 +27,8 @@ type beaterFake struct {
 }
 
 func (b *beaterFake) Heartbeat(
-	ctx context.Context, _ *connect.Request[edgev1.HeartbeatRequest],
-) (*connect.Response[edgev1.HeartbeatResponse], error) {
+	ctx context.Context, _ *connect.Request[attachv1.HeartbeatRequest],
+) (*connect.Response[attachv1.HeartbeatResponse], error) {
 	b.mu.Lock()
 	gate := b.block
 	var result error
@@ -51,7 +51,7 @@ func (b *beaterFake) Heartbeat(
 	if result != nil {
 		return nil, result
 	}
-	response := &edgev1.HeartbeatResponse{}
+	response := &attachv1.HeartbeatResponse{}
 	if call < len(b.times) {
 		response.SetServerTime(timestamppb.New(b.times[call]))
 	}

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -200,12 +200,12 @@ type DeviceSession struct {
 	// OpenSNMP opens an SNMP session from material acquired for this
 	// operation. Required: the identity probe at onboarding and every read
 	// go through it.
-	OpenSNMP func(ctx context.Context, cred *edgev1.DeviceCredential) (SNMPSession, error)
+	OpenSNMP func(ctx context.Context, cred *attachv1.DeviceCredential) (SNMPSession, error)
 	// OpenShell opens a shell session. Used for the fallback read route
 	// and for a mutation's own command, and may be nil for a device with
 	// no shell adapter — a mutation on such a device fails rather than
 	// silently doing nothing.
-	OpenShell func(ctx context.Context, cred *edgev1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
+	OpenShell func(ctx context.Context, cred *attachv1.DeviceCredential, hostKeySHA256 string) (ShellSession, error)
 
 	// AccessPolicy is the handle the onboarding identity probe acquires
 	// its credential under. A read carries its own on TypedRead, since
@@ -563,8 +563,8 @@ func (noopDeliverer) Emit(context.Context, *eventaccessv1.DeviceOperationEvent) 
 // configured with".
 type noopReadSource struct{}
 
-func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error) {
-	return &edgev1.AcquireReadCredentialResponse{}, nil
+func (noopReadSource) AcquireReadCredential(context.Context, string, string, *policyv1.AccessPolicyHandle) (*attachv1.AcquireReadCredentialResponse, error) {
+	return &attachv1.AcquireReadCredentialResponse{}, nil
 }
 
 // noopSubmissionSource is Config's default SubmissionCredentialSource when
@@ -579,9 +579,9 @@ func (noopSubmissionSource) Open(context.Context, string, string, uint64) (crede
 
 type noopSubmissionHandle struct{}
 
-func (noopSubmissionHandle) Grant() *edgev1.SubmissionGrant { return &edgev1.SubmissionGrant{} }
-func (noopSubmissionHandle) Authority() edgev1.SubmissionAuthority {
-	return edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
+func (noopSubmissionHandle) Grant() *attachv1.SubmissionGrant { return &attachv1.SubmissionGrant{} }
+func (noopSubmissionHandle) Authority() attachv1.SubmissionAuthority {
+	return attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED
 }
 func (noopSubmissionHandle) Err() error   { return nil }
 func (noopSubmissionHandle) Close() error { return nil }
@@ -718,7 +718,7 @@ func (l *Lane) probeIdentity(ctx context.Context, deviceKey string, session Devi
 // the caller's: a read passes the one TypedRead.access_policy carries,
 // since central decides per read which policy admitted it, and onboarding
 // passes the device's own.
-func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session DeviceSession, handle *policyv1.AccessPolicyHandle) (*edgev1.DeviceCredential, string, error) {
+func (l *Lane) acquireRead(ctx context.Context, deviceKey string, session DeviceSession, handle *policyv1.AccessPolicyHandle) (*attachv1.DeviceCredential, string, error) {
 	response, err := l.cfg.ReadCredentials.AcquireReadCredential(ctx, deviceKey, session.BindingID, handle)
 	if err != nil {
 		return nil, "", errs.Wrap(err, "acquire read credential")
@@ -2146,7 +2146,7 @@ func (l *Lane) machineDeps(ds *deviceState, fingerprint string, req *dispatchv1.
 			prov.FirmwareFingerprint = fingerprint
 			return interfaces.Read(ctx, opened.Session, openShell, name, prov, nil, interfaces.Freshness{}, l.cfg.Clock())
 		},
-		Submit: func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
+		Submit: func(ctx context.Context, grant *attachv1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error {
 			if sess.SubmitOverride != nil {
 				return sess.SubmitOverride(ctx, intent)
 			}

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	agenthost "go.aledante.io/FlowSeer/src/edge/agent/host"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
 )
@@ -32,15 +32,15 @@ func TestTheAgentsDeviceSeamsCanBeFilledFromOutside(t *testing.T) {
 	fixed := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
 
 	opts := agenthost.Options{
-		OpenSNMP: func(endpoint agenthost.Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(endpoint agenthost.Endpoint) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			snmpEndpoint = endpoint
-			return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+			return func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 				return access.SNMPSession{}, nil
 			}
 		},
-		OpenShell: func(endpoint agenthost.Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+		OpenShell: func(endpoint agenthost.Endpoint) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 			shellEndpoint = endpoint
-			return func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
+			return func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
 				return access.ShellSession{}, nil
 			}
 		},

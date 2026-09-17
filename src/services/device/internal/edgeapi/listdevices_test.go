@@ -11,7 +11,7 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 )
 
@@ -23,7 +23,7 @@ func enrolledHarnessWith(t *testing.T, device func(*storev1.RegistryDevice)) (*h
 	if err != nil {
 		t.Fatalf("keygen: %v", err)
 	}
-	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(edgev1.EnrollRequest_builder{
+	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(h.setupKey),
 		Proof:    enrollProof(t, private, public, h.setupKey),
 	}.Build())); err != nil {
@@ -32,9 +32,9 @@ func enrolledHarnessWith(t *testing.T, device func(*storev1.RegistryDevice)) (*h
 	return h, h.edgeID
 }
 
-func listDevices(t *testing.T, h *harness, edgeID string) *edgev1.ListDevicesResponse {
+func listDevices(t *testing.T, h *harness, edgeID string) *attachv1.ListDevicesResponse {
 	t.Helper()
-	resp, err := h.edge.ListDevices(enrollCtx(edgeID, nil), connect.NewRequest(&edgev1.ListDevicesRequest{}))
+	resp, err := h.edge.ListDevices(enrollCtx(edgeID, nil), connect.NewRequest(&attachv1.ListDevicesRequest{}))
 	if err != nil {
 		t.Fatalf("ListDevices: %v", err)
 	}
@@ -129,6 +129,6 @@ func TestListDevicesAnswersOnlyTheEdgeTheAssertionNames(t *testing.T) {
 	}
 
 	const otherEdge = "0192e6a0-0000-7000-8000-0000000000ee"
-	_, err := h.edge.ListDevices(enrollCtx(otherEdge, nil), connect.NewRequest(&edgev1.ListDevicesRequest{}))
+	_, err := h.edge.ListDevices(enrollCtx(otherEdge, nil), connect.NewRequest(&attachv1.ListDevicesRequest{}))
 	wantConnectCode(t, err, connect.CodePermissionDenied)
 }

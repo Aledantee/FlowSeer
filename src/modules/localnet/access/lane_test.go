@@ -13,7 +13,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -460,7 +460,7 @@ func TestLaneOnboardingProbedFingerprintGatesTheFirstMutation(t *testing.T) {
 	var probed bool
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Minute},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{
 				Session: fakeIdentitySession{onGet: func() { probed = true }},
 				Close:   func() error { return nil },

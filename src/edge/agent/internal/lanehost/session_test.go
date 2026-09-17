@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 )
 
-func credentialWith(material *credentialv1.CredentialMaterial) *edgev1.DeviceCredential {
-	cred := &edgev1.DeviceCredential{}
+func credentialWith(material *credentialv1.CredentialMaterial) *attachv1.DeviceCredential {
+	cred := &attachv1.DeviceCredential{}
 	cred.SetTypedMaterial(material)
 	return cred
 }

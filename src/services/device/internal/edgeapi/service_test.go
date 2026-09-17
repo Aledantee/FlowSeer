@@ -19,7 +19,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
@@ -36,7 +37,7 @@ import (
 
 // Service implements every RPC the generated handler requires; a missing one is
 // a wiring bug the host would only find at start-up.
-var _ edgev1connect.EdgeServiceHandler = (*edgeapi.Service)(nil)
+var _ attachv1connect.EdgeServiceHandler = (*edgeapi.Service)(nil)
 
 const (
 	testDeviceID  = "0192e6a0-0000-7000-8000-0000000000d1"
@@ -210,7 +211,7 @@ func TestEnrollConsumesTheKeyAndRegistersTheEdgesOwnKey(t *testing.T) {
 		t.Fatalf("keygen: %v", err)
 	}
 
-	resp, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	resp, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, private, public, setupKey),
 	}.Build()))
@@ -260,8 +261,8 @@ func TestEnrollIsIdempotentSoAnEdgeCanRetryAfterACrash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("keygen: %v", err)
 	}
-	req := func() *connect.Request[apiedgev1.EnrollRequest] {
-		return connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	req := func() *connect.Request[attachv1.EnrollRequest] {
+		return connect.NewRequest(attachv1.EnrollRequest_builder{
 			SetupKey: proto.String(setupKey),
 			Proof:    enrollProof(t, private, public, setupKey),
 		}.Build())
@@ -305,7 +306,7 @@ func TestEnrollRefusesTheSameKeyWithAnotherPublicKey(t *testing.T) {
 	h := newHarness(t)
 	record, setupKey := h.record, h.setupKey
 	public, private, _ := ed25519.GenerateKey(nil)
-	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, private, public, setupKey),
 	}.Build())); err != nil {
@@ -313,7 +314,7 @@ func TestEnrollRefusesTheSameKeyWithAnotherPublicKey(t *testing.T) {
 	}
 
 	thiefPublic, thiefPrivate, _ := ed25519.GenerateKey(nil)
-	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, thiefPrivate, thiefPublic, setupKey),
 	}.Build()))
@@ -338,7 +339,7 @@ func TestEnrollRefusesAnUnknownOrWrongKeyIndistinguishably(t *testing.T) {
 	unknown := "fse1_bbbbbbbbbbbbbbbbbbbbbbbbbb_cccccccccccccccccccccccccccccccccccccccccccccccccccc"
 
 	for _, key := range []string{wrongSecret, unknown} {
-		_, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+		_, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 			SetupKey: proto.String(key),
 			Proof:    enrollProof(t, private, public, key),
 		}.Build()))
@@ -354,7 +355,7 @@ func TestEnrollRefusesAProofBoundToAnotherSetupKey(t *testing.T) {
 	proof := keyProof(t, private, public, func(p *edgev1.KeyProofPayload) {
 		p.SetSetupKeyId("bbbbbbbbbbbbbbbbbbbbbbbbbb")
 	})
-	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    proof,
 	}.Build()))
@@ -367,7 +368,7 @@ func TestEnrollRefusesAProofSignedByAnotherKey(t *testing.T) {
 	public, _, _ := ed25519.GenerateKey(nil)
 	_, otherPrivate, _ := ed25519.GenerateKey(nil)
 
-	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, otherPrivate, public, setupKey),
 	}.Build()))
@@ -399,7 +400,7 @@ func TestEnrollRefusesAWithdrawnOrRetiredKey(t *testing.T) {
 			tc.withdraw(t, h, refOf(record))
 			public, private, _ := ed25519.GenerateKey(nil)
 
-			_, err := h.edge.Enroll(ctx, connect.NewRequest(apiedgev1.EnrollRequest_builder{
+			_, err := h.edge.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
 				SetupKey: proto.String(setupKey),
 				Proof:    enrollProof(t, private, public, setupKey),
 			}.Build()))
@@ -414,7 +415,7 @@ func TestEnrollRefusesAnExpiredKey(t *testing.T) {
 	h.now = testClock.Add(181 * 24 * time.Hour)
 	public, private, _ := ed25519.GenerateKey(nil)
 
-	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	_, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, private, public, setupKey),
 	}.Build()))
@@ -429,7 +430,7 @@ func enrolledHarness(t *testing.T) (*harness, string, ed25519.PublicKey, ed25519
 	if err != nil {
 		t.Fatalf("keygen: %v", err)
 	}
-	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(apiedgev1.EnrollRequest_builder{
+	if _, err := h.edge.Enroll(context.Background(), connect.NewRequest(attachv1.EnrollRequest_builder{
 		SetupKey: proto.String(setupKey),
 		Proof:    enrollProof(t, private, public, setupKey),
 	}.Build())); err != nil {
@@ -443,7 +444,7 @@ func TestRekeyReplacesTheKeyAndLeavesTheOldOneRefusing(t *testing.T) {
 	nonce := []byte("0123456789abcdef")
 	fresh, freshPrivate, _ := ed25519.GenerateKey(nil)
 
-	resp, err := h.edge.Rekey(enrollCtx(edgeID, nonce), connect.NewRequest(apiedgev1.RekeyRequest_builder{
+	resp, err := h.edge.Rekey(enrollCtx(edgeID, nonce), connect.NewRequest(attachv1.RekeyRequest_builder{
 		Proof: keyProof(t, freshPrivate, fresh, func(p *edgev1.KeyProofPayload) { p.SetAssertionNonce(nonce) }),
 	}.Build()))
 	if err != nil {
@@ -473,7 +474,7 @@ func TestRekeyNamingTheRegisteredKeySucceedsWithoutChange(t *testing.T) {
 	// The edge lost the first response and repeats the call, still holding the
 	// key already registered.
 	nonce := []byte("0123456789abcdef")
-	if _, err := h.edge.Rekey(enrollCtx(edgeID, nonce), connect.NewRequest(apiedgev1.RekeyRequest_builder{
+	if _, err := h.edge.Rekey(enrollCtx(edgeID, nonce), connect.NewRequest(attachv1.RekeyRequest_builder{
 		Proof: keyProof(t, private, current, func(p *edgev1.KeyProofPayload) { p.SetAssertionNonce(nonce) }),
 	}.Build())); err != nil {
 		t.Fatalf("repeated Rekey: %v", err)
@@ -496,7 +497,7 @@ func TestRekeyRefusesAProofBoundToAnotherNonce(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 	fresh, freshPrivate, _ := ed25519.GenerateKey(nil)
 
-	_, err := h.edge.Rekey(enrollCtx(edgeID, []byte("0123456789abcdef")), connect.NewRequest(apiedgev1.RekeyRequest_builder{
+	_, err := h.edge.Rekey(enrollCtx(edgeID, []byte("0123456789abcdef")), connect.NewRequest(attachv1.RekeyRequest_builder{
 		Proof: keyProof(t, freshPrivate, fresh, func(p *edgev1.KeyProofPayload) {
 			p.SetAssertionNonce([]byte("fedcba9876543210"))
 		}),
@@ -508,7 +509,7 @@ func TestHeartbeatRecordsLivenessAndReturnsCentralsClock(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 	h.now = testClock.Add(time.Minute)
 
-	resp, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.HeartbeatRequest_builder{
+	resp, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.HeartbeatRequest_builder{
 		AgentVersion: proto.String("v0.1.0"),
 	}.Build()))
 	if err != nil {
@@ -535,7 +536,7 @@ func TestHeartbeatClearsABacklogThatHasDrained(t *testing.T) {
 	buffering := testClock.Add(-time.Hour)
 
 	h.now = testClock.Add(time.Minute)
-	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.HeartbeatRequest_builder{
+	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.HeartbeatRequest_builder{
 		AgentVersion:   proto.String("v0.1.0"),
 		BufferingSince: timestamppb.New(buffering),
 	}.Build())); err != nil {
@@ -546,7 +547,7 @@ func TestHeartbeatClearsABacklogThatHasDrained(t *testing.T) {
 	}
 
 	h.now = testClock.Add(2 * time.Minute)
-	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.HeartbeatRequest_builder{
+	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.HeartbeatRequest_builder{
 		AgentVersion: proto.String("v0.1.0"),
 	}.Build())); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
@@ -559,7 +560,7 @@ func TestHeartbeatClearsABacklogThatHasDrained(t *testing.T) {
 func TestAttachBusHandsOnTheHubsCredentialUnchanged(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
-	resp, err := h.edge.AttachBus(enrollCtx(edgeID, nil), connect.NewRequest(&apiedgev1.AttachBusRequest{}))
+	resp, err := h.edge.AttachBus(enrollCtx(edgeID, nil), connect.NewRequest(&attachv1.AttachBusRequest{}))
 	if err != nil {
 		t.Fatalf("AttachBus: %v", err)
 	}
@@ -586,7 +587,7 @@ func TestAttachBusHandsOnTheHubsCredentialUnchanged(t *testing.T) {
 func TestAcquireReadCredentialDeliversThePinnedVersionWithItsExpiry(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
-	resp, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	resp, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String(testDeviceID),
 		BindingId:    proto.String(testBindingID),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),
@@ -612,7 +613,7 @@ func TestAcquireReadCredentialCarriesThePinOnlyForAShellLogin(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 	h.creds.material = shellMaterial()
 
-	resp, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	resp, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String(testDeviceID),
 		BindingId:    proto.String(testBindingID),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),
@@ -631,7 +632,7 @@ func TestAcquireReadCredentialCarriesThePinOnlyForAShellLogin(t *testing.T) {
 func TestAcquireReadCredentialRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
-	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String("0192e6a0-0000-7000-8000-0000000000d9"),
 		BindingId:    proto.String(testBindingID),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),
@@ -642,7 +643,7 @@ func TestAcquireReadCredentialRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 func TestAcquireReadCredentialRefusesAPolicyVersionTheDeviceDoesNotPin(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
-	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String(testDeviceID),
 		BindingId:    proto.String(testBindingID),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(2)}.Build(),
@@ -653,7 +654,7 @@ func TestAcquireReadCredentialRefusesAPolicyVersionTheDeviceDoesNotPin(t *testin
 func TestAcquireReadCredentialRefusesAnotherDevicesBinding(t *testing.T) {
 	h, edgeID, _, _ := enrolledHarness(t)
 
-	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String(testDeviceID),
 		BindingId:    proto.String("0192e6a0-0000-7000-8000-0000000000b9"),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),
@@ -665,15 +666,15 @@ func TestEveryAuthenticatedCallRefusesAContextWithNoVerifiedEdge(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 
-	_, err := h.edge.Heartbeat(ctx, connect.NewRequest(apiedgev1.HeartbeatRequest_builder{AgentVersion: proto.String("v0")}.Build()))
+	_, err := h.edge.Heartbeat(ctx, connect.NewRequest(attachv1.HeartbeatRequest_builder{AgentVersion: proto.String("v0")}.Build()))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
-	_, err = h.edge.AttachBus(ctx, connect.NewRequest(&apiedgev1.AttachBusRequest{}))
+	_, err = h.edge.AttachBus(ctx, connect.NewRequest(&attachv1.AttachBusRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
-	_, err = h.edge.Rekey(ctx, connect.NewRequest(&apiedgev1.RekeyRequest{}))
+	_, err = h.edge.Rekey(ctx, connect.NewRequest(&attachv1.RekeyRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
-	_, err = h.edge.AcquireReadCredential(ctx, connect.NewRequest(&apiedgev1.AcquireReadCredentialRequest{}))
+	_, err = h.edge.AcquireReadCredential(ctx, connect.NewRequest(&attachv1.AcquireReadCredentialRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
-	_, err = h.edge.ListDevices(ctx, connect.NewRequest(&apiedgev1.ListDevicesRequest{}))
+	_, err = h.edge.ListDevices(ctx, connect.NewRequest(&attachv1.ListDevicesRequest{}))
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 }
 
@@ -708,7 +709,7 @@ func TestContactAgesOutOfTheHeartbeatRatherThanTheRecord(t *testing.T) {
 	// A heartbeat returns it to active, which is what makes dormant a
 	// statement about silence rather than a state an edge gets stuck in.
 	h.now = testClock.Add(49 * time.Hour)
-	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.HeartbeatRequest_builder{
+	if _, err := h.edge.Heartbeat(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.HeartbeatRequest_builder{
 		AgentVersion: proto.String("v0.1.0"),
 	}.Build())); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
@@ -777,7 +778,7 @@ func TestConcurrentIssueAndEnrollLeaveACoherentRecord(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			_, _ = h.edge.Enroll(ctx, connect.NewRequest(apiedgev1.EnrollRequest_builder{
+			_, _ = h.edge.Enroll(ctx, connect.NewRequest(attachv1.EnrollRequest_builder{
 				SetupKey: proto.String(leaked),
 				Proof:    enrollProof(t, private, public, leaked),
 			}.Build()))
@@ -818,7 +819,7 @@ func TestAcquireReadCredentialSendsNoCredentialFileContentToTheEdge(t *testing.T
 	h.creds.err = errs.From(parseErr).Code(credential.ErrCodeInvalidMaterial).Attr("key", "icx7150-lab-read").
 		Msg("parse credential material prototext")
 
-	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(apiedgev1.AcquireReadCredentialRequest_builder{
+	_, err := h.edge.AcquireReadCredential(enrollCtx(edgeID, nil), connect.NewRequest(attachv1.AcquireReadCredentialRequest_builder{
 		DeviceId:     proto.String(testDeviceID),
 		BindingId:    proto.String(testBindingID),
 		AccessPolicy: policyv1.AccessPolicyHandle_builder{Key: proto.String(testPolicyKey), Version: proto.Uint64(3)}.Build(),

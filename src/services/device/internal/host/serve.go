@@ -14,6 +14,7 @@ import (
 
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -101,7 +102,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	)
 
 	mux := http.NewServeMux()
-	edgePath, edgeHandler := edgev1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
+	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, interceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
 	// Enroll is the one edge call made before central holds a key to verify
 	// it with, so it sits in front of the middleware. It carries its own
@@ -111,7 +112,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 	// served in front of that middleware because an edge has no identity to
 	// sign with yet — which makes it the one procedure an unauthenticated
 	// caller can reach, and the one the bound exists for.
-	mux.Handle(edgev1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
+	mux.Handle(attachv1connect.EdgeServiceEnrollProcedure, http.MaxBytesHandler(edgeHandler, maxEdgeBody))
 
 	dispatchPath, dispatchHandler := dispatchv1connect.NewDispatchServiceHandler(resources.dispatch, interceptors, recoverPanic)
 	mux.Handle(dispatchPath, middleware.Wrap(dispatchHandler))

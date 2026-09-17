@@ -12,7 +12,7 @@ import (
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
 
-	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -26,7 +26,7 @@ var ErrCodeOnboard = errs.NewCode("agent/onboard")
 
 // Lister is the one EdgeService call the onboarder makes.
 type Lister interface {
-	ListDevices(context.Context, *connect.Request[apiedgev1.ListDevicesRequest]) (*connect.Response[apiedgev1.ListDevicesResponse], error)
+	ListDevices(context.Context, *connect.Request[attachv1.ListDevicesRequest]) (*connect.Response[attachv1.ListDevicesResponse], error)
 }
 
 // DeviceRegistrar is what a listed device is onboarded into. Satisfied by
@@ -37,11 +37,11 @@ type DeviceRegistrar interface {
 
 // SNMPFactoryFor builds a device's SNMP session factory from where the
 // device answers. [OpenSNMP] is the one production uses.
-type SNMPFactoryFor func(Endpoint) func(context.Context, *apiedgev1.DeviceCredential) (access.SNMPSession, error)
+type SNMPFactoryFor func(Endpoint) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error)
 
 // ShellFactoryFor is SNMPFactoryFor's counterpart for the shell. [OpenShell]
 // is the one production uses.
-type ShellFactoryFor func(Endpoint) func(context.Context, *apiedgev1.DeviceCredential, string) (access.ShellSession, error)
+type ShellFactoryFor func(Endpoint) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error)
 
 // OnboardConfig declares the onboarder. Construct with keyed fields.
 type OnboardConfig struct {
@@ -96,7 +96,7 @@ type Onboarder struct {
 	// held is the listing entry each onboarded device was built from,
 	// keyed by device id. Guarded by mu, which is never held across
 	// AddDevice.
-	held map[string]*apiedgev1.ListedDevice
+	held map[string]*attachv1.ListedDevice
 }
 
 // NewOnboarder builds the onboarder. A nil logger discards.
@@ -117,7 +117,7 @@ func NewOnboarder(cfg OnboardConfig) (*Onboarder, error) {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Onboarder{cfg: cfg, log: log, held: make(map[string]*apiedgev1.ListedDevice)}, nil
+	return &Onboarder{cfg: cfg, log: log, held: make(map[string]*attachv1.ListedDevice)}, nil
 }
 
 // Sync lists the devices central says this edge serves and onboards the ones
@@ -140,7 +140,7 @@ func (o *Onboarder) Sync(ctx context.Context) error {
 	o.syncing.Lock()
 	defer o.syncing.Unlock()
 
-	resp, err := o.cfg.Client.ListDevices(ctx, connect.NewRequest(&apiedgev1.ListDevicesRequest{}))
+	resp, err := o.cfg.Client.ListDevices(ctx, connect.NewRequest(&attachv1.ListDevicesRequest{}))
 	if err != nil {
 		return errs.From(err).Code(ErrCodeOnboard).Msg("list the devices this edge serves")
 	}
@@ -188,7 +188,7 @@ func errorType(err error) string {
 // Its own deadline, so one device cannot hold the rest. A device that runs
 // out of time is not held and is onboarded on a later Sync, which is what
 // happens to a device that fails outright.
-func (o *Onboarder) onboard(ctx context.Context, listed *apiedgev1.ListedDevice) {
+func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) {
 	deviceID := listed.GetDeviceId()
 
 	o.mu.Lock()
@@ -223,7 +223,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *apiedgev1.ListedDevice)
 	}
 
 	o.mu.Lock()
-	o.held[deviceID], _ = proto.Clone(listed).(*apiedgev1.ListedDevice)
+	o.held[deviceID], _ = proto.Clone(listed).(*attachv1.ListedDevice)
 	o.mu.Unlock()
 
 	o.log.InfoContext(ctx, "device onboarded",
@@ -242,7 +242,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *apiedgev1.ListedDevice)
 }
 
 // deviceSession builds what the lane needs to reach one listed device.
-func (o *Onboarder) deviceSession(listed *apiedgev1.ListedDevice) (access.DeviceSession, error) {
+func (o *Onboarder) deviceSession(listed *attachv1.ListedDevice) (access.DeviceSession, error) {
 	endpoint, err := endpointFor(listed)
 	if err != nil {
 		return access.DeviceSession{}, err
@@ -264,7 +264,7 @@ func (o *Onboarder) deviceSession(listed *apiedgev1.ListedDevice) (access.Device
 // endpointFor is where a listed device answers. An unset port stays zero
 // here, so the default is applied by [Endpoint] at the moment a session is
 // opened rather than being baked in twice.
-func endpointFor(listed *apiedgev1.ListedDevice) (Endpoint, error) {
+func endpointFor(listed *attachv1.ListedDevice) (Endpoint, error) {
 	address, err := addressOf(listed.GetIp())
 	if err != nil {
 		return Endpoint{}, err
@@ -303,7 +303,7 @@ func addressOf(ip *addrv1.IpAddress) (string, error) {
 // than reporting that something changed: an operator told only that a listing
 // differs is left to compare two things by hand, and the answer is usually
 // one number.
-func divergedFields(previous, current *apiedgev1.ListedDevice) []string {
+func divergedFields(previous, current *attachv1.ListedDevice) []string {
 	var changed []string
 	compare := func(name string, was, is any) {
 		if fmt.Sprint(was) != fmt.Sprint(is) {

@@ -5,7 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/secret"
@@ -40,8 +40,8 @@ func joinPort(address string, port, fallback int) string {
 }
 
 // OpenSNMP builds the SNMP session factory for a device at endpoint.
-func OpenSNMP(endpoint Endpoint) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
-	return func(ctx context.Context, cred *edgev1.DeviceCredential) (access.SNMPSession, error) {
+func OpenSNMP(endpoint Endpoint) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
+	return func(ctx context.Context, cred *attachv1.DeviceCredential) (access.SNMPSession, error) {
 		usm, err := usmFrom(cred.GetTypedMaterial().GetSnmpV3())
 		if err != nil {
 			return access.SNMPSession{}, err
@@ -151,8 +151,8 @@ func privProtocol(protocol credentialv1.SnmpPrivProtocol) (snmp.PrivProtocol, er
 // must never be the same thing as "any host will do". The SSH library refuses
 // an empty pin too — this refuses it first, so the failure names the
 // credential rather than the transport.
-func OpenShell(endpoint Endpoint) func(context.Context, *edgev1.DeviceCredential, string) (access.ShellSession, error) {
-	return func(ctx context.Context, cred *edgev1.DeviceCredential, hostKeySHA256 string) (access.ShellSession, error) {
+func OpenShell(endpoint Endpoint) func(context.Context, *attachv1.DeviceCredential, string) (access.ShellSession, error) {
+	return func(ctx context.Context, cred *attachv1.DeviceCredential, hostKeySHA256 string) (access.ShellSession, error) {
 		shell := cred.GetTypedMaterial().GetShell()
 		if shell == nil {
 			return access.ShellSession{}, errs.New().Code(ErrCodeSession).

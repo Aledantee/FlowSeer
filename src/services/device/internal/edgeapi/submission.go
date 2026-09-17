@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
@@ -48,7 +48,7 @@ type LaneRecords interface {
 // which has no exported constructor, so the logic below is reachable without
 // standing up the HTTP stack around it.
 type submissionSender interface {
-	Send(*apiedgev1.OpenDeviceSubmissionResponse) error
+	Send(*attachv1.OpenDeviceSubmissionResponse) error
 }
 
 // OpenDeviceSubmission delivers the one-use submission credential for one
@@ -87,11 +87,11 @@ type submissionSender interface {
 // central ever mints per-grant material, one-use becomes a binding central holds
 // rather than a rule the edge follows, and it needs a durable marker on the lane
 // record — nothing here would enforce it.
-func (s *Service) OpenDeviceSubmission(ctx context.Context, req *connect.Request[apiedgev1.OpenDeviceSubmissionRequest], stream *connect.ServerStream[apiedgev1.OpenDeviceSubmissionResponse]) error {
+func (s *Service) OpenDeviceSubmission(ctx context.Context, req *connect.Request[attachv1.OpenDeviceSubmissionRequest], stream *connect.ServerStream[attachv1.OpenDeviceSubmissionResponse]) error {
 	return s.openSubmission(ctx, req.Msg, stream)
 }
 
-func (s *Service) openSubmission(ctx context.Context, msg *apiedgev1.OpenDeviceSubmissionRequest, stream submissionSender) error {
+func (s *Service) openSubmission(ctx context.Context, msg *attachv1.OpenDeviceSubmissionRequest, stream submissionSender) error {
 	edgeID, err := EdgeIDFromContext(ctx)
 	if err != nil {
 		return unauthenticated(err)
@@ -131,8 +131,8 @@ func (s *Service) openSubmission(ctx context.Context, msg *apiedgev1.OpenDeviceS
 			Attr("credential_key", handle.GetKey()).Msg("read submission credential material"))
 	}
 
-	grant := apiedgev1.SubmissionGrant_builder{
-		Credential: apiedgev1.DeviceCredential_builder{
+	grant := attachv1.SubmissionGrant_builder{
+		Credential: attachv1.DeviceCredential_builder{
 			Credential:    handle,
 			TypedMaterial: material,
 		}.Build(),
@@ -142,7 +142,7 @@ func (s *Service) openSubmission(ctx context.Context, msg *apiedgev1.OpenDeviceS
 	if material.HasShell() {
 		grant.SshHostKeySha256 = proto.String(policy.GetSshHostKeySha256())
 	}
-	if err := stream.Send(apiedgev1.OpenDeviceSubmissionResponse_builder{Grant: grant.Build()}.Build()); err != nil {
+	if err := stream.Send(attachv1.OpenDeviceSubmissionResponse_builder{Grant: grant.Build()}.Build()); err != nil {
 		return err
 	}
 
@@ -189,29 +189,29 @@ func (s *Service) pulse(ctx context.Context, edgeID, deviceID string, sequence u
 				Msg("read edge record"))
 		}
 		if lifecycle != edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED {
-			if err := s.send(stream, apiedgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
+			if err := s.send(stream, attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
 				return err
 			}
 			return connectErr(errs.New().Code(ErrCodeAuthorityWithdrawn).Attr("edge", edgeID).
 				Attr("lifecycle", lifecycle.String()).Msg("edge is no longer enrolled"))
 		}
 		if withdrawn := checkpointed(record, sequence); withdrawn != nil {
-			if err := s.send(stream, apiedgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
+			if err := s.send(stream, attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED, deadline); err != nil {
 				return err
 			}
 			return connectErr(errs.From(withdrawn).Code(ErrCodeAuthorityWithdrawn).Attr("device", deviceID).
 				Attr("sequence", sequence).Msg("submission authority withdrawn"))
 		}
 
-		if err := s.send(stream, apiedgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED, deadline); err != nil {
+		if err := s.send(stream, attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED, deadline); err != nil {
 			return err
 		}
 	}
 }
 
-func (s *Service) send(stream submissionSender, authority apiedgev1.SubmissionAuthority, deadline time.Time) error {
-	return stream.Send(apiedgev1.OpenDeviceSubmissionResponse_builder{
-		Pulse: apiedgev1.AuthorityPulse_builder{
+func (s *Service) send(stream submissionSender, authority attachv1.SubmissionAuthority, deadline time.Time) error {
+	return stream.Send(attachv1.OpenDeviceSubmissionResponse_builder{
+		Pulse: attachv1.AuthorityPulse_builder{
 			Authority: &authority,
 			Deadline:  timestamppb.New(deadline),
 		}.Build(),

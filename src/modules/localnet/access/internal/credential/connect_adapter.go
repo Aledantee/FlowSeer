@@ -6,8 +6,8 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
@@ -20,15 +20,15 @@ var ErrCodeStream = errs.NewCode("credential/stream")
 
 // ConnectAdapter satisfies [ReadCredentialSource] and
 // [SubmissionCredentialSource] against a real
-// edgev1connect.EdgeServiceClient. Production wiring constructs one;
+// attachv1connect.EdgeServiceClient. Production wiring constructs one;
 // tests construct a fake of the two interfaces directly instead.
 type ConnectAdapter struct {
-	Client edgev1connect.EdgeServiceClient
+	Client attachv1connect.EdgeServiceClient
 }
 
 // AcquireReadCredential implements [ReadCredentialSource].
-func (a *ConnectAdapter) AcquireReadCredential(ctx context.Context, deviceID, bindingID string, accessPolicy *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error) {
-	req := &edgev1.AcquireReadCredentialRequest{}
+func (a *ConnectAdapter) AcquireReadCredential(ctx context.Context, deviceID, bindingID string, accessPolicy *policyv1.AccessPolicyHandle) (*attachv1.AcquireReadCredentialResponse, error) {
+	req := &attachv1.AcquireReadCredentialRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetBindingId(bindingID)
 	req.SetAccessPolicy(accessPolicy)
@@ -50,7 +50,7 @@ func (a *ConnectAdapter) AcquireReadCredential(ctx context.Context, deviceID, bi
 // instant this goroutine reads it off the wire, never only when a consumer
 // happens to be receiving from a channel.
 func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, sequence uint64) (SubmissionHandle, error) {
-	req := &edgev1.OpenDeviceSubmissionRequest{}
+	req := &attachv1.OpenDeviceSubmissionRequest{}
 	req.SetDeviceId(deviceID)
 	req.SetBindingId(bindingID)
 	req.SetSequence(sequence)
@@ -76,7 +76,7 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 
 	h := &submissionHandle{
 		grant:     grant,
-		authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
+		authority: attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED,
 		stream:    stream,
 	}
 	h.startRelay(ctx, stream)
@@ -89,7 +89,7 @@ func (a *ConnectAdapter) Open(ctx context.Context, deviceID, bindingID string, s
 // goroutine against a fake stream.
 type submissionStream interface {
 	Receive() bool
-	Msg() *edgev1.OpenDeviceSubmissionResponse
+	Msg() *attachv1.OpenDeviceSubmissionResponse
 	Err() error
 	Close() error
 }
@@ -100,17 +100,17 @@ type submissionStream interface {
 // goroutine to see a nil stream and silently close nothing; authority and
 // err are updated by relay under mu.
 type submissionHandle struct {
-	grant *edgev1.SubmissionGrant
+	grant *attachv1.SubmissionGrant
 
 	mu        sync.Mutex
-	authority edgev1.SubmissionAuthority
+	authority attachv1.SubmissionAuthority
 	err       error
 	stream    submissionStream
 }
 
-func (h *submissionHandle) Grant() *edgev1.SubmissionGrant { return h.grant }
+func (h *submissionHandle) Grant() *attachv1.SubmissionGrant { return h.grant }
 
-func (h *submissionHandle) Authority() edgev1.SubmissionAuthority {
+func (h *submissionHandle) Authority() attachv1.SubmissionAuthority {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.authority

@@ -38,7 +38,18 @@ var importOrder = map[string][]string{
 	"net/protocol/lacp": {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 	"net/protocol/stp":  {"net/addr", "net/packet", "net/phy", "net/switching", "net/ip", "net/interface"},
 
-	"api/edge":         {"model/edge", "model/policy", "model/credential", "net/addr"},
+	// The operator-facing service that creates, provisions, and retires an
+	// edge. It hands back EdgeRecord and takes EdgeGlobalRef, and needs
+	// nothing else.
+	"api/edge": {"model/edge"},
+
+	// The service an edge calls to get and keep its standing: enrollment,
+	// rekey, heartbeat, bus attachment, the device listing, and the two
+	// credential lifecycles. The listing and the credentials are what reach
+	// past the entity into the policy handles, the credential material, and
+	// the management address.
+	"edge/attach": {"model/edge", "model/policy", "model/credential", "net/addr"},
+
 	"model/edge":       nil,
 	"model/credential": nil,
 	"model/policy":     nil,
@@ -293,7 +304,7 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "package outside the table", importer: "net/routing", imported: "net/addr"},
 		{name: "primitive imports a boundary", importer: "net/interface", imported: "model/inventory"},
 		{name: "inventory imports a leaf boundary", importer: "model/inventory", imported: "model/policy", want: true},
-		{name: "edge imports its credential handles", importer: "api/edge", imported: "model/policy", want: true},
+		{name: "edge attachment imports its credential handles", importer: "edge/attach", imported: "model/policy", want: true},
 		{name: "leaf boundary imports edge", importer: "model/policy", imported: "api/edge"},
 		{name: "access values import inventory", importer: "model/access", imported: "model/inventory", want: true},
 		{name: "access values import the operator api", importer: "model/access", imported: "api/device"},
@@ -309,7 +320,7 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "audit event imports api/edge directly", importer: "event/access", imported: "api/edge"},
 		{name: "the audit service imports the record it delivers", importer: "edge/audit", imported: "event/access", want: true},
 		{name: "operator api imports errs", importer: "api/device", imported: "errs", want: true},
-		{name: "edge imports credential material", importer: "api/edge", imported: "model/credential", want: true},
+		{name: "edge attachment imports credential material", importer: "edge/attach", imported: "model/credential", want: true},
 		{name: "credential material imports edge", importer: "model/credential", imported: "api/edge"},
 		{name: "credential material imports policy handles", importer: "model/credential", imported: "model/policy"},
 		{name: "storage imports access values", importer: "store/device", imported: "model/access", want: true},

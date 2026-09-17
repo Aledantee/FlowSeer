@@ -9,7 +9,7 @@ import (
 
 	connect "connectrpc.com/connect"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 )
 
@@ -23,7 +23,7 @@ const (
 
 // Beater is the one EdgeService call this loop makes.
 type Beater interface {
-	Heartbeat(context.Context, *connect.Request[edgev1.HeartbeatRequest]) (*connect.Response[edgev1.HeartbeatResponse], error)
+	Heartbeat(context.Context, *connect.Request[attachv1.HeartbeatRequest]) (*connect.Response[attachv1.HeartbeatResponse], error)
 }
 
 // Freezer is what losing contact freezes: the device access lane, which stops
@@ -168,7 +168,7 @@ func beat(ctx context.Context, cfg HeartbeatConfig, interval time.Duration) erro
 	attempt, cancel := context.WithTimeout(ctx, interval)
 	defer cancel()
 
-	request := &edgev1.HeartbeatRequest{}
+	request := &attachv1.HeartbeatRequest{}
 	request.SetAgentVersion(cfg.AgentVersion)
 	response, err := cfg.Client.Heartbeat(attempt, connect.NewRequest(request))
 	if err != nil {

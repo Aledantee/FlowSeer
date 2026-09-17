@@ -21,7 +21,7 @@ belongs in `model/`.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/edge, model/access, model/capture, model/inventory, store/device
+Imported by: api/capture, edge/attach, model/access, model/capture, model/inventory, store/device
 
 Packages under `net/` are leaves with respect to every other root: nothing here
 imports outside `net/`, and any root may import them.

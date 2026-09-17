@@ -16,7 +16,7 @@ operation vocabulary without RPC definitions.
 
 ## Boundaries
 
-Imports: model/access, model/capture, model/credential, model/edge, model/inventory, model/policy, net/addr, net/capture
+Imports: model/access, model/capture, model/edge, model/inventory, net/capture
 
 Imported by: nothing
 
@@ -28,4 +28,4 @@ so no schema in the tree may import one.
 
 - `capture/v1/`: Operator-facing `CaptureService` to create, control, and read back a capture.
 - `device/v1/`: Operator-facing `DeviceService` for immediate device observation and mutation.
-- `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges, and edge-facing `EdgeService` to enroll, attach to the bus, and acquire credentials.
+- `edge/v1/`: Operator-facing `EdgeAdminService` to create, provision, and retire edges.

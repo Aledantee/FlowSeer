@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 )
 
@@ -26,7 +26,7 @@ const (
 	edgeHeaderTag = "FlowSeer-Edge "
 	// The worked vector's fixed procedure and an empty request body; the
 	// vector is illustrative, not a real Heartbeat call.
-	edgeProcedure = "/flowseer.api.edge.v1.EdgeService/Heartbeat"
+	edgeProcedure = "/flowseer.edge.attach.v1.EdgeService/Heartbeat"
 )
 
 var edgeBodySHA256 = func() []byte {
@@ -365,7 +365,7 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 	seed := make([]byte, ed25519.SeedSize)
 	private := ed25519.NewKeyFromSeed(seed)
 
-	request := apiedgev1.OpenDeviceSubmissionRequest_builder{
+	request := attachv1.OpenDeviceSubmissionRequest_builder{
 		DeviceId:  proto.String(deviceID),
 		BindingId: proto.String(bindingID),
 		Sequence:  proto.Uint64(42),
@@ -383,7 +383,7 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 	bodySum := sha256.Sum256(body)
 
 	assertion := edgeAssertion(30 * time.Second)
-	assertion.SetProcedure("/flowseer.api.edge.v1.EdgeService/OpenDeviceSubmission")
+	assertion.SetProcedure("/flowseer.edge.attach.v1.EdgeService/OpenDeviceSubmission")
 	assertion.SetBodySha256(bodySum[:])
 
 	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)

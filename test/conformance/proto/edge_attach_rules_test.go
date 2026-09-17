@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"crypto/ed25519"
 	"testing"
 	"time"
 
@@ -8,14 +9,50 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
+	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 )
 
+func TestEdgeRequestRules(t *testing.T) {
+	proof := edgev1.KeyProof_builder{
+		Payload:   []byte{1},
+		Signature: make([]byte, ed25519.SignatureSize),
+	}.Build()
+	runValidationCases(t, []validationCase{
+		{
+			name: "well-formed enroll request is valid",
+			message: attachv1.EnrollRequest_builder{
+				SetupKey: proto.String(setupKey),
+				Proof:    proof,
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "enroll request needs a well-formed setup key",
+			message: attachv1.EnrollRequest_builder{
+				SetupKey: proto.String("fse1_abc"),
+				Proof: edgev1.KeyProof_builder{
+					Payload:   []byte{1},
+					Signature: make([]byte, ed25519.SignatureSize),
+				}.Build(),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "heartbeat with a version is valid",
+			message: attachv1.HeartbeatRequest_builder{
+				AgentVersion: proto.String("0.1.0"),
+			}.Build(),
+			wantValid: true,
+		},
+	})
+}
+
 func TestAttachBusResponseRules(t *testing.T) {
-	valid := func() *edgev1.AttachBusResponse {
-		return edgev1.AttachBusResponse_builder{
+	valid := func() *attachv1.AttachBusResponse {
+		return attachv1.AttachBusResponse_builder{
 			AccountJwt:     []byte("account-jwt"),
 			UserCredential: []byte("user-credential"),
 			Subjects:       map[string]string{"announce": "flowseer.edge.announce"},
@@ -31,7 +68,7 @@ func TestAttachBusResponseRules(t *testing.T) {
 		},
 		{
 			name: "empty subjects map is valid for an edge with no binding yet",
-			message: edgev1.AttachBusResponse_builder{
+			message: attachv1.AttachBusResponse_builder{
 				AccountJwt:     []byte("account-jwt"),
 				UserCredential: []byte("user-credential"),
 				ClusterUrls:    []string{"wss://central.example.net:443"},
@@ -40,7 +77,7 @@ func TestAttachBusResponseRules(t *testing.T) {
 		},
 		{
 			name: "zero cluster urls is rejected",
-			message: edgev1.AttachBusResponse_builder{
+			message: attachv1.AttachBusResponse_builder{
 				AccountJwt:     []byte("account-jwt"),
 				UserCredential: []byte("user-credential"),
 				ClusterUrls:    []string{},
@@ -49,7 +86,7 @@ func TestAttachBusResponseRules(t *testing.T) {
 		},
 		{
 			name: "missing account jwt is rejected",
-			message: edgev1.AttachBusResponse_builder{
+			message: attachv1.AttachBusResponse_builder{
 				UserCredential: []byte("user-credential"),
 				ClusterUrls:    []string{"wss://central.example.net:443"},
 			}.Build(),
@@ -57,7 +94,7 @@ func TestAttachBusResponseRules(t *testing.T) {
 		},
 		{
 			name: "missing user credential is rejected",
-			message: edgev1.AttachBusResponse_builder{
+			message: attachv1.AttachBusResponse_builder{
 				AccountJwt:  []byte("account-jwt"),
 				ClusterUrls: []string{"wss://central.example.net:443"},
 			}.Build(),
@@ -66,8 +103,8 @@ func TestAttachBusResponseRules(t *testing.T) {
 	})
 }
 
-func deviceCredential(key string) *edgev1.DeviceCredential {
-	return edgev1.DeviceCredential_builder{
+func deviceCredential(key string) *attachv1.DeviceCredential {
+	return attachv1.DeviceCredential_builder{
 		Credential: policyv1.CredentialHandle_builder{
 			Key:     proto.String(key),
 			Version: proto.Uint64(1),
@@ -76,8 +113,8 @@ func deviceCredential(key string) *edgev1.DeviceCredential {
 	}.Build()
 }
 
-func shellDeviceCredential(key string) *edgev1.DeviceCredential {
-	return edgev1.DeviceCredential_builder{
+func shellDeviceCredential(key string) *attachv1.DeviceCredential {
+	return attachv1.DeviceCredential_builder{
 		Credential: policyv1.CredentialHandle_builder{
 			Key:     proto.String(key),
 			Version: proto.Uint64(1),
@@ -103,7 +140,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
 		{
 			name: "device, binding, and access policy present",
-			message: edgev1.AcquireReadCredentialRequest_builder{
+			message: attachv1.AcquireReadCredentialRequest_builder{
 				DeviceId:     proto.String(deviceID),
 				BindingId:    proto.String(bindingID),
 				AccessPolicy: policy,
@@ -112,7 +149,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "missing access policy is rejected",
-			message: edgev1.AcquireReadCredentialRequest_builder{
+			message: attachv1.AcquireReadCredentialRequest_builder{
 				DeviceId:  proto.String(deviceID),
 				BindingId: proto.String(bindingID),
 			}.Build(),
@@ -120,7 +157,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "device id must be a uuid",
-			message: edgev1.AcquireReadCredentialRequest_builder{
+			message: attachv1.AcquireReadCredentialRequest_builder{
 				DeviceId:     proto.String("not-a-uuid"),
 				BindingId:    proto.String(bindingID),
 				AccessPolicy: policy,
@@ -129,7 +166,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "response with credential, host trust, and expiry",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential: deviceCredential("icx7150-lab-snmp"),
 				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:  timestamppb.New(time.Now().Add(time.Minute)),
@@ -138,7 +175,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "response missing expires_at is rejected",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential: deviceCredential("icx7150-lab-snmp"),
 				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 			}.Build(),
@@ -146,7 +183,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "shell material carries the host key pin",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential:       shellDeviceCredential("icx7150-lab-ssh"),
 				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
@@ -156,7 +193,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "shell material without a pin is rejected",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential: shellDeviceCredential("icx7150-lab-ssh"),
 				HostTrust:  hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:  timestamppb.New(time.Now().Add(time.Minute)),
@@ -165,7 +202,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "snmp material with a pin is rejected",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential:       deviceCredential("icx7150-lab-snmp"),
 				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
@@ -175,7 +212,7 @@ func TestAcquireReadCredentialRules(t *testing.T) {
 		},
 		{
 			name: "a pin that is not a sha256 fingerprint is rejected",
-			message: edgev1.AcquireReadCredentialResponse_builder{
+			message: attachv1.AcquireReadCredentialResponse_builder{
 				Credential:       shellDeviceCredential("icx7150-lab-ssh"),
 				HostTrust:        hostTrust("icx7150-lab-hostkey"),
 				ExpiresAt:        timestamppb.New(time.Now().Add(time.Minute)),
@@ -193,7 +230,7 @@ func TestOpenDeviceSubmissionRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
 		{
 			name: "sequence at least one is valid",
-			message: edgev1.OpenDeviceSubmissionRequest_builder{
+			message: attachv1.OpenDeviceSubmissionRequest_builder{
 				DeviceId:  proto.String(deviceID),
 				BindingId: proto.String(bindingID),
 				Sequence:  proto.Uint64(1),
@@ -202,7 +239,7 @@ func TestOpenDeviceSubmissionRules(t *testing.T) {
 		},
 		{
 			name: "sequence zero is rejected",
-			message: edgev1.OpenDeviceSubmissionRequest_builder{
+			message: attachv1.OpenDeviceSubmissionRequest_builder{
 				DeviceId:  proto.String(deviceID),
 				BindingId: proto.String(bindingID),
 				Sequence:  proto.Uint64(0),
@@ -213,48 +250,48 @@ func TestOpenDeviceSubmissionRules(t *testing.T) {
 }
 
 func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
-	grant := edgev1.OpenDeviceSubmissionResponse_builder{
-		Grant: edgev1.SubmissionGrant_builder{
+	grant := attachv1.OpenDeviceSubmissionResponse_builder{
+		Grant: attachv1.SubmissionGrant_builder{
 			Credential: deviceCredential("icx7150-lab-submit"),
 			HostTrust:  hostTrust("icx7150-lab-hostkey"),
 			Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
 		}.Build(),
 	}.Build()
-	pulse := edgev1.OpenDeviceSubmissionResponse_builder{
-		Pulse: edgev1.AuthorityPulse_builder{
-			Authority: edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED.Enum(),
+	pulse := attachv1.OpenDeviceSubmissionResponse_builder{
+		Pulse: attachv1.AuthorityPulse_builder{
+			Authority: attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED.Enum(),
 			Deadline:  timestamppb.New(time.Now().Add(time.Minute)),
 		}.Build(),
 	}.Build()
 
 	// The stream delivers the grant once, then pulses; both message shapes
 	// must independently validate for that sequence to be well-formed.
-	stream := []*edgev1.OpenDeviceSubmissionResponse{grant, pulse}
+	stream := []*attachv1.OpenDeviceSubmissionResponse{grant, pulse}
 	for i, msg := range stream {
 		if err := protovalidate.Validate(msg); err != nil {
 			t.Errorf("stream message %d: %v", i, err)
 		}
 	}
 
-	shellGrant := edgev1.SubmissionGrant_builder{
+	shellGrant := attachv1.SubmissionGrant_builder{
 		Credential:       shellDeviceCredential("icx7150-lab-submit"),
 		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
 		SshHostKeySha256: proto.String(hostKeyPin),
 	}.Build()
-	shellGrantWithoutPin := edgev1.SubmissionGrant_builder{
+	shellGrantWithoutPin := attachv1.SubmissionGrant_builder{
 		Credential: shellDeviceCredential("icx7150-lab-submit"),
 		HostTrust:  hostTrust("icx7150-lab-hostkey"),
 		Deadline:   timestamppb.New(time.Now().Add(time.Minute)),
 	}.Build()
 
-	snmpGrantWithPin := edgev1.SubmissionGrant_builder{
+	snmpGrantWithPin := attachv1.SubmissionGrant_builder{
 		Credential:       deviceCredential("icx7150-lab-submit"),
 		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
 		SshHostKeySha256: proto.String(hostKeyPin),
 	}.Build()
-	unprefixedPin := edgev1.SubmissionGrant_builder{
+	unprefixedPin := attachv1.SubmissionGrant_builder{
 		Credential:       shellDeviceCredential("icx7150-lab-submit"),
 		HostTrust:        hostTrust("icx7150-lab-hostkey"),
 		Deadline:         timestamppb.New(time.Now().Add(time.Minute)),
@@ -278,13 +315,13 @@ func TestOpenDeviceSubmissionResponseRules(t *testing.T) {
 		},
 		{
 			name:      "neither grant nor pulse set is rejected",
-			message:   edgev1.OpenDeviceSubmissionResponse_builder{}.Build(),
+			message:   attachv1.OpenDeviceSubmissionResponse_builder{}.Build(),
 			wantValid: false,
 		},
 		{
 			name: "authority pulse with the zero value is rejected",
-			message: edgev1.OpenDeviceSubmissionResponse_builder{
-				Pulse: edgev1.AuthorityPulse_builder{
+			message: attachv1.OpenDeviceSubmissionResponse_builder{
+				Pulse: attachv1.AuthorityPulse_builder{
 					Deadline: timestamppb.New(time.Now().Add(time.Minute)),
 				}.Build(),
 			}.Build(),

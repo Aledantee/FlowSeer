@@ -3,7 +3,7 @@ edition = "2024";
 // What AttachBus hands an enrolled edge: the NATS identity it uses to join
 // the integration fabric. Nothing here is a device credential or write
 // authority; those are their own lifecycle in credential.proto.
-package flowseer.api.edge.v1;
+package flowseer.edge.attach.v1;
 
 import option "buf/validate/validate.proto";
 

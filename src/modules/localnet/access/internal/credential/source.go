@@ -3,7 +3,7 @@ package credential
 import (
 	"context"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 )
 
@@ -12,7 +12,7 @@ import (
 // no standing lease, so a caller acquires one for each read rather than
 // caching it beyond that read.
 type ReadCredentialSource interface {
-	AcquireReadCredential(ctx context.Context, deviceID, bindingID string, accessPolicy *policyv1.AccessPolicyHandle) (*edgev1.AcquireReadCredentialResponse, error)
+	AcquireReadCredential(ctx context.Context, deviceID, bindingID string, accessPolicy *policyv1.AccessPolicyHandle) (*attachv1.AcquireReadCredentialResponse, error)
 }
 
 // SubmissionHandle is what one open submission stream hands its caller: a
@@ -29,13 +29,13 @@ type ReadCredentialSource interface {
 type SubmissionHandle interface {
 	// Grant returns the one-use submission credential delivered when the
 	// stream opened.
-	Grant() *edgev1.SubmissionGrant
+	Grant() *attachv1.SubmissionGrant
 	// Authority returns the most recently observed authority. Before any
 	// pulse arrives it is SUBMISSION_AUTHORITY_AUTHORIZED — the grant's own
 	// issuance implies authorization until told otherwise. A caller must
 	// check this immediately before submitting each command and proceed
 	// only when it is exactly SUBMISSION_AUTHORITY_AUTHORIZED.
-	Authority() edgev1.SubmissionAuthority
+	Authority() attachv1.SubmissionAuthority
 	// Err returns why the underlying stream ended, once it has (nil until
 	// then, and nil for a stream that is still open). A caller must not
 	// treat a stream that ended for any reason other than an explicit

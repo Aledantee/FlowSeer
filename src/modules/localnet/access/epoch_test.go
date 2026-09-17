@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -77,7 +77,7 @@ func newEpochLane(t *testing.T, identity *switchableIdentity, deliverer auditDel
 	})
 	err = l.AddDevice(context.Background(), "dev-1", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {
@@ -107,7 +107,7 @@ func TestAFirmwareChangeBeforeTheCommandStopsIt(t *testing.T) {
 	// Replace the device's submit hook so the test can count commands.
 	if err := l.AddDevice(context.Background(), "dev-2", access.DeviceSession{
 		DelayedEffect: interfaces.DelayedEffect{Horizon: time.Hour},
-		OpenSNMP: func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+		OpenSNMP: func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 			return access.SNMPSession{Session: identity.session(), Close: func() error { return nil }}, nil
 		},
 		ReadOverride: func(context.Context, string) (*accessv1.InterfaceObservation, error) {

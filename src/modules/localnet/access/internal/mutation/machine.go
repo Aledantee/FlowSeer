@@ -8,7 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	eventaccessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
@@ -62,7 +62,7 @@ type Deps struct {
 	// grant's own material. The grant is passed rather than captured
 	// because it is acquired inside Execute, immediately before the command
 	// and after the authority check, and is one-use.
-	Submit func(ctx context.Context, grant *edgev1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
+	Submit func(ctx context.Context, grant *attachv1.SubmissionGrant, intent *accessv1.InterfaceDescriptionChange) error
 
 	Submission credential.SubmissionCredentialSource
 	Freeze     *freeze.Gate
@@ -566,7 +566,7 @@ func (m *Machine) Execute(ctx context.Context) error {
 	}
 	defer func() { _ = handle.Close() }()
 
-	if handle.Authority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+	if handle.Authority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 		return errs.New().Code(ErrCodeRevoked).
 			Msg("submission authority is not AUTHORIZED; the command is not sent")
 	}

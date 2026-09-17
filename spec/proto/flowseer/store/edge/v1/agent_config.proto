@@ -17,7 +17,7 @@ import option "buf/validate/validate.proto";
 //
 // It names the provisioning file rather than restating it. Where central is,
 // how to trust it, and the key that joins are all in
-// flowseer.api.edge.v1.EdgeProvisioning, which the operator already has;
+// flowseer.model.edge.v1.EdgeProvisioning, which the operator already has;
 // copying those three fields here would make two sources of truth for the
 // same facts with nothing keeping them equal.
 //
@@ -47,7 +47,7 @@ message AgentConfig {
     (buf.validate.field).string.pattern = "^/",
     (buf.validate.field).string.max_len = 4096
   ];
-  // The prototext flowseer.api.edge.v1.EdgeProvisioning file this edge was
+  // The prototext flowseer.model.edge.v1.EdgeProvisioning file this edge was
   // shipped with. Must be present; it is where central is and how to trust
   // it, and an agent has nothing to dial without it.
   //

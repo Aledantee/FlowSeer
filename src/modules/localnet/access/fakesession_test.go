@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -18,8 +18,8 @@ import (
 // probeFactory is the OpenSNMP every fixture device uses: it hands out the
 // identity-probe session and reports when it was closed. A test needing a
 // different firmware epoch builds its own factory.
-func probeFactory() func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
-	return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+func probeFactory() func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
+	return func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 		return access.SNMPSession{
 			Session: fakeIdentitySession{onGet: func() {}},
 			Close:   func() error { return nil },
@@ -30,8 +30,8 @@ func probeFactory() func(context.Context, *edgev1.DeviceCredential) (access.SNMP
 // countingProbeFactory is probeFactory that counts how many sessions were
 // opened and how many were closed, so a test can prove the lane does not
 // leak a session per operation.
-func countingProbeFactory(opened, closed *atomic.Int64) func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
-	return func(context.Context, *edgev1.DeviceCredential) (access.SNMPSession, error) {
+func countingProbeFactory(opened, closed *atomic.Int64) func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
+	return func(context.Context, *attachv1.DeviceCredential) (access.SNMPSession, error) {
 		opened.Add(1)
 		return access.SNMPSession{
 			Session: fakeIdentitySession{onGet: func() {}},
@@ -68,7 +68,7 @@ type recordingCredentials struct {
 
 func (c *recordingCredentials) AcquireReadCredential(
 	_ context.Context, deviceID, bindingID string, handle *policyv1.AccessPolicyHandle,
-) (*edgev1.AcquireReadCredentialResponse, error) {
+) (*attachv1.AcquireReadCredentialResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.err != nil {
@@ -79,11 +79,11 @@ func (c *recordingCredentials) AcquireReadCredential(
 	c.handles = append(c.handles, handle.GetKey())
 	c.versions = append(c.versions, handle.GetVersion())
 
-	credential := &edgev1.DeviceCredential{}
+	credential := &attachv1.DeviceCredential{}
 	if c.material != nil {
 		credential.SetTypedMaterial(c.material)
 	}
-	response := &edgev1.AcquireReadCredentialResponse{}
+	response := &attachv1.AcquireReadCredentialResponse{}
 	response.SetCredential(credential)
 	if c.hostKey != "" {
 		response.SetSshHostKeySha256(c.hostKey)
@@ -117,7 +117,7 @@ type fakeShell struct {
 	closes   int
 }
 
-func (f *fakeShell) open(_ context.Context, credential *edgev1.DeviceCredential, hostKey string) (access.ShellSession, error) {
+func (f *fakeShell) open(_ context.Context, credential *attachv1.DeviceCredential, hostKey string) (access.ShellSession, error) {
 	f.mu.Lock()
 	f.openedAs = append(f.openedAs, credential.GetTypedMaterial())
 	f.hostKeys = append(f.hostKeys, hostKey)

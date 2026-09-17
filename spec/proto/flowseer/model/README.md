@@ -19,7 +19,7 @@ services; services live in service roots (`api/`, `edge/`).
 
 Imports: net/addr, net/capture, net/interface, net/phy
 
-Imported by: api/capture, api/device, api/edge, edge/capture, edge/dispatch, event/access, store/device
+Imported by: api/capture, api/device, api/edge, edge/attach, edge/capture, edge/dispatch, event/access, store/device
 
 Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 `model/` packages never import service packages (`api/`), event packages

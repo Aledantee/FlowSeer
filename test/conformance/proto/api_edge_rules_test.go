@@ -1,7 +1,6 @@
 package conformance
 
 import (
-	"crypto/ed25519"
 	"testing"
 	"time"
 
@@ -52,38 +51,8 @@ func TestIntegrationConfigHostRules(t *testing.T) {
 	})
 }
 
-func TestEdgeRequestRules(t *testing.T) {
-	proof := edgev1.KeyProof_builder{
-		Payload:   []byte{1},
-		Signature: make([]byte, ed25519.SignatureSize),
-	}.Build()
+func TestEdgeAdminRequestRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
-		{
-			name: "well-formed enroll request is valid",
-			message: apiedgev1.EnrollRequest_builder{
-				SetupKey: proto.String(setupKey),
-				Proof:    proof,
-			}.Build(),
-			wantValid: true,
-		},
-		{
-			name: "enroll request needs a well-formed setup key",
-			message: apiedgev1.EnrollRequest_builder{
-				SetupKey: proto.String("fse1_abc"),
-				Proof: edgev1.KeyProof_builder{
-					Payload:   []byte{1},
-					Signature: make([]byte, ed25519.SignatureSize),
-				}.Build(),
-			}.Build(),
-			wantValid: false,
-		},
-		{
-			name: "heartbeat with a version is valid",
-			message: apiedgev1.HeartbeatRequest_builder{
-				AgentVersion: proto.String("0.1.0"),
-			}.Build(),
-			wantValid: true,
-		},
 		{
 			name: "create edge with a future setup key expiry is valid",
 			message: apiedgev1.CreateEdgeRequest_builder{

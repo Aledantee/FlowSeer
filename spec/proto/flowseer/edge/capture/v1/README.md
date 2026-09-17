@@ -42,8 +42,9 @@ passes without one arriving.
 
 How an operator-originated capture command reaches the edge that must run
 it is not decided by this schema. The edge calls central; central never
-calls the edge. `EdgeService` has three RPCs — `Enroll`, `Rekey`,
-`Heartbeat` — and none of them carries a command channel.
+calls the edge. `EdgeService` in
+[`edge/attach/v1`](../../attach/v1/README.md) is what an edge calls to get
+and keep its standing, and none of its RPCs carries a command channel.
 `CaptureService.CreateCaptureSession` records the operator's intent as a
 `CaptureSessionConfig` on an edge, but nothing here specifies how that
 intent reaches the edge that must act on it. A reader of this schema alone

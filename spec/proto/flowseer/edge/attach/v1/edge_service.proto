@@ -3,11 +3,11 @@ edition = "2024";
 // The service an edge calls. Enroll is the only call without an assertion;
 // every other call carries a signed assertion in the Authorization header
 // and is authorized as the edge that assertion names.
-package flowseer.api.edge.v1;
+package flowseer.edge.attach.v1;
 
-import "flowseer/api/edge/v1/bus.proto";
-import "flowseer/api/edge/v1/credential.proto";
-import "flowseer/api/edge/v1/device.proto";
+import "flowseer/edge/attach/v1/bus.proto";
+import "flowseer/edge/attach/v1/credential.proto";
+import "flowseer/edge/attach/v1/device.proto";
 import "flowseer/model/edge/v1/edge.proto";
 import "flowseer/model/edge/v1/key_proof.proto";
 import "google/protobuf/timestamp.proto";

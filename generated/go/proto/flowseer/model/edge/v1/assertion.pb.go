@@ -259,7 +259,7 @@ type EdgeAssertion_builder struct {
 	// window. Must be present.
 	Nonce []byte
 	// The full Connect procedure name this assertion authorizes, for example
-	// "/flowseer.api.edge.v1.EdgeService/Heartbeat". Must be present.
+	// "/flowseer.edge.attach.v1.EdgeService/Heartbeat". Must be present.
 	Procedure *string
 	// SHA-256 of the uncompressed HTTP request body bytes exactly as
 	// received — for a server-stream open, the Connect-enveloped request

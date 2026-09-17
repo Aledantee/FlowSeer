@@ -139,6 +139,32 @@ green while pointing at a directory that no longer exists, and the repository
 rule is that docs change in the change that invalidates them. Cost if wrong: a
 unit's diff is a few lines wider than its schema move.
 
+Ruled: the two halves of the split `TestEdgeRequestRules` keep one name each.
+`edge_attach_rules_test.go` carries `TestEdgeRequestRules` with the `Enroll`
+and `Heartbeat` cases, and what stays behind in `api_edge_rules_test.go`
+becomes `TestEdgeAdminRequestRules`. Why: two tests in one package cannot share
+a name, and after the move `api/edge` holds `EdgeAdminService` alone, so a test
+called "edge request rules" there would name the wrong service. Cost if wrong:
+one test identifier, which no other file references.
+
+Ruled: three Go doc comments that cite "the api/edge README's worked header
+vector" are corrected to `model/edge` in the unit that moves `EdgeService`.
+They are in `src/edge/agent/internal/identity/assertion.go`,
+`src/edge/agent/internal/identity/client_test.go`, and
+`src/services/device/internal/edge/verifier.go`. Why: the vector has been in
+`model/edge/v1/README.md` since phase 1 — `assertion_test.go` beside them
+already says so — and all three sit in files this unit edits for the
+recomputed vectors. Cost if wrong: three comment lines in files the unit
+touches anyway.
+
+Ruled: `edge/capture/v1/README.md`'s open question, which says `EdgeService`
+"has three RPCs — `Enroll`, `Rekey`, `Heartbeat`", is rewritten to point at
+`edge/attach/v1` without a count. Why: the sentence is load-bearing for the
+claim that no RPC carries a command channel, and it names a service this unit
+moves while miscounting it — `EdgeService` has seven RPCs and has had them
+since the bus and credential contracts landed. Cost if wrong: two lines in a
+package this unit otherwise does not touch.
+
 ## Requirements
 
 1. `spec/proto/flowseer/edge/` holds `attach`, `dispatch`, `audit`, and
@@ -443,9 +469,10 @@ fixture replays. The three stale phase 1 citations named in the ruling above
 are corrected: the two in `store/edge/v1/agent_config.proto` to
 `flowseer.model.edge.v1.EdgeProvisioning` and `device.proto`'s to
 `model/inventory`. `api_edge_bus_credential_rules_test.go` is renamed
-`edge_attach_rules_test.go` and takes `TestEdgeRequestRules`' `EnrollRequest`
-and `HeartbeatRequest` cases out of `api_edge_rules_test.go`, which keeps the
-`CreateEdgeRequest`, `IssueSetupKeyRequest`, and `ListEdgesRequest` cases and
+`edge_attach_rules_test.go` and takes `TestEdgeRequestRules` with its
+`EnrollRequest` and `HeartbeatRequest` cases out of `api_edge_rules_test.go`,
+which keeps the `CreateEdgeRequest`, `IssueSetupKeyRequest`, and
+`ListEdgesRequest` cases under the name `TestEdgeAdminRequestRules`, alongside
 `TestIntegrationConfigHostRules`. `api/edge/v1/README.md` keeps the
 `EdgeAdminService` paragraph and reads `Imports: model/edge`; everything from
 "Three lifecycles, never the same call" down, and the `Deliberately absent:`
@@ -455,7 +482,9 @@ cannot name a `DeviceGlobalRef` name `edge/attach` instead. The other
 `Deliberately absent:` entry, the Edge entity's admission to `EntityType`, goes
 to `model/edge/v1/README.md` instead: it is a property of the entity, which
 moved there in phase 1, and neither service package is where a reader looks for
-it. `model/credential/v1`, `model/policy/v1`, `net/addr/v1`, and
+it. `api/edge/v1` is left with two entries of its own: `EdgeService`, which a
+reader arrives looking for and will not find, and the device reference
+`RetireEdgeResponse` deliberately does not carry. `model/credential/v1`, `model/policy/v1`, `net/addr/v1`, and
 `net/README.md` swap `api/edge` for `edge/attach` on `Imported by:`;
 `model/edge/v1` keeps `api/edge` and adds `edge/attach`, and its
 `Deliberately absent:` sentence naming the two services that live in
@@ -478,7 +507,8 @@ Tests: `TestTheHeaderMatchesTheSpecifiedVector`,
 each fails on the old one, since the procedure is inside the signed payload;
 `TestTheHeaderBindsTheBodyAndTheProcedure` keeps its two distinct procedures
 under the new package; `edge_attach_rules_test.go` and the reduced
-`api_edge_rules_test.go` pass; `TestLayeringViolationRules`' cases naming
+`api_edge_rules_test.go` pass, the latter's cases now under
+`TestEdgeAdminRequestRules`; `TestLayeringViolationRules`' cases naming
 `api/edge` as the importer read `edge/attach`, and the cases that import
 `api/edge` keep `api/edge` so the sink rule is still exercised against the
 package that keeps a service; `TestAnAgentOnboardsTheDeviceCentralListsForIt`,

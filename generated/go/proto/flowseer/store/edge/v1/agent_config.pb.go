@@ -96,7 +96,7 @@ func (x AgentLogLevel) Number() protoreflect.EnumNumber {
 //
 // It names the provisioning file rather than restating it. Where central is,
 // how to trust it, and the key that joins are all in
-// flowseer.api.edge.v1.EdgeProvisioning, which the operator already has;
+// flowseer.model.edge.v1.EdgeProvisioning, which the operator already has;
 // copying those three fields here would make two sources of truth for the
 // same facts with nothing keeping them equal.
 //
@@ -286,7 +286,7 @@ type AgentConfig_builder struct {
 	// half, so an edge whose directory is read by someone else is an edge an
 	// operator has to retire and enroll again.
 	StateDir *string
-	// The prototext flowseer.api.edge.v1.EdgeProvisioning file this edge was
+	// The prototext flowseer.model.edge.v1.EdgeProvisioning file this edge was
 	// shipped with. Must be present; it is where central is and how to trust
 	// it, and an agent has nothing to dial without it.
 	//

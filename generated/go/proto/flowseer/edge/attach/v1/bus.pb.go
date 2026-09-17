@@ -2,13 +2,13 @@
 // versions:
 // 	protoc-gen-go v1.36.12
 // 	protoc        (unknown)
-// source: flowseer/api/edge/v1/bus.proto
+// source: flowseer/edge/attach/v1/bus.proto
 
 // What AttachBus hands an enrolled edge: the NATS identity it uses to join
 // the integration fabric. Nothing here is a device credential or write
 // authority; those are their own lifecycle in credential.proto.
 
-package edgev1
+package attachv1
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -34,7 +34,7 @@ type AttachBusRequest struct {
 
 func (x *AttachBusRequest) Reset() {
 	*x = AttachBusRequest{}
-	mi := &file_flowseer_api_edge_v1_bus_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_bus_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *AttachBusRequest) String() string {
 func (*AttachBusRequest) ProtoMessage() {}
 
 func (x *AttachBusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_bus_proto_msgTypes[0]
+	mi := &file_flowseer_edge_attach_v1_bus_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -83,7 +83,7 @@ type AttachBusResponse struct {
 
 func (x *AttachBusResponse) Reset() {
 	*x = AttachBusResponse{}
-	mi := &file_flowseer_api_edge_v1_bus_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_bus_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -95,7 +95,7 @@ func (x *AttachBusResponse) String() string {
 func (*AttachBusResponse) ProtoMessage() {}
 
 func (x *AttachBusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_flowseer_api_edge_v1_bus_proto_msgTypes[1]
+	mi := &file_flowseer_edge_attach_v1_bus_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -219,33 +219,33 @@ func (b0 AttachBusResponse_builder) Build() *AttachBusResponse {
 	return m0
 }
 
-var File_flowseer_api_edge_v1_bus_proto protoreflect.FileDescriptor
+var File_flowseer_edge_attach_v1_bus_proto protoreflect.FileDescriptor
 
-const file_flowseer_api_edge_v1_bus_proto_rawDesc = "" +
+const file_flowseer_edge_attach_v1_bus_proto_rawDesc = "" +
 	"\n" +
-	"\x1eflowseer/api/edge/v1/bus.proto\x12\x14flowseer.api.edge.v1\"\x12\n" +
-	"\x10AttachBusRequest\"\xf9\x02\n" +
+	"!flowseer/edge/attach/v1/bus.proto\x12\x17flowseer.edge.attach.v1\"\x12\n" +
+	"\x10AttachBusRequest\"\xfc\x02\n" +
 	"\x11AttachBusResponse\x12+\n" +
 	"\vaccount_jwt\x18\x01 \x01(\fB\n" +
 	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\n" +
 	"accountJwt\x123\n" +
 	"\x0fuser_credential\x18\x02 \x01(\fB\n" +
-	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\x0euserCredential\x12\x91\x01\n" +
-	"\bsubjects\x18\x03 \x03(\v25.flowseer.api.edge.v1.AttachBusResponse.SubjectsEntryB>\xbaH;\x9a\x018\x10 \"\x06r\x04\x10\x01\x18@*,r*\x10\x01\x18\xff\x012#^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$R\bsubjects\x121\n" +
+	"\xbaH\a\xc8\x01\x01z\x02\x10\x01R\x0euserCredential\x12\x94\x01\n" +
+	"\bsubjects\x18\x03 \x03(\v28.flowseer.edge.attach.v1.AttachBusResponse.SubjectsEntryB>\xbaH;\x9a\x018\x10 \"\x06r\x04\x10\x01\x18@*,r*\x10\x01\x18\xff\x012#^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$R\bsubjects\x121\n" +
 	"\fcluster_urls\x18\x04 \x03(\tB\x0e\xbaH\v\x92\x01\b\b\x01\"\x04r\x02\x10\x01R\vclusterUrls\x1a;\n" +
 	"\rSubjectsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xdf\x01\n" +
-	"\x18com.flowseer.api.edge.v1B\bBusProtoP\x01ZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xf3\x01\n" +
+	"\x1bcom.flowseer.edge.attach.v1B\bBusProtoP\x01ZKgo.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1;attachv1\xa2\x02\x03FEA\xaa\x02\x17Flowseer.Edge.Attach.V1\xca\x02\x17Flowseer\\Edge\\Attach\\V1\xe2\x02#Flowseer\\Edge\\Attach\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Edge::Attach::V1b\beditionsp\xe9\a"
 
-var file_flowseer_api_edge_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_flowseer_api_edge_v1_bus_proto_goTypes = []any{
-	(*AttachBusRequest)(nil),  // 0: flowseer.api.edge.v1.AttachBusRequest
-	(*AttachBusResponse)(nil), // 1: flowseer.api.edge.v1.AttachBusResponse
-	nil,                       // 2: flowseer.api.edge.v1.AttachBusResponse.SubjectsEntry
+var file_flowseer_edge_attach_v1_bus_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_flowseer_edge_attach_v1_bus_proto_goTypes = []any{
+	(*AttachBusRequest)(nil),  // 0: flowseer.edge.attach.v1.AttachBusRequest
+	(*AttachBusResponse)(nil), // 1: flowseer.edge.attach.v1.AttachBusResponse
+	nil,                       // 2: flowseer.edge.attach.v1.AttachBusResponse.SubjectsEntry
 }
-var file_flowseer_api_edge_v1_bus_proto_depIdxs = []int32{
-	2, // 0: flowseer.api.edge.v1.AttachBusResponse.subjects:type_name -> flowseer.api.edge.v1.AttachBusResponse.SubjectsEntry
+var file_flowseer_edge_attach_v1_bus_proto_depIdxs = []int32{
+	2, // 0: flowseer.edge.attach.v1.AttachBusResponse.subjects:type_name -> flowseer.edge.attach.v1.AttachBusResponse.SubjectsEntry
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -253,26 +253,26 @@ var file_flowseer_api_edge_v1_bus_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_flowseer_api_edge_v1_bus_proto_init() }
-func file_flowseer_api_edge_v1_bus_proto_init() {
-	if File_flowseer_api_edge_v1_bus_proto != nil {
+func init() { file_flowseer_edge_attach_v1_bus_proto_init() }
+func file_flowseer_edge_attach_v1_bus_proto_init() {
+	if File_flowseer_edge_attach_v1_bus_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_api_edge_v1_bus_proto_rawDesc), len(file_flowseer_api_edge_v1_bus_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_edge_attach_v1_bus_proto_rawDesc), len(file_flowseer_edge_attach_v1_bus_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_flowseer_api_edge_v1_bus_proto_goTypes,
-		DependencyIndexes: file_flowseer_api_edge_v1_bus_proto_depIdxs,
-		MessageInfos:      file_flowseer_api_edge_v1_bus_proto_msgTypes,
+		GoTypes:           file_flowseer_edge_attach_v1_bus_proto_goTypes,
+		DependencyIndexes: file_flowseer_edge_attach_v1_bus_proto_depIdxs,
+		MessageInfos:      file_flowseer_edge_attach_v1_bus_proto_msgTypes,
 	}.Build()
-	File_flowseer_api_edge_v1_bus_proto = out.File
-	file_flowseer_api_edge_v1_bus_proto_goTypes = nil
-	file_flowseer_api_edge_v1_bus_proto_depIdxs = nil
+	File_flowseer_edge_attach_v1_bus_proto = out.File
+	file_flowseer_edge_attach_v1_bus_proto_goTypes = nil
+	file_flowseer_edge_attach_v1_bus_proto_depIdxs = nil
 }

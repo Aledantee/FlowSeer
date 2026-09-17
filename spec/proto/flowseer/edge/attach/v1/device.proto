@@ -4,7 +4,7 @@ edition = "2024";
 // answers, which binding reaches it, the access policy version it pins, and
 // how long a mutation on it may take to become visible. Nothing here is a
 // credential; those are their own lifecycle in credential.proto.
-package flowseer.api.edge.v1;
+package flowseer.edge.attach.v1;
 
 import "flowseer/model/policy/v1/handle.proto";
 import "flowseer/net/addr/v1/ip.proto";
@@ -27,7 +27,7 @@ message ListDevicesResponse {
 // than a set that can change under it.
 message ListedDevice {
   // The device this describes, as a plain UUID string: this package sits
-  // below api/inventory in the import graph and cannot name a
+  // below model/inventory in the import graph and cannot name a
   // DeviceGlobalRef. The same id the credential calls take. Must be
   // present.
   string device_id = 1 [

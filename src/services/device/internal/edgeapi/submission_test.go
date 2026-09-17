@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/access/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
@@ -60,7 +61,7 @@ func laneRecord(sequence uint64, phase accessv1.OperationPhase, admittedAt time.
 // pulse rather than sleep for one.
 type submissionStream struct {
 	mu   sync.Mutex
-	sent []*edgev1.OpenDeviceSubmissionResponse
+	sent []*attachv1.OpenDeviceSubmissionResponse
 	got  chan struct{}
 }
 
@@ -68,7 +69,7 @@ func newSubmissionStream() *submissionStream {
 	return &submissionStream{got: make(chan struct{}, 64)}
 }
 
-func (c *submissionStream) Send(msg *edgev1.OpenDeviceSubmissionResponse) error {
+func (c *submissionStream) Send(msg *attachv1.OpenDeviceSubmissionResponse) error {
 	c.mu.Lock()
 	c.sent = append(c.sent, msg)
 	c.mu.Unlock()
@@ -79,10 +80,10 @@ func (c *submissionStream) Send(msg *edgev1.OpenDeviceSubmissionResponse) error 
 	return nil
 }
 
-func (c *submissionStream) messages() []*edgev1.OpenDeviceSubmissionResponse {
+func (c *submissionStream) messages() []*attachv1.OpenDeviceSubmissionResponse {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return append([]*edgev1.OpenDeviceSubmissionResponse(nil), c.sent...)
+	return append([]*attachv1.OpenDeviceSubmissionResponse(nil), c.sent...)
 }
 
 func (c *submissionStream) waitFor(t *testing.T, n int) {
@@ -108,7 +109,7 @@ func openSubmission(t *testing.T, h *harness, edgeID string, sequence uint64) (*
 	collector := newSubmissionStream()
 	done := make(chan error, 1)
 	go func() {
-		done <- h.edge.OpenSubmission(ctx, edgev1.OpenDeviceSubmissionRequest_builder{
+		done <- h.edge.OpenSubmission(ctx, attachv1.OpenDeviceSubmissionRequest_builder{
 			DeviceId:  proto.String(testDeviceID),
 			BindingId: proto.String(testBindingID),
 			Sequence:  proto.Uint64(sequence),
@@ -175,7 +176,7 @@ func TestSubmissionDeliversTheGrantOnceAndThenOnlyPulses(t *testing.T) {
 		if err := protovalidate.Validate(msg.GetPulse()); err != nil {
 			t.Fatalf("pulse fails its schema rules: %v", err)
 		}
-		if got := msg.GetPulse().GetAuthority(); got != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+		if got := msg.GetPulse().GetAuthority(); got != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 			t.Errorf("pulse %d authority = %v, want authorized", i+1, got)
 		}
 	}
@@ -191,7 +192,7 @@ func TestSubmissionSaysAuthorizedRatherThanGoingQuiet(t *testing.T) {
 	stream.waitFor(t, 4)
 	pulses := 0
 	for _, msg := range stream.messages() {
-		if msg.HasPulse() && msg.GetPulse().GetAuthority() == edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
+		if msg.HasPulse() && msg.GetPulse().GetAuthority() == attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_AUTHORIZED {
 			pulses++
 		}
 	}
@@ -231,7 +232,7 @@ func TestSubmissionRevokesWithAPulseAndEndsWithAReason(t *testing.T) {
 
 			messages := stream.messages()
 			last := messages[len(messages)-1]
-			if !last.HasPulse() || last.GetPulse().GetAuthority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
+			if !last.HasPulse() || last.GetPulse().GetAuthority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
 				t.Fatal("authority was withdrawn without a REVOKED pulse; silence is not a revocation")
 			}
 		})
@@ -251,7 +252,7 @@ func TestSubmissionEndsWithAReasonWhenCentralCannotTell(t *testing.T) {
 		t.Fatalf("end code = %v, want unavailable (%v)", got, err)
 	}
 	for _, msg := range stream.messages() {
-		if msg.HasPulse() && msg.GetPulse().GetAuthority() == edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
+		if msg.HasPulse() && msg.GetPulse().GetAuthority() == attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
 			t.Fatal("a read failure was reported as a revocation; it is neither an authorization nor one")
 		}
 	}
@@ -331,7 +332,7 @@ func TestRetiringAnEdgeRevokesAnOpenSubmission(t *testing.T) {
 	}
 	messages := stream.messages()
 	last := messages[len(messages)-1]
-	if !last.HasPulse() || last.GetPulse().GetAuthority() != edgev1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
+	if !last.HasPulse() || last.GetPulse().GetAuthority() != attachv1.SubmissionAuthority_SUBMISSION_AUTHORITY_REVOKED {
 		t.Fatal("a retired edge's stream ended without a REVOKED pulse")
 	}
 }
@@ -387,7 +388,7 @@ func TestSubmissionRefusesAGrantPastTheHorizon(t *testing.T) {
 func TestSubmissionRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 	h, edgeID := checkpointedHarness(t)
 	ctx := enrollCtx(edgeID, nil)
-	err := h.edge.OpenSubmission(ctx, edgev1.OpenDeviceSubmissionRequest_builder{
+	err := h.edge.OpenSubmission(ctx, attachv1.OpenDeviceSubmissionRequest_builder{
 		DeviceId:  proto.String("0192e6a0-0000-7000-8000-0000000000d9"),
 		BindingId: proto.String(testBindingID),
 		Sequence:  proto.Uint64(42),
@@ -397,6 +398,6 @@ func TestSubmissionRefusesADeviceTheEdgeDoesNotHost(t *testing.T) {
 
 func TestSubmissionRefusesAContextWithNoVerifiedEdge(t *testing.T) {
 	h, _ := checkpointedHarness(t)
-	err := h.edge.OpenSubmission(context.Background(), &edgev1.OpenDeviceSubmissionRequest{}, newSubmissionStream())
+	err := h.edge.OpenSubmission(context.Background(), &attachv1.OpenDeviceSubmissionRequest{}, newSubmissionStream())
 	wantConnectCode(t, err, connect.CodeUnauthenticated)
 }

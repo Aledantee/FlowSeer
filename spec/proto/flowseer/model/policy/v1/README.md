@@ -12,7 +12,7 @@ places the package.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/edge, model/access, model/inventory, store/device
+Imported by: edge/attach, model/access, model/inventory, store/device
 
 Deliberately absent:
 
@@ -46,6 +46,6 @@ one in flight.
 shape for the same reason: a device credential or a host-trust record can be
 rotated without disturbing an operation that already pinned an earlier
 version, and neither the secret material nor the trust material ever rides
-on the handle. `api/edge/v1` names both in the responses of its credential
+on the handle. `edge/attach/v1` names both in the responses of its credential
 RPCs; the device service's own store is what resolves a handle back to the
 material it names.

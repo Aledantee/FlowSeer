@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -104,7 +104,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	if err != nil {
 		return err
 	}
-	enrolment := edgev1connect.NewEdgeServiceClient(
+	enrolment := attachv1connect.NewEdgeServiceClient(
 		identity.PinnedClient(cfg.ProvisionedAnchors()), cfg.CentralURL())
 	edge, err := identity.Establish(ctx, store, enrolment, cfg.SetupKey())
 	if err != nil {
@@ -116,7 +116,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	// 2. The clients every later call goes through.
 	signer := edge.Signer(ctx, time.Now, base)
 	signed := identity.SigningClient(edge.TrustAnchors(), signer)
-	edgeClient := edgev1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
+	edgeClient := attachv1connect.NewEdgeServiceClient(signed, cfg.CentralURL())
 	dispatchClient := dispatchv1connect.NewDispatchServiceClient(signed, cfg.CentralURL())
 	auditClient := auditv1connect.NewAuditServiceClient(signed, cfg.CentralURL())
 
@@ -183,7 +183,7 @@ type assembly struct {
 	opts     Options
 	edgeID   string
 	signer   *identity.Signer
-	edge     edgev1connect.EdgeServiceClient
+	edge     attachv1connect.EdgeServiceClient
 	dispatch dispatchv1connect.DispatchServiceClient
 	audit    auditv1connect.AuditServiceClient
 }

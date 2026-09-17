@@ -20,7 +20,7 @@ import (
 // HeaderScheme is the Authorization scheme every authenticated EdgeService
 // call carries: "Authorization: FlowSeer-Edge <base64 SignedEdgeAssertion>".
 // The edge agent has its own copy, since this package is internal to the
-// device service. Neither copy is authoritative; the api/edge README's worked
+// device service. Neither copy is authoritative; the model/edge README's worked
 // header vector is, and both sides are tested against it as a literal — the
 // agent's signer must produce it and TestVerifierAcceptsTheReadmeVector must
 // accept it. Two tests, one published string, both directions.
@@ -93,7 +93,7 @@ func NewVerifier(audience string, clockSkew time.Duration, lookup KeyLookup) *Ve
 }
 
 // Verify checks header against the invoked procedure's full Connect method
-// name (for example "/flowseer.api.edge.v1.EdgeService/Heartbeat") and the
+// name (for example "/flowseer.edge.attach.v1.EdgeService/Heartbeat") and the
 // uncompressed HTTP request body bytes exactly as received — for a
 // server-stream open, the Connect-enveloped request message, the same bytes
 // the body-verifying middleware hashes off the wire — and returns the parsed
