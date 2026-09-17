@@ -1,6 +1,7 @@
 package ndp_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"math"
@@ -89,7 +90,7 @@ func TestNeighborAdvertisementEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 	// Fold: 0x5dce4 -> 0xdce4 + 0x5 = 0xdce9
 	// One's complement: 0xffff - 0xdce9 = 0x2316
 	wantChecksum := []byte{0x23, 0x16}
-	if got := wire[2:4]; !bytesEqual(got, wantChecksum) {
+	if got := wire[2:4]; !bytes.Equal(got, wantChecksum) {
 		t.Errorf("wire[2:4] = % x, want % x (checksum)", got, wantChecksum)
 	}
 
@@ -97,12 +98,12 @@ func TestNeighborAdvertisementEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 		t.Errorf("wire[4] = %#x, want 0xe0 (R|S|O flags)", wire[4])
 	}
 	wantReserved := []byte{0, 0, 0}
-	if got := wire[5:8]; !bytesEqual(got, wantReserved) {
+	if got := wire[5:8]; !bytes.Equal(got, wantReserved) {
 		t.Errorf("wire[5:8] = % x, want % x (reserved)", got, wantReserved)
 	}
 
 	wantTarget := target.As16()
-	if got := wire[8:24]; !bytesEqual(got, wantTarget[:]) {
+	if got := wire[8:24]; !bytes.Equal(got, wantTarget[:]) {
 		t.Errorf("wire[8:24] = % x, want % x (target)", got, wantTarget)
 	}
 
@@ -112,7 +113,7 @@ func TestNeighborAdvertisementEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 	if wire[25] != 1 {
 		t.Errorf("wire[25] = %d, want 1 (option length)", wire[25])
 	}
-	if got := wire[26:32]; !bytesEqual(got, mac[:]) {
+	if got := wire[26:32]; !bytes.Equal(got, mac[:]) {
 		t.Errorf("wire[26:32] = % x, want % x (link-layer address)", got, mac[:])
 	}
 }
@@ -149,12 +150,12 @@ func TestNeighborSolicitationEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 	// flags followed by a three-octet reserved field: the solicitation names
 	// no flags octet at all.
 	wantReserved := []byte{0, 0, 0, 0}
-	if got := wire[4:8]; !bytesEqual(got, wantReserved) {
+	if got := wire[4:8]; !bytes.Equal(got, wantReserved) {
 		t.Errorf("wire[4:8] = % x, want % x (reserved)", got, wantReserved)
 	}
 
 	wantTarget := target.As16()
-	if got := wire[8:24]; !bytesEqual(got, wantTarget[:]) {
+	if got := wire[8:24]; !bytes.Equal(got, wantTarget[:]) {
 		t.Errorf("wire[8:24] = % x, want % x (target)", got, wantTarget)
 	}
 
@@ -164,7 +165,7 @@ func TestNeighborSolicitationEncodePlacesEveryFieldAtItsOffset(t *testing.T) {
 	if wire[25] != 1 {
 		t.Errorf("wire[25] = %d, want 1 (option length)", wire[25])
 	}
-	if got := wire[26:32]; !bytesEqual(got, mac[:]) {
+	if got := wire[26:32]; !bytes.Equal(got, mac[:]) {
 		t.Errorf("wire[26:32] = % x, want % x (link-layer address)", got, mac[:])
 	}
 }
@@ -274,6 +275,14 @@ func TestNDPDecodeRefuses(t *testing.T) {
 			payload: finalizeChecksum(unspecifiedSrc, rawSolicitation(seqAddr(0x30), []byte{1, 1, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff})),
 		},
 		{
+			name: "matching link-layer address option whose declared length is not one 8-octet unit",
+			hdr:  hdr,
+			payload: finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), append(
+				[]byte{2, 2}, // type 2 (target link-layer), length 2 (16 octets)
+				make([]byte, 14)...,
+			))),
+		},
+		{
 			name: "bad checksum",
 			hdr:  hdr,
 			payload: func() []byte {
@@ -287,6 +296,198 @@ func TestNDPDecodeRefuses(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := ndp.Decode(tc.hdr, tc.payload); !errors.Is(err, ndp.ErrMalformed) {
+				t.Errorf("Decode() error = %v, want ErrMalformed", err)
+			}
+		})
+	}
+}
+
+// TestNeighborAdvertisementDecodeSkipsUnrelatedOptionToFindTargetLinkLayerAddress
+// covers a message whose first option is not the Target Link-Layer Address
+// option: Decode must walk past it by its own declared length and find the
+// matching option that follows, rather than reading the first option's
+// value octets as the address.
+func TestNeighborAdvertisementDecodeSkipsUnrelatedOptionToFindTargetLinkLayerAddress(t *testing.T) {
+	t.Parallel()
+
+	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	mac := netaddr.MAC{0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff}
+	option := append(
+		[]byte{0x0e, 1, 0, 0, 0, 0, 0, 0}, // unrelated option: type 14, length 1
+		append([]byte{2, 1}, mac[:]...)...,
+	)
+	payload := finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), option))
+
+	got, err := ndp.Decode(hdr, payload)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if !got.HasLinkLayerAddr {
+		t.Fatalf("Decode() HasLinkLayerAddr = false, want true")
+	}
+	if got.LinkLayerAddr != mac {
+		t.Errorf("Decode() LinkLayerAddr = %v, want %v", got.LinkLayerAddr, mac)
+	}
+}
+
+// TestNeighborAdvertisementDecodeWithOnlyUnrelatedOptionHasNoLinkLayerAddr
+// covers an option chain that never carries the Target Link-Layer Address
+// option: Decode must report HasLinkLayerAddr false rather than an error or
+// a MAC built from the unrelated option's value octets.
+func TestNeighborAdvertisementDecodeWithOnlyUnrelatedOptionHasNoLinkLayerAddr(t *testing.T) {
+	t.Parallel()
+
+	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	option := []byte{0x0e, 1, 0, 0, 0, 0, 0, 0} // unrelated option: type 14, length 1
+	payload := finalizeChecksum(hdr, rawAdvertisement(0, seqAddr(0x30), option))
+
+	got, err := ndp.Decode(hdr, payload)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if got.HasLinkLayerAddr {
+		t.Errorf("Decode() HasLinkLayerAddr = true, want false")
+	}
+}
+
+// TestNDPDecodeReadsTheLiteralVector pins Decode's offsets against a literal
+// wire vector rather than one produced by Encode, so this test cannot pass
+// merely because both sides of a round trip share the same bug.
+func TestNDPDecodeReadsTheLiteralVector(t *testing.T) {
+	t.Parallel()
+
+	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	target := seqAddr(0x30)
+	mac := seqMAC(0x40)
+	targetOctets := target.As16()
+
+	wire := []byte{
+		136, 0, 0, 0, // type: Neighbor Advertisement, code: 0, checksum: filled below
+		0xe0, 0, 0, 0, // flags R|S|O, reserved
+	}
+	wire = append(wire, targetOctets[:]...)
+	wire = append(wire, 2, 1) // option type 2 (target link-layer), length 1
+	wire = append(wire, mac[:]...)
+	wire = finalizeChecksum(hdr, wire)
+
+	want := ndp.Message{
+		Type:             ndp.NeighborAdvertisement,
+		Target:           target,
+		Router:           true,
+		Solicited:        true,
+		Override:         true,
+		LinkLayerAddr:    mac,
+		HasLinkLayerAddr: true,
+	}
+
+	got, err := ndp.Decode(hdr, wire)
+	if err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	}
+	if got != want {
+		t.Errorf("Decode() = %+v, want %+v", got, want)
+	}
+}
+
+func TestNDPEncodeRefuses(t *testing.T) {
+	t.Parallel()
+
+	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	unspecifiedSrc := ip.Header{Src: netip.IPv6Unspecified(), Dst: hdr.Dst, HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	v4Header := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: netip.MustParseAddr("10.0.0.2"), HopLimit: 255, Protocol: 58, V4: &ip.V4{}}
+	v4MappedHeader := ip.Header{
+		Src: netip.MustParseAddr("::ffff:10.0.0.1"), Dst: netip.MustParseAddr("::ffff:10.0.0.2"),
+		HopLimit: 255, Protocol: 58, V6: &ip.V6{},
+	}
+
+	tests := []struct {
+		name string
+		hdr  ip.Header
+		m    ndp.Message
+		want error
+	}{
+		{
+			name: "unsupported message type",
+			hdr:  hdr,
+			m:    ndp.Message{Type: ndp.Type(0), Target: seqAddr(0x30)},
+			want: ndp.ErrUnsupported,
+		},
+		{
+			name: "solicitation from the unspecified address with a source link-layer address option",
+			hdr:  unspecifiedSrc,
+			m: ndp.Message{
+				Type: ndp.NeighborSolicitation, Target: seqAddr(0x30),
+				LinkLayerAddr: seqMAC(0x40), HasLinkLayerAddr: true,
+			},
+			want: ndp.ErrMalformed,
+		},
+		{
+			name: "solicitation with Solicited set",
+			hdr:  hdr,
+			m:    ndp.Message{Type: ndp.NeighborSolicitation, Target: seqAddr(0x30), Solicited: true},
+			want: ndp.ErrMalformed,
+		},
+		{
+			name: "solicitation with Router set",
+			hdr:  hdr,
+			m:    ndp.Message{Type: ndp.NeighborSolicitation, Target: seqAddr(0x30), Router: true},
+			want: ndp.ErrMalformed,
+		},
+		{
+			name: "solicitation with Override set",
+			hdr:  hdr,
+			m:    ndp.Message{Type: ndp.NeighborSolicitation, Target: seqAddr(0x30), Override: true},
+			want: ndp.ErrMalformed,
+		},
+		{
+			name: "IPv4 header",
+			hdr:  v4Header,
+			m:    ndp.Message{Type: ndp.NeighborSolicitation, Target: seqAddr(0x30)},
+			want: ndp.ErrMalformed,
+		},
+		{
+			name: "IPv4-mapped addresses on an IPv6 header",
+			hdr:  v4MappedHeader,
+			m:    ndp.Message{Type: ndp.NeighborSolicitation, Target: seqAddr(0x30)},
+			want: ndp.ErrMalformed,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := ndp.Encode(tc.hdr, tc.m); !errors.Is(err, tc.want) {
+				t.Errorf("Encode() error = %v, want wrapping %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestNDPDecodeRefusesNonIPv6Header(t *testing.T) {
+	t.Parallel()
+
+	hdr := ip.Header{Src: seqAddr(0x10), Dst: seqAddr(0x20), HopLimit: 255, Protocol: 58, V6: &ip.V6{}}
+	v4Header := ip.Header{Src: netip.MustParseAddr("10.0.0.1"), Dst: netip.MustParseAddr("10.0.0.2"), HopLimit: 255, Protocol: 58, V4: &ip.V4{}}
+	v4MappedHeader := ip.Header{
+		Src: netip.MustParseAddr("::ffff:10.0.0.1"), Dst: netip.MustParseAddr("::ffff:10.0.0.2"),
+		HopLimit: 255, Protocol: 58, V6: &ip.V6{},
+	}
+	payload := finalizeChecksum(hdr, rawSolicitation(seqAddr(0x30), nil))
+
+	tests := []struct {
+		name string
+		hdr  ip.Header
+	}{
+		{name: "IPv4 header", hdr: v4Header},
+		{name: "IPv4-mapped addresses on an IPv6 header", hdr: v4MappedHeader},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if _, err := ndp.Decode(tc.hdr, payload); !errors.Is(err, ndp.ErrMalformed) {
 				t.Errorf("Decode() error = %v, want ErrMalformed", err)
 			}
 		})
@@ -346,18 +547,6 @@ func internetChecksum(b []byte) uint16 {
 		sum = sum&math.MaxUint16 + sum>>16
 	}
 	return ^uint16(sum)
-}
-
-func bytesEqual(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // seqAddr builds an IPv6 address whose sixteen octets increase from start,
