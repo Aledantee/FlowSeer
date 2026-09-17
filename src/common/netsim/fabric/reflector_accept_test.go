@@ -135,10 +135,10 @@ func acceptedVID10() []vlan.Tag {
 	return []vlan.Tag{{TPID: 0x8100, VID: 10}}
 }
 
-// mustUndecodableUDPFrame builds an otherwise fully accepted mDNS query whose
+// undecodableUDPFrame builds an otherwise fully accepted mDNS query whose
 // IPv4 header carries no payload: a total length equal to its header length,
 // which ip.Decode accepts but leaves udp.Decode nothing to read.
-func mustUndecodableUDPFrame(t *testing.T) ethernet.Frame {
+func undecodableUDPFrame(t *testing.T) ethernet.Frame {
 	t.Helper()
 	ipHeader := ip.Header{
 		Src: netip.MustParseAddr("10.0.10.7"), Dst: reflectorGroupAddr,
@@ -231,7 +231,7 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			// the header is wrong, so the undecodable UDP header is the only
 			// thing that can leave acceptance unknown here.
 			name:       "an undecodable UDP header leaves acceptance unknown",
-			frame:      mustUndecodableUDPFrame(t),
+			frame:      undecodableUDPFrame(t),
 			wantKind:   fabric.EntryUnresolved,
 			wantRule:   "reflector.udp.undecodable",
 			wantReason: fabric.ReasonReflectorUDPHeaderUndecodable,
