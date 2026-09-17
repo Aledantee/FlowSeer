@@ -17,7 +17,7 @@ spec/mib/
 ├── ieee/                IEEE 802.1 / 802.3 / LLDP MIBs (all dated revisions kept)
 ├── cisco/
 │   ├── enterprise/      Official cisco/cisco-mibs clone (v1, v2, traps, ucs, …) — IOS/IOS-XE, AIRESPACE/LWAPP, Catalyst
-│   ├── products/        The two identity modules mibgen reads, copied out of that clone
+│   ├── products/        The identity modules mibgen reads, copied out of that clone
 │   └── smb/             CISCOSB small-business line (CBS250/350, SG, Catalyst 1200/1300)
 ├── ruckus/
 │   ├── wireless/        SmartZone/vSZ + ZoneDirector + AP MIBs (RUCKUS-SZ-*, RUCKUS-ROOT/TC)
@@ -50,7 +50,7 @@ spec/mib/
 | `ietf/`   | LibreNMS `mibs/` top level (https://github.com/librenms/librenms) | IETF/IANA standard MIBs as bundled by LibreNMS. |
 | `ieee/`   | https://www.ieee802.org/1/files/public/MIBs/ | Every dated revision the WG publishes for 802.1, plus LLDP. |
 | `cisco/enterprise/` | https://github.com/cisco/cisco-mibs (shallow clone) | Official Cisco repo. `.git/` retained for `git pull` updates. |
-| `cisco/products/` | `cisco/enterprise/v2/` (CISCO-SMI.my, CISCO-PRODUCTS-MIB.my) | Copied rather than read from the clone because the clone is gitignored and `go generate` has to work on a fresh checkout. Together they are the whole Cisco half of the sysObjectID table: ~2960 product nodes and no tables. |
+| `cisco/products/` | `cisco/enterprise/v2/` (CISCO-SMI.my, CISCO-PRODUCTS-MIB.my, AIRESPACE-REF-MIB.my) | Copied rather than read from the clone because the clone is gitignored and `go generate` has to work on a fresh checkout. Together they are the whole Cisco half of the sysObjectID table: ~2960 product nodes and no tables. AIRESPACE-REF-MIB adds the one AireOS root; see mibgen.yaml for why the deeper Airespace modules are left out. |
 | `cisco/smb/` | netdisco-mibs `ciscosb/` (https://github.com/netdisco/netdisco-mibs) + LibreNMS `mibs/cisco/` | CISCOSB family under OID 1.3.6.1.4.1.9.6.1. Official zips on software.cisco.com require a CCO login. |
 | `ruckus/wireless/` | LibreNMS `mibs/ruckus/` | SmartZone/ZoneDirector/AP MIBs. Official Ruckus portal requires login; community mirror used. |
 | `ruckus/icx/` | LibreNMS `mibs/brocade/` + `mibs/foundry/` | FOUNDRY-SN family for ICX switches. Official per-release bundles are login-walled. |
@@ -72,9 +72,9 @@ spec/mib/
 ## Refresh
 
 - **Cisco enterprise**: `git -C cisco/enterprise pull`. Cisco adds product nodes
-  with every release, so afterwards copy `v2/CISCO-SMI.my` and
-  `v2/CISCO-PRODUCTS-MIB.my` over `cisco/products/` and regenerate; without the
-  clone, restore it first:
+  with every release, so afterwards copy `v2/CISCO-SMI.my`,
+  `v2/CISCO-PRODUCTS-MIB.my` and `v2/AIRESPACE-REF-MIB.my` over
+  `cisco/products/` and regenerate; without the clone, restore it first:
 
   ```
   git clone --depth=1 --filter=blob:none --sparse \
