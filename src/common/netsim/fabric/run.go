@@ -332,7 +332,7 @@ func (f *Fabric) Step() (Entry, bool) {
 				f.injectEmission(arr.At, arr.Device, em)
 			}
 			for _, drop := range sw.DrainNeighborFailures() {
-				f.recordNeighborFailure(arr.At, arr.Device, drop.Step)
+				f.recordNeighborFailure(arr.At, arr.Device, drop)
 			}
 			f.scheduleWake(arr.Device)
 		}
@@ -455,7 +455,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
 	for _, drop := range sw.DrainNeighborFailures() {
-		f.recordNeighborFailure(arr.At, arr.Device, drop.Step)
+		f.recordNeighborFailure(arr.At, arr.Device, drop)
 	}
 	f.scheduleWake(arr.Device)
 
@@ -925,32 +925,44 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, framePCP(em.Frame), "")
 }
 
-// recordNeighborFailure turns one trace step [vswitch.Switch.DrainNeighborFailures]
-// reported for a held frame whose neighbor resolution timed out into the
-// same kind of answer a live drop gets: a counter, and a journey entry. The
-// held frame carried no frame ID of its own — [routing.HeldFrame] discards
-// the frame once resolution fails, keeping only the interface it was held
-// on — so this opens a new one-entry journey for it, the way
-// injectEmission opens one for a released frame's own injection, rather
-// than attaching it to a frame journey it was never part of.
-func (f *Fabric) recordNeighborFailure(now time.Time, device string, step trace.Step) {
+// recordNeighborFailure turns one [vswitch.NeighborDrop] reported for a held
+// frame that reached no wire into the same kind of answer a live drop gets: a
+// counter, and a journey entry. Both the port and the reason come from the
+// drop itself: the switch knows which stage refused the frame and which port,
+// if any, that stage was acting for, and a reader that recovered either from
+// the step's subject would be guessing — a subject naming a VLAN interface is
+// not a port, and the counter it created could never appear in a Snapshot.
+//
+// A drop with no port increments nothing. An [Endpoint] whose Port is not a
+// port is worse than an absent counter, because snapshotCounters iterates the
+// device's real ports and would never show it, while a later reader finding
+// it would believe it meant something.
+//
+// The held frame carried no frame ID of its own — [routing.HeldFrame] keeps
+// only the interface a failed frame was held on — so this opens a new
+// one-entry journey for it, the way injectEmission opens one for a released
+// frame's own injection, rather than attaching it to a frame journey it was
+// never part of.
+func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop vswitch.NeighborDrop) {
 	f.initRunState()
 
-	egressPort := step.Subject.Key
-	f.countEgressDrop(device, egressPort, routing.ReasonNeighborMiss)
+	if drop.Port != "" {
+		f.countEgressDrop(device, drop.Port, drop.Reason)
+	}
 
 	fid := f.nextFrameID
 	f.nextFrameID++
 
+	step := drop.Step
 	journey := &Journey{FrameID: fid}
 	f.journeys[fid] = journey
 	f.record(journey, Entry{
 		At:     now,
 		Kind:   EntryDrop,
 		Device: device,
-		Port:   egressPort,
+		Port:   drop.Port,
 		Step:   &step,
-		Reason: routing.ReasonNeighborMiss,
+		Reason: drop.Reason,
 	})
 }
 

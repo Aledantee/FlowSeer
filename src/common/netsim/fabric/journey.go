@@ -69,7 +69,9 @@ const (
 //
 // Device and Port name the endpoint the entry happened at; a host's Port is empty. Cable is the cable the
 // entry rests on: the one crossed, lost on, or arrived over, and for an injection the origin's cable. Step is
-// set on a host's acceptance decision, a Delivery, Rejection, or Unresolved entry after an Arrival.
+// set on a host's acceptance decision, on a Delivery, Rejection, or Unresolved entry after an Arrival, and on
+// the Drop entry a [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no
+// wire, where Port and Reason likewise come from the drop rather than from reading the step back.
 type Entry struct {
 	At            time.Time
 	Kind          EntryKind

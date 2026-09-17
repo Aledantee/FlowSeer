@@ -904,3 +904,116 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 		t.Errorf("Discards[neighbor-miss] = %d, want 1", got)
 	}
 }
+
+// TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort is the case
+// TestFabricRecordsNeighborFailureOnHeldFrameTimeout cannot see: it names its routed interfaces
+// after the ports they sit on, so recovering a port from the step's subject happened to work
+// there. A VLAN interface has no single port, and a discard counted against the string "vlan20"
+// lands on an Endpoint no Snapshot can ever show.
+func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	pvid10 := vlan.ID(10)
+	pvid20 := vlan.ID(20)
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   swMAC,
+				Ports: ports,
+				Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+						"1/1/2": {PVID: &pvid20, Untagged: []vlan.ID{20}},
+					},
+				}},
+				Routing: &routing.Config{VRFs: map[string]routing.VRF{
+					routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+						"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						// Nothing is configured for 10.0.20.77: the switch
+						// holds a frame for it and never resolves it.
+						"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					}},
+				}},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				VLAN:    nil,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.10.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
+				},
+			},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{To: netip.MustParseAddr("10.0.20.77"), Protocol: 17, Payload: []byte("ping")},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+
+	fab.Run(50)
+
+	var dropEntry *fabric.Entry
+	for _, j := range fab.Report() {
+		if j.FrameID == heldID {
+			continue
+		}
+		for _, e := range j.Entries {
+			if e.Kind == fabric.EntryDrop && e.Reason == routing.ReasonNeighborMiss {
+				ee := e
+				dropEntry = &ee
+
+				break
+			}
+		}
+	}
+	if dropEntry == nil {
+		t.Fatalf("no neighbor-miss drop entry found among: %+v", fab.Report())
+	}
+	if dropEntry.Port != "" {
+		t.Errorf("drop entry port = %q, want empty: vlan20 is not a port", dropEntry.Port)
+	}
+	if dropEntry.Step == nil {
+		t.Fatal("drop entry carries no step")
+	}
+	if dropEntry.Step.RuleID != trace.RuleID(dropEntry.Reason) {
+		t.Errorf("step rule = %q, reason = %q, want them to agree", dropEntry.Step.RuleID, dropEntry.Reason)
+	}
+
+	snap := fab.Snapshot()
+	dev, ok := snap.Devices["sw1"]
+	if !ok {
+		t.Fatalf("no device sw1 in snapshot")
+	}
+	for name, counters := range dev.Counters {
+		if got := counters.Discards[routing.ReasonNeighborMiss]; got != 0 {
+			t.Errorf("port %q counted %d neighbor-miss discards, want 0: no port carried this frame", name, got)
+		}
+	}
+}

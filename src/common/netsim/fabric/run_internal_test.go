@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/netsim/trace"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch"
 	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/bridge"
+	"go.aledante.io/FlowSeer/src/common/netsim/vswitch/routing"
 )
 
 func TestRateIntervalHandlesArithmeticBoundaries(t *testing.T) {
@@ -164,6 +165,50 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 		}
 		if f.Err() == nil {
 			t.Fatal("Err() = nil after Run over a faulted fabric, want the fault")
+		}
+	})
+}
+
+// TestRecordNeighborFailureCountsOnlyAgainstAPort reaches into the package because the invariant
+// is about a counter nothing can read: snapshotCounters walks a device's real ports, so an
+// Endpoint whose Port names a VLAN interface never appears in a Snapshot and is invisible from
+// outside — a later reader finding it would believe it meant something. A drop that names no
+// port has to create nothing at all, which only the counter map itself can show.
+func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
+	t.Parallel()
+	base := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
+
+	t.Run("a drop naming no port creates no endpoint", func(t *testing.T) {
+		t.Parallel()
+		f := &Fabric{clock: base}
+		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+			Step:   trace.Step{Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
+			Reason: routing.ReasonNeighborMiss,
+		})
+
+		if len(f.counters) != 0 {
+			t.Errorf("counters = %+v, want none: the drop named no port", f.counters)
+		}
+	})
+
+	t.Run("a drop naming a port counts against it", func(t *testing.T) {
+		t.Parallel()
+		f := &Fabric{clock: base}
+		f.recordNeighborFailure(base, "sw1", vswitch.NeighborDrop{
+			Step:   trace.Step{Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
+			Port:   "1/1/2",
+			Reason: routing.ReasonNeighborHoldOverflow,
+		})
+
+		c, ok := f.counters[Endpoint{Node: "sw1", Port: "1/1/2"}]
+		if !ok {
+			t.Fatalf("no counters for sw1/1/1/2: %+v", f.counters)
+		}
+		if got := c.Discards[routing.ReasonNeighborHoldOverflow]; got != 1 {
+			t.Errorf("Discards[%s] = %d, want 1", routing.ReasonNeighborHoldOverflow, got)
+		}
+		if c.Discards[routing.ReasonNeighborMiss] != 0 {
+			t.Error("the drop was counted as a neighbor miss, want its own reason")
 		}
 	})
 }
