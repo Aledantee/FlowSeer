@@ -2,17 +2,19 @@
 
 ## Identity
 
-The `api/` root holds northbound Connect RPC services called by operators, web
-applications, CLI tooling, and external automation workflows. Services here are
-RPC sinks: they expose request and response endpoints and are imported by no
-schema in the tree.
+The `api/` root holds northbound Connect services that an operator, the web
+app, or a workflow calls, now that the edge-facing services — enrollment and
+attachment, dispatch, audit delivery, and capture upload — have moved to
+`edge/`. Services here are RPC sinks: they expose request and response
+endpoints and are imported by no schema in the tree.
 
 ## Admission
 
-A package belongs in `api/` if it defines northbound RPC services that external
-clients invoke. `api/device` passes because it defines `DeviceService` for
-operator access. `model/access` fails admission because it contains shared
-operation vocabulary without RPC definitions.
+A package belongs in `api/` if it defines northbound RPC services that an
+operator, the web app, or a workflow invokes. `api/edge` passes because
+`EdgeAdminService` is what an operator calls to create, provision, and retire
+an edge. `edge/attach` fails admission because `EdgeService` is what an edge
+calls on its own behalf; an operator never calls it.
 
 ## Boundaries
 

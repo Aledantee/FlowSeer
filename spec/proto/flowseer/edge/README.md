@@ -9,11 +9,11 @@ central calls to reach an edge.
 ## Admission
 
 A package belongs in `edge/` if its service is part of the exchange between
-central and an enrolled edge. `edge/capture` passes because
-`CaptureEdgeService.UploadCapture` is what an edge calls to hand off a
-running capture's packets. `api/capture` fails because `CaptureService` is
-what an operator calls to create and read back a capture; an edge never
-calls it.
+central and an enrolled edge. `edge/attach` passes because `EdgeService` is
+what an edge calls on its own behalf to enroll, stay attached, and keep its
+credentials current. `api/edge` fails because `EdgeAdminService` is what an
+operator calls to create, provision, and retire an edge; the edge itself
+never calls it.
 
 ## Boundaries
 
