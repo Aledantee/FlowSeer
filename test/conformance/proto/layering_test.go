@@ -136,10 +136,16 @@ func TestModelDeclaresNoService(t *testing.T) {
 		t.Errorf("%s: package under model declares a service", rel)
 	}
 
-	synthetic := []protoFile{{
-		rel:        "flowseer/model/access/v1/x.proto",
-		hasService: scanServices("service Probe {}\n"),
-	}}
+	synthetic := []protoFile{
+		{
+			rel:        "flowseer/model/access/v1/operation.proto",
+			hasService: scanServices("message Operation {}\n"),
+		},
+		{
+			rel:        "flowseer/model/access/v1/x.proto",
+			hasService: scanServices("service Probe {}\n"),
+		},
+	}
 	got := modelServiceViolations(synthetic)
 	want := []string{"flowseer/model/access/v1/x.proto"}
 	if !slices.Equal(got, want) {

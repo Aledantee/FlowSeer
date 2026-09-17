@@ -270,13 +270,13 @@ func TestProtoReadmeImports(t *testing.T) {
 		// and the one made into it.
 		writeFixture(t, filepath.Join(flowseer, "b", "README.md"), boundariesReadme("B root", "nothing FlowSeer-owned", "nothing"))
 
-		// Two versions of c, each importing a different package and each with a
-		// README that is right about its own version. Keyed on the package
-		// rather than the directory, one of the two would go unchecked against
-		// both versions' imports merged.
+		// Two versions of c, each importing a different package. Keyed on the
+		// package rather than the directory, the two versions' imports would
+		// merge and one version would go unchecked; c/v1's README is wrong about
+		// its own imports, so a gate that skips it reports nothing for it.
 		writeFixture(t, filepath.Join(flowseer, "c", "v1", "c.proto"),
 			"edition = \"2024\";\npackage flowseer.c.v1;\nimport \"flowseer/a/v1/a.proto\";\n")
-		writeFixture(t, filepath.Join(flowseer, "c", "v1", "README.md"), boundariesReadme("C v1", "a", "nothing"))
+		writeFixture(t, filepath.Join(flowseer, "c", "v1", "README.md"), boundariesReadme("C v1", "b", "nothing"))
 		writeFixture(t, filepath.Join(flowseer, "c", "v2", "c.proto"),
 			"edition = \"2024\";\npackage flowseer.c.v2;\nimport \"flowseer/b/v1/b.proto\";\n")
 		writeFixture(t, filepath.Join(flowseer, "c", "v2", "README.md"), boundariesReadme("C v2", "b", "nothing"))
@@ -297,6 +297,7 @@ func TestProtoReadmeImports(t *testing.T) {
 			"flowseer/a/v1/README.md Imports",
 			"flowseer/b/README.md Imported by",
 			"flowseer/b/README.md Imports",
+			"flowseer/c/v1/README.md Imports",
 		}
 		if !slices.Equal(got, want) {
 			t.Errorf("got %v, want %v", got, want)
@@ -361,7 +362,7 @@ func collectSchemaImports(protoRoot, scanDir string) ([]schemaFile, error) {
 
 		source, err := os.ReadFile(p)
 		if err != nil {
-			return fmt.Errorf("reading imports of %s: %w", p, err)
+			return fmt.Errorf("reading imports of %s: %w", filepath.ToSlash(rel), err)
 		}
 
 		var owned []string
