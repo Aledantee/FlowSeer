@@ -1,5 +1,5 @@
 vendor aruba loaded 58 failed 0 panicked 2
-vendor cisco loaded 115 failed 1 panicked 1
+vendor cisco loaded 118 failed 1 panicked 1
 vendor dlink loaded 139 failed 1 panicked 3
 vendor hp loaded 366 failed 0 panicked 4
 vendor huawei loaded 234 failed 1 panicked 5
@@ -10,4 +10,4 @@ vendor mikrotik loaded 1 failed 0 panicked 0
 vendor netgear loaded 4 failed 0 panicked 0
 vendor ruckus loaded 50 failed 1 panicked 0
 vendor ubiquiti loaded 47 failed 1 panicked 0
-total loaded 1567 failed 35 panicked 78
+total loaded 1570 failed 35 panicked 78
